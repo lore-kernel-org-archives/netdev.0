@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 04/20] tg3: Convert PHY_ADDR => TG3_PHY_MII_ADDR
-Date: Mon, 2 Nov 2009 16:24:36 -0800
-Message-ID: <1257211993.21992@xw6200>
+Subject: [PATCH 18/20] tg3 / broadcom: Add APD support for GPHYs
+Date: Mon, 2 Nov 2009 16:32:12 -0800
+Message-ID: <1257212009.22034@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,222 +10,132 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:1278 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757529AbZKCBdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:21 -0500
+	id S932399AbZKCBdg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch renames the PHY_ADDR preprocessor definition.  The following
-patch will identify a new member on the MDIO bus, so we want this
-preprocessor definition to be a little more descriptive.
+This patch adds an RXC auto power-down feature to the code that supports
+the gphys.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   51 +++++++++++++++++++++++++++++----------------------
- drivers/net/tg3.h |    2 +-
- 2 files changed, 30 insertions(+), 23 deletions(-)
+ drivers/net/phy/broadcom.c |   51 ++++++++++++++++++++++++++++++++++++-------
+ drivers/net/tg3.c          |    4 ++-
+ 2 files changed, 45 insertions(+), 10 deletions(-)
 
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 7491433..7b10495 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -107,6 +107,11 @@
+ /* 00101: Spare Control Register 3 */
+ #define BCM54XX_SHD_SCR3		0x05
+ #define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
++#define  BCM54XX_SHD_SCR3_DLLAPD_DIS	0x0002
++
++/* 01010: Auto Power-Down */
++#define BCM54XX_SHD_APD			0x0a
++#define  BCM54XX_SHD_APD_EN		0x0020
+ 
+ #define BCM5482_SHD_LEDS1	0x0d	/* 01101: LED Selector 1 */
+ 					/* LED3 / ~LINKSPD[2] selector */
+@@ -321,9 +326,11 @@ error:
+ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
+ {
+ 	u32 val, orig;
++	bool clk125en = true;
+ 
+ 	/* Abort if we are using an untested phy. */
+-	if (BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610 ||
++	if (BRCM_PHY_MODEL(phydev) != PHY_ID_BCM57780 ||
++	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610 ||
+ 	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M)
+ 		return;
+ 
+@@ -333,20 +340,45 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
+ 
+ 	orig = val;
+ 
+-	if (phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED) {
+-		if ((BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610 ||
+-		     BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610M) &&
+-		    BRCM_PHY_REV(phydev) >= 0x3) {
+-			/* Here, bit 0 _disables_ CLK125 when set */
+-			val |= BCM54XX_SHD_SCR3_DEF_CLK125;
+-		} else {
++	if ((BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610 ||
++	     BRCM_PHY_MODEL(phydev) == PHY_ID_BCM50610M) &&
++	    BRCM_PHY_REV(phydev) >= 0x3) {
++		/*
++		 * Here, bit 0 _disables_ CLK125 when set.
++		 * This bit is set by default.
++		 */
++		clk125en = false;
++	} else {
++		if (phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED) {
+ 			/* Here, bit 0 _enables_ CLK125 when set */
+ 			val &= ~BCM54XX_SHD_SCR3_DEF_CLK125;
++			clk125en = false;
+ 		}
+ 	}
+ 
++	if (clk125en == false ||
++	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
++		val &= ~BCM54XX_SHD_SCR3_DLLAPD_DIS;
++	else
++		val |= BCM54XX_SHD_SCR3_DLLAPD_DIS;
++
+ 	if (orig != val)
+ 		bcm54xx_shadow_write(phydev, BCM54XX_SHD_SCR3, val);
++
++	val = bcm54xx_shadow_read(phydev, BCM54XX_SHD_APD);
++	if (val < 0)
++		return;
++
++	orig = val;
++
++	if (clk125en == false ||
++	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
++		val |= BCM54XX_SHD_APD_EN;
++	else
++		val &= ~BCM54XX_SHD_APD_EN;
++
++	if (orig != val)
++		bcm54xx_shadow_write(phydev, BCM54XX_SHD_APD, val);
+ }
+ 
+ static int bcm54xx_config_init(struct phy_device *phydev)
+@@ -376,7 +408,8 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	    (phydev->dev_flags & PHY_BRCM_CLEAR_RGMII_MODE))
+ 		bcm54xx_shadow_write(phydev, BCM54XX_SHD_RGMII_MODE, 0);
+ 
+-	if (phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED)
++	if ((phydev->dev_flags & PHY_BRCM_RX_REFCLK_UNUSED) ||
++	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
+ 		bcm54xx_adjust_rxrefclk(phydev);
+ 
+ 	bcm54xx_phydsp_config(phydev);
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b3c5d74..1c53250 100644
+index 369ddba..f74bf91 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -937,7 +937,7 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
- 	u32 val;
- 	struct phy_device *phydev;
- 
--	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+@@ -1097,11 +1097,13 @@ static int tg3_mdio_init(struct tg3 *tp)
  	switch (phydev->drv->phy_id & phydev->drv->phy_id_mask) {
- 	case TG3_PHY_ID_BCM50610:
- 		val = MAC_PHYCFG2_50610_LED_MODES;
-@@ -1031,7 +1031,7 @@ static void tg3_mdio_start(struct tg3 *tp)
- 		if (is_serdes)
- 			tp->phy_addr += 7;
- 	} else
--		tp->phy_addr = PHY_ADDR;
-+		tp->phy_addr = TG3_PHY_MII_ADDR;
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_MDIOBUS_INITED) &&
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
-@@ -1062,7 +1062,7 @@ static int tg3_mdio_init(struct tg3 *tp)
- 	tp->mdio_bus->read     = &tg3_mdio_read;
- 	tp->mdio_bus->write    = &tg3_mdio_write;
- 	tp->mdio_bus->reset    = &tg3_mdio_reset;
--	tp->mdio_bus->phy_mask = ~(1 << PHY_ADDR);
-+	tp->mdio_bus->phy_mask = ~(1 << TG3_PHY_MII_ADDR);
- 	tp->mdio_bus->irq      = &tp->mdio_irq[0];
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++)
-@@ -1084,7 +1084,7 @@ static int tg3_mdio_init(struct tg3 *tp)
- 		return i;
- 	}
- 
--	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 	if (!phydev || !phydev->drv) {
- 		printk(KERN_WARNING "%s: No PHY devices\n", tp->dev->name);
-@@ -1311,7 +1311,7 @@ static void tg3_setup_flow_control(struct tg3 *tp, u32 lcladv, u32 rmtadv)
- 	u32 old_tx_mode = tp->tx_mode;
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)
--		autoneg = tp->mdio_bus->phy_map[PHY_ADDR]->autoneg;
-+		autoneg = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]->autoneg;
- 	else
- 		autoneg = tp->link_config.autoneg;
- 
-@@ -1348,7 +1348,7 @@ static void tg3_adjust_link(struct net_device *dev)
- 	u8 oldflowctrl, linkmesg = 0;
- 	u32 mac_mode, lcl_adv, rmt_adv;
- 	struct tg3 *tp = netdev_priv(dev);
--	struct phy_device *phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+	struct phy_device *phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 	spin_lock_bh(&tp->lock);
- 
-@@ -1434,7 +1434,7 @@ static int tg3_phy_init(struct tg3 *tp)
- 	/* Bring the PHY back to a known state. */
- 	tg3_bmcr_reset(tp);
- 
--	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 	/* Attach the MAC to the PHY. */
- 	phydev = phy_connect(tp->dev, dev_name(&phydev->dev), tg3_adjust_link,
-@@ -1461,7 +1461,7 @@ static int tg3_phy_init(struct tg3 *tp)
- 				      SUPPORTED_Asym_Pause);
+ 	case TG3_PHY_ID_BCM57780:
+ 		phydev->interface = PHY_INTERFACE_MODE_GMII;
++		phydev->dev_flags |= PHY_BRCM_AUTO_PWRDWN_ENABLE;
  		break;
- 	default:
--		phy_disconnect(tp->mdio_bus->phy_map[PHY_ADDR]);
-+		phy_disconnect(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
- 		return -EINVAL;
- 	}
- 
-@@ -1479,7 +1479,7 @@ static void tg3_phy_start(struct tg3 *tp)
- 	if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 		return;
- 
--	phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 	if (tp->link_config.phy_is_low_power) {
- 		tp->link_config.phy_is_low_power = 0;
-@@ -1499,13 +1499,13 @@ static void tg3_phy_stop(struct tg3 *tp)
- 	if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 		return;
- 
--	phy_stop(tp->mdio_bus->phy_map[PHY_ADDR]);
-+	phy_stop(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
- }
- 
- static void tg3_phy_fini(struct tg3 *tp)
- {
- 	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
--		phy_disconnect(tp->mdio_bus->phy_map[PHY_ADDR]);
-+		phy_disconnect(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
- 		tp->tg3_flags3 &= ~TG3_FLG3_PHY_CONNECTED;
- 	}
- }
-@@ -2474,7 +2474,7 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
- 			struct phy_device *phydev;
- 			u32 phyid, advertising;
- 
--			phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 			tp->link_config.phy_is_low_power = 1;
- 
-@@ -9243,9 +9243,11 @@ static int tg3_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct tg3 *tp = netdev_priv(dev);
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
-+		struct phy_device *phydev;
- 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 			return -EAGAIN;
--		return phy_ethtool_gset(tp->mdio_bus->phy_map[PHY_ADDR], cmd);
-+		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
-+		return phy_ethtool_gset(phydev, cmd);
- 	}
- 
- 	cmd->supported = (SUPPORTED_Autoneg);
-@@ -9284,9 +9286,11 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct tg3 *tp = netdev_priv(dev);
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
-+		struct phy_device *phydev;
- 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 			return -EAGAIN;
--		return phy_ethtool_sset(tp->mdio_bus->phy_map[PHY_ADDR], cmd);
-+		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
-+		return phy_ethtool_sset(phydev, cmd);
- 	}
- 
- 	if (cmd->autoneg != AUTONEG_ENABLE &&
-@@ -9469,7 +9473,7 @@ static int tg3_nway_reset(struct net_device *dev)
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
- 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 			return -EAGAIN;
--		r = phy_start_aneg(tp->mdio_bus->phy_map[PHY_ADDR]);
-+		r = phy_start_aneg(tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR]);
- 	} else {
- 		u32 bmcr;
- 
-@@ -9588,7 +9592,7 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
- 			u32 newadv;
- 			struct phy_device *phydev;
- 
--			phydev = tp->mdio_bus->phy_map[PHY_ADDR];
-+			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 
- 			if (epause->rx_pause) {
- 				if (epause->tx_pause)
-@@ -10568,9 +10572,11 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	int err;
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
-+		struct phy_device *phydev;
- 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 			return -EAGAIN;
--		return phy_mii_ioctl(tp->mdio_bus->phy_map[PHY_ADDR], data, cmd);
-+		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
-+		return phy_mii_ioctl(phydev, data, cmd);
- 	}
- 
- 	switch(cmd) {
-@@ -14135,13 +14141,14 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	       tg3_bus_string(tp, str),
- 	       dev->dev_addr);
- 
--	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED)
-+	if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
-+		struct phy_device *phydev;
-+		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
- 		printk(KERN_INFO
- 		       "%s: attached PHY driver [%s] (mii_bus:phy_addr=%s)\n",
--		       tp->dev->name,
--		       tp->mdio_bus->phy_map[PHY_ADDR]->drv->name,
--		       dev_name(&tp->mdio_bus->phy_map[PHY_ADDR]->dev));
--	else
-+		       tp->dev->name, phydev->drv->name,
-+		       dev_name(&phydev->dev));
-+	} else
- 		printk(KERN_INFO
- 		       "%s: attached PHY is %s (%s Ethernet) (WireSpeed[%d])\n",
- 		       tp->dev->name, tg3_phy_string(tp),
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index eb4ed82..40501cb 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -1954,7 +1954,7 @@
- #define  NIC_SRAM_MBUF_POOL_SIZE5705	0x0000e000
- 
- /* Currently this is fixed. */
--#define PHY_ADDR		0x01
-+#define TG3_PHY_MII_ADDR		0x01
- 
- /* Tigon3 specific PHY MII registers. */
- #define  TG3_BMCR_SPEED1000		0x0040
+ 	case TG3_PHY_ID_BCM50610:
+ 	case TG3_PHY_ID_BCM50610M:
+ 		phydev->dev_flags |= PHY_BRCM_CLEAR_RGMII_MODE |
+-				     PHY_BRCM_RX_REFCLK_UNUSED;
++				     PHY_BRCM_RX_REFCLK_UNUSED |
++				     PHY_BRCM_AUTO_PWRDWN_ENABLE;
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_STD_IBND_DISABLE)
+ 			phydev->dev_flags |= PHY_BRCM_STD_IBND_DISABLE;
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_EXT_IBND_RX_EN)
 -- 
 1.6.4.4
 
