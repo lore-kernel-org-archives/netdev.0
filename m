@@ -1,108 +1,59 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 01/20] tg3: Assign flags to fixes in start_xmit_dma_bug
-Date: Mon, 2 Nov 2009 14:33:33 -0800
-Message-ID: <1257211990.21983@xw6200>
+Subject: [PATCH 07/20] tg3: Improve 5785 PCIe performance
+Date: Mon, 2 Nov 2009 16:26:03 -0800
+Message-ID: <1257211996.22001@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1278 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3562 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755905AbZKCBdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:16 -0500
+	id S1756421AbZKCBdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a flag for each bug workaround in
-tg3_start_xmit_dma_bug().  This is prep work for the following patch.
+This patch improves 5785 performance by allowing the write DMA engine to
+request larger DMA burst sizes than it otherwise would.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   26 +++++++++++++++++++-------
- drivers/net/tg3.h |    2 ++
- 2 files changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/tg3.c |    3 +++
+ drivers/net/tg3.h |    3 ++-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ba5d3fe..da80825 100644
+index 54dbe98..a43ef2b 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5124,7 +5124,8 @@ static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
- 		/* Make sure new skb does not cross any 4G boundaries.
- 		 * Drop the packet if it does.
- 		 */
--		if (ret || tg3_4g_overflow_test(new_addr, new_skb->len)) {
-+		if (ret || ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
-+			    tg3_4g_overflow_test(new_addr, new_skb->len))) {
- 			if (!ret)
- 				skb_dma_unmap(&tp->pdev->dev, new_skb,
- 					      DMA_TO_DEVICE);
-@@ -5459,9 +5460,15 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+@@ -7633,6 +7633,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
+ 		val |= WDMAC_MODE_STATUS_TAG_FIX;
  
- 	would_hit_hwbug = 0;
- 
--	if (tp->tg3_flags3 & TG3_FLG3_5701_DMA_BUG)
-+	if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
-+	    tg3_4g_overflow_test(mapping, len))
-+		would_hit_hwbug = 1;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785)
++		val |= WDMAC_MODE_BURST_ALL_DATA;
 +
-+	if ((tp->tg3_flags3 & TG3_FLG3_40BIT_DMA_LIMIT_BUG) &&
-+	    tg3_40bit_overflow_test(tp, mapping, len))
- 		would_hit_hwbug = 1;
--	else if (tg3_4g_overflow_test(mapping, len))
-+
-+	if (tp->tg3_flags3 & TG3_FLG3_5701_DMA_BUG)
- 		would_hit_hwbug = 1;
+ 	tw32_f(WDMAC_MODE, val);
+ 	udelay(40);
  
- 	tg3_set_txd(tnapi, entry, mapping, len, base_flags,
-@@ -5482,10 +5489,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 			tnapi->tx_buffers[entry].skb = NULL;
- 
--			if (tg3_4g_overflow_test(mapping, len))
-+			if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
-+			    tg3_4g_overflow_test(mapping, len))
- 				would_hit_hwbug = 1;
- 
--			if (tg3_40bit_overflow_test(tp, mapping, len))
-+			if ((tp->tg3_flags3 & TG3_FLG3_40BIT_DMA_LIMIT_BUG) &&
-+			    tg3_40bit_overflow_test(tp, mapping, len))
- 				would_hit_hwbug = 1;
- 
- 			if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
-@@ -12610,12 +12619,15 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 
- 	tp->irq_max = 1;
- 
--#ifdef TG3_NAPI
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
- 		tp->tg3_flags |= TG3_FLAG_SUPPORT_MSIX;
- 		tp->irq_max = TG3_IRQ_MAX_VECS;
- 	}
--#endif
-+
-+	if (!(tp->tg3_flags3 & TG3_FLG3_5755_PLUS)) {
-+		tp->tg3_flags3 |= TG3_FLG3_4G_DMA_BNDRY_BUG;
-+		tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
-+	}
- 
- 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
- 	     (tp->tg3_flags2 & TG3_FLG2_5780_CLASS) ||
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index bab7940..b603810 100644
+index 530c36b..68431da 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2759,6 +2759,8 @@ struct tg3 {
- #define TG3_FLG3_TOGGLE_10_100_L1PLLPD	0x00008000
- #define TG3_FLG3_PHY_IS_FET		0x00010000
- #define TG3_FLG3_ENABLE_RSS		0x00020000
-+#define TG3_FLG3_4G_DMA_BNDRY_BUG	0x00080000
-+#define TG3_FLG3_40BIT_DMA_LIMIT_BUG	0x00100000
- 
- 	struct timer_list		timer;
- 	u16				timer_counter;
+@@ -1264,8 +1264,9 @@
+ #define  WDMAC_MODE_FIFOURUN_ENAB	 0x00000080
+ #define  WDMAC_MODE_FIFOOREAD_ENAB	 0x00000100
+ #define  WDMAC_MODE_LNGREAD_ENAB	 0x00000200
+-#define  WDMAC_MODE_RX_ACCEL	 	 0x00000400
++#define  WDMAC_MODE_RX_ACCEL		 0x00000400
+ #define  WDMAC_MODE_STATUS_TAG_FIX	 0x20000000
++#define  WDMAC_MODE_BURST_ALL_DATA	 0xc0000000
+ #define WDMAC_STATUS			0x00004c04
+ #define  WDMAC_STATUS_TGTABORT		 0x00000004
+ #define  WDMAC_STATUS_MSTABORT		 0x00000008
 -- 
 1.6.4.4
 
