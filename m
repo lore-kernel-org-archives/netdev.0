@@ -1,60 +1,36 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: HTB accuracy on 10GbE
-Date: Tue, 03 Nov 2009 14:13:20 +0300
-Message-ID: <4AF01050.6080308@bigtelecom.ru>
-References: <20091103105413.GD6718@ff.dom.local>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [Bugme-new] [Bug 14427] New: ipv6 forward cause strange route
+Date: Tue, 03 Nov 2009 20:19:02 +0900
+Message-ID: <4AF011A6.1070903@linux-ipv6.org>
+References: <bug-14427-10286@http.bugzilla.kernel.org/> <20091102223237.c0102f19.akpm@linux-foundation.org> <4AF00EA0.7030407@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, Pekka Savola <pekkas@netcore.fi>,
+	davem@davemloft.net
+To: Andrew Morton <akpm@linux-foundation.org>, green@msu.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:59421 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbZKCLNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 06:13:21 -0500
-In-Reply-To: <20091103105413.GD6718@ff.dom.local>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56778 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751200AbZKCLTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 06:19:01 -0500
+In-Reply-To: <4AF00EA0.7030407@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 03-11-2009 11:13, Badalian Vyacheslav wrote:
->>> Really?! As a matter of fact there isn't fully used the last change=
-,
->>> especially this part:
->>>
->>> http://marc.info/?l=3Dlinux-netdev&m=3D124453482324409&w=3D2
->>>
->>> And nobody even noticed it for quite a long time. I'm not even sure
->>> Ryousei needs this now for anything but comparing with some better
->>> tool...
->> These changes have not been tested and applied to kernel?
->>
->> As I now remember, I promised to test this patch and judging by=20
->> correspondence so it and have not made. My error - I am ready to
->> correct it. Probably there were difficulties, and is then banal=20
->> has forgotten.
->> It is possible to receive once again full ???=C2=B0N~?N~?N~???N~? fo=
-r the test?
->=20
-> There were a few iproute changes, tested enough I guess. Alas, I
-> didn't keep them (they could be found around with link above).
->=20
-> But it's not about your testing. I meant: since nobody noticed
-> something was (still) wrong with 1G scheduling, why bother with 10G?
->=20
+I wrote:
+> This is not a bug but a feature of IPv6 called "subnet anycast
+> address."  The address is automatically assigned on routers.
+> 
+> References:
+> RFC 2526: Reserved IPv6 Subnet Anycast Addresses
+> RFC 3627: Use of /127 Prefix Length Between Routers Considered Harmful
 
-Ok. In next week we get server and test it :)
+I should say "Subnet-router anycast address" and
+RFC3513: Internet Protocol Version 6 (IPv6) Addressing
+Architecture".
 
+Sorry for confusion.
 
-> Best regards,
-> Jarek P.
->=20
-> PS: ...and don't remove me from CC, please ;-)
->=20
->=20
-
-Sorry. My mail server have limit CC :)
-
-
+--yoshfuji
