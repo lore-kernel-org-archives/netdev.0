@@ -1,44 +1,44 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the
-	HTB_CAN_SEND level
-Date: Tue, 3 Nov 2009 17:47:17 +0800
-Message-ID: <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com>
-References: <4AEF9862.8040404@gmail.com> <20091103080022.GA6718@ff.dom.local>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] usbnet: Do not implement ethtool get_link() if link state is unknown
+Date: Tue, 3 Nov 2009 02:41:27 -0700
+Message-ID: <200911030141.27905.david-b@pacbell.net>
+References: <1257218818.3136.440.camel@localhost> <200911022201.30950.david-b@pacbell.net> <20091103.010129.100672838.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, devik@cdi.cz,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk, greg@kroah.com, jacmet@sunsite.dk,
+	steve.glendinning@smsc.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:48745 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088AbZKCJrM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:47:12 -0500
-Received: by pwj9 with SMTP id 9so2400760pwj.21
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 01:47:17 -0800 (PST)
-In-Reply-To: <20091103080022.GA6718@ff.dom.local>
+Received: from smtp102.sbc.mail.gq1.yahoo.com ([67.195.15.61]:23828 "HELO
+	smtp102.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755580AbZKCJsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:48:04 -0500
+In-Reply-To: <20091103.010129.100672838.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 3, 2009 at 4:00 PM, Jarek Poplawski <jarkao2@gmail.com> wro=
-te:
->
->> It means that a class, which sends packets
->> in ceil rate, can also enter HTB_CAN_SEND state now and then.
->
-> Yes, a class is entitled to send on it's own then with it's guarantee=
-d
-> rate, without depending on borrowing.
+On Tuesday 03 November 2009, David Miller wrote:
+> > Having two tables for this is needlessly ugly.
+> 
+> Yes, it's really cruddy how the USB network driver tries to share
+> so much state amongst such very different devices :-)
 
-I don't think so. The class should _NOT_ enter HTB_CAN_SEND mode when
-its data rate is higher than its rate specification. In other word, a
-class should enter HTB_CAN_SEND mode only when its data rate isn't
-higher than its rate specification. Otherwise, it will get additional
-tokens and reach a higher data rate than its ceil specification. This
-may affect other classes.
+That framework just grew ... started out as one driver,
+nearly ten years back (yow!!), then generalized.  Folk
+seemed to appreciate not reinventing some stuff.  ;)
+
+If it had started out with this many devices, it might have
+looked more like a library.  Sharing code implies sharing
+at least some state representations; the balance could might
+be worth shifting by now.
 
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+> All kidding aside, I think the alternative is for the USB network
+> driver to call ethtool_op_get_link() if it cannot determine the
+> link state in hardware.
+
+There's usbnet_get_link() which does just that.  But
+there may be some ancient debris confusing things.
