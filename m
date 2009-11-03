@@ -1,48 +1,68 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
-Date: Tue, 03 Nov 2009 14:18:53 -0800
-Message-ID: <m1zl735k1e.fsf@fess.ebiederm.org>
+Date: Tue, 03 Nov 2009 14:28:32 -0800
+Message-ID: <m18wen5jlb.fsf@fess.ebiederm.org>
 References: <20091101163130.GA7911@kvack.org>
-	<20091103035058.GA19515@kroah.com> <20091103200155.GQ8227@kvack.org>
-	<m1my338fbi.fsf@fess.ebiederm.org> <20091103215251.GS8227@kvack.org>
+	<20091103035058.GA19515@kroah.com> <4AEFCA49.4020305@gmail.com>
+	<20091103160715.GD23857@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Octavian Purdila <opurdila@ixiacom.com>,
 	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
 	linux-kernel@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59301 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:59622 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754930AbZKCWSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 17:18:52 -0500
-In-Reply-To: <20091103215251.GS8227@kvack.org> (Benjamin LaHaise's message of "Tue\, 3 Nov 2009 16\:52\:51 -0500")
+	with ESMTP id S1755339AbZKCW2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 17:28:30 -0500
+In-Reply-To: <20091103160715.GD23857@kroah.com> (Greg KH's message of "Tue\, 3 Nov 2009 08\:07\:15 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin LaHaise <bcrl@lhnet.ca> writes:
+Greg KH <greg@kroah.com> writes:
 
-> On Tue, Nov 03, 2009 at 01:32:33PM -0800, Eric W. Biederman wrote:
->> Are your numbers from your application and are they real world?
->> In which case they are interesting, but it would be good if
->> we could also have microbenchmark numbers that just measure
->> the sysfs costs.   If nothing else I am seeing a big startup
->> overhead that isn't being subtracted out that makes it hard
->> to see the real costs here.
+> On Tue, Nov 03, 2009 at 07:14:33AM +0100, Eric Dumazet wrote:
+>> Greg KH a ?crit :
+>> > On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
+>> >> Use an rbtree in sysfs_dirent to speed up file lookup times
+>> >>
+>> >> Systems with large numbers (tens of thousands and more) of network 
+>> >> interfaces stress the sysfs code in ways that make the linear search for 
+>> >> a name match take far too long.  Avoid this by using an rbtree.
+>> > 
+>> > What kind of speedups are you seeing here?  And do these changes cause a
+>> > memory increase due to the structure changes which outweigh the
+>> > speedups?
+>> > 
+>> > What kind of test are you doing to reproduce this?
+>> > 
+>> 
+>> Its curious because in my tests the biggest problems come from
+>> kernel/sysctl.c (__register_sysctl_paths) consuming 80% of cpu
+>> in following attempt to create 20.000 devices
+>> 
+>> (disable hotplug before trying this, and ipv6 too !)
+>> modprobe dummy numdummies=20000
+>> 
+>> I believe we should address __register_sysctl_paths() scalability
+>> problems too.
 >
-> They're application based, so there's a bunch of other overhead included 
-> that won't show up on a microbenchmark.  Each interface requires a round 
-> trip between 2 L2TP daemons, so there are lots of syscalls and other cache 
-> polluting effects that won't show up on a microbenchmark.  One of the L2TP 
-> daemons is configured not to instantiate any kernel state -- running in 
-> this mode, it has very little overhead.
+> But registering 20000 devices is a far different problem from using
+> those 20000 devices :)
 >
-> The other thing to note is that the costs posted are how long it takes to 
-> add an additional 5,000 interfaces in the given range, not the total time 
-> to add say 35,000 interfaces (I didn't feel like waiting that long).
+> I think the "use the device" path should be the one we care the most
+> about fixing up, as that is much more common than the register path for
+> all users.
 
-Ok.  That makes a lot more sense.  The times you posted ideally would be flat
-but they go up from 12s to 60s.
+Definitely.  Of the three proc sysctl and sysfs.  sysctl tends to have
+the worst costs across the board.  They are all rarely used so a lot
+of what gets hit when scaling are rare path events that even the most
+horrible code works fine on small systems.
+
+Usually slow registration times indicate an O(N^2) or worse data
+structure for filename lookup.
 
 Eric
