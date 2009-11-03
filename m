@@ -1,54 +1,163 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
-Date: Tue, 3 Nov 2009 15:01:56 -0500
-Message-ID: <20091103200155.GQ8227@kvack.org>
-References: <20091101163130.GA7911@kvack.org> <20091103035058.GA19515@kroah.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: [announce] new rt2800 drivers for Ralink wireless & project tree
+Date: Tue, 3 Nov 2009 19:51:05 +0100
+Message-ID: <200911031951.05235.bzolnier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
-	linux-kernel@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755352AbZKCUCI@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091103035058.GA19515@kroah.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755108AbZKCUBp@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 02, 2009 at 07:50:58PM -0800, Greg KH wrote:
-> On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
-> > Use an rbtree in sysfs_dirent to speed up file lookup times
-> > 
-> > Systems with large numbers (tens of thousands and more) of network 
-> > interfaces stress the sysfs code in ways that make the linear search for 
-> > a name match take far too long.  Avoid this by using an rbtree.
-> 
-> What kind of speedups are you seeing here?  And do these changes cause a
-> memory increase due to the structure changes which outweigh the
-> speedups?
 
-Depends on the number of interfaces being created.  Without the patch, 
-interface creation time tends to double or worse for every 5,000-10,000 
-additional network interfaces.
+Hi,
 
-> What kind of test are you doing to reproduce this?
+The following patch series (against wireless-next) addresses issues raised
+during code review and subsequently rejected by rt2x00/wireless/networking
+maintainers.
 
-I'm creating 30,000+ network interfaces, with the goal being 100,000.  
-With other hacks in the tree to get around the sysctl and procfs scaling 
-issues, as well as disabling things like NetworkManager, the results look 
-as follows:
 
-	Interfaces	no-rb	rbtree	rbtree+list
-	0-5,000		13.8s	14.0s	13.0s
-	5,000-10,000	20.0s	17.4s	14.4s
-	10,000-15,000	27.3s	24.1s	16.9s
-	15,000-20,000	36.3s	32.2s	19.7s
-	20,000-25,000	45.2s	40.0s	22.9s
-	25,000-30,000	54.2s	48.2s	26.6s
-	30,000-35,000	63.9s	54.9s	30.7s
+Namely, it:
 
-Thoughts?
+- Adds abstraction of chipset register access for chipsets connected to
+  different buses by using new structure (struct rt2800_ops) which contains
+  all needed register access methods.
 
-		-ben
+  [ It is a prerequisite for fixing code duplication between rt2800usb.c
+    and rt2800pci.c drivers. ]
+
+- Fixes code duplication in rt2800usb.h and rt2800pci.h header files by
+  using new shared rt2800.h header (almost 1800 LOC gone).
+
+  Updated debugging scripts are located here:
+
+      http://www.kernel.org/pub/linux/kernel/people/bart/rt2800/scripts/
+
+  (they also work fine with older drivers)
+
+- Adds rt2800 library containing common code for PCI and USB versions
+  of rt2800 chipsets.  This removes over 1300 LOC and allows us to save
+  a lot of maintenance burden in the future. 
+
+
+It also fixes two real bugs (one in rt2800pci and one in rt2800usb) found
+as a direct result of the code de-duplication:
+
+- Fix rt2800usb driver to write the rfcsr read request into RF_CSR_CFG
+  register and not BBP_CSR_CFG one in rt2800usb_rfcsr_read().
+
+- Use the correct encryption key index for TX frames in rt2800pci (this is
+  based on rt2800usb patch from Benoit PAPILLAULT already in Linus' tree,
+  unfortunately the fix was not ported over to rt2800pci).
+
+  [ There are also some minor code rt2x00 infrastructure fixes and improvements
+     here and there... ]
+
+
+All in all over 3100 LOC are gone and rt2800pci specific code is:
+
+ 1685 drivers/net/wireless/rt2x00/rt2800pci.c
+  180 drivers/net/wireless/rt2x00/rt2800pci.h
+ 1865 total
+
+instead of:
+
+  3323 drivers/net/wireless/rt2x00/rt2800pci.c
+  1960 drivers/net/wireless/rt2x00/rt2800pci.h
+  5283 total
+
+  (wireless-next and net-next trees)
+
+which means decrease of the code needed for rt2800pci by 65% (this in turn
+translates to 31% decrease for rt2800 specific code and 9% for whole rt2x00
+infrastructure).
+
+The rewrite was quite conservative and there is still a room for improvement
+but it should serve as a good starting base for all future work on rt2800
+drivers, and there is a lot to do there (both drivers are still practically
+non-functional).
+
+Comments and patches are welcomed.
+
+
+The following changes since commit fa867e7355a1bdcd9bf7d55ebe9296f5b9c4028a:
+  Juuso Oikarinen (1):
+        wl1271: Generalize command response reading
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bart/misc.git rt2800
+
+Bartlomiej Zolnierkiewicz (40):
+      rt2800usb: fix rt2800usb_rfcsr_read()
+      rt2800pci: fix crypto in TX frame
+      rt2800pci: fix comment about register access
+      rt2800pci: fix comment about IV/EIV fields
+      rt2x00: fix rt2x00usb_register_read() comment
+      rt2800usb: use rt2x00usb_register_multiwrite() to set key entries
+      rt2800usb: add rt2800_register_[read,write]() wrappers
+      rt2800pci: add rt2800_register_[read,write]() wrappers
+      rt2800usb: add rt2800_register_multi[read,write]() wrappers
+      rt2800pci: add rt2800_register_multi[read,write]() wrappers
+      rt2800usb: add rt2800_regbusy_read() wrapper
+      rt2800pci: add rt2800_regbusy_read() wrapper
+      rt2800usb: add rt2800_bbp_[read,write]() wrappers
+      rt2800pci: add rt2800_bbp_[read,write]() wrappers
+      rt2800usb: add rt2800_rfcsr_[read,write]() wrappers
+      rt2800pci: add rt2800_rfcsr_[read,write]() wrappers
+      rt2800usb: add rt2800_rf_[read,write]() wrappers
+      rt2800pci: add rt2800_rf_[read,write]() wrappers
+      rt2800usb: add rt2800_mcu_request() wrapper
+      rt2800pci: add rt2800_mcu_request() wrapper
+      rt2x00: add driver private field to struct rt2x00_dev
+      rt2800usb: convert to use struct rt2800_ops methods
+      rt2800pci: convert to use struct rt2800_ops methods
+      rt2x00: fix rt2x00usb_register_multiwrite() arguments
+      rt2x00: fix rt2x00usb_regbusy_read() arguments
+      rt2x00: fix rt2x00pci_register_multi[read,write]() arguments
+      rt2800: add rt2800lib.h
+      rt2800usb: fix comments in rt2800usb.h
+      rt2800usb: add RXINFO_DESC_SIZE definition
+      rt2800: fix duplication in header files
+      rt2800: fix comments in rt2800.h
+      rt2x00: add support for different chipset interfaces
+      rt2800: prepare for rt2800lib addition
+      rt2800: add rt2800lib (part one)
+      rt2x00: remove needless ifdefs from rt2x00leds.h
+      rt2800: add rt2800lib (part two)
+      rt2x00: move REGISTER_BUSY_* definitions to rt2x00.h
+      rt2800: add rt2800lib (part three)
+      rt2800: add rt2800lib (part four)
+      MAINTAINERS: add rt2800 entry
+
+ MAINTAINERS                              |    7 +
+ drivers/net/wireless/rt2x00/Kconfig      |    5 +
+ drivers/net/wireless/rt2x00/Makefile     |    1 +
+ drivers/net/wireless/rt2x00/rt2800.h     | 1816 ++++++++++++++++++++++++++++
+ drivers/net/wireless/rt2x00/rt2800lib.c  | 1817 ++++++++++++++++++++++++++++
+ drivers/net/wireless/rt2x00/rt2800lib.h  |  134 +++
+ drivers/net/wireless/rt2x00/rt2800pci.c  | 1908 +++---------------------------
+ drivers/net/wireless/rt2x00/rt2800pci.h  | 1780 ----------------------------
+ drivers/net/wireless/rt2x00/rt2800usb.c  | 1828 ++---------------------------
+ drivers/net/wireless/rt2x00/rt2800usb.h  | 1818 +----------------------------
+ drivers/net/wireless/rt2x00/rt2x00.h     |   33 +
+ drivers/net/wireless/rt2x00/rt2x00leds.h |    4 -
+ drivers/net/wireless/rt2x00/rt2x00pci.h  |   24 +-
+ drivers/net/wireless/rt2x00/rt2x00usb.c  |    2 +-
+ drivers/net/wireless/rt2x00/rt2x00usb.h  |   17 +-
+ 15 files changed, 4036 insertions(+), 7158 deletions(-)
+ create mode 100644 drivers/net/wireless/rt2x00/rt2800.h
+ create mode 100644 drivers/net/wireless/rt2x00/rt2800lib.c
+ create mode 100644 drivers/net/wireless/rt2x00/rt2800lib.h
