@@ -1,47 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Support specifying the network namespace upon device
- creation.
-Date: Tue, 03 Nov 2009 10:28:27 +0100
-Message-ID: <4AEFF7BB.4090301@gmail.com>
-References: <m1eioggeux.fsf@fess.ebiederm.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB accuracy on 10GbE
+Date: Tue, 3 Nov 2009 09:33:33 +0000
+Message-ID: <20091103093333.GB6718@ff.dom.local>
+References: <4AEFDF22.8000405@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Ryousei Takano <ryousei@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	takano-ryousei@aist.go.jp, Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:56052 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754749AbZKCJ2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:28:25 -0500
-In-Reply-To: <m1eioggeux.fsf@fess.ebiederm.org>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:51652 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752267AbZKCJdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 04:33:33 -0500
+Received: by bwz27 with SMTP id 27so7333952bwz.21
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 01:33:38 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4AEFDF22.8000405@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman a =E9crit :
-> There is no good reason to not support userspace specifying the
-> network namespace during device creation, and it makes it easier
-> to create a network device and pass it to a child network namespace
-> with a well known name.
->=20
-> We have to be careful to ensure that the target network namespace
-> for the new device exists through the life of the call.  To keep
-> that logic clear I have factored out the network namespace grabbing
-> logic into rtnl_link_get_net.
->=20
-> In addtion we need to continue to pass the source network namespace
-> to the rtnl_link_ops.newlink method so that we can find the base
-> device source network namespace.
->=20
-> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+On 03-11-2009 08:43, Badalian Vyacheslav wrote:
+> Hello dear netdev team!
+Hello dear BIG Telecom!
 
-Very nice, with only one long line you could wrap differently.
- =20
-> -static int ipgre_newlink(struct net_device *dev, struct nlattr *tb[]=
-,
-> +static int ipgre_newlink(struct net *src_net, struct net_device *dev=
-, struct nlattr *tb[],
->  			 struct nlattr *data[])
->  {
->  	struct ip_tunnel *nt;
+> 
+> Linux all time go with the times :)
+> Network in world go to use 10G technologies. I can test any stress patches in produce system for linux developers :)
+> I discharge from out company in 1 December and have 1 month for all tests.
+> I believe that linux net dev team do it easy. Need only begin :) Lets do it together :)
+> 
+> Jarek, you many times help to us fix small problems in HTB, thanks for this!
+> All work great!
 
+Really?! As a matter of fact there isn't fully used the last change,
+especially this part:
+
+http://marc.info/?l=linux-netdev&m=124453482324409&w=2
+
+And nobody even noticed it for quite a long time. I'm not even sure
+Ryousei needs this now for anything but comparing with some better
+tool...
+
+Best regards,
+Jarek P.
+
+PS: Slavon, (as usual ;-) wrap the lines and don't top post, please.
