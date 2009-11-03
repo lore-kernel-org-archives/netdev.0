@@ -1,104 +1,67 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 03 Nov 2009 13:08:25 -0500
-Message-ID: <4AF07199.2020601@gmail.com>
-References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next-2.6] bnx2: avoid compiler warnings
+Date: Tue, 3 Nov 2009 10:01:34 -0800
+Message-ID: <1257271294.8625.9.camel@HP1>
+References: <4AEFF536.1020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig77CFE234DE15F23B398FB30F"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
- akpm@linux-foundation.org, hpa@zytor.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4AF0708B.4020406@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3726 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754567AbZKCSLE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 13:11:04 -0500
+In-Reply-To: <4AEFF536.1020402@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig77CFE234DE15F23B398FB30F
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-Eric Dumazet wrote:
-> Michael S. Tsirkin a =E9crit :
->> +static void handle_tx(struct vhost_net *net)
->> +{
->> +	struct vhost_virtqueue *vq =3D &net->dev.vqs[VHOST_NET_VQ_TX];
->> +	unsigned head, out, in, s;
->> +	struct msghdr msg =3D {
->> +		.msg_name =3D NULL,
->> +		.msg_namelen =3D 0,
->> +		.msg_control =3D NULL,
->> +		.msg_controllen =3D 0,
->> +		.msg_iov =3D vq->iov,
->> +		.msg_flags =3D MSG_DONTWAIT,
->> +	};
->> +	size_t len, total_len =3D 0;
->> +	int err, wmem;
->> +	size_t hdr_size;
->> +	struct socket *sock =3D rcu_dereference(vq->private_data);
->> +	if (!sock)
->> +		return;
->> +
->> +	wmem =3D atomic_read(&sock->sk->sk_wmem_alloc);
->> +	if (wmem >=3D sock->sk->sk_sndbuf)
->> +		return;
->> +
->> +	use_mm(net->dev.mm);
->> +	mutex_lock(&vq->mutex);
->> +	vhost_no_notify(vq);
->> +
+On Tue, 2009-11-03 at 01:17 -0800, Eric Dumazet wrote:
+> drivers/net/bnx2.c: In function =E2=80=98bnx2_enable_forced_2g5=E2=80=
+=99:
+> drivers/net/bnx2.c:1447: warning: =E2=80=98bmcr=E2=80=99 may be used =
+uninitialized in this function
+> drivers/net/bnx2.c: In function =E2=80=98bnx2_disable_forced_2g5=E2=80=
+=99:
+> drivers/net/bnx2.c:1482: warning: =E2=80=98bmcr=E2=80=99 may be used =
+uninitialized in this function
 >=20
-> using rcu_dereference() and mutex_lock() at the same time seems wrong, =
-I suspect
-> that your use of RCU is not correct.
+> One fix would be to have an initial value, but a plain return might b=
+e better.
+
+I agree that plain return is better.  Thanks.
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
 >=20
-> 1) rcu_dereference() should be done inside a read_rcu_lock() section, a=
-nd
->    we are not allowed to sleep in such a section.
->    (Quoting Documentation/RCU/whatisRCU.txt :
->      It is illegal to block while in an RCU read-side critical section,=
- )
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
 >=20
-> 2) mutex_lock() can sleep (ie block)
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 08cddb6..539d23b 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -1466,6 +1466,8 @@ bnx2_enable_forced_2g5(struct bnx2 *bp)
+>  	} else if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5708) {
+>  		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+>  		bmcr |=3D BCM5708S_BMCR_FORCE_2500;
+> +	} else {
+> +		return;
+>  	}
+> =20
+>  	if (bp->autoneg & AUTONEG_SPEED) {
+> @@ -1500,6 +1502,8 @@ bnx2_disable_forced_2g5(struct bnx2 *bp)
+>  	} else if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5708) {
+>  		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+>  		bmcr &=3D ~BCM5708S_BMCR_FORCE_2500;
+> +	} else {
+> +		return;
+>  	}
+> =20
+>  	if (bp->autoneg & AUTONEG_SPEED)
 >=20
 
 
-Michael,
-  I warned you that this needed better documentation ;)
-
-Eric,
-  I think I flagged this once before, but Michael convinced me that it
-was indeed "ok", if but perhaps a bit unconventional.  I will try to
-find the thread.
-
-Kind Regards,
--Greg
-
-
---------------enig77CFE234DE15F23B398FB30F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkrwcZkACgkQP5K2CMvXmqGhOACePT9ytdQxnqeObfA1h+nnRfJY
-vNwAn2y4p+io84eG19OyEly9IqSi8EDf
-=XPsn
------END PGP SIGNATURE-----
-
---------------enig77CFE234DE15F23B398FB30F--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
