@@ -1,71 +1,54 @@
-From: Tonyliu <Bo.Liu@windriver.com>
-Subject: [PATCH 1/1] DaVinci EMAC: correct param for ISR
-Date: Tue, 03 Nov 2009 09:52:22 +0800
-Message-ID: <4AEF8CD6.9060804@windriver.com>
-Reply-To: Bo.Liu@windriver.com
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] sch_htb.c consume the classes's tokens bellow the HTB_CAN_SEND
+ level
+Date: Tue, 03 Nov 2009 10:41:38 +0800
+Message-ID: <4AEF9862.8040404@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060307090900050104000805"
-Cc: davinci-linux-open-source-bounces@linux.davincidsp.com,
-	netdev@vger.kernel.org
-To: khilman@deeprootsystems.com
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: devik@cdi.cz, netdev@vger.kernel.org, xiaosuo <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48433 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756600AbZKCB4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 20:56:21 -0500
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:63836 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756037AbZKCClg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Nov 2009 21:41:36 -0500
+Received: by ywh40 with SMTP id 40so5071271ywh.33
+        for <netdev@vger.kernel.org>; Mon, 02 Nov 2009 18:41:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060307090900050104000805
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+sch_htb.c consume the classes's tokens bellow the HTB_CAN_SEND level.
 
+When a class enters HTB_MAY_BORROW state, it relies on its parents to
+sent packets. The parent class in HTB_CAN_SEND state only consumes
+itself and its parents's tokens, but ADD tokens to the classes under its
+level. It is totally wrong. It means that a class, which sends packets
+in ceil rate, can also enter HTB_CAN_SEND state now and then.
 
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
---------------060307090900050104000805
-Content-Type: text/x-patch;
- name="0001-DaVinci-EMAC-correct-param-for-ISR.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="0001-DaVinci-EMAC-correct-param-for-ISR.patch"
+----
+net/sched/sch_htb.c | 3 +--
+1 file changed, 1 insertion(+), 2 deletions(-)
 
->From bf855d3a1f824ab87933a64c9fc93f859b064e92 Mon Sep 17 00:00:00 2001
-From: Tonyliu <Bo.Liu@windriver.com>
-Date: Wed, 28 Oct 2009 11:06:48 +0800
-Subject: [PATCH 1/1] DaVinci EMAC: correct param for ISR
-
-emac_irq is declared as:
-
-static irqreturn_t emac_irq(int irq, void *dev_id)
-{
-       struct net_device *ndev = (struct net_device *)dev_id;
-       struct emac_priv *priv = netdev_priv(ndev);
-    ... 
-
-	Clearly emac_irq() needs "struct net_device *" as "void *dev_id", so correct this.
-
-Signed-off-by: Tonyliu <Bo.Liu@windriver.com>
----
- drivers/net/davinci_emac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index a876dce..4cf80ec 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2217,7 +2217,7 @@ void emac_poll_controller(struct net_device *ndev)
- 	struct emac_priv *priv = netdev_priv(ndev);
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 85acab9..2705702 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -629,11 +629,10 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
+ 		if (cl->level >= level) {
+ 			if (cl->level == level)
+ 				cl->xstats.lends++;
+-			htb_accnt_tokens(cl, bytes, diff);
+ 		} else {
+ 			cl->xstats.borrows++;
+-			cl->tokens += diff;	/* we moved t_c; update tokens */
+ 		}
++		htb_accnt_tokens(cl, bytes, diff);
+ 		htb_accnt_ctokens(cl, bytes, diff);
+ 		cl->t_c = q->now;
  
- 	emac_int_disable(priv);
--	emac_irq(ndev->irq, priv);
-+	emac_irq(ndev->irq, ndev);
- 	emac_int_enable(priv);
- }
- #endif
--- 
-1.5.5.4
 
 
---------------060307090900050104000805--
