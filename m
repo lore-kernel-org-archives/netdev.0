@@ -1,26 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/20] tg3 bugfixes and 5785 updates
-Date: Mon, 02 Nov 2009 23:44:57 -0800 (PST)
-Message-ID: <20091102.234457.142892002.davem@davemloft.net>
-References: <1257211989.21980@xw6200>
+Subject: Re: [PATCH v4 1/7] gianfar: Add per queue structure support
+Date: Mon, 02 Nov 2009 23:45:29 -0800 (PST)
+Message-ID: <20091102.234529.35805247.davem@davemloft.net>
+References: <12571813802648-git-send-email-sandeep.kumar@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org
+To: sandeep.kumar@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39736
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39739
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756299AbZKCHoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 02:44:32 -0500
-In-Reply-To: <1257211989.21980@xw6200>
+	by vger.kernel.org with ESMTP id S1756563AbZKCHpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 02:45:05 -0500
+In-Reply-To: <12571813802648-git-send-email-sandeep.kumar@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 2 Nov 2009 16:33:03 -0800
 
-> This patchset implements some needed bugfixes and rounds out
-> support for the 5785.
-
-Looks good, all applied to net-next-2.6, thanks!
+All 7 patches applied to net-next-2.6, thanks.
