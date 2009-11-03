@@ -1,43 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v4 3/3] TCPCT part 1c: initial SYN
- exchange with SYNACK data
-Date: Mon, 02 Nov 2009 21:14:29 -0800 (PST)
-Message-ID: <20091102.211429.127727810.davem@davemloft.net>
-References: <4AEF207C.9030002@gmail.com>
-	<1257185798.28925.33.camel@Joe-Laptop.home>
-	<4AEF3DD5.5050408@gmail.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] usbnet: Do not implement ethtool get_link() if link state is unknown
+Date: Mon, 2 Nov 2009 23:01:30 -0700
+Message-ID: <200911022201.30950.david-b@pacbell.net>
+References: <1257218818.3136.440.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	eric.dumazet@gmail.com
-To: william.allen.simpson@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	"Greg Kroah-Hartman" <greg@kroah.com>,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47981
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750724AbZKCFOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 00:14:05 -0500
-In-Reply-To: <4AEF3DD5.5050408@gmail.com>
+Received: from smtp108.sbc.mail.gq1.yahoo.com ([67.195.14.111]:22740 "HELO
+	smtp108.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751523AbZKCGIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 01:08:07 -0500
+In-Reply-To: <1257218818.3136.440.camel@localhost>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Date: Mon, 02 Nov 2009 15:15:17 -0500
+On Monday 02 November 2009, Ben Hutchings wrote:
+> @@ -854,7 +854,7 @@ void usbnet_set_msglevel (struct net_device *net,=
+ u32 level)
+> =A0EXPORT_SYMBOL_GPL(usbnet_set_msglevel);
+> =A0
+> =A0/* drivers may override default ethtool_ops in their bind() routin=
+e */
+> -static const struct ethtool_ops usbnet_ethtool_ops =3D {
+> +static const struct ethtool_ops usbnet_get_link_ethtool_ops =3D {
+> =A0=A0=A0=A0=A0=A0=A0=A0.get_settings=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=3D usbnet_get_settings,
+> =A0=A0=A0=A0=A0=A0=A0=A0.set_settings=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=3D usbnet_set_settings,
+> =A0=A0=A0=A0=A0=A0=A0=A0.get_link=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=3D usbnet_get_link,
+> @@ -864,6 +864,15 @@ static const struct ethtool_ops usbnet_ethtool_o=
+ps =3D {
+> =A0=A0=A0=A0=A0=A0=A0=A0.set_msglevel=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=3D usbnet_set_msglevel,
+> =A0};
+> =A0
+> +static const struct ethtool_ops usbnet_ethtool_ops =3D {
+> +=A0=A0=A0=A0=A0=A0=A0.get_settings=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D=
+ usbnet_get_settings,
+> +=A0=A0=A0=A0=A0=A0=A0.set_settings=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D=
+ usbnet_set_settings,
 
-> If somebody else submitted a patch to change all the rest, I'd be
-> content to follow along.
+Surely there's a code that usbnet_get_link() could return
+to say "I can't really tell"?
 
-That's not how things work.
+And if there isn't, there should be one.
 
-You cannot put a requirement that the rules are followed everywhere
-perfectly in existing code before you're willing to follow them.
-Nothing is special about you or your work.
+Having two tables for this is needlessly ugly.
 
-You're being very unreasonable on several fronts especially with your
-seeming unwillingness to follow our procedures, coding style, and
-rules.  Actually, you seem to be willing to follow it, sometimes,
-when it suits and doesn't inconvenience you.
+> +=A0=A0=A0=A0=A0=A0=A0.nway_reset=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=3D usbnet_nway_reset,
+> +=A0=A0=A0=A0=A0=A0=A0.get_drvinfo=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=3D usbnet_get_drvinfo,
+> +=A0=A0=A0=A0=A0=A0=A0.get_msglevel=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D=
+ usbnet_get_msglevel,
+> +=A0=A0=A0=A0=A0=A0=A0.set_msglevel=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=3D=
+ usbnet_set_msglevel,
+> +};
+> +
+> =A0/*----------------------------------------------------------------=
+---------*/
+> =A0
+> =A0/* work that cannot be done in interrupt context uses keventd.
 
-And this behavior is starting to rub people the wrong way.  People
-less and less want to review your work, and I want to make sure
-you are shown exactly why that is happening.
+
