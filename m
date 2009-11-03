@@ -1,40 +1,39 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14450] New: [2.6.31] Network interfaces are
- dead with 2.6.31 (iwlagn and sky2)
-Date: Tue, 3 Nov 2009 15:21:46 -0800
-Message-ID: <20091103152146.5785195a.akpm@linux-foundation.org>
-References: <bug-14450-10286@http.bugzilla.kernel.org/>
+Subject: Re: [Bugme-new] [Bug 14451] New: b44 BCM4401 immediate disconnect
+ and power down after ip assignment
+Date: Tue, 3 Nov 2009 15:23:08 -0800
+Message-ID: <20091103152308.d17ed779.akpm@linux-foundation.org>
+References: <bug-14451-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: bugzilla-daemon@bugzilla.kernel.org,
 	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-wireless@vger.kernel.org
-To: orion.linbug@gmail.com
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <bug-14450-10286@http.bugzilla.kernel.org/>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	andreas@schipplock.de
+To: Gary Zambrano <zambrano@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48247 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751824AbZKCXXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 18:23:37 -0500
+In-Reply-To: <bug-14451-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 (switched to email.  Please respond via emailed reply-to-all, not via the
 bugzilla web interface).
 
-On Wed, 21 Oct 2009 07:30:12 GMT
+On Wed, 21 Oct 2009 07:38:13 GMT
 bugzilla-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14450
+> http://bugzilla.kernel.org/show_bug.cgi?id=14451
 > 
->            Summary: [2.6.31] Network interfaces are dead with 2.6.31
->                     (iwlagn and sky2)
+>            Summary: b44 BCM4401 immediate disconnect and power down after
+>                     ip assignment
 >            Product: Drivers
 >            Version: 2.5
->     Kernel Version: 2.6.31
-
-Rafael, this is a 2.6.30->2.6.31 regression.
-
-
+>     Kernel Version: 2.6.31.4
 >           Platform: All
 >         OS/Version: Linux
 >               Tree: Mainline
@@ -43,90 +42,44 @@ Rafael, this is a 2.6.30->2.6.31 regression.
 >           Priority: P1
 >          Component: Network
 >         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: orion.linbug@gmail.com
->         Regression: Yes
+>         ReportedBy: andreas@schipplock.de
+>         Regression: No
 > 
 > 
-> My wireless and ethernet networks are dead with the kernel 2.6.31. All work
-> very fine with the 2.6.30 and older. I have a Toshiba laptop wich uses the
-> iwlagn module for wireless and the sky2 for ethernet. I have tested with
-> acpi=off in the grub kernel line but it freezes the system on boot...
-> ifconfig gets only the lo interface. ifconfig eth0 or wlan0 up gets something
-> like "the interface doesn't exist".
+> Hi,
+> I compiled the linux kernel 2.6.31.4 and after "dhcpcd" wanted to assign an ip,
+> it worked for 500ms and I then got the following message being repeated a _lot_
+> in dmesg:
 > 
-> lspci shows:
-> 00:00.0 Host bridge: Intel Corporation Mobile 4 Series Chipset Memory
-> Controller Hub (rev 07)                                                         
-> 00:01.0 PCI bridge: Intel Corporation Mobile 4 Series Chipset PCI Express
-> Graphics Port (rev 07)                                                          
-> 00:1a.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #4 (rev 03)                                                          
-> 00:1a.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #5 (rev 03)                                                          
-> 00:1a.2 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #6 (rev 03)
-> 00:1a.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2 EHCI
-> Controller #2 (rev 03)
-> 00:1b.0 Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio
-> Controller (rev 03)
-> 00:1c.0 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express Port 1
-> (rev 03)
-> 00:1c.1 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express Port 2
-> (rev 03)
-> 00:1c.3 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express Port 4
-> (rev 03)
-> 00:1d.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #1 (rev 03)
-> 00:1d.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #2 (rev 03)
-> 00:1d.2 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
-> Controller #3 (rev 03)
-> 00:1d.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2 EHCI
-> Controller #1 (rev 03)
-> 00:1e.0 PCI bridge: Intel Corporation 82801 Mobile PCI Bridge (rev 93)
-> 00:1f.0 ISA bridge: Intel Corporation ICH9M LPC Interface Controller (rev 03)
-> 00:1f.2 SATA controller: Intel Corporation ICH9M/M-E SATA AHCI Controller (rev
-> 03)
-> 00:1f.3 SMBus: Intel Corporation 82801I (ICH9 Family) SMBus Controller (rev 03)
-> 01:00.0 VGA compatible controller: ATI Technologies Inc M92 [Mobility Radeon HD
-> 4500 Series]
-> 01:00.1 Audio device: ATI Technologies Inc R700 Audio Device [Radeon HD 4000
-> Series]
-> 02:00.0 Network controller: Intel Corporation Wireless WiFi Link 5100
-> 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8040T PCI-E Fast
-> Ethernet Controller (rev 12)
-> 0a:01.0 FireWire (IEEE 1394): O2 Micro, Inc. Firewire (IEEE 1394) (rev 02)
-> 0a:01.2 SD Host controller: O2 Micro, Inc. Integrated MMC/SD Controller (rev
-> 02)
-> 0a:01.3 Mass storage controller: O2 Micro, Inc. Integrated MS/xD Controller
-> (rev 01)
+> b44: eth0: powering down PHY
+> b44: eth0: Link is down.
+> b44: eth0: Link is up at 100 Mbps, full duplex.
+> b44: eth0: Flow control is off for TX and off for RX.
+> b44: eth0: powering down PHY
+> b44: eth0: Link is down.
+> b44: eth0: Link is up at 100 Mbps, full duplex.
+> b44: eth0: Flow control is off for TX and off for RX.
 > 
-> Dmesg shows errors on sky2 and iwlagn driver:
-> iwlagn: Intel(R) Wireless WiFi Link AGN driver for Linux, 1.3.27ks2009-10-13
-> 17:57:36
-> iwlagn: Copyright(c) 2003-2009 Intel Corporation2009-10-13 17:57:36
-> iwlagn 0000:02:00.0: enabling device (0000 -> 0002)2009-10-13 17:57:36    
-> iwlagn 0000:02:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 162009-10-13
-> 17:57:36
-> iwlagn 0000:02:00.0: Detected Intel Wireless WiFi Link 5100AGN
-> REV=0xFFFFFFFF2009-10-13 17:57:36
-> Clocksource tsc unstable (delta = -212055894 ns)2009-10-13 17:57:36
-> iwlagn 0000:02:00.0: Failed, HW not ready2009-10-13 17:57:36
-> iwlagn 0000:02:00.0: PCI INT A disabled2009-10-13 17:57:36
+> These messages repeat endlessly and I can't establish a connection. 
 > 
-> sky2 driver version 1.232009-10-13 17:50:48
-> sky2 0000:03:00.0: enabling device (0000 -> 0003)2009-10-13 17:50:48
-> sky2 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 172009-10-13
-> 17:50:48
-> sky2 0000:03:00.0: PCI INT A disabled2009-10-13 17:50:48
-> sky2: probe of 0000:03:00.0 failed with error -952009-10-13 17:50:48
-
-Given that both the wired and wireless interfaces failed, I'd assume
-that something went wrong at the bus level.  Perhaps due to an ACPI
-change.
-
-Could the sky2, iwlagn and ACPI developers please take a look, offer an
-opinion as to where we should be looking?
-
-Thanks.
+> The exact name of the ethernet controller is: "08:00.0 Ethernet controller:
+> Broadcom Corporation BCM4401-B0 100Base-TX (rev 02)" regarding lspci output.
+> 
+> When I execute "ifconfig" every 500ms I can see that the device "eth0" gets a
+> valid ip but the next time I execute ifconfig the ip is already "gone" and I
+> again get the the messages posted above in dmesg. 
+> 
+> I first thought was that I have a media problem so I replaced all my wires but
+> the problem still exists and the problem doesn't appear on the 2.6.28.x kernel
+> which I ran before. I even installed linux mint in a hurry to see if it's
+> really not a hardware issue and it worked there without a problem (using kernel
+> 2.6.28-11, that's how they call it).
+> 
+> I've got no further idea. I created three different config files from scratch
+> using menuconfig. In the end I even thought other modules are conflicting and I
+> adapted the config so it only fits for my specific hardware which gave me some
+> good boot time but no success regarding the bcm4401 issue. 
+> 
+> Any help is appreciated. 
+> 
 
