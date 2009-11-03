@@ -1,44 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
-Date: Tue, 03 Nov 2009 23:06:14 +0100
-Message-ID: <4AF0A956.5020600@gmail.com>
-References: <20091101163130.GA7911@kvack.org> <20091103035058.GA19515@kroah.com> <20091103200155.GQ8227@kvack.org> <m1my338fbi.fsf@fess.ebiederm.org> <m1y6mn708g.fsf@fess.ebiederm.org> <20091103215650.GT8227@kvack.org>
+Date: Tue, 03 Nov 2009 14:18:53 -0800
+Message-ID: <m1zl735k1e.fsf@fess.ebiederm.org>
+References: <20091101163130.GA7911@kvack.org>
+	<20091103035058.GA19515@kroah.com> <20091103200155.GQ8227@kvack.org>
+	<m1my338fbi.fsf@fess.ebiederm.org> <20091103215251.GS8227@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Eric Dumazet <eric.dumazet@gmail.com>,
 	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
+	linux-kernel@vger.kernel.org
 To: Benjamin LaHaise <bcrl@lhnet.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47418 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754604AbZKCWGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 17:06:16 -0500
-In-Reply-To: <20091103215650.GT8227@kvack.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:59301 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754930AbZKCWSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 17:18:52 -0500
+In-Reply-To: <20091103215251.GS8227@kvack.org> (Benjamin LaHaise's message of "Tue\, 3 Nov 2009 16\:52\:51 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin LaHaise a =E9crit :
-> On Tue, Nov 03, 2009 at 01:43:43PM -0800, Eric W. Biederman wrote:
->> I guess in particular what I would expect is that if we can do 35000
->> interfaces in 63s with an O(N^2) algorithm.  Then we should be able =
-to
->> do 35000 interfaces with an O(NlogN) algorithm in under a second.
->> Which for your application should make the time essentially flat in
->> the number of interfaces.
->=20
-> That's the wrong way to interprete the numbers.  The 35000 number of =
-63s is=20
-> the time that it takes 63s to add 5000 more interfaces in the 30,000 =
-to=20
-> 35,000 range.  This includes the time required to add a point to poin=
-t ip=20
-> route on the interface and bring the interface up.
+Benjamin LaHaise <bcrl@lhnet.ca> writes:
 
-Speaking of pppol2tp, it seems /proc/net/pppol2tp is not safe,
-with a strange two phases locking...
+> On Tue, Nov 03, 2009 at 01:32:33PM -0800, Eric W. Biederman wrote:
+>> Are your numbers from your application and are they real world?
+>> In which case they are interesting, but it would be good if
+>> we could also have microbenchmark numbers that just measure
+>> the sysfs costs.   If nothing else I am seeing a big startup
+>> overhead that isn't being subtracted out that makes it hard
+>> to see the real costs here.
+>
+> They're application based, so there's a bunch of other overhead included 
+> that won't show up on a microbenchmark.  Each interface requires a round 
+> trip between 2 L2TP daemons, so there are lots of syscalls and other cache 
+> polluting effects that won't show up on a microbenchmark.  One of the L2TP 
+> daemons is configured not to instantiate any kernel state -- running in 
+> this mode, it has very little overhead.
+>
+> The other thing to note is that the costs posted are how long it takes to 
+> add an additional 5,000 interfaces in the given range, not the total time 
+> to add say 35,000 interfaces (I didn't feel like waiting that long).
 
-(We keep in struct pppol2tp_seq_data pointers to structures
-that might have been freed between to read() syscalls)
+Ok.  That makes a lot more sense.  The times you posted ideally would be flat
+but they go up from 12s to 60s.
+
+Eric
