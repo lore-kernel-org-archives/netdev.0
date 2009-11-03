@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 02/20] tg3: Fix 5906 transmit hangs
-Date: Mon, 2 Nov 2009 16:23:27 -0800
-Message-ID: <1257211991.21986@xw6200>
+Subject: [PATCH 20/20] tg3: Update version to 3.103
+Date: Mon, 2 Nov 2009 16:33:03 -0800
+Message-ID: <1257212011.22040@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,107 +10,34 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:1378 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757558AbZKCBdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Nov 2009 20:33:21 -0500
+	id S932478AbZKCBdg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 5906 has trouble with fragments that are less than 8 bytes in size.
-This patch works around the problem by pivoting the 5906's transmit
-routine to tg3_start_xmit_dma_bug() and introducing a new SHORT_DMA_BUG
-flag that enables code to detect and react to the problematic condition.
+This patch updates the tg3 version to 3.103.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   26 +++++++++++++++++++-------
- drivers/net/tg3.h |    1 +
- 2 files changed, 20 insertions(+), 7 deletions(-)
+ drivers/net/tg3.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index da80825..a7a582e 100644
+index 50bb53d..47a4f09 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5393,7 +5393,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	mss = 0;
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
- 		struct iphdr *iph;
--		int tcp_opt_len, ip_tcp_len, hdr_len;
-+		u32 tcp_opt_len, ip_tcp_len, hdr_len;
+@@ -68,8 +68,8 @@
  
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-@@ -5424,8 +5424,10 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 								 IPPROTO_TCP,
- 								 0);
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.102"
+-#define DRV_MODULE_RELDATE	"September 1, 2009"
++#define DRV_MODULE_VERSION	"3.103"
++#define DRV_MODULE_RELDATE	"November 2, 2009"
  
--		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
--		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)) {
-+		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_2)
-+			mss |= hdr_len << 9;
-+		else if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_1) ||
-+			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
- 			if (tcp_opt_len || iph->ihl > 5) {
- 				int tsflags;
- 
-@@ -5460,6 +5462,9 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 	would_hit_hwbug = 0;
- 
-+	if ((tp->tg3_flags3 & TG3_FLG3_SHORT_DMA_BUG) && len <= 8)
-+		would_hit_hwbug = 1;
-+
- 	if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
- 	    tg3_4g_overflow_test(mapping, len))
- 		would_hit_hwbug = 1;
-@@ -5489,6 +5494,10 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 			tnapi->tx_buffers[entry].skb = NULL;
- 
-+			if ((tp->tg3_flags3 & TG3_FLG3_SHORT_DMA_BUG) &&
-+			    len <= 8)
-+				would_hit_hwbug = 1;
-+
- 			if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
- 			    tg3_4g_overflow_test(mapping, len))
- 				would_hit_hwbug = 1;
-@@ -12625,8 +12634,12 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	}
- 
- 	if (!(tp->tg3_flags3 & TG3_FLG3_5755_PLUS)) {
--		tp->tg3_flags3 |= TG3_FLG3_4G_DMA_BNDRY_BUG;
--		tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
-+			tp->tg3_flags3 |= TG3_FLG3_SHORT_DMA_BUG;
-+		else {
-+			tp->tg3_flags3 |= TG3_FLG3_4G_DMA_BNDRY_BUG;
-+			tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
-+		}
- 	}
- 
- 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
-@@ -13987,8 +14000,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_iounmap;
- 	}
- 
--	if ((tp->tg3_flags3 & TG3_FLG3_5755_PLUS) ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
-+	if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
- 		dev->netdev_ops = &tg3_netdev_ops;
- 	else
- 		dev->netdev_ops = &tg3_netdev_ops_dma_bug;
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index b603810..a5568a1 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2761,6 +2761,7 @@ struct tg3 {
- #define TG3_FLG3_ENABLE_RSS		0x00020000
- #define TG3_FLG3_4G_DMA_BNDRY_BUG	0x00080000
- #define TG3_FLG3_40BIT_DMA_LIMIT_BUG	0x00100000
-+#define TG3_FLG3_SHORT_DMA_BUG		0x00200000
- 
- 	struct timer_list		timer;
- 	u16				timer_counter;
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
 -- 
 1.6.4.4
 
