@@ -1,115 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 3 Nov 2009 21:58:41 +0200
-Message-ID: <20091103195841.GB6669@redhat.com>
-References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com> <4AF07199.2020601@gmail.com> <4AF072EE.9020202@gmail.com> <4AF07BB7.1020802@gmail.com>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
+Date: Tue, 3 Nov 2009 15:01:56 -0500
+Message-ID: <20091103200155.GQ8227@kvack.org>
+References: <20091101163130.GA7911@kvack.org> <20091103035058.GA19515@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Gregory Haskins <gregory.haskins@gmail.com>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        akpm@linux-foundation.org, hpa@zytor.com,
-        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
+	linux-kernel@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755352AbZKCUCI@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4AF07BB7.1020802@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20091103035058.GA19515@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 03, 2009 at 07:51:35PM +0100, Eric Dumazet wrote:
-> Gregory Haskins a =E9crit :
-> > Gregory Haskins wrote:
-> >> Eric Dumazet wrote:
-> >>> Michael S. Tsirkin a =E9crit :
-> >>>> +static void handle_tx(struct vhost_net *net)
-> >>>> +{
-> >>>> +	struct vhost_virtqueue *vq =3D &net->dev.vqs[VHOST_NET_VQ_TX];
-> >>>> +	unsigned head, out, in, s;
-> >>>> +	struct msghdr msg =3D {
-> >>>> +		.msg_name =3D NULL,
-> >>>> +		.msg_namelen =3D 0,
-> >>>> +		.msg_control =3D NULL,
-> >>>> +		.msg_controllen =3D 0,
-> >>>> +		.msg_iov =3D vq->iov,
-> >>>> +		.msg_flags =3D MSG_DONTWAIT,
-> >>>> +	};
-> >>>> +	size_t len, total_len =3D 0;
-> >>>> +	int err, wmem;
-> >>>> +	size_t hdr_size;
-> >>>> +	struct socket *sock =3D rcu_dereference(vq->private_data);
-> >>>> +	if (!sock)
-> >>>> +		return;
-> >>>> +
-> >>>> +	wmem =3D atomic_read(&sock->sk->sk_wmem_alloc);
-> >>>> +	if (wmem >=3D sock->sk->sk_sndbuf)
-> >>>> +		return;
-> >>>> +
-> >>>> +	use_mm(net->dev.mm);
-> >>>> +	mutex_lock(&vq->mutex);
-> >>>> +	vhost_no_notify(vq);
-> >>>> +
-> >>> using rcu_dereference() and mutex_lock() at the same time seems wro=
-ng, I suspect
-> >>> that your use of RCU is not correct.
-> >>>
-> >>> 1) rcu_dereference() should be done inside a read_rcu_lock() sectio=
-n, and
-> >>>    we are not allowed to sleep in such a section.
-> >>>    (Quoting Documentation/RCU/whatisRCU.txt :
-> >>>      It is illegal to block while in an RCU read-side critical sect=
-ion, )
-> >>>
-> >>> 2) mutex_lock() can sleep (ie block)
-> >>>
-> >>
-> >> Michael,
-> >>   I warned you that this needed better documentation ;)
-> >>
-> >> Eric,
-> >>   I think I flagged this once before, but Michael convinced me that =
-it
-> >> was indeed "ok", if but perhaps a bit unconventional.  I will try to
-> >> find the thread.
-> >>
-> >> Kind Regards,
-> >> -Greg
-> >>
-> >=20
-> > Here it is:
-> >=20
-> > http://lkml.org/lkml/2009/8/12/173
-> >=20
->=20
-> Yes, this doesnt convince me at all, and could be a precedent for a wro=
-ng RCU use.
-> People wanting to use RCU do a grep on kernel sources to find how to co=
-rrectly
-> use RCU.
->=20
-> Michael, please use existing locking/barrier mechanisms, and not preten=
-d to use RCU.
->=20
-> Some automatic tools might barf later.
->=20
-> For example, we could add a debugging facility to check that rcu_derefe=
-rence() is used
-> in an appropriate context, ie conflict with existing mutex_lock() debug=
-ging facility.
+On Mon, Nov 02, 2009 at 07:50:58PM -0800, Greg KH wrote:
+> On Sun, Nov 01, 2009 at 11:31:30AM -0500, Benjamin LaHaise wrote:
+> > Use an rbtree in sysfs_dirent to speed up file lookup times
+> > 
+> > Systems with large numbers (tens of thousands and more) of network 
+> > interfaces stress the sysfs code in ways that make the linear search for 
+> > a name match take far too long.  Avoid this by using an rbtree.
+> 
+> What kind of speedups are you seeing here?  And do these changes cause a
+> memory increase due to the structure changes which outweigh the
+> speedups?
 
+Depends on the number of interfaces being created.  Without the patch, 
+interface creation time tends to double or worse for every 5,000-10,000 
+additional network interfaces.
 
-Paul, you acked this previously. Should I add you acked-by line so
-people calm down?  If you would rather I replace
-rcu_dereference/rcu_assign_pointer with rmb/wmb, I can do this.
-Or maybe patch Documentation to explain this RCU usage?
+> What kind of test are you doing to reproduce this?
 
---=20
-MST
+I'm creating 30,000+ network interfaces, with the goal being 100,000.  
+With other hacks in the tree to get around the sysctl and procfs scaling 
+issues, as well as disabling things like NetworkManager, the results look 
+as follows:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+	Interfaces	no-rb	rbtree	rbtree+list
+	0-5,000		13.8s	14.0s	13.0s
+	5,000-10,000	20.0s	17.4s	14.4s
+	10,000-15,000	27.3s	24.1s	16.9s
+	15,000-20,000	36.3s	32.2s	19.7s
+	20,000-25,000	45.2s	40.0s	22.9s
+	25,000-30,000	54.2s	48.2s	26.6s
+	30,000-35,000	63.9s	54.9s	30.7s
+
+Thoughts?
+
+		-ben
