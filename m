@@ -1,44 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the
-	HTB_CAN_SEND level
-Date: Tue, 3 Nov 2009 10:05:38 +0000
-Message-ID: <20091103100538.GC6718@ff.dom.local>
-References: <4AEF9862.8040404@gmail.com> <20091103080022.GA6718@ff.dom.local> <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com>
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Subject: Re: [PATCH] e1000: the power down when running ifdown command
+Date: Tue, 03 Nov 2009 19:06:15 +0900
+Message-ID: <4AF00097.4040708@miraclelinux.com>
+References: <4AEC05E8.40600@miraclelinux.com> <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, devik@cdi.cz,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, davem@davemloft.net,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:65370 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751889AbZKCKFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 05:05:39 -0500
-Received: by bwz27 with SMTP id 27so7369988bwz.21
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 02:05:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com>
+Received: from mailgw.miraclelinux.com ([122.216.84.157]:1242 "EHLO
+	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756014AbZKCKGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 05:06:15 -0500
+In-Reply-To: <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 03, 2009 at 05:47:17PM +0800, Changli Gao wrote:
-> On Tue, Nov 3, 2009 at 4:00 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> >
-> >> It means that a class, which sends packets
-> >> in ceil rate, can also enter HTB_CAN_SEND state now and then.
-> >
-> > Yes, a class is entitled to send on it's own then with it's guaranteed
-> > rate, without depending on borrowing.
+Jeff Kirsher wrote:
+> 2009/10/31 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
 > 
-> I don't think so. The class should _NOT_ enter HTB_CAN_SEND mode when
-> its data rate is higher than its rate specification. In other word, a
-> class should enter HTB_CAN_SEND mode only when its data rate isn't
-> higher than its rate specification. Otherwise, it will get additional
-> tokens and reach a higher data rate than its ceil specification. This
-> may affect other classes.
+> I have added this patch to my tree for testing.  This patch requires a
+> fair amount of regression testing, so once its passed testing I will
+> push the patch to David/netdev.
 
-The ceil specification is controlled only by ctokens, which are always
-updated, so no such risk.
+I appreciate the marge your tree.
+If there is anything I can do, please let me know.
 
-Regards,
-Jarek P.
+And I know this patch is good for e100 driver too.
+I would really like to create patch for it.
+How do you think about e100 driver.
+
+
+Thanks,
+Naohiro Ooiwa
+
