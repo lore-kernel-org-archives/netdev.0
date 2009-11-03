@@ -1,85 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14451] New: b44 BCM4401 immediate disconnect
- and power down after ip assignment
-Date: Tue, 3 Nov 2009 15:23:08 -0800
-Message-ID: <20091103152308.d17ed779.akpm@linux-foundation.org>
-References: <bug-14451-10286@http.bugzilla.kernel.org/>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project
+ tree
+Date: Tue, 3 Nov 2009 23:48:35 +0000
+Message-ID: <20091103234835.3042f7b5@lxorguk.ukuu.org.uk>
+References: <200911031951.05235.bzolnier@gmail.com>
+	<200911032244.11946.bzolnier@gmail.com>
+	<200911032301.32907.IvDoorn@gmail.com>
+	<200911032334.40547.bzolnier@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	andreas@schipplock.de
-To: Gary Zambrano <zambrano@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48247 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751824AbZKCXXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 18:23:37 -0500
-In-Reply-To: <bug-14451-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
+	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200911032334.40547.bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+> > Yeah I know that. But like I said, I still needed to get around to do that,
+> > and I am very happy you were interested in fixing it.
+> 
+> Lets make one thing clear: YOU SHOULD BE THE ONE FIXING IT.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Really - you have a service and support contract with Ivo.. no i thought
+not.
 
-On Wed, 21 Oct 2009 07:38:13 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=14451
-> 
->            Summary: b44 BCM4401 immediate disconnect and power down after
->                     ip assignment
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.31.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: andreas@schipplock.de
->         Regression: No
-> 
-> 
-> Hi,
-> I compiled the linux kernel 2.6.31.4 and after "dhcpcd" wanted to assign an ip,
-> it worked for 500ms and I then got the following message being repeated a _lot_
-> in dmesg:
-> 
-> b44: eth0: powering down PHY
-> b44: eth0: Link is down.
-> b44: eth0: Link is up at 100 Mbps, full duplex.
-> b44: eth0: Flow control is off for TX and off for RX.
-> b44: eth0: powering down PHY
-> b44: eth0: Link is down.
-> b44: eth0: Link is up at 100 Mbps, full duplex.
-> b44: eth0: Flow control is off for TX and off for RX.
-> 
-> These messages repeat endlessly and I can't establish a connection. 
-> 
-> The exact name of the ethernet controller is: "08:00.0 Ethernet controller:
-> Broadcom Corporation BCM4401-B0 100Base-TX (rev 02)" regarding lspci output.
-> 
-> When I execute "ifconfig" every 500ms I can see that the device "eth0" gets a
-> valid ip but the next time I execute ifconfig the ip is already "gone" and I
-> again get the the messages posted above in dmesg. 
-> 
-> I first thought was that I have a media problem so I replaced all my wires but
-> the problem still exists and the problem doesn't appear on the 2.6.28.x kernel
-> which I ran before. I even installed linux mint in a hurry to see if it's
-> really not a hardware issue and it worked there without a problem (using kernel
-> 2.6.28-11, that's how they call it).
-> 
-> I've got no further idea. I created three different config files from scratch
-> using menuconfig. In the end I even thought other modules are conflicting and I
-> adapted the config so it only fits for my specific hardware which gave me some
-> good boot time but no success regarding the bcm4401 issue. 
-> 
-> Any help is appreciated. 
-> 
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
