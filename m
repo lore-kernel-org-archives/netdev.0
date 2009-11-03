@@ -1,61 +1,65 @@
-From: Debashis Dutt <ddutt@Brocade.COM>
-Subject: RE: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
-Date: Mon, 2 Nov 2009 23:54:40 -0800
-Message-ID: <1B6CC3D5ACAB014C8BFB6CB1CBD62CADD2835E9860@HQ-EXCH-7.corp.brocade.com>
-References: <200911010503.nA153Elp019063@blc-10-10.brocade.com>
- <4AED4083.8040500@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the
+	HTB_CAN_SEND level
+Date: Tue, 3 Nov 2009 08:00:22 +0000
+Message-ID: <20091103080022.GA6718@ff.dom.local>
+References: <4AEF9862.8040404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Adapter Linux Open SRC Team"
-	<adapter_linux_open_src_team@Brocade.COM>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rasesh Mody <rmody@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, devik@cdi.cz,
+	netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hq-exedge.brocade.com ([66.243.153.82]:50840 "EHLO
-	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756659AbZKCHyh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 02:54:37 -0500
-In-Reply-To: <4AED4083.8040500@gmail.com>
-Content-Language: en-US
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:58228 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755299AbZKCIAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 03:00:24 -0500
+Received: by bwz27 with SMTP id 27so7243175bwz.21
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 00:00:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4AEF9862.8040404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,=20
+On 03-11-2009 03:41, Changli Gao wrote:
+> sch_htb.c consume the classes's tokens bellow the HTB_CAN_SEND level.
+> 
+> When a class enters HTB_MAY_BORROW state, it relies on its parents to
+> sent packets. The parent class in HTB_CAN_SEND state only consumes
+> itself and its parents's tokens, but ADD tokens to the classes under its
+> level. It is totally wrong.
 
-Thanks for your feedback. We are working on addressing these issues.
+Current code is OK.
 
---Debashis
+> It means that a class, which sends packets
+> in ceil rate, can also enter HTB_CAN_SEND state now and then.
 
------Original Message-----
-=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-Sent: Sunday, November 01, 2009 1:02 AM
-To: Rasesh Mody
-Cc: netdev@vger.kernel.org; Adapter Linux Open SRC Team
-Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device dri=
-ver
+Yes, a class is entitled to send on it's own then with it's guaranteed
+rate, without depending on borrowing.
 
-Rasesh Mody a =E9crit :
-> From: Rasesh Mody <rmody@brocade.com>
->=20
-> This is patch 1/6 which contains linux driver source for
-> Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
-> Re-based source against net-next-2.6 and re-submitting the
-> patch with few fixes.
->=20
-> We wish this patch to be considered for inclusion in net-next-2.6
+Jarek P.
 
-bnad->netdev->last_rx =3D jiffies
-
-and
-
-netdev->trans_start =3D jiffies;
-
-are not necessary, core network handles last_rx/trans_start itself=20
-and more efficently nowadays.
-
-void bnad_reset_stats(struct net_device *netdev) seems defined but not =
-used.
-
-
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> 
+> ----
+> net/sched/sch_htb.c | 3 +--
+> 1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 85acab9..2705702 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -629,11 +629,10 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
+>  		if (cl->level >= level) {
+>  			if (cl->level == level)
+>  				cl->xstats.lends++;
+> -			htb_accnt_tokens(cl, bytes, diff);
+>  		} else {
+>  			cl->xstats.borrows++;
+> -			cl->tokens += diff;	/* we moved t_c; update tokens */
+>  		}
+> +		htb_accnt_tokens(cl, bytes, diff);
+>  		htb_accnt_ctokens(cl, bytes, diff);
+>  		cl->t_c = q->now;
+> 
