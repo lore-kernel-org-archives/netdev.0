@@ -1,40 +1,48 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project
- tree
-Date: Tue, 3 Nov 2009 23:48:35 +0000
-Message-ID: <20091103234835.3042f7b5@lxorguk.ukuu.org.uk>
-References: <200911031951.05235.bzolnier@gmail.com>
-	<200911032244.11946.bzolnier@gmail.com>
-	<200911032301.32907.IvDoorn@gmail.com>
-	<200911032334.40547.bzolnier@gmail.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project tree
+Date: Wed, 4 Nov 2009 00:52:28 +0100
+Message-ID: <200911040052.28323.bzolnier@gmail.com>
+References: <200911031951.05235.bzolnier@gmail.com> <200911032334.40547.bzolnier@gmail.com> <20091103234835.3042f7b5@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
-	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200911032334.40547.bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ivo van Doorn <ivdoorn@gmail.com>, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:49557 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbZKCXyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 18:54:37 -0500
+In-Reply-To: <20091103234835.3042f7b5@lxorguk.ukuu.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Yeah I know that. But like I said, I still needed to get around to do that,
-> > and I am very happy you were interested in fixing it.
+On Wednesday 04 November 2009 00:48:35 Alan Cox wrote:
+> > > Yeah I know that. But like I said, I still needed to get around to do that,
+> > > and I am very happy you were interested in fixing it.
+> > 
+> > Lets make one thing clear: YOU SHOULD BE THE ONE FIXING IT.
 > 
-> Lets make one thing clear: YOU SHOULD BE THE ONE FIXING IT.
+> Really - you have a service and support contract with Ivo.. no i thought
+> not.
 
-Really - you have a service and support contract with Ivo.. no i thought
-not.
+Just today I got PM from somebody complaining to me about non-working
+pata_pdc2026x_old (pdc202xx_old works fine for him) simply because
+I fixed some bug there some time ago....
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Problems are publicly know -- do you want bz# from Debian, SuSE or Red Hat?
+
+Wait.. unfortunately I also don't have support contract with you..
+
+-- 
+Bartlomiej Zolnierkiewicz
