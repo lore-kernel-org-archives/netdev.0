@@ -1,52 +1,68 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.32-rc5-mmotm1101 - kernel BUG at net/ipv4/tcp_input.c:3707!
-Date: Tue, 3 Nov 2009 23:34:19 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0911032330090.3488@melkinkari.cs.Helsinki.FI>
-References: <5765.1257270611@turing-police.cc.vt.edu> <4AF07024.80103@gmail.com>
- <4AF08292.7090102@codefidence.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: the power down when running ifdown command
+Date: Tue, 3 Nov 2009 13:37:47 -0800
+Message-ID: <9929d2390911031337p6115fef0wc1b94e5141ead341@mail.gmail.com>
+References: <4AEC05E8.40600@miraclelinux.com>
+	 <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
+	 <4AF00097.4040708@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243445-11042555-1257283974=:3488"
-Cc: Valdis.Kletnieks@vt.edu, Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, davem@davemloft.net,
 	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ori Finkelman <ori@comsleep.com>
-To: Gilad Ben-Yossef <gilad@codefidence.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755326AbZKCVeR@vger.kernel.org>
-In-Reply-To: <4AF08292.7090102@codefidence.com>
-Content-ID: <Pine.LNX.4.64.0911032333060.3488@melkinkari.cs.Helsinki.FI>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
+	e1000-devel@lists.sourceforge.net
+To: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f188.google.com ([209.85.222.188]:39187 "EHLO
+	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975AbZKCVhm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 16:37:42 -0500
+Received: by pzk26 with SMTP id 26so4235948pzk.4
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 13:37:47 -0800 (PST)
+In-Reply-To: <4AF00097.4040708@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+2009/11/3 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
+> Jeff Kirsher wrote:
+>> 2009/10/31 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
+>>
+>> I have added this patch to my tree for testing. =C2=A0This patch req=
+uires a
+>> fair amount of regression testing, so once its passed testing I will
+>> push the patch to David/netdev.
+>
+> I appreciate the marge your tree.
+> If there is anything I can do, please let me know.
+>
+> And I know this patch is good for e100 driver too.
+> I would really like to create patch for it.
+> How do you think about e100 driver.
+>
+>
+> Thanks,
+> Naohiro Ooiwa
+>
 
----696243445-11042555-1257283974=:3488
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0911032333061.3488@melkinkari.cs.Helsinki.FI>
+Patches are always welcome (referring to a e100 patch).
 
-On Tue, 3 Nov 2009, Gilad Ben-Yossef wrote:
+As far as the e1000 patch goes, it has a number of issues which were
+found in testing.  Here are just a few problems we saw:
+1. ethtool -t - crashes the system
+2. ethtool eth0 - always shows link/speed as 1000/Full even when there
+is no cable
+3. ethtool -s eth0 autoneg on/off - system hang. Sometimes a copper
+interface will show up as fiber after this.
+4. ethtool -d/-S/-g etc - will corrupt the stats of the interface
+while doing ifup/down
 
-> Eric Dumazet wrote:
-> 
-> > Valdis.Kletnieks@vt.edu a écrit :
-> >   
-> > > Seen right after I started 'fetchmail'.  Reproducible - 3 out of 3.
-> > > I'll bisect this tonight if nobody jumps up and yells they know what it
-> > > is...
-> > >     
-> Bah... this is most probably my fault. Sorry about that.
-> 
-> Can you please try the patch in the next email?
-> 
-> But also, can you please send me the route table in effect when this happened
-> and the fetchmail command line/config (removing any passwords or account
-> details of course)? I want to understand better when this happens.
+So it appears that more needs to be done to the driver to get this to
+work as expected.
 
-According to the stacktrace, it came from ipv6 side which doesn't have any 
-null checking what so ever atm (you only handled ipv4 correctly). ...You 
-should be a bit more careful next time when adding any BUG_ONs...
+NAK
 
--- 
- i.
----696243445-11042555-1257283974=:3488--
+--=20
+Cheers,
+Jeff
