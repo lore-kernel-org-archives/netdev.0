@@ -1,52 +1,113 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Tue, 3 Nov 2009 10:54:13 +0000
-Message-ID: <20091103105413.GD6718@ff.dom.local>
-References: <4AF0023C.5010404@bigtelecom.ru>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [Bugme-new] [Bug 14427] New: ipv6 forward cause strange route
+Date: Tue, 03 Nov 2009 20:06:08 +0900
+Message-ID: <4AF00EA0.7030407@linux-ipv6.org>
+References: <bug-14427-10286@http.bugzilla.kernel.org/> <20091102223237.c0102f19.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, yoshfuji@linux-ipv6.org,
+	Pekka Savola <pekkas@netcore.fi>, davem@davemloft.net
+To: Andrew Morton <akpm@linux-foundation.org>, green@msu.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:63479 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbZKCKyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 05:54:13 -0500
-Received: by bwz27 with SMTP id 27so7422626bwz.21
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 02:54:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4AF0023C.5010404@bigtelecom.ru>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:57837 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751018AbZKCLGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 06:06:10 -0500
+In-Reply-To: <20091102223237.c0102f19.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03-11-2009 11:13, Badalian Vyacheslav wrote:
->> Really?! As a matter of fact there isn't fully used the last change,
->> especially this part:
+Hello.
+
+This is not a bug but a feature of IPv6 called "subnet anycast
+address."  The address is automatically assigned on routers.
+
+References:
+RFC 2526: Reserved IPv6 Subnet Anycast Addresses
+RFC 3627: Use of /127 Prefix Length Between Routers Considered Harmful
+
+--yoshfuji
+
+Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Sat, 17 Oct 2009 10:42:01 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=14427
 >>
->> http://marc.info/?l=3Dlinux-netdev&m=3D124453482324409&w=3D2
+>>            Summary: ipv6 forward cause strange route
+>>            Product: Networking
+>>            Version: 2.5
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: normal
+>>           Priority: P1
+>>          Component: IPV6
+>>         AssignedTo: yoshfuji@linux-ipv6.org
+>>         ReportedBy: green@msu.ru
+>>         Regression: No
 >>
->> And nobody even noticed it for quite a long time. I'm not even sure
->> Ryousei needs this now for anything but comparing with some better
->> tool...
->=20
-> These changes have not been tested and applied to kernel?
->=20
-> As I now remember, I promised to test this patch and judging by=20
-> correspondence so it and have not made. My error - I am ready to
-> correct it. Probably there were difficulties, and is then banal=20
-> has forgotten.
-> It is possible to receive once again full ???=B0N~?N~?N~???N~? for th=
-e test?
+>>
+>> When enabling forwarding for IPv6 on interface, in the routing table local
+>> appears new route. It like route to local ip but with all host bits set to 0.
+>> Example:
+>> --------------------------------------------------
+>>   # cat /proc/sys/net/ipv6/conf/eth0/forwarding
+>>   0
+>>   # ip -6 addr add 2001:db8:1:1::5/64 dev eth0
+>>   # ip -6 route show table local
+>>   ...
+>>   local 2001:db8:1:1::5 via :: dev lo  proto none  metric 0  mtu 16436 advmss
+>> 16376 hoplimit 4294967295
+>>   ...
+>>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>>   # ip -6 route show table local
+>>   ...
+>>   local 2001:db8:1:1:: via :: dev lo  proto none  metric 0  mtu 16436 advmss
+>> 16376 hoplimit 4294967295
+>>   local 2001:db8:1:1::5 via :: dev lo  proto none  metric 0  mtu 16436 advmss
+>> 16376 hoplimit 4294967295
+>>   ...
+>> --------------------------------------------------
+>> After enabling forwarding, route "2001:db8:1:1:: via :: dev lo" is added. No
+>> matter, forwarding is enabled before or after adding of address, this route is
+>> "on" with forwarding and "off" without it.
+>> Such behavior causes problems with /127 network masks. For example:
+>> --------------------------------------------------
+>>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>>   # ip -6 addr add 2001:db8:1:1::5/127 dev eth0
+>>   # ip -6 route add default via 2001:db8:1:1::4
+>>   RTNETLINK answers: Invalid argument
+>> --------------------------------------------------
+>> But if we disable forwarding (and strange route) when adding needed route, we
+>> will succeed.
+>> --------------------------------------------------
+>>   # echo 0 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>>   # ip -6 route add default via 2001:db8:1:1::4
+>>   # echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding 
+>> --------------------------------------------------
+>> Default route remains in the table after enabling forwarding and it is doing in
+>> work. But in this case we still can not access 2001:db8:1:1::4, because it is
+>> routed to loopback:
+>> --------------------------------------------------
+>>   # ping6 -c 1 2001:db8:1:1::4
+>>   PING 2001:db8:1:1::4(2001:db8:1:1::4) 56 data bytes
+>>   64 bytes from 2001:db8:1:1::5: icmp_seq=1 ttl=64 time=0.114 ms
+>> --------------------------------------------------
+>> We get reply from self interface.
+>>
+>> This was tested on x86 and x86_64 with 2.6.30 kernel and some previous versions
+>> on ArchLinux (2.6.30 x86 and x86_64), Ubuntu (2.6.28-15-generic x86_64) and
+>> gentoo (2.6.30-gentoo-r5 x86_64).
+>>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-There were a few iproute changes, tested enough I guess. Alas, I
-didn't keep them (they could be found around with link above).
-
-But it's not about your testing. I meant: since nobody noticed
-something was (still) wrong with 1G scheduling, why bother with 10G?
-
-Best regards,
-Jarek P.
-
-PS: ...and don't remove me from CC, please ;-)
