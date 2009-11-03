@@ -1,45 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv2] tun: export underlying socket
-Date: Tue, 3 Nov 2009 10:10:30 -0500
-Message-ID: <20091103151030.GB8609@gondor.apana.org.au>
-References: <20090910125929.GA32593@redhat.com> <20091102172022.GA28247@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: hannemann@nets.rwth-aachen.de
+Subject: [PATCH] iproute2: Avoid rounding errors for 100%.
+Date: Tue, 03 Nov 2009 16:38:14 +0100
+Message-ID: <1257262694-16985-1-git-send-email-hannemann@nets.rwth-aachen.de>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+To: shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37752 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751363AbZKCPKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 10:10:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20091102172022.GA28247@redhat.com>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:61243 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751013AbZKCQIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 11:08:44 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KSJ00EWGI4NNV60@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Tue, 03 Nov 2009 16:38:47 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2009 at 07:20:22PM +0200, Michael S. Tsirkin wrote:
-> Tun device looks similar to a packet socket
-> in that both pass complete frames from/to userspace.
-> 
-> This patch fills in enough fields in the socket underlying tun driver
-> to support sendmsg/recvmsg operations, and message flags
-> MSG_TRUNC and MSG_DONTWAIT, and exports access to this socket
-> to modules.  Regular read/write behaviour is unchanged.
-> 
-> This way, code using raw sockets to inject packets
-> into a physical device, can support injecting
-> packets into host network stack almost without modification.
-> 
-> First user of this interface will be vhost virtualization
-> accelerator.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+We noticed that a netem reorder percentage of 100% will still get packets reordered.
+This patch fixes that.
+
+Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+---
+ tc/tc_util.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index fe2c7eb..2641f2e 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -363,8 +363,10 @@ int get_percent(__u32 *percent, const char *str)
+ 		return -1;
+ 	if (*p && strcmp(p, "%"))
+ 		return -1;
+-
+-	*percent = (unsigned) rint(per * max_percent_value);
++	if (per == 1.)
++		*percent = max_percent_value;
++	else
++		*percent = (unsigned) rint(per * max_percent_value);
+ 	return 0;
+ }
+ 
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.3.3
+
