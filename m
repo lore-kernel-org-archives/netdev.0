@@ -1,144 +1,94 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] e1000: the power down when running ifdown
-	command
-Date: Mon, 02 Nov 2009 16:56:33 -0800
-Message-ID: <1257209793.18754.4.camel@localhost.localdomain>
-References: <4AEC05E8.40600@miraclelinux.com>
-	<9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 03/20] tg3: Fix disappearing 57780 devices
+Date: Mon, 2 Nov 2009 16:24:02 -0800
+Message-ID: <1257211992.21989@xw6200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Naohiro Ooiwa <nooiwa@miraclelinux.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	svaidy@linux.vnet.ibm.com, davem@davemloft.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3429 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755669AbZKCBdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Nov 2009 20:33:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-02 at 16:26 -0800, Jeff Kirsher wrote:
-> 2009/10/31 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
-> > Hi All
-> >
-> > I resend my patch.
-> > Sorry, my previous mail lacked an explanation.
-> >
-> >
-> > The e1000 driver doesn't let the power down when running ifdown command.
-> > So, I set to the D3hot state of a PCI device at the end of e1000_close().
-> >
-> > With this modification, e1000 driver reduces power by ifdown.
-> > It's about 6 watts when I measured a total power of one server machine
-> > in my environment.
-> >
-> > I tested this patch. The result is good enough to me.
-> >
-> > Could you please check my patch ?
-> > If I should have other considerations, please tell me.
-> >
-> >
-> > Thanks you.
-> > Naohiro Ooiwa
-> >
-> >
-> >
-> > Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-> > ---
-> >  drivers/net/e1000/e1000_main.c |   32 ++++++++++++++++++++++++++++++++
-> >  1 files changed, 32 insertions(+), 0 deletions(-)
-> >
-> > diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> > index bcd192c..12e1a42 100644
-> > --- a/drivers/net/e1000/e1000_main.c
-> > +++ b/drivers/net/e1000/e1000_main.c
-> > @@ -26,6 +26,11 @@
-> >
-> >  *******************************************************************************/
-> >
-> > +/*
-> > + * define this if you want pci save power while ifdown.
-> > + */
-> > +#define E1000_PCI_POWER_SAVE
-> > +
-> >  #include "e1000.h"
-> >  #include <net/ip6_checksum.h>
-> >
-> > @@ -1248,6 +1253,23 @@ static int e1000_open(struct net_device *netdev)
-> >        struct e1000_hw *hw = &adapter->hw;
-> >        int err;
-> >
-> > +#ifdef E1000_PCI_POWER_SAVE
-> > +       struct pci_dev *pdev = adapter->pdev;
-> > +
-> > +       pci_set_power_state(pdev, PCI_D0);
-> > +       pci_restore_state(pdev);
-> > +
-> > +       if (adapter->need_ioport)
-> > +               err = pci_enable_device(pdev);
-> > +       else
-> > +               err = pci_enable_device_mem(pdev);
-> > +       if (err) {
-> > +               printk(KERN_ERR "e1000: Cannot enable PCI device from power-save\n");
-> > +               return err;
-> > +       }
-> > +       pci_set_master(pdev);
-> > +#endif
-> > +
-> >        /* disallow open during test */
-> >        if (test_bit(__E1000_TESTING, &adapter->flags))
-> >                return -EBUSY;
-> > @@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
-> >                goto err_setup_rx;
-> >
-> >        e1000_power_up_phy(adapter);
-> > +       e1000_reset(adapter);
-> >
-> >        adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
-> >        if ((hw->mng_cookie.status &
-> > @@ -1341,6 +1364,15 @@ static int e1000_close(struct net_device *netdev)
-> >                e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
-> >        }
-> >
-> > +#ifdef E1000_PCI_POWER_SAVE
-> > +#ifdef CONFIG_PM
-> > +       pci_save_state(adapter->pdev);
-> > +#endif
-> > +       pci_disable_device(adapter->pdev);
-> > +       pci_wake_from_d3(adapter->pdev, true);
-> > +       pci_set_power_state(adapter->pdev, PCI_D3hot);
-> > +#endif
-> > +
-> >        return 0;
-> >  }
-> >
-> 
-> I have added this patch to my tree for testing.  This patch requires a
-> fair amount of regression testing, so once its passed testing I will
-> push the patch to David/netdev.
+Under certain power saving conditions, 57780 asic rev devices might
+disappear from the system.  The fix is to disallow the PCIe PLL from
+powering down.
 
-Can we get rid of E1000_PCI_POWER_SAVE and just enable this
-unconditionally once it's baked?  Having the define there is pretty
-superfluous right now.  Either that, or make it
-CONFIG_E1000_PCI_POWER_SAVE and make a Kconfig option for it that
-depends on experimental or something.  Or a module parameter.  Or
-something other than a dangling #define :)
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   24 ++----------------------
+ drivers/net/tg3.h |    1 -
+ 2 files changed, 2 insertions(+), 23 deletions(-)
 
-Dan
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index a7a582e..b3c5d74 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3243,15 +3243,6 @@ relink:
+ 			pci_write_config_word(tp->pdev,
+ 					      tp->pcie_cap + PCI_EXP_LNKCTL,
+ 					      newlnkctl);
+-	} else if (tp->tg3_flags3 & TG3_FLG3_TOGGLE_10_100_L1PLLPD) {
+-		u32 newreg, oldreg = tr32(TG3_PCIE_LNKCTL);
+-		if (tp->link_config.active_speed == SPEED_100 ||
+-		    tp->link_config.active_speed == SPEED_10)
+-			newreg = oldreg & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
+-		else
+-			newreg = oldreg | TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
+-		if (newreg != oldreg)
+-			tw32(TG3_PCIE_LNKCTL, newreg);
+ 	}
+ 
+ 	if (current_link_up != netif_carrier_ok(tp->dev)) {
+@@ -7180,15 +7171,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		tw32(TG3_PCIE_EIDLE_DELAY, val | TG3_PCIE_EIDLE_DELAY_13_CLKS);
+ 
+ 		tw32(TG3_CORR_ERR_STAT, TG3_CORR_ERR_STAT_CLEAR);
+-	}
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_TOGGLE_10_100_L1PLLPD) {
+-		val = tr32(TG3_PCIE_LNKCTL);
+-		if (tp->tg3_flags3 & TG3_FLG3_CLKREQ_BUG)
+-			val |= TG3_PCIE_LNKCTL_L1_PLL_PD_DIS;
+-		else
+-			val &= ~TG3_PCIE_LNKCTL_L1_PLL_PD_DIS;
+-		tw32(TG3_PCIE_LNKCTL, val);
++		val = tr32(TG3_PCIE_LNKCTL) & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
++		tw32(TG3_PCIE_LNKCTL, val | TG3_PCIE_LNKCTL_L1_PLL_PD_DIS);
+ 	}
+ 
+ 	/* This works around an issue with Athlon chipsets on
+@@ -12951,11 +12936,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
+ 		tp->tg3_flags3 |= TG3_FLG3_USE_PHYLIB;
+ 
+-	if ((tp->pci_chip_rev_id == CHIPREV_ID_57780_A1 &&
+-	     tr32(RCVLPC_STATS_ENABLE) & RCVLPC_STATSENAB_ASF_FIX) ||
+-	    tp->pci_chip_rev_id == CHIPREV_ID_57780_A0)
+-		tp->tg3_flags3 |= TG3_FLG3_TOGGLE_10_100_L1PLLPD;
+-
+ 	err = tg3_mdio_init(tp);
+ 	if (err)
+ 		return err;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index a5568a1..eb4ed82 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2756,7 +2756,6 @@ struct tg3 {
+ #define TG3_FLG3_PHY_ENABLE_APD		0x00001000
+ #define TG3_FLG3_5755_PLUS		0x00002000
+ #define TG3_FLG3_NO_NVRAM		0x00004000
+-#define TG3_FLG3_TOGGLE_10_100_L1PLLPD	0x00008000
+ #define TG3_FLG3_PHY_IS_FET		0x00010000
+ #define TG3_FLG3_ENABLE_RSS		0x00020000
+ #define TG3_FLG3_4G_DMA_BNDRY_BUG	0x00080000
+-- 
+1.6.4.4
 
 
-
-------------------------------------------------------------------------------
-Come build with us! The BlackBerry(R) Developer Conference in SF, CA
-is the only developer event you need to attend this year. Jumpstart your
-developing skills, take BlackBerry mobile applications to market and stay 
-ahead of the curve. Join us from November 9 - 12, 2009. Register now!
-http://p.sf.net/sfu/devconference
