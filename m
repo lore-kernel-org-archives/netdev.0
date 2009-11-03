@@ -1,67 +1,56 @@
-From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Subject: Re: [PATCH] iproute2: Avoid rounding errors for 100%.
-Date: Tue, 03 Nov 2009 17:19:45 +0100
-Message-ID: <4AF05821.60303@nets.rwth-aachen.de>
-References: <1257262694-16985-1-git-send-email-hannemann@nets.rwth-aachen.de>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 1/3] sysfs directory scaling: rbtree for dirent name lookups
+Date: Tue, 3 Nov 2009 18:38:47 +0200
+Message-ID: <200911031838.47168.opurdila@ixiacom.com>
+References: <20091101163130.GA7911@kvack.org> <4AEFCA49.4020305@gmail.com> <20091103160715.GD23857@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Arnd Hannemann <Arnd.Hannemann@nets.rwth-aachen.de>
-To: "shemminger@osdl.org" <shemminger@osdl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:49619 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751650AbZKCQUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 11:20:01 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KSJ00DCXK1IE550@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 03 Nov 2009 17:20:06 +0100 (CET)
-In-reply-to: <1257262694-16985-1-git-send-email-hannemann@nets.rwth-aachen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>,
+	linux-kernel@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752918AbZKCQlm@vger.kernel.org>
+In-Reply-To: <20091103160715.GD23857@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Although the patch makes sense,
-it does not fix the bug/effect we were seeing.
-A netem reorder percentage of 100% will still get packets reordered.
-(if the netem queue is not empty)
+On Tuesday 03 November 2009 18:07:15 you wrote:
 
-
-hannemann@nets.rwth-aachen.de wrote:
-> From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+> > > What kind of test are you doing to reproduce this?
+> >
+> > Its curious because in my tests the biggest problems come from
+> > kernel/sysctl.c (__register_sysctl_paths) consuming 80% of cpu
+> > in following attempt to create 20.000 devices
+> >
+> > (disable hotplug before trying this, and ipv6 too !)
+> > modprobe dummy numdummies=20000
+> >
+> > I believe we should address __register_sysctl_paths() scalability
+> > problems too.
 > 
-> We noticed that a netem reorder percentage of 100% will still get packets reordered.
-> This patch fixes that.
+> But registering 20000 devices is a far different problem from using
+> those 20000 devices :)
 > 
-> Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-> ---
->  tc/tc_util.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
+> I think the "use the device" path should be the one we care the most
+> about fixing up, as that is much more common than the register path for
+> all users.
 > 
-> diff --git a/tc/tc_util.c b/tc/tc_util.c
-> index fe2c7eb..2641f2e 100644
-> --- a/tc/tc_util.c
-> +++ b/tc/tc_util.c
-> @@ -363,8 +363,10 @@ int get_percent(__u32 *percent, const char *str)
->  		return -1;
->  	if (*p && strcmp(p, "%"))
->  		return -1;
-> -
-> -	*percent = (unsigned) rint(per * max_percent_value);
-> +	if (per == 1.)
-> +		*percent = max_percent_value;
-> +	else
-> +		*percent = (unsigned) rint(per * max_percent_value);
->  	return 0;
->  }
->  
 
+For sysctl in general probably, but I would argue that for dynamic network 
+interfaces (ppp and other sorts of tunnels) the "use" and "register" paths are 
+not that unbalanced.
 
--- 
-Dipl.-Inform. Arnd Hannemann
-RWTH Aachen University
-Dept. of Computer Science, Informatik 4
-Ahornstr. 55, D-52074 Aachen, Germany
-Phone: (+49 241) 80-21423 Fax: (+49 241) 80-22220
+For our case where we use up to 128K interfaces, sysctl entries per network 
+interface is pretty much unusable - but I agree that is not a very common case 
+:) 
+
+However [1] is not so far fetched.
+
+[1] http://www.spinics.net/lists/netdev/msg110392.html
+
+Thanks,
+tavi
