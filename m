@@ -1,68 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000: the power down when running ifdown command
-Date: Tue, 3 Nov 2009 13:37:47 -0800
-Message-ID: <9929d2390911031337p6115fef0wc1b94e5141ead341@mail.gmail.com>
-References: <4AEC05E8.40600@miraclelinux.com>
-	 <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>
-	 <4AF00097.4040708@miraclelinux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] em_meta: avoid one dev_put()
+Date: Tue, 03 Nov 2009 22:38:49 +0100
+Message-ID: <4AF0A2E9.1080505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, davem@davemloft.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
-	e1000-devel@lists.sourceforge.net
-To: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f188.google.com ([209.85.222.188]:39187 "EHLO
-	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754975AbZKCVhm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 16:37:42 -0500
-Received: by pzk26 with SMTP id 26so4235948pzk.4
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 13:37:47 -0800 (PST)
-In-Reply-To: <4AF00097.4040708@miraclelinux.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34430 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755239AbZKCVir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 16:38:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/11/3 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
-> Jeff Kirsher wrote:
->> 2009/10/31 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
->>
->> I have added this patch to my tree for testing. =C2=A0This patch req=
-uires a
->> fair amount of regression testing, so once its passed testing I will
->> push the patch to David/netdev.
->
-> I appreciate the marge your tree.
-> If there is anything I can do, please let me know.
->
-> And I know this patch is good for e100 driver too.
-> I would really like to create patch for it.
-> How do you think about e100 driver.
->
->
-> Thanks,
-> Naohiro Ooiwa
->
+Another rcu conversion to avoid one dev_hold()/dev_put() pair
 
-Patches are always welcome (referring to a e100 patch).
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/em_meta.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-As far as the e1000 patch goes, it has a number of issues which were
-found in testing.  Here are just a few problems we saw:
-1. ethtool -t - crashes the system
-2. ethtool eth0 - always shows link/speed as 1000/Full even when there
-is no cable
-3. ethtool -s eth0 autoneg on/off - system hang. Sometimes a copper
-interface will show up as fiber after this.
-4. ethtool -d/-S/-g etc - will corrupt the stats of the interface
-while doing ifup/down
-
-So it appears that more needs to be done to the driver to get this to
-work as expected.
-
-NAK
-
---=20
-Cheers,
-Jeff
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index 18d85d2..8e8d836 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -303,17 +303,17 @@ META_COLLECTOR(var_sk_bound_if)
+ {
+ 	SKIP_NONLOCAL(skb);
+ 
+-	 if (skb->sk->sk_bound_dev_if == 0) {
++	if (skb->sk->sk_bound_dev_if == 0) {
+ 		dst->value = (unsigned long) "any";
+ 		dst->len = 3;
+-	 } else  {
++	} else {
+ 		struct net_device *dev;
+ 
+-		dev = dev_get_by_index(&init_net, skb->sk->sk_bound_dev_if);
++		rcu_read_lock();
++		dev = dev_get_by_index_rcu(&init_net, skb->sk->sk_bound_dev_if);
+ 		*err = var_dev(dev, dst);
+-		if (dev)
+-			dev_put(dev);
+-	 }
++		rcu_read_unlock();
++	}
+ }
+ 
+ META_COLLECTOR(int_sk_refcnt)
