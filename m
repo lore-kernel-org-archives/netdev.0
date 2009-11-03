@@ -1,42 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Support specifying the network namespace upon
- device creation.
-Date: Tue, 03 Nov 2009 02:44:24 -0800 (PST)
-Message-ID: <20091103.024424.146854177.davem@davemloft.net>
-References: <m1ws28ey3k.fsf@fess.ebiederm.org>
-	<20091103.020555.156050455.davem@davemloft.net>
-	<4AF0031B.4060708@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB accuracy on 10GbE
+Date: Tue, 3 Nov 2009 10:54:13 +0000
+Message-ID: <20091103105413.GD6718@ff.dom.local>
+References: <4AF0023C.5010404@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45065
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751361AbZKCKoA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Nov 2009 05:44:00 -0500
-In-Reply-To: <4AF0031B.4060708@gmail.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:63479 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751187AbZKCKyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 05:54:13 -0500
+Received: by bwz27 with SMTP id 27so7422626bwz.21
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 02:54:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4AF0023C.5010404@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Nov 2009 11:16:59 +0100
+On 03-11-2009 11:13, Badalian Vyacheslav wrote:
+>> Really?! As a matter of fact there isn't fully used the last change,
+>> especially this part:
+>>
+>> http://marc.info/?l=3Dlinux-netdev&m=3D124453482324409&w=3D2
+>>
+>> And nobody even noticed it for quite a long time. I'm not even sure
+>> Ryousei needs this now for anything but comparing with some better
+>> tool...
+>=20
+> These changes have not been tested and applied to kernel?
+>=20
+> As I now remember, I promised to test this patch and judging by=20
+> correspondence so it and have not made. My error - I am ready to
+> correct it. Probably there were difficulties, and is then banal=20
+> has forgotten.
+> It is possible to receive once again full ???=B0N~?N~?N~???N~? for th=
+e test?
 
-> David Miller a =E9crit :
->=20
->> It can also be argued that for functions, wrapping the args is
->> worse because it makes grep output less useful.  In fact that's,
->> I believe, Linus's most recent recommendation in this area :)
->=20
-> Yes, true.
->=20
-> One thing I usually miss is the { next to "struct some_name" declarat=
-ions,
-> to ease games based on "grep"=20
->=20
-> Would you accept one boring cleanup patch in include/net like followi=
-ng ?
+There were a few iproute changes, tested enough I guess. Alas, I
+didn't keep them (they could be found around with link above).
 
-Absolutely.
+But it's not about your testing. I meant: since nobody noticed
+something was (still) wrong with 1G scheduling, why bother with 10G?
+
+Best regards,
+Jarek P.
+
+PS: ...and don't remove me from CC, please ;-)
