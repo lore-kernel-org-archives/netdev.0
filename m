@@ -1,37 +1,117 @@
-From: Martin Devera <martin.devera@cdi.cz>
-Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the 	HTB_CAN_SEND
- level
-Date: Wed, 04 Nov 2009 12:58:01 +0100
-Message-ID: <4AF16C49.409@cdi.cz>
-References: <4AEF9862.8040404@gmail.com>	 <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com>	 <20091103100538.GC6718@ff.dom.local>	 <412e6f7f0911030518w7a5f02a4ue8a4b6539496dd8f@mail.gmail.com>	 <20091103230035.GA2352@ami.dom.local>	 <412e6f7f0911031753m4af1467fn1b0326bdf17fe48b@mail.gmail.com>	 <20091104082808.GA6224@ff.dom.local>	 <412e6f7f0911040116q6b25b705k83e5a45464698af1@mail.gmail.com>	 <20091104104245.GB6224@ff.dom.local> <4AF15E73.30806@cdi.cz> <412e6f7f0911040330uc5ebbcekfef57854fce501f@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 4 Nov 2009 13:57:29 +0200
+Message-ID: <20091104115729.GD8398@redhat.com>
+References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com> <4AF07199.2020601@gmail.com> <4AF072EE.9020202@gmail.com> <20091103235744.GF6726@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.cdi.cz ([80.95.109.117]:58486 "EHLO luxik.cdi.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755508AbZKDL56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2009 06:57:58 -0500
-In-Reply-To: <412e6f7f0911040330uc5ebbcekfef57854fce501f@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20091103235744.GF6726@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Changli Gao wrote:
-> On Wed, Nov 4, 2009 at 6:58 PM, Martin Devera <martin.devera@cdi.cz> wrote:
->> Hello,
->>
->> yes you are right. If I remember correctly, I tried to charge "rate"
->> tokens up to root in early versions (which makes some sense) but problem
->> is with many interior classes stuck at extreme mbuffer value, losing
->> responsivity.
-> 
-> It is strange. Would you like describe it more clearly?
+On Tue, Nov 03, 2009 at 03:57:44PM -0800, Paul E. McKenney wrote:
+> On Tue, Nov 03, 2009 at 01:14:06PM -0500, Gregory Haskins wrote:
+> > Gregory Haskins wrote:
+> > > Eric Dumazet wrote:
+> > >> Michael S. Tsirkin a =E9crit :
+> > >>> +static void handle_tx(struct vhost_net *net)
+> > >>> +{
+> > >>> +	struct vhost_virtqueue *vq =3D &net->dev.vqs[VHOST_NET_VQ_TX];
+> > >>> +	unsigned head, out, in, s;
+> > >>> +	struct msghdr msg =3D {
+> > >>> +		.msg_name =3D NULL,
+> > >>> +		.msg_namelen =3D 0,
+> > >>> +		.msg_control =3D NULL,
+> > >>> +		.msg_controllen =3D 0,
+> > >>> +		.msg_iov =3D vq->iov,
+> > >>> +		.msg_flags =3D MSG_DONTWAIT,
+> > >>> +	};
+> > >>> +	size_t len, total_len =3D 0;
+> > >>> +	int err, wmem;
+> > >>> +	size_t hdr_size;
+> > >>> +	struct socket *sock =3D rcu_dereference(vq->private_data);
+> > >>> +	if (!sock)
+> > >>> +		return;
+> > >>> +
+> > >>> +	wmem =3D atomic_read(&sock->sk->sk_wmem_alloc);
+> > >>> +	if (wmem >=3D sock->sk->sk_sndbuf)
+> > >>> +		return;
+> > >>> +
+> > >>> +	use_mm(net->dev.mm);
+> > >>> +	mutex_lock(&vq->mutex);
+> > >>> +	vhost_no_notify(vq);
+> > >>> +
+> > >> using rcu_dereference() and mutex_lock() at the same time seems wr=
+ong, I suspect
+> > >> that your use of RCU is not correct.
+> > >>
+> > >> 1) rcu_dereference() should be done inside a read_rcu_lock() secti=
+on, and
+> > >>    we are not allowed to sleep in such a section.
+> > >>    (Quoting Documentation/RCU/whatisRCU.txt :
+> > >>      It is illegal to block while in an RCU read-side critical sec=
+tion, )
+> > >>
+> > >> 2) mutex_lock() can sleep (ie block)
+> > >>
+> > >=20
+> > >=20
+> > > Michael,
+> > >   I warned you that this needed better documentation ;)
+> > >=20
+> > > Eric,
+> > >   I think I flagged this once before, but Michael convinced me that=
+ it
+> > > was indeed "ok", if but perhaps a bit unconventional.  I will try t=
+o
+> > > find the thread.
+> > >=20
+> > > Kind Regards,
+> > > -Greg
+> > >=20
+> >=20
+> > Here it is:
+> >=20
+> > http://lkml.org/lkml/2009/8/12/173
+>=20
+> What was happening in that case was that the rcu_dereference()
+> was being used in a workqueue item.  The role of rcu_read_lock()
+> was taken on be the start of execution of the workqueue item, of
+> rcu_read_unlock() by the end of execution of the workqueue item, and
+> of synchronize_rcu() by flush_workqueue().  This does work, at least
+> assuming that flush_workqueue() operates as advertised, which it appear=
+s
+> to at first glance.
+>=20
+> The above code looks somewhat different, however -- I don't see
+> handle_tx() being executed in the context of a work queue.  Instead
+> it appears to be in an interrupt handler.
+> So what is the story?  Using synchronize_irq() or some such?
+>=20
+> 							Thanx, Paul
 
-Ahh I'm starting to understand. You are concerned mainly with
+No, there has been no change (I won't be able to use a mutex in an
+interrupt handler, will I?).  handle_tx is still called in the context
+of a work queue: either from handle_tx_kick or from handle_tx_net which
+are work queue items.
 
-cl->tokens += diff;     /* we moved t_c; update tokens */
+Can you ack this usage please?
 
-am I right ?
+--=20
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
