@@ -1,55 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] bridge: remove dev_put() in add_del_if()
-Date: Wed, 04 Nov 2009 20:09:07 +0100
-Message-ID: <4AF1D153.5040309@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC-PATCH] dhcp provisioning support in cxgb3i
+Date: Wed, 4 Nov 2009 11:09:04 -0800
+Message-ID: <20091104110904.7ffc479b@s6510>
+References: <4AE995C4.4080909@chelsio.com>
+	<4AEA04A4.1060800@cs.wisc.edu>
+	<4AEA7870.4010804@chelsio.com>
+	<4AEF6FC4.6060208@cs.wisc.edu>
+	<4AF1C6C7.80103@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59795 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755714AbZKDTJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 14:09:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mike Christie <michaelc@cs.wisc.edu>, davem@davemloft.net,
+	James Bottomley <James.Bottomley@suse.de>,
+	Karen Xie <kxie@chelsio.com>,
+	"open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	netdev@vger.kernel.org, Rakesh Ranjan <rakesh@chelsio.com>
+To: Rakesh Ranjan <rakesh@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <4AF1C6C7.80103@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-add_del_if() is called with RTNL, we can use __dev_get_by_index()
-instead of [dev_get_by_index() + dev_put()]
+On Wed, 04 Nov 2009 23:54:07 +0530
+Rakesh Ranjan <rakesh@chelsio.com> wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/bridge/br_ioctl.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> Mike Christie wrote:
+> > Rakesh Ranjan wrote:
+> >> Mike Christie wrote:
+> >>> Rakesh Ranjan wrote:
+> >>>> Hi Mike,
+> >>>>
+> >>>> Herein attached patches for having dhcp provisioning support in
+> >>>> cxgb3i. I have added one new iscsi netlink message
+> >>>> ISCSI_UEVENT_REQ_IPCONF. 
+> >>>
+> >>> Is the idea to have iscsid/uip send down this msg?
+> >>>
+> >>> Was it not possible to hook in more like how bnx2i does dhcp?
+> >>
+> >> yep, idea is to have iscsid send down ISCSI_UEVENT_REQ_IPCONF msg.
+> >> bnx2i approach in our case for at least T3 is not feasible.
+> >>
+> > 
+> > I think adding DHCP in the kernel is getting a little crazy :) If we go
+> > down this path, I agree with the other person that stated it should at
+> > least be generic.
+> 
+> Hi Mike,
+> 
+> What do you mean be generic ? Do you want to have a generic interface
+> for DHCP handler that could be part of libiscsi and could be used by
+> other LLD's.
 
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index 6a6433d..2af6e4a 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -81,6 +81,7 @@ static int get_fdb_entries(struct net_bridge *br, void __user *userbuf,
- 	return num;
- }
- 
-+/* called with RTNL */
- static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
- {
- 	struct net_device *dev;
-@@ -89,7 +90,7 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	dev = dev_get_by_index(dev_net(br->dev), ifindex);
-+	dev = __dev_get_by_index(dev_net(br->dev), ifindex);
- 	if (dev == NULL)
- 		return -EINVAL;
- 
-@@ -98,7 +99,6 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
- 	else
- 		ret = br_del_if(br, dev);
- 
--	dev_put(dev);
- 	return ret;
- }
- 
+Is there anyway to make existing code (in net/ipv4/ipconfig.c) more generic
+and useful for both?
