@@ -1,99 +1,123 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder
-	Cookie
-Date: Wed, 4 Nov 2009 13:48:44 -0800
-Message-ID: <20091104214844.GA6714@linux.vnet.ibm.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AF0B0D2.4030905@gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project tree
+Date: Wed, 4 Nov 2009 22:51:22 +0100
+Message-ID: <200911042251.23506.IvDoorn@gmail.com>
+References: <200911031951.05235.bzolnier@gmail.com> <200911032200.04516.IvDoorn@gmail.com> <20091104083737.GA16978@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932963AbZKDVsm@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:45714 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932970AbZKDVvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:51:21 -0500
+In-Reply-To: <20091104083737.GA16978@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <4AF0B0D2.4030905@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 03, 2009 at 05:38:10PM -0500, William Allen Simpson wrote:
-> Eric Dumazet wrote:
->> This patch looks fine, but I dont see how this new function is used.
->> Some points :
->> 1) We are working hard to remove rwlocks from network stack, so please 
->> dont
->> add a new one. You probably can use a seqlock or RCU, or a server handling 
->> 10.000 connections request per second on many NIC will hit this rwlock.
-> This is my attempt at using RCU, as seqlock didn't seem to apply (and is
-> missing any Documentation.)
+On Wednesday 04 November 2009, Ingo Molnar wrote:
+> 
+> * Ivo van Doorn <ivdoorn@gmail.com> wrote:
+> 
+> > >       MAINTAINERS: add rt2800 entry
+> > 
+> > I see you decided to take over the maintainership? Doesn't that need 
+> > the current maintainer to move away, or was this part of the "going 
+> > over other peoples head" plan?
+> >
+> > [...]
+> >
+> > These are too much (and too big) patches for me to review at once, 
+> > I'll look at them later.
+> 
+> Frankly, having read through the recent discussions related to the 
+> rt2800pci/usb drivers, the subtle (and largely undeserved) group 
+> violence and abuse you are inflicting on Bart is stomach-turning.
+> 
+> The non-working rt2800pci driver has been pending in your private tree 
+> for how long, 1.5 _years_?
+
+Something like that.
+
+> Look at the diffstat of Bart's driver:
+> 
+>    15 files changed, 4036 insertions(+), 7158 deletions(-)
+> 
+> He reduced your 5.2 KLOC non-working driver into a 1.8 KLOC _working_ 
+> driver.
+
+Bullshit, read the mails again.
+I have acked a portion of fixes because those were small and obviously
+correct. There are some minor bugfixes in them but none of them would
+magically make the card work for everybody. So the number of lines is
+decreased but the status of the driver is the same.
+
+Some people actually require sleep during the night, perhaps that you don't need
+that and can hence review 41 patches which changes thousands of lines on the
+same day the patches were submitted.
+
+> And _still_ your complaint about Bart's series is that he updated the 
+> MAINTAINERS entry and added an entry for rt2800? Heck _sure_ he should 
+> update it, he is the one doing the hard work of trying to bring it to 
+> users, trying to clean up a messy driver space, trying to turn crap into 
+> gold.
+
+So if I want to focus on something different in the kernel, I just send 1 patch,
+and a second to claim the maintainership of it even though there is an active
+maintainer available?
+
+> The thing is, if you dont have the time or interest to listen to and act 
+> upon review feedback, be constructive about it and fix (obvious) 
+> structural problems in your rt2800 code, you should just step aside and 
+> let Bart maintain what he is apparently more capable of maintaining than 
+> you are.
 >
-> After the discussion about context, one question that I have is the need
-> for the _bh suffix?
->
-> +		rcu_read_lock_bh();
-> +		memcpy(&xvp->cookie_bakery[0],
-> +		       &rcu_dereference(tcp_secret_generating)->secrets[0],
-> +		       sizeof(tcp_secret_generating->secrets));
-> +		rcu_read_unlock_bh();
->
->
-> Documentation/RCU/checklist.txt #7 says:
->
->   One exception to this rule: rcu_read_lock() and rcu_read_unlock()
->   may be substituted for rcu_read_lock_bh() and rcu_read_unlock_bh()
->   in cases where local bottom halves are already known to be
->   disabled, for example, in irq or softirq context.  Commenting
->   such cases is a must, of course!  And the jury is still out on
->   whether the increased speed is worth it.
+> What you are doing here is a thinly veiled land-grab: you did a minimal 
+> token driver for rt2800 that doesnt work, kept it in your private tree 
+> for _1.5 years_, and the moment someone _else_ came along and did 
+> something better and more functional in drivers/staging/, you discovered 
+> your sudden interest for it and moved the crappy driver upstream at 
+> lightning's speed (it is already in net-next AFAICS, despite negative 
+> test and review feedback) - ignoring and throwing away all the work that 
+> Bart has done.
 
-I strongly suggest using the matching primitives unless you have a
-really strong reason not to.
+Get your facts straight, the bullshit level in your mail is staggering.
 
-> diff --git a/include/linux/cryptohash.h b/include/linux/cryptohash.h
-> index c118b2a..ec78a4b 100644
-> --- a/include/linux/cryptohash.h
-> +++ b/include/linux/cryptohash.h
+You have no fucking clue who wrote the rt2800 driver which is in drivers/staging/,
+you have no clue why it was added, and you don't even know what the intention
+was for that driver from day 1 (which was clearly communicated!)
 
-[ . . . ]
+You even are missing the point _why_ the rt2x00 driver was 1.5 years in development,
+but I'll highlight that part for you:
 
-> +			if (unlikely(tcp_secret_primary->expires ==
-> +				     tcp_secret_secondary->expires)) {
-> +				struct timespec tv;
-> +	
-> +				getnstimeofday(&tv);
-> +				secrets[COOKIE_DIGEST_WORDS+0] ^= (u32)tv.tv_nsec;
-> +				tcp_secret_secondary->expires = jiffy
-> +							      + TCP_SECRET_1MSL;
-> +			} else {
-> +				tcp_secret_secondary->expires = jiffy
-> +							      + TCP_SECRET_LIFE;
-> +				tcp_secret_primary->expires = jiffy
-> +							    + TCP_SECRET_2MSL;
-> +			}
-> +			memcpy(&tcp_secret_secondary->secrets[0],
-> +			       &secrets[0],
-> +			       sizeof(secrets));
-> +
-> +			rcu_assign_pointer(tcp_secret_generating,
-> +					   tcp_secret_secondary);
-> +			rcu_assign_pointer(tcp_secret_retiring,
-> +					   tcp_secret_primary);
-> +			spin_unlock(&tcp_secret_locker);
-> +			/* call_rcu() or synchronize_rcu() not needed. */
+	Because a lot of people prefer looking from the sideline, contributing _nothing_
+	and then after a year complain that the development is going too slowly and they
+	could have done better. Apparently that is the style you prefer, but that is most
+	definately _not_ how I think Open Source should work.
 
-Would you be willing to say why?  Are you relying on a time delay for a
-given item to pass through tcp_secret_secondary and tcp_secret_retiring
-or some such?  If so, how do you know that this time delay will always
-be long enough?
+As for "throwing away that work" I ACKED 10 of his patches, and said I would review
+the rest later! But like I said, apparently it is a bad habit for people to sleep during
+the night.
 
-Or are you just shuffling the data structures around, without ever
-freeing them?  If so, is it really OK for a given reader to keep a
-reference to a given item through the full range of shuffling, especially
-given that it might be accesssing this concurrently with the ->expires
-assignments above?
+> Such behavior wouldnt fly in _any_ other Linux subsystem, but apparently 
+> there is one set of rules for upstream kernel maintainers and then 
+> there's another, different set of rules for upstream wireless driver 
+> maintainers.
 
-Either way, could you please expand the comment to give at least some
-hint to the poor guy reading your code?  ;-)
+So non-wireless maintainers don't need to review patches before giving their Ack?
+Well that makes the Acked-by and Signed-off rules completely meaningless,
+I wonder why everybody is demanding it before patches are merged...
 
-							Thanx, Paul
+Ivo
