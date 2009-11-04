@@ -1,39 +1,56 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH 1/1] NET: sungem, use spin_trylock_irqsave
-Date: Wed,  4 Nov 2009 17:06:58 +0100
-Message-ID: <1257350818-4194-1-git-send-email-jirislaby@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Slaby <jirislaby@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757049AbZKDQG4@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] e1000: the power down when running ifdown command
+Date: Wed, 4 Nov 2009 08:08:46 -0800
+Message-ID: <20091104080846.5bf4d225@nehalam>
+References: <4AEC05E8.40600@miraclelinux.com>
+	<20091031105838.0d4b59a2@nehalam>
+	<4AEE35D2.4000503@miraclelinux.com>
+	<4AF1562F.8010401@miraclelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	davem@davemloft.net, Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
+	e1000-devel@lists.sourceforge.net
+To: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42587 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756864AbZKDQJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 11:09:07 -0500
+In-Reply-To: <4AF1562F.8010401@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use spin_trylock_irqsave instead of open-coded
-local_irq_save+spin_trylock.
+On Wed, 04 Nov 2009 19:23:43 +0900
+Naohiro Ooiwa <nooiwa@miraclelinux.com> wrote:
 
-Impact: cleanup
+> Naohiro Ooiwa wrote:
+> > Stephen Hemminger wrote:
+> >> On Sat, 31 Oct 2009 18:39:52 +0900
+> >> Naohiro Ooiwa <nooiwa@miraclelinux.com> wrote:
+> >>
+> >> Does this work with Wake On Lan? 
+> > 
+> > Yes, it works WOL.
+> 
+> Sorry, I made a mistake.
+> The WOL doesn't work when my patch applied to kernel.
+> I wasn't myself.
+> 
+> I consider the WOL and I will resent the patch.
+> Thank you for your point.
+> 
+> 
+> thanks,
+> Naohiro Ooiwa
 
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
----
- drivers/net/sungem.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-index 7019a0d..51bde03 100644
---- a/drivers/net/sungem.c
-+++ b/drivers/net/sungem.c
-@@ -1034,10 +1034,8 @@ static netdev_tx_t gem_start_xmit(struct sk_buff *skb,
- 			(csum_stuff_off << 21));
- 	}
- 
--	local_irq_save(flags);
--	if (!spin_trylock(&gp->tx_lock)) {
-+	if (!spin_trylock_irqsave(&gp->tx_lock, flags)) {
- 		/* Tell upper layer to requeue */
--		local_irq_restore(flags);
- 		return NETDEV_TX_LOCKED;
- 	}
- 	/* We raced with gem_do_stop() */
+Good, thank you for checking. I like the idea of powering down the
+PHY. Some of the drivers have shutdown hooks to power PHY back on
+during shutdown to enable WOL.
+
+
 -- 
-1.6.4.2
