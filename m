@@ -1,56 +1,51 @@
-From: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Wed, 4 Nov 2009 03:03:01 +0100
-Message-ID: <20091104020301.GA7037@bizet.domek.prywatny>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091023165810.GA4588@bizet.domek.prywatny> <20091023211239.GA6185@bizet.domek.prywatny> <9ec2d7290910240646p75b93c68v6ea1648d628a9660@mail.gmail.com> <20091028114208.GA14476@bizet.domek.prywatny> <20091028115926.GW8900@csn.ul.ie> <20091030142350.GA9343@bizet.domek.prywatny> <20091102203034.GC22046@csn.ul.ie>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project tree
+Date: Wed, 4 Nov 2009 03:28:01 +0100
+Message-ID: <200911040328.01997.bzolnier@gmail.com>
+References: <200911031951.05235.bzolnier@gmail.com> <200911040046.54247.bzolnier@gmail.com> <646765f40911031733u1641c0dr5d4eec30031e7cea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karol Lewandowski <karol.k.lewandowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Sven Geggus <lists-+AJD3D7QEjjt/htJsj1pd9AswbaBtrod@public.gmane.org>,
-	Tobias Oetiker <tobi-7K0TWYW2a3pyDzI6CaY1VQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>,
-	David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Mohamed Abbas <mohamed.abbas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephan von Krawczynski <skraw-DcQCyzbjH0jQT0dZR+AlfA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>
-To: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20091102203034.GC22046-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Gertjan van Wingerde <gwingerde@gmail.com>,
+	Ivo van Doorn <ivdoorn@gmail.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:56888 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591AbZKDC2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 21:28:35 -0500
+In-Reply-To: <646765f40911031733u1641c0dr5d4eec30031e7cea@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2009 at 08:30:34PM +0000, Mel Gorman wrote:
-> Does applying the following on top make any difference?
+On Wednesday 04 November 2009 02:33:52 Julian Calaby wrote:
+> On Wed, Nov 4, 2009 at 10:46, Bartlomiej Zolnierkiewicz
+> <bzolnier@gmail.com> wrote:
+> >> If you just want to continue with a hostile take-over of the rt2800
+> >> maintainership, then please
+> >> let us know that, so that we stop spending time on useless
+> >
+> > I fail to see why you see it as a hostile takeover.
 > 
-> ==== CUT HERE ====
-> PM: Shrink memory before suspend
+> Updating MAINTAINERS to replace the current developers with yourself
+> can be considered to be a hostile act.
+> 
+> If you want this for your own personal tree, then keep the patch
+> private - don't include it in pull requests, patch listings etc.
 
-No, this patch didn't change anything either.
+This is not pull request etc. but since the change in question has been
+stirring needless controversies and distracting people from reading patches
+it has been dropped for now.
 
-IIRC I get failures while free(1) shows as much as 20MB free RAM
-(ie. without buffers/caches).  Additionaly nr_free_pages (from
-/proc/vmstat) stays at about 800-1000 under heavy memory pressure
-(gitk on full linux repository).
-
-
---- babbling follows ---
-
-Hmm, I wonder if it's really timing issue then wouldn't be the case
-that lowering swappiness sysctl would make problem more visible?
-I've vm.swappiness=15, would testing with higher value make any sense?
-
-Thanks.
+-- 
+Bartlomiej Zolnierkiewicz
