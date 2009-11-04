@@ -1,37 +1,57 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project
-	tree
-Date: Wed, 4 Nov 2009 17:12:07 -0500
-Message-ID: <20091104221207.GJ10786@tuxdriver.com>
-References: <200911031951.05235.bzolnier@gmail.com> <200911032200.04516.IvDoorn@gmail.com> <20091104083737.GA16978@elte.hu> <200911042251.23506.IvDoorn@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next-2.6 2009-10-28
+Date: Wed, 4 Nov 2009 17:09:16 -0500
+Message-ID: <20091104220916.GI10786@tuxdriver.com>
+References: <1256886023.3555.5.camel@johannes.local> <20091102211629.GA1322@ucw.cz> <alpine.LRH.2.00.0911041403480.31913@twin.jikos.cz> <200911042217.49144.IvDoorn@gmail.com> <20091104220024.GC27325@elf.ucw.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
-	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Ivo van Doorn <ivdoorn@gmail.com>, Jiri Kosina <jkosina@suse.cz>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758293AbZKDWPJ@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <200911042251.23506.IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20091104220024.GC27325@elf.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 04, 2009 at 10:51:22PM +0100, Ivo van Doorn wrote:
+On Wed, Nov 04, 2009 at 11:00:25PM +0100, Pavel Machek wrote:
+> > > But yes, he got flamed for this for some odd reason. I got the impression 
+> > > that the community around rt2x00 doesn't like (or understand) the way how 
+> > > opensource development happens.
+> > 
+> > Well you mean the open source development where non-contributors
+> > complain that the contributors work too slowly? 
+> 
+> This was the case when non-contributor complained that patch adds
+> 2KLoC of unneccessary code.
+> 
+> > Perhaps
+> > that is the policy in some companies which try to import it into the
+> > Open Source world...
+> 
+> Do you really have to attack everyone around?
 
-> Get your facts straight, the bullshit level in your mail is staggering.
+Really, this is enough.
 
-Please, enough!
+It seems clear that neither side of this debate sees or appreciates
+the injuries that the other side claims.  In any case, there seems
+little good can come from continuing this bickering.
 
+Now that Bart is posting patches and the rt2x00 team is actively
+reviewing (and mostly Acking) them, I hope everyone can just BACK
+THE HELL OFF and let the process work itself out.
+
+Please let this discussion end.
+
+John
 -- 
 John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+linville@tuxdriver.com			might be all we have.  Be ready.
