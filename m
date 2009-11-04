@@ -1,231 +1,145 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/2 07/15] wimax: allow specifying debug levels as command line option
-Date: Wed,  4 Nov 2009 13:39:48 -0800
-Message-ID: <4c2b1a11646bf74e2926ce8b13a21884adc1e05c.1257370736.git.inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/3 02/13] wimax/i6x50: add Intel WiFi/WiMAX Link 6050 Series support
+Date: Wed,  4 Nov 2009 13:39:53 -0800
+Message-ID: <7329012e673231dee9a21567cfb9881f5ea462ba.1257370736.git.inaky@linux.intel.com>
 References: <cover.1257370736.git.inaky@linux.intel.com>
+Cc: Dirk Brandewie <dirk.j.brandewie@intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:20702 "EHLO
+Received: from mga06.intel.com ([134.134.136.21]:20707 "EHLO
 	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932713AbZKDVl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:41:59 -0500
+	with ESMTP id S932730AbZKDVmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:04 -0500
 In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
 References: <cover.1257370736.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add "debug" module options to all the wimax modules (including
-drivers) so that the debug levels can be set upon kernel boot or
-module load time.
+From: Dirk Brandewie <dirk.j.brandewie@intel.com>
 
-This is needed as currently there was a limitation where the debug
-levels could only be set when a device was succesfully
-enumerated. This made it difficult to debug issues that made a device
-not probe properly.
+Add support for the WiMAX device in the Intel WiFi/WiMAX Link 6050
+Series; this involves:
 
+ - adding the device ID to bind to and an endpoint mapping for the
+   driver to use.
+
+ - at probe() time, some things are set depending on the device id:
+
+   + the list of firmware names to try
+
+   + mapping of endpoints
+
+Signed-off-by: Dirk Brandewie <dirk.j.brandewie@intel.com>
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/driver.c |   10 +++++
- drivers/net/wimax/i2400m/sdio.c   |   10 +++++
- drivers/net/wimax/i2400m/usb.c    |    9 +++++
- include/linux/wimax/debug.h       |   72 +++++++++++++++++++++++++++++++++++++
- net/wimax/stack.c                 |   11 ++++++
- 5 files changed, 112 insertions(+), 0 deletions(-)
+ drivers/net/wimax/i2400m/fw.c         |    3 +++
+ drivers/net/wimax/i2400m/i2400m-usb.h |    3 +++
+ drivers/net/wimax/i2400m/usb.c        |   26 +++++++++++++++++++-------
+ include/linux/wimax/i2400m.h          |    1 +
+ 4 files changed, 26 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 7ba00de..e3b2c24 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -90,6 +90,14 @@ MODULE_PARM_DESC(power_save_disabled,
- 		 "False by default (so the device is told to do power "
- 		 "saving).");
- 
-+static char i2400m_debug_params[128];
-+module_param_string(debug, i2400m_debug_params, sizeof(i2400m_debug_params),
-+		    0644);
-+MODULE_PARM_DESC(debug,
-+		 "String of space-separated NAME:VALUE pairs, where NAMEs "
-+		 "are the different debug submodules and VALUE are the "
-+		 "initial debug value to set.");
-+
- /**
-  * i2400m_queue_work - schedule work on a i2400m's queue
-  *
-@@ -794,6 +802,8 @@ size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
- static
- int __init i2400m_driver_init(void)
- {
-+	d_parse_params(D_LEVEL, D_LEVEL_SIZE, i2400m_debug_params,
-+		       "i2400m.debug");
- 	return 0;
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 84a39c3..5719f4a 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -277,6 +277,9 @@ int i2400m_barker_db_known_barkers(void)
+ 	result = i2400m_barker_db_add(I2400M_SBOOT_BARKER);
+ 	if (result < 0)
+ 		goto error_add;
++	result = i2400m_barker_db_add(I2400M_SBOOT_BARKER_6050);
++	if (result < 0)
++		goto error_add;
+ error_add:
+        return result;
  }
- module_init(i2400m_driver_init);
-diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
-index 7c1b843..2d2cc5a 100644
---- a/drivers/net/wimax/i2400m/sdio.c
-+++ b/drivers/net/wimax/i2400m/sdio.c
-@@ -71,6 +71,14 @@
- static int ioe_timeout = 2;
- module_param(ioe_timeout, int, 0);
- 
-+static char i2400ms_debug_params[128];
-+module_param_string(debug, i2400ms_debug_params, sizeof(i2400ms_debug_params),
-+		    0644);
-+MODULE_PARM_DESC(debug,
-+		 "String of space-separated NAME:VALUE pairs, where NAMEs "
-+		 "are the different debug submodules and VALUE are the "
-+		 "initial debug value to set.");
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+index f73a067..5cc0f27 100644
+--- a/drivers/net/wimax/i2400m/i2400m-usb.h
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -148,6 +148,9 @@ enum {
+ 	I2400MU_MAX_NOTIFICATION_LEN = 256,
+ 	I2400MU_BLK_SIZE = 16,
+ 	I2400MU_PL_SIZE_MAX = 0x3EFF,
 +
- /* Our firmware file name list */
- static const char *i2400ms_bus_fw_names[] = {
- #define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-1.3.sbcf"
-@@ -559,6 +567,8 @@ struct sdio_driver i2400m_sdio_driver = {
- static
- int __init i2400ms_driver_init(void)
- {
-+	d_parse_params(D_LEVEL, D_LEVEL_SIZE, i2400ms_debug_params,
-+		       "i2400m_sdio.debug");
- 	return sdio_register_driver(&i2400m_sdio_driver);
- }
- module_init(i2400ms_driver_init);
++	/* Device IDs */
++	USB_DEVICE_ID_I6050 = 0x0186,
+ };
+ 
+ 
 diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
-index a5879e2..0634222 100644
+index 0634222..77d08d9 100644
 --- a/drivers/net/wimax/i2400m/usb.c
 +++ b/drivers/net/wimax/i2400m/usb.c
-@@ -71,6 +71,13 @@
- #define D_SUBMODULE usb
- #include "usb-debug-levels.h"
- 
-+static char i2400mu_debug_params[128];
-+module_param_string(debug, i2400mu_debug_params, sizeof(i2400mu_debug_params),
-+		    0644);
-+MODULE_PARM_DESC(debug,
-+		 "String of space-separated NAME:VALUE pairs, where NAMEs "
-+		 "are the different debug submodules and VALUE are the "
-+		 "initial debug value to set.");
+@@ -80,11 +80,16 @@ MODULE_PARM_DESC(debug,
+ 		 "initial debug value to set.");
  
  /* Our firmware file name */
- static const char *i2400mu_bus_fw_names[] = {
-@@ -633,6 +640,8 @@ struct usb_driver i2400mu_driver = {
+-static const char *i2400mu_bus_fw_names[] = {
++static const char *i2400mu_bus_fw_names_5x50[] = {
+ #define I2400MU_FW_FILE_NAME_v1_4 "i2400m-fw-usb-1.4.sbcf"
+ 	I2400MU_FW_FILE_NAME_v1_4,
+-#define I2400MU_FW_FILE_NAME_v1_3 "i2400m-fw-usb-1.3.sbcf"
+-	I2400MU_FW_FILE_NAME_v1_3,
++	NULL,
++};
++
++
++static const char *i2400mu_bus_fw_names_6050[] = {
++#define I6050U_FW_FILE_NAME_v1_5 "i6050-fw-usb-1.5.sbcf"
++	I6050U_FW_FILE_NAME_v1_5,
+ 	NULL,
+ };
+ 
+@@ -418,10 +423,16 @@ int i2400mu_probe(struct usb_interface *iface,
+ 	i2400m->bus_bm_retries = I2400M_USB_BOOT_RETRIES;
+ 	i2400m->bus_bm_cmd_send = i2400mu_bus_bm_cmd_send;
+ 	i2400m->bus_bm_wait_for_ack = i2400mu_bus_bm_wait_for_ack;
+-	i2400m->bus_fw_names = i2400mu_bus_fw_names;
+ 	i2400m->bus_bm_mac_addr_impaired = 0;
+ 
+-	{
++	if (id->idProduct == USB_DEVICE_ID_I6050) {
++		i2400m->bus_fw_names = i2400mu_bus_fw_names_6050;
++		i2400mu->endpoint_cfg.bulk_out = 0;
++		i2400mu->endpoint_cfg.notification = 3;
++		i2400mu->endpoint_cfg.reset_cold = 2;
++		i2400mu->endpoint_cfg.bulk_in = 1;
++	} else {
++		i2400m->bus_fw_names = i2400mu_bus_fw_names_5x50;
+ 		i2400mu->endpoint_cfg.bulk_out = 0;
+ 		i2400mu->endpoint_cfg.notification = 1;
+ 		i2400mu->endpoint_cfg.reset_cold = 2;
+@@ -614,6 +625,7 @@ out:
+ 
  static
- int __init i2400mu_driver_init(void)
- {
-+	d_parse_params(D_LEVEL, D_LEVEL_SIZE, i2400mu_debug_params,
-+		       "i2400m_usb.debug");
- 	return usb_register(&i2400mu_driver);
- }
- module_init(i2400mu_driver_init);
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
-index c703e03..db8096e 100644
---- a/include/linux/wimax/debug.h
-+++ b/include/linux/wimax/debug.h
-@@ -450,4 +450,76 @@ do {							\
- })
+ struct usb_device_id i2400mu_id_table[] = {
++	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050) },
+ 	{ USB_DEVICE(0x8086, 0x0181) },
+ 	{ USB_DEVICE(0x8086, 0x1403) },
+ 	{ USB_DEVICE(0x8086, 0x1405) },
+@@ -656,7 +668,7 @@ void __exit i2400mu_driver_exit(void)
+ module_exit(i2400mu_driver_exit);
  
- 
-+static inline
-+void d_submodule_set(struct d_level *d_level, size_t d_level_size,
-+		     const char *submodule, u8 level, const char *tag)
-+{
-+	struct d_level *itr, *top;
-+	int index = -1;
-+
-+	for (itr = d_level, top = itr + d_level_size; itr < top; itr++) {
-+		index++;
-+		if (itr->name == NULL) {
-+			printk(KERN_ERR "%s: itr->name NULL?? (%p, #%d)\n",
-+			       tag, itr, index);
-+			continue;
-+		}
-+		if (!strcmp(itr->name, submodule)) {
-+			itr->level = level;
-+			return;
-+		}
-+	}
-+	printk(KERN_ERR "%s: unknown submodule %s\n", tag, submodule);
-+}
-+
-+
-+/**
-+ * d_parse_params - Parse a string with debug parameters from the
-+ * command line
-+ *
-+ * @d_level: level structure (D_LEVEL)
-+ * @d_level_size: number of items in the level structure
-+ *     (D_LEVEL_SIZE).
-+ * @_params: string with the parameters; this is a space (not tab!)
-+ *     separated list of NAME:VALUE, where value is the debug level
-+ *     and NAME is the name of the submodule.
-+ * @tag: string for error messages (example: MODULE.ARGNAME).
-+ */
-+static inline
-+void d_parse_params(struct d_level *d_level, size_t d_level_size,
-+		    const char *_params, const char *tag)
-+{
-+	char submodule[130], *params, *params_orig, *token, *colon;
-+	unsigned level, tokens;
-+
-+	if (_params == NULL)
-+		return;
-+	params_orig = kstrdup(_params, GFP_KERNEL);
-+	params = params_orig;
-+	while (1) {
-+		token = strsep(&params, " ");
-+		if (token == NULL)
-+			break;
-+		if (*token == '\0')	/* eat joint spaces */
-+			continue;
-+		/* kernel's sscanf %s eats until whitespace, so we
-+		 * replace : by \n so it doesn't get eaten later by
-+		 * strsep */
-+		colon = strchr(token, ':');
-+		if (colon != NULL)
-+			*colon = '\n';
-+		tokens = sscanf(token, "%s\n%u", submodule, &level);
-+		if (colon != NULL)
-+			*colon = ':';	/* set back, for error messages */
-+		if (tokens == 2)
-+			d_submodule_set(d_level, d_level_size,
-+					submodule, level, tag);
-+		else
-+			printk(KERN_ERR "%s: can't parse '%s' as a "
-+			       "SUBMODULE:LEVEL (%d tokens)\n",
-+			       tag, token, tokens);
-+	}
-+	kfree(params_orig);
-+}
-+
- #endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/stack.c b/net/wimax/stack.c
-index 79fb7d7..c886641 100644
---- a/net/wimax/stack.c
-+++ b/net/wimax/stack.c
-@@ -60,6 +60,14 @@
- #define D_SUBMODULE stack
- #include "debug-levels.h"
- 
-+static char wimax_debug_params[128];
-+module_param_string(debug, wimax_debug_params, sizeof(wimax_debug_params),
-+		    0644);
-+MODULE_PARM_DESC(debug,
-+		 "String of space-separated NAME:VALUE pairs, where NAMEs "
-+		 "are the different debug submodules and VALUE are the "
-+		 "initial debug value to set.");
-+
- /*
-  * Authoritative source for the RE_STATE_CHANGE attribute policy
-  *
-@@ -562,6 +570,9 @@ int __init wimax_subsys_init(void)
- 	int result, cnt;
- 
- 	d_fnstart(4, NULL, "()\n");
-+	d_parse_params(D_LEVEL, D_LEVEL_SIZE, wimax_debug_params,
-+		       "wimax.debug");
-+
- 	snprintf(wimax_gnl_family.name, sizeof(wimax_gnl_family.name),
- 		 "WiMAX");
- 	result = genl_register_family(&wimax_gnl_family);
+ MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
+-MODULE_DESCRIPTION("Intel 2400M WiMAX networking for USB");
++MODULE_DESCRIPTION("Driver for USB based Intel Wireless WiMAX Connection 2400M "
++		   "(5x50 & 6050)");
+ MODULE_LICENSE("GPL");
+ MODULE_FIRMWARE(I2400MU_FW_FILE_NAME_v1_4);
+-MODULE_FIRMWARE(I2400MU_FW_FILE_NAME_v1_3);
+diff --git a/include/linux/wimax/i2400m.h b/include/linux/wimax/i2400m.h
+index fd5af05..62d3561 100644
+--- a/include/linux/wimax/i2400m.h
++++ b/include/linux/wimax/i2400m.h
+@@ -266,6 +266,7 @@ enum {
+ 	I2400M_WARM_RESET_BARKER = 0x50f750f7,
+ 	I2400M_NBOOT_BARKER = 0xdeadbeef,
+ 	I2400M_SBOOT_BARKER = 0x0ff1c1a1,
++	I2400M_SBOOT_BARKER_6050 = 0x80000001,
+ 	I2400M_ACK_BARKER = 0xfeedbabe,
+ 	I2400M_D2H_MSG_BARKER = 0xbeefbabe,
+ };
 -- 
 1.6.2.5
 
