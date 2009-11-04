@@ -1,51 +1,122 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/5 00/12] WiMAX pull request
-Date: Wed,  4 Nov 2009 13:40:05 -0800
-Message-ID: <cover.1257370738.git.inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/4 09/13] wimax/i2400m: move i2400m_init() out of i2400m.h
+Date: Wed,  4 Nov 2009 13:40:04 -0800
+Message-ID: <af77dfa7811cd4e533003a9e7e9bf27dece96c6d.1257370737.git.inaky@linux.intel.com>
+References: <cover.1257370737.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:28863 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932781AbZKDVmR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:17 -0500
+Received: from mga12.intel.com ([143.182.124.36]:17987 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932775AbZKDVmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:13 -0500
+In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
+References: <cover.1257370737.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 4a78fd9a736db4c871bc8b583d66b61c38abd299:
-  Inaky Perez-Gonzalez (1):
-        wimax/i2400m: fix oops caused by race condition when exiting USB kthreads
+Upcoming changes will have to add things to this function that expose
+more internals, which would mean more forward declarators.
 
-are available in the git repository at:
+Frankly, it doesn't need to be an inline, so moved to driver.c, where
+the declarations will be taken from the header file.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.33.y
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/driver.c |   30 ++++++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/i2400m.h |   31 +------------------------------
+ 2 files changed, 31 insertions(+), 30 deletions(-)
 
-Patches follow for reviewing convenience.
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 10673af..9b78e05 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -849,6 +849,36 @@ void i2400m_bm_buf_free(struct i2400m *i2400m)
+ 
+ 
+ /**
++ * i2400m_init - Initialize a 'struct i2400m' from all zeroes
++ *
++ * This is a bus-generic API call.
++ */
++void i2400m_init(struct i2400m *i2400m)
++{
++	wimax_dev_init(&i2400m->wimax_dev);
++
++	i2400m->boot_mode = 1;
++	i2400m->rx_reorder = 1;
++	init_waitqueue_head(&i2400m->state_wq);
++
++	spin_lock_init(&i2400m->tx_lock);
++	i2400m->tx_pl_min = UINT_MAX;
++	i2400m->tx_size_min = UINT_MAX;
++
++	spin_lock_init(&i2400m->rx_lock);
++	i2400m->rx_pl_min = UINT_MAX;
++	i2400m->rx_size_min = UINT_MAX;
++
++	mutex_init(&i2400m->msg_mutex);
++	init_completion(&i2400m->msg_completion);
++
++	mutex_init(&i2400m->init_mutex);
++	/* wake_tx_ws is initialized in i2400m_tx_setup() */
++}
++EXPORT_SYMBOL_GPL(i2400m_init);
++
++
++/**
+  * i2400m_setup - bus-generic setup function for the i2400m device
+  *
+  * @i2400m: device descriptor (bus-specific parts have been initialized)
+diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
+index f5ed7d5..4f8815d 100644
+--- a/drivers/net/wimax/i2400m/i2400m.h
++++ b/drivers/net/wimax/i2400m/i2400m.h
+@@ -576,36 +576,6 @@ struct i2400m {
+ 
+ 
+ /*
+- * Initialize a 'struct i2400m' from all zeroes
+- *
+- * This is a bus-generic API call.
+- */
+-static inline
+-void i2400m_init(struct i2400m *i2400m)
+-{
+-	wimax_dev_init(&i2400m->wimax_dev);
+-
+-	i2400m->boot_mode = 1;
+-	i2400m->rx_reorder = 1;
+-	init_waitqueue_head(&i2400m->state_wq);
+-
+-	spin_lock_init(&i2400m->tx_lock);
+-	i2400m->tx_pl_min = UINT_MAX;
+-	i2400m->tx_size_min = UINT_MAX;
+-
+-	spin_lock_init(&i2400m->rx_lock);
+-	i2400m->rx_pl_min = UINT_MAX;
+-	i2400m->rx_size_min = UINT_MAX;
+-
+-	mutex_init(&i2400m->msg_mutex);
+-	init_completion(&i2400m->msg_completion);
+-
+-	mutex_init(&i2400m->init_mutex);
+-	/* wake_tx_ws is initialized in i2400m_tx_setup() */
+-}
+-
+-
+-/*
+  * Bus-generic internal APIs
+  * -------------------------
+  */
+@@ -737,6 +707,7 @@ unsigned i2400m_brh_get_signature(const struct i2400m_bootrom_header *hdr)
+ /*
+  * Driver / device setup and internal functions
+  */
++extern void i2400m_init(struct i2400m *);
+ extern void i2400m_netdev_setup(struct net_device *net_dev);
+ extern int i2400m_sysfs_setup(struct device_driver *);
+ extern void i2400m_sysfs_release(struct device_driver *);
+-- 
+1.6.2.5
 
-Inaky Perez-Gonzalez (12):
-      wimax/i2400m: make i2400m->bus_dev_{stop,start}() optional
-      wimax/i2400m: SDIO: fix oops on reset when TXing on uninitialized data
-      wimax/i2400m: implement passive mode as a module option
-      wimax/i2400m: introduce i2400m_reset(), stopping TX and carrier
-      wimax/i2400m: fix device getting stuck in IDLE mode
-      wimax/i2400m: Fix USB timeout specifications (to ms from HZ)
-      wimax/i2400m: correctly identify all iwmc3200-based SKUs
-      wimax/i2400m: don't retry SDIO enable in probe() paths
-      wimax/i2400m: handle USB stalls
-      wimax/i2400m: fix bad assignment of return value in i2400mu_tx_bulk_out
-      wimax/i2400m: fix SDIO debugfs dentry name
-      wimax/i2400m: fix inverted value in i2400ms_bus_setup()
-
- drivers/net/wimax/i2400m/control.c     |   14 +++++-
- drivers/net/wimax/i2400m/debugfs.c     |    2 +-
- drivers/net/wimax/i2400m/driver.c      |   36 +++++++++++---
- drivers/net/wimax/i2400m/fw.c          |    4 +-
- drivers/net/wimax/i2400m/i2400m-sdio.h |   11 ++++
- drivers/net/wimax/i2400m/i2400m.h      |   15 +++---
- drivers/net/wimax/i2400m/netdev.c      |   25 +++++++--
- drivers/net/wimax/i2400m/rx.c          |    4 +-
- drivers/net/wimax/i2400m/sdio.c        |   81 ++++++++++++++------------------
- drivers/net/wimax/i2400m/usb-fw.c      |   25 +++++++++-
- drivers/net/wimax/i2400m/usb-rx.c      |   23 +++++++++-
- drivers/net/wimax/i2400m/usb-tx.c      |   24 +++++++++-
- drivers/net/wimax/i2400m/usb.c         |   61 +++++++++++++++++++++---
- 13 files changed, 240 insertions(+), 85 deletions(-)
