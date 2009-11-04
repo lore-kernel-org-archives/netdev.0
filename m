@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 15/25] mlx4_core: multi-function interface setup
-Date: Wed, 04 Nov 2009 17:31:36 +0200
-Message-ID: <4AF19E58.8000804@mellanox.co.il>
+Subject: [PATCH 13/25] mlx4_core: remove unused driver/kernel uar (kar)
+Date: Wed, 04 Nov 2009 17:31:27 +0200
+Message-ID: <4AF19E4F.405@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -13,61 +13,80 @@ Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Master verifies hw healthiness.
-Interface drivers are only supported on slaves.
 
 Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/intf.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
+ drivers/net/mlx4/main.c |   25 +------------------------
+ drivers/net/mlx4/mlx4.h |    2 --
+ 2 files changed, 1 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/mlx4/intf.c b/drivers/net/mlx4/intf.c
-index 0e7eb10..f5f4523 100644
---- a/drivers/net/mlx4/intf.c
-+++ b/drivers/net/mlx4/intf.c
-@@ -88,8 +88,11 @@ int mlx4_register_interface(struct mlx4_interface *intf)
- 	mutex_lock(&intf_mutex);
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+index 4edc8d7..d8143c6 100644
+--- a/drivers/net/mlx4/main.c
++++ b/drivers/net/mlx4/main.c
+@@ -883,26 +883,11 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 		return err;
+ 	}
  
- 	list_add_tail(&intf->list, &intf_list);
--	list_for_each_entry(priv, &dev_list, dev_list)
--		mlx4_add_device(intf, priv);
-+	list_for_each_entry(priv, &dev_list, dev_list) {
-+		/* CX1: master cannot run interfaces */
-+		if (!mlx4_is_master(&priv->dev))
-+			mlx4_add_device(intf, priv);
-+	}
- 
- 	mutex_unlock(&intf_mutex);
- 
-@@ -135,11 +138,14 @@ int mlx4_register_device(struct mlx4_dev *dev)
- 	mutex_lock(&intf_mutex);
- 
- 	list_add_tail(&priv->dev_list, &dev_list);
--	list_for_each_entry(intf, &intf_list, list)
--		mlx4_add_device(intf, priv);
+-	err = mlx4_uar_alloc(dev, &priv->driver_uar);
+-	if (err) {
+-		mlx4_err(dev, "Failed to allocate driver access region, "
+-			 "aborting.\n");
+-		goto err_uar_table_free;
+-	}
 -
-+	/* CX1: master cannot run interfaces */
-+	if (!mlx4_is_master(dev)) {
-+		list_for_each_entry(intf, &intf_list, list)
-+			mlx4_add_device(intf, priv);
-+	}
- 	mutex_unlock(&intf_mutex);
--	mlx4_start_catas_poll(dev);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_start_catas_poll(dev);
+-	priv->kar = ioremap(priv->driver_uar.pfn << PAGE_SHIFT, PAGE_SIZE);
+-	if (!priv->kar) {
+-		mlx4_err(dev, "Couldn't map kernel access region, "
+-			 "aborting.\n");
+-		err = -ENOMEM;
+-		goto err_uar_free;
+-	}
+-
+ 	err = mlx4_init_pd_table(dev);
+ 	if (err) {
+ 		mlx4_err(dev, "Failed to initialize "
+ 			 "protection domain table, aborting.\n");
+-		goto err_kar_unmap;
++		goto err_uar_table_free;
+ 	}
  
- 	return 0;
- }
-@@ -149,7 +155,8 @@ void mlx4_unregister_device(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_interface *intf;
+ 	err = mlx4_init_mr_table(dev);
+@@ -1015,12 +1000,6 @@ err_mr_table_free:
+ err_pd_table_free:
+ 	mlx4_cleanup_pd_table(dev);
  
--	mlx4_stop_catas_poll(dev);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_stop_catas_poll(dev);
- 	mutex_lock(&intf_mutex);
+-err_kar_unmap:
+-	iounmap(priv->kar);
+-
+-err_uar_free:
+-	mlx4_uar_free(dev, &priv->driver_uar);
+-
+ err_uar_table_free:
+ 	mlx4_cleanup_uar_table(dev);
+ 	return err;
+@@ -1316,8 +1295,6 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 		mlx4_cleanup_mr_table(dev);
+ 		mlx4_cleanup_pd_table(dev);
  
- 	list_for_each_entry(intf, &intf_list, list)
+-		iounmap(priv->kar);
+-		mlx4_uar_free(dev, &priv->driver_uar);
+ 		mlx4_cleanup_uar_table(dev);
+ 		mlx4_free_eq_table(dev);
+ 		mlx4_close_hca(dev);
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index b8b30ca..516e375 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -401,8 +401,6 @@ struct mlx4_priv {
+ 
+ 	void __iomem	       *clr_base;
+ 
+-	struct mlx4_uar		driver_uar;
+-	void __iomem	       *kar;
+ 	struct mlx4_port_info	port[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_sense       sense;
+ 	struct mutex		port_mutex;
 -- 
 1.6.1.3
 
