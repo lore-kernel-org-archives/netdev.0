@@ -1,60 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: REGRESSION: On 2.6.32-rc5 the firmware hangs, and the nic is unusable.
-Date: Wed, 04 Nov 2009 13:43:17 -0800
-Message-ID: <m1skcux8y2.fsf@fess.ebiederm.org>
-References: <m1tyxaagal.fsf@fess.ebiederm.org> <4AF1D2C6.20002@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Amit Salecha <amit.salecha@qlogic.com>
-To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/4 00/13] WiMAX patches for 2.6.33 (batch #4)
+Date: Wed,  4 Nov 2009 13:39:55 -0800
+Message-ID: <cover.1257370737.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:45192 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758269AbZKDVnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:43:17 -0500
-In-Reply-To: <4AF1D2C6.20002@qlogic.com> (Dhananjay Phadke's message of "Wed\, 4 Nov 2009 11\:15\:18 -0800")
+Received: from mga12.intel.com ([143.182.124.36]:17987 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932752AbZKDVmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dhananjay Phadke <dhananjay.phadke@qlogic.com> writes:
+  [this series of patches has been split in four batches as it was too
+  long; the grouping is just sequential as they are not really
+  related, except for dependencies].
 
-> Eric W. Biederman wrote:
->> On 2.6.31.5 I get:
->> ethtool -i eth0
->> driver: netxen_nic
->> version: 4.0.30
->> firmware-version: 4.0.305
->> bus-info: 0000:06:00.0
->>
->
-> Agree, 2.6.31 window missed bonding (mac addr setup) fixes.
->
->> And everything works except bonding.
->>
->> On 2.6.32-rc5 I dhcp I get an IP
->> there is a sanity test ping.
->
->>
->> Then the driver reports a firmware hang and
->> the interface goes down and I am dead in the water.
->>
->
->> I'm a bit frustrated with this as it seems with each kernel release
->> the driver gets a little bit less usable.
->>
->> Have I given you enough information to track this down?
->
-> This can be fixed in next rc patch of 2.6.32, if I get enough info to debug.
->
-> Could you provide full dmesg, so that I can see what's going on around firmware
-> hang message? Also provide your test details (bonding / whatever configured).
+Misc independent small fixes; most relevant are: don't overwrite MAC
+headers so tcpdump/wireshark can use it, fix of an OOPS during TX
+shutdown; fix OOPS when exiting USB kthreads.
 
-I will dig up that dmesg in a bit.  Working on a machine when the network is
-down is a pain.
+Please pull from:
 
-There was no bonding configured.  Essentially just:
-ifup eth0 finally get a dhcp response firmware hangs..
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git
 
-Eric
+Patches follow for ease of review.
+
+
+Cindy H Kao (2):
+  wimax/i2400m: use JUMP cmd for last FW chunk indication
+  wimax/i2400m: change the bcf_len to exclude the extended header size
+
+Inaky Perez-Gonzalez (11):
+  wimax/i2400m: reduce verbosity of debug messages in boot mode
+  wimax/i2400m: fix race condition with tcpdump et al
+  wimax: allow user space to send messages once the device is
+    registered
+  wimax: allow WIMAX_RF_QUERY calls when state is still uninitialized
+  wimax/i2400m: when stopping the device, cancel any pending message
+  wimax/i2400m: fix deadlock: don't do BUS reset under
+    i2400m->init_mutex
+  wimax/i2400m: move i2400m_init() out of i2400m.h
+  wimax/i2400m: queue device's report until the driver is ready for
+    them
+  wimax/i2400m: fix oops in TX when tearing down the device
+  wimax/i2400m: Let device's status reports change the device state
+  wimax/i2400m: fix oops caused by race condition when exiting USB
+    kthreads
+
+ drivers/net/wimax/i2400m/driver.c  |  117 +++++++++++-------------------
+ drivers/net/wimax/i2400m/fw.c      |   30 +++++---
+ drivers/net/wimax/i2400m/i2400m.h  |   48 ++++--------
+ drivers/net/wimax/i2400m/netdev.c  |   21 +++++-
+ drivers/net/wimax/i2400m/rx.c      |  142 ++++++++++++++++++++++++++++-------
+ drivers/net/wimax/i2400m/sdio-rx.c |    2 +-
+ drivers/net/wimax/i2400m/sdio-tx.c |    5 +-
+ drivers/net/wimax/i2400m/tx.c      |   18 ++++-
+ drivers/net/wimax/i2400m/usb-rx.c  |   35 +++++++--
+ drivers/net/wimax/i2400m/usb-tx.c  |   35 ++++++++-
+ drivers/net/wimax/i2400m/usb.c     |   14 +++-
+ net/wimax/op-msg.c                 |    2 +
+ net/wimax/op-rfkill.c              |    9 ++-
+ 13 files changed, 310 insertions(+), 168 deletions(-)
+
