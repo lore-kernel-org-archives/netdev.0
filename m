@@ -1,58 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC-PATCH] dhcp provisioning support in cxgb3i
-Date: Wed, 4 Nov 2009 11:09:04 -0800
-Message-ID: <20091104110904.7ffc479b@s6510>
-References: <4AE995C4.4080909@chelsio.com>
-	<4AEA04A4.1060800@cs.wisc.edu>
-	<4AEA7870.4010804@chelsio.com>
-	<4AEF6FC4.6060208@cs.wisc.edu>
-	<4AF1C6C7.80103@chelsio.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 04 Nov 2009 14:12:51 -0500
+Message-ID: <4AF1D233.7050409@gmail.com>
+References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com> <4AF07199.2020601@gmail.com> <4AF072EE.9020202@gmail.com> <20091103235744.GF6726@linux.vnet.ibm.com> <20091104115729.GD8398@redhat.com> <20091104172542.GC6736@linux.vnet.ibm.com> <20091104190609.GB772@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mike Christie <michaelc@cs.wisc.edu>, davem@davemloft.net,
-	James Bottomley <James.Bottomley@suse.de>,
-	Karen Xie <kxie@chelsio.com>,
-	"open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	netdev@vger.kernel.org, Rakesh Ranjan <rakesh@chelsio.com>
-To: Rakesh Ranjan <rakesh@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <4AF1C6C7.80103@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigCCA63008B2D675AA17A46E78"
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>,
+ netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+ linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ s.hetze@linux-ag.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091104190609.GB772@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Nov 2009 23:54:07 +0530
-Rakesh Ranjan <rakesh@chelsio.com> wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigCCA63008B2D675AA17A46E78
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> Mike Christie wrote:
-> > Rakesh Ranjan wrote:
-> >> Mike Christie wrote:
-> >>> Rakesh Ranjan wrote:
-> >>>> Hi Mike,
-> >>>>
-> >>>> Herein attached patches for having dhcp provisioning support in
-> >>>> cxgb3i. I have added one new iscsi netlink message
-> >>>> ISCSI_UEVENT_REQ_IPCONF. 
-> >>>
-> >>> Is the idea to have iscsid/uip send down this msg?
-> >>>
-> >>> Was it not possible to hook in more like how bnx2i does dhcp?
-> >>
-> >> yep, idea is to have iscsid send down ISCSI_UEVENT_REQ_IPCONF msg.
-> >> bnx2i approach in our case for at least T3 is not feasible.
-> >>
-> > 
-> > I think adding DHCP in the kernel is getting a little crazy :) If we go
-> > down this path, I agree with the other person that stated it should at
-> > least be generic.
-> 
-> Hi Mike,
-> 
-> What do you mean be generic ? Do you want to have a generic interface
-> for DHCP handler that could be part of libiscsi and could be used by
-> other LLD's.
+Michael S. Tsirkin wrote:
+> On Wed, Nov 04, 2009 at 09:25:42AM -0800, Paul E. McKenney wrote:
+>> (Sorry, but, as always, I could not resist!)
+>>
+>> 							Thanx, Paul
+>=20
+> Thanks Paul!
+> Jonathan: are you reading this?
+> Another one for your quotes of the week collection :)
+>=20
 
-Is there anyway to make existing code (in net/ipv4/ipconfig.c) more generic
-and useful for both?
+I second that.
+
+
+--------------enigCCA63008B2D675AA17A46E78
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkrx0jMACgkQP5K2CMvXmqE8mQCfdYADcYmCghf4KZwD0wmBm3nY
+8dAAn0L2oESRSjXqAFFqur1MOK0OCYC9
+=7C80
+-----END PGP SIGNATURE-----
+
+--------------enigCCA63008B2D675AA17A46E78--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
