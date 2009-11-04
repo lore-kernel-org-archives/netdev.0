@@ -1,28 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] bridge: remove dev_put() in add_del_if()
-Date: Wed, 04 Nov 2009 20:43:56 +0100
-Message-ID: <4AF1D97C.6080603@gmail.com>
-References: <4AF1D153.5040309@gmail.com> <20091104114020.5a2aef2c@nehalam>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 01/25] mlx4_core: identify function as pf or vf
+Date: Wed, 04 Nov 2009 11:45:10 -0800
+Message-ID: <ada3a4u13cp.fsf@cisco.com>
+References: <4AF19E07.7040702@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36583 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757970AbZKDTnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 14:43:55 -0500
-In-Reply-To: <20091104114020.5a2aef2c@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4AF19E07.7040702-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org> (Yevgeny Petrilin's message of
+	"Wed, 04 Nov 2009 17:30:15 +0200")
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger a =E9crit :
->=20
-> As part of the general ref count purge sure.
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
+Just noticed that all the patches I looked at have:
 
-Yes, sure... but nf_queue.c is such an abuser that I doubt we
-really can make dev_put() doing the atomic_dec_test() one day...
+ > From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+
+but only:
+
+ > Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+
+I guess Liran is actually the real author?  in this case, you should
+add a line like:
+
+From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+
+in the body of the email message, and add your own signed-off-by line
+after Liran's (since you are in the chain of people handling the patch).
+
+ - R.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
