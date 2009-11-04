@@ -1,24 +1,35 @@
-From: Arnaldo Carvalho de Melo <acme@infradead.org>
-Subject: Re: [PATCH 3/3] net: check kern before calling security subsystem
-Date: Wed, 4 Nov 2009 15:32:20 -0200
-Message-ID: <20091104173220.GH2603@ghostprotocols.net>
-References: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com> <20091104163224.27133.88570.stgit@paris.rdu.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 04 Nov 2009 18:33:28 +0100
+Message-ID: <4AF1BAE8.60909@gmail.com>
+References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com> <4AF07199.2020601@gmail.com> <4AF072EE.9020202@gmail.com> <20091103235744.GF6726@linux.vnet.ibm.com> <20091104115729.GD8398@redhat.com> <20091104172542.GC6736@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, dwalsh@redhat.com,
-	davem@davemloft.net, linux-security-module@vger.kernel.org
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091104163224.27133.88570.stgit@paris.rdu.redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Gregory Haskins <gregory.haskins@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
+To: paulmck@linux.vnet.ibm.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091104172542.GC6736@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Nov 04, 2009 at 11:32:24AM -0500, Eric Paris escreveu:
-> Before calling capable(CAP_NET_RAW) check if this operations is on behalf
-> of the kernel or on behalf of userspace.  Do not do the security check if
-> it is on behalf of the kernel.
-> 
-> Signed-off-by: Eric Paris <eparis@redhat.com>
+Paul E. McKenney a =E9crit :
+>=20
+> (Sorry, but, as always, I could not resist!)
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Yesssss :)
+
+Thanks Paul for this masterpiece of diplomatic "Acked-by" ;)
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
