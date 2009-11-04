@@ -1,50 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] netfilter: remove synchronize_net() calls in
- ip_queue/ip6_queue
-Date: Wed, 04 Nov 2009 20:47:35 +0100
-Message-ID: <4AF1DA57.8080202@gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 16/25] mlx4_core: boot sriov
+Date: Wed, 04 Nov 2009 11:55:49 -0800
+Message-ID: <aday6mmyshm.fsf@cisco.com>
+References: <4AF19E5D.1060806@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:5819 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755413AbZKDTzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 14:55:45 -0500
+In-Reply-To: <4AF19E5D.1060806@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Wed, 04 Nov 2009 17:31:41 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-nf_unregister_queue_handlers() already does a synchronize_rcu()
-call, we dont need to do it again in callers.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/netfilter/ip_queue.c  |    2 +-
- net/ipv6/netfilter/ip6_queue.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ > +	/* Detect if this device is a virtual function */
+ > +	switch (id->device) {
+ > +	case 0x6341:
+ > +	case 0x634b:
+ > +	case 0x6733:
+ > +	case 0x673d:
+ > +	case 0x6369:
+ > +	case 0x6751:
+ > +	case 0x6765:
 
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index c156db2..9811a45 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -622,7 +622,7 @@ cleanup_netlink_notifier:
- static void __exit ip_queue_fini(void)
- {
- 	nf_unregister_queue_handlers(&nfqh);
--	synchronize_net();
-+
- 	ipq_flush(NULL, 0);
- 
- #ifdef CONFIG_SYSCTL
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 1cf3f0c..a82016f 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -625,7 +625,7 @@ cleanup_netlink_notifier:
- static void __exit ip6_queue_fini(void)
- {
- 	nf_unregister_queue_handlers(&nfqh);
--	synchronize_net();
-+
- 	ipq_flush(NULL, 0);
- 
- #ifdef CONFIG_SYSCTL
+This isn't be maintainable or sane.  How about using driver_data in the
+PCI device table?
+
+ > +#ifdef CONFIG_PCI_IOV
+ > +		if (sr_iov) {
+
+Can we avoid a lot of these ifdefs by just doing
+
+#else
+#define sr_iov	0
+#endif /* CONFIG_PCI_IOV */
+
+at the beginning and letting the IOV code be optimized away?
+
+ - R.
