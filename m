@@ -1,48 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] decnet: avoid touching device refcount in dn_dev_by_index()
-Date: Wed, 04 Nov 2009 19:15:14 +0100
-Message-ID: <4AF1C4B2.6090802@gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 05/25] mlx4_core: add slave resource allocation
+Date: Wed, 04 Nov 2009 10:19:51 -0800
+Message-ID: <ada7hu617aw.fsf@cisco.com>
+References: <4AF19E1E.4000102@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59604 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754762AbZKDSPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 13:15:13 -0500
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:46637 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757514AbZKDSTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 13:19:48 -0500
+In-Reply-To: <4AF19E1E.4000102@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Wed, 04 Nov 2009 17:30:38 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/decnet/dn_dev.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 6e1f085..d566e98 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -600,15 +600,17 @@ static void dn_dev_check_default(struct net_device *dev)
- 		dev_put(dev);
- }
- 
-+/*
-+ * Called with RTNL
-+ */
- static struct dn_dev *dn_dev_by_index(int ifindex)
- {
- 	struct net_device *dev;
- 	struct dn_dev *dn_dev = NULL;
--	dev = dev_get_by_index(&init_net, ifindex);
--	if (dev) {
-+
-+	dev = __dev_get_by_index(&init_net, ifindex);
-+	if (dev)
- 		dn_dev = dev->dn_ptr;
--		dev_put(dev);
--	}
- 
- 	return dn_dev;
- }
+ > +	u32 param1 = *((u32 *) &vhcr->in_param);
+ > +	u32 param2 = *(((u32 *) &vhcr->in_param) + 1);
+
+Is this endian clean?
+
+ - R.
