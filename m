@@ -1,26 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] decnet: avoid touching device refcount in
- dn_dev_by_index()
-Date: Wed, 04 Nov 2009 10:59:46 -0800 (PST)
-Message-ID: <20091104.105946.127572840.davem@davemloft.net>
-References: <4AF1C4B2.6090802@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv6 1/3] tun: export underlying socket
+Date: Wed, 4 Nov 2009 21:05:23 +0200
+Message-ID: <20091104190523.GA772@redhat.com>
+References: <cover.1257193660.git.mst@redhat.com> <20091102222612.GB15184@redhat.com> <200911031312.33580.arnd@arndb.de> <200911041909.06054.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50846
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751406AbZKDS7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 13:59:21 -0500
-In-Reply-To: <4AF1C4B2.6090802@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, Rusty Russell <rusty@rustcorp.com.au>,
+        s.hetze@linux-ag.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <200911041909.06054.arnd@arndb.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 04 Nov 2009 19:15:14 +0100
+On Wed, Nov 04, 2009 at 07:09:05PM +0100, Arnd Bergmann wrote:
+> On Tuesday 03 November 2009, Arnd Bergmann wrote:
+> > > index 3f5fd52..404abe0 100644
+> > > --- a/include/linux/if_tun.h
+> > > +++ b/include/linux/if_tun.h
+> > > @@ -86,4 +86,18 @@ struct tun_filter {
+> > >         __u8   addr[0][ETH_ALEN];
+> > >  };
+> > >  
+> > > +#ifdef __KERNEL__
+> > > +#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
+> > > +struct socket *tun_get_socket(struct file *);
+> > > +#else
+> > > +#include <linux/err.h>
+> > > +#include <linux/errno.h>
+> > > +struct file;
+> > > +struct socket;
+> > > +static inline struct socket *tun_get_socket(struct file *f)
+> > > +{
+> > > +       return ERR_PTR(-EINVAL);
+> > > +}
+> > > +#endif /* CONFIG_TUN */
+> > > +#endif /* __KERNEL__ */
+> > >  #endif /* __IF_TUN_H */
+> > 
+> > Is this a leftover from testing? Exporting the function for !__KERNEL__
+> > seems pointless.
+> > 
+> 
+> Michael, you didn't reply on this comment and the code is still there in v8.
+> Do you actually need this? What for?
+> 
+> 	Arnd <><
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Sorry, missed the question. If you look closely it is not exported for
+!__KERNEL__ at all.  The stub is for when CONFIG_TUN is undefined.
+Maybe I'll add a comment near #else, even though this is a bit strange
+since the #if is just 2 lines above it.
 
-Applied, thanks Eric.
+-- 
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
