@@ -1,59 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] netlabel: remove dev_put() calls
-Date: Wed, 04 Nov 2009 21:03:53 +0100
-Message-ID: <4AF1DE29.7010408@gmail.com>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 19/25] mlx4: Randomizing mac addresses for slaves
+Date: Wed, 04 Nov 2009 12:04:21 -0800
+Message-ID: <adar5seys3e.fsf@cisco.com>
+References: <4AF19E69.8070605@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46047 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758076AbZKDUDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 15:03:51 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4AF19E69.8070605-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org> (Yevgeny Petrilin's message of
+	"Wed, 04 Nov 2009 17:31:53 +0200")
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Use dev_get_by_name_rcu() to avoid dev_put() calls,
-in sections already inside a rcu_read_lock()
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/netlabel/netlabel_unlabeled.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ > +#define MLX4_MAC_HEAD		0x2c9000000ULL
+ > +			random_ether_addr(rand_mac);
+ > +			caps->def_mac[i] = MLX4_MAC_HEAD | rand_mac[0] |
+ > +				((u64)(rand_mac[1]) << 8) | ((u64)(rand_mac[2]) << 16);
 
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index fb357f0..3dfe2ba 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -472,13 +472,12 @@ int netlbl_unlhsh_add(struct net *net,
- 
- 	rcu_read_lock();
- 	if (dev_name != NULL) {
--		dev = dev_get_by_name(net, dev_name);
-+		dev = dev_get_by_name_rcu(net, dev_name);
- 		if (dev == NULL) {
- 			ret_val = -ENODEV;
- 			goto unlhsh_add_return;
- 		}
- 		ifindex = dev->ifindex;
--		dev_put(dev);
- 		iface = netlbl_unlhsh_search_iface(ifindex);
- 	} else {
- 		ifindex = 0;
-@@ -737,13 +736,12 @@ int netlbl_unlhsh_remove(struct net *net,
- 
- 	rcu_read_lock();
- 	if (dev_name != NULL) {
--		dev = dev_get_by_name(net, dev_name);
-+		dev = dev_get_by_name_rcu(net, dev_name);
- 		if (dev == NULL) {
- 			ret_val = -ENODEV;
- 			goto unlhsh_remove_return;
- 		}
- 		iface = netlbl_unlhsh_search_iface(dev->ifindex);
--		dev_put(dev);
- 	} else
- 		iface = rcu_dereference(netlbl_unlhsh_def);
- 	if (iface == NULL) {
+Is this a good idea?  You're basically choosing 24 random bits within
+your OUI... seems the chance of collision with another MAC used on the
+same network is high enough that it could easily happen in practice on a
+moderately big network.  Can you pick a reserved range or something?
+
+Also I'm not sure if there's much point in using random_ether_addr if
+you're going to override the high order part anyway, since
+random_ether_addr just makes sure it doesn't pick a multicast address.
+
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
