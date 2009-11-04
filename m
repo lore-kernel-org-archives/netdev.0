@@ -1,36 +1,28 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] MAINTAINERS: Add git net-next-2.6
-Date: Wed, 04 Nov 2009 09:34:09 -0800
-Message-ID: <1257356049.16511.3.camel@Joe-Laptop.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] MAINTAINERS: Add git net-next-2.6
+Date: Wed, 04 Nov 2009 09:39:10 -0800 (PST)
+Message-ID: <20091104.093910.230006337.davem@davemloft.net>
+References: <1257356049.16511.3.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1230 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932188AbZKDReE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2009 12:34:04 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46325
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932510AbZKDRip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 12:38:45 -0500
+In-Reply-To: <1257356049.16511.3.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a reference to the the git tree where most
-of the forward going network development occurs.
+From: Joe Perches <joe@perches.com>
+Date: Wed, 04 Nov 2009 09:34:09 -0800
 
-Signed-off-by: Joe Perches <joe@perches.com>
+> Add a reference to the the git tree where most
+> of the forward going network development occurs.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e1cf731..0350ace 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3655,6 +3655,7 @@ L:	netdev@vger.kernel.org
- W:	http://www.linuxfoundation.org/en/Net
- W:	http://patchwork.ozlabs.org/project/netdev/list/
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
- S:	Maintained
- F:	net/
- F:	include/net/
-
-
+Applied, thanks Joe.
