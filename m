@@ -1,35 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.32-rc5-mmotm1101 - kernel BUG at net/ipv4/tcp_input.c:3707!
-Date: Tue, 03 Nov 2009 18:34:35 -0800 (PST)
-Message-ID: <20091103.183435.209882374.davem@davemloft.net>
-References: <4AF08292.7090102@codefidence.com>
-	<Pine.LNX.4.64.0911032330090.3488@melkinkari.cs.Helsinki.FI>
-	<7916.1257300093@turing-police.cc.vt.edu>
+From: Ryousei Takano <ryousei@gmail.com>
+Subject: Re: HTB accuracy on 10GbE
+Date: Wed, 4 Nov 2009 12:13:32 +0900
+Message-ID: <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
+References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
+	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, gilad@codefidence.com,
-	eric.dumazet@gmail.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ori@comsleep.com
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	takano-ryousei@aist.go.jp
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49523
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750751AbZKDCeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 21:34:10 -0500
-In-Reply-To: <7916.1257300093@turing-police.cc.vt.edu>
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:40496 "EHLO
+	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754014AbZKDDN1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 22:13:27 -0500
+Received: by vws30 with SMTP id 30so1806584vws.33
+        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 19:13:32 -0800 (PST)
+In-Reply-To: <20091102125345.3c39c42e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Valdis.Kletnieks@vt.edu
-Date: Tue, 03 Nov 2009 21:01:33 -0500
+Hi Patrick and Stephen,
 
-> Why was this blowing chunks in the IPv6 when I was making an IPv4 connection
-> then? I just noticed that. My fetchmail can't make an IPv6 TCP connection to
-> our IMAP server because the server isn't v6-enabled yet.  And although I
-> contact our DNS over IPv6, but that's UDP not TCP.
+Thanks for your comments.
 
-Many things IPV6 capable will go through the IPV4 compat
-path of the IPV6 stack, depending upon how listening sockets
-configure themselves etc.
+I retried on the newer kernel and iproute2, and added the experimental =
+result
+on my page.  Please see 'Experimental result 2':
+    http://code.google.com/p/pspacer/wiki/HTBon10GbE
+
+The accuracy improves compared with the previous experiment.
+The difference reduces from +810 Mbps to +430 Mbps.
+It is because the timer resolution improves from 1 usec to 1/64 usec.
+But it is not perfect.
+
+Best regards,
+Ryousei Takano
+
+
+On Tue, Nov 3, 2009 at 5:53 AM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Mon, 02 Nov 2009 16:43:42 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
+>
+>> Ryousei Takano wrote:
+>> > Hi Stephen and all,
+>> >
+>> > I have observed a HTB accuracy problem on the Linux kernel 2.6.30 =
+and
+>> > the Myri-10G 10 GbE NIC.
+>> > HTB can control the transmission rate at Gigabit speed, however it=
+ can
+>> > not work well at 10 Gigabit speed.
+>> >
+>> > I asked Stephen this problem at Japan Linux Symposium. =A0He menti=
+oned a
+>> > HTB bug related to the timer granularity.
+>> > I want to know what is happen, and what should be do for fixing it=
+=2E
+>> >
+>> > Any comments and suggestions will be welcome.
+>> >
+>> > For more detail, please see the following page:
+>> > http://code.google.com/p/pspacer/wiki/HTBon10GbE
+>>
+>> This is not an easy problem to fix. Userspace, the kernel and the
+>> netlink API use 32 bit for timing related values, which is too small
+>> to use more than microsecond resolution. All of them need to be
+>> converted to use bigger types, additionally some kind of compatibili=
+ty
+>> handling to deal with old iproute versions still using microsecond
+>> resolution is required.
+>
+> The existing API is a legacy mish-mash. The field is limited to 32 bi=
+ts,
+> but it might be possible to use a finer scale.
+>
+> Maybe if kernel advertised finer resolution through /proc/net/psched
+> then table could be finer grained. This would maintain compatibility
+> between kernel and user space. You would need to have new kernel and
+> new iproute to get nanosecond resolution but older combinations would
+> still work.
+>
+> The downside is that by using nanosecond resolution the rates are upp=
+er
+> bounded at 4.2seconds / packet.
+>
+>
