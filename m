@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 12/25] mlx4_core: associate resources with specific functions
-Date: Wed, 04 Nov 2009 17:31:21 +0200
-Message-ID: <4AF19E49.3040401@mellanox.co.il>
+Subject: [PATCH 15/25] mlx4_core: multi-function interface setup
+Date: Wed, 04 Nov 2009 17:31:36 +0200
+Message-ID: <4AF19E58.8000804@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -13,101 +13,61 @@ Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Resources are associated with functions by means of pds - the upper 7 msbs
-specify the function id. Since cqs do not refer to a specific pd, the function
-id is passed explicitly to hw in the cq context.
-For uars, which are statically partitioned between slaves, we only need to adjust
-their offsets with respect to the associated function bar.
+Master verifies hw healthiness.
+Interface drivers are only supported on slaves.
 
 Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/cq.c |    4 +++-
- drivers/net/mlx4/eq.c |   13 ++++++++++++-
- drivers/net/mlx4/pd.c |   12 +++++++++---
- 3 files changed, 24 insertions(+), 5 deletions(-)
+ drivers/net/mlx4/intf.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/mlx4/cq.c b/drivers/net/mlx4/cq.c
-index 3fb9f7f..9f9f246 100644
---- a/drivers/net/mlx4/cq.c
-+++ b/drivers/net/mlx4/cq.c
-@@ -59,7 +59,8 @@ struct mlx4_cq_context {
- 	__be32			solicit_producer_index;
- 	__be32			consumer_index;
- 	__be32			producer_index;
--	u32			reserved4[2];
-+	__be32			pd; /* for sriov guest id */
-+	u32			reserved4;
- 	__be64			db_rec_addr;
- };
+diff --git a/drivers/net/mlx4/intf.c b/drivers/net/mlx4/intf.c
+index 0e7eb10..f5f4523 100644
+--- a/drivers/net/mlx4/intf.c
++++ b/drivers/net/mlx4/intf.c
+@@ -88,8 +88,11 @@ int mlx4_register_interface(struct mlx4_interface *intf)
+ 	mutex_lock(&intf_mutex);
  
-@@ -293,6 +294,7 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
- 	mtt_addr = mlx4_mtt_addr(dev, mtt);
- 	cq_context->mtt_base_addr_h = mtt_addr >> 32;
- 	cq_context->mtt_base_addr_l = cpu_to_be32(mtt_addr & 0xffffffff);
-+	cq_context->pd = cpu_to_be32(dev->caps.pd_base << dev->caps.slave_pd_shift);
- 	cq_context->db_rec_addr     = cpu_to_be64(db_rec);
- 
- 	err = mlx4_SW2HW_CQ(dev, mailbox, cq->cqn);
-diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
-index a27e1c4..46064cc 100644
---- a/drivers/net/mlx4/eq.c
-+++ b/drivers/net/mlx4/eq.c
-@@ -486,9 +486,20 @@ static void __iomem *mlx4_get_eq_uar(struct mlx4_dev *dev, struct mlx4_eq *eq)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int index;
-+	int offset;
- 
--	index = eq->eqn / 4 - dev->caps.reserved_eqs / 4;
-+	/* CX1: slave EQ DBs are located in the comm channel page */
-+	if (mlx4_is_slave(dev) || mlx4_is_master(dev)) {
-+		if (eq->eqn - dev->caps.reserved_eqs >= MLX4_MFUNC_EQ_NUM) {
-+			mlx4_err(dev, "eqn:%d doorbell out of range (reserved:%d)\n",
-+				 eq->eqn, dev->caps.reserved_eqs);
-+			return NULL;
-+		}
-+		offset = 0x800 + (eq->eqn - dev->caps.reserved_eqs) * 8;
-+		return ((void *) priv->mfunc.comm) + offset;
+ 	list_add_tail(&intf->list, &intf_list);
+-	list_for_each_entry(priv, &dev_list, dev_list)
+-		mlx4_add_device(intf, priv);
++	list_for_each_entry(priv, &dev_list, dev_list) {
++		/* CX1: master cannot run interfaces */
++		if (!mlx4_is_master(&priv->dev))
++			mlx4_add_device(intf, priv);
 +	}
  
-+	index = eq->eqn / 4 - dev->caps.reserved_eqs / 4;
- 	if (!priv->eq_table.uar_map[index]) {
- 		priv->eq_table.uar_map[index] =
- 			ioremap(pci_resource_start(dev->pdev, 2) +
-diff --git a/drivers/net/mlx4/pd.c b/drivers/net/mlx4/pd.c
-index c4988d6..08eaf08 100644
---- a/drivers/net/mlx4/pd.c
-+++ b/drivers/net/mlx4/pd.c
-@@ -45,7 +45,7 @@ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
- 	*pdn = mlx4_bitmap_alloc(&priv->pd_bitmap);
- 	if (*pdn == -1)
- 		return -ENOMEM;
+ 	mutex_unlock(&intf_mutex);
+ 
+@@ -135,11 +138,14 @@ int mlx4_register_device(struct mlx4_dev *dev)
+ 	mutex_lock(&intf_mutex);
+ 
+ 	list_add_tail(&priv->dev_list, &dev_list);
+-	list_for_each_entry(intf, &intf_list, list)
+-		mlx4_add_device(intf, priv);
 -
-+	*pdn |= dev->caps.pd_base << dev->caps.slave_pd_shift;
++	/* CX1: master cannot run interfaces */
++	if (!mlx4_is_master(dev)) {
++		list_for_each_entry(intf, &intf_list, list)
++			mlx4_add_device(intf, priv);
++	}
+ 	mutex_unlock(&intf_mutex);
+-	mlx4_start_catas_poll(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_start_catas_poll(dev);
+ 
  	return 0;
  }
- EXPORT_SYMBOL_GPL(mlx4_pd_alloc);
-@@ -72,12 +72,18 @@ void mlx4_cleanup_pd_table(struct mlx4_dev *dev)
+@@ -149,7 +155,8 @@ void mlx4_unregister_device(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_interface *intf;
  
- int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
- {
-+	int offset;
-+
- 	uar->index = mlx4_bitmap_alloc(&mlx4_priv(dev)->uar_table.bitmap);
- 	if (uar->index == -1)
- 		return -ENOMEM;
+-	mlx4_stop_catas_poll(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_stop_catas_poll(dev);
+ 	mutex_lock(&intf_mutex);
  
--	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + uar->index;
--
-+	if (mlx4_is_slave(dev))
-+		offset = uar->index % ((int) pci_resource_len(dev->pdev, 2) /
-+				       dev->caps.uar_page_size);
-+	else
-+		offset = uar->index;
-+	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + offset;
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_uar_alloc);
+ 	list_for_each_entry(intf, &intf_list, list)
 -- 
 1.6.1.3
 
