@@ -1,28 +1,24 @@
-From: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+From: Sebastian Haas <haas@ems-wuensche.com>
 Subject: [PATCH] ems_usb: Fix byte order issues on big endian machines
-Date: Wed, 04 Nov 2009 16:48:24 +0100
-Message-ID: <20091104154824.18199.15573.stgit@localhost.localdomain>
+Date: Wed, 04 Nov 2009 16:48:33 +0100
+Message-ID: <20091104154833.18231.28984.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: socketcan-core@lists.berlios.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ems-wuensche.com ([81.169.132.244]:38380 "EHLO
+	h559305.serverkompetenz.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755975AbZKDPse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 10:48:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 CPC-USB is using a ARM7 core with little endian byte order. The "id" field
 in can_msg needs byte order conversion from/to CPU byte order.
 
-Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
 ---
 
  drivers/net/can/usb/ems_usb.c |    5 ++++-
