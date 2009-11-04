@@ -1,43 +1,71 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 19/25] mlx4: Randomizing mac addresses for slaves
-Date: Wed, 4 Nov 2009 23:33:28 +0200
-Message-ID: <15ddcffd0911041333l165ee274mfae3508a3db755e7@mail.gmail.com>
-References: <4AF19E69.8070605@mellanox.co.il> <adar5seys3e.fsf@cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	liranl@mellanox.co.il, tziporet@mellanox.co.il
-To: Roland Dreier <rdreier@cisco.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/1 00/12] WiMAX patches for 2.6.33 (batch #1)
+Date: Wed,  4 Nov 2009 13:39:36 -0800
+Message-ID: <cover.1257370735.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:53635 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758183AbZKDVdY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:33:24 -0500
-In-Reply-To: <adar5seys3e.fsf@cisco.com>
+Received: from mga05.intel.com ([192.55.52.89]:31748 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758252AbZKDVlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:41:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 4, 2009 at 10:04 PM, Roland Dreier <rdreier@cisco.com> wrot=
-e:
->> +#define MLX4_MAC_HEAD =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x2c9000000ULL
+  [this series of patches has been split in four batches as it was too
+  long; the grouping is just sequential as they are not really
+  related, except for dependencies].
 
-> Is this a good idea? =A0You're basically choosing 24 random bits with=
-in your OUI...
-> seems the chance of collision with another MAC used on the same netwo=
-rk is
-> high enough that it could easily happen in practice on a moderately b=
-ig network.
+Misc fixes: add minimal ethtool support, silly typo fixes, and
+dwelve in a set of bad SDIO subdriver's boot-mode interactions with
+the hardware timings and ways it managed to corner itself into a
+deadlock. 
 
-yes, this has been brought by Stephen and others on this last back on
-September 11th, this year @
-http://marc.info/?l=3Dlinux-netdev&m=3D125263488409128
+Please pull from:
 
-> Can you pick a reserved range or something?
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git
 
-Using different OUI for the VF device wouldn't help either I think,
-since the #VF becomes fairly big even on a modest side cluster with
-(say) a VM consuming VF per 1-2 cores.
+Patches follow for ease of review.
 
-Or.
+
+Cindy H Kao (4):
+  wimax/i2400m: fix the bootmode RX deadlock in SDIO driver
+  wimax/iwmc3200: overwrite SDIO IOR timeout value to avoid platform
+    hang
+  wimax/iwmc3200: don't disable the SDIO function if enable fails
+  wimax/iwmc3200: increase wait time before enable retry
+
+Dan Williams (1):
+  i2400m: minimal ethtool support
+
+Dirk Brandewie (3):
+  wimax/i2400m: Update comments to talk about SDIO reset and not USB.
+  wimax/i2400m: Ensure boot mode cmd and ack buffers are alloc'd before
+    first message
+  wimax/i2400m: Make boot retries a BUS-specific parameter
+
+Inaky Perez-Gonzalez (1):
+  wimax: indicate initial SW rfkill state is "blocked"
+
+Oliver Neukum (1):
+  wimax/i2400m/usb: remove unnecessary power management primitive in
+    i2400m
+
+Roel Kluin (2):
+  i2400m: keep index within ms_to_errno[]
+  wimax: misplaced parenthesis
+
+ drivers/net/wimax/i2400m/control.c     |    2 +-
+ drivers/net/wimax/i2400m/driver.c      |   54 +++++++++++++++++++++++--------
+ drivers/net/wimax/i2400m/fw.c          |    2 +-
+ drivers/net/wimax/i2400m/i2400m-sdio.h |    5 ++-
+ drivers/net/wimax/i2400m/i2400m-usb.h  |    1 +
+ drivers/net/wimax/i2400m/i2400m.h      |    5 +--
+ drivers/net/wimax/i2400m/netdev.c      |   18 ++++++++++
+ drivers/net/wimax/i2400m/sdio-fw.c     |    8 ++--
+ drivers/net/wimax/i2400m/sdio-rx.c     |    7 ++++
+ drivers/net/wimax/i2400m/sdio.c        |   38 +++++++++++++++++-----
+ drivers/net/wimax/i2400m/tx.c          |    2 +-
+ drivers/net/wimax/i2400m/usb.c         |   11 +++++-
+ net/wimax/op-rfkill.c                  |    1 +
+ 13 files changed, 118 insertions(+), 36 deletions(-)
+
