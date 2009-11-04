@@ -1,64 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv6 1/3] tun: export underlying socket
-Date: Wed, 4 Nov 2009 19:09:05 +0100
-Message-ID: <200911041909.06054.arnd@arndb.de>
-References: <cover.1257193660.git.mst@redhat.com> <20091102222612.GB15184@redhat.com> <200911031312.33580.arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] decnet: avoid touching device refcount in dn_dev_by_index()
+Date: Wed, 04 Nov 2009 19:15:14 +0100
+Message-ID: <4AF1C4B2.6090802@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
- netdev@vger.kernel.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com
-To: virtualization@lists.linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200911031312.33580.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59604 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754762AbZKDSPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 13:15:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 November 2009, Arnd Bergmann wrote:
-> > index 3f5fd52..404abe0 100644
-> > --- a/include/linux/if_tun.h
-> > +++ b/include/linux/if_tun.h
-> > @@ -86,4 +86,18 @@ struct tun_filter {
-> >         __u8   addr[0][ETH_ALEN];
-> >  };
-> >  
-> > +#ifdef __KERNEL__
-> > +#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
-> > +struct socket *tun_get_socket(struct file *);
-> > +#else
-> > +#include <linux/err.h>
-> > +#include <linux/errno.h>
-> > +struct file;
-> > +struct socket;
-> > +static inline struct socket *tun_get_socket(struct file *f)
-> > +{
-> > +       return ERR_PTR(-EINVAL);
-> > +}
-> > +#endif /* CONFIG_TUN */
-> > +#endif /* __KERNEL__ */
-> >  #endif /* __IF_TUN_H */
-> 
-> Is this a leftover from testing? Exporting the function for !__KERNEL__
-> seems pointless.
-> 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/decnet/dn_dev.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-Michael, you didn't reply on this comment and the code is still there in v8.
-Do you actually need this? What for?
-
-	Arnd <><
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 6e1f085..d566e98 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -600,15 +600,17 @@ static void dn_dev_check_default(struct net_device *dev)
+ 		dev_put(dev);
+ }
+ 
++/*
++ * Called with RTNL
++ */
+ static struct dn_dev *dn_dev_by_index(int ifindex)
+ {
+ 	struct net_device *dev;
+ 	struct dn_dev *dn_dev = NULL;
+-	dev = dev_get_by_index(&init_net, ifindex);
+-	if (dev) {
++
++	dev = __dev_get_by_index(&init_net, ifindex);
++	if (dev)
+ 		dn_dev = dev->dn_ptr;
+-		dev_put(dev);
+-	}
+ 
+ 	return dn_dev;
+ }
