@@ -1,94 +1,105 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: PATCH: Network Device Naming mechanism and policy
-Date: Wed, 4 Nov 2009 19:53:38 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE5894ED@blrx3m08.blr.amer.dell.com> <20091009140000.GA18765@mock.linuxdev.us.dell.com> <20091013150839.GD32107@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com> <20091013173638.GE1119@ldl.fc.hp.com> <20091016003245.GD29672@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com> <20091016152053.GA9862@ldl.fc.hp.com> <1255707193.2869.12.camel@achroite> <20091016214024.GA10091@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com> <4ADC906E.2050909@kadzban.is-a-geek.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <dannf@hp.com>, <bhutchings@solarflare.com>,
-	<netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<Matt_Domsch@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Charles_Rose@Dell.com>, <Sandeep_K_Shandilya@Dell.com>
-To: <bryan@kadzban.is-a-geek.net>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] tc: remove dlfcn.h from files that dont need it
+Date: Wed,  4 Nov 2009 09:26:34 -0500
+Message-ID: <1257344795-8665-2-git-send-email-vapier@gentoo.org>
+References: <1257344795-8665-1-git-send-email-vapier@gentoo.org>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:48905 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755918AbZKDOXh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 09:23:37 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4ADC906E.2050909@kadzban.is-a-geek.net>
+Received: from smtp.gentoo.org ([140.211.166.183]:46053 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756467AbZKDOZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 09:25:17 -0500
+In-Reply-To: <1257344795-8665-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A bunch of source files look like they're copy & pasted from other files,
+and some include header files that they don't actually need.  Since dlfcn
+has very specific usage (and is a pain on a static-only system), drop it
+where it isn't really needed.
 
->>> Matt, Ben and I talked about a few other possibilities on IRC. The 
->>> one I like the most at the moment is an idea Ben had to creat dummy 
->>> files named after the ifindex. Then, use symlinks for the 
->kernel name 
->>> and the various by-$property subdirectories. This means the KOBJ 
->>> events will need to expose the ifindex.
->>> 
->> 
->> I suppose the KOBJ events already expose the ifindex of a network 
->> interface. The file "/sys/class/net/ethN/uevent" contains 
->> INTERFACE=ethN and IFINDEX=n already. But it looks like udev doesn't 
->> use it in any way.
->
->Right; it could simply do the equivalent of:
->
->touch /dev/netdev/$env{IFINDEX}
->
->instead of its normal mknod(2), and then do normal SYMLINK processing.
->That last part is what would link 
->/dev/netdev/by-name/$env{INTERFACE} to that device, along with 
->/dev/netdev/by-mac/*, /dev/netdev/by-path/*, etc., etc., in as 
->many different ways as people want to add rules.
->
->(Or /dev/net/by-* instead of netdev; I'm mostly ambivalent 
->about the first-level directory under /dev.  Looks like 
->libnetdevname requires /dev/netdev though.)
->
->> For example, with the kernel patch the "/sys/class/net/ethN/uevent" 
->> contains in addition to the above details, MAJOR=M and MINOR=m which 
->> the udev knows how to make use of with a rule like
->> 
->> SUBSYSTEM=="net", KERNEL!="tun", NAME="netdev/%k", MODE="0600".
->
->And if the only point is to get the ifindex via stat(2) on the 
->resulting symlinks, but people don't like device files, then 
->why not get the ifindex via readlink(2) (and a bit of string 
->parsing, and a strtol(3) or
->strtoul(3) call) instead?  :-)
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ tc/em_cmp.c   |    1 -
+ tc/em_meta.c  |    1 -
+ tc/em_nbyte.c |    1 -
+ tc/em_u32.c   |    1 -
+ tc/m_nat.c    |    1 -
+ tc/m_xt.c     |    1 -
+ 6 files changed, 0 insertions(+), 6 deletions(-)
 
+diff --git a/tc/em_cmp.c b/tc/em_cmp.c
+index ce72a42..6addce0 100644
+--- a/tc/em_cmp.c
++++ b/tc/em_cmp.c
+@@ -18,7 +18,6 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
+-#include <dlfcn.h>
+ #include <errno.h>
+ 
+ #include "m_ematch.h"
+diff --git a/tc/em_meta.c b/tc/em_meta.c
+index ee6034f..033e29f 100644
+--- a/tc/em_meta.c
++++ b/tc/em_meta.c
+@@ -18,7 +18,6 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
+-#include <dlfcn.h>
+ #include <errno.h>
+ 
+ #include "m_ematch.h"
+diff --git a/tc/em_nbyte.c b/tc/em_nbyte.c
+index 242c361..87f3e9d 100644
+--- a/tc/em_nbyte.c
++++ b/tc/em_nbyte.c
+@@ -18,7 +18,6 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
+-#include <dlfcn.h>
+ #include <errno.h>
+ 
+ #include "m_ematch.h"
+diff --git a/tc/em_u32.c b/tc/em_u32.c
+index 402bea0..21ed70f 100644
+--- a/tc/em_u32.c
++++ b/tc/em_u32.c
+@@ -18,7 +18,6 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
+-#include <dlfcn.h>
+ #include <errno.h>
+ 
+ #include "m_ematch.h"
+diff --git a/tc/m_nat.c b/tc/m_nat.c
+index 6e7fd05..01ec032 100644
+--- a/tc/m_nat.c
++++ b/tc/m_nat.c
+@@ -19,7 +19,6 @@
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <string.h>
+-#include <dlfcn.h>
+ #include "utils.h"
+ #include "tc_util.h"
+ #include <linux/tc_act/tc_nat.h>
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index 0fe6189..0c7ec60 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -25,7 +25,6 @@
+ #include "tc_util.h"
+ #include <linux/tc_act/tc_ipt.h>
+ #include <stdio.h>
+-#include <dlfcn.h>
+ #include <getopt.h>
+ #include <errno.h>
+ #include <string.h>
+-- 
+1.6.5.1
 
-I suppose this issue can also be addressed in another way. Currently,
-the sysfs contains various attributes of a network interface under the
-directory "/sys/class/net/ethN", for example
-"/sys/class/net/ethN/address". This will be used by udev as below -
-
-SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
-ATTR{address}=="00:1d:09:6a:78:ec", ATTR{type}=="1", KERNEL=="eth*",
-NAME="eth1".
-
-Similarly, export an attribute named "smbios_name" to sysfs, i.e
-"/sys/class/net/eth0/smbios_name". "Cat /sys/class/net/eth0/smbios_name"
-would show "Embedded_NIC_1[23..]" and this can be used by udev in
-70-persistent-net.rules as 
-
-SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
-ATTR{smbios_name}=="Embedded_NIC_1", ATTR{type}=="1", KERNEL=="eth*",
-NAME="eth0".
-
-I suppose this would not need any changes to the udev code and existing
-udev infrastructure can be used as udev is capable handling
-ATTR{something}.
-
-This would also ensure that whichever device is "Embedded_NIC_1" as per
-the BIOS, will also be "eth0" in the os.
-
-Netdev, What are your views on this idea ?
-
-With regards,
-Narendra K  
