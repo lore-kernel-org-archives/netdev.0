@@ -1,89 +1,93 @@
-From: Ryousei Takano <ryousei@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Wed, 4 Nov 2009 17:19:15 +0900
-Message-ID: <b30d1c3b0911040019q14a007d4lbd1b695db8884b27@mail.gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
-	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>
-	 <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
-	 <4AF10B1D.4050604@gmail.com> <4AF110CE.8070701@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the
+	HTB_CAN_SEND level
+Date: Wed, 4 Nov 2009 08:28:08 +0000
+Message-ID: <20091104082808.GA6224@ff.dom.local>
+References: <4AEF9862.8040404@gmail.com> <20091103080022.GA6718@ff.dom.local> <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com> <20091103100538.GC6718@ff.dom.local> <412e6f7f0911030518w7a5f02a4ue8a4b6539496dd8f@mail.gmail.com> <20091103230035.GA2352@ami.dom.local> <412e6f7f0911031753m4af1467fn1b0326bdf17fe48b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	takano-ryousei@aist.go.jp
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, devik@cdi.cz,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f192.google.com ([209.85.212.192]:33390 "EHLO
-	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbZKDITK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 03:19:10 -0500
-Received: by vws30 with SMTP id 30so1869718vws.33
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2009 00:19:15 -0800 (PST)
-In-Reply-To: <4AF110CE.8070701@gmail.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:33926 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbZKDI2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 03:28:11 -0500
+Received: by bwz27 with SMTP id 27so8548523bwz.21
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2009 00:28:14 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <412e6f7f0911031753m4af1467fn1b0326bdf17fe48b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-On Wed, Nov 4, 2009 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+On Wed, Nov 04, 2009 at 09:53:52AM +0800, Changli Gao wrote:
+> On Wed, Nov 4, 2009 at 7:00 AM, Jarek Poplawski <jarkao2@gmail.com> w=
 rote:
-> Eric Dumazet a =E9crit :
->>
->> Hmm, do you know part of the error comes from the user tool itself ?
->>
->> If you check iperf results at sender and receiver you'll see differe=
-nt
->> values, sender lies a bit.
->>
->> Tried here on a Gbit link (I dont have 10Gbe yet)
->>
->> $ ./iperf.bench.sh
->> .100 104
->> .200 206
->> .300 307
->> .400 413
->> .500 515
->> .600 610
->> .700 715
->> .800 822
->> .900 913
->> 1.000 945
->>
-> (that was with standard 1500 MTU)
->
-> Now, with 9000 MTU and 50 seconds samples (instead of 5 s) I get :
->
-> $ ./iperf.bench.sh
-> .100 101
-> .200 200
-> .300 301
-> .400 401
-> .500 500
-> .600 601
-> .700 700
-> .800 803
-> .900 903
-> 1.000 991
->
-> Not too bad :)
->
+> > On Tue, Nov 03, 2009 at 09:18:49PM +0800, Changli Gao wrote:
+> >> On Tue, Nov 3, 2009 at 6:05 PM, Jarek Poplawski <jarkao2@gmail.com=
+> wrote:
+> >> >
+> >> > The ceil specification is controlled only by ctokens, which are =
+always
+> >> > updated, so no such risk.
+> >> >
+> >> Nevertheless, updating tokens is necessary too.
+> >
+> > If it's really necessary you should present some test case fixed by
+> > your patch, I guess.
+> >
+> > In the meantime let's consider what could be broken:
+> > class 1:1 (parent) rate 10 packets/sec
+> > class 1:2 rate 5 packets/sec ceil 10 packets/sec
+> > class 1:3 rate 5 packets/sec ceil 10 packets/sec
+> >
+> > class 1:2 doesn't use all its rate, and sends every other second
+> > =A0 =A0 =A0 =A0(in even seconds)
+> > class 1:3 sends 10 packets during the first second, so with your
+> > =A0 =A0 =A0 =A0patch it will use its tokens for 2 seconds
+> > class 1:2 uses its rate in the second second..., so class 1:1
+> > =A0 =A0 =A0 =A0can't lend anything
+> > class 1:3 can only borrow, so it won't be able to send during
+> > =A0 =A0 =A0 =A0this second anything
+> >
+> > So, the effect would be class 1:3 sending every odd second 10 packe=
+ts
+> > while every even second - nothing...
+>=20
+> class 1:3 can send, as its parent rate is 10, but class 1:2 only uses
+> half of it, and class 1:1 is still in HTB_CAN_SEND mode.
+>=20
+> The result is, hasn't any difference with or without my patch :
+> class 1:1 sends 10 packets in odd seconds, and 5 packets in even seco=
+nds.
 
-I tried iperf with 60 seconds samples. I got the almost same result.
+I guess you meant class 1:3, and there is a difference: it sends 5
+packets in even seconds only if it manages to borrow from 1:1, but
+it's not _guaranteed_ at all. In this particular case it's quite
+probable class 1:2 will send 10 packets in even seconds instead, or
+with some finer borrowing control it could be: class 1:2 8 packets,
+class 1:3 2 packets, as well.
 
-Here is the result:
-      sender	receiver
-1.000 1.00	1.00
-2.000 2.01	2.01
-3.000 3.03	3.02
-4.000 4.07	4.07
-5.000 5.05	5.05
-6.000 6.16	6.16
-7.000 7.22	7.22
-8.000 8.15	8.15
-9.000 9.23	9.23
-9.900 9.69	9.69
+> class 1:2 sends 5 packets in even seconds.
+> class 1:1 (parent) sends 10 packets in every second.
+>=20
+> Let's think this case in another way: which class sends packets in
+> even seconds first, class 1:2 or class 1:3.
+> With my patch, as 1:3 in HTB_MAY_BORROW mode, and 1:2 in HTB_CAN_SEND
+> mode, so 1:2 sends all its 5 packets first.
+> Without my patch, as 1:2 and 1:3 are both in HTB_CAN_SEND mode, the
+> sequence is undetermined. In other word, 1:2 and 1:3 are treated
+> fairly, and it isn't fair for 1:2, because 1:2 sends nothing in odd
+> seconds, and has no deficit in rate as 1:3.
 
-Best regards,
-Ryousei Takano
+The token bucket (cl->buffer) is just to account distinctly when a
+class is entitled to send and when it actually does send within its
+rate. The fairness is controlled by classes itself with HTB_CAN_SEND
+state. Using this bucket to account for borrowed sending deprives us
+of this precise information. "The fairness" would be controlled by
+priorities of borrowing instead (see above).
+
+Regards,
+Jarek P.
