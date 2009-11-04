@@ -1,145 +1,218 @@
-From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 06/25] mlx4_core: slave multicast support
-Date: Wed, 04 Nov 2009 17:30:43 +0200
-Message-ID: <4AF19E23.9030005@mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 09/25] mlx4_core: dispatch slave asynch events
+Date: Wed, 04 Nov 2009 17:30:56 +0200
+Message-ID: <4AF19E30.50205@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il,
+	yevgenyp@mellanox.co.il
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:34659 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755851AbZKDMdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 07:33:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Multicast table processing requires multiple related commands.
-To keep things simple, low-level multicast handling is done only by the master;
-a new virtual command is added to allow slaves to attach/detach QPs to mulitcast
-groups at a higher abstraction level.
+Affiliated and unaffiliated asynch events are handled by a single EQ owned by
+the master. A per-slave SW event queue is added to log and dispatch both slave-specific
+events and events that apply to all slaves.
 
-Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Signed-off-by: Liran Liss <liranl@mellanox.co.il>
 ---
- drivers/net/mlx4/cmd.c   |    1 +
- drivers/net/mlx4/mcg.c   |   45 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/mlx4/mlx4.h  |    4 ++++
- include/linux/mlx4/cmd.h |    1 +
- 4 files changed, 51 insertions(+), 0 deletions(-)
+ drivers/net/mlx4/cmd.c  |    5 ++-
+ drivers/net/mlx4/eq.c   |   92 +++++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/mlx4/mlx4.h |    8 ++++
+ 3 files changed, 98 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
-index b1701d2..dd23aba 100644
+index d2646d1..0a7c9c0 100644
 --- a/drivers/net/mlx4/cmd.c
 +++ b/drivers/net/mlx4/cmd.c
-@@ -565,6 +565,7 @@ static struct mlx4_cmd_info {
- 	{MLX4_CMD_MAD_IFC,         1, 1, 0, NULL, NULL}, /* need verifier */
+@@ -535,6 +535,7 @@ static struct mlx4_cmd_info {
+ 	{MLX4_CMD_NOP,             0, 0, 0, NULL, NULL},
+ 	{MLX4_CMD_ALLOC_RES,	   0, 0, 1, NULL, mlx4_RESOURCE_wrapper},
+ 	{MLX4_CMD_FREE_RES,	   0, 0, 0, NULL, mlx4_RESOURCE_wrapper},
++	{MLX4_CMD_GET_EVENT,	   0, 0, 1, NULL, mlx4_GET_EVENT_wrapper},
  
- 	/* Native multicast commands are not available for guests */
-+	{MLX4_CMD_MCAST_ATTACH,	   1, 0, 0, NULL, mlx4_MCAST_wrapper},
- 	{MLX4_CMD_DIAG_RPRT,       0, 1, 0, NULL, NULL}, /* need verifier */
+ 	{MLX4_CMD_SW2HW_MPT,       1, 0, 0, NULL, NULL}, /* need verifier */
+ 	{MLX4_CMD_QUERY_MPT,       0, 1, 0, NULL, NULL}, /* need verifier */
+@@ -829,8 +830,10 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 		if (!priv->mfunc.master.slave_state)
+ 			goto err_comm;
  
- 	/* Ethernet specific commands */
-diff --git a/drivers/net/mlx4/mcg.c b/drivers/net/mlx4/mcg.c
-index 5ccbce9..96f09ed 100644
---- a/drivers/net/mlx4/mcg.c
-+++ b/drivers/net/mlx4/mcg.c
-@@ -146,6 +146,45 @@ static int find_mgm(struct mlx4_dev *dev,
- 	return err;
+-		for (i = 0; i < dev->num_slaves; ++i)
++		for (i = 0; i < dev->num_slaves; ++i) {
+ 			priv->mfunc.master.slave_state[i].last_cmd = MLX4_COMM_CMD_RESET;
++			spin_lock_init(&priv->mfunc.master.slave_state[i].lock);
++		}
+ 
+ 		INIT_DELAYED_WORK(&priv->mfunc.comm_work, mlx4_master_poll_comm);
+ 		priv->mfunc.comm_wq = create_singlethread_workqueue("mlx4_comm");
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
+index 70c16d4..1e8b62d 100644
+--- a/drivers/net/mlx4/eq.c
++++ b/drivers/net/mlx4/eq.c
+@@ -160,6 +160,61 @@ static struct mlx4_eqe *next_eqe_sw(struct mlx4_eq *eq)
+ 	return !!(eqe->owner & 0x80) ^ !!(eq->cons_index & eq->nent) ? NULL : eqe;
  }
  
-+int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+						     struct mlx4_cmd_mailbox *inbox,
-+						     struct mlx4_cmd_mailbox *outbox)
++void mlx4_slave_event(struct mlx4_dev *dev, int slave, u8 type, u8 port, u32 param)
 +{
-+	struct mlx4_qp qp; /* dummy for calling attach/detach */
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_slave_state *ctx = &priv->mfunc.master.slave_state[slave];
++	unsigned long flags;
 +
-+	qp.qpn = vhcr->in_modifier & 0xffffff;
-+	if (vhcr->op_modifier)
-+		return mlx4_multicast_attach(dev, &qp, inbox->buf, vhcr->in_modifier >> 31);
-+	else
-+		return mlx4_multicast_detach(dev, &qp, inbox->buf);
++	if (ctx->last_cmd != MLX4_COMM_CMD_VHCR_POST) {
++		mlx4_warn(dev, "received event for inactive slave:%d\n", slave);
++		return;
++	}
++
++	/* Unconditionally add the new event - during overflows, we drop the
++	 * oldest events */
++	spin_lock_irqsave(&ctx->lock, flags);
++	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].type = type;
++	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].port = port;
++	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].param = param;
++	++ctx->eq_pi;
++	spin_unlock_irqrestore(&ctx->lock, flags);
 +}
 +
-+static int mlx4_MCAST(struct mlx4_dev *dev, struct mlx4_qp *qp,
-+					    u8 gid[16], u8 attach,
-+					    u8 block_loopback)
++static void mlx4_slave_event_all(struct mlx4_dev *dev, u8 type, u8 port, u32 param)
 +{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	int err;
-+	int qpn;
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int i;
 +
-+	if (!mlx4_is_slave(dev))
-+		return -EBADF;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+
-+	memcpy(mailbox->buf, gid, 16);
-+	qpn = qp->qpn;
-+	if (attach && block_loopback)
-+		qpn |= (1 << 31);
-+
-+	err = mlx4_cmd(dev, mailbox->dma, qpn, attach, MLX4_CMD_MCAST_ATTACH,
-+						       MLX4_CMD_TIME_CLASS_A);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
++	for (i = 0; i < dev->num_slaves; ++i)
++		if (priv->mfunc.master.slave_state[i].last_cmd == MLX4_COMM_CMD_VHCR_POST)
++			mlx4_slave_event(dev, i, type, port, param);
 +}
 +
- int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 			  int block_mcast_loopback)
++int mlx4_GET_EVENT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++						 struct mlx4_cmd_mailbox *inbox,
++						 struct mlx4_cmd_mailbox *outbox)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_slave_state *ctx = &priv->mfunc.master.slave_state[slave];
++	unsigned long flags;
++
++	spin_lock_irqsave(&ctx->lock, flags);
++	if (ctx->eq_ci == ctx->eq_pi) {
++		vhcr->out_param = MLX4_EVENT_TYPE_NONE;
++	} else if ((u16) (ctx->eq_pi - ctx->eq_ci) > MLX4_MFUNC_MAX_EQES) {
++		ctx->eq_ci = ctx->eq_pi - MLX4_MFUNC_MAX_EQES;
++		vhcr->out_param = MLX4_EVENT_TYPE_EQ_OVERFLOW;
++	} else {
++		vhcr->out_param = ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].type |
++				  ((u64) ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].port << 8) |
++				  ((u64) ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].param << 32);
++		++ctx->eq_ci;
++	}
++	spin_unlock_irqrestore(&ctx->lock, flags);
++	return 0;
++}
++
+ static int mlx4_GET_EVENT(struct mlx4_dev *dev, struct mlx4_slave_eqe *eqe)
  {
-@@ -159,6 +198,9 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	int i;
- 	int err;
+ 	int ret;
+@@ -205,14 +260,26 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 		case MLX4_EVENT_TYPE_PATH_MIG_FAILED:
+ 		case MLX4_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
+ 		case MLX4_EVENT_TYPE_WQ_ACCESS_ERROR:
+-			mlx4_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) & 0xffffff,
+-				      eqe->type);
++			if (mlx4_is_master(dev)) {
++				/* TODO: forward only to slave owning the QP */
++				mlx4_slave_event(dev, 0, eqe->type, 0,
++					      be32_to_cpu(eqe->event.qp.qpn) &
++					      0xffffff);
++			} else
++				mlx4_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) &
++						   0xffffff, eqe->type);
+ 			break;
  
-+	if (mlx4_is_slave(dev))
-+		return mlx4_MCAST(dev, qp, gid, 1, block_mcast_loopback);
-+
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
- 		return PTR_ERR(mailbox);
-@@ -254,6 +296,9 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
- 	int i, loc;
- 	int err;
+ 		case MLX4_EVENT_TYPE_SRQ_LIMIT:
+ 		case MLX4_EVENT_TYPE_SRQ_CATAS_ERROR:
+-			mlx4_srq_event(dev, be32_to_cpu(eqe->event.srq.srqn) & 0xffffff,
+-				      eqe->type);
++			if (mlx4_is_master(dev)) {
++				/* TODO: forward only to slave owning the SRQ */
++				mlx4_slave_event(dev, 0, eqe->type, 0,
++					      be32_to_cpu(eqe->event.srq.srqn) &
++					      0xffffff);
++			} else
++				mlx4_srq_event(dev, be32_to_cpu(eqe->event.srq.srqn) &
++						    0xffffff, eqe->type);
+ 			break;
  
-+	if (mlx4_is_slave(dev))
-+		return mlx4_MCAST(dev, qp, gid, 0, 0);
-+
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
- 		return PTR_ERR(mailbox);
+ 		case MLX4_EVENT_TYPE_CMD:
+@@ -227,10 +294,18 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 			if (eqe->subtype == MLX4_PORT_CHANGE_SUBTYPE_DOWN) {
+ 				mlx4_dispatch_event(dev, MLX4_DEV_EVENT_PORT_DOWN,
+ 						    port);
++				if (mlx4_is_master(dev)) {
++					mlx4_slave_event_all(dev, MLX4_EVENT_TYPE_PORT_CHANGE,
++							     port, MLX4_DEV_EVENT_PORT_DOWN);
++				}
+ 				mlx4_priv(dev)->sense.do_sense_port[port] = 1;
+ 			} else {
+ 				mlx4_dispatch_event(dev, MLX4_DEV_EVENT_PORT_UP,
+ 						    port);
++				if (mlx4_is_master(dev)) {
++					mlx4_slave_event_all(dev, MLX4_EVENT_TYPE_PORT_CHANGE,
++							     port, MLX4_DEV_EVENT_PORT_UP);
++				}
+ 				mlx4_priv(dev)->sense.do_sense_port[port] = 0;
+ 			}
+ 			break;
+@@ -240,8 +315,13 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 				  eqe->event.cq_err.syndrome == 1 ?
+ 				  "overrun" : "access violation",
+ 				  be32_to_cpu(eqe->event.cq_err.cqn) & 0xffffff);
+-			mlx4_cq_event(dev, be32_to_cpu(eqe->event.cq_err.cqn),
+-				      eqe->type);
++			if (mlx4_is_master(dev)) {
++				/* TODO: forward only to slave owning the CQ */
++				mlx4_slave_event(dev, 0, eqe->type, 0,
++					      be32_to_cpu(eqe->event.cq_err.cqn));
++			} else
++				mlx4_cq_event(dev, be32_to_cpu(eqe->event.cq_err.cqn),
++									   eqe->type);
+ 			break;
+ 
+ 		case MLX4_EVENT_TYPE_EQ_OVERFLOW:
 diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 91f1215..fafa293 100644
+index 8a7a041..fb1c6f0 100644
 --- a/drivers/net/mlx4/mlx4.h
 +++ b/drivers/net/mlx4/mlx4.h
-@@ -507,4 +507,8 @@ void mlx4_init_vlan_table(struct mlx4_dev *dev, struct mlx4_vlan_table *table);
- int mlx4_SET_PORT(struct mlx4_dev *dev, u8 port);
- int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps);
+@@ -216,6 +216,10 @@ struct mlx4_slave_state {
+ 	u8 init_port_mask;
+ 	dma_addr_t vhcr_dma;
+ 	__be32 ib_cap_mask[MLX4_MAX_PORTS + 1];
++	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
++	u16 eq_pi;
++	u16 eq_ci;
++	spinlock_t lock;
+ };
  
-+int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+						     struct mlx4_cmd_mailbox *inbox,
-+						     struct mlx4_cmd_mailbox *outbox);
-+
- #endif /* MLX4_H */
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index dceb93f..8265843 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -123,6 +123,7 @@ enum {
- 	MLX4_CMD_ALLOC_RES	 = 0x50,
- 	MLX4_CMD_FREE_RES	 = 0x51,
- 	MLX4_CMD_GET_EVENT	 = 0x52,
-+	MLX4_CMD_MCAST_ATTACH	 = 0x54,
+ struct mlx4_mfunc_master_ctx {
+@@ -422,6 +426,10 @@ int mlx4_reset(struct mlx4_dev *dev);
  
- 	/* debug commands */
- 	MLX4_CMD_QUERY_DEBUG_MSG = 0x2a,
+ int mlx4_alloc_eq_table(struct mlx4_dev *dev);
+ void mlx4_free_eq_table(struct mlx4_dev *dev);
++void mlx4_slave_event(struct mlx4_dev *dev, int slave, u8 type, u8 port, u32 param);
++int mlx4_GET_EVENT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++						 struct mlx4_cmd_mailbox *inbox,
++						 struct mlx4_cmd_mailbox *outbox);
+ 
+ int mlx4_init_pd_table(struct mlx4_dev *dev);
+ int mlx4_init_uar_table(struct mlx4_dev *dev);
 -- 
 1.6.1.3
 
 
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
