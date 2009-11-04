@@ -1,32 +1,27 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
-Date: Wed, 4 Nov 2009 13:59:57 +0100
-Message-ID: <20091104125957.GL31511@one.firstfloor.org>
-References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <878wema6o0.fsf@basil.nowhere.org> <20091104121009.GF8398@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/3] qlge: Clean up and firmware subcommands.
+Date: Wed, 04 Nov 2009 05:03:07 -0800 (PST)
+Message-ID: <20091104.050307.209977068.davem@davemloft.net>
+References: <1257292171-11683-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-	akpm@linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20091104121009.GF8398@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36441
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755662AbZKDNCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 08:02:42 -0500
+In-Reply-To: <1257292171-11683-1-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Fine?
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Tue,  3 Nov 2009 15:49:28 -0800
 
-I cannot say -- are there paths that could drop the device beforehand?
-(as in do you hold a reference to it?)
+> Patch #1 is a respin per your request from yesterday.
+> Patch #2 adds handling for more firmware events.
+> Patch #3 cleans up netdev statistics handling.
 
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Looks good, applied, thanks Ron.
