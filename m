@@ -1,61 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Wed, 04 Nov 2009 06:27:42 +0100
-Message-ID: <4AF110CE.8070701@gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam> <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com> <4AF10B1D.4050604@gmail.com>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: 2.6.32-rc5-mmotm1101 - kernel BUG at net/ipv4/tcp_input.c:3707!
+Date: Wed, 04 Nov 2009 08:27:19 +0200
+Message-ID: <4AF11EC7.70302@codefidence.com>
+References: <5765.1257270611@turing-police.cc.vt.edu> <4AF07024.80103@gmail.com> <4AF08292.7090102@codefidence.com> <Pine.LNX.4.64.0911032330090.3488@melkinkari.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	takano-ryousei@aist.go.jp
-To: Ryousei Takano <ryousei@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60316 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbZKDF1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 00:27:46 -0500
-In-Reply-To: <4AF10B1D.4050604@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Valdis.Kletnieks@vt.edu, Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ori Finkelman <ori@comsleep.com>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752131AbZKDG1X@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0911032330090.3488@melkinkari.cs.Helsinki.FI>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet a =E9crit :
->=20
-> Hmm, do you know part of the error comes from the user tool itself ?
->=20
-> If you check iperf results at sender and receiver you'll see differen=
-t
-> values, sender lies a bit.
->=20
-> Tried here on a Gbit link (I dont have 10Gbe yet)
->=20
-> $ ./iperf.bench.sh
-> .100 104
-> .200 206
-> .300 307
-> .400 413
-> .500 515
-> .600 610
-> .700 715
-> .800 822
-> .900 913
-> 1.000 945
->=20
-(that was with standard 1500 MTU)
+Ilpo J=E4rvinen wrote:
 
-Now, with 9000 MTU and 50 seconds samples (instead of 5 s) I get :
+> On Tue, 3 Nov 2009, Gilad Ben-Yossef wrote:
+>
+>  =20
+>> Eric Dumazet wrote:
+>>
+>>    =20
+>>> Valdis.Kletnieks@vt.edu a =E9crit :
+>>>  =20
+>>>      =20
+>>>> Seen right after I started 'fetchmail'.  Reproducible - 3 out of 3=
+=2E
+>>>> I'll bisect this tonight if nobody jumps up and yells they know wh=
+at it
+>>>> is...
+>>>>    =20
+>>>>        =20
+>> Bah... this is most probably my fault. Sorry about that.
+>>
+>> Can you please try the patch in the next email?
+>>
+>> But also, can you please send me the route table in effect when this=
+ happened
+>> and the fetchmail command line/config (removing any passwords or acc=
+ount
+>> details of course)? I want to understand better when this happens.
+>>    =20
+>
+> According to the stacktrace, it came from ipv6 side which doesn't hav=
+e any=20
+> null checking what so ever atm (you only handled ipv4 correctly). ...=
+You=20
+> should be a bit more careful next time when adding any BUG_ONs...
+>  =20
+I agree, but for my defense I should add this was not just plain=20
+carelessness, I believed
+that the dst_entry cannot be NULL at that location. That was obviously=20
+wrong. :-(
 
-$ ./iperf.bench.sh
-=2E100 101
-=2E200 200
-=2E300 301
-=2E400 401
-=2E500 500
-=2E600 601
-=2E700 700
-=2E800 803
-=2E900 903
-1.000 991
+Gilad
 
-Not too bad :)
+
+
+
+
+--=20
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
+
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+=46ax:   +972-8-9316884
+Email: gilad@codefidence.com
+
+Check out our Open Source technology and training blog - http://tuxolog=
+y.net
+
+	"The biggest risk you can take it is to take no risk."
+		-- Mark Zuckerberg and probably others
