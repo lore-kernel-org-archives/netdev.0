@@ -1,77 +1,68 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: [atl1-devel] [Bugme-new] [Bug 14431] New: atl1 eth0 link continuously down up
-Date: Tue, 3 Nov 2009 18:19:37 -0600
-Message-ID: <1A6E85E5-8C3B-4674-9C7B-54740D065171@gmail.com>
-References: <bug-14431-10286@http.bugzilla.kernel.org/> <20091102224018.e306b12f.akpm@linux-foundation.org>
-Mime-Version: 1.0 (Apple Message framework v753.1)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Joe Perches <joe@perches.com>
+Subject: RE: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
+Date: Tue, 03 Nov 2009 16:31:58 -0800
+Message-ID: <1257294718.2892.23.camel@Joe-Laptop.home>
+References: <200911010503.nA153Elp019063@blc-10-10.brocade.com>
+	 <1257053039.1917.147.camel@Joe-Laptop.home>
+	 <CBE1CC7A31453F4CA63C13EFCE6A0F6C05BAC64093@HQ-EXCH-7.corp.brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	johan_vdp@hotmail.com, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:53966 "EHLO
-	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752585AbZKDATo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 19:19:44 -0500
-Received: by ywh40 with SMTP id 40so5916217ywh.33
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 16:19:49 -0800 (PST)
-In-Reply-To: <20091102224018.e306b12f.akpm@linux-foundation.org>
+Received: from mail.perches.com ([173.55.12.10]:1217 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751326AbZKDAby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Nov 2009 19:31:54 -0500
+In-Reply-To: <CBE1CC7A31453F4CA63C13EFCE6A0F6C05BAC64093@HQ-EXCH-7.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2009-11-03 at 10:24 -0800, Rasesh Mody wrote:
+> Joe,
+> Thanks for your input. We are in the process addressing the comments that we are getting.
 
-On Nov 3, 2009, at 12:40 AM, Andrew Morton wrote:
+Hi Rasesh.
 
->
-> (switched to email.  Please respond via emailed reply-to-all, not  
-> via the
-> bugzilla web interface).
->
-> On Sat, 17 Oct 2009 19:17:38 GMT bugzilla- 
-> daemon@bugzilla.kernel.org wrote:
->
->> http://bugzilla.kernel.org/show_bug.cgi?id=14431
->>
->>            Summary: atl1 eth0 link continuously down up
->>            Product: Drivers
->>            Version: 2.5
->>     Kernel Version: 2.6.30.8-64.fc11.x86_64
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: Network
->>         AssignedTo: drivers_network@kernel-bugs.osdl.org
->>         ReportedBy: johan_vdp@hotmail.com
->>         Regression: No
->>
->>
->> /var/log/messages shows
->> ..
->> Oct 17 21:06:01 blauw kernel: atl1 0000:01:00.0: eth0 link is down
->> Oct 17 21:06:01 blauw kernel: atl1 0000:01:00.0: eth0 link is up  
->> 100 Mbps full
->> duplex
+Thanks for bringing this out to netdev.
 
-Strange.  This driver hasn't been changed in quite some time and it's  
-very stable.  I'm running Fedora 11 and I don't see the problem at all.
+I think that with a few hours of cleanup, the code
+would be more linux style conforming.  But right now,
+it looks a bit odd with too many indirections.
 
-I note that your NIC is autonegotiating to only 100 Mbps instead of  
-1000 Mbps; is your switch a 100 Mbps device?
+> Can you please give examples or elaborate your comment? It would be really helpful.
 
-Out of curiosity, are you running with or without NetworkManager active?
+OS dependent includes?  Most of them are senseless.
 
-Increase the verbosity of driver messages and see if any additional  
-light is shed on the subject.
+All of bfa_os_inc.h should go elsewhere or be dropped.
+All of bna_os should go elsewhere or be dropped.
 
-ethtool -s eth0 msglvl 0xffff
+drop all bna_os_ prefixes
 
+drop all bfa_os_ntohs, etc:
 
-Jay Cliburn
+sed -r -i -e 's/\bbfa_os_(nh)to(nh)(sl)\b/\1to\2\3/g' *
 
+Redefine true/false? why?
 
+sed -r -i -e 's/\bbfa_boolean_t\b/bool/g' *
+sed -r -i -e 's/\bBFA_TRUE\b/true/g' *
+sed -r -i -e 's/\bBFA_FALSE\b/false/g' *
+
+Don't suffix struct names with _s
+
+sed -r -i -e 's/\bstruct\b\s+(\w+)\s+(\w+)_s/struct \1 \2/g' *
+
+bfa_panic -> bfa_os_panic -> nothing
+
+a laundry list like that...
+
+I think it should go into staging for a few weeks, and then
+it would be ready to be integrated into a mainline release.
+
+cheers,  Joe 
 
