@@ -1,34 +1,64 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] ems_usb: Fix byte order issues on big endian machines
-Date: Wed, 04 Nov 2009 19:06:25 +0100
-Message-ID: <4AF1C2A1.7070901@grandegger.com>
-References: <20091104154824.18199.15573.stgit@localhost.localdomain>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv6 1/3] tun: export underlying socket
+Date: Wed, 4 Nov 2009 19:09:05 +0100
+Message-ID: <200911041909.06054.arnd@arndb.de>
+References: <cover.1257193660.git.mst@redhat.com> <20091102222612.GB15184@redhat.com> <200911031312.33580.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20091104154824.18199.15573.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+ netdev@vger.kernel.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ s.hetze@linux-ag.com
+To: virtualization@lists.linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <200911031312.33580.arnd@arndb.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Haas wrote:
-> CPC-USB is using a ARM7 core with little endian byte order. The "id" field
-> in can_msg needs byte order conversion from/to CPU byte order.
+On Tuesday 03 November 2009, Arnd Bergmann wrote:
+> > index 3f5fd52..404abe0 100644
+> > --- a/include/linux/if_tun.h
+> > +++ b/include/linux/if_tun.h
+> > @@ -86,4 +86,18 @@ struct tun_filter {
+> >         __u8   addr[0][ETH_ALEN];
+> >  };
+> >  
+> > +#ifdef __KERNEL__
+> > +#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
+> > +struct socket *tun_get_socket(struct file *);
+> > +#else
+> > +#include <linux/err.h>
+> > +#include <linux/errno.h>
+> > +struct file;
+> > +struct socket;
+> > +static inline struct socket *tun_get_socket(struct file *f)
+> > +{
+> > +       return ERR_PTR(-EINVAL);
+> > +}
+> > +#endif /* CONFIG_TUN */
+> > +#endif /* __KERNEL__ */
+> >  #endif /* __IF_TUN_H */
 > 
-> Signed-off-by: Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+> Is this a leftover from testing? Exporting the function for !__KERNEL__
+> seems pointless.
+> 
 
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Michael, you didn't reply on this comment and the code is still there in v8.
+Do you actually need this? What for?
 
-Thanks.
+	Arnd <><
 
-Wolfgang.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
