@@ -1,235 +1,154 @@
-From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 21/25] mlx4: Adding protocol fields to multicast group
-Date: Wed, 04 Nov 2009 17:32:01 +0200
-Message-ID: <4AF19E71.5080308@mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 20/25] mlx4: Managing SET_PORT for En port for multi-func
+Date: Wed, 04 Nov 2009 17:31:57 +0200
+Message-ID: <4AF19E6D.6010400@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il,
+	yevgenyp@mellanox.co.il
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:34767 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755938AbZKDMeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 07:34:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The multicast attachment mechanism will be used both by
-IB and Ethernet, so we need to specify for each multicast
-address (whether it is gid or mac) its protocol.
+MTU is set as max among all active functions.
+The base QP number is the base QP number of the port.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/infiniband/hw/mlx4/main.c |    6 +++-
- drivers/net/mlx4/mcg.c            |   41 +++++++++++++++++++++---------------
- include/linux/mlx4/device.h       |   12 +++++++++-
- 3 files changed, 38 insertions(+), 21 deletions(-)
+ drivers/net/mlx4/mlx4.h  |    2 +
+ drivers/net/mlx4/port.c  |   56 ++++++++++++++++++++++++++++++++++++++++++---
+ include/linux/mlx4/cmd.h |    1 +
+ 3 files changed, 55 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 3cb3f47..5b67a31 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -450,13 +450,15 @@ static int mlx4_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
- 	return mlx4_multicast_attach(to_mdev(ibqp->device)->dev,
- 				     &to_mqp(ibqp)->mqp, gid->raw,
- 				     !!(to_mqp(ibqp)->flags &
--					MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK));
-+					MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
-+				     MLX4_PROT_IB_IPV6);
- }
- 
- static int mlx4_ib_mcg_detach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
- {
- 	return mlx4_multicast_detach(to_mdev(ibqp->device)->dev,
--				     &to_mqp(ibqp)->mqp, gid->raw);
-+				     &to_mqp(ibqp)->mqp, gid->raw,
-+				     MLX4_PROT_IB_IPV6);
- }
- 
- static int init_node_data(struct mlx4_ib_dev *dev)
-diff --git a/drivers/net/mlx4/mcg.c b/drivers/net/mlx4/mcg.c
-index daa08f1..c4f928a 100644
---- a/drivers/net/mlx4/mcg.c
-+++ b/drivers/net/mlx4/mcg.c
-@@ -96,7 +96,8 @@ static int mlx4_MGID_HASH(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox
-  * entry in hash chain and *mgm holds end of hash chain.
-  */
- static int find_mgm(struct mlx4_dev *dev,
--		    u8 *gid, struct mlx4_cmd_mailbox *mgm_mailbox,
-+		    u8 *gid, enum mlx4_protocol prot,
-+		    struct mlx4_cmd_mailbox *mgm_mailbox,
- 		    u16 *hash, int *prev, int *index)
- {
- 	struct mlx4_cmd_mailbox *mailbox;
-@@ -135,8 +136,9 @@ static int find_mgm(struct mlx4_dev *dev,
- 			return err;
- 		}
- 
--		if (!memcmp(mgm->gid, gid, 16))
--			return err;
-+		if (!memcmp(mgm->gid, gid, 16) &&
-+				(prot == be32_to_cpu(mgm->members_count) >> 30))
-+				return err;
- 
- 		*prev = *index;
- 		*index = be32_to_cpu(mgm->next_gid_index) >> 6;
-@@ -154,14 +156,17 @@ int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
- 
- 	qp.qpn = vhcr->in_modifier & 0xffffff;
- 	if (vhcr->op_modifier)
--		return mlx4_multicast_attach(dev, &qp, inbox->buf, vhcr->in_modifier >> 31);
-+		return mlx4_multicast_attach(dev, &qp, inbox->buf,
-+					     vhcr->in_modifier >> 31,
-+					     (vhcr->in_modifier >> 28) & 0x7);
- 	else
--		return mlx4_multicast_detach(dev, &qp, inbox->buf);
-+		return mlx4_multicast_detach(dev, &qp, inbox->buf,
-+					     (vhcr->in_modifier >> 28) & 0x7);
- }
- 
- static int mlx4_MCAST(struct mlx4_dev *dev, struct mlx4_qp *qp,
--					    u8 gid[16], u8 attach,
--					    u8 block_loopback)
-+		      u8 gid[16], u8 attach, u8 block_loopback,
-+		      enum mlx4_protocol prot)
- {
- 	struct mlx4_cmd_mailbox *mailbox;
- 	int err;
-@@ -176,6 +181,7 @@ static int mlx4_MCAST(struct mlx4_dev *dev, struct mlx4_qp *qp,
- 
- 	memcpy(mailbox->buf, gid, 16);
- 	qpn = qp->qpn;
-+	qpn |= (prot << 28);
- 	if (attach && block_loopback)
- 		qpn |= (1 << 31);
- 
-@@ -186,7 +192,7 @@ static int mlx4_MCAST(struct mlx4_dev *dev, struct mlx4_qp *qp,
- }
- 
- int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
--			  int block_mcast_loopback)
-+			  int block_mcast_loopback, enum mlx4_protocol prot)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_cmd_mailbox *mailbox;
-@@ -199,7 +205,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	int err;
- 
- 	if (mlx4_is_slave(dev))
--		return mlx4_MCAST(dev, qp, gid, 1, block_mcast_loopback);
-+		return mlx4_MCAST(dev, qp, gid, 1, block_mcast_loopback, prot);
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
-@@ -208,7 +214,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 
- 	mutex_lock(&priv->mcg_table.mutex);
- 
--	err = find_mgm(dev, gid, mailbox, &hash, &prev, &index);
-+	err = find_mgm(dev, gid, prot, mailbox, &hash, &prev, &index);
- 	if (err)
- 		goto out;
- 
-@@ -230,7 +236,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 		memcpy(mgm->gid, gid, 16);
- 	}
- 
--	members_count = be32_to_cpu(mgm->members_count);
-+	members_count = be32_to_cpu(mgm->members_count) & 0xffffff;
- 	if (members_count == MLX4_QP_PER_MGM) {
- 		mlx4_err(dev, "MGM at index %x is full.\n", index);
- 		err = -ENOMEM;
-@@ -250,7 +256,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	else
- 		mgm->qp[members_count++] = cpu_to_be32(qp->qpn & MGM_QPN_MASK);
- 
--	mgm->members_count       = cpu_to_be32(members_count);
-+	mgm->members_count       = cpu_to_be32(members_count | ((u32) prot << 30));
- 
- 	err = mlx4_WRITE_MCG(dev, index, mailbox);
- 	if (err)
-@@ -285,7 +291,8 @@ out:
- }
- EXPORT_SYMBOL_GPL(mlx4_multicast_attach);
- 
--int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
-+int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
-+						enum mlx4_protocol prot)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_cmd_mailbox *mailbox;
-@@ -297,7 +304,7 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
- 	int err;
- 
- 	if (mlx4_is_slave(dev))
--		return mlx4_MCAST(dev, qp, gid, 0, 0);
-+		return mlx4_MCAST(dev, qp, gid, 0, 0, prot);
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
-@@ -306,7 +313,7 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
- 
- 	mutex_lock(&priv->mcg_table.mutex);
- 
--	err = find_mgm(dev, gid, mailbox, &hash, &prev, &index);
-+	err = find_mgm(dev, gid, prot, mailbox, &hash, &prev, &index);
- 	if (err)
- 		goto out;
- 
-@@ -316,7 +323,7 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
- 		goto out;
- 	}
- 
--	members_count = be32_to_cpu(mgm->members_count);
-+	members_count = be32_to_cpu(mgm->members_count) & 0xffffff;
- 	for (loc = -1, i = 0; i < members_count; ++i)
- 		if ((be32_to_cpu(mgm->qp[i]) & MGM_QPN_MASK) == qp->qpn)
- 			loc = i;
-@@ -328,7 +335,7 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16])
- 	}
- 
- 
--	mgm->members_count = cpu_to_be32(--members_count);
-+	mgm->members_count = cpu_to_be32(--members_count | ((u32) prot << 30));
- 	mgm->qp[loc]       = mgm->qp[i - 1];
- 	mgm->qp[i - 1]     = 0;
- 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 246b7bc..3d74198 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -171,6 +171,13 @@ enum mlx4_special_vlan_idx {
- 	MLX4_VLAN_REGULAR
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index 3e434e4..1213de6 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -221,6 +221,7 @@ struct mlx4_slave_state {
+ 	u8 last_cmd;
+ 	u8 init_port_mask;
+ 	dma_addr_t vhcr_dma;
++	u16 mtu[MLX4_MAX_PORTS + 1];
+ 	__be32 ib_cap_mask[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
+ 	u16 eq_pi;
+@@ -232,6 +233,7 @@ struct mlx4_slave_state {
+ struct mlx4_mfunc_master_ctx {
+ 	struct mlx4_slave_state *slave_state;
+ 	int			init_port_ref[MLX4_MAX_PORTS + 1];
++	u16			max_mtu[MLX4_MAX_PORTS + 1];
  };
  
-+enum mlx4_protocol {
-+	MLX4_PROT_IB_IPV6 = 0,
-+	MLX4_PROT_ETH,
-+	MLX4_PROT_IB_IPV4,
-+	MLX4_PROT_FCOE
-+};
+ struct mlx4_vhcr {
+diff --git a/drivers/net/mlx4/port.c b/drivers/net/mlx4/port.c
+index 6e729dd..02b56ba 100644
+--- a/drivers/net/mlx4/port.c
++++ b/drivers/net/mlx4/port.c
+@@ -36,6 +36,7 @@
+ #include <linux/mlx4/cmd.h>
+ 
+ #include "mlx4.h"
++#include "en_port.h"
+ 
+ #define MLX4_MAC_VALID		(1ull << 63)
+ #define MLX4_MAC_MASK		0xffffffffffffULL
+@@ -351,9 +352,17 @@ int mlx4_SET_PORT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhc
+ 							struct mlx4_cmd_mailbox *outbox)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_port_info *port_info;
++	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
++	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
++	struct mlx4_set_port_rqp_calc_context *qpn_context;
++	struct mlx4_set_port_general_context *gen_context;
+ 	int reset_qkey_viols;
+ 	int port;
+ 	int is_eth;
++	u32 in_modifier;
++	u32 promisc;
++	u16 mtu, prev_mtu;
+ 	int err;
+ 	int i;
+ 	__be32 agg_cap_mask;
+@@ -361,13 +370,52 @@ int mlx4_SET_PORT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhc
+ 	__be32 new_cap_mask;
+ 
+ 	port = vhcr->in_modifier & 0xff;
++	in_modifier = vhcr->in_modifier >> 8;
+ 	is_eth = vhcr->op_modifier;
++	port_info = &priv->port[port];
+ 
+-	/* For Ethernet, we currently support only slave0.
+-	 * TODO: add multi-vf support */
++	/* All slaves can perform SET_PORT operations, just need to verify
++	 * we keep the mutual resources unchanged */
+ 	if (is_eth) {
+-		if (slave)
+-			return -EINVAL;
++		switch (in_modifier) {
++		case MLX4_SET_PORT_RQP_CALC:
++			qpn_context = inbox->buf;
++			qpn_context->base_qpn = cpu_to_be32(port_info->base_qpn);
++			qpn_context->n_mac = 0x7;
++			promisc = be32_to_cpu(qpn_context->promisc) >>
++				SET_PORT_PROMISC_SHIFT;
++			qpn_context->promisc = cpu_to_be32(
++				promisc << SET_PORT_PROMISC_SHIFT |
++				port_info->base_qpn);
++			promisc = be32_to_cpu(qpn_context->mcast) >>
++				SET_PORT_PROMISC_SHIFT;
++			qpn_context->mcast = cpu_to_be32(
++				promisc << SET_PORT_PROMISC_SHIFT |
++				port_info->base_qpn);
++			break;
++		case MLX4_SET_PORT_GENERAL:
++			gen_context = inbox->buf;
++			/* Mtu is configured as the max MTU among all the
++			 * the functions on the port. */
++			mtu = be16_to_cpu(gen_context->mtu);
++			mtu = max_t(int, mtu, dev->caps.eth_mtu_cap[port]);
++			prev_mtu = slave_st->mtu[port];
++			slave_st->mtu[port] = mtu;
++			if (mtu > master->max_mtu[port])
++				master->max_mtu[port] = mtu;
++			if (mtu < prev_mtu && prev_mtu == master->max_mtu[port]) {
++				slave_st->mtu[port] = mtu;
++				master->max_mtu[port] = mtu;
++				for (i = 0; i < dev->num_slaves; i++) {
++					master->max_mtu[port] =
++						max(master->max_mtu[port],
++						    master->slave_state[i].mtu[port]);
++				}
++			}
 +
- enum {
- 	MLX4_NUM_FEXCH          = 64 * 1024,
++			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
++			break;
++		}
+ 		return mlx4_cmd(dev, inbox->dma, vhcr->in_modifier,
+ 						 vhcr->op_modifier,
+ 						 MLX4_CMD_SET_PORT,
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index f729c82..c0f2897 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -151,6 +151,7 @@ enum {
+ 	MLX4_SET_PORT_MAC_TABLE = 0x2,
+ 	MLX4_SET_PORT_VLAN_TABLE = 0x3,
+ 	MLX4_SET_PORT_PRIO_MAP  = 0x4,
++	MLX4_SET_PORT_MODIFIERS
  };
-@@ -488,8 +495,9 @@ int mlx4_INIT_PORT(struct mlx4_dev *dev, int port);
- int mlx4_CLOSE_PORT(struct mlx4_dev *dev, int port);
  
- int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
--			  int block_mcast_loopback);
--int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16]);
-+			  int block_mcast_loopback, enum mlx4_protocol prot);
-+int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
-+			  enum mlx4_protocol prot);
- 
- int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn);
- void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int qpn);
+ struct mlx4_dev;
 -- 
 1.6.1.3
 
 
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
