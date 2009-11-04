@@ -1,107 +1,131 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/5 08/12] wimax/i2400m: don't retry SDIO enable in probe() paths
-Date: Wed,  4 Nov 2009 13:40:13 -0800
-Message-ID: <fae92216da87d1c78aa51c4503acb312a47266e9.1257370738.git.inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/5 02/12] wimax/i2400m: SDIO: fix oops on reset when TXing on uninitialized data
+Date: Wed,  4 Nov 2009 13:40:07 -0800
+Message-ID: <a8ee303cae6fbdaa639afa50b9d03ce6f0c7d7da.1257370738.git.inaky@linux.intel.com>
 References: <cover.1257370738.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:28866 "EHLO
+Received: from mga05.intel.com ([192.55.52.89]:28863 "EHLO
 	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932794AbZKDVmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:20 -0500
+	with ESMTP id S932788AbZKDVmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:18 -0500
 In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
 References: <cover.1257370738.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The iwmc3200 has a quirk where retrying SDIO enable during the probe()
-path causes bad interactions with the TOP function controller that
-causes a reset storm. The workaround is simply not to retry an SDIO
-enable in said path (and still do in the reset / reinitialization
-paths).
+Currently the SDIO part of the TX resources were initialized/released
+with bus_dev_{start,stop}.
 
-The driver does so by checking i2400ms->debugfs_dentry to see if it
-has been initialized; if not, it is in the probe() path. Document said
-fact in i2400ms->debugfs_entry.
+The generic code's TX subsystem is destroyed afterwards, so there is a
+window from the bus-TX destruction to the generic-TX destruction where
+the generic-TX code might call into bus-TX to do transactions.
+
+The SDIO code cannot really cope with this (whereas in USB, how it is
+laid out, it correctly ignores it). In any case, it made no sense for
+the SDIO TX code to be in i2400m->bus_dev_start/stop(), so moved to
+i2400m->bus_setup/release(), which also takes care of the oops.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/i2400m-sdio.h |    8 ++++++++
- drivers/net/wimax/i2400m/sdio.c        |   13 ++++++++++++-
- 2 files changed, 20 insertions(+), 1 deletions(-)
+ drivers/net/wimax/i2400m/sdio.c |   43 ++++++++------------------------------
+ 1 files changed, 9 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
-index fba482c..b9c4bed 100644
---- a/drivers/net/wimax/i2400m/i2400m-sdio.h
-+++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
-@@ -100,6 +100,14 @@ enum {
-  * @tx_workqueue: workqeueue used for data TX; we don't use the
-  *     system's workqueue as that might cause deadlocks with code in
-  *     the bus-generic driver.
-+ *
-+ * @debugfs_dentry: dentry for the SDIO specific debugfs files
-+ *
-+ *     Note this value is set to NULL upon destruction; this is
-+ *     because some routinges use it to determine if we are inside the
-+ *     probe() path or some other path. When debugfs is disabled,
-+ *     creation sets the dentry to '(void*) -ENODEV', which is valid
-+ *     for the test.
-  */
- struct i2400ms {
- 	struct i2400m i2400m;		/* FIRST! See doc */
 diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
-index 079f900..e8ad85c 100644
+index 14e66f0..ec17892 100644
 --- a/drivers/net/wimax/i2400m/sdio.c
 +++ b/drivers/net/wimax/i2400m/sdio.c
-@@ -159,6 +159,10 @@ function_enabled:
- /*
-  * Setup minimal device communication infrastructure needed to at
-  * least be able to update the firmware.
-+ *
-+ * Note the ugly trick: if we are in the probe path
-+ * (i2400ms->debugfs_dentry == NULL), we only retry function
-+ * enablement one, to avoid racing with the iwmc3200 top controller.
+@@ -46,15 +46,6 @@
+  * i2400ms_bus_reset()            Called by i2400m->bus_reset
+  *   __i2400ms_reset()
+  *     __i2400ms_send_barker()
+- *
+- * i2400ms_bus_dev_start()        Called by i2400m_dev_start() [who is
+- *   i2400ms_tx_setup()           called by i2400m_setup()]
+- *   i2400ms_rx_setup()
+- *
+- * i2400ms_bus_dev_stop()         Called by i2400m_dev_stop() [who is
+- *   i2400ms_rx_release()         is called by i2400m_release()]
+- *   i2400ms_tx_release()
+- *
   */
- static
- int i2400ms_bus_setup(struct i2400m *i2400m)
-@@ -168,6 +172,7 @@ int i2400ms_bus_setup(struct i2400m *i2400m)
- 		container_of(i2400m, struct i2400ms, i2400m);
- 	struct device *dev = i2400m_dev(i2400m);
- 	struct sdio_func *func = i2400ms->func;
-+	int retries;
  
- 	sdio_claim_host(func);
- 	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
-@@ -177,7 +182,11 @@ int i2400ms_bus_setup(struct i2400m *i2400m)
- 		goto error_set_blk_size;
+ #include <linux/debugfs.h>
+@@ -191,12 +182,17 @@ int i2400ms_bus_setup(struct i2400m *i2400m)
+ 		goto error_func_enable;
  	}
  
--	result = i2400ms_enable_function(i2400ms, 1);
-+	if (i2400ms->iwmc3200 && i2400ms->debugfs_dentry == NULL)
-+		retries = 0;
-+	else
-+		retries = 1;
-+	result = i2400ms_enable_function(i2400ms, retries);
- 	if (result < 0) {
- 		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
- 		goto error_func_enable;
-@@ -415,6 +424,7 @@ int i2400ms_debugfs_add(struct i2400ms *i2400ms)
++	result = i2400ms_tx_setup(i2400ms);
++	if (result < 0)
++		goto error_tx_setup;
+ 	result = i2400ms_rx_setup(i2400ms);
+ 	if (result < 0)
+ 		goto error_rx_setup;
+ 	return 0;
  
- error:
- 	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	i2400ms->debugfs_dentry = NULL;
- 	return result;
+ error_rx_setup:
++	i2400ms_tx_release(i2400ms);
++error_tx_setup:
+ 	sdio_claim_host(func);
+ 	sdio_disable_func(func);
+ 	sdio_release_host(func);
+@@ -218,6 +214,7 @@ void i2400ms_bus_release(struct i2400m *i2400m)
+ 	struct sdio_func *func = i2400ms->func;
+ 
+ 	i2400ms_rx_release(i2400ms);
++	i2400ms_tx_release(i2400ms);
+ 	sdio_claim_host(func);
+ 	sdio_disable_func(func);
+ 	sdio_release_host(func);
+@@ -235,36 +232,14 @@ void i2400ms_bus_release(struct i2400m *i2400m)
+ static
+ int i2400ms_bus_dev_start(struct i2400m *i2400m)
+ {
+-	int result;
+ 	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+ 	struct sdio_func *func = i2400ms->func;
+ 	struct device *dev = &func->dev;
+ 
+ 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
+ 	msleep(200);
+-	result = i2400ms_tx_setup(i2400ms);
+-	if (result < 0)
+-		goto error_tx_setup;
+-	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
+-	return result;
+-
+-error_tx_setup:
+-	i2400ms_tx_release(i2400ms);
+-	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
+-	return result;
+-}
+-
+-
+-static
+-void i2400ms_bus_dev_stop(struct i2400m *i2400m)
+-{
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-
+-	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
+-	i2400ms_tx_release(i2400ms);
+-	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, 0);
++	return 0;
  }
  
-@@ -531,6 +541,7 @@ void i2400ms_remove(struct sdio_func *func)
  
- 	d_fnstart(3, dev, "SDIO func %p\n", func);
- 	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	i2400ms->debugfs_dentry = NULL;
- 	i2400m_release(i2400m);
- 	sdio_set_drvdata(func, NULL);
- 	free_netdev(net_dev);
+@@ -506,7 +481,7 @@ int i2400ms_probe(struct sdio_func *func,
+ 	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
+ 	i2400m->bus_setup = i2400ms_bus_setup;
+ 	i2400m->bus_dev_start = i2400ms_bus_dev_start;
+-	i2400m->bus_dev_stop = i2400ms_bus_dev_stop;
++	i2400m->bus_dev_stop = NULL;
+ 	i2400m->bus_release = i2400ms_bus_release;
+ 	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
+ 	i2400m->bus_reset = i2400ms_bus_reset;
 -- 
 1.6.2.5
 
