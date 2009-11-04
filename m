@@ -1,47 +1,47 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Wed, 4 Nov 2009 23:00:25 +0100
-Message-ID: <20091104220024.GC27325@elf.ucw.cz>
-References: <1256886023.3555.5.camel@johannes.local>
- <20091102211629.GA1322@ucw.cz>
- <alpine.LRH.2.00.0911041403480.31913@twin.jikos.cz>
- <200911042217.49144.IvDoorn@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] ip_frag:
+Date: Wed, 04 Nov 2009 14:00:51 -0800
+Message-ID: <1257372051.24051.8.camel@Joe-Laptop.home>
+References: <4AF1F809.4090903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina@suse.cz>,
-	Luis Correia <luis.f.correia@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933021AbZKDWAd@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200911042217.49144.IvDoorn@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1239 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932717AbZKDWAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 17:00:47 -0500
+In-Reply-To: <4AF1F809.4090903@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > But yes, he got flamed for this for some odd reason. I got the impression 
-> > that the community around rt2x00 doesn't like (or understand) the way how 
-> > opensource development happens.
-> 
-> Well you mean the open source development where non-contributors
-> complain that the contributors work too slowly? 
+On Wed, 2009-11-04 at 22:54 +0100, Eric Dumazet wrote:
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+> index 575f9bd..93e50d0 100644
+> --- a/net/ipv4/ip_fragment.c
+> +++ b/net/ipv4/ip_fragment.c
+> @@ -206,10 +206,10 @@ static void ip_expire(unsigned long arg)
+>  		struct sk_buff *head = qp->q.fragments;
+>  
+>  		/* Send an ICMP "Fragment Reassembly Timeout" message. */
+> -		if ((head->dev = dev_get_by_index(net, qp->iif)) != NULL) {
+> +		rcu_read_lock();
+> +		if ((head->dev = dev_get_by_index_rcu(net, qp->iif)) != NULL)
+>  			icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+> -			dev_put(head->dev);
+> -		}
+> +		rcu_read_unlock();
+>  	}
 
-This was the case when non-contributor complained that patch adds
-2KLoC of unneccessary code.
+Hi Eric.  If you're going to do more of these, could you please
+convert them to the more standard kernel style as well?
 
-> Perhaps
-> that is the policy in some companies which try to import it into the
-> Open Source world...
+	var = func(foo);
+	if (var) {
+		etc...
 
-Do you really have to attack everyone around?
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
