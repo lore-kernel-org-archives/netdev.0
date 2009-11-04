@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] Use defaults when no route options are available
-Date: Wed, 04 Nov 2009 05:28:16 -0800 (PST)
-Message-ID: <20091104.052816.74593826.davem@davemloft.net>
-References: <4AF07024.80103@gmail.com>
-	<1257276085-13681-1-git-send-email-gilad@codefidence.com>
+Subject: Re: [PATCHv7 1/3] tun: export underlying socket
+Date: Wed, 04 Nov 2009 05:30:29 -0800 (PST)
+Message-ID: <20091104.053029.166783766.davem@davemloft.net>
+References: <cover.1257267892.git.mst@redhat.com>
+	<20091103172400.GB5591@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, netdev@vger.kernel.org, ori@comsleep.com,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: gilad@codefidence.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756127AbZKDN1x@vger.kernel.org>
-In-Reply-To: <1257276085-13681-1-git-send-email-gilad@codefidence.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+	gregory.haskins@gmail.com, rusty@rustcorp.com.au,
+	s.hetze@linux-ag.com
+To: mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20091103172400.GB5591@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gilad Ben-Yossef <gilad@codefidence.com>
-Date: Tue,  3 Nov 2009 21:21:25 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 3 Nov 2009 19:24:00 +0200
 
-> Trying to parse the option of a SYN packet that we have
-> no route entry for should just use global wide defaults
-> for route entry options.
-> 
-> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+> Assuming it's okay with davem, I think it makes sense to merge this
+> patch through Rusty's tree because vhost is the first user of the new
+> interface.  Posted here for completeness.
 
-The tester has indicated that this doesn't solve things
-for them.  I suspect there is another dependency on 'dst'
-not being NULL in another path somewhere.
+I'm fine with that, please add my:
 
-So until this is fully resolved I'm holding off on applying
-this patch.
+Acked-by: David S. Miller <davem@davemloft.net>
