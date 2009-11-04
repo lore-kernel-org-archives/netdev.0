@@ -1,81 +1,43 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/4 02/13] wimax/i2400m: fix race condition with tcpdump et al
-Date: Wed,  4 Nov 2009 13:39:57 -0800
-Message-ID: <9835fd84990ca253c5b625005717a9be492788c0.1257370737.git.inaky@linux.intel.com>
-References: <cover.1257370737.git.inaky@linux.intel.com>
-Cc: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 2.6.33/2 08/15] wimax/i2400m: workaround not-so-working %zd printf format
+Date: Wed,  4 Nov 2009 13:39:49 -0800
+Message-ID: <59bdc4be0b819173a8f840fc11ccb82d6f2ca64b.1257370736.git.inaky@linux.intel.com>
+References: <cover.1257370736.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:45111 "EHLO
-	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932708AbZKDVmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:11 -0500
-In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
-References: <cover.1257370737.git.inaky@linux.intel.com>
+Received: from mga06.intel.com ([134.134.136.21]:20710 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932714AbZKDVmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:00 -0500
+In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
+References: <cover.1257370736.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcpdump and friends were not being able to decode packets sent via
-WiMAX; they had a zero ethernet type, even when the stack was properly
-sending them to the device with the right type.
+The kernel's %zd modifier does not really work. Use %ld (has to cast
+ssize_t to long).
 
-It happens that the driver was overwriting the (fake) ethernet header
-for creating the hardware header and that was bitting the cloning used
-by tcpdump (et al) to look into the packets.
-
-Use pkskb_expand_head() [method copied from the e1000 driver] to fix.
-
-Thanks to Herbert Xu and Andi Kleen for helping to diagnose and
-pointing to the right fix.
-
-Cc: Herbert Xu <gondor.apana.org.au>
-Cc: Andi Kleen <andi@firstfloor.org>
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/netdev.c |   21 ++++++++++++++++++---
- 1 files changed, 18 insertions(+), 3 deletions(-)
+ drivers/net/wimax/i2400m/usb-fw.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-index fefd794..e7d1a51 100644
---- a/drivers/net/wimax/i2400m/netdev.c
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -358,6 +358,20 @@ netdev_tx_t i2400m_hard_start_xmit(struct sk_buff *skb,
- 	int result;
+diff --git a/drivers/net/wimax/i2400m/usb-fw.c b/drivers/net/wimax/i2400m/usb-fw.c
+index f162c81..b59aee0 100644
+--- a/drivers/net/wimax/i2400m/usb-fw.c
++++ b/drivers/net/wimax/i2400m/usb-fw.c
+@@ -330,8 +330,8 @@ error_dev_gone:
+ out:
+ 	if (do_autopm)
+ 		usb_autopm_put_interface(i2400mu->usb_iface);
+-	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %zd\n",
+-		i2400m, ack, ack_size, result);
++	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %ld\n",
++		i2400m, ack, ack_size, (long) result);
+ 	return result;
  
- 	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
-+	if (skb_header_cloned(skb)) {
-+		/*
-+		 * Make tcpdump/wireshark happy -- if they are
-+		 * running, the skb is cloned and we will overwrite
-+		 * the mac fields in i2400m_tx_prep_header. Expand
-+		 * seems to fix this...
-+		 */
-+		result = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		if (result) {
-+			result = NETDEV_TX_BUSY;
-+			goto error_expand;
-+		}
-+	}
-+
- 	if (i2400m->state == I2400M_SS_IDLE)
- 		result = i2400m_net_wake_tx(i2400m, net_dev, skb);
- 	else
-@@ -368,10 +382,11 @@ netdev_tx_t i2400m_hard_start_xmit(struct sk_buff *skb,
- 		net_dev->stats.tx_packets++;
- 		net_dev->stats.tx_bytes += skb->len;
- 	}
-+	result = NETDEV_TX_OK;
-+error_expand:
- 	kfree_skb(skb);
--
--	d_fnend(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
--	return NETDEV_TX_OK;
-+	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
-+	return result;
- }
- 
- 
+ error_exceeded:
 -- 
 1.6.2.5
 
