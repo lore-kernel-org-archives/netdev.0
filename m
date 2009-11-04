@@ -1,66 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Wed, 04 Nov 2009 12:31:26 +0100
-Message-ID: <4AF1660E.1080401@gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>	 <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>	 <4AF10B1D.4050604@gmail.com> <4AF110CE.8070701@gmail.com> <b30d1c3b0911040019q14a007d4lbd1b695db8884b27@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sch_htb.c consume the classes's tokens bellow the
+	HTB_CAN_SEND level
+Date: Wed, 4 Nov 2009 11:49:22 +0000
+Message-ID: <20091104114922.GA8176@ff.dom.local>
+References: <20091103080022.GA6718@ff.dom.local> <412e6f7f0911030147k659e0079ibd1f424fef0a487f@mail.gmail.com> <20091103100538.GC6718@ff.dom.local> <412e6f7f0911030518w7a5f02a4ue8a4b6539496dd8f@mail.gmail.com> <20091103230035.GA2352@ami.dom.local> <412e6f7f0911031753m4af1467fn1b0326bdf17fe48b@mail.gmail.com> <20091104082808.GA6224@ff.dom.local> <412e6f7f0911040116q6b25b705k83e5a45464698af1@mail.gmail.com> <20091104104245.GB6224@ff.dom.local> <412e6f7f0911040321o22c536fdid078f6d2225a90a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	takano-ryousei@aist.go.jp
-To: Ryousei Takano <ryousei@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, devik@cdi.cz,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59706 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755450AbZKDLba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 06:31:30 -0500
-In-Reply-To: <b30d1c3b0911040019q14a007d4lbd1b695db8884b27@mail.gmail.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:53420 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755415AbZKDLtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 06:49:22 -0500
+Received: by bwz27 with SMTP id 27so8754153bwz.21
+        for <netdev@vger.kernel.org>; Wed, 04 Nov 2009 03:49:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <412e6f7f0911040321o22c536fdid078f6d2225a90a0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ryousei Takano a =E9crit :
+On Wed, Nov 04, 2009 at 07:21:48PM +0800, Changli Gao wrote:
+...
+> > cl->mbuffer is only to limit some extreme effects, so more of an
+> > exception, not a main tool of rate control. (It really should be
+> > useless most of the time if classes don't stop sending and aren't
+> > deprived of their full rate for really long time.)
+> >
+> 
+> I don't think so. Although a class's tokens may be negative, but its
+> ctokens may be positive. Charging its tokens is to prevent its cmode
+> from being changed to HTB_CAN_SEND from HTB_CANT_SEND directly.
 
->=20
-> I tried iperf with 60 seconds samples. I got the almost same result.
->=20
-> Here is the result:
->       sender	receiver
-> 1.000 1.00	1.00
-> 2.000 2.01	2.01
-> 3.000 3.03	3.02
-> 4.000 4.07	4.07
-> 5.000 5.05	5.05
-> 6.000 6.16	6.16
-> 7.000 7.22	7.22
-> 8.000 8.15	8.15
-> 9.000 9.23	9.23
-> 9.900 9.69	9.69
->=20
+I think, you should really better show some tests proving your patch
+is needed and doesn't affect a case I described, instead of trying to
+discuss the meaninig of all HTB variables here.
 
-One thing to consider is the estimation error in qdisc_l2t(), rate tabl=
-e has only 256 slots
-
-static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int=
- pktlen)
-{
-	int slot =3D pktlen + rtab->rate.cell_align + rtab->rate.overhead;
-	if (slot < 0)
-		slot =3D 0;
-	slot >>=3D rtab->rate.cell_log;
-	if (slot > 255)
-		return (rtab->data[255]*(slot >> 8) + rtab->data[slot & 0xFF]);
-	return rtab->data[slot];
-}
-
-
-Maybe you can try changing class mtu to 40000 instead of 9000, and quan=
-tum to 60000 too
-
-tc class add dev $DEV parent 1: classid 1:1 htb rate ${rate}mbit mtu 40=
-000 quantum 60000
-
-(because your tcp stack sends large buffers ( ~ 60000 bytes) as your NI=
-C can offload tcp segmentation)
-
+Regards,
+Jarek P.
