@@ -1,39 +1,50 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 01/25] mlx4_core: identify function as pf or vf
-Date: Wed, 04 Nov 2009 11:45:10 -0800
-Message-ID: <ada3a4u13cp.fsf@cisco.com>
-References: <4AF19E07.7040702@mellanox.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] netfilter: remove synchronize_net() calls in
+ ip_queue/ip6_queue
+Date: Wed, 04 Nov 2009 20:47:35 +0100
+Message-ID: <4AF1DA57.8080202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4AF19E07.7040702-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org> (Yevgeny Petrilin's message of
-	"Wed, 04 Nov 2009 17:30:15 +0200")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just noticed that all the patches I looked at have:
+nf_unregister_queue_handlers() already does a synchronize_rcu()
+call, we dont need to do it again in callers.
 
- > From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/netfilter/ip_queue.c  |    2 +-
+ net/ipv6/netfilter/ip6_queue.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-but only:
-
- > Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-
-I guess Liran is actually the real author?  in this case, you should
-add a line like:
-
-From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-
-in the body of the email message, and add your own signed-off-by line
-after Liran's (since you are in the chain of people handling the patch).
-
- - R.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index c156db2..9811a45 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -622,7 +622,7 @@ cleanup_netlink_notifier:
+ static void __exit ip_queue_fini(void)
+ {
+ 	nf_unregister_queue_handlers(&nfqh);
+-	synchronize_net();
++
+ 	ipq_flush(NULL, 0);
+ 
+ #ifdef CONFIG_SYSCTL
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 1cf3f0c..a82016f 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -625,7 +625,7 @@ cleanup_netlink_notifier:
+ static void __exit ip6_queue_fini(void)
+ {
+ 	nf_unregister_queue_handlers(&nfqh);
+-	synchronize_net();
++
+ 	ipq_flush(NULL, 0);
+ 
+ #ifdef CONFIG_SYSCTL
