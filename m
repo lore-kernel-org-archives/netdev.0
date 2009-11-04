@@ -1,100 +1,84 @@
-From: Ryousei Takano <ryousei@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: HTB accuracy on 10GbE
-Date: Wed, 4 Nov 2009 12:45:13 +0900
-Message-ID: <b30d1c3b0911031945l1e46aa53wee51579ef908c744@mail.gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
-	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>
-	 <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
+Date: Wed, 04 Nov 2009 06:03:25 +0100
+Message-ID: <4AF10B1D.4050604@gmail.com>
+References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam> <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	takano-ryousei@aist.go.jp
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Ryousei Takano <ryousei@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f192.google.com ([209.85.212.192]:60300 "EHLO
-	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754289AbZKDDpI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Nov 2009 22:45:08 -0500
-Received: by vws30 with SMTP id 30so1813721vws.33
-        for <netdev@vger.kernel.org>; Tue, 03 Nov 2009 19:45:14 -0800 (PST)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44437 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbZKDFDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 00:03:30 -0500
 In-Reply-To: <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 4, 2009 at 12:13 PM, Ryousei Takano <ryousei@gmail.com> wro=
-te:
+Ryousei Takano a =E9crit :
 > Hi Patrick and Stephen,
->
+>=20
 > Thanks for your comments.
->
+>=20
 > I retried on the newer kernel and iproute2, and added the experimenta=
 l result
-> on my page. =A0Please see 'Experimental result 2':
-> =A0 =A0http://code.google.com/p/pspacer/wiki/HTBon10GbE
->
+> on my page.  Please see 'Experimental result 2':
+>     http://code.google.com/p/pspacer/wiki/HTBon10GbE
+>=20
 > The accuracy improves compared with the previous experiment.
 > The difference reduces from +810 Mbps to +430 Mbps.
 > It is because the timer resolution improves from 1 usec to 1/64 usec.
 > But it is not perfect.
->
-Oops, not 1/64 usec but 1/16 usec.
+>=20
+
+Hmm, do you know part of the error comes from the user tool itself ?
+
+If you check iperf results at sender and receiver you'll see different
+values, sender lies a bit.
+
+Tried here on a Gbit link (I dont have 10Gbe yet)
+
+$ ./iperf.bench.sh
+=2E100 104
+=2E200 206
+=2E300 307
+=2E400 413
+=2E500 515
+=2E600 610
+=2E700 715
+=2E800 822
+=2E900 913
+1.000 945
+
+while on receiver :
+[  4]  0.0- 5.3 sec  62.8 MBytes    100 Mbits/sec
+[  5]  0.0- 5.1 sec    123 MBytes    202 Mbits/sec
+[  4]  0.0- 5.1 sec    183 MBytes    303 Mbits/sec
+[  5]  0.0- 5.1 sec    246 MBytes    409 Mbits/sec
+[  4]  0.0- 5.0 sec    307 MBytes    511 Mbits/sec
+[  5]  0.0- 5.0 sec    364 MBytes    607 Mbits/sec
+[  4]  0.0- 5.0 sec    427 MBytes    711 Mbits/sec
+[  5]  0.0- 5.0 sec    490 MBytes    818 Mbits/sec
+[  4]  0.0- 5.0 sec    545 MBytes    909 Mbits/sec
+[  5]  0.0- 5.0 sec    565 MBytes    941 Mbits/sec
 
 
-> Best regards,
-> Ryousei Takano
->
->
-> On Tue, Nov 3, 2009 at 5:53 AM, Stephen Hemminger <shemminger@vyatta.=
-com> wrote:
->> On Mon, 02 Nov 2009 16:43:42 +0100
->> Patrick McHardy <kaber@trash.net> wrote:
->>
->>> Ryousei Takano wrote:
->>> > Hi Stephen and all,
->>> >
->>> > I have observed a HTB accuracy problem on the Linux kernel 2.6.30=
- and
->>> > the Myri-10G 10 GbE NIC.
->>> > HTB can control the transmission rate at Gigabit speed, however i=
-t can
->>> > not work well at 10 Gigabit speed.
->>> >
->>> > I asked Stephen this problem at Japan Linux Symposium. =A0He ment=
-ioned a
->>> > HTB bug related to the timer granularity.
->>> > I want to know what is happen, and what should be do for fixing i=
-t.
->>> >
->>> > Any comments and suggestions will be welcome.
->>> >
->>> > For more detail, please see the following page:
->>> > http://code.google.com/p/pspacer/wiki/HTBon10GbE
->>>
->>> This is not an easy problem to fix. Userspace, the kernel and the
->>> netlink API use 32 bit for timing related values, which is too smal=
-l
->>> to use more than microsecond resolution. All of them need to be
->>> converted to use bigger types, additionally some kind of compatibil=
-ity
->>> handling to deal with old iproute versions still using microsecond
->>> resolution is required.
->>
->> The existing API is a legacy mish-mash. The field is limited to 32 b=
-its,
->> but it might be possible to use a finer scale.
->>
->> Maybe if kernel advertised finer resolution through /proc/net/psched
->> then table could be finer grained. This would maintain compatibility
->> between kernel and user space. You would need to have new kernel and
->> new iproute to get nanosecond resolution but older combinations woul=
-d
->> still work.
->>
->> The downside is that by using nanosecond resolution the rates are up=
-per
->> bounded at 4.2seconds / packet.
->>
->>
->
+You might use longer intervals to reduce this error (10 secs instead of=
+ 5 secs)
+
+$./iperf.bench.sh
+=2E100 102
+=2E200 204
+=2E300 305
+=2E400 410
+=2E500 513
+=2E600 608
+=2E700 713
+=2E800 820
+=2E900 911
+1.000 943
