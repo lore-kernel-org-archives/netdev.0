@@ -1,74 +1,39 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv8 0/3] vhost: a kernel-level virtio server
-Date: Wed, 04 Nov 2009 11:02:15 -0500
-Message-ID: <4AF1A587.8000509@gmail.com>
-References: <20091104155234.GA32673@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig9CBB576151305611F6CF6CC2"
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
- linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com, Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091104155234.GA32673@redhat.com>
-Sender: owner-linux-mm@kvack.org
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH 1/1] NET: sungem, use spin_trylock_irqsave
+Date: Wed,  4 Nov 2009 17:06:58 +0100
+Message-ID: <1257350818-4194-1-git-send-email-jirislaby@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Slaby <jirislaby@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757049AbZKDQG4@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig9CBB576151305611F6CF6CC2
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Use spin_trylock_irqsave instead of open-coded
+local_irq_save+spin_trylock.
 
-Michael S. Tsirkin wrote:
-> Ok, I think I've addressed all comments so far here.
-> Rusty, I'd like this to go into linux-next, through your tree, and
-> hopefully 2.6.33.  What do you think?
+Impact: cleanup
 
-I think the benchmark data is a prerequisite for merge consideration, IMO=
-=2E
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+---
+ drivers/net/sungem.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-Do you have anything for us to look at?  I think comparison that show
-the following are of interest:
-
-throughput (e.g. netperf::TCP_STREAM): guest->host, guest->host->guest,
-guest->host->remote, host->remote, remote->host->guest
-
-latency (e.g. netperf::UDP_RR): same conditions as throughput
-
-cpu-utilization
-
-others?
-
-Ideally, this should be at least between upstream virtio and vhost.
-Bonus points if you include venet as well.
-
-Kind regards,
--Greg
-
-
---------------enig9CBB576151305611F6CF6CC2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkrxpYcACgkQP5K2CMvXmqHHKQCfX0c8WoojuJe1A+eFFzu9twpU
-PEkAn2bUMmeK9n8AfgWItG+bCqzjqtDQ
-=6kXy
------END PGP SIGNATURE-----
-
---------------enig9CBB576151305611F6CF6CC2--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
+index 7019a0d..51bde03 100644
+--- a/drivers/net/sungem.c
++++ b/drivers/net/sungem.c
+@@ -1034,10 +1034,8 @@ static netdev_tx_t gem_start_xmit(struct sk_buff *skb,
+ 			(csum_stuff_off << 21));
+ 	}
+ 
+-	local_irq_save(flags);
+-	if (!spin_trylock(&gp->tx_lock)) {
++	if (!spin_trylock_irqsave(&gp->tx_lock, flags)) {
+ 		/* Tell upper layer to requeue */
+-		local_irq_restore(flags);
+ 		return NETDEV_TX_LOCKED;
+ 	}
+ 	/* We raced with gem_do_stop() */
+-- 
+1.6.4.2
