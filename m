@@ -1,58 +1,108 @@
-From: Sebastian Haas <haas@ems-wuensche.com>
-Subject: [PATCH] ems_usb: Fix byte order issues on big endian machines
-Date: Wed, 04 Nov 2009 16:48:33 +0100
-Message-ID: <20091104154833.18231.28984.stgit@localhost.localdomain>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv8 0/3] vhost: a kernel-level virtio server
+Date: Wed, 4 Nov 2009 17:52:34 +0200
+Message-ID: <20091104155234.GA32673@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ems-wuensche.com ([81.169.132.244]:38380 "EHLO
-	h559305.serverkompetenz.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755975AbZKDPse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 10:48:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-founda
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-CPC-USB is using a ARM7 core with little endian byte order. The "id" field
-in can_msg needs byte order conversion from/to CPU byte order.
+Ok, I think I've addressed all comments so far here.
+Rusty, I'd like this to go into linux-next, through your tree, and
+hopefully 2.6.33.  What do you think?
 
-Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
 ---
 
- drivers/net/can/usb/ems_usb.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+This implements vhost: a kernel-level backend for virtio,
+The main motivation for this work is to reduce virtualization
+overhead for virtio by removing system calls on data path,
+without guest changes. For virtio-net, this removes up to
+4 system calls per packet: vm exit for kick, reentry for kick,
+iothread wakeup for packet, interrupt injection for packet.
 
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index 9012e0a..abdbd9c 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -319,7 +319,7 @@ static void ems_usb_rx_can_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
- 
- 	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
- 
--	cf->can_id = msg->msg.can_msg.id;
-+	cf->can_id = le32_to_cpu(msg->msg.can_msg.id);
- 	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
- 
- 	if (msg->type == CPC_MSG_TYPE_EXT_CAN_FRAME
-@@ -813,6 +813,9 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
- 		msg->length = CPC_CAN_MSG_MIN_SIZE + cf->can_dlc;
- 	}
- 
-+	/* Respect byte order */
-+	msg->msg.can_msg.id = cpu_to_le32(msg->msg.can_msg.id);
-+
- 	for (i = 0; i < MAX_TX_URBS; i++) {
- 		if (dev->tx_contexts[i].echo_index == MAX_TX_URBS) {
- 			context = &dev->tx_contexts[i];
+This driver is pretty minimal, but it's fully functional (including
+migration support interfaces), and already shows performance (especially
+latency) improvement over userspace.
 
--- 
-EMS Dr. Thomas Wuensche e.K.
-Sonnenhang 3
-85304 Ilmmuenster
-HRA Neuburg a.d. Donau, HR-Nr. 70.106
-Phone: +49-8441-490260
-Fax  : +49-8441-81860
-http://www.ems-wuensche.com
+Some more detailed description attached to the patch itself.
+
+The patches apply to both 2.6.32-rc6 and kvm.git.  I'd like them to go
+into linux-next if possible.  Please comment.
+
+Changelog from v7:
+- Add note on RCU usage, mirroring this in vhost/vhost.h
+- Fix locking typo noted by Eric Dumazet
+- Fix warnings on 32 bit
+
+Changelog from v6:
+- review comments by Daniel Walker addressed
+- checkpatch cleanup
+- fix build on 32 bit
+- maintainers entry corrected
+
+Changelog from v5:
+- tun support
+- backends with virtio net header support (enables GSO, checksum etc)
+- 32 bit compat fixed
+- support indirect buffers, tx exit mitigation,
+  tx interrupt mitigation
+- support write logging (allows migration without virtio ring code in userspace)
+
+Changelog from v4:
+- disable rx notification when have rx buffers
+- addressed all comments from Rusty's review
+- copy bugfixes from lguest commits:
+	ebf9a5a99c1a464afe0b4dfa64416fc8b273bc5c
+	e606490c440900e50ccf73a54f6fc6150ff40815
+
+Changelog from v3:
+- checkpatch fixes
+
+Changelog from v2:
+- Comments on RCU usage
+- Compat ioctl support
+- Make variable static
+- Copied more idiomatic english from Rusty
+
+Changes from v1:
+- Move use_mm/unuse_mm from fs/aio.c to mm instead of copying.
+- Reorder code to avoid need for forward declarations
+- Kill a couple of debugging printks
+
+Michael S. Tsirkin (3):
+  tun: export underlying socket
+  mm: export use_mm/unuse_mm to modules
+  vhost_net: a kernel-level virtio server
+
+ MAINTAINERS                |    9 +
+ arch/x86/kvm/Kconfig       |    1 +
+ drivers/Makefile           |    1 +
+ drivers/net/tun.c          |  101 ++++-
+ drivers/vhost/Kconfig      |   11 +
+ drivers/vhost/Makefile     |    2 +
+ drivers/vhost/net.c        |  633 +++++++++++++++++++++++++++++
+ drivers/vhost/vhost.c      |  970 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h      |  158 +++++++
+ include/linux/Kbuild       |    1 +
+ include/linux/if_tun.h     |   14 +
+ include/linux/miscdevice.h |    1 +
+ include/linux/vhost.h      |  126 ++++++
+ mm/mmu_context.c           |    3 +
+ 14 files changed, 2012 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/vhost/Kconfig
+ create mode 100644 drivers/vhost/Makefile
+ create mode 100644 drivers/vhost/net.c
+ create mode 100644 drivers/vhost/vhost.c
+ create mode 100644 drivers/vhost/vhost.h
+ create mode 100644 include/linux/vhost.h
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
