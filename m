@@ -1,48 +1,37 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Mon, 2 Nov 2009 22:16:29 +0100
-Message-ID: <20091102211629.GA1322@ucw.cz>
-References: <1256886023.3555.5.camel@johannes.local> <20091030110616.GB6150@ff.dom.local> <20091030150223.GA2586@tuxdriver.com> <20091102091038.GA9044@elte.hu> <1257153807.3555.173.camel@johannes.local> <20091102100702.GA16963@elte.hu> <20091102170114.GE14046@tuxdriver.com> <efe7343f0911020932l21a570c8u9478568329d38e2c@mail.gmail.com>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: [PATCH 00/25] mlx4: multi-function framework and Ethernet sriov.
+Date: Wed, 04 Nov 2009 17:30:09 +0200
+Message-ID: <4AF19E01.1000305@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luis Correia <luis.f.correia@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:38593 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755626AbZKDMZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 07:25:22 -0500
-Content-Disposition: inline
-In-Reply-To: <efe7343f0911020932l21a570c8u9478568329d38e2c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-> About Bartlomiej, there is only one more thing that I'll say:
-> 
-> I've searched on my GMail archives and the only patch Bart has
-> provided so far for the rt2x00 project is this:
-> 
-> [PATCH] MAINTAINERS: rt2x00 list is moderated
-> 
-> Which, while technically correct, adds nothing to the project.
-> 
-> So, I will personally continue to ignore Bart's comments, regards and
-> rants, until he provides patches for rt2x00 that actually make the
-> driver better.
+In ConnectX, nearly all device resources can be associated with any function.
+Once allocated, these resources can be manipulated exclusively by their associated
+functions in the same manner as in the single-function case.
 
-Well, he provided review feedback... he should be thanked for that,
-not flamed for it.
-									Pavel  
+The device continues to use a single HCA Command Register (HCR), which is owned by the pf.
+Thus, the pf is given the role of allocating resources to vfs, and controlling shared
+resource (such as ports).
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+A dedicated HW communication channel is used to transfer resource allocation and
+modification requests from vfs to the pf, and events from the pf to the vfs.
+Consequently, no hypervisor-specific services are required for pf-vf communication.
+
+This patch set sets the ground for multi-function operation and enables Ethernet interfaces on vfs.
+
+Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
