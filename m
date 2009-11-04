@@ -1,68 +1,72 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 3/3] net: check kern before calling security subsystem
-Date: Wed, 04 Nov 2009 11:32:24 -0500
-Message-ID: <20091104163224.27133.88570.stgit@paris.rdu.redhat.com>
-References: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv8 0/3] vhost: a kernel-level virtio server
+Date: Wed, 4 Nov 2009 18:23:39 +0200
+Message-ID: <20091104162339.GA311@redhat.com>
+References: <20091104155234.GA32673@redhat.com> <4AF1A587.8000509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@redhat.com, acme@redhat.com, dwalsh@redhat.com,
-	davem@davemloft.net, linux-security-module@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com,
+        Daniel Walker <dwalker@fifo99.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4AF1A587.8000509@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Before calling capable(CAP_NET_RAW) check if this operations is on behalf
-of the kernel or on behalf of userspace.  Do not do the security check if
-it is on behalf of the kernel.
+On Wed, Nov 04, 2009 at 11:02:15AM -0500, Gregory Haskins wrote:
+> Michael S. Tsirkin wrote:
+> > Ok, I think I've addressed all comments so far here.
+> > Rusty, I'd like this to go into linux-next, through your tree, and
+> > hopefully 2.6.33.  What do you think?
+> 
+> I think the benchmark data is a prerequisite for merge consideration, IMO.
 
-Signed-off-by: Eric Paris <eparis@redhat.com>
----
+Shirley Ma was kind enough to send me some measurement results showing
+how kernel level acceleration helps speed up you can find them here:
+http://www.linux-kvm.org/page/VhostNet
 
- net/bluetooth/l2cap.c |    2 +-
- net/ipv4/af_inet.c    |    2 +-
- net/ipv6/af_inet6.c   |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+Generally, I think that merging should happen *before* agressive
+benchmarking/performance tuning: otherwise there is very substancial
+risk that what is an optimization in one setup hurts performance in
+another one. When code is upstream, people can bisect to debug
+regressions. Another good reason is that I can stop spending time
+rebasing and start profiling.
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 365ae16..ff0233d 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -832,7 +832,7 @@ static int l2cap_sock_create(struct net *net, struct socket *sock, int protocol,
- 			sock->type != SOCK_DGRAM && sock->type != SOCK_RAW)
- 		return -ESOCKTNOSUPPORT;
- 
--	if (sock->type == SOCK_RAW && !capable(CAP_NET_RAW))
-+	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
- 		return -EPERM;
- 
- 	sock->ops = &l2cap_sock_ops;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5c7e42c..7d12c6a 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -326,7 +326,7 @@ lookup_protocol:
- 	}
- 
- 	err = -EPERM;
--	if (sock->type == SOCK_RAW && !capable(CAP_NET_RAW))
-+	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
- 		goto out_rcu_unlock;
- 
- 	err = -EAFNOSUPPORT;
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 45ed5e0..12e69d3 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -159,7 +159,7 @@ lookup_protocol:
- 	}
- 
- 	err = -EPERM;
--	if (sock->type == SOCK_RAW && !capable(CAP_NET_RAW))
-+	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
- 		goto out_rcu_unlock;
- 
- 	sock->ops = answer->ops;
+> Do you have anything for us to look at?
 
+For guest to host, compared to latest qemu with userspace virtio
+backend, latency drops by a factor of 6, bandwidth doubles, cpu
+utilization drops slightly :)
+
+> I think comparison that show the following are of interest:
+> 
+> throughput (e.g. netperf::TCP_STREAM): guest->host, guest->host->guest,
+> guest->host->remote, host->remote, remote->host->guest
+> 
+> latency (e.g. netperf::UDP_RR): same conditions as throughput
+> 
+> cpu-utilization
+> 
+> others?
+> 
+> Ideally, this should be at least between upstream virtio and vhost.
+> Bonus points if you include venet as well.
+
+And vmxnet3 :)
+
+> Kind regards,
+> -Greg
+> 
+-- 
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
