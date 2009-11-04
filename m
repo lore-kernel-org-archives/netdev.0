@@ -1,103 +1,290 @@
-From: Ryousei Takano <ryousei@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Thu, 5 Nov 2009 01:31:11 +0900
-Message-ID: <b30d1c3b0911040831y7aeac556raf7cae9106b5bc7b@mail.gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>
-	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>
-	 <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>
-	 <4AF10B1D.4050604@gmail.com> <4AF110CE.8070701@gmail.com>
-	 <b30d1c3b0911040019q14a007d4lbd1b695db8884b27@mail.gmail.com>
-	 <4AF1660E.1080401@gmail.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: [PATCH 1/3] net: drop capability from protocol definitions
+Date: Wed, 04 Nov 2009 11:32:11 -0500
+Message-ID: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	takano-ryousei@aist.go.jp
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f192.google.com ([209.85.212.192]:64811 "EHLO
-	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753788AbZKDQbG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 11:31:06 -0500
-Received: by vws30 with SMTP id 30so1987128vws.33
-        for <netdev@vger.kernel.org>; Wed, 04 Nov 2009 08:31:11 -0800 (PST)
-In-Reply-To: <4AF1660E.1080401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@redhat.com, acme@redhat.com, dwalsh@redhat.com,
+	davem@davemloft.net, linux-security-module@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+struct can_proto had a capability field which wasn't ever used.  It is dropped
+entirely.
 
-Thanks for your suggestion.
+struct inet_protosw had a capability field which can be more clearly expressed
+in the code by just checking if sock->type = SOCK_RAW.
 
-On Wed, Nov 4, 2009 at 8:31 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Ryousei Takano a =E9crit :
->
->>
->> I tried iperf with 60 seconds samples. I got the almost same result.
->>
->> Here is the result:
->> =A0 =A0 =A0 sender =A0receiver
->> 1.000 1.00 =A0 =A01.00
->> 2.000 2.01 =A0 =A02.01
->> 3.000 3.03 =A0 =A03.02
->> 4.000 4.07 =A0 =A04.07
->> 5.000 5.05 =A0 =A05.05
->> 6.000 6.16 =A0 =A06.16
->> 7.000 7.22 =A0 =A07.22
->> 8.000 8.15 =A0 =A08.15
->> 9.000 9.23 =A0 =A09.23
->> 9.900 9.69 =A0 =A09.69
->>
->
-> One thing to consider is the estimation error in qdisc_l2t(), rate ta=
-ble has only 256 slots
->
-> static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned i=
-nt pktlen)
-> {
-> =A0 =A0 =A0 =A0int slot =3D pktlen + rtab->rate.cell_align + rtab->ra=
-te.overhead;
-> =A0 =A0 =A0 =A0if (slot < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0slot =3D 0;
-> =A0 =A0 =A0 =A0slot >>=3D rtab->rate.cell_log;
-> =A0 =A0 =A0 =A0if (slot > 255)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return (rtab->data[255]*(slot >> 8) + =
-rtab->data[slot & 0xFF]);
-> =A0 =A0 =A0 =A0return rtab->data[slot];
-> }
->
->
-> Maybe you can try changing class mtu to 40000 instead of 9000, and qu=
-antum to 60000 too
->
-> tc class add dev $DEV parent 1: classid 1:1 htb rate ${rate}mbit mtu =
-40000 quantum 60000
->
-> (because your tcp stack sends large buffers ( ~ 60000 bytes) as your =
-NIC can offload tcp segmentation)
->
->
-You are right!
-I am using TSO. The myri10ge driver is passing 64KB packets to the NIC.
-I changed the class mtu parameter to 64000 instead of 9000.
+Signed-off-by: Eric Paris <eparis@redhat.com>
+---
 
-Here is the result:
-1.000 1.00
-2.000 2.01
-3.000 2.99
-4.000 4.01
-5.000 5.01
-6.000 6.04
-7.000 7.06
-8.000 8.09
-9.000 9.11
-9.900 9.64
+ include/linux/can/core.h |    2 --
+ include/net/protocol.h   |    4 ----
+ net/can/af_can.c         |    5 -----
+ net/can/bcm.c            |    1 -
+ net/can/raw.c            |    1 -
+ net/dccp/ipv4.c          |    1 -
+ net/dccp/ipv6.c          |    1 -
+ net/ipv4/af_inet.c       |    5 +----
+ net/ipv4/udplite.c       |    1 -
+ net/ipv6/af_inet6.c      |    2 +-
+ net/ipv6/raw.c           |    1 -
+ net/ipv6/tcp_ipv6.c      |    1 -
+ net/ipv6/udp.c           |    1 -
+ net/ipv6/udplite.c       |    1 -
+ net/sctp/ipv6.c          |    2 --
+ net/sctp/protocol.c      |    2 --
+ 16 files changed, 2 insertions(+), 29 deletions(-)
 
-It's not so bad!
-=46or more information, I updated the results on my page.
+diff --git a/include/linux/can/core.h b/include/linux/can/core.h
+index 25085cb..6c507be 100644
+--- a/include/linux/can/core.h
++++ b/include/linux/can/core.h
+@@ -32,14 +32,12 @@
+  * struct can_proto - CAN protocol structure
+  * @type:       type argument in socket() syscall, e.g. SOCK_DGRAM.
+  * @protocol:   protocol number in socket() syscall.
+- * @capability: capability needed to open the socket, or -1 for no restriction.
+  * @ops:        pointer to struct proto_ops for sock->ops.
+  * @prot:       pointer to struct proto structure.
+  */
+ struct can_proto {
+ 	int              type;
+ 	int              protocol;
+-	int              capability;
+ 	struct proto_ops *ops;
+ 	struct proto     *prot;
+ };
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index 60249e5..8321b2c 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -83,10 +83,6 @@ struct inet_protosw {
+ 	struct proto	 *prot;
+ 	const struct proto_ops *ops;
+   
+-	int              capability; /* Which (if any) capability do
+-				      * we need to use this socket
+-				      * interface?
+-                                      */
+ 	char             no_check;   /* checksum on rcv/xmit/none? */
+ 	unsigned char	 flags;      /* See INET_PROTOSW_* below.  */
+ };
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 3f2eb27..9c0426d 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -160,11 +160,6 @@ static int can_create(struct net *net, struct socket *sock, int protocol)
+ 		goto errout;
+ 	}
+ 
+-	if (cp->capability >= 0 && !capable(cp->capability)) {
+-		err = -EPERM;
+-		goto errout;
+-	}
+-
+ 	sock->ops = cp->ops;
+ 
+ 	sk = sk_alloc(net, PF_CAN, GFP_KERNEL, cp->prot);
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 2f47039..67b5433 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1576,7 +1576,6 @@ static struct proto bcm_proto __read_mostly = {
+ static struct can_proto bcm_can_proto __read_mostly = {
+ 	.type       = SOCK_DGRAM,
+ 	.protocol   = CAN_BCM,
+-	.capability = -1,
+ 	.ops        = &bcm_ops,
+ 	.prot       = &bcm_proto,
+ };
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 6e77db5..abca920 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -742,7 +742,6 @@ static struct proto raw_proto __read_mostly = {
+ static struct can_proto raw_can_proto __read_mostly = {
+ 	.type       = SOCK_RAW,
+ 	.protocol   = CAN_RAW,
+-	.capability = -1,
+ 	.ops        = &raw_ops,
+ 	.prot       = &raw_proto,
+ };
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 00028d4..2423a08 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -991,7 +991,6 @@ static struct inet_protosw dccp_v4_protosw = {
+ 	.protocol	= IPPROTO_DCCP,
+ 	.prot		= &dccp_v4_prot,
+ 	.ops		= &inet_dccp_ops,
+-	.capability	= -1,
+ 	.no_check	= 0,
+ 	.flags		= INET_PROTOSW_ICSK,
+ };
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 6d89f9f..50ea91a 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1185,7 +1185,6 @@ static struct inet_protosw dccp_v6_protosw = {
+ 	.protocol	= IPPROTO_DCCP,
+ 	.prot		= &dccp_v6_prot,
+ 	.ops		= &inet6_dccp_ops,
+-	.capability	= -1,
+ 	.flags		= INET_PROTOSW_ICSK,
+ };
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 538e84d..180ec4c 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -325,7 +325,7 @@ lookup_protocol:
+ 	}
+ 
+ 	err = -EPERM;
+-	if (answer->capability > 0 && !capable(answer->capability))
++	if (sock->type == SOCK_RAW && !capable(CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+ 	err = -EAFNOSUPPORT;
+@@ -947,7 +947,6 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_TCP,
+ 		.prot =       &tcp_prot,
+ 		.ops =        &inet_stream_ops,
+-		.capability = -1,
+ 		.no_check =   0,
+ 		.flags =      INET_PROTOSW_PERMANENT |
+ 			      INET_PROTOSW_ICSK,
+@@ -958,7 +957,6 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_UDP,
+ 		.prot =       &udp_prot,
+ 		.ops =        &inet_dgram_ops,
+-		.capability = -1,
+ 		.no_check =   UDP_CSUM_DEFAULT,
+ 		.flags =      INET_PROTOSW_PERMANENT,
+        },
+@@ -969,7 +967,6 @@ static struct inet_protosw inetsw_array[] =
+ 	       .protocol =   IPPROTO_IP,	/* wild card */
+ 	       .prot =       &raw_prot,
+ 	       .ops =        &inet_sockraw_ops,
+-	       .capability = CAP_NET_RAW,
+ 	       .no_check =   UDP_CSUM_DEFAULT,
+ 	       .flags =      INET_PROTOSW_REUSE,
+        }
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index 470c504..66f7951 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -64,7 +64,6 @@ static struct inet_protosw udplite4_protosw = {
+ 	.protocol	=  IPPROTO_UDPLITE,
+ 	.prot		=  &udplite_prot,
+ 	.ops		=  &inet_dgram_ops,
+-	.capability	= -1,
+ 	.no_check	=  0,		/* must checksum (RFC 3828) */
+ 	.flags		=  INET_PROTOSW_PERMANENT,
+ };
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 9105b25..1b38893 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -158,7 +158,7 @@ lookup_protocol:
+ 	}
+ 
+ 	err = -EPERM;
+-	if (answer->capability > 0 && !capable(answer->capability))
++	if (sock->type == SOCK_RAW && !capable(CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+ 	sock->ops = answer->ops;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index cb834ab..818ef21 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1336,7 +1336,6 @@ static struct inet_protosw rawv6_protosw = {
+ 	.protocol	= IPPROTO_IP,	/* wild card */
+ 	.prot		= &rawv6_prot,
+ 	.ops		= &inet6_sockraw_ops,
+-	.capability	= CAP_NET_RAW,
+ 	.no_check	= UDP_CSUM_DEFAULT,
+ 	.flags		= INET_PROTOSW_REUSE,
+ };
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 34925f0..696a22f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -2112,7 +2112,6 @@ static struct inet_protosw tcpv6_protosw = {
+ 	.protocol	=	IPPROTO_TCP,
+ 	.prot		=	&tcpv6_prot,
+ 	.ops		=	&inet6_stream_ops,
+-	.capability	=	-1,
+ 	.no_check	=	0,
+ 	.flags		=	INET_PROTOSW_PERMANENT |
+ 				INET_PROTOSW_ICSK,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5ae1d7c..5bc7cdb 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1284,7 +1284,6 @@ static struct inet_protosw udpv6_protosw = {
+ 	.protocol =  IPPROTO_UDP,
+ 	.prot =      &udpv6_prot,
+ 	.ops =       &inet6_dgram_ops,
+-	.capability =-1,
+ 	.no_check =  UDP_CSUM_DEFAULT,
+ 	.flags =     INET_PROTOSW_PERMANENT,
+ };
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index d737a27..6ea6938 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -62,7 +62,6 @@ static struct inet_protosw udplite6_protosw = {
+ 	.protocol	= IPPROTO_UDPLITE,
+ 	.prot		= &udplitev6_prot,
+ 	.ops		= &inet6_dgram_ops,
+-	.capability	= -1,
+ 	.no_check	= 0,
+ 	.flags		= INET_PROTOSW_PERMANENT,
+ };
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index bb280e6..bacd6a7 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -930,7 +930,6 @@ static struct inet_protosw sctpv6_seqpacket_protosw = {
+ 	.protocol      = IPPROTO_SCTP,
+ 	.prot 	       = &sctpv6_prot,
+ 	.ops           = &inet6_seqpacket_ops,
+-	.capability    = -1,
+ 	.no_check      = 0,
+ 	.flags         = SCTP_PROTOSW_FLAG
+ };
+@@ -939,7 +938,6 @@ static struct inet_protosw sctpv6_stream_protosw = {
+ 	.protocol      = IPPROTO_SCTP,
+ 	.prot 	       = &sctpv6_prot,
+ 	.ops           = &inet6_seqpacket_ops,
+-	.capability    = -1,
+ 	.no_check      = 0,
+ 	.flags         = SCTP_PROTOSW_FLAG,
+ };
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index d9f4cc2..3613d80 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -909,7 +909,6 @@ static struct inet_protosw sctp_seqpacket_protosw = {
+ 	.protocol   = IPPROTO_SCTP,
+ 	.prot       = &sctp_prot,
+ 	.ops        = &inet_seqpacket_ops,
+-	.capability = -1,
+ 	.no_check   = 0,
+ 	.flags      = SCTP_PROTOSW_FLAG
+ };
+@@ -918,7 +917,6 @@ static struct inet_protosw sctp_stream_protosw = {
+ 	.protocol   = IPPROTO_SCTP,
+ 	.prot       = &sctp_prot,
+ 	.ops        = &inet_seqpacket_ops,
+-	.capability = -1,
+ 	.no_check   = 0,
+ 	.flags      = SCTP_PROTOSW_FLAG
+ };
 
-Best regards,
-Ryousei
