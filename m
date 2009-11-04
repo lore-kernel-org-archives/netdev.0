@@ -1,155 +1,51 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/3 04/13] wimax/i2400m: add reason argument to i2400m_dev_reset_handle()
-Date: Wed,  4 Nov 2009 13:39:55 -0800
-Message-ID: <3ef6129e57b04c116b1907b72c7a20720e6dde75.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:20707 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932735AbZKDVmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:05 -0500
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 2.6.33/1 05/12] wimax: misplaced parenthesis
+Date: Wed,  4 Nov 2009 13:39:41 -0800
+Message-ID: <2d44f204adf503eb1774f0ab7e404031168851ea.1257370735.git.inaky@linux.intel.com>
+References: <cover.1257370735.git.inaky@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Roel Kluin <roel.kluin@gmail.com>
+To: netdev@vger.kernel.org,
+	wimax@linuxwimax.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1257370735.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1257370735.git.inaky@linux.intel.com>
+References: <cover.1257370735.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-In preparation for reset_resume support, in which the same code path
-is going to be used, add a diagnostic message to dev_reset_handle()
-that can be used to distinguish how the device got there.
+From: Roel Kluin <roel.kluin@gmail.com>
 
-This uses the new payload argument added to i2400m_schedule_work() by
-the previous commit.
+Fix misplaced parenthesis
 
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/driver.c    |   27 +++++++++++++++++++--------
- drivers/net/wimax/i2400m/i2400m.h    |    2 +-
- drivers/net/wimax/i2400m/sdio-rx.c   |    2 +-
- drivers/net/wimax/i2400m/usb-notif.c |    2 +-
- 4 files changed, 22 insertions(+), 11 deletions(-)
+ drivers/net/wimax/i2400m/tx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 5803a2b..f07d852 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -573,18 +573,28 @@ void i2400m_dev_stop(struct i2400m *i2400m)
-  *       _stop()], don't do anything, let it fail and handle it.
-  *
-  * This function is ran always in a thread context
-+ *
-+ * This function gets passed, as payload to i2400m_work() a 'const
-+ * char *' ptr with a "reason" why the reset happened (for messages).
-  */
- static
- void __i2400m_dev_reset_handle(struct work_struct *ws)
- {
- 	int result;
- 	struct i2400m_work *iw = container_of(ws, struct i2400m_work, ws);
-+	const char *reason;
- 	struct i2400m *i2400m = iw->i2400m;
- 	struct device *dev = i2400m_dev(i2400m);
- 	enum wimax_st wimax_state;
- 	struct i2400m_reset_ctx *ctx = i2400m->reset_ctx;
+diff --git a/drivers/net/wimax/i2400m/tx.c b/drivers/net/wimax/i2400m/tx.c
+index fa16ccf..8c20802 100644
+--- a/drivers/net/wimax/i2400m/tx.c
++++ b/drivers/net/wimax/i2400m/tx.c
+@@ -310,7 +310,7 @@ size_t __i2400m_tx_tail_room(struct i2400m *i2400m)
+ 	size_t tail_room;
+ 	size_t tx_in;
  
--	d_fnstart(3, dev, "(ws %p i2400m %p)\n", ws, i2400m);
-+	if (WARN_ON(iw->pl_size != sizeof(reason)))
-+		reason = "SW BUG: reason n/a";
-+	else
-+		memcpy(&reason, iw->pl, sizeof(reason));
-+
-+	d_fnstart(3, dev, "(ws %p i2400m %p reason %s)\n", ws, i2400m, reason);
-+
- 	result = 0;
- 	if (mutex_trylock(&i2400m->init_mutex) == 0) {
- 		/* We are still in i2400m_dev_start() [let it fail] or
-@@ -597,17 +607,17 @@ void __i2400m_dev_reset_handle(struct work_struct *ws)
- 	}
- 	wimax_state = wimax_state_get(&i2400m->wimax_dev);
- 	if (wimax_state < WIMAX_ST_UNINITIALIZED) {
--		dev_info(dev, "device rebooted: it is down, ignoring\n");
-+		dev_info(dev, "%s: it is down, ignoring\n", reason);
- 		goto out_unlock;	/* ifconfig up/down wasn't called */
- 	}
--	dev_err(dev, "device rebooted: reinitializing driver\n");
-+	dev_err(dev, "%s: reinitializing driver\n", reason);
- 	__i2400m_dev_stop(i2400m);
- 	i2400m->updown = 0;
- 	result = __i2400m_dev_start(i2400m,
- 				    I2400M_BRI_SOFT | I2400M_BRI_MAC_REINIT);
- 	if (result < 0) {
--		dev_err(dev, "device reboot: cannot start the device: %d\n",
--			result);
-+		dev_err(dev, "%s: cannot start the device: %d\n",
-+			reason, result);
- 		result = i2400m->bus_reset(i2400m, I2400M_RT_BUS);
- 		if (result >= 0)
- 			result = -ENODEV;
-@@ -622,7 +632,8 @@ out_unlock:
- out:
- 	i2400m_put(i2400m);
- 	kfree(iw);
--	d_fnend(3, dev, "(ws %p i2400m %p) = void\n", ws, i2400m);
-+	d_fnend(3, dev, "(ws %p i2400m %p reason %s) = void\n",
-+		ws, i2400m, reason);
- 	return;
- }
- 
-@@ -639,12 +650,12 @@ out:
-  * reinitializing the driver to handle the reset, calling into the
-  * bus-specific functions ops as needed.
-  */
--int i2400m_dev_reset_handle(struct i2400m *i2400m)
-+int i2400m_dev_reset_handle(struct i2400m *i2400m, const char *reason)
- {
- 	i2400m->boot_mode = 1;
- 	wmb();		/* Make sure i2400m_msg_to_dev() sees boot_mode */
- 	return i2400m_schedule_work(i2400m, __i2400m_dev_reset_handle,
--				    GFP_ATOMIC, NULL, 0);
-+				    GFP_ATOMIC, &reason, sizeof(reason));
- }
- EXPORT_SYMBOL_GPL(i2400m_dev_reset_handle);
- 
-diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
-index 700f87b..0c165de 100644
---- a/drivers/net/wimax/i2400m/i2400m.h
-+++ b/drivers/net/wimax/i2400m/i2400m.h
-@@ -739,7 +739,7 @@ void i2400m_put(struct i2400m *i2400m)
- 	dev_put(i2400m->wimax_dev.net_dev);
- }
- 
--extern int i2400m_dev_reset_handle(struct i2400m *);
-+extern int i2400m_dev_reset_handle(struct i2400m *, const char *);
- extern int i2400m_bm_buf_alloc(struct i2400m *i2400m);
- extern void i2400m_bm_buf_free(struct i2400m *i2400m);
- 
-diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
-index 87263be..98ee7fd 100644
---- a/drivers/net/wimax/i2400m/sdio-rx.c
-+++ b/drivers/net/wimax/i2400m/sdio-rx.c
-@@ -179,7 +179,7 @@ void i2400ms_rx(struct i2400ms *i2400ms)
- 		i2400m_rx(i2400m, skb);
- 	} else if (unlikely(i2400m_is_boot_barker(i2400m,
- 						  skb->data, rx_size))) {
--		ret = i2400m_dev_reset_handle(i2400m);
-+		ret = i2400m_dev_reset_handle(i2400m, "device rebooted");
- 		dev_err(dev, "RX: SDIO reboot barker\n");
- 		kfree_skb(skb);
- 	} else {
-diff --git a/drivers/net/wimax/i2400m/usb-notif.c b/drivers/net/wimax/i2400m/usb-notif.c
-index a0751a3..f88d1c6 100644
---- a/drivers/net/wimax/i2400m/usb-notif.c
-+++ b/drivers/net/wimax/i2400m/usb-notif.c
-@@ -98,7 +98,7 @@ int i2400mu_notification_grok(struct i2400mu *i2400mu, const void *buf,
- 	}
- 	ret = i2400m_is_boot_barker(i2400m, buf, buf_len);
- 	if (unlikely(ret >= 0))
--		ret = i2400m_dev_reset_handle(i2400m);
-+		ret = i2400m_dev_reset_handle(i2400m, "device rebooted");
- 	else	/* Unknown or unexpected data in the notif message */
- 		i2400m_unknown_barker(i2400m, buf, buf_len);
- error_bad_size:
+-	if (unlikely(i2400m->tx_in) == 0)
++	if (unlikely(i2400m->tx_in == 0))
+ 		return I2400M_TX_BUF_SIZE;
+ 	tx_in = i2400m->tx_in % I2400M_TX_BUF_SIZE;
+ 	tail_room = I2400M_TX_BUF_SIZE - tx_in;
 -- 
 1.6.2.5
-
