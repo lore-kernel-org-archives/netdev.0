@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 24/25] mlx4: VLAN filter management by master function.
-Date: Wed, 04 Nov 2009 17:32:23 +0200
-Message-ID: <4AF19E87.2020901@mellanox.co.il>
+Subject: [PATCH 22/25] mlx4_en: Attaching Multicast addresses
+Date: Wed, 04 Nov 2009 17:32:15 +0200
+Message-ID: <4AF19E7F.3000009@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,221 +10,182 @@ Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 	yevgenyp@mellanox.co.il
 To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:34816 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:34800 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755892AbZKDMeh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2009 07:34:37 -0500
+	id S1755951AbZKDMe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 07:34:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VLAN filter is a bitmap of 4096 bits.
-The mster function sets the VLAN filter as a bitwise OR of the filters
-of each one of the slaves.
+The device attaches all the multicast addresses to it indirection QP
+The multicast steering is now done through the multicast table.
+If there is no match, the packet will arrive to the indirection QP
+of the first function.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/cmd.c     |    2 +-
- drivers/net/mlx4/en_port.c |   35 ---------------------
- drivers/net/mlx4/en_port.h |    5 ---
- drivers/net/mlx4/mlx4.h    |    9 +++++
- drivers/net/mlx4/port.c    |   72 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 82 insertions(+), 41 deletions(-)
+ drivers/net/mlx4/en_netdev.c |   33 +++++++++++++++++++++++++++++++--
+ drivers/net/mlx4/en_port.c   |    6 ++++--
+ drivers/net/mlx4/en_port.h   |   11 +++++++++--
+ drivers/net/mlx4/port.c      |    4 ++--
+ 4 files changed, 46 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
-index 3b0b22a..7eb4394 100644
---- a/drivers/net/mlx4/cmd.c
-+++ b/drivers/net/mlx4/cmd.c
-@@ -598,7 +598,7 @@ static struct mlx4_cmd_info {
- 	{MLX4_CMD_DIAG_RPRT,       0, 1, 0, NULL, NULL}, /* need verifier */
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 488f967..8406fbb 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -177,6 +177,7 @@ static void mlx4_en_cache_mclist(struct net_device *dev)
+ 	struct dev_mc_list *tmp;
+ 	struct dev_mc_list *plist = NULL;
  
- 	/* Ethernet specific commands */
--	{MLX4_CMD_SET_VLAN_FLTR,   1, 0, 0, NULL, NULL}, /* need wrapper */
-+	{MLX4_CMD_SET_VLAN_FLTR,   1, 0, 0, NULL, mlx4_SET_VLAN_FLTR_wrapper},
- 	{MLX4_CMD_SET_MCAST_FLTR,  0, 0, 0, NULL, mlx4_SET_MCAST_FLTR_wrapper},
- 	{MLX4_CMD_DUMP_ETH_STATS,  0, 1, 0, NULL, NULL}, /* need wrapper */
- };
++	mlx4_en_clear_list(dev);
+ 	for (mclist = dev->mc_list; mclist; mclist = mclist->next) {
+ 		tmp = kmalloc(sizeof(struct dev_mc_list), GFP_ATOMIC);
+ 		if (!tmp) {
+@@ -213,6 +214,7 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 	struct net_device *dev = priv->dev;
+ 	struct dev_mc_list *mclist;
+ 	u64 mcast_addr = 0;
++	u8 mc_list[16] = {0};
+ 	int err;
+ 
+ 	mutex_lock(&mdev->state_lock);
+@@ -292,6 +294,12 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 		if (err)
+ 			en_err(priv, "Failed disabling multicast filter\n");
+ 
++		/* Detach our qp from all the multicast addresses */
++		for (mclist = priv->mc_list; mclist; mclist = mclist->next) {
++			memcpy(&mc_list[10], mclist->dmi_addr, ETH_ALEN);
++			mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
++					      mc_list, MLX4_PROT_ETH);
++		}
+ 		/* Flush mcast filter and init it with broadcast address */
+ 		mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, ETH_BCAST,
+ 				    1, MLX4_MCAST_CONFIG);
+@@ -302,6 +310,9 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 		mlx4_en_cache_mclist(dev);
+ 		netif_tx_unlock_bh(dev);
+ 		for (mclist = priv->mc_list; mclist; mclist = mclist->next) {
++			memcpy(&mc_list[10], mclist->dmi_addr, ETH_ALEN);
++			mlx4_multicast_attach(mdev->dev, &priv->rss_map.indir_qp,
++					      mc_list, 0, MLX4_PROT_ETH);
+ 			mcast_addr = mlx4_en_mac_to_u64(mclist->dmi_addr);
+ 			mlx4_SET_MCAST_FLTR(mdev->dev, priv->port,
+ 					    mcast_addr, 0, MLX4_MCAST_CONFIG);
+@@ -310,8 +321,6 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 					  0, MLX4_MCAST_ENABLE);
+ 		if (err)
+ 			en_err(priv, "Failed enabling multicast filter\n");
+-
+-		mlx4_en_clear_list(dev);
+ 	}
+ out:
+ 	mutex_unlock(&mdev->state_lock);
+@@ -557,6 +566,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	int err = 0;
+ 	int i;
+ 	int j;
++	u8 mc_list[16] = {0};
+ 
+ 	if (priv->port_up) {
+ 		en_dbg(DRV, priv, "start port called while port already up\n");
+@@ -669,6 +679,12 @@ int mlx4_en_start_port(struct net_device *dev)
+ 		goto tx_err;
+ 	}
+ 
++	/* Attach rx QP to bradcast address */
++	memset(&mc_list[10], 0xff, ETH_ALEN);
++	if (mlx4_multicast_attach(mdev->dev, &priv->rss_map.indir_qp, mc_list,
++				  0, MLX4_PROT_ETH))
++		mlx4_warn(mdev, "Failed Attaching Broadcast\n");
++
+ 	/* Schedule multicast task to populate multicast list */
+ 	queue_work(mdev->workqueue, &priv->mcast_task);
+ 
+@@ -699,7 +715,9 @@ void mlx4_en_stop_port(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
++	struct dev_mc_list *mclist;
+ 	int i;
++	u8 mc_list[16] = {0};
+ 
+ 	if (!priv->port_up) {
+ 		en_dbg(DRV, priv, "stop port called while port already down\n");
+@@ -715,6 +733,17 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	priv->port_up = false;
+ 	mlx4_CLOSE_PORT(mdev->dev, priv->port);
+ 
++	/* Detach All multicasts */
++	memset(&mc_list[10], 0xff, ETH_ALEN);
++	mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp, mc_list,
++			      MLX4_PROT_ETH);
++	for (mclist = priv->mc_list; mclist; mclist = mclist->next) {
++		memcpy(&mc_list[10], mclist->dmi_addr, ETH_ALEN);
++		mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
++				      mc_list, MLX4_PROT_ETH);
++	}
++	mlx4_en_clear_list(dev);
++
+ 	/* Unregister Mac address for the port */
+ 	mlx4_unregister_mac(mdev->dev, priv->port, priv->base_qpn);
+ 
 diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
-index 6dc07c9..a0e8a97 100644
+index c099cb4..c7aa86e 100644
 --- a/drivers/net/mlx4/en_port.c
 +++ b/drivers/net/mlx4/en_port.c
-@@ -41,41 +41,6 @@
- #include "mlx4_en.h"
+@@ -128,8 +128,10 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
  
- 
--int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
--{
--	struct mlx4_cmd_mailbox *mailbox;
--	struct mlx4_set_vlan_fltr_mbox *filter;
--	int i;
--	int j;
--	int index = 0;
--	u32 entry;
--	int err = 0;
--
--	mailbox = mlx4_alloc_cmd_mailbox(dev);
--	if (IS_ERR(mailbox))
--		return PTR_ERR(mailbox);
--
--	filter = mailbox->buf;
--	if (grp) {
--		memset(filter, 0, sizeof *filter);
--		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
--			entry = 0;
--			for (j = 0; j < 32; j++)
--				if (vlan_group_get_device(grp, index++))
--					entry |= 1 << j;
--			filter->entry[i] = cpu_to_be32(entry);
--		}
--	} else {
--		/* When no vlans are configured we block all vlans */
--		memset(filter, 0, sizeof(*filter));
--	}
--	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
--		       MLX4_CMD_TIME_CLASS_B);
--	mlx4_free_cmd_mailbox(dev, mailbox);
--	return err;
--}
--
--
- int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
- 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx)
- {
+ 	context->base_qpn = cpu_to_be32(base_qpn);
+ 	context->n_mac = 0x7;
+-	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT | base_qpn);
+-	context->mcast = cpu_to_be32(1 << SET_PORT_PROMISC_SHIFT | base_qpn);
++	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT |
++				       base_qpn);
++	context->mcast = cpu_to_be32(MCAST_DIRECT << SET_PORT_MC_PROMISC_SHIFT |
++				     base_qpn);
+ 	context->intra_no_vlan = 0;
+ 	context->no_vlan = MLX4_NO_VLAN_IDX;
+ 	context->intra_vlan_miss = 0;
 diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/mlx4/en_port.h
-index c62abd7..2edb851 100644
+index 674a804..c62abd7 100644
 --- a/drivers/net/mlx4/en_port.h
 +++ b/drivers/net/mlx4/en_port.h
-@@ -83,11 +83,6 @@ struct mlx4_set_port_rqp_calc_context {
- 	__be32 mcast;
- };
+@@ -35,8 +35,15 @@
+ #define _MLX4_EN_PORT_H_
  
--#define VLAN_FLTR_SIZE	128
--struct mlx4_set_vlan_fltr_mbox {
--	__be32 entry[VLAN_FLTR_SIZE];
--};
--
+ 
+-#define SET_PORT_GEN_ALL_VALID	0x7
+-#define SET_PORT_PROMISC_SHIFT	31
++#define SET_PORT_GEN_ALL_VALID		0x7
++#define SET_PORT_PROMISC_SHIFT		31
++#define SET_PORT_MC_PROMISC_SHIFT	30
++
++enum {
++	MCAST_DIRECT_ONLY	= 0,
++	MCAST_DIRECT		= 1,
++	MCAST_DEFAULT		= 2
++};
  
  enum {
- 	MLX4_MCAST_CONFIG       = 0,
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 7040671..0cb3be1 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -221,6 +221,11 @@ struct mlx4_mcast_entry {
- 	u64 addr;
- };
- 
-+#define VLAN_FLTR_SIZE	128
-+struct mlx4_vlan_fltr {
-+	__be32 entry[VLAN_FLTR_SIZE];
-+};
-+
- struct mlx4_slave_state {
- 	u8 comm_toggle;
- 	u8 last_cmd;
-@@ -230,6 +235,7 @@ struct mlx4_slave_state {
- 	__be32 ib_cap_mask[MLX4_MAX_PORTS + 1];
- 	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
- 	struct list_head mcast_filters[MLX4_MAX_PORTS + 1];
-+	struct mlx4_vlan_fltr vlan_filter[MLX4_MAX_PORTS + 1];
- 	u16 eq_pi;
- 	u16 eq_ci;
- 	int sqp_start;
-@@ -560,5 +566,8 @@ int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
- int mlx4_SET_MCAST_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
- 				struct mlx4_cmd_mailbox *inbox,
- 				struct mlx4_cmd_mailbox *outbox);
-+int mlx4_SET_VLAN_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+				struct mlx4_cmd_mailbox *inbox,
-+				struct mlx4_cmd_mailbox *outbox);
- 
- #endif /* MLX4_H */
+ 	MLX4_CMD_SET_VLAN_FLTR  = 0x47,
 diff --git a/drivers/net/mlx4/port.c b/drivers/net/mlx4/port.c
-index 1bc527c..1a790ef 100644
+index 02b56ba..7317d0f 100644
 --- a/drivers/net/mlx4/port.c
 +++ b/drivers/net/mlx4/port.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/errno.h>
- #include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
- 
- #include <linux/mlx4/cmd.h>
- 
-@@ -616,3 +617,74 @@ int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port,
- 			MLX4_CMD_SET_MCAST_FLTR, MLX4_CMD_TIME_CLASS_B);
- }
- EXPORT_SYMBOL(mlx4_SET_MCAST_FLTR);
-+
-+
-+int mlx4_SET_VLAN_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+			       struct mlx4_cmd_mailbox *inbox,
-+			       struct mlx4_cmd_mailbox *outbox)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_vlan_fltr *filter;
-+	struct mlx4_slave_state *s_state = &priv->mfunc.master.slave_state[slave];
-+	int port = vhcr->in_modifier;
-+	int i, j, err;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+
-+	/* Update slave's Vlan filter */
-+	memcpy(s_state->vlan_filter[port].entry, inbox->buf,
-+	       sizeof(struct mlx4_vlan_fltr));
-+
-+	/* We configure the Vlan filter to allow the vlans of
-+	 * all slaves */
-+	filter = mailbox->buf;
-+	memset(filter, 0, sizeof(*filter));
-+	for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+		for (j = 0; j < dev->num_slaves; j++) {
-+			s_state = &priv->mfunc.master.slave_state[j];
-+			filter->entry[i] |= s_state->vlan_filter[port].entry[i];
-+		}
-+	}
-+	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+		       MLX4_CMD_TIME_CLASS_B);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+
-+int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_vlan_fltr *filter;
-+	int i;
-+	int j;
-+	int index = 0;
-+	u32 entry;
-+	int err = 0;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+
-+	filter = mailbox->buf;
-+	if (grp) {
-+		memset(filter, 0, sizeof *filter);
-+		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+			entry = 0;
-+			for (j = 0; j < 32; j++)
-+				if (vlan_group_get_device(grp, index++))
-+					entry |= 1 << j;
-+			filter->entry[i] = cpu_to_be32(entry);
-+		}
-+	} else {
-+		/* When no vlans are configured we block all vlans */
-+		memset(filter, 0, sizeof(*filter));
-+	}
-+	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+		       MLX4_CMD_TIME_CLASS_B);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx4_SET_VLAN_FLTR);
+@@ -388,9 +388,9 @@ int mlx4_SET_PORT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhc
+ 				promisc << SET_PORT_PROMISC_SHIFT |
+ 				port_info->base_qpn);
+ 			promisc = be32_to_cpu(qpn_context->mcast) >>
+-				SET_PORT_PROMISC_SHIFT;
++				SET_PORT_MC_PROMISC_SHIFT;
+ 			qpn_context->mcast = cpu_to_be32(
+-				promisc << SET_PORT_PROMISC_SHIFT |
++				promisc << SET_PORT_MC_PROMISC_SHIFT |
+ 				port_info->base_qpn);
+ 			break;
+ 		case MLX4_SET_PORT_GENERAL:
 -- 
 1.6.1.3
 
