@@ -1,57 +1,49 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next-2.6 2009-10-28
-Date: Wed, 4 Nov 2009 17:09:16 -0500
-Message-ID: <20091104220916.GI10786@tuxdriver.com>
-References: <1256886023.3555.5.camel@johannes.local> <20091102211629.GA1322@ucw.cz> <alpine.LRH.2.00.0911041403480.31913@twin.jikos.cz> <200911042217.49144.IvDoorn@gmail.com> <20091104220024.GC27325@elf.ucw.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: sock_bindtodevice() RCU-ification
+Date: Wed, 04 Nov 2009 23:36:44 +0100
+Message-ID: <4AF201FC.3040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ivo van Doorn <ivdoorn@gmail.com>, Jiri Kosina <jkosina@suse.cz>,
-	Luis Correia <luis.f.correia@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758293AbZKDWPJ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091104220024.GC27325@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37156 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758341AbZKDWgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 17:36:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 04, 2009 at 11:00:25PM +0100, Pavel Machek wrote:
-> > > But yes, he got flamed for this for some odd reason. I got the impression 
-> > > that the community around rt2x00 doesn't like (or understand) the way how 
-> > > opensource development happens.
-> > 
-> > Well you mean the open source development where non-contributors
-> > complain that the contributors work too slowly? 
-> 
-> This was the case when non-contributor complained that patch adds
-> 2KLoC of unneccessary code.
-> 
-> > Perhaps
-> > that is the policy in some companies which try to import it into the
-> > Open Source world...
-> 
-> Do you really have to attack everyone around?
+Avoid dev_hold()/dev_put() in sock_bindtodevice()
 
-Really, this is enough.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/sock.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-It seems clear that neither side of this debate sees or appreciates
-the injuries that the other side claims.  In any case, there seems
-little good can come from continuing this bickering.
-
-Now that Bart is posting patches and the rt2x00 team is actively
-reviewing (and mostly Acking) them, I hope everyone can just BACK
-THE HELL OFF and let the process work itself out.
-
-Please let this discussion end.
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 5a51512..38820ea 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -420,14 +420,16 @@ static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
+ 	if (devname[0] == '\0') {
+ 		index = 0;
+ 	} else {
+-		struct net_device *dev = dev_get_by_name(net, devname);
++		struct net_device *dev;
+ 
++		rcu_read_lock();
++		dev = dev_get_by_name_rcu(net, devname);
++		if (dev)
++			index = dev->ifindex;
++		rcu_read_unlock();
+ 		ret = -ENODEV;
+ 		if (!dev)
+ 			goto out;
+-
+-		index = dev->ifindex;
+-		dev_put(dev);
+ 	}
+ 
+ 	lock_sock(sk);
