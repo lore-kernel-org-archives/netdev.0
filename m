@@ -1,66 +1,58 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv8 0/3] vhost: a kernel-level virtio server
-Date: Wed, 04 Nov 2009 14:15:42 -0500
-Message-ID: <4AF1D2DE.10705@gmail.com>
-References: <20091104155234.GA32673@redhat.com> <4AF1A587.8000509@gmail.com> <20091104162339.GA311@redhat.com>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: Re: REGRESSION: On 2.6.32-rc5 the firmware hangs, and the nic is
+ unusable.
+Date: Wed, 4 Nov 2009 11:15:18 -0800
+Message-ID: <4AF1D2C6.20002@qlogic.com>
+References: <m1tyxaagal.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigE41C0DE2FBFBF3E83786E82A"
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
- linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
- Rusty Russell <rusty@rustcorp.com.au>,
- s.hetze@linux-ag.com, Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091104162339.GA311@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE41C0DE2FBFBF3E83786E82A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Michael S. Tsirkin wrote:
-> On Wed, Nov 04, 2009 at 11:02:15AM -0500, Gregory Haskins wrote:
->> Michael S. Tsirkin wrote:
->>> Ok, I think I've addressed all comments so far here.
->>> Rusty, I'd like this to go into linux-next, through your tree, and
->>> hopefully 2.6.33.  What do you think?
->> I think the benchmark data is a prerequisite for merge consideration, =
-IMO.
->=20
-> Shirley Ma was kind enough to send me some measurement results showing
-> how kernel level acceleration helps speed up you can find them here:
-> http://www.linux-kvm.org/page/VhostNet
-
-Thanks for the pointers.  I will roll your latest v8 code into our test
-matrix.  What kernel/qemu trees do they apply to?
-
--Greg
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Amit Salecha <amit.salecha@qlogic.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:57201 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757909AbZKDTQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 14:16:20 -0500
+In-Reply-To: <m1tyxaagal.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---------------enigE41C0DE2FBFBF3E83786E82A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Eric W. Biederman wrote:
+> On 2.6.31.5 I get:
+> ethtool -i eth0
+> driver: netxen_nic
+> version: 4.0.30
+> firmware-version: 4.0.305
+> bus-info: 0000:06:00.0
+> 
 
-iEYEARECAAYFAkrx0t4ACgkQP5K2CMvXmqFRbgCeLpbxRPIlSPlPG7HtOurzxEQp
-lWUAnjOvhcZm8LOVA2vlgoLaN/wgPdzQ
-=JO1s
------END PGP SIGNATURE-----
+Agree, 2.6.31 window missed bonding (mac addr setup) fixes.
 
---------------enigE41C0DE2FBFBF3E83786E82A--
+> And everything works except bonding.
+> 
+> On 2.6.32-rc5 I dhcp I get an IP
+> there is a sanity test ping.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 
+> Then the driver reports a firmware hang and
+> the interface goes down and I am dead in the water.
+> 
+
+> I'm a bit frustrated with this as it seems with each kernel release
+> the driver gets a little bit less usable.
+> 
+> Have I given you enough information to track this down?
+
+This can be fixed in next rc patch of 2.6.32, if I get enough info to debug.
+
+Could you provide full dmesg, so that I can see what's going on around 
+firmware hang message? Also provide your test details (bonding / 
+whatever configured).
+
+Thanks,
+-Dhananjay
