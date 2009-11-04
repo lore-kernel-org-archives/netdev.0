@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] em_meta: avoid one dev_put()
-Date: Wed, 04 Nov 2009 05:23:41 -0800 (PST)
-Message-ID: <20091104.052341.167452135.davem@davemloft.net>
-References: <4AF0A2E9.1080505@gmail.com>
+Subject: Re: [PATCH torvalds-2.6] cdc_ether: additional Ericsson MBM PID's
+ to the whitelist
+Date: Wed, 04 Nov 2009 05:25:17 -0800 (PST)
+Message-ID: <20091104.052517.238507016.davem@davemloft.net>
+References: <200911032228.05527.torgny.johansson@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, saurin.shah@intel.com
+To: torgny.johansson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60337
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60340
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756026AbZKDNXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 08:23:16 -0500
-In-Reply-To: <4AF0A2E9.1080505@gmail.com>
+	by vger.kernel.org with ESMTP id S1752276AbZKDNYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 08:24:52 -0500
+In-Reply-To: <200911032228.05527.torgny.johansson@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Nov 2009 22:38:49 +0100
+From: Torgny Johansson <torgny.johansson@gmail.com>
+Date: Tue, 3 Nov 2009 22:28:05 +0100
 
-> Another rcu conversion to avoid one dev_hold()/dev_put() pair
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Trying with another e-mail client to see if that works better. I've
+> sent it to my own gmail first and if I "view original" in gmail the
+> patch works and applies cleanly after downloading it so I'm hoping
+> it will work for you guys too.
 
-Applied, thanks Eric.
+Looks good, applied to net-2.6, thanks!
