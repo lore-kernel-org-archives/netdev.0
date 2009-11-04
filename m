@@ -1,80 +1,84 @@
 From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
 Subject: Re: [PATCH] e1000: the power down when running ifdown command
-Date: Wed, 04 Nov 2009 19:23:43 +0900
-Message-ID: <4AF1562F.8010401@miraclelinux.com>
-References: <4AEC05E8.40600@miraclelinux.com> <20091031105838.0d4b59a2@nehalam> <4AEE35D2.4000503@miraclelinux.com>
+Date: Wed, 04 Nov 2009 19:27:11 +0900
+Message-ID: <4AF156FF.5060000@miraclelinux.com>
+References: <4AEC05E8.40600@miraclelinux.com>	 <9929d2390911021626j4a2e4a96neaba49ffd8775dc9@mail.gmail.com>	 <4AF00097.4040708@miraclelinux.com> <9929d2390911031337p6115fef0wc1b94e5141ead341@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	davem@davemloft.net, Andrew Morton <akpm@linux-foundation.org>,
+Cc: jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, davem@davemloft.net,
+	Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, svaidy@linux.vnet.ibm.com,
 	e1000-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.miraclelinux.com ([122.216.84.157]:31110 "EHLO
+Received: from mailgw.miraclelinux.com ([122.216.84.157]:9453 "EHLO
 	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377AbZKDKXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 05:23:38 -0500
-In-Reply-To: <4AEE35D2.4000503@miraclelinux.com>
+	with ESMTP id S1752065AbZKDK1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 05:27:07 -0500
+In-Reply-To: <9929d2390911031337p6115fef0wc1b94e5141ead341@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Naohiro Ooiwa wrote:
-> Stephen Hemminger wrote:
->> On Sat, 31 Oct 2009 18:39:52 +0900
->> Naohiro Ooiwa <nooiwa@miraclelinux.com> wrote:
+Jeff Kirsher wrote:
+> 2009/11/3 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
+>> Jeff Kirsher wrote:
+>>> 2009/10/31 Naohiro Ooiwa <nooiwa@miraclelinux.com>:
+>>>
+>>> I have added this patch to my tree for testing.  This patch requires a
+>>> fair amount of regression testing, so once its passed testing I will
+>>> push the patch to David/netdev.
+>> I appreciate the marge your tree.
+>> If there is anything I can do, please let me know.
 >>
->> Does this work with Wake On Lan? 
-> 
-> Yes, it works WOL.
-
-Sorry, I made a mistake.
-The WOL doesn't work when my patch applied to kernel.
-I wasn't myself.
-
-I consider the WOL and I will resent the patch.
-Thank you for your point.
-
-
-thanks,
-Naohiro Ooiwa
-
-
-> But I worry that my test is enough.
-> 
-> They are following:
->   - simple data transmission after ifdown;ifup.
->   - enable wol, ifup network device, system shutdown, and make sure wol work.
->   - enable wol, ifdown network device, system shutdown, and make sure wol work.
->   - while [ 0 ] ; do ifdown eth0 ; ifup eth0 ; done
->   - while [ 0 ] ; do modprobe e1000 ; rmmod e1000 ; done
-> 
-> 
->> @@ -1265,6 +1287,7 @@ static int e1000_open(struct net_device *netdev)
->>  		goto err_setup_rx;
+>> And I know this patch is good for e100 driver too.
+>> I would really like to create patch for it.
+>> How do you think about e100 driver.
 >>
->>  	e1000_power_up_phy(adapter);
->> +	e1000_reset(adapter);
 >>
->>  	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
->>  	if ((hw->mng_cookie.status &
+>> Thanks,
+>> Naohiro Ooiwa
+>>
 > 
-> This code fix problem that e1000 driver doesn't work to auto-negotiation
-> once in a while.
-> Maybe, the cause is that set state to D0 just before it.
-> I found it by repeat of ifup and ifdown.
+> Patches are always welcome (referring to a e100 patch).
+
+I am happy that you should say that.
+I will try to create a patch for e100, e1000e, igb and ixgbe.
+Before that, I should fix the following problems.
+
+
+> As far as the e1000 patch goes, it has a number of issues which were
+> found in testing.  Here are just a few problems we saw:
+> 1. ethtool -t - crashes the system
+> 2. ethtool eth0 - always shows link/speed as 1000/Full even when there
+> is no cable
+> 3. ethtool -s eth0 autoneg on/off - system hang. Sometimes a copper
+> interface will show up as fiber after this.
+> 4. ethtool -d/-S/-g etc - will corrupt the stats of the interface
+> while doing ifup/down
+
+Thank you for your tests.
+Oh, My patch is full of problem.
+The rest is my work.
+
+I will resend the patch after test of all ethtool's options.
+At that time, I will tell you contents of my tests.
+
+And I sad WOL works on my patch in previous mail.
+But WOL doesn't work. Sorry, I wasn't myself.
+I will fix it too.
+
 > 
-> If you find out other points and any necessary tests from my patch,
-> please tell me. I will make sure them.
+> So it appears that more needs to be done to the driver to get this to
+> work as expected.
 > 
-> Thanks you.
-> Naohiro Ooiwa
+> NAK
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+
+
+
+
+
 
