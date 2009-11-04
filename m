@@ -1,85 +1,251 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/5 06/12] wimax/i2400m: Fix USB timeout specifications (to ms from HZ)
-Date: Wed,  4 Nov 2009 13:40:11 -0800
-Message-ID: <296bd4bdd0a43c5e56ee310bcb9b4722e5d52db8.1257370738.git.inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/5 04/12] wimax/i2400m: introduce i2400m_reset(), stopping TX and carrier
+Date: Wed,  4 Nov 2009 13:40:09 -0800
+Message-ID: <c931ceeb780560ff652a8f9875f88778439ee87e.1257370738.git.inaky@linux.intel.com>
 References: <cover.1257370738.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.89]:28863 "EHLO
 	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932798AbZKDVmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:20 -0500
+	with ESMTP id S932792AbZKDVmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:19 -0500
 In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
 References: <cover.1257370738.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The USB code was incorrectly specifiying timeouts to be in jiffies vs
-msecs. On top of that, lower it to 200ms, as 1s is really too long
-(doesn't allow the watchdog to trip a reset if the device timesout too
-often).
+Currently the i2400m driver was resetting by just calling
+i2400m->bus_reset(). However, this was missing stopping the TX queue
+and downing the carrier. This was causing, for the corner case of the
+driver reseting a device that refuses to go out of idle mode, that a
+few packets would be queued and more than one reset would go through,
+making the recovery a wee bit messy.
+
+To avoid introducing the same cleanup in all the bus-specific driver,
+introduced a i2400m_reset() function that takes care of house cleaning
+and then calling the bus-level reset implementation.
+
+The bulk of the changes in all files are just to rename the call from
+i2400m->bus_reset() to i2400m_reset().
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/usb-fw.c |    2 +-
- drivers/net/wimax/i2400m/usb-rx.c |    2 +-
- drivers/net/wimax/i2400m/usb-tx.c |    2 +-
- drivers/net/wimax/i2400m/usb.c    |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/wimax/i2400m/control.c |    4 ++--
+ drivers/net/wimax/i2400m/debugfs.c |    2 +-
+ drivers/net/wimax/i2400m/driver.c  |   22 ++++++++++++++++++++--
+ drivers/net/wimax/i2400m/fw.c      |    4 ++--
+ drivers/net/wimax/i2400m/i2400m.h  |    1 +
+ drivers/net/wimax/i2400m/netdev.c  |    8 +++++---
+ drivers/net/wimax/i2400m/rx.c      |    4 ++--
+ drivers/net/wimax/i2400m/sdio.c    |    9 +--------
+ drivers/net/wimax/i2400m/usb.c     |    2 +-
+ 9 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/usb-fw.c b/drivers/net/wimax/i2400m/usb-fw.c
-index b59aee0..8ec8b6d 100644
---- a/drivers/net/wimax/i2400m/usb-fw.c
-+++ b/drivers/net/wimax/i2400m/usb-fw.c
-@@ -102,7 +102,7 @@ ssize_t i2400mu_tx_bulk_out(struct i2400mu *i2400mu, void *buf, size_t buf_size)
- 	epd = usb_get_epd(i2400mu->usb_iface, i2400mu->endpoint_cfg.bulk_out);
- 	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
- retry:
--	result = usb_bulk_msg(i2400mu->usb_dev, pipe, buf, buf_size, &len, HZ);
-+	result = usb_bulk_msg(i2400mu->usb_dev, pipe, buf, buf_size, &len, 200);
- 	switch (result) {
- 	case 0:
- 		if (len != buf_size) {
-diff --git a/drivers/net/wimax/i2400m/usb-rx.c b/drivers/net/wimax/i2400m/usb-rx.c
-index 245587f..22d127b 100644
---- a/drivers/net/wimax/i2400m/usb-rx.c
-+++ b/drivers/net/wimax/i2400m/usb-rx.c
-@@ -214,7 +214,7 @@ retry:
+diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
+index b69fd88..9449455 100644
+--- a/drivers/net/wimax/i2400m/control.c
++++ b/drivers/net/wimax/i2400m/control.c
+@@ -54,7 +54,7 @@
+  *   i2400m_set_init_config()
+  *   i2400m_cmd_get_state()
+  * i2400m_dev_shutdown()        Called by i2400m_dev_stop()
+- *   i2400m->bus_reset()
++ *   i2400m_reset()
+  *
+  * i2400m_{cmd,get,set}_*()
+  *   i2400m_msg_to_dev()
+@@ -343,7 +343,7 @@ void i2400m_report_tlv_system_state(struct i2400m *i2400m,
+ 		/* Huh? just in case, shut it down */
+ 		dev_err(dev, "HW BUG? unknown state %u: shutting down\n",
+ 			i2400m_state);
+-		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++		i2400m_reset(i2400m, I2400M_RT_WARM);
+ 		break;
+ 	};
+ 	d_fnend(3, dev, "(i2400m %p ss %p [%u]) = void\n",
+diff --git a/drivers/net/wimax/i2400m/debugfs.c b/drivers/net/wimax/i2400m/debugfs.c
+index 9b81af3..b1aec3e 100644
+--- a/drivers/net/wimax/i2400m/debugfs.c
++++ b/drivers/net/wimax/i2400m/debugfs.c
+@@ -214,7 +214,7 @@ int debugfs_i2400m_reset_set(void *data, u64 val)
+ 	case I2400M_RT_WARM:
+ 	case I2400M_RT_COLD:
+ 	case I2400M_RT_BUS:
+-		result = i2400m->bus_reset(i2400m, rt);
++		result = i2400m_reset(i2400m, rt);
+ 		if (result >= 0)
+ 			result = 0;
+ 	default:
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index cc58a86..96a615f 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -255,7 +255,7 @@ int i2400m_op_reset(struct wimax_dev *wimax_dev)
+ 	mutex_lock(&i2400m->init_mutex);
+ 	i2400m->reset_ctx = &ctx;
+ 	mutex_unlock(&i2400m->init_mutex);
+-	result = i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++	result = i2400m_reset(i2400m, I2400M_RT_WARM);
+ 	if (result < 0)
+ 		goto out;
+ 	result = wait_for_completion_timeout(&ctx.completion, 4*HZ);
+@@ -710,7 +710,7 @@ out_unlock:
+ 	mutex_unlock(&i2400m->init_mutex);
+ 	if (result == -EUCLEAN) {
+ 		/* ops, need to clean up [w/ init_mutex not held] */
+-		result = i2400m->bus_reset(i2400m, I2400M_RT_BUS);
++		result = i2400m_reset(i2400m, I2400M_RT_BUS);
+ 		if (result >= 0)
+ 			result = -ENODEV;
  	}
- 	result = usb_bulk_msg(
- 		i2400mu->usb_dev, usb_pipe, rx_skb->data + rx_skb->len,
--		rx_size, &read_size, HZ);
-+		rx_size, &read_size, 200);
- 	usb_mark_last_busy(i2400mu->usb_dev);
- 	switch (result) {
- 	case 0:
-diff --git a/drivers/net/wimax/i2400m/usb-tx.c b/drivers/net/wimax/i2400m/usb-tx.c
-index a3c46e9..6cdf003 100644
---- a/drivers/net/wimax/i2400m/usb-tx.c
-+++ b/drivers/net/wimax/i2400m/usb-tx.c
-@@ -105,7 +105,7 @@ int i2400mu_tx(struct i2400mu *i2400mu, struct i2400m_msg_hdr *tx_msg,
- 	usb_pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
- retry:
- 	result = usb_bulk_msg(i2400mu->usb_dev, usb_pipe,
--			      tx_msg, tx_msg_size, &sent_size, HZ);
-+			      tx_msg, tx_msg_size, &sent_size, 200);
- 	usb_mark_last_busy(i2400mu->usb_dev);
- 	switch (result) {
- 	case 0:
+@@ -815,6 +815,24 @@ void i2400m_init(struct i2400m *i2400m)
+ EXPORT_SYMBOL_GPL(i2400m_init);
+ 
+ 
++int i2400m_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
++{
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++
++	/*
++	 * Make sure we stop TXs and down the carrier before
++	 * resetting; this is needed to avoid things like
++	 * i2400m_wake_tx() scheduling stuff in parallel.
++	 */
++	if (net_dev->reg_state == NETREG_REGISTERED) {
++		netif_tx_disable(net_dev);
++		netif_carrier_off(net_dev);
++	}
++	return i2400m->bus_reset(i2400m, rt);
++}
++EXPORT_SYMBOL_GPL(i2400m_reset);
++
++
+ /**
+  * i2400m_setup - bus-generic setup function for the i2400m device
+  *
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index fda54bf..64cdfeb 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -130,7 +130,7 @@
+  * i2400m_fw_dnload
+  *   i2400m_bootrom_init
+  *     i2400m_bm_cmd
+- *     i2400m->bus_reset
++ *     i2400m_reset
+  *   i2400m_dnload_init
+  *     i2400m_dnload_init_signed
+  *     i2400m_dnload_init_nonsigned
+@@ -902,7 +902,7 @@ do_reboot:
+ 	d_printf(4, dev, "device reboot: reboot command [%d # left]\n",
+ 		 count);
+ 	if ((flags & I2400M_BRI_NO_REBOOT) == 0)
+-		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++		i2400m_reset(i2400m, I2400M_RT_WARM);
+ 	result = i2400m_bm_cmd(i2400m, NULL, 0, &ack, sizeof(ack),
+ 			       I2400M_BM_CMD_RAW);
+ 	flags &= ~I2400M_BRI_NO_REBOOT;
+diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
+index 5eee985..04df9bb 100644
+--- a/drivers/net/wimax/i2400m/i2400m.h
++++ b/drivers/net/wimax/i2400m/i2400m.h
+@@ -717,6 +717,7 @@ unsigned i2400m_brh_get_signature(const struct i2400m_bootrom_header *hdr)
+  * Driver / device setup and internal functions
+  */
+ extern void i2400m_init(struct i2400m *);
++extern int i2400m_reset(struct i2400m *, enum i2400m_reset_type);
+ extern void i2400m_netdev_setup(struct net_device *net_dev);
+ extern int i2400m_sysfs_setup(struct device_driver *);
+ extern void i2400m_sysfs_release(struct device_driver *);
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+index e7d1a51..f67af42 100644
+--- a/drivers/net/wimax/i2400m/netdev.c
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -171,8 +171,9 @@ void i2400m_wake_tx_work(struct work_struct *ws)
+ 		result = 0;
+ 	if (result < 0) {
+ 		dev_err(dev, "WAKE&TX: device didn't get out of idle: "
+-			"%d\n", result);
+-			goto error;
++			"%d - resetting\n", result);
++		i2400m_reset(i2400m, I2400M_RT_BUS);
++		goto error;
+ 	}
+ 	result = wait_event_timeout(i2400m->state_wq,
+ 				    i2400m->state != I2400M_SS_IDLE, 5 * HZ);
+@@ -180,7 +181,8 @@ void i2400m_wake_tx_work(struct work_struct *ws)
+ 		result = -ETIMEDOUT;
+ 	if (result < 0) {
+ 		dev_err(dev, "WAKE&TX: error waiting for device to exit IDLE: "
+-			"%d\n", result);
++			"%d - resetting\n", result);
++		i2400m_reset(i2400m, I2400M_RT_BUS);
+ 		goto error;
+ 	}
+ 	msleep(20);	/* device still needs some time or it drops it */
+diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
+index 64a44ca..e3d2a9d 100644
+--- a/drivers/net/wimax/i2400m/rx.c
++++ b/drivers/net/wimax/i2400m/rx.c
+@@ -828,7 +828,7 @@ void i2400m_roq_queue(struct i2400m *i2400m, struct i2400m_roq *roq,
+ 		dev_err(dev, "SW BUG? queue nsn %d (lbn %u ws %u)\n",
+ 			nsn, lbn, roq->ws);
+ 		i2400m_roq_log_dump(i2400m, roq);
+-		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++		i2400m_reset(i2400m, I2400M_RT_WARM);
+ 	} else {
+ 		__i2400m_roq_queue(i2400m, roq, skb, lbn, nsn);
+ 		i2400m_roq_log_add(i2400m, roq, I2400M_RO_TYPE_PACKET,
+@@ -894,7 +894,7 @@ void i2400m_roq_queue_update_ws(struct i2400m *i2400m, struct i2400m_roq *roq,
+ 		dev_err(dev, "SW BUG? queue_update_ws nsn %u (sn %u ws %u)\n",
+ 			nsn, sn, roq->ws);
+ 		i2400m_roq_log_dump(i2400m, roq);
+-		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++		i2400m_reset(i2400m, I2400M_RT_WARM);
+ 	} else {
+ 		/* if the queue is empty, don't bother as we'd queue
+ 		 * it and inmediately unqueue it -- just deliver it */
+diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
+index ec17892..20ab22e 100644
+--- a/drivers/net/wimax/i2400m/sdio.c
++++ b/drivers/net/wimax/i2400m/sdio.c
+@@ -43,7 +43,7 @@
+  *     i2400m_release()
+  *     free_netdev(net_dev)
+  *
+- * i2400ms_bus_reset()            Called by i2400m->bus_reset
++ * i2400ms_bus_reset()            Called by i2400m_reset
+  *   __i2400ms_reset()
+  *     __i2400ms_send_barker()
+  */
+@@ -342,13 +342,6 @@ int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
+ 					       sizeof(i2400m_COLD_BOOT_BARKER));
+ 	else if (rt == I2400M_RT_BUS) {
+ do_bus_reset:
+-		/* call netif_tx_disable() before sending IOE disable,
+-		 * so that all the tx from network layer are stopped
+-		 * while IOE is being reset. Make sure it is called
+-		 * only after register_netdev() was issued.
+-		 */
+-		if (i2400m->wimax_dev.net_dev->reg_state == NETREG_REGISTERED)
+-			netif_tx_disable(i2400m->wimax_dev.net_dev);
+ 
+ 		i2400ms_bus_release(i2400m);
+ 
 diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
-index 5e07940..34df090 100644
+index 418db12..5e07940 100644
 --- a/drivers/net/wimax/i2400m/usb.c
 +++ b/drivers/net/wimax/i2400m/usb.c
-@@ -173,7 +173,7 @@ int __i2400mu_send_barker(struct i2400mu *i2400mu,
- 	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
- 	memcpy(buffer, barker, barker_size);
- 	ret = usb_bulk_msg(i2400mu->usb_dev, pipe, buffer, barker_size,
--			   &actual_len, HZ);
-+			   &actual_len, 200);
- 	if (ret < 0) {
- 		if (ret != -EINVAL)
- 			dev_err(dev, "E: barker error: %d\n", ret);
+@@ -58,7 +58,7 @@
+  *   i2400mu_rx_release()
+  *   i2400mu_tx_release()
+  *
+- * i2400mu_bus_reset()            Called by i2400m->bus_reset
++ * i2400mu_bus_reset()            Called by i2400m_reset
+  *   __i2400mu_reset()
+  *     __i2400mu_send_barker()
+  *   usb_reset_device()
 -- 
 1.6.2.5
 
