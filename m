@@ -1,66 +1,102 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/4 05/13] wimax/i2400m: use JUMP cmd for last FW chunk indication
-Date: Wed,  4 Nov 2009 13:40:00 -0800
-Message-ID: <6f4fc90a36fbe87e3003b3f7c8090ecc89bd1353.1257370737.git.inaky@linux.intel.com>
-References: <cover.1257370737.git.inaky@linux.intel.com>
-Cc: Cindy H Kao <cindy.h.kao@intel.com>
+Subject: [PATCH 2.6.33/5 01/12] wimax/i2400m: make i2400m->bus_dev_{stop,start}() optional
+Date: Wed,  4 Nov 2009 13:40:06 -0800
+Message-ID: <097acbeff98178e01c2f6adb2259ab4d811340cc.1257370738.git.inaky@linux.intel.com>
+References: <cover.1257370738.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:45111 "EHLO
-	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932730AbZKDVmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:12 -0500
-In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
-References: <cover.1257370737.git.inaky@linux.intel.com>
+Received: from mga05.intel.com ([192.55.52.89]:28863 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932730AbZKDVmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:18 -0500
+In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
+References: <cover.1257370738.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cindy H Kao <cindy.h.kao@intel.com>
+In coming commits, the i2400m SDIO driver will not use
+i2400m->bus_dev_stop().
 
-Both secure and non-secure boot must set the JUMP command in the
-bootmode header as the last FW chunk, so we change to use the JUMP
-command to decide if the FW chunk download is completed.
+Thus changed to check before calling, as an empty stub has more
+overhead than a call to check if the function pointer is non-NULL.
 
-Since we tend to use one single FW to support both secure and non-secure
-boot for most of the time, I2400M_BRH_SIGNED_JUMP is actually found
-even for non-secure boot. But in case the FW does come with
-I2400M_BRH_JUMP, we check for both of them in i2400m_dnload_bcf().
-
-Signed-off-by: Cindy H Kao <cindy.h.kao@intel.com>
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/fw.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+ drivers/net/wimax/i2400m/driver.c |   14 +++++++++-----
+ drivers/net/wimax/i2400m/i2400m.h |   14 +++++++-------
+ 2 files changed, 16 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-index 3d67bcf..97ea784 100644
---- a/drivers/net/wimax/i2400m/fw.c
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -720,14 +720,17 @@ ssize_t i2400m_dnload_bcf(struct i2400m *i2400m,
- 			 "downloading section #%zu (@%zu %zu B) to 0x%08x\n",
- 			 section, offset, sizeof(*bh) + data_size,
- 			 le32_to_cpu(bh->target_addr));
--		if (i2400m_brh_get_opcode(bh) == I2400M_BRH_SIGNED_JUMP) {
--			/* Secure boot needs to stop here */
--			d_printf(5, dev,  "signed jump found @%zu\n", offset);
-+		/*
-+		 * We look for JUMP cmd from the bootmode header,
-+		 * either I2400M_BRH_SIGNED_JUMP for secure boot
-+		 * or I2400M_BRH_JUMP for unsecure boot, the last chunk
-+		 * should be the bootmode header with JUMP cmd.
-+		 */
-+		if (i2400m_brh_get_opcode(bh) == I2400M_BRH_SIGNED_JUMP ||
-+			i2400m_brh_get_opcode(bh) == I2400M_BRH_JUMP) {
-+			d_printf(5, dev,  "jump found @%zu\n", offset);
- 			break;
- 		}
--		if (offset + section_size == bcf_len)
--			/* Non-secure boot stops here */
--			break;
- 		if (offset + section_size > bcf_len) {
- 			dev_err(dev, "fw %s: bad section #%zu, "
- 				"end (@%zu) beyond EOF (@%zu)\n",
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index cc900b9..cc58a86 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -384,9 +384,11 @@ retry:
+ 		dev_err(dev, "cannot create workqueue\n");
+ 		goto error_create_workqueue;
+ 	}
+-	result = i2400m->bus_dev_start(i2400m);
+-	if (result < 0)
+-		goto error_bus_dev_start;
++	if (i2400m->bus_dev_start) {
++		result = i2400m->bus_dev_start(i2400m);
++		if (result < 0)
++			goto error_bus_dev_start;
++	}
+ 	i2400m->ready = 1;
+ 	wmb();		/* see i2400m->ready's documentation  */
+ 	/* process pending reports from the device */
+@@ -413,7 +415,8 @@ error_check_mac_addr:
+ 	wmb();		/* see i2400m->ready's documentation  */
+ 	flush_workqueue(i2400m->work_queue);
+ error_fw_check:
+-	i2400m->bus_dev_stop(i2400m);
++	if (i2400m->bus_dev_stop)
++		i2400m->bus_dev_stop(i2400m);
+ error_bus_dev_start:
+ 	destroy_workqueue(i2400m->work_queue);
+ error_create_workqueue:
+@@ -480,7 +483,8 @@ void __i2400m_dev_stop(struct i2400m *i2400m)
+ 	wmb();		/* see i2400m->ready's documentation  */
+ 	flush_workqueue(i2400m->work_queue);
+ 
+-	i2400m->bus_dev_stop(i2400m);
++	if (i2400m->bus_dev_stop)
++		i2400m->bus_dev_stop(i2400m);
+ 	destroy_workqueue(i2400m->work_queue);
+ 	i2400m_rx_release(i2400m);
+ 	i2400m_tx_release(i2400m);
+diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
+index 55bca43..5eee985 100644
+--- a/drivers/net/wimax/i2400m/i2400m.h
++++ b/drivers/net/wimax/i2400m/i2400m.h
+@@ -245,19 +245,19 @@ struct i2400m_barker_db;
+  *     all the host resources created to  handle communication with
+  *     the device.
+  *
+- * @bus_dev_start: [fill] Function called by the bus-generic code
+- *     [i2400m_dev_start()] to setup the bus-specific communications
+- *     to the the device. See LIFE CYCLE above.
++ * @bus_dev_start: [optional fill] Function called by the bus-generic
++ *     code [i2400m_dev_start()] to do things needed to start the
++ *     device. See LIFE CYCLE above.
+  *
+  *     NOTE: Doesn't need to upload the firmware, as that is taken
+  *     care of by the bus-generic code.
+  *
+- * @bus_dev_stop: [fill] Function called by the bus-generic code
+- *     [i2400m_dev_stop()] to shutdown the bus-specific communications
+- *     to the the device. See LIFE CYCLE above.
++ * @bus_dev_stop: [optional fill] Function called by the bus-generic
++ *     code [i2400m_dev_stop()] to do things needed for stopping the
++ *     device. See LIFE CYCLE above.
+  *
+  *     This function does not need to reset the device, just tear down
+- *     all the host resources created to  handle communication with
++ *     all the host resources created to handle communication with
+  *     the device.
+  *
+  * @bus_tx_kick: [fill] Function called by the bus-generic code to let
 -- 
 1.6.2.5
 
