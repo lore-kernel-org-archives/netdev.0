@@ -1,68 +1,165 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: virtio-net: new section mismatch warning. revert patch?
-Date: Wed, 4 Nov 2009 18:25:00 +0100
-Message-ID: <20091104172500.GB6323@merkur.ravnborg.org>
-References: <20091104141729.GA27288@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Wed, 4 Nov 2009 09:25:42 -0800
+Message-ID: <20091104172542.GC6736@linux.vnet.ibm.com>
+References: <cover.1257267892.git.mst@redhat.com> <20091103172422.GD5591@redhat.com> <4AF0708B.4020406@gmail.com> <4AF07199.2020601@gmail.com> <4AF072EE.9020202@gmail.com> <20091103235744.GF6726@linux.vnet.ibm.com> <20091104115729.GD8398@redhat.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Alex Williamson <alex.williamson@hp.com>,
-	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com,
+        Rusty Russell <rusty@rustcorp.com.au>, s.hetze@linux-ag.com
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfepa.post.tele.dk ([195.41.46.235]:40747 "EHLO
-	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757316AbZKDRY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 12:24:56 -0500
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20091104141729.GA27288@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20091104115729.GD8398@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 04, 2009 at 04:17:30PM +0200, Michael S. Tsirkin wrote:
-> With v2.6.32-rcX I started getting section mismatch warnings for
-> virtio_net.
-> make with CONFIG_DEBUG_SECTION_MISMATCH=3Dy shows:
+On Wed, Nov 04, 2009 at 01:57:29PM +0200, Michael S. Tsirkin wrote:
+> On Tue, Nov 03, 2009 at 03:57:44PM -0800, Paul E. McKenney wrote:
+> > On Tue, Nov 03, 2009 at 01:14:06PM -0500, Gregory Haskins wrote:
+> > > Gregory Haskins wrote:
+> > > > Eric Dumazet wrote:
+> > > >> Michael S. Tsirkin a =E9crit :
+> > > >>> +static void handle_tx(struct vhost_net *net)
+> > > >>> +{
+> > > >>> +	struct vhost_virtqueue *vq =3D &net->dev.vqs[VHOST_NET_VQ_TX]=
+;
+> > > >>> +	unsigned head, out, in, s;
+> > > >>> +	struct msghdr msg =3D {
+> > > >>> +		.msg_name =3D NULL,
+> > > >>> +		.msg_namelen =3D 0,
+> > > >>> +		.msg_control =3D NULL,
+> > > >>> +		.msg_controllen =3D 0,
+> > > >>> +		.msg_iov =3D vq->iov,
+> > > >>> +		.msg_flags =3D MSG_DONTWAIT,
+> > > >>> +	};
+> > > >>> +	size_t len, total_len =3D 0;
+> > > >>> +	int err, wmem;
+> > > >>> +	size_t hdr_size;
+> > > >>> +	struct socket *sock =3D rcu_dereference(vq->private_data);
+> > > >>> +	if (!sock)
+> > > >>> +		return;
+> > > >>> +
+> > > >>> +	wmem =3D atomic_read(&sock->sk->sk_wmem_alloc);
+> > > >>> +	if (wmem >=3D sock->sk->sk_sndbuf)
+> > > >>> +		return;
+> > > >>> +
+> > > >>> +	use_mm(net->dev.mm);
+> > > >>> +	mutex_lock(&vq->mutex);
+> > > >>> +	vhost_no_notify(vq);
+> > > >>> +
+> > > >> using rcu_dereference() and mutex_lock() at the same time seems =
+wrong, I suspect
+> > > >> that your use of RCU is not correct.
+> > > >>
+> > > >> 1) rcu_dereference() should be done inside a read_rcu_lock() sec=
+tion, and
+> > > >>    we are not allowed to sleep in such a section.
+> > > >>    (Quoting Documentation/RCU/whatisRCU.txt :
+> > > >>      It is illegal to block while in an RCU read-side critical s=
+ection, )
+> > > >>
+> > > >> 2) mutex_lock() can sleep (ie block)
+> > > >>
+> > > >=20
+> > > >=20
+> > > > Michael,
+> > > >   I warned you that this needed better documentation ;)
+> > > >=20
+> > > > Eric,
+> > > >   I think I flagged this once before, but Michael convinced me th=
+at it
+> > > > was indeed "ok", if but perhaps a bit unconventional.  I will try=
+ to
+> > > > find the thread.
+> > > >=20
+> > > > Kind Regards,
+> > > > -Greg
+> > > >=20
+> > >=20
+> > > Here it is:
+> > >=20
+> > > http://lkml.org/lkml/2009/8/12/173
+> >=20
+> > What was happening in that case was that the rcu_dereference()
+> > was being used in a workqueue item.  The role of rcu_read_lock()
+> > was taken on be the start of execution of the workqueue item, of
+> > rcu_read_unlock() by the end of execution of the workqueue item, and
+> > of synchronize_rcu() by flush_workqueue().  This does work, at least
+> > assuming that flush_workqueue() operates as advertised, which it appe=
+ars
+> > to at first glance.
+> >=20
+> > The above code looks somewhat different, however -- I don't see
+> > handle_tx() being executed in the context of a work queue.  Instead
+> > it appears to be in an interrupt handler.
+> > So what is the story?  Using synchronize_irq() or some such?
+> >=20
+> > 							Thanx, Paul
 >=20
-> WARNING: drivers/net/virtio_net.o(.data+0x90): Section mismatch in
-> reference from the variable virtio_net to the function
-> .devexit.text:virtnet_remove()                                       =
-                            =20
-> The variable virtio_net references                                   =
-                                        =20
-> the function __devexit virtnet_remove()                              =
-                                        =20
-> If the reference is valid then annotate the                          =
-                                        =20
-> variable with __exit* (see linux/init.h) or name the variable:       =
-                                        =20
-> *driver, *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_c=
-onsole,                                 =20
->=20
-> virtnet_remove was converted to devexit by this commit:
->=20
-> 	commit 3d1285beff2e8467b8c3884d83b7a91a99aa9fcd
-> 	Author: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> 	Date:   Wed Sep 30 22:28:34 2009 +0000
->=20
-> 	    move virtnet_remove to .devexit.text
->=20
-> We didn't have these warnings in v2.6.31, so this is a regression.
-> revert?
+> No, there has been no change (I won't be able to use a mutex in an
+> interrupt handler, will I?).  handle_tx is still called in the context
+> of a work queue: either from handle_tx_kick or from handle_tx_net which
+> are work queue items.
 
-It is correct to annotate the exit function __devexit.
-So we should try to silence modpost in other ways.
+Ah, my mistake -- I was looking at 2.6.31 rather than latest git with
+your patches.
 
-Two options:
-1) annotate the virtio_net variable with __ref to tell
-   it is allowed to reference __init, __exit annotated stuff.
-2) Rename virtio_net to virtio_net_driver
+> Can you ack this usage please?
 
-This is not a "my machine no longer works" issue but it would
-be nice to have it sorted out one way or the other before next -rc.
+I thought I had done so in my paragraph above, but if you would like
+something a bit more formal...
 
-	Sam
+	I, Paul E. McKenney, maintainer of the RCU implmentation
+	embodied in the Linux kernel and co-inventor of RCU, being of
+	sound mind and body, notwithstanding the wear and tear inherent
+	in my numerous decades sojourn on this planet, hereby declare
+	that the following usage of work queues constitutes a valid
+	RCU implementation:
+
+	1.	Execution of a full workqueue item being substituted
+		for a conventional RCU read-side critical section, so
+		that the start of execution of the function specified to
+		INIT_WORK() corresponds to rcu_read_lock(), and the end of
+		this self-same function corresponds to rcu_read_unlock().
+
+	2.	Execution of flush_workqueue() being substituted for
+		the conventional synchronize_rcu().
+
+	The kernel developer availing himself or herself of this
+	declaration must observe the following caveats:
+
+	a.	The function specified to INIT_WORK() may only be
+		invoked via the workqueue mechanism.  Invoking said
+		function directly renders this declaration null
+		and void, as it prevents the flush_workqueue() function
+		from delivering the fundamental guarantee inherent in RCU.
+
+	b.	At some point in the future, said developer may be
+		required to apply some gcc attribute or sparse annotation
+		to the function passed to INIT_WORK().	Beyond that
+		point, failure to comply will render this declaration
+		null and void, as such failure would render inoperative
+		some potential RCU-validation tools, as duly noted by
+		Eric Dumazet.
+
+	c.	This declaration in no way relieves the developer of
+		the responsibility to use this and other synchronization
+		mechanisms correctly, again, as duly noted by Eric
+		Dumazet.
+
+(Sorry, but, as always, I could not resist!)
+
+							Thanx, Paul
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
