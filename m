@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 00/25] mlx4: multi-function framework and Ethernet sriov.
-Date: Wed, 04 Nov 2009 17:30:09 +0200
-Message-ID: <4AF19E01.1000305@mellanox.co.il>
+Subject: [PATCH 01/25] mlx4_core: identify function as pf or vf
+Date: Wed, 04 Nov 2009 17:30:15 +0200
+Message-ID: <4AF19E07.7040702@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -14,22 +14,60 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-In ConnectX, nearly all device resources can be associated with any function.
-Once allocated, these resources can be manipulated exclusively by their associated
-functions in the same manner as in the single-function case.
-
-The device continues to use a single HCA Command Register (HCR), which is owned by the pf.
-Thus, the pf is given the role of allocating resources to vfs, and controlling shared
-resource (such as ports).
-
-A dedicated HW communication channel is used to transfer resource allocation and
-modification requests from vfs to the pf, and events from the pf to the vfs.
-Consequently, no hypervisor-specific services are required for pf-vf communication.
-
-This patch set sets the ground for multi-function operation and enables Ethernet interfaces on vfs.
-
 Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+---
+ include/linux/mlx4/device.h |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index ce7cc6c..f35703d 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -42,6 +42,9 @@
+ enum {
+ 	MLX4_FLAG_MSI_X		= 1 << 0,
+ 	MLX4_FLAG_OLD_PORT_CMDS	= 1 << 1,
++	MLX4_FLAG_MASTER	= 1 << 2,
++	MLX4_FLAG_SLAVE		= 1 << 3,
++	MLX4_FLAG_SRIOV		= 1 << 4,
+ };
+ 
+ enum {
+@@ -375,6 +378,7 @@ struct mlx4_av {
+ struct mlx4_dev {
+ 	struct pci_dev	       *pdev;
+ 	unsigned long		flags;
++	unsigned long		num_slaves;
+ 	struct mlx4_caps	caps;
+ 	struct radix_tree_root	qp_table_tree;
+ 	u32			rev_id;
+@@ -400,6 +404,21 @@ struct mlx4_init_port_param {
+ 		if (((type) == MLX4_PORT_TYPE_IB ? (dev)->caps.port_mask : \
+ 		     ~(dev)->caps.port_mask) & 1 << ((port) - 1))
+ 
++static inline int mlx4_is_slave(struct mlx4_dev *dev)
++{
++	return dev->flags & MLX4_FLAG_SLAVE;
++}
++
++static inline int mlx4_is_master(struct mlx4_dev *dev)
++{
++	return dev->flags & MLX4_FLAG_MASTER;
++}
++
++static inline int mlx4_is_mfunc(struct mlx4_dev *dev)
++{
++	return dev->flags & (MLX4_FLAG_MASTER | MLX4_FLAG_SLAVE);
++}
++
+ int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
+ 		   struct mlx4_buf *buf);
+ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf);
+-- 
+1.6.1.3
+
+
+
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
