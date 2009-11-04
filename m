@@ -1,94 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC,PATCH] mutex: mutex_is_owner() helper
-Date: Wed, 04 Nov 2009 18:19:35 +0100
-Message-ID: <4AF1B7A7.6030902@gmail.com>
-References: <4AF19D06.3060401@gmail.com> <20091104154015.GA32567@elte.hu>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: virtio-net: new section mismatch warning. revert patch?
+Date: Wed, 4 Nov 2009 18:25:00 +0100
+Message-ID: <20091104172500.GB6323@merkur.ravnborg.org>
+References: <20091104141729.GA27288@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Cc: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux kernel <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Alex Williamson <alex.williamson@hp.com>,
+	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38893 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757149AbZKDRTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 12:19:41 -0500
-In-Reply-To: <20091104154015.GA32567@elte.hu>
+Received: from pfepa.post.tele.dk ([195.41.46.235]:40747 "EHLO
+	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757316AbZKDRY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 12:24:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20091104141729.GA27288@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar a =E9crit :
-
-> To make sure this does not extend mutexes to be used a recursive=20
-> mutexes, mind naming it more clearly, like debug_mutex_is_owned(), an=
-d=20
-> adding a comment that says that this shouldnt be taken?
+On Wed, Nov 04, 2009 at 04:17:30PM +0200, Michael S. Tsirkin wrote:
+> With v2.6.32-rcX I started getting section mismatch warnings for
+> virtio_net.
+> make with CONFIG_DEBUG_SECTION_MISMATCH=3Dy shows:
 >=20
-> Also, it's somewhat imprecise: on !SMP && !DEBUG_MUTEXES we might ret=
-urn=20
-> a false '1'. Which happens to work for the rtnl usecase - but might n=
-ot=20
-> in other cases.
->
+> WARNING: drivers/net/virtio_net.o(.data+0x90): Section mismatch in
+> reference from the variable virtio_net to the function
+> .devexit.text:virtnet_remove()                                       =
+                            =20
+> The variable virtio_net references                                   =
+                                        =20
+> the function __devexit virtnet_remove()                              =
+                                        =20
+> If the reference is valid then annotate the                          =
+                                        =20
+> variable with __exit* (see linux/init.h) or name the variable:       =
+                                        =20
+> *driver, *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_c=
+onsole,                                 =20
+>=20
+> virtnet_remove was converted to devexit by this commit:
+>=20
+> 	commit 3d1285beff2e8467b8c3884d83b7a91a99aa9fcd
+> 	Author: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> 	Date:   Wed Sep 30 22:28:34 2009 +0000
+>=20
+> 	    move virtnet_remove to .devexit.text
+>=20
+> We didn't have these warnings in v2.6.31, so this is a regression.
+> revert?
 
-Sure, we can chose another name, but what do you mean by a false '1' ?
+It is correct to annotate the exit function __devexit.
+So we should try to silence modpost in other ways.
 
-1 means mutex is locked and that we could not check ownership.
-(best effort, ie same imprecise result than mutex_is_locked())
+Two options:
+1) annotate the virtio_net variable with __ref to tell
+   it is allowed to reference __init, __exit annotated stuff.
+2) Rename virtio_net to virtio_net_driver
 
+This is not a "my machine no longer works" issue but it would
+be nice to have it sorted out one way or the other before next -rc.
 
-BTW, I was thinking of a mutex_yield() implementation, but could not
-cook it without hard thinking, maybe you already have some nice impleme=
-ntation ?
-
-We have some uses of "mutex_unlock();mutex_lock();" things that are
-not working nicely because current thread immediately takes again mutex=
-=2E
-
-
-a true mutex_yield() would force current thread to go at the end of wai=
-t_list.
-
-int mutex_yield(struct mutex *lock)
-{
-	unsigned long flags;
-
-	// OK to test list without locking
-	if (list_empty(&lock->wait_list))
-		return 0;
-
-	spin_lock_mutex(&lock->wait_lock, flags);
-	if (!list_empty(&lock->wait_list)) {
-		atomic_xchg(&lock->count, 1);// free mutex
-		list_add_tail(&waiter.list, &lock->wait_list);//insert me at tail of =
-wait_list
-		wake head of wait_list
-		__mutex_lock_common_condadd(mutex, TASK_UNINTERRUPTIBLE, DONT_ADD_TAI=
-L, ...);
-	} else {
-		spin_unlock_mutex(&lock->wait_lock, flags);
-	}
-	return 1;
-}
-
-
-Or maybe we should try something less complex (slowpath anyway)
-
-int mutex_yield(struct mutex *lock)
-{
-	int ret =3D 0;
-
-	if (mutex_needbreak(lock) || should_resched()) {
-		mutex_unlock(lock);=20
-		__cond_resched();
-		mutex_lock(lock);
-		ret =3D 1;
-	}
-	return ret;
-}
-
-Thanks
+	Sam
