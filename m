@@ -1,65 +1,83 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/3 06/13] wimax/i2400m: implement .reset_resume in USB subdriver
-Date: Wed,  4 Nov 2009 13:39:57 -0800
-Message-ID: <1a5a73c0c5459f991b871855eb36099df65ecb7e.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
+Subject: [PATCH 2.6.33/4 06/13] wimax/i2400m: change the bcf_len to exclude the extended header size
+Date: Wed,  4 Nov 2009 13:40:01 -0800
+Message-ID: <28cff50d99ce9a1db65b7d4dcdcc0f1f8d9f9309.1257370737.git.inaky@linux.intel.com>
+References: <cover.1257370737.git.inaky@linux.intel.com>
+Cc: Cindy H Kao <cindy.h.kao@intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:20707 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932743AbZKDVmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:07 -0500
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
+Received: from mga12.intel.com ([143.182.124.36]:17987 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932756AbZKDVmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:42:12 -0500
+In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1257370737.git.inaky@linux.intel.com>
+References: <cover.1257370737.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current driver didn't implement the .reset_resume method. The i2400m
-normally always reset on a comeback from system standby/hibernation.
+From: Cindy H Kao <cindy.h.kao@intel.com>
 
-This requires previously applied commits to cache the firmware image
-file.
+The actual fw->size may not equal to the bcf size indicated in
+the bcf header if the extended bcf debug header is added in the tail.
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+To reflect the actual fw size that will be downloaded to the device,
+it is now retrived from from the size field indicated in the bcf header.
+
+All of the headers (if there are extended headers) should indicate same
+value for the size field since only one set of firmware chunks is downloaded
+
+Signed-off-by: Cindy H Kao <cindy.h.kao@intel.com>
 ---
- drivers/net/wimax/i2400m/usb.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+ drivers/net/wimax/i2400m/fw.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
-index 77d08d9..07653de 100644
---- a/drivers/net/wimax/i2400m/usb.c
-+++ b/drivers/net/wimax/i2400m/usb.c
-@@ -624,6 +624,21 @@ out:
- 
- 
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 97ea784..fda54bf 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -1388,15 +1388,16 @@ const struct i2400m_bcf_hdr *i2400m_bcf_hdr_find(struct i2400m *i2400m)
+  */
  static
-+int i2400mu_reset_resume(struct usb_interface *iface)
-+{
-+	int result;
-+	struct device *dev = &iface->dev;
-+	struct i2400mu *i2400mu = usb_get_intfdata(iface);
-+	struct i2400m *i2400m = &i2400mu->i2400m;
-+
-+	d_fnstart(3, dev, "(iface %p)\n", iface);
-+	result = i2400m_dev_reset_handle(i2400m, "device reset on resume");
-+	d_fnend(3, dev, "(iface %p) = %d\n", iface, result);
-+	return result < 0 ? result : 0;
-+}
-+
-+
-+static
- struct usb_device_id i2400mu_id_table[] = {
- 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050) },
- 	{ USB_DEVICE(0x8086, 0x0181) },
-@@ -643,6 +658,7 @@ struct usb_driver i2400mu_driver = {
- 	.name = KBUILD_MODNAME,
- 	.suspend = i2400mu_suspend,
- 	.resume = i2400mu_resume,
-+	.reset_resume = i2400mu_reset_resume,
- 	.probe = i2400mu_probe,
- 	.disconnect = i2400mu_disconnect,
- 	.id_table = i2400mu_id_table,
+ int i2400m_fw_dnload(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf,
+-		     size_t bcf_size, enum i2400m_bri flags)
++		     size_t fw_size, enum i2400m_bri flags)
+ {
+ 	int ret = 0;
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	int count = i2400m->bus_bm_retries;
+ 	const struct i2400m_bcf_hdr *bcf_hdr;
++	size_t bcf_size;
+ 
+-	d_fnstart(5, dev, "(i2400m %p bcf %p size %zu)\n",
+-		  i2400m, bcf, bcf_size);
++	d_fnstart(5, dev, "(i2400m %p bcf %p fw size %zu)\n",
++		  i2400m, bcf, fw_size);
+ 	i2400m->boot_mode = 1;
+ 	wmb();		/* Make sure other readers see it */
+ hw_reboot:
+@@ -1434,6 +1435,12 @@ hw_reboot:
+ 	if (ret < 0)
+ 		goto error_dnload_init;
+ 
++	/*
++	 * bcf_size refers to one header size plus the fw sections size
++	 * indicated by the header,ie. if there are other extended headers
++	 * at the tail, they are not counted
++	 */
++	bcf_size = sizeof(u32) * le32_to_cpu(bcf_hdr->size);
+ 	ret = i2400m_dnload_bcf(i2400m, bcf, bcf_size);
+ 	if (ret == -ERESTARTSYS)
+ 		goto error_dev_rebooted;
+@@ -1464,7 +1471,7 @@ error_bcf_hdr_find:
+ error_bootrom_init:
+ error_too_many_reboots:
+ 	d_fnend(5, dev, "(i2400m %p bcf %p size %zu) = %d\n",
+-		i2400m, bcf, bcf_size, ret);
++		i2400m, bcf, fw_size, ret);
+ 	return ret;
+ 
+ error_dev_rebooted:
 -- 
 1.6.2.5
 
