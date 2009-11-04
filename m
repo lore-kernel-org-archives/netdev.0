@@ -1,56 +1,99 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2.6.33/2 02/15] wimax/i2400m/sdio: clear the INTR status bit after reading size
-Date: Wed,  4 Nov 2009 13:39:43 -0800
-Message-ID: <339ccc362cb60b48e478ff494172efadb385c0ab.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
-Cc: Cindy H Kao <cindy.h.kao@intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:20702 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758260AbZKDVl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 16:41:57 -0500
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1257370736.git.inaky@linux.intel.com>
-References: <cover.1257370736.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder
+	Cookie
+Date: Wed, 4 Nov 2009 13:48:44 -0800
+Message-ID: <20091104214844.GA6714@linux.vnet.ibm.com>
+References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AF0B0D2.4030905@gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932963AbZKDVsm@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4AF0B0D2.4030905@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cindy H Kao <cindy.h.kao@intel.com>
+On Tue, Nov 03, 2009 at 05:38:10PM -0500, William Allen Simpson wrote:
+> Eric Dumazet wrote:
+>> This patch looks fine, but I dont see how this new function is used.
+>> Some points :
+>> 1) We are working hard to remove rwlocks from network stack, so please 
+>> dont
+>> add a new one. You probably can use a seqlock or RCU, or a server handling 
+>> 10.000 connections request per second on many NIC will hit this rwlock.
+> This is my attempt at using RCU, as seqlock didn't seem to apply (and is
+> missing any Documentation.)
+>
+> After the discussion about context, one question that I have is the need
+> for the _bh suffix?
+>
+> +		rcu_read_lock_bh();
+> +		memcpy(&xvp->cookie_bakery[0],
+> +		       &rcu_dereference(tcp_secret_generating)->secrets[0],
+> +		       sizeof(tcp_secret_generating->secrets));
+> +		rcu_read_unlock_bh();
+>
+>
+> Documentation/RCU/checklist.txt #7 says:
+>
+>   One exception to this rule: rcu_read_lock() and rcu_read_unlock()
+>   may be substituted for rcu_read_lock_bh() and rcu_read_unlock_bh()
+>   in cases where local bottom halves are already known to be
+>   disabled, for example, in irq or softirq context.  Commenting
+>   such cases is a must, of course!  And the jury is still out on
+>   whether the increased speed is worth it.
 
-In order to avoid issues during high-load traffic, the interrupt
-status register has to be cleared ONLY after the RX size is read.
+I strongly suggest using the matching primitives unless you have a
+really strong reason not to.
 
-Signed-off-by: Cindy H Kao <cindy.h.kao@intel.com>
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- drivers/net/wimax/i2400m/sdio-rx.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+> diff --git a/include/linux/cryptohash.h b/include/linux/cryptohash.h
+> index c118b2a..ec78a4b 100644
+> --- a/include/linux/cryptohash.h
+> +++ b/include/linux/cryptohash.h
 
-diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
-index f6ca51a..1c90469 100644
---- a/drivers/net/wimax/i2400m/sdio-rx.c
-+++ b/drivers/net/wimax/i2400m/sdio-rx.c
-@@ -138,6 +138,11 @@ void i2400ms_rx(struct i2400ms *i2400ms)
- 		ret = rx_size;
- 		goto error_get_size;
- 	}
-+	/*
-+	 * Hardware quirk: make sure to clear the INTR status register
-+	 * AFTER getting the data transfer size.
-+	 */
-+	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
- 
- 	ret = -ENOMEM;
- 	skb = alloc_skb(rx_size, GFP_ATOMIC);
-@@ -209,7 +214,6 @@ void i2400ms_irq(struct sdio_func *func)
- 		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
- 		goto error_no_irq;
- 	}
--	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
- 	i2400ms_rx(i2400ms);
- error_no_irq:
- 	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
--- 
-1.6.2.5
+[ . . . ]
 
+> +			if (unlikely(tcp_secret_primary->expires ==
+> +				     tcp_secret_secondary->expires)) {
+> +				struct timespec tv;
+> +	
+> +				getnstimeofday(&tv);
+> +				secrets[COOKIE_DIGEST_WORDS+0] ^= (u32)tv.tv_nsec;
+> +				tcp_secret_secondary->expires = jiffy
+> +							      + TCP_SECRET_1MSL;
+> +			} else {
+> +				tcp_secret_secondary->expires = jiffy
+> +							      + TCP_SECRET_LIFE;
+> +				tcp_secret_primary->expires = jiffy
+> +							    + TCP_SECRET_2MSL;
+> +			}
+> +			memcpy(&tcp_secret_secondary->secrets[0],
+> +			       &secrets[0],
+> +			       sizeof(secrets));
+> +
+> +			rcu_assign_pointer(tcp_secret_generating,
+> +					   tcp_secret_secondary);
+> +			rcu_assign_pointer(tcp_secret_retiring,
+> +					   tcp_secret_primary);
+> +			spin_unlock(&tcp_secret_locker);
+> +			/* call_rcu() or synchronize_rcu() not needed. */
+
+Would you be willing to say why?  Are you relying on a time delay for a
+given item to pass through tcp_secret_secondary and tcp_secret_retiring
+or some such?  If so, how do you know that this time delay will always
+be long enough?
+
+Or are you just shuffling the data structures around, without ever
+freeing them?  If so, is it really OK for a given reader to keep a
+reference to a given item through the full range of shuffling, especially
+given that it might be accesssing this concurrently with the ->expires
+assignments above?
+
+Either way, could you please expand the comment to give at least some
+hint to the poor guy reading your code?  ;-)
+
+							Thanx, Paul
