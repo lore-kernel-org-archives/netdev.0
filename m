@@ -1,86 +1,61 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] ifstat/nstat/rtacct: use daemon()
-Date: Wed,  4 Nov 2009 09:26:35 -0500
-Message-ID: <1257344795-8665-3-git-send-email-vapier@gentoo.org>
-References: <1257344795-8665-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:46057 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756491AbZKDOZS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2009 09:25:18 -0500
-In-Reply-To: <1257344795-8665-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Subject: Re: [PATCH 1/1] Use defaults when no route options are available
+Date: Wed, 04 Nov 2009 16:27:13 +0200
+Message-ID: <4AF18F41.9040500@codefidence.com>
+References: <4AF07024.80103@gmail.com>	<1257276085-13681-1-git-send-email-gilad@codefidence.com> <20091104.052816.74593826.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, netdev@vger.kernel.org, ori@comsleep.com,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756567AbZKDO1T@vger.kernel.org>
+In-Reply-To: <20091104.052816.74593826.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A bunch of misc utils basically reimplement the daemon() function (the
-whole fork/close/chdir/etc...).  Rather than do that, use daemon() as
-that will work under nommu Linux systems that lack fork().
+David Miller wrote:
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- misc/ifstat.c |    8 ++++----
- misc/nstat.c  |    8 ++++----
- misc/rtacct.c |    8 ++++----
- 3 files changed, 12 insertions(+), 12 deletions(-)
+> From: Gilad Ben-Yossef <gilad@codefidence.com>
+> Date: Tue,  3 Nov 2009 21:21:25 +0200
+>
+>   
+>> Trying to parse the option of a SYN packet that we have
+>> no route entry for should just use global wide defaults
+>> for route entry options.
+>>
+>> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
+>>     
+>
+> The tester has indicated that this doesn't solve things
+> for them.  I suspect there is another dependency on 'dst'
+> not being NULL in another path somewhere.
+>
+> So until this is fully resolved I'm holding off on applying
+> this patch.
+>
+>   
+Yes, indeed.
 
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index 68dfdee..0ce8c92 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -663,10 +663,10 @@ int main(int argc, char *argv[])
- 			perror("ifstat: listen");
- 			exit(-1);
- 		}
--		if (fork())
--			exit(0);
--		chdir("/");
--		close(0); close(1); close(2); setsid();
-+		if (daemon(0, 0)) {
-+			perror("ifstat: daemon");
-+			exit(-1);
-+		}
- 		signal(SIGPIPE, SIG_IGN);
- 		signal(SIGCHLD, sigchild);
- 		server_loop(fd);
-diff --git a/misc/nstat.c b/misc/nstat.c
-index 80e695f..2e44ed2 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -513,10 +513,10 @@ int main(int argc, char *argv[])
- 			perror("nstat: listen");
- 			exit(-1);
- 		}
--		if (fork())
--			exit(0);
--		chdir("/");
--		close(0); close(1); close(2); setsid();
-+		if (daemon(0, 0)) {
-+			perror("nstat: daemon");
-+			exit(-1);
-+		}
- 		signal(SIGPIPE, SIG_IGN);
- 		signal(SIGCHLD, sigchild);
- 		server_loop(fd);
-diff --git a/misc/rtacct.c b/misc/rtacct.c
-index eb3ea9e..a247dfd 100644
---- a/misc/rtacct.c
-+++ b/misc/rtacct.c
-@@ -524,10 +524,10 @@ int main(int argc, char *argv[])
- 			perror("rtacct: listen");
- 			exit(-1);
- 		}
--		if (fork())
--			exit(0);
--		chdir("/");
--		close(0); close(1); close(2); setsid();
-+		if (daemon(0, 0)) {
-+			perror("rtacct: daemon");
-+			exit(-1);
-+		}
- 		signal(SIGPIPE, SIG_IGN);
- 		signal(SIGCHLD, sigchild);
- 		server_loop(fd);
+I managed to replicate it here. Looking into it right now.
+
+Thanks,
+Gilad
+
+
 -- 
-1.6.5.1
+Gilad Ben-Yossef
+Chief Coffee Drinker & CTO
+Codefidence Ltd.
 
+Web:   http://codefidence.com
+Cell:  +972-52-8260388
+Skype: gilad_codefidence
+Tel:   +972-8-9316883 ext. 201
+Fax:   +972-8-9316884
+Email: gilad@codefidence.com
+
+Check out our Open Source technology and training blog - http://tuxology.net
+
+	"The biggest risk you can take it is to take no risk."
+		-- Mark Zuckerberg and probably others
