@@ -1,65 +1,80 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio-net: new section mismatch warning. revert patch?
-Date: Thu, 5 Nov 2009 15:10:53 +1030
-Message-ID: <200911051510.54163.rusty@rustcorp.com.au>
-References: <20091104141729.GA27288@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Uwe =?iso-8859-1?q?Kleine-K=F6nig?="
-	<u.kleine-koenig@pengutronix.de>, Sam Ravnborg <sam@ravnborg.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alex Williamson <alex.williamson@hp.com>,
-	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Greg KH <gregkh@suse.de>,
-	Sam Ravnborg <sam@ravnborg.org>
+From: Ranjith Lohithakshan <ranjithl@ti.com>
+Subject: [PATCH v2] TI DaVinci EMAC: Add suspend/resume capability
+Date: Thu,  5 Nov 2009 10:11:17 +0530
+Message-ID: <1257396077-26882-1-git-send-email-ranjithl@ti.com>
+Cc: davem@davemloft.net,
+	davinci-linux-open-source@linux.davincidsp.com,
+	Ranjith Lohithakshan <ranjithl@ti.com>,
+	Chaithrika U S <chaithrika@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:50743 "EHLO ozlabs.org"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:49335 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751956AbZKEEkv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 23:40:51 -0500
-In-Reply-To: <20091104141729.GA27288@redhat.com>
+	id S1754206AbZKEEvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Nov 2009 23:51:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Nov 2009 12:47:30 am Michael S. Tsirkin wrote:
-> With v2.6.32-rcX I started getting section mismatch warnings for
-> virtio_net.
-> make with CONFIG_DEBUG_SECTION_MISMATCH=3Dy shows:
->=20
-> WARNING: drivers/net/virtio_net.o(.data+0x90): Section mismatch in
-> reference from the variable virtio_net to the function
-> .devexit.text:virtnet_remove()                                       =
-                            =20
-> The variable virtio_net references                                   =
-                                        =20
-> the function __devexit virtnet_remove()                              =
-                                        =20
-> If the reference is valid then annotate the                          =
-                                        =20
-> variable with __exit* (see linux/init.h) or name the variable:       =
-                                        =20
-> *driver, *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_c=
-onsole,                                 =20
->=20
-> virtnet_remove was converted to devexit by this commit:
->=20
-> 	commit 3d1285beff2e8467b8c3884d83b7a91a99aa9fcd
-> 	Author: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> 	Date:   Wed Sep 30 22:28:34 2009 +0000
->=20
-> 	    move virtnet_remove to .devexit.text
->=20
-> We didn't have these warnings in v2.6.31, so this is a regression.
-> revert?
+Add suspend/resume capability to TI DaVinci EMAC driver.
 
-No, just rename "virtio_net" to "virtio_net_driver".  Meanwhile, ignore=
- it.
-It's worked well for me so far.
+Signed-off-by: Ranjith Lohithakshan <ranjithl@ti.com>
+Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+---
+Applies to net-next-2.6
 
-Uwe: I apologize for accepting your patches.  I will be more careful in
-future.
+ drivers/net/davinci_emac.c |   30 +++++++++++++++++++++++++++---
+ 1 files changed, 27 insertions(+), 3 deletions(-)
 
-Cheers,
-Rusty.
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index a876dce..f1b09c0 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -2806,11 +2806,33 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static
++int davinci_emac_suspend(struct platform_device *pdev, pm_message_t state)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++
++	if (netif_running(dev))
++		emac_dev_stop(dev);
++
++	clk_disable(emac_clk);
++
++	return 0;
++}
++
++static int davinci_emac_resume(struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++
++	clk_enable(emac_clk);
++
++	if (netif_running(dev))
++		emac_dev_open(dev);
++
++	return 0;
++}
++
+ /**
+  * davinci_emac_driver: EMAC platform driver structure
+- *
+- * We implement only probe and remove functions - suspend/resume and
+- * others not supported by this module
+  */
+ static struct platform_driver davinci_emac_driver = {
+ 	.driver = {
+@@ -2819,6 +2841,8 @@ static struct platform_driver davinci_emac_driver = {
+ 	},
+ 	.probe = davinci_emac_probe,
+ 	.remove = __devexit_p(davinci_emac_remove),
++	.suspend = davinci_emac_suspend,
++	.resume = davinci_emac_resume,
+ };
+ 
+ /**
+-- 
+1.5.6
+
