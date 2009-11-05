@@ -1,37 +1,42 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH 0/6] Misc driver fixes for 2.6.32
-Date: Thu, 05 Nov 2009 16:25:55 +0100
-Message-ID: <20091105152555.227009519@linux-mips.org>
+Subject: [PATCH 1/6] Staging: Octeon: Fix compile error in drivers/staging/octeon/ethernet-mdio.c
+Date: Thu, 05 Nov 2009 16:25:57 +0100
+Message-ID: <20091105152702.035396736@linux-mips.org>
+References: <20091105152555.227009519@linux-mips.org>
 Cc: David Daney <ddaney@caviumnetworks.com>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	Julia Lawall <julia@diku.dk>,
 	Greg Kroah-Hartman <gregkh@suse.de>,
-	devel@driverdev.osuosl.org,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	spi-devel-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
+	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:45221 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757851AbZKERzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 12:55:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline; filename=0002.patch
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-This is a series of patches which 
+From: David Daney <ddaney@caviumnetworks.com>
 
-  o 1/6, 2/6, 3/6: Fixes for the Octeon ethernet driver in drivers/staging.
-    The Octeon is a MIPS-based SOC so with permisson from Greg I'm merging
-    these via the MIPS tree.
-  o 4/6: A fix to a MIPS-specific SPI driver.  Posted before, no comments
-    were received.
-  o 5/6: A fix to the resource allocation to the framebuffer of the MIPS-
-    based SGI O2 and i686-based Visual Workstation.  Also posted before, no
-    comments were received.
-  o 6/6: A fix to the serial driver for the BCM63xx which is a MIPS-based
-    SOC.
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: devel@driverdev.osuosl.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-  Ralf
+ drivers/staging/octeon/ethernet-mdio.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+Index: upstream-linus/drivers/staging/octeon/ethernet-mdio.c
+===================================================================
+--- upstream-linus.orig/drivers/staging/octeon/ethernet-mdio.c
++++ upstream-linus/drivers/staging/octeon/ethernet-mdio.c
+@@ -170,7 +170,7 @@ static u32 cvm_oct_get_link(struct net_d
+ 	return ret;
+ }
+ 
+-struct const ethtool_ops cvm_oct_ethtool_ops = {
++const struct ethtool_ops cvm_oct_ethtool_ops = {
+ 	.get_drvinfo = cvm_oct_get_drvinfo,
+ 	.get_settings = cvm_oct_get_settings,
+ 	.set_settings = cvm_oct_set_settings,
