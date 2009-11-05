@@ -1,99 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder	Cookie
-Date: Thu, 05 Nov 2009 14:19:28 +0100
-Message-ID: <4AF2D0E0.1040903@gmail.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AF0B0D2.4030905@gmail.com> <20091104214844.GA6714@linux.vnet.ibm.com> <4AF2C266.1010603@gmail.com>
+From: Max Kellermann <mk@cm4all.com>
+Subject: Re: [PATCH] tcp: set SPLICE_F_NONBLOCK after first buffer has been
+	spliced
+Date: Thu, 5 Nov 2009 14:23:52 +0100
+Message-ID: <20091105132352.GA14453@rabbit.intern.cm-ag>
+References: <20091105095947.32131.99768.stgit@rabbit.intern.cm-ag> <4AF2A929.3000201@gmail.com> <20091105105749.GA4901@rabbit.intern.cm-ag> <4AF2B551.6010302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Cc: linux-kernel@vger.kernel.org, jens.axboe@oracle.com,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:33323 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756076AbZKENT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 08:19:26 -0500
-In-Reply-To: <4AF2C266.1010603@gmail.com>
+Received: from s2.homepagix.de ([91.199.241.131]:56251 "EHLO fry.cm4all.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755759AbZKENXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2009 08:23:43 -0500
+Received: from localhost (unknown [127.0.0.1])
+	by fry.cm4all.net (Postfix) with ESMTP id BFD7A1C00096
+	for <netdev@vger.kernel.org>; Thu,  5 Nov 2009 14:23:47 +0100 (CET)
+Received: from fry.cm4all.net ([127.0.0.1])
+	by localhost (fry.cm4all.net [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id UxkZ7gEOHPYq for <netdev@vger.kernel.org>;
+	Thu,  5 Nov 2009 14:23:47 +0100 (CET)
+Received: from zero.intern.cm-ag (unknown [172.30.16.10])
+	by fry.cm4all.net (Postfix) with SMTP id 93D401C00093
+	for <netdev@vger.kernel.org>; Thu,  5 Nov 2009 14:23:47 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <4AF2B551.6010302@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-> Paul E. McKenney wrote:
->> On Tue, Nov 03, 2009 at 05:38:10PM -0500, William Allen Simpson wrot=
-e:
->>> Documentation/RCU/checklist.txt #7 says:
->>>
->>>   One exception to this rule: rcu_read_lock() and rcu_read_unlock()
->>>   may be substituted for rcu_read_lock_bh() and rcu_read_unlock_bh(=
-)
->>>   in cases where local bottom halves are already known to be
->>>   disabled, for example, in irq or softirq context.  Commenting
->>>   such cases is a must, of course!  And the jury is still out on
->>>   whether the increased speed is worth it.
->>
->> I strongly suggest using the matching primitives unless you have a
->> really strong reason not to.
->>
-> Eric gave contrary advice.  But he also suggested (in an earlier mess=
-age)
-> clearing the secrets with a timer, which could be a separate context =
---
-> although much later in time.
+On 2009/11/05 12:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Max Kellermann a =E9crit :
+> > Do you think that a splice() should block if the socket is readable
+> > and the pipe is writable according to select()?
+> >=20
 >=20
-> As you suggest, I'll use the _bh suffix everywhere until every i is d=
-otted
-> and t is crossed.  Then, check for efficiency later after thorough
-> analysis by experts such as yourself.
+> Yes, this is perfectly legal
 >=20
-> This code will be hit on every SYN and SYNACK that has a cookie optio=
-n.
-> But it's just prior to a CPU intensive sha_transform -- in comparison=
-,
-> it's trivial.
->
+> select() can return "OK to write on fd",
+> and still, write(fd, buffer, 10000000) is supposer/allowed to block i=
+f fd is not O_NDELAY
 
-I think you misunderstood my advice ;)
+=46rom the select() manpage: "those in writefds will be watched to see
+if a write will not block"
 
-In the same function, you *cannot* use both variants like your last pat=
-ch did :
+=46rom the poll() manpage: "Writing now will not block."
 
-		spin_lock(&tcp_secret_locker); =20
+This looks unambiguous to me, and contradicts with your thesis.  Can
+you provide sources?
 
-=2E..
+What is your interpretation of the guarantees provided by select() and
+poll()?  Which byte count is "ok" to write after POLLOUT, and how much
+is "too much"?  How does the application know?
 
-		rcu_read_lock_bh();
-		memcpy(&xvp->cookie_bakery[0],
-		       &rcu_dereference(tcp_secret_generating)->secrets[0],
-		       sizeof(tcp_secret_generating->secrets));
-		rcu_read_unlock_bh();
+> Please read recent commit on this area and why I think your patch
+> conflicts with this commit.
 
-
-
-Reasoning is :
-
-If you need _bh() for the rcu_read_lock_bh(), thats because you know
-soft irq can happen anytime (they are not masked).
-
-Then you also need _bh for the spin_lock() call, or risk deadlock.
-
--> tcp_cookie_generator();
-spin_lock();
--> interrupt  -> softirq -> SYN frame received -> tcp_cookie_generator(=
-) -> spin_lock(); hang
-
-
-
-Your choices are :
-------------------
-
-1) Caller took care of disabling softirqs (or is only called from softi=
-rq handler),
-then _bh suffixes are not necessary in tcp_cookie_generator().
- -> spin_lock() & rcu_read_lock();
-
-2) You dont know what called you (process context or softirq context)
--> you MUST use _bh prefixes on spin_lock_bh() & rcu_read_lock_bh();
-
-
+I understand your patch, but I don't understand the conflict with my
+patch.  Can you describe a breakage caused by my patch?
