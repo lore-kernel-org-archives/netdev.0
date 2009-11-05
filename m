@@ -1,50 +1,46 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
-Date: Thu, 5 Nov 2009 15:45:56 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911051536200.7024@wel-95.cs.helsinki.fi>
-References: <f7b4caf3a5b5c906cb8d508239455322.squirrel@webmail.uio.no> <4AEB0512.4010804@nets.rwth-aachen.de> <4AF2D47F.4030701@simula.no>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Shared i2c adapter locking
+Date: Thu, 05 Nov 2009 13:57:24 +0000
+Message-ID: <1257429444.2793.2.camel@achroite.uk.solarflarecom.com>
+References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+	 <20091029154317.651904b9@hyperion.delvare>
+	 <1256828976.2827.27.camel@achroite>
+	 <20091105141122.56b6b4f8@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	William Allen Simpson <william.allen.simpson@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756551AbZKENp5@vger.kernel.org>
-In-Reply-To: <4AF2D47F.4030701@simula.no>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mika Kuoppala <mika.kuoppala@nokia.com>,
+	Linux I2C <linux-i2c@vger.kernel.org>
+To: Jean Delvare <khali@linux-fr.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091105141122.56b6b4f8@hyperion.delvare>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 Nov 2009, Andreas Petlund wrote:
+On Thu, 2009-11-05 at 14:11 +0100, Jean Delvare wrote:
+[...]
+> What about the following patch?
+>=20
+> From: Jean Delvare <khali@linux-fr.org>
+> Subject: i2c: Add an interface to lock/unlock I2C bus segment
+>=20
+> Some drivers need to be able to prevent access to an I2C bus segment
+> for a specific period of time. Add an interface for them to do so
+> without twiddling with i2c-core internals.
+>=20
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+Acked-by: =EF=BB=BFBen Hutchings <bhutchings@solarflare.com>
 
-> Arnd Hannemann wrote:
-> > 
-> > One example: Consider standard NewReno non-SACK enabled flow:
-> > For some reasons two data packets get reordered.
-> > The TCP sender will produce a dupACK and an ACK.
-> > The dupACK will trigger (because of your logic) a spurious retransmit.
-> > The spurious retransmit will trigger a dupACK.
-> > This dupACK will again trigger a spurious retransmit.
-> > And this game will continue, unless a packet is dropped by coincidence.
-> 
-> Such an effect will be extremely rare. It will depend on the application 
-> producing an extremely even flow of packets with just the right 
-> interarrival time, and also on reordering of data (which also will 
-> happen very seldom when the number of packets in flight are so low). 
-> Even though it can happen, the data flow will progress (with spurious 
-> retransmissions). The effect will stop as soon as the application sends 
-> more than 4 segments in an RTT (which will disable the thin-stream 
-> modifications) or less than 1 (which will cause all segments to be 
-> successfully ACKed), or if, as you say, a packet is dropped.
+Presumably this is meant for net-next-2.6, and you'll implement
+i2c_{lock,unlock}_adapter() using rt_mutex in your i2c tree?
 
-I'd simply workaround this problem by requiring SACK to be enabled for 
-such a connection. This is reinforced by the fact that small windowed 
-transfers want it certainly to be on anyway to get the best out of ACK 
-flow even if there were some ACK losses.
+Ben.
 
-
--- 
- i.
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
