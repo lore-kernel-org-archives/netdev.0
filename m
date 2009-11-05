@@ -1,70 +1,58 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
-Date: Thu, 05 Nov 2009 14:34:55 +0100
-Message-ID: <4AF2D47F.4030701@simula.no>
-References: <f7b4caf3a5b5c906cb8d508239455322.squirrel@webmail.uio.no> <4AEB0512.4010804@nets.rwth-aachen.de>
+From: "Liran Liss" <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: RE: [PATCH 19/25] mlx4: Randomizing mac addresses for slaves
+Date: Thu, 5 Nov 2009 15:38:18 +0200
+Message-ID: <2ED289D4E09FBD4D92D911E869B97FDD0166CA59@mtlexch01.mtl.com>
+References: <4AF19E69.8070605@mellanox.co.il> <adar5seys3e.fsf@cisco.com> <15ddcffd0911041333l165ee274mfae3508a3db755e7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756424AbZKENe4@vger.kernel.org>
-In-Reply-To: <4AEB0512.4010804@nets.rwth-aachen.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Yevgeny Petrilin" <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Tziporet Koren" <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+To: "Or Gerlitz" <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Roland Dreier" <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-reply-to: <15ddcffd0911041333l165ee274mfae3508a3db755e7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Hannemann wrote:
-> Both mechanism prevent retransmission timeouts, thereby reducing latency.
-> Who cares, that they were motivated by performance?
+This approach seems to be common practice now (e.g., drivers/net/igb/ig=
+b_main.c:1332).
+In any case, the user can change the randomized mac.
+--Liran
 
-The essence of motivation is that there exist an incentive for performing an 
-action. If the motivation for fast retransmitting earlier is to keep the cwnd 
-open for a greedy application with small time-dependency, the question may be 
-posed whether it is worth the effort of the proposed changes. With the 
-thin-stream applications, we have confirmed that this is very often an 
-indication of time-dependent/interactive applications (like SSH-text sessions, 
-RDP, sensor networks, stock trading systems, interactive games etc). We have 
-further shown that such applications are prone to lag upon retransmissions due 
-to the inadequacies of TCP to deal with thin streams. We have also shown that 
-by performing the proposed adjustments, we can drastically improve the 
-situation. 
+-----Original Message-----
+=46rom: Or Gerlitz [mailto:or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org]=20
+Sent: Wednesday, November 04, 2009 11:33 PM
+To: Roland Dreier
+Cc: Yevgeny Petrilin; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TaqPxH82wqD4g@public.gmane.org=
+g; Liran Liss; Tziporet Koren
+Subject: Re: [PATCH 19/25] mlx4: Randomizing mac addresses for slaves
 
-Since we now know that the modifications can drastically improve the user 
-experience, the motivation/incentive for implementing the modifications is 
-increased. 
+On Wed, Nov 4, 2009 at 10:04 PM, Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> wrot=
+e:
+>> +#define MLX4_MAC_HEAD =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x2c9000000ULL
 
-> I agree, that you are more aggressive, and that your scheme may have
-> latency advantages, at least for the Limited Transmit case. And there are
-> probably good reasons for your proposal. But I really think you should
-> bring your proposal up in IETF TCPM WG. I have the feeling that there are
-> a lot of corner cases we didn't think of.
-> 
-> One example: Consider standard NewReno non-SACK enabled flow:
-> For some reasons two data packets get reordered.
-> The TCP sender will produce a dupACK and an ACK.
-> The dupACK will trigger (because of your logic) a spurious retransmit.
-> The spurious retransmit will trigger a dupACK.
-> This dupACK will again trigger a spurious retransmit.
-> And this game will continue, unless a packet is dropped by coincidence.
+> Is this a good idea? =A0You're basically choosing 24 random bits with=
+in your OUI...
+> seems the chance of collision with another MAC used on the same=20
+> network is high enough that it could easily happen in practice on a m=
+oderately big network.
 
-Such an effect will be extremely rare. It will depend on the application 
-producing an extremely even flow of packets with just the right 
-interarrival time, and also on reordering of data (which also will 
-happen very seldom when the number of packets in flight are so low). 
-Even though it can happen, the data flow will progress (with spurious 
-retransmissions). The effect will stop as soon as the application sends 
-more than 4 segments in an RTT (which will disable the thin-stream 
-modifications) or less than 1 (which will cause all segments to be 
-successfully ACKed), or if, as you say, a packet is dropped.
+yes, this has been brought by Stephen and others on this last back on S=
+eptember 11th, this year @
+http://marc.info/?l=3Dlinux-netdev&m=3D125263488409128
 
-I will be thankful for more input on eventual corner cases and also on 
-test cases that we may perform to evaluate the modifications for 
-scenarios that are of concern.
+> Can you pick a reserved range or something?
 
-Best regards,
-Andreas
+Using different OUI for the VF device wouldn't help either I think, sin=
+ce the #VF becomes fairly big even on a modest side cluster with
+(say) a VM consuming VF per 1-2 cores.
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
