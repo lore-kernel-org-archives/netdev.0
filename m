@@ -1,65 +1,124 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: [PATCH RFC] gianfar: Do not call skb recycling with disabled IRQs
-Date: Thu, 5 Nov 2009 23:23:23 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B950715@zin33exm22.fsl.freescale.net>
-References: <20091104225711.GA30844@oksana.dev.rtsoft.ru> <E1N62ti-0003iS-K2@jdl.com> <20091105142028.GB17171@oksana.dev.rtsoft.ru> <E1N63WM-0003xK-PN@jdl.com> <E1N64UY-00049g-Hb@jdl.com> <20091105165738.GA31923@oksana.dev.rtsoft.ru> <9F4C7D19E8361D4C94921B95BE08B81B950713@zin33exm22.fsl.freescale.net> <E1N66Jp-0004Y0-8Q@jdl.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <avorontsov@ru.mvista.com>, <linuxppc-dev@ozlabs.org>,
-	"Jason Wessel" <jason.wessel@windriver.com>,
-	"Fleming Andy-AFLEMING" <afleming@freescale.com>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Lennert Buytenhek" <buytenh@wantstofly.org>,
-	"Stephen Hemminger" <shemminger@vyatta.com>
-To: "Jon Loeliger" <jdl@jdl.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:61711 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757766AbZKERxY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 12:53:24 -0500
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nA5HrTGq011687
-	for <netdev@vger.kernel.org>; Thu, 5 Nov 2009 10:53:29 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id nA5HvHvW029037
-	for <netdev@vger.kernel.org>; Thu, 5 Nov 2009 11:57:19 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <E1N66Jp-0004Y0-8Q@jdl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH 3/6] Staging: octeon-ethernet: Assign proper MAC addresses.
+Date: Thu, 05 Nov 2009 16:25:59 +0100
+Message-ID: <20091105152702.201728770@linux-mips.org>
+References: <20091105152555.227009519@linux-mips.org>
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757916AbZKERzo@vger.kernel.org>
+Content-Disposition: inline; filename=0004.patch
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: David Daney <ddaney@caviumnetworks.com>
+
+Allocate MAC addresses using the same method as the bootloader.  This
+avoids changing the MAC between bootloader and kernel operation as
+well as avoiding duplicates and use of addresses outside of the
+assigned range.
+
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: devel@driverdev.osuosl.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+ drivers/staging/octeon/ethernet.c |   53 +++++++++++++++++++++++++++++---------
+ 1 file changed, 41 insertions(+), 12 deletions(-)
+
+Index: upstream-linus/drivers/staging/octeon/ethernet.c
+===================================================================
+--- upstream-linus.orig/drivers/staging/octeon/ethernet.c
++++ upstream-linus/drivers/staging/octeon/ethernet.c
+@@ -111,6 +111,16 @@ MODULE_PARM_DESC(disable_core_queueing, 
+ 	"\tallows packets to be sent without lock contention in the packet\n"
+ 	"\tscheduler resulting in some cases in improved throughput.\n");
  
->
->Similar but different question:  What version is this patch based upon?
->I can't find:
->
->    > >index 197b358..a0ae604 100644
->
->My search of 2.6.31 up through current linux head 
->(v2.6.32-rc6-26-g91d3f9b) and benh's current head 
->(94a8d5caba74211ec76dac80fc6e2d5c391530df) do not have a 
->version of this code with separate txqueues.
->
->I confess I'm not too familiar with the history here, so I 
->don't know if that feature is in flux, or came, or went, or what.
->
->That boils down to:  I can't directly apply your patch, but I 
->could hand-fudge its intent, but only on a single tx queue variant.
->
-
-You might want to get the code base from the top of davem/net-next-2.6
-tree
-
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-
-The multi queue is a feature available in etsec2.0 version. On older
-versions you might want to 
-work in a single queue mode itself.
-
-
---
-
-Thanks
-Sandeep
++
++/*
++ * The offset from mac_addr_base that should be used for the next port
++ * that is configured.  By convention, if any mgmt ports exist on the
++ * chip, they get the first mac addresses, The ports controlled by
++ * this driver are numbered sequencially following any mgmt addresses
++ * that may exist.
++ */
++static unsigned int cvm_oct_mac_addr_offset;
++
+ /**
+  * Periodic timer to check auto negotiation
+  */
+@@ -474,16 +484,30 @@ static int cvm_oct_common_set_mac_addres
+  */
+ int cvm_oct_common_init(struct net_device *dev)
+ {
+-	static int count;
+-	char mac[8] = { 0x00, 0x00,
+-		octeon_bootinfo->mac_addr_base[0],
+-		octeon_bootinfo->mac_addr_base[1],
+-		octeon_bootinfo->mac_addr_base[2],
+-		octeon_bootinfo->mac_addr_base[3],
+-		octeon_bootinfo->mac_addr_base[4],
+-		octeon_bootinfo->mac_addr_base[5] + count
+-	};
+ 	struct octeon_ethernet *priv = netdev_priv(dev);
++	struct sockaddr sa;
++	u64 mac = ((u64)(octeon_bootinfo->mac_addr_base[0] & 0xff) << 40) |
++		((u64)(octeon_bootinfo->mac_addr_base[1] & 0xff) << 32) |
++		((u64)(octeon_bootinfo->mac_addr_base[2] & 0xff) << 24) |
++		((u64)(octeon_bootinfo->mac_addr_base[3] & 0xff) << 16) |
++		((u64)(octeon_bootinfo->mac_addr_base[4] & 0xff) << 8) |
++		(u64)(octeon_bootinfo->mac_addr_base[5] & 0xff);
++
++	mac += cvm_oct_mac_addr_offset;
++	sa.sa_data[0] = (mac >> 40) & 0xff;
++	sa.sa_data[1] = (mac >> 32) & 0xff;
++	sa.sa_data[2] = (mac >> 24) & 0xff;
++	sa.sa_data[3] = (mac >> 16) & 0xff;
++	sa.sa_data[4] = (mac >> 8) & 0xff;
++	sa.sa_data[5] = mac & 0xff;
++
++	if (cvm_oct_mac_addr_offset >= octeon_bootinfo->mac_addr_count)
++		printk(KERN_DEBUG "%s: Using MAC outside of the assigned range:"
++			" %02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
++			sa.sa_data[0] & 0xff, sa.sa_data[1] & 0xff,
++			sa.sa_data[2] & 0xff, sa.sa_data[3] & 0xff,
++			sa.sa_data[4] & 0xff, sa.sa_data[5] & 0xff);
++	cvm_oct_mac_addr_offset++;
+ 
+ 	/*
+ 	 * Force the interface to use the POW send if always_use_pow
+@@ -496,14 +520,12 @@ int cvm_oct_common_init(struct net_devic
+ 	if (priv->queue != -1 && USE_HW_TCPUDP_CHECKSUM)
+ 		dev->features |= NETIF_F_IP_CSUM;
+ 
+-	count++;
+-
+ 	/* We do our own locking, Linux doesn't need to */
+ 	dev->features |= NETIF_F_LLTX;
+ 	SET_ETHTOOL_OPS(dev, &cvm_oct_ethtool_ops);
+ 
+ 	cvm_oct_mdio_setup_device(dev);
+-	dev->netdev_ops->ndo_set_mac_address(dev, mac);
++	dev->netdev_ops->ndo_set_mac_address(dev, &sa);
+ 	dev->netdev_ops->ndo_change_mtu(dev, dev->mtu);
+ 
+ 	/*
+@@ -620,6 +642,13 @@ static int __init cvm_oct_init_module(vo
+ 
+ 	pr_notice("cavium-ethernet %s\n", OCTEON_ETHERNET_VERSION);
+ 
++	if (OCTEON_IS_MODEL(OCTEON_CN52XX))
++		cvm_oct_mac_addr_offset = 2; /* First two are the mgmt ports. */
++	else if (OCTEON_IS_MODEL(OCTEON_CN56XX))
++		cvm_oct_mac_addr_offset = 1; /* First one is the mgmt port. */
++	else
++		cvm_oct_mac_addr_offset = 0;
++
+ 	cvm_oct_proc_initialize();
+ 	cvm_oct_rx_initialize();
+ 	cvm_oct_configure_common_hw();
