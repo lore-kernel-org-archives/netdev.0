@@ -1,76 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder	Cookie
-Date: Thu, 05 Nov 2009 14:34:24 +0100
-Message-ID: <4AF2D460.5010608@gmail.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AF0B0D2.4030905@gmail.com> <20091104214844.GA6714@linux.vnet.ibm.com> <4AF2C266.1010603@gmail.com> <4AF2C8E4.9020202@gmail.com>
+From: Andreas Petlund <apetlund@simula.no>
+Subject: Re: [PATCH 1/3] net: TCP thin-stream detection
+Date: Thu, 05 Nov 2009 14:34:55 +0100
+Message-ID: <4AF2D47F.4030701@simula.no>
+References: <f7b4caf3a5b5c906cb8d508239455322.squirrel@webmail.uio.no> <4AEB0512.4010804@nets.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756544AbZKENeX@vger.kernel.org>
-In-Reply-To: <4AF2C8E4.9020202@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756424AbZKENe4@vger.kernel.org>
+In-Reply-To: <4AEB0512.4010804@nets.rwth-aachen.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-William Allen Simpson a =E9crit :
-> William Allen Simpson wrote:
->> Yes.  Just shuffling the pointers without ever freeing anything.  So=
-,
->> there's nothing for call_rcu() to do, and nothing else to synchroniz=
-e
->> (only the pointers).  This assumes that after _unlock_ any CPU cache
->> with an old pointer->expires will hit the _lock_ code, and that will
->> update *both* ->expires and the other array elements concurrently?
->>
-> Reiterating, I've not found Documentation showing that this code work=
-s:
->=20
-> +    unsigned long jiffy =3D jiffies;
-> +
-> +    if (unlikely(time_after(jiffy, tcp_secret_generating->expires)))=
- {
-> +        spin_lock_bh(&tcp_secret_locker);
-> +        if (!time_after(jiffy, tcp_secret_generating->expires)) {
-> +            /* refreshed by another */
-> +            spin_unlock_bh(&tcp_secret_locker);
-> +            memcpy(&xvp->cookie_bakery[0],
-> +                   &tcp_secret_generating->secrets[0],
-> +                   sizeof(tcp_secret_generating->secrets));
-> +        } else {
->=20
-> How is it ensured that an old tcp_secret_generating or an old ->expir=
-es,
-> followed by a spin_lock, has updated both?
->=20
-> And even when both are updated, then every word of the ->secrets arra=
-y has
-> also been updated in the local cache?
->=20
-> Is this a property of spin_lock()?  Or spin_unlock()?
+Arnd Hannemann wrote:
+> Both mechanism prevent retransmission timeouts, thereby reducing latency.
+> Who cares, that they were motivated by performance?
 
-Yes, =20
+The essence of motivation is that there exist an incentive for performing an 
+action. If the motivation for fast retransmitting earlier is to keep the cwnd 
+open for a greedy application with small time-dependency, the question may be 
+posed whether it is worth the effort of the proposed changes. With the 
+thin-stream applications, we have confirmed that this is very often an 
+indication of time-dependent/interactive applications (like SSH-text sessions, 
+RDP, sensor networks, stock trading systems, interactive games etc). We have 
+further shown that such applications are prone to lag upon retransmissions due 
+to the inadequacies of TCP to deal with thin streams. We have also shown that 
+by performing the proposed adjustments, we can drastically improve the 
+situation. 
 
-$ vi +1121 Documentation/memory-barriers.txt
+Since we now know that the modifications can drastically improve the user 
+experience, the motivation/incentive for implementing the modifications is 
+increased. 
 
- (1) LOCK operation implication:
+> I agree, that you are more aggressive, and that your scheme may have
+> latency advantages, at least for the Limited Transmit case. And there are
+> probably good reasons for your proposal. But I really think you should
+> bring your proposal up in IETF TCPM WG. I have the feeling that there are
+> a lot of corner cases we didn't think of.
+> 
+> One example: Consider standard NewReno non-SACK enabled flow:
+> For some reasons two data packets get reordered.
+> The TCP sender will produce a dupACK and an ACK.
+> The dupACK will trigger (because of your logic) a spurious retransmit.
+> The spurious retransmit will trigger a dupACK.
+> This dupACK will again trigger a spurious retransmit.
+> And this game will continue, unless a packet is dropped by coincidence.
 
-     Memory operations issued after the LOCK will be completed after th=
-e LOCK
-     operation has completed.
+Such an effect will be extremely rare. It will depend on the application 
+producing an extremely even flow of packets with just the right 
+interarrival time, and also on reordering of data (which also will 
+happen very seldom when the number of packets in flight are so low). 
+Even though it can happen, the data flow will progress (with spurious 
+retransmissions). The effect will stop as soon as the application sends 
+more than 4 segments in an RTT (which will disable the thin-stream 
+modifications) or less than 1 (which will cause all segments to be 
+successfully ACKed), or if, as you say, a packet is dropped.
 
-     Memory operations issued before the LOCK may be completed after th=
-e LOCK
-     operation has completed.
+I will be thankful for more input on eventual corner cases and also on 
+test cases that we may perform to evaluate the modifications for 
+scenarios that are of concern.
 
- (2) UNLOCK operation implication:
-
-     Memory operations issued before the UNLOCK will be completed befor=
-e the
-     UNLOCK operation has completed.
-
-     Memory operations issued after the UNLOCK may be completed before =
-the
-     UNLOCK operation has completed.
+Best regards,
+Andreas
