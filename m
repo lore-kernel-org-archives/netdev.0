@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net-next 05/10] bnx2x: Modify BCM8706 link init seq
-Date: Thu, 5 Nov 2009 19:18:21 +0200
-Message-ID: <1257441501.3390.52.camel@lb-tlvb-yanivr.il.broadcom.com>
+Subject: [net-next 08/10] bnx2x: Fix 10G mode in BCM8481/BCM84823
+Date: Thu, 5 Nov 2009 19:18:30 +0200
+Message-ID: <1257441510.3390.55.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,97 +10,106 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:2445 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755714AbZKEPSY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Nov 2009 10:18:24 -0500
+	id S1756249AbZKEPSe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2009 10:18:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Modify BCM8706 link initialization sequence so that first it link up between
-Serdes and BCM8706, and only then between BCM8706 to network
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_link.c |   31 ++++++++++++++++++-------------
- 1 files changed, 18 insertions(+), 13 deletions(-)
+ drivers/net/bnx2x_link.c |   38 ++++++++------------------------------
+ drivers/net/bnx2x_reg.h  |    1 +
+ 2 files changed, 9 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 4c16a46..b08ff77 100644
+index 1b73c1d..d2c9e19 100644
 --- a/drivers/net/bnx2x_link.c
 +++ b/drivers/net/bnx2x_link.c
-@@ -1930,6 +1930,8 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
- 		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
- 		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) ||
- 		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
-+		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706) ||
-+		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
- 		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726))) {
- 			vars->autoneg = AUTO_NEG_ENABLED;
+@@ -3533,8 +3533,8 @@ static void bnx2x_8481_set_10G_led_mode(struct link_params *params,
+ 		       MDIO_PMA_REG_8481_LINK_SIGNAL,
+ 		       &val1);
+ 	/* Set bit 2 to 0, and bits [1:0] to 10 */
+-	val1 &= ~((1<<0) | (1<<2)); /* Clear bits 0,2*/
+-	val1 |= (1<<1); /* Set bit 1 */
++	val1 &= ~((1<<0) | (1<<2) | (1<<7)); /* Clear bits 0,2,7*/
++	val1 |= ((1<<1) | (1<<6)); /* Set bit 1, 6 */
  
-@@ -3772,19 +3774,6 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 				}
- 			}
- 			/* Force speed */
--			/* First enable LASI */
--			bnx2x_cl45_write(bp, params->port,
--				       ext_phy_type,
--				       ext_phy_addr,
--				       MDIO_PMA_DEVAD,
--				       MDIO_PMA_REG_RX_ALARM_CTRL,
--				       0x0400);
--			bnx2x_cl45_write(bp, params->port,
--				       ext_phy_type,
--				       ext_phy_addr,
--				       MDIO_PMA_DEVAD,
--				       MDIO_PMA_REG_LASI_CTRL, 0x0004);
+ 	bnx2x_cl45_write(bp, params->port,
+ 		       ext_phy_type,
+@@ -3568,36 +3568,19 @@ static void bnx2x_8481_set_10G_led_mode(struct link_params *params,
+ 		       MDIO_PMA_REG_8481_LED2_MASK,
+ 		       0);
+ 
+-	/* LED3 (10G/1G/100/10G Activity) */
+-	bnx2x_cl45_read(bp, params->port,
+-		      ext_phy_type,
+-		      ext_phy_addr,
+-		      MDIO_PMA_DEVAD,
+-		      MDIO_PMA_REG_8481_LINK_SIGNAL,
+-		      &val1);
+-	/* Enable blink based on source 4(Activity) */
+-	val1 &= ~((1<<7) | (1<<8)); /* Clear bits 7,8 */
+-	val1 |= (1<<6); /* Set only bit 6 */
++	/* Unmask LED3 for 10G link */
+ 	bnx2x_cl45_write(bp, params->port,
+ 		       ext_phy_type,
+ 		       ext_phy_addr,
+ 		       MDIO_PMA_DEVAD,
+-		       MDIO_PMA_REG_8481_LINK_SIGNAL,
+-		       val1);
 -
- 			if (params->req_line_speed == SPEED_10000) {
- 				DP(NETIF_MSG_LINK, "XGXS 8706 force 10Gbps\n");
+-	bnx2x_cl45_read(bp, params->port,
+-		      ext_phy_type,
+-		      ext_phy_addr,
+-		      MDIO_PMA_DEVAD,
+ 		      MDIO_PMA_REG_8481_LED3_MASK,
+-		      &val1);
+-	val1 |= (1<<4); /* Unmask LED3 for 10G link */
++		       0x6);
+ 	bnx2x_cl45_write(bp, params->port,
+ 		       ext_phy_type,
+ 		       ext_phy_addr,
+ 		       MDIO_PMA_DEVAD,
+-		       MDIO_PMA_REG_8481_LED3_MASK,
+-		       val1);
++		       MDIO_PMA_REG_8481_LED3_BLINK,
++		       0);
+ }
  
-@@ -3794,6 +3783,9 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 					       MDIO_PMA_DEVAD,
- 					       MDIO_PMA_REG_DIGITAL_CTRL,
- 					       0x400);
-+				bnx2x_cl45_write(bp, params->port, ext_phy_type,
-+					       ext_phy_addr, MDIO_PMA_DEVAD,
-+					       MDIO_PMA_REG_LASI_CTRL, 1);
+ 
+@@ -4476,17 +4459,12 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 				    PORT_HW_CFG_SPEED_CAPABILITY_D0_10G) {
+ 					DP(NETIF_MSG_LINK, "Advertising 10G\n");
+ 					/* Restart autoneg for 10G*/
+-			bnx2x_cl45_read(bp, params->port,
+-				      ext_phy_type,
+-				      ext_phy_addr,
+-				      MDIO_AN_DEVAD,
+-				      MDIO_AN_REG_CTRL, &val);
+-			val |= 0x200;
++
+ 			bnx2x_cl45_write(bp, params->port,
+ 				       ext_phy_type,
+ 				       ext_phy_addr,
+ 				       MDIO_AN_DEVAD,
+-				       MDIO_AN_REG_CTRL, val);
++				       MDIO_AN_REG_CTRL, 0x3200);
+ 				}
  			} else {
- 				/* Force 1Gbps using autoneg with 1G
- 				advertisment */
-@@ -3835,6 +3827,17 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 					       MDIO_AN_DEVAD,
- 					       MDIO_AN_REG_CTRL,
- 					       0x1200);
-+				bnx2x_cl45_write(bp, params->port,
-+					       ext_phy_type,
-+					       ext_phy_addr,
-+					       MDIO_PMA_DEVAD,
-+					       MDIO_PMA_REG_RX_ALARM_CTRL,
-+					       0x0400);
-+				bnx2x_cl45_write(bp, params->port,
-+					       ext_phy_type,
-+					       ext_phy_addr,
-+					       MDIO_PMA_DEVAD,
-+					       MDIO_PMA_REG_LASI_CTRL, 0x0004);
+ 				/* Force speed */
+diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
+index 4be9bab..b668173 100644
+--- a/drivers/net/bnx2x_reg.h
++++ b/drivers/net/bnx2x_reg.h
+@@ -5129,6 +5129,7 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_PMA_REG_8481_LED1_MASK	0xa82c
+ #define MDIO_PMA_REG_8481_LED2_MASK	0xa82f
+ #define MDIO_PMA_REG_8481_LED3_MASK	0xa832
++#define MDIO_PMA_REG_8481_LED3_BLINK	0xa834
+ #define MDIO_PMA_REG_8481_SIGNAL_MASK	0xa835
+ #define MDIO_PMA_REG_8481_LINK_SIGNAL	0xa83b
  
- 			}
- 			bnx2x_save_bcm_spirom_ver(bp, params->port,
-@@ -5952,6 +5955,7 @@ static u8 bnx2x_link_initialize(struct link_params *params,
- 
- 	if (non_ext_phy ||
- 	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) ||
-+	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706) ||
- 	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) ||
- 	    (params->loopback_mode == LOOPBACK_EXT_PHY)) {
- 		if (params->req_line_speed == SPEED_AUTO_NEG)
-@@ -6421,6 +6425,7 @@ u8 bnx2x_link_update(struct link_params *params, struct link_vars *vars)
- 
- 	if ((ext_phy_type != PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT) &&
- 	    (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) &&
-+	    (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706) &&
- 	    (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) &&
- 	    (ext_phy_link_up && !vars->phy_link_up))
- 		bnx2x_init_internal_phy(params, vars, 0);
 -- 
 1.6.5.2
 
