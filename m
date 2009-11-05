@@ -1,45 +1,42 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH RFC] TCPCT part 1d: generate Responder	Cookie
-Date: Thu, 05 Nov 2009 07:45:24 -0500
-Message-ID: <4AF2C8E4.9020202@gmail.com>
-References: <4AEAC763.4070200@gmail.com> <4AED86AD.6010906@gmail.com> <4AEDCD7C.2010403@gmail.com> <4AF0B0D2.4030905@gmail.com> <20091104214844.GA6714@linux.vnet.ibm.com> <4AF2C266.1010603@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] [PATCH] udp: optimize lookup of UDP sockets to by including
+ destination address in the hash key
+Date: Thu, 05 Nov 2009 14:02:17 +0100
+Message-ID: <4AF2CCD9.7010507@gmail.com>
+References: <4AF1EC18.9090106@ixiacom.com> <4AF1F273.5020207@gmail.com>	<200911050104.09538.opurdila@ixiacom.com> <4AF20F02.7000601@gmail.com> <877hu5892g.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755722AbZKEMpa@vger.kernel.org>
-In-Reply-To: <4AF2C266.1010603@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36866 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755544AbZKENCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 08:02:17 -0500
+In-Reply-To: <877hu5892g.fsf@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson wrote:
-> Yes.  Just shuffling the pointers without ever freeing anything.  So,
-> there's nothing for call_rcu() to do, and nothing else to synchronize
-> (only the pointers).  This assumes that after _unlock_ any CPU cache
-> with an old pointer->expires will hit the _lock_ code, and that will
-> update *both* ->expires and the other array elements concurrently?
-> 
-Reiterating, I've not found Documentation showing that this code works:
+Andi Kleen a =E9crit :
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>> I have struct reorderings in progress to reduce number of cache line=
+s read
+>> per socket from two to one. So this would reduce by 50% time to find
+>> a particular socket in the chain.
+>=20
+> Assuming that each access takes equal time seems like a rather dubiou=
+s
+> assumption. Consider caches.
 
-+	unsigned long jiffy = jiffies;
-+
-+	if (unlikely(time_after(jiffy, tcp_secret_generating->expires))) {
-+		spin_lock_bh(&tcp_secret_locker);
-+		if (!time_after(jiffy, tcp_secret_generating->expires)) {
-+			/* refreshed by another */
-+			spin_unlock_bh(&tcp_secret_locker);
-+			memcpy(&xvp->cookie_bakery[0],
-+			       &tcp_secret_generating->secrets[0],
-+			       sizeof(tcp_secret_generating->secrets));
-+		} else {
+Yes, and it depends on SMP affinities too.
 
-How is it ensured that an old tcp_secret_generating or an old ->expires,
-followed by a spin_lock, has updated both?
+I assume cache is cold or even on other cpu (worst case), dealing with
+100.000+ sockets or so...
 
-And even when both are updated, then every word of the ->secrets array has
-also been updated in the local cache?
+If workload fits in one CPU cache/registers, we dont mind taking one
+or two cache lines per object, obviously.
 
-Is this a property of spin_lock()?  Or spin_unlock()?
+
