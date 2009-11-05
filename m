@@ -1,53 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Small pktgen bug.
-Date: Wed, 04 Nov 2009 18:22:09 -0800
-Message-ID: <4AF236D1.7020006@candelatech.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.32-rc5-mmotm1101 - kernel BUG at net/ipv4/tcp_input.c:3707!
+Date: Wed, 04 Nov 2009 21:33:12 -0500
+Message-ID: <6025.1257388392@turing-police.cc.vt.edu>
+References: <5765.1257270611@turing-police.cc.vt.edu> <4AF07024.80103@gmail.com> <4AF08292.7090102@codefidence.com> <Pine.LNX.4.64.0911032330090.3488@melkinkari.cs.Helsinki.FI> <7916.1257300093@turing-police.cc.vt.edu>
+            <4AF1AF28.2030106@codefidence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1257388392_4430P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:47805 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755101AbZKECWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 21:22:04 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id nA52M9uh001520
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 4 Nov 2009 18:22:09 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?windows-1252?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ori Finkelman <ori@comsleep.com>
+To: Gilad Ben-Yossef <gilad@codefidence.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755320AbZKECd6@vger.kernel.org>
+In-Reply-To: Your message of "Wed, 04 Nov 2009 18:43:20 +0200."
+             <4AF1AF28.2030106@codefidence.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a subtle bug in pktgen tx_bytes accounting.
+--==_Exmh_1257388392_4430P
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-If one is using clone_skb, then the cur_pkt_size may be modified
-without a new skb actually being created (quite yet) by setting
-min_pkt_size through the proc fs.
+On Wed, 04 Nov 2009 18:43:20 +0200, Gilad Ben-Yossef said:
 
-I think if you just saved pkt_dev->skb->len before transmitting and used
-that to increment pkt_dev->tx_bytes that would fix the counter
-problem.
+> OK, I thing I've got it.
+>=20
+> Kindly try the next patch. It goes on top (in addition to) the previous=
+=20
+> one. This should fix the crash.
 
-	if (unlikely(netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(txq)))
-		ret = NETDEV_TX_BUSY;
-	else
-		ret = (*xmit)(pkt_dev->skb, odev);
+OK. much better.  Have been up for about 25 minutes now, and fetchmail ha=
+s
+pulled down e-mail several times, and no proboems seen.
 
-	switch (ret) {
-	case NETDEV_TX_OK:
-		txq_trans_update(txq);
-		pkt_dev->last_ok = 1;
-		pkt_dev->sofar++;
-		pkt_dev->seq_num++;
-		pkt_dev->tx_bytes += pkt_dev->cur_pkt_size;
-		break;
+> There is still some small cruft in the handling of the per route TCP
+> options for IPv6 left, which means that the per route options might get=
+=20
+> ignored for
+> incoming IPv6 connections right now. I will fix this if this works.
 
+Yell if you want something tested. ;)
 
-Thanks,
-Ben
+--==_Exmh_1257388392_4430P
+Content-Type: application/pgp-signature
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
+iD8DBQFK8jlocC3lWbTT17ARAksWAJ44jUJb0L8DbE4WmHfOIJs6AU89IQCg7W1u
+Z8LT0ZYlWPucVQe8d5ps5bg=
+=H/XB
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1257388392_4430P--
