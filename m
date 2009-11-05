@@ -1,32 +1,90 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 03/25] mlx4_core: add multi-function communicationchannel
-Date: Thu, 05 Nov 2009 10:01:17 -0800
-Message-ID: <adatyx8c0lu.fsf@roland-alpha.cisco.com>
-References: <4AF19E14.5070107@mellanox.co.il> <adaiqdq17zo.fsf@cisco.com>
-	<2ED289D4E09FBD4D92D911E869B97FDD0166C9B7@mtlexch01.mtl.com>
+From: Michael Chan <mchan.dev@gmail.com>
+Subject: [RFC] TCP Multicast Extension
+Date: Thu, 5 Nov 2009 10:12:21 -0800
+Message-ID: <944511570911051012r5f70fa50y93be72ae3f9b633c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Yevgeny Petrilin" <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Tziporet Koren" <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: "Liran Liss" <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2ED289D4E09FBD4D92D911E869B97FDD0166C9B7-ia22CT07NJfiMCgWhms8HQC/G2K4zDHf@public.gmane.org>
-	(Liran Liss's message of "Thu, 5 Nov 2009 15:06:58 +0200")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:47441 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755183AbZKESMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 13:12:22 -0500
+Received: by ywh40 with SMTP id 40so228605ywh.33
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2009 10:12:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
- > > And HZ/1000 is going to be 0 if HZ is less than 1000 ... so this is just
- > > going to run continuously in the polling case.
+I am planning to implement a TCP extension named "Single-source
+multicast optimization", proposed in
 
- > This is what we want as long as there are more pending commands.
+S. Liang and D. Cheriton "TCP-SMO: Extending TCP to Support
+Medium-Scale Multicast Applications", Proc. IEEE Infocom 2002.
 
-So then instead of HZ/1000 just use 0 always?  I don't see a reason why
-you would want to wait if HZ >= 1000 and not wait if HZ is < 1000.
+A sample use case of this extension would be a single data source
+doing bulk transfer to a number of replication sites. In this case,
+TCP-SMO provides for multicast of the bulk transfer and the
+optimization of transport-level retransmissions using the conventional
+and well-tested TCP implementation.
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In a nutshell, a TCP multicast session with a single source (server)
+consists of two parts: (1) an IP multicast session, and (2) a set of
+ordinary TCP connections, one between the server and each multicast
+client. Data is sent via IP multicast, while the individual TCP
+connections are for retransmissions and client-to-server
+communication.
+
+The required changes to the kernel TCP implementation are as follows:
+
+Server side:
+1) Creating a TCP-SMO "master socket" that keeps track of statistics
+of the unchanged, per-client TCP socket
+2) Modifying connection establishment so when a new client connects,
+the socket created is associated to the master socket
+3) Modifying the ACK path so that clients' ACKs are delivered to
+master socket for processing
+4) Creating a multicast group associated with the master socket
+
+Client side:
+1) Add in ability to associate multicast traffic (from server) to the
+TCP connection with server
+2) Joining and leaving multicast groups with the TCP socket
+
+Before any coding, I stumbled on the following issues and thought it'd
+be best to learn from the experts:
+
+1) Is someone already doing something similar in the kernel space?
+
+2) The original implementation was for the 2.2 kernel and had a lot of
+"#ifdef CONFIG_TCP_MULTICAST strewn across the different tcp-related
+constructs, including the accept, init, recvmsg, sendmsg functions and
+significant additions to struct sock. The 2.6 kernel put the
+tcp-specific stuff into struct tcp_sock. Given that the kernel coding
+style asked for reducing number of #ifdef's in non-header code, is it
+considered acceptable practice to modify this struct and the numerous
+tcp functions, or should a new struct tcp_smo_sock containing a
+tcp_sock as the first member be a better alternative? From a design
+perspective, it seems like defining a new struct is "cleaner". But
+SMO, when enabled, really re-uses / modifies existing TCP behavior. It
+isn't clear to me how code reuse can be achieved without some amount
+of #ifdef's in the existing implementation.
+
+3) My goal is to make as little changes as possible to the
+implementation and to provide an easy way to enable SMO from
+userspace. Therefore, I'm thinking of adding TCP-level socket options
+for SMO-related operations. The alternative of a different
+tcp_smo_sock struct (as explained above) seems to indicate changes to
+the socket() system call as well, because I will need to change the
+sock being allocated. So I really doubt that approach from the
+viewpoint of easy user adoption.
+
+4) Is this in fact a fool's errand since such an extension does not
+conform to the networking subsystem's development practices and hence
+won't ever get accepted?
+
+Any comments are greatly appreciated!
+
+Thanks,
+Michael
