@@ -1,161 +1,45 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH] usbnet: Set link down initially for drivers that update
- link state
-Date: Thu, 05 Nov 2009 01:29:52 +0000
-Message-ID: <1257384592.3136.473.camel@localhost>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [rfc 0/4] igb: bandwidth allocation
+Date: Wed, 4 Nov 2009 17:46:50 -0800
+Message-ID: <9929d2390911041746g2b5f51cdia489bd87d87e41ef@mail.gmail.com>
+References: <20091105005847.941190065@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Greg Kroah-Hartman <greg@kroah.com>,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	David Brownell <dbrownell@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42834 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750862AbZKEBaS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Nov 2009 20:30:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Arnd Bergmann <arndbergmann@googlemail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091105005847.941190065@vergenet.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Some usbnet drivers update link state while others do not due to
-hardware limitations.  Add a flag to distinguish those that do, and
-set the link down initially for their devices.
+On Wed, Nov 4, 2009 at 16:58, Simon Horman <horms@verge.net.au> wrote:
+> Hi,
+>
+> this series of patches exposes the bandwidth allocation
+> hardware support of the Intel 82576. It does so through
+> a rather hackish sysfs entry. That interface is just intended
+> for testing so that the exposed hardware feature can
+> be exercised. I would like to find a generic way to expose
+> this feature to user-space.
+>
 
-This is intended to fix this bug: http://bugs.debian.org/444043
+Thanks Simon.  I have add the 4 patch series to my tree for testing.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-All drivers that update the link status are supposed to set it down
-initially.  These drivers will need to be tested to verify that if the
-physical link is already up then they update the link status correctly
-when the interface is brought up.
-
-Ben.
-
- drivers/net/usb/asix.c      |   12 ++++++------
- drivers/net/usb/cdc_ether.c |    2 +-
- drivers/net/usb/dm9601.c    |    2 +-
- drivers/net/usb/usbnet.c    |    4 +++-
- include/linux/usb/usbnet.h  |    1 +
- 5 files changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 6ce7f77..1bef39a 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -1327,7 +1327,7 @@ static const struct driver_info ax8817x_info = {
- 	.status = asix_status,
- 	.link_reset = ax88172_link_reset,
- 	.reset = ax88172_link_reset,
--	.flags =  FLAG_ETHER,
-+	.flags =  FLAG_ETHER | FLAG_LINK_INTR,
- 	.data = 0x00130103,
- };
- 
-@@ -1337,7 +1337,7 @@ static const struct driver_info dlink_dub_e100_info = {
- 	.status = asix_status,
- 	.link_reset = ax88172_link_reset,
- 	.reset = ax88172_link_reset,
--	.flags =  FLAG_ETHER,
-+	.flags =  FLAG_ETHER | FLAG_LINK_INTR,
- 	.data = 0x009f9d9f,
- };
- 
-@@ -1347,7 +1347,7 @@ static const struct driver_info netgear_fa120_info = {
- 	.status = asix_status,
- 	.link_reset = ax88172_link_reset,
- 	.reset = ax88172_link_reset,
--	.flags =  FLAG_ETHER,
-+	.flags =  FLAG_ETHER | FLAG_LINK_INTR,
- 	.data = 0x00130103,
- };
- 
-@@ -1357,7 +1357,7 @@ static const struct driver_info hawking_uf200_info = {
- 	.status = asix_status,
- 	.link_reset = ax88172_link_reset,
- 	.reset = ax88172_link_reset,
--	.flags =  FLAG_ETHER,
-+	.flags =  FLAG_ETHER | FLAG_LINK_INTR,
- 	.data = 0x001f1d1f,
- };
- 
-@@ -1367,7 +1367,7 @@ static const struct driver_info ax88772_info = {
- 	.status = asix_status,
- 	.link_reset = ax88772_link_reset,
- 	.reset = ax88772_link_reset,
--	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR,
- 	.rx_fixup = asix_rx_fixup,
- 	.tx_fixup = asix_tx_fixup,
- };
-@@ -1378,7 +1378,7 @@ static const struct driver_info ax88178_info = {
- 	.status = asix_status,
- 	.link_reset = ax88178_link_reset,
- 	.reset = ax88178_link_reset,
--	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR,
- 	.rx_fixup = asix_rx_fixup,
- 	.tx_fixup = asix_tx_fixup,
- };
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 71e65fc..dcf6dbd 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -413,7 +413,7 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- static const struct driver_info	cdc_info = {
- 	.description =	"CDC Ethernet Device",
--	.flags =	FLAG_ETHER,
-+	.flags =	FLAG_ETHER | FLAG_LINK_INTR,
- 	// .check_connect = cdc_check_connect,
- 	.bind =		cdc_bind,
- 	.unbind =	usbnet_cdc_unbind,
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index a2b30a1..3d406f9 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -611,7 +611,7 @@ static int dm9601_link_reset(struct usbnet *dev)
- 
- static const struct driver_info dm9601_info = {
- 	.description	= "Davicom DM9601 USB Ethernet",
--	.flags		= FLAG_ETHER,
-+	.flags		= FLAG_ETHER | FLAG_LINK_INTR,
- 	.bind		= dm9601_bind,
- 	.rx_fixup	= dm9601_rx_fixup,
- 	.tx_fixup	= dm9601_tx_fixup,
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 378da8c..04f3f28 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1352,9 +1352,11 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	// ok, it's ready to go.
- 	usb_set_intfdata (udev, dev);
- 
--	// start as if the link is up
- 	netif_device_attach (net);
- 
-+	if (dev->driver_info->flags & FLAG_LINK_INTR)
-+		netif_carrier_off(net);
-+
- 	return 0;
- 
- out3:
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 86c31b7..8c84881 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -92,6 +92,7 @@ struct driver_info {
- #define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
- #define FLAG_WWAN	0x0400		/* use "wwan%d" names */
- 
-+#define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
- 
- 	/* init device ... can sleep, or cause probe() failure */
- 	int	(*bind)(struct usbnet *, struct usb_interface *);
 -- 
-1.6.5.2
+Cheers,
+Jeff
 
-
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
