@@ -1,32 +1,40 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 08/25] mlx4_core: fix buggy parsing of reserved eq cap
-Date: Thu, 05 Nov 2009 12:10:58 -0800
-Message-ID: <adaskcs68bx.fsf@roland-alpha.cisco.com>
-References: <4AF19E2C.6060604@mellanox.co.il>
-	<adaws2468tq.fsf@roland-alpha.cisco.com>
-	<2ED289D4E09FBD4D92D911E869B97FDD0166CEF4@mtlexch01.mtl.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] netdev: Fix compile error in Octeon MGMT driver.
+Date: Thu, 5 Nov 2009 21:45:47 +0100
+Message-ID: <20091105204547.GA10292@linux-mips.org>
+References: <1257449912-27978-1-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Liran Liss" <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	"Tziporet Koren" <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: "Yevgeny Petrilin" <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2ED289D4E09FBD4D92D911E869B97FDD0166CEF4-ia22CT07NJfiMCgWhms8HQC/G2K4zDHf@public.gmane.org>
-	(Yevgeny Petrilin's message of "Thu, 5 Nov 2009 22:09:30 +0200")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:52705 "EHLO
+	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758428AbZKEUoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 15:44:14 -0500
+Received: from localhost.localdomain ([127.0.0.1]:34544 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-FAIL) by ftp.linux-mips.org with ESMTP
+	id S1493078AbZKEUoT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2009 21:44:19 +0100
+Content-Disposition: inline
+In-Reply-To: <1257449912-27978-1-git-send-email-ddaney@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Nov 05, 2009 at 11:38:32AM -0800, David Daney wrote:
 
- > I am currently working on fixing the patches according to comments
- > received so far,
- > And thought to resubmit the entire patch set.
+> Explicitly include linux/capability.h.  Under some configurations it
+> wasn't being indirectly included.
+> 
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+> ---
+> This fixes a minor problem for the (already approved) patches that
+> Ralf has queued for 2.6.33.  It should probably be added to Ralf's
+> queue.
+> 
+>  drivers/net/octeon/octeon_mgmt.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
 
-That's a good idea, but you can just drop this one and I'll take it
-independent of SRIOV support (since it really is independent).
+Folded into the existing patch.  Thanks!
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Ralf
