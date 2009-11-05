@@ -1,37 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB accuracy on 10GbE
-Date: Thu, 05 Nov 2009 08:10:00 +0100
-Message-ID: <4AF27A48.4090001@gmail.com>
-References: <b30d1c3b0911012322v5d553fd6va56575fcf5e3daf8@mail.gmail.com>	 <4AEEFE2E.7090706@trash.net> <20091102125345.3c39c42e@nehalam>	 <b30d1c3b0911031913k2c922935vc9605b76ac43168f@mail.gmail.com>	 <4AF10B1D.4050604@gmail.com> <4AF110CE.8070701@gmail.com>	 <b30d1c3b0911040019q14a007d4lbd1b695db8884b27@mail.gmail.com>	 <4AF1660E.1080401@gmail.com>	 <b30d1c3b0911040831y7aeac556raf7cae9106b5bc7b@mail.gmail.com>	 <4AF1B3CB.1050008@gmail.com> <b30d1c3b0911042308n616bc360v7b96b6543029f232@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH testing] Do not call IPv4 specific func in tcp_check_req
+Date: Wed, 04 Nov 2009 23:22:14 -0800 (PST)
+Message-ID: <20091104.232214.23355826.davem@davemloft.net>
+References: <7916.1257300093@turing-police.cc.vt.edu>
+	<1257352854-19490-1-git-send-email-gilad@codefidence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	takano-ryousei@aist.go.jp
-To: Ryousei Takano <ryousei@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, netdev@vger.kernel.org, ori@comsleep.com,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: gilad@codefidence.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52377 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880AbZKEHKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 02:10:04 -0500
-In-Reply-To: <b30d1c3b0911042308n616bc360v7b96b6543029f232@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48181
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750825AbZKEHVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 02:21:49 -0500
+In-Reply-To: <1257352854-19490-1-git-send-email-gilad@codefidence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ryousei Takano a =E9crit :
-> In my experiment, it is not very big problem.  I do not send short pa=
-ckets.
-> I got the almost same result in the both cases "mtu 64000" and "mtu
-> 40000 quantum 60000".
->=20
-> Anyway, setting larger mtu size than the physical mtu does not quiet =
-make sense.
->=20
+From: Gilad Ben-Yossef <gilad@codefidence.com>
+Date: Wed,  4 Nov 2009 18:40:54 +0200
 
-tc class mtu is a hint given to stack, about average packet size, ie no=
-t
-related to physical MTU (because of TSO)
+> Calling IPv4 specific inet_csk_route_req in tcp_check_req
+> is a bad idea and crashes machine on IPv6 connections, as reported
+> by Valdis Kletnieks
+> 
+> Also, all we are really interested in is the timestamp
+> option in the header, so calling tcp_parse_options()
+> with the "estab" set to false flag is an overkill as
+> it tries to parse half a dozen other TCP options.
+> 
+> We know whether timestamp should be enabled or not
+> using data from request_sock.
+> 
+> Signed-off-by: Gilad Ben-Yossef <gilad@codefidence.com>
 
-You could use same mtu, but disable tso on device
+Applied, thanks.
+
+I assume that your other patch which attempted to fix this isn't
+necessary.
