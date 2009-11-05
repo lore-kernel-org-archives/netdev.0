@@ -1,114 +1,138 @@
-From: "Liran Liss" <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: RE: [PATCH 03/25] mlx4_core: add multi-function communicationchannel
-Date: Thu, 5 Nov 2009 15:06:58 +0200
-Message-ID: <2ED289D4E09FBD4D92D911E869B97FDD0166C9B7@mtlexch01.mtl.com>
-References: <4AF19E14.5070107@mellanox.co.il> <adaiqdq17zo.fsf@cisco.com>
+From: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Subject: Re: Shared i2c adapter locking
+Date: Thu, 5 Nov 2009 14:11:22 +0100
+Message-ID: <20091105141122.56b6b4f8@hyperion.delvare>
+References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+	<20091029154317.651904b9@hyperion.delvare>
+	<1256828976.2827.27.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Tziporet Koren" <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: "Roland Dreier" <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"Yevgeny Petrilin" <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-reply-to: <adaiqdq17zo.fsf-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mika Kuoppala <mika.kuoppala-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
+	Linux I2C <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1256828976.2827.27.camel@achroite>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-S.B.
---Liran
+Hi Ben,
 
- > --- a/drivers/net/mlx4/cmd.c
- > +++ b/drivers/net/mlx4/cmd.c
- > @@ -41,6 +41,7 @@
- >  #include <asm/io.h>
- >
- >  #include "mlx4.h"
- > +#include "en_port.h"
+On Thu, 29 Oct 2009 15:09:36 +0000, Ben Hutchings wrote:
+> On Thu, 2009-10-29 at 15:43 +0100, Jean Delvare wrote:
+> > Hi Stephen,
+> > 
+> > On Mon, 26 Oct 2009 13:37:57 +1100, Stephen Rothwell wrote:
+> > > Today's linux-next merge of the net tree got a conflict in
+> > > drivers/net/sfc/sfe4001.c between commit
+> > > 3f7c0648f727a6d5baf6117653e4001dc877b90b ("i2c: Prevent priority
+> > > inversion on top of bus lock") from the i2c tree and commit
+> > > c9597d4f89565b6562bd3026adbe6eac6c317f47 ("sfc: Merge sfe4001.c into
+> > > falcon_boards.c") from the net tree.
+> > > 
+> > > I have applied the following merge fixup patch (after removing
+> > > drivers/net/sfc/sfe4001.c) and can carry it as necessary.
+> > 
+> > Thanks for fixing it. The core problem here IMHO is that the sfc
+> > network driver touches i2c internals which it would rather leave alone.
+> 
+> I'm just a little proud of having the idea that we could avoid using an
+> I/O-expander on this board, but yes, the software side of this
+> multiplexing is a hack.
+> 
+> > This is the only driver I know of which does this.
+> > 
+> > I can think of 3 different ways to address the issue.
+> > 
+> > Method #1: add a public API to grab/release an I2C segment.
+> > 
+> > void i2c_adapter_lock(struct i2c_adapter *adapter)
+> > {
+> > 	rt_mutex_lock(&adapter->bus_lock);
+> > }
+> > 
+> > void i2c_adapter_unlock(struct i2c_adapter *adapter)
+> > {
+> > 	rt_mutex_unlock(&adapter->bus_lock);
+> > }
+> [...]
+> > I'm not really sure if I have a preference yet, so please speak up if
+> > you do.
+> 
+> Indirect lock operations are a recipe for deadlock, and there doesn't
+> seem to be any other user for this, so method 1 seems best.
 
-Why does core mlx4 command handling end up depending on stuff from
-en_port.h?
+Well, all 3 methods rely on indirect lock operations to some degree.
+But I am fine with method #1 for now. We can always move to something
+more complex if the need ever arises.
 
-LL: some of the FW commands (e.g., MLX4_CMD_SET_VLAN_FLTR) are defined
-here and are used in cmd.h. We will move these definitions to cmd.h.
+What about the following patch?
 
- > +	__be32 status = readl(&priv->mfunc.comm->slave_read);
+From: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Subject: i2c: Add an interface to lock/unlock I2C bus segment
 
-This can't be endian-clean, can it?  What does sparse with
--D__CHECK_ENDIAN__ say?
-LL: will fix.
+Some drivers need to be able to prevent access to an I2C bus segment
+for a specific period of time. Add an interface for them to do so
+without twiddling with i2c-core internals.
 
- > +	queue_delayed_work(priv->mfunc.comm_wq, &priv->mfunc.comm_work,
- > +						polled ? HZ / 1000 : HZ
-/ 10);
+Signed-off-by: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+---
+ drivers/net/sfc/sfe4001.c |    4 ++--
+ include/linux/i2c.h       |   18 ++++++++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-So this is always running at least 10 times a second?  That's a lot of
-wakeups on an idle system.  Is there no way to make this event-driven?
-LL: events are not implemented yet - this is the next step.
+--- linux-2.6.32-rc6.orig/drivers/net/sfc/sfe4001.c	2009-11-05 10:51:56.000000000 +0100
++++ linux-2.6.32-rc6/drivers/net/sfc/sfe4001.c	2009-11-05 13:40:17.000000000 +0100
+@@ -188,7 +188,7 @@ static int sfn4111t_reset(struct efx_nic
+ 	efx_oword_t reg;
+ 
+ 	/* GPIO 3 and the GPIO register are shared with I2C, so block that */
+-	mutex_lock(&efx->i2c_adap.bus_lock);
++	i2c_lock_adapter(&efx->i2c_adap);
+ 
+ 	/* Pull RST_N (GPIO 2) low then let it up again, setting the
+ 	 * FLASH_CFG_1 strap (GPIO 3) appropriately.  Only change the
+@@ -204,7 +204,7 @@ static int sfn4111t_reset(struct efx_nic
+ 	falcon_write(efx, &reg, GPIO_CTL_REG_KER);
+ 	msleep(1);
+ 
+-	mutex_unlock(&efx->i2c_adap.bus_lock);
++	i2c_unlock_adapter(&efx->i2c_adap);
+ 
+ 	ssleep(1);
+ 	return 0;
+--- linux-2.6.32-rc6.orig/include/linux/i2c.h	2009-11-05 10:51:56.000000000 +0100
++++ linux-2.6.32-rc6/include/linux/i2c.h	2009-11-05 14:03:53.000000000 +0100
+@@ -361,6 +361,24 @@ static inline void i2c_set_adapdata(stru
+ 	dev_set_drvdata(&dev->dev, data);
+ }
+ 
++/**
++ * i2c_lock_adapter - Prevent access to an I2C bus segment
++ * @adapter: Target I2C bus segment
++ */
++static inline void i2c_lock_adapter(struct i2c_adapter *adapter)
++{
++	mutex_lock(&adapter->bus_lock);
++}
++
++/**
++ * i2c_unlock_adapter - Reauthorize access to an I2C bus segment
++ * @adapter: Target I2C bus segment
++ */
++static inline void i2c_unlock_adapter(struct i2c_adapter *adapter)
++{
++	mutex_unlock(&adapter->bus_lock);
++}
++
+ /*flags for the client struct: */
+ #define I2C_CLIENT_PEC	0x04		/* Use Packet Error Checking */
+ #define I2C_CLIENT_TEN	0x10		/* we have a ten bit chip address */
 
-And HZ/1000 is going to be 0 if HZ is less than 1000 ... so this is just
-going to run continuously in the polling case.
-LL: This is what we want as long as there are more pending commands.
 
- > +	/* Write command */
- > +	if (cmd == MLX4_COMM_CMD_RESET)
- > +		priv->cmd.comm_toggle = 0;
- > +	else if (++priv->cmd.comm_toggle > 2)
- > +		priv->cmd.comm_toggle = 1;
-
-Is this right?  comm_toggle goes 0, 1, 2, 1, 2, ...?
-
-LL: Yes - we need to distinguish the reset state from all other states
-to support asych reset (e.g., FLR). The only way to continue from this
-state
-is a new boot sequence.
-
- > +static struct mlx4_cmd_info {
- > +	u8 opcode;
- > +	u8 has_inbox;
- > +	u8 has_outbox;
- > +	u8 out_is_imm;
- > +	int (*verify)(struct mlx4_dev *dev, int slave, struct mlx4_vhcr
-*vhcr,
- > +					    struct mlx4_cmd_mailbox
-*inbox);
- > +	int (*wrapper)(struct mlx4_dev *dev, int slave, struct mlx4_vhcr
-*vhcr,
- > +					     struct mlx4_cmd_mailbox
-*inbox,
- > +					     struct mlx4_cmd_mailbox
-*outbox);
- > +} cmd_info[] = {
- > +	{MLX4_CMD_QUERY_FW,        0, 1, 0, NULL, NULL},
- > +	{MLX4_CMD_QUERY_ADAPTER,   0, 1, 0, NULL, NULL},
-
-This big structure would be better with designated initializers.  Also
-instead of u8 for the flags bool would be better probably.  Then it
-becomes more self documenting, ie
-
-	{ .opcode = MLX4_CMD_QUERY_FW, .has_outbox = true }, ...
-
-LL: OK. 10x.
-
- > +struct mlx4_vhcr {
- > +	u64 in_param;
- > +	u64 out_param;
- > +	u32 in_modifier;
- > +	u32 timeout;
- > +	u16 op;
- > +	u16 token;
- > +	u8 op_modifier;
- > +	int errno;
- > +};
-
-trivial but can you use tabs to line up the structure field names the
-way the rest of the mlx4 declarations do?
-LL: Ack.
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Jean Delvare
