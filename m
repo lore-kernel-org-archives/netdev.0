@@ -1,29 +1,65 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH 2.6.33/5 00/12] WiMAX pull request
-Date: Wed, 04 Nov 2009 20:37:04 -0800
-Message-ID: <1257395824.21528.293.camel@localhost.localdomain>
-References: <cover.1257370738.git.inaky@linux.intel.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: virtio-net: new section mismatch warning. revert patch?
+Date: Thu, 5 Nov 2009 15:10:53 +1030
+Message-ID: <200911051510.54163.rusty@rustcorp.com.au>
+References: <20091104141729.GA27288@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Uwe =?iso-8859-1?q?Kleine-K=F6nig?="
+	<u.kleine-koenig@pengutronix.de>, Sam Ravnborg <sam@ravnborg.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alex Williamson <alex.williamson@hp.com>,
+	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, Greg KH <gregkh@suse.de>,
+	Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:1382 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750890AbZKEEjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 23:39:07 -0500
-In-Reply-To: <cover.1257370738.git.inaky@linux.intel.com>
+Received: from ozlabs.org ([203.10.76.45]:50743 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751956AbZKEEkv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Nov 2009 23:40:51 -0500
+In-Reply-To: <20091104141729.GA27288@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-11-04 at 13:40 -0800, Inaky Perez-Gonzalez wrote:
-> The following changes since commit 4a78fd9a736db4c871bc8b583d66b61c38abd299:
->   Inaky Perez-Gonzalez (1):
->         wimax/i2400m: fix oops caused by race condition when exiting USB kthreads
+On Thu, 5 Nov 2009 12:47:30 am Michael S. Tsirkin wrote:
+> With v2.6.32-rcX I started getting section mismatch warnings for
+> virtio_net.
+> make with CONFIG_DEBUG_SECTION_MISMATCH=3Dy shows:
+>=20
+> WARNING: drivers/net/virtio_net.o(.data+0x90): Section mismatch in
+> reference from the variable virtio_net to the function
+> .devexit.text:virtnet_remove()                                       =
+                            =20
+> The variable virtio_net references                                   =
+                                        =20
+> the function __devexit virtnet_remove()                              =
+                                        =20
+> If the reference is valid then annotate the                          =
+                                        =20
+> variable with __exit* (see linux/init.h) or name the variable:       =
+                                        =20
+> *driver, *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_c=
+onsole,                                 =20
+>=20
+> virtnet_remove was converted to devexit by this commit:
+>=20
+> 	commit 3d1285beff2e8467b8c3884d83b7a91a99aa9fcd
+> 	Author: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> 	Date:   Wed Sep 30 22:28:34 2009 +0000
+>=20
+> 	    move virtnet_remove to .devexit.text
+>=20
+> We didn't have these warnings in v2.6.31, so this is a regression.
+> revert?
 
-Hmm, this is supposed to be batch #5 of the patch series, but somehow my
-scripts to break'em up took a life of their own and overwrote the
-subject. Sorry for that!
+No, just rename "virtio_net" to "virtio_net_driver".  Meanwhile, ignore=
+ it.
+It's worked well for me so far.
 
+Uwe: I apologize for accepting your patches.  I will be more careful in
+future.
 
+Cheers,
+Rusty.
