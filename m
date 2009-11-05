@@ -1,59 +1,46 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH RFC] gianfar: Make polling safe with IRQs disabled
-Date: Thu, 5 Nov 2009 17:20:28 +0300
-Message-ID: <20091105142028.GB17171@oksana.dev.rtsoft.ru>
-References: <20091104225711.GA30844@oksana.dev.rtsoft.ru>
- <E1N62ti-0003iS-K2@jdl.com>
-Reply-To: avorontsov@ru.mvista.com
+From: Max Kellermann <mk@cm4all.com>
+Subject: Re: [PATCH] tcp: set SPLICE_F_NONBLOCK after first buffer has been
+	spliced
+Date: Thu, 5 Nov 2009 15:33:20 +0100
+Message-ID: <20091105143320.GA22787@rabbit.intern.cm-ag>
+References: <20091105095947.32131.99768.stgit@rabbit.intern.cm-ag> <4AF2A929.3000201@gmail.com> <20091105105749.GA4901@rabbit.intern.cm-ag> <4AF2B551.6010302@gmail.com> <20091105132352.GA14453@rabbit.intern.cm-ag> <4AF2DD21.8060604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
-	Jason Wessel <jason.wessel@windriver.com>
-To: Jon Loeliger <jdl@jdl.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.ru.mvista.com ([213.79.90.228]:2700 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755586AbZKEOUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 09:20:23 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jens.axboe@oracle.com,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757357AbZKEOdN@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <E1N62ti-0003iS-K2@jdl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4AF2DD21.8060604@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 05, 2009 at 08:01:10AM -0600, Jon Loeliger wrote:
-> > When using KGDBoE, gianfar driver spits 'Interrupt problem' messages,
-> > which appears to be a legitimate warning, i.e. we may end up calling
-> > netif_receive_skb() or vlan_hwaccel_receive_skb() with IRQs disabled.
-> > 
-> > This patch reworks the RX path so that if netpoll is enabled (the
-> > only case when the driver don't know from what context the polling
-> > may be called), we check whether IRQs are disabled, and if so we
-> > fall back to safe variants of skb receiving functions.
-> > 
-> > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> > ---
-> > 
-> > I'm not sure if this is suitable for mainline since it doesn't
-> > have KGDBoE support. Jason, if the patch is OK, would you like
-> > to merge it into KGDB tree?
+On 2009/11/05 15:11, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> It cannot, therefore an application uses O_NDELAY to avoid blocking.
 > 
-> It's a legitimate problem with or without KGDBoE.  I see it
-> occasionally when conn_track is enabled as well, for example.
+> Try following program if you are not convinced
 
-Hm, then I'd better remove the #ifdef CONFIG_NETPOLL.
+Indeed, I'm surprised by the result rendered by the Linux kernel.
+That however still contradicts with the poll() documentation.
 
-Interestingly though, why conn_track does the polling with irqs
-disabled, could be a bug in the conn_track? Because pretty much
-drivers assume that polling is called with IRQs enabled.
+So this boils down to the question: kernel bug or documentation bug?
 
-If it's easily reproducible, could you replace the printk() with
-WARN_ON(1) and post the backtrace? Or I can try to reproduce the
-issue if you tell me how.
+http://www.opengroup.org/onlinepubs/9699919799/functions/pselect.html
 
-Thanks!
+"A descriptor shall be considered ready for writing when a call to an
+output function with O_NONBLOCK clear would not block, whether or not
+the function would transfer data successfully."
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+There is no size limit mentioned here.  Your program reveals that the
+kernel violates this definition.
+
+> Your patch basically makes SPLICE_F_NONBLOCK option always set
+> (choice 1) above)
+[...]
+> Why in the first place have an option if it is always set ?
+
+It is not, you misunderstood my patch.  If there's no room in the pipe
+buffer, then the first iteration of the "while" loop will block (as
+usual).  *After* the first iteration has finished (and at least one
+buffer has been moved already), the flag is set, and further
+iterations will not block.
