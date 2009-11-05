@@ -1,115 +1,48 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net-next 08/10] bnx2x: Fix 10G mode in BCM8481/BCM84823
-Date: Thu, 5 Nov 2009 19:18:30 +0200
-Message-ID: <1257441510.3390.55.camel@lb-tlvb-yanivr.il.broadcom.com>
+Subject: [net-next 09/10] bnx2x: Fix register access timeout in 10M
+Date: Thu, 5 Nov 2009 19:18:32 +0200
+Message-ID: <1257441512.3390.56.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2445 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2641 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756249AbZKEPSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Nov 2009 10:18:34 -0500
+	id S1756172AbZKEPS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2009 10:18:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+In BCM8481 when link speed goes from 1G to 10M, driver received timeout
+since the MAC clock hasn't synced yet with the new speed, so it is required
+first to program the MAC with the new speed, and only then configure other
+parameters
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_link.c |   38 ++++++++------------------------------
- drivers/net/bnx2x_reg.h  |    1 +
- 2 files changed, 9 insertions(+), 30 deletions(-)
+ drivers/net/bnx2x_link.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 1b73c1d..d2c9e19 100644
+index d2c9e19..41b9b7b 100644
 --- a/drivers/net/bnx2x_link.c
 +++ b/drivers/net/bnx2x_link.c
-@@ -3533,8 +3533,8 @@ static void bnx2x_8481_set_10G_led_mode(struct link_params *params,
- 		       MDIO_PMA_REG_8481_LINK_SIGNAL,
- 		       &val1);
- 	/* Set bit 2 to 0, and bits [1:0] to 10 */
--	val1 &= ~((1<<0) | (1<<2)); /* Clear bits 0,2*/
--	val1 |= (1<<1); /* Set bit 1 */
-+	val1 &= ~((1<<0) | (1<<2) | (1<<7)); /* Clear bits 0,2,7*/
-+	val1 |= ((1<<1) | (1<<6)); /* Set bit 1, 6 */
+@@ -6322,10 +6322,11 @@ static u8 bnx2x_update_link_up(struct link_params *params,
+ 		bnx2x_bmac_enable(params, vars, 0);
+ 		bnx2x_set_led(params, LED_MODE_OPER, SPEED_10000);
+ 	} else {
+-		bnx2x_emac_enable(params, vars, 0);
+ 		rc = bnx2x_emac_program(params, vars->line_speed,
+ 				      vars->duplex);
  
- 	bnx2x_cl45_write(bp, params->port,
- 		       ext_phy_type,
-@@ -3568,36 +3568,19 @@ static void bnx2x_8481_set_10G_led_mode(struct link_params *params,
- 		       MDIO_PMA_REG_8481_LED2_MASK,
- 		       0);
- 
--	/* LED3 (10G/1G/100/10G Activity) */
--	bnx2x_cl45_read(bp, params->port,
--		      ext_phy_type,
--		      ext_phy_addr,
--		      MDIO_PMA_DEVAD,
--		      MDIO_PMA_REG_8481_LINK_SIGNAL,
--		      &val1);
--	/* Enable blink based on source 4(Activity) */
--	val1 &= ~((1<<7) | (1<<8)); /* Clear bits 7,8 */
--	val1 |= (1<<6); /* Set only bit 6 */
-+	/* Unmask LED3 for 10G link */
- 	bnx2x_cl45_write(bp, params->port,
- 		       ext_phy_type,
- 		       ext_phy_addr,
- 		       MDIO_PMA_DEVAD,
--		       MDIO_PMA_REG_8481_LINK_SIGNAL,
--		       val1);
--
--	bnx2x_cl45_read(bp, params->port,
--		      ext_phy_type,
--		      ext_phy_addr,
--		      MDIO_PMA_DEVAD,
- 		      MDIO_PMA_REG_8481_LED3_MASK,
--		      &val1);
--	val1 |= (1<<4); /* Unmask LED3 for 10G link */
-+		       0x6);
- 	bnx2x_cl45_write(bp, params->port,
- 		       ext_phy_type,
- 		       ext_phy_addr,
- 		       MDIO_PMA_DEVAD,
--		       MDIO_PMA_REG_8481_LED3_MASK,
--		       val1);
-+		       MDIO_PMA_REG_8481_LED3_BLINK,
-+		       0);
- }
- 
- 
-@@ -4476,17 +4459,12 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 				    PORT_HW_CFG_SPEED_CAPABILITY_D0_10G) {
- 					DP(NETIF_MSG_LINK, "Advertising 10G\n");
- 					/* Restart autoneg for 10G*/
--			bnx2x_cl45_read(bp, params->port,
--				      ext_phy_type,
--				      ext_phy_addr,
--				      MDIO_AN_DEVAD,
--				      MDIO_AN_REG_CTRL, &val);
--			val |= 0x200;
++		bnx2x_emac_enable(params, vars, 0);
 +
- 			bnx2x_cl45_write(bp, params->port,
- 				       ext_phy_type,
- 				       ext_phy_addr,
- 				       MDIO_AN_DEVAD,
--				       MDIO_AN_REG_CTRL, val);
-+				       MDIO_AN_REG_CTRL, 0x3200);
- 				}
- 			} else {
- 				/* Force speed */
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index 4be9bab..b668173 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -5129,6 +5129,7 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_PMA_REG_8481_LED1_MASK	0xa82c
- #define MDIO_PMA_REG_8481_LED2_MASK	0xa82f
- #define MDIO_PMA_REG_8481_LED3_MASK	0xa832
-+#define MDIO_PMA_REG_8481_LED3_BLINK	0xa834
- #define MDIO_PMA_REG_8481_SIGNAL_MASK	0xa835
- #define MDIO_PMA_REG_8481_LINK_SIGNAL	0xa83b
- 
+ 		/* AN complete? */
+ 		if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
+ 			if (!(vars->phy_flags &
 -- 
 1.6.5.2
 
