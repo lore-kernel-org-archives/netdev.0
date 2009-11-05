@@ -1,57 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] mac80211: Speedup ieee80211_remove_interfaces()
-Date: Thu, 05 Nov 2009 11:06:40 +0100
-Message-ID: <4AF2A3B0.4030100@gmail.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: test
+Date: Thu, 5 Nov 2009 02:11:18 -0800
+Message-ID: <20091105101118.GG5244@hostway.ca>
+References: <20091104202716.GE14821@hostway.ca> <Pine.LNX.4.58.0911051119190.2761@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35330 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbZKEKGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 05:06:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0911051119190.2761@u.domain.uli>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Speedup ieee80211_remove_interfaces() by factorizing synchronize_rcu() calls
+On Thu, Nov 05, 2009 at 11:26:27AM +0200, Julian Anastasov wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/mac80211/iface.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+> 	If 'time to expire' is after current time then continue,
+> i.e. current time didn't reached the limit, seems correct,
+> no need to patch. For better reading and to match
+> ip_vs_lblcr_check_expire() it can be converted to:
+> 
+> if (time_before(now, en->lastuse+sysctl_ip_vs_lblcr_expiration))
+> 	continue;
 
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index 14f10eb..a445f50 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -852,22 +852,18 @@ void ieee80211_if_remove(struct ieee80211_sub_if_data *sdata)
- void ieee80211_remove_interfaces(struct ieee80211_local *local)
- {
- 	struct ieee80211_sub_if_data *sdata, *tmp;
-+	LIST_HEAD(unreg_list);
- 
- 	ASSERT_RTNL();
- 
-+	mutex_lock(&local->iflist_mtx);
- 	list_for_each_entry_safe(sdata, tmp, &local->interfaces, list) {
--		/*
--		 * we cannot hold the iflist_mtx across unregister_netdevice,
--		 * but we only need to hold it for list modifications to lock
--		 * out readers since we're under the RTNL here as all other
--		 * writers.
--		 */
--		mutex_lock(&local->iflist_mtx);
- 		list_del(&sdata->list);
--		mutex_unlock(&local->iflist_mtx);
- 
--		unregister_netdevice(sdata->dev);
-+		unregister_netdevice_queue(sdata->dev, &unreg_list);
- 	}
-+	mutex_unlock(&local->iflist_mtx);
-+	unregister_netdevice_many(&unreg_list);
- }
- 
- static u32 ieee80211_idle_off(struct ieee80211_local *local,
+D'oh.  I noticed the use of time_before() further down in
+ip_vs_lblcr_check_expire(), but not the reversed arguments, hence my
+confusion.
+
+I still suspect there may be something not quite right, or which could
+perhaps do with some tuning.  It's difficult to see exactly how it's
+working internally, since there's currently nothing to get a summary of
+the dest_sets to userspace.  I'll follow up if I find anything.
+
+Simon-
