@@ -1,51 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
-Date: Fri, 6 Nov 2009 15:31:20 +1030
-Message-ID: <200911061531.20299.rusty@rustcorp.com.au>
-References: <cover.1257267892.git.mst@redhat.com> <20091104115729.GD8398@redhat.com> <20091104172542.GC6736@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] bridge: remove dev_put() in add_del_if()
+Date: Thu, 05 Nov 2009 21:07:56 -0800 (PST)
+Message-ID: <20091105.210756.06389264.davem@davemloft.net>
+References: <4AF1D153.5040309@gmail.com>
+	<20091104114020.5a2aef2c@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
- Gregory Haskins <gregory.haskins@gmail.com>,
- Eric Dumazet <eric.dumazet@gmail.com>,
- netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- s.hetze@linux-ag.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091104172542.GC6736@linux.vnet.ibm.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52464
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750805AbZKFFHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 00:07:31 -0500
+In-Reply-To: <20091104114020.5a2aef2c@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Nov 2009 03:55:42 am Paul E. McKenney wrote:
-> On Wed, Nov 04, 2009 at 01:57:29PM +0200, Michael S. Tsirkin wrote:
-> > Can you ack this usage please?
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 4 Nov 2009 11:40:20 -0800
+
+> On Wed, 04 Nov 2009 20:09:07 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> I thought I had done so in my paragraph above, but if you would like
-> something a bit more formal...
+>> add_del_if() is called with RTNL, we can use __dev_get_by_index()
+>> instead of [dev_get_by_index() + dev_put()]
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ ...
+> 
+> As part of the general ref count purge sure.
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-<snip verbose super-ack with qualifications>
-
-That's great guys.  And yes, this is a kind of read-copy-update.  And no,
-there's nothing wrong with it.
-
-But it's still nasty to use half an API.  If it were a few places I would
-have open-coded it with a comment, or wrapped it.  As it is, I don't think
-that would be a win.
-
-Cheers,
-Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks everyone.
