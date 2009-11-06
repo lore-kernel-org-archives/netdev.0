@@ -1,116 +1,138 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next2.6] ipv6: avoid dev_hold()/dev_put() in rawv6_bind()
-Date: Fri, 06 Nov 2009 18:01:17 +0100
-Message-ID: <4AF4565D.2070207@gmail.com>
-References: <4AF40022.6050100@gmail.com> <4AF4536E.7090803@hp.com>
+Subject: [PATCH net-next-2.6 take2] ipv6: udp: Optimise multicast reception
+Date: Fri, 06 Nov 2009 18:06:30 +0100
+Message-ID: <4AF45796.8010409@gmail.com>
+References: <200911052033.21964.lgrijincu@ixiacom.com> <20091106.004215.114490979.davem@davemloft.net> <200911061604.21465.lgrijincu@ixiacom.com> <4AF43C5E.4060300@gmail.com> <4AF447F7.6000700@gmail.com> <4AF44F3D.3050407@gmail.com> <4AF4506B.3080905@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Transfer-Encoding: 7bit
+Cc: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
+	netdev@vger.kernel.org, opurdila@ixiacom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34082 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44097 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758230AbZKFRBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 12:01:17 -0500
-In-Reply-To: <4AF4536E.7090803@hp.com>
+	with ESMTP id S1759379AbZKFRG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 12:06:29 -0500
+In-Reply-To: <4AF4506B.3080905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley a =E9crit :
-> Eric Dumazet wrote:=20
->> @@ -257,6 +257,7 @@ static int rawv6_bind(struct sock *sk, struct so=
-ckaddr *uaddr, int addr_len)
->>  	if (sk->sk_state !=3D TCP_CLOSE)
->>  		goto out;
->> =20
->> +	rcu_read_unlock();
->>  	/* Check if the address belongs to the host. */
->>  	if (addr_type !=3D IPV6_ADDR_ANY) {
->>  		struct net_device *dev =3D NULL;
->=20
-> This was supposed to be rcu_read_lock(), right?
->=20
+Take 2 of patch, adding a missing kfree_skb() in case no socket could receive a copy
 
-Oops ! Indeed ! Thanks for spotting this Brian.
+[PATCH net-next-2.6 take2] ipv6: udp: Optimise multicast reception
 
-[PATCH net-next2.6] ipv6: avoid dev_hold()/dev_put() in rawv6_bind()
+IPV6 UDP multicast rx path is a bit complex and can hold a spinlock
+for a long time.
 
-Using RCU helps not touching device refcount in rawv6_bind()
+Using a small (32 or 64 entries) stack of socket pointers can help
+to perform expensive operations (skb_clone(), udp_queue_rcv_skb())
+outside of the lock, in most cases.
+
+
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/ipv6/raw.c |   23 +++++++++++------------
- 1 files changed, 11 insertions(+), 12 deletions(-)
+ net/ipv6/udp.c |   71 +++++++++++++++++++++++++++++++----------------
+ 1 files changed, 47 insertions(+), 24 deletions(-)
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 818ef21..926ce8e 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -249,7 +249,7 @@ static int rawv6_bind(struct sock *sk, struct socka=
-ddr *uaddr, int addr_len)
-=20
- 	/* Raw sockets are IPv6 only */
- 	if (addr_type =3D=3D IPV6_ADDR_MAPPED)
--		return(-EADDRNOTAVAIL);
-+		return -EADDRNOTAVAIL;
-=20
- 	lock_sock(sk);
-=20
-@@ -257,6 +257,7 @@ static int rawv6_bind(struct sock *sk, struct socka=
-ddr *uaddr, int addr_len)
- 	if (sk->sk_state !=3D TCP_CLOSE)
- 		goto out;
-=20
-+	rcu_read_lock();
- 	/* Check if the address belongs to the host. */
- 	if (addr_type !=3D IPV6_ADDR_ANY) {
- 		struct net_device *dev =3D NULL;
-@@ -272,13 +273,13 @@ static int rawv6_bind(struct sock *sk, struct soc=
-kaddr *uaddr, int addr_len)
-=20
- 			/* Binding to link-local address requires an interface */
- 			if (!sk->sk_bound_dev_if)
--				goto out;
-+				goto out_unlock;
-=20
--			dev =3D dev_get_by_index(sock_net(sk), sk->sk_bound_dev_if);
--			if (!dev) {
--				err =3D -ENODEV;
--				goto out;
--			}
-+			err =3D -ENODEV;
-+			dev =3D dev_get_by_index_rcu(sock_net(sk),
-+						   sk->sk_bound_dev_if);
-+			if (!dev)
-+				goto out_unlock;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5bc7cdb..ecb6a6f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -440,6 +440,27 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+ 	return NULL;
+ }
+ 
++static void flush_stack(struct sock **stack, unsigned int count,
++			struct sk_buff *skb, unsigned int final)
++{
++	unsigned int i;
++	struct sock *sk;
++	struct sk_buff *skb1;
++
++	for (i = 0; i < count; i++) {
++		skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
++
++		if (skb1) {
++			sk = stack[i];
++			bh_lock_sock(sk);
++			if (!sock_owned_by_user(sk))
++				udpv6_queue_rcv_skb(sk, skb1);
++			else
++				sk_add_backlog(sk, skb1);
++			bh_unlock_sock(sk);
++		}
++	}
++}
+ /*
+  * Note: called only from the BH handler context,
+  * so we don't need to lock the hashes.
+@@ -448,41 +469,43 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		struct in6_addr *saddr, struct in6_addr *daddr,
+ 		struct udp_table *udptable)
+ {
+-	struct sock *sk, *sk2;
++	struct sock *sk, *stack[256 / sizeof(struct sock *)];
+ 	const struct udphdr *uh = udp_hdr(skb);
+ 	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
+ 	int dif;
++	unsigned int i, count = 0;
+ 
+ 	spin_lock(&hslot->lock);
+ 	sk = sk_nulls_head(&hslot->head);
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+-	if (!sk) {
+-		kfree_skb(skb);
+-		goto out;
+-	}
+-
+-	sk2 = sk;
+-	while ((sk2 = udp_v6_mcast_next(net, sk_nulls_next(sk2), uh->dest, daddr,
+-					uh->source, saddr, dif))) {
+-		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
+-		if (buff) {
+-			bh_lock_sock(sk2);
+-			if (!sock_owned_by_user(sk2))
+-				udpv6_queue_rcv_skb(sk2, buff);
+-			else
+-				sk_add_backlog(sk2, buff);
+-			bh_unlock_sock(sk2);
++	while (sk) {
++		stack[count++] = sk;
++		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
++				       uh->source, saddr, dif);
++		if (unlikely(count == ARRAY_SIZE(stack))) {
++			if (!sk)
++				break;
++			flush_stack(stack, count, skb, ~0);
++			count = 0;
  		}
-=20
- 		/* ipv4 addr of the socket is invalid.  Only the
-@@ -289,13 +290,9 @@ static int rawv6_bind(struct sock *sk, struct sock=
-addr *uaddr, int addr_len)
- 			err =3D -EADDRNOTAVAIL;
- 			if (!ipv6_chk_addr(sock_net(sk), &addr->sin6_addr,
- 					   dev, 0)) {
--				if (dev)
--					dev_put(dev);
--				goto out;
-+				goto out_unlock;
- 			}
- 		}
--		if (dev)
--			dev_put(dev);
  	}
-=20
- 	inet->inet_rcv_saddr =3D inet->inet_saddr =3D v4addr;
-@@ -303,6 +300,8 @@ static int rawv6_bind(struct sock *sk, struct socka=
-ddr *uaddr, int addr_len)
- 	if (!(addr_type & IPV6_ADDR_MULTICAST))
- 		ipv6_addr_copy(&np->saddr, &addr->sin6_addr);
- 	err =3D 0;
-+out_unlock:
-+	rcu_read_unlock();
- out:
- 	release_sock(sk);
- 	return err;
+-	bh_lock_sock(sk);
+-	if (!sock_owned_by_user(sk))
+-		udpv6_queue_rcv_skb(sk, skb);
+-	else
+-		sk_add_backlog(sk, skb);
+-	bh_unlock_sock(sk);
+-out:
++	/*
++	 * before releasing the lock, we must take reference on sockets
++	 */
++	for (i = 0; i < count; i++)
++		sock_hold(stack[i]);
++
+ 	spin_unlock(&hslot->lock);
++
++	if (count) {
++		flush_stack(stack, count, skb, count - 1);
++
++		for (i = 0; i < count; i++)
++			sock_put(stack[i]);
++	} else {
++		kfree_skb(skb);
++	}
+ 	return 0;
+ }
+ 
