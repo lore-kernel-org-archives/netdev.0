@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Thu, 05 Nov 2009 21:08:10 -0800 (PST)
-Message-ID: <20091105.210810.124818005.davem@davemloft.net>
-References: <20091002141407.30224.54207.stgit@dev.haskins.net>
+Subject: Re: [PATCH net-next-2.6] netlabel: remove dev_put() calls
+Date: Thu, 05 Nov 2009 21:08:15 -0800 (PST)
+Message-ID: <20091105.210815.251131968.davem@davemloft.net>
+References: <4AF1DE29.7010408@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ghaskins@novell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752138AbZKFFHt@vger.kernel.org>
-In-Reply-To: <20091002141407.30224.54207.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52492
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753185AbZKFFHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 00:07:49 -0500
+In-Reply-To: <4AF1DE29.7010408@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory Haskins <ghaskins@novell.com>
-Date: Fri, 02 Oct 2009 10:20:00 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 04 Nov 2009 21:03:53 +0100
 
-> The following is an RFC for an attempt at addressing a zero-copy solution.
+> Use dev_get_by_name_rcu() to avoid dev_put() calls,
+> in sections already inside a rcu_read_lock()
 > 
-> To be perfectly honest, I have no idea if this is the best solution, or if
-> there is truly a problem with skb->destructor that requires an alternate
-> mechanism.  What I do know is that this patch seems to work, and I would
-> like to see some kind of solution available upstream.  So I thought I would
-> send my hack out as at least a point of discussion.  FWIW: This has been
-> tested heavily in my rig and is technically suitable for inclusion after
-> review as is, if that is decided to be the optimal path forward here.
-> 
-> Thanks for your review and consideration,
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I have no fundamental objections, but when you submit this for
-real can you show the code that uses it so we can get a better
-idea about things?
-
-Thanks.
+Applied to net-next-2.6
