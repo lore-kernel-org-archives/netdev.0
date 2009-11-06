@@ -1,39 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Thu, 05 Nov 2009 17:40:55 -0800 (PST)
-Message-ID: <20091105.174055.161804502.davem@davemloft.net>
-References: <20091106115554.44622e53.sfr@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] move dma_head/dma_maps out of skb_shared_info and into
+ sk_buff
+Date: Fri, 06 Nov 2009 03:14:35 +0100
+Message-ID: <4AF3868B.7070409@gmail.com>
+References: <4AF373C9.7040700@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, marcel@holtmann.org,
-	torgny.johansson@gmail.com
-To: sfr@canb.auug.org.au
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42177
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754940AbZKFBka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 20:40:30 -0500
-In-Reply-To: <20091106115554.44622e53.sfr@canb.auug.org.au>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52247 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757671AbZKFCOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 21:14:36 -0500
+In-Reply-To: <4AF373C9.7040700@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 6 Nov 2009 11:55:54 +1100
+Alexander Duyck a =E9crit :
+> During testing we found issues with the use of skb_dma_map/unmap on
+> systems that had iommu enabled and were configured to use a bridge.  =
+The
+> issue is that if two ports are members of the same bridge, and a
+> broadcast packet is sent out on the bridge skb_clone will be used to
+> send a copy to all ports, but the clones run into issues because the
+> dma mappings for the cloned skbs all share the shared_info structure
+> where the dma mappings are stored.
+>=20
+> To resolve that this patch moves those dma mappings out of the
+> shared_info structure and into the sk_buff itself.  This allows clone=
+d
+> skbs to be mapped separately without causing dma unmapping errors.
+>=20
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/usb/cdc_ether.c between commit
-> 3a19d56c71bd3a08412d609d219ac8eec0819166 ("cdc_ether: additional Ericsson
-> MBM PID's to the whitelist") from the net-current tree and commit
-> e1e499eef2200c2a7120c9ebf297d48b195cf887 ("usbnet: Use wwan%d interface
-> name for mobile broadband devices") from the net tree.
-> 
-> Context changes.  I fixed it up (see below) and can carry it as
-> necessary.  This fix may not be completely correct ...
+Hello Alexander
 
-Thanks I'll take a look at this when merging net-2.6 into
-net-next-2.6 later tonight.
+You probably know such a change is a major one ;)
+
+1) a diffstat -p1 -w70 for this kind of patch would be nice.
+
+2) Your patch is garbled (tabulations were replaced by spaces
+ by your mailer)
+
+3) Are you sure we need to clear dma_maps[] array and dma_head=20
+   in __alloc_skb() ? I guess not.
+   MAX_SKB_FRAGS =3D 18 on x86  -> 152 bytes on x86_64.
+   Previous implementation was not clearing them.
+   Thats would be a major slow down.
+
+4) 152 bytes more in skb -> 304 bytes more in skbuff_fclone_cache
+   Do we really want two copies of dma_maps[] when skb are allocated
+   from fclone cache ?
+
+5) It seems to me this stuff is needed for xmit only and few drivers,
+   could we find a way to not have it for RX path and drivers that dont
+   need it ? Maybe drivers themselves should allocate storage for this
+  stuff so we can remove it both from shared_info *and* skb=20
+
+Thanks
+
+
