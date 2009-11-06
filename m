@@ -1,94 +1,94 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 05/17] wpan-phy: allow specifying a per-page channel mask
-Date: Fri,  6 Nov 2009 15:39:29 +0300
-Message-ID: <1257511181-19403-6-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 07/17] ieee802154: constify struct net_device in some operations
+Date: Fri,  6 Nov 2009 15:39:31 +0300
+Message-ID: <1257511181-19403-8-git-send-email-dbaryshkov@gmail.com>
 References: <1257511181-19403-1-git-send-email-dbaryshkov@gmail.com>
 Cc: netdev@vger.kernel.org, Sergey Lapin <slapin@ossfans.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ew0-f207.google.com ([209.85.219.207]:58044 "EHLO
 	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757668AbZKFMko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 07:40:44 -0500
+	with ESMTP id S1758084AbZKFMks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 07:40:48 -0500
 Received: by mail-ew0-f207.google.com with SMTP id 3so975605ewy.37
-        for <netdev@vger.kernel.org>; Fri, 06 Nov 2009 04:40:49 -0800 (PST)
+        for <netdev@vger.kernel.org>; Fri, 06 Nov 2009 04:40:53 -0800 (PST)
 In-Reply-To: <1257511181-19403-1-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IEEE 802.15.4-2006 defines channel pages that hold channels (max 32 pages,
-27 channels per page). Allow the driver to specify supported channels
-on pages, other than the first one.
+Some of ieee802154 operations really shouldn't change passed net_device.
+Constify passed argument.
 
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 ---
- drivers/ieee802154/fakehard.c |    2 +-
- include/net/wpan-phy.h        |    2 +-
- net/ieee802154/wpan-class.c   |   20 +++++++++++++++++++-
- 3 files changed, 21 insertions(+), 3 deletions(-)
+ drivers/ieee802154/fakehard.c   |    8 ++++----
+ include/net/ieee802154_netdev.h |   10 +++++-----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
-index 96a2959..f6f2afe 100644
+index 4ea93cc..77fbb51 100644
 --- a/drivers/ieee802154/fakehard.c
 +++ b/drivers/ieee802154/fakehard.c
-@@ -356,7 +356,7 @@ static int __devinit ieee802154fake_probe(struct platform_device *pdev)
- 			dev->addr_len);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+@@ -43,7 +43,7 @@ struct wpan_phy *net_to_phy(struct net_device *dev)
+  *
+  * Return the ID of the PAN from the PIB.
+  */
+-static u16 fake_get_pan_id(struct net_device *dev)
++static u16 fake_get_pan_id(const struct net_device *dev)
+ {
+ 	BUG_ON(dev->type != ARPHRD_IEEE802154);
  
--	phy->channels_supported = (1 << 27) - 1;
-+	phy->channels_supported[0] = (1 << 27) - 1;
- 	phy->transmit_power = 0xbf;
+@@ -58,7 +58,7 @@ static u16 fake_get_pan_id(struct net_device *dev)
+  * device. If the device has not yet had a short address assigned
+  * then this should return 0xFFFF to indicate a lack of association.
+  */
+-static u16 fake_get_short_addr(struct net_device *dev)
++static u16 fake_get_short_addr(const struct net_device *dev)
+ {
+ 	BUG_ON(dev->type != ARPHRD_IEEE802154);
  
- 	dev->netdev_ops = &fake_ops;
-diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
-index 3367dd9..7b7fc58 100644
---- a/include/net/wpan-phy.h
-+++ b/include/net/wpan-phy.h
-@@ -34,7 +34,7 @@ struct wpan_phy {
+@@ -78,7 +78,7 @@ static u16 fake_get_short_addr(struct net_device *dev)
+  * Note: This is in section 7.2.1.2 of the IEEE 802.15.4-2006
+  *       document.
+  */
+-static u8 fake_get_dsn(struct net_device *dev)
++static u8 fake_get_dsn(const struct net_device *dev)
+ {
+ 	BUG_ON(dev->type != ARPHRD_IEEE802154);
+ 
+@@ -98,7 +98,7 @@ static u8 fake_get_dsn(struct net_device *dev)
+  * Note: This is in section 7.2.1.2 of the IEEE 802.15.4-2006
+  *       document.
+  */
+-static u8 fake_get_bsn(struct net_device *dev)
++static u8 fake_get_bsn(const struct net_device *dev)
+ {
+ 	BUG_ON(dev->type != ARPHRD_IEEE802154);
+ 
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 5dc6a61..d23fb5a 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -98,14 +98,14 @@ struct ieee802154_mlme_ops {
+ 	 * FIXME: these should become the part of PIB/MIB interface.
+ 	 * However we still don't have IB interface of any kind
  	 */
- 	u8 current_channel;
- 	u8 current_page;
--	u32 channels_supported;
-+	u32 channels_supported[32];
- 	u8 transmit_power;
- 	u8 cca_mode;
+-	u16 (*get_pan_id)(struct net_device *dev);
+-	u16 (*get_short_addr)(struct net_device *dev);
+-	u8 (*get_dsn)(struct net_device *dev);
+-	u8 (*get_bsn)(struct net_device *dev);
++	u16 (*get_pan_id)(const struct net_device *dev);
++	u16 (*get_short_addr)(const struct net_device *dev);
++	u8 (*get_dsn)(const struct net_device *dev);
++	u8 (*get_bsn)(const struct net_device *dev);
+ };
  
-diff --git a/net/ieee802154/wpan-class.c b/net/ieee802154/wpan-class.c
-index 68ccde6..0c51f85 100644
---- a/net/ieee802154/wpan-class.c
-+++ b/net/ieee802154/wpan-class.c
-@@ -40,12 +40,30 @@ static ssize_t name ## _show(struct device *dev,			\
- 
- MASTER_SHOW(current_channel, "%d");
- MASTER_SHOW(current_page, "%d");
--MASTER_SHOW(channels_supported, "%#x");
- MASTER_SHOW_COMPLEX(transmit_power, "%d +- %d dB",
- 	((signed char) (phy->transmit_power << 2)) >> 2,
- 	(phy->transmit_power >> 6) ? (phy->transmit_power >> 6) * 3 : 1 );
- MASTER_SHOW(cca_mode, "%d");
- 
-+static ssize_t channels_supported_show(struct device *dev,
-+			    struct device_attribute *attr, char *buf)
-+{
-+	struct wpan_phy *phy = container_of(dev, struct wpan_phy, dev);
-+	int ret;
-+	int i, len = 0;
-+
-+	mutex_lock(&phy->pib_lock);
-+	for (i = 0; i < 32; i++) {
-+		ret = snprintf(buf + len, PAGE_SIZE - len,
-+				"%#09x\n", phy->channels_supported[i]);
-+		if (ret < 0)
-+			break;
-+		len += ret;
-+	}
-+	mutex_unlock(&phy->pib_lock);
-+	return len;
-+}
-+
- static struct device_attribute pmib_attrs[] = {
- 	__ATTR_RO(current_channel),
- 	__ATTR_RO(current_page),
+ static inline struct ieee802154_mlme_ops *ieee802154_mlme_ops(
+-		struct net_device *dev)
++		const struct net_device *dev)
+ {
+ 	return dev->ml_priv;
+ }
 -- 
 1.6.5
 
