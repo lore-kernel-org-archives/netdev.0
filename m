@@ -1,33 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netfilter 02/02: xt_connlimit: fix regression caused by zero
- family value
-Date: Fri, 06 Nov 2009 16:14:12 +0100
-Message-ID: <4AF43D44.3030105@gmail.com>
-References: <4AF31818.3030103@trash.net> <alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr> <4AF43782.50604@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] netlink: add socket destruction notification
+Date: Fri, 06 Nov 2009 16:21:29 +0100
+Message-ID: <4AF43EF9.3020707@trash.net>
+References: <1254473048.3959.76.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4AF43782.50604@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>,
+	Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64401 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757859AbZKFPV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 10:21:26 -0500
+In-Reply-To: <1254473048.3959.76.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
+Johannes Berg wrote:
+> When we want to keep track of resources associated with applications, we
+> need to know when an app is going away. Add a notification function to
+> netlink that tells us that, and also hook it up to generic netlink so
+> generic netlink can notify the families. Due to the way generic netlink
+> works though, we need to notify all families and they have to sort out
+> whatever resources some commands associated with the socket themselves.
+> 
 
-> Indeed, my email client displays ^2 as =B2, which cut and paste trans=
-forms
-> to 2 :)
->
+> @@ -166,6 +167,9 @@ static void netlink_sock_destruct(struct
+>  		return;
+>  	}
+>  
+> +	if (nlk->destruct)
+> +		nlk->destruct(sk);
+> +
+>  	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+>  	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+>  	WARN_ON(nlk_sk(sk)->groups);
 
-One more Thunderbird addict^Wvictim :)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+This seems pretty similar to the NETLINK_URELEASE notifier invoked
+in netlink_release(). Wouldn't that one work as well?
