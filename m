@@ -1,77 +1,68 @@
-From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 01/25 v2] mlx4_core: identify function as pf or vf
-Date: Fri, 06 Nov 2009 05:07:58 +0200
-Message-ID: <4AF3930E.90904@mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 02/25 v2] mlx4_core: add support for arbitrary bitmap sizes
+Date: Fri, 06 Nov 2009 05:08:04 +0200
+Message-ID: <4AF39314.5020004@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il,
+	yevgenyp@mellanox.co.il
+To: rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:52446 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759110AbZKFAK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Nov 2009 19:10:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+From: Liran Liss <liranl@mellanox.co.il>
 
-Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Signed-off-by: Liran Liss <liranl@mellanox.co.il>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- include/linux/mlx4/device.h |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ drivers/net/mlx4/alloc.c |   10 ++++++++++
+ drivers/net/mlx4/mlx4.h  |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index ce7cc6c..f35703d 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -42,6 +42,9 @@
- enum {
- 	MLX4_FLAG_MSI_X		= 1 << 0,
- 	MLX4_FLAG_OLD_PORT_CMDS	= 1 << 1,
-+	MLX4_FLAG_MASTER	= 1 << 2,
-+	MLX4_FLAG_SLAVE		= 1 << 3,
-+	MLX4_FLAG_SRIOV		= 1 << 4,
- };
+diff --git a/drivers/net/mlx4/alloc.c b/drivers/net/mlx4/alloc.c
+index ad95d5f..bc68cc3 100644
+--- a/drivers/net/mlx4/alloc.c
++++ b/drivers/net/mlx4/alloc.c
+@@ -177,6 +177,16 @@ int mlx4_bitmap_init(struct mlx4_bitmap *bitmap, u32 num, u32 mask,
+ 	return 0;
+ }
  
- enum {
-@@ -375,6 +378,7 @@ struct mlx4_av {
- struct mlx4_dev {
- 	struct pci_dev	       *pdev;
- 	unsigned long		flags;
-+	unsigned long		num_slaves;
- 	struct mlx4_caps	caps;
- 	struct radix_tree_root	qp_table_tree;
- 	u32			rev_id;
-@@ -400,6 +404,21 @@ struct mlx4_init_port_param {
- 		if (((type) == MLX4_PORT_TYPE_IB ? (dev)->caps.port_mask : \
- 		     ~(dev)->caps.port_mask) & 1 << ((port) - 1))
++/* Like bitmap_init, but doesn't require 'num' to be a power of 2 or
++ * a non-trivial mask */
++int mlx4_bitmap_init_no_mask(struct mlx4_bitmap *bitmap, u32 num,
++			     u32 reserved_bot, u32 reserved_top)
++{
++	u32 num_rounded = roundup_pow_of_two(num);
++	return mlx4_bitmap_init(bitmap, num_rounded, num_rounded - 1,
++				reserved_bot, num_rounded - num + reserved_top);
++}
++
+ void mlx4_bitmap_cleanup(struct mlx4_bitmap *bitmap)
+ {
+ 	kfree(bitmap->table);
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index bc72d6e..5836c94 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -330,6 +330,8 @@ u32 mlx4_bitmap_alloc_range(struct mlx4_bitmap *bitmap, int cnt, int align);
+ void mlx4_bitmap_free_range(struct mlx4_bitmap *bitmap, u32 obj, int cnt);
+ int mlx4_bitmap_init(struct mlx4_bitmap *bitmap, u32 num, u32 mask,
+ 		     u32 reserved_bot, u32 resetrved_top);
++int mlx4_bitmap_init_no_mask(struct mlx4_bitmap *bitmap, u32 num,
++			     u32 reserved_bot, u32 reserved_top);
+ void mlx4_bitmap_cleanup(struct mlx4_bitmap *bitmap);
  
-+static inline int mlx4_is_slave(struct mlx4_dev *dev)
-+{
-+	return dev->flags & MLX4_FLAG_SLAVE;
-+}
-+
-+static inline int mlx4_is_master(struct mlx4_dev *dev)
-+{
-+	return dev->flags & MLX4_FLAG_MASTER;
-+}
-+
-+static inline int mlx4_is_mfunc(struct mlx4_dev *dev)
-+{
-+	return dev->flags & (MLX4_FLAG_MASTER | MLX4_FLAG_SLAVE);
-+}
-+
- int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
- 		   struct mlx4_buf *buf);
- void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf);
+ int mlx4_reset(struct mlx4_dev *dev);
 -- 
 1.5.3.7
 
 
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
