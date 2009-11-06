@@ -1,67 +1,45 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH net-next] Phonet: use rwlock for sockets list
-Date: Fri, 6 Nov 2009 16:29:42 +0200
-Message-ID: <200911061629.42911.remi.denis-courmont@nokia.com>
-References: <1257514891-18917-1-git-send-email-remi@remlab.net> <65081524fbfeb975c842ebc79a8fb038@chewa.net> <4AF42C07.4050008@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter 02/02: xt_connlimit: fix regression caused by zero
+ family value
+Date: Fri, 06 Nov 2009 15:49:38 +0100
+Message-ID: <4AF43782.50604@trash.net>
+References: <4AF31818.3030103@trash.net> <alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: ext Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:53693 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755249AbZKFO2P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 09:28:15 -0500
-In-Reply-To: <4AF42C07.4050008@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 06 November 2009 16:00:39 ext Eric Dumazet, you wrote:
-> R=C3=A9mi Denis-Courmont a =C3=A9crit :
-> > It seems better than a spinlock, assuming that sockets are
-> > created/destroyed more seldom than they receive packets. And then
-> > sk_for_each_rcu does not exist. I am sure there is a good reason fo=
-r
-> > that, though I wouldn't know. I guess I should try to use RCU hlist=
-_nulls
-> > then?
+Jan Engelhardt wrote:
+> On Thursday 2009-11-05 19:23, Patrick McHardy wrote:
+>>    netfilter: xt_connlimit: fix regression caused by zero family val=
+ue
+>>   =20
+>>    Commit v2.6.28-rc1~7172~1092~2 was slightly incomplete; not all
+>>    instances of par->match->family were changed to par->family.
+>>   =20
+>>    Netfilter bugzilla #610.
 >=20
-> spin_lock()/spin_unlock() is faster than read_lock()/read_unlock(), u=
-nless
-> there is contention.  (two atomic ops instead of one)
+> Hold it.
+> git would never output ~7172~1092~2 because ~8266 would be much simpl=
+er.
 >=20
-> So, unless you have a particular performance problem, it's actually
-> better to use a spinlock.
->=20
-> If you do have performance problem, a RCU conversion is better than r=
-wlock.
-> I can do RCU conversion if you ask me...
+> I originally wrote "Commit v2.6.28-rc1~717^2~109^2~2", but one of you=
+r=20
+> programs seems to eat commit messages or more.
 
-The most obvious current bottleneck is the sockets linked-list more so =
-than=20
-the locking scheme (RCU vs spinlock vs rwlock). I'll fix that soonish=20
-regardless of the locking.
-
-Then there is the devices lists. I did not want to clutter all net_devi=
-ce's=20
-with a Phonet-specific pointer, since most devices aren't Phonet-capabl=
-e. So=20
-we have a linked-list for per-device data. There, I guess RCU would mak=
-e=20
-sense, but it did not seem trivial a change at all.
-
-That said, there are no real "problems" yet - I was just trying to impr=
-ove=20
-things. N900 ships with the 2.6.30 Phonet stack, and it works fine :) T=
-he 3G=20
-access network is typically the biggest bottleneck anyway...
-
-So if you say R/W locks suck, screw this patch.
-
-Thanks!
-
---=20
-R=C3=A9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+Indeed, my email client displays ^2 as =B2, which cut and paste transfo=
+rms
+to 2 :)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
