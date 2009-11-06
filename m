@@ -1,37 +1,62 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH 2.6.33/1 00/12] WiMAX patches for 2.6.33 (batch #1)
-Date: Fri, 06 Nov 2009 10:17:49 -0800
-Message-ID: <1257531469.3107.6.camel@localhost.localdomain>
-References: <cover.1257370735.git.inaky@linux.intel.com>
-	 <20091104.222450.149379897.davem@davemloft.net>
-	 <1257445051.3263.12.camel@localhost.localdomain>
-	 <20091106.052337.252216626.davem@davemloft.net>
+From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project tree
+Date: Fri, 6 Nov 2009 19:30:13 +0100
+Message-ID: <200911061930.13069.bzolnier@gmail.com>
+References: <200911031951.05235.bzolnier@gmail.com> <20091106074643.GA5562@ucw.cz> <200911061858.56816.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:7340 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753068AbZKFSTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 13:19:50 -0500
-In-Reply-To: <20091106.052337.252216626.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
+	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200911061858.56816.IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-11-06 at 05:23 -0800, David Miller wrote:
-> From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-> Date: Thu, 05 Nov 2009 10:17:31 -0800
-> 
-> > So this pull should be against:
-> > 
-> > REPO   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git
-> > BRANCH linux-2.6.33.y
-> 
-> This looks a lot better, pulled and pushed back out to net-next-2.6
+On Friday 06 November 2009 18:58:56 Ivo van Doorn wrote:
 
-Thanks
+> drivers/net/staging/rt28{6,7}0 was developed by Ralink and I acked
 
-/me starts the countdown to the next screwup.
+The original vendor drivers were:
+- rt2860
+- rt2870
+- rt3070
+- rt3090
 
+Each weighting ~100 KLOC.
+
+The current staging drivers (rt2860 w/ RT3090 support and rt2870 w/ RT3070
+support) are the result of my work on getting staging drivers under control
+(+ trying some new strategies of dealing with ugly code) and weight ~75 KLOC
+_together_ (they share the wireless stack code).
+
+> the merged for those drivers after the asurance that it was only merged
+> to please the users so developers could focus on the rt2x00 version of
+> the driver.
+
+Could somebody please explain me (in the public or in the private) what is
+the reason behind whole affair about staging drivers because all the time
+I feel like I'm missing some important detail here.  It would a lot more
+productive than all the things that I could hear about my agenda, my work
+or my intellectual abilities in the past.
+
+[ Like I said before I got only interested into them in April this year
+  while doing casual staging cleanups and I'm not affiliated with any
+  distribution vendor. ]
+
+Thanks.
+-- 
+Bartlomiej Zolnierkiewicz
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
