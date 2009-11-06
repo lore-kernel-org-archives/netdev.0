@@ -1,105 +1,262 @@
-From: Jon Loeliger <jdl@jdl.com>
-Subject: Re: [PATCH RFC] gianfar: Do not call skb recycling with disabled IRQs
-Date: Fri, 06 Nov 2009 14:38:06 -0600
-Message-ID: <E1N6VZO-00077V-Hi@jdl.com>
-References: <20091104225711.GA30844@oksana.dev.rtsoft.ru> <E1N62ti-0003iS-K2@jdl.com> <20091105142028.GB17171@oksana.dev.rtsoft.ru> <E1N63WM-0003xK-PN@jdl.com> <E1N64UY-00049g-Hb@jdl.com> <20091105165738.GA31923@oksana.dev.rtsoft.ru> <9F4C7D19E8361D4C94921B95BE08B81B950713@zin33exm22.fsl.freescale.net> <E1N66Jp-0004Y0-8Q@jdl.com> <20091105175316.GA27099@oksana.dev.rtsoft.ru>
-Cc: Kumar Gopalpet-B05799 <B05799@freescale.com>,
-	linuxppc-dev@ozlabs.org, Jason Wessel <jason.wessel@windriver.com>,
-	Fleming Andy-AFLEMING <afleming@freescale.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jdl.com ([208.123.74.7]:35912 "EHLO jdl.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759717AbZKFUiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 15:38:19 -0500
-In-reply-to: <20091105175316.GA27099@oksana.dev.rtsoft.ru> 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2009-11-06
+Date: Fri, 6 Nov 2009 15:40:34 -0500
+Message-ID: <20091106204034.GI2782@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> 
-> Here is the patch on top of the Linus' git tree, if you haven't
-> already 'back-ported' the previous patch.
+Dave,
 
-This back-ported patch has been running in my (2.6.31) kernel
-for a couple days now without showing any sign of problem.
+Three more intended for 2.6.32, two oops fixes and a revert of a patch
+that traded one bug for another.  One of the oops fixes reorders some
+cancel_delayed_work_sync calls and the other does some bit testing to
+avoid scheduling work after a device has been removed.
 
-Maybe throw a
+Please let me know if there are problems!
 
-Tested-by: Jon Loeliger <jdl@jdl.com>
+Thanks,
 
-at it?
+John
 
-jdl
+---
 
+Individual patches are available here:
 
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 5bf31f1..5dca99c 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -1274,7 +1274,6 @@ static int gfar_start_xmit(struct sk_buff *skb, struct 
-> net_device *dev)
->  	u32 lstatus;
->  	int i;
->  	u32 bufaddr;
-> -	unsigned long flags;
->  	unsigned int nr_frags, length;
->  
->  	base = priv->tx_bd_base;
-> @@ -1298,14 +1297,11 @@ static int gfar_start_xmit(struct sk_buff *skb, struc
-> t net_device *dev)
->  	/* total number of fragments in the SKB */
->  	nr_frags = skb_shinfo(skb)->nr_frags;
->  
-> -	spin_lock_irqsave(&priv->txlock, flags);
-> -
->  	/* check if there is space to queue this packet */
->  	if ((nr_frags+1) > priv->num_txbdfree) {
->  		/* no space, stop the queue */
->  		netif_stop_queue(dev);
->  		dev->stats.tx_fifo_errors++;
-> -		spin_unlock_irqrestore(&priv->txlock, flags);
->  		return NETDEV_TX_BUSY;
->  	}
->  
-> @@ -1403,9 +1399,6 @@ static int gfar_start_xmit(struct sk_buff *skb, struct 
-> net_device *dev)
->  	/* Tell the DMA to go go go */
->  	gfar_write(&priv->regs->tstat, TSTAT_CLEAR_THALT);
->  
-> -	/* Unlock priv */
-> -	spin_unlock_irqrestore(&priv->txlock, flags);
-> -
->  	return NETDEV_TX_OK;
->  }
->  
-> @@ -1915,17 +1908,14 @@ static int gfar_poll(struct napi_struct *napi, int bu
-> dget)
->  	struct net_device *dev = priv->ndev;
->  	int tx_cleaned = 0;
->  	int rx_cleaned = 0;
-> -	unsigned long flags;
->  
->  	/* Clear IEVENT, so interrupts aren't called again
->  	 * because of the packets that have already arrived */
->  	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
->  
-> -	/* If we fail to get the lock, don't bother with the TX BDs */
-> -	if (spin_trylock_irqsave(&priv->txlock, flags)) {
-> -		tx_cleaned = gfar_clean_tx_ring(dev);
-> -		spin_unlock_irqrestore(&priv->txlock, flags);
-> -	}
-> +	netif_tx_lock_bh(priv->ndev);
-> +	tx_cleaned = gfar_clean_tx_ring(dev);
-> +	netif_tx_unlock_bh(priv->ndev);
->  
->  	rx_cleaned = gfar_clean_rx_ring(dev, budget);
->  
-> 
-> -- 
-> Anton Vorontsov
-> email: cbouatmailru@gmail.com
-> irc://irc.freenode.net/bd2
+---
+
+The following changes since commit bcfe3c2046fc4f16544f2b127f1b159dd1fcad8b:
+  David S. Miller (1):
+        Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+John W. Linville (1):
+      Revert "ipw2200: fix oops on missing firmware"
+
+Larry Finger (1):
+      rtl8187: Fix kernel oops when device is removed when LEDS enabled
+
+Sean Cross (1):
+      rt2x00: Don't queue ieee80211 work after USB removal
+
+ drivers/net/wireless/ipw2x00/ipw2100.c       |    5 +----
+ drivers/net/wireless/ipw2x00/ipw2200.c       |    2 --
+ drivers/net/wireless/ipw2x00/libipw.h        |    1 -
+ drivers/net/wireless/ipw2x00/libipw_module.c |   14 +++++---------
+ drivers/net/wireless/rt2x00/rt2x00dev.c      |    4 ++--
+ drivers/net/wireless/rt2x00/rt2x00link.c     |   11 +++++++----
+ drivers/net/wireless/rt2x00/rt2x00usb.c      |    9 ++++++++-
+ drivers/net/wireless/rtl818x/rtl8187_leds.c  |    4 ++--
+ 8 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index a741d37..240cff1 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -6325,10 +6325,8 @@ static int ipw2100_pci_init_one(struct pci_dev *pci_dev,
+ 
+       fail:
+ 	if (dev) {
+-		if (registered) {
+-			unregister_ieee80211(priv->ieee);
++		if (registered)
+ 			unregister_netdev(dev);
+-		}
+ 
+ 		ipw2100_hw_stop_adapter(priv);
+ 
+@@ -6385,7 +6383,6 @@ static void __devexit ipw2100_pci_remove_one(struct pci_dev *pci_dev)
+ 		/* Unregister the device first - this results in close()
+ 		 * being called if the device is open.  If we free storage
+ 		 * first, then close() will crash. */
+-		unregister_ieee80211(priv->ieee);
+ 		unregister_netdev(dev);
+ 
+ 		/* ipw2100_down will ensure that there is no more pending work
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 04341a2..8d58e6e 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -11821,7 +11821,6 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
+ 		if (err) {
+ 			IPW_ERROR("Failed to register promiscuous network "
+ 				  "device (error %d).\n", err);
+-			unregister_ieee80211(priv->ieee);
+ 			unregister_netdev(priv->net_dev);
+ 			goto out_remove_sysfs;
+ 		}
+@@ -11872,7 +11871,6 @@ static void __devexit ipw_pci_remove(struct pci_dev *pdev)
+ 
+ 	mutex_unlock(&priv->mutex);
+ 
+-	unregister_ieee80211(priv->ieee);
+ 	unregister_netdev(priv->net_dev);
+ 
+ 	if (priv->rxq) {
+diff --git a/drivers/net/wireless/ipw2x00/libipw.h b/drivers/net/wireless/ipw2x00/libipw.h
+index f42ade6..bf45391 100644
+--- a/drivers/net/wireless/ipw2x00/libipw.h
++++ b/drivers/net/wireless/ipw2x00/libipw.h
+@@ -1020,7 +1020,6 @@ static inline int libipw_is_cck_rate(u8 rate)
+ /* ieee80211.c */
+ extern void free_ieee80211(struct net_device *dev, int monitor);
+ extern struct net_device *alloc_ieee80211(int sizeof_priv, int monitor);
+-extern void unregister_ieee80211(struct libipw_device *ieee);
+ extern int libipw_change_mtu(struct net_device *dev, int new_mtu);
+ 
+ extern void libipw_networks_age(struct libipw_device *ieee,
+diff --git a/drivers/net/wireless/ipw2x00/libipw_module.c b/drivers/net/wireless/ipw2x00/libipw_module.c
+index be5b809..a0e9f6a 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_module.c
++++ b/drivers/net/wireless/ipw2x00/libipw_module.c
+@@ -235,19 +235,16 @@ void free_ieee80211(struct net_device *dev, int monitor)
+ 	libipw_networks_free(ieee);
+ 
+ 	/* free cfg80211 resources */
+-	if (!monitor)
++	if (!monitor) {
++		wiphy_unregister(ieee->wdev.wiphy);
++		kfree(ieee->a_band.channels);
++		kfree(ieee->bg_band.channels);
+ 		wiphy_free(ieee->wdev.wiphy);
++	}
+ 
+ 	free_netdev(dev);
+ }
+ 
+-void unregister_ieee80211(struct libipw_device *ieee)
+-{
+-	wiphy_unregister(ieee->wdev.wiphy);
+-	kfree(ieee->a_band.channels);
+-	kfree(ieee->bg_band.channels);
+-}
+-
+ #ifdef CONFIG_LIBIPW_DEBUG
+ 
+ static int debug = 0;
+@@ -333,4 +330,3 @@ module_init(libipw_init);
+ 
+ EXPORT_SYMBOL(alloc_ieee80211);
+ EXPORT_SYMBOL(free_ieee80211);
+-EXPORT_SYMBOL(unregister_ieee80211);
+diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+index 71761b3..73bbec5 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00dev.c
++++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+@@ -815,6 +815,8 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
+ 
+ 	mutex_init(&rt2x00dev->csr_mutex);
+ 
++	set_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags);
++
+ 	/*
+ 	 * Make room for rt2x00_intf inside the per-interface
+ 	 * structure ieee80211_vif.
+@@ -871,8 +873,6 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
+ 	rt2x00leds_register(rt2x00dev);
+ 	rt2x00debug_register(rt2x00dev);
+ 
+-	set_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags);
+-
+ 	return 0;
+ 
+ exit:
+diff --git a/drivers/net/wireless/rt2x00/rt2x00link.c b/drivers/net/wireless/rt2x00/rt2x00link.c
+index c64db0b..c708d0b 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00link.c
++++ b/drivers/net/wireless/rt2x00/rt2x00link.c
+@@ -362,8 +362,9 @@ void rt2x00link_start_tuner(struct rt2x00_dev *rt2x00dev)
+ 
+ 	rt2x00link_reset_tuner(rt2x00dev, false);
+ 
+-	ieee80211_queue_delayed_work(rt2x00dev->hw,
+-				     &link->work, LINK_TUNE_INTERVAL);
++	if (test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
++		ieee80211_queue_delayed_work(rt2x00dev->hw,
++					     &link->work, LINK_TUNE_INTERVAL);
+ }
+ 
+ void rt2x00link_stop_tuner(struct rt2x00_dev *rt2x00dev)
+@@ -469,8 +470,10 @@ static void rt2x00link_tuner(struct work_struct *work)
+ 	 * Increase tuner counter, and reschedule the next link tuner run.
+ 	 */
+ 	link->count++;
+-	ieee80211_queue_delayed_work(rt2x00dev->hw,
+-				     &link->work, LINK_TUNE_INTERVAL);
++
++	if (test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
++		ieee80211_queue_delayed_work(rt2x00dev->hw,
++					     &link->work, LINK_TUNE_INTERVAL);
+ }
+ 
+ void rt2x00link_register(struct rt2x00_dev *rt2x00dev)
+diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.c b/drivers/net/wireless/rt2x00/rt2x00usb.c
+index 5015448..f02b48a 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00usb.c
++++ b/drivers/net/wireless/rt2x00/rt2x00usb.c
+@@ -47,6 +47,8 @@ int rt2x00usb_vendor_request(struct rt2x00_dev *rt2x00dev,
+ 	    (requesttype == USB_VENDOR_REQUEST_IN) ?
+ 	    usb_rcvctrlpipe(usb_dev, 0) : usb_sndctrlpipe(usb_dev, 0);
+ 
++	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
++		return -ENODEV;
+ 
+ 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+ 		status = usb_control_msg(usb_dev, pipe, request, requesttype,
+@@ -60,8 +62,10 @@ int rt2x00usb_vendor_request(struct rt2x00_dev *rt2x00dev,
+ 		 * -ENODEV: Device has disappeared, no point continuing.
+ 		 * All other errors: Try again.
+ 		 */
+-		else if (status == -ENODEV)
++		else if (status == -ENODEV) {
++			clear_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags);
+ 			break;
++		}
+ 	}
+ 
+ 	ERROR(rt2x00dev,
+@@ -161,6 +165,9 @@ int rt2x00usb_regbusy_read(struct rt2x00_dev *rt2x00dev,
+ {
+ 	unsigned int i;
+ 
++	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
++		return -ENODEV;
++
+ 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+ 		rt2x00usb_register_read_lock(rt2x00dev, offset, reg);
+ 		if (!rt2x00_get_field32(*reg, field))
+diff --git a/drivers/net/wireless/rtl818x/rtl8187_leds.c b/drivers/net/wireless/rtl818x/rtl8187_leds.c
+index a1c670f..cf8a4a4 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187_leds.c
++++ b/drivers/net/wireless/rtl818x/rtl8187_leds.c
+@@ -210,10 +210,10 @@ void rtl8187_leds_exit(struct ieee80211_hw *dev)
+ 
+ 	/* turn the LED off before exiting */
+ 	ieee80211_queue_delayed_work(dev, &priv->led_off, 0);
+-	cancel_delayed_work_sync(&priv->led_off);
+-	cancel_delayed_work_sync(&priv->led_on);
+ 	rtl8187_unregister_led(&priv->led_rx);
+ 	rtl8187_unregister_led(&priv->led_tx);
++	cancel_delayed_work_sync(&priv->led_off);
++	cancel_delayed_work_sync(&priv->led_on);
+ }
+ #endif /* def CONFIG_RTL8187_LED */
+ 
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
