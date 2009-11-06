@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] udp: cleanup __udp4_lib_mcast_deliver
-Date: Fri, 06 Nov 2009 00:42:15 -0800 (PST)
-Message-ID: <20091106.004215.114490979.davem@davemloft.net>
-References: <200911052033.21964.lgrijincu@ixiacom.com>
+Subject: Re: netfilter 01/02: nf_nat: fix NAT issue in 2.6.30.4+
+Date: Fri, 06 Nov 2009 00:43:54 -0800 (PST)
+Message-ID: <20091106.004354.176310610.davem@davemloft.net>
+References: <4AF31832.1070701@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, opurdila@ixiacom.com
-To: lgrijincu@ixiacom.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47611
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47614
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753875AbZKFIlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:41:49 -0500
-In-Reply-To: <200911052033.21964.lgrijincu@ixiacom.com>
+	by vger.kernel.org with ESMTP id S1753517AbZKFIn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:43:29 -0500
+In-Reply-To: <4AF31832.1070701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Date: Thu, 5 Nov 2009 20:33:21 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 05 Nov 2009 19:23:46 +0100
 
-> 
-> __udp4_lib_mcast_deliver always returned 0.
-> It's caller can return 0 explicitly to make things clearer.
-> 
-> Also, we don't need the spin_lock() on the hslot to free the skb.
-> 
-> Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+>     netfilter: nf_nat: fix NAT issue in 2.6.30.4+
+ ...
+>     Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I think the current code is much easier to understand than
-your version.
-
-Getting rid of the useless return value is fine, but the
-new do{}while() loop et al. is less readable to me.
-
-I'm not applying these two patches, sorry.
+Applied to net-2.6
