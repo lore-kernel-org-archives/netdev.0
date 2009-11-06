@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Fix CQE_STATUS_EXTD_SHIFT define
-Date: Fri, 06 Nov 2009 00:31:09 -0800 (PST)
-Message-ID: <20091106.003109.232406339.davem@davemloft.net>
-References: <20091106071746.GA27296@serverengines.com>
+Subject: Re: [PATCH net-next]atl1c:change atl1c_buffer struct and
+ restructure clean atl1c_buffer procedure
+Date: Fri, 06 Nov 2009 00:32:15 -0800 (PST)
+Message-ID: <20091106.003215.189008196.davem@davemloft.net>
+References: <12574319533672-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathyap@serverengines.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33365
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754753AbZKFIan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:30:43 -0500
-In-Reply-To: <20091106071746.GA27296@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754948AbZKFIbv@vger.kernel.org>
+In-Reply-To: <12574319533672-git-send-email-jie.yang@atheros.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathyap@serverengines.com>
-Date: Fri, 6 Nov 2009 12:47:46 +0530
+From: <jie.yang@atheros.com>
+Date: Thu, 5 Nov 2009 22:39:13 +0800
 
+> change atl1c_buffer struct, use "u16 flags" instead of "u16 state"
+> to store more infomation for atl1c_buffer, and restructure clean
+> atl1c_buffer procedure, add common api atl1c_clean_buffer.
 > 
-> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+> Signed-off-by: Jie Yang <jie.yang@atheros.com>
 
-Applied to net-2.6, thanks.
+Applied, thanks.
