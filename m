@@ -1,23 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: udp: Optimise multicast reception
-Date: Fri, 06 Nov 2009 17:30:53 +0100
-Message-ID: <4AF44F3D.3050407@gmail.com>
-References: <200911052033.21964.lgrijincu@ixiacom.com> <20091106.004215.114490979.davem@davemloft.net> <200911061604.21465.lgrijincu@ixiacom.com> <4AF43C5E.4060300@gmail.com> <4AF447F7.6000700@gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Using netconsole and getting double prints
+Date: Fri, 6 Nov 2009 08:32:40 -0800
+Message-ID: <43e72e890911060832k1b831f32w93357c71b370e71c@mail.gmail.com>
+References: <43e72e890911051654i19c18bf3nd397662ed79712c4@mail.gmail.com>
+	<1257484663.2873.622.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
-	netdev@vger.kernel.org, opurdila@ixiacom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36727 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758611AbZKFQax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 11:30:53 -0500
-In-Reply-To: <4AF447F7.6000700@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759414AbZKFQc4@vger.kernel.org>
+In-Reply-To: <1257484663.2873.622.camel@calx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-And here is the ipv6 part as well
+On Thu, Nov 5, 2009 at 9:17 PM, Matt Mackall <mpm@selenic.com> wrote:
+> On Thu, 2009-11-05 at 16:54 -0800, Luis R. Rodriguez wrote:
+>> I'm getting double prints when using netconsole. This used to happen
+>> to me and then I just enable debugging log level manually (dmesg -n 8)
+>> but now no matter what I try I always get double prints.
+>
+> This is the first report I've seen of that. Recommend investigating with
+> wireshark.
 
-[PATCH net-next-2.6] ipv6: udp: Optimise multicast reception
+Matt, did you really mean wireshark? I'm a wireless guy so wireshark
+to me is this:
+
+http://www.wireshark.org/
+
+The prints have nothing to do with protocols though. I can get a
+double print on a simple hello world driver.
+
+  Luis
