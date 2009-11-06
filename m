@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: check kern before calling security subsystem
-Date: Thu, 05 Nov 2009 21:08:03 -0800 (PST)
-Message-ID: <20091105.210803.63946241.davem@davemloft.net>
-References: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com>
-	<20091104163224.27133.88570.stgit@paris.rdu.redhat.com>
-	<20091104173220.GH2603@ghostprotocols.net>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Thu, 05 Nov 2009 21:08:10 -0800 (PST)
+Message-ID: <20091105.210810.124818005.davem@davemloft.net>
+References: <20091002141407.30224.54207.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org, nhorman@redhat.com,
-	dwalsh@redhat.com, linux-security-module@vger.kernel.org
-To: acme@infradead.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091104173220.GH2603@ghostprotocols.net>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ghaskins@novell.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752138AbZKFFHt@vger.kernel.org>
+In-Reply-To: <20091002141407.30224.54207.stgit@dev.haskins.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnaldo Carvalho de Melo <acme@infradead.org>
-Date: Wed, 4 Nov 2009 15:32:20 -0200
+From: Gregory Haskins <ghaskins@novell.com>
+Date: Fri, 02 Oct 2009 10:20:00 -0400
 
-> Em Wed, Nov 04, 2009 at 11:32:24AM -0500, Eric Paris escreveu:
->> Before calling capable(CAP_NET_RAW) check if this operations is on behalf
->> of the kernel or on behalf of userspace.  Do not do the security check if
->> it is on behalf of the kernel.
->> 
->> Signed-off-by: Eric Paris <eparis@redhat.com>
+> The following is an RFC for an attempt at addressing a zero-copy solution.
 > 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> To be perfectly honest, I have no idea if this is the best solution, or if
+> there is truly a problem with skb->destructor that requires an alternate
+> mechanism.  What I do know is that this patch seems to work, and I would
+> like to see some kind of solution available upstream.  So I thought I would
+> send my hack out as at least a point of discussion.  FWIW: This has been
+> tested heavily in my rig and is technically suitable for inclusion after
+> review as is, if that is decided to be the optimal path forward here.
+> 
+> Thanks for your review and consideration,
 
-Applied to net-next-2.6
+I have no fundamental objections, but when you submit this for
+real can you show the code that uses it so we can get a better
+idea about things?
+
+Thanks.
