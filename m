@@ -1,76 +1,99 @@
-From: Tobias Diedrich <ranma@tdiedrich.de>
-Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
-	failures V2
-Date: Fri, 6 Nov 2009 12:15:14 +0100
-Message-ID: <20091106111514.GB5387@yumi.tdiedrich.de>
-References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091106060323.GA5528@yumi.tdiedrich.de> <20091106092447.GC25926@csn.ul.ie>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH 1/2] be2net: fix to set proper flow control on resume
+Date: Fri, 6 Nov 2009 17:36:59 +0530
+Message-ID: <20091106120445.GA19181@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
-	Sven Geggus <lists@fuchsschwanzdomain.de>,
-	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
-	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	David Rientjes <rientjes@google.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Mohamed Abbas <mohamed.abbas@intel.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Stephan von Krawczynski <skraw@ithnet.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Mel Gorman <mel@csn.ul.ie>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:12645 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755154AbZKFMGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 07:06:54 -0500
 Content-Disposition: inline
-In-Reply-To: <20091106092447.GC25926@csn.ul.ie>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman wrote:
-> On Fri, Nov 06, 2009 at 07:03:23AM +0100, Tobias Diedrich wrote:
-> > Mel Gorman wrote:
-> > > [No BZ ID] Kernel crash on 2.6.31.x (kcryptd: page allocation failure..)
-> > > 	This apparently is easily reproducible, particular in comparison to
-> > > 	the other reports. The point of greatest interest is that this is
-> > > 	order-0 GFP_ATOMIC failures. Sven, I'm hoping that you in particular
-> > > 	will be able to follow the tests below as you are the most likely
-> > > 	person to have an easily reproducible situation.
-> > 
-> > I've also seen order-0 failures on 2.6.31.5:
-> > Note that this is with a one process hogging and mlocking memory and
-> > min_free_kbytes reduced to 100 to reproduce the problem more easily.
-> > 
-> 
-> Is that a vanilla, with patches 1-3 applied or both?
-That was on vanilla 2.6.31.5.
+If be2 goes into suspend after a user changes the flow control settings,
+we are not programming them back after resume. This patch takes care of it.
+We now get the flow control settings before going to suspend mode and
+then apply them during resume.
 
-I tried 2.6.31.5 before with patches 1+2 and netconsole enabled and
-still got the order-1 failures (apparently I get order-1 failures
-with netconsole and order-0 failures without).
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be.h         |    2 ++
+ drivers/net/benet/be_ethtool.c |    8 +++++---
+ drivers/net/benet/be_main.c    |    8 +++++++-
+ 3 files changed, 14 insertions(+), 4 deletions(-)
 
-> > I tried bisecting the issue, but in the end without memory pressure
-> > I can't reproduce it reliably and with the above mentioned pressure
-> > I get allocation failures even on 2.6.30.o
-> 
-> To be honest, it's not entirely unexpected with min_free_kbytes set that
-> low. The system should cope with a certain amount of pressure but with
-> pressure and a low min_free_kbytes, the system will simply be reacting
-> too late to free memory in the non-atomic paths.
-Maybe I should try again on 2.6.30 without netconsole und try
-increasing min_free_kbytes until the allocation failures
-disappear and try to bisect again with that setting...
-
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index a80da0e..3b79a22 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -259,6 +259,8 @@ struct be_adapter {
+ 	u32 port_num;
+ 	bool promiscuous;
+ 	u32 cap;
++	u32 rx_fc;		/* Rx flow control */
++	u32 tx_fc;		/* Tx flow control */
+ };
+ 
+ extern const struct ethtool_ops be_ethtool_ops;
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index cda5bf2..f0fd95b 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -323,10 +323,12 @@ be_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
+ 
+ 	if (ecmd->autoneg != 0)
+ 		return -EINVAL;
++	adapter->tx_fc = ecmd->tx_pause;
++	adapter->rx_fc = ecmd->rx_pause;
+ 
+-	status = be_cmd_set_flow_control(adapter, ecmd->tx_pause,
+-			ecmd->rx_pause);
+-	if (!status)
++	status = be_cmd_set_flow_control(adapter,
++					adapter->tx_fc, adapter->rx_fc);
++	if (status)
+ 		dev_warn(&adapter->pdev->dev, "Pause param set failed.\n");
+ 
+ 	return status;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 1f941f0..4a7a452 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1652,7 +1652,8 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status != 0)
+ 		goto mccqs_destroy;
+ 
+-	status = be_cmd_set_flow_control(adapter, true, true);
++	status = be_cmd_set_flow_control(adapter,
++					adapter->tx_fc, adapter->rx_fc);
+ 	if (status != 0)
+ 		goto mccqs_destroy;
+ 	return 0;
+@@ -1909,6 +1910,10 @@ static void be_netdev_init(struct net_device *netdev)
+ 
+ 	adapter->rx_csum = true;
+ 
++	/* Default settings for Rx and Tx flow control */
++	adapter->rx_fc = true;
++	adapter->tx_fc = true;
++
+ 	netif_set_gso_max_size(netdev, 65535);
+ 
+ 	BE_SET_NETDEV_OPS(netdev, &be_netdev_ops);
+@@ -2171,6 +2176,7 @@ static int be_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		be_close(netdev);
+ 		rtnl_unlock();
+ 	}
++	be_cmd_get_flow_control(adapter, &adapter->tx_fc, &adapter->rx_fc);
+ 	be_clear(adapter);
+ 
+ 	pci_save_state(pdev);
 -- 
-Tobias						PGP: http://8ef7ddba.uguu.de
+1.6.3.3
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
