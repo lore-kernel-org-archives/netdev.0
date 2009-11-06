@@ -1,65 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] move dma_head/dma_maps out of skb_shared_info and into
- sk_buff
-Date: Fri, 06 Nov 2009 03:14:35 +0100
-Message-ID: <4AF3868B.7070409@gmail.com>
-References: <4AF373C9.7040700@intel.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Fri, 6 Nov 2009 13:32:50 +1100
+Message-ID: <20091106133250.d61c2057.sfr@canb.auug.org.au>
+References: <20091106115554.44622e53.sfr@canb.auug.org.au>
+	<20091105.174055.161804502.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52247 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757671AbZKFCOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 21:14:36 -0500
-In-Reply-To: <4AF373C9.7040700@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__6_Nov_2009_13_32_50_+1100_lxmZh6I3iLB6xr6O"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, marcel@holtmann.org,
+	torgny.johansson@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752688AbZKFCc4@vger.kernel.org>
+In-Reply-To: <20091105.174055.161804502.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexander Duyck a =E9crit :
-> During testing we found issues with the use of skb_dma_map/unmap on
-> systems that had iommu enabled and were configured to use a bridge.  =
-The
-> issue is that if two ports are members of the same bridge, and a
-> broadcast packet is sent out on the bridge skb_clone will be used to
-> send a copy to all ports, but the clones run into issues because the
-> dma mappings for the cloned skbs all share the shared_info structure
-> where the dma mappings are stored.
->=20
-> To resolve that this patch moves those dma mappings out of the
-> shared_info structure and into the sk_buff itself.  This allows clone=
-d
-> skbs to be mapped separately without causing dma unmapping errors.
->=20
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+--Signature=_Fri__6_Nov_2009_13_32_50_+1100_lxmZh6I3iLB6xr6O
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hello Alexander
+Hi Dave,
 
-You probably know such a change is a major one ;)
+On Thu, 05 Nov 2009 17:40:55 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Thanks I'll take a look at this when merging net-2.6 into
+> net-next-2.6 later tonight.
 
-1) a diffstat -p1 -w70 for this kind of patch would be nice.
+OK, thanks.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-2) Your patch is garbled (tabulations were replaced by spaces
- by your mailer)
+--Signature=_Fri__6_Nov_2009_13_32_50_+1100_lxmZh6I3iLB6xr6O
+Content-Type: application/pgp-signature
 
-3) Are you sure we need to clear dma_maps[] array and dma_head=20
-   in __alloc_skb() ? I guess not.
-   MAX_SKB_FRAGS =3D 18 on x86  -> 152 bytes on x86_64.
-   Previous implementation was not clearing them.
-   Thats would be a major slow down.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-4) 152 bytes more in skb -> 304 bytes more in skbuff_fclone_cache
-   Do we really want two copies of dma_maps[] when skb are allocated
-   from fclone cache ?
+iEYEARECAAYFAkrzitMACgkQjjKRsyhoI8xNRQCghemW7jZr8FoKxcCQ+OfHFo+d
+fBEAoK9nNlMfRQ6Kj8T+KpL2ps9w4jZ3
+=l3wN
+-----END PGP SIGNATURE-----
 
-5) It seems to me this stuff is needed for xmit only and few drivers,
-   could we find a way to not have it for RX path and drivers that dont
-   need it ? Maybe drivers themselves should allocate storage for this
-  stuff so we can remove it both from shared_info *and* skb=20
-
-Thanks
-
-
+--Signature=_Fri__6_Nov_2009_13_32_50_+1100_lxmZh6I3iLB6xr6O--
