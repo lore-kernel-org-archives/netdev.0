@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 09/25 v2] mlx4_core: dispatch slave asynch events
-Date: Fri, 06 Nov 2009 05:08:46 +0200
-Message-ID: <4AF3933E.2010706@mellanox.co.il>
+Subject: [PATCH 10/25 v2] mlx4_core: track slave special qps
+Date: Fri, 06 Nov 2009 05:08:56 +0200
+Message-ID: <4AF39348.3020208@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -15,207 +15,259 @@ List-Id: netdev.vger.kernel.org
 
 From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 
-Affiliated and unaffiliated asynch events are handled by a single EQ owned by
-the master. A per-slave SW event queue is added to log and dispatch both slave-specific
-events and events that apply to all slaves.
+A single function can own the actual Infiniband hw special qps.
+This function demuxes inbound mads and protects outbound mads from spoofing.
+To achieve this, it needs to know the special qps used by other functions.
+
+This patch tracks special qp registration and notifies the owning function
+on any changes.
 
 Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/cmd.c  |   12 ++++++-
- drivers/net/mlx4/eq.c   |   92 +++++++++++++++++++++++++++++++++++++++++++---
- drivers/net/mlx4/mlx4.h |    8 ++++
- 3 files changed, 105 insertions(+), 7 deletions(-)
+ drivers/net/mlx4/cmd.c      |   16 ++++++++++
+ drivers/net/mlx4/eq.c       |   15 +++++++++
+ drivers/net/mlx4/mlx4.h     |   11 +++++++
+ drivers/net/mlx4/qp.c       |   67 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mlx4/cmd.h    |    1 +
+ include/linux/mlx4/device.h |    3 ++
+ 6 files changed, 113 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
-index b0fd998..634e5c9 100644
+index 634e5c9..485e976 100644
 --- a/drivers/net/mlx4/cmd.c
 +++ b/drivers/net/mlx4/cmd.c
-@@ -604,6 +604,14 @@ static struct mlx4_cmd_info {
+@@ -539,6 +539,14 @@ static struct mlx4_cmd_info {
  		.verify = NULL,
- 		.wrapper = mlx4_RESOURCE_wrapper
+ 		.wrapper = NULL
  	},
 +	{
-+		.opcode = MLX4_CMD_GET_EVENT,
++		.opcode = MLX4_CMD_GET_SLAVE_SQP,
 +		.has_inbox = false,
-+		.has_outbox = false,
-+		.out_is_imm = true,
++		.has_outbox = true,
++		.out_is_imm = false,
 +		.verify = NULL,
-+		.wrapper = mlx4_GET_EVENT_wrapper
++		.wrapper = mlx4_GET_SLAVE_SQP_wrapper
 +	},
  
  	{
- 		.opcode = MLX4_CMD_SW2HW_MPT,
-@@ -1150,8 +1158,10 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 		if (!priv->mfunc.master.slave_state)
- 			goto err_comm;
- 
--		for (i = 0; i < dev->num_slaves; ++i)
-+		for (i = 0; i < dev->num_slaves; ++i) {
- 			priv->mfunc.master.slave_state[i].last_cmd = MLX4_COMM_CMD_RESET;
-+			spin_lock_init(&priv->mfunc.master.slave_state[i].lock);
-+		}
- 
- 		INIT_DELAYED_WORK(&priv->mfunc.comm_work, mlx4_master_poll_comm);
- 		priv->mfunc.comm_wq = create_singlethread_workqueue("mlx4_comm");
+ 		.opcode = MLX4_CMD_INIT_PORT,
+@@ -855,6 +863,14 @@ static struct mlx4_cmd_info {
+ 		.wrapper = NULL
+ 	},
+ 	{
++		.opcode = MLX4_CMD_CONF_SPECIAL_QP,
++		.has_inbox = false,
++		.has_outbox = false,
++		.out_is_imm = false,
++		.verify = NULL,
++		.wrapper = mlx4_CONF_SPECIAL_QP_wrapper
++	},
++	{
+ 		.opcode = MLX4_CMD_MAD_IFC,
+ 		.has_inbox = true,
+ 		.has_outbox = true,
 diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
-index 70c16d4..1e8b62d 100644
+index 1e8b62d..a27e1c4 100644
 --- a/drivers/net/mlx4/eq.c
 +++ b/drivers/net/mlx4/eq.c
-@@ -160,6 +160,61 @@ static struct mlx4_eqe *next_eqe_sw(struct mlx4_eq *eq)
- 	return !!(eqe->owner & 0x80) ^ !!(eq->cons_index & eq->nent) ? NULL : eqe;
+@@ -358,6 +358,17 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 	return eqes_found;
  }
  
-+void mlx4_slave_event(struct mlx4_dev *dev, int slave, u8 type, u8 port, u32 param)
++static void mlx4_update_sqp(struct mlx4_dev *dev)
 +{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_slave_state *ctx = &priv->mfunc.master.slave_state[slave];
-+	unsigned long flags;
-+
-+	if (ctx->last_cmd != MLX4_COMM_CMD_VHCR_POST) {
-+		mlx4_warn(dev, "received event for inactive slave:%d\n", slave);
++	if (!dev->caps.sqp_demux) {
++		mlx4_warn(dev, "unexpected update_sqp event\n");
 +		return;
 +	}
-+
-+	/* Unconditionally add the new event - during overflows, we drop the
-+	 * oldest events */
-+	spin_lock_irqsave(&ctx->lock, flags);
-+	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].type = type;
-+	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].port = port;
-+	ctx->eq[ctx->eq_pi & MLX4_MFUNC_EQE_MASK].param = param;
-+	++ctx->eq_pi;
-+	spin_unlock_irqrestore(&ctx->lock, flags);
++	if (mlx4_GET_SLAVE_SQP(dev, mlx4_priv(dev)->mfunc.demux_sqp,
++			       dev->caps.sqp_demux))
++		mlx4_warn(dev, "couldn't update sqp\n");
 +}
 +
-+static void mlx4_slave_event_all(struct mlx4_dev *dev, u8 type, u8 port, u32 param)
+ void mlx4_slave_async_eq_poll(struct work_struct *work)
+ {
+ 	struct delayed_work *delay = container_of(work, struct delayed_work, work);
+@@ -402,6 +413,10 @@ void mlx4_slave_async_eq_poll(struct work_struct *work)
+ 			mlx4_warn(dev, "slave async EQ overrun\n");
+ 			break;
+ 
++		case MLX4_EVENT_TYPE_SQP_UPDATE:
++			mlx4_update_sqp(dev);
++			break;
++
+ 		default:
+ 			mlx4_warn(dev, "Unhandled event:%02x\n", eqe.type);
+ 		}
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index f680940..e2d80c6 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -111,6 +111,7 @@ enum mlx4_alloc_mode {
+ };
+ 
+ enum {
++	MLX4_MFUNC_MAX		= 64,
+ 	MLX4_MFUNC_MAX_EQES     = 8,
+ 	MLX4_MFUNC_EQE_MASK     = (MLX4_MFUNC_MAX_EQES - 1)
+ };
+@@ -219,6 +220,7 @@ struct mlx4_slave_state {
+ 	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
+ 	u16 eq_pi;
+ 	u16 eq_ci;
++	int sqp_start;
+ 	spinlock_t lock;
+ };
+ 
+@@ -246,6 +248,7 @@ struct mlx4_mfunc {
+ 	dma_addr_t			vhcr_dma;
+ 
+ 	struct mlx4_mfunc_master_ctx	master;
++	u32				demux_sqp[MLX4_MFUNC_MAX];
+ };
+ 
+ struct mlx4_cmd {
+@@ -531,6 +534,14 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *v
+ 							  struct mlx4_cmd_mailbox *outbox);
+ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps);
+ 
++int mlx4_CONF_SPECIAL_QP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++						       struct mlx4_cmd_mailbox *inbox,
++						       struct mlx4_cmd_mailbox *outbox);
++int mlx4_GET_SLAVE_SQP(struct mlx4_dev *dev, u32 *sqp, int num);
++int mlx4_GET_SLAVE_SQP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++							  struct mlx4_cmd_mailbox *inbox,
++							  struct mlx4_cmd_mailbox *outbox);
++
+ int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
+ 						     struct mlx4_cmd_mailbox *inbox,
+ 						     struct mlx4_cmd_mailbox *outbox);
+diff --git a/drivers/net/mlx4/qp.c b/drivers/net/mlx4/qp.c
+index 065c7fc..99b9ded 100644
+--- a/drivers/net/mlx4/qp.c
++++ b/drivers/net/mlx4/qp.c
+@@ -145,6 +145,54 @@ int mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
+ }
+ EXPORT_SYMBOL_GPL(mlx4_qp_modify);
+ 
++u32 mlx4_get_slave_sqp(struct mlx4_dev *dev, int slave)
 +{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
++	if (mlx4_is_master(dev) && slave < dev->num_slaves) {
++		return mlx4_priv(dev)->mfunc.master.slave_state[slave].sqp_start;
++	}
++	if (mlx4_is_slave(dev) && slave < dev->caps.sqp_demux) {
++		return mlx4_priv(dev)->mfunc.demux_sqp[slave];
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx4_get_slave_sqp);
++
++int mlx4_GET_SLAVE_SQP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++							  struct mlx4_cmd_mailbox *inbox,
++							  struct mlx4_cmd_mailbox *outbox)
++{
++	u32 *slave_sqp = outbox->buf;
 +	int i;
 +
-+	for (i = 0; i < dev->num_slaves; ++i)
-+		if (priv->mfunc.master.slave_state[i].last_cmd == MLX4_COMM_CMD_VHCR_POST)
-+			mlx4_slave_event(dev, i, type, port, param);
-+}
-+
-+int mlx4_GET_EVENT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+						 struct mlx4_cmd_mailbox *inbox,
-+						 struct mlx4_cmd_mailbox *outbox)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_slave_state *ctx = &priv->mfunc.master.slave_state[slave];
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&ctx->lock, flags);
-+	if (ctx->eq_ci == ctx->eq_pi) {
-+		vhcr->out_param = MLX4_EVENT_TYPE_NONE;
-+	} else if ((u16) (ctx->eq_pi - ctx->eq_ci) > MLX4_MFUNC_MAX_EQES) {
-+		ctx->eq_ci = ctx->eq_pi - MLX4_MFUNC_MAX_EQES;
-+		vhcr->out_param = MLX4_EVENT_TYPE_EQ_OVERFLOW;
-+	} else {
-+		vhcr->out_param = ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].type |
-+				  ((u64) ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].port << 8) |
-+				  ((u64) ctx->eq[ctx->eq_ci & MLX4_MFUNC_EQE_MASK].param << 32);
-+		++ctx->eq_ci;
++	/* CX1: special qp demultiplexing is done by slave0 */
++	if (slave) {
++		mlx4_warn(dev, "Denying slave_sqp request from slave:%d\n", slave);
++		return -EINVAL;
 +	}
-+	spin_unlock_irqrestore(&ctx->lock, flags);
++	for (i = 0; i < 64; i++)
++		slave_sqp[i] = mlx4_get_slave_sqp(dev, i);
 +	return 0;
 +}
 +
- static int mlx4_GET_EVENT(struct mlx4_dev *dev, struct mlx4_slave_eqe *eqe)
++int mlx4_GET_SLAVE_SQP(struct mlx4_dev *dev, u32 *sqp, int num)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	int err;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++
++	err = mlx4_cmd_box(dev, 0, mailbox->dma, 0, 0, MLX4_CMD_GET_SLAVE_SQP,
++			   MLX4_CMD_TIME_CLASS_A);
++	if (!err)
++		memcpy(sqp, mailbox->buf, sizeof (u32) * num);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx4_GET_SLAVE_SQP);
++
+ int mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align, int *base)
  {
- 	int ret;
-@@ -205,14 +260,26 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 		case MLX4_EVENT_TYPE_PATH_MIG_FAILED:
- 		case MLX4_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
- 		case MLX4_EVENT_TYPE_WQ_ACCESS_ERROR:
--			mlx4_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) & 0xffffff,
--				      eqe->type);
-+			if (mlx4_is_master(dev)) {
-+				/* TODO: forward only to slave owning the QP */
-+				mlx4_slave_event(dev, 0, eqe->type, 0,
-+					      be32_to_cpu(eqe->event.qp.qpn) &
-+					      0xffffff);
-+			} else
-+				mlx4_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) &
-+						   0xffffff, eqe->type);
- 			break;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -331,6 +379,25 @@ static int mlx4_CONF_SPECIAL_QP(struct mlx4_dev *dev, u32 base_qpn)
+ 			MLX4_CMD_TIME_CLASS_B);
+ }
  
- 		case MLX4_EVENT_TYPE_SRQ_LIMIT:
- 		case MLX4_EVENT_TYPE_SRQ_CATAS_ERROR:
--			mlx4_srq_event(dev, be32_to_cpu(eqe->event.srq.srqn) & 0xffffff,
--				      eqe->type);
-+			if (mlx4_is_master(dev)) {
-+				/* TODO: forward only to slave owning the SRQ */
-+				mlx4_slave_event(dev, 0, eqe->type, 0,
-+					      be32_to_cpu(eqe->event.srq.srqn) &
-+					      0xffffff);
-+			} else
-+				mlx4_srq_event(dev, be32_to_cpu(eqe->event.srq.srqn) &
-+						    0xffffff, eqe->type);
- 			break;
++int mlx4_CONF_SPECIAL_QP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
++						       struct mlx4_cmd_mailbox *inbox,
++						       struct mlx4_cmd_mailbox *outbox)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int ret;
++
++	priv->mfunc.master.slave_state[slave].sqp_start = vhcr->in_modifier & 0xffffff;
++	if (!slave) {
++		/* CX1: slave0 owns real special QPs */
++		ret = mlx4_CONF_SPECIAL_QP(dev, priv->mfunc.master.slave_state[slave].sqp_start);
++		if (ret)
++			return ret;
++	}
++	/* Notify slave0 that an SQP change occured */
++	mlx4_slave_event(dev, 0, MLX4_EVENT_TYPE_SQP_UPDATE, 0, 0);
++	return 0;
++}
++
+ int mlx4_init_qp_table(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_qp_table *qp_table = &mlx4_priv(dev)->qp_table;
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 04255cd..8444b89 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -129,6 +129,7 @@ enum {
+ 	MLX4_CMD_FREE_RES	 = 0x51,
+ 	MLX4_CMD_GET_EVENT	 = 0x52,
+ 	MLX4_CMD_MCAST_ATTACH	 = 0x54,
++	MLX4_CMD_GET_SLAVE_SQP	 = 0x55,
  
- 		case MLX4_EVENT_TYPE_CMD:
-@@ -227,10 +294,18 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 			if (eqe->subtype == MLX4_PORT_CHANGE_SUBTYPE_DOWN) {
- 				mlx4_dispatch_event(dev, MLX4_DEV_EVENT_PORT_DOWN,
- 						    port);
-+				if (mlx4_is_master(dev)) {
-+					mlx4_slave_event_all(dev, MLX4_EVENT_TYPE_PORT_CHANGE,
-+							     port, MLX4_DEV_EVENT_PORT_DOWN);
-+				}
- 				mlx4_priv(dev)->sense.do_sense_port[port] = 1;
- 			} else {
- 				mlx4_dispatch_event(dev, MLX4_DEV_EVENT_PORT_UP,
- 						    port);
-+				if (mlx4_is_master(dev)) {
-+					mlx4_slave_event_all(dev, MLX4_EVENT_TYPE_PORT_CHANGE,
-+							     port, MLX4_DEV_EVENT_PORT_UP);
-+				}
- 				mlx4_priv(dev)->sense.do_sense_port[port] = 0;
- 			}
- 			break;
-@@ -240,8 +315,13 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 				  eqe->event.cq_err.syndrome == 1 ?
- 				  "overrun" : "access violation",
- 				  be32_to_cpu(eqe->event.cq_err.cqn) & 0xffffff);
--			mlx4_cq_event(dev, be32_to_cpu(eqe->event.cq_err.cqn),
--				      eqe->type);
-+			if (mlx4_is_master(dev)) {
-+				/* TODO: forward only to slave owning the CQ */
-+				mlx4_slave_event(dev, 0, eqe->type, 0,
-+					      be32_to_cpu(eqe->event.cq_err.cqn));
-+			} else
-+				mlx4_cq_event(dev, be32_to_cpu(eqe->event.cq_err.cqn),
-+									   eqe->type);
- 			break;
- 
- 		case MLX4_EVENT_TYPE_EQ_OVERFLOW:
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 8565be5..f680940 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -216,6 +216,10 @@ struct mlx4_slave_state {
- 	u8 init_port_mask;
- 	dma_addr_t vhcr_dma;
- 	__be32 ib_cap_mask[MLX4_MAX_PORTS + 1];
-+	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
-+	u16 eq_pi;
-+	u16 eq_ci;
-+	spinlock_t lock;
+ 	/* debug commands */
+ 	MLX4_CMD_QUERY_DEBUG_MSG = 0x2a,
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 9735f40..b20c8d8 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -99,6 +99,7 @@ enum mlx4_event {
+ 	MLX4_EVENT_TYPE_EQ_OVERFLOW	   = 0x0f,
+ 	MLX4_EVENT_TYPE_ECC_DETECT	   = 0x0e,
+ 	MLX4_EVENT_TYPE_CMD		   = 0x0a,
++	MLX4_EVENT_TYPE_SQP_UPDATE	   = 0xfe,
+ 	MLX4_EVENT_TYPE_NONE		   = 0xff,
  };
  
- struct mlx4_mfunc_master_ctx {
-@@ -422,6 +426,10 @@ int mlx4_reset(struct mlx4_dev *dev);
+@@ -242,6 +243,7 @@ struct mlx4_caps {
+ 	int                     log_num_prios;
+ 	enum mlx4_port_type	port_type[MLX4_MAX_PORTS + 1];
+ 	u8			supported_type[MLX4_MAX_PORTS + 1];
++	u8                      sqp_demux;
+ 	u32			port_mask;
+ 	enum mlx4_port_type	possible_type[MLX4_MAX_PORTS + 1];
+ };
+@@ -470,6 +472,7 @@ void mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt);
  
- int mlx4_alloc_eq_table(struct mlx4_dev *dev);
- void mlx4_free_eq_table(struct mlx4_dev *dev);
-+void mlx4_slave_event(struct mlx4_dev *dev, int slave, u8 type, u8 port, u32 param);
-+int mlx4_GET_EVENT_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+						 struct mlx4_cmd_mailbox *inbox,
-+						 struct mlx4_cmd_mailbox *outbox);
+ int mlx4_qp_alloc(struct mlx4_dev *dev, int qpn, struct mlx4_qp *qp);
+ void mlx4_qp_free(struct mlx4_dev *dev, struct mlx4_qp *qp);
++u32 mlx4_get_slave_sqp(struct mlx4_dev *dev, int vf);
  
- int mlx4_init_pd_table(struct mlx4_dev *dev);
- int mlx4_init_uar_table(struct mlx4_dev *dev);
+ int mlx4_srq_alloc(struct mlx4_dev *dev, u32 pdn, struct mlx4_mtt *mtt,
+ 		   u64 db_rec, struct mlx4_srq *srq);
 -- 
 1.5.3.7
 
