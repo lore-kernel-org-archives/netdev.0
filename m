@@ -1,284 +1,76 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] support static-only systems
-Date: Fri,  6 Nov 2009 06:09:22 -0500
-Message-ID: <1257505762-13819-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:50380 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754401AbZKFLHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 06:07:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tobias Diedrich <ranma@tdiedrich.de>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Fri, 6 Nov 2009 12:15:14 +0100
+Message-ID: <20091106111514.GB5387@yumi.tdiedrich.de>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie> <20091106060323.GA5528@yumi.tdiedrich.de> <20091106092447.GC25926@csn.ul.ie>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20091106092447.GC25926@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The iptables code supports a "no shared libs" mode where it can be used
-without requiring dlfcn related functionality.  This adds similar support
-to iproute2 so that it can easily be used on systems like nommu Linux (but
-obviously with a few limitations -- no dynamic plugins).
+Mel Gorman wrote:
+> On Fri, Nov 06, 2009 at 07:03:23AM +0100, Tobias Diedrich wrote:
+> > Mel Gorman wrote:
+> > > [No BZ ID] Kernel crash on 2.6.31.x (kcryptd: page allocation failure..)
+> > > 	This apparently is easily reproducible, particular in comparison to
+> > > 	the other reports. The point of greatest interest is that this is
+> > > 	order-0 GFP_ATOMIC failures. Sven, I'm hoping that you in particular
+> > > 	will be able to follow the tests below as you are the most likely
+> > > 	person to have an easily reproducible situation.
+> > 
+> > I've also seen order-0 failures on 2.6.31.5:
+> > Note that this is with a one process hogging and mlocking memory and
+> > min_free_kbytes reduced to 100 to reproduce the problem more easily.
+> > 
+> 
+> Is that a vanilla, with patches 1-3 applied or both?
+That was on vanilla 2.6.31.5.
 
-Rather than modify every location that uses dlfcn.h, I hooked the dlfcn.h
-header with stub functions when shared library support is disabled.  Then
-symbol lookup is done via a local static lookup table (which is generated
-automatically at build time) so that internal symbols can be found.
+I tried 2.6.31.5 before with patches 1+2 and netconsole enabled and
+still got the order-1 failures (apparently I get order-1 failures
+with netconsole and order-0 failures without).
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- .gitignore         |    1 +
- Makefile           |    5 +++++
- genl/Makefile      |   15 +++++++++++++++
- genl/static-syms.c |    6 ++++++
- include/dlfcn.h    |   39 +++++++++++++++++++++++++++++++++++++++
- ip/Makefile        |   16 +++++++++++++++-
- ip/static-syms.c   |    6 ++++++
- tc/Makefile        |   23 +++++++++++++++++++----
- tc/m_ipt.c         |    4 ++++
- tc/static-syms.c   |    6 ++++++
- 10 files changed, 116 insertions(+), 5 deletions(-)
- create mode 100644 genl/static-syms.c
- create mode 100644 include/dlfcn.h
- create mode 100644 ip/static-syms.c
- create mode 100644 tc/static-syms.c
+> > I tried bisecting the issue, but in the end without memory pressure
+> > I can't reproduce it reliably and with the above mentioned pressure
+> > I get allocation failures even on 2.6.30.o
+> 
+> To be honest, it's not entirely unexpected with min_free_kbytes set that
+> low. The system should cope with a certain amount of pressure but with
+> pressure and a low min_free_kbytes, the system will simply be reacting
+> too late to free memory in the non-atomic paths.
+Maybe I should try again on 2.6.30 without netconsole und try
+increasing min_free_kbytes until the allocation failures
+disappear and try to bisect again with that setting...
 
-diff --git a/.gitignore b/.gitignore
-index 5a3d20f..390ffb1 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -1,4 +1,5 @@
- Config
-+static-syms.h
- .gdbinit
- .gdb_history
- *.o
-diff --git a/Makefile b/Makefile
-index 74e9d62..77a85c6 100644
---- a/Makefile
-+++ b/Makefile
-@@ -10,7 +10,12 @@ ARPDDIR=/var/lib/arpd
- # Path to db_185.h include
- DBM_INCLUDE:=$(ROOTDIR)/usr/include
- 
-+SHARED_LIBS = y
-+
- DEFINES= -DRESOLVE_HOSTNAMES -DLIBDIR=\"$(LIBDIR)\"
-+ifneq ($(SHARED_LIBS),y)
-+DEFINES+= -DNO_SHARED_LIBS
-+endif
- 
- #options if you have a bind>=4.9.4 libresolv (or, maybe, glibc)
- LDLIBS=-lresolv
-diff --git a/genl/Makefile b/genl/Makefile
-index 6435875..44bb83c 100644
---- a/genl/Makefile
-+++ b/genl/Makefile
-@@ -1,6 +1,7 @@
- GENLOBJ=genl.o
- 
- include ../Config
-+SHARED_LIBS ?= y
- 
- GENLMODULES :=
- GENLMODULES += ctrl.o
-@@ -9,8 +10,10 @@ GENLOBJ += $(GENLMODULES)
- 
- GENLLIB :=
- 
-+ifeq ($(SHARED_LIBS),y)
- LDFLAGS += -Wl,-export-dynamic
- LDLIBS  += -lm -ldl
-+endif
- 
- all: genl
- 
-@@ -21,3 +24,15 @@ install: all
- 
- clean:
- 	rm -f $(GENLOBJ) $(GENLLIB) genl
-+
-+ifneq ($(SHARED_LIBS),y)
-+
-+genl: static-syms.o
-+static-syms.o: static-syms.h
-+static-syms.h: $(wildcard *.c)
-+	files="$^" ; \
-+	for s in `grep -B 3 '\<dlsym' $$files | sed -n '/snprintf/{s:.*"\([^"]*\)".*:\1:;s:%s::;p}'` ; do \
-+		sed -n '/'$$s'[^ ]* =/{s:.* \([^ ]*'$$s'[^ ]*\) .*:extern char \1[] __attribute__((weak)); if (!strcmp(sym, "\1")) return \1;:;p}' $$files ; \
-+	done > $@
-+
-+endif
-diff --git a/genl/static-syms.c b/genl/static-syms.c
-new file mode 100644
-index 0000000..1ed3a8a
---- /dev/null
-+++ b/genl/static-syms.c
-@@ -0,0 +1,6 @@
-+#include <string.h>
-+void *_dlsym(const char *sym)
-+{
-+#include "static-syms.h"
-+	return NULL;
-+}
-diff --git a/include/dlfcn.h b/include/dlfcn.h
-new file mode 100644
-index 0000000..b0be5a0
---- /dev/null
-+++ b/include/dlfcn.h
-@@ -0,0 +1,39 @@
-+/*
-+ * Stub dlfcn implementation for systems that lack shared library support
-+ * but obviously can still reference compiled-in symbols.
-+ */
-+
-+#ifndef NO_SHARED_LIBS
-+#include_next <dlfcn.h>
-+#else
-+
-+#define RTLD_LAZY 0
-+#define _FAKE_DLFCN_HDL (void *)0xbeefcafe
-+
-+static inline void *dlopen(const char *file, int flag)
-+{
-+	if (file == NULL)
-+		return _FAKE_DLFCN_HDL;
-+	else
-+		return NULL;
-+}
-+
-+extern void *_dlsym(const char *sym);
-+static inline void *dlsym(void *handle, const char *sym)
-+{
-+	if (handle != _FAKE_DLFCN_HDL)
-+		return NULL;
-+	return _dlsym(sym);
-+}
-+
-+static inline char *dlerror(void)
-+{
-+	return NULL;
-+}
-+
-+static inline int dlclose(void *handle)
-+{
-+	return (handle == _FAKE_DLFCN_HDL) ? 0 : 1;
-+}
-+
-+#endif
-diff --git a/ip/Makefile b/ip/Makefile
-index 3c185cf..51914e8 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -23,6 +23,20 @@ install: all
- clean:
- 	rm -f $(ALLOBJ) $(TARGETS)
- 
--LDLIBS += -ldl
-+SHARED_LIBS ?= y
-+ifeq ($(SHARED_LIBS),y)
- 
-+LDLIBS += -ldl
- LDFLAGS += -Wl,-export-dynamic
-+
-+else
-+
-+ip: static-syms.o
-+static-syms.o: static-syms.h
-+static-syms.h: $(wildcard *.c)
-+	files="$^" ; \
-+	for s in `grep -B 3 '\<dlsym' $$files | sed -n '/snprintf/{s:.*"\([^"]*\)".*:\1:;s:%s::;p}'` ; do \
-+		sed -n '/'$$s'[^ ]* =/{s:.* \([^ ]*'$$s'[^ ]*\) .*:extern char \1[] __attribute__((weak)); if (!strcmp(sym, "\1")) return \1;:;p}' $$files ; \
-+	done > $@
-+
-+endif
-diff --git a/ip/static-syms.c b/ip/static-syms.c
-new file mode 100644
-index 0000000..1ed3a8a
---- /dev/null
-+++ b/ip/static-syms.c
-@@ -0,0 +1,6 @@
-+#include <string.h>
-+void *_dlsym(const char *sym)
-+{
-+#include "static-syms.h"
-+	return NULL;
-+}
-diff --git a/tc/Makefile b/tc/Makefile
-index 3ff2535..027055c 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -3,6 +3,7 @@ TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
-        m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
- 
- include ../Config
-+SHARED_LIBS ?= y
- 
- TCMODULES :=
- TCMODULES += q_fifo.o
-@@ -57,7 +58,12 @@ else
- endif
- 
- TCOBJ += $(TCMODULES)
--LDLIBS += -L. -ltc -lm -ldl
-+LDLIBS += -L. -ltc -lm
-+
-+ifeq ($(SHARED_LIBS),y)
-+LDLIBS += -ldl
-+LDFLAGS += -Wl,-export-dynamic
-+endif
- 
- TCLIB := tc_core.o
- TCLIB += tc_red.o
-@@ -72,9 +78,6 @@ ifeq ($(TC_CONFIG_ATM),y)
-   TCSO += q_atm.so
- endif
- 
--
--LDFLAGS += -Wl,-export-dynamic
--
- YACC := bison
- LEX := flex
- 
-@@ -108,3 +111,15 @@ q_atm.so: q_atm.c
- 
- %.lex.c: %.l
- 	$(LEX) $(LEXFLAGS) -o$@ $<
-+
-+ifneq ($(SHARED_LIBS),y)
-+
-+tc: static-syms.o
-+static-syms.o: static-syms.h
-+static-syms.h: $(wildcard *.c)
-+	files="$^" ; \
-+	for s in `grep -B 3 '\<dlsym' $$files | sed -n '/snprintf/{s:.*"\([^"]*\)".*:\1:;s:%s::;p}'` ; do \
-+		sed -n '/'$$s'[^ ]* =/{s:.* \([^ ]*'$$s'[^ ]*\) .*:extern char \1[] __attribute__((weak)); if (!strcmp(sym, "\1")) return \1;:;p}' $$files ; \
-+	done > $@
-+
-+endif
-diff --git a/tc/m_ipt.c b/tc/m_ipt.c
-index d17d324..99d9965 100644
---- a/tc/m_ipt.c
-+++ b/tc/m_ipt.c
-@@ -226,6 +226,10 @@ get_target_name(const char *name)
- 	struct iptables_target *m;
- 	char path[strlen(lib_dir) + sizeof ("/libipt_.so") + strlen(name)];
- 
-+#ifdef NO_SHARED_LIBS
-+	return NULL;
-+#endif
-+
- 	new_name = malloc(strlen(name) + 1);
- 	lname = malloc(strlen(name) + 1);
- 	if (new_name)
-diff --git a/tc/static-syms.c b/tc/static-syms.c
-new file mode 100644
-index 0000000..1ed3a8a
---- /dev/null
-+++ b/tc/static-syms.c
-@@ -0,0 +1,6 @@
-+#include <string.h>
-+void *_dlsym(const char *sym)
-+{
-+#include "static-syms.h"
-+	return NULL;
-+}
 -- 
-1.6.5.1
+Tobias						PGP: http://8ef7ddba.uguu.de
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
