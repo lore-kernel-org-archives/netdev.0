@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 12/25 v2] mlx4_core: associate resources with specific functions
-Date: Fri, 06 Nov 2009 05:09:17 +0200
-Message-ID: <4AF3935D.4060007@mellanox.co.il>
+Subject: [PATCH 13/25 v2] mlx4_core: remove unused driver/kernel uar (kar)
+Date: Fri, 06 Nov 2009 05:09:23 +0200
+Message-ID: <4AF39363.6050405@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -13,104 +13,82 @@ Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-
-Resources are associated with functions by means of pds - the upper 7 msbs
-specify the function id. Since cqs do not refer to a specific pd, the function
-id is passed explicitly to hw in the cq context.
-For uars, which are statically partitioned between slaves, we only need to adjust
-their offsets with respect to the associated function bar.
+From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
 
 Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/cq.c |    4 +++-
- drivers/net/mlx4/eq.c |   13 ++++++++++++-
- drivers/net/mlx4/pd.c |   12 +++++++++---
- 3 files changed, 24 insertions(+), 5 deletions(-)
+ drivers/net/mlx4/main.c |   25 +------------------------
+ drivers/net/mlx4/mlx4.h |    2 --
+ 2 files changed, 1 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/mlx4/cq.c b/drivers/net/mlx4/cq.c
-index 3fb9f7f..9f9f246 100644
---- a/drivers/net/mlx4/cq.c
-+++ b/drivers/net/mlx4/cq.c
-@@ -59,7 +59,8 @@ struct mlx4_cq_context {
- 	__be32			solicit_producer_index;
- 	__be32			consumer_index;
- 	__be32			producer_index;
--	u32			reserved4[2];
-+	__be32			pd; /* for sriov guest id */
-+	u32			reserved4;
- 	__be64			db_rec_addr;
- };
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+index 4edc8d7..d8143c6 100644
+--- a/drivers/net/mlx4/main.c
++++ b/drivers/net/mlx4/main.c
+@@ -883,26 +883,11 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
+ 		return err;
+ 	}
  
-@@ -293,6 +294,7 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
- 	mtt_addr = mlx4_mtt_addr(dev, mtt);
- 	cq_context->mtt_base_addr_h = mtt_addr >> 32;
- 	cq_context->mtt_base_addr_l = cpu_to_be32(mtt_addr & 0xffffffff);
-+	cq_context->pd = cpu_to_be32(dev->caps.pd_base << dev->caps.slave_pd_shift);
- 	cq_context->db_rec_addr     = cpu_to_be64(db_rec);
- 
- 	err = mlx4_SW2HW_CQ(dev, mailbox, cq->cqn);
-diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
-index a27e1c4..46064cc 100644
---- a/drivers/net/mlx4/eq.c
-+++ b/drivers/net/mlx4/eq.c
-@@ -486,9 +486,20 @@ static void __iomem *mlx4_get_eq_uar(struct mlx4_dev *dev, struct mlx4_eq *eq)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int index;
-+	int offset;
- 
--	index = eq->eqn / 4 - dev->caps.reserved_eqs / 4;
-+	/* CX1: slave EQ DBs are located in the comm channel page */
-+	if (mlx4_is_slave(dev) || mlx4_is_master(dev)) {
-+		if (eq->eqn - dev->caps.reserved_eqs >= MLX4_MFUNC_EQ_NUM) {
-+			mlx4_err(dev, "eqn:%d doorbell out of range (reserved:%d)\n",
-+				 eq->eqn, dev->caps.reserved_eqs);
-+			return NULL;
-+		}
-+		offset = 0x800 + (eq->eqn - dev->caps.reserved_eqs) * 8;
-+		return ((void *) priv->mfunc.comm) + offset;
-+	}
- 
-+	index = eq->eqn / 4 - dev->caps.reserved_eqs / 4;
- 	if (!priv->eq_table.uar_map[index]) {
- 		priv->eq_table.uar_map[index] =
- 			ioremap(pci_resource_start(dev->pdev, 2) +
-diff --git a/drivers/net/mlx4/pd.c b/drivers/net/mlx4/pd.c
-index c4988d6..08eaf08 100644
---- a/drivers/net/mlx4/pd.c
-+++ b/drivers/net/mlx4/pd.c
-@@ -45,7 +45,7 @@ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
- 	*pdn = mlx4_bitmap_alloc(&priv->pd_bitmap);
- 	if (*pdn == -1)
- 		return -ENOMEM;
+-	err = mlx4_uar_alloc(dev, &priv->driver_uar);
+-	if (err) {
+-		mlx4_err(dev, "Failed to allocate driver access region, "
+-			 "aborting.\n");
+-		goto err_uar_table_free;
+-	}
 -
-+	*pdn |= dev->caps.pd_base << dev->caps.slave_pd_shift;
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_pd_alloc);
-@@ -72,12 +72,18 @@ void mlx4_cleanup_pd_table(struct mlx4_dev *dev)
- 
- int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
- {
-+	int offset;
-+
- 	uar->index = mlx4_bitmap_alloc(&mlx4_priv(dev)->uar_table.bitmap);
- 	if (uar->index == -1)
- 		return -ENOMEM;
- 
--	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + uar->index;
+-	priv->kar = ioremap(priv->driver_uar.pfn << PAGE_SHIFT, PAGE_SIZE);
+-	if (!priv->kar) {
+-		mlx4_err(dev, "Couldn't map kernel access region, "
+-			 "aborting.\n");
+-		err = -ENOMEM;
+-		goto err_uar_free;
+-	}
 -
-+	if (mlx4_is_slave(dev))
-+		offset = uar->index % ((int) pci_resource_len(dev->pdev, 2) /
-+				       dev->caps.uar_page_size);
-+	else
-+		offset = uar->index;
-+	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + offset;
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_uar_alloc);
+ 	err = mlx4_init_pd_table(dev);
+ 	if (err) {
+ 		mlx4_err(dev, "Failed to initialize "
+ 			 "protection domain table, aborting.\n");
+-		goto err_kar_unmap;
++		goto err_uar_table_free;
+ 	}
+ 
+ 	err = mlx4_init_mr_table(dev);
+@@ -1015,12 +1000,6 @@ err_mr_table_free:
+ err_pd_table_free:
+ 	mlx4_cleanup_pd_table(dev);
+ 
+-err_kar_unmap:
+-	iounmap(priv->kar);
+-
+-err_uar_free:
+-	mlx4_uar_free(dev, &priv->driver_uar);
+-
+ err_uar_table_free:
+ 	mlx4_cleanup_uar_table(dev);
+ 	return err;
+@@ -1316,8 +1295,6 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 		mlx4_cleanup_mr_table(dev);
+ 		mlx4_cleanup_pd_table(dev);
+ 
+-		iounmap(priv->kar);
+-		mlx4_uar_free(dev, &priv->driver_uar);
+ 		mlx4_cleanup_uar_table(dev);
+ 		mlx4_free_eq_table(dev);
+ 		mlx4_close_hca(dev);
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index 0686856..f0afbb6 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -401,8 +401,6 @@ struct mlx4_priv {
+ 
+ 	void __iomem	       *clr_base;
+ 
+-	struct mlx4_uar		driver_uar;
+-	void __iomem	       *kar;
+ 	struct mlx4_port_info	port[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_sense       sense;
+ 	struct mutex		port_mutex;
 -- 
 1.5.3.7
 
