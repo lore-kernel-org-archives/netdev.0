@@ -1,46 +1,48 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH 19/25] mlx4: Randomizing mac addresses for slaves
-Date: Fri, 6 Nov 2009 18:07:46 +1100
-Message-ID: <20091106070736.GA12697@verge.net.au>
-References: <4AF19E69.8070605@mellanox.co.il>
- <adar5seys3e.fsf@cisco.com>
- <15ddcffd0911041333l165ee274mfae3508a3db755e7@mail.gmail.com>
- <2ED289D4E09FBD4D92D911E869B97FDD0166CA59@mtlexch01.mtl.com>
- <adabpjhc6az.fsf@roland-alpha.cisco.com>
- <20091106040624.GA6629@verge.net.au>
- <adaeiocyykl.fsf@roland-alpha.cisco.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: sock_bindtodevice() RCU-ification
+Date: Fri, 06 Nov 2009 08:08:59 +0100
+Message-ID: <4AF3CB8B.2090206@gmail.com>
+References: <4AF201FC.3040908@gmail.com>	<20091105.210830.108657873.davem@davemloft.net> <20091105.223921.83639611.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tziporet Koren <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <adaeiocyykl.fsf-BjVyx320WGW9gfZ95n9DRSW4+XlvGpQz@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43052 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbZKFHI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 02:08:58 -0500
+In-Reply-To: <20091105.223921.83639611.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 05, 2009 at 10:08:58PM -0800, Roland Dreier wrote:
-> 
->  > > igb uses the full output of random_ether_addr().  I'd be fine with
->  > > that.  However setting the OUI means you only get 24 bits of randomness
->  > > which makes a collision a lot more likely.
->  > 
->  > IIRC that was precisely why the OUI isn't used for the igb driver.
->  > 
->  > Perhaps some infrastructure (by which I mean a random_mac() function)
->  > is warranted so at least this discussion can be concentrated around that
->  > rather than repeating it for each driver that needs random mac addresses.
-> 
-> What would be the difference between random_mac() and the existing
-> random_ether_addr() function?
+David Miller a =E9crit :
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 05 Nov 2009 21:08:30 -0800 (PST)
+>=20
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 04 Nov 2009 23:36:44 +0100
+>>
+>>> Avoid dev_hold()/dev_put() in sock_bindtodevice()
+>>>
+>>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Applied to net-next-2.6, thanks.
+>=20
+> Eric I had to add the following patch to cure a build
+> warning after this, just FYI:
+>=20
+> net: Fix build warning in sock_bindtodevice().
+>=20
+> net/core/sock.c: In function 'sock_setsockopt':
+> net/core/sock.c:396: warning: 'index' may be used uninitialized in th=
+is function
+> net/core/sock.c:396: note: 'index' was declared here
+>=20
+> GCC can't see that all paths initialize index, so just
+> set it to the default (0) and eliminate the specific
+> code block that handles the null device name string.
+>=20
 
-Sorry, I was mistaken. igb is using random_ether_addr(),
-which is what I had in mind.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks David, which gcc version are you using ?
+
