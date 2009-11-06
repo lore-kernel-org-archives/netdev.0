@@ -1,64 +1,79 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: RFC: ethtool support for n-tuple filter programming
-Date: Fri, 06 Nov 2009 10:57:21 -0800
-Message-ID: <1257533841.2610.12.camel@ppwaskie-mobl2>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project
+	tree
+Date: Fri, 6 Nov 2009 13:59:50 -0500
+Message-ID: <20091106185950.GD2782@tuxdriver.com>
+References: <200911031951.05235.bzolnier@gmail.com> <20091106074643.GA5562@ucw.cz> <200911061858.56816.IvDoorn@gmail.com> <200911061930.13069.bzolnier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:54700 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759142AbZKFS5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 13:57:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ivo van Doorn <ivdoorn@gmail.com>, Pavel Machek <pavel@ucw.cz>,
+	Ingo Molnar <mingo@elte.hu>, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Luis Correia <luis.f.correia@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759613AbZKFTAR@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200911061930.13069.bzolnier@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All,
+On Fri, Nov 06, 2009 at 07:30:13PM +0100, Bartlomiej Zolnierkiewicz wrote:
+> On Friday 06 November 2009 18:58:56 Ivo van Doorn wrote:
 
-I'm looking to add support to ethtool that would allow programming of
-full n-tuple filters into underlying devices.  Currently, ixgbe has
-support for these types of perfect match or mostly match (masked)
-filters.  I imagine other hardware exists that also has support for
-this, so I'd like to make this interface usable for everyone.
+> > the merged for those drivers after the asurance that it was only merged
+> > to please the users so developers could focus on the rt2x00 version of
+> > the driver.
+> 
+> Could somebody please explain me (in the public or in the private) what is
+> the reason behind whole affair about staging drivers because all the time
+> I feel like I'm missing some important detail here.
 
-Note that this is similar behavior in the iproute2 tools, but it's
-different enough, in my opinion, to warrant being in ethtool.  The
-iproute2 tools (specifically tc) manipulate the qdiscs to add filters in
-the kernel packet schedulers.  This proposed solution is managing the
-hardware in the underlying device, which iproute2 tools currently don't
-touch.  Hopefully this is obvious for those reviewing this proposal.
+I'm not 100% sure what you are asking, but I think you want to know
+the basis for general objections from the people that hang-out on
+linux-wireless and/or the rt2x00 team specifically?
 
-What I currently have as possible inputs to ethtool are:
+I don't think anyone[1] has overwhelming objections to drivers in
+staging for devices that have no other driver available.  The main
+objection is that drivers/staging steals users and (and often
+developers) from the non-staging drivers, reducing the amount of
+testing and development they get.  In the effort to help some users,
+drivers/staging effectively prolongs the amount of time those users
+have to go without properly supported drivers.  Much worse, none of
+the wireless drivers in drivers/staging seem to have generated an
+actual mergeable[2] wireless driver.
 
-- src/dst IP address: 32-bits each, 128-bits each for IPv6
-- src/dst port: 16-bits each (TCP/UDP)
-- VLAN tag: 15-bits
-- L4 type: 8-bits (TCP/UDP/SCTP currently, can grow later)
-- User specified field: currently 32-bits, can be anything a driver
-wants to use
-- Action: signed 16-bits (-1 indicates drop, any other value is the Rx
-queue to steer the flow to)
+Further, the wireless drivers in drivers/staging are completely
+isolated from the wireless infrastructure developments we've been
+making over the past few years.  The longer they live, the longer
+wireless extensions will linger, the longer custom rfkill solutions
+persist, and the longer we have multiple 802.11 stack implementations.
 
-Now all of these fields, except action, can also have a mask supplied to
-them, but it's not mandatory.
+Finally, bug reports from drivers/staging are an unwelcome distraction
+in bugzilla and the wireless mailing lists.  Not only do those drivers
+generate (often wierd) bugs, we get the privilege of looking like
+jerks for refusing to deal with those reports even though we objected
+to including the drivers in the first place.
 
-An example ethtool command with this support could be:
+It is little wonder to me why the linux-wireless folks oppose
+drivers/staging...
 
-# ethtool -F ethX dst-ip 0x0101a8c0 src-ip 0x0001a8c0 0x00ffffff
-dst-port 0x1600 src-port 0x0000 0x0000 usr 0x8906 act 5
+Hth!
 
-This will program a filter that will filter traffic coming from
-192.168.1.0/24 to 192.168.1.1, port 22, from any source port, and will
-place all those matches packets into Rx queue 5.  It also specified a
-user-defined field of 0x8906, which a driver can use at its own
-discretion (or omit completely).
+John
 
-Then running the ethtool -f ethX command could dump all currently
-programmed filters.
+[1] Actually, I _know_ there are people who object to all of
+drivers/staging, but few of those are actively and vigorously objecting
+to it.
 
-Any comments, thoughts, suggestions, or ideas are welcome.
-
-Cheers,
--PJ Waskiewicz
-
+[2] A mergeable driver should respect and/or utilize existing wireless
+infrastructure rather than duplicating it, as well as meeting general
+standards of maintainability.  Preferably it would have someone to
+stand behind it as a maintainer as well.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
