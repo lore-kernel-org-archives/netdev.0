@@ -1,155 +1,133 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] udp: Optimise multicast reception
-Date: Fri, 06 Nov 2009 16:59:51 +0100
-Message-ID: <4AF447F7.6000700@gmail.com>
-References: <200911052033.21964.lgrijincu@ixiacom.com> <20091106.004215.114490979.davem@davemloft.net> <200911061604.21465.lgrijincu@ixiacom.com> <4AF43C5E.4060300@gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Fri, 06 Nov 2009 11:08:37 -0500
+Message-ID: <4AF44A05.4060701@novell.com>
+References: <20091002141407.30224.54207.stgit@dev.haskins.net> <20091105.210810.124818005.davem@davemloft.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig62984E88BA9121BD157CBBAD"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759421AbZKFQIw@vger.kernel.org>
+In-Reply-To: <20091105.210810.124818005.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig62984E88BA9121BD157CBBAD
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, opurdila@ixiacom.com
-To: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51753 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759364AbZKFP7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 10:59:51 -0500
-In-Reply-To: <4AF43C5E.4060300@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Eric Dumazet a =E9crit :
-
-> Yes, but this single skb freeing is in multicast very slow path
-> (it happens if we receive a multicast packet with no listener, which =
-should
->  not happen with multicast aware network...)
+David Miller wrote:
+> From: Gregory Haskins <ghaskins@novell.com>
+> Date: Fri, 02 Oct 2009 10:20:00 -0400
 >=20
+>> The following is an RFC for an attempt at addressing a zero-copy solut=
+ion.
+>>
+>> To be perfectly honest, I have no idea if this is the best solution, o=
+r if
+>> there is truly a problem with skb->destructor that requires an alterna=
+te
+>> mechanism.  What I do know is that this patch seems to work, and I wou=
+ld
+>> like to see some kind of solution available upstream.  So I thought I =
+would
+>> send my hack out as at least a point of discussion.  FWIW: This has be=
+en
+>> tested heavily in my rig and is technically suitable for inclusion aft=
+er
+>> review as is, if that is decided to be the optimal path forward here.
+>>
+>> Thanks for your review and consideration,
 >=20
-> If you really want to optimize this part, we could use an array of
-> 32 (or 64) socket pointers, to be able to perform the really expensiv=
-e
-> work (skb_clone(), udp_queue_rcv_skb()) outside of the lock.
+> I have no fundamental objections, but when you submit this for
+> real can you show the code that uses it so we can get a better
+> idea about things?
 >=20
-> Something like this untested patch :
+> Thanks.
 
-I did some tests and made one fix.
+Absolutely.  I am not sure if this content would be appropriate for the
+patch header, so I will just reply to your request here.  If you would
+like to see the patch resubmitted with the following in the header, let
+me know.
 
-With this kind of stacking, we eventually could try a rcu lookup as wel=
-l.
+The way we use this today is in the venet driver as part of the
+AlacrityVM hypervisor.  We therefore have a guest and host environment,
+where the guest builds fully formed L2 frames, and the host generally
+acts as a conduit for passing those frames to a real physical device
+(such as through a soft-bridge, etc).  We would like to do this without
+requiring copies for certain classes of packets (i.e. packets larger
+than a threshold).  However we have to be smart about how we do this
+since the guest technically "owns" the pages, and therefore needs
+io-completion events to properly signify when pages are actually freed.
+
+The way this all looks today is (I hope this doesn't get mangled):
+
+----------------------------------------------------------------------
+|              guest              |               host               |
+----------------------------------------------------------------------
+|     stack      |     venet      |     venetdev    |     phydev     |
+----------------------------------------------------------------------
+| alloc_skb()                                                        |
+| dev_xmit()                                                         |
+|                -> queue_tx(sg)                                     |
+|                                 -> dequeue_rx(sg)                  |
+|                                    alloc_pskb()                    |
+|                                    map_sg(sg)->pskb                |
+|                                    loop(get_page())                |
+|                                    skb->release =3D cb               |
+|                                                   -> dev_xmit()    |
+|                                                                    |
+|                                                     txc_isr() <-   |
+|                                                     kfree_skb()    |
+|                                                     skb->release() |
+|                                    cb()           <-               |
+|                                     queue_event(sg)                |
+|                    txc_isr()    <-                                 |
+|                    kfree_skb()                                     |
+|                                                    loop(put_page())|
+----------------------------------------------------------------------
+
+And here is the actual code in action
+(kernel/vbus/devices/venet/device.c) from the alacrityvm.git tree
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-2.6=
+=2Egit;a=3Dblob;f=3Dkernel/vbus/devices/venet/device.c;h=3Dd49ba7fa9f70cb=
+b7e61c366d52d4c316d15f8b73;hb=3DHEAD
+
+Line 587 is the "dequeue_rx()" operation from the diagram.  Line 627 is
+where we map in the guests pages to a scatterlist.  Line 649 is where we
+update the skb_shinfo->frags with the mapping.  And finally, Line 677 is
+where I register a callback for when the skb is released.
+
+Line 853 is the callback that the stack invokes when the phydev finally
+frees the packet.  You can see that line 863 then sends an
+transmit-complete event back up to the guest.
+
+If this is not what you were looking for, please let me know.  If this
+looks acceptable to you, please consider the original patch for
+inclusion at the next convenient merge window.
+
+Thanks David!
+-Greg
 
 
+--------------enig62984E88BA9121BD157CBBAD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-[PATCH net-next-2.6] udp: Optimise multicast reception
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-UDP multicast rx path is a bit complex and can hold a spinlock
-for a long time.
+iEYEARECAAYFAkr0SgUACgkQP5K2CMvXmqHznwCeO0+B7MfMXZkXJ3m2lwg0G223
+cikAn2mhwOibFLybMzy7hEqThtijVEJI
+=C70E
+-----END PGP SIGNATURE-----
 
-Using a small (32 or 64 entries) stack of socket pointers can help
-to perform expensive operations (skb_clone(), udp_queue_rcv_skb())
-outside of the lock, in most cases.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/udp.c |   70 ++++++++++++++++++++++++++++++-----------------
- 1 files changed, 46 insertions(+), 24 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d5e75e9..89637d0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1190,6 +1190,24 @@ drop:
- 	return -1;
- }
-=20
-+
-+static void flush_stack(struct sock **stack, unsigned int count,
-+			struct sk_buff *skb, unsigned int final)
-+{
-+	unsigned int i;
-+	struct sk_buff *skb1 =3D NULL;
-+
-+	for (i =3D 0; i < count; i++) {
-+		if (likely(skb1 =3D=3D NULL))
-+			skb1 =3D (i =3D=3D final) ? skb : skb_clone(skb, GFP_ATOMIC);
-+
-+		if (skb1 && udp_queue_rcv_skb(stack[i], skb1) <=3D 0)
-+			skb1 =3D NULL;
-+	}
-+	if (skb1)
-+		consume_skb(skb1);
-+}
-+
- /*
-  *	Multicasts and broadcasts go to each listener.
-  *
-@@ -1201,38 +1219,42 @@ static int __udp4_lib_mcast_deliver(struct net =
-*net, struct sk_buff *skb,
- 				    __be32 saddr, __be32 daddr,
- 				    struct udp_table *udptable)
- {
--	struct sock *sk;
-+	struct sock *sk, *stack[256 / sizeof(struct sock *)];
- 	struct udp_hslot *hslot =3D udp_hashslot(udptable, net, ntohs(uh->des=
-t));
- 	int dif;
-+	unsigned int i, count =3D 0;
-=20
- 	spin_lock(&hslot->lock);
- 	sk =3D sk_nulls_head(&hslot->head);
- 	dif =3D skb->dev->ifindex;
- 	sk =3D udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr,=
- dif);
--	if (sk) {
--		struct sock *sknext =3D NULL;
--
--		do {
--			struct sk_buff *skb1 =3D skb;
--
--			sknext =3D udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
--						   daddr, uh->source, saddr,
--						   dif);
--			if (sknext)
--				skb1 =3D skb_clone(skb, GFP_ATOMIC);
--
--			if (skb1) {
--				int ret =3D udp_queue_rcv_skb(sk, skb1);
--				if (ret > 0)
--					/* we should probably re-process instead
--					 * of dropping packets here. */
--					kfree_skb(skb1);
--			}
--			sk =3D sknext;
--		} while (sknext);
--	} else
--		consume_skb(skb);
-+	while (sk) {
-+		stack[count++] =3D sk;
-+		sk =3D udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
-+				       daddr, uh->source, saddr, dif);
-+		if (unlikely(count =3D=3D ARRAY_SIZE(stack))) {
-+			if (!sk)
-+				break;
-+			flush_stack(stack, count, skb, ~0);
-+			count =3D 0;
-+		}
-+
-+	}
-+	/*
-+	 * before releasing the lock, we must take reference on sockets
-+	 */
-+	for (i =3D 0; i < count; i++)
-+		sock_hold(stack[i]);
-+
- 	spin_unlock(&hslot->lock);
-+
-+	/*
-+	 * do the slow work with no lock held
-+	 */
-+	flush_stack(stack, count, skb, count - 1);
-+
-+	for (i =3D 0; i < count; i++)
-+		sock_put(stack[i]);
- 	return 0;
- }
-=20
+--------------enig62984E88BA9121BD157CBBAD--
