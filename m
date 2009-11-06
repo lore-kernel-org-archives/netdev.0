@@ -1,37 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:154 inet_sock_destruct
-Date: Fri, 06 Nov 2009 09:47:37 +0100
-Message-ID: <4AF3E2A9.2020601@gmail.com>
-References: <38b2ab8a0909290109m3f82c161j4fb0f1266152877e@mail.gmail.com>	 <4AC1D0F5.4050709@gmail.com>	 <38b2ab8a0910300144i7a3c190fi9aa3d079c9cdb754@mail.gmail.com>	 <4AEACD88.8080108@gmail.com> <4AEB0059.1050400@gmail.com> <38b2ab8a0911060045hb6ebab8p43bf8aa838eabfd3@mail.gmail.com>
+From: md@Linux.IT (Marco d'Itri)
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Fri, 6 Nov 2009 09:49:21 +0100
+Message-ID: <20091106084921.GA16700@bongo.bofh.it>
+References: <EDA0A4495861324DA2618B4C45DCB3EE58954D@blrx3m08.blr.amer.dell.com> <20091013173638.GE1119@ldl.fc.hp.com> <20091016003245.GD29672@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com> <20091016152053.GA9862@ldl.fc.hp.com> <1255707193.2869.12.camel@achroite> <20091016214024.GA10091@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com> <4ADC906E.2050909@kadzban.is-a-geek.net> <EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Francis Moreau <francis.moro@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36021 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754472AbZKFIrf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:47:35 -0500
-In-Reply-To: <38b2ab8a0911060045hb6ebab8p43bf8aa838eabfd3@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: bryan@kadzban.is-a-geek.net, dannf@hp.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, Matt_Domsch@Dell.com,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
+	Sandeep_K_Shandilya@Dell.com
+To: Narendra_K@Dell.com
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rancis Moreau a =E9crit :
-> On Fri, Oct 30, 2009 at 4:03 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
->=20
-> [...]
->=20
->> [PATCH take2] net: fix sk_forward_alloc corruption
->>
->=20
-> With this patch applied 4 days ago, I haven't got any oops so far.
+On Nov 04, Narendra_K@Dell.com wrote:
 
-Thanks a lot for testing and report Francis, I believe David will push =
-it for stable
-(if not already done)
+> SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
+> ATTR{smbios_name}=="Embedded_NIC_1", ATTR{type}=="1", KERNEL=="eth*",
+> NAME="eth0".
+As a distribution developer I highly value solutions like this which do
+not require patching every application which deals with interface names
+and then teaching users about aliases which only work in some places and
+are unknown to the kernel.
 
-
+-- 
+ciao,
+Marco
