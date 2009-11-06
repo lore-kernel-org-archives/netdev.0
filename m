@@ -1,23 +1,45 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Using netconsole and getting double prints
-Date: Fri, 6 Nov 2009 09:14:40 -0800
-Message-ID: <43e72e890911060914i6233b71dgd68e228074869096@mail.gmail.com>
-References: <43e72e890911051654i19c18bf3nd397662ed79712c4@mail.gmail.com>
-	<1257484663.2873.622.camel@calx> <43e72e890911060832k1b831f32w93357c71b370e71c@mail.gmail.com>
-	<4AF452B8.7080306@googlemail.com>
+From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+Subject: Re: [PATCH net-next-2.6 take2] ipv6: udp: Optimise multicast reception
+Date: Fri, 6 Nov 2009 19:19:46 +0200
+Message-ID: <200911061919.47100.lgrijincu@ixiacom.com>
+References: <200911052033.21964.lgrijincu@ixiacom.com> <4AF4506B.3080905@gmail.com> <4AF45796.8010409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andre Naujoks <nautsch2@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759532AbZKFRO4@vger.kernel.org>
-In-Reply-To: <4AF452B8.7080306@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	opurdila@ixiacom.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9933 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751780AbZKFRTn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 12:19:43 -0500
+In-Reply-To: <4AF45796.8010409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 6, 2009 at 8:45 AM, Andre Naujoks <nautsch2@googlemail.com> wrote:
+=CEn data de Vin 06 Noi 2009 19:06:30 Eric Dumazet a scris:
+> +       for (i =3D 0; i < count; i++) {
+> +               skb1 =3D (i =3D=3D final) ? skb : skb_clone(skb, GFP_=
+ATOMIC);
+> +
+> +               if (skb1) {
+> +                       sk =3D stack[i];
+> +                       bh_lock_sock(sk);
+> +                       if (!sock_owned_by_user(sk))
+> +                               udpv6_queue_rcv_skb(sk, skb1);
+> +                       else
+> +                               sk_add_backlog(sk, skb1);
+> +                       bh_unlock_sock(sk);
+> +               }
+> +       }
 
-> I think the intention behind this is for you to check if they are double
-> prints on your end or double sends on the other end.
+Is there any reason to continue this loop if we ever get a NULL skb1?
 
-Ah yeah, good point :)
+If once we can't get a GFP_ATOMIC clone, are there merrits to calling=20
+skb_clone() like crazy (in a very tight loop) (whilst holding a spin lo=
+ck in=20
+some cases)?
+
+--=20
+Lucian
