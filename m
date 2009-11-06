@@ -1,89 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next2.6] ipv6: avoid dev_hold()/dev_put() in rawv6_bind()
-Date: Fri, 06 Nov 2009 11:53:22 +0100
-Message-ID: <4AF40022.6050100@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH v2] arpd/ifstat/nstat/rtacct: use daemon()
+Date: Fri,  6 Nov 2009 06:04:39 -0500
+Message-ID: <1257505479-13631-1-git-send-email-vapier@gentoo.org>
+References: <1257344795-8665-3-git-send-email-vapier@gentoo.org>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40097 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756413AbZKFKxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 05:53:20 -0500
+Received: from smtp.gentoo.org ([140.211.166.183]:40970 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754493AbZKFLDG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Nov 2009 06:03:06 -0500
+In-Reply-To: <1257344795-8665-3-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using RCU helps not touching device refcount in rawv6_bind()
+A bunch of misc utils basically reimplement the daemon() function (the
+whole fork/close/chdir/etc...).  Rather than do that, use daemon() as
+that will work under nommu Linux systems that lack fork().
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- net/ipv6/raw.c |   23 +++++++++++------------
- 1 files changed, 11 insertions(+), 12 deletions(-)
+ misc/arpd.c   |   24 +++---------------------
+ misc/ifstat.c |    8 ++++----
+ misc/nstat.c  |    8 ++++----
+ misc/rtacct.c |    8 ++++----
+ 4 files changed, 15 insertions(+), 33 deletions(-)
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 818ef21..80f356a 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -249,7 +249,7 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+diff --git a/misc/arpd.c b/misc/arpd.c
+index 71cd082..128c49d 100644
+--- a/misc/arpd.c
++++ b/misc/arpd.c
+@@ -775,27 +775,9 @@ int main(int argc, char **argv)
  
- 	/* Raw sockets are IPv6 only */
- 	if (addr_type == IPV6_ADDR_MAPPED)
--		return(-EADDRNOTAVAIL);
-+		return -EADDRNOTAVAIL;
+ 	load_initial_table();
  
- 	lock_sock(sk);
- 
-@@ -257,6 +257,7 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (sk->sk_state != TCP_CLOSE)
- 		goto out;
- 
-+	rcu_read_unlock();
- 	/* Check if the address belongs to the host. */
- 	if (addr_type != IPV6_ADDR_ANY) {
- 		struct net_device *dev = NULL;
-@@ -272,13 +273,13 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 
- 			/* Binding to link-local address requires an interface */
- 			if (!sk->sk_bound_dev_if)
--				goto out;
-+				goto out_unlock;
- 
--			dev = dev_get_by_index(sock_net(sk), sk->sk_bound_dev_if);
--			if (!dev) {
--				err = -ENODEV;
--				goto out;
--			}
-+			err = -ENODEV;
-+			dev = dev_get_by_index_rcu(sock_net(sk),
-+						   sk->sk_bound_dev_if);
-+			if (!dev)
-+				goto out_unlock;
- 		}
- 
- 		/* ipv4 addr of the socket is invalid.  Only the
-@@ -289,13 +290,9 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 			err = -EADDRNOTAVAIL;
- 			if (!ipv6_chk_addr(sock_net(sk), &addr->sin6_addr,
- 					   dev, 0)) {
--				if (dev)
--					dev_put(dev);
--				goto out;
-+				goto out_unlock;
- 			}
- 		}
--		if (dev)
--			dev_put(dev);
+-	if (1) {
+-		int fd;
+-		pid_t pid = fork();
+-
+-		if (pid > 0)
+-			_exit(0);
+-		if (pid < 0) {
+-			perror("arpd: fork");
+-			goto do_abort;
+-		}
+-
+-		chdir("/");
+-		fd = open("/dev/null", O_RDWR);
+-		if (fd >= 0) {
+-			dup2(fd, 0);
+-			dup2(fd, 1);
+-			dup2(fd, 2);
+-			if (fd > 2)
+-				close(fd);
+-		}
+-		setsid();
++	if (daemon(0, 0)) {
++		perror("arpd: daemon");
++		goto do_abort;
  	}
  
- 	inet->inet_rcv_saddr = inet->inet_saddr = v4addr;
-@@ -303,6 +300,8 @@ static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (!(addr_type & IPV6_ADDR_MULTICAST))
- 		ipv6_addr_copy(&np->saddr, &addr->sin6_addr);
- 	err = 0;
-+out_unlock:
-+	rcu_read_unlock();
- out:
- 	release_sock(sk);
- 	return err;
+ 	openlog("arpd", LOG_PID | LOG_CONS, LOG_DAEMON);
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index 68dfdee..0ce8c92 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -663,10 +663,10 @@ int main(int argc, char *argv[])
+ 			perror("ifstat: listen");
+ 			exit(-1);
+ 		}
+-		if (fork())
+-			exit(0);
+-		chdir("/");
+-		close(0); close(1); close(2); setsid();
++		if (daemon(0, 0)) {
++			perror("ifstat: daemon");
++			exit(-1);
++		}
+ 		signal(SIGPIPE, SIG_IGN);
+ 		signal(SIGCHLD, sigchild);
+ 		server_loop(fd);
+diff --git a/misc/nstat.c b/misc/nstat.c
+index 80e695f..2e44ed2 100644
+--- a/misc/nstat.c
++++ b/misc/nstat.c
+@@ -513,10 +513,10 @@ int main(int argc, char *argv[])
+ 			perror("nstat: listen");
+ 			exit(-1);
+ 		}
+-		if (fork())
+-			exit(0);
+-		chdir("/");
+-		close(0); close(1); close(2); setsid();
++		if (daemon(0, 0)) {
++			perror("nstat: daemon");
++			exit(-1);
++		}
+ 		signal(SIGPIPE, SIG_IGN);
+ 		signal(SIGCHLD, sigchild);
+ 		server_loop(fd);
+diff --git a/misc/rtacct.c b/misc/rtacct.c
+index eb3ea9e..a247dfd 100644
+--- a/misc/rtacct.c
++++ b/misc/rtacct.c
+@@ -524,10 +524,10 @@ int main(int argc, char *argv[])
+ 			perror("rtacct: listen");
+ 			exit(-1);
+ 		}
+-		if (fork())
+-			exit(0);
+-		chdir("/");
+-		close(0); close(1); close(2); setsid();
++		if (daemon(0, 0)) {
++			perror("rtacct: daemon");
++			exit(-1);
++		}
+ 		signal(SIGPIPE, SIG_IGN);
+ 		signal(SIGCHLD, sigchild);
+ 		server_loop(fd);
+-- 
+1.6.5.1
+
