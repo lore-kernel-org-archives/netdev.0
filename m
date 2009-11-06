@@ -1,28 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 01/02: nf_nat: fix NAT issue in 2.6.30.4+
-Date: Fri, 06 Nov 2009 00:43:54 -0800 (PST)
-Message-ID: <20091106.004354.176310610.davem@davemloft.net>
-References: <4AF31832.1070701@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] decnet: netdevice refcount leak
+Date: Fri, 06 Nov 2009 09:43:31 +0100
+Message-ID: <4AF3E1B3.8070204@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47614
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753517AbZKFIn3 (ORCPT
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59967 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbZKFIn3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:43:29 -0500
-In-Reply-To: <4AF31832.1070701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 05 Nov 2009 19:23:46 +0100
+David, if you accept the following patch for net-2.6, it would help me
+if you also can pull it in net-next-2.6
 
->     netfilter: nf_nat: fix NAT issue in 2.6.30.4+
- ...
->     Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
+Thanks
 
-Applied to net-2.6
+[PATCH] decnet: netdevice refcount leak
+
+While working on device refcount stuff, I found a device refcount leak
+through DECNET.
+This nasty bug can be used to hold refcounts on any !DECNET netdevice.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/decnet/sysctl_net_decnet.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/net/decnet/sysctl_net_decnet.c b/net/decnet/sysctl_net_decnet.c
+index 26b0ab1..2036568 100644
+--- a/net/decnet/sysctl_net_decnet.c
++++ b/net/decnet/sysctl_net_decnet.c
+@@ -263,11 +263,10 @@ static int dn_def_dev_strategy(ctl_table *table,
+ 			return -ENODEV;
+ 
+ 		rv = -ENODEV;
+-		if (dev->dn_ptr != NULL) {
++		if (dev->dn_ptr != NULL)
+ 			rv = dn_dev_set_default(dev, 1);
+-			if (rv)
+-				dev_put(dev);
+-		}
++		if (rv)
++			dev_put(dev);
+ 	}
+ 
+ 	return rv;
