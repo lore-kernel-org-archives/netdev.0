@@ -1,162 +1,120 @@
-From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Subject: Re: [PATCH net-next-2.6] udp: Optimise multicast reception
-Date: Fri, 6 Nov 2009 18:35:24 +0200
-Message-ID: <200911061835.24928.lgrijincu@ixiacom.com>
-References: <200911052033.21964.lgrijincu@ixiacom.com> <4AF43C5E.4060300@gmail.com> <4AF447F7.6000700@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv6: udp: Optimise multicast reception
+Date: Fri, 06 Nov 2009 17:35:55 +0100
+Message-ID: <4AF4506B.3080905@gmail.com>
+References: <200911052033.21964.lgrijincu@ixiacom.com> <20091106.004215.114490979.davem@davemloft.net> <200911061604.21465.lgrijincu@ixiacom.com> <4AF43C5E.4060300@gmail.com> <4AF447F7.6000700@gmail.com> <4AF44F3D.3050407@gmail.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_MBF9Kw6xohBpDIL"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	opurdila@ixiacom.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
+	netdev@vger.kernel.org, opurdila@ixiacom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:19827 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758787AbZKFQfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 11:35:21 -0500
-In-Reply-To: <4AF447F7.6000700@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56964 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757641AbZKFQfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 11:35:55 -0500
+In-Reply-To: <4AF44F3D.3050407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_MBF9Kw6xohBpDIL
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Sorry for previous empty mail :(
 
-=C3=8En data de Vin 06 Noi 2009 17:59:51 a=C8=9Bi scris:
-> +static void flush_stack(struct sock **stack, unsigned int count,
-> +                       struct sk_buff *skb, unsigned int final)
-> +{
-> +       unsigned int i;
-> +       struct sk_buff *skb1 =3D NULL;
-> +
-> +       for (i =3D 0; i < count; i++) {
-> +             if (likely(skb1 =3D=3D NULL))
-> +                    skb1 =3D (i =3D=3D final) ? skb : skb_clone(skb, GFP=
-_ATOMIC);
-> +
-> +               if (skb1 && udp_queue_rcv_skb(stack[i], skb1) <=3D 0)
-> +                       skb1 =3D NULL;
-> +       }
-> +       if (skb1)
-> +               consume_skb(skb1);
-> +}
+[PATCH net-next-2.6] ipv6: udp: Optimise multicast reception
 
-consume_skb() assumes the skb was successfuly transmitted.
+IPV6 UDP multicast rx path is a bit complex and can hold a spinlock
+for a long time.
 
-free_skb() does the same thing, but assumes that the frame is being dropped=
-=20
-after a failure and notes that.
+Using a small (32 or 64 entries) stack of socket pointers can help
+to perform expensive operations (skb_clone(), udp_queue_rcv_skb())
+outside of the lock, in most cases.
 
-In your code, if (count =3D=3D 0) you:
-* fail to remove the original skb (memory leak),=20
-* simply consume the last dropped skb, without noting the droping failure.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/udp.c |   67 ++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 43 insertions(+), 24 deletions(-)
 
-I fixed these in the attached (untested) patch.
-
-One last issue: you silently ignore dropped failures (skb1 is reused in cas=
-e=20
-of a failure).
-
-If this tracing must record all failures, I'd add an
-	trace_kfree_skb(skb1, __builtin_return_address(0));
-if udp_queue_rcv_skb() fails.
-
-Other than this, nicely done!
-=2D-=20
-Lucian
-
---Boundary-00=_MBF9Kw6xohBpDIL
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="udp-optimise-multicast-reception.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="udp-optimise-multicast-reception.patch"
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d5e75e9..a2c1a27 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1190,6 +1190,29 @@ drop:
- 	return -1;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5bc7cdb..670662a 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -440,6 +440,27 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+ 	return NULL;
  }
  
-+
 +static void flush_stack(struct sock **stack, unsigned int count,
 +			struct sk_buff *skb, unsigned int final)
 +{
 +	unsigned int i;
-+	struct sk_buff *skb1 = NULL;
-+
-+	if ((count == 0) && skb) {
-+		consume_skb(skb);
-+		return;
-+	}
++	struct sock *sk;
++	struct sk_buff *skb1;
 +
 +	for (i = 0; i < count; i++) {
-+		if (likely(skb1 == NULL))
-+			skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
++		skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
 +
-+		if (skb1 && udp_queue_rcv_skb(stack[i], skb1) <= 0)
-+			skb1 = NULL;
++		if (skb1) {
++			sk = stack[i];
++			bh_lock_sock(sk);
++			if (!sock_owned_by_user(sk))
++				udpv6_queue_rcv_skb(sk, skb1);
++			else
++				sk_add_backlog(sk, skb1);
++			bh_unlock_sock(sk);
++		}
 +	}
-+	if (skb1)
-+		free_skb(skb1);
 +}
-+
  /*
-  *	Multicasts and broadcasts go to each listener.
-  *
-@@ -1201,38 +1224,42 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 				    __be32 saddr, __be32 daddr,
- 				    struct udp_table *udptable)
+  * Note: called only from the BH handler context,
+  * so we don't need to lock the hashes.
+@@ -448,41 +469,39 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		struct in6_addr *saddr, struct in6_addr *daddr,
+ 		struct udp_table *udptable)
  {
--	struct sock *sk;
+-	struct sock *sk, *sk2;
 +	struct sock *sk, *stack[256 / sizeof(struct sock *)];
+ 	const struct udphdr *uh = udp_hdr(skb);
  	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
  	int dif;
 +	unsigned int i, count = 0;
  
  	spin_lock(&hslot->lock);
  	sk = sk_nulls_head(&hslot->head);
- 	dif = skb->dev->ifindex;
- 	sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
--	if (sk) {
--		struct sock *sknext = NULL;
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+-	if (!sk) {
+-		kfree_skb(skb);
+-		goto out;
+-	}
 -
--		do {
--			struct sk_buff *skb1 = skb;
--
--			sknext = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
--						   daddr, uh->source, saddr,
--						   dif);
--			if (sknext)
--				skb1 = skb_clone(skb, GFP_ATOMIC);
--
--			if (skb1) {
--				int ret = udp_queue_rcv_skb(sk, skb1);
--				if (ret > 0)
--					/* we should probably re-process instead
--					 * of dropping packets here. */
--					kfree_skb(skb1);
--			}
--			sk = sknext;
--		} while (sknext);
--	} else
--		consume_skb(skb);
+-	sk2 = sk;
+-	while ((sk2 = udp_v6_mcast_next(net, sk_nulls_next(sk2), uh->dest, daddr,
+-					uh->source, saddr, dif))) {
+-		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
+-		if (buff) {
+-			bh_lock_sock(sk2);
+-			if (!sock_owned_by_user(sk2))
+-				udpv6_queue_rcv_skb(sk2, buff);
+-			else
+-				sk_add_backlog(sk2, buff);
+-			bh_unlock_sock(sk2);
 +	while (sk) {
 +		stack[count++] = sk;
-+		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
-+				       daddr, uh->source, saddr, dif);
++		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
++				       uh->source, saddr, dif);
 +		if (unlikely(count == ARRAY_SIZE(stack))) {
 +			if (!sk)
 +				break;
 +			flush_stack(stack, count, skb, ~0);
 +			count = 0;
-+		}
-+
-+	}
+ 		}
+ 	}
+-	bh_lock_sock(sk);
+-	if (!sock_owned_by_user(sk))
+-		udpv6_queue_rcv_skb(sk, skb);
+-	else
+-		sk_add_backlog(sk, skb);
+-	bh_unlock_sock(sk);
+-out:
 +	/*
 +	 * before releasing the lock, we must take reference on sockets
 +	 */
@@ -165,9 +123,6 @@ index d5e75e9..a2c1a27 100644
 +
  	spin_unlock(&hslot->lock);
 +
-+	/*
-+	 * do the slow work with no lock held
-+	 */
 +	flush_stack(stack, count, skb, count - 1);
 +
 +	for (i = 0; i < count; i++)
@@ -175,5 +130,3 @@ index d5e75e9..a2c1a27 100644
  	return 0;
  }
  
-
---Boundary-00=_MBF9Kw6xohBpDIL--
