@@ -1,45 +1,39 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Using netconsole and getting double prints
-Date: Thu, 05 Nov 2009 23:17:43 -0600
-Message-ID: <1257484663.2873.622.camel@calx>
-References: <43e72e890911051654i19c18bf3nd397662ed79712c4@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] net: pass kern to net_proto_family create function
+Date: Thu, 05 Nov 2009 21:39:07 -0800 (PST)
+Message-ID: <20091105.213907.235867065.davem@davemloft.net>
+References: <20091104163217.27133.6899.stgit@paris.rdu.redhat.com>
+	<20091104173147.GG2603@ghostprotocols.net>
+	<20091105.210800.162780369.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:37436 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751853AbZKFFRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 00:17:46 -0500
-In-Reply-To: <43e72e890911051654i19c18bf3nd397662ed79712c4@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eparis@redhat.com, netdev@vger.kernel.org, nhorman@redhat.com,
+	dwalsh@redhat.com, linux-security-module@vger.kernel.org
+To: acme@infradead.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20091105.210800.162780369.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-11-05 at 16:54 -0800, Luis R. Rodriguez wrote:
-> I'm getting double prints when using netconsole. This used to happen
-> to me and then I just enable debugging log level manually (dmesg -n 8)
-> but now no matter what I try I always get double prints.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 05 Nov 2009 21:08:00 -0800 (PST)
 
-This is the first report I've seen of that. Recommend investigating with
-wireshark.
-
-> I capture my data with netcat script (I call it netlog):
+> From: Arnaldo Carvalho de Melo <acme@infradead.org>
+> Date: Wed, 4 Nov 2009 15:31:47 -0200
 > 
-> #!/bin/bash
-> echo "You should now run in another window: tail -f $HOME/log"
-> while true; do
-> 	/bin/nc -u -l -p 6666 >> $HOME/log
-> done
+>> Em Wed, Nov 04, 2009 at 11:32:17AM -0500, Eric Paris escreveu:
+>>> The generic __sock_create function has a kern argument which allows the
+>>> security system to make decisions based on if a socket is being created by
+>>> the kernel or by userspace.  This patch passes that flag to the
+>>> net_proto_family specific create function, so it can do the same thing.
+>>> 
+>>> Signed-off-by: Eric Paris <eparis@redhat.com>
+>> 
+>> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 > 
-> This also just doesn't work if I run the nc manually without a redirect:
-> 
-> while true; do /bin/nc -u -l -p 6666; done
+> Applied to net-next-2.6
 
-That really shouldn't make any difference.
+Eric, you missed Bluetooth and ATM in this change, breaking the build.
 
--- 
-http://selenic.com : development and support for Mercurial and Linux
-
-
+I'll fix this up, but next time...
