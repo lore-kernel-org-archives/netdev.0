@@ -1,255 +1,147 @@
-From: <jie.yang@atheros.com>
-Subject: [PATCH net-next]atl1c:change atl1c_buffer struct and restructure clean atl1c_buffer procedure
-Date: Thu, 5 Nov 2009 22:39:13 +0800
-Message-ID: <12574319533672-git-send-email-jie.yang@atheros.com>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: Re: [PATCH 0/5] Candidate fix for increased number of GFP_ATOMIC
+	failures V2
+Date: Fri, 6 Nov 2009 07:03:23 +0100
+Message-ID: <20091106060323.GA5528@yumi.tdiedrich.de>
+References: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Jie Yang <jie.yang@atheros.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atheros.com ([12.36.123.2]:27099 "EHLO mail.atheros.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752380AbZKFFyO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 00:54:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Frans Pop <elendil@planet.nl>, Jiri Kosina <jkosina@suse.cz>,
+	Sven Geggus <lists@fuchsschwanzdomain.de>,
+	Karol Lewandowski <karol.k.lewandowski@gmail.com>,
+	Tobias Oetiker <tobi@oetiker.ch>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	David Rientjes <rientjes@google.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Mohamed Abbas <mohamed.abbas@intel.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Stephan von Krawczynski <skraw@ithnet.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1256221356-26049-1-git-send-email-mel@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-change atl1c_buffer struct, use "u16 flags" instead of "u16 state"
-to store more infomation for atl1c_buffer, and restructure clean
-atl1c_buffer procedure, add common api atl1c_clean_buffer.
+Mel Gorman wrote:
+> [No BZ ID] Kernel crash on 2.6.31.x (kcryptd: page allocation failure..)
+> 	This apparently is easily reproducible, particular in comparison to
+> 	the other reports. The point of greatest interest is that this is
+> 	order-0 GFP_ATOMIC failures. Sven, I'm hoping that you in particular
+> 	will be able to follow the tests below as you are the most likely
+> 	person to have an easily reproducible situation.
 
-Signed-off-by: Jie Yang <jie.yang@atheros.com>
----
+I've also seen order-0 failures on 2.6.31.5:
+Note that this is with a one process hogging and mlocking memory and
+min_free_kbytes reduced to 100 to reproduce the problem more easily.
 
-drivers/net/atl1c/atl1c.h      |   22 +++++++++-
-drivers/net/atl1c/atl1c_main.c |   84 ++++++++++++++++++++--------------------
-2 files changed, 61 insertions(+), 45 deletions(-)
+I tried bisecting the issue, but in the end without memory pressure
+I can't reproduce it reliably and with the above mentioned pressure
+I get allocation failures even on 2.6.30.o
 
-diff --git a/drivers/net/atl1c/Makefile b/drivers/net/atl1c/Makefile
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
-index 2a1120a..a348a22 100644
---- a/drivers/net/atl1c/atl1c.h
-+++ b/drivers/net/atl1c/atl1c.h
-@@ -470,12 +470,28 @@ struct atl1c_ring_header {
- struct atl1c_buffer {
- 	struct sk_buff *skb;	/* socket buffer */
- 	u16 length;		/* rx buffer length */
--	u16 state;		/* state of buffer */
--#define ATL1_BUFFER_FREE	0
--#define ATL1_BUFFER_BUSY	1
-+	u16 flags;		/* information of buffer */
-+#define ATL1C_BUFFER_FREE		0x0001
-+#define ATL1C_BUFFER_BUSY		0x0002
-+#define ATL1C_BUFFER_STATE_MASK		0x0003
-+
-+#define ATL1C_PCIMAP_SINGLE		0x0004
-+#define ATL1C_PCIMAP_PAGE		0x0008
-+#define ATL1C_PCIMAP_TYPE_MASK		0x000C
-+
- 	dma_addr_t dma;
- };
- 
-+#define ATL1C_SET_BUFFER_STATE(buff, state) do {	\
-+	((buff)->flags) &= ~ATL1C_BUFFER_STATE_MASK;	\
-+	((buff)->flags) |= (state);			\
-+	} while (0)
-+
-+#define ATL1C_SET_PCIMAP_TYPE(buff, type) do {		\
-+	((buff)->flags) &= ~ATL1C_PCIMAP_TYPE_MASK;	\
-+	((buff)->flags) |= (type);			\
-+	} while (0)
-+
- /* transimit packet descriptor (tpd) ring */
- struct atl1c_tpd_ring {
- 	void *desc;		/* descriptor ring virtual address */
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-index 3b8801a..5ef9e23 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -710,6 +710,29 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
- 	return 0;
- }
- 
-+static inline void atl1c_clean_buffer(struct pci_dev *pdev,
-+				struct atl1c_buffer *buffer_info, int in_irq)
-+{
-+	if (buffer_info->flags & ATL1C_BUFFER_FREE)
-+		return;
-+	if (buffer_info->dma) {
-+		if (buffer_info->flags & ATL1C_PCIMAP_SINGLE)
-+			pci_unmap_single(pdev, buffer_info->dma,
-+					buffer_info->length, PCI_DMA_TODEVICE);
-+		else if (buffer_info->flags & ATL1C_PCIMAP_PAGE)
-+			pci_unmap_page(pdev, buffer_info->dma,
-+					buffer_info->length, PCI_DMA_TODEVICE);
-+	}
-+	if (buffer_info->skb) {
-+		if (in_irq)
-+			dev_kfree_skb_irq(buffer_info->skb);
-+		else
-+			dev_kfree_skb(buffer_info->skb);
-+	}
-+	buffer_info->dma = 0;
-+	buffer_info->skb = NULL;
-+	ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_FREE);
-+}
- /*
-  * atl1c_clean_tx_ring - Free Tx-skb
-  * @adapter: board private structure
-@@ -725,22 +748,12 @@ static void atl1c_clean_tx_ring(struct atl1c_adapter *adapter,
- 	ring_count = tpd_ring->count;
- 	for (index = 0; index < ring_count; index++) {
- 		buffer_info = &tpd_ring->buffer_info[index];
--		if (buffer_info->state == ATL1_BUFFER_FREE)
--			continue;
--		if (buffer_info->dma)
--			pci_unmap_single(pdev, buffer_info->dma,
--					buffer_info->length,
--					PCI_DMA_TODEVICE);
--		if (buffer_info->skb)
--			dev_kfree_skb(buffer_info->skb);
--		buffer_info->dma = 0;
--		buffer_info->skb = NULL;
--		buffer_info->state = ATL1_BUFFER_FREE;
-+		atl1c_clean_buffer(pdev, buffer_info, 0);
- 	}
- 
- 	/* Zero out Tx-buffers */
- 	memset(tpd_ring->desc, 0, sizeof(struct atl1c_tpd_desc) *
--				ring_count);
-+		ring_count);
- 	atomic_set(&tpd_ring->next_to_clean, 0);
- 	tpd_ring->next_to_use = 0;
- }
-@@ -760,16 +773,7 @@ static void atl1c_clean_rx_ring(struct atl1c_adapter *adapter)
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		for (j = 0; j < rfd_ring[i].count; j++) {
- 			buffer_info = &rfd_ring[i].buffer_info[j];
--			if (buffer_info->state == ATL1_BUFFER_FREE)
--				continue;
--			if (buffer_info->dma)
--				pci_unmap_single(pdev, buffer_info->dma,
--						buffer_info->length,
--						PCI_DMA_FROMDEVICE);
--			if (buffer_info->skb)
--				dev_kfree_skb(buffer_info->skb);
--			buffer_info->state = ATL1_BUFFER_FREE;
--			buffer_info->skb = NULL;
-+			atl1c_clean_buffer(pdev, buffer_info, 0);
- 		}
- 		/* zero out the descriptor ring */
- 		memset(rfd_ring[i].desc, 0, rfd_ring[i].size);
-@@ -796,7 +800,8 @@ static void atl1c_init_ring_ptrs(struct atl1c_adapter *adapter)
- 		atomic_set(&tpd_ring[i].next_to_clean, 0);
- 		buffer_info = tpd_ring[i].buffer_info;
- 		for (j = 0; j < tpd_ring->count; j++)
--			buffer_info[i].state = ATL1_BUFFER_FREE;
-+			ATL1C_SET_BUFFER_STATE(&buffer_info[i],
-+					ATL1C_BUFFER_FREE);
- 	}
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		rfd_ring[i].next_to_use = 0;
-@@ -805,7 +810,7 @@ static void atl1c_init_ring_ptrs(struct atl1c_adapter *adapter)
- 		rrd_ring[i].next_to_clean = 0;
- 		for (j = 0; j < rfd_ring[i].count; j++) {
- 			buffer_info = &rfd_ring[i].buffer_info[j];
--			buffer_info->state = ATL1_BUFFER_FREE;
-+			ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_FREE);
- 		}
- 	}
- }
-@@ -1447,6 +1452,7 @@ static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
- 	struct atl1c_tpd_ring *tpd_ring = (struct atl1c_tpd_ring *)
- 				&adapter->tpd_ring[type];
- 	struct atl1c_buffer *buffer_info;
-+	struct pci_dev *pdev = adapter->pdev;
- 	u16 next_to_clean = atomic_read(&tpd_ring->next_to_clean);
- 	u16 hw_next_to_clean;
- 	u16 shift;
-@@ -1462,16 +1468,7 @@ static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
- 
- 	while (next_to_clean != hw_next_to_clean) {
- 		buffer_info = &tpd_ring->buffer_info[next_to_clean];
--		if (buffer_info->state == ATL1_BUFFER_BUSY) {
--			pci_unmap_page(adapter->pdev, buffer_info->dma,
--					buffer_info->length, PCI_DMA_TODEVICE);
--			buffer_info->dma = 0;
--			if (buffer_info->skb) {
--				dev_kfree_skb_irq(buffer_info->skb);
--				buffer_info->skb = NULL;
--			}
--			buffer_info->state = ATL1_BUFFER_FREE;
--		}
-+		atl1c_clean_buffer(pdev, buffer_info, 1);
- 		if (++next_to_clean == tpd_ring->count)
- 			next_to_clean = 0;
- 		atomic_set(&tpd_ring->next_to_clean, next_to_clean);
-@@ -1587,7 +1584,7 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter, const int ringid
- 	buffer_info = &rfd_ring->buffer_info[rfd_next_to_use];
- 	next_info = &rfd_ring->buffer_info[next_next];
- 
--	while (next_info->state == ATL1_BUFFER_FREE) {
-+	while (next_info->flags & ATL1C_BUFFER_FREE) {
- 		rfd_desc = ATL1C_RFD_DESC(rfd_ring, rfd_next_to_use);
- 
- 		skb = dev_alloc_skb(adapter->rx_buffer_len);
-@@ -1603,12 +1600,13 @@ static int atl1c_alloc_rx_buffer(struct atl1c_adapter *adapter, const int ringid
- 		 * the 14 byte MAC header is removed
- 		 */
- 		vir_addr = skb->data;
--		buffer_info->state = ATL1_BUFFER_BUSY;
-+		ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_BUSY);
- 		buffer_info->skb = skb;
- 		buffer_info->length = adapter->rx_buffer_len;
- 		buffer_info->dma = pci_map_single(pdev, vir_addr,
- 						buffer_info->length,
- 						PCI_DMA_FROMDEVICE);
-+		ATL1C_SET_PCIMAP_TYPE(buffer_info, ATL1C_PCIMAP_SINGLE);
- 		rfd_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
- 		rfd_next_to_use = next_next;
- 		if (++next_next == rfd_ring->count)
-@@ -1653,7 +1651,8 @@ static void atl1c_clean_rfd(struct atl1c_rfd_ring *rfd_ring,
- 			RRS_RX_RFD_INDEX_MASK;
- 	for (i = 0; i < num; i++) {
- 		buffer_info[rfd_index].skb = NULL;
--		buffer_info[rfd_index].state = ATL1_BUFFER_FREE;
-+		ATL1C_SET_BUFFER_STATE(&buffer_info[rfd_index],
-+					ATL1C_BUFFER_FREE);
- 		if (++rfd_index == rfd_ring->count)
- 			rfd_index = 0;
- 	}
-@@ -1967,7 +1966,8 @@ static void atl1c_tx_map(struct atl1c_adapter *adapter,
- 		buffer_info->length = map_len;
- 		buffer_info->dma = pci_map_single(adapter->pdev,
- 					skb->data, hdr_len, PCI_DMA_TODEVICE);
--		buffer_info->state = ATL1_BUFFER_BUSY;
-+		ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_BUSY);
-+		ATL1C_SET_PCIMAP_TYPE(buffer_info, ATL1C_PCIMAP_SINGLE);
- 		mapped_len += map_len;
- 		use_tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
- 		use_tpd->buffer_len = cpu_to_le16(buffer_info->length);
-@@ -1987,8 +1987,8 @@ static void atl1c_tx_map(struct atl1c_adapter *adapter,
- 		buffer_info->dma =
- 			pci_map_single(adapter->pdev, skb->data + mapped_len,
- 					buffer_info->length, PCI_DMA_TODEVICE);
--		buffer_info->state = ATL1_BUFFER_BUSY;
--
-+		ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_BUSY);
-+		ATL1C_SET_PCIMAP_TYPE(buffer_info, ATL1C_PCIMAP_SINGLE);
- 		use_tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
- 		use_tpd->buffer_len  = cpu_to_le16(buffer_info->length);
- 	}
-@@ -2008,8 +2008,8 @@ static void atl1c_tx_map(struct atl1c_adapter *adapter,
- 					frag->page_offset,
- 					buffer_info->length,
- 					PCI_DMA_TODEVICE);
--		buffer_info->state = ATL1_BUFFER_BUSY;
--
-+		ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_BUSY);
-+		ATL1C_SET_PCIMAP_TYPE(buffer_info, ATL1C_PCIMAP_PAGE);
- 		use_tpd->buffer_addr = cpu_to_le64(buffer_info->dma);
- 		use_tpd->buffer_len  = cpu_to_le16(buffer_info->length);
- 	}
+Initially the issue was that the machine hangs after the allocation
+failure, but that seems to be a netconsole related issue, since I
+didn't get a hang on 2.6.31 compiled without netconsole.
+http://lkml.org/lkml/2009/11/1/66
+http://lkml.org/lkml/2009/11/5/100
 
+[  375.398423] swapper: page allocation failure. order:0, mode:0x20
+[  375.398483] Pid: 0, comm: swapper Not tainted 2.6.31.5-nokmem-tomodachi #3
+[  375.398519] Call Trace:
+[  375.398566]  [<c10395a8>] ? __alloc_pages_nodemask+0x40f/0x453
+[  375.398613]  [<c104e988>] ? cache_alloc_refill+0x1f3/0x382
+[  375.398648]  [<c104eb76>] ? __kmalloc+0x5f/0x97
+[  375.398690]  [<c1228003>] ? __alloc_skb+0x44/0x101
+[  375.398723]  [<c12289b5>] ? dev_alloc_skb+0x11/0x25
+[  375.398760]  [<c11a53a1>] ? tulip_refill_rx+0x3c/0x115
+[  375.398793]  [<c11a57f7>] ? tulip_poll+0x37d/0x416
+[  375.398832]  [<c122cf56>] ? net_rx_action+0x3a/0xdb
+[  375.398874]  [<c101d8b0>] ? __do_softirq+0x5b/0xcb
+[  375.398908]  [<c101d855>] ? __do_softirq+0x0/0xcb
+[  375.398937]  <IRQ>  [<c1003e0b>] ? do_IRQ+0x66/0x76
+[  375.398989]  [<c1002d70>] ? common_interrupt+0x30/0x38
+[  375.399026]  [<c100725c>] ? default_idle+0x25/0x38
+[  375.399058]  [<c1001a1e>] ? cpu_idle+0x64/0x7a
+[  375.399102]  [<c14105ff>] ? start_kernel+0x251/0x258
+[  375.399133] Mem-Info:
+[  375.399159] DMA per-cpu:
+[  375.399184] CPU    0: hi:    0, btch:   1 usd:   0
+[  375.399214] Normal per-cpu:
+[  375.399241] CPU    0: hi:   90, btch:  15 usd:  28
+[  375.399276] Active_anon:6709 active_file:1851 inactive_anon:6729
+[  375.399278]  inactive_file:2051 unevictable:40962 dirty:998 writeback:914 unstable:0
+[  375.399281]  free:232 slab:1843 mapped:1404 pagetables:613 bounce:0
+[  375.399391] DMA free:924kB min:4kB low:4kB high:4kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:15028kB present:15872kB pages_scanned:0 all_unreclaimable? yes
+[  375.399465] lowmem_reserve[]: 0 230 230
+[  375.399537] Normal free:4kB min:92kB low:112kB high:136kB active_anon:26836kB inactive_anon:26916kB active_file:7404kB inactive_file:8204kB unevictable:148820kB present:235648kB pages_scanned:32 all_unreclaimable? no
+[  375.399615] lowmem_reserve[]: 0 0 0
+[  375.399681] DMA: 1*4kB 1*8kB 1*16kB 0*32kB 0*64kB 1*128kB 1*256kB 1*512kB 0*1024kB 0*2048kB 0*4096kB = 924kB
+[  375.399850] Normal: 1*4kB 0*8kB 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 0*4096kB = 4kB
+[  375.400016] 4412 total pagecache pages
+[  375.400041] 494 pages in swap cache
+[  375.400041] Swap cache stats: add 8110, delete 7616, find 139/205
+[  375.400041] Free swap  = 494212kB
+[  375.400041] Total swap = 524280kB
+[  375.400041] 63472 pages RAM
+[  375.400041] 1742 pages reserved
+[  375.400041] 14429 pages shared
+[  375.400041] 56917 pages non-shared
+[  378.306631] swapper: page allocation failure. order:0, mode:0x20
+[  378.306686] Pid: 0, comm: swapper Not tainted 2.6.31.5-nokmem-tomodachi #3
+[  378.306722] Call Trace:
+[  378.306769]  [<c10395a8>] ? __alloc_pages_nodemask+0x40f/0x453
+[  378.306817]  [<c104e988>] ? cache_alloc_refill+0x1f3/0x382
+[  378.306853]  [<c104eb76>] ? __kmalloc+0x5f/0x97
+[  378.306894]  [<c1228003>] ? __alloc_skb+0x44/0x101
+[  378.306927]  [<c12289b5>] ? dev_alloc_skb+0x11/0x25
+[  378.306964]  [<c11a53a1>] ? tulip_refill_rx+0x3c/0x115
+[  378.306996]  [<c11a57f7>] ? tulip_poll+0x37d/0x416
+[  378.307035]  [<c122cf56>] ? net_rx_action+0x3a/0xdb
+[  378.307079]  [<c101d8b0>] ? __do_softirq+0x5b/0xcb
+[  378.307112]  [<c101d855>] ? __do_softirq+0x0/0xcb
+[  378.307142]  <IRQ>  [<c1003e0b>] ? do_IRQ+0x66/0x76
+[  378.307193]  [<c1002d70>] ? common_interrupt+0x30/0x38
+[  378.307232]  [<c100725c>] ? default_idle+0x25/0x38
+[  378.307263]  [<c1001a1e>] ? cpu_idle+0x64/0x7a
+[  378.307306]  [<c14105ff>] ? start_kernel+0x251/0x258
+[  378.307338] Mem-Info:
+[  378.307364] DMA per-cpu:
+[  378.307389] CPU    0: hi:    0, btch:   1 usd:   0
+[  378.307420] Normal per-cpu:
+[  378.307446] CPU    0: hi:   90, btch:  15 usd:  70
+[  378.307480] Active_anon:6231 active_file:2340 inactive_anon:6283
+[  378.307483]  inactive_file:2445 unevictable:40962 dirty:989 writeback:1024 unstable:0
+[  378.307485]  free:232 slab:1872 mapped:1408 pagetables:613 bounce:0
+[  378.307595] DMA free:924kB min:4kB low:4kB high:4kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:15028kB present:15872kB pages_scanned:0 all_unreclaimable? yes
+[  378.307668] lowmem_reserve[]: 0 230 230
+[  378.307739] Normal free:4kB min:92kB low:112kB high:136kB active_anon:24924kB inactive_anon:25132kB active_file:9360kB inactive_file:9780kB unevictable:148820kB present:235648kB pages_scanned:32 all_unreclaimable? no
+[  378.307816] lowmem_reserve[]: 0 0 0
+[  378.307882] DMA: 1*4kB 1*8kB 1*16kB 0*32kB 0*64kB 1*128kB 1*256kB 1*512kB 0*1024kB 0*2048kB 0*4096kB = 924kB
+[  378.308052] Normal: 1*4kB 0*8kB 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 0*4096kB = 4kB
+[  378.308219] 5866 total pagecache pages
+[  378.308247] 1065 pages in swap cache
+[  378.308277] Swap cache stats: add 9651, delete 8586, find 152/220
+[  378.308308] Free swap  = 488152kB
+[  378.308334] Total swap = 524280kB
+[  378.310030] 63472 pages RAM
+[  378.310030] 1742 pages reserved
+[  378.310030] 15289 pages shared
+[  378.310030] 56019 pages non-shared
 
+-- 
+Tobias						PGP: http://8ef7ddba.uguu.de
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
