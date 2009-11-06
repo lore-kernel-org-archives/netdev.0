@@ -1,66 +1,63 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: [ANNOUNCE] AlacrityVM v0.2 is released
-Date: Thu, 05 Nov 2009 21:44:12 -0500
-Message-ID: <4AF38D7C.40604@novell.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC] move dma_head/dma_maps out of skb_shared_info and into
+ sk_buff
+Date: Thu, 05 Nov 2009 19:00:52 -0800
+Message-ID: <1257476452.14523.10.camel@localhost>
+References: <4AF373C9.7040700@intel.com>
+	 <20091105.174024.105269738.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig28E20E2114CB3B191A4FEB5A"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: "alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>,
-	alacrityvm-users@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755606AbZKFCoV@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:46524 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753923AbZKFDBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 22:01:06 -0500
+Received: by pwj9 with SMTP id 9so394312pwj.21
+        for <netdev@vger.kernel.org>; Thu, 05 Nov 2009 19:01:11 -0800 (PST)
+In-Reply-To: <20091105.174024.105269738.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig28E20E2114CB3B191A4FEB5A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2009-11-05 at 17:40 -0800, David Miller wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Thu, 05 Nov 2009 16:54:33 -0800
+> 
+> > During testing we found issues with the use of skb_dma_map/unmap on
+> > systems that had iommu enabled and were configured to use a bridge.
+> > The
+> > issue is that if two ports are members of the same bridge, and a
+> > broadcast packet is sent out on the bridge skb_clone will be used to
+> > send a copy to all ports, but the clones run into issues because the
+> > dma mappings for the cloned skbs all share the shared_info structure
+> > where the dma mappings are stored.
+> > 
+> > To resolve that this patch moves those dma mappings out of the
+> > shared_info structure and into the sk_buff itself.  This allows cloned
+> > skbs to be mapped separately without causing dma unmapping errors.
+> > 
+> > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> DMA mappings are a property of the data not the SKB.
+> 
+> And the DMA mappings are in the shared area exactly so that
+> we don't eat the space for every clone of the data.
+> 
+> We need another way around this problem and I'll just as
+> soon remove the DMA mapping bits entirely from SKBs before
+> I'll put them into struct sk_buff
 
-We (the AlacrityVM team) are pleased to announce the availability of the
-v0.2 release.  There are numerous tweaks, fixes, and features that we
-have added since the v0.1 days.  Here are a few of the key highlights.
+We may need to pull the dma mapping bits entirely then since we end up
+effectively needing to store a copy of the dma mapping every time
+dma_map_single/page is called w/ iommu enabled, otherwise we can only
+map the data portion of the skb once without leaking dma mappings.
 
-*) VENET support:
-   *) zero-copy transmits (guest memory is paged directly to the
-physical adapter on the host, where applicable)
-   *) "SAR offloading" (essentially bi-directional GSO with "64k MTU")
-   *) pre-mapped descriptors to reduce latency
-   *) pre-loading of mmu context to reduce latency
+Would there be any complaint if I were to submit a patch that removed
+skb_dma_map/unmap?
 
-*) shm-signal's are now routable (e.g. future MQ support)
+Thanks,
 
-*) vbus is optionally managed in its entirely from the rebundled qemu
-   *) "-net venet-tap" will fully initialize the interface
-internally..no more scripting!
+Alex
 
-*) vbus components are automatically reaped when the guest exits, even
-if the exit is not clean.
-
-We will update the performance numbers ASAP and announce any changes.
-For further details, please visit our wiki:
-
-http://developer.novell.com/wiki/index.php/AlacrityVM
-
-Kind Regards,
--Greg
-
-
---------------enig28E20E2114CB3B191A4FEB5A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkrzjXwACgkQP5K2CMvXmqHLDQCfZhxj5nscvq8nWmYamuMcLZrO
-yZ0An27Wd9gNQZdNDP3tEiJ1nJFeZjF4
-=qEZW
------END PGP SIGNATURE-----
-
---------------enig28E20E2114CB3B191A4FEB5A--
