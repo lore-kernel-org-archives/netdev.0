@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bridge: remove dev_put() in add_del_if()
-Date: Thu, 05 Nov 2009 21:07:56 -0800 (PST)
-Message-ID: <20091105.210756.06389264.davem@davemloft.net>
-References: <4AF1D153.5040309@gmail.com>
-	<20091104114020.5a2aef2c@nehalam>
+Subject: Re: [PATCH 1/3] net: drop capability from protocol definitions
+Date: Thu, 05 Nov 2009 21:07:58 -0800 (PST)
+Message-ID: <20091105.210758.191587916.davem@davemloft.net>
+References: <20091104163211.27133.74927.stgit@paris.rdu.redhat.com>
+	<20091104173104.GF2603@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: eparis@redhat.com, netdev@vger.kernel.org, nhorman@redhat.com,
+	dwalsh@redhat.com, linux-security-module@vger.kernel.org
+To: acme@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52464
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52468
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750805AbZKFFHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 00:07:31 -0500
-In-Reply-To: <20091104114020.5a2aef2c@nehalam>
+	by vger.kernel.org with ESMTP id S1750805AbZKFFHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 00:07:33 -0500
+In-Reply-To: <20091104173104.GF2603@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 4 Nov 2009 11:40:20 -0800
+From: Arnaldo Carvalho de Melo <acme@infradead.org>
+Date: Wed, 4 Nov 2009 15:31:04 -0200
 
-> On Wed, 04 Nov 2009 20:09:07 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
->> add_del_if() is called with RTNL, we can use __dev_get_by_index()
->> instead of [dev_get_by_index() + dev_put()]
+> Em Wed, Nov 04, 2009 at 11:32:11AM -0500, Eric Paris escreveu:
+>> struct can_proto had a capability field which wasn't ever used.  It is dropped
+>> entirely.
 >> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
- ...
+>> struct inet_protosw had a capability field which can be more clearly expressed
+>> in the code by just checking if sock->type = SOCK_RAW.
+>> 
+>> Signed-off-by: Eric Paris <eparis@redhat.com>
 > 
-> As part of the general ref count purge sure.
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Applied, thanks everyone.
+Applied to net-next-2.6
