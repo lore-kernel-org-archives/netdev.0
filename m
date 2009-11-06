@@ -1,236 +1,114 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 24/25 v2] mlx4: VLAN filter management by master function.
-Date: Fri, 06 Nov 2009 05:10:29 +0200
-Message-ID: <4AF393A5.70106@mellanox.co.il>
+From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
+Subject: Re: dccp-test-tree [PATCH 1/1]: Count lost data packets in a burst
+	loss
+Date: Thu, 5 Nov 2009 21:16:21 -0300
+Message-ID: <cb00fa210911051616o186b30cau527f7d92e4ad121f@mail.gmail.com>
+References: <20091001204003.GA5632@gerrit.erg.abdn.ac.uk> <4AD4B67F.8040208@embedded.ufcg.edu.br>
+	<20091019051642.GA3366@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	liranl@mellanox.co.il, tziporet@mellanox.co.il,
-	yevgenyp@mellanox.co.il
-To: rdreier@cisco.com
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+	Ivo Calado <ivocalado@embedded.ufcg.edu.br>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:43290 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759231AbZKFAMx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Nov 2009 19:12:53 -0500
+Received: from mail-gx0-f212.google.com ([209.85.217.212]:35158 "EHLO
+	mail-gx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759027AbZKFAQg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 19:16:36 -0500
+In-Reply-To: <20091019051642.GA3366@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VLAN filter is a bitmap of 4096 bits.
-The mster function sets the VLAN filter as a bitwise OR of the filters
-of each one of the slaves.
-
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/cmd.c     |    2 +-
- drivers/net/mlx4/en_port.c |   35 ---------------------
- drivers/net/mlx4/en_port.h |    5 ---
- drivers/net/mlx4/mlx4.h    |    9 +++++
- drivers/net/mlx4/port.c    |   72 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 82 insertions(+), 41 deletions(-)
-
-diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
-index f3d3a7b..4c472f3 100644
---- a/drivers/net/mlx4/cmd.c
-+++ b/drivers/net/mlx4/cmd.c
-@@ -939,7 +939,7 @@ static struct mlx4_cmd_info {
- 		.has_outbox = false,
- 		.out_is_imm = false,
- 		.verify = NULL,
--		.wrapper = NULL /* need wrapper*/
-+		.wrapper = mlx4_SET_VLAN_FLTR_wrapper
- 	},
- 	{
- 		.opcode = MLX4_CMD_SET_MCAST_FLTR,
-diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
-index 6dc07c9..a0e8a97 100644
---- a/drivers/net/mlx4/en_port.c
-+++ b/drivers/net/mlx4/en_port.c
-@@ -41,41 +41,6 @@
- #include "mlx4_en.h"
- 
- 
--int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
--{
--	struct mlx4_cmd_mailbox *mailbox;
--	struct mlx4_set_vlan_fltr_mbox *filter;
--	int i;
--	int j;
--	int index = 0;
--	u32 entry;
--	int err = 0;
--
--	mailbox = mlx4_alloc_cmd_mailbox(dev);
--	if (IS_ERR(mailbox))
--		return PTR_ERR(mailbox);
--
--	filter = mailbox->buf;
--	if (grp) {
--		memset(filter, 0, sizeof *filter);
--		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
--			entry = 0;
--			for (j = 0; j < 32; j++)
--				if (vlan_group_get_device(grp, index++))
--					entry |= 1 << j;
--			filter->entry[i] = cpu_to_be32(entry);
--		}
--	} else {
--		/* When no vlans are configured we block all vlans */
--		memset(filter, 0, sizeof(*filter));
--	}
--	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
--		       MLX4_CMD_TIME_CLASS_B);
--	mlx4_free_cmd_mailbox(dev, mailbox);
--	return err;
--}
--
--
- int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
- 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx)
- {
-diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/mlx4/en_port.h
-index 1e65749..8ddffaf 100644
---- a/drivers/net/mlx4/en_port.h
-+++ b/drivers/net/mlx4/en_port.h
-@@ -78,11 +78,6 @@ struct mlx4_set_port_rqp_calc_context {
- 	__be32 mcast;
- };
- 
--#define VLAN_FLTR_SIZE	128
--struct mlx4_set_vlan_fltr_mbox {
--	__be32 entry[VLAN_FLTR_SIZE];
--};
--
- 
- enum {
- 	MLX4_MCAST_CONFIG       = 0,
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 2476fb5..ec01ab3 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -225,6 +225,11 @@ struct mlx4_mcast_entry {
- 	u64 addr;
- };
- 
-+#define VLAN_FLTR_SIZE	128
-+struct mlx4_vlan_fltr {
-+	__be32 entry[VLAN_FLTR_SIZE];
-+};
-+
- struct mlx4_slave_state {
- 	u8 comm_toggle;
- 	u8 last_cmd;
-@@ -234,6 +239,7 @@ struct mlx4_slave_state {
- 	__be32 ib_cap_mask[MLX4_MAX_PORTS + 1];
- 	struct mlx4_slave_eqe eq[MLX4_MFUNC_MAX_EQES];
- 	struct list_head mcast_filters[MLX4_MAX_PORTS + 1];
-+	struct mlx4_vlan_fltr vlan_filter[MLX4_MAX_PORTS + 1];
- 	u16 eq_pi;
- 	u16 eq_ci;
- 	int sqp_start;
-@@ -564,5 +570,8 @@ int mlx4_MCAST_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
- int mlx4_SET_MCAST_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
- 				struct mlx4_cmd_mailbox *inbox,
- 				struct mlx4_cmd_mailbox *outbox);
-+int mlx4_SET_VLAN_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+				struct mlx4_cmd_mailbox *inbox,
-+				struct mlx4_cmd_mailbox *outbox);
- 
- #endif /* MLX4_H */
-diff --git a/drivers/net/mlx4/port.c b/drivers/net/mlx4/port.c
-index 1bc527c..1a790ef 100644
---- a/drivers/net/mlx4/port.c
-+++ b/drivers/net/mlx4/port.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/errno.h>
- #include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
- 
- #include <linux/mlx4/cmd.h>
- 
-@@ -616,3 +617,74 @@ int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port,
- 			MLX4_CMD_SET_MCAST_FLTR, MLX4_CMD_TIME_CLASS_B);
- }
- EXPORT_SYMBOL(mlx4_SET_MCAST_FLTR);
-+
-+
-+int mlx4_SET_VLAN_FLTR_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
-+			       struct mlx4_cmd_mailbox *inbox,
-+			       struct mlx4_cmd_mailbox *outbox)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_vlan_fltr *filter;
-+	struct mlx4_slave_state *s_state = &priv->mfunc.master.slave_state[slave];
-+	int port = vhcr->in_modifier;
-+	int i, j, err;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+
-+	/* Update slave's Vlan filter */
-+	memcpy(s_state->vlan_filter[port].entry, inbox->buf,
-+	       sizeof(struct mlx4_vlan_fltr));
-+
-+	/* We configure the Vlan filter to allow the vlans of
-+	 * all slaves */
-+	filter = mailbox->buf;
-+	memset(filter, 0, sizeof(*filter));
-+	for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+		for (j = 0; j < dev->num_slaves; j++) {
-+			s_state = &priv->mfunc.master.slave_state[j];
-+			filter->entry[i] |= s_state->vlan_filter[port].entry[i];
-+		}
-+	}
-+	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+		       MLX4_CMD_TIME_CLASS_B);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+
-+int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_vlan_fltr *filter;
-+	int i;
-+	int j;
-+	int index = 0;
-+	u32 entry;
-+	int err = 0;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+
-+	filter = mailbox->buf;
-+	if (grp) {
-+		memset(filter, 0, sizeof *filter);
-+		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+			entry = 0;
-+			for (j = 0; j < 32; j++)
-+				if (vlan_group_get_device(grp, index++))
-+					entry |= 1 << j;
-+			filter->entry[i] = cpu_to_be32(entry);
-+		}
-+	} else {
-+		/* When no vlans are configured we block all vlans */
-+		memset(filter, 0, sizeof(*filter));
-+	}
-+	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+		       MLX4_CMD_TIME_CLASS_B);
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx4_SET_VLAN_FLTR);
--- 
-1.5.3.7
-
-From: Liran Liss <liranl@mellanox.co.il>
+On Mon, Oct 19, 2009 at 02:16, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
+ote:
+> dccp: Generalise data-loss condition
+>
+> This patch is thanks to Ivo Calado who had integrated this function i=
+nto one
+> of the TFRC-SP patches.
+>
+> It generalises the task of determining data loss from RFC 43430, 7.7.=
+1.
+>
+> Let S_A, S_B be sequence numbers such that S_B is "after" S_A, and le=
+t
+> N_B be the NDP count of packet S_B. Then, using module-2^48 arithmeti=
+c,
+> =A0D =3D S_B - S_A - 1 =A0is an upper bound of the number of lost dat=
+a packets,
+> =A0D - N_B =A0 =A0 =A0 =A0 =A0 =A0is an approximation of the number o=
+f lost data packets
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(there are cases where this is=
+ not exact).
+>
+> The patch implements this as
+> =A0dccp_loss_count(S_A, S_B, N_B) :=3D max(S_B - S_A - 1 - N_B, 0)
+>
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> ---
+> =A0net/dccp/dccp.h | =A0 21 +++++++++++++++------
+> =A01 file changed, 15 insertions(+), 6 deletions(-)
+>
+> --- a/net/dccp/dccp.h
+> +++ b/net/dccp/dccp.h
+> @@ -153,18 +153,27 @@ static inline u64 max48(const u64 seq1,
+> =A0}
+>
+> =A0/**
+> - * dccp_loss_free =A0- =A0Evaluates condition for data loss from RFC=
+ 4340, 7.7.1
+> - * @s1: =A0 =A0 =A0 =A0 start sequence number
+> - * @s2: =A0end sequence number
+> + * dccp_loss_count - Approximate the number of lost data packets in =
+a burst loss
+> + * @s1: =A0last known sequence number before the loss ('hole')
+> + * @s2: =A0first sequence number seen after the 'hole'
+> =A0* @ndp: NDP count on packet with sequence number @s2
+> - * Returns true if the sequence range s1...s2 has no data loss.
+> =A0*/
+> -static inline bool dccp_loss_free(const u64 s1, const u64 s2, const =
+u64 ndp)
+> +static inline u64 dccp_loss_count(const u64 s1, const u64 s2, const =
+u64 ndp)
+> =A0{
+> =A0 =A0 =A0 =A0s64 delta =3D dccp_delta_seqno(s1, s2);
+>
+> =A0 =A0 =A0 =A0WARN_ON(delta < 0);
+> - =A0 =A0 =A0 return (u64)delta <=3D ndp + 1;
+> + =A0 =A0 =A0 delta -=3D ndp + 1;
+> +
+> + =A0 =A0 =A0 return delta > 0 ? delta : 0;
+> +}
+> +
+> +/**
+> + * dccp_loss_free - Evaluate condition for data loss from RFC 4340, =
+7.7.1
+> + */
+> +static inline bool dccp_loss_free(const u64 s1, const u64 s2, const =
+u64 ndp)
+> +{
+> + =A0 =A0 =A0 return dccp_loss_count(s1, s2, ndp) =3D=3D 0;
+> =A0}
+>
+> =A0enum {
+>
 
 
+Agree
 
+--=20
+Ivo Augusto Andrade Rocha Calado
+MSc. Candidate
+Embedded Systems and Pervasive Computing Lab - http://embedded.ufcg.edu=
+=2Ebr
+Systems and Computing Department - http://www.dsc.ufcg.edu.br
+Electrical Engineering and Informatics Center - http://www.ceei.ufcg.ed=
+u.br
+=46ederal University of Campina Grande - http://www.ufcg.edu.br
 
-
+PGP: 0x03422935
+Putt's Law:
+       Technology is dominated by two types of people:
+               Those who understand what they do not manage.
+               Those who manage what they do not understand.
