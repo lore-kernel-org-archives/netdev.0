@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCH 16/25 v2] mlx4_core: boot sriov
-Date: Fri, 06 Nov 2009 05:09:48 +0200
-Message-ID: <4AF3937C.3010505@mellanox.co.il>
+Subject: [PATCH 17/25 v2] mlx4: Changed Mac management
+Date: Fri, 06 Nov 2009 05:09:52 +0200
+Message-ID: <4AF39380.1050402@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -13,584 +13,492 @@ Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 
-Add virtual function device ids. Setting VF flag to device private data
-Establish comm channel when sriov is enabled, and boot vfs through it.
-Each slave gets one msi-X for completions, the master also gets one for
-async events.
+RX qp is given from a pool of previously reserved range of QPs.
+Activating Mac steering now.
+Giving an option to change mac without the need to change the RX QP.
+All the mac management is done by the master, added wrappers for the
+mac management.
 
-Signed-off-by: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/eq.c   |   21 ++--
- drivers/net/mlx4/main.c |  327 +++++++++++++++++++++++++++++++++++------------
- drivers/net/mlx4/mlx4.h |    4 +
- 3 files changed, 264 insertions(+), 88 deletions(-)
+ drivers/net/mlx4/cmd.c       |   26 +++++++++++
+ drivers/net/mlx4/en_netdev.c |   32 +++++++-------
+ drivers/net/mlx4/en_port.c   |    1 +
+ drivers/net/mlx4/en_port.h   |    8 +++-
+ drivers/net/mlx4/en_rx.c     |   11 +----
+ drivers/net/mlx4/main.c      |   11 +++--
+ drivers/net/mlx4/mlx4.h      |    7 ++-
+ drivers/net/mlx4/port.c      |   96 ++++++++++++++++++++++++++++++++----------
+ include/linux/mlx4/cmd.h     |    9 ++--
+ include/linux/mlx4/device.h  |    5 +-
+ 10 files changed, 144 insertions(+), 62 deletions(-)
 
-diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
-index b0c8022..29b2cd6 100644
---- a/drivers/net/mlx4/eq.c
-+++ b/drivers/net/mlx4/eq.c
-@@ -770,16 +770,18 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
- 			goto err_out_unmap;
+diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
+index d68d0e1..71d822a 100644
+--- a/drivers/net/mlx4/cmd.c
++++ b/drivers/net/mlx4/cmd.c
+@@ -507,6 +507,24 @@ static int mlx4_RESOURCE_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vh
+ 		} else
+ 			mlx4_free_mtt_range(dev, param1 /* first */, param2 /* order */);
+ 		break;
++	case RES_MAC:
++		switch (vhcr->op) {
++		case MLX4_CMD_ALLOC_RES:
++			ret = mlx4_register_mac(dev, vhcr->op_modifier,
++						vhcr->in_param, (int *) &vhcr->out_param);
++			vhcr->errno = ret;
++			break;
++		case MLX4_CMD_FREE_RES:
++			mlx4_unregister_mac(dev, vhcr->op_modifier, vhcr->in_param);
++			break;
++		case MLX4_CMD_REPLACE_RES:
++			ret = mlx4_replace_mac(dev, vhcr->op_modifier,
++					       vhcr->out_param, vhcr->in_param);
++			vhcr->errno = ret;
++			break;
++		default:
++			vhcr->errno = -EINVAL;
++		}
+ 	default:
+ 		vhcr->errno = -EINVAL;
+ 	}
+@@ -622,6 +640,14 @@ static struct mlx4_cmd_info {
+ 		.wrapper = mlx4_RESOURCE_wrapper
+ 	},
+ 	{
++		.opcode = MLX4_CMD_REPLACE_RES,
++		.has_inbox = false,
++		.has_outbox = false,
++		.out_is_imm = true,
++		.verify = NULL,
++		.wrapper = mlx4_RESOURCE_wrapper
++	},
++	{
+ 		.opcode = MLX4_CMD_GET_EVENT,
+ 		.has_inbox = false,
+ 		.has_outbox = false,
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index c48b0f4..fd96078 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -145,9 +145,8 @@ static void mlx4_en_do_set_mac(struct work_struct *work)
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		/* Remove old MAC and insert the new one */
+-		mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
+-		err = mlx4_register_mac(mdev->dev, priv->port,
+-					priv->mac, &priv->mac_index);
++		err = mlx4_replace_mac(mdev->dev, priv->port,
++				       priv->base_qpn, priv->mac);
+ 		if (err)
+ 			en_err(priv, "Failed changing HW MAC address\n");
+ 	} else
+@@ -596,10 +595,19 @@ int mlx4_en_start_port(struct net_device *dev)
+ 		++rx_index;
  	}
  
--	err = mlx4_create_eq(dev, MLX4_NUM_ASYNC_EQE + MLX4_NUM_SPARE_EQE,
--			     (dev->flags & MLX4_FLAG_MSI_X) ? dev->caps.num_comp_vectors : 0,
--			     &priv->eq_table.eq[dev->caps.num_comp_vectors]);
--	if (err)
--		goto err_out_comp;
-+	if (!mlx4_is_slave(dev)) {
-+		err = mlx4_create_eq(dev, MLX4_NUM_ASYNC_EQE + MLX4_NUM_SPARE_EQE,
-+				     (dev->flags & MLX4_FLAG_MSI_X) ? dev->caps.num_comp_vectors : 0,
-+				     &priv->eq_table.eq[dev->caps.num_comp_vectors]);
-+		if (err)
-+			goto err_out_comp;
++	/* Set port mac number */
++	en_dbg(DRV, priv, "Setting mac for port %d\n", priv->port);
++	err = mlx4_register_mac(mdev->dev, priv->port,
++				priv->mac, &priv->base_qpn);
++	if (err) {
++		en_err(priv, "Failed setting port mac\n");
++		goto cq_err;
 +	}
- 
- 	if (dev->flags & MLX4_FLAG_MSI_X) {
- 		const char *eq_name;
- 
--		for (i = 0; i < dev->caps.num_comp_vectors + 1; ++i) {
-+		for (i = 0; i < dev->caps.num_comp_vectors + !(mlx4_is_slave(dev)); ++i) {
- 			if (i < dev->caps.num_comp_vectors) {
- 				snprintf(priv->eq_table.irq_names +
- 					 i * MLX4_IRQNAME_SIZE,
-@@ -825,13 +827,14 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
- 				   priv->eq_table.eq[dev->caps.num_comp_vectors].eqn, err);
++
+ 	err = mlx4_en_config_rss_steer(priv);
+ 	if (err) {
+ 		en_err(priv, "Failed configuring rss steering\n");
+-		goto cq_err;
++		goto mac_err;
  	}
  
--	for (i = 0; i < dev->caps.num_comp_vectors + 1; ++i)
-+	for (i = 0; i < dev->caps.num_comp_vectors + !(mlx4_is_slave(dev)); ++i)
- 		eq_set_ci(&priv->eq_table.eq[i], 1);
+ 	/* Configure tx cq's and rings */
+@@ -652,21 +660,13 @@ int mlx4_en_start_port(struct net_device *dev)
+ 		en_err(priv, "Failed setting default qp numbers\n");
+ 		goto tx_err;
+ 	}
+-	/* Set port mac number */
+-	en_dbg(DRV, priv, "Setting mac for port %d\n", priv->port);
+-	err = mlx4_register_mac(mdev->dev, priv->port,
+-				priv->mac, &priv->mac_index);
+-	if (err) {
+-		en_err(priv, "Failed setting port mac\n");
+-		goto tx_err;
+-	}
  
+ 	/* Init port */
+ 	en_dbg(HW, priv, "Initializing port\n");
+ 	err = mlx4_INIT_PORT(mdev->dev, priv->port);
+ 	if (err) {
+ 		en_err(priv, "Failed Initializing port\n");
+-		goto mac_err;
++		goto tx_err;
+ 	}
+ 
+ 	/* Schedule multicast task to populate multicast list */
+@@ -676,8 +676,6 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	netif_tx_start_all_queues(dev);
  	return 0;
  
- err_out_async:
--	mlx4_free_eq(dev, &priv->eq_table.eq[dev->caps.num_comp_vectors]);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_free_eq(dev, &priv->eq_table.eq[dev->caps.num_comp_vectors]);
+-mac_err:
+-	mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
+ tx_err:
+ 	while (tx_index--) {
+ 		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[tx_index]);
+@@ -685,6 +683,8 @@ tx_err:
+ 	}
  
- err_out_comp:
- 	i = dev->caps.num_comp_vectors;
-@@ -866,7 +869,7 @@ void mlx4_cleanup_eq_table(struct mlx4_dev *dev)
+ 	mlx4_en_release_rss_steer(priv);
++mac_err:
++	mlx4_unregister_mac(mdev->dev, priv->port, priv->base_qpn);
+ cq_err:
+ 	while (rx_index--)
+ 		mlx4_en_deactivate_cq(priv, &priv->rx_cq[rx_index]);
+@@ -716,7 +716,7 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	mlx4_CLOSE_PORT(mdev->dev, priv->port);
  
- 	mlx4_free_irqs(dev);
+ 	/* Unregister Mac address for the port */
+-	mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
++	mlx4_unregister_mac(mdev->dev, priv->port, priv->base_qpn);
  
--	for (i = 0; i < dev->caps.num_comp_vectors + 1; ++i)
-+	for (i = 0; i < dev->caps.num_comp_vectors + !mlx4_is_slave(dev); ++i)
- 		mlx4_free_eq(dev, &priv->eq_table.eq[i]);
+ 	/* Free TX Rings */
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
+index a29abe8..c099cb4 100644
+--- a/drivers/net/mlx4/en_port.c
++++ b/drivers/net/mlx4/en_port.c
+@@ -127,6 +127,7 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ 	memset(context, 0, sizeof *context);
  
- 	if (!mlx4_is_slave(dev))
+ 	context->base_qpn = cpu_to_be32(base_qpn);
++	context->n_mac = 0x7;
+ 	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT | base_qpn);
+ 	context->mcast = cpu_to_be32(1 << SET_PORT_PROMISC_SHIFT | base_qpn);
+ 	context->intra_no_vlan = 0;
+diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/mlx4/en_port.h
+index 3892896..62c9135 100644
+--- a/drivers/net/mlx4/en_port.h
++++ b/drivers/net/mlx4/en_port.h
+@@ -54,14 +54,18 @@ struct mlx4_set_port_general_context {
+ 
+ struct mlx4_set_port_rqp_calc_context {
+ 	__be32 base_qpn;
++	u8 rererved;
++	u8 n_mac;
++	u8 n_vlan;
++	u8 n_prio;
+ 	__be32 flags;
+-	u8 reserved[3];
++	u8 reserved2[3];
+ 	u8 mac_miss;
+ 	u8 intra_no_vlan;
+ 	u8 no_vlan;
+ 	u8 intra_vlan_miss;
+ 	u8 vlan_miss;
+-	u8 reserved2[3];
++	u8 reserved3[3];
+ 	u8 no_vlan_prio;
+ 	__be32 promisc;
+ 	__be32 mcast;
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+index 03b781a..d3884ce 100644
+--- a/drivers/net/mlx4/en_rx.c
++++ b/drivers/net/mlx4/en_rx.c
+@@ -865,16 +865,10 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
+ 	}
+ 
+ 	/* Configure RSS indirection qp */
+-	err = mlx4_qp_reserve_range(mdev->dev, 1, 1, &priv->base_qpn);
+-	if (err) {
+-		en_err(priv, "Failed to reserve range for RSS "
+-			     "indirection qp\n");
+-		goto rss_err;
+-	}
+ 	err = mlx4_qp_alloc(mdev->dev, priv->base_qpn, &rss_map->indir_qp);
+ 	if (err) {
+ 		en_err(priv, "Failed to allocate RSS indirection QP\n");
+-		goto reserve_err;
++		goto rss_err;
+ 	}
+ 	rss_map->indir_qp.event = mlx4_en_sqp_event;
+ 	mlx4_en_fill_qp_context(priv, 0, 0, 0, 1, priv->base_qpn,
+@@ -900,8 +894,6 @@ indir_err:
+ 		       MLX4_QP_STATE_RST, NULL, 0, 0, &rss_map->indir_qp);
+ 	mlx4_qp_remove(mdev->dev, &rss_map->indir_qp);
+ 	mlx4_qp_free(mdev->dev, &rss_map->indir_qp);
+-reserve_err:
+-	mlx4_qp_release_range(mdev->dev, priv->base_qpn, 1);
+ rss_err:
+ 	for (i = 0; i < good_qps; i++) {
+ 		mlx4_qp_modify(mdev->dev, NULL, rss_map->state[i],
+@@ -923,7 +915,6 @@ void mlx4_en_release_rss_steer(struct mlx4_en_priv *priv)
+ 		       MLX4_QP_STATE_RST, NULL, 0, 0, &rss_map->indir_qp);
+ 	mlx4_qp_remove(mdev->dev, &rss_map->indir_qp);
+ 	mlx4_qp_free(mdev->dev, &rss_map->indir_qp);
+-	mlx4_qp_release_range(mdev->dev, priv->base_qpn, 1);
+ 
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		mlx4_qp_modify(mdev->dev, NULL, rss_map->state[i],
 diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index 2852445..787bcde 100644
+index 787bcde..45ce765 100644
 --- a/drivers/net/mlx4/main.c
 +++ b/drivers/net/mlx4/main.c
-@@ -73,6 +73,23 @@ MODULE_PARM_DESC(msi_x, "attempt to use MSI-X if nonzero");
+@@ -104,7 +104,7 @@ static struct mlx4_profile default_profile = {
+ 	.num_mtt	= 1 << 20,
+ };
  
- #endif /* CONFIG_PCI_MSI */
+-static int log_num_mac = 2;
++static int log_num_mac = 7;
+ module_param_named(log_num_mac, log_num_mac, int, 0444);
+ MODULE_PARM_DESC(log_num_mac, "Log2 max number of MACs per ETH port (1-7)");
  
-+#ifdef CONFIG_PCI_IOV
-+
-+static int sr_iov;
-+module_param(sr_iov, int, 0444);
-+MODULE_PARM_DESC(sr_iov, "enable #sr_iov functions if sr_iov > 0");
-+
-+static int probe_vf;
-+module_param(probe_vf, int, 0444);
-+MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (sr_iov > 0)");
-+
-+#else /* CONFIG_PCI_IOV */
-+
-+#define sr_iov 0
-+#define probe_vf 0
-+
-+#endif /* CONFIG_PCI_IOV */
-+
- static char mlx4_version[] __devinitdata =
- 	DRV_NAME ": Mellanox ConnectX core driver v"
- 	DRV_VERSION " (" DRV_RELDATE ")\n";
-@@ -779,12 +796,56 @@ static void mlx4_free_icms(struct mlx4_dev *dev)
- 	mlx4_free_icm(dev, priv->fw.aux_icm, 0);
- }
+@@ -1155,9 +1155,12 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
  
-+static void mlx4_slave_exit(struct mlx4_dev *dev)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+
-+	down(&priv->cmd.poll_sem);
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_TIME))
-+		mlx4_warn(dev, "Failed to close slave function.\n");
-+	up(&priv->cmd.poll_sem);
-+}
-+
- static void mlx4_close_hca(struct mlx4_dev *dev)
- {
--	mlx4_CLOSE_HCA(dev, 0);
--	mlx4_free_icms(dev);
--	mlx4_UNMAP_FA(dev);
--	mlx4_free_icm(dev, mlx4_priv(dev)->fw.fw_icm, 0);
-+	if (mlx4_is_slave(dev))
-+		mlx4_slave_exit(dev);
-+	else {
-+		mlx4_CLOSE_HCA(dev, 0);
-+		mlx4_free_icms(dev);
-+		mlx4_UNMAP_FA(dev);
-+		mlx4_free_icm(dev, mlx4_priv(dev)->fw.fw_icm, 0);
-+	}
-+}
-+
-+static int mlx4_init_slave(struct mlx4_dev *dev)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	u64 dma = (u64) priv->mfunc.vhcr_dma;
-+
-+	down(&priv->cmd.poll_sem);
-+	mlx4_warn(dev, "Sending reset\n");
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_TIME))
-+		goto err;
-+	mlx4_warn(dev, "Sending vhcr0\n");
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR0, dma >> 48,
-+						    MLX4_COMM_TIME))
-+		goto err;
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR1, dma >> 32,
-+						    MLX4_COMM_TIME))
-+		goto err;
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR2, dma >> 16,
-+						    MLX4_COMM_TIME))
-+		goto err;
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_EN, dma, MLX4_COMM_TIME))
-+		goto err;
-+	up(&priv->cmd.poll_sem);
-+	return 0;
-+
-+err:
-+	mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, 0);
-+	up(&priv->cmd.poll_sem);
-+	return -EIO;
- }
- 
- static int mlx4_init_hca(struct mlx4_dev *dev)
-@@ -798,51 +859,67 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 	u64 icm_size;
- 	int err;
- 
--	err = mlx4_QUERY_FW(dev);
--	if (err) {
--		if (err == -EACCES)
--			mlx4_info(dev, "non-primary physical function, skipping.\n");
--		else
--			mlx4_err(dev, "QUERY_FW command failed, aborting.\n");
--		return err;
--	}
-+	if (!mlx4_is_slave(dev)) {
-+		err = mlx4_QUERY_FW(dev); /* TODO: verify FW version in slaves as well */
-+		if (err) {
-+			if (err == -EACCES)
-+				mlx4_info(dev, "non-primary physical function, skipping.\n");
-+			else {
-+				mlx4_err(dev, "QUERY_FW command failed, aborting.\n");
-+				if (mlx4_is_master(dev))
-+					mlx4_err(dev, "Are you using SRIOV-enabled firmware?\n");
-+			}
-+			return err;
-+		}
- 
--	err = mlx4_load_fw(dev);
--	if (err) {
--		mlx4_err(dev, "Failed to start FW, aborting.\n");
--		return err;
--	}
-+		err = mlx4_load_fw(dev);
-+		if (err) {
-+			mlx4_err(dev, "Failed to start FW, aborting.\n");
-+			return err;
-+		}
- 
--	mlx4_cfg.log_pg_sz_m = 1;
--	mlx4_cfg.log_pg_sz = 0;
--	err = mlx4_MOD_STAT_CFG(dev, &mlx4_cfg);
--	if (err)
--		mlx4_warn(dev, "Failed to override log_pg_sz parameter\n");
-+		mlx4_cfg.log_pg_sz_m = 1;
-+		mlx4_cfg.log_pg_sz = 0;
-+		err = mlx4_MOD_STAT_CFG(dev, &mlx4_cfg);
-+		if (err)
-+			mlx4_warn(dev, "Failed to override log_pg_sz parameter\n");
- 
--	err = mlx4_dev_cap(dev, &dev_cap);
--	if (err) {
--		mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
--		goto err_stop_fw;
--	}
-+		err = mlx4_dev_cap(dev, &dev_cap);
-+		if (err) {
-+			mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
-+			goto err_stop_fw;
-+		}
- 
--	profile = default_profile;
-+		profile = default_profile;
-+		icm_size = mlx4_make_profile(dev, &profile, &dev_cap, &init_hca);
-+		if ((long long) icm_size < 0) {
-+			err = icm_size;
-+			goto err_stop_fw;
-+		}
- 
--	icm_size = mlx4_make_profile(dev, &profile, &dev_cap, &init_hca);
--	if ((long long) icm_size < 0) {
--		err = icm_size;
--		goto err_stop_fw;
--	}
-+		init_hca.log_uar_sz = ilog2(dev->caps.num_uars);
- 
--	init_hca.log_uar_sz = ilog2(dev->caps.num_uars);
-+		err = mlx4_init_icm(dev, &dev_cap, &init_hca, icm_size);
-+		if (err)
-+			goto err_stop_fw;
- 
--	err = mlx4_init_icm(dev, &dev_cap, &init_hca, icm_size);
--	if (err)
--		goto err_stop_fw;
-+		err = mlx4_INIT_HCA(dev, &init_hca);
-+		if (err) {
-+			mlx4_err(dev, "INIT_HCA command failed, aborting.\n");
-+			goto err_free_icm;
-+		}
-+	} else {
-+		err = mlx4_init_slave(dev);
-+		if (err) {
-+			mlx4_err(dev, "Failed to initialize slave\n");
-+			return err;
-+		}
- 
--	err = mlx4_INIT_HCA(dev, &init_hca);
--	if (err) {
--		mlx4_err(dev, "INIT_HCA command failed, aborting.\n");
--		goto err_free_icm;
-+		err = mlx4_slave_cap(dev);
-+		if (err) {
-+			mlx4_err(dev, "Failed to obtain slave caps\n");
-+			goto err_close;
-+		}
- 	}
- 
- 	err = mlx4_QUERY_ADAPTER(dev, &adapter);
-@@ -857,15 +934,17 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 	return 0;
- 
- err_close:
--	mlx4_CLOSE_HCA(dev, 0);
-+	mlx4_close_hca(dev);
- 
- err_free_icm:
--	mlx4_free_icms(dev);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_free_icms(dev);
- 
- err_stop_fw:
--	mlx4_UNMAP_FA(dev);
--	mlx4_free_icm(dev, priv->fw.fw_icm, 0);
+ 	info->dev = dev;
+ 	info->port = port;
+-	mlx4_init_mac_table(dev, &info->mac_table);
+-	mlx4_init_vlan_table(dev, &info->vlan_table);
 -
 +	if (!mlx4_is_slave(dev)) {
-+		mlx4_UNMAP_FA(dev);
-+		mlx4_free_icm(dev, priv->fw.fw_icm, 0);
++		mlx4_init_mac_table(dev, &info->mac_table);
++		mlx4_init_vlan_table(dev, &info->vlan_table);
++		info->base_qpn = dev->caps.reserved_qps_base[MLX4_QP_REGION_ETH_ADDR] +
++			(port - 1) * (1 << log_num_mac);
 +	}
+ 	sprintf(info->dev_name, "mlx4_port%d", port);
+ 	info->port_attr.attr.name = info->dev_name;
+ 	info->port_attr.attr.mode = S_IRUGO | S_IWUSR;
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index b94c590..19c87e7 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -101,7 +101,10 @@ enum mlx4_resource {
+ 	RES_CQ,
+ 	RES_SRQ,
+ 	RES_MPT,
+-	RES_MTT
++	RES_MTT,
++	RES_MAC,
++	RES_VLAN,
++	RES_MCAST
+ };
+ 
+ enum mlx4_alloc_mode {
+@@ -344,7 +347,6 @@ struct mlx4_catas_err {
+ 
+ struct mlx4_mac_table {
+ 	__be64			entries[MLX4_MAX_MAC_NUM];
+-	int			refs[MLX4_MAX_MAC_NUM];
+ 	struct mutex		mutex;
+ 	int			total;
+ 	int			max;
+@@ -369,6 +371,7 @@ struct mlx4_port_info {
+ 	enum mlx4_port_type	tmp_type;
+ 	struct mlx4_mac_table	mac_table;
+ 	struct mlx4_vlan_table	vlan_table;
++	int			base_qpn;
+ };
+ 
+ struct mlx4_sense {
+diff --git a/drivers/net/mlx4/port.c b/drivers/net/mlx4/port.c
+index 67f0751..6e729dd 100644
+--- a/drivers/net/mlx4/port.c
++++ b/drivers/net/mlx4/port.c
+@@ -48,10 +48,8 @@ void mlx4_init_mac_table(struct mlx4_dev *dev, struct mlx4_mac_table *table)
+ 	int i;
+ 
+ 	mutex_init(&table->mutex);
+-	for (i = 0; i < MLX4_MAX_MAC_NUM; i++) {
++	for (i = 0; i < MLX4_MAX_MAC_NUM; i++)
+ 		table->entries[i] = 0;
+-		table->refs[i]	 = 0;
+-	}
+ 	table->max   = 1 << dev->caps.log_num_macs;
+ 	table->total = 0;
+ }
+@@ -90,24 +88,33 @@ static int mlx4_set_port_mac_table(struct mlx4_dev *dev, u8 port,
  	return err;
  }
  
-@@ -1019,8 +1098,13 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 	int i;
+-int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *index)
++int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
+ {
+-	struct mlx4_mac_table *table = &mlx4_priv(dev)->port[port].mac_table;
++	struct mlx4_port_info *info = &mlx4_priv(dev)->port[port];
++	struct mlx4_mac_table *table = &info->mac_table;
++	u64 out_param;
+ 	int i, err = 0;
+ 	int free = -1;
  
- 	if (msi_x) {
--		nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
--			     num_possible_cpus() + 1);
-+		/* The master only uses en event EQ,
-+		 * Each one of the slaves have 1 completion eq */
-+		if (mlx4_is_mfunc(dev))
-+			nreq = 1;
-+		else
-+			nreq = min_t(int, dev->caps.num_eqs - dev->caps.reserved_eqs,
-+				     num_possible_cpus() + 1);
- 		entries = kcalloc(nreq, sizeof *entries, GFP_KERNEL);
- 		if (!entries)
- 			goto no_msi;
-@@ -1029,8 +1113,10 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 			entries[i].entry = i;
- 
- 	retry:
-+		printk("Requesting %d MSIX vectors\n", nreq);
- 		err = pci_enable_msix(dev->pdev, entries, nreq);
- 		if (err) {
-+			printk("pci_enable_msix failed\n");
- 			/* Try again if at least 2 vectors are available */
- 			if (err > 1) {
- 				mlx4_info(dev, "Requested %d vectors, "
-@@ -1043,7 +1129,7 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 			goto no_msi;
- 		}
- 
--		dev->caps.num_comp_vectors = nreq - 1;
-+		dev->caps.num_comp_vectors = nreq - !mlx4_is_slave(dev);
- 		for (i = 0; i < nreq; ++i)
- 			priv->eq_table.eq[i].irq = entries[i].vector;
- 
-@@ -1054,7 +1140,9 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 	}
- 
- no_msi:
--	dev->caps.num_comp_vectors = 1;
-+	/* CX1: no completion vectors needed for the master since it doesn't
-+	 * have interfaces */
-+	dev->caps.num_comp_vectors = mlx4_is_master(dev) ? 0 : 1;
- 
- 	for (i = 0; i < 2; ++i)
- 		priv->eq_table.eq[i].irq = dev->pdev->irq;
-@@ -1111,10 +1199,9 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	}
- 
- 	/*
--	 * Check for BARs.  We expect 0: 1MB
-+	 * Check for BARs.
- 	 */
--	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM) ||
--	    pci_resource_len(pdev, 0) != 1 << 20) {
-+	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
- 		dev_err(&pdev->dev, "Missing DCS, aborting.\n");
- 		err = -ENODEV;
- 		goto err_disable_pdev;
-@@ -1172,34 +1259,84 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	INIT_LIST_HEAD(&priv->pgdir_list);
- 	mutex_init(&priv->pgdir_mutex);
- 
--	/*
--	 * Now reset the HCA before we touch the PCI capabilities or
--	 * attempt a firmware command, since a boot ROM may have left
--	 * the HCA in an undefined state.
--	 */
--	err = mlx4_reset(dev);
--	if (err) {
--		mlx4_err(dev, "Failed to reset HCA, aborting.\n");
--		goto err_free_dev;
-+	/* Detect if this device is a virtual function */
-+	if (sr_iov && id->driver_data & MLX4_VF) {
-+		/* When acting as pf, we normally skip vfs unless explicitly
-+		 * requested to probe them.
-+		 * TODO: add ARI support */
-+		if (PCI_FUNC(pdev->devfn) > probe_vf) {
-+			mlx4_warn(dev, "Skipping virtual function:%d\n",
-+						PCI_FUNC(pdev->devfn));
-+			err = -ENODEV;
-+			goto err_free_dev;
-+		}
-+		mlx4_warn(dev, "Detected virtual function - running in slave mode\n");
-+		dev->flags |= MLX4_FLAG_SLAVE;
-+	}
-+
-+	/* We reset the device and enable SRIOV only for physical devices */
-+	if (!mlx4_is_slave(dev)) {
-+		/*
-+		 * Now reset the HCA before we touch the PCI capabilities or
-+		 * attempt a firmware command, since a boot ROM may have left
-+		 * the HCA in an undefined state.
-+		 */
-+		err = mlx4_reset(dev);
-+		if (err) {
-+			mlx4_err(dev, "Failed to reset HCA, aborting.\n");
-+			goto err_free_dev;
-+		}
-+		if (sr_iov) {
-+			mlx4_warn(dev, "Enabling sriov with:%d vfs\n", sr_iov);
-+			if (pci_enable_sriov(pdev, sr_iov)) {
-+				mlx4_err(dev, "Failed to enable sriov, aborting.\n");
-+				goto err_free_dev;
-+			}
-+			mlx4_warn(dev, "Running in master mode\n");
-+			dev->flags |= MLX4_FLAG_SRIOV | MLX4_FLAG_MASTER;
-+			dev->num_slaves = sr_iov;
-+		}
- 	}
- 
- 	if (mlx4_cmd_init(dev)) {
- 		mlx4_err(dev, "Failed to init command interface, aborting.\n");
--		goto err_free_dev;
-+		goto err_sriov;
-+	}
-+
-+	/* In slave functions, the communication channel must be initialized before
-+	 * posting commands */
 +	if (mlx4_is_slave(dev)) {
-+		if (mlx4_multi_func_init(dev)) {
-+			mlx4_err(dev, "Failed to init slave mfunc interface, aborting.\n");
-+			goto err_cmd;
-+		}
- 	}
- 
- 	err = mlx4_init_hca(dev);
- 	if (err)
- 		goto err_cmd;
- 
-+	/* In master functions, the communication channel must be initialized after obtaining
-+	 * its address from fw */
-+	if (mlx4_is_master(dev)) {
-+		if (mlx4_multi_func_init(dev)) {
-+			mlx4_err(dev, "Failed to init master mfunc interface, aborting.\n");
-+			goto err_close;
-+		}
++		err = mlx4_cmd_imm(dev, mac, &out_param, RES_MAC, port,
++				   MLX4_CMD_ALLOC_RES, MLX4_CMD_TIME_CLASS_A);
++		if (!err)
++			*qpn = out_param;
++		return err;
 +	}
 +
- 	err = mlx4_alloc_eq_table(dev);
- 	if (err)
- 		goto err_close;
- 
- 	mlx4_enable_msi_x(dev);
-+	if (mlx4_is_slave(dev) && !(dev->flags & MLX4_FLAG_MSI_X)) {
-+		mlx4_err(dev, "INTx is not supported in slave mode, aborting.\n");
-+		goto err_free_eq;
-+	}
- 
- 	err = mlx4_setup_hca(dev);
--	if (err == -EBUSY && (dev->flags & MLX4_FLAG_MSI_X)) {
-+	if (err == -EBUSY && (dev->flags & MLX4_FLAG_MSI_X) && !mlx4_is_slave(dev)) {
- 		dev->flags &= ~MLX4_FLAG_MSI_X;
- 		pci_disable_msix(pdev);
- 		err = mlx4_setup_hca(dev);
-@@ -1223,6 +1360,12 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 
- 	pci_set_drvdata(pdev, dev);
- 
-+	/* Start serving comm channel:
-+	 * - In master function: poll for commands
-+	 * - in slave functions: poll for events
-+	 * TODO - enable comm channel interrupts */
-+	if (mlx4_is_master(dev) || mlx4_is_slave(dev))
-+		queue_delayed_work(priv->mfunc.comm_wq, &priv->mfunc.comm_work, 0);
- 	return 0;
- 
- err_port:
-@@ -1233,7 +1376,8 @@ err_port:
- 	mlx4_cleanup_qp_table(dev);
- 	mlx4_cleanup_srq_table(dev);
- 	mlx4_cleanup_cq_table(dev);
--	mlx4_cmd_use_polling(dev);
-+	if (!mlx4_is_master(dev) && !mlx4_is_slave(dev))
-+		mlx4_cmd_use_polling(dev);
- 	mlx4_cleanup_eq_table(dev);
- 	mlx4_cleanup_mr_table(dev);
- 	mlx4_cleanup_pd_table(dev);
-@@ -1251,6 +1395,12 @@ err_close:
- err_cmd:
- 	mlx4_cmd_cleanup(dev);
- 
-+err_sriov:
-+	if (mlx4_is_master(dev) || mlx4_is_slave(dev))
-+		mlx4_multi_func_cleanup(dev);
-+	if (sr_iov && (dev->flags & MLX4_FLAG_SRIOV))
-+		pci_disable_sriov(pdev);
-+
- err_free_dev:
- 	kfree(priv);
- 
-@@ -1283,19 +1433,24 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 	int p;
- 
- 	if (dev) {
-+		/* Stop serving commands and events over comm channel */
-+		if (mlx4_is_master(dev) || mlx4_is_slave(dev))
-+			cancel_delayed_work_sync(&priv->mfunc.comm_work);
- 		mlx4_stop_sense(dev);
- 		mlx4_unregister_device(dev);
- 
- 		for (p = 1; p <= dev->caps.num_ports; p++) {
- 			mlx4_cleanup_port_info(&priv->port[p]);
--			mlx4_CLOSE_PORT(dev, p);
-+			if (!mlx4_is_slave(dev))
-+				mlx4_CLOSE_PORT(dev, p);
+ 	mlx4_dbg(dev, "Registering MAC: 0x%llx\n", (unsigned long long) mac);
+ 	mutex_lock(&table->mutex);
+ 	for (i = 0; i < MLX4_MAX_MAC_NUM - 1; i++) {
+-		if (free < 0 && !table->refs[i]) {
++		if (free < 0 && !table->entries[i]) {
+ 			free = i;
+ 			continue;
  		}
  
- 		mlx4_cleanup_mcg_table(dev);
- 		mlx4_cleanup_qp_table(dev);
- 		mlx4_cleanup_srq_table(dev);
- 		mlx4_cleanup_cq_table(dev);
--		mlx4_cmd_use_polling(dev);
-+		if (!mlx4_is_master(dev) && !mlx4_is_slave(dev))
-+			mlx4_cmd_use_polling(dev);
- 		mlx4_cleanup_eq_table(dev);
- 		mlx4_cleanup_mr_table(dev);
- 		mlx4_cleanup_pd_table(dev);
-@@ -1303,10 +1458,16 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 		mlx4_cleanup_uar_table(dev);
- 		mlx4_free_eq_table(dev);
- 		mlx4_close_hca(dev);
-+		if (mlx4_is_master(dev) || mlx4_is_slave(dev))
-+			mlx4_multi_func_cleanup(dev);
- 		mlx4_cmd_cleanup(dev);
+ 		if (mac == (MLX4_MAC_MASK & be64_to_cpu(table->entries[i]))) {
+-			/* MAC already registered, increase refernce count */
+-			*index = i;
+-			++table->refs[i];
++			/* MAC already registered, Must not have duplicates */
++			err = -EEXIST;
+ 			goto out;
+ 		}
+ 	}
+@@ -120,18 +127,16 @@ int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *index)
+ 	}
  
- 		if (dev->flags & MLX4_FLAG_MSI_X)
- 			pci_disable_msix(pdev);
-+		if (sr_iov && (dev->flags & MLX4_FLAG_SRIOV)) {
-+			mlx4_warn(dev, "Disabling sriov\n");
-+			pci_disable_sriov(pdev);
-+		}
+ 	/* Register new MAC */
+-	table->refs[free] = 1;
+ 	table->entries[free] = cpu_to_be64(mac | MLX4_MAC_VALID);
  
- 		kfree(priv);
- 		pci_release_regions(pdev);
-@@ -1321,19 +1482,27 @@ int mlx4_restart_one(struct pci_dev *pdev)
- 	return __mlx4_init_one(pdev, NULL);
+ 	err = mlx4_set_port_mac_table(dev, port, table->entries);
+ 	if (unlikely(err)) {
+ 		mlx4_err(dev, "Failed adding MAC: 0x%llx\n", (unsigned long long) mac);
+-		table->refs[free] = 0;
+ 		table->entries[free] = 0;
+ 		goto out;
+ 	}
+ 
+-	*index = free;
++	*qpn = info->base_qpn + free;
+ 	++table->total;
+ out:
+ 	mutex_unlock(&table->mutex);
+@@ -139,20 +144,35 @@ out:
  }
+ EXPORT_SYMBOL_GPL(mlx4_register_mac);
  
+-void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int index)
++static int validate_index(struct mlx4_dev *dev,
++			  struct mlx4_mac_table *table, int index)
+ {
+-	struct mlx4_mac_table *table = &mlx4_priv(dev)->port[port].mac_table;
++	int err = 0;
+ 
+-	mutex_lock(&table->mutex);
+-	if (!table->refs[index]) {
+-		mlx4_warn(dev, "No MAC entry for index %d\n", index);
+-		goto out;
++	if (index < 0 || index >= table->max || !table->entries[index]) {
++		mlx4_warn(dev, "No valid Mac entry for the given index\n");
++		err = -EINVAL;
+ 	}
+-	if (--table->refs[index]) {
+-		mlx4_warn(dev, "Have more references for index %d,"
+-			  "no need to modify MAC table\n", index);
+-		goto out;
++	return err;
++}
 +
- static struct pci_device_id mlx4_pci_table[] = {
--	{ PCI_VDEVICE(MELLANOX, 0x6340) }, /* MT25408 "Hermon" SDR */
--	{ PCI_VDEVICE(MELLANOX, 0x634a) }, /* MT25408 "Hermon" DDR */
--	{ PCI_VDEVICE(MELLANOX, 0x6354) }, /* MT25408 "Hermon" QDR */
--	{ PCI_VDEVICE(MELLANOX, 0x6732) }, /* MT25408 "Hermon" DDR PCIe gen2 */
--	{ PCI_VDEVICE(MELLANOX, 0x673c) }, /* MT25408 "Hermon" QDR PCIe gen2 */
--	{ PCI_VDEVICE(MELLANOX, 0x6368) }, /* MT25408 "Hermon" EN 10GigE */
--	{ PCI_VDEVICE(MELLANOX, 0x6750) }, /* MT25408 "Hermon" EN 10GigE PCIe gen2 */
--	{ PCI_VDEVICE(MELLANOX, 0x6372) }, /* MT25458 ConnectX EN 10GBASE-T 10GigE */
--	{ PCI_VDEVICE(MELLANOX, 0x675a) }, /* MT25458 ConnectX EN 10GBASE-T+Gen2 10GigE */
--	{ PCI_VDEVICE(MELLANOX, 0x6764) }, /* MT26468 ConnectX EN 10GigE PCIe gen2*/
--	{ PCI_VDEVICE(MELLANOX, 0x6746) }, /* MT26438 ConnectX EN 40GigE PCIe gen2 5GT/s */
--	{ PCI_VDEVICE(MELLANOX, 0x676e) }, /* MT26478 ConnectX2 40GigE PCIe gen2 */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6340, 0) }, /* MT25408 "Hermon" SDR */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6341, MLX4_VF) }, /* MT25408 "Hermon" SDR VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x634a, 0) }, /* MT25408 "Hermon" DDR */
-+	{ MLX4_VDEVICE(MELLANOX, 0x634b, MLX4_VF) }, /* MT25408 "Hermon" DDR VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6354, 0) }, /* MT25408 "Hermon" QDR */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6732, 0) }, /* MT25408 "Hermon" DDR PCIe gen2 */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6733, MLX4_VF) }, /* MT25408 "Hermon" DDR PCIe gen2 VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x673c, 0) }, /* MT25408 "Hermon" QDR PCIe gen2 */
-+	{ MLX4_VDEVICE(MELLANOX, 0x673d, MLX4_VF) }, /* MT25408 "Hermon" QDR PCIe gen2 VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6368, 0) }, /* MT25408 "Hermon" EN 10GigE */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6369, MLX4_VF) }, /* MT25408 "Hermon" EN 10GigE VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6750, 0) }, /* MT25408 "Hermon" EN 10GigE PCIe gen2 */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6751, MLX4_VF) }, /* MT25408 "Hermon" EN 10GigE PCIe gen2 VF */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6372, 0) }, /* MT25458 ConnectX EN 10GBASE-T 10GigE */
-+	{ MLX4_VDEVICE(MELLANOX, 0x675a, 0) }, /* MT25458 ConnectX EN 10GBASE-T+Gen2 10GigE */
-+	{ MLX4_VDEVICE(MELLANOX, 0x6764, MLX4_VF) }, /* MT26468 ConnectX EN 10GigE PCIe gen2*/
-+	{ MLX4_VDEVICE(MELLANOX, 0x6765, 0) }, /* MT26468 ConnectX EN 10GigE PCIe gen2 VF*/
-+	{ MLX4_VDEVICE(MELLANOX, 0x6746, 0) }, /* MT26438 ConnectX EN 40GigE PCIe gen2 5GT/s */
-+	{ MLX4_VDEVICE(MELLANOX, 0x676e, 0) }, /* MT26478 ConnectX2 40GigE PCIe gen2 */
- 	{ 0, }
- };
- 
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index f0afbb6..b94c590 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -137,6 +137,10 @@ extern int mlx4_debug_level;
- #define mlx4_warn(mdev, format, arg...) \
- 	dev_warn(&mdev->pdev->dev, format, ## arg)
- 
-+#define MLX4_VF					(1 << 0)
-+#define MLX4_VDEVICE(vendor, device, flags)	\
-+	PCI_VDEVICE(vendor, device), (flags)
++void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int qpn)
++{
++	struct mlx4_port_info *info = &mlx4_priv(dev)->port[port];
++	struct mlx4_mac_table *table = &info->mac_table;
++	int index = qpn - info->base_qpn;
 +
- struct mlx4_bitmap {
- 	u32			last;
- 	u32			top;
++	if (mlx4_is_slave(dev)) {
++		mlx4_cmd(dev, qpn, RES_MAC, port,
++			 MLX4_CMD_FREE_RES, MLX4_CMD_TIME_CLASS_A);
++		return;
+ 	}
++
++	mutex_lock(&table->mutex);
++
++	if (validate_index(dev, table, index))
++		goto out;
++
+ 	table->entries[index] = 0;
+ 	mlx4_set_port_mac_table(dev, port, table->entries);
+ 	--table->total;
+@@ -161,6 +181,38 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(mlx4_unregister_mac);
+ 
++int mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac)
++{
++	struct mlx4_port_info *info = &mlx4_priv(dev)->port[port];
++	struct mlx4_mac_table *table = &info->mac_table;
++	int index = qpn - info->base_qpn;
++	int err;
++
++	if (mlx4_is_slave(dev)) {
++		err = mlx4_cmd_imm(dev, new_mac, (u64 *) &qpn, RES_MAC, port,
++				   MLX4_CMD_REPLACE_RES, MLX4_CMD_TIME_CLASS_A);
++		return err;
++	}
++
++	mutex_lock(&table->mutex);
++
++	err = validate_index(dev, table, index);
++	if (err)
++		goto out;
++
++	table->entries[index] = cpu_to_be64(new_mac | MLX4_MAC_VALID);
++
++	err = mlx4_set_port_mac_table(dev, port, table->entries);
++	if (unlikely(err)) {
++		mlx4_err(dev, "Failed adding MAC: 0x%llx\n", (unsigned long long) new_mac);
++		table->entries[index] = 0;
++	}
++out:
++	mutex_unlock(&table->mutex);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx4_replace_mac);
++
+ static int mlx4_set_port_vlan_table(struct mlx4_dev *dev, u8 port,
+ 				    __be32 *entries)
+ {
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 99145d4..c163d5e 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -127,10 +127,11 @@ enum {
+ 	/* virtual commands */
+ 	MLX4_CMD_ALLOC_RES	 = 0x50,
+ 	MLX4_CMD_FREE_RES	 = 0x51,
+-	MLX4_CMD_GET_EVENT	 = 0x52,
+-	MLX4_CMD_QUERY_SLAVE_CAP = 0x53,
+-	MLX4_CMD_MCAST_ATTACH	 = 0x54,
+-	MLX4_CMD_GET_SLAVE_SQP	 = 0x55,
++	MLX4_CMD_REPLACE_RES	 = 0x52,
++	MLX4_CMD_GET_EVENT	 = 0x53,
++	MLX4_CMD_QUERY_SLAVE_CAP = 0x54,
++	MLX4_CMD_MCAST_ATTACH	 = 0x55,
++	MLX4_CMD_GET_SLAVE_SQP	 = 0x56,
+ 
+ 	/* debug commands */
+ 	MLX4_CMD_QUERY_DEBUG_MSG = 0x2a,
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index bbd398b..246b7bc 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -491,8 +491,9 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 			  int block_mcast_loopback);
+ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16]);
+ 
+-int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *index);
+-void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int index);
++int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn);
++void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int qpn);
++int mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac);
+ 
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+ void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
 -- 
 1.5.3.7
 
