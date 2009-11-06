@@ -1,52 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] decnet: netdevice refcount leak
-Date: Fri, 06 Nov 2009 09:43:31 +0100
-Message-ID: <4AF3E1B3.8070204@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 02/02: xt_connlimit: fix regression caused by zero
+ family value
+Date: Fri, 06 Nov 2009 00:44:18 -0800 (PST)
+Message-ID: <20091106.004418.54906158.davem@davemloft.net>
+References: <4AF31818.3030103@trash.net>
+	<alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59967 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbZKFIn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:43:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jengelh@medozas.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David, if you accept the following patch for net-2.6, it would help me
-if you also can pull it in net-next-2.6
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Thu, 5 Nov 2009 19:45:25 +0100 (CET)
 
-Thanks
+> On Thursday 2009-11-05 19:23, Patrick McHardy wrote:
+>>
+>>    netfilter: xt_connlimit: fix regression caused by zero family value
+>>    
+>>    Commit v2.6.28-rc1~7172~1092~2 was slightly incomplete; not all
+>>    instances of par->match->family were changed to par->family.
+>>    
+>>    Netfilter bugzilla #610.
+> 
+> Hold it.
+> git would never output ~7172~1092~2 because ~8266 would be much simpler.
+> 
+> I originally wrote "Commit v2.6.28-rc1~717^2~109^2~2", but one of your 
+> programs seems to eat commit messages or more.
 
-[PATCH] decnet: netdevice refcount leak
+Guys, please sort this out so I can add this fix to net-2.6
 
-While working on device refcount stuff, I found a device refcount leak
-through DECNET.
-This nasty bug can be used to hold refcounts on any !DECNET netdevice.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/decnet/sysctl_net_decnet.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/net/decnet/sysctl_net_decnet.c b/net/decnet/sysctl_net_decnet.c
-index 26b0ab1..2036568 100644
---- a/net/decnet/sysctl_net_decnet.c
-+++ b/net/decnet/sysctl_net_decnet.c
-@@ -263,11 +263,10 @@ static int dn_def_dev_strategy(ctl_table *table,
- 			return -ENODEV;
- 
- 		rv = -ENODEV;
--		if (dev->dn_ptr != NULL) {
-+		if (dev->dn_ptr != NULL)
- 			rv = dn_dev_set_default(dev, 1);
--			if (rv)
--				dev_put(dev);
--		}
-+		if (rv)
-+			dev_put(dev);
- 	}
- 
- 	return rv;
+Thanks.
