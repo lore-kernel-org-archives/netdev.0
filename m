@@ -1,40 +1,65 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: wanPMC-CxT1E1
-Date: Fri, 6 Nov 2009 14:05:54 -0800
-Message-ID: <20091106220554.GA13985@kroah.com>
-References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
- <20091026204144.GA28436@kroah.com>
- <4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com>
- <m3d4454phz.fsf@intrepid.localdomain>
- <4f6ba3b0911021241gb6d9684ga76228013e0f5f14@mail.gmail.com>
- <20091102205911.GA23443@kroah.com>
- <4f6ba3b0911021316v16ff7431s4dfa939743541df6@mail.gmail.com>
- <4f6ba3b0911021335k3054da38x56fe72ac7ea8781c@mail.gmail.com>
- <4f6ba3b0911021339v20d7692fm52bcd5208002d6e4@mail.gmail.com>
- <4f6ba3b0911060725i574bbe63n10f169ed2641bf84@mail.gmail.com>
+From: md@Linux.IT (Marco d'Itri)
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+Date: Fri, 6 Nov 2009 23:35:24 +0100
+Message-ID: <20091106223524.GA27121@bongo.bofh.it>
+References: <20091016003245.GD29672@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com> <20091016152053.GA9862@ldl.fc.hp.com> <1255707193.2869.12.camel@achroite> <20091016214024.GA10091@ldl.fc.hp.com> <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com> <4ADC906E.2050909@kadzban.is-a-geek.net> <EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com> <20091106084921.GA16700@bongo.bofh.it> <20091106220637.GB15533@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Bob Beers <bob.beers@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:39871 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760046AbZKFWJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 17:09:03 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9jxsPFA5p3P2qPhR"
+Cc: Narendra_K@Dell.com, bryan@kadzban.is-a-geek.net, dannf@hp.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, Jordan_Hargrave@Dell.com,
+	Charles_Rose@Dell.com, Sandeep_K_Shandilya@Dell.com
+To: Matt Domsch <Matt_Domsch@Dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4f6ba3b0911060725i574bbe63n10f169ed2641bf84@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20091106220637.GB15533@mock.linuxdev.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 06, 2009 at 10:25:36AM -0500, Bob Beers wrote:
-> Hi Greg,
-> 
-> I don't mean to seem impatient, but is cxt1e1 in staging yet?
 
-Sorry, no, been swamped with -stable updates.  I should get to it later
-today, I'll email you then if I have any problems.  If not, you'll get
-an email saying the patch was added to the tree.
+--9jxsPFA5p3P2qPhR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-thanks,
+On Nov 06, Matt Domsch <Matt_Domsch@Dell.com> wrote:
 
-greg k-h
+> > As a distribution developer I highly value solutions like this which do
+> > not require patching every application which deals with interface names
+> > and then teaching users about aliases which only work in some places and
+> > are unknown to the kernel.
+> Fair enough - but would you object if we changed the naming scheme
+> from eth%d to something else?
+I suppose that this would depend on what else. :-)
+Since you want radical changes I recommend that you design the new
+persistent naming infrastructure in a way that will allow root to choose
+to use the classic naming scheme, or many users will scream a lot and at
+least some distributions will do it anyway.
+I also expect that providing choice at the beginning of development may
+lead to more acceptance later if and when the new scheme will have
+proved itself to be superior (at least in some situations).
+You have tought about this for a long time and if so far you have not
+found a solution which is widely considered superior then I doubt that
+one will appear soon. Providing your favourite naming scheme as an
+optional add on will immediately benefit those who like it and greatly
+reduce opposition from those who do not.
+
+--=20
+ciao,
+Marco
+
+--9jxsPFA5p3P2qPhR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkr0pKYACgkQFGfw2OHuP7H5BwCbBUMc7gwZfrtXtzLZL6lElyW9
+vRUAn3Is6fnuP8KtjJ+oGqKqaUMluuDY
+=QHfm
+-----END PGP SIGNATURE-----
+
+--9jxsPFA5p3P2qPhR--
