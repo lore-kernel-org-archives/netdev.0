@@ -1,95 +1,93 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC] move dma_head/dma_maps out of skb_shared_info and into
- sk_buff
-Date: Thu, 05 Nov 2009 19:24:07 -0800
-Message-ID: <1257477847.14523.30.camel@localhost>
-References: <4AF373C9.7040700@intel.com>  <4AF3868B.7070409@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 4/4] igb: expose 82576 bandiwidth allocation
+Date: Fri, 6 Nov 2009 14:57:04 +1100
+Message-ID: <20091106035704.GC6133@verge.net.au>
+References: <20091105005847.941190065@vergenet.net>
+ <20091105010628.148945886@vergenet.net>
+ <4AF358F2.9000109@intel.com>
+ <20091105233034.GA9588@verge.net.au>
+ <4AF362E4.3040507@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Arnd Bergmann <arndbergmann@googlemail.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f188.google.com ([209.85.222.188]:46161 "EHLO
-	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbZKFDYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 22:24:10 -0500
-Received: by pzk26 with SMTP id 26so438765pzk.4
-        for <netdev@vger.kernel.org>; Thu, 05 Nov 2009 19:24:16 -0800 (PST)
-In-Reply-To: <4AF3868B.7070409@gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:35146 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753923AbZKFD5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Nov 2009 22:57:01 -0500
+Content-Disposition: inline
+In-Reply-To: <4AF362E4.3040507@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-11-06 at 03:14 +0100, Eric Dumazet wrote:
-> Alexander Duyck a =C3=A9crit :
-> > During testing we found issues with the use of skb_dma_map/unmap on
-> > systems that had iommu enabled and were configured to use a bridge.=
-  The
-> > issue is that if two ports are members of the same bridge, and a
-> > broadcast packet is sent out on the bridge skb_clone will be used t=
-o
-> > send a copy to all ports, but the clones run into issues because th=
-e
-> > dma mappings for the cloned skbs all share the shared_info structur=
-e
-> > where the dma mappings are stored.
-> >=20
-> > To resolve that this patch moves those dma mappings out of the
-> > shared_info structure and into the sk_buff itself.  This allows clo=
-ned
-> > skbs to be mapped separately without causing dma unmapping errors.
-> >=20
-> > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->=20
-> Hello Alexander
->=20
-> You probably know such a change is a major one ;)
-> 1) a diffstat -p1 -w70 for this kind of patch would be nice.
->=20
-> 2) Your patch is garbled (tabulations were replaced by spaces
->  by your mailer)
+On Thu, Nov 05, 2009 at 03:42:28PM -0800, Alexander Duyck wrote:
+> Simon Horman wrote:
+> >On Thu, Nov 05, 2009 at 03:00:02PM -0800, Alexander Duyck wrote:
+> >>Simon Horman wrote:
+> >>>The 82576 has support for bandwidth allocation to VFs.
+> >>>
+> >>>Contrary to the documentation in the 82576 datasheet v2.41 this
+> >>>appears to work as follows:
+> >>>
+> >>>* The ratio supplied is always proportional to 1Gbit/s,
+> >>> regardless of if the link speed.
+> >>>* The ratio supplied is an upper-bound on bandwidth available
+> >>> to the VF, not a minimun guarantee
+> >>>
+> >>>This patch exposes bandwidth control to userspace through a simple
+> >>>per-device (PF) sysfs file, bandwidth_allocation.
+> >>>
+> >>>* The file contains a whitespace delimited list of values, one per VF.
+> >>>* The first value corresponds to the first VF and so on.
+> >>>* Valid values are integers from 0 to 1000
+> >>>* A value of 0 indicates that bandwidth_allocation is disabled.
+> >>>* Other values indicate the allocated bandwidth, in 1/1000ths of a gigabit/s
+> >>>
+> >>>e.g. The following for a PF with 4 VFs allocates ~20Mbits/ to VF 1,
+> >>>    ~100Mbit/s to VF 2, and leave the other 2 VFs with no allocation.
+> >>>
+> >>>    echo "20 100 0 0" > /sys/class/net/eth3/device/bandwidth_allocation
+> >>>
+> >>>This interface is intended to allow testing of the hardware feature.
+> >>>There are ongoing discussions about how to expose this feature
+> >>>to user-space in a more generic way.
+> >>>
+> >>>Signed-off-by: Simon Horman <horms@verge.net.au>
+> >>>
+> >>Of the patches it looks like the only one that really has any issues
+> >>is this one and it is mostly due to the sysfs implementation.  The
+> >>others I would say can be applied and pushed up into the
+> >>net-next-2.6 tree.
+> >
+> >Thanks, I suspected as much.
+> >
+> >>We're currently working on an iproute2 based solution for
+> >>configuring VFs and can incorporate this functionality into it at
+> >>some point in the future.
+> >
+> >Do you have any pointers to discussions relating to that interface.
+> >Do you think it would be worth putting in the sysfs interface in the
+> >mean-time, or would you rather wait?
+> 
+> I'm not the one working on the interface so I don't know much about
+> it other than the fact it is being worked on.  Hopefully we should
+> see something in regards to that soon though.
 
-I kind of figured that might be the case.  I didn't really intend the
-patch to be applied to the tree and just meant it to get conversation
-going.  That is why I had tagged it as [RFC].
+Great, I look forward to hearing something soon.
 
-> 3) Are you sure we need to clear dma_maps[] array and dma_head=20
->    in __alloc_skb() ? I guess not.
->    MAX_SKB_FRAGS =3D 18 on x86  -> 152 bytes on x86_64.
->    Previous implementation was not clearing them.
->    Thats would be a major slow down.
->=20
-> 4) 152 bytes more in skb -> 304 bytes more in skbuff_fclone_cache
->    Do we really want two copies of dma_maps[] when skb are allocated
->    from fclone cache ?
+> If anything it might be of some use to split this up into 2 patches.
+> One that contains the sysfs bits, and another for enabling the
+> bandwidth control registers.  We won't be able to get the sysfs
+> interface accepted upstream so there isn't much point in us keeping
+> it around for any other purpose than testing to verify the registers
+> work as you have described.
 
-The main problem that this was meant to address is the fact that
-skb_dma_map is called dma_maps and dma_head needed to be maintained
-until skb_dma_unmap was called.  This wasn't happening with them being
-stored in the skb_shared_info structure due to the fact that if two
-clones of the skb were mapped on 2 different devices the 2nd mapping
-would overwrite the first, and then the skb_dma_unmap call was being
-called on the 2nd dma mapping twice which would trigger a dma_unmapping
-error followed by an error of mappings still being held for the first
-device on driver unload.
-
-> 5) It seems to me this stuff is needed for xmit only and few drivers,
->    could we find a way to not have it for RX path and drivers that do=
-nt
->    need it ? Maybe drivers themselves should allocate storage for thi=
-s
->   stuff so we can remove it both from shared_info *and* skb=20
-
-I'm thinking the best solution may be to drop the skb_dma_map/unmap
-calls entirely and move things back to the old approach in which device=
-s
-maintained their list of mappings.  At least until something better can
-be figured out.
-
-Thanks,
-
-Alex
-
+Understood with regards to the sysfs interface being umergable.
+Do you think the non-sysfs portion would be acceptable even
+though there would be no in-tree callers?
 
