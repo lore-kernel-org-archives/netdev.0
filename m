@@ -1,123 +1,67 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 18/25 v2] mlx4_en: Use reasonable resources for slaves.
-Date: Fri, 06 Nov 2009 05:09:57 +0200
-Message-ID: <4AF39385.1060706@mellanox.co.il>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: [PATCH 19/25 v2] mlx4: Randomizing mac addresses for slaves
+Date: Fri, 06 Nov 2009 05:10:02 +0200
+Message-ID: <4AF3938A.3080803@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	liranl@mellanox.co.il, tziporet@mellanox.co.il,
-	yevgenyp@mellanox.co.il
-To: rdreier@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:43227 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759205AbZKFAMV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Nov 2009 19:12:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Each slave gets a single MSI-X vector when in multi function mode.
-In this case each slave would allocate less resources (which
-normally depend on number of completion vectors).
-We set a minimum number of RX and TX queues to achieve an
-acceptable performance in multi function mode.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/net/mlx4/en_main.c   |   12 +++++++-----
- drivers/net/mlx4/en_netdev.c |    3 ++-
- drivers/net/mlx4/en_tx.c     |    2 +-
- drivers/net/mlx4/mlx4_en.h   |    4 +++-
- 4 files changed, 13 insertions(+), 8 deletions(-)
+ drivers/net/mlx4/fw.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c
-index 507e11f..3883071 100644
---- a/drivers/net/mlx4/en_main.c
-+++ b/drivers/net/mlx4/en_main.c
-@@ -93,8 +93,6 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 		params->prof[i].tx_ppp = pfctx;
- 		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
- 		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
--		params->prof[i].tx_ring_num = MLX4_EN_NUM_TX_RINGS +
--			(!!pfcrx) * MLX4_EN_NUM_PPP_RINGS;
- 	}
+diff --git a/drivers/net/mlx4/fw.c b/drivers/net/mlx4/fw.c
+index 60889d3..7343c70 100644
+--- a/drivers/net/mlx4/fw.c
++++ b/drivers/net/mlx4/fw.c
+@@ -32,6 +32,7 @@
+  * SOFTWARE.
+  */
  
- 	return 0;
-@@ -216,11 +214,15 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 	/* If we did not receive an explicit number of Rx rings, default to
- 	 * the number of completion vectors populated by the mlx4_core */
- 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
-+		mdev->profile.prof[i].tx_ring_num = max_t(int,
-+			min_t(int, roundup_pow_of_two(dev->caps.num_comp_vectors),
-+			NUM_TX_RINGS), MIN_TX_RINGS) +
-+			(!!pfcrx) * MLX4_EN_NUM_PPP_RINGS;
- 		mlx4_info(mdev, "Using %d tx rings for port:%d\n",
- 			  mdev->profile.prof[i].tx_ring_num, i);
--		mdev->profile.prof[i].rx_ring_num = min_t(int,
--			roundup_pow_of_two(dev->caps.num_comp_vectors),
--			MAX_RX_RINGS);
-+		mdev->profile.prof[i].rx_ring_num = max_t(int,
-+			min_t(int, roundup_pow_of_two(dev->caps.num_comp_vectors),
-+			MAX_RX_RINGS), MIN_RX_RINGS);
- 		mlx4_info(mdev, "Defaulting to %d rx rings for port:%d\n",
- 			  mdev->profile.prof[i].rx_ring_num, i);
- 	}
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
-index fd96078..488f967 100644
---- a/drivers/net/mlx4/en_netdev.c
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -1024,7 +1024,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	 */
- 	dev->netdev_ops = &mlx4_netdev_ops;
- 	dev->watchdog_timeo = MLX4_EN_WATCHDOG_TIMEOUT;
--	dev->real_num_tx_queues = MLX4_EN_NUM_TX_RINGS;
-+	dev->real_num_tx_queues = priv->tx_ring_num -
-+				!!(priv->prof->rx_ppp) * MLX4_EN_NUM_PPP_RINGS;
++#include <linux/etherdevice.h>
+ #include <linux/mlx4/cmd.h>
+ #include <linux/cache.h>
  
- 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+@@ -148,7 +149,8 @@ int mlx4_QUERY_SLAVE_CAP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vh
+ 						       struct mlx4_cmd_mailbox *outbox)
+ {
+ 	struct mlx4_caps *caps = outbox->buf;
+-	int i;
++	u8 rand_mac[6];
++	int i, j;
  
-diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index 8c72799..a893733 100644
---- a/drivers/net/mlx4/en_tx.c
-+++ b/drivers/net/mlx4/en_tx.c
-@@ -583,7 +583,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	 */
- 	if (priv->prof->rx_ppp && priv->vlgrp && vlan_tx_tag_present(skb)) {
- 		vlan_tag = vlan_tx_tag_get(skb);
--		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
-+		return priv->tx_ring_num - MLX4_EN_NUM_PPP_RINGS + (vlan_tag >> 13);
- 	}
+ 	memcpy(caps, &dev->caps, sizeof *caps);
  
- 	return skb_tx_hash(dev, skb);
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 4376147..6e0c9ed 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -95,6 +95,9 @@
- #define MLX4_EN_PAGE_SIZE	(1 << MLX4_EN_PAGE_SHIFT)
- #define MAX_TX_RINGS		16
- #define MAX_RX_RINGS		16
-+#define MIN_RX_RINGS		4
-+#define NUM_TX_RINGS		8
-+#define MIN_TX_RINGS		4
- #define TXBB_SIZE		64
- #define HEADROOM		(2048 / TXBB_SIZE + 1)
- #define STAMP_STRIDE		64
-@@ -137,7 +140,6 @@ enum {
- #define MLX4_EN_MIN_TX_SIZE	(4096 / TXBB_SIZE)
- 
- #define MLX4_EN_SMALL_PKT_SIZE		64
--#define MLX4_EN_NUM_TX_RINGS		8
- #define MLX4_EN_NUM_PPP_RINGS		8
- #define MLX4_EN_DEF_TX_RING_SIZE	512
- #define MLX4_EN_DEF_RX_RING_SIZE  	1024
+@@ -165,6 +167,10 @@ int mlx4_QUERY_SLAVE_CAP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vh
+ 		for (i = 1; i <= dev->caps.num_ports; ++i) {
+ 			caps->gid_table_len[i] = 1;
+ 			caps->pkey_table_len[i] = 1;
++			random_ether_addr(rand_mac);
++			caps->def_mac[i] = 0;
++			for (j = 0; j < ETH_ALEN; j++)
++				 caps->def_mac[i] |= ((u64)(rand_mac[1]) << 8 * j);
+ 		}
+ 	} else {
+ 		caps->sqp_demux = dev->num_slaves;
 -- 
 1.5.3.7
 
-From: Liran Liss <liranl@mellanox.co.il>
+From: Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 
 
 
 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
