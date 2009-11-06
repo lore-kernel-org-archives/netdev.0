@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 02/02: xt_connlimit: fix regression caused by zero
- family value
-Date: Fri, 06 Nov 2009 00:44:18 -0800 (PST)
-Message-ID: <20091106.004418.54906158.davem@davemloft.net>
-References: <4AF31818.3030103@trash.net>
-	<alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
+Subject: Re: [PATCH net-next-2.6] mac80211: Speedup
+ ieee80211_remove_interfaces()
+Date: Fri, 06 Nov 2009 00:44:41 -0800 (PST)
+Message-ID: <20091106.004441.73060450.davem@davemloft.net>
+References: <4AF2A3B0.4030100@gmail.com>
+	<1257446408.29454.4.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jengelh@medozas.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0911051943130.25147@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linville@tuxdriver.com
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47621
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755230AbZKFIoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 03:44:15 -0500
+In-Reply-To: <1257446408.29454.4.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: Thu, 5 Nov 2009 19:45:25 +0100 (CET)
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 05 Nov 2009 19:40:07 +0100
 
-> On Thursday 2009-11-05 19:23, Patrick McHardy wrote:
->>
->>    netfilter: xt_connlimit: fix regression caused by zero family value
->>    
->>    Commit v2.6.28-rc1~7172~1092~2 was slightly incomplete; not all
->>    instances of par->match->family were changed to par->family.
->>    
->>    Netfilter bugzilla #610.
+> On Thu, 2009-11-05 at 11:06 +0100, Eric Dumazet wrote:
+>> Speedup ieee80211_remove_interfaces() by factorizing synchronize_rcu() calls
 > 
-> Hold it.
-> git would never output ~7172~1092~2 because ~8266 would be much simpler.
+> Jouni will be pleased for his testing... :)
 > 
-> I originally wrote "Commit v2.6.28-rc1~717^2~109^2~2", but one of your 
-> programs seems to eat commit messages or more.
+> Looks good to me. Nice simplification too.
+> 
+> Reviewed-by: Johannes Berg <johannes@sipsolutions.net>
+> 
 
-Guys, please sort this out so I can add this fix to net-2.6
-
-Thanks.
+I'll leave it to John to integrate this, thanks guys.
