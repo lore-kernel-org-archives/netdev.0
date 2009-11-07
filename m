@@ -1,70 +1,47 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: [PATCH] can: fix WARN_ON dump in net/core/rtnetlink.c:rtmsg_ifinfo()
-Date: Sat, 07 Nov 2009 10:53:13 +0100
-Message-ID: <4AF54389.1090309@grandegger.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [announce] new rt2800 drivers for Ralink wireless & project
+	tree
+Date: Sat, 7 Nov 2009 18:30:28 +0100
+Message-ID: <20091107173028.GA1932@ucw.cz>
+References: <200911031951.05235.bzolnier@gmail.com> <200911042251.23506.IvDoorn@gmail.com> <20091106074643.GA5562@ucw.cz> <200911061858.56816.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
+	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200911061858.56816.IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On older kernels, e.g. 2.6.27, a WARN_ON dump in rtmsg_ifinfo()
-is thrown when the CAN device is registered due to insufficient
-skb space, as reported by various users. This patch adds the
-rtnl_link_ops "get_size" to fix the problem. I think this patch
-is required for more recent kernels as well, even if no WARN_ON
-dumps are triggered. Maybe we also need "get_xstats_size" for
-the CAN xstats.
+Hi!
 
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> > > So if I want to focus on something different in the kernel, I just send 1 patch,
+> > > and a second to claim the maintainership of it even though there is an active
+> > > maintainer available?
+> > 
+> > What about listing yourself as a maintainer for a start?
+> 
+> The rt2x00 project is listed as maintainer for everything in the
+> drivers/net/wireless/rt2x00 folder.
 
----
- drivers/net/can/dev.c |   17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+Yes, but that tells very little. I don't know who the 'rt2x00 project'
+is. Perhaps its you? Perhaps its Bart? Maybe its my cat? Please just
+list real names of maintainers...      	     	  Pavel 
 
-Index: net-next-2.6/drivers/net/can/dev.c
-===================================================================
---- net-next-2.6.orig/drivers/net/can/dev.c
-+++ net-next-2.6/drivers/net/can/dev.c
-@@ -637,6 +637,22 @@ static int can_changelink(struct net_dev
- 	return 0;
- }
- 
-+static size_t can_get_size(const struct net_device *dev)
-+{
-+	struct can_priv *priv = netdev_priv(dev);
-+	size_t size;
-+
-+	size = nla_total_size(sizeof(u32));   /* IFLA_CAN_STATE */
-+	size += sizeof(struct can_ctrlmode);  /* IFLA_CAN_CTRLMODE */
-+	size += nla_total_size(sizeof(u32));  /* IFLA_CAN_RESTART_MS */
-+	size += sizeof(struct can_bittiming); /* IFLA_CAN_BITTIMING */
-+	size += sizeof(struct can_clock);     /* IFLA_CAN_CLOCK */
-+	if (priv->bittiming_const)	      /* IFLA_CAN_BITTIMING_CONST */
-+		size += sizeof(struct can_bittiming_const);
-+
-+	return size;
-+}
-+
- static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
- {
- 	struct can_priv *priv = netdev_priv(dev);
-@@ -687,6 +703,7 @@ static struct rtnl_link_ops can_link_ops
- 	.setup		= can_setup,
- 	.newlink	= can_newlink,
- 	.changelink	= can_changelink,
-+	.get_size	= can_get_size,
- 	.fill_info	= can_fill_info,
- 	.fill_xstats	= can_fill_xstats,
- };
+-- (english)
+http://www.livejournal.com/~pavelmachek (cesky, pictures)
+http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
