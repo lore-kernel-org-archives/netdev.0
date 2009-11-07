@@ -1,46 +1,41 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 58/75] pcnet-cs: declare MODULE_FIRMWARE
-Date: Sat, 07 Nov 2009 22:04:09 +0000
-Message-ID: <1257631449.15927.478.camel@localhost>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: CTP: Ethernet configuration testing protocol
+Date: Sun, 8 Nov 2009 08:53:10 +1030
+Message-ID: <20091108085310.7b146385@opy.nosense.org>
+References: <4AF5B997.4070601@superbug.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, linux-pcmcia@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: James Courtier-Dutton <James@superbug.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37935 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753602AbZKGWEG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Nov 2009 17:04:06 -0500
+Received: from smtp1.adam.net.au ([202.136.110.253]:36814 "EHLO
+	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753713AbZKGWXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2009 17:23:10 -0500
+In-Reply-To: <4AF5B997.4070601@superbug.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/pcmcia/pcnet_cs.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+On Sat, 07 Nov 2009 18:16:55 +0000
+James Courtier-Dutton <James@superbug.co.uk> wrote:
 
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 42aa81b..9088f06 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -1752,6 +1752,13 @@ static struct pcmcia_device_id pcnet_ids[] = {
- 	PCMCIA_DEVICE_NULL
- };
- MODULE_DEVICE_TABLE(pcmcia, pcnet_ids);
-+MODULE_FIRMWARE("cis/PCMLM28.cis");
-+MODULE_FIRMWARE("cis/DP83903.cis");
-+MODULE_FIRMWARE("cis/LA-PCM.cis");
-+MODULE_FIRMWARE("PE520.cis");
-+MODULE_FIRMWARE("cis/NE2K.cis");
-+MODULE_FIRMWARE("cis/PE-200.cis");
-+MODULE_FIRMWARE("cis/tamarack.cis");
- 
- static struct pcmcia_driver pcnet_driver = {
- 	.drv		= {
--- 
-1.6.5.2
+> Hi,
+> 
+> How do I turn off CTP in Linux?
+> 
 
+As far as I'm aware, it isn't implemented in Linux. I wrote an
+implementation a while back, and it wasn't accepted for inclusion at
+that time. I'm not aware if that has changed, and I don't think any
+other implementations have been included.
 
-
+> Kind Regards
+> 
+> James
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
