@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/13] macsonic: fix crash on PowerBook 520
-Date: Fri, 06 Nov 2009 20:27:06 -0800 (PST)
-Message-ID: <20091106.202706.136677578.davem@davemloft.net>
-References: <alpine.OSX.2.00.0911031448060.483@silk.local>
+Subject: Re: [net-2.6 PATCH 1/3] ixgbe: Fix gso_max_size for 82599 when DCB
+ is enabled
+Date: Fri, 06 Nov 2009 20:34:01 -0800 (PST)
+Message-ID: <20091106.203401.179384929.davem@davemloft.net>
+References: <20091106225526.28063.83720.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, tsbogend@alpha.franken.de,
-	netdev@vger.kernel.org, linux-m68k@vger.kernel.org
-To: fthain@telegraphics.com.au
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.OSX.2.00.0911031448060.483@silk.local>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, yi.zou@intel.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46676
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760071AbZKGEdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 23:33:35 -0500
+In-Reply-To: <20091106225526.28063.83720.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Wed, 4 Nov 2009 00:42:40 +1100 (EST)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 06 Nov 2009 14:55:38 -0800
 
-> No-one seems to know where the PowerBook 500 series store their ethernet 
-> MAC addresses. So, rather than crash, use a MAC address from the SONIC 
-> CAM. Failing that, generate a random one.
+> From: Yi Zou <yi.zou@intel.com>
 > 
-> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+> The 32k gso_max_size when DCB is enabled is for 82598 only, not for 82599.
+> 
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied to net-2.6
+Applied.
