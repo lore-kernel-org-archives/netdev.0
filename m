@@ -1,89 +1,124 @@
-From: dann frazier <dannf@hp.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Fri, 6 Nov 2009 16:17:16 -0700
-Message-ID: <20091106231716.GJ29251@ldl.fc.hp.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com>
- <20091016152053.GA9862@ldl.fc.hp.com>
- <1255707193.2869.12.camel@achroite>
- <20091016214024.GA10091@ldl.fc.hp.com>
- <EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com>
- <4ADC906E.2050909@kadzban.is-a-geek.net>
- <EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com>
- <20091106084921.GA16700@bongo.bofh.it>
- <20091106220637.GB15533@mock.linuxdev.us.dell.com>
- <20091106223524.GA27121@bongo.bofh.it>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: hisax: remove bad udelay call to fix build error on ARM
+Date: Sat, 7 Nov 2009 00:52:34 +0000
+Message-ID: <20091107005234.GA1678@deprecation.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Matt Domsch <Matt_Domsch@Dell.com>, Narendra_K@Dell.com,
-	bryan@kadzban.is-a-geek.net, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	Jordan_Hargrave
-Return-path: <linux-hotplug-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Tilman Schmidt <tilman@imap.cc>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sorrow.cyrius.com ([65.19.161.204]:51512 "EHLO
+	sorrow.cyrius.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757742AbZKGBPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 20:15:06 -0500
 Content-Disposition: inline
-In-Reply-To: <20091106223524.GA27121@bongo.bofh.it>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 06, 2009 at 11:35:24PM +0100, Marco d'Itri wrote:
-> On Nov 06, Matt Domsch <Matt_Domsch@Dell.com> wrote:
-> 
-> > > As a distribution developer I highly value solutions like this which do
-> > > not require patching every application which deals with interface names
-> > > and then teaching users about aliases which only work in some places and
-> > > are unknown to the kernel.
-> > Fair enough - but would you object if we changed the naming scheme
-> > from eth%d to something else?
-> I suppose that this would depend on what else. :-)
-> Since you want radical changes I recommend that you design the new
-> persistent naming infrastructure in a way that will allow root to choose
-> to use the classic naming scheme, or many users will scream a lot and at
-> least some distributions will do it anyway.
-> I also expect that providing choice at the beginning of development may
-> lead to more acceptance later if and when the new scheme will have
-> proved itself to be superior (at least in some situations).
-> You have tought about this for a long time and if so far you have not
-> found a solution which is widely considered superior then I doubt that
-> one will appear soon. Providing your favourite naming scheme as an
-> optional add on will immediately benefit those who like it and greatly
-> reduce opposition from those who do not.
+The hisax ISDN driver fails to build on ARM with CONFIG_HISAX_ELSA:
 
-This seems to me like a good installer feature - give the user an
-option to enter a name for an interface, with the default option
-to use the eth* names. To illustrate by example, I imagine an
-installer flow that looks like this:
+| drivers/built-in.o: In function `modem_set_dial':
+| drivers/isdn/hisax/elsa_ser.c:535: undefined reference to `__bad_udelay'
+| drivers/isdn/hisax/elsa_ser.c:544: undefined reference to `__bad_udelay'
+| drivers/built-in.o: In function `modem_set_init':
+| drivers/isdn/hisax/elsa_ser.c:486: undefined reference to `__bad_udelay'
+| [...]
 
- [Do Hardware Discovery]
- [Automatically reorder kernel names for reasonable defaults;
-  eth0-eth{n-1} map to n onboard nics]
+According to the comment in arch/arm/include/asm/delay.h, __bad_udelay
+is specifically designed on ARM to produce a build failure when udelay
+is called with a value > 2000.
 
-  Sample user interface for network configuration:
+Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
 
- ------------Choose an interface to configure --------------
- | Multiple unconfigured interfaces detected.              |
- | Select an interface to configure by:                    |
- |   1. Kernel name (eth0, eth1, etc)                      |
- |   2. Mac Address                                        |
- |   3. Chassis name                                       |
- |   4. PCI Slot                                           |
- -----------------------------------------------------------
-
- ----Choose an interface to configure (by chassis name)-----
- |   1. LOM0                                               |
- |   2. LOM1                                               |
- |   3. Undefined                                          |
- |   4. Undefined                                          |
- -----------------------------------------------------------
-
- ----------------Name interface - (chassis name LOM0)-------
- |   Name to use for this interface [eth0]: __mynet0_      |
- -----------------------------------------------------------
-
- -----------------------------------------------------------
- | Configure interface - mynet0                            |
- |   1. DHCP                                               |
- |   2. Static                                             |
- |   ...                                                   |
- -----------------------------------------------------------
+diff --git a/drivers/isdn/hisax/elsa_ser.c b/drivers/isdn/hisax/elsa_ser.c
+index f181db4..1657bba 100644
+--- a/drivers/isdn/hisax/elsa_ser.c
++++ b/drivers/isdn/hisax/elsa_ser.c
+@@ -477,62 +477,62 @@ static void
+ modem_set_init(struct IsdnCardState *cs) {
+ 	int timeout;
  
-[Generate udev rules that bind the user-selected name to
- the user-selected attribute]
+-#define RCV_DELAY 20000	
++#define RCV_DELAY 20
+ 	modem_write_cmd(cs, MInit_1, strlen(MInit_1));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_2, strlen(MInit_2));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_3, strlen(MInit_3));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_4, strlen(MInit_4));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY );
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_5, strlen(MInit_5));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_6, strlen(MInit_6));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	modem_write_cmd(cs, MInit_7, strlen(MInit_7));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ }
+ 
+ static void
+ modem_set_dial(struct IsdnCardState *cs, int outgoing) {
+ 	int timeout;
+-#define RCV_DELAY 20000	
++#define RCV_DELAY 20
+ 
+ 	modem_write_cmd(cs, MInit_speed28800, strlen(MInit_speed28800));
+ 	timeout = 1000;
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ 	if (outgoing)
+ 		modem_write_cmd(cs, MInit_dialout, strlen(MInit_dialout));
+ 	else
+@@ -541,7 +541,7 @@ modem_set_dial(struct IsdnCardState *cs, int outgoing) {
+ 	while(timeout-- && cs->hw.elsa.transcnt)
+ 		udelay(1000);
+ 	debugl1(cs, "msi tout=%d", timeout);
+-	udelay(RCV_DELAY);
++	mdelay(RCV_DELAY);
+ }
+ 
+ static void
+
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
