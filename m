@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Phonet: use rwlock for sockets list
-Date: Fri, 06 Nov 2009 18:03:56 -0800 (PST)
-Message-ID: <20091106.180356.132016300.davem@davemloft.net>
-References: <65081524fbfeb975c842ebc79a8fb038@chewa.net>
-	<4AF42C07.4050008@gmail.com>
-	<200911061629.42911.remi.denis-courmont@nokia.com>
+Subject: Re: [NEXT PULL 00/17] IEEE 802.15.4 stack updates.
+Date: Fri, 06 Nov 2009 18:02:01 -0800 (PST)
+Message-ID: <20091106.180201.244033813.davem@davemloft.net>
+References: <1257511181-19403-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, slapin@ossfans.org
+To: dbaryshkov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35322
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35316
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754280AbZKGCDa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Nov 2009 21:03:30 -0500
-In-Reply-To: <200911061629.42911.remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1753043AbZKGCBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 21:01:35 -0500
+In-Reply-To: <1257511181-19403-1-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Fri, 6 Nov 2009 16:29:42 +0200
+aFrom: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Fri,  6 Nov 2009 15:39:24 +0300
 
-> So if you say R/W locks suck, screw this patch.
+> Please pull into net-next an update for IEEE 802.15.4
+> 
+> The following changes since commit 6a2a2d6bf8581216e08be15fcb563cfd6c430e1e:
+>   Gilad Ben-Yossef (1):
+>         tcp: Use defaults when no route options are available
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
 
-They do, so I'm tossing it :-)
+Looks good, pulled, thanks a lot!
