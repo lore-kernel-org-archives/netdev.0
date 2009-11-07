@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 2/2] qlge: Set PCIe reset type for EEH to
- fundamental.
-Date: Fri, 06 Nov 2009 20:35:37 -0800 (PST)
-Message-ID: <20091106.203537.81602387.davem@davemloft.net>
-References: <1257529498-17459-1-git-send-email-ron.mercer@qlogic.com>
-	<1257529498-17459-3-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: ipip: Fix handling of DF packets when pmtudisc is OFF
+Date: Fri, 06 Nov 2009 20:36:11 -0800 (PST)
+Message-ID: <20091106.203611.35603356.davem@davemloft.net>
+References: <20091106203741.GA19736@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46696
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47072
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760250AbZKGEfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 23:35:12 -0500
-In-Reply-To: <1257529498-17459-3-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1760251AbZKGEfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Nov 2009 23:35:46 -0500
+In-Reply-To: <20091106203741.GA19736@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Fri,  6 Nov 2009 09:44:58 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 6 Nov 2009 15:37:41 -0500
 
-> This device requires a fundamental reset when recovering from EEH.
+> ipip: Fix handling of DF packets when pmtudisc is OFF
+...
+> This patch fixes the problem by performing PMTU discovery for
+> all packets with the inner DF bit set, regardless of the PMTU
+> discovery setting on the tunnel itself.
 > 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied.
+The fun never ends :-)
+
+Applied to net-2.6, thanks Herbert.
