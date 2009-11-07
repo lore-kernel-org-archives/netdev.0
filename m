@@ -1,24 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] NET: cassini, fix lock imbalance
-Date: Fri, 06 Nov 2009 20:26:44 -0800 (PST)
-Message-ID: <20091106.202644.38012917.davem@davemloft.net>
-References: <1257498869-4374-1-git-send-email-jirislaby@gmail.com>
+Subject: Re: [PATCH 7/13] macsonic: fix crash on PowerBook 520
+Date: Fri, 06 Nov 2009 20:27:06 -0800 (PST)
+Message-ID: <20091106.202706.136677578.davem@davemloft.net>
+References: <alpine.OSX.2.00.0911031448060.483@silk.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jirislaby@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760226AbZKGE0V@vger.kernel.org>
-In-Reply-To: <1257498869-4374-1-git-send-email-jirislaby@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: geert@linux-m68k.org, tsbogend@alpha.franken.de,
+	netdev@vger.kernel.org, linux-m68k@vger.kernel.org
+To: fthain@telegraphics.com.au
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.0911031448060.483@silk.local>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jirislaby@gmail.com>
-Date: Fri,  6 Nov 2009 10:14:29 +0100
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Wed, 4 Nov 2009 00:42:40 +1100 (EST)
 
-> Stanse found that one error path in cas_open omits to unlock pm_mutex.
-> Fix that.
+> No-one seems to know where the PowerBook 500 series store their ethernet 
+> MAC addresses. So, rather than crash, use a MAC address from the SONIC 
+> CAM. Failing that, generate a random one.
 > 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
 Applied to net-2.6
