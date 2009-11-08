@@ -1,65 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] libnetlink: fix rtnl_send_check()
-Date: Sun, 08 Nov 2009 07:18:50 +0100
-Message-ID: <4AF662CA.3010208@gmail.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] drivers/net/wireless: correct check on CCS_START_NETWORK
+Date: Sun, 8 Nov 2009 09:23:07 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911080922360.2465@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Corey Thomas <coreythomas@charter.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55764 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbZKHGSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 01:18:52 -0500
+Received: from mgw2.diku.dk ([130.225.96.92]:48218 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751438AbZKHIXF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Nov 2009 03:23:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently cannot flush more than ~64 addresses on a device, with
-strange status.
+From: Julia Lawall <julia@diku.dk>
 
-# ip -stats addr flush dev eth3
-Failed to send flush request: Success
-Flush terminated
+CCS_START_NETWORK is declared in drivers/net/wireless/rayctl.h with the
+comment Values for cmd.  status is previously compared to
+CCS_COMMAND_COMPLETE, which is declared in the same file with the comment
+Values for buffer_status.  Finally, it is possible at this point that cmd
+is CCS_START_NETWORK, because it is compared to that value in an enclosing
+switch that has CCS_START_NETWORK as one of two case labels around this code.
 
-Problem is in rtnl_send_check(), where a return -1; is misplaced.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-After patch, we can flush 64000 addresses without any problem.
-
-# ip -stats addr flush dev eth3
-
-*** Round 1, deleting 32338 addresses ***
-
-*** Round 2, deleting 16168 addresses ***
-
-*** Round 3, deleting 8082 addresses ***
-
-*** Round 4, deleting 4058 addresses ***
-
-*** Round 5, deleting 2028 addresses ***
-
-*** Round 6, deleting 918 addresses ***
-
-*** Round 7, deleting 278 addresses ***
-
-*** Round 8, deleting 130 addresses ***
-*** Flush is complete after 8 rounds ***
-
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index b68e2fd..100dd40 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -137,8 +137,8 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
- 				fprintf(stderr, "ERROR truncated\n");
- 			else 
- 				errno = -err->error;
-+			return -1;
- 		}
--		return -1;
- 	}
- 
- 	return 0;
+ drivers/net/wireless/ray_cs.c       |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
+index 1c88c2e..5ee9d2a 100644
+--- a/drivers/net/wireless/ray_cs.c
++++ b/drivers/net/wireless/ray_cs.c
+@@ -2074,7 +2074,7 @@ static irqreturn_t ray_interrupt(int irq, void *dev_id)
+ 				del_timer(&local->timer);
+ 				local->timer.expires = jiffies + HZ * 5;
+ 				local->timer.data = (long)local;
+-				if (status == CCS_START_NETWORK) {
++				if (cmd == CCS_START_NETWORK) {
+ 					DEBUG(0,
+ 					      "ray_cs interrupt network \"%s\" start failed\n",
+ 					      local->sparm.b4.a_current_ess_id);
