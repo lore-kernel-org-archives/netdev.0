@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next2.6] ipv6: avoid dev_hold()/dev_put() in
- rawv6_bind()
-Date: Sun, 08 Nov 2009 00:44:18 -0800 (PST)
-Message-ID: <20091108.004418.242588768.davem@davemloft.net>
-References: <4AF40022.6050100@gmail.com>
-	<4AF4536E.7090803@hp.com>
-	<4AF4565D.2070207@gmail.com>
+Subject: Re: [PATCH] appletalk/ddp.c: Neaten checksum function
+Date: Sun, 08 Nov 2009 00:44:35 -0800 (PST)
+Message-ID: <20091108.004435.225244650.davem@davemloft.net>
+References: <1257366373.18982.25.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53193
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53196
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753107AbZKHInw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 03:43:52 -0500
-In-Reply-To: <4AF4565D.2070207@gmail.com>
+	by vger.kernel.org with ESMTP id S1750849AbZKHIoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 03:44:09 -0500
+In-Reply-To: <1257366373.18982.25.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 Nov 2009 18:01:17 +0100
+From: Joe Perches <joe@perches.com>
+Date: Wed, 04 Nov 2009 12:26:13 -0800
 
-> [PATCH net-next2.6] ipv6: avoid dev_hold()/dev_put() in rawv6_bind()
+> atalk_sum_partial can now use the rol16 function in bitops.h
 > 
-> Using RCU helps not touching device refcount in rawv6_bind()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied, thanks.
