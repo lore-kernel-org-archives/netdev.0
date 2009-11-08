@@ -1,27 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: TC-HTB issue : low throughput
-Date: Sun, 08 Nov 2009 00:35:21 +0100
-Message-ID: <4AF60439.40002@gmail.com>
-References: <20091107024305.GA32398@bougret.hpl.hp.com> <4AF60349.8000502@gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Sun, 8 Nov 2009 14:39:59 +1030
+Message-ID: <200911081439.59770.rusty@rustcorp.com.au>
+References: <cover.1257267892.git.mst@redhat.com> <200911061531.20299.rusty@rustcorp.com.au> <20091106163007.GC6746@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jt@hpl.hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:45962 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753720AbZKGXfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2009 18:35:31 -0500
-Received: by bwz27 with SMTP id 27so2336459bwz.21
-        for <netdev@vger.kernel.org>; Sat, 07 Nov 2009 15:35:35 -0800 (PST)
-In-Reply-To: <4AF60349.8000502@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+ Gregory Haskins <gregory.haskins@gmail.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>,
+ netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ s.hetze@linux-ag.com
+To: paulmck@linux.vnet.ibm.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091106163007.GC6746@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote, On 11/08/2009 12:31 AM:
-> BTW, v2.6.31 should be more exact (but so much...) for above 100mbit
-should be:
-BTW, v2.6.31 should be more exact (but _not_ so much...) for above 100mbit
+On Sat, 7 Nov 2009 03:00:07 am Paul E. McKenney wrote:
+> On Fri, Nov 06, 2009 at 03:31:20PM +1030, Rusty Russell wrote:
+> > But it's still nasty to use half an API.  If it were a few places I would
+> > have open-coded it with a comment, or wrapped it.  As it is, I don't think
+> > that would be a win.
+> 
+> So would it help to have a rcu_read_lock_workqueue() and
+> rcu_read_unlock_workqueue() that checked nesting and whether they were
+> actually running in the context of a workqueue item?  Or did you have
+> something else in mind?  Or am I misjudging the level of sarcasm in
+> your reply?  ;-)
 
-Jarek P.
+You read correctly.  If we get a second user, creating an API makes sense.
+
+Thanks,
+Rusty.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
