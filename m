@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] gianfar: Do not call skb recycling with disabled IRQs
-Date: Sun, 08 Nov 2009 01:08:48 -0800 (PST)
-Message-ID: <20091108.010848.116517157.davem@davemloft.net>
-References: <E1N63WM-0003xK-PN@jdl.com> <E1N64UY-00049g-Hb@jdl.com>
-	<20091105165738.GA31923@oksana.dev.rtsoft.ru>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v3 net-next-2.6] can: Driver for the Microchip MCP251x
+	SPI CAN controllers
+Date: Sun, 08 Nov 2009 10:26:55 +0100
+Message-ID: <4AF68EDF.60405@grandegger.com>
+References: <4AEF37C1.9030706@grandegger.com>	<1257239220-11007-1-git-send-email-chripell@fsfe.org>
+	<20091108.005046.42104186.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jdl@jdl.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	afleming@freescale.com, jason.wessel@windriver.com,
-	shemminger@vyatta.com, buytenh@wantstofly.org
-To: avorontsov@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091105165738.GA31923@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	chripell-VaTbYqLCNhc@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20091108.005046.42104186.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Thu, 5 Nov 2009 19:57:38 +0300
+David Miller wrote:
+> From: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+> Date: Tue,  3 Nov 2009 10:07:00 +0100
+> 
+>> Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
 
-> But that basically means that with skb recycling we can't safely
-> use KGDBoE, though we can add something like this:
+Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-Please stop adding special logic only to your driver to handle these
-things.
+> Wolfgang, others, any acks on this?
 
-Either it's a non-issue, or it's going to potentially be an issue for
-everyone using skb_recycle_check() in a NAPI driver, right?
+>From my point of view the patch is OK. I was just awaiting some testing
+feedback from Paul, but that may take more time. Please apply, we will
+fix eventual problems when they show up.
 
-So why not add the "in_interrupt()" or whatever check to
-skb_recycle_check() and if the context is unsuitable return false (0)
-ok?
+Thanks,
+
+Wolfgang.
