@@ -1,56 +1,47 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH v4 10/12] string: factorize skip_spaces
- and export it to be generally available
-Date: Sun, 8 Nov 2009 16:50:00 +0000
-Message-ID: <20091108165000.374714cb@lxorguk.ukuu.org.uk>
-References: <cover.1257602781.git.andre.goddard@gmail.com>
-	<c7d3b02b5e28eaa54a5360d57dfd177c44320187.1257602781.git.andre.goddard@gmail.com>
-Reply-To: Linux filesystem caching discussion list <linux-cachefs@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
+Date: Sun, 8 Nov 2009 11:36:33 -0800
+Message-ID: <20091108193633.GL8424@linux.vnet.ibm.com>
+References: <cover.1257267892.git.mst@redhat.com> <200911061531.20299.rusty@rustcorp.com.au> <20091106163007.GC6746@linux.vnet.ibm.com> <200911081439.59770.rusty@rustcorp.com.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-14
-Content-Transfer-Encoding: quoted-printable
-Cc: Andreas Dilger <adilger@sun.com>, Mike Snitzer <snitzer@redhat.com>,
-	Takashi Iwai <tiwai@suse.de>, Kysela <perex@perex.cz>, Jan,
-	Stefan Weinhuber <wein@de.ibm.com>,
-	Eric Sandeen <sandeen@redhat.com>, "James E .
-	J . Bottomley" <jejb@parisc-linux.org>, linux-cachefs@redhat.com,
-	WANG Cong <wangcong@zeuux.org>, Len Brown <len.brown@intel.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Rusty Russell <rusty@rustcorp.com.au>, netfilter@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>, Thomas Gleixner <tglx@linutronix.de>,
-	Engelhardt <jengelh@medozas.de>,
-	Bjorn Helgaas <bjorn.helgaas@hp.com>, =?ISO-8859-14?B?QW5k?=, "Martin K .
-	Petersen" <martin.petersen@oracle.com>, linux-kernel@vger.kernel.org,
-	Stoyan Gaydarov <stoyboyker@gmail.com>, Kyle McMartin <kyle@mcmartin.ca>,
-	netfilter-devel@vger.kernel.org, Joe Perches <joe@perches.com>,
-	Andrew Morton <akpm@linux-foundation.org
-To: =?ISO-8859-14?B?QW5kcuk=?= Goddard Rosa <andre.goddard@gmail.com>
-Return-path: <linux-cachefs-bounces@redhat.com>
-In-Reply-To: <c7d3b02b5e28eaa54a5360d57dfd177c44320187.1257602781.git.andre.goddard@gmail.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-cachefs>,
-	<mailto:linux-cachefs-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-cachefs>
-List-Post: <mailto:linux-cachefs@redhat.com>
-List-Help: <mailto:linux-cachefs-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-cachefs>,
-	<mailto:linux-cachefs-request@redhat.com?subject=subscribe>
-Sender: linux-cachefs-bounces@redhat.com
-Errors-To: linux-cachefs-bounces@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Gregory Haskins <gregory.haskins@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        akpm@linux-foundation.org, hpa@zytor.com, s.hetze@linux-ag.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <200911081439.59770.rusty@rustcorp.com.au>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Sat,  7 Nov 2009 13:16:18 -0200
-Andr=E9 Goddard Rosa <andre.goddard@gmail.com> wrote:
+On Sun, Nov 08, 2009 at 02:39:59PM +1030, Rusty Russell wrote:
+> On Sat, 7 Nov 2009 03:00:07 am Paul E. McKenney wrote:
+> > On Fri, Nov 06, 2009 at 03:31:20PM +1030, Rusty Russell wrote:
+> > > But it's still nasty to use half an API.  If it were a few places I would
+> > > have open-coded it with a comment, or wrapped it.  As it is, I don't think
+> > > that would be a win.
+> > 
+> > So would it help to have a rcu_read_lock_workqueue() and
+> > rcu_read_unlock_workqueue() that checked nesting and whether they were
+> > actually running in the context of a workqueue item?  Or did you have
+> > something else in mind?  Or am I misjudging the level of sarcasm in
+> > your reply?  ;-)
+> 
+> You read correctly.  If we get a second user, creating an API makes sense.
 
-> On the following sentence:
->     while (*s && isspace(*s))
->         s++;
+Makes sense to me as well.  Which does provide some time to come up with
+a primitive designed to answer the question "Am I currently executing in
+the context of a workqueue item?".  ;-)
 
-Looks fine but for one thing: it's actually shorter inline than moved
-into /lib so at the very least it should be a header inline not a
-function call.
+							Thanx, Paul
 
-Second minor comment. Although it never made it into the final ANSI C,
-the proposed name (and the one used in a lot of other non Linux code for
-this) is stpblk().
-
-Alan
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
