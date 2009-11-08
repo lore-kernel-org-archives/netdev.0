@@ -1,368 +1,147 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
-Date: Sun, 8 Nov 2009 13:35:16 +0200
-Message-ID: <20091108113516.GA19016@redhat.com>
-References: <cover.1257349249.git.mst@redhat.com> <20091104155724.GD32673@redhat.com> <200911061529.17500.rusty@rustcorp.com.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 00/23] Removal of binary sysctl support
+Date: Sun, 08 Nov 2009 04:15:26 -0800
+Message-ID: <m1639ljjq9.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
-        Daniel Walker <dwalker@fifo99.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200911061529.17500.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
+Cc: <netdev@vger.kernel.org>
+To: <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753869AbZKHMP2@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 06, 2009 at 03:29:17PM +1030, Rusty Russell wrote:
-> On Thu, 5 Nov 2009 02:27:24 am Michael S. Tsirkin wrote:
-> > What it is: vhost net is a character device that can be used to reduce
-> > the number of system calls involved in virtio networking.
-> 
-> Hi Michael,
-> 
->    Now everyone else has finally kicked all the tires and it seems to pass,
-> I've done a fairly complete review.  Generally, it's really nice; just one
-> bug and a few minor suggestions for polishing.
 
-Thanks for the review! I'll add more polishing and repost.
-Answers to some questions below.
+This patchset reimplements sys_sysctl as a compatibility wrapper
+around /proc/sys.  After which it removes all of the code to all over
+the kernel that is used today to implement the binary sysctls.
 
-> > +/* Caller must have TX VQ lock */
-> > +static void tx_poll_stop(struct vhost_net *net)
-> > +{
-> > +	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
-> > +		return;
-> 
-> likely?  Really?
+I am posting this patchset to give everyone a heads up what is in
+flight.
 
-Hmm ... yes. tx poll stop is called on each packet (as long as we do not
-fill up 1/2 backend queue), the first call will stop polling
-the rest checks state and does nothing.
+I intend to carry all of these patches in my sysctl tree.
 
-This is because we normally do not care when the message has left the
-queue in backend device: we tell backend to send it and forget. We only
-start polling when backend tx queue fills up.
+If you add new sysctls to other trees please don't set the .ctl_name
+or .strategy fields in struct ctl_table, as setting those fields
+is unnecessary now and are removed by this patchset.
 
-Makes sense?
+Last I looked at linux-next is only one new sysctl that is not in
+Linus's tree under net/ipv6.  David I will send you a patch in a
+bit to remove the unnecessary .ctl_name = CTL_UNNUMBERED line so
+that linux-next continues to compile when my tree makes it there.
 
-> > +	for (;;) {
-> > +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in,
-> > +					 NULL, NULL);
-> 
-> Danger!  You need an arg to vhost_get_vq_desc to tell it the max desc size
-> you can handle.  Otherwise, it's only limited by ring size, and a malicious
-> guest can overflow you here, and below:
+For your amusement the diffstat of this whole set of changes:
 
-In fact, I think this is not a bug.  This happens to work correctly
-(even with malicious guests) because vhost_get_vq_desc is hard-coded to
-check VHOST_NET_MAX_SG, so in fact no overflow is possible.  I agree
-that it's mich nicer to pass iovec size to vhost_get_vq_desc.
+ arch/arm/kernel/isa.c                          |   11 +-
+ arch/arm/mach-bcmring/arch.c                   |    6 -
+ arch/frv/kernel/pm.c                           |  106 +--
+ arch/frv/kernel/sysctl.c                       |    3 -
+ arch/ia64/kernel/crash.c                       |    7 +-
+ arch/ia64/kernel/perfmon.c                     |    6 -
+ arch/mips/lasat/sysctl.c                       |   99 +--
+ arch/powerpc/kernel/idle.c                     |    2 -
+ arch/s390/kernel/debug.c                       |    9 +-
+ arch/s390/mm/cmm.c                             |    5 +-
+ arch/sh/kernel/traps_64.c                      |    7 +-
+ arch/x86/kernel/vsyscall_64.c                  |    2 +-
+ arch/x86/vdso/vdso32-setup.c                   |    1 -
+ crypto/proc.c                                  |   10 +-
+ drivers/cdrom/cdrom.c                          |    8 +-
+ drivers/char/hpet.c                            |    9 +-
+ drivers/char/ipmi/ipmi_poweroff.c              |    9 +-
+ drivers/char/pty.c                             |   10 +-
+ drivers/char/random.c                          |   42 +-
+ drivers/char/rtc.c                             |    9 +-
+ drivers/macintosh/mac_hid.c                    |   11 +-
+ drivers/md/md.c                                |   10 +-
+ drivers/misc/sgi-xp/xpc_main.c                 |    8 -
+ drivers/net/wireless/arlan-proc.c              |  181 ++--
+ drivers/parport/procfs.c                       |   11 +-
+ drivers/s390/char/sclp_async.c                 |    5 +-
+ drivers/scsi/scsi_sysctl.c                     |    9 +-
+ fs/coda/sysctl.c                               |    4 -
+ fs/eventpoll.c                                 |    2 +-
+ fs/lockd/svc.c                                 |   14 +-
+ fs/nfs/sysctl.c                                |   14 +-
+ fs/notify/inotify/inotify_user.c               |    8 +-
+ fs/ntfs/sysctl.c                               |    2 -
+ fs/ocfs2/stackglue.c                           |   13 +-
+ fs/proc/proc_sysctl.c                          |    4 +-
+ fs/quota/dquot.c                               |   17 +-
+ fs/xfs/linux-2.6/xfs_sysctl.c                  |   32 -
+ include/linux/sysctl.h                         |   20 +-
+ include/net/dn_dev.h                           |    1 -
+ include/net/neighbour.h                        |    3 +-
+ init/Kconfig                                   |    1 +
+ ipc/ipc_sysctl.c                               |   77 --
+ ipc/mq_sysctl.c                                |    7 +-
+ kernel/sched.c                                 |    5 +-
+ kernel/slow-work.c                             |    5 +-
+ kernel/sysctl.c                                |  462 +-------
+ kernel/sysctl_binary.c                         | 1485 ++++++++++++++++++++++--
+ kernel/sysctl_check.c                          | 1376 +----------------------
+ kernel/utsname_sysctl.c                        |   31 -
+ lib/Kconfig.debug                              |    2 +-
+ net/802/tr.c                                   |    7 +-
+ net/appletalk/sysctl_net_atalk.c               |   13 +-
+ net/ax25/sysctl_net_ax25.c                     |   38 +-
+ net/bridge/br_netfilter.c                      |    6 +-
+ net/core/neighbour.c                           |   47 +-
+ net/core/sysctl_net_core.c                     |   21 +-
+ net/dccp/sysctl.c                              |    8 +-
+ net/decnet/dn_dev.c                            |   64 +-
+ net/decnet/sysctl_net_decnet.c                 |  124 +--
+ net/ipv4/arp.c                                 |    2 +-
+ net/ipv4/devinet.c                             |  111 +--
+ net/ipv4/ip_fragment.c                         |    6 -
+ net/ipv4/netfilter.c                           |    6 +-
+ net/ipv4/netfilter/ip_queue.c                  |    3 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   10 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 +-
+ net/ipv4/route.c                               |   73 +-
+ net/ipv4/sysctl_net_ipv4.c                     |  164 +---
+ net/ipv4/xfrm4_policy.c                        |    1 -
+ net/ipv6/addrconf.c                            |   90 +--
+ net/ipv6/icmp.c                                |    4 +-
+ net/ipv6/ndisc.c                               |   39 +-
+ net/ipv6/netfilter/ip6_queue.c                 |    4 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    4 +-
+ net/ipv6/netfilter/nf_conntrack_reasm.c        |    4 +-
+ net/ipv6/reassembly.c                          |    6 -
+ net/ipv6/route.c                               |   18 +-
+ net/ipv6/sysctl_net_ipv6.c                     |   12 +-
+ net/ipv6/xfrm6_policy.c                        |    1 -
+ net/ipx/sysctl_net_ipx.c                       |    7 +-
+ net/irda/irsysctl.c                            |   31 +-
+ net/llc/sysctl_net_llc.c                       |   25 +-
+ net/netfilter/core.c                           |    4 +-
+ net/netfilter/ipvs/ip_vs_ctl.c                 |    6 +-
+ net/netfilter/ipvs/ip_vs_lblc.c                |    2 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c               |    2 +-
+ net/netfilter/nf_conntrack_acct.c              |    1 -
+ net/netfilter/nf_conntrack_ecache.c            |    2 -
+ net/netfilter/nf_conntrack_proto_dccp.c        |   12 +-
+ net/netfilter/nf_conntrack_proto_generic.c     |    8 +-
+ net/netfilter/nf_conntrack_proto_sctp.c        |    8 +-
+ net/netfilter/nf_conntrack_proto_tcp.c         |   14 +-
+ net/netfilter/nf_conntrack_proto_udp.c         |    8 +-
+ net/netfilter/nf_conntrack_proto_udplite.c     |    6 +-
+ net/netfilter/nf_conntrack_standalone.c        |   14 +-
+ net/netfilter/nf_log.c                         |    7 +-
+ net/netrom/sysctl_net_netrom.c                 |   30 +-
+ net/phonet/sysctl.c                            |    8 +-
+ net/rds/ib_sysctl.c                            |   14 +-
+ net/rds/iw_sysctl.c                            |   14 +-
+ net/rds/sysctl.c                               |   11 +-
+ net/rose/sysctl_net_rose.c                     |   26 +-
+ net/sctp/sysctl.c                              |   49 +-
+ net/sunrpc/sysctl.c                            |    5 +-
+ net/sunrpc/xprtrdma/svc_rdma.c                 |   16 +-
+ net/sunrpc/xprtrdma/transport.c                |   20 +-
+ net/sunrpc/xprtsock.c                          |   18 +-
+ net/unix/sysctl_net_unix.c                     |    7 +-
+ net/x25/sysctl_net_x25.c                       |   15 +-
+ net/xfrm/xfrm_sysctl.c                         |    4 -
+ security/keys/sysctl.c                         |    7 +-
+ 111 files changed, 1702 insertions(+), 3774 deletions(-)
 
-> 
-> > +		/* Skip header. TODO: support TSO. */
-> > +		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
-> ...
-> > +
-> > +	use_mm(net->dev.mm);
-> > +	mutex_lock(&vq->mutex);
-> > +	vhost_no_notify(vq);
-> 
-> I prefer a name like "vhost_disable_notify()".
-
-Good idea.
-
-> > +		/* OK, now we need to know about added descriptors. */
-> > +		if (head == vq->num && vhost_notify(vq))
-> > +			/* They could have slipped one in as we were doing that:
-> > +			 * check again. */
-> > +			continue;
-> > +		/* Nothing new?  Wait for eventfd to tell us they refilled. */
-> > +		if (head == vq->num)
-> > +			break;
-> > +		/* We don't need to be notified again. */
-> > +		vhost_no_notify(vq);
-> 
-> Similarly, vhost_enable_notify.  This one is particularly misleading since
-> it doesn't actually notify anything!
-
-Good idea.
-
-
-> 
-> In particular, this code would be neater as:
-> 
-> 	if (head == vq->num) {
-> 		if (vhost_enable_notify(vq)) {
-> 			/* Try again, they could have slipped one in. */
-> 			continue;
-> 		}
-> 		/* Nothing more to do. */
-> 		break;
-> 	}
-> 	vhost_disable_notify(vq);
-> 
-> Now, AFAICT vhost_notify()/enable_notify() would be better rewritten to
-> return true only when there's more pending.  Saves a loop around here most
-> of the time.
-
-OKay, I'll look into this. It kind of annoys me that we would do
-get_user for the same value twice: once in vhost_enable_notify and once
-in vhost_get_vq_desc.  OTOH, all the loop does is call vhost_get_vq_desc
-again.
-
->  Also, the vhost_no_notify/vhost_disable_notify() can be moved
-> out of the loop entirely.
-
-I don't think it can, if we enabled notification and then see more
-descriptors in queue, we want to disable notification again. But it can
-be
->  (It could be under an if (unlikely(enabled)), not
-> sure if it's worth it).
-
- 		if (unlikely(vhost_enable_notify(vq))) {
- 			/* Try again, they have slipped one in. */
- 			vhost_disable_notify(vq);
- 			continue;
- 		}
-
-> 
-> > +		len = err;
-> > +		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
-> 
-> That unsigned char * arg to memcpy_toiovec is annoying.  A patch might be
-> nice, separate from this effort.
-
-Sounds good.
-
-> > +static int vhost_net_open(struct inode *inode, struct file *f)
-> > +{
-> > +	struct vhost_net *n = kzalloc(sizeof *n, GFP_KERNEL);
-> > +	int r;
-> > +	if (!n)
-> > +		return -ENOMEM;
-> > +	f->private_data = n;
-> > +	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
-> > +	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
-> 
-> I have a personal dislike of calloc for structures.
-
-You mean zalloc?
-
-> In userspace, it's because valgrind can't spot uninitialized fields.
-> These days a similar argument applies in the kernel, because we have
-> KMEMCHECK now.  If someone adds a field to the struct and forgets to
-> initialize it, we can spot it.
-
-OK.
-
-> > +static void vhost_net_enable_vq(struct vhost_net *n, int index)
-> > +{
-> > +	struct socket *sock = n->vqs[index].private_data;
-> 
-> OK, I can't help but this that presenting the vqs as an array doesn't buy
-> us very much.  Esp. if you change vhost_dev_init to take a NULL-terminated
-> varargs.  I think readability would improve.  It means passing a vq around
-> rather than an index.
-> 
-> Not completely sure it'll be a win tho.
-
-Hmm, varargs sounds a bit complex. But I agree readability for
-vhost_net_enable_vq and friends would benefit from passing a vq around
-rather than an index.  I'll try it out and do it if it's a win.
-
-> > +static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> > +{
-> > +	struct socket *sock, *oldsock = NULL;
-> ...
-> > +	sock = get_socket(fd);
-> > +	if (IS_ERR(sock)) {
-> > +		r = PTR_ERR(sock);
-> > +		goto done;
-> > +	}
-> > +
-> > +	/* start polling new socket */
-> > +	oldsock = vq->private_data;
-> ...
-> > +done:
-> > +	mutex_unlock(&n->dev.mutex);
-> > +	if (oldsock) {
-> > +		vhost_net_flush_vq(n, index);
-> > +		fput(oldsock->file);
-> 
-> I dislike this style; I prefer multiple different goto points, one for when
-> oldsock is set, and one for when it's not.
-> 
-> That way, gcc warns us about uninitialized variables if we get it wrong.
-
-OK.
-
-> > +static long vhost_net_reset_owner(struct vhost_net *n)
-> > +{
-> > +	struct socket *tx_sock = NULL;
-> > +	struct socket *rx_sock = NULL;
-> > +	long r;
-> 
-> This should be called "err", since that's what it is.
-
-OK.
-
-> > +static void vhost_net_set_features(struct vhost_net *n, u64 features)
-> > +{
-> > +	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
-> > +		sizeof(struct virtio_net_hdr) : 0;
-> > +	int i;
-> > +	mutex_lock(&n->dev.mutex);
-> > +	n->dev.acked_features = features;
-> 
-> Why is this called "acked_features"?  Not just "features"?  I expected
-> to see code which exposed these back to userspace, and didn't.
-
-Not sure how do you mean. Userspace sets them, why
-does it want to get them exposed back?
-
-> > +	case VHOST_GET_FEATURES:
-> > +		features = VHOST_FEATURES;
-> > +		return put_user(features, featurep);
-> > +	case VHOST_ACK_FEATURES:
-> > +		r = get_user(features, featurep);
-> > +		/* No features for now */
-> > +		if (r < 0)
-> > +			return r;
-> > +		if (features & ~VHOST_FEATURES)
-> > +			return -EOPNOTSUPP;
-> > +		vhost_net_set_features(n, features);
-> 
-> OK, from the userspace POV it's "get features" then "ack features".  But
-> I think "VHOST_SET_FEATURES" is more consistent, despite this usage.
-
-OK.
-
-> > +	switch (ioctl) {
-> > +	case VHOST_SET_VRING_NUM:
-> 
-> I haven't looked at your userspace implementation, but does a generic
-> VHOST_SET_VRING_STATE & VHOST_GET_VRING_STATE with a struct make more
-> sense?  It'd be simpler here,
-
-Not by much though, right?
-
-> but not sure if it'd be simpler to use?
-
-The problem is with VHOST_SET_VRING_BASE as well. I want it to be
-separate because I want to make it possible to relocate e.g. used ring
-to another address while ring is running. This would be a good debugging
-tool (you look at kernel's used ring, check descriptor, then update
-guest's used ring) and also possibly an extra way to do migration.  And
-it's nicer to have vring size separate as well, because it is
-initialized by host and never changed, right?
-
-We could merge DESC, AVAIL, USED, and it will reduce the amount of code
-in userspace. With both base, size and fds separate, it seemed a bit
-more symmetrical to have desc/avail/used separate as well.
-What's your opinion?
-
-
-> (Not the fd-setting ioctls of course)
-> 
-> > +	case VHOST_SET_VRING_LOG:
-> > +		r = copy_from_user(&a, argp, sizeof a);
-> > +		if (r < 0)
-> > +			break;
-> > +		if (a.padding) {
-> > +			r = -EOPNOTSUPP;
-> > +			break;
-> > +		}
-> > +		if (a.user_addr == VHOST_VRING_LOG_DISABLE) {
-> > +			vq->log_used = false;
-> > +			break;
-> > +		}
-> > +		if (a.user_addr & (sizeof *vq->used->ring - 1)) {
-> > +			r = -EINVAL;
-> > +			break;
-> > +		}
-> > +		vq->log_used = true;
-> > +		vq->log_addr = a.user_addr;
-> > +		break;
-> 
-> For future reference, this is *exactly* the kind of thing which would have
-> been nice as a followup patch.  Easy to separate, easy to review, not critical
-> to the core.
-
-Yes. It's not too late to split it out though: should I do it yet?
-
-> > +/* TODO: This is really inefficient.  We need something like get_user()
-> > + * (instruction directly accesses the data, with an exception table entry
-> > + * returning -EFAULT). See Documentation/x86/exception-tables.txt.
-> > + */
-> > +static int set_bit_to_user(int nr, void __user *addr)
-> > +{
-> 
-> I guess we won't be dealing with many contiguous pages, otherwise we could
-> get a cheap speedup making this set_bits_to_user(int nr, int num_bits...).
-
-No idea. Let's keep it as simple as possible for now?
-
-> > +/* Each buffer in the virtqueues is actually a chain of descriptors.  This
-> > + * function returns the next descriptor in the chain,
-> > + * or -1 if we're at the end. */
-> > +static unsigned next_desc(struct vring_desc *desc)
-> > +{
-> > +	unsigned int next;
-> > +
-> > +	/* If this descriptor says it doesn't chain, we're done. */
-> > +	if (!(desc->flags & VRING_DESC_F_NEXT))
-> > +		return -1;
-> 
-> Hmm, prefer s/-1/-1U/ in comment, here, and below.  Clarifies a bit.
-
-Good idea.
-
-> > +/* After we've used one of their buffers, we tell them about it.  We'll then
-> > + * want to send them an interrupt, using vq->call. */
-> 
-> This comment has too much cut & paste:
-
-I tried to cut and paste as many comments as possible, this
-made it easy to audit the code by comparing it with lguest,
-and made them much more witty. But yes, this is definitely going
-overboard as we do not have vq->call at all :)
-
-> 	... want to notify the guest, using the eventfd */
-> 
-> > +/* This actually sends the interrupt for this virtqueue */
-> > +void vhost_trigger_irq(struct vhost_dev *dev, struct vhost_virtqueue *vq)
-> > +{
-> 
-> Rename vhost_notify_eventfd() or something, and fix comments?
-
-Sounds good. Since I'm renaming vhost_notify to vhost_enable_notify,
-this one can just become vhost_notify.
-
-> > +enum {
-> > +	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
-> 
-> +2?  Believable, but is it correct?
-
-+ 1 is for skb head, + 1 is for virtio net header.
-I'll add a comment.
-
-> > +/* Poll a file (eventfd or socket) */
-> > +/* Note: there's nothing vhost specific about this structure. */
-> > +struct vhost_poll {
-> 
-> This comment really helped while reading the code.  Kudos!
-> 
-> Thanks!
-> Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Eric
