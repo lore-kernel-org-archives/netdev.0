@@ -1,73 +1,44 @@
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: [PATCH] net: netlink_getname, packet_getname -- use
-	DECLARE_SOCKADDR guard
-Date: Sun, 8 Nov 2009 18:51:19 +0300
-Message-ID: <20091108155119.GA25940@lenovo>
+From: Marin Mitov <mitov@issp.bas.bg>
+Subject: [PATCH]Use DMA_BIT_MASK(44) instead of deprecated DMA_44BIT_MASK
+Date: Sun, 8 Nov 2009 17:59:27 +0200
+Message-ID: <200911081759.27263.mitov@issp.bas.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: LNML <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:62108 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753515AbZKHPvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 10:51:16 -0500
-Received: by ewy3 with SMTP id 3so2432149ewy.37
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2009 07:51:20 -0800 (PST)
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754458AbZKHQAe@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use guard DECLARE_SOCKADDR in a few more places which allow
-us to catch if the structure copied back is too big.
+Hi all,
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
+Use DMA_BIT_MASK(44) instead of deprecated DMA_44BIT_MASK
 
-Please review, comments are welcome!
+Signed-off-by: Marin Mitov <mitov@issp.bas.bg>
 
- net/netlink/af_netlink.c |    2 +-
- net/packet/af_packet.c   |    2 +-
- net/unix/af_unix.c       |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-Index: linux-2.6.git/net/netlink/af_netlink.c
-=====================================================================
---- linux-2.6.git.orig/net/netlink/af_netlink.c
-+++ linux-2.6.git/net/netlink/af_netlink.c
-@@ -707,7 +707,7 @@ static int netlink_getname(struct socket
+=========================================================
+--- a/drivers/net/niu.c	2009-11-08 17:09:40.000000000 +0200
++++ b/drivers/net/niu.c	2009-11-08 17:10:31.000000000 +0200
+@@ -45,10 +45,6 @@
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_MODULE_VERSION);
+ 
+-#ifndef DMA_44BIT_MASK
+-#define DMA_44BIT_MASK	0x00000fffffffffffULL
+-#endif
+-
+ #ifndef readq
+ static u64 readq(void __iomem *reg)
  {
- 	struct sock *sk = sock->sk;
- 	struct netlink_sock *nlk = nlk_sk(sk);
--	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
-+	DECLARE_SOCKADDR(struct sockaddr_nl *, nladdr, addr);
+@@ -9915,7 +9911,7 @@
+ 		  PCI_EXP_DEVCTL_RELAX_EN);
+ 	pci_write_config_word(pdev, pos + PCI_EXP_DEVCTL, val16);
  
- 	nladdr->nl_family = AF_NETLINK;
- 	nladdr->nl_pad = 0;
-Index: linux-2.6.git/net/packet/af_packet.c
-=====================================================================
---- linux-2.6.git.orig/net/packet/af_packet.c
-+++ linux-2.6.git/net/packet/af_packet.c
-@@ -1532,7 +1532,7 @@ static int packet_getname(struct socket 
- 	struct net_device *dev;
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po = pkt_sk(sk);
--	struct sockaddr_ll *sll = (struct sockaddr_ll *)uaddr;
-+	DECLARE_SOCKADDR(struct sockaddr_ll *, sll, uaddr);
- 
- 	if (peer)
- 		return -EOPNOTSUPP;
-Index: linux-2.6.git/net/unix/af_unix.c
-=====================================================================
---- linux-2.6.git.orig/net/unix/af_unix.c
-+++ linux-2.6.git/net/unix/af_unix.c
-@@ -1258,7 +1258,7 @@ static int unix_getname(struct socket *s
- {
- 	struct sock *sk = sock->sk;
- 	struct unix_sock *u;
--	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
-+	DECLARE_SOCKADDR(struct sockaddr_un *, sunaddr, uaddr);
- 	int err = 0;
- 
- 	if (peer) {
+-	dma_mask = DMA_44BIT_MASK;
++	dma_mask = DMA_BIT_MASK(44);
+ 	err = pci_set_dma_mask(pdev, dma_mask);
+ 	if (!err) {
+ 		dev->features |= NETIF_F_HIGHDMA;
