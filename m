@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 2/8] udp: split sk_hash into two u16 hashes
-Date: Sun, 08 Nov 2009 21:17:30 +0100
-Message-ID: <4AF7275A.2010200@gmail.com>
+Subject: [PATCH 3/8] udp: secondary hash on (local port, local address)
+Date: Sun, 08 Nov 2009 21:17:58 +0100
+Message-ID: <4AF72776.8040300@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,198 +10,207 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Octavian Purdila <opurdila@ixiacom.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39131 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39135 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516AbZKHURe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 15:17:34 -0500
+	with ESMTP id S1755166AbZKHUSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 15:18:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Union sk_hash with two u16 hashes for udp (no extra memory taken)
+Extends udp_table to contain a secondary hash table.
 
-One 16 bits hash on (local port) value (the previous udp 'hash')
+socket anchor for this second hash is free, because UDP
+doesnt use skc_bind_node : We define an union to hold
+both skc_bind_node & a new hlist_nulls_node udp_portaddr_node
 
-One 16 bits hash on (local address, local port) values, initialized
-but not yet used. This second hash is using jenkin hash for better
-distribution.
+udp_lib_get_port() inserts sockets into second hash chain
+(additional cost of one atomic op)
 
-Because the 'port' is xored later, a partial hash is performed
-on local address + net_hash_mix(net)
+udp_lib_unhash() deletes socket from second hash chain
+(additional cost of one atomic op)
+
+Note : No spinlock lockdep annotation is needed, because
+lock for the secondary hash chain is always get after
+lock for primary hash chain.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/udp.h |    2 ++
- include/net/sock.h  |    6 +++++-
- net/ipv4/udp.c      |   25 +++++++++++++++++++------
- net/ipv6/udp.c      |   27 +++++++++++++++++++++++++--
- 4 files changed, 51 insertions(+), 9 deletions(-)
+ include/linux/udp.h |    1 +
+ include/net/sock.h  |    8 ++++++--
+ include/net/udp.h   |   22 ++++++++++++++++++++--
+ net/ipv4/udp.c      |   31 ++++++++++++++++++++++++++-----
+ 4 files changed, 53 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/udp.h b/include/linux/udp.h
-index 832361e..5b4b527 100644
+index 5b4b527..59f0ddf 100644
 --- a/include/linux/udp.h
 +++ b/include/linux/udp.h
-@@ -55,6 +55,8 @@ static inline int udp_hashfn(struct net *net, unsigned num, unsigned mask)
- struct udp_sock {
- 	/* inet_sock has to be the first member */
+@@ -57,6 +57,7 @@ struct udp_sock {
  	struct inet_sock inet;
-+#define udp_port_hash		inet.sk.__sk_common.skc_u16hashes[0]
-+#define udp_portaddr_hash	inet.sk.__sk_common.skc_u16hashes[1]
+ #define udp_port_hash		inet.sk.__sk_common.skc_u16hashes[0]
+ #define udp_portaddr_hash	inet.sk.__sk_common.skc_u16hashes[1]
++#define udp_portaddr_node	inet.sk.__sk_common.skc_portaddr_node
  	int		 pending;	/* Any pending frames ? */
  	unsigned int	 corkflag;	/* Cork is required */
    	__u16		 encap_type;	/* Is this an Encapsulation socket? */
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 55de3bd..827366b 100644
+index 827366b..3f1a480 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -109,6 +109,7 @@ struct net;
+@@ -105,7 +105,7 @@ struct net;
+ /**
+  *	struct sock_common - minimal network layer representation of sockets
+  *	@skc_node: main hash linkage for various protocol lookup tables
+- *	@skc_nulls_node: main hash linkage for UDP/UDP-Lite protocol
++ *	@skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
   *	@skc_refcnt: reference count
   *	@skc_tx_queue_mapping: tx queue number for this connection
   *	@skc_hash: hash value used with various protocol lookup tables
-+ *	@skc_u16hashes: two u16 hash values used by UDP lookup tables
-  *	@skc_family: network address family
-  *	@skc_state: Connection state
+@@ -115,6 +115,7 @@ struct net;
   *	@skc_reuse: %SO_REUSEADDR setting
-@@ -131,7 +132,10 @@ struct sock_common {
- 	atomic_t		skc_refcnt;
- 	int			skc_tx_queue_mapping;
- 
--	unsigned int		skc_hash;
-+	union  {
-+		unsigned int	skc_hash;
-+		__u16		skc_u16hashes[2];
-+	};
- 	unsigned short		skc_family;
+  *	@skc_bound_dev_if: bound device index if != 0
+  *	@skc_bind_node: bind hash linkage for various protocol lookup tables
++ *	@skc_portaddr_node: second hash linkage for UDP/UDP-Lite protocol
+  *	@skc_prot: protocol handlers inside a network family
+  *	@skc_net: reference to the network namespace of this socket
+  *
+@@ -140,7 +141,10 @@ struct sock_common {
  	volatile unsigned char	skc_state;
  	unsigned char		skc_reuse;
+ 	int			skc_bound_dev_if;
+-	struct hlist_node	skc_bind_node;
++	union {
++		struct hlist_node	skc_bind_node;
++		struct hlist_nulls_node skc_portaddr_node;
++	};
+ 	struct proto		*skc_prot;
+ #ifdef CONFIG_NET_NS
+ 	struct net	 	*skc_net;
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 9167281..af41850 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -63,10 +63,19 @@ struct udp_hslot {
+ 	spinlock_t		lock;
+ } __attribute__((aligned(2 * sizeof(long))));
+ 
++/**
++ *	struct udp_table - UDP table
++ *
++ *	@hash:	hash table, sockets are hashed on (local port)
++ *	@hash2:	hash table, sockets are hashed on (local port, local address)
++ *	@mask:	number of slots in hash tables, minus 1
++ *	@log:	log2(number of slots in hash table)
++ */
+ struct udp_table {
+ 	struct udp_hslot	*hash;
+-	unsigned int mask;
+-	unsigned int log;
++	struct udp_hslot	*hash2;
++	unsigned int		mask;
++	unsigned int		log;
+ };
+ extern struct udp_table udp_table;
+ extern void udp_table_init(struct udp_table *, const char *);
+@@ -75,6 +84,15 @@ static inline struct udp_hslot *udp_hashslot(struct udp_table *table,
+ {
+ 	return &table->hash[udp_hashfn(net, num, table->mask)];
+ }
++/*
++ * For secondary hash, net_hash_mix() is performed before calling
++ * udp_hashslot2(), this explains difference with udp_hashslot()
++ */
++static inline struct udp_hslot *udp_hashslot2(struct udp_table *table,
++					      unsigned int hash)
++{
++	return &table->hash2[hash & table->mask];
++}
+ 
+ /* Note: this must match 'valbool' in sock_setsockopt */
+ #define UDP_CSUM_NOXMIT		1
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index ffc8376..af72de1 100644
+index af72de1..5f04216 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -138,13 +138,14 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 	sk_nulls_for_each(sk2, node, &hslot->head)
- 		if (net_eq(sock_net(sk2), net)			&&
- 		    sk2 != sk					&&
--		    (bitmap || sk2->sk_hash == num)		&&
-+		    (bitmap || udp_sk(sk2)->udp_port_hash == num) &&
- 		    (!sk2->sk_reuse || !sk->sk_reuse)		&&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if
- 			|| sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
- 		    (*saddr_comp)(sk, sk2)) {
- 			if (bitmap)
--				__set_bit(sk2->sk_hash >> log, bitmap);
-+				__set_bit(udp_sk(sk2)->udp_port_hash >> log,
-+					  bitmap);
- 			else
- 				return 1;
- 		}
-@@ -215,7 +216,8 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 	}
- found:
- 	inet_sk(sk)->inet_num = snum;
--	sk->sk_hash = snum;
-+	udp_sk(sk)->udp_port_hash = snum;
-+	udp_sk(sk)->udp_portaddr_hash ^= snum;
- 	if (sk_unhashed(sk)) {
+@@ -163,7 +163,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		       int (*saddr_comp)(const struct sock *sk1,
+ 					 const struct sock *sk2))
+ {
+-	struct udp_hslot *hslot;
++	struct udp_hslot *hslot, *hslot2;
+ 	struct udp_table *udptable = sk->sk_prot->h.udp_table;
+ 	int    error = 1;
+ 	struct net *net = sock_net(sk);
+@@ -222,6 +222,13 @@ found:
  		sk_nulls_add_node_rcu(sk, &hslot->head);
  		hslot->count++;
-@@ -238,8 +240,19 @@ static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
- 		   inet1->inet_rcv_saddr == inet2->inet_rcv_saddr));
- }
- 
-+static unsigned int udp4_portaddr_hash(struct net *net, __be32 saddr,
-+				       unsigned int port)
-+{
-+	return jhash_1word(saddr, net_hash_mix(net)) ^ port;
-+}
+ 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
 +
- int udp_v4_get_port(struct sock *sk, unsigned short snum)
++		hslot2 = udp_hashslot2(udptable, udp_sk(sk)->udp_portaddr_hash);
++		spin_lock(&hslot2->lock);
++		hlist_nulls_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
++					 &hslot2->head);
++		hslot2->count++;
++		spin_unlock(&hslot2->lock);
+ 	}
+ 	error = 0;
+ fail_unlock:
+@@ -1062,14 +1069,22 @@ void udp_lib_unhash(struct sock *sk)
  {
-+	/* precompute partial secondary hash */
-+	udp_sk(sk)->udp_portaddr_hash =
-+		udp4_portaddr_hash(sock_net(sk),
-+				   inet_sk(sk)->inet_rcv_saddr,
-+				   0);
- 	return udp_lib_get_port(sk, snum, ipv4_rcv_saddr_equal);
- }
- 
-@@ -249,7 +262,7 @@ static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
- {
- 	int score = -1;
- 
--	if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
-+	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
- 			!ipv6_only_sock(sk)) {
- 		struct inet_sock *inet = inet_sk(sk);
- 
-@@ -360,7 +373,7 @@ static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
- 		struct inet_sock *inet = inet_sk(s);
- 
- 		if (!net_eq(sock_net(s), net)				||
--		    s->sk_hash != hnum					||
-+		    udp_sk(s)->udp_port_hash != hnum			||
- 		    (inet->inet_daddr && inet->inet_daddr != rmt_addr)	||
- 		    (inet->inet_dport != rmt_port && inet->inet_dport)	||
- 		    (inet->inet_rcv_saddr	&&
-@@ -1050,7 +1063,7 @@ void udp_lib_unhash(struct sock *sk)
  	if (sk_hashed(sk)) {
  		struct udp_table *udptable = sk->sk_prot->h.udp_table;
- 		struct udp_hslot *hslot = udp_hashslot(udptable, sock_net(sk),
--						     sk->sk_hash);
-+						       udp_sk(sk)->udp_port_hash);
+-		struct udp_hslot *hslot = udp_hashslot(udptable, sock_net(sk),
+-						       udp_sk(sk)->udp_port_hash);
++		struct udp_hslot *hslot, *hslot2;
++
++		hslot  = udp_hashslot(udptable, sock_net(sk),
++				      udp_sk(sk)->udp_port_hash);
++		hslot2 = udp_hashslot2(udptable, udp_sk(sk)->udp_portaddr_hash);
  
  		spin_lock_bh(&hslot->lock);
  		if (sk_nulls_del_node_init_rcu(sk)) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 5bc7cdb..1e5fadd 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -81,8 +81,30 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
- 	return 0;
+ 			hslot->count--;
+ 			inet_sk(sk)->inet_num = 0;
+ 			sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
++
++			spin_lock(&hslot2->lock);
++			hlist_nulls_del_init_rcu(&udp_sk(sk)->udp_portaddr_node);
++			hslot2->count--;
++			spin_unlock(&hslot2->lock);
+ 		}
+ 		spin_unlock_bh(&hslot->lock);
+ 	}
+@@ -1857,7 +1872,7 @@ void __init udp_table_init(struct udp_table *table, const char *name)
+ 
+ 	if (!CONFIG_BASE_SMALL)
+ 		table->hash = alloc_large_system_hash(name,
+-			sizeof(struct udp_hslot),
++			2 * sizeof(struct udp_hslot),
+ 			uhash_entries,
+ 			21, /* one slot per 2 MB */
+ 			0,
+@@ -1869,17 +1884,23 @@ void __init udp_table_init(struct udp_table *table, const char *name)
+ 	 */
+ 	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
+ 		table->hash = kmalloc(UDP_HTABLE_SIZE_MIN *
+-				      sizeof(struct udp_hslot), GFP_KERNEL);
++				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
+ 		if (!table->hash)
+ 			panic(name);
+ 		table->log = ilog2(UDP_HTABLE_SIZE_MIN);
+ 		table->mask = UDP_HTABLE_SIZE_MIN - 1;
+ 	}
++	table->hash2 = table->hash + (table->mask + 1);
+ 	for (i = 0; i <= table->mask; i++) {
+ 		INIT_HLIST_NULLS_HEAD(&table->hash[i].head, i);
+ 		table->hash[i].count = 0;
+ 		spin_lock_init(&table->hash[i].lock);
+ 	}
++	for (i = 0; i <= table->mask; i++) {
++		INIT_HLIST_NULLS_HEAD(&table->hash2[i].head, i);
++		table->hash2[i].count = 0;
++		spin_lock_init(&table->hash2[i].lock);
++	}
  }
  
-+static unsigned int udp6_portaddr_hash(struct net *net,
-+				       const struct in6_addr *addr6,
-+				       unsigned int port)
-+{
-+	unsigned int hash, mix = net_hash_mix(net);
-+
-+	if (ipv6_addr_any(addr6))
-+		hash = jhash_1word(0, mix);
-+	else if (ipv6_addr_type(addr6) == IPV6_ADDR_MAPPED)
-+		hash = jhash_1word(addr6->s6_addr32[3], mix);
-+	else
-+		hash = jhash2(addr6->s6_addr32, 4, mix);
-+
-+	return hash ^ port;
-+}
-+
-+
- int udp_v6_get_port(struct sock *sk, unsigned short snum)
- {
-+	/* precompute partial secondary hash */
-+	udp_sk(sk)->udp_portaddr_hash =
-+		udp6_portaddr_hash(sock_net(sk),
-+				   &inet6_sk(sk)->rcv_saddr,
-+				   0);
- 	return udp_lib_get_port(sk, snum, ipv6_rcv_saddr_equal);
- }
- 
-@@ -94,7 +116,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
- {
- 	int score = -1;
- 
--	if (net_eq(sock_net(sk), net) && sk->sk_hash == hnum &&
-+	if (net_eq(sock_net(sk), net) && udp_sk(sk)->udp_port_hash == hnum &&
- 			sk->sk_family == PF_INET6) {
- 		struct ipv6_pinfo *np = inet6_sk(sk);
- 		struct inet_sock *inet = inet_sk(sk);
-@@ -415,7 +437,8 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
- 		if (!net_eq(sock_net(s), net))
- 			continue;
- 
--		if (s->sk_hash == num && s->sk_family == PF_INET6) {
-+		if (udp_sk(s)->udp_port_hash == num &&
-+		    s->sk_family == PF_INET6) {
- 			struct ipv6_pinfo *np = inet6_sk(s);
- 			if (inet->inet_dport) {
- 				if (inet->inet_dport != rmt_port)
+ void __init udp_init(void)
