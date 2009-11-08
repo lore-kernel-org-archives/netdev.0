@@ -1,26 +1,32 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: RFC 5482
-Date: Sun, 08 Nov 2009 09:07:16 -0500
-Message-ID: <4AF6D094.5010700@gmail.com>
-References: <Pine.LNX.4.64.0911061041540.30985@sleet.zeugmasystems.local>
+Subject: query: net-next section mismatch(es)
+Date: Sun, 08 Nov 2009 09:13:09 -0500
+Message-ID: <4AF6D1F5.80307@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Anirban Sinha <asinha@zeugmasystems.com>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:42679 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751476AbZKHOHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 09:07:14 -0500
-Received: by yxe17 with SMTP id 17so1970255yxe.33
-        for <netdev@vger.kernel.org>; Sun, 08 Nov 2009 06:07:19 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0911061041540.30985@sleet.zeugmasystems.local>
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:34836 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753141AbZKHONG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 09:13:06 -0500
+Received: by ywh40 with SMTP id 40so1972660ywh.33
+        for <netdev@vger.kernel.org>; Sun, 08 Nov 2009 06:13:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anirban Sinha wrote:
-> I am just wondering if the linux TCP/IP stack supports the RFF 5482 (TCP user
-> timeout option)?
-> 
-Not yet, but I'm committed to implementing it.  It was published in March.
+Yesterday morning (and for a month), I was getting the usual:
+
+   WARNING: modpost: Found 1 section mismatch(es).
+   To see full details build your kernel with:
+   'make CONFIG_DEBUG_SECTION_MISMATCH=y'
+
+This morning, it changed:
+
+   WARNING: modpost: Found 4 section mismatch(es).
+   To see full details build your kernel with:
+   'make CONFIG_DEBUG_SECTION_MISMATCH=y'
+
+I remember compiling it once with that option, and not finding anything
+wrong in my code, but I'm wondering how it took a great leap?
