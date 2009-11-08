@@ -1,82 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 8/8] udp: multicast RX should increment SNMP/sk_drops counter
- in allocation failures
-Date: Sun, 08 Nov 2009 21:20:19 +0100
-Message-ID: <4AF72803.5020805@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC, PATCH 0/7] net, compat_ioctl: move handlers to net/socket.c
+Date: Sun, 8 Nov 2009 22:31:47 +0100
+Message-ID: <200911082231.48060.arnd@arndb.de>
+References: <1257530949-9695-1-git-send-email-arnd@arndb.de> <20091106.204753.223665411.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, hch@lst.de, netdev@vger.kernel.org,
+	David Woodhouse <dwmw2@infradead.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46213 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516AbZKHUUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 15:20:22 -0500
+Received: from moutng.kundenserver.de ([212.227.17.9]:50449 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537AbZKHVbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 16:31:51 -0500
+In-Reply-To: <20091106.204753.223665411.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When skb_clone() fails, we should increment sk_drops and SNMP counters.
+On Saturday 07 November 2009, David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri,  6 Nov 2009 19:09:02 +0100
+> 
+> > This cleans up some of the socket ioctl handling by moving it
+> > from fs/compat_ioctl.c to net/socket.c. The code is still untested,
+> > so this is an RFC for now. If you're happy with it, I'll do some
+> > testing to see if everything still works.
+> > 
+> > This series is a prerequisite for cleaning up the rest of
+> > compat_ioctl.c, saving some 30kb of kernel memory in the end.
+> > 
+> > The first four patches are probably worthwhile independently,
+> > because they fix some bugs in compat_ioctl handling.
+> > There is some obvious conflict with the ATM patch I sent
+> > independently today. That one should probably be worked out
+> > first.
+> 
+> This looks great, all applied.  Please make the fixups recommended
+> to you in the feedback as followon patches.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/udp.c |   12 +++++++++++-
- net/ipv6/udp.c |    8 +++++++-
- 2 files changed, 18 insertions(+), 2 deletions(-)
+Thanks! Two patches follow.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 9d9072c..d73e917 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1335,12 +1335,22 @@ static void flush_stack(struct sock **stack, unsigned int count,
- {
- 	unsigned int i;
- 	struct sk_buff *skb1 = NULL;
-+	struct sock *sk;
- 
- 	for (i = 0; i < count; i++) {
-+		sk = stack[i];
- 		if (likely(skb1 == NULL))
- 			skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
- 
--		if (skb1 && udp_queue_rcv_skb(stack[i], skb1) <= 0)
-+		if (!skb1) {
-+			atomic_inc(&sk->sk_drops);
-+			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
-+					 IS_UDPLITE(sk));
-+			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
-+					 IS_UDPLITE(sk));
-+		}
-+
-+		if (skb1 && udp_queue_rcv_skb(sk, skb1) <= 0)
- 			skb1 = NULL;
- 	}
- 	if (unlikely(skb1))
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 173e531..84cc4a8 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -579,14 +579,20 @@ static void flush_stack(struct sock **stack, unsigned int count,
- 	for (i = 0; i < count; i++) {
- 		skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
- 
-+		sk = stack[i];
- 		if (skb1) {
--			sk = stack[i];
- 			bh_lock_sock(sk);
- 			if (!sock_owned_by_user(sk))
- 				udpv6_queue_rcv_skb(sk, skb1);
- 			else
- 				sk_add_backlog(sk, skb1);
- 			bh_unlock_sock(sk);
-+		} else {
-+			atomic_inc(&sk->sk_drops);
-+			UDP6_INC_STATS_BH(sock_net(sk),
-+					UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
-+			UDP6_INC_STATS_BH(sock_net(sk),
-+					UDP_MIB_INERRORS, IS_UDPLITE(sk));
- 		}
- 	}
- }
+Any opinion on how to proceed with the ATM stuff? From my
+point of view, I'm fine with having moved it out of fs/compat_ioctl.c,
+but it's still a bit silly to have two half-complete implementations.
+
+> Also, I added the following cure after your patch series:
+> 
+> net: compat: No need to define IFHWADDRLEN and IFNAMSIZ twice.
+> 
+> It's defined colloqually in linux/if.h and linux/compat.h
+> includes that.
+
+ok.
+
+	Arnd <><
