@@ -1,58 +1,50 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC, PATCH 0/7] net, compat_ioctl: move handlers to net/socket.c
-Date: Sun, 8 Nov 2009 22:31:47 +0100
-Message-ID: <200911082231.48060.arnd@arndb.de>
-References: <1257530949-9695-1-git-send-email-arnd@arndb.de> <20091106.204753.223665411.davem@davemloft.net>
+Subject: [PATCH 1/2] net, compat_ioctl: fix SIOCGMII ioctls
+Date: Sun, 8 Nov 2009 22:34:13 +0100
+Message-ID: <200911082234.14031.arnd@arndb.de>
+References: <1257530949-9695-1-git-send-email-arnd@arndb.de> <20091106.204753.223665411.davem@davemloft.net> <200911082231.48060.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, hch@lst.de, netdev@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>
+Cc: linux-kernel@vger.kernel.org, hch@lst.de, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:50449 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.10]:60681 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754537AbZKHVbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 16:31:51 -0500
-In-Reply-To: <20091106.204753.223665411.davem@davemloft.net>
+	with ESMTP id S1755376AbZKHVeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 16:34:17 -0500
+In-Reply-To: <200911082231.48060.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 07 November 2009, David Miller wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Fri,  6 Nov 2009 19:09:02 +0100
-> 
-> > This cleans up some of the socket ioctl handling by moving it
-> > from fs/compat_ioctl.c to net/socket.c. The code is still untested,
-> > so this is an RFC for now. If you're happy with it, I'll do some
-> > testing to see if everything still works.
-> > 
-> > This series is a prerequisite for cleaning up the rest of
-> > compat_ioctl.c, saving some 30kb of kernel memory in the end.
-> > 
-> > The first four patches are probably worthwhile independently,
-> > because they fix some bugs in compat_ioctl handling.
-> > There is some obvious conflict with the ATM patch I sent
-> > independently today. That one should probably be worked out
-> > first.
-> 
-> This looks great, all applied.  Please make the fixups recommended
-> to you in the feedback as followon patches.
+SIOCGMIIPHY and SIOCGMIIREG return data through ifreq,
+so it needs to be converted on the way out as well.
 
-Thanks! Two patches follow.
+SIOCGIFPFLAGS is unused, but has the same problem in theory.
 
-Any opinion on how to proceed with the ATM stuff? From my
-point of view, I'm fine with having moved it out of fs/compat_ioctl.c,
-but it's still a bit silly to have two half-complete implementations.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/socket.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-> Also, I added the following cure after your patch series:
-> 
-> net: compat: No need to define IFHWADDRLEN and IFNAMSIZ twice.
-> 
-> It's defined colloqually in linux/if.h and linux/compat.h
-> includes that.
+diff --git a/net/socket.c b/net/socket.c
+index 688de5d..28a0263 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2587,7 +2587,10 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
+ 		case SIOCGIFBRDADDR:
+ 		case SIOCGIFDSTADDR:
+ 		case SIOCGIFNETMASK:
++		case SIOCGIFPFLAGS:
+ 		case SIOCGIFTXQLEN:
++		case SIOCGMIIPHY:
++		case SIOCGMIIREG:
+ 			if (copy_to_user(uifr32, &ifr, sizeof(*uifr32)))
+ 				return -EFAULT;
+ 			break;
+-- 
+1.6.3.3
 
-ok.
 
-	Arnd <><
+
