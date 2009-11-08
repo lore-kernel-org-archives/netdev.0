@@ -1,46 +1,38 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] drivers/net/wireless: correct check on CCS_START_NETWORK
-Date: Sun, 8 Nov 2009 09:23:07 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911080922360.2465@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] can: should not use __dev_get_by_index() without locks
+Date: Sun, 08 Nov 2009 00:34:25 -0800 (PST)
+Message-ID: <20091108.003425.21973000.davem@davemloft.net>
+References: <4AF3F905.4030608@gmail.com>
+	<4AF402B0.7090202@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Corey Thomas <coreythomas@charter.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janit
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:48218 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751438AbZKHIXF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Nov 2009 03:23:05 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752445AbZKHIeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 03:34:00 -0500
+In-Reply-To: <4AF402B0.7090202@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Fri, 06 Nov 2009 12:04:16 +0100
 
-CCS_START_NETWORK is declared in drivers/net/wireless/rayctl.h with the
-comment Values for cmd.  status is previously compared to
-CCS_COMMAND_COMPLETE, which is declared in the same file with the comment
-Values for buffer_status.  Finally, it is possible at this point that cmd
-is CCS_START_NETWORK, because it is compared to that value in an enclosing
-switch that has CCS_START_NETWORK as one of two case labels around this code.
+> Eric Dumazet wrote:
+>> [PATCH] can: should not use __dev_get_by_index() without locks
+>> 
+>> bcm_proc_getifname() is called with RTNL and dev_base_lock
+>> not held. It calls __dev_get_by_index() without locks, and
+>> this is illegal (might crash)
+>> 
+>> Close the race by holding dev_base_lock and copying dev->name
+>> in the protected section.
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ ...
+> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/wireless/ray_cs.c       |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 1c88c2e..5ee9d2a 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -2074,7 +2074,7 @@ static irqreturn_t ray_interrupt(int irq, void *dev_id)
- 				del_timer(&local->timer);
- 				local->timer.expires = jiffies + HZ * 5;
- 				local->timer.data = (long)local;
--				if (status == CCS_START_NETWORK) {
-+				if (cmd == CCS_START_NETWORK) {
- 					DEBUG(0,
- 					      "ray_cs interrupt network \"%s\" start failed\n",
- 					      local->sparm.b4.a_current_ess_id);
+Applied, thanks everyone.
