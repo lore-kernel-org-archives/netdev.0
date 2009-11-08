@@ -1,49 +1,28 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv7 3/3] vhost_net: a kernel-level virtio server
-Date: Sun, 8 Nov 2009 14:39:59 +1030
-Message-ID: <200911081439.59770.rusty@rustcorp.com.au>
-References: <cover.1257267892.git.mst@redhat.com> <200911061531.20299.rusty@rustcorp.com.au> <20091106163007.GC6746@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: ethtool support for n-tuple filter programming
+Date: Sat, 07 Nov 2009 20:27:12 -0800 (PST)
+Message-ID: <20091107.202712.222562359.davem@davemloft.net>
+References: <1257533841.2610.12.camel@ppwaskie-mobl2>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
- Gregory Haskins <gregory.haskins@gmail.com>,
- Eric Dumazet <eric.dumazet@gmail.com>,
- netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- s.hetze@linux-ag.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091106163007.GC6746@linux.vnet.ibm.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58724
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751301AbZKHE0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2009 23:26:47 -0500
+In-Reply-To: <1257533841.2610.12.camel@ppwaskie-mobl2>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 7 Nov 2009 03:00:07 am Paul E. McKenney wrote:
-> On Fri, Nov 06, 2009 at 03:31:20PM +1030, Rusty Russell wrote:
-> > But it's still nasty to use half an API.  If it were a few places I would
-> > have open-coded it with a comment, or wrapped it.  As it is, I don't think
-> > that would be a win.
-> 
-> So would it help to have a rcu_read_lock_workqueue() and
-> rcu_read_unlock_workqueue() that checked nesting and whether they were
-> actually running in the context of a workqueue item?  Or did you have
-> something else in mind?  Or am I misjudging the level of sarcasm in
-> your reply?  ;-)
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Date: Fri, 06 Nov 2009 10:57:21 -0800
 
-You read correctly.  If we get a second user, creating an API makes sense.
+> Any comments, thoughts, suggestions, or ideas are welcome.
 
-Thanks,
-Rusty.
+We can use the existing datastructures and defines used for
+ETHTOOL_GRX* for new ethtool commands that do filtering.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+NIU can filter on these tuples too.
