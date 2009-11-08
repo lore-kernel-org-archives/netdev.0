@@ -1,28 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: ethtool support for n-tuple filter programming
-Date: Sat, 07 Nov 2009 20:27:12 -0800 (PST)
-Message-ID: <20091107.202712.222562359.davem@davemloft.net>
-References: <1257533841.2610.12.camel@ppwaskie-mobl2>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] libnetlink: fix rtnl_send_check()
+Date: Sun, 08 Nov 2009 07:18:50 +0100
+Message-ID: <4AF662CA.3010208@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58724
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751301AbZKHE0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Nov 2009 23:26:47 -0500
-In-Reply-To: <1257533841.2610.12.camel@ppwaskie-mobl2>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55764 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbZKHGSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 01:18:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Date: Fri, 06 Nov 2009 10:57:21 -0800
+We currently cannot flush more than ~64 addresses on a device, with
+strange status.
 
-> Any comments, thoughts, suggestions, or ideas are welcome.
+# ip -stats addr flush dev eth3
+Failed to send flush request: Success
+Flush terminated
 
-We can use the existing datastructures and defines used for
-ETHTOOL_GRX* for new ethtool commands that do filtering.
+Problem is in rtnl_send_check(), where a return -1; is misplaced.
 
-NIU can filter on these tuples too.
+After patch, we can flush 64000 addresses without any problem.
+
+# ip -stats addr flush dev eth3
+
+*** Round 1, deleting 32338 addresses ***
+
+*** Round 2, deleting 16168 addresses ***
+
+*** Round 3, deleting 8082 addresses ***
+
+*** Round 4, deleting 4058 addresses ***
+
+*** Round 5, deleting 2028 addresses ***
+
+*** Round 6, deleting 918 addresses ***
+
+*** Round 7, deleting 278 addresses ***
+
+*** Round 8, deleting 130 addresses ***
+*** Flush is complete after 8 rounds ***
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index b68e2fd..100dd40 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -137,8 +137,8 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
+ 				fprintf(stderr, "ERROR truncated\n");
+ 			else 
+ 				errno = -err->error;
++			return -1;
+ 		}
+-		return -1;
+ 	}
+ 
+ 	return 0;
