@@ -1,39 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: SAD entries do not expire correctly after
-	suspend-resume
-Date: Mon, 9 Nov 2009 14:23:54 -0500
-Message-ID: <20091109192354.GA10088@gondor.apana.org.au>
-References: <20091108211249.2ecdfd38@penta.localdomain> <20091109153910.GA8039@gondor.apana.org.au> <20091109133153.668bb296@penta.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-11-09
+Date: Mon, 09 Nov 2009 11:28:57 -0800 (PST)
+Message-ID: <20091109.112857.29116779.davem@davemloft.net>
+References: <20091109183010.GF2805@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, peterz@infradead.org,
-	yoshfuji@linux-ipv6.org, tglx@linutronix.de, mingo@elte.hu
-To: Yury Polyanskiy <ypolyans@princeton.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34364 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751470AbZKITXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 14:23:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20091109133153.668bb296@penta.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091109183010.GF2805-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 09, 2009 at 01:31:53PM -0500, Yury Polyanskiy wrote:
->
-> But why would it be inoperable for hours? 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 9 Nov 2009 13:30:10 -0500
 
-As I said the other end is buggy and won't allow you to reconnect
-when you've just connected successfully.  Eventially it'll timeout
-and let you back in but it could take hours.
+> Another big batch of patches intended for 2.6.33...  Among the usual
+> suspects are big updates for ath9k, iwlwifi, wl1271, mwl8k, and (especially)
+> rt2x00.  Also included are some patches to move some old pre-802.11
+> drivers over to staging, and a number of mac80211 updates.
+> 
+> Please let me know if there are problems!
 
-> In any case, running ntpdate before racoon fixes the problem.
-
-Not if the only trusted time source is over IPsec.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pulled, thanks a lot!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
