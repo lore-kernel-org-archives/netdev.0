@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: SAD entries do not expire correctly after
- suspend-resume
-Date: Sun, 08 Nov 2009 20:58:59 -0800 (PST)
-Message-ID: <20091108.205859.180271806.davem@davemloft.net>
-References: <20091108211249.2ecdfd38@penta.localdomain>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Sun, 08 Nov 2009 20:59:11 -0800 (PST)
+Message-ID: <20091108.205911.177751843.davem@davemloft.net>
+References: <20091109130323.5dcc7829.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peterz@infradead.org,
-	yoshfuji@linux-ipv6.org, tglx@linutronix.de, mingo@elte.hu
-To: ypolyans@princeton.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51264
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754154AbZKIE6e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 23:58:34 -0500
-In-Reply-To: <20091108211249.2ecdfd38@penta.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wg@grandegger.com,
+	haas@ems-wuensche.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091109130323.5dcc7829.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yury Polyanskiy <ypolyans@princeton.edu>
-Date: Sun, 8 Nov 2009 21:12:49 -0500
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 9 Nov 2009 13:03:23 +1100
 
+> Hi all,
 > 
->   This fixes the following bug in the current implementation of
-> net/xfrm: SAD entries timeouts do not count the time spent by the machine 
-> in the suspended state. This leads to the connectivity problems because 
-> after resuming local machine thinks that the SAD entry is still valid, while 
-> it has already been expired on the remote server.
- ...
-> Signed-off-by: Yury Polyanskiy <polyanskiy@gmail.com>
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/can/usb/ems_usb.c between commit
+> 2b2072e902848a63168570f500a5726744b3873a ("ems_usb: Fix byte order issues
+> on big endian machines") from the net-current tree and commit
+> 7b6856a0296a8f187bb88ba31fa83a08abba7966 ("can: provide library functions
+> for skb allocation") from the net tree.
+> 
+> Just context changes.  I fixed it up (see below) and can carry the fix
+> for a while.
 
-Applied to net-next-2.6, thanks for following up on this.
+I'll do a merge and resolve this, thanks Stephen!
