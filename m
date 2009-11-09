@@ -1,47 +1,57 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the net-current tree
-Date: Mon, 9 Nov 2009 13:03:23 +1100
-Message-ID: <20091109130323.5dcc7829.sfr@canb.auug.org.au>
+Subject: linux-next: net tree build failure
+Date: Mon, 9 Nov 2009 13:21:51 +1100
+Message-ID: <20091109132151.0e0ec7bc.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Sebastian Haas <haas@ems-wuensche.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+	Arnd Bergmann <arnd@arndb.de>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/can/usb/ems_usb.c between commit
-2b2072e902848a63168570f500a5726744b3873a ("ems_usb: Fix byte order issues
-on big endian machines") from the net-current tree and commit
-7b6856a0296a8f187bb88ba31fa83a08abba7966 ("can: provide library functions
-for skb allocation") from the net tree.
+Today's linux-next build (x86_64 allmodconfig) failed like this:
 
-Just context changes.  I fixed it up (see below) and can carry the fix
-for a while.
--- 
+net/appletalk/ddp.c: In function 'atalk_compat_ioctl':
+net/appletalk/ddp.c:1866: error: implicit declaration of function 'comp=
+at_ptr'
+
+Caused by commit 206602217747382488fcae68351673cc9103debc
+("appletalk:=C2=A0handle SIOCATALKDIFADDR compat ioctl").
+
+I applied this patch for today:
+
+=46rom: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 9 Nov 2009 13:11:26 +1100
+Subject: [PATCH] net/appletalk: using compat_ptr needs inclusion of lin=
+ux/compat.h
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/appletalk/ddp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index b631cc7..73ca4d5 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -56,6 +56,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/smp_lock.h>
+ #include <linux/termios.h>	/* For TIOCOUTQ/INQ */
++#include <linux/compat.h>
+ #include <net/datalink.h>
+ #include <net/psnap.h>
+ #include <net/sock.h>
+--=20
+1.6.5.2
+
+
+--=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/can/usb/ems_usb.c
-index abdbd9c,3685f3e..0000000
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@@ -315,11 -315,7 +315,7 @@@ static void ems_usb_rx_can_msg(struct e
-  	if (skb == NULL)
-  		return;
-  
-- 	skb->protocol = htons(ETH_P_CAN);
-- 
-- 	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-- 
- -	cf->can_id = msg->msg.can_msg.id;
- +	cf->can_id = le32_to_cpu(msg->msg.can_msg.id);
-  	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
-  
-  	if (msg->type == CPC_MSG_TYPE_EXT_CAN_FRAME
+http://www.canb.auug.org.au/~sfr/
