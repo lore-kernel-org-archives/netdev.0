@@ -1,76 +1,50 @@
 From: Sven Anders <sven@anduras.de>
-Subject: [PATCH] e1000e: Fix usage under kexec
-Date: Mon, 09 Nov 2009 21:25:21 +0100
-Message-ID: <4AF87AB1.1070603@anduras.de>
+Subject: [PATCH] e1000e: Add new ID
+Date: Mon, 09 Nov 2009 21:25:19 +0100
+Message-ID: <4AF87AAF.2020508@anduras.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig987ADF05B7B6FB7BAE591B81"
+ boundary="------------enigC70DAC593F24B1AC64A4EAA3"
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metropolitan.anduras.de ([80.237.200.159]:43418 "EHLO
+Received: from metropolitan.anduras.de ([80.237.200.159]:43417 "EHLO
 	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754037AbZKIUZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 15:25:18 -0500
+	with ESMTP id S1753823AbZKIUZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 15:25:16 -0500
 Received: from popper.anduras.office (p54918733.dip0.t-ipconnect.de [84.145.135.51])
 	(Authenticated sender: anduras@anduras.priv)
-	by metropolitan.anduras.de (Postfix) with ESMTP id 644001E543C
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:23 +0100 (CET)
+	by metropolitan.anduras.de (Postfix) with ESMTP id 5D8691E543C
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:21 +0100 (CET)
 Received: from localhost (localhost [127.0.0.1])
-	by popper.anduras.office (Postfix) with ESMTP id EE4CC2140A5
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:22 +0100 (CET)
+	by popper.anduras.office (Postfix) with ESMTP id DE8A62140A5
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:20 +0100 (CET)
 Received: from popper.anduras.office ([127.0.0.1])
 	by localhost (popper.anduras.office [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 12843-05 for <netdev@vger.kernel.org>;
-	Mon, 9 Nov 2009 21:25:22 +0100 (CET)
+	with ESMTP id 11959-08 for <netdev@vger.kernel.org>;
+	Mon, 9 Nov 2009 21:25:20 +0100 (CET)
 Received: from [192.168.10.15] (suburban.anduras.office [10.10.20.242])
-	by popper.anduras.office (Postfix) with ESMTP id 787D6214001
-	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:22 +0100 (CET)
+	by popper.anduras.office (Postfix) with ESMTP id 5D1C2214001
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:20 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig987ADF05B7B6FB7BAE591B81
+--------------enigC70DAC593F24B1AC64A4EAA3
 Content-Type: multipart/mixed;
- boundary="------------040600080801070608080509"
+ boundary="------------070705000604020800030303"
 
 This is a multi-part message in MIME format.
---------------040600080801070608080509
+--------------070705000604020800030303
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: quoted-printable
 
 Hello!
 
-We're experiencing the following problem:
+We use the the 82571EB (QUAD COPPER BP) with the e1000e driver.
+We haven't experienced any problems yet.
 
-We start a minimal linux system, prepare the system and start the
-final system via kexec.
-On two different systems (one with a 82573 and one with a 82574),
-the driver cannot initialize the network hardware, because the PHY
-is not recognized.
-
-We get the following error:
-  e1000e: probe of 0000:02:00.0 failed with error -2
-
-We cannot unload the driver of the first kernel, because it's
-compiled in statically.
-
-It's caused by the PHY, because it's already initialized by the
-first driver and therefore does not respond correctly. The driver
-assumes the PHY to be in 'reset' state, which is done by the BIOS.
-
-We fixed it by adding a
-
-+       /* Reset PHY before initializing it. Allows re-init after kexec. =
-*/
-+       if (!e1000_check_reset_block(hw))
-+         e1000_phy_hw_reset(hw);
-
-to the initialization routine. I'm not sure, if we need the additional
-"block" check.
-A patch is attached.
-
-Please send a note, if the patch is correct or wrong...
+The patch is trivial, just adding a new PCI ID...
 
 Regards
  Sven Anders
@@ -89,30 +63,53 @@ Those who would give up essential Liberty, to purchase a little
 temporary Safety, deserve neither Liberty nor Safety.
   - Benjamin Franklin
 
---------------040600080801070608080509
+--------------070705000604020800030303
 Content-Type: text/x-patch;
- name="e1000e-kexec.patch"
+ name="e1000e-Add_ID_01A0.patch"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline;
- filename="e1000e-kexec.patch"
+ filename="e1000e-Add_ID_01A0.patch"
 
---- linux-2.6.29.6/drivers/net/e1000e/82571.c.orig	2009-11-04 00:44:27.00=
-0000000 +0100
-+++ linux-2.6.29.6/drivers/net/e1000e/82571.c	2009-11-04 00:44:19.0000000=
-00 +0100
-@@ -107,6 +107,10 @@ static s32 e1000_init_phy_params_82571(s
- 		break;
- 	}
-=20
-+	/* Reset PHY before initializing it. Allows re-init after kexec. */
-+	if (!e1000_check_reset_block(hw))
-+	  e1000_phy_hw_reset(hw);
-+
- 	/* This can only be done after all function pointers are setup. */
- 	ret_val =3D e1000_get_phy_id_82571(hw);
-=20
+--- linux-2.6.26.2/drivers/net/e1000e/hw.h.orig	2008-09-29 14:20:55.00000=
+0000 +0200
++++ linux-2.6.26.2/drivers/net/e1000e/hw.h	2008-09-29 14:26:38.000000000 =
++0200
+@@ -323,6 +323,7 @@
+ #define E1000_DEV_ID_82571PT_QUAD_COPPER	0x10D5
+ #define E1000_DEV_ID_82571EB_QUAD_FIBER		0x10A5
+ #define E1000_DEV_ID_82571EB_QUAD_COPPER_LP	0x10BC
++#define E1000_DEV_ID_82571EB_QUAD_COPPER_BP	0x10A0
+ #define E1000_DEV_ID_82571EB_SERDES_DUAL	0x10D9
+ #define E1000_DEV_ID_82571EB_SERDES_QUAD	0x10DA
+ #define E1000_DEV_ID_82572EI_COPPER		0x107D
+--- linux-2.6.26.2/drivers/net/e1000e/netdev.c.orig	2008-09-29 14:27:01.0=
+00000000 +0200
++++ linux-2.6.26.2/drivers/net/e1000e/netdev.c	2008-09-29 14:27:29.000000=
+000 +0200
+@@ -4560,6 +4560,7 @@
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_FIBER), board_82571 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER), board_82571 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER_LP), board_82571 =
+},
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER_BP), board_82571 =
+},
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_FIBER), board_82571 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_SERDES), board_82571 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_SERDES_DUAL), board_82571 },
+--- linux-2.6.26.2/drivers/net/e1000e/82571.c.orig	2008-09-29 14:27:42.00=
+0000000 +0200
++++ linux-2.6.26.2/drivers/net/e1000e/82571.c	2008-09-29 14:28:04.0000000=
+00 +0200
+@@ -274,6 +274,7 @@
+ 	case E1000_DEV_ID_82571EB_QUAD_COPPER:
+ 	case E1000_DEV_ID_82571EB_QUAD_FIBER:
+ 	case E1000_DEV_ID_82571EB_QUAD_COPPER_LP:
++	case E1000_DEV_ID_82571EB_QUAD_COPPER_BP:
+ 	case E1000_DEV_ID_82571PT_QUAD_COPPER:
+ 		adapter->flags |=3D FLAG_IS_QUAD_PORT;
+ 		/* mark the first port */
 
---------------040600080801070608080509
+--------------070705000604020800030303
 Content-Type: text/x-vcard; charset=utf-8;
  name="sven.vcf"
 Content-Transfer-Encoding: quoted-printable
@@ -133,9 +130,9 @@ version:2.1
 end:vcard
 
 
---------------040600080801070608080509--
+--------------070705000604020800030303--
 
---------------enig987ADF05B7B6FB7BAE591B81
+--------------enigC70DAC593F24B1AC64A4EAA3
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -144,9 +141,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.9 (GNU/Linux)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-iEYEARECAAYFAkr4erEACgkQ5lKZ7Feg4EdPaACfeo95plhp3TcMySPb8sv0++Xg
-8kEAoIFBHlLfmGdmQN9ZGZjRd0G4929j
-=ir6t
+iEYEARECAAYFAkr4eq8ACgkQ5lKZ7Feg4Eeh8QCgixJ5xbD+eeS84sPDtJkU9CyH
+rhcAoJfkvs29LyStoYzRK8Y01Pn2oqmK
+=8aMd
 -----END PGP SIGNATURE-----
 
---------------enig987ADF05B7B6FB7BAE591B81--
+--------------enigC70DAC593F24B1AC64A4EAA3--
