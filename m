@@ -1,76 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/8] udp: add a counter into udp_hslot
-Date: Mon, 09 Nov 2009 12:42:56 +0100
-Message-ID: <4AF80040.6060501@gmail.com>
-References: <4AF72741.5070405@gmail.com> <87fx8o56eq.fsf@basil.nowhere.org>
+From: Jens Osterkamp <jens@linux.vnet.ibm.com>
+Subject: Re: [PATCH 43/75] spider-net: declare MODULE_FIRMWARE
+Date: Mon, 9 Nov 2009 12:58:13 +0100
+Message-ID: <200911091258.13989.jens@linux.vnet.ibm.com>
+References: <1257630907.15927.445.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Andi Kleen <andi@firstfloor.org>
+Cc: David Miller <davem@davemloft.net>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	Jens Osterkamp <jens@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>, arnd@arndb.de
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49988 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbZKILnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 06:43:01 -0500
-In-Reply-To: <87fx8o56eq.fsf@basil.nowhere.org>
+Received: from mtagate1.uk.ibm.com ([194.196.100.161]:36863 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753248AbZKIL6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 06:58:10 -0500
+Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
+	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id nA9BwFpP016717
+	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nA9BwFfb2457770
+	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id nA9BwEfX019681
+	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
+In-Reply-To: <1257630907.15927.445.camel@localhost>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen a =E9crit :
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
->> =20
->> +/**
->> + *	struct udp_hslot - UDP hash slot
->> + *
->> + *	@head:	head of list of sockets
->> + *	@count:	number of sockets in 'head' list
->> + *	@lock:	spinlock protecting changes to head/count
->> + */
->>  struct udp_hslot {
->>  	struct hlist_nulls_head	head;
->> +	int			count;
->=20
-> Do you really need an int? On 64bit it's free due to the alignment,=20
-> but on 32bit x86 it's costly and you blow up the table considerably,
-> increasing cache misses.
+On Saturday 07 November 2009, Ben Hutchings wrote:
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+>  drivers/net/spider_net.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+> index 90e663f..782910c 100644
+> --- a/drivers/net/spider_net.c
+> +++ b/drivers/net/spider_net.c
+> @@ -57,6 +57,7 @@ MODULE_AUTHOR("Utz Bacher <utz.bacher@de.ibm.com> a=
+nd
+> Jens Osterkamp " \ MODULE_DESCRIPTION("Spider Southbridge Gigabit Eth=
+ernet
+> driver"); MODULE_LICENSE("GPL");
+>  MODULE_VERSION(VERSION);
+> +MODULE_FIRMWARE(SPIDER_NET_FIRMWARE_NAME);
+>
+>  static int rx_descriptors =3D SPIDER_NET_RX_DESCRIPTORS_DEFAULT;
+>  static int tx_descriptors =3D SPIDER_NET_TX_DESCRIPTORS_DEFAULT;
 
-Even a short (16 bits) might be too small for IXIACOM :)
+In spider_net, the filesystem is checked for a valid firmware first, if=
+ it=20
+does not exist, the firmware is taken from the device tree (which is th=
+e=20
+default case).
 
-On 32bit x86, size of hash table is 512 slots max.
-(one slot per 2MB of LOWMEM, rounded to power of two)
+Do you expect this behaviour to cause problems together with MODULE_FIR=
+MWARE ?
 
-You are speaking of <=3D 4096 bytes overhead :)
+--=20
+Best regards,=20
 
-> =20
-> Again it would be nicer if that was a separate smaller table together
-> with the spinlock.
-
-Nice for space, not nice for fast path, because this means additional
-cache miss to get the spinlock (multicast rx still needs to take spinlo=
-ck),
-and some guys want really fast (low latency) multicast rx.
-
->=20
-> In theory could also put a short counter into the low level alignment
-> bits of the pointer and perhaps convert the spinlock to a bitlock?
-> Then all could collapse into a single pointer.
->=20
-
-Not enough bits in low level alignment unfortunatly. We only could give=
- a
-hint (one bit is enough) of possibly long chain, but not allowing preci=
-se=20
-choice of shortest chain.
-
-Once multicast is converted to RCU, then we wont need one spinlock per =
-slot
-(it wont be used in fast path, only at bind()/close() time)
-and yes, we can use a separate small array to contain hashed spinlocks,
-or even a single spinlock for CONFIG_BASE_SMALL :)
-
-
+Jens Osterkamp
+-----------------------------------------------------------------------=
+---------
+IBM Deutschland Research & Development GmbH
+Vorsitzender des Aufsichtsrats: Martin Jetter
+Gesch=C3=A4ftsf=C3=BChrung: Erich Baier
+Sitz der Gesellschaft: B=C3=B6blingen
+Registergericht: Amtsgericht Stuttgart, HRB 243294
 
