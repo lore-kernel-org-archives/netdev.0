@@ -1,74 +1,72 @@
-From: Jens Osterkamp <jens@linux.vnet.ibm.com>
-Subject: Re: [PATCH 43/75] spider-net: declare MODULE_FIRMWARE
-Date: Mon, 9 Nov 2009 12:58:13 +0100
-Message-ID: <200911091258.13989.jens@linux.vnet.ibm.com>
-References: <1257630907.15927.445.camel@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 9 Nov 2009 13:55:48 +0200
+Message-ID: <20091109115548.GA2368@redhat.com>
+References: <cover.1257349249.git.mst@redhat.com> <200911061529.17500.rusty@rustcorp.com.au> <20091108113516.GA19016@redhat.com> <200911091647.29655.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Jens Osterkamp <jens@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, arnd@arndb.de
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:36863 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248AbZKIL6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 06:58:10 -0500
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id nA9BwFpP016717
-	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nA9BwFfb2457770
-	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id nA9BwEfX019681
-	for <netdev@vger.kernel.org>; Mon, 9 Nov 2009 11:58:15 GMT
-In-Reply-To: <1257630907.15927.445.camel@localhost>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
+        Daniel Walker <dwalker@fifo99.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200911091647.29655.rusty@rustcorp.com.au>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 07 November 2009, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
->  drivers/net/spider_net.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
-> index 90e663f..782910c 100644
-> --- a/drivers/net/spider_net.c
-> +++ b/drivers/net/spider_net.c
-> @@ -57,6 +57,7 @@ MODULE_AUTHOR("Utz Bacher <utz.bacher@de.ibm.com> a=
-nd
-> Jens Osterkamp " \ MODULE_DESCRIPTION("Spider Southbridge Gigabit Eth=
-ernet
-> driver"); MODULE_LICENSE("GPL");
->  MODULE_VERSION(VERSION);
-> +MODULE_FIRMWARE(SPIDER_NET_FIRMWARE_NAME);
->
->  static int rx_descriptors =3D SPIDER_NET_RX_DESCRIPTORS_DEFAULT;
->  static int tx_descriptors =3D SPIDER_NET_TX_DESCRIPTORS_DEFAULT;
+On Mon, Nov 09, 2009 at 04:47:29PM +1030, Rusty Russell wrote:
+> Actually, this looks wrong to me:
+> 
+> +	case VHOST_SET_VRING_BASE:
+> ...
+> +		vq->avail_idx = vq->last_avail_idx = s.num;
+> 
+> The last_avail_idx is part of the state of the driver.  It needs to be saved
+> and restored over susp/resume.  The only reason it's not in the ring itself
+> is because I figured the other side doesn't need to see it (which is true, but
+> missed debugging opportunities as well as man-in-the-middle issues like this
+> one).  I had a patch which put this field at the end of the ring, I might
+> resurrect it to avoid this problem.  This is backwards compatible with all
+> implementations.  See patch at end.
+> 
+> I would drop avail_idx altogether: get_user is basically free, and simplifies
+> a lot.  As most state is in the ring, all you need is an ioctl to save/restore
+> the last_avail_idx.
 
-In spider_net, the filesystem is checked for a valid firmware first, if=
- it=20
-does not exist, the firmware is taken from the device tree (which is th=
-e=20
-default case).
+I remembered another reason for caching head in avail_idx.  Basically,
+avail index could change between when I poll for descriptors and when I
+want to notify guest.
 
-Do you expect this behaviour to cause problems together with MODULE_FIR=
-MWARE ?
+So we could have:
+	- poll descriptors until empty
+	- notify
+		detects not empty so does not notify
 
---=20
-Best regards,=20
+And the way to solve it would be to return flag from
+notify telling us to restart the polling loop.
 
-Jens Osterkamp
------------------------------------------------------------------------=
----------
-IBM Deutschland Research & Development GmbH
-Vorsitzender des Aufsichtsrats: Martin Jetter
-Gesch=C3=A4ftsf=C3=BChrung: Erich Baier
-Sitz der Gesellschaft: B=C3=B6blingen
-Registergericht: Amtsgericht Stuttgart, HRB 243294
+But, this will be more code, on data path, than
+what happens today where I simply keep state
+from descriptor polling and use that to notify.
 
+I also suspect that somehow this race in practice can not create
+deadlocks ... but I prefer to avoid it, these things are very tricky: if
+I see an empty ring, and stop processing descriptors, I want to trigger
+notify on empty.
+
+So if we want to avoid keeping "empty" state, IMO the best way would be
+to pass a flag to vhost_signal that tells it that ring is empty.
+Makes sense?
+
+-- 
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
