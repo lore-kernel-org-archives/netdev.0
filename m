@@ -1,38 +1,287 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: RFC: ethtool support for n-tuple filter programming
-Date: Sun, 08 Nov 2009 21:49:21 -0800
-Message-ID: <1257745762.2609.5.camel@ppwaskie-mobl2>
-References: <1257533841.2610.12.camel@ppwaskie-mobl2>
-	 <20091107.202712.222562359.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: Doubt in implementations of mean loss interval at sender side
+Date: Mon, 9 Nov 2009 07:09:06 +0100
+Message-ID: <20091109060906.GA5126@gerrit.erg.abdn.ac.uk>
+References: <4AD4B861.7040107@embedded.ufcg.edu.br> <20091020050927.GA4982@gerrit.erg.abdn.ac.uk> <425e6efa0910210524l56e0d8e9n22ed61aa45a4cf03@mail.gmail.com> <cb00fa210910210618g5f079096sfb75bee99f595f01@mail.gmail.com> <20091028153358.GA3456@gerrit.erg.abdn.ac.uk> <425e6efa0911051101l2d86050ep1172a0e8abd915c3@mail.gmail.com> <425e6efa0911051543t7a57963bi589f736c49763a6@mail.gmail.com> <cb00fa210911051603w6fb8de32qd7ebf37ce78408f7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp <dccp@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54398 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750729AbZKIFtR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2009 00:49:17 -0500
-In-Reply-To: <20091107.202712.222562359.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51921 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751281AbZKIGJR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2009 01:09:17 -0500
+Content-Disposition: inline
+In-Reply-To: <cb00fa210911051603w6fb8de32qd7ebf37ce78408f7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-11-07 at 21:27 -0700, David Miller wrote:
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Date: Fri, 06 Nov 2009 10:57:21 -0800
-> 
-> > Any comments, thoughts, suggestions, or ideas are welcome.
-> 
-> We can use the existing datastructures and defines used for
-> ETHTOOL_GRX* for new ethtool commands that do filtering.
-> 
-> NIU can filter on these tuples too.
+| > To sum up, here is whay I think is minimally required to satisfy the union
+| > of RFC 4340, 4342, 4828, 5348, and 5622:
+| >
+| >        struct tfrc_tx_packet_info {
+| >                u64     seqno:48,
+| >                        is_ect0:1,
+| >                        is_data_packet:1,
+| >                        is_in_loss_interval:1;
+| >                u32     send_time;
+| >                u32     rtt_estimate;
+| >                struct tfrc_tx_packet_info *next; /* FIFO */
+| >        };
+| >
+| > That would be a per-packet storage cost of about 16 bytes, plus the pointer
+| > (8 bytes on 64-bit architectures). One could avoid the pointer by defining a
+| >        u64     base_seqno;
+| > and then
+| >        struct tfrc_tx_packet_info[some constant here];
+| > and then index the array relative to the base_seqno.
+| >
+| 
+| Yes, I believe that struct is enough too. But how long would be necessary
+| the struct array to be?
+| 
+The problem is the same as with Ack Vectors - the array (or list) can grow
+arbitrarily large. You made a good reply, since all the questions are 
+inter-related. The first two I see here are
 
-Are you suggesting to extend the flow hash stuff that is already in
-ethtool (same ioctl)?  If so, that makes sense.  I'll go ahead and get
-some patches together for review.
+ 1) the choice of data structure (array or list)
+ 2) the design of a garbage-collector
 
-Thanks,
--PJ
+This includes your point from above, about the maximum size. To draw the
+analogy to Ack Vectors, at the moment they use a fixed size. On certain
+mediums (WiFi) there exist situations where even that fixed limit is
+reached, causing an overflow with Ack Vectors that have reached a size
+of 2 * 253 = 506 bytes.
 
+Looking after old data of sent packets is similar, the main difference I
+see that at some stage "unused" old entries need to be collected, to avoid
+the overflow problem which occurs when using a fixed-size structure.
+
+I find that 'Acknowledgments of Acknowledgments' is a bad idea, since it
+means implementing reliable delivery over unreliable transport; on the
+one hand DCCP is designed to be unreliable, but here suddenly is a break
+with that design decision.
+
+So point (2) will probably mean coming up with some guessed heuristics
+that will work for most scenarios, but may fail in others.
+
+
+This is why I am not a big fan of the sender-based solution: to solve (2) and
+your question from above requires a lot of testing of the garbage-collection
+and book-keeping algorithms, rather than on the actual congestion control.
+
+One can spend a lot of time going over these issues, but of what use is the
+most ingenious data structure if the overall protocol behaviour does not
+deliver a useful performance to users of the protocol?
+
+| > IIb) Further remarks
+| > --------------------
+| > At first sight it would seem that storing the RTT also solves the problem
+| > of inaccurate RTTs used at the receiver. Unfortunately, this is not the
+| > case. X_recv is sampled over intervals of varying length which may or may
+| > not equal the RTT.  To factor out the effect of window counters, the sender
+| > would need to store the packet size as well and would need to use rather
+| > complicated computations - an ugly workaround.
+| 
+| I didn't understand how the packet size would help and what
+| computations are needed.
+| 
+The above still refers to the earlier posting about letting the sender
+supply the RTT estimate R_i in packet `i' as defined in RFC 5348, 3.2.1.
+
+Though the same section later suggests that a coarse-grained timestamp 
+is sufficient, in practice the inaccuracy of the RTT means inaccurate
+X_recv, and as a consequence sub-optimal protocol performance.
+
+The problem is that the algorithm from RFC 4342, 8.1 assumes that the
+rate of change of the window counter also relates to the change of
+packet spacing (the difference between the T_i packe arrivel times).
+
+Howver, especially when using high-speed (1/10 Gbit) networking, this
+assumption often does not hold in practice. Packets are sent by the network
+card in bunches, or intervening switches/routers cause a compression of
+packet inter-arrival times. Hence it is perfectly possible that a bundle of
+packets with different Window Counter CCVal values arrive at virtually
+the same time. For instance, on a 100Mbs ethernet I have seen spikes of
+X_recv of up to 2-3 Gbits/sec. Several orders of magnitude from the
+real packet speed (not to mention the unrealistic value).
+
+So the question above was asking whether there is a way for the sender
+to "compute away" the inaccuracies reported by the receiver. Your reply
+confirms my doubts that doing this is probably not possible.
+
+To clarify, I was asking whether it would be possible for the sender to
+perform step (2) of RFC 5348, 6.2; to compensate for the fact that the
+receiver does not have a reliable RTT estimate.
+
+For example, when receiving feedback for packet `i', it would iterate
+through the list/array, going back over as many packets as are covered
+by the send time T_i of packet `i' minus the RTT estimate R_i at that
+time, sum their packet sizes, and from that value recompute X_recv.
+
+This is a bit complicated if the garbage-collector has already purged
+older entries, so part of the garbage collector would probably have
+to watch over acknowledged packets. I add this as item
+ 3) validate X_recv 
+to the above running list of book-keeping items done at the sender.
+
+
+| > One thing I stumbled across while reading your code was the fact that RFC 4342
+| > leaves it open as to how many Loss Intervals to send: on the one hand it follows
+| > the suggestion of RFC 5348 to use 1+NINTERVAL=9, but on the other hand it does
+| > not restrict the number of loss intervals. Also RFC 5622 does not limit the
+| > number of Loss Intervals / Data Dropped options.
+| >
+| > If receiving n > 9 Loss Intervals, what does the sender do with the n-9 older
+| > intervals? There must be some mechanism to stop these options from growing
+| > beyond bounds, so it needs to store also which loss intervals have been
+| > acknowledged, introducing the "Acknowledgment of Acknowledgments"
+| > problem.
+| 
+| In RFC 4342 section 8.6 it says that the limit of loss interval data
+| to send is 28, and RFC 5622 8.7 says 84 for dropped packets option.
+| But I don't see why to send so many data in these options.
+| Yes, the most recent 9 loss intervals are required to be reported,
+| except if the sender acknowledged previous sent loss intervals, so in
+| that case only one is required, the open interval.
+| And we can avoid the "Acknowledgment of Acknowledgments" if we always send
+| the required 9 loss intervals, I think.
+| 
+| > A second point is how to compute the loss event rate when n > 9. It seems
+| > that this would mean grinding through all loss intervals using a window
+| > of 9. If that is the case, the per-packet-computation costs become very
+| > expensive.
+| 
+| RFC 4342 section 8.6 suggests that only 9 loss intervals are required
+| anyway. And I believe that's enough for the computation of current
+| mean loss interval. What do you think?
+| 
+Yes, absolutely, I am completely in favour of this very sensible suggestion.
+
+If people really must experiment with such outdated data, that could be
+done in truly experimental patches. Especially since RFC 5348 normatively
+recommends a value of n = 8 in section 5.4. And we are saving further
+headaches about the book-keeping/garbage collection of old data.
+
+| > II) Computational part of the implementation
+| > --------------------------------------------
+| > If only Loss Intervals alone are used, only these need to be verified
+| > before being used to alter the sender behaviour.
+| >
+| > But when one or more other DCCP options also appear, the verification is
+| >  * intra: make sure each received option is in itself consistent,
+| >  * inter: make sure options are mutually consistent.
+| >
+| > The second has a combinatorial effect, i.e. n! verifications for n options.
+| >
+<snip>
+| 
+| Yes, there's a combinatorial problem in checking the options for consistence.
+| But, what if we find out that some option doesn't match against others?
+| What action would be taken?
+I add this as
+ 4) define policy for dealing with options that are not mutually consistent
+
+| First, what can cause the receiver to send inconsistent options?
+| A bad implementation only?
+Yes I think that a bad implementation (whether on purpose or not) would be
+the main cause, since header options are protected even if partial
+checksums are used (RFC 4340, 9.2).
+
+But there is also the benign case mentioned at the end of RFC 4342, 9.2,
+where a receiver collapses multiple losses into a single loss event, i.e.
+ 5) validate received Loss Intervals and regroup the receiver-based 
+    information if necessary, without interpreting this as attempted
+    receiver misbehaviour.
+
+| Accordingly to ecn nonce echo sum algorithm, if a receiver is found to be 
+| lying about loss or to be bad implemented, the sender adjusts the send rate
+| as if loss were perceived.
+| Can we do the same in this situation? If so, can we skip checking options
+| between them and only check ecn nonce sum?
+This is difficult since Ack Vectors and Loss Intervals use different
+definitions of ECN Nonce sum (last paragraph in RFC 4342, 9.1), i.e. we have
+ 6) separate algorithms to compute Ack Vector/Loss Intervals ECN Nonce sum.
+
+With regard to (5) above, your suggestion gives
+ 7) validate options, on mismatch other than (5) only validate ECN nonce.
+
+| If some option is wrong it show more loss (or any worse situation for the
+| receiver) or conceals loss. In the first case, I don't believe we need to care,
+| and in the second, the ecn nonce sum can reveal the bad acting of the receiver.
+Yes you are right, we need not worry if a receiver reports a higher loss rate
+than the verification done by the sender (which recomputes the data that the
+receiver already has computed) calculates.
+
+But for the second case, there is no guarantee to catch a misbehaving
+receiver, only a 50% chance at the end of many computations.
+
+RFC 4342, 9 suggests one way of verifying Loss Intervals / Ack Vectors:
+ 5) occasionally do not send a packet, or send packet out of order.
+
+This increases complexity of book-keeping, the sender needs to keep track
+which of the sent packets was a fake send/drop. It also requires an algorithm
+to iterate over the sender data structures in order to find out whether the
+reasoning of the receiver is sane. I have doubts whether this can be done
+without sacrificing the performance of the in-kernel sender side.
+
+
+| > III) Closing remarks in favour of receiver-based implementation
+| > ---------------------------------------------------------------
+| > Finally, both RFC 4342 and RFC 5622 do not explicitly discard the
+| > possibility of using a receiver-based implementation. Quoting
+| > RFC 4342, 3.2: "If it prefers, the sender can also use a loss event
+| >                rate calculated and reported by the receiver."
+| > Furthermore, the revised TFRC specification points out in section 7
+| > the advantages that a receiver-based implementation has:
+| >  * it does not mandate reliable delivery of packet loss data;
+| >  * it is robust against the loss of feedback packets;
+| >  * better suited for scalable server design.
+| >
+| > Quite likely, if the server does not have to store and validate a mass
+| > of data, it is also less prone to be toppled by DoS attacks.
+| 
+| You're right. But what the RFC's says about it is almost exactly the
+| opposite, isn't? What can we do about it? I like the receiver-based design,
+| but I believe that loss intervals are interesting, mostly because  of
+| receiver behavior verification.
+| 
+While writing the above reply, I was amazed to see how much of the computation
+that has already been done at the receiver needs to be done again at the sender, 
+ust in order to be able to verify the data.
+
+To me this seems very inefficient.
+
+Moreover, the biggest danger I see here is spending a lot of time with the
+details of sender book-keeping and verification, just to then see that the
+performance of CCID-3/4 in practice turns out to be below the standards
+acceptable to even modest users.
+
+I think it is clearly better to prefer the simplest possible implementation
+in such cases, to better debug live protocol performance.
+
+In particular, since CCID-4 is designed to be an experimental protocol
+(i.e. if it works, RFC 5622 may mature into a Proposed Standard, if not,
+it might be superseded by a different specification).
+
+And I think that testing the actual user performance has the highest priority.
+
+The literature on the subject is almost exclusively done on experiences in
+ns-2 userland. Almost no Internet experiments at all have been done with DCCP.
+
+This is because the IPPROTO = 33 identifier needs to be entered
+especially into a firewall, which opens holes that firewall
+administrators don't like to open (unless the firewall is based on
+a recent Linux kernel, opening all ports for IP protocol identifier
+33 is the only way of allowing DCCP traffic in/out of a firewall).
+		
+In addition, most people use NAT at home, putting another obstacle
+on experiments. The result is then that tests are done in a lab testbed
+or in virtualisation - emulated networks.
+
+To conclude, I still think that the simpler, receiver-based implementation
+gives a better start. A 'perfect' receiver implementation is also a good
+reference point to start protocol evaluation: if the performance is bad
+despite getting things right at the receiver, then other parts of the
+protocol need investigation/improvement.
