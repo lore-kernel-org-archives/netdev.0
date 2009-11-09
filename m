@@ -1,63 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 00/23] Removal of binary sysctl support
-Date: Sun, 08 Nov 2009 19:44:02 -0800
-Message-ID: <m1r5s88irh.fsf@fess.ebiederm.org>
-References: <m14op5jjo4.fsf@fess.ebiederm.org>
-	<200911081306.20201.arnd@arndb.de>
+From: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Subject: Stochastic Fair Blue updated for 2.6.31
+Date: Mon, 09 Nov 2009 05:11:20 +0100
+Message-ID: <87eio8qqvr.fsf@trurl.pps.jussieu.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754025AbZKIDoE@vger.kernel.org>
-In-Reply-To: <200911081306.20201.arnd@arndb.de> (Arnd Bergmann's message of "Sun\, 8 Nov 2009 13\:06\:20 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from witko.kerneis.info ([213.186.56.95]:33893 "EHLO
+	witko.kerneis.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753423AbZKIEcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 23:32:05 -0500
+Received: from 91-165-210-33.rev.libertysurf.net ([91.165.210.33] helo=trurl.pps.jussieu.fr)
+	by witko.kerneis.info with esmtpsa (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <jch@pps.jussieu.fr>)
+	id 1N7LbD-0008FL-Kw
+	for netdev@vger.kernel.org; Mon, 09 Nov 2009 05:11:27 +0100
+Received: from jch by trurl.pps.jussieu.fr with local (Exim 4.69)
+	(envelope-from <jch@trurl.pps.jussieu.fr>)
+	id 1N7Lb6-00082b-Oe
+	for netdev@vger.kernel.org; Mon, 09 Nov 2009 05:11:20 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
+Just a quick note to inform people that I've updated the Stochastic Fair
+Blue (SFB) qdisc for 2.6.31.
 
-> On Sunday 08 November 2009 12:16:43 Eric W. Biederman wrote:
->> This patchset reimplements sys_sysctl as a compatibility wrapper
->> around /proc/sys.  After which it removes all of the code to all over
->> the kernel that is used today to implement the binary sysctls.
->> 
->> I am posting this patchset to give everyone a heads up what is in
->> flight.
->> 
->> I intend to carry all of these patches in my sysctl tree.
->
-> Very nice patches again!
->
-> Looking at what you did, I had two ideas how to move on from there,
-> which may be part of your plans already:
->
-> 1. Make it possible to build sysctl_binary.c as a loadable module
-> so you can get a smaller kernel without losing the option to use
-> binary sysctl altogether. This of course requires a small portion
-> to remain in the kernel, to provide the actual syscall entry point
-> and load the module on demand.
+  http://www.pps.jussieu.fr/~jch/software/files/sch_sfb-20091108.tar.gz
+  http://www.pps.jussieu.fr/~jch/software/files/sch_sfb-20091108.tar.gz.asc
 
-I can see how this could make sense from a distribution perspective.
+It's described in detail on
 
-> 2. On top of that, put the same code into glibc so that you don't
-> even have to load the module when you're running a new glibc version.
-> Since the binary sysctl ABI is stable (as in stiff and dead), there
-> should be no need to synchronize any extensions to it betwen kernel
-> and libc.
+  http://www.pps.jussieu.fr/~jch/software/sfb/
 
-I don't expect we will need to move this to glibc.  There are so few
-users of sys_sysctl now, that I hardly expect it to be worth it to move
-this code out of the kernel.
-
-For me the big problem with sys_sysctl is solved by this patchset.
-It no longer constitutes a maintenance burden on the rest of the sysctl
-code, and the other sysctl users.
-
-Now the implementation of /proc/sys can be implemented and optimized without
-dealing with any sys_sysctl baggage.
-
-All of that said if someone is interested in tweaking sysctl_binary.c to make
-it easier to deal with sys_sysctl going away I don't have any problems.
-
-Eric
+                                        Juliusz
