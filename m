@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8 net-next-2.6] udp: optimisations
-Date: Sun, 08 Nov 2009 20:55:22 -0800 (PST)
-Message-ID: <20091108.205522.185944441.davem@davemloft.net>
-References: <4AF72738.7020606@gmail.com>
+Subject: Re: [RFC, PATCH 0/7] net, compat_ioctl: move handlers to
+ net/socket.c
+Date: Sun, 08 Nov 2009 20:55:46 -0800 (PST)
+Message-ID: <20091108.205546.141103466.davem@davemloft.net>
+References: <1257530949-9695-1-git-send-email-arnd@arndb.de>
+	<20091106.204753.223665411.davem@davemloft.net>
+	<200911082231.48060.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lgrijincu@ixiacom.com, opurdila@ixiacom.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50238
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752562AbZKIEy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Nov 2009 23:54:57 -0500
-In-Reply-To: <4AF72738.7020606@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, hch@lst.de, netdev@vger.kernel.org,
+	dwmw2@infradead.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754114AbZKIEzW@vger.kernel.org>
+In-Reply-To: <200911082231.48060.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 08 Nov 2009 21:16:56 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Sun, 8 Nov 2009 22:31:47 +0100
 
-> This patch series address UDP scalability problems, we failed to solve in 2007
-> (commit 6aaf47fa48d3c44 INET : IPV4 UDP lookups converted to a 2 pass algo)
-> we had to revert a bit later.
+> Any opinion on how to proceed with the ATM stuff? From my
+> point of view, I'm fine with having moved it out of fs/compat_ioctl.c,
+> but it's still a bit silly to have two half-complete implementations.
 
-Looks great, all applied, thanks Eric.
-
-I would even go so far as to say that the cutoff to the second hash
-table should be even lower than 10, like maybe 4 or 5.
+I haven't looked at that stuff yes, you can be sure it's in
+my queue :-)
