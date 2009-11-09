@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Sun, 08 Nov 2009 20:59:11 -0800 (PST)
-Message-ID: <20091108.205911.177751843.davem@davemloft.net>
-References: <20091109130323.5dcc7829.sfr@canb.auug.org.au>
+Subject: Re: [PATCH 2/2 net-next-2.6] au1000-eth: convert to
+ platform_driver model
+Date: Sun, 08 Nov 2009 21:02:36 -0800 (PST)
+Message-ID: <20091108.210236.247950385.davem@davemloft.net>
+References: <200911081542.12219.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wg@grandegger.com,
-	haas@ems-wuensche.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091109130323.5dcc7829.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org
+To: florian@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40293
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750727AbZKIFCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 00:02:10 -0500
+In-Reply-To: <200911081542.12219.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 9 Nov 2009 13:03:23 +1100
+From: Florian Fainelli <florian@openwrt.org>
+Date: Sun, 8 Nov 2009 15:42:11 +0100
 
-> Hi all,
+> This patch converts the au1000-eth driver to become a full
+> platform-driver as it ought to be. We now pass PHY-speficic
+> configurations through platform_data but for compatibility
+> the driver still assumes the default settings (search for PHY1 on
+> MAC0) when no platform_data is passed. Tested on my MTX-1 board.
 > 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/can/usb/ems_usb.c between commit
-> 2b2072e902848a63168570f500a5726744b3873a ("ems_usb: Fix byte order issues
-> on big endian machines") from the net-current tree and commit
-> 7b6856a0296a8f187bb88ba31fa83a08abba7966 ("can: provide library functions
-> for skb allocation") from the net tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix
-> for a while.
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-I'll do a merge and resolve this, thanks Stephen!
+Ralf, feel free to merge this yourself since it depends upon
+the previous Alchemy platform patch:
+
+Acked-by: David S. Miller <davem@davemloft.net>
