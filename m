@@ -1,73 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] netlink: add socket destruction notification
-Date: Mon, 09 Nov 2009 18:46:11 +0100
-Message-ID: <1257788771.29454.191.camel@johannes.local>
-References: <1254473048.3959.76.camel@johannes.local>
-	 <4AF43EF9.3020707@trash.net> <1257521204.29454.31.camel@johannes.local>
-	 <4AF442C2.9040704@trash.net> <1257762132.29454.161.camel@johannes.local>
-	 <4AF8122F.9060807@trash.net> <1257771787.29454.173.camel@johannes.local>
-	 <4AF816D3.7000304@trash.net> <1257785502.29454.178.camel@johannes.local>
-	 <4AF849F6.4050308@trash.net>
+From: Yury Polyanskiy <ypolyans@princeton.edu>
+Subject: Re: [PATCH] xfrm: SAD entries do not expire correctly after
+ suspend-resume
+Date: Mon, 9 Nov 2009 13:31:53 -0500
+Message-ID: <20091109133153.668bb296@penta.localdomain>
+References: <20091108211249.2ecdfd38@penta.localdomain>
+	<20091109153910.GA8039@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-70D0TRppznVUYudFdJjp"
-Cc: netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>,
-	Thomas Graf <tgraf@suug.ch>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/iv4duz1M7tmAbIncNh9WFo/"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, davem@davemloft.net, peterz@infradead.org,
+	yoshfuji@linux-ipv6.org, tglx@linutronix.de, mingo@elte.hu
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:58357 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbZKIRqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 12:46:38 -0500
-In-Reply-To: <4AF849F6.4050308@trash.net>
+Received: from ppa02.Princeton.EDU ([128.112.128.216]:52030 "EHLO
+	ppa02.Princeton.EDU" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016AbZKISec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 13:34:32 -0500
+In-Reply-To: <20091109153910.GA8039@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-70D0TRppznVUYudFdJjp
-Content-Type: text/plain; charset="UTF-8"
+--Sig_/iv4duz1M7tmAbIncNh9WFo/
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2009-11-09 at 17:57 +0100, Patrick McHardy wrote:
+On Mon, 9 Nov 2009 10:39:10 -0500
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> > Oh? So on which sockets can I rely on it being used? After sending at
-> > least one unicast message into the kernel? This seems to depend on pid
-> > being assigned -- when is that?
+> However, I have some reservations as to whether this is the ideal
+> situation.  Unless I'm mistaken, this patch may cause IPsec SAs
+> to expire if the system clock was out of sync prior to IPsec startup
+> and is subsequently resynced by ntpdate or similar.
 >=20
-> All unicast sockets that have either manually or automatically
-> bound. Automatic binding happens when sending the first message
-> or when calling connect().
+> For example, it's quite common for clocks to be out-of-sync by
+> 10 hours in Australia due to time zone issues with BIOS clocks.
+> So potentially ntpdate could move the clock forward by 10 hours
+> or more on bootup thus causing IPsec SAs to expire prematurely
+> with this patch.
 >=20
-> Before that, your code can't know of the sockets existance, so
-> I guess this should be fine.
+> This shouldn't really be a problem in itself except that there
+> are some dodgy IPsec gateways out there that refuse to reestablish
+> IPsec SAs if the interval between two successive connections is
+> too small.  This could render the SA inoperable for hours.
 
-Ah, yes, of course... that's part of the boilerplate code to use generic
-netlink so I always forget about what exactly is going on there :)
+But why would it be inoperable for hours?=20
 
-Thanks!
+I think that the following will happen:
+* racoon will recreate SAD entry in the larval state, wait 30s and drop
+  it (since dodgy-gw filtered out all keyexchange packets)
+* The next time there is a connect() with a match in the SPD, racoon
+  will again try to recreate the SAD entry. If there dodgy-gw still
+  filters out, the larval SAD entry dies after 30s.
 
-johannes
+So the inoperability will only last as long as dodgy-gw filters
+keyexchanges.=20
 
+In any case, running ntpdate before racoon fixes the problem.
 
---=-70D0TRppznVUYudFdJjp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+>=20
+> So the upshot of all this is that we definitely want the effect
+> of this patch for suspend/resume, but it would be great if we can
+> avoid it for settimeofday(2).
+
+I think the natural solution is to have CLOCK_BOOTBASED hrtimers. I.e.
+something in the spirit of monotonic_to_bootbased() and getboottime().
+I understand that doing +=3Dtotal_sleep_time is against the core idea of
+hires timers, but perhaps there is a nicer way.
+
+Best,
+Y
+
+--Sig_/iv4duz1M7tmAbIncNh9WFo/
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
 -----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-iQIcBAABAgAGBQJK+FVfAAoJEODzc/N7+Qmaum0QANIZR9itLx2E8vafrgwCUWX4
-ImhKMIBAWtAo9fI6yWhNBL28SYDbmW31niu3+S1s1OpZbP3FAlndXvZLq76U1Sch
-SoBJq4C5Hb9C/yjDy2SuVqnpLXXWIwqFLia++hHzxhRM3SMSYuhGOGDbGxECmqno
-4yoInSWkIjKBcYZdsTUoGvKQzF3VVJaLL4aUnf01k0VxnxipdhH5tal0g+VQ18oj
-3FYmw872Z4ElOH+Zb/bQc4DE2BJyCZpyYEGaMbm+y0ElDTrX+wrLhnzt+PaiywPX
-1M+iq9xk4e0Vod1zPpCFDmXl3nJOk4oxpJdfvWTJH0LrCy2SIEQzU3D9yvCbVDiP
-FjKfw8e88nqSuDX6FdKdKN7NzYlrLXFsOQqernvwDuZGNCLrRhFm22apmxhh2FNF
-BW+E9MOj7JwSMu1gNzbn6mSPRR2RyXlVSB77Mh+yBMTVjwJ6U/c5eDkkP8Ee5UPz
-SS0OGt20G8Vxco7lr/hnA+JgopMBR0Qc8lc8g9mLPbhIbmh2Dr0yVpV7O1NEDfcA
-hC+j1dLgzGgK0f4/aYHg0SQhYib9KiVrJZRrKgJj78v/K9nzmV8FxWNFr5xEVSsh
-T1txIjGrZhfDUwFaij7mvshr35bT0dC8UUgKwuUhgC01lMAKdq+PiqND2pRFMPHN
-JGtBjh5XlfVXiRibn6n2
-=Uypm
+iEYEARECAAYFAkr4YBkACgkQemuRe3zuqOTJCwCgkPeESqnm0+blOu4GiRU8vB3S
+lQ0An3recE9OReLwuVPR//W+v6fmlTZ0
+=9tpH
 -----END PGP SIGNATURE-----
 
---=-70D0TRppznVUYudFdJjp--
-
+--Sig_/iv4duz1M7tmAbIncNh9WFo/--
