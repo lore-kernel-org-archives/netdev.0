@@ -1,287 +1,277 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: Doubt in implementations of mean loss interval at sender side
-Date: Mon, 9 Nov 2009 07:09:06 +0100
-Message-ID: <20091109060906.GA5126@gerrit.erg.abdn.ac.uk>
-References: <4AD4B861.7040107@embedded.ufcg.edu.br> <20091020050927.GA4982@gerrit.erg.abdn.ac.uk> <425e6efa0910210524l56e0d8e9n22ed61aa45a4cf03@mail.gmail.com> <cb00fa210910210618g5f079096sfb75bee99f595f01@mail.gmail.com> <20091028153358.GA3456@gerrit.erg.abdn.ac.uk> <425e6efa0911051101l2d86050ep1172a0e8abd915c3@mail.gmail.com> <425e6efa0911051543t7a57963bi589f736c49763a6@mail.gmail.com> <cb00fa210911051603w6fb8de32qd7ebf37ce78408f7@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
+Date: Mon, 9 Nov 2009 16:47:29 +1030
+Message-ID: <200911091647.29655.rusty@rustcorp.com.au>
+References: <cover.1257349249.git.mst@redhat.com> <200911061529.17500.rusty@rustcorp.com.au> <20091108113516.GA19016@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp <dccp@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51921 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751281AbZKIGJR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2009 01:09:17 -0500
-Content-Disposition: inline
-In-Reply-To: <cb00fa210911051603w6fb8de32qd7ebf37ce78408f7@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ s.hetze@linux-ag.com,
+ Daniel Walker <dwalker@fifo99.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091108113516.GA19016@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-| > To sum up, here is whay I think is minimally required to satisfy the union
-| > of RFC 4340, 4342, 4828, 5348, and 5622:
-| >
-| >        struct tfrc_tx_packet_info {
-| >                u64     seqno:48,
-| >                        is_ect0:1,
-| >                        is_data_packet:1,
-| >                        is_in_loss_interval:1;
-| >                u32     send_time;
-| >                u32     rtt_estimate;
-| >                struct tfrc_tx_packet_info *next; /* FIFO */
-| >        };
-| >
-| > That would be a per-packet storage cost of about 16 bytes, plus the pointer
-| > (8 bytes on 64-bit architectures). One could avoid the pointer by defining a
-| >        u64     base_seqno;
-| > and then
-| >        struct tfrc_tx_packet_info[some constant here];
-| > and then index the array relative to the base_seqno.
-| >
-| 
-| Yes, I believe that struct is enough too. But how long would be necessary
-| the struct array to be?
-| 
-The problem is the same as with Ack Vectors - the array (or list) can grow
-arbitrarily large. You made a good reply, since all the questions are 
-inter-related. The first two I see here are
+On Sun, 8 Nov 2009 10:05:16 pm Michael S. Tsirkin wrote:
+> On Fri, Nov 06, 2009 at 03:29:17PM +1030, Rusty Russell wrote:
+> > > +/* Caller must have TX VQ lock */
+> > > +static void tx_poll_stop(struct vhost_net *net)
+> > > +{
+> > > +	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
+> > > +		return;
+> > 
+> > likely?  Really?
+> 
+> Hmm ... yes. tx poll stop is called on each packet (as long as we do not
+> fill up 1/2 backend queue), the first call will stop polling
+> the rest checks state and does nothing.
+> 
+> This is because we normally do not care when the message has left the
+> queue in backend device: we tell backend to send it and forget. We only
+> start polling when backend tx queue fills up.
 
- 1) the choice of data structure (array or list)
- 2) the design of a garbage-collector
+OK, good.
 
-This includes your point from above, about the maximum size. To draw the
-analogy to Ack Vectors, at the moment they use a fixed size. On certain
-mediums (WiFi) there exist situations where even that fixed limit is
-reached, causing an overflow with Ack Vectors that have reached a size
-of 2 * 253 = 506 bytes.
+> > > +static void vhost_net_set_features(struct vhost_net *n, u64 features)
+> > > +{
+> > > +	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
+> > > +		sizeof(struct virtio_net_hdr) : 0;
+> > > +	int i;
+> > > +	mutex_lock(&n->dev.mutex);
+> > > +	n->dev.acked_features = features;
+> > 
+> > Why is this called "acked_features"?  Not just "features"?  I expected
+> > to see code which exposed these back to userspace, and didn't.
+> 
+> Not sure how do you mean. Userspace sets them, why
+> does it want to get them exposed back?
 
-Looking after old data of sent packets is similar, the main difference I
-see that at some stage "unused" old entries need to be collected, to avoid
-the overflow problem which occurs when using a fixed-size structure.
+There's something about the 'acked' which rubs me the wrong way.
+"enabled_features" is perhaps a better term than "acked_features"; "acked"
+seems more a user point-of-view, "enabled" seems more driver POV?
 
-I find that 'Acknowledgments of Acknowledgments' is a bad idea, since it
-means implementing reliable delivery over unreliable transport; on the
-one hand DCCP is designed to be unreliable, but here suddenly is a break
-with that design decision.
+set_features matches your ioctl names, but it sounds like a fn name :(
 
-So point (2) will probably mean coming up with some guessed heuristics
-that will work for most scenarios, but may fail in others.
+It's marginal.  And 'features' is shorter than both.
 
+> > > +	switch (ioctl) {
+> > > +	case VHOST_SET_VRING_NUM:
+> > 
+> > I haven't looked at your userspace implementation, but does a generic
+> > VHOST_SET_VRING_STATE & VHOST_GET_VRING_STATE with a struct make more
+> > sense?  It'd be simpler here,
+> 
+> Not by much though, right?
+> 
+> > but not sure if it'd be simpler to use?
+> 
+> The problem is with VHOST_SET_VRING_BASE as well. I want it to be
+> separate because I want to make it possible to relocate e.g. used ring
+> to another address while ring is running. This would be a good debugging
+> tool (you look at kernel's used ring, check descriptor, then update
+> guest's used ring) and also possibly an extra way to do migration.  And
+> it's nicer to have vring size separate as well, because it is
+> initialized by host and never changed, right?
 
-This is why I am not a big fan of the sender-based solution: to solve (2) and
-your question from above requires a lot of testing of the garbage-collection
-and book-keeping algorithms, rather than on the actual congestion control.
+Actually, this looks wrong to me:
 
-One can spend a lot of time going over these issues, but of what use is the
-most ingenious data structure if the overall protocol behaviour does not
-deliver a useful performance to users of the protocol?
++	case VHOST_SET_VRING_BASE:
+...
++		vq->avail_idx = vq->last_avail_idx = s.num;
 
-| > IIb) Further remarks
-| > --------------------
-| > At first sight it would seem that storing the RTT also solves the problem
-| > of inaccurate RTTs used at the receiver. Unfortunately, this is not the
-| > case. X_recv is sampled over intervals of varying length which may or may
-| > not equal the RTT.  To factor out the effect of window counters, the sender
-| > would need to store the packet size as well and would need to use rather
-| > complicated computations - an ugly workaround.
-| 
-| I didn't understand how the packet size would help and what
-| computations are needed.
-| 
-The above still refers to the earlier posting about letting the sender
-supply the RTT estimate R_i in packet `i' as defined in RFC 5348, 3.2.1.
+The last_avail_idx is part of the state of the driver.  It needs to be saved
+and restored over susp/resume.  The only reason it's not in the ring itself
+is because I figured the other side doesn't need to see it (which is true, but
+missed debugging opportunities as well as man-in-the-middle issues like this
+one).  I had a patch which put this field at the end of the ring, I might
+resurrect it to avoid this problem.  This is backwards compatible with all
+implementations.  See patch at end.
 
-Though the same section later suggests that a coarse-grained timestamp 
-is sufficient, in practice the inaccuracy of the RTT means inaccurate
-X_recv, and as a consequence sub-optimal protocol performance.
+I would drop avail_idx altogether: get_user is basically free, and simplifies
+a lot.  As most state is in the ring, all you need is an ioctl to save/restore
+the last_avail_idx.
 
-The problem is that the algorithm from RFC 4342, 8.1 assumes that the
-rate of change of the window counter also relates to the change of
-packet spacing (the difference between the T_i packe arrivel times).
+> We could merge DESC, AVAIL, USED, and it will reduce the amount of code
+> in userspace. With both base, size and fds separate, it seemed a bit
+> more symmetrical to have desc/avail/used separate as well.
+> What's your opinion?
 
-Howver, especially when using high-speed (1/10 Gbit) networking, this
-assumption often does not hold in practice. Packets are sent by the network
-card in bunches, or intervening switches/routers cause a compression of
-packet inter-arrival times. Hence it is perfectly possible that a bundle of
-packets with different Window Counter CCVal values arrive at virtually
-the same time. For instance, on a 100Mbs ethernet I have seen spikes of
-X_recv of up to 2-3 Gbits/sec. Several orders of magnitude from the
-real packet speed (not to mention the unrealistic value).
+Well, DESC, AVAIL, and USED could easily be turned into SET/GET_LAYOUT.
 
-So the question above was asking whether there is a way for the sender
-to "compute away" the inaccuracies reported by the receiver. Your reply
-confirms my doubts that doing this is probably not possible.
+> > For future reference, this is *exactly* the kind of thing which would have
+> > been nice as a followup patch.  Easy to separate, easy to review, not critical
+> > to the core.
+> 
+> Yes. It's not too late to split it out though: should I do it yet?
 
-To clarify, I was asking whether it would be possible for the sender to
-perform step (2) of RFC 5348, 6.2; to compensate for the fact that the
-receiver does not have a reliable RTT estimate.
+Only if you're feeling enthused.  It's lightly reviewed now.
 
-For example, when receiving feedback for packet `i', it would iterate
-through the list/array, going back over as many packets as are covered
-by the send time T_i of packet `i' minus the RTT estimate R_i at that
-time, sum their packet sizes, and from that value recompute X_recv.
+Cheers,
+Rusty.
 
-This is a bit complicated if the garbage-collector has already purged
-older entries, so part of the garbage collector would probably have
-to watch over acknowledged packets. I add this as item
- 3) validate X_recv 
-to the above running list of book-keeping items done at the sender.
+virtio: put last_used and last_avail index into ring itself.
 
+Generally, the other end of the virtio ring doesn't need to see where
+you're up to in consuming the ring.  However, to completely understand
+what's going on from the outside, this information must be exposed.
+For example, if you want to save and restore a virtio_ring, but you're
+not the consumer because the kernel is using it directly.
 
-| > One thing I stumbled across while reading your code was the fact that RFC 4342
-| > leaves it open as to how many Loss Intervals to send: on the one hand it follows
-| > the suggestion of RFC 5348 to use 1+NINTERVAL=9, but on the other hand it does
-| > not restrict the number of loss intervals. Also RFC 5622 does not limit the
-| > number of Loss Intervals / Data Dropped options.
-| >
-| > If receiving n > 9 Loss Intervals, what does the sender do with the n-9 older
-| > intervals? There must be some mechanism to stop these options from growing
-| > beyond bounds, so it needs to store also which loss intervals have been
-| > acknowledged, introducing the "Acknowledgment of Acknowledgments"
-| > problem.
-| 
-| In RFC 4342 section 8.6 it says that the limit of loss interval data
-| to send is 28, and RFC 5622 8.7 says 84 for dropped packets option.
-| But I don't see why to send so many data in these options.
-| Yes, the most recent 9 loss intervals are required to be reported,
-| except if the sender acknowledged previous sent loss intervals, so in
-| that case only one is required, the open interval.
-| And we can avoid the "Acknowledgment of Acknowledgments" if we always send
-| the required 9 loss intervals, I think.
-| 
-| > A second point is how to compute the loss event rate when n > 9. It seems
-| > that this would mean grinding through all loss intervals using a window
-| > of 9. If that is the case, the per-packet-computation costs become very
-| > expensive.
-| 
-| RFC 4342 section 8.6 suggests that only 9 loss intervals are required
-| anyway. And I believe that's enough for the computation of current
-| mean loss interval. What do you think?
-| 
-Yes, absolutely, I am completely in favour of this very sensible suggestion.
+Fortunately, we have room to expand: the ring is always a whole number
+of pages and there's hundreds of bytes of padding after the avail ring
+and the used ring, whatever the number of descriptors (which must be a
+power of 2).
 
-If people really must experiment with such outdated data, that could be
-done in truly experimental patches. Especially since RFC 5348 normatively
-recommends a value of n = 8 in section 5.4. And we are saving further
-headaches about the book-keeping/garbage collection of old data.
+We add a feature bit so the guest can tell the host that it's writing
+out the current value there, if it wants to use that.
 
-| > II) Computational part of the implementation
-| > --------------------------------------------
-| > If only Loss Intervals alone are used, only these need to be verified
-| > before being used to alter the sender behaviour.
-| >
-| > But when one or more other DCCP options also appear, the verification is
-| >  * intra: make sure each received option is in itself consistent,
-| >  * inter: make sure options are mutually consistent.
-| >
-| > The second has a combinatorial effect, i.e. n! verifications for n options.
-| >
-<snip>
-| 
-| Yes, there's a combinatorial problem in checking the options for consistence.
-| But, what if we find out that some option doesn't match against others?
-| What action would be taken?
-I add this as
- 4) define policy for dealing with options that are not mutually consistent
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/virtio/virtio_ring.c |   23 +++++++++++++++--------
+ include/linux/virtio_ring.h  |   12 +++++++++++-
+ 2 files changed, 26 insertions(+), 9 deletions(-)
 
-| First, what can cause the receiver to send inconsistent options?
-| A bad implementation only?
-Yes I think that a bad implementation (whether on purpose or not) would be
-the main cause, since header options are protected even if partial
-checksums are used (RFC 4340, 9.2).
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -71,9 +71,6 @@ struct vring_virtqueue
+ 	/* Number we've added since last sync. */
+ 	unsigned int num_added;
+ 
+-	/* Last used index we've seen. */
+-	u16 last_used_idx;
+-
+ 	/* How to notify other side. FIXME: commonalize hcalls! */
+ 	void (*notify)(struct virtqueue *vq);
+ 
+@@ -278,12 +275,13 @@ static void detach_buf(struct vring_virt
+ 
+ static inline bool more_used(const struct vring_virtqueue *vq)
+ {
+-	return vq->last_used_idx != vq->vring.used->idx;
++	return vring_last_used(&vq->vring) != vq->vring.used->idx;
+ }
+ 
+ static void *vring_get_buf(struct virtqueue *_vq, unsigned int *len)
+ {
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
++	struct vring_used_elem *u;
+ 	void *ret;
+ 	unsigned int i;
+ 
+@@ -300,8 +298,11 @@ static void *vring_get_buf(struct virtqu
+ 		return NULL;
+ 	}
+ 
+-	i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id;
+-	*len = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].len;
++	u = &vq->vring.used->ring[vring_last_used(&vq->vring) % vq->vring.num];
++	i = u->id;
++	*len = u->len;
++	/* Make sure we don't reload i after doing checks. */
++	rmb();
+ 
+ 	if (unlikely(i >= vq->vring.num)) {
+ 		BAD_RING(vq, "id %u out of range\n", i);
+@@ -315,7 +316,8 @@ static void *vring_get_buf(struct virtqu
+ 	/* detach_buf clears data, so grab it now. */
+ 	ret = vq->data[i];
+ 	detach_buf(vq, i);
+-	vq->last_used_idx++;
++	vring_last_used(&vq->vring)++;
++
+ 	END_USE(vq);
+ 	return ret;
+ }
+@@ -402,7 +404,6 @@ struct virtqueue *vring_new_virtqueue(un
+ 	vq->vq.name = name;
+ 	vq->notify = notify;
+ 	vq->broken = false;
+-	vq->last_used_idx = 0;
+ 	vq->num_added = 0;
+ 	list_add_tail(&vq->vq.list, &vdev->vqs);
+ #ifdef DEBUG
+@@ -413,6 +414,10 @@ struct virtqueue *vring_new_virtqueue(un
+ 
+ 	vq->indirect = virtio_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC);
+ 
++	/* We publish indices whether they offer it or not: if not, it's junk
++	 * space anyway.  But calling this acknowledges the feature. */
++	virtio_has_feature(vdev, VIRTIO_RING_F_PUBLISH_INDICES);
++
+ 	/* No callback?  Tell other side not to bother us. */
+ 	if (!callback)
+ 		vq->vring.avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
+@@ -443,6 +448,8 @@ void vring_transport_features(struct vir
+ 		switch (i) {
+ 		case VIRTIO_RING_F_INDIRECT_DESC:
+ 			break;
++		case VIRTIO_RING_F_PUBLISH_INDICES:
++			break;
+ 		default:
+ 			/* We don't understand this bit. */
+ 			clear_bit(i, vdev->features);
+diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
+--- a/include/linux/virtio_ring.h
++++ b/include/linux/virtio_ring.h
+@@ -29,6 +29,9 @@
+ /* We support indirect buffer descriptors */
+ #define VIRTIO_RING_F_INDIRECT_DESC	28
+ 
++/* We publish our last-seen used index at the end of the avail ring. */
++#define VIRTIO_RING_F_PUBLISH_INDICES	29
++
+ /* Virtio ring descriptors: 16 bytes.  These can chain together via "next". */
+ struct vring_desc
+ {
+@@ -87,6 +90,7 @@ struct vring {
+  *	__u16 avail_flags;
+  *	__u16 avail_idx;
+  *	__u16 available[num];
++ *	__u16 last_used_idx;
+  *
+  *	// Padding to the next align boundary.
+  *	char pad[];
+@@ -95,6 +99,7 @@ struct vring {
+  *	__u16 used_flags;
+  *	__u16 used_idx;
+  *	struct vring_used_elem used[num];
++ *	__u16 last_avail_idx;
+  * };
+  */
+ static inline void vring_init(struct vring *vr, unsigned int num, void *p,
+@@ -111,9 +116,14 @@ static inline unsigned vring_size(unsign
+ {
+ 	return ((sizeof(struct vring_desc) * num + sizeof(__u16) * (2 + num)
+ 		 + align - 1) & ~(align - 1))
+-		+ sizeof(__u16) * 2 + sizeof(struct vring_used_elem) * num;
++		+ sizeof(__u16) * 2 + sizeof(struct vring_used_elem) * num + 2;
+ }
+ 
++/* We publish the last-seen used index at the end of the available ring, and
++ * vice-versa.  These are at the end for backwards compatibility. */
++#define vring_last_used(vr) ((vr)->avail->ring[(vr)->num])
++#define vring_last_avail(vr) (*(__u16 *)&(vr)->used->ring[(vr)->num])
++
+ #ifdef __KERNEL__
+ #include <linux/irqreturn.h>
+ struct virtio_device;
 
-But there is also the benign case mentioned at the end of RFC 4342, 9.2,
-where a receiver collapses multiple losses into a single loss event, i.e.
- 5) validate received Loss Intervals and regroup the receiver-based 
-    information if necessary, without interpreting this as attempted
-    receiver misbehaviour.
-
-| Accordingly to ecn nonce echo sum algorithm, if a receiver is found to be 
-| lying about loss or to be bad implemented, the sender adjusts the send rate
-| as if loss were perceived.
-| Can we do the same in this situation? If so, can we skip checking options
-| between them and only check ecn nonce sum?
-This is difficult since Ack Vectors and Loss Intervals use different
-definitions of ECN Nonce sum (last paragraph in RFC 4342, 9.1), i.e. we have
- 6) separate algorithms to compute Ack Vector/Loss Intervals ECN Nonce sum.
-
-With regard to (5) above, your suggestion gives
- 7) validate options, on mismatch other than (5) only validate ECN nonce.
-
-| If some option is wrong it show more loss (or any worse situation for the
-| receiver) or conceals loss. In the first case, I don't believe we need to care,
-| and in the second, the ecn nonce sum can reveal the bad acting of the receiver.
-Yes you are right, we need not worry if a receiver reports a higher loss rate
-than the verification done by the sender (which recomputes the data that the
-receiver already has computed) calculates.
-
-But for the second case, there is no guarantee to catch a misbehaving
-receiver, only a 50% chance at the end of many computations.
-
-RFC 4342, 9 suggests one way of verifying Loss Intervals / Ack Vectors:
- 5) occasionally do not send a packet, or send packet out of order.
-
-This increases complexity of book-keeping, the sender needs to keep track
-which of the sent packets was a fake send/drop. It also requires an algorithm
-to iterate over the sender data structures in order to find out whether the
-reasoning of the receiver is sane. I have doubts whether this can be done
-without sacrificing the performance of the in-kernel sender side.
-
-
-| > III) Closing remarks in favour of receiver-based implementation
-| > ---------------------------------------------------------------
-| > Finally, both RFC 4342 and RFC 5622 do not explicitly discard the
-| > possibility of using a receiver-based implementation. Quoting
-| > RFC 4342, 3.2: "If it prefers, the sender can also use a loss event
-| >                rate calculated and reported by the receiver."
-| > Furthermore, the revised TFRC specification points out in section 7
-| > the advantages that a receiver-based implementation has:
-| >  * it does not mandate reliable delivery of packet loss data;
-| >  * it is robust against the loss of feedback packets;
-| >  * better suited for scalable server design.
-| >
-| > Quite likely, if the server does not have to store and validate a mass
-| > of data, it is also less prone to be toppled by DoS attacks.
-| 
-| You're right. But what the RFC's says about it is almost exactly the
-| opposite, isn't? What can we do about it? I like the receiver-based design,
-| but I believe that loss intervals are interesting, mostly because  of
-| receiver behavior verification.
-| 
-While writing the above reply, I was amazed to see how much of the computation
-that has already been done at the receiver needs to be done again at the sender, 
-ust in order to be able to verify the data.
-
-To me this seems very inefficient.
-
-Moreover, the biggest danger I see here is spending a lot of time with the
-details of sender book-keeping and verification, just to then see that the
-performance of CCID-3/4 in practice turns out to be below the standards
-acceptable to even modest users.
-
-I think it is clearly better to prefer the simplest possible implementation
-in such cases, to better debug live protocol performance.
-
-In particular, since CCID-4 is designed to be an experimental protocol
-(i.e. if it works, RFC 5622 may mature into a Proposed Standard, if not,
-it might be superseded by a different specification).
-
-And I think that testing the actual user performance has the highest priority.
-
-The literature on the subject is almost exclusively done on experiences in
-ns-2 userland. Almost no Internet experiments at all have been done with DCCP.
-
-This is because the IPPROTO = 33 identifier needs to be entered
-especially into a firewall, which opens holes that firewall
-administrators don't like to open (unless the firewall is based on
-a recent Linux kernel, opening all ports for IP protocol identifier
-33 is the only way of allowing DCCP traffic in/out of a firewall).
-		
-In addition, most people use NAT at home, putting another obstacle
-on experiments. The result is then that tests are done in a lab testbed
-or in virtualisation - emulated networks.
-
-To conclude, I still think that the simpler, receiver-based implementation
-gives a better start. A 'perfect' receiver implementation is also a good
-reference point to start protocol evaluation: if the performance is bad
-despite getting things right at the receiver, then other parts of the
-protocol need investigation/improvement.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
