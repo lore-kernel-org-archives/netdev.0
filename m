@@ -1,58 +1,90 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH RFC] gianfar: Do not call skb recycling with disabled
- IRQs
-Date: Mon, 9 Nov 2009 16:41:34 +0300
-Message-ID: <20091109134134.GB26965@oksana.dev.rtsoft.ru>
-References: <E1N63WM-0003xK-PN@jdl.com>
- <E1N64UY-00049g-Hb@jdl.com>
- <20091105165738.GA31923@oksana.dev.rtsoft.ru>
- <20091108.010848.116517157.davem@davemloft.net>
-Reply-To: avorontsov@ru.mvista.com
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH net-next] Phonet: allocate and copy for pipe TX without sock lock
+Date: Mon,  9 Nov 2009 16:06:40 +0200
+Message-ID: <1257775600-23389-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: jdl@jdl.com, linuxppc-dev@ozlabs.org, jason.wessel@windriver.com,
-	afleming@freescale.com, netdev@vger.kernel.org,
-	buytenh@wantstofly.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.ru.mvista.com ([213.79.90.228]:14981 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755898AbZKINl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 08:41:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20091108.010848.116517157.davem@davemloft.net>
+Received: from yop.chewa.net ([91.121.105.214]:44691 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755939AbZKIOGf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2009 09:06:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 08, 2009 at 01:08:48AM -0800, David Miller wrote:
-> From: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Date: Thu, 5 Nov 2009 19:57:38 +0300
-> 
-> > But that basically means that with skb recycling we can't safely
-> > use KGDBoE, though we can add something like this:
-> 
-> Please stop adding special logic only to your driver to handle these
-> things.
-> 
-> Either it's a non-issue, or it's going to potentially be an issue for
-> everyone using skb_recycle_check() in a NAPI driver, right?
-> 
-> So why not add the "in_interrupt()" or whatever check to
-> skb_recycle_check() and if the context is unsuitable return false (0)
-> ok?
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-I think the check is needed, yes. But if we add just that check,
-then we'll never do skb recycling in the tx path (since gianfar
-always grabs irqsave spinlock during tx ring cleanup, so the check
-will always return false).
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/pep.c |   29 ++++++++++++-----------------
+ 1 files changed, 12 insertions(+), 17 deletions(-)
 
-So we must add the check to keep polling with disabled IRQs safe,
-but we also should get rid of irqsave spinlock in the gianfar
-driver (to make the skb recycling actually work in most cases).
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index cbaa1d6..bdc17bd 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -843,7 +843,7 @@ static int pep_sendmsg(struct kiocb *iocb, struct s=
+ock *sk,
+ 			struct msghdr *msg, size_t len)
+ {
+ 	struct pep_sock *pn =3D pep_sk(sk);
+-	struct sk_buff *skb =3D NULL;
++	struct sk_buff *skb;
+ 	long timeo;
+ 	int flags =3D msg->msg_flags;
+ 	int err, done;
+@@ -851,6 +851,16 @@ static int pep_sendmsg(struct kiocb *iocb, struct =
+sock *sk,
+ 	if (msg->msg_flags & MSG_OOB || !(msg->msg_flags & MSG_EOR))
+ 		return -EOPNOTSUPP;
+=20
++	skb =3D sock_alloc_send_skb(sk, MAX_PNPIPE_HEADER + len,
++					flags & MSG_DONTWAIT, &err);
++	if (!skb)
++		return -ENOBUFS;
++
++	skb_reserve(skb, MAX_PHONET_HEADER + 3);
++	err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
++	if (err < 0)
++		goto outfree;
++
+ 	lock_sock(sk);
+ 	timeo =3D sock_sndtimeo(sk, flags & MSG_DONTWAIT);
+ 	if ((1 << sk->sk_state) & (TCPF_LISTEN|TCPF_CLOSE)) {
+@@ -894,28 +904,13 @@ disabled:
+ 			goto disabled;
+ 	}
+=20
+-	if (!skb) {
+-		skb =3D sock_alloc_send_skb(sk, MAX_PNPIPE_HEADER + len,
+-						flags & MSG_DONTWAIT, &err);
+-		if (skb =3D=3D NULL)
+-			goto out;
+-		skb_reserve(skb, MAX_PHONET_HEADER + 3);
+-
+-		if (sk->sk_state !=3D TCP_ESTABLISHED ||
+-		    !atomic_read(&pn->tx_credits))
+-			goto disabled; /* sock_alloc_send_skb might sleep */
+-	}
+-
+-	err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
+-	if (err < 0)
+-		goto out;
+-
+ 	err =3D pipe_skb_send(sk, skb);
+ 	if (err >=3D 0)
+ 		err =3D len; /* success! */
+ 	skb =3D NULL;
+ out:
+ 	release_sock(sk);
++outfree:
+ 	kfree_skb(skb);
+ 	return err;
+ }
+--=20
+1.6.3.3
 
-Thanks!
-
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
