@@ -1,80 +1,152 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] iproute2: ip route flush bugfix
-Date: Mon, 09 Nov 2009 21:24:44 +0100
-Message-ID: <4AF87A8C.9090302@gmail.com>
-References: <4AF86FE3.4090005@anduras.de>
+From: Sven Anders <sven@anduras.de>
+Subject: [PATCH] e1000e: Fix usage under kexec
+Date: Mon, 09 Nov 2009 21:25:21 +0100
+Message-ID: <4AF87AB1.1070603@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Sven Anders <sven@anduras.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig987ADF05B7B6FB7BAE591B81"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60194 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871AbZKIUYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 15:24:40 -0500
-In-Reply-To: <4AF86FE3.4090005@anduras.de>
+Received: from metropolitan.anduras.de ([80.237.200.159]:43418 "EHLO
+	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754037AbZKIUZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 15:25:18 -0500
+Received: from popper.anduras.office (p54918733.dip0.t-ipconnect.de [84.145.135.51])
+	(Authenticated sender: anduras@anduras.priv)
+	by metropolitan.anduras.de (Postfix) with ESMTP id 644001E543C
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:23 +0100 (CET)
+Received: from localhost (localhost [127.0.0.1])
+	by popper.anduras.office (Postfix) with ESMTP id EE4CC2140A5
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:22 +0100 (CET)
+Received: from popper.anduras.office ([127.0.0.1])
+	by localhost (popper.anduras.office [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 12843-05 for <netdev@vger.kernel.org>;
+	Mon, 9 Nov 2009 21:25:22 +0100 (CET)
+Received: from [192.168.10.15] (suburban.anduras.office [10.10.20.242])
+	by popper.anduras.office (Postfix) with ESMTP id 787D6214001
+	for <netdev@vger.kernel.org>; Mon,  9 Nov 2009 21:25:22 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sven Anders a =E9crit :
-> Hello!
->=20
-> I experienced an error, if I try to perform a
->=20
->   ip route flush proto 4
->=20
-> with many routes in a complex environment, it
-> gave me the following error:
->=20
->   Failed to send flush request: Success
->   Flush terminated
->=20
-> I'm using version 2.6.29.
-> I check GIT, but there was only the "MSG_PEEK" fix.
->=20
-> I tracked it down to the rtnl_send_check() function
-> in lib/libnetlink.c.
->=20
-> In this function there is the following for loop:
->=20
->         for (h =3D (struct nlmsghdr *)resp; NLMSG_OK(h, status);
->              h =3D NLMSG_NEXT(h, status)) {
->                 if (h->nlmsg_type =3D=3D NLMSG_ERROR) {
->                         struct nlmsgerr *err =3D (struct nlmsgerr*)NL=
-MSG_DATA(h);
->                         if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct=
- nlmsgerr)))
->                                 fprintf(stderr, "ERROR truncated\n");
->                         else
->                                 errno =3D -err->error;
-> 		}
->                 return -1;
->         }
->=20
-> I think the "return -1;" should be inside the if statement.
->=20
-> I attached a patch for this. The first part of the patch is taken fro=
-m
-> one of the late git commits.
->=20
-> Please note me, if the fix is wrong...
->=20
->=20
-> Regards
->  Sven
->=20
-> PS: This is a repost, because I neither received a confirmation nor a=
- remark, that
->     the fix is wrong. Moreover the fix didn't make it in the GIT repo=
-sitory yet...
->=20
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig987ADF05B7B6FB7BAE591B81
+Content-Type: multipart/mixed;
+ boundary="------------040600080801070608080509"
+
+This is a multi-part message in MIME format.
+--------------040600080801070608080509
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
+
+Hello!
+
+We're experiencing the following problem:
+
+We start a minimal linux system, prepare the system and start the
+final system via kexec.
+On two different systems (one with a 82573 and one with a 82574),
+the driver cannot initialize the network hardware, because the PHY
+is not recognized.
+
+We get the following error:
+  e1000e: probe of 0000:02:00.0 failed with error -2
+
+We cannot unload the driver of the first kernel, because it's
+compiled in statically.
+
+It's caused by the PHY, because it's already initialized by the
+first driver and therefore does not respond correctly. The driver
+assumes the PHY to be in 'reset' state, which is done by the BIOS.
+
+We fixed it by adding a
+
++       /* Reset PHY before initializing it. Allows re-init after kexec. =
+*/
++       if (!e1000_check_reset_block(hw))
++         e1000_phy_hw_reset(hw);
+
+to the initialization routine. I'm not sure, if we need the additional
+"block" check.
+A patch is attached.
+
+Please send a note, if the patch is correct or wrong...
+
+Regards
+ Sven Anders
+
+--=20
+ Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign=
+
+                                                 /\ Support plain text e-=
+mail
+ ANDURAS service solutions AG
+ Innstrasse 71 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 5=
+0-55
+
+Those who would give up essential Liberty, to purchase a little
+temporary Safety, deserve neither Liberty nor Safety.
+  - Benjamin Franklin
+
+--------------040600080801070608080509
+Content-Type: text/x-patch;
+ name="e1000e-kexec.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline;
+ filename="e1000e-kexec.patch"
+
+--- linux-2.6.29.6/drivers/net/e1000e/82571.c.orig	2009-11-04 00:44:27.00=
+0000000 +0100
++++ linux-2.6.29.6/drivers/net/e1000e/82571.c	2009-11-04 00:44:19.0000000=
+00 +0100
+@@ -107,6 +107,10 @@ static s32 e1000_init_phy_params_82571(s
+ 		break;
+ 	}
+=20
++	/* Reset PHY before initializing it. Allows re-init after kexec. */
++	if (!e1000_check_reset_block(hw))
++	  e1000_phy_hw_reset(hw);
++
+ 	/* This can only be done after all function pointers are setup. */
+ 	ret_val =3D e1000_get_phy_id_82571(hw);
+=20
+
+--------------040600080801070608080509
+Content-Type: text/x-vcard; charset=utf-8;
+ name="sven.vcf"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+ filename="sven.vcf"
+
+begin:vcard
+fn:Sven Anders
+n:Anders;Sven
+adr;quoted-printable:;;Weidestra=3DC3=3D9Fe 19;Hannover;Niedersachsen;304=
+53;Deutschland
+email;internet:sven@anduras.de
+tel;home:+49 (0)511 / 2123090
+tel;cell:+49 (0)170 / 8091180
+x-mozilla-html:FALSE
+url:http://staff.anduras.de/anders
+version:2.1
+end:vcard
 
 
-Yes, I posted a similar patch yesterday :)
+--------------040600080801070608080509--
 
-http://article.gmane.org/gmane.linux.network/142908
+--------------enig987ADF05B7B6FB7BAE591B81
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Still waiting an ACK from Stephen
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
+iEYEARECAAYFAkr4erEACgkQ5lKZ7Feg4EdPaACfeo95plhp3TcMySPb8sv0++Xg
+8kEAoIFBHlLfmGdmQN9ZGZjRd0G4929j
+=ir6t
+-----END PGP SIGNATURE-----
+
+--------------enig987ADF05B7B6FB7BAE591B81--
