@@ -1,56 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] netlink: add socket destruction notification
-Date: Mon, 09 Nov 2009 14:19:15 +0100
-Message-ID: <4AF816D3.7000304@trash.net>
-References: <1254473048.3959.76.camel@johannes.local>	 <4AF43EF9.3020707@trash.net> <1257521204.29454.31.camel@johannes.local>	 <4AF442C2.9040704@trash.net> <1257762132.29454.161.camel@johannes.local>	 <4AF8122F.9060807@trash.net> <1257771787.29454.173.camel@johannes.local>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH RFC] gianfar: Make polling safe with IRQs disabled
+Date: Mon, 9 Nov 2009 16:32:31 +0300
+Message-ID: <20091109133231.GA26965@oksana.dev.rtsoft.ru>
+References: <20091104225711.GA30844@oksana.dev.rtsoft.ru>
+ <20091108.010533.212571001.davem@davemloft.net>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>,
-	Thomas Graf <tgraf@suug.ch>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=utf-8
+Cc: afleming@freescale.com, jason.wessel@windriver.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39368 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754730AbZKINTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 08:19:14 -0500
-In-Reply-To: <1257771787.29454.173.camel@johannes.local>
+Received: from imap.ru.mvista.com ([213.79.90.228]:14855 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755713AbZKINc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 08:32:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20091108.010533.212571001.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Johannes Berg wrote:
-> On Mon, 2009-11-09 at 13:59 +0100, Patrick McHardy wrote:
+On Sun, Nov 08, 2009 at 01:05:33AM -0800, David Miller wrote:
+...
+> > When using KGDBoE, gianfar driver spits 'Interrupt problem' messages,
+> > which appears to be a legitimate warning, i.e. we may end up calling
+> > netif_receive_skb() or vlan_hwaccel_receive_skb() with IRQs disabled.
+> > 
+> > This patch reworks the RX path so that if netpoll is enabled (the
+> > only case when the driver don't know from what context the polling
+> > may be called), we check whether IRQs are disabled, and if so we
+> > fall back to safe variants of skb receiving functions.
 > 
->>> Thanks for the explanation. I think we'd need the second condition
->>> removed, I don't see a reason to force a socket to not also have
->>> multicast RX if it's used for any of the purposes we're looking at this
->>> for. Guess we need to audit the callees to determine whether that's ok.
->> I've already done that. Its currently only used by netfilter
->> for which this change also makes sense.
+> This is bogus, I'll tell you why.
 > 
-> Cool, I arrived at that conclusion too, it seemed that it would
-> currently be somewhat strangely broken if you could add multicast groups
-> to those sockets used there. Not sure if you can though.
-
-I don't see anything preventing it.
-
->>> Can you quickly explain the difference between release and destruct?
->> release is called when the socket is closed, destruct is called
->> once all references are gone. I think with the synchonous processing
->> done nowadays they shouldn't make any difference, but release
->> should be fine in either case.
+> When you go into netif_receive_skb() we have a special check,
+> "if (netpoll_receive_skb(..." that takes care of all of the
+> details concerning doing a ->poll() from IRQ disabled context
+> via netpoll.
 > 
-> Ok, cool, thanks. Do you want me to send the change removing the
-> multicast check, or would you want to do that since you audited all the
-> netlink callers?
+> So this code you're adding should not be necessary.
+> 
+> Or, explain to me why no other driver needs special logic in their
+> ->poll() handler like this and does not run into any kinds of netpoll
+> problems :-)
 
-Please go ahead.
+Hm, I was confused by the following note:
 
-> Also, it's called URELEASE for unicast -- should we rename it to just
-> RELEASE?
+/**
+ *      netif_receive_skb - process receive buffer from network
+ *      @skb: buffer to process
+...
+ *      This function may only be called from softirq context and interrupts
+ *      should be enabled.
 
-I think URELEASE is still fine since won't necessarily get called
-for sockets that are used for pure multicast reception when using
-setsockopt to bind to groups. I also have a cleanup patch removing
-unneccessary nlk->pid checks from netfilter which would clash with
-a rename :)
+
+Looking into the code though, I can indeed see that there
+are netpoll checks, and __netpoll_rx() is actually called with
+irqs disabled. So, in the end it appears that we should just
+remove the 'Interrupt problem' message.
+
+
+Thanks!
+
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
