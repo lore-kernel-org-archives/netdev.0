@@ -1,110 +1,55 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] act_mirred: don't go back.
-Date: Mon, 9 Nov 2009 20:33:07 +0800
-Message-ID: <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
-References: <4AF7B9F4.6010507@gmail.com> <1257751376.8009.2.camel@bigi>
-	 <412e6f7f0911090031j16ab9c73o47f4d4d3ffd9be3a@mail.gmail.com>
-	 <1257764086.6246.1.camel@bigi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] netlink: add socket destruction notification
+Date: Mon, 09 Nov 2009 13:59:27 +0100
+Message-ID: <4AF8122F.9060807@trash.net>
+References: <1254473048.3959.76.camel@johannes.local>	 <4AF43EF9.3020707@trash.net> <1257521204.29454.31.camel@johannes.local>	 <4AF442C2.9040704@trash.net> <1257762132.29454.161.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>,
+	Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f195.google.com ([209.85.216.195]:43169 "EHLO
-	mail-px0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754228AbZKIMdC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 07:33:02 -0500
-Received: by pxi33 with SMTP id 33so41247pxi.4
-        for <netdev@vger.kernel.org>; Mon, 09 Nov 2009 04:33:07 -0800 (PST)
-In-Reply-To: <1257764086.6246.1.camel@bigi>
+Received: from stinky.trash.net ([213.144.137.162]:38760 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754730AbZKIM71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 07:59:27 -0500
+In-Reply-To: <1257762132.29454.161.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 9, 2009 at 6:54 PM, jamal <hadi@cyberus.ca> wrote:
-> On Mon, 2009-11-09 at 16:31 +0800, Changli Gao wrote:
->
->> code cleanup! :)
->
-> I dont really see it as a cleanup to be honest. The code
-> is not less ugly even after the change;->
->
+Johannes Berg wrote:
+> On Fri, 2009-11-06 at 16:37 +0100, Patrick McHardy wrote:
+> 
+>>>> This seems pretty similar to the NETLINK_URELEASE notifier invoked
+>>>> in netlink_release(). Wouldn't that one work as well?
+>>> Hmm, it does seem similar, thanks for pointing it out. What exactly does
+>>> the condition
+>>> 	if (nlk->pid && !nlk->subscriptions) {
+>>>
+>>> mean though?
+>> nlk->pid is non-zero for bound sockets, which is basically any
+>> non-kernel socket which has either sent a message or explicitly
+>> called bind(). nlk->subscriptions is zero for sockets not bound
+>> to multicast groups.
+>>
+>> So effectively it invokes the notifier for all bound unicast
+>> userspace sockets. Not sure why it doesn't invoke the notifier
+>> for sockets that are used for both unicast and multicast
+>> reception. If that is a problem I think the second condition
+>> could be removed.
+> 
+> Thanks for the explanation. I think we'd need the second condition
+> removed, I don't see a reason to force a socket to not also have
+> multicast RX if it's used for any of the purposes we're looking at this
+> for. Guess we need to audit the callees to determine whether that's ok.
 
-static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
-                      struct tcf_result *res)
-{
-        struct net_device *dev;
-        struct sk_buff *skb2;
-        u32 at;
-        struct tcf_mirred *m =3D a->priv;
-        int retval, err =3D 1;
+I've already done that. Its currently only used by netfilter
+for which this change also makes sense.
 
-        spin_lock(&m->tcf_lock);
-        m->tcf_tm.lastuse =3D jiffies;
-        if (m->tcfm_eaction !=3D TCA_EGRESS_MIRROR &&
-            m->tcfm_eaction !=3D TCA_EGRESS_REDIR) {
-                if (net_ratelimit())
-                        printk("tcf_mirred unknown action %d\n",
-                               m->tcfm_eaction);
-                goto out;
-        }
+> Can you quickly explain the difference between release and destruct?
 
-        dev =3D m->tcfm_dev;
-        if (!(dev->flags&IFF_UP) ) {
-                if (net_ratelimit())
-                        printk("mirred to Houston: device %s is gone!\n=
-",
-                               dev->name);
-                goto out;
-        }
-
-        skb2 =3D skb_act_clone(skb, GFP_ATOMIC);
-        if (skb2 =3D=3D NULL)
-                goto out;
-
-        m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb2);
-        m->tcf_bstats.packets++;
-        at =3D G_TC_AT(skb->tc_verd);
-        if (!(at & AT_EGRESS)) {
-                if (m->tcfm_ok_push)
-                        skb_push(skb2, skb2->dev->hard_header_len);
-        }
-
-        /* mirror is always swallowed */
-        if (m->tcfm_eaction !=3D TCA_EGRESS_MIRROR)
-                skb2->tc_verd =3D SET_TC_FROM(skb2->tc_verd, at);
-
-        skb2->dev =3D dev;
-        skb2->iif =3D skb->dev->ifindex;
-        dev_queue_xmit(skb2);
-        err =3D 0;
-
-out:
-        if (err) {
-                m->tcf_qstats.overlimits++;
-                m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb);
-                m->tcf_bstats.packets++;
-                /* should we be asking for packet to be dropped?
-                 * may make sense for redirect case only
-                 */
-                retval =3D TC_ACT_SHOT;
-        } else {
-                retval =3D m->tcf_action;
-        }
-        spin_unlock(&m->tcf_lock);
-
-        return retval;
-}
-
-How about this version.
-
-1. move skb_act_clone() after all the necessary checks, and it can
-eliminate unnecessary skb_act_clone() if tcfm_eaction isn't correct.
-2. there is one exit of the critical section.
-3. jump forward instead of backward.
-
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+release is called when the socket is closed, destruct is called
+once all references are gone. I think with the synchonous processing
+done nowadays they shouldn't make any difference, but release
+should be fine in either case.
