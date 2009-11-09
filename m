@@ -1,45 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/8 net-next-2.6] udp: optimisations
-Date: Mon, 09 Nov 2009 06:37:24 +0100
-Message-ID: <4AF7AA94.6090909@gmail.com>
-References: <4AF72738.7020606@gmail.com> <20091108.205522.185944441.davem@davemloft.net>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: RFC: ethtool support for n-tuple filter programming
+Date: Sun, 08 Nov 2009 21:49:21 -0800
+Message-ID: <1257745762.2609.5.camel@ppwaskie-mobl2>
+References: <1257533841.2610.12.camel@ppwaskie-mobl2>
+	 <20091107.202712.222562359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, lgrijincu@ixiacom.com, opurdila@ixiacom.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38212 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbZKIFh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 00:37:29 -0500
-In-Reply-To: <20091108.205522.185944441.davem@davemloft.net>
+Received: from mga09.intel.com ([134.134.136.24]:54398 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750729AbZKIFtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2009 00:49:17 -0500
+In-Reply-To: <20091107.202712.222562359.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
+On Sat, 2009-11-07 at 21:27 -0700, David Miller wrote:
+> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Date: Fri, 06 Nov 2009 10:57:21 -0800
+> 
+> > Any comments, thoughts, suggestions, or ideas are welcome.
+> 
+> We can use the existing datastructures and defines used for
+> ETHTOOL_GRX* for new ethtool commands that do filtering.
+> 
+> NIU can filter on these tuples too.
 
->=20
-> Looks great, all applied, thanks Eric.
+Are you suggesting to extend the flow hash stuff that is already in
+ethtool (same ioctl)?  If so, that makes sense.  I'll go ahead and get
+some patches together for review.
 
-Thanks David, I'll make the remaining patches too.
-
->=20
-> I would even go so far as to say that the cutoff to the second hash
-> table should be even lower than 10, like maybe 4 or 5.
-
-Probably, but we want to avoid the secondary way if possible,
-as this path might have to traverse two different chains.
-
-(total of three cache line accesses to only take a look at chains head/=
-count)
-
-Maybe we can change the heuristic to take into account this like that :
-
-if (hslot->count > 4) {
-	...
-	if (hslot->count < hslot2->count * 2)
-		goto begin_primary_hash_lookup;
-
-This is tuning, and needs benchmarking.
+Thanks,
+-PJ
 
