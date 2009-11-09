@@ -1,48 +1,113 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] IPv6: use ipv6_addr_v4mapped()
-Date: Mon, 09 Nov 2009 23:59:53 +0100
-Message-ID: <4AF89EE9.1090109@gmail.com>
-References: <4AF89241.7060203@hp.com>
+Subject: Re: [RFC,PATCH] mutex: mutex_is_owner() helper
+Date: Tue, 10 Nov 2009 00:21:47 +0100
+Message-ID: <4AF8A40B.10708@gmail.com>
+References: <4AF19D06.3060401@gmail.com> <20091104154015.GA32567@elte.hu>	 <4AF1B7A7.6030902@gmail.com> <1257792987.4108.364.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34048 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46401 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755080AbZKIW7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 17:59:52 -0500
-In-Reply-To: <4AF89241.7060203@hp.com>
+	with ESMTP id S1753898AbZKIXWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 18:22:30 -0500
+In-Reply-To: <1257792987.4108.364.camel@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley a =E9crit :
-> Change udp6_portaddr_hash() to use ipv6_addr_v4mapped()
-> inline instead of ipv6_addr_type().
+Peter Zijlstra a =C3=A9crit :
+> On Wed, 2009-11-04 at 18:19 +0100, Eric Dumazet wrote:
+>> BTW, I was thinking of a mutex_yield() implementation, but could not
+>> cook it without hard thinking, maybe you already have some nice
+>> implementation ?
 >=20
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> ---
->=20
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 2915e1d..0ed1637 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-> @@ -89,7 +89,7 @@ static unsigned int udp6_portaddr_hash(struct net *=
-net,
-> =20
->  	if (ipv6_addr_any(addr6))
->  		hash =3D jhash_1word(0, mix);
-> -	else if (ipv6_addr_type(addr6) =3D=3D IPV6_ADDR_MAPPED)
-> +	else if (ipv6_addr_v4mapped(addr6))
->  		hash =3D jhash_1word(addr6->s6_addr32[3], mix);
->  	else
->  		hash =3D jhash2(addr6->s6_addr32, 4, mix);
+> Why? Yield sets off alarm bells, since 99.9%, and possibly more, of i=
+ts
+> uses are wrong.
 
-Indeed, its a bit faster ;)
+If I remember well, I had problems doing "modprobe dummy numdummies=3D3=
+0000",
+because it creates 30000 netdevices, and thanks to hotplug starts 30000=
+ udev
+that all wait that my modprobe is finished... Nice to see load average =
+going
+so big by the way :)
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+I tried following patch without success, because rtnl_unlock()/rtnl_loc=
+k()
+is too fast (awaken process(es) ha(s/ve) no chance to get the lock, as =
+we
+take it immediately after releasing it)
 
-Thanks Brian
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 37dcfdc..3de1466 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -138,8 +138,11 @@ static int __init dummy_init_module(void)
+ 	rtnl_lock();
+ 	err =3D __rtnl_link_register(&dummy_link_ops);
+=20
+-	for (i =3D 0; i < numdummies && !err; i++)
++	for (i =3D 0; i < numdummies && !err; i++) {
+ 		err =3D dummy_init_one();
++		rtnl_unlock();
++		rtnl_lock();
++	}
+ 	if (err < 0)
+ 		__rtnl_link_unregister(&dummy_link_ops);
+ 	rtnl_unlock();
+
+
+
+Then I added a msleep(1) between the unlock/lock and got beter results.
+
+
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 37dcfdc..108c4fa 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -138,8 +138,12 @@ static int __init dummy_init_module(void)
+ 	rtnl_lock();
+ 	err =3D __rtnl_link_register(&dummy_link_ops);
+=20
+-	for (i =3D 0; i < numdummies && !err; i++)
++	for (i =3D 0; i < numdummies && !err; i++) {
+ 		err =3D dummy_init_one();
++		rtnl_unlock();
++		msleep(1);
++		rtnl_lock();
++	}
+ 	if (err < 0)
+ 		__rtnl_link_unregister(&dummy_link_ops);
+ 	rtnl_unlock();
+
+But if hotplug is disabled, this force a useless msleep(1) * 30000 -> t=
+his is bit slow
+
+Yes, this code is stupid, but I use it to stress network stack
+with insane number of devices, to spot scalability problems.
+
+
+mutex_yield() could help in this situation.
+
+mutex is said to be FIFO, but its not exactly true : A new comer can ta=
+ke the mutex
+even if 10000 threads are waiting on mutex...
+
+I wont mention other problems, because mutex_{try}lock() has no timedwa=
+it variant, and
+funny code doing :
+
+if (!rtnl_trylock())
+	return restart_syscall();
+
+Making 30000 processes running/fighting to get the mutex :(
 
