@@ -1,189 +1,110 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-Subject: [PATCH net-next] Phonet: put sockets in a hash table
-Date: Mon,  9 Nov 2009 14:17:01 +0200
-Message-ID: <1257769021-521-1-git-send-email-remi@remlab.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] act_mirred: don't go back.
+Date: Mon, 9 Nov 2009 20:33:07 +0800
+Message-ID: <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
+References: <4AF7B9F4.6010507@gmail.com> <1257751376.8009.2.camel@bigi>
+	 <412e6f7f0911090031j16ab9c73o47f4d4d3ffd9be3a@mail.gmail.com>
+	 <1257764086.6246.1.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:54559 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbZKIMQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2009 07:16:56 -0500
+Received: from mail-px0-f195.google.com ([209.85.216.195]:43169 "EHLO
+	mail-px0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754228AbZKIMdC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 07:33:02 -0500
+Received: by pxi33 with SMTP id 33so41247pxi.4
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2009 04:33:07 -0800 (PST)
+In-Reply-To: <1257764086.6246.1.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+On Mon, Nov 9, 2009 at 6:54 PM, jamal <hadi@cyberus.ca> wrote:
+> On Mon, 2009-11-09 at 16:31 +0800, Changli Gao wrote:
+>
+>> code cleanup! :)
+>
+> I dont really see it as a cleanup to be honest. The code
+> is not less ugly even after the change;->
+>
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- include/net/phonet/phonet.h |    1 +
- net/phonet/af_phonet.c      |    1 +
- net/phonet/socket.c         |   79 +++++++++++++++++++++++++++++------=
--------
- 3 files changed, 56 insertions(+), 25 deletions(-)
+static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
+                      struct tcf_result *res)
+{
+        struct net_device *dev;
+        struct sk_buff *skb2;
+        u32 at;
+        struct tcf_mirred *m =3D a->priv;
+        int retval, err =3D 1;
 
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index fdb05fa..7b11407 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -46,6 +46,7 @@ static inline struct pn_sock *pn_sk(struct sock *sk)
-=20
- extern const struct proto_ops phonet_dgram_ops;
-=20
-+void pn_sock_init(void);
- struct sock *pn_find_sock_by_sa(struct net *net, const struct sockaddr=
-_pn *sa);
- void pn_deliver_sock_broadcast(struct net *net, struct sk_buff *skb);
- void phonet_get_local_port_range(int *min, int *max);
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index 3bd1be6..8d3a55b 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -481,6 +481,7 @@ static int __init phonet_init(void)
- 	if (err)
- 		return err;
-=20
-+	pn_sock_init();
- 	err =3D sock_register(&phonet_proto_family);
- 	if (err) {
- 		printk(KERN_ALERT
-diff --git a/net/phonet/socket.c b/net/phonet/socket.c
-index 0412beb..4112b6e 100644
---- a/net/phonet/socket.c
-+++ b/net/phonet/socket.c
-@@ -45,13 +45,28 @@ static int pn_socket_release(struct socket *sock)
- 	return 0;
- }
-=20
-+#define PN_HASHSIZE	16
-+#define PN_HASHMASK	(PN_HASHSIZE-1)
-+
-+
- static struct  {
--	struct hlist_head hlist;
-+	struct hlist_head hlist[PN_HASHSIZE];
- 	spinlock_t lock;
--} pnsocks =3D {
--	.hlist =3D HLIST_HEAD_INIT,
--	.lock =3D __SPIN_LOCK_UNLOCKED(pnsocks.lock),
--};
-+} pnsocks;
-+
-+void __init pn_sock_init(void)
-+{
-+	unsigned i;
-+
-+	for (i =3D 0; i < PN_HASHSIZE; i++)
-+		INIT_HLIST_HEAD(pnsocks.hlist + i);
-+	spin_lock_init(&pnsocks.lock);
-+}
-+
-+static struct hlist_head *pn_hash_list(u16 obj)
-+{
-+	return pnsocks.hlist + (obj & PN_HASHMASK);
-+}
-=20
- /*
-  * Find address based on socket address, match only certain fields.
-@@ -64,10 +79,11 @@ struct sock *pn_find_sock_by_sa(struct net *net, co=
-nst struct sockaddr_pn *spn)
- 	struct sock *rval =3D NULL;
- 	u16 obj =3D pn_sockaddr_get_object(spn);
- 	u8 res =3D spn->spn_resource;
-+	struct hlist_head *hlist =3D pn_hash_list(obj);
-=20
- 	spin_lock_bh(&pnsocks.lock);
-=20
--	sk_for_each(sknode, node, &pnsocks.hlist) {
-+	sk_for_each(sknode, node, hlist) {
- 		struct pn_sock *pn =3D pn_sk(sknode);
- 		BUG_ON(!pn->sobject); /* unbound socket */
-=20
-@@ -99,31 +115,39 @@ struct sock *pn_find_sock_by_sa(struct net *net, c=
-onst struct sockaddr_pn *spn)
- /* Deliver a broadcast packet (only in bottom-half) */
- void pn_deliver_sock_broadcast(struct net *net, struct sk_buff *skb)
- {
--	struct hlist_node *node;
--	struct sock *sknode;
-+	struct hlist_head *hlist =3D pnsocks.hlist;
-+	unsigned h;
-=20
- 	spin_lock(&pnsocks.lock);
--	sk_for_each(sknode, node, &pnsocks.hlist) {
--		struct sk_buff *clone;
-+	for (h =3D 0; h < PN_HASHSIZE; h++) {
-+		struct hlist_node *node;
-+		struct sock *sknode;
-=20
--		if (!net_eq(sock_net(sknode), net))
--			continue;
--		if (!sock_flag(sknode, SOCK_BROADCAST))
--			continue;
-+		sk_for_each(sknode, node, hlist) {
-+			struct sk_buff *clone;
-=20
--		clone =3D skb_clone(skb, GFP_ATOMIC);
--		if (clone) {
--			sock_hold(sknode);
--			sk_receive_skb(sknode, clone, 0);
-+			if (!net_eq(sock_net(sknode), net))
-+				continue;
-+			if (!sock_flag(sknode, SOCK_BROADCAST))
-+				continue;
-+
-+			clone =3D skb_clone(skb, GFP_ATOMIC);
-+			if (clone) {
-+				sock_hold(sknode);
-+				sk_receive_skb(sknode, clone, 0);
-+			}
- 		}
-+		hlist++;
- 	}
- 	spin_unlock(&pnsocks.lock);
- }
-=20
- void pn_sock_hash(struct sock *sk)
- {
-+	struct hlist_head *hlist =3D pn_hash_list(pn_sk(sk)->sobject);
-+
- 	spin_lock_bh(&pnsocks.lock);
--	sk_add_node(sk, &pnsocks.hlist);
-+	sk_add_node(sk, hlist);
- 	spin_unlock_bh(&pnsocks.lock);
- }
- EXPORT_SYMBOL(pn_sock_hash);
-@@ -439,15 +463,20 @@ EXPORT_SYMBOL(pn_sock_get_port);
- static struct sock *pn_sock_get_idx(struct seq_file *seq, loff_t pos)
- {
- 	struct net *net =3D seq_file_net(seq);
-+	struct hlist_head *hlist =3D pnsocks.hlist;
- 	struct hlist_node *node;
- 	struct sock *sknode;
-+	unsigned h;
-=20
--	sk_for_each(sknode, node, &pnsocks.hlist) {
--		if (!net_eq(net, sock_net(sknode)))
--			continue;
--		if (!pos)
--			return sknode;
--		pos--;
-+	for (h =3D 0; h < PN_HASHSIZE; h++) {
-+		sk_for_each(sknode, node, hlist) {
-+			if (!net_eq(net, sock_net(sknode)))
-+				continue;
-+			if (!pos)
-+				return sknode;
-+			pos--;
-+		}
-+		hlist++;
- 	}
- 	return NULL;
- }
+        spin_lock(&m->tcf_lock);
+        m->tcf_tm.lastuse =3D jiffies;
+        if (m->tcfm_eaction !=3D TCA_EGRESS_MIRROR &&
+            m->tcfm_eaction !=3D TCA_EGRESS_REDIR) {
+                if (net_ratelimit())
+                        printk("tcf_mirred unknown action %d\n",
+                               m->tcfm_eaction);
+                goto out;
+        }
+
+        dev =3D m->tcfm_dev;
+        if (!(dev->flags&IFF_UP) ) {
+                if (net_ratelimit())
+                        printk("mirred to Houston: device %s is gone!\n=
+",
+                               dev->name);
+                goto out;
+        }
+
+        skb2 =3D skb_act_clone(skb, GFP_ATOMIC);
+        if (skb2 =3D=3D NULL)
+                goto out;
+
+        m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb2);
+        m->tcf_bstats.packets++;
+        at =3D G_TC_AT(skb->tc_verd);
+        if (!(at & AT_EGRESS)) {
+                if (m->tcfm_ok_push)
+                        skb_push(skb2, skb2->dev->hard_header_len);
+        }
+
+        /* mirror is always swallowed */
+        if (m->tcfm_eaction !=3D TCA_EGRESS_MIRROR)
+                skb2->tc_verd =3D SET_TC_FROM(skb2->tc_verd, at);
+
+        skb2->dev =3D dev;
+        skb2->iif =3D skb->dev->ifindex;
+        dev_queue_xmit(skb2);
+        err =3D 0;
+
+out:
+        if (err) {
+                m->tcf_qstats.overlimits++;
+                m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb);
+                m->tcf_bstats.packets++;
+                /* should we be asking for packet to be dropped?
+                 * may make sense for redirect case only
+                 */
+                retval =3D TC_ACT_SHOT;
+        } else {
+                retval =3D m->tcf_action;
+        }
+        spin_unlock(&m->tcf_lock);
+
+        return retval;
+}
+
+How about this version.
+
+1. move skb_act_clone() after all the necessary checks, and it can
+eliminate unnecessary skb_act_clone() if tcfm_eaction isn't correct.
+2. there is one exit of the critical section.
+3. jump forward instead of backward.
+
+
 --=20
-1.6.3.3
-
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
