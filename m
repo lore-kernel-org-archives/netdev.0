@@ -1,72 +1,85 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
-Date: Mon, 9 Nov 2009 13:55:48 +0200
-Message-ID: <20091109115548.GA2368@redhat.com>
-References: <cover.1257349249.git.mst@redhat.com> <200911061529.17500.rusty@rustcorp.com.au> <20091108113516.GA19016@redhat.com> <200911091647.29655.rusty@rustcorp.com.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/8] udp: add a counter into udp_hslot
+Date: Mon, 9 Nov 2009 13:10:22 +0100
+Message-ID: <20091109121022.GD26740@basil.fritz.box>
+References: <4AF72741.5070405@gmail.com> <87fx8o56eq.fsf@basil.nowhere.org> <4AF80040.6060501@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
-        Daniel Walker <dwalker@fifo99.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:57854 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbZKIMKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 07:10:18 -0500
 Content-Disposition: inline
-In-Reply-To: <200911091647.29655.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4AF80040.6060501@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 09, 2009 at 04:47:29PM +1030, Rusty Russell wrote:
-> Actually, this looks wrong to me:
+> > Do you really need an int? On 64bit it's free due to the alignment, 
+> > but on 32bit x86 it's costly and you blow up the table considerably,
+> > increasing cache misses.
 > 
-> +	case VHOST_SET_VRING_BASE:
-> ...
-> +		vq->avail_idx = vq->last_avail_idx = s.num;
+> Even a short (16 bits) might be too small for IXIACOM :)
+
+True, but see below.
+
+
 > 
-> The last_avail_idx is part of the state of the driver.  It needs to be saved
-> and restored over susp/resume.  The only reason it's not in the ring itself
-> is because I figured the other side doesn't need to see it (which is true, but
-> missed debugging opportunities as well as man-in-the-middle issues like this
-> one).  I had a patch which put this field at the end of the ring, I might
-> resurrect it to avoid this problem.  This is backwards compatible with all
-> implementations.  See patch at end.
+> On 32bit x86, size of hash table is 512 slots max.
+> (one slot per 2MB of LOWMEM, rounded to power of two)
 > 
-> I would drop avail_idx altogether: get_user is basically free, and simplifies
-> a lot.  As most state is in the ring, all you need is an ioctl to save/restore
-> the last_avail_idx.
+> You are speaking of <= 4096 bytes overhead :)
 
-I remembered another reason for caching head in avail_idx.  Basically,
-avail index could change between when I poll for descriptors and when I
-want to notify guest.
+Well it's cache line overhead too. 32bit systems have often
+small caches (i.e. Atom)
 
-So we could have:
-	- poll descriptors until empty
-	- notify
-		detects not empty so does not notify
+> 
+> >  
+> > Again it would be nicer if that was a separate smaller table together
+> > with the spinlock.
+> 
+> Nice for space, not nice for fast path, because this means additional
+> cache miss to get the spinlock (multicast rx still needs to take spinlock),
+> and some guys want really fast (low latency) multicast rx.
 
-And the way to solve it would be to return flag from
-notify telling us to restart the polling loop.
+When the spinlock use is mostly local it should be in cache
+(that's the nice thing about small tables, they don't drop out of cache)
 
-But, this will be more code, on data path, than
-what happens today where I simply keep state
-from descriptor polling and use that to notify.
+> 
+> > 
+> > In theory could also put a short counter into the low level alignment
+> > bits of the pointer and perhaps convert the spinlock to a bitlock?
+> > Then all could collapse into a single pointer.
+> > 
+> 
+> Not enough bits in low level alignment unfortunatly. We only could give a
+> hint (one bit is enough) of possibly long chain, but not allowing precise 
+> choice of shortest chain.
 
-I also suspect that somehow this race in practice can not create
-deadlocks ... but I prefer to avoid it, these things are very tricky: if
-I see an empty ring, and stop processing descriptors, I want to trigger
-notify on empty.
+Do we really need a precise answer here? I would assume an approximate
+answer would be good enough using a saturating counter. 
+e.g. if both have >N  just round robin.
 
-So if we want to avoid keeping "empty" state, IMO the best way would be
-to pass a flag to vhost_signal that tells it that ring is empty.
-Makes sense?
+Ok it would be tricky to decrement that again on unbind, but I assume just 
+continuing to RR later wouldn't be too bad.
 
+The question is just if there are enough bits even for that.
+
+> Once multicast is converted to RCU, then we wont need one spinlock per slot
+> (it wont be used in fast path, only at bind()/close() time)
+> and yes, we can use a separate small array to contain hashed spinlocks,
+> or even a single spinlock for CONFIG_BASE_SMALL :)
+
+Or a bit spinlock in the bucket low pointer bits.
+
+With that (and the saturating counter) even the 64bit table could be shortened to half.
+
+-Andi
 -- 
-MST
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ak@linux.intel.com -- Speaking for myself only.
