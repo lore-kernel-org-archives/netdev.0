@@ -1,43 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] check the return value of ndo_select_queue()
-Date: Mon, 09 Nov 2009 01:13:11 -0800 (PST)
-Message-ID: <20091109.011311.203110058.davem@davemloft.net>
-References: <4AF7C1FD.8000302@gmail.com>
-	<20091108.232647.47855733.davem@davemloft.net>
-	<412e6f7f0911090044v33c331edg6096c0f9b9db4143@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] tcp: provide more information on the tcp receive_queue
+ bugs
+Date: Mon, 9 Nov 2009 11:19:18 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911091053200.13479@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: MULTIPART/MIXED; boundary="-696230645-1491473374-1257757214=:13479"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48014
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754625AbZKIJMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 04:12:46 -0500
-In-Reply-To: <412e6f7f0911090044v33c331edg6096c0f9b9db4143@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46816 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754681AbZKIJTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 04:19:13 -0500
+Content-ID: <alpine.DEB.2.00.0911091117460.14118@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Mon, 9 Nov 2009 16:44:05 +0800
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Mon, Nov 9, 2009 at 3:26 PM, David Miller <davem@davemloft.net> wrote:
->> From: Changli Gao <xiaosuo@gmail.com>
->> Date: Mon, 09 Nov 2009 15:17:17 +0800
->>
->>> check the return value of ndo_select_queue()
->>>
->>> Check the return value of ndo_select_queue(). If the value isn't smaller
->>> than the real_num_tx_queues, print a warning message, and reset it to zero.
->>>
->>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->>
->> Make it a WARN() so that it ends up in kerneloops.org
->>
-> Like this?
->                         WARN(1, "%s selects TX queue %d, "
->                              "but real number of TX queues is %d\n",
->                              dev->name, queue_index, dev->real_num_tx_queues);
+---696230645-1491473374-1257757214=:13479
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0911091113251.13914@melkinpaasi.cs.helsinki.fi>
 
-Yes, something like that.
+The addition of rcv_nxt allows to discern whether the skb
+was out of place or tp->copied. Also catch fancy combination
+of flags if necessary (sadly we might miss the actual causer
+flags as it might have already returned).
+
+Btw, we perhaps would want to forward copied_seq in
+somewhere or otherwise we might have some nice loop with
+WARN stuff within but where to do that safely I don't
+know at this stage until more is known (but it is not
+made significantly worse by this patch).
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp.c |   19 ++++++++++++-------
+ 1 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 98440ad..f1813bc 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1183,7 +1183,9 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
+ #if TCP_DEBUG
+ 	struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
+ 
+-	WARN_ON(skb && !before(tp->copied_seq, TCP_SKB_CB(skb)->end_seq));
++	WARN(skb && !before(tp->copied_seq, TCP_SKB_CB(skb)->end_seq),
++	     KERN_INFO "cleanup rbuf bug: copied %X seq %X rcvnxt %X\n",
++	     tp->copied_seq, TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt);
+ #endif
+ 
+ 	if (inet_csk_ack_scheduled(sk)) {
+@@ -1430,11 +1432,13 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			/* Now that we have two receive queues this
+ 			 * shouldn't happen.
+ 			 */
+-			if (before(*seq, TCP_SKB_CB(skb)->seq)) {
+-				printk(KERN_INFO "recvmsg bug: copied %X "
+-				       "seq %X\n", *seq, TCP_SKB_CB(skb)->seq);
++			if (WARN(before(*seq, TCP_SKB_CB(skb)->seq),
++			     KERN_INFO "recvmsg bug: copied %X "
++				       "seq %X rcvnxt %X fl %X\n", *seq,
++				       TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
++				       flags))
+ 				break;
+-			}
++
+ 			offset = *seq - TCP_SKB_CB(skb)->seq;
+ 			if (tcp_hdr(skb)->syn)
+ 				offset--;
+@@ -1443,8 +1447,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			if (tcp_hdr(skb)->fin)
+ 				goto found_fin_ok;
+ 			WARN(!(flags & MSG_PEEK), KERN_INFO "recvmsg bug 2: "
+-					"copied %X seq %X\n", *seq,
+-					TCP_SKB_CB(skb)->seq);
++					"copied %X seq %X rcvnxt %X fl %X\n",
++					*seq, TCP_SKB_CB(skb)->seq,
++					tp->rcv_nxt, flags);
+ 		}
+ 
+ 		/* Well, if we have backlog, try to process it now yet. */
+-- 
+1.5.6.5
+---696230645-1491473374-1257757214=:13479--
