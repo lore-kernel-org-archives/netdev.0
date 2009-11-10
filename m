@@ -1,38 +1,67 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Wed, 11 Nov 2009 00:40:48 +0300
-Message-ID: <20091110214048.GA20517@ioremap.net>
-References: <20091002141407.30224.54207.stgit@dev.haskins.net> <20091110115335.GC6989@redhat.com> <4AF919020200005A000586A9@sinclair.provo.novell.com> <20091110131722.GA19645@redhat.com> <4AF9747E.8020408@novell.com> <20091110143652.GB19645@redhat.com> <4AF98A8C.9040201@novell.com> <20091110173644.GA8888@redhat.com> <4AF9B2A7.3050802@novell.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: sunrpc port allocation and IANA reserved list
+Date: Tue, 10 Nov 2009 21:42:01 +0000
+Message-ID: <1257889321.2834.35.camel@achroite.uk.solarflarecom.com>
+References: <4AF9A63B.6010101@nortel.com>
+	 <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
+	 <4AF9B2CF.6050305@nortel.com>
+	 <1257884799.3044.7.camel@heimdal.trondhjem.org>
+	 <4AF9D5D1.9040501@nortel.com>
+	 <1257888720.2834.30.camel@achroite.uk.solarflarecom.com>
+	 <212D08D7-AC22-4857-837A-E72B0A11E8DE@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	alacrityvm-devel@lists.sourceforge.net, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:39767 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758241AbZKJVkn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 16:40:43 -0500
-Content-Disposition: inline
-In-Reply-To: <4AF9B2A7.3050802@novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Chris Friesen <cfriesen@nortel.com>,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	netdev@vger.kernel.org, Linux kernel <linux-kernel@vger.kernel.org>
+To: Chuck Lever <chuck.lever@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758355AbZKJVmA@vger.kernel.org>
+In-Reply-To: <212D08D7-AC22-4857-837A-E72B0A11E8DE@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 10, 2009 at 01:36:23PM -0500, Gregory Haskins (ghaskins@novell.com) wrote:
-> What about things like sendfile()?  There has to be *some* way to
-> synchronize with the io-completion event,  I would think.  Whatever that
-> is, I'd like to tap into it.
+On Tue, 2009-11-10 at 16:34 -0500, Chuck Lever wrote:
+> On Nov 10, 2009, at 4:32 PM, Ben Hutchings wrote:
+> 
+> > On Tue, 2009-11-10 at 15:06 -0600, Chris Friesen wrote:
+> >> On 11/10/2009 02:26 PM, Trond Myklebust wrote:
+[...]
+> >>> Just use /proc/sys/sunrpc/{max,min}_resvport interface to restrict  
+> >>> the
+> >>> range used to a safer one. That's what it is for...
+> >
+> > Unless I'm much mistaken, that only affects in-kernel SunRPC users.
+> >
+> >> What constitutes a "safer range"?  IANA has ports assigned
+> >> intermittently all the way through the default RPC range.  The  
+> >> largest
+> >> unassigned range is 922-988 (since 921 is used by lwresd).  If  
+> >> someone
+> >> needs more than 66 ports, how are they supposed to handle it?
+> >
+> > I'm sure we could afford 128 bytes for a blacklist of privileged  
+> > ports.
+> > However, the problem is that there is no API for userland to request
+> > 'any free privileged port' - it has to just try binding to different
+> > ports until it finds one available.
+> 
+> bindresvport(3) and bindresvport_sa(3t) ?
 
-All skb manipulation functions properly maintain data reference
-counters, so pages will not be freed until all data is consumed.
-But there is no guarantee that data placed in given page will not be
-overwritten while page is being held somewhere in the stack.
+These are library calls; they are not an API between userland the
+kernel.
 
-Putting shared info destructor will allow to get notification, that
-given shared info processing is over, i.e. that network stack does not
-use data placed in shared info for given skb, but if it was copied or
-VFS hold those pages, they may or may not be freed.
+> > This means that the kernel can't
+> > tell whether a process is trying to allocate a specifically assigned
+> > port or whether the blacklist should be applied.
+> 
+> Such a blacklist would have to be managed by glibc or libtirpc.
+
+Right.
+
+Ben.
 
 -- 
-	Evgeniy Polyakov
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
