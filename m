@@ -1,8 +1,8 @@
 From: Patrick Mullaney <pmullaney@novell.com>
-Subject: [PATCH 2/4] macvlan: allow in-kernel modules to create and manage
-	macvlan devices
-Date: Tue, 10 Nov 2009 17:27:57 -0500
-Message-ID: <20091110222757.24100.16046.stgit@mimic.site>
+Subject: [PATCH 4/4] venet-macvlan: add new driver to connect a venet to a
+	macvlan netdevice
+Date: Tue, 10 Nov 2009 17:28:12 -0500
+Message-ID: <20091110222812.24100.42756.stgit@mimic.site>
 References: <20091110222632.24100.14884.stgit@mimic.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,179 +11,752 @@ Cc: linux-kernel@vger.kernel.org, kaber@trash.net, arnd@arndb.de,
 	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
 	netdev@vger.kernel.org
 To: alacrityvm-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932101AbZKJW2I@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758544AbZKJW25@vger.kernel.org>
 In-Reply-To: <20091110222632.24100.14884.stgit@mimic.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The macvlan driver didn't allow for creation/deletion of devices
-by other in-kernel modules. This patch provides common routines
-for both in-kernel and netlink based management. This patch
-also enables macvlan device support for gro for lower level
-devices that support gro.
+This driver implements a macvlan device as a venet device that can
+be connected to vbus. Since it is a macvlan device, it provides
+a more direct path to the underlying adapter by avoiding the
+bridge.
 
 Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
 ---
 
- drivers/net/macvlan.c   |   72 +++++++++++++++++++++++++++++++----------------
- include/linux/macvlan.h |    6 ++++
- 2 files changed, 53 insertions(+), 25 deletions(-)
+ drivers/net/vbus-enet.c                 |    8 
+ include/linux/venet.h                   |    5 
+ kernel/vbus/devices/venet/Kconfig       |   11 +
+ kernel/vbus/devices/venet/Makefile      |   10 -
+ kernel/vbus/devices/venet/device.c      |   10 -
+ kernel/vbus/devices/venet/macvlan.c     |  598 +++++++++++++++++++++++++++++++
+ kernel/vbus/devices/venet/venetdevice.h |    7 
+ 7 files changed, 642 insertions(+), 7 deletions(-)
+ create mode 100644 kernel/vbus/devices/venet/macvlan.c
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 0a389b8..6b98b26 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -208,7 +208,7 @@ static const struct header_ops macvlan_hard_header_ops = {
- 	.cache_update	= eth_header_cache_update,
+diff --git a/drivers/net/vbus-enet.c b/drivers/net/vbus-enet.c
+index 29b388f..9985020 100644
+--- a/drivers/net/vbus-enet.c
++++ b/drivers/net/vbus-enet.c
+@@ -832,6 +832,14 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
+ 		vsg->cookie = (u64)(unsigned long)skb;
+ 		vsg->len    = skb->len;
+ 
++		vsg->phdr.transport = skb_transport_header(skb) - skb->head;
++		vsg->phdr.network   = skb_network_header(skb) - skb->head;
++
++		if (skb_mac_header_was_set(skb))
++			vsg->phdr.mac = skb_mac_header(skb) - skb->head;
++		else
++			vsg->phdr.mac = ~0U;
++
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			vsg->flags      |= VENET_SG_FLAG_NEEDS_CSUM;
+ 			vsg->csum.start  = skb->csum_start - skb_headroom(skb);
+diff --git a/include/linux/venet.h b/include/linux/venet.h
+index 0578d79..4e5fdf4 100644
+--- a/include/linux/venet.h
++++ b/include/linux/venet.h
+@@ -78,6 +78,11 @@ struct venet_sg {
+ 		__u16    hdrlen;
+ 		__u16    size;
+ 	} gso;
++	struct {
++		__u32    mac;         /* mac offset */
++		__u32    network;     /* network offset */
++		__u32    transport;   /* transport offset */
++	} phdr;
+ 	__u32            count;   /* nr of iovs */
+ 	struct venet_iov iov[1];
  };
+diff --git a/kernel/vbus/devices/venet/Kconfig b/kernel/vbus/devices/venet/Kconfig
+index 4f89afb..c3b1ac6 100644
+--- a/kernel/vbus/devices/venet/Kconfig
++++ b/kernel/vbus/devices/venet/Kconfig
+@@ -20,3 +20,14 @@ config VBUS_VENETTAP
  
--static int macvlan_open(struct net_device *dev)
-+int macvlan_open(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
-@@ -235,7 +235,7 @@ out:
- 	return err;
- }
+ 	If unsure, say N
  
--static int macvlan_stop(struct net_device *dev)
-+int macvlan_stop(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
-@@ -316,7 +316,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
- #define MACVLAN_FEATURES \
- 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
- 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
--	 NETIF_F_TSO_ECN | NETIF_F_TSO6)
-+	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
++config VBUS_VENETMACV
++       tristate "Virtual-Bus Ethernet MACVLAN Device"
++       depends on VBUS_DEVICES && MACVLAN
++       select VBUS_VENETDEV
++       default n
++       help
++        Provides a vbus based virtual ethernet adapter with a macvlan
++        device as its backend.
++
++	If unsure, say N
++
+diff --git a/kernel/vbus/devices/venet/Makefile b/kernel/vbus/devices/venet/Makefile
+index 185d825..5bf7cb4 100644
+--- a/kernel/vbus/devices/venet/Makefile
++++ b/kernel/vbus/devices/venet/Makefile
+@@ -1,7 +1,7 @@
+-venet-device-objs += device.o
+-ifneq ($(CONFIG_VBUS_VENETTAP),n)
+-venet-device-objs += tap.o
+-endif
++venet-tap-objs := device.o tap.o
++venet-macvlan-objs := device.o macvlan.o
++
++obj-$(CONFIG_VBUS_VENETTAP) += venet-tap.o
++obj-$(CONFIG_VBUS_VENETMACV) += venet-macvlan.o
  
- #define MACVLAN_STATE_MASK \
- 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
-@@ -440,7 +440,7 @@ static void macvlan_port_destroy(struct net_device *dev)
- 	kfree(port);
- }
+-obj-$(CONFIG_VBUS_VENETDEV) += venet-device.o
  
--static void macvlan_transfer_operstate(struct net_device *dev)
-+void macvlan_transfer_operstate(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	const struct net_device *lowerdev = vlan->lowerdev;
-@@ -458,6 +458,7 @@ static void macvlan_transfer_operstate(struct net_device *dev)
- 			netif_carrier_off(dev);
+diff --git a/kernel/vbus/devices/venet/device.c b/kernel/vbus/devices/venet/device.c
+index 9fd94ca..a30df94 100644
+--- a/kernel/vbus/devices/venet/device.c
++++ b/kernel/vbus/devices/venet/device.c
+@@ -776,6 +776,12 @@ venetdev_sg_import(struct venetdev *priv, void *ptr, int len)
+ 		return NULL;
  	}
- }
-+EXPORT_SYMBOL_GPL(macvlan_transfer_operstate);
  
- int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- {
-@@ -471,11 +472,47 @@ int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- }
- EXPORT_SYMBOL_GPL(macvlan_validate);
- 
--int macvlan_newlink(struct net_device *dev,
--		    struct nlattr *tb[], struct nlattr *data[])
-+int macvlan_link_lowerdev(struct net_device *dev,
-+						  struct net_device *lowerdev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvlan_port *port;
-+	int err = 0;
++	if (vsg->phdr.mac != ~0U)
++		skb_set_mac_header(skb, vsg->phdr.mac);
 +
-+	if (lowerdev->macvlan_port == NULL) {
-+		err = macvlan_port_create(lowerdev);
-+		if (err < 0)
-+			return err;
++	skb_set_network_header(skb, vsg->phdr.network);
++	skb_set_transport_header(skb, vsg->phdr.transport);
++
+ 	if (vsg->flags & VENET_SG_FLAG_GSO) {
+ 		struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+@@ -2250,7 +2256,7 @@ host_mac_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
+ struct vbus_device_attribute attr_hmac =
+ 	__ATTR_RO(host_mac);
+ 
+-static ssize_t
++ssize_t
+ cmac_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
+ 	      const char *buf, size_t count)
+ {
+@@ -2282,7 +2288,7 @@ cmac_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
+ 	return count;
+ }
+ 
+-static ssize_t
++ssize_t
+ client_mac_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
+ 	 char *buf)
+ {
+diff --git a/kernel/vbus/devices/venet/macvlan.c b/kernel/vbus/devices/venet/macvlan.c
+new file mode 100644
+index 0000000..8724e26
+--- /dev/null
++++ b/kernel/vbus/devices/venet/macvlan.c
+@@ -0,0 +1,598 @@
++/*
++ * venet-macvlan - A Vbus based 802.x virtual network device that utilizes
++ *                 a macvlan device as the backend
++ *
++ * Copyright (C) 2009 Novell, Patrick Mullaney <pmullaney@novell.com>
++ *
++ * Based on the venet-tap driver from Gregory Haskins
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/moduleparam.h>
++
++#include <linux/sched.h>
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/errno.h>
++#include <linux/types.h>
++#include <linux/interrupt.h>
++#include <linux/wait.h>
++
++#include <linux/in.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ip.h>
++#include <linux/tcp.h>
++#include <linux/skbuff.h>
++#include <linux/ioq.h>
++#include <linux/vbus.h>
++#include <linux/freezer.h>
++#include <linux/kthread.h>
++#include <linux/ktime.h>
++#include <linux/macvlan.h>
++
++#include "venetdevice.h"
++
++#include <linux/in6.h>
++#include <asm/checksum.h>
++
++MODULE_AUTHOR("Patrick Mullaney");
++MODULE_LICENSE("GPL");
++
++#undef PDEBUG             /* undef it, just in case */
++#ifdef VENETMACVLAN_DEBUG
++#  define PDEBUG(fmt, args...) printk(KERN_DEBUG "venet-tap: " fmt, ## args)
++#else
++#  define PDEBUG(fmt, args...) /* not debugging: nothing */
++#endif
++
++struct venetmacv {
++	struct macvlan_dev mdev;
++	unsigned char ll_ifname[IFNAMSIZ];
++	struct venetdev dev;
++	const struct net_device_ops *macvlan_netdev_ops;
++};
++
++static inline struct venetmacv *conn_to_macv(struct vbus_connection *conn)
++{
++	return container_of(conn, struct venetmacv, dev.vbus.conn);
++}
++
++static inline
++struct venetmacv *venetdev_to_macv(struct venetdev *vdev)
++{
++	return container_of(vdev, struct venetmacv, dev);
++}
++
++static inline
++struct venetmacv *vbusintf_to_macv(struct vbus_device_interface *intf)
++{
++	return container_of(intf, struct venetmacv, dev.vbus.intf);
++}
++
++static inline
++struct venetmacv *vbusdev_to_macv(struct vbus_device *vdev)
++{
++	return container_of(vdev, struct venetmacv, dev.vbus.dev);
++}
++
++int
++venetmacv_tx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++
++	return venetdev_xmit(skb, &priv->dev);
++}
++
++static int venetmacv_receive(struct sk_buff *skb)
++{
++	struct venetmacv *priv = netdev_priv(skb->dev);
++	int err;
++
++	if (netif_queue_stopped(skb->dev)) {
++		PDEBUG("venetmacv_receive: queue congested - dropping..\n");
++		priv->dev.netif.stats.tx_dropped++;
++		return NET_RX_DROP;
 +	}
-+	port = lowerdev->macvlan_port;
++	err = skb_linearize(skb);
++	if (unlikely(err)) {
++		printk(KERN_WARNING "venetmacv_receive: linearize failure\n");
++		kfree_skb(skb);
++		return -1;
++	}
++	skb_push(skb, ETH_HLEN);
++	return venetmacv_tx(skb, skb->dev);
++}
 +
-+	vlan->lowerdev = lowerdev;
-+	vlan->dev      = dev;
-+	vlan->port     = port;
-+	vlan->receive  = netif_rx;
++static void
++venetmacv_vlink_release(struct vbus_connection *conn)
++{
++	struct venetmacv *macv = conn_to_macv(conn);
++	macvlan_unlink_lowerdev(macv->mdev.dev);
++	venetdev_vlink_release(conn);
++}
 +
-+	macvlan_init(dev);
++static void
++venetmacv_vlink_up(struct venetdev *vdev)
++{
++	struct venetmacv *macv = venetdev_to_macv(vdev);
++	int ret;
 +
-+	list_add_tail(&vlan->list, &port->vlans);
++	if (vdev->netif.link) {
++		rtnl_lock();
++		ret = macv->macvlan_netdev_ops->ndo_open(vdev->netif.dev);
++		rtnl_unlock();
++		if (ret)
++			printk(KERN_ERR "macvlanopen failed %d!\n", ret);
++	}
++}
++
++static void
++venetmacv_vlink_down(struct venetdev *vdev)
++{
++	struct venetmacv *macv = venetdev_to_macv(vdev);
++	int ret;
++
++	if (vdev->netif.link) {
++		rtnl_lock();
++		ret = macv->macvlan_netdev_ops->ndo_stop(vdev->netif.dev);
++		rtnl_unlock();
++		if (ret)
++			printk(KERN_ERR "macvlan close failed %d!\n", ret);
++	}
++}
++
++int
++venetmacv_vlink_call(struct vbus_connection *conn,
++					 unsigned long func,
++					 void *data,
++					 unsigned long len,
++					 unsigned long flags)
++{
++	struct venetdev *priv = conn_to_priv(conn);
++	int ret;
++
++	switch (func) {
++	case VENET_FUNC_LINKUP:
++		venetmacv_vlink_up(priv);
++		break;
++	case VENET_FUNC_LINKDOWN:
++		venetmacv_vlink_down(priv);
++		break;
++	}
++	ret = venetdev_vlink_call(conn, func, data, len, flags);
++	return ret;
++}
++
++static struct vbus_connection_ops venetmacv_vbus_link_ops = {
++	.call    = venetmacv_vlink_call,
++	.shm     = venetdev_vlink_shm,
++	.close   = venetdev_vlink_close,
++	.release = venetmacv_vlink_release,
++};
++
++/*
++ * This is called whenever a driver wants to open our device_interface
++ * for communication.  The connection is represented by a
++ * vbus_connection object.  It is up to the implementation to decide
++ * if it allows more than one connection at a time.  This simple example
++ * does not.
++ */
++
++static int
++venetmacv_intf_connect(struct vbus_device_interface *intf,
++					   struct vbus_memctx *ctx,
++					   int version,
++					   struct vbus_connection **conn)
++{
++	struct venetmacv *macv = vbusintf_to_macv(intf);
++	unsigned long flags;
++	int ret;
++
++	PDEBUG("connect\n");
++
++	if (version != VENET_VERSION)
++		return -EINVAL;
++
++	spin_lock_irqsave(&macv->dev.lock, flags);
++
++	/*
++	 * We only allow one connection to this device
++	 */
++	if (macv->dev.vbus.opened) {
++		spin_unlock_irqrestore(&macv->dev.lock, flags);
++		return -EBUSY;
++	}
++
++	kobject_get(intf->dev->kobj);
++
++	vbus_connection_init(&macv->dev.vbus.conn, &venetmacv_vbus_link_ops);
++
++	macv->dev.vbus.opened = true;
++	macv->dev.vbus.ctx = ctx;
++
++	vbus_memctx_get(ctx);
++
++	if (!macv->mdev.lowerdev)
++		return -ENXIO;
++
++	ret = macvlan_link_lowerdev(macv->mdev.dev, macv->mdev.lowerdev);
++
++	if (ret) {
++		printk(KERN_ERR "macvlan_link_lowerdev: failed\n");
++		return -ENXIO;
++	}
++
++	macvlan_transfer_operstate(macv->mdev.dev);
++
++	macv->mdev.receive = venetmacv_receive;
++
++	spin_unlock_irqrestore(&macv->dev.lock, flags);
++
++	*conn = &macv->dev.vbus.conn;
++
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(macvlan_link_lowerdev);
 +
-+void macvlan_unlink_lowerdev(struct net_device *dev)
++static void
++venetmacv_intf_release(struct vbus_device_interface *intf)
 +{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct macvlan_port *port = vlan->port;
-+
-+	list_del(&vlan->list);
-+
-+	if (list_empty(&port->vlans))
-+		macvlan_port_destroy(port->dev);
++	kobject_put(intf->dev->kobj);
 +}
-+EXPORT_SYMBOL_GPL(macvlan_unlink_lowerdev);
 +
-+int macvlan_newlink(struct net_device *dev,
-+		    struct nlattr *tb[], struct nlattr *data[])
++static struct vbus_device_interface_ops venetmacv_device_interface_ops = {
++	.connect = venetmacv_intf_connect,
++	.release = venetmacv_intf_release,
++};
++
++/*
++ * This is called whenever the admin creates a symbolic link between
++ * a bus in /config/vbus/buses and our device.  It represents a bus
++ * connection.  Your device can chose to allow more than one bus to
++ * connect, or it can restrict it to one bus.  It can also choose to
++ * register one or more device_interfaces on each bus that it
++ * successfully connects to.
++ *
++ * This example device only registers a single interface
++ */
++static int
++venetmacv_device_bus_connect(struct vbus_device *dev, struct vbus *vbus)
 +{
- 	struct net_device *lowerdev;
- 	int err;
- 
-@@ -502,23 +539,14 @@ int macvlan_newlink(struct net_device *dev,
- 	if (!tb[IFLA_ADDRESS])
- 		random_ether_addr(dev->dev_addr);
- 
--	if (lowerdev->macvlan_port == NULL) {
--		err = macvlan_port_create(lowerdev);
--		if (err < 0)
--			return err;
--	}
--	port = lowerdev->macvlan_port;
--
--	vlan->lowerdev = lowerdev;
--	vlan->dev      = dev;
--	vlan->port     = port;
--	vlan->receive  = netif_rx;
-+	err = macvlan_link_lowerdev(dev, lowerdev);
-+	if (err < 0)
-+		return err;
- 
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		return err;
- 
--	list_add_tail(&vlan->list, &port->vlans);
- 	macvlan_transfer_operstate(dev);
- 	return 0;
- }
-@@ -526,14 +554,8 @@ EXPORT_SYMBOL_GPL(macvlan_newlink);
- 
- void macvlan_dellink(struct net_device *dev)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
--	struct macvlan_port *port = vlan->port;
--
--	list_del(&vlan->list);
-+	macvlan_unlink_lowerdev(dev);
- 	unregister_netdevice(dev);
--
--	if (list_empty(&port->vlans))
--		macvlan_port_destroy(port->dev);
- }
- EXPORT_SYMBOL_GPL(macvlan_dellink);
- 
-diff --git a/include/linux/macvlan.h b/include/linux/macvlan.h
-index 3f3c6c3..cf8738a 100644
---- a/include/linux/macvlan.h
-+++ b/include/linux/macvlan.h
-@@ -24,6 +24,12 @@ struct macvlan_dev {
- };
- 
- extern int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev);
-+extern int macvlan_link_lowerdev(struct net_device *dev,
-+						  struct net_device *lowerdev);
++	struct venetdev *priv = vdev_to_priv(dev);
++	struct vbus_device_interface *intf = &priv->vbus.intf;
 +
-+extern void macvlan_unlink_lowerdev(struct net_device *dev);
++	/* We only allow one bus to connect */
++	if (priv->vbus.connected)
++		return -EBUSY;
 +
-+extern void macvlan_transfer_operstate(struct net_device *dev);
++	kobject_get(dev->kobj);
++
++	intf->name = "default";
++	intf->type = VENET_TYPE;
++	intf->ops = &venetmacv_device_interface_ops;
++
++	priv->vbus.connected = true;
++
++	/*
++	 * Our example only registers one interface.  If you need
++	 * more, simply call interface_register() multiple times
++	 */
++	return vbus_device_interface_register(dev, vbus, intf);
++}
++
++/*
++ * This is called whenever the admin removes the symbolic link between
++ * a bus in /config/vbus/buses and our device.
++ */
++static int
++venetmacv_device_bus_disconnect(struct vbus_device *dev, struct vbus *vbus)
++{
++	struct venetdev *priv = vdev_to_priv(dev);
++	struct vbus_device_interface *intf = &priv->vbus.intf;
++
++	if (!priv->vbus.connected)
++		return -EINVAL;
++
++	vbus_device_interface_unregister(intf);
++
++	priv->vbus.connected = false;
++	kobject_put(dev->kobj);
++
++	return 0;
++}
++
++static void
++venetmacv_device_release(struct vbus_device *dev)
++{
++	struct venetmacv *macv = vbusdev_to_macv(dev);
++
++	if (macv->mdev.lowerdev)
++		dev_put(macv->mdev.lowerdev);
++
++	venetdev_netdev_unregister(&macv->dev);
++	free_netdev(macv->mdev.dev);
++}
++
++
++static struct vbus_device_ops venetmacv_device_ops = {
++	.bus_connect = venetmacv_device_bus_connect,
++	.bus_disconnect = venetmacv_device_bus_disconnect,
++	.release = venetmacv_device_release,
++};
++
++#define VENETMACV_TYPE "venet-macvlan"
++static ssize_t
++ll_ifname_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct venetmacv *priv = vbusdev_to_macv(dev);
++	size_t len;
++
++	len = strlen(buf);
++
++	if (len >= IFNAMSIZ)
++		return -EINVAL;
++
++	if (priv->dev.vbus.opened)
++		return -EINVAL;
++
++	strncpy(priv->ll_ifname, buf, count-1);
++
++	if (priv->mdev.lowerdev) {
++		dev_put(priv->mdev.lowerdev);
++		priv->mdev.lowerdev = NULL;
++	}
++
++	priv->mdev.lowerdev = dev_get_by_name(dev_net(priv->mdev.dev),
++						priv->ll_ifname);
++
++	if (!priv->mdev.lowerdev)
++		return -ENXIO;
++
++	return len;
++}
++
++static ssize_t
++ll_ifname_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
++			   char *buf)
++{
++	struct venetmacv *priv = vbusdev_to_macv(dev);
++
++	return snprintf(buf, PAGE_SIZE, "%s\n", priv->ll_ifname);
++}
++
++static struct vbus_device_attribute attr_ll_ifname =
++__ATTR(ll_ifname, S_IRUGO | S_IWUSR, ll_ifname_show, ll_ifname_store);
++
++ssize_t
++clientmac_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
++		const char *buf, size_t count)
++{
++	struct venetmacv *macv = vbusdev_to_macv(dev);
++	int ret;
++
++	ret = attr_cmac.store(dev, attr, buf, count);
++
++	if (ret == count)
++		memcpy(macv->mdev.dev->dev_addr, macv->dev.cmac, ETH_ALEN);
++
++	return ret;
++}
++
++struct vbus_device_attribute attr_clientmac =
++	__ATTR(client_mac, S_IRUGO | S_IWUSR, client_mac_show, clientmac_store);
++
++static struct attribute *attrs[] = {
++	&attr_clientmac.attr,
++	&attr_enabled.attr,
++	&attr_burstthresh.attr,
++	&attr_txmitigation.attr,
++	&attr_ifname.attr,
++	&attr_ll_ifname.attr,
++	NULL,
++};
++
++static struct attribute_group venetmacv_attr_group = {
++	.attrs = attrs,
++};
++
++static int
++venetmacv_netdev_open(struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++	int ret = 0;
++
++	venetdev_open(&priv->dev);
++
++	if (priv->dev.vbus.link) {
++		rtnl_lock();
++		ret = priv->macvlan_netdev_ops->ndo_open(priv->mdev.dev);
++		rtnl_unlock();
++	}
++
++	return ret;
++}
++
++static int
++venetmacv_netdev_stop(struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++	int needs_stop = false;
++	int ret = 0;
++
++	if (priv->dev.netif.link)
++		needs_stop = true;
++
++	venetdev_stop(&priv->dev);
++
++	if (priv->dev.vbus.link && needs_stop) {
++		rtnl_lock();
++		ret = priv->macvlan_netdev_ops->ndo_stop(dev);
++		rtnl_unlock();
++	}
++
++	return ret;
++}
++
++/*
++ * out routine for macvlan
++ */
++
++static int
++venetmacv_out(struct venetdev *vdev, struct sk_buff *skb)
++{
++	struct venetmacv *macv = venetdev_to_macv(vdev);
++	skb->dev = macv->mdev.lowerdev;
++	skb->protocol = eth_type_trans(skb, macv->mdev.lowerdev);
++	skb_push(skb, ETH_HLEN);
++	return macv->macvlan_netdev_ops->ndo_start_xmit(skb, macv->mdev.dev);
++}
++
++static int
++venetmacv_netdev_tx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++
++	return venetmacv_out(&priv->dev, skb);
++}
++
++static struct net_device_stats *
++venetmacv_netdev_stats(struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++	return venetdev_get_stats(&priv->dev);
++}
++
++static int venetmacv_set_mac_address(struct net_device *dev, void *p)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++	int ret;
++
++	ret = priv->macvlan_netdev_ops->ndo_set_mac_address(dev, p);
++
++	if (!ret)
++		memcpy(priv->dev.cmac, p, ETH_ALEN);
++
++	return ret;
++}
++
++int venetmacv_change_mtu(struct net_device *dev, int new_mtu)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++
++	return priv->macvlan_netdev_ops->ndo_change_mtu(dev, new_mtu);
++}
++
++void venetmacv_change_rx_flags(struct net_device *dev, int change)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++
++	priv->macvlan_netdev_ops->ndo_change_rx_flags(dev, change);
++}
++
++void venetmacv_set_multicast_list(struct net_device *dev)
++{
++	struct venetmacv *priv = netdev_priv(dev);
++
++	priv->macvlan_netdev_ops->ndo_set_multicast_list(dev);
++}
++
++static struct net_device_ops venetmacv_netdev_ops = {
++	.ndo_open               = venetmacv_netdev_open,
++	.ndo_stop               = venetmacv_netdev_stop,
++	.ndo_set_config         = venetdev_netdev_config,
++	.ndo_change_mtu         = venetmacv_change_mtu,
++	.ndo_set_mac_address    = venetmacv_set_mac_address,
++	.ndo_change_rx_flags    = venetmacv_change_rx_flags,
++	.ndo_set_multicast_list = venetmacv_set_multicast_list,
++	.ndo_validate_addr      = eth_validate_addr,
++	.ndo_start_xmit         = venetmacv_netdev_tx,
++	.ndo_do_ioctl           = venetdev_netdev_ioctl,
++	.ndo_get_stats          = venetmacv_netdev_stats,
++};
++
++
++/*
++ * This is called whenever the admin instantiates our devclass via
++ * "mkdir /config/vbus/devices/$(inst)/venet-tap"
++ */
++static int
++venetmacv_device_create(struct vbus_devclass *dc,
++						struct vbus_device **vdev)
++{
++	struct net_device *dev;
++	struct venetmacv *priv;
++	struct vbus_device *_vdev;
++
++	dev = alloc_netdev(sizeof(struct venetmacv), "macvenet%d",
++					   macvlan_setup);
++
++	if (!dev)
++		return -ENOMEM;
++
++	priv = netdev_priv(dev);
++	memset(priv, 0, sizeof(*priv));
++
++	spin_lock_init(&priv->dev.lock);
++	random_ether_addr(priv->dev.cmac);
++	memcpy(priv->dev.hmac, priv->dev.cmac, ETH_ALEN);
++
++	/*
++	 * vbus init
++	 */
++	_vdev = &priv->dev.vbus.dev;
++
++	_vdev->type            = VENETMACV_TYPE;
++	_vdev->ops             = &venetmacv_device_ops;
++	_vdev->attrs           = &venetmacv_attr_group;
++
++	venetdev_init(&priv->dev, dev);
++
++	priv->mdev.dev = dev;
++	priv->dev.netif.out = venetmacv_out;
++
++	priv->macvlan_netdev_ops = dev->netdev_ops;
++	dev->netdev_ops = &venetmacv_netdev_ops;
++
++	*vdev = _vdev;
++
++	return 0;
++}
++
++static struct vbus_devclass_ops venetmacv_devclass_ops = {
++	.create = venetmacv_device_create,
++};
++
++static struct vbus_devclass venetmacv_devclass = {
++	.name = VENETMACV_TYPE,
++	.ops = &venetmacv_devclass_ops,
++	.owner = THIS_MODULE,
++};
++
++static int __init venetmacv_init(void)
++{
++	return vbus_devclass_register(&venetmacv_devclass);
++}
++
++static void __exit venetmacv_cleanup(void)
++{
++	vbus_devclass_unregister(&venetmacv_devclass);
++}
++
++module_init(venetmacv_init);
++module_exit(venetmacv_cleanup);
++
+diff --git a/kernel/vbus/devices/venet/venetdevice.h b/kernel/vbus/devices/venet/venetdevice.h
+index 71c9f0f..1a74723 100644
+--- a/kernel/vbus/devices/venet/venetdevice.h
++++ b/kernel/vbus/devices/venet/venetdevice.h
+@@ -173,4 +173,11 @@ extern struct vbus_device_attribute attr_ifname;
+ extern struct vbus_device_attribute attr_txmitigation;
+ extern struct vbus_device_attribute attr_zcthresh;
  
- extern void macvlan_setup(struct net_device *dev);
- 
++ssize_t cmac_store(struct vbus_device *dev,
++		struct vbus_device_attribute *attr,
++		 const char *buf, size_t count);
++ssize_t client_mac_show(struct vbus_device *dev,
++			struct vbus_device_attribute *attr, char *buf);
++
++
+ #endif
