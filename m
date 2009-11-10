@@ -1,45 +1,92 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next-2.6 PATCH v5 3/5 RFC] TCPCT part1c: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS, functions
-Date: Tue, 10 Nov 2009 07:31:37 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911100706120.7059@melkinpaasi.cs.helsinki.fi>
-References: <4AF83E2D.1050401@gmail.com> <4AF84458.9070000@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] net: fix incorrect counting in __scm_destroy()
+Date: Tue, 10 Nov 2009 14:12:49 +0800
+Message-ID: <4AF90461.5090800@redhat.com>
+References: <20091104100717.4785.57149.sendpatchset@localhost.localdomain>	<4AF15771.8060204@gmail.com> <20091104.044116.37320720.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56760 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbZKJFbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 00:31:33 -0500
-In-Reply-To: <4AF84458.9070000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751688AbZKJGJ4@vger.kernel.org>
+In-Reply-To: <20091104.044116.37320720.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Nov 2009, William Allen Simpson wrote:
-
-> Define sysctl (tcp_cookie_size) to turn on and off the cookie option
-> default globally, instead of a compiled configuration option.
+David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 04 Nov 2009 11:29:05 +0100
 > 
-> Define per socket option (TCP_COOKIE_TRANSACTIONS) for setting constant
-> data values, retrieving variable cookie values, and other facilities.
+>> Given we kfree(fpl) at the end of loop, we cannot recursively call
+>> __scm_destroy() on same fpl, it would be a bug anyway ?
+>>
+>> So you probably need something better, like testing fpl->list being
+>> not re-included in current->scm_work_list before kfree() it
+> 
+> I can't even see what the problem is.
+> 
+> The code is designed such that the ->count only matters for
+> the top level.
+> 
+> If we recursively fput() and get back here, we'll see that
+> there is someone higher in the call chain already running
+> the fput() loop and we'll just list_add_tail().
+> 
+> The inner while() loop will make sure we process such
+> entries once we get back to the top level and exit the
+> for() loop.
+> 
+> Amerigo, please show us the problematic code path where the counts go
+> wrong and this causes problems.
 
-I guess most of the cookie stuff have nothing to do with the next, 
-please make them separate:
+Hi, all.
 
-> Redefine two TCP header functions to accept TCP header pointer.
-> When subtracting, return signed int to allow error checking.
+Thanks for your replies.
 
-Convert the users here, not in the fifth patch to avoid noise in the large 
-fifth patch.
+I met a soft lockup around this code on ia64, something like:
 
-And, I read more that fifth patch... seriously, please consider now to 
-apply _all_ the coding style changes that have been brought to your 
-attention by multiple people (you should know them now but for some reason 
-again you choose to resent without complying -- I guess on purpose) into 
-all upcoming patches you submit.
+  [<a0000001006394e0>] unix_gc+0x240/0x760
+                                 sp=e0000260f002fd70 bsp=e0000260f0029560
+  [<a000000100634500>] unix_release_sock+0x440/0x460
+                                 sp=e0000260f002fdb0 bsp=e0000260f0029508
+  [<a000000100634560>] unix_release+0x40/0x60
+                                 sp=e0000260f002fdb0 bsp=e0000260f00294e8
+  [<a00000010051fba0>] sock_release+0x80/0x1c0
+                                 sp=e0000260f002fdb0 bsp=e0000260f00294c0
+  [<a00000010051fd60>] sock_close+0x80/0xa0
+                                 sp=e0000260f002fdc0 bsp=e0000260f0029498
+  [<a000000100172280>] __fput+0x1a0/0x420
+                                 sp=e0000260f002fdc0 bsp=e0000260f0029458
+  [<a000000100172540>] fput+0x40/0x60
+                                 sp=e0000260f002fdc0 bsp=e0000260f0029438
+  [<a000000100534a30>] __scm_destroy+0x130/0x1e0
+                                 sp=e0000260f002fdc0 bsp=e0000260f0029410
+  [<a000000100636370>] unix_destruct_fds+0x70/0xa0
+                                 sp=e0000260f002fdd0 bsp=e0000260f00293e8
+  [<a00000010052da30>] __kfree_skb+0x1f0/0x320
+                                 sp=e0000260f002fe00 bsp=e0000260f00293c0
+  [<a00000010052dbf0>] kfree_skb+0x90/0xc0
+                                 sp=e0000260f002fe00 bsp=e0000260f00293a0
+  [<a000000100634420>] unix_release_sock+0x360/0x460
+                                 sp=e0000260f002fe00 bsp=e0000260f0029348
+  [<a000000100634560>] unix_release+0x40/0x60
+                                 sp=e0000260f002fe00 bsp=e0000260f0029328
+  [<a00000010051fba0>] sock_release+0x80/0x1c0
+                                 sp=e0000260f002fe00 bsp=e0000260f0029300
+  [<a00000010051fd60>] sock_close+0x80/0xa0
+                                 sp=e0000260f002fe10 bsp=e0000260f00292d8
+  [<a000000100172280>] __fput+0x1a0/0x420
+                                 sp=e0000260f002fe10 bsp=e0000260f0029298
+  [<a000000100172540>] fput+0x40/0x60
+                                 sp=e0000260f002fe10 bsp=e0000260f0029278
 
--- 
- i.
+
+Yes, this even happens after commit f8d570a47.
+
+But after doing a bisect, we found another hrtimer patch fixes this
+problem, so it's not a bug of __scm_destroy().
+
+Sorry for the noise.
+
+Thanks.
