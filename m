@@ -1,92 +1,69 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 10 Nov 2009 11:38:20 +1030
-Message-ID: <200911101138.20569.rusty@rustcorp.com.au>
-References: <cover.1257349249.git.mst@redhat.com> <200911091647.29655.rusty@rustcorp.com.au> <8f53421d0911082310n1f5f487ew8c2c03d2e1d7ca5c@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] check the return value of ndo_select_queue()
+Date: Tue, 10 Nov 2009 09:42:01 +0800
+Message-ID: <4AF8C4E9.3030907@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- s.hetze@linux-ag.com,
- Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <8f53421d0911082310n1f5f487ew8c2c03d2e1d7ca5c@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiaosuo <xiaosuo@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:35581 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112AbZKJBmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 20:42:03 -0500
+Received: by ywh40 with SMTP id 40so3092467ywh.33
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2009 17:42:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 9 Nov 2009 05:40:32 pm Michael S. Tsirkin wrote:
-> On Mon, Nov 9, 2009 at 8:17 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> > There's something about the 'acked' which rubs me the wrong way.
-> > "enabled_features" is perhaps a better term than "acked_features"; "acked"
-> > seems more a user point-of-view, "enabled" seems more driver POV?
-> 
-> Hmm. Are you happy with the ioctl name? If yes I think being consistent
-> with that is important.
+check the return value of ndo_select_queue()
 
-I think in my original comments I noted that I preferred GET / SET, rather
-than GET/ACK.
+Check the return value of ndo_select_queue(). If the value isn't smaller
+than the real_num_tx_queues, print a warning message, and reset it to zero.
 
-> > Actually, this looks wrong to me:
-> >
-> > +       case VHOST_SET_VRING_BASE:
-> > ...
-> > +               vq->avail_idx = vq->last_avail_idx = s.num;
-> >
-> > The last_avail_idx is part of the state of the driver.  It needs to be saved
-> > and restored over susp/resume.
-> 
-> 
-> Exactly. That's what VHOST_GET/SET_VRING_BASE does.  avail_idx is just a
-> cached value for notify on empty, so what this does is clear the value.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+net/core/dev.c | 24 ++++++++++++++++++------
+1 file changed, 18 insertions(+), 6 deletions(-)
 
-Ah, you actually refresh it every time anyway.  Hmm, could you do my poor
-brain a favor and either just get_user it in vhost_trigger_irq(), or call
-it 'cached_avail_idx' or something?
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8f74cf..be081a5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1791,13 +1791,25 @@ EXPORT_SYMBOL(skb_tx_hash);
+ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 					struct sk_buff *skb)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
+-	u16 queue_index = 0;
+-
+-	if (ops->ndo_select_queue)
+-		queue_index = ops->ndo_select_queue(dev, skb);
+-	else if (dev->real_num_tx_queues > 1)
++	u16 queue_index;
++	u16 (*ndo_select_queue)(struct net_device*, struct sk_buff*);
++	unsigned int real_num_tx_queues = dev->real_num_tx_queues;
++
++	if (real_num_tx_queues == 1) {
++		queue_index = 0;
++	} else if ((ndo_select_queue = dev->netdev_ops->ndo_select_queue)) {
++		queue_index = ndo_select_queue(dev, skb);
++		if (unlikely(queue_index >= real_num_tx_queues)) {
++			if (net_ratelimit())
++				WARN(1, "%s selects TX queue %d, "
++				     "but real number of TX queues is %d\n",
++				     dev->name, queue_index,
++				     real_num_tx_queues);
++			queue_index = 0;
++		}
++	} else {
+ 		queue_index = skb_tx_hash(dev, skb);
++	}
+ 
+ 	skb_set_queue_mapping(skb, queue_index);
+ 	return netdev_get_tx_queue(dev, queue_index);
 
-> >  The only reason it's not in the ring itself
-> > is because I figured the other side doesn't need to see it (which is true, but
-> > missed debugging opportunities as well as man-in-the-middle issues like this
-> > one).  I had a patch which put this field at the end of the ring, I might
-> > resurrect it to avoid this problem.  This is backwards compatible with all
-> > implementations.  See patch at end.
-> 
-> Yes, I remember that patch. There seems to be little point though, at
-> this stage.
 
-Well, it avoids this ioctl, by exposing all the state.  We may well need it
-later, to expand the ring in other ways.
-
-> > I would drop avail_idx altogether: get_user is basically free, and simplifies
-> > a lot.  As most state is in the ring, all you need is an ioctl to save/restore
-> > the last_avail_idx.
-> 
-> avail_idx is there for notify on empty: I had this thought that it's
-> better to leave the avail cache line alone when we are triggering
-> interrupt to avoid bouncing it around if guest is updating it meanwhile
-> on another CPU, and I think my testing showed that it helped
-> performance, but could be a mistake.  You don't believe this can help?
-
-I believe it could help, but this is YA case where it would have been nice to
-have a dumb basic patch and this as a patch on top.  But I am going to ask
-you to re-run that measurement, see if it stacks up (because it's an
-interesting lesson if it does..)
-
-Thanks!
-Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
