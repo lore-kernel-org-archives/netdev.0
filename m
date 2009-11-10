@@ -1,55 +1,57 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Libertas related kernel crash
-Date: Mon, 09 Nov 2009 23:04:25 -0800
-Message-ID: <1257836665.19597.3.camel@localhost.localdomain>
-References: <20091105120549.GQ14091@buzzloop.caiaq.de>
-	 <20091109155354.GC14091@buzzloop.caiaq.de>
-	 <1257835893.15493.37.camel@localhost.localdomain>
-	 <20091110065457.GL14091@buzzloop.caiaq.de>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 01/75] netx: declare MODULE_FIRMWARE
+Date: Tue, 10 Nov 2009 08:36:08 +0100
+Message-ID: <20091110073608.GR30179@pengutronix.de>
+References: <1257629856.15927.370.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, libertas-dev@lists.infradead.org,
-	Michael Hirsch <m.hirsch@raumfeld.com>,
-	linux-kernel@vger.kernel.org
-To: Daniel Mack <daniel@caiaq.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28290 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751428AbZKJHEg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 02:04:36 -0500
-In-Reply-To: <20091110065457.GL14091@buzzloop.caiaq.de>
+Received: from fmmailgate01.web.de ([217.72.192.221]:58966 "EHLO
+	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbZKJHgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 02:36:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1257629856.15927.370.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-10 at 07:54 +0100, Daniel Mack wrote:
-> On Mon, Nov 09, 2009 at 10:51:33PM -0800, Dan Williams wrote:
-> > On Mon, 2009-11-09 at 16:53 +0100, Daniel Mack wrote:
-> > > On Thu, Nov 05, 2009 at 01:05:49PM +0100, Daniel Mack wrote:
-> > > > On an ARM (PXA300) embdedded platform with a libertas chip connected via
-> > > > SDIO, we happen to see the kernel Ooops below once in a while.
-> > > > 
-> > > > Any pointer on where to dig?
-> > > 
-> > > Some more input on this. Oopses similar to the one below are likely
-> > > triggered when switching from Ad-hoc to managed mode multiple times in a
-> > > row, and something seems corrupt the memory badly. I've searched for the
-> > > obvious (double frees, out-of-bound writes etc), but I couldn't find
-> > > anything yet. It is, however, related to the wireless core and/or the
-> > > libertas driver.
-> > 
-> > Probably just libertas.  Any chance you can enable debugging options
-> > (either in libertas, or in the kernel allocator) to help narrow down the
-> > issue?
+On Sat, Nov 07, 2009 at 09:37:36PM +0000, Ben Hutchings wrote:
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+> Note that the filenames are generated in xc_request_firmware(), defined
+> in arch/arm/mach-netx/xc.c.  I'm not sure whether it's actually worth
+> doing this for a platform driver.
+
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+
 > 
-> Sure. I already enabled DEBUG_VM, but that didn't spit out anything
-> before it crashes. Which other debug flags would you recommend to set?
+> Ben.
+> 
+>  drivers/net/netx-eth.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
+> index 9f42354..a0d65f5 100644
+> --- a/drivers/net/netx-eth.c
+> +++ b/drivers/net/netx-eth.c
+> @@ -510,3 +510,6 @@ module_exit(netx_eth_cleanup);
+>  MODULE_AUTHOR("Sascha Hauer, Pengutronix");
+>  MODULE_LICENSE("GPL");
+>  MODULE_ALIAS("platform:" CARDNAME);
+> +MODULE_FIRMWARE("xc0.bin");
+> +MODULE_FIRMWARE("xc1.bin");
+> +MODULE_FIRMWARE("xc2.bin");
+> -- 
+> 1.6.5.2
+> 
+> 
+> 
+> 
 
-Offhand I don't actually know; but ISTR there used to be slab debugging
-options in the kernel that could help find memory corruption issues.  I
-can't think of anything in libertas offhand that would trigger this, but
-maybe something is not getting properly cleaned up when switching modes?
-
-Dan
-
-
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
