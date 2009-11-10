@@ -1,80 +1,139 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Tue, 10 Nov 2009 09:23:28 -0800
-Message-ID: <20091110092328.336cf60e@nehalam>
-References: <20091016003245.GD29672@ldl.fc.hp.com>
-	<EDA0A4495861324DA2618B4C45DCB3EE589579@blrx3m08.blr.amer.dell.com>
-	<20091016152053.GA9862@ldl.fc.hp.com>
-	<1255707193.2869.12.camel@achroite>
-	<20091016214024.GA10091@ldl.fc.hp.com>
-	<EDA0A4495861324DA2618B4C45DCB3EE5895AF@blrx3m08.blr.amer.dell.com>
-	<4ADC906E.2050909@kadzban.is-a-geek.net>
-	<EDA0A4495861324DA2618B4C45DCB3EE5896D2@blrx3m08.blr.amer.dell.com>
-	<20091106084921.GA16700@bongo.bofh.it>
-	<20091106220637.GB15533@mock.linuxdev.us.dell.com>
-	<20091106223524.GA27121@bongo.bofh.it>
-	<EDA0A4495861324DA2618B4C45DCB3EE589727@blrx3m08.blr.amer.dell.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: RFC: net: allow to propagate errors through ->ndo_hard_start_xmit()
+Date: Tue, 10 Nov 2009 18:31:27 +0100
+Message-ID: <4AF9A36F.7070807@trash.net>
+References: <4AF87070.6020007@trash.net> <20091110170838.GA4195@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: <md@Linux.IT>, <Matt_Domsch@Dell.com>,
-	<bryan@kadzban.is-a-geek.net>, <dannf@hp.com>,
-	<bhutchings@solarflare.com>, <netdev@vger.kernel.org>,
-	<linux-hotplug@vger.kernel.org>, <Jordan_Hargrave@Dell.com>,
-	<Charles_Rose@Dell.com>, <Sandeep_K_Shandilya@Dell.com>
-To: <Narendra_K@Dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE589727@blrx3m08.blr.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:41025 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756447AbZKJRb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 12:31:27 -0500
+In-Reply-To: <20091110170838.GA4195@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 9 Nov 2009 20:11:47 +0530
-<Narendra_K@Dell.com> wrote:
-
+Jarek Poplawski wrote:
+> On Mon, Nov 09, 2009 at 08:41:36PM +0100, Patrick McHardy wrote:
+>> I've updated my patch to propagate error values (errno and NET_XMIT
+>> codes) through ndo_hard_start_xmit() and incorporated the suggestions
+>> made last time, namely:
+>>
+>> - move slightly complicated return value check to inline function and
+>>   add a few comments
+>>
+>> - fix error handling while in the middle of transmitting GSO skbs
+>>
+>> I've also audited the tree once again for invalid return values and
+>> found a single remaining instance in a Wimax driver, I'll take care
+>> of that later.
+>>
+>> Two questions remain:
+>>
+>> - I'm not sure the error handling in dev_hard_start_xmit() for GSO
+>>   skbs is optimal. When the driver returns an error, it is assumed
+>>   the current segment has been freed. The patch then frees the
+>>   entire GSO skb, including all remaining segments. Alternatively
+>>   it could try to transmit the remaining segments later.
 > 
-> >> > As a distribution developer I highly value solutions like 
-> >this which 
-> >> > do not require patching every application which deals with 
-> >interface 
-> >> > names and then teaching users about aliases which only 
-> >work in some 
-> >> > places and are unknown to the kernel.
-> >> Fair enough - but would you object if we changed the naming scheme 
-> >> from eth%d to something else?
-> >I suppose that this would depend on what else. :-) Since you 
-> >want radical changes I recommend that you design the new 
-> >persistent naming infrastructure in a way that will allow root 
-> >to choose to use the classic naming scheme, or many users will 
-> >scream a lot and at least some distributions will do it anyway.
-> >I also expect that providing choice at the beginning of 
-> >development may lead to more acceptance later if and when the 
-> >new scheme will have proved itself to be superior (at least in 
-> >some situations).
-> >You have tought about this for a long time and if so far you 
-> >have not found a solution which is widely considered superior 
-> >then I doubt that one will appear soon. Providing your 
-> >favourite naming scheme as an optional add on will immediately 
-> >benefit those who like it and greatly reduce opposition from 
-> >those who do not.
+> Anyway, it seems this freeing should be described in the changelog,
+> if not moved to a separate patch, since it fixes another problem,
+> unless I forgot something.
+
+What other problem are you refering to? I'm not aware of any
+problems in the existing function.
+
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index bf629ac..1f5752d 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1756,7 +1756,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+>>  			struct netdev_queue *txq)
+>>  {
+>>  	const struct net_device_ops *ops = dev->netdev_ops;
+>> -	int rc;
+>> +	int rc = NETDEV_TX_OK;
 > 
-> In that way, I suppose char device node solution fits the scheme
-> perfectly. It doesn't change or interfere with the kernel's default
-> naming scheme (ethN) in any way. Also, the applications continue to work
-> the way they did and in addition to supporting traditional names, they
-> would also support pathnames. Whether all the user space applications
-> need to be patched can be discussed and debated. But, we can patch
-> applications like, installers and firewall code, which when don't see
-> determinism ("eth0 mapping to integrated port 1"), fail and cause very
-> high impact could be patched. Since users are already familiar with
-> pathnames like /dev/disk/by-id{label, uuid}, I suppose it might not be
-> very difficult to get used to pathnames like
-> /dev/netdev/by-chassis-label/Embedded_NIC_1. Would that be acceptable ?
->
+> Isn't it enough to add this in one place only: before this
+> "goto out_kfree_skb"?
 
-IFNAMSIZ = 16 is hardwired as part of the kernel binary user space API.
+Its only exists once in the version I sent out earlier.
 
-Have you observed that the only developers arguing for this come from
-outside the normal circle of networking? It seems to be favored only
-by those who come to networking from a system or disk point of view.
+>>  	if (likely(!skb->next)) {
+>>  		if (!list_empty(&ptype_all))
+>> @@ -1804,6 +1804,8 @@ gso:
+>>  		nskb->next = NULL;
+>>  		rc = ops->ndo_start_xmit(nskb, dev);
+>>  		if (unlikely(rc != NETDEV_TX_OK)) {
+>> +			if (rc & ~NETDEV_TX_MASK)
+>> +				goto out_kfree_gso_skb;
+> 
+> If e.g. (rc == NETDEV_TX_OK | NET_XMIT_CN), why exactly is this freeing
+> necessary now?
+> 
+> Is e.g. (rc == NETDEV_TX_BUSY | NET_XMIT_CN) legal? If so, there would
+> be use after kfree, I guess. Otherwise, it should be documented above
+> (and maybe checked somewhere as well).
 
--- 
+NET_XMIT_CN is a valid return value, yes. But its not freeing the
+transmitted segment but the remaining ones. Its not strictly
+necessary, but its the easiest way to treat all errors similar.
+Otherwise you get complicated cases, f.i. when the driver returns
+NET_XMIT_CN for the first segment and NETDEV_TX_OK for the
+remaining ones.
+
+>>  			nskb->next = skb->next;
+>>  			skb->next = nskb;
+>>  			return rc;
+>> @@ -1813,11 +1815,14 @@ gso:
+>>  			return NETDEV_TX_BUSY;
+>>  	} while (skb->next);
+>>  
+>> -	skb->destructor = DEV_GSO_CB(skb)->destructor;
+>> +	rc = NETDEV_TX_OK;
+> 
+> When is (rc != NETDEV_TX_OK) possible in this place?
+
+Its gone in the current version.
+
+>> +out_kfree_gso_skb:
+>> +	if (likely(skb->next == NULL))
+>> +		skb->destructor = DEV_GSO_CB(skb)->destructor;
+>>  out_kfree_skb:
+>>  	kfree_skb(skb);
+>> -	return NETDEV_TX_OK;
+>> +	return rc;
+>>  }
+>> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+>> index 4ae6aa5..b13821a 100644
+>> --- a/net/sched/sch_generic.c
+>> +++ b/net/sched/sch_generic.c
+>> @@ -120,8 +120,15 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+>>  
+>>  	HARD_TX_LOCK(dev, txq, smp_processor_id());
+>>  	if (!netif_tx_queue_stopped(txq) &&
+>> -	    !netif_tx_queue_frozen(txq))
+>> +	    !netif_tx_queue_frozen(txq)) {
+>>  		ret = dev_hard_start_xmit(skb, dev, txq);
+>> +
+>> +		/* an error implies that the skb was consumed */
+>> +		if (ret < 0)
+>> +			ret = NETDEV_TX_OK;
+> 
+>   +		else (?)
+
+Another branch vs. an unconditional and operation. I chose the later.
+
+>> +		/* all NET_XMIT codes map to NETDEV_TX_OK */
+>> +		ret &= ~NET_XMIT_MASK;
+>> +	}
+>>  	HARD_TX_UNLOCK(dev, txq);
+>>  
+>>  	spin_lock(root_lock);
