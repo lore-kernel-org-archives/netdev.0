@@ -1,37 +1,35 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/10] netdev: get rid of read_lock(&dev_base_lock) usages
-Date: Tue, 10 Nov 2009 19:39:20 +0100
-Message-ID: <4AF9B358.9030006@gmail.com>
-References: <20091110175446.280423729@vyatta.com>	<4AF9AE66.3010303@gmail.com> <20091110102442.733c22bc@nehalam>
+Subject: Re: [PATCH 06/10] s390: use RCU to walk list of network devices
+Date: Tue, 10 Nov 2009 19:40:42 +0100
+Message-ID: <4AF9B3AA.6070104@gmail.com>
+References: <20091110175446.280423729@vyatta.com> <20091110175647.547660685@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	netdev@vger.kernel.org, linux390@de.ibm.com
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50608 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50613 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757583AbZKJSjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:39:17 -0500
-In-Reply-To: <20091110102442.733c22bc@nehalam>
+	with ESMTP id S1757312AbZKJSkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:40:40 -0500
+In-Reply-To: <20091110175647.547660685@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Stephen Hemminger a =E9crit :
-> I was just trying to pick up the stragglers you left behind :-)
+> This is similar to other cases where for_each_netdev_rcu
+> can be used when gathering information.
 >=20
-> The nasty cases left are bonding (whose existing locking model is a p=
-ile
-> of crap), and sysfs (slightly less stinky). The bonding code just nee=
-ds to
-> be rewritten to have a sane/simple model.=20
+> By inspection, don't have platform or cross-build environment
+> to validate.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
 >=20
 
-I was thinking of improving bonding, so it might be good to coordinate =
-our work :)
-
-1) Get rid of rwlock in tx fast path. (RCU ? did I said RCU)
-
-2) multi queue support (Got two dual 82599 dual ports cards from Intel =
-:) )
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
