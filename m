@@ -1,139 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Tue, 10 Nov 2009 13:53:35 +0200
-Message-ID: <20091110115335.GC6989@redhat.com>
-References: <20091002141407.30224.54207.stgit@dev.haskins.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Tue, 10 Nov 2009 20:14:09 +0800
+Message-ID: <412e6f7f0911100414w7b6f45aap39f6568b7af2c1a7@mail.gmail.com>
+References: <4AF924A5.1050303@gmail.com> <4AF92D6D.8060300@gmail.com>
+	 <412e6f7f0911100143k68284faes92e39d8ca94aa9d4@mail.gmail.com>
+	 <4AF9471C.5080606@gmail.com>
+	 <412e6f7f0911100314i33d6a49dl5163b5e8472babcf@mail.gmail.com>
+	 <4AF95174.3060104@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herbert.xu@redhat.com
-To: Gregory Haskins <ghaskins@novell.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752220AbZKJL4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 06:56:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20091002141407.30224.54207.stgit@dev.haskins.net>
+Received: from mail-pz0-f188.google.com ([209.85.222.188]:48634 "EHLO
+	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752220AbZKJMOE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 07:14:04 -0500
+Received: by pzk26 with SMTP id 26so2796193pzk.4
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 04:14:09 -0800 (PST)
+In-Reply-To: <4AF95174.3060104@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 02, 2009 at 10:20:00AM -0400, Gregory Haskins wrote:
-> (Applies to davem/net-2.6.git:4fdb78d30)
-> 
-> Hi David, netdevs,
-> 
-> The following is an RFC for an attempt at addressing a zero-copy solution.
-> 
-> To be perfectly honest, I have no idea if this is the best solution, or if
-> there is truly a problem with skb->destructor that requires an alternate
-> mechanism.  What I do know is that this patch seems to work, and I would
-> like to see some kind of solution available upstream.  So I thought I would
-> send my hack out as at least a point of discussion.  FWIW: This has been
-> tested heavily in my rig and is technically suitable for inclusion after
-> review as is, if that is decided to be the optimal path forward here.
-> 
-> Thanks for your review and consideration,
-> 
-> Kind regards,
-> -Greg
-> 
-> ----------------------------------------
-> From: Gregory Haskins <ghaskins@novell.com>
-> Subject: [RFC PATCH] net: add dataref destructor to sk_buff
-> 
-> What: The skb->destructor field is reportedly unreliable for ensuring
-> that all shinfo users have dropped their references.  Therefore, we add
-> a distinct ->release() method for the shinfo structure which is closely
-> tied to the underlying page resources we want to protect.
-> 
-> Why: We want to add zero-copy transmit support for AlacrityVM guests.
-> In order to support this, the host kernel must map guest pages directly
-> into a paged-skb and send it as normal.  put_page() alone is not
-> sufficient lifetime management since the pages are ultimately allocated
-> from within the guest.  Therefore, we need higher-level notification
-> when the skb is finally freed on the host so we can then inject a proper
-> "tx-complete" event into the guest context.
-> 
-> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
-> ---
-> 
->  include/linux/skbuff.h |    2 ++
->  net/core/skbuff.c      |    9 +++++++++
->  2 files changed, 11 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index df7b23a..02cdab6 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -207,6 +207,8 @@ struct skb_shared_info {
->  	/* Intermediate layers must ensure that destructor_arg
->  	 * remains valid until skb destructor */
->  	void *		destructor_arg;
-> +	void *          priv;
-> +	void           (*release)(struct sk_buff *skb);
->  };
->  
->  /* We divide dataref into two halves.  The higher 16 bits hold references
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 80a9616..a7e40a9 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -219,6 +219,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
->  	shinfo->tx_flags.flags = 0;
->  	skb_frag_list_init(skb);
->  	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
-> +	shinfo->release = NULL;
-> +	shinfo->priv = NULL;
->  
->  	if (fclone) {
->  		struct sk_buff *child = skb + 1;
-> @@ -350,6 +352,9 @@ static void skb_release_data(struct sk_buff *skb)
->  		if (skb_has_frags(skb))
->  			skb_drop_fraglist(skb);
->  
-> +		if (skb_shinfo(skb)->release)
-> +			skb_shinfo(skb)->release(skb);
-> +
->  		kfree(skb->head);
->  	}
->  }
-> @@ -514,6 +519,8 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
->  	shinfo->tx_flags.flags = 0;
->  	skb_frag_list_init(skb);
->  	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
-> +	shinfo->release = NULL;
-> +	shinfo->priv = NULL;
->  
->  	memset(skb, 0, offsetof(struct sk_buff, tail));
->  	skb->data = skb->head + NET_SKB_PAD;
-> @@ -856,6 +863,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
->  	skb->hdr_len  = 0;
->  	skb->nohdr    = 0;
->  	atomic_set(&skb_shinfo(skb)->dataref, 1);
-> +	skb_shinfo(skb)->release = NULL;
-> +	skb_shinfo(skb)->priv = NULL;
->  	return 0;
->  
->  nodata:
+On Tue, Nov 10, 2009 at 7:41 PM, Patrick McHardy <kaber@trash.net> wrot=
+e:
+> Changli Gao wrote:
+>> 2009/11/10 Eric Dumazet <eric.dumazet@gmail.com>:
+>>
+>> The whole ifb.c file is attached, please review and test it. Thanks!
+>
+>> /* Number of TX queues per ifb */
+>> static int numtxqs =3D 1;
+>> module_param(numtxqs, int, 0444);
+>> MODULE_PARM_DESC(numtxqs, "Number of TX queues per ifb");
+>
+> Module parameters suck as a configuration API. The existing numifbs
+> option exists purely for compatibility reasons, I'd prefer if you'd
+> this to the netlink interface.
 
-This is basically subset of the skb data destructors patch, isn't it?
-Last time this was tried, this is the objection that was voiced:
+How to do that? I haven't found any examples. Is there a interface to
+config the number of the TX queues of a NIC.
 
-	The problem with this patch is that it's tracking skb's, while
-	you want use it to track pages for zero-copy.  That just doesn't
-	work.  Through mechanisms like splice, individual pages in the
-	skb can be detached and metastasize to other locations, e.g.,
-	the VFS.
+>
+>> static int __init ifb_init_one(int index)
+>> {
+>> =C2=A0 =C2=A0 =C2=A0 struct net_device *dev_ifb;
+>> =C2=A0 =C2=A0 =C2=A0 int err;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 dev_ifb =3D alloc_netdev_mq(sizeof(struct ifb_p=
+rivate) * numtxqs, "ifb%d",
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ifb_setup, numtxqs);
+>>
+>
+> This won't work for the rtnl_link setup since the size must
+> be constant.
+>
 
-and I think this applies here. In other words, this only *seems*
-to work for you because you are not trying to do things like
-guest to host communication, with host doing smart things.
+Does this work?
 
-Cc Herbert which was involved in the original discussion.
+        ifb_link_ops.priv_size =3D sizeof(struct ifb_private) * numtxqs=
+;
+        rtnl_lock();
+        err =3D __rtnl_link_register(&ifb_link_ops);
 
-In the specific case, it seems that things like pskb_copy,
-skb_split and others will also be broken, won't they?
-
--- 
-MST
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
