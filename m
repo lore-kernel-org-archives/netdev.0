@@ -1,31 +1,18 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] check the return value of ndo_select_queue()
-Date: Tue, 10 Nov 2009 04:43:33 +0100
-Message-ID: <4AF8E165.6000801@gmail.com>
-References: <4AF8C4E9.3030907@gmail.com>
+From: "Sadie Wilcox" <alana.quash@sthreparaciones.com.ar>
+Subject: Bigger tool with less efforts
+Date: Tue, 10 Nov 2009 01:48:42 -0300
+Message-ID: <20091110014842.7040500@sthreparaciones.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57657 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085AbZKJDnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 22:43:31 -0500
-In-Reply-To: <4AF8C4E9.3030907@gmail.com>
+Received: from [200.195.36.249] ([200.195.36.249]:3782 "HELO wergvan"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752430AbZKJDtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Nov 2009 22:49:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao a =A8=A6crit :
-> check the return value of ndo_select_queue()
->=20
-> Check the return value of ndo_select_queue(). If the value isn't smal=
-ler
-> than the real_num_tx_queues, print a warning message, and reset it to=
- zero.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Drive her wet and crazy http://kwyru.gimpyfhaycs.com/
 
