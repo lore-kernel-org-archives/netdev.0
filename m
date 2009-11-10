@@ -1,43 +1,87 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: sunrpc port allocation and IANA reserved list
-Date: Wed, 11 Nov 2009 07:14:51 +0900
-Message-ID: <1257891291.3044.50.camel@heimdal.trondhjem.org>
-References: <4AF9A63B.6010101@nortel.com>
-	 <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
-	 <4AF9B2CF.6050305@nortel.com>
-	 <1257884799.3044.7.camel@heimdal.trondhjem.org>
-	 <4AF9D5D1.9040501@nortel.com>
-	 <1257888720.2834.30.camel@achroite.uk.solarflarecom.com>
+From: Patrick Mullaney <pmullaney@novell.com>
+Subject: [PATCH 0/4] vbus: venet macvlan support
+Date: Tue, 10 Nov 2009 17:27:42 -0500
+Message-ID: <20091110222632.24100.14884.stgit@mimic.site>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757236AbZKJWOy@vger.kernel.org>
-In-Reply-To: <1257888720.2834.30.camel@achroite.uk.solarflarecom.com>
+Cc: linux-kernel@vger.kernel.org, kaber@trash.net, arnd@arndb.de,
+	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
+	netdev@vger.kernel.org
+To: alacrityvm-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757875AbZKJW1q@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-11-10 at 21:32 +0000, Ben Hutchings wrote:
-> On Tue, 2009-11-10 at 15:06 -0600, Chris Friesen wrote:
-> > On 11/10/2009 02:26 PM, Trond Myklebust wrote: 
-> > > Just use /proc/sys/sunrpc/{max,min}_resvport interface to restrict the
-> > > range used to a safer one. That's what it is for...
-> 
-> Unless I'm much mistaken, that only affects in-kernel SunRPC users.
+(Applies to alacrityvm.git/master:34534534)
 
-There shouldn't be that many non-kernel sunrpc users that require
-privileged ports.
+This patchset implements a vbus venet device with a
+macvlan backend.
 
-The exceptions I can think of are
+These patches allow an alacrityvm guest to send and receive
+directly over a macvlan, avoiding the bridge entirely.
+This driver inherits all of the benefits of the work done
+to date on vbus/venet driver(SAR offloading, zero-copy
+in the guest->host path, configurable tx-complete mitigation,
+interrupt coalescing at the vbus level).  Some of the work to
+re-factor and share the common code between venet-tap and
+venet-macvlan was done prior because it should be generally
+useful to anyone wanting to implement a venet type of device.
 
-      * the 'mount' program, if you are using the legacy binary mount
-        interface. Use text mounts instead...
-      * rpc.statd might also use privileged ports when booting the
-        system when it needs to notify servers of the reboot. You can
-        set that port number using the '-o' option.
+Once the driver is built and installed, you may use it
+just like you would a venet-tap device. In order to
+instantiate a venet-macvlan, there are just two differences
+from the procedure to instantiating a venet-tap. In order
+to create the venet-macvlan device, just:
 
-Others? Do any of the NIS services require it?
+echo venet-macvlan > /config/vbus/devices/<device-name>/type
 
-Trond
+and
+
+echo "lower-devicename" > /sys/vbus/devices/<device-name>/ll_ifname
+
+where lower-devicename is something like eth0, eth1, eth2 etc.
+
+The second step associates the lower-devicename, usually
+a physical device, with the venet-macvlan device being created.
+This step must be perform prior to enabling the venet-macvlan
+device.
+
+After that, a guest can make use of the venet-macvlan in
+exactly the same manner as a venet-tap. In fact, the guest
+actually sees venet-tap and venet-macvlan as identical
+types of the devices on the vbus.
+
+Using the venet-macvlan driver will reduce some overhead by
+eliminating the linux bridge from the send and receive
+paths. For a lightly loaded network segment and system,
+we have measured this to be aproximately 1-3 us per side
+depending on what hardware is involved.
+
+Since this driver layered over the macvlan driver, it will
+have that same limitations as the macvlan driver. For example,
+forwarding between macvlan devices on the same host is not
+supported. This driver targeted toward VEPA environments as
+described by the 'Edge Virtual Bridging' working group.
+
+---
+
+Patrick Mullaney (4):
+      venet-macvlan: add new driver to connect a venet to a macvlan netdevice
+      venetdev: support common venet netdev routines
+      macvlan: allow in-kernel modules to create and manage macvlan devices
+      macvlan:  derived from Arnd Bergmann's patch for macvtap
+
+
+ drivers/net/macvlan.c                   |  105 +++--
+ drivers/net/vbus-enet.c                 |    8 
+ include/linux/macvlan.h                 |   43 ++
+ include/linux/venet.h                   |    5 
+ kernel/vbus/devices/venet/Kconfig       |   11 +
+ kernel/vbus/devices/venet/Makefile      |   10 -
+ kernel/vbus/devices/venet/device.c      |   53 ++-
+ kernel/vbus/devices/venet/macvlan.c     |  598 +++++++++++++++++++++++++++++++
+ kernel/vbus/devices/venet/venetdevice.h |   12 +
+ 9 files changed, 785 insertions(+), 60 deletions(-)
+ create mode 100644 include/linux/macvlan.h
+ create mode 100644 kernel/vbus/devices/venet/macvlan.c
