@@ -1,36 +1,44 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Tue, 10 Nov 2009 15:01:49 -0500
-Message-ID: <8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: sunrpc port allocation and IANA reserved list
+Date: Wed, 11 Nov 2009 05:26:39 +0900
+Message-ID: <1257884799.3044.7.camel@heimdal.trondhjem.org>
+References: <4AF9A63B.6010101@nortel.com>
+	 <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
+	 <4AF9B2CF.6050305@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: shemminger@vyatta.com, davem@davemloft.net, ecashin@coraid.com,
-	harvey.harrison@gmail.com, bzolnier@gmail.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.co-raid.com ([12.51.113.4]:39500 "EHLO coraid.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758023AbZKJUSN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 15:18:13 -0500
-In-Reply-To: <20091110175647.409162953@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	Linux kernel <linux-kernel@vger.kernel.org>
+To: Chris Friesen <cfriesen@nortel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758070AbZKJU0p@vger.kernel.org>
+In-Reply-To: <4AF9B2CF.6050305@nortel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue Nov 10 13:07:37 EST 2009, shemminger@vyatta.com wrote:
-> This gets rid of another use of read_lock(&dev_base_lock) by using
-> RCU. Also, it only increments the reference count of the device actually
-> used rather than holding and releasing every device
+On Tue, 2009-11-10 at 12:37 -0600, Chris Friesen wrote:
+> On 11/10/2009 11:53 AM, Ben Hutchings wrote:
+> > On Tue, 2009-11-10 at 11:43 -0600, Chris Friesen wrote:
 > 
-> Compile tested only.
+> >> Given that a userspace application can be stopped and restarted at any
+> >> time, and a sunrpc registration can happen at any time, what is the
+> >> expected mechanism to prevent the kernel from allocating a port for use
+> >> by sunrpc that reserved or well-known?
+> >>
+> >> Apparently Redhat and Debian have distro-specific ways of dealing with
+> >> this, but is there a standard solution?  Should there be?
+> >>
+> >> The current setup seems suboptimal.
+> > 
+> > I believe both RH and Debian are using the same implementation:
+> > <http://cyberelk.net/tim/software/portreserve/>.
+> 
+> That helps with the startup case, but still leaves a possible hole if an
+> app using a fixed port number is restarted at runtime.  During the
+> window where nobody is bound to the port, the kernel could randomly
+> assign it to someone else.
 
-This function runs once a minute when the aoe driver is loaded,
-if you'd like to test it a bit more.
+Just use /proc/sys/sunrpc/{max,min}_resvport interface to restrict the
+range used to a safer one. That's what it is for...
 
-It looks like there's no dev_put corresponding to the dev_hold
-after the changes.
-
--- 
-  Ed
+Trond
