@@ -1,43 +1,139 @@
-From: Jean Delvare <khali@linux-fr.org>
-Subject: Re: linux-next: manual merge of the net tree with the i2c tree
-Date: Tue, 10 Nov 2009 12:42:31 +0100
-Message-ID: <20091110124231.66141a0f@hyperion.delvare>
-References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Tue, 10 Nov 2009 13:53:35 +0200
+Message-ID: <20091110115335.GC6989@redhat.com>
+References: <20091002141407.30224.54207.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mika Kuoppala <mika.kuoppala@nokia.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herbert.xu@redhat.com
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752220AbZKJL4F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 06:56:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20091002141407.30224.54207.stgit@dev.haskins.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen, Ben,
-
-On Mon, 26 Oct 2009 13:37:57 +1100, Stephen Rothwell wrote:
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/sfc/sfe4001.c between commit
-> 3f7c0648f727a6d5baf6117653e4001dc877b90b ("i2c: Prevent priority
-> inversion on top of bus lock") from the i2c tree and commit
-> c9597d4f89565b6562bd3026adbe6eac6c317f47 ("sfc: Merge sfe4001.c into
-> falcon_boards.c") from the net tree.
+On Fri, Oct 02, 2009 at 10:20:00AM -0400, Gregory Haskins wrote:
+> (Applies to davem/net-2.6.git:4fdb78d30)
 > 
-> I have applied the following merge fixup patch (after removing
-> drivers/net/sfc/sfe4001.c) and can carry it as necessary.
+> Hi David, netdevs,
+> 
+> The following is an RFC for an attempt at addressing a zero-copy solution.
+> 
+> To be perfectly honest, I have no idea if this is the best solution, or if
+> there is truly a problem with skb->destructor that requires an alternate
+> mechanism.  What I do know is that this patch seems to work, and I would
+> like to see some kind of solution available upstream.  So I thought I would
+> send my hack out as at least a point of discussion.  FWIW: This has been
+> tested heavily in my rig and is technically suitable for inclusion after
+> review as is, if that is decided to be the optimal path forward here.
+> 
+> Thanks for your review and consideration,
+> 
+> Kind regards,
+> -Greg
+> 
+> ----------------------------------------
+> From: Gregory Haskins <ghaskins@novell.com>
+> Subject: [RFC PATCH] net: add dataref destructor to sk_buff
+> 
+> What: The skb->destructor field is reportedly unreliable for ensuring
+> that all shinfo users have dropped their references.  Therefore, we add
+> a distinct ->release() method for the shinfo structure which is closely
+> tied to the underlying page resources we want to protect.
+> 
+> Why: We want to add zero-copy transmit support for AlacrityVM guests.
+> In order to support this, the host kernel must map guest pages directly
+> into a paged-skb and send it as normal.  put_page() alone is not
+> sufficient lifetime management since the pages are ultimately allocated
+> from within the guest.  Therefore, we need higher-level notification
+> when the skb is finally freed on the host so we can then inject a proper
+> "tx-complete" event into the guest context.
+> 
+> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+> ---
+> 
+>  include/linux/skbuff.h |    2 ++
+>  net/core/skbuff.c      |    9 +++++++++
+>  2 files changed, 11 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index df7b23a..02cdab6 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -207,6 +207,8 @@ struct skb_shared_info {
+>  	/* Intermediate layers must ensure that destructor_arg
+>  	 * remains valid until skb destructor */
+>  	void *		destructor_arg;
+> +	void *          priv;
+> +	void           (*release)(struct sk_buff *skb);
+>  };
+>  
+>  /* We divide dataref into two halves.  The higher 16 bits hold references
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 80a9616..a7e40a9 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -219,6 +219,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+>  	shinfo->tx_flags.flags = 0;
+>  	skb_frag_list_init(skb);
+>  	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+> +	shinfo->release = NULL;
+> +	shinfo->priv = NULL;
+>  
+>  	if (fclone) {
+>  		struct sk_buff *child = skb + 1;
+> @@ -350,6 +352,9 @@ static void skb_release_data(struct sk_buff *skb)
+>  		if (skb_has_frags(skb))
+>  			skb_drop_fraglist(skb);
+>  
+> +		if (skb_shinfo(skb)->release)
+> +			skb_shinfo(skb)->release(skb);
+> +
+>  		kfree(skb->head);
+>  	}
+>  }
+> @@ -514,6 +519,8 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+>  	shinfo->tx_flags.flags = 0;
+>  	skb_frag_list_init(skb);
+>  	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+> +	shinfo->release = NULL;
+> +	shinfo->priv = NULL;
+>  
+>  	memset(skb, 0, offsetof(struct sk_buff, tail));
+>  	skb->data = skb->head + NET_SKB_PAD;
+> @@ -856,6 +863,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+>  	skb->hdr_len  = 0;
+>  	skb->nohdr    = 0;
+>  	atomic_set(&skb_shinfo(skb)->dataref, 1);
+> +	skb_shinfo(skb)->release = NULL;
+> +	skb_shinfo(skb)->priv = NULL;
+>  	return 0;
+>  
+>  nodata:
 
-I've merged the new API to get and release the i2c_adapter mutex:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=afa08974fe80c198b8650f73ed8ab59135ca10d0
+This is basically subset of the skb data destructors patch, isn't it?
+Last time this was tried, this is the objection that was voiced:
 
-Ben, you can adjust your own patches to make use of this API instead of
-accessing the i2c_adapter mutex directly. That way, you are no longer
-dependent of implementation changes, and this should solve the conflict.
+	The problem with this patch is that it's tracking skb's, while
+	you want use it to track pages for zero-copy.  That just doesn't
+	work.  Through mechanisms like splice, individual pages in the
+	skb can be detached and metastasize to other locations, e.g.,
+	the VFS.
 
-Stephen, you can then drop your fixup patch.
+and I think this applies here. In other words, this only *seems*
+to work for you because you are not trying to do things like
+guest to host communication, with host doing smart things.
 
-Thanks,
+Cc Herbert which was involved in the original discussion.
+
+In the specific case, it seems that things like pskb_copy,
+skb_split and others will also be broken, won't they?
+
 -- 
-Jean Delvare
+MST
