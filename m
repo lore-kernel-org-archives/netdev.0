@@ -1,47 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/10] decnet: use RCU to find network devices
-Date: Tue, 10 Nov 2009 19:43:21 +0100
-Message-ID: <4AF9B449.6040708@gmail.com>
-References: <20091110175446.280423729@vyatta.com> <20091110175647.615305929@vyatta.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] support static-only systems
+Date: Tue, 10 Nov 2009 10:45:51 -0800
+Message-ID: <20091110104551.1aff249d@nehalam>
+References: <1257505762-13819-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Christine Caulfield <christine.caulfield@googlemail.com>,
-	Hannes Eder <hannes@hanneseder.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	netdev@vger.kernel.org, linux-decnet-users@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:57990 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755859AbZKJSnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:43:31 -0500
-In-Reply-To: <20091110175647.615305929@vyatta.com>
+Received: from mail.vyatta.com ([76.74.103.46]:53778 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752693AbZKJSqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 13:46:17 -0500
+In-Reply-To: <1257505762-13819-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> When showing device statistics use RCU rather than read_lock(&dev_bas=
-e_lock)
-> Compile tested only.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> --- a/net/decnet/dn_dev.c	2009-11-10 09:30:55.557376454 -0800
-> +++ b/net/decnet/dn_dev.c	2009-11-10 09:40:03.847005394 -0800
-> @@ -856,9 +856,7 @@ int dn_dev_bind_default(__le16 *addr)
->  	dev =3D dn_dev_get_default();
->  last_chance:
->  	if (dev) {
-> -		read_lock(&dev_base_lock);
->  		rv =3D dn_dev_get_first(dev, addr);
-> -		read_unlock(&dev_base_lock);
->  		dev_put(dev);
->  		if (rv =3D=3D 0 || dev =3D=3D init_net.loopback_dev)
->  			return rv;
-> @@ -1323,18 +1321,18 @@ static inline int is_dn_dev(struct net_d
+On Fri,  6 Nov 2009 06:09:22 -0500
+Mike Frysinger <vapier@gentoo.org> wrote:
+
+> The iptables code supports a "no shared libs" mode where it can be used
+> without requiring dlfcn related functionality.  This adds similar support
+> to iproute2 so that it can easily be used on systems like nommu Linux (but
+> obviously with a few limitations -- no dynamic plugins).
+> 
+> Rather than modify every location that uses dlfcn.h, I hooked the dlfcn.h
+> header with stub functions when shared library support is disabled.  Then
+> symbol lookup is done via a local static lookup table (which is generated
+> automatically at build time) so that internal symbols can be found.
+> 
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
+
+Both applied thanks.
 
 
-I dont understand this part. Why previous locking can be avoided ?
+-- 
