@@ -1,205 +1,114 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/compat: fix dev_ifsioc emulation corner cases
-Date: Tue, 10 Nov 2009 15:18:20 +0100
-Message-ID: <200911101518.21061.arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v5 5/5 RFC] TCPCT part1e: initial SYN exchange
+ with SYNACK data
+Date: Tue, 10 Nov 2009 15:29:39 +0100
+Message-ID: <4AF978D3.7030207@gmail.com>
+References: <4AF83E2D.1050401@gmail.com> <4AF84BF3.5020302@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756310AbZKJOSa@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Joe Perches <joe@perches.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53581 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756183AbZKJO3m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 09:29:42 -0500
+In-Reply-To: <4AF84BF3.5020302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Handling for SIOCSHWTSTAMP is broken on architectures
-with a split user/kernel address space like s390,
-because it passes a real user pointer while using
-set_fs(KERNEL_DS).
-A similar problem might arise the next time somebody
-adds code to dev_ifsioc.
+William Allen Simpson a =E9crit :
+> This is a significantly revised implementation of an earlier (year-ol=
+d)
+> patch that no longer applies cleanly, with permission of the original
+> author (Adam Langley).  That patch was previously reviewed:
+>=20
+>    http://thread.gmane.org/gmane.linux.network/102586
+>=20
+> The principle difference is using a TCP option to carry the cookie no=
+nce,
+> instead of a user configured offset in the data.  This is more flexib=
+le and
+> less subject to user configuration error.  Such a cookie option has b=
+een
+> suggested for many years, and is also useful without SYN data, allowi=
+ng
+> several related concepts to use the same extension option.
+>=20
+>    "Re: SYN floods (was: does history repeat itself?)", September 9, =
+1996.
+>    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
+>=20
+>    "Re: what a new TCP header might look like", May 12, 1998.
+>    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
+>=20
+> Data structures are carefully composed to require minimal additions.
+> For example, the struct tcp_options_received cookie_plus variable fit=
+s
+> between existing 16-bit and 8-bit variables, requiring no additional
+> space (taking alignment into consideration).  There are no additions =
+to
+> tcp_request_sock, and only 1 pointer in tcp_sock.
+>=20
+> Allocations have been rearranged to avoid requiring GFP_ATOMIC, with
+> only one unavoidable exception in tcp_create_openreq_child(), where t=
+he
+> tcp_sock itself is created GFP_ATOMIC.
+>=20
+> These functions will also be used in subsequent patches that implemen=
+t
+> additional features.
+>=20
+> Requires:
+>   TCPCT part 1a: add request_values parameter for sending SYNACK
+>   TCPCT part 1b: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
+>   TCPCT part 1c: sysctl_tcp_cookie_size, socket option
+> TCP_COOKIE_TRANSACTIONS, functions
+>   TCPCT part 1d: generate Responder Cookie
+>=20
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> ---
+>  include/linux/tcp.h      |   29 ++++-
+>  include/net/tcp.h        |   72 +++++++++++++
+>  net/ipv4/syncookies.c    |    5 +-
+>  net/ipv4/tcp.c           |  127 ++++++++++++++++++++++-
+>  net/ipv4/tcp_input.c     |   86 +++++++++++++--
+>  net/ipv4/tcp_ipv4.c      |   69 ++++++++++++-
+>  net/ipv4/tcp_minisocks.c |   59 ++++++++---
+>  net/ipv4/tcp_output.c    |  255
+> +++++++++++++++++++++++++++++++++++++++++-----
+>  net/ipv6/syncookies.c    |    5 +-
+>  net/ipv6/tcp_ipv6.c      |   65 +++++++++++-
+>  10 files changed, 701 insertions(+), 71 deletions(-)
+>=20
 
-Split up dev_ifsioc into three separate functions for
-SIOCSHWTSTAMP, SIOC*IFMAP and all other numbers so
-we can get rid of set_fs in all potentially affected
-cases.
+I really tried hard to understand what was going on, and failed, becaus=
+e I dont
+have much time these days...
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Patrick Ohly <patrick.ohly@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- net/socket.c |  119 +++++++++++++++++++++++++++++++++++----------------------
- 1 files changed, 73 insertions(+), 46 deletions(-)
+Lack of documentation maybe ? Some DATA flow could help...
 
-diff --git a/net/socket.c b/net/socket.c
-index 17c98a5..1f2f6d2 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2564,38 +2564,15 @@ static int siocdevprivate_ioctl(struct net *net, unsigned int cmd,
- static int dev_ifsioc(struct net *net, struct socket *sock,
- 			 unsigned int cmd, struct compat_ifreq __user *uifr32)
- {
--	struct ifreq ifr;
--	struct compat_ifmap __user *uifmap32;
--	mm_segment_t old_fs;
-+	struct ifreq __user *uifr;
- 	int err;
--	
--	uifmap32 = &uifr32->ifr_ifru.ifru_map;
--	switch (cmd) {
--	case SIOCSIFMAP:
--		err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
--		err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
--		err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
--		err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
--		err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
--		err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
--		err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
--		if (err)
--			return -EFAULT;
--		break;
--	case SIOCSHWTSTAMP:
--		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
--			return -EFAULT;
--		ifr.ifr_data = compat_ptr(uifr32->ifr_ifru.ifru_data);
--		break;
--	default:
--		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
--			return -EFAULT;
--		break;
--	}
--	old_fs = get_fs();
--	set_fs (KERNEL_DS);
--	err = sock_do_ioctl(net, sock, cmd, (unsigned long)&ifr);
--	set_fs (old_fs);
-+
-+	uifr = compat_alloc_user_space(sizeof(*uifr));
-+	if (copy_in_user(uifr, uifr32, sizeof(*uifr32)))
-+		return -EFAULT;
-+
-+	err = sock_do_ioctl(net, sock, cmd, (unsigned long)uifr);
-+
- 	if (!err) {
- 		switch (cmd) {
- 		case SIOCGIFFLAGS:
-@@ -2612,18 +2589,7 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
- 		case SIOCGIFTXQLEN:
- 		case SIOCGMIIPHY:
- 		case SIOCGMIIREG:
--			if (copy_to_user(uifr32, &ifr, sizeof(*uifr32)))
--				return -EFAULT;
--			break;
--		case SIOCGIFMAP:
--			err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
--			err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
--			err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
--			err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
--			err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
--			err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
--			err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
--			if (err)
-+			if (copy_in_user(uifr32, uifr, sizeof(*uifr32)))
- 				err = -EFAULT;
- 			break;
- 		}
-@@ -2631,6 +2597,65 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
- 	return err;
- }
- 
-+static int compat_sioc_ifmap(struct net *net, unsigned int cmd,
-+			struct compat_ifreq __user *uifr32)
-+{
-+	struct ifreq ifr;
-+	struct compat_ifmap __user *uifmap32;
-+	mm_segment_t old_fs;
-+	int err;
-+
-+	uifmap32 = &uifr32->ifr_ifru.ifru_map;
-+	err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
-+	err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
-+	err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
-+	err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
-+	err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
-+	err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
-+	err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
-+	if (err)
-+		return -EFAULT;
-+
-+	old_fs = get_fs();
-+	set_fs (KERNEL_DS);
-+	err = dev_ioctl(net, cmd, (void __user *)&ifr);
-+	set_fs (old_fs);
-+
-+	if (cmd == SIOCGIFMAP && !err) {
-+		err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
-+		err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
-+		err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
-+		err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
-+		err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
-+		err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
-+		err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
-+		if (err)
-+			err = -EFAULT;
-+	}
-+	return err;
-+}
-+
-+static int compat_siocshwtstamp(struct net *net, struct compat_ifreq __user *uifr32)
-+{
-+	void __user *uptr;
-+	compat_uptr_t uptr32;
-+	struct ifreq __user *uifr;
-+
-+	uifr = compat_alloc_user_space(sizeof (*uifr));
-+	if (copy_in_user(uifr, uifr32, sizeof(struct compat_ifreq)))
-+		return -EFAULT;
-+
-+	if (get_user(uptr32, &uifr32->ifr_data))
-+		return -EFAULT;
-+
-+	uptr = compat_ptr(uptr32);
-+
-+	if (put_user(uptr, &uifr->ifr_data))
-+		return -EFAULT;
-+
-+	return dev_ioctl(net, SIOCSHWTSTAMP, uifr);
-+}
-+
- struct rtentry32 {
-         u32   		rt_pad1;
-         struct sockaddr rt_dst;         /* target address               */
-@@ -2923,6 +2948,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 		return ethtool_ioctl(net, argp);
- 	case SIOCWANDEV:
- 		return compat_siocwandev(net, argp);
-+	case SIOCGIFMAP:
-+	case SIOCSIFMAP:
-+		return compat_sioc_ifmap(net, cmd, argp);
- 	case SIOCBONDENSLAVE:
- 	case SIOCBONDRELEASE:
- 	case SIOCBONDSETHWADDR:
-@@ -2937,6 +2965,8 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 		return do_siocgstamp(net, sock, cmd, argp);
- 	case SIOCGSTAMPNS:
- 		return do_siocgstampns(net, sock, cmd, argp);
-+	case SIOCSHWTSTAMP:
-+		return compat_siocshwtstamp(net, argp);
- 
- 	case FIOSETOWN:
- 	case SIOCSPGRP:
-@@ -2963,12 +2993,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 	case SIOCADDMULTI:
- 	case SIOCDELMULTI:
- 	case SIOCGIFINDEX:
--	case SIOCGIFMAP:
--	case SIOCSIFMAP:
- 	case SIOCGIFADDR:
- 	case SIOCSIFADDR:
- 	case SIOCSIFHWBROADCAST:
--	case SIOCSHWTSTAMP:
- 	case SIOCDIFADDR:
- 	case SIOCGIFBRDADDR:
- 	case SIOCSIFBRDADDR:
--- 
-1.6.3.3
+Please please, cook up elementatry patches to perform one action at a t=
+ime,
+even if they are not fully functionnal ?
+
+One patch to be able to send SYN + COOKIE (if we are the client)
+
+One patch to be able to receive this SYN + COOKIE and answer a SYNACK +=
+ cookies (we are the server)
+
+One patch to ... Receive the ACK from client (if we are the server) and=
+ check cookies
+
+One patch to ...  Send the ACK (if we are the client)
+
+Patches to receive FIN + cookies
+
+One patch to ... enable the whole thing and setsockopt() bits
+
+That way we could review your patches step by step, and not 770 lines i=
+n one block.
+
