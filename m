@@ -1,39 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] support static-only systems
-Date: Tue, 10 Nov 2009 10:45:51 -0800
-Message-ID: <20091110104551.1aff249d@nehalam>
-References: <1257505762-13819-1-git-send-email-vapier@gentoo.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 09/10] IPV4: use rcu to walk list of devices in IGMP
+Date: Tue, 10 Nov 2009 19:47:34 +0100
+Message-ID: <4AF9B546.5090805@gmail.com>
+References: <20091110175446.280423729@vyatta.com> <20091110175647.754389168@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53778 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693AbZKJSqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 13:46:17 -0500
-In-Reply-To: <1257505762-13819-1-git-send-email-vapier@gentoo.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58000 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754876AbZKJSrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:47:32 -0500
+In-Reply-To: <20091110175647.754389168@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  6 Nov 2009 06:09:22 -0500
-Mike Frysinger <vapier@gentoo.org> wrote:
+Stephen Hemminger a =E9crit :
+> This also needs to be optimized for large number of devices.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> =20
 
-> The iptables code supports a "no shared libs" mode where it can be used
-> without requiring dlfcn related functionality.  This adds similar support
-> to iproute2 so that it can easily be used on systems like nommu Linux (but
-> obviously with a few limitations -- no dynamic plugins).
-> 
-> Rather than modify every location that uses dlfcn.h, I hooked the dlfcn.h
-> header with stub functions when shared library support is disabled.  Then
-> symbol lookup is done via a local static lookup table (which is generated
-> automatically at build time) so that internal symbols can be found.
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
+>  static void igmp_mcf_seq_stop(struct seq_file *seq, void *v)
+> +	__releases(rcu)
 
-Both applied thanks.
+Minor note : we usually use RCU instead of rcu, but it doesnt really ma=
+tter.
 
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
--- 
