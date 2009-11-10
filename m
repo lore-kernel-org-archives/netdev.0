@@ -1,36 +1,56 @@
-From: "MR SMITH" <osahonloan03@mchsi.com>
-Subject: (unknown)
-Date: Tue, 10 Nov 2009 02:53:36 +0000
-Message-ID: <111020090253.7267.4AF8D5B0000A1B4E00001C63223045151403010CD2079C080C03BFCCCF020E01040201080E9C01@mchsi.com>
-Reply-To: happy_smithloanfirm@hotmail.com
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sccmmhc91.asp.att.net ([204.127.203.211]:38399 "EHLO
-	sccmmhc91.asp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944AbZKJCxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 21:53:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 10 Nov 2009 13:49:09 +1030
+Message-ID: <200911101349.09783.rusty@rustcorp.com.au>
+References: <cover.1257786516.git.mst@redhat.com> <20091109172230.GD4724@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ s.hetze@linux-ag.com,
+ Daniel Walker <dwalker@fifo99.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091109172230.GD4724@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+One fix:
 
+vhost: fix TUN=m VHOST_NET=y
 
-Do you need A
-Business or a Personal Loan? Then your Answer is here. We
-offer
-loan at 3% as well with a flexible  plan.and customer's convinient terms*
+	drivers/built-in.o: In function `get_tun_socket':
+	net.c:(.text+0x15436e): undefined reference to `tun_get_socket'
 
-We offer the following;
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/vhost/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hard Money Loans
-Business Loan.
-Debt Consolidation Loan.
-Personal Loan.
-Business Expansion Loan.
-And Lots more..........
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -1,6 +1,6 @@
+ config VHOST_NET
+ 	tristate "Host kernel accelerator for virtio net (EXPERIMENTAL)"
+-	depends on NET && EVENTFD && EXPERIMENTAL
++	depends on NET && EVENTFD && TUN && EXPERIMENTAL
+ 	---help---
+ 	  This kernel module can be loaded in host kernel to accelerate
+ 	  guest networking with virtio_net. Not to be confused with virtio_net
 
-If interested in any of the following, contact us now on
-happy_smithloanfirm@hotmail.com   for more infor..
-
-
-REGARDS
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
