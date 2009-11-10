@@ -1,75 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Tue, 10 Nov 2009 14:34:41 +0100
-Message-ID: <4AF96BF1.5070902@gmail.com>
-References: <4AF924A5.1050303@gmail.com> <4AF92D6D.8060300@gmail.com>	 <412e6f7f0911100143k68284faes92e39d8ca94aa9d4@mail.gmail.com>	 <4AF9471C.5080606@gmail.com>	 <412e6f7f0911100314i33d6a49dl5163b5e8472babcf@mail.gmail.com>	 <4AF95174.3060104@trash.net>	 <412e6f7f0911100414w7b6f45aap39f6568b7af2c1a7@mail.gmail.com>	 <4AF95A3D.5060602@trash.net>	 <412e6f7f0911100437g2759eb6dg509af4edb8848291@mail.gmail.com>	 <4AF96055.90509@trash.net> <412e6f7f0911100506r6a922b8aoabd359e7e4290ebe@mail.gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v5 5/5 RFC] TCPCT part1e: initial SYN exchange
+ with SYNACK data
+Date: Tue, 10 Nov 2009 08:41:05 -0500
+Message-ID: <4AF96D71.8000905@gmail.com>
+References: <4AF83E2D.1050401@gmail.com> <4AF84BF3.5020302@gmail.com> <alpine.DEB.2.00.0911100659470.7059@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35403 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752891AbZKJNeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 08:34:44 -0500
-In-Reply-To: <412e6f7f0911100506r6a922b8aoabd359e7e4290ebe@mail.gmail.com>
+Received: from mail-pz0-f188.google.com ([209.85.222.188]:61244 "EHLO
+	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976AbZKJNlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 08:41:04 -0500
+Received: by pzk26 with SMTP id 26so12809pzk.4
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 05:41:09 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.0911100659470.7059@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao a =C3=A9crit :
-> On Tue, Nov 10, 2009 at 8:45 PM, Patrick McHardy <kaber@trash.net> wr=
-ote:
->> Its a trivial change, you can put them in the same patch:
->>
->> static int ifb_get_tx_queues(struct net *net, struct nlattr *tb[],
->>                             unsigned int *num_tx_queues,
->>                             unsigned int *real_num_tx_queues)
->> {
->>    unsigned int n =3D 1;
->>
->>    if (tb[IFLA_NTXQ])
->>       n =3D nla_get_u32(tb[IFLA_NTXQ]);
->>
->>    *num_tx_queues =3D n;
->>    *real_num_tx_queues =3D n;
->>    return 0;
->> }
->>
+Ilpo J=E4rvinen wrote:
+> On Mon, 9 Nov 2009, William Allen Simpson wrote:
+>>...
+>> Data structures are carefully composed to require minimal additions.
+>> For example, the struct tcp_options_received cookie_plus variable fi=
+ts
+>> between existing 16-bit and 8-bit variables, requiring no additional
+>> space (taking alignment into consideration).  There are no additions=
+ to
+>> tcp_request_sock, and only 1 pointer in tcp_sock.
+>>...
 >=20
-> Is IFLA_NTXQ added? I didn't find it in any branch. And I think both
-> num_tx_queueus and real_num_tx_queues are needed.
+> One general comment. ...This particular patch still has lots of noise=
+=20
+> which does not belong to the context of this change. ...Please try to=
+=20
+> minimize. Eg., if you don't like sizeof(struct tcphdr) but prefer=20
+> sizeof(*th), you certainly don't have to do it in this particular pat=
+ch!
+
+This *is* actually in CodingStyle (line 679), and I'm trying to conform=
+:
+
+<blockquote>
+The preferred form for passing a size of a struct is the following:
+
+	p =3D kmalloc(sizeof(*p), ...);
+
+The alternative form where struct name is spelled out hurts readability=
+ and
+introduces an opportunity for a bug when the pointer variable type is c=
+hanged
+but the corresponding sizeof that is passed to a memory allocator is no=
+t.
+</blockquote>
+
+Maybe some of these anticipate part 2, so I can defer them to later.  I=
+'ve
+already coded much of part 2, so things are bleeding back and forth.
+
+
+> ...Also some comment changes which certainly are not mandatory nor ev=
+en=20
+> related.
 >=20
+Hmmm....
 
-I believe Patrick was referring to vlan get_tx_queues() implementation,
-but it actually gets values from real device (tb[IFLA_LINK])
+1) The first is a hole left by the removal of the data fields some time
+ago, but they left the old (now incorrect) comment:
 
-In your case you'll need to add a new IFLA_NTXQ attribute, and
-change iproute2 to pass this new attribute at link creation.
-(check include/linux/if_link.h)
+-/*	SACKs data	*/
++	u8	cookie_plus:6,	/* bytes in authenticator/cookie option	*/
++		cookie_out_never:1,
++		cookie_in_always:1;
+  	u8	num_sacks;	/* Number of SACK blocks		*/
 
-ip link add link .....  ntxq 2
+Although it's not evident from the diff -u, I'm *filling* that hole,
+putting everything on a nice 32-bit boundary, thus taking *NO* space
+(already mentioned in my patch description above):
 
-static int vlan_get_tx_queues(struct net *net,
-                              struct nlattr *tb[],
-                              unsigned int *num_tx_queues,
-                              unsigned int *real_num_tx_queues)
-{
-        struct net_device *real_dev;
+	u16 	saw_tstamp : 1,	/* Saw TIMESTAMP on last packet		*/
+		tstamp_ok : 1,	/* TIMESTAMP seen on SYN packet		*/
+		dsack : 1,	/* D-SACK is scheduled			*/
+		wscale_ok : 1,	/* Wscale seen on SYN packet		*/
+		sack_ok : 4,	/* SACK seen on SYN packet		*/
+		snd_wscale : 4,	/* Window scaling received from sender	*/
+		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
+	u8	cookie_plus:6,	/* bytes in authenticator/cookie option	*/
+		cookie_out_never:1,
+		cookie_in_always:1;
+	u8	num_sacks;	/* Number of SACK blocks		*/
+	u16	user_mss;	/* mss requested by user in ioctl	*/
+	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
 
-        if (!tb[IFLA_LINK])
-                return -EINVAL;
+The only reason that it's done this way was Miller's imperative that
+required cramming this into as small a space as possible.
 
-        real_dev =3D __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK])=
-);
-        if (!real_dev)
-                return -ENODEV;
+   "Store the data either somewhere else or in an extremely compact for=
+m."
 
-        *num_tx_queues      =3D real_dev->num_tx_queues;
-        *real_num_tx_queues =3D real_dev->real_num_tx_queues;
-        return 0;
-}
+   "Make your state take up less space in tcp_sock without making it co=
+st
+   more in some other form."
 
+Of course, it costs more, and I have to keep copying it from place to p=
+lace,
+adding to the code complexity.  But I was feeling rather clever to have
+found that hole!
+
+
+2) The second is a spelling error that I noticed in passing.  It's with=
+in
+the same diff -u area (close to other insertions both before and after)=
+, so
+fixing it was trivial:
+
+- * to increse this, although since:
++ * to increase this, although since:
+
+Are we not supposed to fix spelling errors in comments?
 
