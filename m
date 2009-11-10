@@ -1,111 +1,59 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v5 5/5 RFC] TCPCT part1e: initial SYN exchange
- with SYNACK data
-Date: Tue, 10 Nov 2009 10:45:50 -0500
-Message-ID: <4AF98AAE.6000307@gmail.com>
-References: <4AF83E2D.1050401@gmail.com> <4AF84BF3.5020302@gmail.com> <4AF978D3.7030207@gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Tue, 10 Nov 2009 10:47:49 -0500
+Message-ID: <4AF98B25.3010007@novell.com>
+References: <20091002141407.30224.54207.stgit@dev.haskins.net> <20091110115335.GC6989@redhat.com> <4AF919020200005A000586A9@sinclair.provo.novell.com> <20091110131722.GA19645@redhat.com> <4AF9747E.8020408@novell.com> <20091110144543.GC19645@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	Joe Perches <joe@perches.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig346508D6DE70921A654D530F"
+Cc: alacrityvm-devel@lists.sourceforge.net, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:56424 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756664AbZKJPpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 10:45:51 -0500
-Received: by bwz27 with SMTP id 27so147821bwz.21
-        for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 07:45:56 -0800 (PST)
-In-Reply-To: <4AF978D3.7030207@gmail.com>
+In-Reply-To: <20091110144543.GC19645@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> William Allen Simpson a =C3=A9crit :
->> This is a significantly revised implementation of an earlier (year-o=
-ld)
->> patch that no longer applies cleanly, with permission of the origina=
-l
->> author (Adam Langley).  That patch was previously reviewed:
->>
->>    http://thread.gmane.org/gmane.linux.network/102586
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig346508D6DE70921A654D530F
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> I really tried hard to understand what was going on, and failed, beca=
-use I dont
-> have much time these days...
+Michael S. Tsirkin wrote:
+> On Tue, Nov 10, 2009 at 09:11:10AM -0500, Gregory Haskins wrote:
+>>> You are comparing with skb destructors, not skb data destructors :) s=
+kb
+>>> data destructor is Rusty's patch which he wanted to use for vringfd. =
+ I
+>>> mean e.g. this:
+>>> http://lists.openwall.net/netdev/2008/04/18/7
+>> Ah, I wasn't aware.  I believe Anthony Ligouri had pointed me at this
+>> same patch earlier this year.  However, more recently when I saw
+>> skb->destructor() in mainline (seemingly from Rusty), I thought it had=
+
+>> been accepted and didn't investigate further.
 >=20
-Thanks very much for your time.
-
-As I just wrote in a previous message, this is the easy part.  It's goi=
-ng
-to get much more complicated -- as you know, since I sent you the paper=
-s
-with 30+ references....
-
-
-> Lack of documentation maybe ? Some DATA flow could help...
+> skb->destructor seems to be there as far back as 2.2.0
+> http://lxr.linux.no/#linux-old+v2.2.0/include/linux/skbuff.h
 >=20
-Where should that be?  In the commit messages?
+
+Right, I meant recent activity around it for fixing it up related to
+leaks, etc.
 
 
-> Please please, cook up elementatry patches to perform one action at a=
- time,
-> even if they are not fully functionnal ?
->=20
-Well, that's what I did with the (now) parts 1b, 1c, and 1d, but somebo=
-dy
-complained that the callers didn't exist yet.
+--------------enig346508D6DE70921A654D530F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-> One patch to be able to send SYN + COOKIE (if we are the client)
->=20
-> One patch to be able to receive this SYN + COOKIE and answer a SYNACK=
- + cookies (we are the server)
->=20
-I'll split them.  Remember, I started with a code base previously
-submitted, and everything was in one *single* large patch.  I thought
-that's what you (Linux folks in general) wanted.
+iEYEARECAAYFAkr5iyUACgkQP5K2CMvXmqGHpgCffgjCZLw2XjuAKhYzmDQFD7JR
+t0UAn1amKCMsLJ8AdJHEMVMahwKLcGCl
+=0IiT
+-----END PGP SIGNATURE-----
 
-
-> One patch to ... Receive the ACK from client (if we are the server) a=
-nd check cookies
->=20
-> One patch to ...  Send the ACK (if we are the client)
->=20
-> Patches to receive FIN + cookies
->=20
-Maybe that's what you are missing, and why you're have difficulty
-wrapping your mind around it.  None of that is there yet!
-
-Receive the Ack options from the client is currently part 2.  I've also
-lately divided part 2 into 4 sub-patches, although it all has to be
-committed at one time:
-   2a) extending the TCP option space,
-   2b) receiving 64-bit timestamps,
-   2c) receiving extended SACKs,
-   2d) receiving the cookie pair.
-Perhaps that could be split even further, although the order has to
-stay the same.  A lot is written, although I gave up updating regularly
-as the part 1 process has taken so long....
-
-Send the Ack is currently part 3.
-
-Handling FIN is currently part 4, although it might be split, too.
-
-Handling RST is probably part 5.
-
-Handling transactions was part 4 or 5, but could be a future part 6
-instead (although it's rather tied up with both 4 and 5).
-
-
-> One patch to ... enable the whole thing and setsockopt() bits
->=20
-Ummm, then there'd be no way to test.  This is TCP we're talking about.
-It has to be tested extensively.  This stuff needs to work.  I need the
-bits to initiate all the tests....
-
-That's why I like to get all my data structures nailed down first, and
-then incrementally add code and test.
+--------------enig346508D6DE70921A654D530F--
