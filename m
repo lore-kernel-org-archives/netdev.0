@@ -1,74 +1,81 @@
-From: steve@chygwyn.com
-Subject: Re: [PATCH 07/10] decnet: use RCU to find network devices
-Date: Tue, 10 Nov 2009 18:24:36 +0000
-Message-ID: <20091110182436.GA13374@fogou.chygwyn.com>
-References: <20091110175446.280423729@vyatta.com> <20091110175647.615305929@vyatta.com> <4AF9B449.6040708@gmail.com> <20091110105053.16687e93@nehalam>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 01/10] netdev: add netdev_continue_rcu
+Date: Tue, 10 Nov 2009 11:39:45 -0800
+Message-ID: <20091110193945.GU8424@linux.vnet.ibm.com>
+References: <20091110175446.280423729@vyatta.com> <20091110175647.200655064@vyatta.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Christine Caulfield <christine.caulfield@googlemail.com>,
-	Hannes Eder <hannes@hanneseder.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	netdev@vger.kernel.org, linux-decnet-users@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fogou.chygwyn.com ([195.171.2.24]:55657 "EHLO fogou.chygwyn.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:40726 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309AbZKJTaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 14:30:00 -0500
+	id S1754394AbZKJTja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 14:39:30 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e6.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id nAAJj6OA031579
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 14:45:06 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nAAJdZx1050202
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 14:39:35 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nAAJdZKB010650
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 14:39:35 -0500
 Content-Disposition: inline
-In-Reply-To: <20091110105053.16687e93@nehalam>
+In-Reply-To: <20091110175647.200655064@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Nov 10, 2009 at 09:54:47AM -0800, Stephen Hemminger wrote:
+> This adds an RCU macro for continuing search, useful for some
+> network devices like vlan.
 
-On Tue, Nov 10, 2009 at 10:50:53AM -0800, Stephen Hemminger wrote:
-> On Tue, 10 Nov 2009 19:43:21 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Stephen Hemminger a =E9crit :
-> > > When showing device statistics use RCU rather than read_lock(&dev=
-_base_lock)
-> > > Compile tested only.
-> > >=20
-> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > >=20
-> > > --- a/net/decnet/dn_dev.c	2009-11-10 09:30:55.557376454 -0800
-> > > +++ b/net/decnet/dn_dev.c	2009-11-10 09:40:03.847005394 -0800
-> > > @@ -856,9 +856,7 @@ int dn_dev_bind_default(__le16 *addr)
-> > >  	dev =3D dn_dev_get_default();
-> > >  last_chance:
-> > >  	if (dev) {
-> > > -		read_lock(&dev_base_lock);
-> > >  		rv =3D dn_dev_get_first(dev, addr);
-> > > -		read_unlock(&dev_base_lock);
-> > >  		dev_put(dev);
-> > >  		if (rv =3D=3D 0 || dev =3D=3D init_net.loopback_dev)
-> > >  			return rv;
-> > > @@ -1323,18 +1321,18 @@ static inline int is_dn_dev(struct net_d
-> >=20
-> >=20
-> > I dont understand this part. Why previous locking can be avoided ?
->=20
-> dn_dev_get_default acquires a reference on dev so the device can
-> not go away.
->=20
-> It could be the original author meant to ensure the address list
-> doesn't change. If so, then rtnl_lock() should have been used.
+Looks good!!!
 
-The original author has tried to remember what he was thinking when
-he wrote this code :-)
+Of course, you need to either have a single RCU read-side critical section
+cover all the chained list_for_each_entry_continue_rcu() invocations, or
+you need to do something (e.g., reference count) to make sure that the
+element in question doesn't disappear in the meantime, right?
 
-I think you are right that it should be rtnl_lock() as we don't want
-the address list changing at this point. On the other hand I notice
-also that other bits of the code seem to be using dev_base_lock too.
+							Thanx, Paul
 
-Maybe this is a hang over from another era? I'll have to refresh
-my memory some more before I can give a verdict on that I'm afraid,
-
-Steve.
-
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/include/linux/netdevice.h	2009-11-09 22:19:08.511480873 -0800
+> +++ b/include/linux/netdevice.h	2009-11-10 09:27:17.973376267 -0800
+> @@ -1079,6 +1079,8 @@ extern rwlock_t				dev_base_lock;		/* De
+>  		list_for_each_entry_safe(d, n, &(net)->dev_base_head, dev_list)
+>  #define for_each_netdev_continue(net, d)		\
+>  		list_for_each_entry_continue(d, &(net)->dev_base_head, dev_list)
+> +#define for_each_netdev_continue_rcu(net, d)		\
+> +	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head, dev_list)
+>  #define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
+> 
+>  static inline struct net_device *next_net_device(struct net_device *dev)
+> --- a/include/linux/rculist.h	2009-11-09 22:19:08.529480859 -0800
+> +++ b/include/linux/rculist.h	2009-11-10 09:27:17.974376609 -0800
+> @@ -262,6 +262,20 @@ static inline void list_splice_init_rcu(
+>  		(pos) = rcu_dereference((pos)->next))
+> 
+>  /**
+> + * list_for_each_entry_continue_rcu - continue iteration over list of given type
+> + * @pos:	the type * to use as a loop cursor.
+> + * @head:	the head for your list.
+> + * @member:	the name of the list_struct within the struct.
+> + *
+> + * Continue to iterate over list of given type, continuing after
+> + * the current position.
+> + */
+> +#define list_for_each_entry_continue_rcu(pos, head, member) 		\
+> +	for (pos = list_entry_rcu(pos->member.next, typeof(*pos), member); \
+> +	     prefetch(pos->member.next), &pos->member != (head);	\
+> +	     pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
+> +
+> +/**
+>   * hlist_del_rcu - deletes entry from hash list without re-initialization
+>   * @n: the element to delete from the hash list.
+>   *
+> 
+> -- 
+> 
