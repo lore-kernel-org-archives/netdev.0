@@ -1,33 +1,784 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 09/10] IPV4: use rcu to walk list of devices in IGMP
-Date: Tue, 10 Nov 2009 19:47:34 +0100
-Message-ID: <4AF9B546.5090805@gmail.com>
-References: <20091110175446.280423729@vyatta.com> <20091110175647.754389168@vyatta.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Dan Smith <danms@us.ibm.com>
+Subject: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets (v4)
+Date: Tue, 10 Nov 2009 10:47:34 -0800
+Message-ID: <1257878856-25520-3-git-send-email-danms@us.ibm.com>
+References: <1257878856-25520-1-git-send-email-danms@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: containers@lists.osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58000 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754876AbZKJSrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:47:32 -0500
-In-Reply-To: <20091110175647.754389168@vyatta.com>
+Received: from gw0.danplanet.com ([71.245.107.82]:38946 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756348AbZKJSri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:47:38 -0500
+In-Reply-To: <1257878856-25520-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> This also needs to be optimized for large number of devices.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> =20
+This patch adds basic support for C/R of open INET sockets.  I think that
+all the important bits of the TCP and ICSK socket structures is saved,
+but I think there is still some additional IPv6 stuff that needs to be
+handled.
 
->  static void igmp_mcf_seq_stop(struct seq_file *seq, void *v)
-> +	__releases(rcu)
+With this patch applied, the following script can be used to demonstrate
+the functionality:
 
-Minor note : we usually use RCU instead of rcu, but it doesnt really ma=
-tter.
+  https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+It shows that this enables migration of a sendmail process with open
+connections from one machine to another without dropping.
+
+We probably need comments from the netdev people about the quality of
+sanity checking we do on the values in the ckpt_hdr_socket_inet
+structure on restart.
+
+Note that this still doesn't address lingering sockets yet.
+
+Changes in v4:
+ - Use the new socket buffer restore functions introduced in the
+   previous patch
+ - Move listen_sockets list under the restart items in ckpt_ctx
+ - Rename RESTART_SOCK_LISTENONLY to RESTART_CONN_RESET
+
+Changes in v3:
+ - Prevent restart from allowing a bind on a <1024 port unless the
+   user is granted that capability
+ - Add some sanity checking in the inet_precheck() function to make sure
+   the values read from the checkpoint image are within acceptable ranges
+ - Check the result of sock_restore_header_info() and fail if needed
+
+Changes in v2:
+ - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
+   structure instead of saving them separately
+ - Fix 'sock' naming in sock_cptrst()
+ - Don't take the queue lock before skb_queue_tail() since it is
+   done for us
+ - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
+   flag is specified on sys_restart()
+ - Pull the implementation of the list of listening sockets back into
+   this patch
+ - Fix dangling printk
+ - Add some comments around the parent/child restore logic
+
+Cc: netdev@vger.kernel.org
+Acked-by: Oren Laadan <orenl@librato.com>
+Signed-off-by: Dan Smith <danms@us.ibm.com>
+---
+ checkpoint/sys.c                 |    4 +
+ include/linux/checkpoint.h       |    5 +-
+ include/linux/checkpoint_hdr.h   |   95 +++++++++
+ include/linux/checkpoint_types.h |    1 +
+ net/checkpoint.c                 |   27 ++--
+ net/ipv4/checkpoint.c            |  391 ++++++++++++++++++++++++++++++++++----
+ 6 files changed, 473 insertions(+), 50 deletions(-)
+
+diff --git a/checkpoint/sys.c b/checkpoint/sys.c
+index 260a1ee..df00973 100644
+--- a/checkpoint/sys.c
++++ b/checkpoint/sys.c
+@@ -221,6 +221,8 @@ static void ckpt_ctx_free(struct ckpt_ctx *ctx)
+ 
+ 	kfree(ctx->pids_arr);
+ 
++	sock_listening_list_free(&ctx->listen_sockets);
++
+ 	kfree(ctx);
+ }
+ 
+@@ -249,6 +251,8 @@ static struct ckpt_ctx *ckpt_ctx_alloc(int fd, unsigned long uflags,
+ 	spin_lock_init(&ctx->lock);
+ #endif
+ 
++	INIT_LIST_HEAD(&ctx->listen_sockets);
++
+ 	err = -EBADF;
+ 	ctx->file = fget(fd);
+ 	if (!ctx->file)
+diff --git a/include/linux/checkpoint.h b/include/linux/checkpoint.h
+index 3e73e68..d4765f6 100644
+--- a/include/linux/checkpoint.h
++++ b/include/linux/checkpoint.h
+@@ -19,6 +19,7 @@
+ #define RESTART_TASKSELF	0x1
+ #define RESTART_FROZEN		0x2
+ #define RESTART_GHOST		0x4
++#define RESTART_CONN_RESET	0x8
+ 
+ #ifdef __KERNEL__
+ #ifdef CONFIG_CHECKPOINT
+@@ -48,7 +49,8 @@
+ #define RESTART_USER_FLAGS  \
+ 	(RESTART_TASKSELF | \
+ 	 RESTART_FROZEN | \
+-	 RESTART_GHOST)
++	 RESTART_GHOST | \
++	 RESTART_CONN_RESET)
+ 
+ extern int walk_task_subtree(struct task_struct *task,
+ 			     int (*func)(struct task_struct *, void *),
+@@ -101,6 +103,7 @@ extern int ckpt_sock_getnames(struct ckpt_ctx *ctx,
+ 			      struct sockaddr *loc, unsigned *loc_len,
+ 			      struct sockaddr *rem, unsigned *rem_len);
+ struct sk_buff *sock_restore_skb(struct ckpt_ctx *ctx);
++void sock_listening_list_free(struct list_head *head);
+ 
+ /* ckpt kflags */
+ #define ckpt_set_ctx_kflag(__ctx, __kflag)  \
+diff --git a/include/linux/checkpoint_hdr.h b/include/linux/checkpoint_hdr.h
+index ace4139..7c81f93 100644
+--- a/include/linux/checkpoint_hdr.h
++++ b/include/linux/checkpoint_hdr.h
+@@ -20,6 +20,7 @@
+ #include <linux/socket.h>
+ #include <linux/un.h>
+ #include <linux/in.h>
++#include <linux/in6.h>
+ #else
+ #include <sys/socket.h>
+ #include <sys/un.h>
+@@ -592,6 +593,100 @@ struct ckpt_hdr_socket_unix {
+ 
+ struct ckpt_hdr_socket_inet {
+ 	struct ckpt_hdr h;
++	__u32 daddr;
++	__u32 rcv_saddr;
++	__u32 saddr;
++	__u16 dport;
++	__u16 num;
++	__u16 sport;
++	__s16 uc_ttl;
++	__u16 cmsg_flags;
++
++	struct {
++		__u64 timeout;
++		__u32 ato;
++		__u32 lrcvtime;
++		__u16 last_seg_size;
++		__u16 rcv_mss;
++		__u8 pending;
++		__u8 quick;
++		__u8 pingpong;
++		__u8 blocked;
++	} icsk_ack __attribute__ ((aligned(8)));
++
++	/* FIXME: Skipped opt, tos, multicast, cork settings */
++
++	struct {
++		__u32 rcv_nxt;
++		__u32 copied_seq;
++		__u32 rcv_wup;
++		__u32 snd_nxt;
++		__u32 snd_una;
++		__u32 snd_sml;
++		__u32 rcv_tstamp;
++		__u32 lsndtime;
++
++		__u32 snd_wl1;
++		__u32 snd_wnd;
++		__u32 max_window;
++		__u32 mss_cache;
++		__u32 window_clamp;
++		__u32 rcv_ssthresh;
++		__u32 frto_highmark;
++
++		__u32 srtt;
++		__u32 mdev;
++		__u32 mdev_max;
++		__u32 rttvar;
++		__u32 rtt_seq;
++
++		__u32 packets_out;
++		__u32 retrans_out;
++
++		__u32 snd_up;
++		__u32 rcv_wnd;
++		__u32 write_seq;
++		__u32 pushed_seq;
++		__u32 lost_out;
++		__u32 sacked_out;
++		__u32 fackets_out;
++		__u32 tso_deferred;
++		__u32 bytes_acked;
++
++		__s32 lost_cnt_hint;
++		__u32 retransmit_high;
++
++		__u32 lost_retrans_low;
++
++		__u32 prior_ssthresh;
++		__u32 high_seq;
++
++		__u32 retrans_stamp;
++		__u32 undo_marker;
++		__s32 undo_retrans;
++		__u32 total_retrans;
++
++		__u32 urg_seq;
++		__u32 keepalive_time;
++		__u32 keepalive_intvl;
++
++		__u16 urg_data;
++		__u16 advmss;
++		__u8 frto_counter;
++		__u8 nonagle;
++
++		__u8 ecn_flags;
++		__u8 reordering;
++
++		__u8 keepalive_probes;
++	} tcp __attribute__ ((aligned(8)));
++
++	struct {
++		struct in6_addr saddr;
++		struct in6_addr rcv_saddr;
++		struct in6_addr daddr;
++	} inet6 __attribute__ ((aligned(8)));
++
+ 	__u32 laddr_len;
+ 	__u32 raddr_len;
+ 	struct sockaddr_in laddr;
+diff --git a/include/linux/checkpoint_types.h b/include/linux/checkpoint_types.h
+index 5cc11d9..eac0d5a 100644
+--- a/include/linux/checkpoint_types.h
++++ b/include/linux/checkpoint_types.h
+@@ -78,6 +78,7 @@ struct ckpt_ctx {
+ 	wait_queue_head_t waitq;	/* waitqueue for restarting tasks */
+ 	wait_queue_head_t ghostq;	/* waitqueue for ghost tasks */
+ 	struct cred *realcred, *ecred;	/* tmp storage for cred at restart */
++	struct list_head listen_sockets;/* listening parent sockets */
+ 
+ 	struct ckpt_stats stats;	/* statistics */
+ 
+diff --git a/net/checkpoint.c b/net/checkpoint.c
+index 00365b2..32ccaba 100644
+--- a/net/checkpoint.c
++++ b/net/checkpoint.c
+@@ -319,6 +319,7 @@ static int __sock_write_skb(struct ckpt_ctx *ctx,
+ 
+ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 				struct sk_buff_head *queue,
++				uint16_t family,
+ 				int dst_objref)
+ {
+ 	struct sk_buff *skb;
+@@ -331,11 +332,11 @@ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 			return -EBUSY;
+ 		}
+ 
+-		/* The other ancillary messages are always present
+-		 * unlike descriptors.  Even though we can't detect
+-		 * them and fail the checkpoint, we're not at risk
+-		 * because we don't save out (or restore) the control
+-		 * information contained in the skb.
++		/* The other ancillary messages UNIX are always
++		 * present unlike descriptors.  Even though we can't
++		 * detect them and fail the checkpoint, we're not at
++		 * risk because we don't restore the control
++		 * information in the UNIX code.
+ 		 */
+ 
+ 		ret = __sock_write_skb(ctx, skb, dst_objref);
+@@ -348,6 +349,7 @@ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 
+ static int sock_write_buffers(struct ckpt_ctx *ctx,
+ 			      struct sk_buff_head *queue,
++			      uint16_t family,
+ 			      int dst_objref)
+ {
+ 	struct ckpt_hdr_socket_queue *h;
+@@ -367,7 +369,7 @@ static int sock_write_buffers(struct ckpt_ctx *ctx,
+ 	h->skb_count = ret;
+ 	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
+ 	if (!ret)
+-		ret = __sock_write_buffers(ctx, &tmpq, dst_objref);
++		ret = __sock_write_buffers(ctx, &tmpq, family, dst_objref);
+ 
+  out:
+ 	ckpt_hdr_put(ctx, h);
+@@ -389,12 +391,14 @@ int sock_deferred_write_buffers(void *data)
+ 		return dst_objref;
+ 	}
+ 
+-	ret = sock_write_buffers(ctx, &dq->sk->sk_receive_queue, dst_objref);
++	ret = sock_write_buffers(ctx, &dq->sk->sk_receive_queue,
++				 dq->sk->sk_family, dst_objref);
+ 	ckpt_debug("write recv buffers: %i\n", ret);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = sock_write_buffers(ctx, &dq->sk->sk_write_queue, dst_objref);
++	ret = sock_write_buffers(ctx, &dq->sk->sk_write_queue,
++				 dq->sk->sk_family, dst_objref);
+ 	ckpt_debug("write send buffers: %i\n", ret);
+ 
+ 	return ret;
+@@ -919,10 +923,9 @@ struct sock *do_sock_restore(struct ckpt_ctx *ctx)
+ 		goto err;
+ 
+ 	if ((h->sock_common.family == AF_INET) &&
+-	    (h->sock.state != TCP_LISTEN)) {
+-		/* Temporary hack to enable restore of TCP_LISTEN sockets
+-		 * while forcing anything else to a closed state
+-		 */
++	    (h->sock.state != TCP_LISTEN) &&
++	    (ctx->uflags & RESTART_CONN_RESET)) {
++		ckpt_debug("Forcing open socket closed\n");
+ 		sock->sk->sk_state = TCP_CLOSE;
+ 		sock->state = SS_UNCONNECTED;
+ 	}
+diff --git a/net/ipv4/checkpoint.c b/net/ipv4/checkpoint.c
+index 9cbbf5e..ee41633 100644
+--- a/net/ipv4/checkpoint.c
++++ b/net/ipv4/checkpoint.c
+@@ -17,6 +17,7 @@
+ #include <linux/deferqueue.h>
+ #include <net/tcp_states.h>
+ #include <net/tcp.h>
++#include <net/ipv6.h>
+ 
+ struct dq_sock {
+ 	struct ckpt_ctx *ctx;
+@@ -28,6 +29,236 @@ struct dq_buffers {
+ 	struct sock *sk;
+ };
+ 
++struct listen_item {
++	struct sock *sk;
++	struct list_head list;
++};
++
++void sock_listening_list_free(struct list_head *head)
++{
++	struct listen_item *item, *tmp;
++
++	list_for_each_entry_safe(item, tmp, head, list) {
++		list_del(&item->list);
++		kfree(item);
++	}
++}
++
++static int sock_listening_list_add(struct ckpt_ctx *ctx, struct sock *sk)
++{
++	struct listen_item *item;
++
++	item = kmalloc(sizeof(*item), GFP_KERNEL);
++	if (!item)
++		return -ENOMEM;
++
++	item->sk = sk;
++	list_add(&item->list, &ctx->listen_sockets);
++
++	return 0;
++}
++
++static struct sock *sock_get_parent(struct ckpt_ctx *ctx, struct sock *sk)
++{
++	struct listen_item *item;
++
++	list_for_each_entry(item, &ctx->listen_sockets, list) {
++		if (inet_sk(sk)->sport == inet_sk(item->sk)->sport)
++			return item->sk;
++	}
++
++	return NULL;
++}
++
++static int sock_hash_parent(void *data)
++{
++	struct dq_sock *dq = (struct dq_sock *)data;
++	struct sock *parent;
++
++	ckpt_debug("INET post-restart hash\n");
++
++	dq->sk->sk_prot->hash(dq->sk);
++
++	/* If there is a listening socket with the same source port,
++	 * then become a child of that socket [we are the result of an
++	 * accept()].  Otherwise hash ourselves directly in [we are
++	 * the result of a connect()]
++	 */
++
++	parent = sock_get_parent(dq->ctx, dq->sk);
++	if (parent) {
++		inet_sk(dq->sk)->num = ntohs(inet_sk(dq->sk)->sport);
++		local_bh_disable();
++		__inet_inherit_port(parent, dq->sk);
++		local_bh_enable();
++	} else {
++		inet_sk(dq->sk)->num = 0;
++		inet_hash_connect(&tcp_death_row, dq->sk);
++		inet_sk(dq->sk)->num = ntohs(inet_sk(dq->sk)->sport);
++	}
++
++	return 0;
++}
++
++static int sock_defer_hash(struct ckpt_ctx *ctx, struct sock *sock)
++{
++	struct dq_sock dq;
++
++	dq.sk = sock;
++	dq.ctx = ctx;
++
++	return deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
++			      sock_hash_parent, NULL);
++}
++
++static int sock_inet_tcp_cptrst(struct ckpt_ctx *ctx,
++				struct tcp_sock *sk,
++				struct ckpt_hdr_socket_inet *hh,
++				int op)
++{
++	CKPT_COPY(op, hh->tcp.rcv_nxt, sk->rcv_nxt);
++	CKPT_COPY(op, hh->tcp.copied_seq, sk->copied_seq);
++	CKPT_COPY(op, hh->tcp.rcv_wup, sk->rcv_wup);
++	CKPT_COPY(op, hh->tcp.snd_nxt, sk->snd_nxt);
++	CKPT_COPY(op, hh->tcp.snd_una, sk->snd_una);
++	CKPT_COPY(op, hh->tcp.snd_sml, sk->snd_sml);
++	CKPT_COPY(op, hh->tcp.rcv_tstamp, sk->rcv_tstamp);
++	CKPT_COPY(op, hh->tcp.lsndtime, sk->lsndtime);
++
++	CKPT_COPY(op, hh->tcp.snd_wl1, sk->snd_wl1);
++	CKPT_COPY(op, hh->tcp.snd_wnd, sk->snd_wnd);
++	CKPT_COPY(op, hh->tcp.max_window, sk->max_window);
++	CKPT_COPY(op, hh->tcp.mss_cache, sk->mss_cache);
++	CKPT_COPY(op, hh->tcp.window_clamp, sk->window_clamp);
++	CKPT_COPY(op, hh->tcp.rcv_ssthresh, sk->rcv_ssthresh);
++	CKPT_COPY(op, hh->tcp.frto_highmark, sk->frto_highmark);
++	CKPT_COPY(op, hh->tcp.advmss, sk->advmss);
++	CKPT_COPY(op, hh->tcp.frto_counter, sk->frto_counter);
++	CKPT_COPY(op, hh->tcp.nonagle, sk->nonagle);
++
++	CKPT_COPY(op, hh->tcp.srtt, sk->srtt);
++	CKPT_COPY(op, hh->tcp.mdev, sk->mdev);
++	CKPT_COPY(op, hh->tcp.mdev_max, sk->mdev_max);
++	CKPT_COPY(op, hh->tcp.rttvar, sk->rttvar);
++	CKPT_COPY(op, hh->tcp.rtt_seq, sk->rtt_seq);
++
++	CKPT_COPY(op, hh->tcp.packets_out, sk->packets_out);
++	CKPT_COPY(op, hh->tcp.retrans_out, sk->retrans_out);
++
++	CKPT_COPY(op, hh->tcp.urg_data, sk->urg_data);
++	CKPT_COPY(op, hh->tcp.ecn_flags, sk->ecn_flags);
++	CKPT_COPY(op, hh->tcp.reordering, sk->reordering);
++	CKPT_COPY(op, hh->tcp.snd_up, sk->snd_up);
++
++	CKPT_COPY(op, hh->tcp.keepalive_probes, sk->keepalive_probes);
++
++	CKPT_COPY(op, hh->tcp.rcv_wnd, sk->rcv_wnd);
++	CKPT_COPY(op, hh->tcp.write_seq, sk->write_seq);
++	CKPT_COPY(op, hh->tcp.pushed_seq, sk->pushed_seq);
++	CKPT_COPY(op, hh->tcp.lost_out, sk->lost_out);
++	CKPT_COPY(op, hh->tcp.sacked_out, sk->sacked_out);
++	CKPT_COPY(op, hh->tcp.fackets_out, sk->fackets_out);
++	CKPT_COPY(op, hh->tcp.tso_deferred, sk->tso_deferred);
++	CKPT_COPY(op, hh->tcp.bytes_acked, sk->bytes_acked);
++
++	CKPT_COPY(op, hh->tcp.lost_cnt_hint, sk->lost_cnt_hint);
++	CKPT_COPY(op, hh->tcp.retransmit_high, sk->retransmit_high);
++
++	CKPT_COPY(op, hh->tcp.lost_retrans_low, sk->lost_retrans_low);
++
++	CKPT_COPY(op, hh->tcp.prior_ssthresh, sk->prior_ssthresh);
++	CKPT_COPY(op, hh->tcp.high_seq, sk->high_seq);
++
++	CKPT_COPY(op, hh->tcp.retrans_stamp, sk->retrans_stamp);
++	CKPT_COPY(op, hh->tcp.undo_marker, sk->undo_marker);
++	CKPT_COPY(op, hh->tcp.undo_retrans, sk->undo_retrans);
++	CKPT_COPY(op, hh->tcp.total_retrans, sk->total_retrans);
++
++	CKPT_COPY(op, hh->tcp.urg_seq, sk->urg_seq);
++	CKPT_COPY(op, hh->tcp.keepalive_time, sk->keepalive_time);
++	CKPT_COPY(op, hh->tcp.keepalive_intvl, sk->keepalive_intvl);
++
++	if (!skb_queue_empty(&sk->ucopy.prequeue))
++		printk("PREQUEUE!\n");
++
++	return 0;
++}
++
++static int sock_inet_restore_addrs(struct inet_sock *inet,
++				   struct ckpt_hdr_socket_inet *hh)
++{
++	inet->daddr = hh->raddr.sin_addr.s_addr;
++	inet->saddr = hh->laddr.sin_addr.s_addr;
++	inet->rcv_saddr = inet->saddr;
++
++	inet->dport = hh->raddr.sin_port;
++	inet->sport = hh->laddr.sin_port;
++
++	return 0;
++}
++
++static int sock_inet_cptrst(struct ckpt_ctx *ctx,
++			    struct sock *sk,
++			    struct ckpt_hdr_socket_inet *hh,
++			    int op)
++{
++	struct inet_sock *inet = inet_sk(sk);
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	int ret;
++
++	if (op == CKPT_CPT) {
++		CKPT_COPY(op, hh->daddr, inet->daddr);
++		CKPT_COPY(op, hh->rcv_saddr, inet->rcv_saddr);
++		CKPT_COPY(op, hh->dport, inet->dport);
++		CKPT_COPY(op, hh->saddr, inet->saddr);
++		CKPT_COPY(op, hh->sport, inet->sport);
++	} else {
++		ret = sock_inet_restore_addrs(inet, hh);
++		if (ret)
++			return ret;
++	}
++
++	CKPT_COPY(op, hh->num, inet->num);
++	CKPT_COPY(op, hh->uc_ttl, inet->uc_ttl);
++	CKPT_COPY(op, hh->cmsg_flags, inet->cmsg_flags);
++
++	CKPT_COPY(op, hh->icsk_ack.pending, icsk->icsk_ack.pending);
++	CKPT_COPY(op, hh->icsk_ack.quick, icsk->icsk_ack.quick);
++	CKPT_COPY(op, hh->icsk_ack.pingpong, icsk->icsk_ack.pingpong);
++	CKPT_COPY(op, hh->icsk_ack.blocked, icsk->icsk_ack.blocked);
++	CKPT_COPY(op, hh->icsk_ack.ato, icsk->icsk_ack.ato);
++	CKPT_COPY(op, hh->icsk_ack.timeout, icsk->icsk_ack.timeout);
++	CKPT_COPY(op, hh->icsk_ack.lrcvtime, icsk->icsk_ack.lrcvtime);
++	CKPT_COPY(op,
++		  hh->icsk_ack.last_seg_size, icsk->icsk_ack.last_seg_size);
++	CKPT_COPY(op, hh->icsk_ack.rcv_mss, icsk->icsk_ack.rcv_mss);
++
++	if (sk->sk_protocol == IPPROTO_TCP)
++		ret = sock_inet_tcp_cptrst(ctx, tcp_sk(sk), hh, op);
++	else if (sk->sk_protocol == IPPROTO_UDP)
++		ret = 0;
++	else {
++		ckpt_write_err(ctx, "T", "unknown socket protocol %d",
++			       sk->sk_protocol);
++		ret = -EINVAL;
++	}
++
++	if (sk->sk_family == AF_INET6) {
++		struct ipv6_pinfo *inet6 = inet6_sk(sk);
++		if (op == CKPT_CPT) {
++			ipv6_addr_copy(&hh->inet6.saddr, &inet6->saddr);
++			ipv6_addr_copy(&hh->inet6.rcv_saddr, &inet6->rcv_saddr);
++			ipv6_addr_copy(&hh->inet6.daddr, &inet6->daddr);
++		} else {
++			ipv6_addr_copy(&inet6->saddr, &hh->inet6.saddr);
++			ipv6_addr_copy(&inet6->rcv_saddr, &hh->inet6.rcv_saddr);
++			ipv6_addr_copy(&inet6->daddr, &hh->inet6.daddr);
++		}
++	}
++
++	return ret;
++}
++
+ int inet_checkpoint(struct ckpt_ctx *ctx, struct socket *sock)
+ {
+ 	struct ckpt_hdr_socket_inet *in;
+@@ -43,6 +274,10 @@ int inet_checkpoint(struct ckpt_ctx *ctx, struct socket *sock)
+ 	if (ret)
+ 		goto out;
+ 
++	ret = sock_inet_cptrst(ctx, sock->sk, in, CKPT_CPT);
++	if (ret < 0)
++		goto out;
++
+ 	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) in);
+  out:
+ 	ckpt_hdr_put(ctx, in);
+@@ -55,51 +290,22 @@ int inet_collect(struct ckpt_ctx *ctx, struct socket *sock)
+ 	return ckpt_obj_collect(ctx, sock->sk, CKPT_OBJ_SOCK);
+ }
+ 
+-static int inet_read_buffer(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++static int inet_read_buffer(struct ckpt_ctx *ctx,
++			    struct sk_buff_head *queue)
+ {
+-	struct ckpt_hdr_socket_buffer *h;
+-	int len;
+-	int ret;
+ 	struct sk_buff *skb = NULL;
+ 
+-	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_BUFFER);
+-	if (IS_ERR(h))
+-		return PTR_ERR(h);
+-
+-	len = _ckpt_read_obj_type(ctx, NULL, 0, CKPT_HDR_BUFFER);
+-	if (len < 0) {
+-		ret = len;
+-		goto out;
+-	} else if (len > SKB_MAX_ALLOC) {
+-		ckpt_debug("Socket buffer too big (%i > %lu)",
+-			   len, SKB_MAX_ALLOC);
+-		ret = -ENOSPC;
+-		goto out;
+-	}
+-
+-	skb = alloc_skb(len, GFP_KERNEL);
+-	if (!skb) {
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-
+-	ret = ckpt_kread(ctx, skb_put(skb, len), len);
+-	if (ret < 0)
+-		goto out;
++	skb = sock_restore_skb(ctx);
++	if (IS_ERR(skb))
++		return PTR_ERR(skb);
+ 
+-	spin_lock(&queue->lock);
+ 	skb_queue_tail(queue, skb);
+-	spin_unlock(&queue->lock);
+- out:
+-	ckpt_hdr_put(ctx, h);
+-
+-	if ((ret < 0) && skb)
+-		kfree_skb(skb);
+ 
+-	return ret;
++	return skb->len;
+ }
+ 
+-static int inet_read_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++static int inet_read_buffers(struct ckpt_ctx *ctx,
++			     struct sk_buff_head *queue)
+ {
+ 	struct ckpt_hdr_socket_queue *h;
+ 	int ret = 0;
+@@ -162,6 +368,19 @@ static int inet_defer_restore_buffers(struct ckpt_ctx *ctx, struct sock *sk)
+ 
+ static int inet_precheck(struct socket *sock, struct ckpt_hdr_socket_inet *in)
+ {
++	__u8 icsk_ack_mask = ICSK_ACK_SCHED | ICSK_ACK_TIMER |
++		ICSK_ACK_PUSHED | ICSK_ACK_PUSHED2;
++	__u16 urg_mask = TCP_URG_VALID | TCP_URG_NOTYET | TCP_URG_READ;
++	__u8 nonagle_mask = TCP_NAGLE_OFF | TCP_NAGLE_CORK | TCP_NAGLE_PUSH;
++	__u8 ecn_mask = TCP_ECN_OK | TCP_ECN_QUEUE_CWR | TCP_ECN_DEMAND_CWR;
++
++	if ((htons(in->laddr.sin_port) < PROT_SOCK) &&
++	    !capable(CAP_NET_BIND_SERVICE)) {
++		ckpt_debug("unable to bind to port %hu\n",
++			   htons(in->laddr.sin_port));
++		return -EINVAL;
++	}
++
+ 	if (in->laddr_len > sizeof(struct sockaddr_in)) {
+ 		ckpt_debug("laddr_len is too big\n");
+ 		return -EINVAL;
+@@ -172,6 +391,77 @@ static int inet_precheck(struct socket *sock, struct ckpt_hdr_socket_inet *in)
+ 		return -EINVAL;
+ 	}
+ 
++	/* Set ato to the default */
++	in->icsk_ack.ato = TCP_ATO_MIN;
++
++	/* No quick acks are scheduled after a restart */
++	in->icsk_ack.quick = 0;
++
++	if (in->icsk_ack.pending & ~icsk_ack_mask) {
++		ckpt_debug("invalid pending flags 0x%x\n",
++			   in->icsk_ack.pending & ~icsk_ack_mask);
++		return -EINVAL;
++	}
++
++	if (in->icsk_ack.pingpong > 1) {
++		ckpt_debug("invalid icsk_ack.pingpong value\n");
++		return -EINVAL;
++	}
++
++	if (in->icsk_ack.blocked > 1) {
++		ckpt_debug("invalid icsk_ack.blocked value\n");
++		return -EINVAL;
++	}
++
++	/* do_tcp_setsockopt() quietly makes this coercion */
++	if (in->tcp.window_clamp < (SOCK_MIN_RCVBUF / 2))
++		in->tcp.window_clamp = SOCK_MIN_RCVBUF / 2;
++	else if (in->tcp.window_clamp > 65535U) {
++		ckpt_debug("invalid window_clamp value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.rcv_ssthresh > (4U * in->tcp.advmss))
++		in->tcp.rcv_ssthresh = 4U * in->tcp.advmss;
++
++	/* These will all be recalculated on the next call to
++	 * tcp_rtt_estimator()
++	 */
++	in->tcp.srtt = in->tcp.mdev = in->tcp.mdev_max = 0;
++	in->tcp.rttvar = in->tcp.rtt_seq = 0;
++
++	/* Might want to set packets_out to zero ? */
++
++	if (in->tcp.rcv_wnd > MAX_TCP_WINDOW)
++		in->tcp.rcv_wnd = MAX_TCP_WINDOW;
++
++	if (in->tcp.keepalive_intvl > MAX_TCP_KEEPINTVL) {
++		ckpt_debug("keepalive_intvl %i out of range\n",
++			   in->tcp.keepalive_intvl);
++		return -EINVAL;
++	}
++
++	if (in->tcp.keepalive_probes > MAX_TCP_KEEPCNT) {
++		ckpt_debug("Invalid keepalive_probes value %i\n",
++			   in->tcp.keepalive_probes);
++		return -EINVAL;
++	}
++
++	if (in->tcp.urg_data & ~urg_mask) {
++		ckpt_debug("Invalid urg_data value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.nonagle & ~nonagle_mask) {
++		ckpt_debug("Invalid nonagle value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.ecn_flags & ~ecn_mask) {
++		ckpt_debug("Invalid ecn_flags value\n");
++		return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -209,8 +499,35 @@ int inet_restore(struct ckpt_ctx *ctx,
+ 			ckpt_debug("inet listen: %i\n", ret);
+ 			if (ret < 0)
+ 				goto out;
++
++			/* We are a listening socket, so add ourselves
++			 * to the list of parent sockets.  This will
++			 * allow our children to find us later and
++			 * link up
++			 */
++
++			ret = sock_listening_list_add(ctx, sock->sk);
++			if (ret < 0)
++				goto out;
+ 		}
+ 	} else {
++		ret = sock_inet_cptrst(ctx, sock->sk, in, CKPT_RST);
++		if (ret)
++			goto out;
++
++		if ((h->sock.state == TCP_ESTABLISHED) &&
++		    (h->sock.protocol == IPPROTO_TCP)) {
++			/* A connected socket that was spawned from an
++			 * accept() needs to be hashed with its parent
++			 * listening socket in order to receive
++			 * traffic on the original port.  Since we may
++			 * not have restarted the parent yet, we defer
++			 * this until later when we know we have all
++			 * the listening sockets accounted for.
++			 */
++			ret = sock_defer_hash(ctx, sock->sk);
++		}
++
+ 		if (!sock_flag(sock->sk, SOCK_DEAD))
+ 			ret = inet_defer_restore_buffers(ctx, sock->sk);
+ 	}
+-- 
+1.6.3.3
 
