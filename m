@@ -1,80 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: vlan/macvlan 02/02: propagate transmission state to upper layers
-Date: Tue, 10 Nov 2009 17:14:24 +0100
-Message-ID: <4AF99160.2060607@trash.net>
+From: <ben@bigfootnetworks.com>
+Subject: Bridge + Conntrack + SKB Recycle: Fragment Reassembly Errors
+Date: Tue, 10 Nov 2009 09:09:47 -0700
+Message-ID: <767BAF49E93AFB4B815B11325788A8ED45F0BA@L01SLCXDB03.calltower.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020304010008050301030705"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39014 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757091AbZKJQOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 11:14:23 -0500
+Received: from L01SLCSMTP01.calltower.com ([69.4.184.248]:37420 "EHLO
+	L01SLCSMTP01.calltower.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756445AbZKJQZD convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 11:25:03 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020304010008050301030705
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+We have observed significant reassembly errors when combining
+routing/bridging with conntrack + nf_defrag_ipv4 loaded, and
+skb_recycle_check - enabled interfaces.  For our test, we had a single
+linux device with two interfaces (gianfars in this case) with SKB
+recycling enabled.  We sent large, continuous pings across the bridge,
+like this:
+ping -s 64000 -A <dest IP>
 
+Then, we ran netstat -s --raw, and noticed that IPSTATS_MIB_REASMFAILS
+were happening for about 40% of the received datagrams.  Tracing the
+code in ip_fragment.c, we instrumented each of the
+IPSTATS_MIB_REASMFAILS locations, and found the culprit to be
+ip_evictor.  Nothing looked unusual here, so we placed tracing in
+ip_frag_queue, directly above:
+	atomic_add(skb->truesize, &qp->q.net->mem);
 
---------------020304010008050301030705
-Content-Type: text/x-patch;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
+We noticed that quite a few of the skb->truesize numbers were in the 67K
+range, which quickly overwhelms the default 192K-ish ipfrag_low_thresh.
+This means that the next time inet_frag_evictor is run:
+ work = atomic_read(&nf->mem) - nf->low_thresh;
 
-commit 21fb413b55abb4665e057b884c289bb780f41b3c
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Nov 10 16:55:50 2009 +0100
+Will surely be positive, and it is likely that our huge-frag-containing
+queue will be one of those evicted. 
 
-    vlan/macvlan: propagate transmission state to upper layers
-    
-    Both vlan and macvlan devices usually don't use a qdisc and immediately
-    queue packets to the underlying device. Propagate transmission state of
-    the underlying device to the upper layers so they can react on congestion
-    and/or inform the sending process.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Looking at the source of these huge skbs, it seems that during
+re-fragmentation in br_nf_dev_queue_xmit (which calls ip_fragment with
+CONFIG_NF_CONNTRACK_IPV4 enabled), the huge datagram that was allocated
+to hold a successfully-reassembled skb may be getting reused?  In any
+case, when skb_recycle_check(skb, min_rx_size) is called, the huge
+(skb->truesize huge, not data huge) skb is recycled for use on RX, and
+it eventually gets enqueued for reassembly, causing the
+inet_frag_evictor to have a positive work value.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index d7dba3f..271aa7e 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -202,7 +202,7 @@ static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
- 	} else
- 		txq->tx_dropped++;
- 
--	return NETDEV_TX_OK;
-+	return ret;
- }
- 
- static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 790fd55..9159659 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -332,7 +332,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 	} else
- 		txq->tx_dropped++;
- 
--	return NETDEV_TX_OK;
-+	return ret;
- }
- 
- static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
-@@ -358,7 +358,7 @@ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
- 	} else
- 		txq->tx_dropped++;
- 
--	return NETDEV_TX_OK;
-+	return ret;
- }
- 
- static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
+Our solution was to add an upper-bounds check to skb_recycle_check,
+which prevents the large-ish SKBs from being used to create future
+frags, and overwhelming ipfrag_low_thresh.  This seems quite clunky,
+although I would be happy to submit this as a patch...
 
---------------020304010008050301030705--
+If this is not the right place...what is the "right" place?
+
+Ben Menchaca
+Bigfoot Networks
+
