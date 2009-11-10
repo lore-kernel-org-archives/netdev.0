@@ -1,617 +1,442 @@
-From: Christopher Zimmermann <madroach@zakweb.de>
-Subject: Re: Possible bug: SO_TIMESTAMPING 2.6.30+
-Date: Tue, 10 Nov 2009 09:12:52 +0100
-Message-ID: <20091110091252.1667d27d@pundit>
-References: <4AF8B67E.3030604@ripnet.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] ifb: add multi-queue support
+Date: Tue, 10 Nov 2009 16:30:29 +0800
+Message-ID: <4AF924A5.1050303@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/E1KVNW40E31ptkQ=4vtartP"
-Cc: netdev@vger.kernel.org
-To: "Marcus D. Leech" <mleech@ripnet.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiaosuo <xiaosuo@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:62087 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbZKJIM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 03:12:56 -0500
-In-Reply-To: <4AF8B67E.3030604@ripnet.com>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:42998 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549AbZKJIa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 03:30:29 -0500
+Received: by pwi3 with SMTP id 3so1162554pwi.21
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 00:30:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---MP_/E1KVNW40E31ptkQ=4vtartP
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+ifb: add multi-queue support
 
-On Mon, 09 Nov 2009 19:40:30 -0500
-"Marcus D. Leech" <mleech@ripnet.com> wrote:
+Add multi-queue support, and one kernel thread is created for per queue.
+It can used to emulate multi-queue NIC in software, and distribute work
+among CPUs.
+gentux linux # modprobe ifb numtxqs=2
+gentux linux # ifconfig ifb0 up
+gentux linux # pgrep ifb0
+18508
+18509
+gentux linux # taskset -p 1 18508
+pid 18508's current affinity mask: 3
+pid 18508's new affinity mask: 1
+gentux linux # taskset -p 2 18509
+pid 18509's current affinity mask: 3
+pid 18509's new affinity mask: 2
+gentux linux # tc qdisc add dev br0 ingress
+gentux linux # tc filter add dev br0 parent ffff: protocol ip basic
+action mirred egress redirect dev ifb0
 
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+drivers/net/ifb.c | 309
+++++++++++++++++++++++++++++++++----------------------
+1 file changed, 186 insertions(+), 123 deletions(-)
 
-> I know that Patrick Ohly has essentially moved on from doing the 
-> SO_TIMESTAMPING stuff, so
->    who's maintaining it now?
-
-I worked on it a month ago or so and have a patchset from Patick Ohly
-and some changes by me which fix software timestamping and make the
-ioctl interface to the hardware more flexible (keeping backwards
-compatibility). Patches are attached.
-Still I never tried IPv6 and don't think the patches do anything about
-it.
-It would be nice to know weather software tx timestamps work
-with/without the patches.
-
-
-Christopher
-
---MP_/E1KVNW40E31ptkQ=4vtartP
-Content-Type: text/x-patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename=0001-timecompare-use-ARRAY_SIZE-macro.patch
-
->From 5e408d962dbbafc581d4442d2e920dc667c0d078 Mon Sep 17 00:00:00 2001
-From: Christopher Zimmermann <madroach@zakweb.de>
-Date: Mon, 17 Aug 2009 21:26:17 +0200
-Subject: [PATCH 1/3] timecompare: use ARRAY_SIZE() macro
-
----
- kernel/time/timecompare.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/time/timecompare.c b/kernel/time/timecompare.c
-index 71e7f1a..fe24977 100644
---- a/kernel/time/timecompare.c
-+++ b/kernel/time/timecompare.c
-@@ -56,11 +56,11 @@ int timecompare_offset(struct timecompare *sync,
- 	int index;
- 	int num_samples = sync->num_samples;
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index 030913f..6e04188 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -33,139 +33,101 @@
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
++#include <linux/wait.h>
++#include <linux/sched.h>
++#include <linux/kthread.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <net/ip.h>
+ #include <net/pkt_sched.h>
+ #include <net/net_namespace.h>
  
--	if (num_samples > sizeof(buffer)/sizeof(buffer[0])) {
-+	if (num_samples > ARRAY_SIZE(buffer)) {
- 		samples = kmalloc(sizeof(*samples) * num_samples, GFP_ATOMIC);
- 		if (!samples) {
- 			samples = buffer;
--			num_samples = sizeof(buffer)/sizeof(buffer[0]);
-+			num_samples = ARRAY_SIZE(buffer);
+-#define TX_TIMEOUT  (2*HZ)
+-
+ #define TX_Q_LIMIT    32
++
+ struct ifb_private {
+-	struct tasklet_struct   ifb_tasklet;
+-	int     tasklet_pending;
+-	/* mostly debug stats leave in for now */
+-	unsigned long   st_task_enter; /* tasklet entered */
+-	unsigned long   st_txq_refl_try; /* transmit queue refill attempt */
+-	unsigned long   st_rxq_enter; /* receive queue entered */
+-	unsigned long   st_rx2tx_tran; /* receive to trasmit transfers */
+-	unsigned long   st_rxq_notenter; /*receiveQ not entered, resched */
+-	unsigned long   st_rx_frm_egr; /* received from egress path */
+-	unsigned long   st_rx_frm_ing; /* received from ingress path */
+-	unsigned long   st_rxq_check;
+-	unsigned long   st_rxq_rsch;
+-	struct sk_buff_head     rq;
+-	struct sk_buff_head     tq;
++	struct net_device	*dev;
++	struct sk_buff_head	rq;
++	struct sk_buff_head	tq;
++	wait_queue_head_t	wq;
++	struct task_struct	*task;
+ };
+ 
++/* Number of ifb devices to be set up by this module. */
+ static int numifbs = 2;
++module_param(numifbs, int, 0444);
++MODULE_PARM_DESC(numifbs, "Number of ifb devices");
+ 
+-static void ri_tasklet(unsigned long dev);
+-static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev);
+-static int ifb_open(struct net_device *dev);
+-static int ifb_close(struct net_device *dev);
++/* Number of TX queues per ifb */
++static int numtxqs = 1;
++module_param(numtxqs, int, 0444);
++MODULE_PARM_DESC(numtxqs, "Number of TX queues per ifb");
+ 
+-static void ri_tasklet(unsigned long dev)
++static int ifb_thread(void *priv)
+ {
+-
+-	struct net_device *_dev = (struct net_device *)dev;
+-	struct ifb_private *dp = netdev_priv(_dev);
+-	struct net_device_stats *stats = &_dev->stats;
+-	struct netdev_queue *txq;
++	struct ifb_private *dp = (struct ifb_private*)priv;
++	struct net_device *dev = dp->dev;
++	struct net_device_stats *stats = &dev->stats;
++	unsigned int num = dp - (struct ifb_private*)netdev_priv(dev);
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, num);
+ 	struct sk_buff *skb;
+-
+-	txq = netdev_get_tx_queue(_dev, 0);
+-	dp->st_task_enter++;
+-	if ((skb = skb_peek(&dp->tq)) == NULL) {
+-		dp->st_txq_refl_try++;
+-		if (__netif_tx_trylock(txq)) {
+-			dp->st_rxq_enter++;
+-			while ((skb = skb_dequeue(&dp->rq)) != NULL) {
++	DEFINE_WAIT(wait);
++
++	while (1) {
++		/* move skb from rq to tq */
++		while (1) {
++			prepare_to_wait(&dp->wq, &wait, TASK_UNINTERRUPTIBLE);
++			while (!__netif_tx_trylock(txq))
++				yield();
++			while ((skb = skb_dequeue(&dp->rq)) != NULL)
+ 				skb_queue_tail(&dp->tq, skb);
+-				dp->st_rx2tx_tran++;
+-			}
++			if (netif_queue_stopped(dev))
++				netif_wake_queue(dev);
+ 			__netif_tx_unlock(txq);
+-		} else {
+-			/* reschedule */
+-			dp->st_rxq_notenter++;
+-			goto resched;
++			if (kthread_should_stop() || !skb_queue_empty(&dp->tq))
++				break;
++			schedule();
  		}
- 	} else {
- 		samples = buffer;
--- 
-1.6.3.3
-
-
---MP_/E1KVNW40E31ptkQ=4vtartP
-Content-Type: text/x-patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename=0002-net-software-TX-time-stamping.patch
-
->From 50d8dfcf781fd3e9ad1d6123ff204b9f77a185ea Mon Sep 17 00:00:00 2001
-From: Christopher Zimmermann <madroach@zakweb.de>
-Date: Mon, 17 Aug 2009 21:27:50 +0200
-Subject: [PATCH 2/3] net: software TX time stamping
-
-This patch implements the software fallback to TX time stamping. The
-necessary access to the buffer and socket are secured by taking
-references before calling ndo_start_xmit().
-
-That avoids race conditions (buffer remains available even if
-transmission completes before ndo_start_xmit() returns) and works
-even if the driver calls skb_orphan().
-
-The caller of skb_tstamp_tx() is now responsible for providing the
-socket, which requires minor changes in users of the previous call:
-add skb->sk as parameter to get the old behavior.
----
- drivers/net/igb/igb_main.c |    2 +-
- include/linux/skbuff.h     |   11 +++++---
- net/core/dev.c             |   65 ++++++++++++++++++++++++++++++++++++++++++++
- net/core/skbuff.c          |    4 +-
- 4 files changed, 75 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index adb09d3..3ce4d78 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -4370,7 +4370,7 @@ static void igb_tx_hwtstamp(struct igb_adapter *adapter, struct sk_buff *skb)
- 			shhwtstamps.hwtstamp = ns_to_ktime(ns);
- 			shhwtstamps.syststamp =
- 				timecompare_transform(&adapter->compare, ns);
--			skb_tstamp_tx(skb, &shhwtstamps);
-+			skb_tstamp_tx(skb, skb->sk, &shhwtstamps);
+-	}
+-
+-	while ((skb = skb_dequeue(&dp->tq)) != NULL) {
+-		u32 from = G_TC_FROM(skb->tc_verd);
+-
+-		skb->tc_verd = 0;
+-		skb->tc_verd = SET_TC_NCLS(skb->tc_verd);
+-		stats->tx_packets++;
+-		stats->tx_bytes +=skb->len;
+-
+-		skb->dev = dev_get_by_index(&init_net, skb->iif);
+-		if (!skb->dev) {
+-			dev_kfree_skb(skb);
+-			stats->tx_dropped++;
++		finish_wait(&dp->wq, &wait);
++		if (kthread_should_stop())
+ 			break;
+-		}
+-		dev_put(skb->dev);
+-		skb->iif = _dev->ifindex;
+-
+-		if (from & AT_EGRESS) {
+-			dp->st_rx_frm_egr++;
+-			dev_queue_xmit(skb);
+-		} else if (from & AT_INGRESS) {
+-			dp->st_rx_frm_ing++;
+-			skb_pull(skb, skb->dev->hard_header_len);
+-			netif_rx(skb);
+-		} else
+-			BUG();
+-	}
+ 
+-	if (__netif_tx_trylock(txq)) {
+-		dp->st_rxq_check++;
+-		if ((skb = skb_peek(&dp->rq)) == NULL) {
+-			dp->tasklet_pending = 0;
+-			if (netif_queue_stopped(_dev))
+-				netif_wake_queue(_dev);
+-		} else {
+-			dp->st_rxq_rsch++;
+-			__netif_tx_unlock(txq);
+-			goto resched;
++		/* transfer packets */
++		while ((skb = skb_dequeue(&dp->tq)) != NULL) {
++			u32 from = G_TC_FROM(skb->tc_verd);
++	
++			skb->tc_verd = 0;
++			skb->tc_verd = SET_TC_NCLS(skb->tc_verd);
++			stats->tx_packets++;
++			stats->tx_bytes +=skb->len;
++	
++			skb->dev = dev_get_by_index(&init_net, skb->iif);
++			if (!skb->dev) {
++				dev_kfree_skb(skb);
++				stats->tx_dropped++;
++				break;
++			}
++			dev_put(skb->dev);
++			skb->iif = dev->ifindex;
++	
++			if (from & AT_EGRESS) {
++				dev_queue_xmit(skb);
++			} else if (from & AT_INGRESS) {
++				skb_pull(skb, skb->dev->hard_header_len);
++				netif_rx_ni(skb);
++			} else
++				BUG();
  		}
+-		__netif_tx_unlock(txq);
+-	} else {
+-resched:
+-		dp->tasklet_pending = 1;
+-		tasklet_schedule(&dp->ifb_tasklet);
  	}
+ 
+-}
+-
+-static const struct net_device_ops ifb_netdev_ops = {
+-	.ndo_open	= ifb_open,
+-	.ndo_stop	= ifb_close,
+-	.ndo_start_xmit	= ifb_xmit,
+-	.ndo_validate_addr = eth_validate_addr,
+-};
+-
+-static void ifb_setup(struct net_device *dev)
+-{
+-	/* Initialize the device structure. */
+-	dev->destructor = free_netdev;
+-	dev->netdev_ops = &ifb_netdev_ops;
+-
+-	/* Fill in device structure with ethernet-generic values. */
+-	ether_setup(dev);
+-	dev->tx_queue_len = TX_Q_LIMIT;
+-
+-	dev->flags |= IFF_NOARP;
+-	dev->flags &= ~IFF_MULTICAST;
+-	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+-	random_ether_addr(dev->dev_addr);
++	return 0;
  }
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f2c69a2..e29e43d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1873,17 +1873,20 @@ static inline ktime_t net_invalid_timestamp(void)
  
- /**
-  * skb_tstamp_tx - queue clone of skb with send time stamps
-- * @orig_skb:	the original outgoing packet
-+ * @skb:	the original outgoing packet
-+ * @sk:		sending socket (either from skb->sk or previous sock_get()),
-+ *		may be NULL
-  * @hwtstamps:	hardware time stamps, may be NULL if not available
-  *
-- * If the skb has a socket associated, then this function clones the
-+ * If the socket is available, then this function clones the
-  * skb (thus sharing the actual data and optional structures), stores
-  * the optional hardware time stamping information (if non NULL) or
-  * generates a software time stamp (otherwise), then queues the clone
-  * to the error queue of the socket.  Errors are silently ignored.
-  */
--extern void skb_tstamp_tx(struct sk_buff *orig_skb,
--			struct skb_shared_hwtstamps *hwtstamps);
-+extern void skb_tstamp_tx(struct sk_buff *skb,
-+			  struct sock *sk,
-+			  struct skb_shared_hwtstamps *hwtstamps);
+ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct ifb_private *dp = netdev_priv(dev);
+ 	struct net_device_stats *stats = &dev->stats;
+ 	u32 from = G_TC_FROM(skb->tc_verd);
++	int num = skb_get_queue_mapping(skb);
++	struct ifb_private *dp = ((struct ifb_private*)netdev_priv(dev)) + num;
  
- extern __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
- extern __sum16 __skb_checksum_complete(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6a94475..e20e3ca 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1679,10 +1679,71 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	stats->rx_packets++;
+ 	stats->rx_bytes+=skb->len;
+@@ -182,10 +144,8 @@ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	dev->trans_start = jiffies;
+ 	skb_queue_tail(&dp->rq, skb);
+-	if (!dp->tasklet_pending) {
+-		dp->tasklet_pending = 1;
+-		tasklet_schedule(&dp->ifb_tasklet);
+-	}
++	if (skb_queue_len(&dp->rq) == 1)
++		wake_up(&dp->wq);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -193,26 +153,132 @@ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+ static int ifb_close(struct net_device *dev)
+ {
+ 	struct ifb_private *dp = netdev_priv(dev);
++	int i;
++
++	for (i = 0; i < dev->real_num_tx_queues; i++) {
++		kthread_stop(dp[i].task);
++		skb_queue_purge(&dp[i].tq);
++		skb_queue_purge(&dp[i].rq);
++	}
+ 
+-	tasklet_kill(&dp->ifb_tasklet);
+ 	netif_stop_queue(dev);
+-	skb_queue_purge(&dp->rq);
+-	skb_queue_purge(&dp->tq);
++
  	return 0;
  }
  
-+/**
-+ * struct tx_tstamp_context - context for software TX time stamping
-+ * @sk: socket reference, NULL if nothing to do
-+ * @skb: packet reference
-+ */
-+struct tx_tstamp_context {
-+	struct sock *sk;
-+	struct sk_buff *skb;
+ static int ifb_open(struct net_device *dev)
+ {
+ 	struct ifb_private *dp = netdev_priv(dev);
++	int i;
++	
++	for (i = 0; i < dev->real_num_tx_queues; i++) {
++		dp[i].dev = dev;
++		skb_queue_head_init(&dp[i].rq);
++		skb_queue_head_init(&dp[i].tq);
++		init_waitqueue_head(&dp[i].wq);
++		dp[i].task = kthread_run(ifb_thread, &dp[i], "%s/%d", dev->name,
++					i);
++		if (IS_ERR(dp[i].task)) {
++			int err = PTR_ERR(dp[i].task);
++			while (--i >= 0)
++				kthread_stop(dp[i].task);
++			return err;
++		}
++	}
+ 
+-	tasklet_init(&dp->ifb_tasklet, ri_tasklet, (unsigned long)dev);
+-	skb_queue_head_init(&dp->rq);
+-	skb_queue_head_init(&dp->tq);
+ 	netif_start_queue(dev);
+ 
+ 	return 0;
+ }
+ 
++static u32 simple_tx_hashrnd;
++
++static u16 ifb_select_queue(struct net_device *dev, struct sk_buff *skb)
++{
++	u32 addr1, addr2;
++	u32 hash, ihl;
++	union {
++		u16 in16[2];
++		u32 in32;
++	} ports;
++	u8 ip_proto;
++
++	if ((hash = skb_rx_queue_recorded(skb))) {
++		while (hash >= dev->real_num_tx_queues)
++			hash -= dev->real_num_tx_queues;
++		return hash;
++	}
++
++	switch (skb->protocol) {
++	case __constant_htons(ETH_P_IP):
++		if (!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)))
++			ip_proto = ip_hdr(skb)->protocol;
++		else
++			ip_proto = 0;
++		addr1 = ip_hdr(skb)->saddr;
++		addr2 = ip_hdr(skb)->daddr;
++		ihl = ip_hdr(skb)->ihl << 2;
++		break;
++	case __constant_htons(ETH_P_IPV6):
++		ip_proto = ipv6_hdr(skb)->nexthdr;
++		addr1 = ipv6_hdr(skb)->saddr.s6_addr32[3];
++		addr2 = ipv6_hdr(skb)->daddr.s6_addr32[3];
++		ihl = 10;
++		break;
++	default:
++		return 0;
++	}
++	if (addr1 > addr2)
++		swap(addr1, addr2);
++
++	switch (ip_proto) {
++	case IPPROTO_TCP:
++	case IPPROTO_UDP:
++	case IPPROTO_DCCP:
++	case IPPROTO_ESP:
++	case IPPROTO_AH:
++	case IPPROTO_SCTP:
++	case IPPROTO_UDPLITE:
++		ports.in32 = *((u32 *) (skb_network_header(skb) + ihl));
++		if (ports.in16[0] > ports.in16[1])
++			swap(ports.in16[0], ports.in16[1]);
++		break;
++
++	default:
++		ports.in32 = 0;
++		break;
++	}
++
++	hash = jhash_3words(addr1, addr2, ports.in32,
++			    simple_tx_hashrnd ^ ip_proto);
++
++	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
++}
++
++static const struct net_device_ops ifb_netdev_ops = {
++	.ndo_open		= ifb_open,
++	.ndo_stop		= ifb_close,
++	.ndo_start_xmit		= ifb_xmit,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_select_queue	= ifb_select_queue,
 +};
 +
-+/**
-+ * tx_tstamp_start - check for TX software time stamping and prepare for it
-+ * @skb: buffer which is being sent
-+ * @context: needs to be initialized for tx_tstamp_end()
-+ */
-+static void tx_tstamp_start(struct sk_buff *skb,
-+			    struct tx_tstamp_context *context)
++static void ifb_setup(struct net_device *dev)
 +{
-+	union skb_shared_tx *shtx = skb_tx(skb);
-+	/*
-+	 * Prepare for TX time stamping in software if requested.
-+	 * This could be optimized so that device drivers
-+	 * do that themselves, which avoids the skb/sk ref/unref
-+	 * overhead.
-+	 */
-+	if (unlikely(shtx->software &&
-+		     skb->sk)) {
-+		context->sk = skb->sk;
-+		sock_hold(skb->sk);
-+		context->skb = skb_get(skb);
-+	} else {
-+		/* TX software time stamping not requested/not possible. */
-+		context->sk = NULL;
-+	}
++	/* Initialize the device structure. */
++	dev->destructor = free_netdev;
++	dev->netdev_ops = &ifb_netdev_ops;
++
++	/* Fill in device structure with ethernet-generic values. */
++	ether_setup(dev);
++	dev->tx_queue_len = TX_Q_LIMIT;
++
++	dev->flags |= IFF_NOARP;
++	dev->flags &= ~IFF_MULTICAST;
++	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
++	random_ether_addr(dev->dev_addr);
 +}
 +
-+/**
-+ * tx_tstamp_end - finish the work started by tx_tstamp_end()
-+ * @context: may contain socket and buffer references
-+ * @rc: result of ndo_start_xmit() - only do time stamping if packet was sent
-+ */
-+static void tx_tstamp_end(struct tx_tstamp_context *context, int rc)
-+{
-+	if (unlikely(context->sk)) {
-+		union skb_shared_tx *shtx = skb_tx(context->skb);
-+		/*
-+		 * Checking shtx->software again is a bit redundant: it must
-+		 * have been set in tx_tstamp_start(), but perhaps it
-+		 * was cleared in the meantime to disable the TX software
-+		 * fallback.
-+		 */
-+		if (likely(!rc) &&
-+		    unlikely(shtx->software &&
-+			     !shtx->in_progress))
-+			skb_tstamp_tx(context->skb, context->sk, NULL);
-+		sock_put(context->sk);
-+		kfree_skb(context->skb);
-+	}
-+}
-+
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			struct netdev_queue *txq)
+ static int ifb_validate(struct nlattr *tb[], struct nlattr *data[])
  {
- 	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct tx_tstamp_context context;
- 	int rc;
- 
- 	if (likely(!skb->next)) {
-@@ -1703,6 +1764,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
- 			skb_dst_drop(skb);
- 
-+		tx_tstamp_start(skb, &context);
- 		rc = ops->ndo_start_xmit(skb, dev);
- 		if (rc == 0)
- 			txq_trans_update(txq);
-@@ -1720,6 +1782,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 		 * the skb destructor before the call and restoring it
- 		 * afterwards, then doing the skb_orphan() ourselves?
- 		 */
-+		tx_tstamp_end(&context, rc);
- 		return rc;
- 	}
- 
-@@ -1729,7 +1792,9 @@ gso:
- 
- 		skb->next = nskb->next;
- 		nskb->next = NULL;
-+		tx_tstamp_start(skb, &context);
- 		rc = ops->ndo_start_xmit(nskb, dev);
-+		tx_tstamp_end(&context, rc);
- 		if (unlikely(rc)) {
- 			nskb->next = skb->next;
- 			skb->next = nskb;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 9e0597d..78ae3e9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2971,9 +2971,9 @@ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
- EXPORT_SYMBOL_GPL(skb_cow_data);
- 
- void skb_tstamp_tx(struct sk_buff *orig_skb,
--		struct skb_shared_hwtstamps *hwtstamps)
-+		   struct sock *sk,
-+		   struct skb_shared_hwtstamps *hwtstamps)
- {
--	struct sock *sk = orig_skb->sk;
- 	struct sock_exterr_skb *serr;
- 	struct sk_buff *skb;
- 	int err;
--- 
-1.6.3.3
-
-
---MP_/E1KVNW40E31ptkQ=4vtartP
-Content-Type: text/x-patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename=0003-Change-kernel-timestamping-interface.patch
-
->From fc396501b8d0906253b1f85945b86da4130ee665 Mon Sep 17 00:00:00 2001
-From: Christopher Zimmermann <madroach@sancho.(none)>
-Date: Wed, 7 Oct 2009 17:28:26 +0200
-Subject: [PATCH 3/3] Change kernel timestamping interface
-
-Allow userspace to fine-tune hardware registers.
-Stay backwards compatible to old userspace?
----
- .gitignore                   |    1 +
- drivers/net/igb/e1000_regs.h |   41 ++++++++++--------
- drivers/net/igb/igb_main.c   |   95 +++++++++++++++++++++++++----------------
- include/linux/net_tstamp.h   |   35 +++++++++++----
- 4 files changed, 107 insertions(+), 65 deletions(-)
-
-diff --git a/.gitignore b/.gitignore
-index b93fb7e..6fac88c 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -32,6 +32,7 @@
- #
- # Top-level generic files
- #
-+debian
- tags
- TAGS
- vmlinux
-diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
-index 6e59245..1785b30 100644
---- a/drivers/net/igb/e1000_regs.h
-+++ b/drivers/net/igb/e1000_regs.h
-@@ -83,30 +83,33 @@
- #define E1000_TSYNCRXCTL_VALID (1<<0)
- #define E1000_TSYNCRXCTL_ENABLED (1<<4)
- enum {
-+	/* bits 1 to 3 need leftshift <<1 for direct register access. */
- 	E1000_TSYNCRXCTL_TYPE_L2_V2 = 0,
--	E1000_TSYNCRXCTL_TYPE_L4_V1 = (1<<1),
--	E1000_TSYNCRXCTL_TYPE_L2_L4_V2 = (1<<2),
--	E1000_TSYNCRXCTL_TYPE_ALL = (1<<3),
--	E1000_TSYNCRXCTL_TYPE_EVENT_V2 = (1<<3) | (1<<1),
-+	E1000_TSYNCRXCTL_TYPE_L4_V1 = (1<<0),
-+	E1000_TSYNCRXCTL_TYPE_L2_L4_V2 = (1<<1),
-+	E1000_TSYNCRXCTL_TYPE_ALL = (1<<2),
-+	E1000_TSYNCRXCTL_TYPE_EVENT_V2 = (1<<2) | (1<<0),
- };
- #define E1000_TSYNCRXCFG 0x05F50
- enum {
--	E1000_TSYNCRXCFG_PTP_V1_SYNC_MESSAGE = 0<<0,
--	E1000_TSYNCRXCFG_PTP_V1_DELAY_REQ_MESSAGE = 1<<0,
--	E1000_TSYNCRXCFG_PTP_V1_FOLLOWUP_MESSAGE = 2<<0,
--	E1000_TSYNCRXCFG_PTP_V1_DELAY_RESP_MESSAGE = 3<<0,
--	E1000_TSYNCRXCFG_PTP_V1_MANAGEMENT_MESSAGE = 4<<0,
-+	/* bits 0 to 7 */
-+	E1000_TSYNCRXCFG_PTP_V1_SYNC_MESSAGE = 0,
-+	E1000_TSYNCRXCFG_PTP_V1_DELAY_REQ_MESSAGE = 1,
-+	E1000_TSYNCRXCFG_PTP_V1_FOLLOWUP_MESSAGE = 2,
-+	E1000_TSYNCRXCFG_PTP_V1_DELAY_RESP_MESSAGE = 3,
-+	E1000_TSYNCRXCFG_PTP_V1_MANAGEMENT_MESSAGE = 4,
- 
--	E1000_TSYNCRXCFG_PTP_V2_SYNC_MESSAGE = 0<<8,
--	E1000_TSYNCRXCFG_PTP_V2_DELAY_REQ_MESSAGE = 1<<8,
--	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_REQ_MESSAGE = 2<<8,
--	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_RESP_MESSAGE = 3<<8,
--	E1000_TSYNCRXCFG_PTP_V2_FOLLOWUP_MESSAGE = 8<<8,
--	E1000_TSYNCRXCFG_PTP_V2_DELAY_RESP_MESSAGE = 9<<8,
--	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_FOLLOWUP_MESSAGE = 0xA<<8,
--	E1000_TSYNCRXCFG_PTP_V2_ANNOUNCE_MESSAGE = 0xB<<8,
--	E1000_TSYNCRXCFG_PTP_V2_SIGNALLING_MESSAGE = 0xC<<8,
--	E1000_TSYNCRXCFG_PTP_V2_MANAGEMENT_MESSAGE = 0xD<<8,
-+	/* bits 8 to 11 need leftshift <<8 for direct register access */
-+	E1000_TSYNCRXCFG_PTP_V2_SYNC_MESSAGE = 0,
-+	E1000_TSYNCRXCFG_PTP_V2_DELAY_REQ_MESSAGE = 1,
-+	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_REQ_MESSAGE = 2,
-+	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_RESP_MESSAGE = 3,
-+	E1000_TSYNCRXCFG_PTP_V2_FOLLOWUP_MESSAGE = 8,
-+	E1000_TSYNCRXCFG_PTP_V2_DELAY_RESP_MESSAGE = 9,
-+	E1000_TSYNCRXCFG_PTP_V2_PATH_DELAY_FOLLOWUP_MESSAGE = 0xA,
-+	E1000_TSYNCRXCFG_PTP_V2_ANNOUNCE_MESSAGE = 0xB,
-+	E1000_TSYNCRXCFG_PTP_V2_SIGNALLING_MESSAGE = 0xC,
-+	E1000_TSYNCRXCFG_PTP_V2_MANAGEMENT_MESSAGE = 0xD,
- };
- #define E1000_SYSTIML 0x0B600
- #define E1000_SYSTIMH 0x0B604
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index adb09d3..17bfd5b 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1512,7 +1512,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	wr32(E1000_TIMINCA,
- 	     (1<<24) |
- 	     IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS * IGB_TSYNC_SCALE);
--#if 0
-+#if 1
- 	/*
- 	 * Avoid rollover while we initialize by resetting the time counter.
- 	 */
-@@ -4881,28 +4881,33 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct hwtstamp_config config;
-+#if 0
- 	u32 tsync_tx_ctl_bit = E1000_TSYNCTXCTL_ENABLED;
- 	u32 tsync_rx_ctl_bit = E1000_TSYNCRXCTL_ENABLED;
- 	u32 tsync_rx_ctl_type = 0;
- 	u32 tsync_rx_cfg = 0;
- 	int is_l4 = 0;
- 	int is_l2 = 0;
--	short port = 319; /* PTP */
-+#endif
- 	u32 regval;
- 
-+	memset(&config, 0, sizeof(config));
-+        /* TODO: first check, weather old or new interface is passed. */
- 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
- 		return -EFAULT;
- 
- 	/* reserved for future extensions */
- 	if (config.flags)
--		return -EINVAL;
-+		goto manual;
- 
- 	switch (config.tx_type) {
- 	case HWTSTAMP_TX_OFF:
--		tsync_tx_ctl_bit = 0;
-+		//tsync_tx_ctl_bit = 0;
-+		config.flags &= ~HWTSTAMP_TX;
- 		break;
- 	case HWTSTAMP_TX_ON:
--		tsync_tx_ctl_bit = E1000_TSYNCTXCTL_ENABLED;
-+		//tsync_tx_ctl_bit = E1000_TSYNCTXCTL_ENABLED;
-+		config.flags |= HWTSTAMP_TX;
- 		break;
- 	default:
- 		return -ERANGE;
-@@ -4910,7 +4915,7 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 
- 	switch (config.rx_filter) {
- 	case HWTSTAMP_FILTER_NONE:
--		tsync_rx_ctl_bit = 0;
-+		config.flags &= ~HWTSTAMP_RX;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-@@ -4921,57 +4926,68 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 		 * possible to time stamp both Sync and Delay_Req messages
- 		 * => fall back to time stamping all packets
- 		 */
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_ALL;
-+		//tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_ALL;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_ALL;
- 		config.rx_filter = HWTSTAMP_FILTER_ALL;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_L4_V1;
--		tsync_rx_cfg = E1000_TSYNCRXCFG_PTP_V1_SYNC_MESSAGE;
--		is_l4 = 1;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_L4_V1;
-+		config.igb.ptp1_control = E1000_TSYNCRXCFG_PTP_V1_SYNC_MESSAGE;
-+		config.igb.port = htons(319); /* PTP */
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_L4_V1;
--		tsync_rx_cfg = E1000_TSYNCRXCFG_PTP_V1_DELAY_REQ_MESSAGE;
--		is_l4 = 1;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_L4_V1;
-+		config.igb.ptp1_control = E1000_TSYNCRXCFG_PTP_V1_DELAY_REQ_MESSAGE;
-+		config.igb.port = htons(319); /* PTP */
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
--		tsync_rx_cfg = E1000_TSYNCRXCFG_PTP_V2_SYNC_MESSAGE;
--		is_l2 = 1;
--		is_l4 = 1;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
-+		config.igb.ptp2_id = E1000_TSYNCRXCFG_PTP_V2_SYNC_MESSAGE;
-+		config.igb.etype = 0x88F7;
-+		config.igb.port = htons(319); /* PTP */
- 		config.rx_filter = HWTSTAMP_FILTER_SOME;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
--		tsync_rx_cfg = E1000_TSYNCRXCFG_PTP_V2_DELAY_REQ_MESSAGE;
--		is_l2 = 1;
--		is_l4 = 1;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
-+		config.igb.ptp2_id = E1000_TSYNCRXCFG_PTP_V2_DELAY_REQ_MESSAGE;
-+		config.igb.etype = 0x88F7;
-+		config.igb.port = htons(319); /* PTP */
- 		config.rx_filter = HWTSTAMP_FILTER_SOME;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
--		tsync_rx_ctl_type = E1000_TSYNCRXCTL_TYPE_EVENT_V2;
-+		config.igb.ptp_type = E1000_TSYNCRXCTL_TYPE_EVENT_V2;
- 		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
--		is_l2 = 1;
-+		config.igb.etype = 0x88F7;
- 		break;
- 	default:
- 		return -ERANGE;
- 	}
- 
-+manual:
- 	/* enable/disable TX */
- 	regval = rd32(E1000_TSYNCTXCTL);
--	regval = (regval & ~E1000_TSYNCTXCTL_ENABLED) | tsync_tx_ctl_bit;
-+	if(config.flags & HWTSTAMP_TX)
-+		regval = (regval | E1000_TSYNCTXCTL_ENABLED);
-+	else	regval = (regval & ~E1000_TSYNCTXCTL_ENABLED);
- 	wr32(E1000_TSYNCTXCTL, regval);
- 
- 	/* enable/disable RX, define which PTP packets are time stamped */
- 	regval = rd32(E1000_TSYNCRXCTL);
--	regval = (regval & ~E1000_TSYNCRXCTL_ENABLED) | tsync_rx_ctl_bit;
--	regval = (regval & ~0xE) | tsync_rx_ctl_type;
-+	if(config.flags & HWTSTAMP_RX)
-+		regval = (regval | E1000_TSYNCRXCTL_ENABLED);
-+	else	regval = (regval & ~E1000_TSYNCRXCTL_ENABLED);
-+	regval = (regval & ~0xE) | config.igb.ptp_type << 1;
- 	wr32(E1000_TSYNCRXCTL, regval);
--	wr32(E1000_TSYNCRXCFG, tsync_rx_cfg);
-+
-+	/* we don't need to read since we can reset the whole register. */
-+	regval =  config.igb.ptp1_control
-+		| config.igb.ptp2_id << 8
-+		| config.igb.ptp2_val << 12;
-+	wr32(E1000_TSYNCRXCFG, regval);
- 
- 	/*
- 	 * Ethertype Filter Queue Filter[0][15:0] = 0x88F7
-@@ -4979,27 +4995,32 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 	 * Ethertype Filter Queue Filter[0][26] = 0x1 (Enable filter)
- 	 * Ethertype Filter Queue Filter[0][30] = 0x1 (Enable Timestamping)
- 	 */
--	wr32(E1000_ETQF0, is_l2 ? 0x440088f7 : 0);
-+	wr32(E1000_ETQF0, config.igb.etype ? 0x4400 << 16 | config.igb.etype : 0);
- 
- 	/* L4 Queue Filter[0]: only filter by source and destination port */
--	wr32(E1000_SPQF0, htons(port));
--	wr32(E1000_IMIREXT(0), is_l4 ?
-+	/* wr32(E1000_SPQF0, port); XXX why source port? */
-+	wr32(E1000_IMIREXT(0), config.igb.port ?
- 	     ((1<<12) | (1<<19) /* bypass size and control flags */) : 0);
--	wr32(E1000_IMIR(0), is_l4 ?
--	     (htons(port)
-+	wr32(E1000_IMIR(0), config.igb.port ?
-+	     (config.igb.port
- 	      | (0<<16) /* immediate interrupt disabled */
--	      | 0 /* (1<<17) bit cleared: do not bypass
-+	      | (0<<17) /* (1<<17) bit cleared: do not bypass
- 		     destination port check */)
- 		: 0);
--	wr32(E1000_FTQF0, is_l4 ?
-+	wr32(E1000_FTQF0, config.igb.port ?
- 	     (0x11 /* UDP */
- 	      | (1<<15) /* VF not compared */
- 	      | (1<<27) /* Enable Timestamping */
-+#if 0
- 	      | (7<<28) /* only source port filter enabled,
- 			   source/target address and protocol
--			   masked */)
--	     : ((1<<15) | (15<<28) /* all mask bits set = filter not
--				      enabled */));
-+			   masked */
-+#endif
-+	      | (0xe<<28) /* only protocol filter enabled
-+			   * everything else is masked. */
-+	     )
-+	     : (1<<15) | (15<<28) /* all mask bits set = filter not
-+				      enabled */);
- 
- 	wrfl();
- 
-diff --git a/include/linux/net_tstamp.h b/include/linux/net_tstamp.h
-index a3b8546..7b069dd 100644
---- a/include/linux/net_tstamp.h
-+++ b/include/linux/net_tstamp.h
-@@ -40,26 +40,43 @@ enum {
-  */
- struct hwtstamp_config {
- 	int flags;
--	int tx_type;
--	int rx_filter;
-+	/* deprecated, only used for backwards compatibility when flags == 0 */
-+	int tx_type;            /* put this into flags ? */
-+	int rx_filter;          /* deprecated */
-+	/* hardware dependend part starts here */
-+	union {
-+		struct {
-+			unsigned short port;  /* for dst port filter, zero to disable */
-+			unsigned short etype; /* for ethertype filter, zero to disable */
-+			unsigned ptp1_control	:8; /* TSYNCRXCFG.CTRLT */
-+			/* Careful! According to reference manual message ids
-+			 * 2 and 3 always get timestamped. */
-+			unsigned ptp2_id	:4; /* TSYNCRXCFG.MSGT */
-+			unsigned ptp2_val	:4; /* TSYNCRXCFG.TRNSSPC */
-+			unsigned ptp_type	:3; /* TSYNCRXCTL.Type */
-+		} igb;
-+	};
+ 	if (tb[IFLA_ADDRESS]) {
+@@ -231,17 +297,13 @@ static struct rtnl_link_ops ifb_link_ops __read_mostly = {
+ 	.validate	= ifb_validate,
  };
  
--/* possible values for hwtstamp_config->tx_type */
-+/* flags for hwtstamp_config */
- enum {
- 	/*
--	 * No outgoing packet will need hardware time stamping;
--	 * should a packet arrive which asks for it, no hardware
--	 * time stamping will be done.
-+	 * these first two values are the only allowed values in
-+	 * deprecated hwtstamp_config->tx_type
- 	 */
--	HWTSTAMP_TX_OFF,
+-/* Number of ifb devices to be set up by this module. */
+-module_param(numifbs, int, 0);
+-MODULE_PARM_DESC(numifbs, "Number of ifb devices");
 -
- 	/*
- 	 * Enables hardware time stamping for outgoing packets;
- 	 * the sender of the packet decides which are to be
- 	 * time stamped by setting %SOF_TIMESTAMPING_TX_SOFTWARE
- 	 * before sending the packet.
-+	 * If disabled no packet will be timestamped; even if it
-+	 * asks for it.
- 	 */
--	HWTSTAMP_TX_ON,
-+	HWTSTAMP_TX_OFF = 0, /* only used in hwtstamp_config->tx_type */
-+	HWTSTAMP_TX_ON = 1,
-+	HWTSTAMP_TX = 1,
-+
-+	HWTSTAMP_RX = 2
- };
+ static int __init ifb_init_one(int index)
+ {
+ 	struct net_device *dev_ifb;
+ 	int err;
  
- /* possible values for hwtstamp_config->rx_filter */
--- 
-1.6.3.3
+-	dev_ifb = alloc_netdev(sizeof(struct ifb_private),
+-				 "ifb%d", ifb_setup);
++	dev_ifb = alloc_netdev_mq(sizeof(struct ifb_private) * numtxqs, "ifb%d",
++				  ifb_setup, numtxqs);
+ 
+ 	if (!dev_ifb)
+ 		return -ENOMEM;
+@@ -266,6 +328,7 @@ static int __init ifb_init_module(void)
+ {
+ 	int i, err;
+ 
++	get_random_bytes(&simple_tx_hashrnd, 4);
+ 	rtnl_lock();
+ 	err = __rtnl_link_register(&ifb_link_ops);
+ 
 
 
---MP_/E1KVNW40E31ptkQ=4vtartP--
