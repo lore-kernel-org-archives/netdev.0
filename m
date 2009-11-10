@@ -1,54 +1,45 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 06/10] s390: use RCU to walk list of network devices
-Date: Tue, 10 Nov 2009 09:54:52 -0800
-Message-ID: <20091110175647.547660685@vyatta.com>
+Subject: [PATCH 10/10] CAN: use dev_get_by_index_rcu
+Date: Tue, 10 Nov 2009 09:54:56 -0800
+Message-ID: <20091110175647.824581805@vyatta.com>
 References: <20091110175446.280423729@vyatta.com>
-Cc: netdev@vger.kernel.org, linux390@de.ibm.com
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Lothar Wassmann <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58732 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:49507 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752260AbZKJSIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 13:08:00 -0500
-Content-Disposition: inline; filename=s390-readlock.patch
+	id S1752456AbZKJSJj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 13:09:39 -0500
+Content-Disposition: inline; filename=bcm-dev-rcu.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is similar to other cases where for_each_netdev_rcu
-can be used when gathering information.
-
-By inspection, don't have platform or cross-build environment
-to validate.
+Use new function to avoid doing read_lock().
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/arch/s390/appldata/appldata_net_sum.c	2009-11-09 22:19:05.593480476 -0800
-+++ b/arch/s390/appldata/appldata_net_sum.c	2009-11-10 09:28:38.335438652 -0800
-@@ -83,8 +83,9 @@ static void appldata_get_net_sum_data(vo
- 	rx_dropped = 0;
- 	tx_dropped = 0;
- 	collisions = 0;
--	read_lock(&dev_base_lock);
--	for_each_netdev(&init_net, dev) {
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(&init_net, dev) {
- 		const struct net_device_stats *stats = dev_get_stats(dev);
+--- a/net/can/bcm.c	2009-11-10 09:45:16.301376272 -0800
++++ b/net/can/bcm.c	2009-11-10 09:46:30.125005956 -0800
+@@ -139,13 +139,13 @@ static char *bcm_proc_getifname(char *re
+ 	if (!ifindex)
+ 		return "any";
  
- 		rx_packets += stats->rx_packets;
-@@ -98,7 +99,8 @@ static void appldata_get_net_sum_data(vo
- 		collisions += stats->collisions;
- 		i++;
- 	}
+-	read_lock(&dev_base_lock);
+-	dev = __dev_get_by_index(&init_net, ifindex);
++	rcu_read_lock();
++	dev = dev_get_by_index_rcu(&init_net, ifindex);
+ 	if (dev)
+ 		strcpy(result, dev->name);
+ 	else
+ 		strcpy(result, "???");
 -	read_unlock(&dev_base_lock);
 +	rcu_read_unlock();
-+
- 	net_data->nr_interfaces = i;
- 	net_data->rx_packets = rx_packets;
- 	net_data->tx_packets = tx_packets;
+ 
+ 	return result;
+ }
 
 -- 
 
