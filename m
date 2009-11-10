@@ -1,42 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
-Date: Tue, 10 Nov 2009 13:18:15 +1030
-Message-ID: <200911101318.15535.rusty@rustcorp.com.au>
-References: <cover.1257786516.git.mst@redhat.com> <20091109172230.GD4724@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- s.hetze@linux-ag.com,
- Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091109172230.GD4724@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: "MR SMITH" <osahonloan03@mchsi.com>
+Subject: (unknown)
+Date: Tue, 10 Nov 2009 02:53:36 +0000
+Message-ID: <111020090253.7267.4AF8D5B0000A1B4E00001C63223045151403010CD2079C080C03BFCCCF020E01040201080E9C01@mchsi.com>
+Reply-To: happy_smithloanfirm@hotmail.com
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sccmmhc91.asp.att.net ([204.127.203.211]:38399 "EHLO
+	sccmmhc91.asp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbZKJCxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Nov 2009 21:53:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Nov 2009 03:52:30 am Michael S. Tsirkin wrote:
-> What it is: vhost net is a character device that can be used to reduce
-> the number of system calls involved in virtio networking.
-> Existing virtio net code is used in the guest without modification.
 
-Thanks, applied.  Will be in tomorrow's linux-next.
 
-Cheers,
-Rusty.
+Do you need A
+Business or a Personal Loan? Then your Answer is here. We
+offer
+loan at 3% as well with a flexible  plan.and customer's convinient terms*
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+We offer the following;
+
+Hard Money Loans
+Business Loan.
+Debt Consolidation Loan.
+Personal Loan.
+Business Expansion Loan.
+And Lots more..........
+
+If interested in any of the following, contact us now on
+happy_smithloanfirm@hotmail.com   for more infor..
+
+
+REGARDS
+
