@@ -1,36 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Tue, 10 Nov 2009 19:23:45 +0100
-Message-ID: <4AF9AFB1.3080105@gmail.com>
-References: <20091110175446.280423729@vyatta.com> <20091110175647.409162953@vyatta.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH] Documentation: rw_lock lessons learned
+Date: Tue, 10 Nov 2009 13:23:49 -0500
+Message-ID: <4AF9AFB5.7080809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"Ed L. Cashin" <ecashin@coraid.com>,
-	Harvey Harrison <harvey.harrison@gmail.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: multipart/mixed;
+ boundary="------------020008060903090007010701"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37508 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757434AbZKJSXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:23:45 -0500
-In-Reply-To: <20091110175647.409162953@vyatta.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:40616 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757511AbZKJSXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:23:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> This gets rid of another use of read_lock(&dev_base_lock) by using
-> RCU. Also, it only increments the reference count of the device actua=
-lly
-> used rather than holding and releasing every device
->=20
-> Compile tested only.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+This is a multi-part message in MIME format.
+--------------020008060903090007010701
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
+In recent weeks, two different network projects erroneously
+strayed down the rw_lock path.  Update the Documentation
+based upon comments in those threads.
+---
+  Documentation/spinlocks.txt |   14 ++++++++++++++
+  1 files changed, 14 insertions(+), 0 deletions(-)
+
+--------------020008060903090007010701
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="spinlocks.txt.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="spinlocks.txt.patch"
+
+diff --git a/Documentation/spinlocks.txt b/Documentation/spinlocks.txt
+index 619699d..c112052 100644
+--- a/Documentation/spinlocks.txt
++++ b/Documentation/spinlocks.txt
+@@ -233,4 +233,18 @@ indeed), while write-locks need to protect themselves against interrupts.
+ 
+ 		Linus
+ 
++----
++
++The implications of spin_locks on memory are further described in:
++
++  Documentation/memory-barriers.txt
++    (5) LOCK operations.
++    (6) UNLOCK operations.
++
++----
++
++We are working hard to remove reader-writer spinlocks (rw_lock) from the
++network stack, so please don't add a new one.  Instead, see:
++
++  Documentation/RCU/rcu.txt
+ 
+-- 
+1.6.3.3
+
+
+--------------020008060903090007010701--
