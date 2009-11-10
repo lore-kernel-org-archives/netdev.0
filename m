@@ -1,57 +1,47 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 01/75] netx: declare MODULE_FIRMWARE
-Date: Tue, 10 Nov 2009 08:36:08 +0100
-Message-ID: <20091110073608.GR30179@pengutronix.de>
-References: <1257629856.15927.370.camel@localhost>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] act_mirred: don't go back.
+Date: Tue, 10 Nov 2009 02:40:34 -0500
+Message-ID: <1257838834.3647.4.camel@bigi>
+References: <4AF7B9F4.6010507@gmail.com> <1257751376.8009.2.camel@bigi>
+	 <412e6f7f0911090031j16ab9c73o47f4d4d3ffd9be3a@mail.gmail.com>
+	 <1257764086.6246.1.camel@bigi>
+	 <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:58966 "EHLO
-	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbZKJHgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 02:36:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1257629856.15927.370.camel@localhost>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:41078 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbZKJHka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 02:40:30 -0500
+Received: by yxe17 with SMTP id 17so3267172yxe.33
+        for <netdev@vger.kernel.org>; Mon, 09 Nov 2009 23:40:35 -0800 (PST)
+In-Reply-To: <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 07, 2009 at 09:37:36PM +0000, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> Note that the filenames are generated in xc_request_firmware(), defined
-> in arch/arm/mach-netx/xc.c.  I'm not sure whether it's actually worth
-> doing this for a platform driver.
 
-Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+I apologize - I am still not convinced this is a cleanup and i can
+already see holes you are introducing (example not freeing skb etc). 
+You are putting me in a dilemma of not wanting to discourage you
+but at the same time not seeing this as a useful change to be made.
+Can we let this one slide?
 
-> 
-> Ben.
-> 
->  drivers/net/netx-eth.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
-> index 9f42354..a0d65f5 100644
-> --- a/drivers/net/netx-eth.c
-> +++ b/drivers/net/netx-eth.c
-> @@ -510,3 +510,6 @@ module_exit(netx_eth_cleanup);
->  MODULE_AUTHOR("Sascha Hauer, Pengutronix");
->  MODULE_LICENSE("GPL");
->  MODULE_ALIAS("platform:" CARDNAME);
-> +MODULE_FIRMWARE("xc0.bin");
-> +MODULE_FIRMWARE("xc1.bin");
-> +MODULE_FIRMWARE("xc2.bin");
-> -- 
-> 1.6.5.2
-> 
-> 
-> 
-> 
+cheers,
+jamal
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+On Mon, 2009-11-09 at 20:33 +0800, Changli Gao wrote:
+
+[..]
+> How about this version.
+> 
+> 1. move skb_act_clone() after all the necessary checks, and it can
+> eliminate unnecessary skb_act_clone() if tcfm_eaction isn't correct.
+> 2. there is one exit of the critical section.
+> 3. jump forward instead of backward.
+
+
