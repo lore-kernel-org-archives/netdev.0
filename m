@@ -1,52 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 00/10] netdev: get rid of read_lock(&dev_base_lock)
- usages
-Date: Tue, 10 Nov 2009 10:53:36 -0800
-Message-ID: <20091110105336.4fde9c81@nehalam>
-References: <20091110175446.280423729@vyatta.com>
-	<4AF9AE66.3010303@gmail.com>
-	<20091110102442.733c22bc@nehalam>
-	<4AF9B358.9030006@gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] e1000e: Add new ID
+Date: Tue, 10 Nov 2009 10:56:33 -0800
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A903DB7F8F9@orsmsx509.amr.corp.intel.com>
+References: <4AF87AAF.2020508@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Sven Anders <sven@anduras.de>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54157 "EHLO mail.vyatta.com"
+Received: from mga02.intel.com ([134.134.136.20]:20985 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755244AbZKJSyC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:54:02 -0500
-In-Reply-To: <4AF9B358.9030006@gmail.com>
+	id S1757657AbZKJS43 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:56:29 -0500
+In-Reply-To: <4AF87AAF.2020508@anduras.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Nov 2009 19:39:20 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+NAK.  While this is indeed a trivial patch to enable a device that is not currently supported in e1000e, this device requires special handling to get the bypass functionality to work properly and as such this patch is insufficient.
 
-> Stephen Hemminger a =C3=A9crit :
-> > I was just trying to pick up the stragglers you left behind :-)
-> >=20
-> > The nasty cases left are bonding (whose existing locking model is a=
- pile
-> > of crap), and sysfs (slightly less stinky). The bonding code just n=
-eeds to
-> > be rewritten to have a sane/simple model.=20
-> >=20
->=20
-> I was thinking of improving bonding, so it might be good to coordinat=
-e our work :)
-
-I'll be happy to review, but was avoiding doing any serious work on it.
-
->=20
-> 1) Get rid of rwlock in tx fast path. (RCU ? did I said RCU)
->=20
-> 2) multi queue support (Got two dual 82599 dual ports cards from Inte=
-l :) )
-
-I hope to get back to doing netlink interface for bridging, then bondin=
-g
-over next few weeks.
-
---=20
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of Sven Anders
+>Sent: Monday, November 09, 2009 12:25 PM
+>To: netdev
+>Subject: [PATCH] e1000e: Add new ID
+>
+>Hello!
+>
+>We use the the 82571EB (QUAD COPPER BP) with the e1000e driver.
+>We haven't experienced any problems yet.
+>
+>The patch is trivial, just adding a new PCI ID...
+>
+>Regards
+> Sven Anders
+>
+>--
+> Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign
+>                                                 /\ Support plain text e-
+>mail
+> ANDURAS service solutions AG
+> Innstrasse 71 - 94036 Passau - Germany
+> Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90
+>50-55
+>
+>Those who would give up essential Liberty, to purchase a little
+>temporary Safety, deserve neither Liberty nor Safety.
+>  - Benjamin Franklin
