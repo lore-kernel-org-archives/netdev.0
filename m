@@ -1,65 +1,92 @@
-From: "Marcus D. Leech" <mleech@ripnet.com>
-Subject: Possible bug: SO_TIMESTAMPING 2.6.30+
-Date: Mon, 09 Nov 2009 19:40:30 -0500
-Message-ID: <4AF8B67E.3030604@ripnet.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv8 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 10 Nov 2009 11:38:20 +1030
+Message-ID: <200911101138.20569.rusty@rustcorp.com.au>
+References: <cover.1257349249.git.mst@redhat.com> <200911091647.29655.rusty@rustcorp.com.au> <8f53421d0911082310n1f5f487ew8c2c03d2e1d7ca5c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ripnet.com ([66.78.99.10]:3939 "EHLO mx1.ripnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016AbZKJAv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Nov 2009 19:51:27 -0500
-Received: from localhost.localdomain (unverified [142.46.209.36]) by mx1.ripnet.com
-  (Vircom SMTPRS 4.7.840.5) with ESMTP id <B0488650418@mx1.ripnet.com>
-  (prot=TLS1-S cifer=RC4-128 hash=MD5-128 exch=RSA-1024 verify=NOT) for <netdev@vger.kernel.org>;
-  Mon, 9 Nov 2009 19:40:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ s.hetze@linux-ag.com,
+ Daniel Walker <dwalker@fifo99.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <8f53421d0911082310n1f5f487ew8c2c03d2e1d7ca5c@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-I've searched both the LKML archives, and the patchsets for kernels 
-since 2.6.30 to see if
-   this problem has been observed.
+On Mon, 9 Nov 2009 05:40:32 pm Michael S. Tsirkin wrote:
+> On Mon, Nov 9, 2009 at 8:17 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+> > There's something about the 'acked' which rubs me the wrong way.
+> > "enabled_features" is perhaps a better term than "acked_features"; "acked"
+> > seems more a user point-of-view, "enabled" seems more driver POV?
+> 
+> Hmm. Are you happy with the ioctl name? If yes I think being consistent
+> with that is important.
 
-I have an Ethernet driver that supports hardware timestamping, and it 
-has been working
-   swimmingly well for several months using the SO_TIMESTAMPING 
-infrastructure that
-   Patrick Ohly put in the kernel starting around 2.6.30.
+I think in my original comments I noted that I preferred GET / SET, rather
+than GET/ACK.
 
-What I've discovered, that really causes me to pull my hair out, is that 
-packets that are
-   either AF_INET6 or AF_PACKET, *are not* getting Tx (transmit) 
-timestamps.  Diving into
-   the driver, I've discovered that the sk_buffs associated with these 
-packets *dont* have
-   the appropriate skb_tx state in the skb:
+> > Actually, this looks wrong to me:
+> >
+> > +       case VHOST_SET_VRING_BASE:
+> > ...
+> > +               vq->avail_idx = vq->last_avail_idx = s.num;
+> >
+> > The last_avail_idx is part of the state of the driver.  It needs to be saved
+> > and restored over susp/resume.
+> 
+> 
+> Exactly. That's what VHOST_GET/SET_VRING_BASE does.  avail_idx is just a
+> cached value for notify on empty, so what this does is clear the value.
 
-               shtx = skb_tx(skb);
-               if (shtx->hardware)
-               {
-                        /* Do the timestamping thing */
-                }
+Ah, you actually refresh it every time anyway.  Hmm, could you do my poor
+brain a favor and either just get_user it in vhost_trigger_irq(), or call
+it 'cached_avail_idx' or something?
 
-Now the puzzling thing is that the socket that originates these packets 
-has SO_TIMESTAMPING
-   turned on, and was created as an AF_INET6 socket, but carries both V4 
-and V6 traffic.  The
-   V4 traffic skbs  have  shtx->hardware  true appropriately,  but the 
-V6 traffic doesn't.  Using
-   Wireshark, I can clearly see the V6 packets leaving the interface, so 
-it's not like they're
-   getting routed somewhere else, and debugging in the driver *clearly* 
-shows that V4 packets
-   have shtx->hardware, while the V6 ones (from the SAME SOCKET) do not.
+> >  The only reason it's not in the ring itself
+> > is because I figured the other side doesn't need to see it (which is true, but
+> > missed debugging opportunities as well as man-in-the-middle issues like this
+> > one).  I had a patch which put this field at the end of the ring, I might
+> > resurrect it to avoid this problem.  This is backwards compatible with all
+> > implementations.  See patch at end.
+> 
+> Yes, I remember that patch. There seems to be little point though, at
+> this stage.
 
-I know that Patrick Ohly has essentially moved on from doing the 
-SO_TIMESTAMPING stuff, so
-   who's maintaining it now?
+Well, it avoids this ioctl, by exposing all the state.  We may well need it
+later, to expand the ring in other ways.
 
-When I look at the V6 udp code, it seems to call the same udp_sendmsg() 
-function that V4
-   uses, which appears to support Tx timestamping the way it should.
+> > I would drop avail_idx altogether: get_user is basically free, and simplifies
+> > a lot.  As most state is in the ring, all you need is an ioctl to save/restore
+> > the last_avail_idx.
+> 
+> avail_idx is there for notify on empty: I had this thought that it's
+> better to leave the avail cache line alone when we are triggering
+> interrupt to avoid bouncing it around if guest is updating it meanwhile
+> on another CPU, and I think my testing showed that it helped
+> performance, but could be a mistake.  You don't believe this can help?
 
-Any clues anyone?
+I believe it could help, but this is YA case where it would have been nice to
+have a dumb basic patch and this as a patch on top.  But I am going to ask
+you to re-run that measurement, see if it stacks up (because it's an
+interesting lesson if it does..)
+
+Thanks!
+Rusty.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
