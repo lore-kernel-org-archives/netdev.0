@@ -1,37 +1,39 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: sunrpc port allocation and IANA reserved list
-Date: Wed, 11 Nov 2009 06:58:10 +0900
-Message-ID: <1257890290.3044.39.camel@heimdal.trondhjem.org>
-References: <4AF9A63B.6010101@nortel.com>
-	 <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
-	 <4AF9B2CF.6050305@nortel.com>
-	 <1257884799.3044.7.camel@heimdal.trondhjem.org>
-	 <4AF9D5D1.9040501@nortel.com>
-	 <1257887844.3044.24.camel@heimdal.trondhjem.org>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: [PATCH] add HAVE_UNREGISTER_NETDEV_QUEUE define for out-of-tree modules
+Date: Tue, 10 Nov 2009 17:00:04 -0500
+Message-ID: <20091110220004.GT21704@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>
-To: Chris Friesen <cfriesen@nortel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758461AbZKJV6O@vger.kernel.org>
-In-Reply-To: <1257887844.3044.24.camel@heimdal.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:54037 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751213AbZKJWAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 17:00:00 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-11-11 at 06:17 +0900, Trond Myklebust wrote:
-> The people who are trying to run absolutely all IANA registered services
-> on a single Linux machine that is also trying to run as an NFS client
-> may have a problem, but then again, how many setups do you know who are
-> trying to do that?
+Hello,
 
-BTW: Even these setups can be fixed. One way to extend the available
-port ranges is to allocate more than one IP address; either through the
-use of multiple NICs, or through address aliasing. You can set up the
-services to listen on one interface, while setting up your routing
-tables to ensure that any outgoing connections to your NFS servers go
-through through a different interface.
+I have an out of tree network driver (GPL'd) that would like to make use of 
+the unregister_netdevice_queue interface for bulk unregister of devices.  
+Add a #define HAVE_UNREGISTER_NETDEV_QUEUE to allow the source to detect 
+that the kernel supports this.
 
-You could also use virtualised machines to host the services, etc...
+		-ben
 
-Trond
+Signed-off-by: Benjamin LaHaise <bcrl@lhnet.ca
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 465add6..f9e8e0e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1117,6 +1117,7 @@ extern int		dev_close(struct net_device *dev);
+ extern void		dev_disable_lro(struct net_device *dev);
+ extern int		dev_queue_xmit(struct sk_buff *skb);
+ extern int		register_netdevice(struct net_device *dev);
++#define HAVE_UNREGISTER_NETDEV_QUEUE
+ extern void		unregister_netdevice_queue(struct net_device *dev,
+ 						   struct list_head *head);
+ extern void		unregister_netdevice_many(struct list_head *head);
