@@ -1,41 +1,88 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] can: fix WARN_ON dump in net/core/rtnetlink.c:rtmsg_ifinfo()
-Date: Tue, 10 Nov 2009 12:24:36 +0100
-Message-ID: <4AF94D74.4040606@trash.net>
-References: <4AF54389.1090309@grandegger.com> <20091108.004602.213063654.davem@davemloft.net> <4AF68FCB.4050103@grandegger.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
+Date: Tue, 10 Nov 2009 13:36:37 +0200
+Message-ID: <20091110113637.GB6989@redhat.com>
+References: <cover.1257786516.git.mst@redhat.com> <20091109172230.GD4724@redhat.com> <200911101349.09783.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	socketcan-core@lists.berlios.de
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64905 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbZKJLYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 06:24:36 -0500
-In-Reply-To: <4AF68FCB.4050103@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
+        Daniel Walker <dwalker@fifo99.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <200911101349.09783.rusty@rustcorp.com.au>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Wolfgang Grandegger wrote:
-> David Miller wrote:
->> From: Wolfgang Grandegger <wg@grandegger.com>
->> Date: Sat, 07 Nov 2009 10:53:13 +0100
->>
->>> On older kernels, e.g. 2.6.27, a WARN_ON dump in rtmsg_ifinfo()
->>> is thrown when the CAN device is registered due to insufficient
->>> skb space, as reported by various users. This patch adds the
->>> rtnl_link_ops "get_size" to fix the problem. I think this patch
->>> is required for more recent kernels as well, even if no WARN_ON
->>> dumps are triggered. Maybe we also need "get_xstats_size" for
->>> the CAN xstats.
->>>
->>> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
->> Applied to net-2.6, thanks Wolfgang.
+On Tue, Nov 10, 2009 at 01:49:09PM +1030, Rusty Russell wrote:
+> One fix:
 > 
-> Thanks, the commit message included some questions. What is the rule
-> using the rtnl_link_ops "get_size" or "get_xstats_size". Are these
-> mandatory if the corresponding fill functions are used?
+> vhost: fix TUN=m VHOST_NET=y
+> 
+> 	drivers/built-in.o: In function `get_tun_socket':
+> 	net.c:(.text+0x15436e): undefined reference to `tun_get_socket'
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> ---
+>  drivers/vhost/Kconfig |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+> --- a/drivers/vhost/Kconfig
+> +++ b/drivers/vhost/Kconfig
+> @@ -1,6 +1,6 @@
+>  config VHOST_NET
+>  	tristate "Host kernel accelerator for virtio net (EXPERIMENTAL)"
+> -	depends on NET && EVENTFD && EXPERIMENTAL
+> +	depends on NET && EVENTFD && TUN && EXPERIMENTAL
+>  	---help---
+>  	  This kernel module can be loaded in host kernel to accelerate
+>  	  guest networking with virtio_net. Not to be confused with virtio_net
 
-Yes. You also need a get_xstats_size() function.
+In fact, vhost can be built with TUN=n VHOST_NET=y as well
+(tun_get_socket is stubbed out in that case).
+So I think this is better (it looks strange
+until you realize that for tristate variables
+boolean logic math does not apply):
+
+--->
+
+From: Michael S. Tsirkin <mst@redhat.com>
+Subject: vhost: fix TUN=m VHOST_NET=y
+
+    drivers/built-in.o: In function `get_tun_socket':
+    net.c:(.text+0x15436e): undefined reference to `tun_get_socket'
+
+If tun is a module, vhost must be a module, too.
+If tun is built-in or disabled, vhost can be built-in.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index 9f409f4..9e93553 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -1,6 +1,6 @@
+ config VHOST_NET
+ 	tristate "Host kernel accelerator for virtio net (EXPERIMENTAL)"
+-	depends on NET && EVENTFD && EXPERIMENTAL
++	depends on NET && EVENTFD && (TUN || !TUN) && EXPERIMENTAL
+ 	---help---
+ 	  This kernel module can be loaded in host kernel to accelerate
+ 	  guest networking with virtio_net. Not to be confused with virtio_net
+
+
+-- 
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
