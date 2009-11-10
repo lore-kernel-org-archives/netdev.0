@@ -1,52 +1,54 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: fix WARN_ON dump in
-	net/core/rtnetlink.c:rtmsg_ifinfo()
-Date: Tue, 10 Nov 2009 20:45:35 +0100
-Message-ID: <4AF9C2DF.3020304@grandegger.com>
-References: <4AF54389.1090309@grandegger.com>
-	<20091108.004602.213063654.davem@davemloft.net>
-	<4AF68FCB.4050103@grandegger.com> <4AF94D74.4040606@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4AF94D74.4040606-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] s2io: fixing a ethtool test that is broken
+Date: Tue, 10 Nov 2009 14:44:23 -0500
+Message-ID: <1257882263-7507-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: sreenivasa.honnur@neterion.com,
+	Breno Leitao <leitao@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:40793 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757916AbZKJTqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 14:46:39 -0500
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp03.br.ibm.com (8.14.3/8.13.1) with ESMTP id nAAIevML032323
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 16:40:57 -0200
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nAAJlkBQ934146
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 17:47:47 -0200
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nAAJkfl1013117
+	for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 17:46:41 -0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Wolfgang Grandegger wrote:
->> David Miller wrote:
->>> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->>> Date: Sat, 07 Nov 2009 10:53:13 +0100
->>>
->>>> On older kernels, e.g. 2.6.27, a WARN_ON dump in rtmsg_ifinfo()
->>>> is thrown when the CAN device is registered due to insufficient
->>>> skb space, as reported by various users. This patch adds the
->>>> rtnl_link_ops "get_size" to fix the problem. I think this patch
->>>> is required for more recent kernels as well, even if no WARN_ON
->>>> dumps are triggered. Maybe we also need "get_xstats_size" for
->>>> the CAN xstats.
->>>>
->>>> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->>> Applied to net-2.6, thanks Wolfgang.
->> Thanks, the commit message included some questions. What is the rule
->> using the rtnl_link_ops "get_size" or "get_xstats_size". Are these
->> mandatory if the corresponding fill functions are used?
-> 
-> Yes. You also need a get_xstats_size() function.
+Due commit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff, it is not more
+possible to pci_restore_state() more than once without calling
+pci_save_state() in the middle.
 
-Thanks for clarification. I will provide a patch a.s.a.p.
+Actually running a ethtool test on s2io makes the card inactive, 
+and it needs to unload/reload the module to fix. 
 
-Wolfgang.
+This patch just save the state just after it restore in order to
+keep the old behaviour
+
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/s2io.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index ddccf5f..0dd7839 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -3494,6 +3494,7 @@ static void s2io_reset(struct s2io_nic *sp)
+ 
+ 		/* Restore the PCI state saved during initialization. */
+ 		pci_restore_state(sp->pdev);
++		pci_save_state(sp->pdev);
+ 		pci_read_config_word(sp->pdev, 0x2, &val16);
+ 		if (check_pci_device_id(val16) != (u16)PCI_ANY_ID)
+ 			break;
+-- 
+1.6.0.2
+
