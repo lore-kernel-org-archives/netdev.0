@@ -1,48 +1,70 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 03/10] net: use rcu for network scheduler API
-Date: Tue, 10 Nov 2009 09:54:49 -0800
-Message-ID: <20091110175647.339425269@vyatta.com>
+Subject: [PATCH 04/10] AOE: use rcu to find network device
+Date: Tue, 10 Nov 2009 09:54:50 -0800
+Message-ID: <20091110175647.409162953@vyatta.com>
 References: <20091110175446.280423729@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	"Ed L. Cashin" <ecashin@coraid.com>,
+	Harvey Harrison <harvey.harrison@gmail.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58714 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:58719 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755546AbZKJSHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Nov 2009 13:07:19 -0500
-Content-Disposition: inline; filename=sched-rcu.patch
+	id S1756182AbZKJSHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Nov 2009 13:07:33 -0500
+Content-Disposition: inline; filename=aoe-rcu.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use RCU to walk list of network devices in qdisc dump.
-This could be optimized for large number of devices.
+This gets rid of another use of read_lock(&dev_base_lock) by using
+RCU. Also, it only increments the reference count of the device actually
+used rather than holding and releasing every device
+
+Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/sched/sch_api.c	2009-11-09 22:19:09.002480816 -0800
-+++ b/net/sched/sch_api.c	2009-11-10 09:28:38.166439067 -0800
-@@ -1279,9 +1279,10 @@ static int tc_dump_qdisc(struct sk_buff 
+
+--- a/drivers/block/aoe/aoecmd.c	2009-11-09 22:19:06.082480836 -0800
++++ b/drivers/block/aoe/aoecmd.c	2009-11-10 09:28:38.222438732 -0800
+@@ -296,17 +296,18 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigne
+ 	struct sk_buff *skb;
+ 	struct net_device *ifp;
  
- 	s_idx = cb->args[0];
- 	s_q_idx = q_idx = cb->args[1];
 -	read_lock(&dev_base_lock);
-+
+-	for_each_netdev(&init_net, ifp) {
+-		dev_hold(ifp);
 +	rcu_read_lock();
- 	idx = 0;
--	for_each_netdev(&init_net, dev) {
-+	for_each_netdev_rcu(&init_net, dev) {
- 		struct netdev_queue *dev_queue;
++	for_each_netdev_rcu(&init_net, ifp) {
+ 		if (!is_aoe_netif(ifp))
+-			goto cont;
++			continue;
  
- 		if (idx < s_idx)
-@@ -1302,7 +1303,7 @@ cont:
+ 		skb = new_skb(sizeof *h + sizeof *ch);
+ 		if (skb == NULL) {
+ 			printk(KERN_INFO "aoe: skb alloc failure\n");
+-			goto cont;
++			continue;
+ 		}
++
++		dev_hold(ifp);
+ 		skb_put(skb, sizeof *h + sizeof *ch);
+ 		skb->dev = ifp;
+ 		__skb_queue_tail(queue, skb);
+@@ -320,11 +321,8 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigne
+ 		h->major = cpu_to_be16(aoemajor);
+ 		h->minor = aoeminor;
+ 		h->cmd = AOECMD_CFG;
+-
+-cont:
+-		dev_put(ifp);
  	}
- 
- done:
 -	read_unlock(&dev_base_lock);
 +	rcu_read_unlock();
+ }
  
- 	cb->args[0] = idx;
- 	cb->args[1] = q_idx;
+ static void
 
 -- 
 
