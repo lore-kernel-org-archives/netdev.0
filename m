@@ -1,70 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter -stable 02/02: xt_connlimit: fix regression caused by zero family value
-Date: Tue, 10 Nov 2009 11:40:21 +0100 (MET)
-Message-ID: <20091110104017.8250.88301.sendpatchset@x2.localnet>
-References: <20091110104014.8250.89589.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net
-To: stable@kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20091110104014.8250.89589.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Tue, 10 Nov 2009 18:48:15 +0800
+Message-ID: <412e6f7f0911100248mbc14287p26c43141d6ab202c@mail.gmail.com>
+References: <4AF924A5.1050303@gmail.com> <4AF9406C.8010603@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:49834 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbZKJKsK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 05:48:10 -0500
+Received: by pwi3 with SMTP id 3so1218857pwi.21
+        for <netdev@vger.kernel.org>; Tue, 10 Nov 2009 02:48:15 -0800 (PST)
+In-Reply-To: <4AF9406C.8010603@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 4dcaa8fa124a6d8ab0f64dc1c289b13a724f8fc1
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Tue Nov 10 10:53:33 2009 +0100
+On Tue, Nov 10, 2009 at 6:29 PM, Patrick McHardy <kaber@trash.net> wrot=
+e:
+>
+> I'm not sure how this will help, ifb device transmission is
+> still serialized by the ingress queue lock and the mirred lock.
+>
 
-    netfilter: xt_connlimit: fix regression caused by zero family value
-    
-    Upstream commit 539054a8:
-    
-    Commit v2.6.28-rc1~717^2~109^2~2 was slightly incomplete; not all
-    instances of par->match->family were changed to par->family.
-    
-    References: http://bugzilla.netfilter.org/show_bug.cgi?id=610
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+But not in ifb_thread. For firewall the main routine is after
+netif_rx_ni(). For server applications, the packets belong to the same
+flow are always routed to the same CPU, and the applications can
+benefit with better localization.
 
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 6809809..38f03f7 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -103,7 +103,7 @@ static int count_them(struct xt_connlimit_data *data,
- 		      const struct nf_conntrack_tuple *tuple,
- 		      const union nf_inet_addr *addr,
- 		      const union nf_inet_addr *mask,
--		      const struct xt_match *match)
-+		      u_int8_t family)
- {
- 	const struct nf_conntrack_tuple_hash *found;
- 	struct xt_connlimit_conn *conn;
-@@ -113,8 +113,7 @@ static int count_them(struct xt_connlimit_data *data,
- 	bool addit = true;
- 	int matches = 0;
- 
--
--	if (match->family == NFPROTO_IPV6)
-+	if (family == NFPROTO_IPV6)
- 		hash = &data->iphash[connlimit_iphash6(addr, mask)];
- 	else
- 		hash = &data->iphash[connlimit_iphash(addr->ip & mask->ip)];
-@@ -157,8 +156,7 @@ static int count_them(struct xt_connlimit_data *data,
- 			continue;
- 		}
- 
--		if (same_source_net(addr, mask, &conn->tuple.src.u3,
--		    match->family))
-+		if (same_source_net(addr, mask, &conn->tuple.src.u3, family))
- 			/* same source network -> be counted! */
- 			++matches;
- 		nf_ct_put(found_ct);
-@@ -207,7 +205,7 @@ connlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 
- 	spin_lock_bh(&info->data->lock);
- 	connections = count_them(info->data, tuple_ptr, &addr,
--	                         &info->mask, par->match);
-+	                         &info->mask, par->family);
- 	spin_unlock_bh(&info->data->lock);
- 
- 	if (connections < 0) {
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
