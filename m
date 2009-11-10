@@ -1,41 +1,37 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: sunrpc port allocation and IANA reserved list
-Date: Tue, 10 Nov 2009 12:37:03 -0600
-Message-ID: <4AF9B2CF.6050305@nortel.com>
-References: <4AF9A63B.6010101@nortel.com> <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 00/10] netdev: get rid of read_lock(&dev_base_lock) usages
+Date: Tue, 10 Nov 2009 19:39:20 +0100
+Message-ID: <4AF9B358.9030006@gmail.com>
+References: <20091110175446.280423729@vyatta.com>	<4AF9AE66.3010303@gmail.com> <20091110102442.733c22bc@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linux kernel <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:34903 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757584AbZKJSii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:38:38 -0500
-In-Reply-To: <1257875623.2834.19.camel@achroite.uk.solarflarecom.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50608 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757583AbZKJSjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Nov 2009 13:39:17 -0500
+In-Reply-To: <20091110102442.733c22bc@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/2009 11:53 AM, Ben Hutchings wrote:
-> On Tue, 2009-11-10 at 11:43 -0600, Chris Friesen wrote:
+Stephen Hemminger a =E9crit :
+> I was just trying to pick up the stragglers you left behind :-)
+>=20
+> The nasty cases left are bonding (whose existing locking model is a p=
+ile
+> of crap), and sysfs (slightly less stinky). The bonding code just nee=
+ds to
+> be rewritten to have a sane/simple model.=20
+>=20
 
->> Given that a userspace application can be stopped and restarted at any
->> time, and a sunrpc registration can happen at any time, what is the
->> expected mechanism to prevent the kernel from allocating a port for use
->> by sunrpc that reserved or well-known?
->>
->> Apparently Redhat and Debian have distro-specific ways of dealing with
->> this, but is there a standard solution?  Should there be?
->>
->> The current setup seems suboptimal.
-> 
-> I believe both RH and Debian are using the same implementation:
-> <http://cyberelk.net/tim/software/portreserve/>.
+I was thinking of improving bonding, so it might be good to coordinate =
+our work :)
 
-That helps with the startup case, but still leaves a possible hole if an
-app using a fixed port number is restarted at runtime.  During the
-window where nobody is bound to the port, the kernel could randomly
-assign it to someone else.
+1) Get rid of rwlock in tx fast path. (RCU ? did I said RCU)
 
-Chris
+2) multi queue support (Got two dual 82599 dual ports cards from Intel =
+:) )
+
