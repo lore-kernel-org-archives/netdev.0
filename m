@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] add HAVE_UNREGISTER_NETDEV_QUEUE define for
- out-of-tree modules
-Date: Wed, 11 Nov 2009 11:24:57 -0800 (PST)
-Message-ID: <20091111.112457.54237892.davem@davemloft.net>
-References: <20091110220004.GT21704@kvack.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-11-11
+Date: Wed, 11 Nov 2009 11:41:14 -0800 (PST)
+Message-ID: <20091111.114114.228545645.davem@davemloft.net>
+References: <20091111172255.GH4392@tuxdriver.com>
+	<20091111.112031.184370997.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bcrl@lhnet.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49721
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758490AbZKKTYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 14:24:31 -0500
-In-Reply-To: <20091110220004.GT21704@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091111.112031.184370997.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Date: Tue, 10 Nov 2009 17:00:04 -0500
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Wed, 11 Nov 2009 11:20:31 -0800 (PST)
 
-> I have an out of tree network driver (GPL'd) that would like to make use of 
-> the unregister_netdevice_queue interface for bulk unregister of devices.  
-> Add a #define HAVE_UNREGISTER_NETDEV_QUEUE to allow the source to detect 
-> that the kernel supports this.
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Wed, 11 Nov 2009 12:22:55 -0500
+> 
+>> P.S.  Due to the aformentioned iwlwifi fix, this will cause -next
+>> conflicts for sfr.  You may want to pull net-2.6 into net-next-2.6 after
+>> pulling this.  The iwlwifi conflicts can be resolved by taking the bigger
+>> hunks...
+> 
+> Yep, I noticed this, I'll sort it out, thanks.
 
-Please get your code upstream :-)
+I just pushed out the merge to net-next-2.6, please double
+check my work.
 
-We're already overcluttered with these "HAVE_PANTS", "HAVE_JACKET",
-"HAVE_KITCHEN", "HAVE_SINK" ugly defines spewed all over netdevice.h,
-and I'm not adding any more of that.
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
