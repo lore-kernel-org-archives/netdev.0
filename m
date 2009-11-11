@@ -1,38 +1,56 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Wed, 11 Nov 2009 22:47:15 +0100
-Message-ID: <878wecka3g.fsf@basil.nowhere.org>
-References: <81bfc67a0910310721p21046931o9b512cfd0a8a7acb@mail.gmail.com>
-	<200910311944.35922.elendil@planet.nl>
-	<81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Wed, 11 Nov 2009 23:47:41 +0200
+Message-ID: <200911112347.41425.opurdila@ixiacom.com>
+References: <200911112116.14103.opurdila@ixiacom.com> <20091111.124235.243348591.davem@davemloft.net> <20091111133342.1011e16a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Caleb Cushing <xenoterracide@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:52946 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759390AbZKKVrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:47:11 -0500
-In-Reply-To: <81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com> (Caleb Cushing's message of "Wed, 11 Nov 2009 15:19:54 -0500")
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:28506 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759367AbZKKVuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:50:40 -0500
+In-Reply-To: <20091111133342.1011e16a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Caleb Cushing <xenoterracide@gmail.com> writes:
->>
->> I'm attaching the bisection log and a 'good' dmesg output.
->>
->> c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9 is the first bad commit
+On Wednesday 11 November 2009 23:33:42 you wrote:
+> On Wed, 11 Nov 2009 12:42:35 -0800 (PST)
+> 
+> David Miller <davem@davemloft.net> wrote:
+> > From: Octavian Purdila <opurdila@ixiacom.com>
+> > Date: Wed, 11 Nov 2009 21:38:44 +0200
+> >
+> > > I don't think we can dynamically size it at boot time since it
+> > > depends on the usage pattern which is impossible to determine at
+> > > boot time, right?
+> >
+> > We have no idea how many sockets will be used by the system yet we
+> > dynamically size the socket hash tables.
+> >
+> > Please do some research and see how we handle this elsewhere in the
+> > networking.
+> 
+> dcache also sizes hash bits at boot time on available memory.
+> See alloc_large_system_hash().
+> 
 
-Just gives fatal: bad object c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9
-here on a standard Linus linux-2.6 tree.
+Thanks Stephen.
 
-It might be also useful if you could describe what kind
-of network devices you use and how you determine
-the packet loss.
+I was actually taking a look at that but I see that the device hash is 
+allocated per net namespace which means we can't use 
+alloc_large_system_hash().
 
--Andi
+We could use a similar function that will work in the per namespace 
+initialization context, but this might upset net namespace folks since we will 
+get a large hash for every namespace.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Not sure what can be done to address that problem now except using a boot 
+parameter to override the defaults. A better solution would be to be able to 
+use "namespace create" parameters but it appears we don't have this 
+possibility, yet.
+
