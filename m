@@ -1,215 +1,486 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/compat: fix dev_ifsioc emulation corner cases
-Date: Wed, 11 Nov 2009 14:39:40 +0100
-Message-ID: <200911111439.40753.arnd@arndb.de>
-References: <200911061500.01651.arnd@arndb.de> <20091110.204118.12070030.davem@davemloft.net>
+Subject: [PATCH v3] net/atm: move all compat_ioctl handling to atm/ioctl.c
+Date: Wed, 11 Nov 2009 14:45:22 +0100
+Message-ID: <200911111445.22673.arnd@arndb.de>
+References: <200911061500.01651.arnd@arndb.de> <200911111430.44361.arnd@arndb.de> <1257946490.25961.1396.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Patrick Ohly <patrick.ohly@intel.com>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:49327 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.8]:55391 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753490AbZKKNjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 08:39:37 -0500
-In-Reply-To: <20091110.204118.12070030.davem@davemloft.net>
+	with ESMTP id S1753560AbZKKNp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 08:45:27 -0500
+In-Reply-To: <1257946490.25961.1396.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handling for SIOCSHWTSTAMP is broken on architectures
-with a split user/kernel address space like s390,
-because it passes a real user pointer while using
-set_fs(KERNEL_DS).
-A similar problem might arise the next time somebody
-adds code to dev_ifsioc.
+We have two implementations of the compat_ioctl handling for ATM, the
+one that we have had for ages in fs/compat_ioctl.c and the one added to
+net/atm/ioctl.c by David Woodhouse. Unfortunately, both versions are
+incomplete, and in practice we use a very confusing combination of the
+two.
 
-Split up dev_ifsioc into three separate functions for
-SIOCSHWTSTAMP, SIOC*IFMAP and all other numbers so
-we can get rid of set_fs in all potentially affected
-cases.
+For ioctl numbers that have the same identifier on 32 and 64 bit systems,
+we go directly through the compat_ioctl socket operation, for those that
+differ, we do a conversion in fs/compat_ioctl.c.
+
+This patch moves both variants into the vcc_compat_ioctl() function,
+while preserving the current behaviour. It also kills off the COMPATIBLE_IOCTL
+definitions that we never use here.
+Doing it this way is clearly not a good solution, but I hope it is a
+step into the right direction, so that someone is able to clean up this
+mess for real.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Patrick Ohly <patrick.ohly@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Woodhouse <dwmw2@infradead.org>
 ---
- net/socket.c |  117 +++++++++++++++++++++++++++++++++++----------------------
- 1 files changed, 72 insertions(+), 45 deletions(-)
 
-Resending this one as well, rebased to current net-next.
-Please tell me if you want a backport to 2.6.32 or -stable
-for this one.
+history:
+v3: now with the duplicate data structures removed.
 
-diff --git a/net/socket.c b/net/socket.c
-index befd9f5..05c4828 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2723,38 +2723,15 @@ static int siocdevprivate_ioctl(struct net *net, unsigned int cmd,
- static int dev_ifsioc(struct net *net, struct socket *sock,
- 			 unsigned int cmd, struct compat_ifreq __user *uifr32)
- {
--	struct ifreq ifr;
--	struct compat_ifmap __user *uifmap32;
--	mm_segment_t old_fs;
-+	struct ifreq __user *uifr;
- 	int err;
- 
--	uifmap32 = &uifr32->ifr_ifru.ifru_map;
--	switch (cmd) {
--	case SIOCSIFMAP:
--		err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
--		err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
--		err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
--		err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
--		err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
--		err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
--		err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
--		if (err)
--			return -EFAULT;
--		break;
--	case SIOCSHWTSTAMP:
--		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
--			return -EFAULT;
--		ifr.ifr_data = compat_ptr(uifr32->ifr_ifru.ifru_data);
--		break;
--	default:
--		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
--			return -EFAULT;
--		break;
--	}
--	old_fs = get_fs();
--	set_fs (KERNEL_DS);
--	err = sock_do_ioctl(net, sock, cmd, (unsigned long)&ifr);
--	set_fs (old_fs);
-+	uifr = compat_alloc_user_space(sizeof(*uifr));
-+	if (copy_in_user(uifr, uifr32, sizeof(*uifr32)))
-+		return -EFAULT;
-+
-+	err = sock_do_ioctl(net, sock, cmd, (unsigned long)uifr);
-+
- 	if (!err) {
- 		switch (cmd) {
- 		case SIOCGIFFLAGS:
-@@ -2771,18 +2748,7 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
- 		case SIOCGIFTXQLEN:
- 		case SIOCGMIIPHY:
- 		case SIOCGMIIREG:
--			if (copy_to_user(uifr32, &ifr, sizeof(*uifr32)))
--				return -EFAULT;
--			break;
--		case SIOCGIFMAP:
--			err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
--			err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
--			err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
--			err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
--			err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
--			err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
--			err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
--			if (err)
-+			if (copy_in_user(uifr32, uifr, sizeof(*uifr32)))
- 				err = -EFAULT;
- 			break;
- 		}
-@@ -2790,6 +2756,65 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
- 	return err;
+v2: ported to net-next, which has the code in net/socket.c
+
+ net/atm/ioctl.c |  177 ++++++++++++++++++++++++++++++++++++++++++++-
+ net/socket.c    |  218 -------------------------------------------------------
+ 2 files changed, 175 insertions(+), 220 deletions(-)
+
+diff --git a/net/atm/ioctl.c b/net/atm/ioctl.c
+index 4da8892..2ea4099 100644
+--- a/net/atm/ioctl.c
++++ b/net/atm/ioctl.c
+@@ -191,8 +191,181 @@ int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  }
  
-+static int compat_sioc_ifmap(struct net *net, unsigned int cmd,
-+			struct compat_ifreq __user *uifr32)
-+{
-+	struct ifreq ifr;
-+	struct compat_ifmap __user *uifmap32;
-+	mm_segment_t old_fs;
-+	int err;
+ #ifdef CONFIG_COMPAT
+-int vcc_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++/*
++ * FIXME:
++ * The compat_ioctl handling is duplicated, using both these conversion
++ * routines and the compat argument to the actual handlers. Both
++ * versions are somewhat incomplete and should be merged, e.g. by
++ * moving the ioctl number translation into the actual handlers and
++ * killing the conversion code.
++ *
++ * -arnd, November 2009
++ */
++#define ATM_GETLINKRATE32 _IOW('a', ATMIOC_ITF+1, struct compat_atmif_sioc)
++#define ATM_GETNAMES32    _IOW('a', ATMIOC_ITF+3, struct compat_atm_iobuf)
++#define ATM_GETTYPE32     _IOW('a', ATMIOC_ITF+4, struct compat_atmif_sioc)
++#define ATM_GETESI32	  _IOW('a', ATMIOC_ITF+5, struct compat_atmif_sioc)
++#define ATM_GETADDR32	  _IOW('a', ATMIOC_ITF+6, struct compat_atmif_sioc)
++#define ATM_RSTADDR32	  _IOW('a', ATMIOC_ITF+7, struct compat_atmif_sioc)
++#define ATM_ADDADDR32	  _IOW('a', ATMIOC_ITF+8, struct compat_atmif_sioc)
++#define ATM_DELADDR32	  _IOW('a', ATMIOC_ITF+9, struct compat_atmif_sioc)
++#define ATM_GETCIRANGE32  _IOW('a', ATMIOC_ITF+10, struct compat_atmif_sioc)
++#define ATM_SETCIRANGE32  _IOW('a', ATMIOC_ITF+11, struct compat_atmif_sioc)
++#define ATM_SETESI32      _IOW('a', ATMIOC_ITF+12, struct compat_atmif_sioc)
++#define ATM_SETESIF32     _IOW('a', ATMIOC_ITF+13, struct compat_atmif_sioc)
++#define ATM_GETSTAT32     _IOW('a', ATMIOC_SARCOM+0, struct compat_atmif_sioc)
++#define ATM_GETSTATZ32    _IOW('a', ATMIOC_SARCOM+1, struct compat_atmif_sioc)
++#define ATM_GETLOOP32	  _IOW('a', ATMIOC_SARCOM+2, struct compat_atmif_sioc)
++#define ATM_SETLOOP32	  _IOW('a', ATMIOC_SARCOM+3, struct compat_atmif_sioc)
++#define ATM_QUERYLOOP32	  _IOW('a', ATMIOC_SARCOM+4, struct compat_atmif_sioc)
 +
-+	uifmap32 = &uifr32->ifr_ifru.ifru_map;
-+	err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
-+	err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
-+	err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
-+	err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
-+	err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
-+	err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
-+	err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
-+	if (err)
++static struct {
++	unsigned int cmd32;
++	unsigned int cmd;
++} atm_ioctl_map[] = {
++	{ ATM_GETLINKRATE32, ATM_GETLINKRATE },
++	{ ATM_GETNAMES32,    ATM_GETNAMES },
++	{ ATM_GETTYPE32,     ATM_GETTYPE },
++	{ ATM_GETESI32,	     ATM_GETESI },
++	{ ATM_GETADDR32,     ATM_GETADDR },
++	{ ATM_RSTADDR32,     ATM_RSTADDR },
++	{ ATM_ADDADDR32,     ATM_ADDADDR },
++	{ ATM_DELADDR32,     ATM_DELADDR },
++	{ ATM_GETCIRANGE32,  ATM_GETCIRANGE },
++	{ ATM_SETCIRANGE32,  ATM_SETCIRANGE },
++	{ ATM_SETESI32,	     ATM_SETESI },
++	{ ATM_SETESIF32,     ATM_SETESIF },
++	{ ATM_GETSTAT32,     ATM_GETSTAT },
++	{ ATM_GETSTATZ32,    ATM_GETSTATZ },
++	{ ATM_GETLOOP32,     ATM_GETLOOP },
++	{ ATM_SETLOOP32,     ATM_SETLOOP },
++	{ ATM_QUERYLOOP32,   ATM_QUERYLOOP },
++};
++
++#define NR_ATM_IOCTL ARRAY_SIZE(atm_ioctl_map)
++
++static int do_atm_iobuf(struct socket *sock, unsigned int cmd,
++			unsigned long arg)
++{
++	struct atm_iobuf __user *iobuf;
++	struct compat_atm_iobuf __user *iobuf32;
++	u32 data;
++	void __user *datap;
++	int len, err;
++
++	iobuf = compat_alloc_user_space(sizeof(*iobuf));
++	iobuf32 = compat_ptr(arg);
++
++	if (get_user(len, &iobuf32->length) ||
++	    get_user(data, &iobuf32->buffer))
++		return -EFAULT;
++	datap = compat_ptr(data);
++	if (put_user(len, &iobuf->length) ||
++	    put_user(datap, &iobuf->buffer))
 +		return -EFAULT;
 +
-+	old_fs = get_fs();
-+	set_fs (KERNEL_DS);
-+	err = dev_ioctl(net, cmd, (void __user *)&ifr);
-+	set_fs (old_fs);
++	err = do_vcc_ioctl(sock, cmd, (unsigned long) iobuf, 0);
 +
-+	if (cmd == SIOCGIFMAP && !err) {
-+		err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
-+		err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
-+		err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
-+		err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
-+		err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
-+		err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
-+		err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
-+		if (err)
++	if (!err) {
++		if (copy_in_user(&iobuf32->length, &iobuf->length,
++				 sizeof(int)))
++			err = -EFAULT;
++	}
++
++	return err;
++}
++
++static int do_atmif_sioc(struct socket *sock, unsigned int cmd,
++			 unsigned long arg)
++{
++	struct atmif_sioc __user *sioc;
++	struct compat_atmif_sioc __user *sioc32;
++	u32 data;
++	void __user *datap;
++	int err;
++
++	sioc = compat_alloc_user_space(sizeof(*sioc));
++	sioc32 = compat_ptr(arg);
++
++	if (copy_in_user(&sioc->number, &sioc32->number, 2 * sizeof(int))
++	    || get_user(data, &sioc32->arg))
++		return -EFAULT;
++	datap = compat_ptr(data);
++	if (put_user(datap, &sioc->arg))
++		return -EFAULT;
++
++	err = do_vcc_ioctl(sock, cmd, (unsigned long) sioc, 0);
++
++	if (!err) {
++		if (copy_in_user(&sioc32->length, &sioc->length,
++				 sizeof(int)))
 +			err = -EFAULT;
 +	}
 +	return err;
 +}
 +
-+static int compat_siocshwtstamp(struct net *net, struct compat_ifreq __user *uifr32)
++static int do_atm_ioctl(struct socket *sock, unsigned int cmd32,
++			unsigned long arg)
 +{
-+	void __user *uptr;
-+	compat_uptr_t uptr32;
-+	struct ifreq __user *uifr;
++	int i;
++	unsigned int cmd = 0;
 +
-+	uifr = compat_alloc_user_space(sizeof (*uifr));
-+	if (copy_in_user(uifr, uifr32, sizeof(struct compat_ifreq)))
-+		return -EFAULT;
++	switch (cmd32) {
++	case SONET_GETSTAT:
++	case SONET_GETSTATZ:
++	case SONET_GETDIAG:
++	case SONET_SETDIAG:
++	case SONET_CLRDIAG:
++	case SONET_SETFRAMING:
++	case SONET_GETFRAMING:
++	case SONET_GETFRSENSE:
++		return do_atmif_sioc(sock, cmd32, arg);
++	}
 +
-+	if (get_user(uptr32, &uifr32->ifr_data))
-+		return -EFAULT;
++	for (i = 0; i < NR_ATM_IOCTL; i++) {
++		if (cmd32 == atm_ioctl_map[i].cmd32) {
++			cmd = atm_ioctl_map[i].cmd;
++			break;
++		}
++	}
++	if (i == NR_ATM_IOCTL)
++		return -EINVAL;
 +
-+	uptr = compat_ptr(uptr32);
++	switch (cmd) {
++	case ATM_GETNAMES:
++		return do_atm_iobuf(sock, cmd, arg);
 +
-+	if (put_user(uptr, &uifr->ifr_data))
-+		return -EFAULT;
++	case ATM_GETLINKRATE:
++	case ATM_GETTYPE:
++	case ATM_GETESI:
++	case ATM_GETADDR:
++	case ATM_RSTADDR:
++	case ATM_ADDADDR:
++	case ATM_DELADDR:
++	case ATM_GETCIRANGE:
++	case ATM_SETCIRANGE:
++	case ATM_SETESI:
++	case ATM_SETESIF:
++	case ATM_GETSTAT:
++	case ATM_GETSTATZ:
++	case ATM_GETLOOP:
++	case ATM_SETLOOP:
++	case ATM_QUERYLOOP:
++		return do_atmif_sioc(sock, cmd, arg);
++	}
 +
-+	return dev_ioctl(net, SIOCSHWTSTAMP, uifr);
++	return -EINVAL;
 +}
 +
- struct rtentry32 {
- 	u32   		rt_pad1;
- 	struct sockaddr rt_dst;         /* target address               */
-@@ -3081,6 +3106,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 		return ethtool_ioctl(net, argp);
- 	case SIOCWANDEV:
- 		return compat_siocwandev(net, argp);
-+	case SIOCGIFMAP:
-+	case SIOCSIFMAP:
-+		return compat_sioc_ifmap(net, cmd, argp);
- 	case SIOCBONDENSLAVE:
- 	case SIOCBONDRELEASE:
- 	case SIOCBONDSETHWADDR:
-@@ -3095,6 +3123,8 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 		return do_siocgstamp(net, sock, cmd, argp);
- 	case SIOCGSTAMPNS:
- 		return do_siocgstampns(net, sock, cmd, argp);
-+	case SIOCSHWTSTAMP:
-+		return compat_siocshwtstamp(net, argp);
++int vcc_compat_ioctl(struct socket *sock, unsigned int cmd,
++		     unsigned long arg)
+ {
+-	return do_vcc_ioctl(sock, cmd, arg, 1);
++	int ret;
++
++	ret = do_vcc_ioctl(sock, cmd, arg, 1);
++	if (ret != -ENOIOCTLCMD)
++		return ret;
++
++	return do_atm_ioctl(sock, cmd, arg);
+ }
+ #endif
+diff --git a/net/socket.c b/net/socket.c
+index 05c4828..402abb3 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -100,14 +100,6 @@
+ #include <linux/if_tun.h>
+ #include <linux/ipv6_route.h>
+ #include <linux/route.h>
+-#include <linux/atmdev.h>
+-#include <linux/atmarp.h>
+-#include <linux/atmsvc.h>
+-#include <linux/atmlec.h>
+-#include <linux/atmclip.h>
+-#include <linux/atmmpc.h>
+-#include <linux/atm_tcp.h>
+-#include <linux/sonet.h>
+ #include <linux/sockios.h>
+ #include <linux/atalk.h>
  
- 	case FIOSETOWN:
- 	case SIOCSPGRP:
-@@ -3121,12 +3151,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 	case SIOCADDMULTI:
- 	case SIOCDELMULTI:
- 	case SIOCGIFINDEX:
--	case SIOCGIFMAP:
--	case SIOCSIFMAP:
- 	case SIOCGIFADDR:
- 	case SIOCSIFADDR:
- 	case SIOCSIFHWBROADCAST:
--	case SIOCSHWTSTAMP:
- 	case SIOCDIFADDR:
- 	case SIOCGIFBRDADDR:
- 	case SIOCSIFBRDADDR:
+@@ -2917,173 +2909,6 @@ static int old_bridge_ioctl(compat_ulong_t __user *argp)
+ 	return -EINVAL;
+ }
+ 
+-struct atmif_sioc32 {
+-	compat_int_t	number;
+-	compat_int_t	length;
+-	compat_caddr_t	arg;
+-};
+-
+-struct atm_iobuf32 {
+-	compat_int_t	length;
+-	compat_caddr_t	buffer;
+-};
+-
+-#define ATM_GETLINKRATE32 _IOW('a', ATMIOC_ITF+1, struct atmif_sioc32)
+-#define ATM_GETNAMES32    _IOW('a', ATMIOC_ITF+3, struct atm_iobuf32)
+-#define ATM_GETTYPE32     _IOW('a', ATMIOC_ITF+4, struct atmif_sioc32)
+-#define ATM_GETESI32	  _IOW('a', ATMIOC_ITF+5, struct atmif_sioc32)
+-#define ATM_GETADDR32	  _IOW('a', ATMIOC_ITF+6, struct atmif_sioc32)
+-#define ATM_RSTADDR32	  _IOW('a', ATMIOC_ITF+7, struct atmif_sioc32)
+-#define ATM_ADDADDR32	  _IOW('a', ATMIOC_ITF+8, struct atmif_sioc32)
+-#define ATM_DELADDR32	  _IOW('a', ATMIOC_ITF+9, struct atmif_sioc32)
+-#define ATM_GETCIRANGE32  _IOW('a', ATMIOC_ITF+10, struct atmif_sioc32)
+-#define ATM_SETCIRANGE32  _IOW('a', ATMIOC_ITF+11, struct atmif_sioc32)
+-#define ATM_SETESI32      _IOW('a', ATMIOC_ITF+12, struct atmif_sioc32)
+-#define ATM_SETESIF32     _IOW('a', ATMIOC_ITF+13, struct atmif_sioc32)
+-#define ATM_GETSTAT32     _IOW('a', ATMIOC_SARCOM+0, struct atmif_sioc32)
+-#define ATM_GETSTATZ32    _IOW('a', ATMIOC_SARCOM+1, struct atmif_sioc32)
+-#define ATM_GETLOOP32	  _IOW('a', ATMIOC_SARCOM+2, struct atmif_sioc32)
+-#define ATM_SETLOOP32	  _IOW('a', ATMIOC_SARCOM+3, struct atmif_sioc32)
+-#define ATM_QUERYLOOP32	  _IOW('a', ATMIOC_SARCOM+4, struct atmif_sioc32)
+-
+-static struct {
+-	unsigned int cmd32;
+-	unsigned int cmd;
+-} atm_ioctl_map[] = {
+-	{ ATM_GETLINKRATE32, ATM_GETLINKRATE },
+-	{ ATM_GETNAMES32,    ATM_GETNAMES },
+-	{ ATM_GETTYPE32,     ATM_GETTYPE },
+-	{ ATM_GETESI32,      ATM_GETESI },
+-	{ ATM_GETADDR32,     ATM_GETADDR },
+-	{ ATM_RSTADDR32,     ATM_RSTADDR },
+-	{ ATM_ADDADDR32,     ATM_ADDADDR },
+-	{ ATM_DELADDR32,     ATM_DELADDR },
+-	{ ATM_GETCIRANGE32,  ATM_GETCIRANGE },
+-	{ ATM_SETCIRANGE32,  ATM_SETCIRANGE },
+-	{ ATM_SETESI32,      ATM_SETESI },
+-	{ ATM_SETESIF32,     ATM_SETESIF },
+-	{ ATM_GETSTAT32,     ATM_GETSTAT },
+-	{ ATM_GETSTATZ32,    ATM_GETSTATZ },
+-	{ ATM_GETLOOP32,     ATM_GETLOOP },
+-	{ ATM_SETLOOP32,     ATM_SETLOOP },
+-	{ ATM_QUERYLOOP32,   ATM_QUERYLOOP }
+-};
+-
+-#define NR_ATM_IOCTL ARRAY_SIZE(atm_ioctl_map)
+-
+-static int do_atm_iobuf(struct net *net, struct socket *sock,
+-			 unsigned int cmd, unsigned long arg)
+-{
+-	struct atm_iobuf   __user *iobuf;
+-	struct atm_iobuf32 __user *iobuf32;
+-	u32 data;
+-	void __user *datap;
+-	int len, err;
+-
+-	iobuf = compat_alloc_user_space(sizeof(*iobuf));
+-	iobuf32 = compat_ptr(arg);
+-
+-	if (get_user(len, &iobuf32->length) ||
+-	    get_user(data, &iobuf32->buffer))
+-		return -EFAULT;
+-	datap = compat_ptr(data);
+-	if (put_user(len, &iobuf->length) ||
+-	    put_user(datap, &iobuf->buffer))
+-		return -EFAULT;
+-
+-	err = sock_do_ioctl(net, sock, cmd, (unsigned long)iobuf);
+-
+-	if (!err) {
+-		if (copy_in_user(&iobuf32->length, &iobuf->length,
+-				 sizeof(int)))
+-			err = -EFAULT;
+-	}
+-
+-	return err;
+-}
+-
+-static int do_atmif_sioc(struct net *net, struct socket *sock,
+-			 unsigned int cmd, unsigned long arg)
+-{
+-	struct atmif_sioc   __user *sioc;
+-	struct atmif_sioc32 __user *sioc32;
+-	u32 data;
+-	void __user *datap;
+-	int err;
+-
+-	sioc = compat_alloc_user_space(sizeof(*sioc));
+-	sioc32 = compat_ptr(arg);
+-
+-	if (copy_in_user(&sioc->number, &sioc32->number, 2 * sizeof(int)) ||
+-	    get_user(data, &sioc32->arg))
+-		return -EFAULT;
+-	datap = compat_ptr(data);
+-	if (put_user(datap, &sioc->arg))
+-		return -EFAULT;
+-
+-	err = sock_do_ioctl(net, sock, cmd, (unsigned long) sioc);
+-
+-	if (!err) {
+-		if (copy_in_user(&sioc32->length, &sioc->length,
+-				 sizeof(int)))
+-			err = -EFAULT;
+-	}
+-	return err;
+-}
+-
+-static int do_atm_ioctl(struct net *net, struct socket *sock,
+-			 unsigned int cmd32, unsigned long arg)
+-{
+-	int i;
+-	unsigned int cmd = 0;
+-
+-	switch (cmd32) {
+-	case SONET_GETSTAT:
+-	case SONET_GETSTATZ:
+-	case SONET_GETDIAG:
+-	case SONET_SETDIAG:
+-	case SONET_CLRDIAG:
+-	case SONET_SETFRAMING:
+-	case SONET_GETFRAMING:
+-	case SONET_GETFRSENSE:
+-		return do_atmif_sioc(net, sock, cmd32, arg);
+-	}
+-
+-	for (i = 0; i < NR_ATM_IOCTL; i++) {
+-		if (cmd32 == atm_ioctl_map[i].cmd32) {
+-			cmd = atm_ioctl_map[i].cmd;
+-			break;
+-		}
+-	}
+-	if (i == NR_ATM_IOCTL)
+-	        return -EINVAL;
+-
+-        switch (cmd) {
+-	case ATM_GETNAMES:
+-		return do_atm_iobuf(net, sock, cmd, arg);
+-
+-	case ATM_GETLINKRATE:
+-	case ATM_GETTYPE:
+-	case ATM_GETESI:
+-	case ATM_GETADDR:
+-	case ATM_RSTADDR:
+-	case ATM_ADDADDR:
+-	case ATM_DELADDR:
+-	case ATM_GETCIRANGE:
+-	case ATM_SETCIRANGE:
+-	case ATM_SETESI:
+-	case ATM_SETESIF:
+-	case ATM_GETSTAT:
+-	case ATM_GETSTATZ:
+-	case ATM_GETLOOP:
+-	case ATM_SETLOOP:
+-	case ATM_QUERYLOOP:
+-		return do_atmif_sioc(net, sock, cmd, arg);
+-	}
+-
+-	return -EINVAL;
+-}
+-
+ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 			 unsigned int cmd, unsigned long arg)
+ {
+@@ -3173,49 +2998,6 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 	case SIOCSMIIREG:
+ 		return dev_ifsioc(net, sock, cmd, argp);
+ 
+-	case ATM_GETLINKRATE32:
+-	case ATM_GETNAMES32:
+-	case ATM_GETTYPE32:
+-	case ATM_GETESI32:
+-	case ATM_GETADDR32:
+-	case ATM_RSTADDR32:
+-	case ATM_ADDADDR32:
+-	case ATM_DELADDR32:
+-	case ATM_GETCIRANGE32:
+-	case ATM_SETCIRANGE32:
+-	case ATM_SETESI32:
+-	case ATM_SETESIF32:
+-	case ATM_GETSTAT32:
+-	case ATM_GETSTATZ32:
+-	case ATM_GETLOOP32:
+-	case ATM_SETLOOP32:
+-	case ATM_QUERYLOOP32:
+-	case SONET_GETSTAT:
+-	case SONET_GETSTATZ:
+-	case SONET_GETDIAG:
+-	case SONET_SETDIAG:
+-	case SONET_CLRDIAG:
+-	case SONET_SETFRAMING:
+-	case SONET_GETFRAMING:
+-	case SONET_GETFRSENSE:
+-		return do_atm_ioctl(net, sock, cmd, arg);
+-
+-	case ATMSIGD_CTRL:
+-	case ATMARPD_CTRL:
+-	case ATMLEC_CTRL:
+-	case ATMLEC_MCAST:
+-	case ATMLEC_DATA:
+-	case ATM_SETSC:
+-	case SIOCSIFATMTCP:
+-	case SIOCMKCLIP:
+-	case ATMARP_MKIP:
+-	case ATMARP_SETENTRY:
+-	case ATMARP_ENCAP:
+-	case ATMTCP_CREATE:
+-	case ATMTCP_REMOVE:
+-	case ATMMPC_CTRL:
+-	case ATMMPC_DATA:
+-
+ 	case SIOCSARP:
+ 	case SIOCGARP:
+ 	case SIOCDARP:
 -- 
 1.6.3.3
 
