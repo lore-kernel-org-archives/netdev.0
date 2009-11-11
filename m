@@ -1,30 +1,36 @@
-From: "Sean Hefty" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH] RDMA/addr: Use appropriate locking with for_each_netdev()
-Date: Wed, 11 Nov 2009 12:55:42 -0800
-Message-ID: <8C10E584257A46DB9A0AD193520CF4A7@amr.corp.intel.com>
-References: <4AF8EBA4.2070102@gmail.com>	<D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com> <adaocn8x6j7.fsf@roland-alpha.cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Eric Dumazet'" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Linux Netdev List" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Roland Dreier" <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"Hal Rosenstock" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "'Roland Dreier'" <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <adaocn8x6j7.fsf-BjVyx320WGW9gfZ95n9DRSW4+XlvGpQz@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] iwlwifi: fix iwl1000 "RTS/CTS for HT" merge damage
+Date: Wed, 11 Nov 2009 15:48:26 -0500
+Message-ID: <1257972506-14524-1-git-send-email-linville@tuxdriver.com>
+Cc: davem@davemloft.net, "John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46632 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759030AbZKKVAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:00:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->Would it be possible for you to take Eric's patch as the first in your
->set (keeping his From: of course) and base your fixes on top of that?
+I may have botched my merge conflict resolution instructions for Dave...
 
-Will do.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/wireless/iwlwifi/iwl-1000.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
+index 1e387b9..8f82537 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-1000.c
++++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
+@@ -170,6 +170,7 @@ struct iwl_cfg iwl1000_bgn_cfg = {
+ 	.shadow_ram_support = false,
+ 	.ht_greenfield_support = true,
+ 	.led_compensation = 51,
++	.use_rts_for_ht = true, /* use rts/cts protection */
+ 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
+ 	.support_ct_kill_exit = true,
+ };
+-- 
+1.6.2.5
+
