@@ -1,64 +1,44 @@
-From: Raimonds Cicans <ray@apollo.lv>
-Subject: Re: r8169: fix driver drop incoming packets >= 1515 if MTU is set
- between 1515 and 1536
-Date: Wed, 11 Nov 2009 22:05:35 +0200
-Message-ID: <4AFB190F.2020009@apollo.lv>
-References: <4AFB0061.7020908@apollo.lv> <1257964419.2839.58.camel@achroite.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Wed, 11 Nov 2009 21:08:31 +0100
+Message-ID: <4AFB19BF.9060901@gmail.com>
+References: <200911112116.14103.opurdila@ixiacom.com> <20091111.112120.134023270.davem@davemloft.net> <200911112138.44074.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.apollo.lv ([80.232.168.211]:41831 "EHLO smtp1.apollo.lv"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753388AbZKKUFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 15:05:32 -0500
-In-Reply-To: <1257964419.2839.58.camel@achroite.uk.solarflarecom.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38301 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753000AbZKKUId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 15:08:33 -0500
+In-Reply-To: <200911112138.44074.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings:
-> On Wed, 2009-11-11 at 20:20 +0200, Raimonds Cicans wrote:
->> Driver drop incoming packets >= 1515(1) if MTU is set between 1515(1) and 1536.
+Octavian Purdila a =E9crit :
+> On Wednesday 11 November 2009 21:21:20 you wrote:
+>> From: Octavian Purdila <opurdila@ixiacom.com>
+>> Date: Wed, 11 Nov 2009 21:16:14 +0200
 >>
->> 1) exact number depends on some factors:
->> - VLAN tagged or not
->> - patch "r8169: Fix card drop incoming VLAN tagged MTU byte large jumbo frames"
->>   applied or not
-> [...]
-> 
-> MTU is a limit on transmission; it is not required to limit received
-> frames.
+>>> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+>> We're not doing this sorry.
+>>
+>> Dynamically size it at boot time or something, but a config
+>> option is out of the question.
+>>
+>=20
+> I don't think we can dynamically size it at boot time since it depend=
+s on the=20
+> usage pattern which is impossible to determine at boot time, right?
+>=20
+> Would it be acceptable to grow it at runtime, in list_netdevice for i=
+nstance?
 
-???
+It will be really hard, now we use RCU lookups...
 
-In r8169 driver MTU is used to calculate receive buffer size.
-Receive buffer size is used to configure hardware incoming packet filter.
+What workload could reasonably need 1.000.000 hash slots, and 16.000.00=
+0 netdevices ?
 
-For jumbo frames:
-Receive buffer size = Max frame size = MTU + 14 (ethernet header) + 4
-(vlan header) + 4 (ethernet checksum) = MTU + 22
-
-Bug:
-driver for all MTU up to 1536 use receive buffer size 1536
-
-As you can see from formula, this mean all IP packets > 1536 - 22
-(for vlan tagged, 1536 - 18 for not tagged) are dropped by hardware
-filter.
-
-Example:
-
-host_good>  ifconfig eth0 mtu 1536
-host_r8169> ifconfig eth0 mtu 1536
-host_good>  ping host_r8169
-Ok
-host_good>  ping -s 1500 host_r8169
-Fail
-host_good>  ifconfig eth0 mtu 7000
-host_r8169> ifconfig eth0 mtu 7000
-host_good>  ping -s 1500 host_r8169
-Ok
-
-Raimonds Cicans
 
