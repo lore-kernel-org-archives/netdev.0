@@ -1,41 +1,33 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: sparse noise due to patch "net: fix kmemcheck annotations"
-Date: Wed, 11 Nov 2009 21:41:34 +0100
-Message-ID: <4AFB217E.2040209@s5r6.in-berlin.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Wed, 11 Nov 2009 12:42:35 -0800 (PST)
+Message-ID: <20091111.124235.243348591.davem@davemloft.net>
+References: <200911112116.14103.opurdila@ixiacom.com>
+	<20091111.112120.134023270.davem@davemloft.net>
+	<200911112138.44074.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:33687 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835AbZKKUlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 15:41:39 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37773
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757320AbZKKUmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 15:42:09 -0500
+In-Reply-To: <200911112138.44074.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Wed, 11 Nov 2009 21:38:44 +0200
 
-with above mentioned patch, committed as
-14d18a81b5171d4433e41129619c75748b4f4d26, you changed
+> I don't think we can dynamically size it at boot time since it
+> depends on the usage pattern which is impossible to determine at
+> boot time, right?
 
-struct sk_buff {
-	...
-	__be16 protocol;
-	...
-}
-to
-	__be16 protocol:16;
+We have no idea how many sockets will be used by the system yet we
+dynamically size the socket hash tables.
 
-This introduces the following warning from sparse:
-
-include/linux/skbuff.h:357:41: error: invalid bitfield specifier for
-type restricted __be16.
-
-So, one checker satisfied, another disturbed?  Any idea how to get this
-sparse-clean again?
--- 
-Stefan Richter
--=====-==--= =-== -=-==
-http://arcgraph.de/sr/
+Please do some research and see how we handle this elsewhere in the
+networking.
