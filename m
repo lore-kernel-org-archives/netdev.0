@@ -1,40 +1,215 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] net/atm: move all compat_ioctl handling to atm/ioctl.c
-Date: Wed, 11 Nov 2009 13:34:50 +0000
-Message-ID: <1257946490.25961.1396.camel@macbook.infradead.org>
-References: <200911061500.01651.arnd@arndb.de>
-	 <20091110.204118.12070030.davem@davemloft.net>
-	 <200911111430.44361.arnd@arndb.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net/compat: fix dev_ifsioc emulation corner cases
+Date: Wed, 11 Nov 2009 14:39:40 +0100
+Message-ID: <200911111439.40753.arnd@arndb.de>
+References: <200911061500.01651.arnd@arndb.de> <20091110.204118.12070030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755589AbZKKNew@vger.kernel.org>
-In-Reply-To: <200911111430.44361.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	Patrick Ohly <patrick.ohly@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.10]:49327 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753490AbZKKNjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 08:39:37 -0500
+In-Reply-To: <20091110.204118.12070030.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-11-11 at 14:30 +0100, Arnd Bergmann wrote:
-> 
-> +struct atmif_sioc32 {
-> +       compat_int_t    number;
-> +       compat_int_t    length;
-> +       compat_caddr_t  arg;
-> +};
-> +
-> +struct atm_iobuf32 {
-> +       compat_int_t    length;
-> +       compat_caddr_t  buffer;
-> +}; 
+Handling for SIOCSHWTSTAMP is broken on architectures
+with a split user/kernel address space like s390,
+because it passes a real user pointer while using
+set_fs(KERNEL_DS).
+A similar problem might arise the next time somebody
+adds code to dev_ifsioc.
 
-We already have compat_atmif_sioc and compat_atm_iobuf structures
-defined -- do those need to be duplicated?
+Split up dev_ifsioc into three separate functions for
+SIOCSHWTSTAMP, SIOC*IFMAP and all other numbers so
+we can get rid of set_fs in all potentially affected
+cases.
 
-Other than that, it looks sane. I wish I'd noticed that we already had
-half a COMPAT implementation when I added the new bits. Thanks.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Patrick Ohly <patrick.ohly@intel.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ net/socket.c |  117 +++++++++++++++++++++++++++++++++++----------------------
+ 1 files changed, 72 insertions(+), 45 deletions(-)
 
+Resending this one as well, rebased to current net-next.
+Please tell me if you want a backport to 2.6.32 or -stable
+for this one.
+
+diff --git a/net/socket.c b/net/socket.c
+index befd9f5..05c4828 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2723,38 +2723,15 @@ static int siocdevprivate_ioctl(struct net *net, unsigned int cmd,
+ static int dev_ifsioc(struct net *net, struct socket *sock,
+ 			 unsigned int cmd, struct compat_ifreq __user *uifr32)
+ {
+-	struct ifreq ifr;
+-	struct compat_ifmap __user *uifmap32;
+-	mm_segment_t old_fs;
++	struct ifreq __user *uifr;
+ 	int err;
+ 
+-	uifmap32 = &uifr32->ifr_ifru.ifru_map;
+-	switch (cmd) {
+-	case SIOCSIFMAP:
+-		err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
+-		err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
+-		err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
+-		err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
+-		err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
+-		err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
+-		err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
+-		if (err)
+-			return -EFAULT;
+-		break;
+-	case SIOCSHWTSTAMP:
+-		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
+-			return -EFAULT;
+-		ifr.ifr_data = compat_ptr(uifr32->ifr_ifru.ifru_data);
+-		break;
+-	default:
+-		if (copy_from_user(&ifr, uifr32, sizeof(*uifr32)))
+-			return -EFAULT;
+-		break;
+-	}
+-	old_fs = get_fs();
+-	set_fs (KERNEL_DS);
+-	err = sock_do_ioctl(net, sock, cmd, (unsigned long)&ifr);
+-	set_fs (old_fs);
++	uifr = compat_alloc_user_space(sizeof(*uifr));
++	if (copy_in_user(uifr, uifr32, sizeof(*uifr32)))
++		return -EFAULT;
++
++	err = sock_do_ioctl(net, sock, cmd, (unsigned long)uifr);
++
+ 	if (!err) {
+ 		switch (cmd) {
+ 		case SIOCGIFFLAGS:
+@@ -2771,18 +2748,7 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
+ 		case SIOCGIFTXQLEN:
+ 		case SIOCGMIIPHY:
+ 		case SIOCGMIIREG:
+-			if (copy_to_user(uifr32, &ifr, sizeof(*uifr32)))
+-				return -EFAULT;
+-			break;
+-		case SIOCGIFMAP:
+-			err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
+-			err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
+-			err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
+-			err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
+-			err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
+-			err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
+-			err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
+-			if (err)
++			if (copy_in_user(uifr32, uifr, sizeof(*uifr32)))
+ 				err = -EFAULT;
+ 			break;
+ 		}
+@@ -2790,6 +2756,65 @@ static int dev_ifsioc(struct net *net, struct socket *sock,
+ 	return err;
+ }
+ 
++static int compat_sioc_ifmap(struct net *net, unsigned int cmd,
++			struct compat_ifreq __user *uifr32)
++{
++	struct ifreq ifr;
++	struct compat_ifmap __user *uifmap32;
++	mm_segment_t old_fs;
++	int err;
++
++	uifmap32 = &uifr32->ifr_ifru.ifru_map;
++	err = copy_from_user(&ifr, uifr32, sizeof(ifr.ifr_name));
++	err |= __get_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
++	err |= __get_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
++	err |= __get_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
++	err |= __get_user(ifr.ifr_map.irq, &uifmap32->irq);
++	err |= __get_user(ifr.ifr_map.dma, &uifmap32->dma);
++	err |= __get_user(ifr.ifr_map.port, &uifmap32->port);
++	if (err)
++		return -EFAULT;
++
++	old_fs = get_fs();
++	set_fs (KERNEL_DS);
++	err = dev_ioctl(net, cmd, (void __user *)&ifr);
++	set_fs (old_fs);
++
++	if (cmd == SIOCGIFMAP && !err) {
++		err = copy_to_user(uifr32, &ifr, sizeof(ifr.ifr_name));
++		err |= __put_user(ifr.ifr_map.mem_start, &uifmap32->mem_start);
++		err |= __put_user(ifr.ifr_map.mem_end, &uifmap32->mem_end);
++		err |= __put_user(ifr.ifr_map.base_addr, &uifmap32->base_addr);
++		err |= __put_user(ifr.ifr_map.irq, &uifmap32->irq);
++		err |= __put_user(ifr.ifr_map.dma, &uifmap32->dma);
++		err |= __put_user(ifr.ifr_map.port, &uifmap32->port);
++		if (err)
++			err = -EFAULT;
++	}
++	return err;
++}
++
++static int compat_siocshwtstamp(struct net *net, struct compat_ifreq __user *uifr32)
++{
++	void __user *uptr;
++	compat_uptr_t uptr32;
++	struct ifreq __user *uifr;
++
++	uifr = compat_alloc_user_space(sizeof (*uifr));
++	if (copy_in_user(uifr, uifr32, sizeof(struct compat_ifreq)))
++		return -EFAULT;
++
++	if (get_user(uptr32, &uifr32->ifr_data))
++		return -EFAULT;
++
++	uptr = compat_ptr(uptr32);
++
++	if (put_user(uptr, &uifr->ifr_data))
++		return -EFAULT;
++
++	return dev_ioctl(net, SIOCSHWTSTAMP, uifr);
++}
++
+ struct rtentry32 {
+ 	u32   		rt_pad1;
+ 	struct sockaddr rt_dst;         /* target address               */
+@@ -3081,6 +3106,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 		return ethtool_ioctl(net, argp);
+ 	case SIOCWANDEV:
+ 		return compat_siocwandev(net, argp);
++	case SIOCGIFMAP:
++	case SIOCSIFMAP:
++		return compat_sioc_ifmap(net, cmd, argp);
+ 	case SIOCBONDENSLAVE:
+ 	case SIOCBONDRELEASE:
+ 	case SIOCBONDSETHWADDR:
+@@ -3095,6 +3123,8 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 		return do_siocgstamp(net, sock, cmd, argp);
+ 	case SIOCGSTAMPNS:
+ 		return do_siocgstampns(net, sock, cmd, argp);
++	case SIOCSHWTSTAMP:
++		return compat_siocshwtstamp(net, argp);
+ 
+ 	case FIOSETOWN:
+ 	case SIOCSPGRP:
+@@ -3121,12 +3151,9 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 	case SIOCADDMULTI:
+ 	case SIOCDELMULTI:
+ 	case SIOCGIFINDEX:
+-	case SIOCGIFMAP:
+-	case SIOCSIFMAP:
+ 	case SIOCGIFADDR:
+ 	case SIOCSIFADDR:
+ 	case SIOCSIFHWBROADCAST:
+-	case SIOCSHWTSTAMP:
+ 	case SIOCDIFADDR:
+ 	case SIOCGIFBRDADDR:
+ 	case SIOCSIFBRDADDR:
 -- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+1.6.3.3
+
