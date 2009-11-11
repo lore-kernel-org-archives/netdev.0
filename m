@@ -1,61 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
-Date: Wed, 11 Nov 2009 10:19:21 -0800
-Message-ID: <20091111101921.448d5f05@s6510>
-References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+From: Raimonds Cicans <ray@apollo.lv>
+Subject: r8169: fix driver drop incoming packets >= 1515 if MTU is set between
+ 1515 and 1536
+Date: Wed, 11 Nov 2009 20:20:17 +0200
+Message-ID: <4AFB0061.7020908@apollo.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: multipart/mixed;
+ boundary="------------060703070803090901000909"
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59173 "EHLO mail.vyatta.com"
+Received: from smtp5.apollo.lv ([80.232.168.197]:39114 "EHLO smtp5.apollo.lv"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758348AbZKKSTn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 13:19:43 -0500
-In-Reply-To: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+	id S1758294AbZKKSUe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 13:20:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Nov 2009 22:53:36 -0800
-Tom Herbert <therbert@google.com> wrote:
-
-> +
-> +			if (get_hdrhash && (cqe_fp_status_flags &
-> +			    ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG)) {
-> +				u8 hash_type = cqe_fp_status_flags &
-> +					ETH_FAST_PATH_RX_CQE_RSS_HASH_TYPE;
-> +
-> +				skb->rxhash = le32_to_cpu(
-> +				      cqe->fast_path_cqe.rss_hash_result);
-> +				if (!skb->rxhash)
-> +					skb->rxhash = 1;
-> +
-> +				/* unicast IPv4 packet? */
-> +				if (((hash_type == IPV4_HASH_TYPE) ||
-> +				     (hash_type == TCP_IPV4_HASH_TYPE)) &&
-> +				    (cqe_fp_pars_flags &
-> +					PARSING_FLAGS_ETHERNET_ADDRESS_TYPE)) {
-> +					skb->dev = bp->dev;
-> +					skb_reset_mac_header(skb);
-> +					skb_pull(skb, ETH_HLEN);
-> +					skb->protocol =
-> +					    __constant_htons(ETH_P_IP);
-> +				} else
-> +					skb->protocol =
-> +					    eth_type_trans(skb, bp->dev);
-> +			} else
-> +				skb->protocol = eth_type_trans(skb, bp->dev);
-
-How about putting this all in an inline function:
-
-static inline u16 bn2x_get_type(...) {
-}
+This is a multi-part message in MIME format.
+--------------060703070803090901000909
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
 
-	skb->protocol = bn2x_get_type(...);
+--------------060703070803090901000909
+Content-Type: text/plain;
+ name="r8169-mtu1536.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="r8169-mtu1536.patch"
 
-Then you won't have two calls to eth_type_trans,
-
-Also: __constant_htons() should not be used directly (except switch statements),
-macro for htons() does it automatically if argument is constant.
+RHJpdmVyIGRyb3AgaW5jb21pbmcgcGFja2V0cyA+PSAxNTE1KDEpIGlmIE1UVSBpcyBzZXQg
+YmV0d2VlbiAxNTE1KDEpIGFuZCAxNTM2LgoKMSkgZXhhY3QgbnVtYmVyIGRlcGVuZHMgb24g
+c29tZSBmYWN0b3JzOgotIFZMQU4gdGFnZ2VkIG9yIG5vdAotIHBhdGNoICJyODE2OTogRml4
+IGNhcmQgZHJvcCBpbmNvbWluZyBWTEFOIHRhZ2dlZCBNVFUgYnl0ZSBsYXJnZSBqdW1ibyBm
+cmFtZXMiCiAgYXBwbGllZCBvciBub3QKCkJvbnVzOiBnb3QgcmlkIG9mIG1hZ2ljIG51bWJl
+ciA4CgpTaWduZWQtb2ZmLWJ5OiBSYWltb25kcyBDaWNhbnMgPHJheUBhcG9sbG8ubHY+Cgot
+LS0KCi0tLSBsaW51eC0yLjYuMzEvZHJpdmVycy9uZXQvcjgxNjkuYy5vcmlnCTIwMDktMTEt
+MDYgMjE6NTI6MTIuNzIyMzI2NjAxICswMjAwCisrKyBsaW51eC0yLjYuMzEvZHJpdmVycy9u
+ZXQvcjgxNjkuYwkyMDA5LTExLTA2IDIyOjA5OjE3LjI0MjIyNDAxNCArMDIwMApAQCAtMjIy
+OSw5ICsyMjI5LDkgQEAgc3RhdGljIHZvaWQgX19kZXZleGl0IHJ0bDgxNjlfcmVtb3ZlX29u
+ZQogc3RhdGljIHZvaWQgcnRsODE2OV9zZXRfcnhidWZzaXplKHN0cnVjdCBydGw4MTY5X3By
+aXZhdGUgKnRwLAogCQkJCSAgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIHsKLQl1bnNpZ25l
+ZCBpbnQgbXR1ID0gZGV2LT5tdHU7CisJdW5zaWduZWQgaW50IG1heF9mcmFtZSA9IGRldi0+
+bXR1ICsgVkxBTl9FVEhfSExFTiArIEVUSF9GQ1NfTEVOOwogCi0JdHAtPnJ4X2J1Zl9zeiA9
+IChtdHUgPiBSWF9CVUZfU0laRSkgPyBtdHUgKyBFVEhfSExFTiArIDggOiBSWF9CVUZfU0la
+RTsKKwl0cC0+cnhfYnVmX3N6ID0gKG1heF9mcmFtZSA+IFJYX0JVRl9TSVpFKSA/IG1heF9m
+cmFtZSA6IFJYX0JVRl9TSVpFOwogfQogCiBzdGF0aWMgaW50IHJ0bDgxNjlfb3BlbihzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2KQo=
+--------------060703070803090901000909--
