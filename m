@@ -1,76 +1,61 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] sctp: Fix regression introduced by new sctp_connectx api
-Date: Wed, 11 Nov 2009 13:19:24 -0500
-Message-ID: <1257963564-26376-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
+Date: Wed, 11 Nov 2009 10:19:21 -0800
+Message-ID: <20091111101921.448d5f05@s6510>
+References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:6195 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758302AbZKKSTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 13:19:20 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:59173 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758348AbZKKSTn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 13:19:43 -0500
+In-Reply-To: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A new (unrealeased to the user) sctp_connectx api
+On Tue, 10 Nov 2009 22:53:36 -0800
+Tom Herbert <therbert@google.com> wrote:
 
-c6ba68a26645dbc5029a9faa5687ebe6fcfc53e4
-    sctp: support non-blocking version of the new sctp_connectx() API
+> +
+> +			if (get_hdrhash && (cqe_fp_status_flags &
+> +			    ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG)) {
+> +				u8 hash_type = cqe_fp_status_flags &
+> +					ETH_FAST_PATH_RX_CQE_RSS_HASH_TYPE;
+> +
+> +				skb->rxhash = le32_to_cpu(
+> +				      cqe->fast_path_cqe.rss_hash_result);
+> +				if (!skb->rxhash)
+> +					skb->rxhash = 1;
+> +
+> +				/* unicast IPv4 packet? */
+> +				if (((hash_type == IPV4_HASH_TYPE) ||
+> +				     (hash_type == TCP_IPV4_HASH_TYPE)) &&
+> +				    (cqe_fp_pars_flags &
+> +					PARSING_FLAGS_ETHERNET_ADDRESS_TYPE)) {
+> +					skb->dev = bp->dev;
+> +					skb_reset_mac_header(skb);
+> +					skb_pull(skb, ETH_HLEN);
+> +					skb->protocol =
+> +					    __constant_htons(ETH_P_IP);
+> +				} else
+> +					skb->protocol =
+> +					    eth_type_trans(skb, bp->dev);
+> +			} else
+> +				skb->protocol = eth_type_trans(skb, bp->dev);
 
-introduced a regression cought by the user regression test
-suite.  In particular, the API requires the user library to
-re-allocate the buffer and could potentially trigger a SIGFAULT.
+How about putting this all in an inline function:
 
-This change corrects that regression by passing the original
-address buffer to the kernel unmodified, but still allows for
-a returned association id.
+static inline u16 bn2x_get_type(...) {
+}
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/socket.c |   18 +++++++++++++-----
- 1 files changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index bf705ba..3a95fcb 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1276,22 +1276,30 @@ SCTP_STATIC int sctp_setsockopt_connectx(struct sock* sk,
- }
- 
- /*
-- * New (hopefully final) interface for the API.  The option buffer is used
-- * both for the returned association id and the addresses.
-+ * New (hopefully final) interface for the API.
-+ * We use the sctp_getaddrs_old structure so that use-space library
-+ * can avoid any unnecessary allocations.   The only defferent part
-+ * is that we store the actual length of the address buffer into the
-+ * addrs_num structure member.  That way we can re-use the existing
-+ * code.
-  */
- SCTP_STATIC int sctp_getsockopt_connectx3(struct sock* sk, int len,
- 					char __user *optval,
- 					int __user *optlen)
- {
-+	struct sctp_getaddrs_old param;
- 	sctp_assoc_t assoc_id = 0;
- 	int err = 0;
- 
--	if (len < sizeof(assoc_id))
-+	if (len < sizeof(param))
- 		return -EINVAL;
- 
-+	if (copy_from_user(&param, optval, sizeof(param)))
-+		return -EFAULT;
-+
- 	err = __sctp_setsockopt_connectx(sk,
--			(struct sockaddr __user *)(optval + sizeof(assoc_id)),
--			len - sizeof(assoc_id), &assoc_id);
-+			(struct sockaddr __user *)param.addrs,
-+			param.addr_num, &assoc_id);
- 
- 	if (err == 0 || err == -EINPROGRESS) {
- 		if (copy_to_user(optval, &assoc_id, sizeof(assoc_id)))
--- 
-1.6.0.4
+	skb->protocol = bn2x_get_type(...);
 
+Then you won't have two calls to eth_type_trans,
+
+Also: __constant_htons() should not be used directly (except switch statements),
+macro for htons() does it automatically if argument is constant.
