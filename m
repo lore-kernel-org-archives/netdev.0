@@ -1,56 +1,86 @@
-From: Caleb Cushing <xenoterracide@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Wed, 11 Nov 2009 15:19:54 -0500
-Message-ID: <81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com>
-References: <81bfc67a0910310721p21046931o9b512cfd0a8a7acb@mail.gmail.com>
-	 <200910311944.35922.elendil@planet.nl>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets
+ (v4)
+Date: Wed, 11 Nov 2009 14:32:44 -0600
+Message-ID: <20091111203244.GC8761@us.ibm.com>
+References: <1257878856-25520-1-git-send-email-danms@us.ibm.com>
+ <1257878856-25520-3-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Frans Pop <elendil@planet.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758298AbZKKUTu@vger.kernel.org>
-In-Reply-To: <200910311944.35922.elendil@planet.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:39989 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757270AbZKKUcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 15:32:55 -0500
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e36.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id nABKUk9I008560
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 13:30:46 -0700
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nABKWjNm121050
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 13:32:50 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nABESMRs007035
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 07:28:22 -0700
+Content-Disposition: inline
+In-Reply-To: <1257878856-25520-3-git-send-email-danms@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-not to be impatient or ungrateful, but has anyone had time to look at
-this? will I be able to upgrade to 31.6? will 32.0 work?
+Quoting Dan Smith (danms@us.ibm.com):
+> This patch adds basic support for C/R of open INET sockets.  I think that
+> all the important bits of the TCP and ICSK socket structures is saved,
+> but I think there is still some additional IPv6 stuff that needs to be
+> handled.
+> 
+> With this patch applied, the following script can be used to demonstrate
+> the functionality:
+> 
+>   https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
+> 
+> It shows that this enables migration of a sendmail process with open
+> connections from one machine to another without dropping.
+> 
+> We probably need comments from the netdev people about the quality of
+> sanity checking we do on the values in the ckpt_hdr_socket_inet
+> structure on restart.
+> 
+> Note that this still doesn't address lingering sockets yet.
+> 
+> Changes in v4:
+>  - Use the new socket buffer restore functions introduced in the
+>    previous patch
+>  - Move listen_sockets list under the restart items in ckpt_ctx
+>  - Rename RESTART_SOCK_LISTENONLY to RESTART_CONN_RESET
+> 
+> Changes in v3:
+>  - Prevent restart from allowing a bind on a <1024 port unless the
+>    user is granted that capability
+>  - Add some sanity checking in the inet_precheck() function to make sure
+>    the values read from the checkpoint image are within acceptable ranges
+>  - Check the result of sock_restore_header_info() and fail if needed
+> 
+> Changes in v2:
+>  - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
+>    structure instead of saving them separately
+>  - Fix 'sock' naming in sock_cptrst()
+>  - Don't take the queue lock before skb_queue_tail() since it is
+>    done for us
+>  - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
+>    flag is specified on sys_restart()
+>  - Pull the implementation of the list of listening sockets back into
+>    this patch
+>  - Fix dangling printk
+>  - Add some comments around the parent/child restore logic
+> 
+> Cc: netdev@vger.kernel.org
+> Acked-by: Oren Laadan <orenl@librato.com>
+> Signed-off-by: Dan Smith <danms@us.ibm.com>
 
-On Sat, Oct 31, 2009 at 1:44 PM, Frans Pop <elendil@planet.nl> wrote:
-> Adding netdev in CC. Original message + attachments follow.
->
-> =========
-> so ever since arch rolled out 2.6.31.x I've been having problems with
-> my network (again) where I've been losing a large amount of packets
-> (just testing with mtr somewhere between 30/50%). first I figured it
-> was the same problem as I had in 2.6.30.x (and maybe it is?) but that
-> appeared to get fixed. when I started bisecting the bug wasn't
-> apparent in 2.6.31.0 but I knew for sure it was in .5 (I couldn't
-> remember if I had noticed it again in .3)
->
-> I'm attaching the bisection log and a 'good' dmesg output.
->
-> c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9 is the first bad commit
->
-> I'm not going to pretend to understand why this patch is breaking my
-> networking but between bisection and testing it appears to be... I've
-> never bisected before and I'm definitely not a kernel hacker (I can
-> barely read C).
->
-> I should also note that the wireshark dump here
-> http://bugzilla.kernel.org/show_bug.cgi?id=13835 is related to this.
-> and if it's not the same bug then possibly a new one should be opened.
->
-> P.S. I'm not subscribed to the list please CC me
->
-> Caleb Cushing
-> http://xenoterracide.blogspot.com
->
->
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
+There are probably still gremlins in there somewhere, but imo it's
+past time to get this in the tree so we can be testing it.
 
-
--- 
-Caleb Cushing
-
-http://xenoterracide.blogspot.com
+-serge
