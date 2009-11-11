@@ -1,36 +1,41 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] iwlwifi: fix iwl1000 "RTS/CTS for HT" merge damage
-Date: Wed, 11 Nov 2009 15:48:26 -0500
-Message-ID: <1257972506-14524-1-git-send-email-linville@tuxdriver.com>
-Cc: davem@davemloft.net, "John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46632 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759030AbZKKVAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:00:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: pull request: wireless-2.6 2009-11-11
+Date: Wed, 11 Nov 2009 15:51:42 -0500
+Message-ID: <20091111205141.GK4392@tuxdriver.com>
+References: <20091111172255.GH4392@tuxdriver.com> <20091111.112031.184370997.davem@davemloft.net> <20091111.114114.228545645.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759051AbZKKVAS@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091111.114114.228545645.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I may have botched my merge conflict resolution instructions for Dave...
+On Wed, Nov 11, 2009 at 11:41:14AM -0800, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 11 Nov 2009 11:20:31 -0800 (PST)
+> 
+> > From: "John W. Linville" <linville@tuxdriver.com>
+> > Date: Wed, 11 Nov 2009 12:22:55 -0500
+> > 
+> >> P.S.  Due to the aformentioned iwlwifi fix, this will cause -next
+> >> conflicts for sfr.  You may want to pull net-2.6 into net-next-2.6 after
+> >> pulling this.  The iwlwifi conflicts can be resolved by taking the bigger
+> >> hunks...
+> > 
+> > Yep, I noticed this, I'll sort it out, thanks.
+> 
+> I just pushed out the merge to net-next-2.6, please double
+> check my work.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- drivers/net/wireless/iwlwifi/iwl-1000.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Found a little merge damage, sent a fixup patch to netdev@vger.kernel.org...
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
-index 1e387b9..8f82537 100644
---- a/drivers/net/wireless/iwlwifi/iwl-1000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
-@@ -170,6 +170,7 @@ struct iwl_cfg iwl1000_bgn_cfg = {
- 	.shadow_ram_support = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- 	.support_ct_kill_exit = true,
- };
+Thanks!  Sorry if I gave bad merge conflict fixup advice...
+
+John
 -- 
-1.6.2.5
-
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
