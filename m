@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: netlink_getname, packet_getname -- use
- DECLARE_SOCKADDR guard
-Date: Tue, 10 Nov 2009 22:31:35 -0800 (PST)
-Message-ID: <20091110.223135.75727004.davem@davemloft.net>
-References: <20091108155119.GA25940@lenovo>
+Subject: Re: [PATCH net-next] Phonet: put sockets in a hash table
+Date: Tue, 10 Nov 2009 22:31:59 -0800 (PST)
+Message-ID: <20091110.223159.260028523.davem@davemloft.net>
+References: <1257769021-521-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: gorcunov@openvz.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
+To: remi@remlab.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59175
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59182
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752494AbZKKGbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 01:31:09 -0500
-In-Reply-To: <20091108155119.GA25940@lenovo>
+	by vger.kernel.org with ESMTP id S1752866AbZKKGbc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 01:31:32 -0500
+In-Reply-To: <1257769021-521-1-git-send-email-remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Date: Sun, 8 Nov 2009 18:51:19 +0300
+=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
+Date: Mon,  9 Nov 2009 14:17:01 +0200
 
-> Use guard DECLARE_SOCKADDR in a few more places which allow
-> us to catch if the structure copied back is too big.
-> 
-> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Applied to net-next-2.6, thanks.
+Applied to net-next-2.6
