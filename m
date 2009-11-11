@@ -1,43 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 4/4] venet-macvlan: add new driver to connect a venet
- to a	macvlan netdevice
-Date: Wed, 11 Nov 2009 16:36:06 +0100
-Message-ID: <4AFAD9E6.2020109@trash.net>
-References: <20091110222632.24100.14884.stgit@mimic.site> <20091110222812.24100.42756.stgit@mimic.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 14546] New: Off-by-two stack buffer overflow in function rpc_uaddr2sockaddr() of net/sunrpc/addr.c
+Date: Wed, 11 Nov 2009 10:53:39 -0500
+Message-ID: <2031D0B0-56C9-406E-B5CF-EE050E2CB437@oracle.com>
+References: <bug-14546-10286@http.bugzilla.kernel.org/> <20091110152908.7558a471.akpm@linux-foundation.org> <967DC2CE-588D-4207-BF2D-59727454DC2E@oracle.com>
+Mime-Version: 1.0 (Apple Message framework v936)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, arnd@arndb.de,
-	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
-	netdev@vger.kernel.org
-To: Patrick Mullaney <pmullaney@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33572 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751636AbZKKPgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 10:36:07 -0500
-In-Reply-To: <20091110222812.24100.42756.stgit@mimic.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: argp-YZAGAMbGdGKGw+nKnLezzg@public.gmane.org, bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	Linux Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux NFS Mailing list <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Fabio Olive Leite <fabio.olive-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <967DC2CE-588D-4207-BF2D-59727454DC2E-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Patrick Mullaney wrote:
-> This driver implements a macvlan device as a venet device that can
-> be connected to vbus. Since it is a macvlan device, it provides
-> a more direct path to the underlying adapter by avoiding the
-> bridge.
+On 2009-11-11 Fabio Olive Leite wrote:
+> On 2009-11-11 Patroklos Argyroudis wrote:
+>> There is no need to increase the size of the buffer since the new
+>> check (if (uaddr_len > sizeof(buf) - 2)) will terminate the function
+>> in case the valid universal address is RPCBIND_MAXUADDRLEN bytes.
+> On a second note, why is '\n' needed there? You should only need  
+> '\0', as a '\n'
 
-> --- /dev/null
-> +++ b/kernel/vbus/devices/venet/macvlan.c
-> ...
-> +struct venetmacv {
-> +	struct macvlan_dev mdev;
-> +	unsigned char ll_ifname[IFNAMSIZ];
-> +	struct venetdev dev;
-> +	const struct net_device_ops *macvlan_netdev_ops;
-> +};
+> at the end is not required by any of the string functions used to  
+> convert the
+> address. I believe you could go with buf[RPCBIND_MAXUADDRLEN+1] for  
+> the extra NUL only.
 
-macvlan might destroy the device below you when the underlying
-device is unregistered. You need to handle this by releasing
-the venetmacv device. Check out the NETDEV_UNREGISTER case in
-macvlan_device_event().
+AFAICT, strict_strtoul() requires the '\n\0' termination.
+
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
