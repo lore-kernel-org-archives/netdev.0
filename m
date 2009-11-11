@@ -1,40 +1,39 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] RDMA/addr: Use appropriate locking with for_each_netdev()
-Date: Wed, 11 Nov 2009 10:25:48 -0800
-Message-ID: <adaocn8x6j7.fsf@roland-alpha.cisco.com>
-References: <4AF8EBA4.2070102@gmail.com>
-	<D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: r8169: fix driver drop incoming packets >= 1515 if MTU is set
+	between 1515 and 1536
+Date: Wed, 11 Nov 2009 18:33:39 +0000
+Message-ID: <1257964419.2839.58.camel@achroite.uk.solarflarecom.com>
+References: <4AFB0061.7020908@apollo.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Eric Dumazet'" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Linux Netdev List" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Roland Dreier" <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"Hal Rosenstock" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Sean Hefty" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D5E1FB213939498DBFFEB5A3B83C08AD-Zpru7NauK7drdx17CPfAsdBPR1lH4CV8@public.gmane.org> (Sean
-	Hefty's message of "Wed, 11 Nov 2009 10:18:47 -0800")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: Raimonds Cicans <ray@apollo.lv>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:10003 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758333AbZKKSdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 13:33:35 -0500
+In-Reply-To: <4AFB0061.7020908@apollo.lv>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2009-11-11 at 20:20 +0200, Raimonds Cicans wrote:
+> Driver drop incoming packets >= 1515(1) if MTU is set between 1515(1) and 1536.
+> 
+> 1) exact number depends on some factors:
+> - VLAN tagged or not
+> - patch "r8169: Fix card drop incoming VLAN tagged MTU byte large jumbo frames"
+>   applied or not
+[...]
 
- > >for_each_netdev() should be used with RTNL or dev_base_lock held,
- > >or risk a crash.
- > >
- > >Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
- > 
- > Thanks - I'm working on a patch set in this area.  Roland, I can merge Eric's
- > changes into that patch set if it makes things easier.
+MTU is a limit on transmission; it is not required to limit received
+frames.
 
-Would it be possible for you to take Eric's patch as the first in your
-set (keeping his From: of course) and base your fixes on top of that?
-That seems the cleanest thing to me.
+Ben.
 
-Thanks,
-  Roland
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
