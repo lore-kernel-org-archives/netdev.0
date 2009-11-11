@@ -1,42 +1,64 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: Re: [PATCH] add HAVE_UNREGISTER_NETDEV_QUEUE define for out-of-tree modules
-Date: Wed, 11 Nov 2009 14:49:16 -0500
-Message-ID: <20091111194916.GB21704@kvack.org>
-References: <20091110220004.GT21704@kvack.org> <20091111.112457.54237892.davem@davemloft.net>
+From: Raimonds Cicans <ray@apollo.lv>
+Subject: Re: r8169: fix driver drop incoming packets >= 1515 if MTU is set
+ between 1515 and 1536
+Date: Wed, 11 Nov 2009 22:05:35 +0200
+Message-ID: <4AFB190F.2020009@apollo.lv>
+References: <4AFB0061.7020908@apollo.lv> <1257964419.2839.58.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:46845 "EHLO kanga.kvack.org"
+Received: from smtp1.apollo.lv ([80.232.168.211]:41831 "EHLO smtp1.apollo.lv"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758672AbZKKTtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 14:49:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20091111.112457.54237892.davem@davemloft.net>
+	id S1753388AbZKKUFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 15:05:32 -0500
+In-Reply-To: <1257964419.2839.58.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 11, 2009 at 11:24:57AM -0800, David Miller wrote:
-> From: Benjamin LaHaise <bcrl@lhnet.ca>
-> Date: Tue, 10 Nov 2009 17:00:04 -0500
+Ben Hutchings:
+> On Wed, 2009-11-11 at 20:20 +0200, Raimonds Cicans wrote:
+>> Driver drop incoming packets >= 1515(1) if MTU is set between 1515(1) and 1536.
+>>
+>> 1) exact number depends on some factors:
+>> - VLAN tagged or not
+>> - patch "r8169: Fix card drop incoming VLAN tagged MTU byte large jumbo frames"
+>>   applied or not
+> [...]
 > 
-> > I have an out of tree network driver (GPL'd) that would like to make use of 
-> > the unregister_netdevice_queue interface for bulk unregister of devices.  
-> > Add a #define HAVE_UNREGISTER_NETDEV_QUEUE to allow the source to detect 
-> > that the kernel supports this.
-> 
-> Please get your code upstream :-)
+> MTU is a limit on transmission; it is not required to limit received
+> frames.
 
-It's a completely separate PPP & L2TP / PPPoE from the existing code that 
-is in tree.  Somehow, I don't think people are interested in merging duplicate 
-functionality regardless of what differences there are in the interfaces.
+???
 
-> We're already overcluttered with these "HAVE_PANTS", "HAVE_JACKET",
-> "HAVE_KITCHEN", "HAVE_SINK" ugly defines spewed all over netdevice.h,
-> and I'm not adding any more of that.
+In r8169 driver MTU is used to calculate receive buffer size.
+Receive buffer size is used to configure hardware incoming packet filter.
 
-If there was some other way of detecting that the interface is present, 
-I'd use it, but there isn't.
+For jumbo frames:
+Receive buffer size = Max frame size = MTU + 14 (ethernet header) + 4
+(vlan header) + 4 (ethernet checksum) = MTU + 22
 
-		-ben
+Bug:
+driver for all MTU up to 1536 use receive buffer size 1536
+
+As you can see from formula, this mean all IP packets > 1536 - 22
+(for vlan tagged, 1536 - 18 for not tagged) are dropped by hardware
+filter.
+
+Example:
+
+host_good>  ifconfig eth0 mtu 1536
+host_r8169> ifconfig eth0 mtu 1536
+host_good>  ping host_r8169
+Ok
+host_good>  ping -s 1500 host_r8169
+Fail
+host_good>  ifconfig eth0 mtu 7000
+host_r8169> ifconfig eth0 mtu 7000
+host_good>  ping -s 1500 host_r8169
+Ok
+
+Raimonds Cicans
+
