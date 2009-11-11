@@ -1,46 +1,54 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Wed, 11 Nov 2009 18:57:08 +0800
-Message-ID: <412e6f7f0911110257s2bbca7aei648e324832ae455d@mail.gmail.com>
-References: <4AFA8911.7050204@gmail.com> <4AFA9235.1030004@gmail.com>
+From: Patroklos Argyroudis <argp@census-labs.com>
+Subject: [PATCH] sunrpc: off-by-two stack buffer overflow in function
+ rpc_uaddr2sockaddr()
+Date: Wed, 11 Nov 2009 13:02:29 +0200
+Message-ID: <20091111110229.GA12676@evola>
+References: <bug-14546-10286@http.bugzilla.kernel.org/>
+ <20091110152908.7558a471.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Neil Brown <neilb@suse.de>, linux-nfs@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f177.google.com ([209.85.216.177]:53757 "EHLO
-	mail-px0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbZKKK5D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 05:57:03 -0500
-Received: by pxi7 with SMTP id 7so700812pxi.17
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 02:57:08 -0800 (PST)
-In-Reply-To: <4AFA9235.1030004@gmail.com>
+Received: from mail6.webfaction.com ([74.55.86.74]:48244 "EHLO
+	smtp.webfaction.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756616AbZKKLCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 06:02:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20091110152908.7558a471.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/11/11 Eric Dumazet <eric.dumazet@gmail.com>:
->
-> Or even better, tq could be local to ifb_xmit()
->
-> ifb_xmit() would purge it itself, and could use __skb_dequeue() and
-> other lockless primitives.
->
-> The whole :
->
-> while ((skb =3D skb_dequeue(&pq->rq)) !=3D NULL)
->        skb_queue_tail(&pq->tq, skb);
->
-> could be optimized a lot IMHO, its almost a skb_queue_splice() thing.=
-=2E.
->
+There is an off-by-two stack buffer overflow in function rpc_uaddr2sockaddr()
+of file net/sunrpc/addr.c in the Linux kernel SUNRPC implementation.
+ 
+The function rpc_uaddr2sockaddr() that is used to convert a universal address
+to a socket address takes as an argument the size_t variable uaddr_len (the
+length of the universal address string). The stack buffer buf is declared in
+line 315 to be of size RPCBIND_MAXUADDRLEN. If the passed argument uaddr_len is
+equal to RPCBIND_MAXUADDRLEN then the check at line 319 passes and then at
+lines 324 and 325 there are two out-of-bounds assignments:
+ 
+    319         if (uaddr_len > sizeof(buf))
+    320                 return 0;
+ ...
+    324         buf[uaddr_len] = '\n';
+    325         buf[uaddr_len + 1] = '\0';
 
-Thanks, it is a good idea. Any others?
+Signed-off-by: Patroklos Argyroudis <argp@census-labs.com>
+---
 
+--- linux-2.6/net/sunrpc/addr.c.orig    2009-11-11 12:33:04.000000000 +0200
++++ linux-2.6/net/sunrpc/addr.c 2009-11-11 12:33:32.000000000 +0200
+@@ -316,7 +316,7 @@ size_t rpc_uaddr2sockaddr(const char *ua
+    unsigned long portlo, porthi;
+    unsigned short port;
+ 
+-   if (uaddr_len > sizeof(buf))
++   if (uaddr_len > sizeof(buf) - 2)
+        return 0;
+ 
+    memcpy(buf, uaddr, uaddr_len);
 
---=20
-Regards=A3=AC
-Changli Gao(xiaosuo@gmail.com)
