@@ -1,198 +1,98 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Wed, 11 Nov 2009 16:59:32 +0100
-Message-ID: <4AFADF64.8070601@trash.net>
-References: <4AFA8911.7050204@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 1/2] rps: core implementation
+Date: Wed, 11 Nov 2009 08:28:07 -0800
+Message-ID: <65634d660911110828j402fbed0m4a0ceb903e3ee638@mail.gmail.com>
+References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+	 <4AFA73DA.30308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34052 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149AbZKKP7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 10:59:32 -0500
-In-Reply-To: <4AFA8911.7050204@gmail.com>
+Received: from smtp-out.google.com ([216.239.33.17]:61784 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755652AbZKKQ2I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 11:28:08 -0500
+Received: from zps38.corp.google.com (zps38.corp.google.com [172.25.146.38])
+	by smtp-out.google.com with ESMTP id nABGSBD2031637
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 16:28:12 GMT
+Received: from iwn16 (iwn16.prod.google.com [10.241.68.80])
+	by zps38.corp.google.com with ESMTP id nABGR9pt029690
+	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 08:28:09 -0800
+Received: by iwn16 with SMTP id 16so1052870iwn.29
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 08:28:08 -0800 (PST)
+In-Reply-To: <4AFA73DA.30308@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao wrote:
-> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-> index 69c2566..ac04e85 100644
-> --- a/drivers/net/ifb.c
-> +++ b/drivers/net/ifb.c
-> ...
-> +/* Number of ifb devices to be set up by this module. */
->  static int numifbs = 2;
-> +module_param(numifbs, int, 0444);
-> +MODULE_PARM_DESC(numifbs, "Number of ifb devices");
->  
-> -static void ri_tasklet(unsigned long dev);
-> -static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev);
-> -static int ifb_open(struct net_device *dev);
-> -static int ifb_close(struct net_device *dev);
-> +/* Number of TX queues per ifb */
-> +static int numtxqs = 1;
-> +module_param(numtxqs, int, 0444);
-> +MODULE_PARM_DESC(numtxqs, "Number of TX queues per ifb");
+> I must say this is really exciting :)
+>
+Thanks!
 
-unsigned?
 
-> +		while ((skb = skb_dequeue(&pq->tq)) != NULL) {
-> +			u32 from = G_TC_FROM(skb->tc_verd);
-> +	
-> +			skb->tc_verd = 0;
-> +			skb->tc_verd = SET_TC_NCLS(skb->tc_verd);
-> +			txq->tx_packets++;
-> +			txq->tx_bytes +=skb->len;
-> +
-> +			rcu_read_lock();
-> +			skb->dev = dev_get_by_index_rcu(&init_net, skb->iif);
-> +			if (!skb->dev) {
-> +				rcu_read_unlock();
-> +				dev_kfree_skb(skb);
-> +				txq->tx_dropped++;
-> +				break;
-> +			}
-> +			rcu_read_unlock();
-> +			skb->iif = dev->ifindex;
+>> +/* Maximum size of RPS map (for allocation) */
+>> +#define RPS_MAP_SIZE (sizeof(struct rps_map) + \
+>> + =A0 =A0(num_possible_cpus() * sizeof(u16)))
+>> +
+>
+> Problem of possible cpus is the number can be very large on some arch=
+es,
+> but yet few cpus online....
+>
+> In this kind of situation, get_rps_cpu() will return -1 most of the t=
+ime,
+> defeating goal of RPS ?
+>
+I suppose it would make sense to either use num_online_cpus or simply
+put a reasonable limit on it (like HW RSS hash tables are 128 entries
+I believe).
 
-What protects the device from disappearing here and below during
-dev_queue_xmit() and netif_rx_ni()?
 
-> +	
-> +			if (from & AT_EGRESS) {
-> +				dev_queue_xmit(skb);
-> +			} else if (from & AT_INGRESS) {
-> +				skb_pull(skb, skb->dev->hard_header_len);
-> +				netif_rx_ni(skb);
-> +			} else
-> +				BUG();
->  		}
+>> + =A0 =A0 hash =3D jhash_3words(addr1, addr2, ports, simple_hashrnd)=
+;
+>
+> I wonder if you tried to exchange addr1/addr2 =A0port1/port2 so that =
+conntracking/routing
+> is also speedup ...
+>
+> ie make sure hash will be the same regardless of the direction of pac=
+ket.
+>
+> union {
+> =A0 =A0 =A0 =A0u32 port;
+> =A0 =A0 =A0 =A0u16 ports[2];
+> } p;
+>
+> if (addr1 < addr2)
+> =A0 =A0 =A0 =A0swap(addr1, addr2);
+>
+> if (p.ports[0] < p.ports[1]);
+> =A0 =A0 =A0 =A0swap(p.ports[0], p.ports[1]);
+>
+I have not considered that.  How much of a win would this be?
 
-> +static u32 simple_tx_hashrnd;
-> +
-> +static u16 ifb_select_queue(struct net_device *dev, struct sk_buff *skb)
-> +{
-> +	u32 addr1, addr2;
-> +	u32 hash, ihl;
-> +	union {
-> +		u16 in16[2];
-> +		u32 in32;
-> +	} ports;
-> +	u8 ip_proto;
-> +
-> +	if ((hash = skb_rx_queue_recorded(skb))) {
-> +		while (hash >= dev->real_num_tx_queues)
-> +			hash -= dev->real_num_tx_queues;
-> +		return hash;
-> +	}
-> +
-> +	switch (skb->protocol) {
-> +	case __constant_htons(ETH_P_IP):
-> +		if (!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)))
-> +			ip_proto = ip_hdr(skb)->protocol;
-> +		else
-> +			ip_proto = 0;
+> hash =3D jhash_3words(addr1, addr2, ports, simple_hashrnd);
+>
+Another possibility we considered was to call inet_hashfn and
+inet6_ehashfn directly to get the hash, and store that value in
+skb->rxhash and use it later on connection lookup in tcp_v4_rcv to
+eliminate to another jhash.  This has some benefit, but it doesn't
+help if we get different type of hash from HW (using that is a much
+bigger win), and also we needed to pull in more IP header files into
+dev.c.
 
-So fragments will get reordered?
+>
+> I think I'll try to extend your patches with TX completion recycling =
+too.
+>
+> Ie record in skb the cpu number of original sender, and queue skb to
+> remote queue for destruction (sock_wfree() call and expensive schedul=
+er calls...)
+>
+We also have implemented a form of that if you are interested.  In
+dev_kfree_skb put the skb on the completion list the origin CPU of the
+skb (where it was allocated) and use the remote softirq to schedule
+processing.
 
-> +		addr1 = ip_hdr(skb)->saddr;
-> +		addr2 = ip_hdr(skb)->daddr;
-> +		ihl = ip_hdr(skb)->ihl << 2;
-
-ip_hdrlen()?
-
-> +		break;
-> +	case __constant_htons(ETH_P_IPV6):
-> +		ip_proto = ipv6_hdr(skb)->nexthdr;
-> +		addr1 = ipv6_hdr(skb)->saddr.s6_addr32[3];
-> +		addr2 = ipv6_hdr(skb)->daddr.s6_addr32[3];
-> +		ihl = 10;
-
-Where does 10 come from?
-
-> +		break;
-> +	default:
-> +		return 0;
-
-Perhaps hash on skb->protocol here.
-
-> +	}
-> +	if (addr1 > addr2)
-> +		swap(addr1, addr2);
-> +
-> +	switch (ip_proto) {
-> +	case IPPROTO_TCP:
-> +	case IPPROTO_UDP:
-> +	case IPPROTO_DCCP:
-> +	case IPPROTO_ESP:
-> +	case IPPROTO_AH:
-> +	case IPPROTO_SCTP:
-> +	case IPPROTO_UDPLITE:
-> +		ports.in32 = *((u32 *) (skb_network_header(skb) + ihl));
-> +		if (ports.in16[0] > ports.in16[1])
-> +			swap(ports.in16[0], ports.in16[1]);
-> +		break;
-> +
-> +	default:
-> +		ports.in32 = 0;
-> +		break;
-> +	}
-> +
-> +	hash = jhash_3words(addr1, addr2, ports.in32,
-> +			    simple_tx_hashrnd ^ ip_proto);
-> +
-> +	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
-> +}
-> +
-> +static int ifb_init(struct net_device *dev)
-> +{
-> +	struct ifb_private *dp = netdev_priv(dev);
-> +	struct ifb_private_q *pq = dp->pq;
-> +	int i;
-> +
-> +	pq = kmalloc(sizeof(*pq) * dev->real_num_tx_queues, GFP_KERNEL);
-
-kcalloc()?
-
-> +	if (pq == NULL)
-> +		return -ENOMEM;
-> +	dp->pq = pq;
-> +
-> +	for (i = 0; i < dev->real_num_tx_queues; i++) {
-> +		pq[i].dev = dev;
-> +		skb_queue_head_init(&pq[i].rq);
-> +		skb_queue_head_init(&pq[i].tq);
-> +		init_waitqueue_head(&pq[i].wq);
-> +		pq[i].rx_packets = 0;
-> +		pq[i].rx_bytes = 0;
-> +		pq[i].rx_dropped = 0;
-> +	}
-> +
-> +	return 0;
-> +}
-
-> +static int ifb_get_tx_queues(struct net *net, struct nlattr *tb[],
-> +			     unsigned int *num_tx_queues,
-> +			     unsigned int *real_num_tx_queues)
-> +{
-> +	if (tb[IFLA_NTXQ]) {
-> +		*num_tx_queues = nla_get_u16(tb[IFLA_NTXQ]);
-
-We currently use unsigned ints for the queue number, so please
-use an u32 for the attribute as well.
-
-> +		*real_num_tx_queues = *num_tx_queues;
-> +	} else {
-> +		*num_tx_queues = numtxqs;
-> +		*real_num_tx_queues = numtxqs;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
+Tom
