@@ -1,9 +1,9 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/4] macvlan: allow in-kernel modules to create and manage
- macvlan devices
-Date: Wed, 11 Nov 2009 16:29:46 +0100
-Message-ID: <4AFAD86A.9070506@trash.net>
-References: <20091110222632.24100.14884.stgit@mimic.site> <20091110222757.24100.16046.stgit@mimic.site>
+Subject: Re: [PATCH 4/4] venet-macvlan: add new driver to connect a venet
+ to a	macvlan netdevice
+Date: Wed, 11 Nov 2009 16:36:06 +0100
+Message-ID: <4AFAD9E6.2020109@trash.net>
+References: <20091110222632.24100.14884.stgit@mimic.site> <20091110222812.24100.42756.stgit@mimic.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
@@ -12,91 +12,32 @@ Cc: alacrityvm-devel@lists.sourceforge.net,
 	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
 	netdev@vger.kernel.org
 To: Patrick Mullaney <pmullaney@novell.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757310AbZKKP3u@vger.kernel.org>
-In-Reply-To: <20091110222757.24100.16046.stgit@mimic.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33572 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751636AbZKKPgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 10:36:07 -0500
+In-Reply-To: <20091110222812.24100.42756.stgit@mimic.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Patrick Mullaney wrote:
-> The macvlan driver didn't allow for creation/deletion of devices
-> by other in-kernel modules. This patch provides common routines
-> for both in-kernel and netlink based management. This patch
-> also enables macvlan device support for gro for lower level
-> devices that support gro.
+> This driver implements a macvlan device as a venet device that can
+> be connected to vbus. Since it is a macvlan device, it provides
+> a more direct path to the underlying adapter by avoiding the
+> bridge.
 
-> -static void macvlan_transfer_operstate(struct net_device *dev)
-> +void macvlan_transfer_operstate(struct net_device *dev)
->  {
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  	const struct net_device *lowerdev = vlan->lowerdev;
-> @@ -458,6 +458,7 @@ static void macvlan_transfer_operstate(struct net_device *dev)
->  			netif_carrier_off(dev);
->  	}
->  }
-> +EXPORT_SYMBOL_GPL(macvlan_transfer_operstate);
+> --- /dev/null
+> +++ b/kernel/vbus/devices/venet/macvlan.c
+> ...
+> +struct venetmacv {
+> +	struct macvlan_dev mdev;
+> +	unsigned char ll_ifname[IFNAMSIZ];
+> +	struct venetdev dev;
+> +	const struct net_device_ops *macvlan_netdev_ops;
+> +};
 
-I think this function could be moved to net/core/dev.c or
-net/core/link_watch.c. The VLAN code has an identical copy.
-
-> -int macvlan_newlink(struct net_device *dev,
-> -		    struct nlattr *tb[], struct nlattr *data[])
-> +int macvlan_link_lowerdev(struct net_device *dev,
-> +						  struct net_device *lowerdev)
-
-Please indent this more cleanly.
-
->  {
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  	struct macvlan_port *port;
-> +	int err = 0;
-> +
-> +	if (lowerdev->macvlan_port == NULL) {
-> +		err = macvlan_port_create(lowerdev);
-> +		if (err < 0)
-> +			return err;
-> +	}
-> +	port = lowerdev->macvlan_port;
-> +
-> +	vlan->lowerdev = lowerdev;
-> +	vlan->dev      = dev;
-> +	vlan->port     = port;
-> +	vlan->receive  = netif_rx;
-> +
-> +	macvlan_init(dev);
-> +
-> +	list_add_tail(&vlan->list, &port->vlans);
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(macvlan_link_lowerdev);
-
-> @@ -502,23 +539,14 @@ int macvlan_newlink(struct net_device *dev,
->  	if (!tb[IFLA_ADDRESS])
->  		random_ether_addr(dev->dev_addr);
->  
-> -	if (lowerdev->macvlan_port == NULL) {
-> -		err = macvlan_port_create(lowerdev);
-> -		if (err < 0)
-> -			return err;
-> -	}
-> -	port = lowerdev->macvlan_port;
-> -
-> -	vlan->lowerdev = lowerdev;
-> -	vlan->dev      = dev;
-> -	vlan->port     = port;
-> -	vlan->receive  = netif_rx;
-> +	err = macvlan_link_lowerdev(dev, lowerdev);
-> +	if (err < 0)
-> +		return err;
->
->  	err = register_netdevice(dev);
->  	if (err < 0)
->  		return err;
-
-You've already added the device to the port->vlans list, so you
-need to remove it again when register_netdevice() fails.
-
-> -	list_add_tail(&vlan->list, &port->vlans);
->  	macvlan_transfer_operstate(dev);
->  	return 0;
->  }
-> @@ -526,14 +554,8 @@ EXPORT_SYMBOL_GPL(macvlan_newlink);
+macvlan might destroy the device below you when the underlying
+device is unregistered. You need to handle this by releasing
+the venetmacv device. Check out the NETDEV_UNREGISTER case in
+macvlan_device_event().
