@@ -1,45 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: manual merge of the net/wireless trees with the
-	wireless-current tree
-Date: Wed, 11 Nov 2009 09:54:32 -0500
-Message-ID: <20091111145431.GE4392@tuxdriver.com>
-References: <20091111130119.ace8da65.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091111130119.ace8da65.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 0/6] gianfar: Some fixes
+Date: Wed, 11 Nov 2009 09:16:41 -0600
+Message-ID: <BEE5C957-99C1-4399-AB5D-BCF5BC05A73C@kernel.crashing.org>
+References: <20091111001036.GA28576@oksana.dev.rtsoft.ru>
+Mime-Version: 1.0 (Apple Message framework v1076)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Loeliger <jdl@jdl.com>, Kumar Gopalpet-B05799 <B05799@freescale.com>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20091111001036.GA28576@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 11, 2009 at 01:01:19PM +1100, Stephen Rothwell wrote:
+
+On Nov 10, 2009, at 6:10 PM, Anton Vorontsov wrote:
+
 > Hi all,
-> 
-> Today's linux-next merge of the net tree got conflicts in
-> drivers/net/wireless/iwlwifi/iwl-1000.c,
-> drivers/net/wireless/iwlwifi/iwl-6000.c and
-> drivers/net/wireless/iwlwifi/iwl-core.h between commits in the
-> wireless-current tree and commits in the net (wireless) tree.
-> 
-> I used the versions from the net tree except where obvious additions
-> had been made in the wireless-current tree.   The fixes may not be
-> correct - someone should merge the wireless-current tree into the
-> net tree.
+>
+> Here are some fixes for the gianfar driver, patches on the way.
+>
+> Thanks,
 
-Yeah, these conflicts should all be resolved by taking the bigger hunk.
-The smaller hunk is duplicative because a patch that has already
-been sent to net-next-2.6 is going to be sent for net-2.6 as well
-(to support a regression fix).
+Acked-by: Kumar Gala <galak@kernel.crashing.org>
 
-I'll probably send the wireless-2.6 pull request today.  Perhaps after
-Dave pulls that (and Linus pulls from him), Dave can pull net-2.6
-into net-next-2.6 to resolve the issue.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+- k
