@@ -1,41 +1,45 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v5 5/5 RFC] TCPCT part1e: initial SYN exchange
- with SYNACK data
-Date: Wed, 11 Nov 2009 12:35:37 -0500
-Message-ID: <4AFAF5E9.1040906@gmail.com>
-References: <4AF83E2D.1050401@gmail.com> <4AF84BF3.5020302@gmail.com> <4AF978D3.7030207@gmail.com> <4AF98AAE.6000307@gmail.com> <alpine.DEB.2.00.0911110235270.2864@melkinpaasi.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH resent] Documentation: rw_lock lessons learned
+Date: Wed, 11 Nov 2009 09:37:24 -0800
+Message-ID: <20091111093724.4f40a48d@nehalam>
+References: <4AF9C540.5090403@gmail.com>
+	<20091110180646.2e5859a8@nehalam>
+	<4AFAEF78.4080807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Joe Perches <joe@perches.com>
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:45111 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758380AbZKKRfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 12:35:39 -0500
-Received: by fxm21 with SMTP id 21so1267279fxm.21
-        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 09:35:44 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.0911110235270.2864@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758396AbZKKRhl@vger.kernel.org>
+In-Reply-To: <4AFAEF78.4080807@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ilpo J=E4rvinen wrote:
-> On Tue, 10 Nov 2009, William Allen Simpson wrote:
->> Well, that's what I did with the (now) parts 1b, 1c, and 1d, but som=
-ebody
->> complained that the callers didn't exist yet.
->=20
-> I guess there's misunderstanding here. Yes, if you bring in new helpe=
-rs=20
-> that solely are used with your feature, then it that feature patch (a=
-nd=20
-> I found DaveM commenting specifically this point I think), or right=20
-> beforehand with a clear note that it will be used in the subsequent p=
-atch.=20
+On Wed, 11 Nov 2009 12:08:08 -0500
+William Allen Simpson <william.allen.simpson@gmail.com> wrote:
 
-If I understand correctly, in that case I look forward to your Ack for
-part 1d, a self-contained "helper" feature patch "with a clear note".
+> Stephen Hemminger wrote:
+> > I would rather see the text in Documentation/spinlocks give an explaination
+> > as to why reader/writer locks are normally not desirable. 
+> > 
+> > The whole document needs work to make it a developer document, rather than
+> > a historical mail thread..  A good document says what should be done today,
+> > and does not have old junk or ask the reader to overly new context
+> > on old information.
+> > 
+> You wish me to merge our patches?
+
+Sure, I am more concerned about document structure being readable than
+preserving my sloppy prose.
+
+
+> Or this is a second patch in a proposed series?
+
+No. But taking more input from others (maybe Randy will help he is a good
+editor) would get this back in shape.
+
+-- 
