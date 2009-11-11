@@ -1,32 +1,36 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Wed, 11 Nov 2009 22:44:25 +0100
-Message-ID: <87d43oka86.fsf@basil.nowhere.org>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
-	<4AFA73DA.30308@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Wed, 11 Nov 2009 22:47:15 +0100
+Message-ID: <878wecka3g.fsf@basil.nowhere.org>
+References: <81bfc67a0910310721p21046931o9b512cfd0a8a7acb@mail.gmail.com>
+	<200910311944.35922.elendil@planet.nl>
+	<81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Frans Pop <elendil@planet.nl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Caleb Cushing <xenoterracide@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:46105 "EHLO
+Received: from one.firstfloor.org ([213.235.205.2]:52946 "EHLO
 	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759304AbZKKVoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:44:20 -0500
-In-Reply-To: <4AFA73DA.30308@gmail.com> (Eric Dumazet's message of "Wed, 11 Nov 2009 09:20:42 +0100")
+	with ESMTP id S1759390AbZKKVrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:47:11 -0500
+In-Reply-To: <81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com> (Caleb Cushing's message of "Wed, 11 Nov 2009 15:19:54 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
->
-> Problem of possible cpus is the number can be very large on some arches,
-> but yet few cpus online....
+Caleb Cushing <xenoterracide@gmail.com> writes:
+>>
+>> I'm attaching the bisection log and a 'good' dmesg output.
+>>
+>> c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9 is the first bad commit
 
-Actually that should be rare. Especially not very large compared to online.
+Just gives fatal: bad object c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9
+here on a standard Linus linux-2.6 tree.
 
-The only case left is virtualization, but there the ratio of online
-cores vs possible is not that large typically.
+It might be also useful if you could describe what kind
+of network devices you use and how you determine
+the packet loss.
 
 -Andi
 
