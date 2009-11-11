@@ -1,104 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] decnet: convert dndev_lock to spinlock
-Date: Wed, 11 Nov 2009 09:40:36 -0800
-Message-ID: <20091111094036.736762da@nehalam>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.615305929@vyatta.com>
-	<4AF9B449.6040708@gmail.com>
-	<20091110105053.16687e93@nehalam>
-	<20091110182436.GA13374@fogou.chygwyn.com>
-	<20091111093927.4a08999d@nehalam>
+From: "Sean Hefty" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH] RDMA/addr: Use appropriate locking with for_each_netdev()
+Date: Wed, 11 Nov 2009 10:18:47 -0800
+Message-ID: <D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com>
+References: <4AF8EBA4.2070102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christine Caulfield <christine.caulfield@googlemail.com>,
-	Hannes Eder <hannes@hanneseder.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	netdev@vger.kernel.org, linux-decnet-users@lists.sourceforge.net
-To: steve@chygwyn.com, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57004 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758373AbZKKRlL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 12:41:11 -0500
-In-Reply-To: <20091111093927.4a08999d@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Linux Netdev List" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Roland Dreier" <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	"Hal Rosenstock" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "'Eric Dumazet'" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4AF8EBA4.2070102-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There is no reason for this lock to be reader/writer since
-the reader only has lock held for a very brief period.
-The overhead of read_lock is more expensive than spinlock.
+>for_each_netdev() should be used with RTNL or dev_base_lock held,
+>or risk a crash.
+>
+>Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Compile tested only, I am not a decnet user.
+Thanks - I'm working on a patch set in this area.  Roland, I can merge Eric's
+changes into that patch set if it makes things easier.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> drivers/infiniband/core/addr.c |    9 +++++++--
+> 1 files changed, 7 insertions(+), 2 deletions(-)
+>
+>diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+>index bd07803..5ca0b2c 100644
+>--- a/drivers/infiniband/core/addr.c
+>+++ b/drivers/infiniband/core/addr.c
+>@@ -131,6 +131,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct
 
---- a/net/decnet/dn_dev.c	2009-11-10 17:39:53.652984752 -0800
-+++ b/net/decnet/dn_dev.c	2009-11-10 17:41:15.942736073 -0800
-@@ -68,7 +68,7 @@ extern struct neigh_table dn_neigh_table
-  */
- __le16 decnet_address = 0;
- 
--static DEFINE_RWLOCK(dndev_lock);
-+static DEFINE_SPINLOCK(dndev_lock);
- static struct net_device *decnet_default_device;
- static BLOCKING_NOTIFIER_HEAD(dnaddr_chain);
- 
-@@ -557,7 +557,8 @@ rarok:
- struct net_device *dn_dev_get_default(void)
- {
- 	struct net_device *dev;
--	read_lock(&dndev_lock);
-+
-+	spin_lock(&dndev_lock);
- 	dev = decnet_default_device;
- 	if (dev) {
- 		if (dev->dn_ptr)
-@@ -565,7 +566,8 @@ struct net_device *dn_dev_get_default(vo
- 		else
- 			dev = NULL;
- 	}
--	read_unlock(&dndev_lock);
-+	spin_unlock(&dndev_lock);
-+
- 	return dev;
- }
- 
-@@ -575,13 +577,15 @@ int dn_dev_set_default(struct net_device
- 	int rv = -EBUSY;
- 	if (!dev->dn_ptr)
- 		return -ENODEV;
--	write_lock(&dndev_lock);
-+
-+	spin_lock(&dndev_lock);
- 	if (force || decnet_default_device == NULL) {
- 		old = decnet_default_device;
- 		decnet_default_device = dev;
- 		rv = 0;
- 	}
--	write_unlock(&dndev_lock);
-+	spin_unlock(&dndev_lock);
-+
- 	if (old)
- 		dev_put(old);
- 	return rv;
-@@ -589,13 +593,14 @@ int dn_dev_set_default(struct net_device
- 
- static void dn_dev_check_default(struct net_device *dev)
- {
--	write_lock(&dndev_lock);
-+	spin_lock(&dndev_lock);
- 	if (dev == decnet_default_device) {
- 		decnet_default_device = NULL;
- 	} else {
- 		dev = NULL;
- 	}
--	write_unlock(&dndev_lock);
-+	spin_unlock(&dndev_lock);
-+
- 	if (dev)
- 		dev_put(dev);
- }
+The changes to this function are still valid.
 
+>@@ -391,15 +393,17 @@ static int addr_resolve_local(struct sockaddr *src_in,
+
+This function is going away.
+
+- Sean
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
