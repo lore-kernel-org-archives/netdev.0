@@ -1,44 +1,71 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] netfilter: Should xt_osf_remove_callback() return negative
- on errors?
-Date: Wed, 11 Nov 2009 23:33:01 +0100
-Message-ID: <4AFB3B9D.1080606__42203.0469090261$1257978258$gmane$org@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Wed, 11 Nov 2009 14:24:22 -0800
+Message-ID: <20091111142422.0b6d22fa@nehalam>
+References: <200911112116.14103.opurdila@ixiacom.com>
+	<20091111.124235.243348591.davem@davemloft.net>
+	<20091111133342.1011e16a@nehalam>
+	<200911112347.41425.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kerne
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:23182 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759221AbZKKWU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 17:20:57 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:42764 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759315AbZKKWYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 17:24:42 -0500
+In-Reply-To: <200911112347.41425.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return a negative error value
+On Wed, 11 Nov 2009 23:47:41 +0200
+Octavian Purdila <opurdila@ixiacom.com> wrote:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
- net/netfilter/xt_osf.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> On Wednesday 11 November 2009 23:33:42 you wrote:
+> > On Wed, 11 Nov 2009 12:42:35 -0800 (PST)
+> > 
+> > David Miller <davem@davemloft.net> wrote:
+> > > From: Octavian Purdila <opurdila@ixiacom.com>
+> > > Date: Wed, 11 Nov 2009 21:38:44 +0200
+> > >
+> > > > I don't think we can dynamically size it at boot time since it
+> > > > depends on the usage pattern which is impossible to determine at
+> > > > boot time, right?
+> > >
+> > > We have no idea how many sockets will be used by the system yet we
+> > > dynamically size the socket hash tables.
+> > >
+> > > Please do some research and see how we handle this elsewhere in the
+> > > networking.
+> > 
+> > dcache also sizes hash bits at boot time on available memory.
+> > See alloc_large_system_hash().
+> > 
+> 
+> Thanks Stephen.
+> 
+> I was actually taking a look at that but I see that the device hash is 
+> allocated per net namespace which means we can't use 
+> alloc_large_system_hash().
+> 
+> We could use a similar function that will work in the per namespace 
+> initialization context, but this might upset net namespace folks since we will 
+> get a large hash for every namespace.
+> 
+> Not sure what can be done to address that problem now except using a boot 
+> parameter to override the defaults. A better solution would be to be able to 
+> use "namespace create" parameters but it appears we don't have this 
+> possibility, yet.
+> 
 
-It seems strange that an error return can be positive or
-negative, is this maybe required?
+Remember though that really hash sizes really don't buy that much more speed.
+Going from 256 to 1024 gives a 4x benefit but with 10,000 devices that
+just means scanning 10 vs. 40 names. It is not like the file system cache
+where name lookup is a major component of overhead.
 
-diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
-index 63e1905..4d1a41b 100644
---- a/net/netfilter/xt_osf.c
-+++ b/net/netfilter/xt_osf.c
-@@ -118,7 +118,7 @@ static int xt_osf_remove_callback(struct sock *ctnl, struct sk_buff *skb,
- {
- 	struct xt_osf_user_finger *f;
- 	struct xt_osf_finger *sf;
--	int err = ENOENT;
-+	int err = -ENOENT;
- 
- 	if (!osf_attrs[OSF_ATTR_FINGER])
- 		return -EINVAL;
+You can still use alloc_large_system_hash, but just constrain it to a maximum
+of order 10 or something.
+
+-- 
