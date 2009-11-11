@@ -1,37 +1,50 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Wed, 11 Nov 2009 09:22:41 -0500
-Message-ID: <a30adfc1658e1d5f2f35fee1bb89b364@coraid.com>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
-	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-	<20091110150617.0e6920f0@nehalam>
+From: Wan ZongShun <mcuos.com@gmail.com>
+Subject: [PATCH] ARM: fix bug of checking on signed return value using unsigned
+ statement in w90p910 platform
+Date: Wed, 11 Nov 2009 22:35:22 +0800
+Message-ID: <4AFACBAA.1030503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-To: shemminger@vyatta.com, ecashin@coraid.com, davem@davemloft.net,
-	harvey.harrison@gmail.com, bzolnier@gmail.com,
-	netdev@vger.kernel.org
+Cc: linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	linux-netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>, roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.ata-over-ethernet.org ([12.51.113.4]:38241 "EHLO coraid.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753188AbZKKOWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 09:22:50 -0500
-In-Reply-To: <20091110150617.0e6920f0@nehalam>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:46149 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755837AbZKKOf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 09:35:27 -0500
+Received: by fxm21 with SMTP id 21so1076113fxm.21
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 06:35:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue Nov 10 18:06:41 EST 2009, shemminger@vyatta.com wrote:
-...
-> Hmm, looks like AOE actually is not ref counting the network device.
-> So my patch is incorrect. 
-> 
-> As it stands (before my patch), it is UNSAFE. It can decide to queue
-> packets to a device that is removed out from underneath it causing
-> reference to freed memory.
+Dear sir,
 
-Yes, that's right.  I will look at the patch you sent in the follow
-up.  Thanks.
+To fix the bug of checking on signed return value using unsigned statement.
+Thanks Roel Kluin for digging out it. 
 
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Signed-off-by: Wan ZongShun <mcuos.com@gmail.com>
+
+---
+ drivers/net/arm/w90p910_ether.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/arm/w90p910_ether.c
+index 25e2627..b7f3866 100644
+--- a/drivers/net/arm/w90p910_ether.c
++++ b/drivers/net/arm/w90p910_ether.c
+@@ -160,8 +160,8 @@ struct  w90p910_ether {
+ 	struct mii_if_info mii;
+ 	struct timer_list check_timer;
+ 	void __iomem *reg;
+-	unsigned int rxirq;
+-	unsigned int txirq;
++	int rxirq;
++	int txirq;
+ 	unsigned int cur_tx;
+ 	unsigned int cur_rx;
+ 	unsigned int finish_tx;
 -- 
-  Ed
+1.5.6.3
