@@ -1,41 +1,102 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 0/6] gianfar: Some fixes
-Date: Wed, 11 Nov 2009 09:16:41 -0600
-Message-ID: <BEE5C957-99C1-4399-AB5D-BCF5BC05A73C@kernel.crashing.org>
-References: <20091111001036.GA28576@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0 (Apple Message framework v1076)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/4] macvlan: allow in-kernel modules to create and manage
+ macvlan devices
+Date: Wed, 11 Nov 2009 16:29:46 +0100
+Message-ID: <4AFAD86A.9070506@trash.net>
+References: <20091110222632.24100.14884.stgit@mimic.site> <20091110222757.24100.16046.stgit@mimic.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jon Loeliger <jdl@jdl.com>, Kumar Gopalpet-B05799 <B05799@freescale.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: avorontsov@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091111001036.GA28576@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Cc: alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, arnd@arndb.de,
+	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
+	netdev@vger.kernel.org
+To: Patrick Mullaney <pmullaney@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757310AbZKKP3u@vger.kernel.org>
+In-Reply-To: <20091110222757.24100.16046.stgit@mimic.site>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patrick Mullaney wrote:
+> The macvlan driver didn't allow for creation/deletion of devices
+> by other in-kernel modules. This patch provides common routines
+> for both in-kernel and netlink based management. This patch
+> also enables macvlan device support for gro for lower level
+> devices that support gro.
 
-On Nov 10, 2009, at 6:10 PM, Anton Vorontsov wrote:
+> -static void macvlan_transfer_operstate(struct net_device *dev)
+> +void macvlan_transfer_operstate(struct net_device *dev)
+>  {
+>  	struct macvlan_dev *vlan = netdev_priv(dev);
+>  	const struct net_device *lowerdev = vlan->lowerdev;
+> @@ -458,6 +458,7 @@ static void macvlan_transfer_operstate(struct net_device *dev)
+>  			netif_carrier_off(dev);
+>  	}
+>  }
+> +EXPORT_SYMBOL_GPL(macvlan_transfer_operstate);
 
-> Hi all,
+I think this function could be moved to net/core/dev.c or
+net/core/link_watch.c. The VLAN code has an identical copy.
+
+> -int macvlan_newlink(struct net_device *dev,
+> -		    struct nlattr *tb[], struct nlattr *data[])
+> +int macvlan_link_lowerdev(struct net_device *dev,
+> +						  struct net_device *lowerdev)
+
+Please indent this more cleanly.
+
+>  {
+>  	struct macvlan_dev *vlan = netdev_priv(dev);
+>  	struct macvlan_port *port;
+> +	int err = 0;
+> +
+> +	if (lowerdev->macvlan_port == NULL) {
+> +		err = macvlan_port_create(lowerdev);
+> +		if (err < 0)
+> +			return err;
+> +	}
+> +	port = lowerdev->macvlan_port;
+> +
+> +	vlan->lowerdev = lowerdev;
+> +	vlan->dev      = dev;
+> +	vlan->port     = port;
+> +	vlan->receive  = netif_rx;
+> +
+> +	macvlan_init(dev);
+> +
+> +	list_add_tail(&vlan->list, &port->vlans);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(macvlan_link_lowerdev);
+
+> @@ -502,23 +539,14 @@ int macvlan_newlink(struct net_device *dev,
+>  	if (!tb[IFLA_ADDRESS])
+>  		random_ether_addr(dev->dev_addr);
+>  
+> -	if (lowerdev->macvlan_port == NULL) {
+> -		err = macvlan_port_create(lowerdev);
+> -		if (err < 0)
+> -			return err;
+> -	}
+> -	port = lowerdev->macvlan_port;
+> -
+> -	vlan->lowerdev = lowerdev;
+> -	vlan->dev      = dev;
+> -	vlan->port     = port;
+> -	vlan->receive  = netif_rx;
+> +	err = macvlan_link_lowerdev(dev, lowerdev);
+> +	if (err < 0)
+> +		return err;
 >
-> Here are some fixes for the gianfar driver, patches on the way.
->
-> Thanks,
+>  	err = register_netdevice(dev);
+>  	if (err < 0)
+>  		return err;
 
-Acked-by: Kumar Gala <galak@kernel.crashing.org>
+You've already added the device to the port->vlans list, so you
+need to remove it again when register_netdevice() fails.
 
-
-- k
+> -	list_add_tail(&vlan->list, &port->vlans);
+>  	macvlan_transfer_operstate(dev);
+>  	return 0;
+>  }
+> @@ -526,14 +554,8 @@ EXPORT_SYMBOL_GPL(macvlan_newlink);
