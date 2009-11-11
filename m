@@ -1,77 +1,57 @@
-From: Naveen BN <naveen.bn@globaledgesoft.com>
-Subject: Re: xfrm command fails
-Date: Wed, 11 Nov 2009 12:40:39 +0530
-Message-ID: <4AFA636F.4010200@globaledgesoft.com>
-References: <4AFA4B60.3090306@globaledgesoft.com> <4AFA5499.2090605@globaledgesoft.com> <4AFA56B1.1010109@globaledgesoft.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] act_mirred: don't go back.
+Date: Wed, 11 Nov 2009 03:11:37 -0500
+Message-ID: <1257927097.4685.4.camel@bigi>
+References: <4AF7B9F4.6010507@gmail.com> <1257751376.8009.2.camel@bigi>
+	 <412e6f7f0911090031j16ab9c73o47f4d4d3ffd9be3a@mail.gmail.com>
+	 <1257764086.6246.1.camel@bigi>
+	 <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
+	 <1257838834.3647.4.camel@bigi>
+	 <412e6f7f0911100050k39920adfl1ab70e345269833a@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gesmail.globaledgesoft.com ([203.76.137.4]:37570 "EHLO
-	gesmail.globaledgesoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751316AbZKKHar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 02:30:47 -0500
-In-Reply-To: <4AFA56B1.1010109@globaledgesoft.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:60075 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756661AbZKKILa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 03:11:30 -0500
+Received: by yxe17 with SMTP id 17so750880yxe.33
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 00:11:36 -0800 (PST)
+In-Reply-To: <412e6f7f0911100050k39920adfl1ab70e345269833a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-This proper command to create SA using ip xfrm is
-ip xfrm state add src 192.168.1.20 dst 192.168.1.5 proto esp spi 
-0x354cb04b mode tunnel reqid 16385 replay-window 32 auth sha1 
-0xecf02a5cf6568556e1bdcd961c7ec3f92afd01cc enc aes 
-0x5c0cfa9672ce67ba545b593076dfb278 sel src 0.0.0.0/0 dst 0.0.0.0/0
+Hi,
 
-But how can create a session based SA with ports also used in sa 
-selection for the same host .
-Please help me on this . In selection of OUTBOUND SA does ports also 
-involve.
+On Tue, 2009-11-10 at 16:50 +0800, Changli Gao wrote:
+ 
+> Where? After skb2 is allocated, there won't be any failure any more.
 
-Regards
-Naveen
 
-Naveen BN wrote:
-> adding David in loop
-> Naveen BN wrote:
->> I am using fedora with version => 2.6.23.1-42.fc8.
->> Please guide me to solve the error message "RTNETLINK answers: 
->> Function not implemented"
->>
->> Regards
->> Naveen
->> Naveen BN wrote:
->>> Hi All
->>> I am trying to create a security association using ip xfrm command, 
->>> but i get an message saying
->>> "*RTNETLINK answers: Function not implemented*" and ip xfrm state 
->>> succeeds in displaying  sa  written using setkey .
->>>
->>> ip xfrm state add src 192.168.1.20 dst 192.168.1.5 proto esp spi 
->>> 0x354cb04b mode tunnel reqid 16385 replay-window 32 auth hmac 
->>> 0xecf02a5cf6568556e1bdcd961c7ec3f92afd01cc enc cbc 
->>> 0x5c0cfa9672ce67ba545b593076dfb278 sel src 0.0.0.0/0 dst 0.0.0.0/0
->>>
->>> ERROR message => "RTNETLINK answers: Function not implemented"
->>>
->>> Regards
->>> Naveen
->>> -- 
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Sorry, yes, your change does look like an improvement.
+If you can test a little more - please add my sign-off and submit.
+
+> 
+> It's just OK. When using tc, I also found act_mirred doesn't support
+> ingress, then I realized that there isn't any difference between
+> ingress and egress, as it depends on its parent. However I do think it
+> is confused, when it prints:
+> filter parent ffff: protocol ip pref 49152 basic handle 0x1
+>         action order 1: mirred (Egress Redirect to device ifb0) stolen
+>         index 5 ref 1 bind 1.
+> And the TODO note still is in the source code of act_mirred, it do
+> make me wonder for a while!
+
+Well, you know if you have the energy - doing socket redirect would
+be very interesting indeed. Ingress is another beast, it requires some
+thinking and a lot more testing depending on the devices because of
+possible loops.
+
+cheers,
+jamal
 
