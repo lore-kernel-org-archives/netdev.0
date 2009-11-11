@@ -1,50 +1,39 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] sctp: Set socket source address when additing first transport
-Date: Wed, 11 Nov 2009 16:54:37 -0500
-Message-ID: <1257976477-31326-1-git-send-email-vladislav.yasevich@hp.com>
-References: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:13310 "EHLO
-	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759393AbZKKWFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 17:05:41 -0500
-In-Reply-To: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Wed, 11 Nov 2009 23:05:53 +0100
+Message-ID: <200911112305.54824.elendil@planet.nl>
+References: <81bfc67a0910310721p21046931o9b512cfd0a8a7acb@mail.gmail.com> <81bfc67a0911111219m1efff30cr3186987f9dbb3d4d@mail.gmail.com> <878wecka3g.fsf@basil.nowhere.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Caleb Cushing <xenoterracide@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759484AbZKKWFw@vger.kernel.org>
+In-Reply-To: <878wecka3g.fsf@basil.nowhere.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recent commits
-	sctp: Get rid of an extra routing lookup when adding a transport
-and
-	sctp: Set source addresses on the association before adding transports
+On Wednesday 11 November 2009, Andi Kleen wrote:
+> Caleb Cushing <xenoterracide@gmail.com> writes:
+> >> I'm attaching the bisection log and a 'good' dmesg output.
+> >>
+> >> c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9 is the first bad commit
+>
+> Just gives fatal: bad object c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9
+> here on a standard Linus linux-2.6 tree.
 
-changed when routes are added to the sctp transports.  As such,
-we didn't set the socket source address correctly when adding the first
-transport.  The first transport is always the primary/active one, so
-when adding it, set the socket source address.  This was causing
-regression failures in SCTP tests.
+Looks to be a commit from a stable update:
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/transport.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+commit c9fb3ded7a8a6769f3bcb3ef3d9aed61d3e376a9
+Author: Alan Stern <stern@rowland.harvard.edu>
+Date:   Tue Sep 1 11:38:34 2009 -0400
 
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index c256e48..3b141bb 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -308,7 +308,8 @@ void sctp_transport_route(struct sctp_transport *transport,
- 		/* Initialize sk->sk_rcv_saddr, if the transport is the
- 		 * association's active path for getsockname().
- 		 */
--		if (asoc && (transport == asoc->peer.active_path))
-+		if (asoc && (!asoc->peer.primary_path ||
-+				(transport == asoc->peer.active_path)))
- 			opt->pf->af->to_sk_saddr(&transport->saddr,
- 						 asoc->base.sk);
- 	} else
--- 
-1.6.0.4
+    usb-serial: change referencing of port and serial structures
 
+    commit 41bd34ddd7aa46dbc03b5bb33896e0fa8100fe7b upstream.
+
+Cheers,
+FJP
