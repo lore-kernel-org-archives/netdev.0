@@ -1,41 +1,44 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 1/4] qlge: Do not change frame routing during suspend.
-Date: Wed, 11 Nov 2009 14:54:03 -0800
-Message-ID: <1257980046-2420-2-git-send-email-ron.mercer@qlogic.com>
-References: <1257980046-2420-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
+Date: Wed, 11 Nov 2009 15:21:03 -0800
+Message-ID: <20091111232103.GA1217@xw6200.broadcom.net>
+References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Tom Herbert" <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:24232 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759487AbZKKXAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 18:00:35 -0500
-In-Reply-To: <1257980046-2420-1-git-send-email-ron.mercer@qlogic.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3808 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759637AbZKKXXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 18:23:32 -0500
+In-Reply-To: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We do not need to change the frame routing to direct all frames to the
-management fifo during suspend.  This is now done by the firmware.
+On Tue, Nov 10, 2009 at 10:53:36PM -0800, Tom Herbert wrote:
+> @@ -6223,9 +6257,10 @@ static int bnx2x_init_common(struct bnx2x *bp)
+>  	bnx2x_init_block(bp, PBF_BLOCK, COMMON_STAGE);
+> 
+>  	REG_WR(bp, SRC_REG_SOFT_RST, 1);
+> -	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
+> -		REG_WR(bp, i, 0xc0cac01a);
+> -		/* TODO: replace with something meaningful */
+> +	{
+> +		int i;
+> +		for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4)
+> +			REG_WR(bp, i, random32());
+>  	}
+>  	bnx2x_init_block(bp, SRCH_BLOCK, COMMON_STAGE);
+>  #ifdef BCM_CNIC
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index bd8e164..2bfa783 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -3514,9 +3514,6 @@ int ql_wol(struct ql_adapter *qdev)
- 	}
- 
- 	if (qdev->wol) {
--		/* Reroute all packets to Management Interface */
--		ql_write32(qdev, MGMT_RCV_CFG, (MGMT_RCV_CFG_RM |
--			(MGMT_RCV_CFG_RM << 16)));
- 		wol |= MB_WOL_MODE_ON;
- 		status = ql_mb_wol_mode(qdev, wol);
- 		QPRINTK(qdev, DRV, ERR, "WOL %s (wol code 0x%x) on %s\n",
--- 
-1.6.0.2
+Is a random hash key really better than arbitrary static values?  
+Setting the hash key to random values means, from chip reset to chip
+reset, you could get different performance results.  Unless we
+we understood how the key affects performance, I would think that
+reproducable performance numbers would be more desirable, no?
 
