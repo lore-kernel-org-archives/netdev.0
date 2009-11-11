@@ -1,44 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sparse noise due to patch "net: fix kmemcheck annotations"
-Date: Wed, 11 Nov 2009 22:13:02 +0100
-Message-ID: <4AFB28DE.8070000@gmail.com>
-References: <4AFB217E.2040209@s5r6.in-berlin.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Wed, 11 Nov 2009 13:33:42 -0800
+Message-ID: <20091111133342.1011e16a@nehalam>
+References: <200911112116.14103.opurdila@ixiacom.com>
+	<20091111.112120.134023270.davem@davemloft.net>
+	<200911112138.44074.opurdila@ixiacom.com>
+	<20091111.124235.243348591.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51743 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759225AbZKKVNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:13:07 -0500
-In-Reply-To: <4AFB217E.2040209@s5r6.in-berlin.de>
+Received: from mail.vyatta.com ([76.74.103.46]:40354 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758931AbZKKVdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 16:33:53 -0500
+In-Reply-To: <20091111.124235.243348591.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stefan Richter a =E9crit :
-> Hi Eric,
->=20
-> with above mentioned patch, committed as
-> 14d18a81b5171d4433e41129619c75748b4f4d26, you changed
->=20
-> struct sk_buff {
-> 	...
-> 	__be16 protocol;
-> 	...
-> }
-> to
-> 	__be16 protocol:16;
->=20
-> This introduces the following warning from sparse:
->=20
-> include/linux/skbuff.h:357:41: error: invalid bitfield specifier for
-> type restricted __be16.
->=20
-> So, one checker satisfied, another disturbed?  Any idea how to get th=
-is
-> sparse-clean again?
+On Wed, 11 Nov 2009 12:42:35 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-No problem here... how do you get this error, and what is your sparse v=
-ersion ?
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Wed, 11 Nov 2009 21:38:44 +0200
+> 
+> > I don't think we can dynamically size it at boot time since it
+> > depends on the usage pattern which is impossible to determine at
+> > boot time, right?
+> 
+> We have no idea how many sockets will be used by the system yet we
+> dynamically size the socket hash tables.
+> 
+> Please do some research and see how we handle this elsewhere in the
+> networking.
+
+dcache also sizes hash bits at boot time on available memory.
+See alloc_large_system_hash().
