@@ -1,56 +1,50 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
-Date: Wed, 11 Nov 2009 23:47:41 +0200
-Message-ID: <200911112347.41425.opurdila@ixiacom.com>
-References: <200911112116.14103.opurdila@ixiacom.com> <20091111.124235.243348591.davem@davemloft.net> <20091111133342.1011e16a@nehalam>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: Set socket source address when additing first transport
+Date: Wed, 11 Nov 2009 16:54:37 -0500
+Message-ID: <1257976477-31326-1-git-send-email-vladislav.yasevich@hp.com>
+References: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:28506 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759367AbZKKVuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 16:50:40 -0500
-In-Reply-To: <20091111133342.1011e16a@nehalam>
+Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:13310 "EHLO
+	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759393AbZKKWFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 17:05:41 -0500
+In-Reply-To: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 11 November 2009 23:33:42 you wrote:
-> On Wed, 11 Nov 2009 12:42:35 -0800 (PST)
-> 
-> David Miller <davem@davemloft.net> wrote:
-> > From: Octavian Purdila <opurdila@ixiacom.com>
-> > Date: Wed, 11 Nov 2009 21:38:44 +0200
-> >
-> > > I don't think we can dynamically size it at boot time since it
-> > > depends on the usage pattern which is impossible to determine at
-> > > boot time, right?
-> >
-> > We have no idea how many sockets will be used by the system yet we
-> > dynamically size the socket hash tables.
-> >
-> > Please do some research and see how we handle this elsewhere in the
-> > networking.
-> 
-> dcache also sizes hash bits at boot time on available memory.
-> See alloc_large_system_hash().
-> 
+Recent commits
+	sctp: Get rid of an extra routing lookup when adding a transport
+and
+	sctp: Set source addresses on the association before adding transports
 
-Thanks Stephen.
+changed when routes are added to the sctp transports.  As such,
+we didn't set the socket source address correctly when adding the first
+transport.  The first transport is always the primary/active one, so
+when adding it, set the socket source address.  This was causing
+regression failures in SCTP tests.
 
-I was actually taking a look at that but I see that the device hash is 
-allocated per net namespace which means we can't use 
-alloc_large_system_hash().
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/transport.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-We could use a similar function that will work in the per namespace 
-initialization context, but this might upset net namespace folks since we will 
-get a large hash for every namespace.
-
-Not sure what can be done to address that problem now except using a boot 
-parameter to override the defaults. A better solution would be to be able to 
-use "namespace create" parameters but it appears we don't have this 
-possibility, yet.
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index c256e48..3b141bb 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -308,7 +308,8 @@ void sctp_transport_route(struct sctp_transport *transport,
+ 		/* Initialize sk->sk_rcv_saddr, if the transport is the
+ 		 * association's active path for getsockname().
+ 		 */
+-		if (asoc && (transport == asoc->peer.active_path))
++		if (asoc && (!asoc->peer.primary_path ||
++				(transport == asoc->peer.active_path)))
+ 			opt->pf->af->to_sk_saddr(&transport->saddr,
+ 						 asoc->base.sk);
+ 	} else
+-- 
+1.6.0.4
 
