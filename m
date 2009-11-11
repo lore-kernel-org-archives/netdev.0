@@ -1,45 +1,56 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH resent] Documentation: rw_lock lessons learned
-Date: Wed, 11 Nov 2009 09:37:24 -0800
-Message-ID: <20091111093724.4f40a48d@nehalam>
-References: <4AF9C540.5090403@gmail.com>
-	<20091110180646.2e5859a8@nehalam>
-	<4AFAEF78.4080807@gmail.com>
+Subject: [PATCH 1/2] decnet: add RTNL lock when reading address list
+Date: Wed, 11 Nov 2009 09:39:27 -0800
+Message-ID: <20091111093927.4a08999d@nehalam>
+References: <20091110175446.280423729@vyatta.com>
+	<20091110175647.615305929@vyatta.com>
+	<4AF9B449.6040708@gmail.com>
+	<20091110105053.16687e93@nehalam>
+	<20091110182436.GA13374@fogou.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758396AbZKKRhl@vger.kernel.org>
-In-Reply-To: <4AFAEF78.4080807@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christine Caulfield <christine.caulfield@googlemail.com>,
+	Hannes Eder <hannes@hanneseder.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Steven Whitehouse <swhiteho@redhat.com>,
+	netdev@vger.kernel.org, linux-decnet-users@lists.sourceforge.net
+To: steve@chygwyn.com, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56990 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757947AbZKKRlA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 12:41:00 -0500
+In-Reply-To: <20091110182436.GA13374@fogou.chygwyn.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Nov 2009 12:08:08 -0500
-William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+Add missing locking in the case of auto binding to the
+default device. The address list might change while this code is looking
+at the list. 
 
-> Stephen Hemminger wrote:
-> > I would rather see the text in Documentation/spinlocks give an explaination
-> > as to why reader/writer locks are normally not desirable. 
-> > 
-> > The whole document needs work to make it a developer document, rather than
-> > a historical mail thread..  A good document says what should be done today,
-> > and does not have old junk or ask the reader to overly new context
-> > on old information.
-> > 
-> You wish me to merge our patches?
+Compile tested only, I am not a decnet user.
 
-Sure, I am more concerned about document structure being readable than
-preserving my sloppy prose.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
-> Or this is a second patch in a proposed series?
-
-No. But taking more input from others (maybe Randy will help he is a good
-editor) would get this back in shape.
-
--- 
+--- a/net/decnet/dn_dev.c	2009-11-11 09:18:02.935313559 -0800
++++ b/net/decnet/dn_dev.c	2009-11-11 09:22:32.157313924 -0800
+@@ -828,13 +828,17 @@ static int dn_dev_get_first(struct net_d
+ 	struct dn_dev *dn_db = (struct dn_dev *)dev->dn_ptr;
+ 	struct dn_ifaddr *ifa;
+ 	int rv = -ENODEV;
++
+ 	if (dn_db == NULL)
+ 		goto out;
++
++	rtnl_lock();
+ 	ifa = dn_db->ifa_list;
+ 	if (ifa != NULL) {
+ 		*addr = ifa->ifa_local;
+ 		rv = 0;
+ 	}
++	rtnl_unlock();
+ out:
+ 	return rv;
+ }
