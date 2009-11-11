@@ -1,57 +1,30 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH 10/10] CAN: use dev_get_by_index_rcu
-Date: Wed, 11 Nov 2009 06:54:24 +0100
-Message-ID: <4AFA5190.60600@hartkopp.net>
-References: <20091110175446.280423729@vyatta.com> <20091110175647.824581805@vyatta.com> <4AF9B21E.50805@gmail.com>
+From: "Marcus D. Leech" <mleech@ripnet.com>
+Subject: SO_TIMESTAMPING: AF_INET6 and AF_PACKET now working
+Date: Wed, 11 Nov 2009 01:20:24 -0500
+Message-ID: <4AFA57A8.10503@ripnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:17006 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbZKKFyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 00:54:23 -0500
-In-Reply-To: <4AF9B21E.50805@gmail.com>
+Received: from mx1.ripnet.com ([66.78.99.10]:3921 "EHLO mx1.ripnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751546AbZKKGUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 01:20:20 -0500
+Received: from localhost.localdomain (unverified [142.46.209.36]) by mx1.ripnet.com
+  (Vircom SMTPRS 4.7.840.5) with ESMTP id <B0488821599@mx1.ripnet.com>
+  (prot=TLS1-S cifer=RC4-128 hash=MD5-128 exch=RSA-1024 verify=NOT) for <netdev@vger.kernel.org>;
+  Wed, 11 Nov 2009 01:20:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Stephen Hemminger a =E9crit :
->> Use new function to avoid doing read_lock().
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> --- a/net/can/bcm.c	2009-11-10 09:45:16.301376272 -0800
->> +++ b/net/can/bcm.c	2009-11-10 09:46:30.125005956 -0800
->> @@ -139,13 +139,13 @@ static char *bcm_proc_getifname(char *re
->>  	if (!ifindex)
->>  		return "any";
->> =20
->> -	read_lock(&dev_base_lock);
->> -	dev =3D __dev_get_by_index(&init_net, ifindex);
->> +	rcu_read_lock();
->> +	dev =3D dev_get_by_index_rcu(&init_net, ifindex);
->>  	if (dev)
->>  		strcpy(result, dev->name);
->>  	else
->>  		strcpy(result, "???");
->> -	read_unlock(&dev_base_lock);
->> +	rcu_read_unlock();
->> =20
->>  	return result;
->>  }
->>
->=20
-> I was pretty sure I had already done this one...
->=20
-> Ah yes, that was planned after a bugfix for net-2.6.
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
+I have SO_TIMESTAMPING work for AF_INET6 and AF_PACKET now, against a 
+2.6.30 kernel.
 
-Thanks everyone!
+I'll test it over the next couple of days, and then I guess post a patch 
+against the
+   2.6.32-rc6 kernel.
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+Cheers
+Marcus
+
