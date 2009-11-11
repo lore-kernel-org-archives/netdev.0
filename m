@@ -1,34 +1,57 @@
-From: Naveen BN <naveen.bn@globaledgesoft.com>
-Subject: xfrm command fails
-Date: Wed, 11 Nov 2009 10:58:00 +0530
-Message-ID: <4AFA4B60.3090306@globaledgesoft.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH 10/10] CAN: use dev_get_by_index_rcu
+Date: Wed, 11 Nov 2009 06:54:24 +0100
+Message-ID: <4AFA5190.60600@hartkopp.net>
+References: <20091110175446.280423729@vyatta.com> <20091110175647.824581805@vyatta.com> <4AF9B21E.50805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gesmail.globaledgesoft.com ([203.76.137.4]:36579 "EHLO
-	gesmail.globaledgesoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750821AbZKKFsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 00:48:07 -0500
-Received: from naveen.globaledgesoft.com (unknown [172.16.8.36])
-	by gesmail.globaledgesoft.com (Postfix) with ESMTP id E338B17B433
-	for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 11:18:10 +0530 (IST)
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:17006 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbZKKFyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 00:54:23 -0500
+In-Reply-To: <4AF9B21E.50805@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All
-I am trying to create a security association using ip xfrm command, but 
-i get an message saying
-"*RTNETLINK answers: Function not implemented*" and ip xfrm state 
-succeeds in displaying  sa  written using setkey .
+Eric Dumazet wrote:
+> Stephen Hemminger a =E9crit :
+>> Use new function to avoid doing read_lock().
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> --- a/net/can/bcm.c	2009-11-10 09:45:16.301376272 -0800
+>> +++ b/net/can/bcm.c	2009-11-10 09:46:30.125005956 -0800
+>> @@ -139,13 +139,13 @@ static char *bcm_proc_getifname(char *re
+>>  	if (!ifindex)
+>>  		return "any";
+>> =20
+>> -	read_lock(&dev_base_lock);
+>> -	dev =3D __dev_get_by_index(&init_net, ifindex);
+>> +	rcu_read_lock();
+>> +	dev =3D dev_get_by_index_rcu(&init_net, ifindex);
+>>  	if (dev)
+>>  		strcpy(result, dev->name);
+>>  	else
+>>  		strcpy(result, "???");
+>> -	read_unlock(&dev_base_lock);
+>> +	rcu_read_unlock();
+>> =20
+>>  	return result;
+>>  }
+>>
+>=20
+> I was pretty sure I had already done this one...
+>=20
+> Ah yes, that was planned after a bugfix for net-2.6.
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
 
-ip xfrm state add src 192.168.1.20 dst 192.168.1.5 proto esp spi 
-0x354cb04b mode tunnel reqid 16385 replay-window 32 auth hmac 
-0xecf02a5cf6568556e1bdcd961c7ec3f92afd01cc enc cbc 
-0x5c0cfa9672ce67ba545b593076dfb278 sel src 0.0.0.0/0 dst 0.0.0.0/0
+Thanks everyone!
 
-ERROR message => "RTNETLINK answers: Function not implemented"
-
-Regards
-Naveen
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
