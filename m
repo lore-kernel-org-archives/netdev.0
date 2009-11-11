@@ -1,217 +1,270 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 05/13] pcmcia: Pass struct pcmcia_device to pcmcia_release_window()
-Date: Wed, 11 Nov 2009 21:38:11 +0100
-Message-ID: <1257971899-9274-5-git-send-email-linux@dominikbrodowski.net>
+Subject: [PATCH 08/13] pcmcia: Change window_handle_t logic to unsigned long
+Date: Wed, 11 Nov 2009 21:38:14 +0100
+Message-ID: <1257971899-9274-8-git-send-email-linux@dominikbrodowski.net>
 References: <20091111203303.GA7939@comet.dominikbrodowski.net>
 Cc: Magnus Damm <damm@opensource.se>, netdev@vger.kernel.org,
-	Jiri Kosina <jkosina@suse.cz>,
 	Dominik Brodowski <linux@dominikbrodowski.net>
 To: <linux-pcmcia@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.133.102.198]:47651 "EHLO linta.de"
+Received: from isilmar.linta.de ([213.133.102.198]:47662 "EHLO linta.de"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758867AbZKKUjA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 15:39:00 -0500
+	id S1758877AbZKKUjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 15:39:01 -0500
 In-Reply-To: <20091111203303.GA7939@comet.dominikbrodowski.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Magnus Damm <damm@opensource.se>
 
-No logic changes, just pass struct pcmcia_device to pcmcia_release_window().
+Logic changes based on top of the other patches:
 
-[linux@dominikbrodowski.net: update to 2.6.31]
+This set of patches changed window_handle_t from being a pointer to an
+unsigned long. The unsigned long is now a simple index into socket->win[].
+Going from a pointer to unsigned long should leave the user space interface
+unchanged unless I'm mistaken.
+
+This change results in code that is less error prone and a user space
+interface which is much cleaner and safer. A nice side effect is that we
+are also are able to remove all members except one from window_t.
+
+[ linux@dominikbrodowski.net:
+	Update to 2.6.31. Also, a plain "index" to socket->win[] does not
+	work, as several codepaths rely on "window_handle_t" being
+	non-zero if used. Therefore, set the window_handle_t to the
+	socket->win[] index + 1. ]
+
 CC: netdev@vger.kernel.org
-CC: Jiri Kosina <jkosina@suse.cz>
 Signed-off-by: Magnus Damm <damm@opensource.se>
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- drivers/char/pcmcia/ipwireless/main.c |   14 +++++++-------
- drivers/mtd/maps/pcmciamtd.c          |    2 +-
- drivers/net/pcmcia/fmvj18x_cs.c       |    4 ++--
- drivers/net/pcmcia/ibmtr_cs.c         |    2 +-
- drivers/net/pcmcia/pcnet_cs.c         |    4 ++--
- drivers/net/wireless/ray_cs.c         |    4 ++--
- drivers/pcmcia/pcmcia_resource.c      |    5 +++--
- include/pcmcia/ds.h                   |    2 +-
- 8 files changed, 19 insertions(+), 18 deletions(-)
+ drivers/net/pcmcia/pcnet_cs.c    |    2 +-
+ drivers/pcmcia/cs_internal.h     |    4 +-
+ drivers/pcmcia/pcmcia_ioctl.c    |    4 +-
+ drivers/pcmcia/pcmcia_resource.c |   59 +++++++++++++++++++------------------
+ include/pcmcia/cs_types.h        |    3 +-
+ include/pcmcia/ss.h              |    5 ---
+ 6 files changed, 36 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
-index 24bffa4..91ca23d 100644
---- a/drivers/char/pcmcia/ipwireless/main.c
-+++ b/drivers/char/pcmcia/ipwireless/main.c
-@@ -168,15 +168,15 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
- 	return 0;
- 
- exit3:
--	pcmcia_release_window(ipw->handle_attr_memory);
-+	pcmcia_release_window(p_dev, ipw->handle_attr_memory);
- exit2:
- 	if (ipw->common_memory) {
- 		release_mem_region(ipw->request_common_memory.Base,
- 				ipw->request_common_memory.Size);
- 		iounmap(ipw->common_memory);
--		pcmcia_release_window(ipw->handle_common_memory);
-+		pcmcia_release_window(p_dev, ipw->handle_common_memory);
- 	} else
--		pcmcia_release_window(ipw->handle_common_memory);
-+		pcmcia_release_window(p_dev, ipw->handle_common_memory);
- exit1:
- 	release_resource(io_resource);
- 	pcmcia_disable_device(p_dev);
-@@ -260,13 +260,13 @@ exit:
- 		release_mem_region(ipw->request_attr_memory.Base,
- 				ipw->request_attr_memory.Size);
- 		iounmap(ipw->attr_memory);
--		pcmcia_release_window(ipw->handle_attr_memory);
-+		pcmcia_release_window(link, ipw->handle_attr_memory);
- 	}
- 	if (ipw->common_memory) {
- 		release_mem_region(ipw->request_common_memory.Base,
- 				ipw->request_common_memory.Size);
- 		iounmap(ipw->common_memory);
--		pcmcia_release_window(ipw->handle_common_memory);
-+		pcmcia_release_window(link, ipw->handle_common_memory);
- 	}
- 	pcmcia_disable_device(link);
- 	return -1;
-@@ -287,9 +287,9 @@ static void release_ipwireless(struct ipw_dev *ipw)
- 		iounmap(ipw->attr_memory);
- 	}
- 	if (ipw->common_memory)
--		pcmcia_release_window(ipw->handle_common_memory);
-+		pcmcia_release_window(ipw->link, ipw->handle_common_memory);
- 	if (ipw->attr_memory)
--		pcmcia_release_window(ipw->handle_attr_memory);
-+		pcmcia_release_window(ipw->link, ipw->handle_attr_memory);
- 
- 	/* Break the link with Card Services */
- 	pcmcia_disable_device(ipw->link);
-diff --git a/drivers/mtd/maps/pcmciamtd.c b/drivers/mtd/maps/pcmciamtd.c
-index b698dba..16d9985 100644
---- a/drivers/mtd/maps/pcmciamtd.c
-+++ b/drivers/mtd/maps/pcmciamtd.c
-@@ -344,7 +344,7 @@ static void pcmciamtd_release(struct pcmcia_device *link)
- 			iounmap(dev->win_base);
- 			dev->win_base = NULL;
- 		}
--		pcmcia_release_window(link->win);
-+		pcmcia_release_window(link, link->win);
- 	}
- 	pcmcia_disable_device(link);
- }
-diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
-index fdec5c3..61726c8 100644
---- a/drivers/net/pcmcia/fmvj18x_cs.c
-+++ b/drivers/net/pcmcia/fmvj18x_cs.c
-@@ -599,7 +599,7 @@ static int fmvj18x_get_hwinfo(struct pcmcia_device *link, u_char *node_id)
-     }
- 
-     iounmap(base);
--    j = pcmcia_release_window(link->win);
-+    j = pcmcia_release_window(link, link->win);
-     return (i != 0x200) ? 0 : -1;
- 
- } /* fmvj18x_get_hwinfo */
-@@ -666,7 +666,7 @@ static void fmvj18x_release(struct pcmcia_device *link)
- 	tmp = lp->base;
- 	lp->base = NULL;    /* set NULL before iounmap */
- 	iounmap(tmp);
--	j = pcmcia_release_window(link->win);
-+	j = pcmcia_release_window(link, link->win);
-     }
- 
-     pcmcia_disable_device(link);
-diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
-index 0d914f3..7a985ca 100644
---- a/drivers/net/pcmcia/ibmtr_cs.c
-+++ b/drivers/net/pcmcia/ibmtr_cs.c
-@@ -328,7 +328,7 @@ static void ibmtr_release(struct pcmcia_device *link)
- 	if (link->win) {
- 		struct tok_info *ti = netdev_priv(dev);
- 		iounmap(ti->mmio);
--		pcmcia_release_window(info->sram_win_handle);
-+		pcmcia_release_window(link, info->sram_win_handle);
- 	}
- 	pcmcia_disable_device(link);
- }
 diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 80ab9de..4156a6c 100644
+index 75e6894..518b094 100644
 --- a/drivers/net/pcmcia/pcnet_cs.c
 +++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -337,7 +337,7 @@ static hw_info_t *get_hwinfo(struct pcmcia_device *link)
-     }
- 
-     iounmap(virt);
--    j = pcmcia_release_window(link->win);
-+    j = pcmcia_release_window(link, link->win);
-     return (i < NR_INFO) ? hw_info+i : NULL;
- } /* get_hwinfo */
- 
-@@ -1513,7 +1513,7 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
-     pcnet_reset_8390(dev);
+@@ -1514,7 +1514,7 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
      if (i != (TX_PAGES<<8)) {
  	iounmap(info->base);
--	pcmcia_release_window(link->win);
-+	pcmcia_release_window(link, link->win);
- 	info->base = NULL; link->win = NULL;
+ 	pcmcia_release_window(link, link->win);
+-	info->base = NULL; link->win = NULL;
++	info->base = NULL; link->win = 0;
  	goto failed;
      }
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 28db791..ed32875 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -820,10 +820,10 @@ static void ray_release(struct pcmcia_device *link)
- 	iounmap(local->rmem);
- 	iounmap(local->amem);
- 	/* Do bother checking to see if these succeed or not */
--	i = pcmcia_release_window(local->amem_handle);
-+	i = pcmcia_release_window(link, local->amem_handle);
- 	if (i != 0)
- 		dev_dbg(&link->dev, "ReleaseWindow(local->amem) ret = %x\n", i);
--	i = pcmcia_release_window(local->rmem_handle);
-+	i = pcmcia_release_window(link, local->rmem_handle);
- 	if (i != 0)
- 		dev_dbg(&link->dev, "ReleaseWindow(local->rmem) ret = %x\n", i);
- 	pcmcia_disable_device(link);
+ 
+diff --git a/drivers/pcmcia/cs_internal.h b/drivers/pcmcia/cs_internal.h
+index 8e09a49..6df41de 100644
+--- a/drivers/pcmcia/cs_internal.h
++++ b/drivers/pcmcia/cs_internal.h
+@@ -149,8 +149,8 @@ extern struct list_head pcmcia_socket_list;
+ extern struct class pcmcia_socket_class;
+ 
+ int pcmcia_get_window(struct pcmcia_socket *s,
+-		      window_handle_t *handle,
+-		      int idx,
++		      window_handle_t *wh_out,
++		      window_handle_t wh,
+ 		      win_req_t *req);
+ int pccard_register_pcmcia(struct pcmcia_socket *s, struct pcmcia_callback *c);
+ struct pcmcia_socket *pcmcia_get_socket_by_nr(unsigned int nr);
+diff --git a/drivers/pcmcia/pcmcia_ioctl.c b/drivers/pcmcia/pcmcia_ioctl.c
+index c829ead..6245fde 100644
+--- a/drivers/pcmcia/pcmcia_ioctl.c
++++ b/drivers/pcmcia/pcmcia_ioctl.c
+@@ -916,12 +916,12 @@ static int ds_ioctl(struct inode * inode, struct file * file,
+ 	goto free_out;
+ 	break;
+     case DS_GET_FIRST_WINDOW:
+-	ret = pcmcia_get_window(s, &buf->win_info.handle, 0,
++	ret = pcmcia_get_window(s, &buf->win_info.handle, 1,
+ 			&buf->win_info.window);
+ 	break;
+     case DS_GET_NEXT_WINDOW:
+ 	ret = pcmcia_get_window(s, &buf->win_info.handle,
+-			buf->win_info.handle->index + 1, &buf->win_info.window);
++			buf->win_info.handle + 1, &buf->win_info.window);
+ 	break;
+     case DS_GET_MEM_PAGE:
+ 	ret = pcmcia_get_mem_page(s, buf->win_info.handle,
 diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index cda48ea..820a6e5 100644
+index a092749..25783d1 100644
 --- a/drivers/pcmcia/pcmcia_resource.c
 +++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -442,9 +442,10 @@ static int pcmcia_release_irq(struct pcmcia_device *p_dev, irq_req_t *req)
- } /* pcmcia_release_irq */
+@@ -187,15 +187,19 @@ EXPORT_SYMBOL(pcmcia_access_configuration_register);
  
- 
--int pcmcia_release_window(window_handle_t win)
-+int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
+ /** pcmcia_get_window
+  */
+-int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *handle,
+-		      int idx, win_req_t *req)
++int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *wh_out,
++		window_handle_t wh, win_req_t *req)
  {
- 	struct pcmcia_socket *s;
-+	window_handle_t win = wh;
+ 	window_t *win;
+-	int w;
++	window_handle_t w;
  
- 	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
+ 	if (!s || !(s->state & SOCKET_PRESENT))
+ 		return -ENODEV;
+-	for (w = idx; w < MAX_WIN; w++)
++
++	wh--;
++	if (wh >= MAX_WIN)
++		return -EINVAL;
++	for (w = wh; w < MAX_WIN; w++)
+ 		if (s->state & SOCKET_WIN_REQ(w))
+ 			break;
+ 	if (w == MAX_WIN)
+@@ -213,7 +217,8 @@ int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *handle,
+ 		req->Attributes |= WIN_DATA_WIDTH_16;
+ 	if (win->ctl.flags & MAP_USE_WAIT)
+ 		req->Attributes |= WIN_USE_WAIT;
+-	*handle = win;
++
++	*wh_out = w++;
+ 	return 0;
+ } /* pcmcia_get_window */
+ EXPORT_SYMBOL(pcmcia_get_window);
+@@ -226,12 +231,12 @@ EXPORT_SYMBOL(pcmcia_get_window);
+ int pcmcia_get_mem_page(struct pcmcia_socket *skt, window_handle_t wh,
+ 			memreq_t *req)
+ {
+-	window_handle_t win = wh;
+-
+-	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
++	wh--;
++	if (wh >= MAX_WIN)
  		return -EINVAL;
-@@ -891,7 +892,7 @@ void pcmcia_disable_device(struct pcmcia_device *p_dev) {
- 	pcmcia_release_io(p_dev, &p_dev->io);
- 	pcmcia_release_irq(p_dev, &p_dev->irq);
- 	if (p_dev->win)
--		pcmcia_release_window(p_dev->win);
-+		pcmcia_release_window(p_dev, p_dev->win);
- }
- EXPORT_SYMBOL(pcmcia_disable_device);
++
+ 	req->Page = 0;
+-	req->CardOffset = win->ctl.card_start;
++	req->CardOffset = skt->win[wh].ctl.card_start;
+ 	return 0;
+ } /* pcmcia_get_mem_page */
+ EXPORT_SYMBOL(pcmcia_get_mem_page);
+@@ -240,18 +245,17 @@ EXPORT_SYMBOL(pcmcia_get_mem_page);
+ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t wh,
+ 			memreq_t *req)
+ {
+-	struct pcmcia_socket *s;
+-	window_handle_t win = wh;
++	struct pcmcia_socket *s = p_dev->socket;
  
-diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
-index d82392d..40b098d 100644
---- a/include/pcmcia/ds.h
-+++ b/include/pcmcia/ds.h
-@@ -201,7 +201,7 @@ int pcmcia_request_configuration(struct pcmcia_device *p_dev,
+-	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
++	wh--;
++	if (wh >= MAX_WIN)
+ 		return -EINVAL;
+-	s = win->sock;
+ 	if (req->Page != 0) {
+ 		dev_dbg(&s->dev, "failure: requested page is zero\n");
+ 		return -EINVAL;
+ 	}
+-	win->ctl.card_start = req->CardOffset;
+-	if (s->ops->set_mem_map(s, &win->ctl) != 0) {
++	s->win[wh].ctl.card_start = req->CardOffset;
++	if (s->ops->set_mem_map(s, &s->win[wh].ctl) != 0) {
+ 		dev_dbg(&s->dev, "failed to set_mem_map\n");
+ 		return -EIO;
+ 	}
+@@ -450,13 +454,16 @@ static int pcmcia_release_irq(struct pcmcia_device *p_dev, irq_req_t *req)
  
- int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req,
- 			  window_handle_t *wh);
--int pcmcia_release_window(window_handle_t win);
-+int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t win);
+ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
+ {
+-	struct pcmcia_socket *s;
+-	window_handle_t win = wh;
++	struct pcmcia_socket *s = p_dev->socket;
++	window_t *win;
  
- int pcmcia_get_mem_page(window_handle_t win, memreq_t *req);
- int pcmcia_map_mem_page(window_handle_t win, memreq_t *req);
+-	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
++	wh--;
++	if (wh >= MAX_WIN)
+ 		return -EINVAL;
+-	s = win->sock;
+-	if (!(win->handle->_win & CLIENT_WIN_REQ(win->index))) {
++
++	win = &s->win[wh];
++
++	if (!(p_dev->_win & CLIENT_WIN_REQ(wh))) {
+ 		dev_dbg(&s->dev, "not releasing unknown window\n");
+ 		return -EINVAL;
+ 	}
+@@ -464,7 +471,7 @@ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
+ 	/* Shut down memory window */
+ 	win->ctl.flags &= ~MAP_ACTIVE;
+ 	s->ops->set_mem_map(s, &win->ctl);
+-	s->state &= ~SOCKET_WIN_REQ(win->index);
++	s->state &= ~SOCKET_WIN_REQ(wh);
+ 
+ 	/* Release system memory */
+ 	if (win->ctl.res) {
+@@ -472,9 +479,7 @@ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
+ 		kfree(win->ctl.res);
+ 		win->ctl.res = NULL;
+ 	}
+-	win->handle->_win &= ~CLIENT_WIN_REQ(win->index);
+-
+-	win->magic = 0;
++	p_dev->_win &= ~CLIENT_WIN_REQ(wh);
+ 
+ 	return 0;
+ } /* pcmcia_release_window */
+@@ -847,10 +852,6 @@ int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_h
+ 	}
+ 
+ 	win = &s->win[w];
+-	win->magic = WINDOW_MAGIC;
+-	win->index = w;
+-	win->handle = *p_dev;
+-	win->sock = s;
+ 
+ 	if (!(s->features & SS_CAP_STATIC_MAP)) {
+ 		win->ctl.res = pcmcia_find_mem_region(req->Base, req->Size, align,
+@@ -887,7 +888,7 @@ int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_h
+ 	} else {
+ 		req->Base = win->ctl.res->start;
+ 	}
+-	*wh = win;
++	*wh = w++;
+ 
+ 	return 0;
+ } /* pcmcia_request_window */
+diff --git a/include/pcmcia/cs_types.h b/include/pcmcia/cs_types.h
+index 315965a..f5e3b83 100644
+--- a/include/pcmcia/cs_types.h
++++ b/include/pcmcia/cs_types.h
+@@ -26,8 +26,7 @@ typedef u_int	event_t;
+ typedef u_char	cisdata_t;
+ typedef u_short	page_t;
+ 
+-struct window_t;
+-typedef struct window_t *window_handle_t;
++typedef unsigned long window_handle_t;
+ 
+ struct region_t;
+ typedef struct region_t *memory_handle_t;
+diff --git a/include/pcmcia/ss.h b/include/pcmcia/ss.h
+index 753da9b..6301c3f 100644
+--- a/include/pcmcia/ss.h
++++ b/include/pcmcia/ss.h
+@@ -107,12 +107,7 @@ typedef struct io_window_t {
+ 	struct resource		*res;
+ } io_window_t;
+ 
+-#define WINDOW_MAGIC	0xB35C
+ typedef struct window_t {
+-	u_short			magic;
+-	u_short			index;
+-	struct pcmcia_device	*handle;
+-	struct pcmcia_socket 	*sock;
+ 	pccard_mem_map		ctl;
+ } window_t;
+ 
 -- 
 1.6.0.4
 
