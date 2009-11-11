@@ -1,270 +1,362 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 08/13] pcmcia: Change window_handle_t logic to unsigned long
-Date: Wed, 11 Nov 2009 21:38:14 +0100
-Message-ID: <1257971899-9274-8-git-send-email-linux@dominikbrodowski.net>
+Subject: [PATCH 11/13] pcmcia: pcmcia_request_window() doesn't need a pointer to a pointer
+Date: Wed, 11 Nov 2009 21:38:17 +0100
+Message-ID: <1257971899-9274-11-git-send-email-linux@dominikbrodowski.net>
 References: <20091111203303.GA7939@comet.dominikbrodowski.net>
-Cc: Magnus Damm <damm@opensource.se>, netdev@vger.kernel.org,
-	Dominik Brodowski <linux@dominikbrodowski.net>
+Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-scsi@vger.kernel.org, Jiri Kosina <jkosina@suse.cz>,
+	Karsten Keil <isdn@linux-pingi.de>
 To: <linux-pcmcia@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.133.102.198]:47662 "EHLO linta.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758877AbZKKUjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 15:39:01 -0500
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20091111203303.GA7939@comet.dominikbrodowski.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Magnus Damm <damm@opensource.se>
-
-Logic changes based on top of the other patches:
-
-This set of patches changed window_handle_t from being a pointer to an
-unsigned long. The unsigned long is now a simple index into socket->win[].
-Going from a pointer to unsigned long should leave the user space interface
-unchanged unless I'm mistaken.
-
-This change results in code that is less error prone and a user space
-interface which is much cleaner and safer. A nice side effect is that we
-are also are able to remove all members except one from window_t.
-
-[ linux@dominikbrodowski.net:
-	Update to 2.6.31. Also, a plain "index" to socket->win[] does not
-	work, as several codepaths rely on "window_handle_t" being
-	non-zero if used. Therefore, set the window_handle_t to the
-	socket->win[] index + 1. ]
+pcmcia_request_window() only needs a pointer to struct pcmcia_device, not
+a pointer to a pointer.
 
 CC: netdev@vger.kernel.org
-Signed-off-by: Magnus Damm <damm@opensource.se>
+CC: linux-wireless@vger.kernel.org
+CC: linux-scsi@vger.kernel.org
+CC: Jiri Kosina <jkosina@suse.cz>
+CC: Karsten Keil <isdn@linux-pingi.de>
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- drivers/net/pcmcia/pcnet_cs.c    |    2 +-
- drivers/pcmcia/cs_internal.h     |    4 +-
- drivers/pcmcia/pcmcia_ioctl.c    |    4 +-
- drivers/pcmcia/pcmcia_resource.c |   59 +++++++++++++++++++------------------
- include/pcmcia/cs_types.h        |    3 +-
- include/pcmcia/ss.h              |    5 ---
- 6 files changed, 36 insertions(+), 41 deletions(-)
+ drivers/char/pcmcia/ipwireless/main.c         |    4 ++--
+ drivers/isdn/hisax/sedlbauer_cs.c             |    2 +-
+ drivers/mtd/maps/pcmciamtd.c                  |    2 +-
+ drivers/net/pcmcia/fmvj18x_cs.c               |    4 ++--
+ drivers/net/pcmcia/ibmtr_cs.c                 |    4 ++--
+ drivers/net/pcmcia/pcnet_cs.c                 |    4 ++--
+ drivers/net/pcmcia/smc91c92_cs.c              |    2 +-
+ drivers/net/pcmcia/xirc2ps_cs.c               |    2 +-
+ drivers/net/wireless/airo_cs.c                |    2 +-
+ drivers/net/wireless/b43/pcmcia.c             |    2 +-
+ drivers/net/wireless/netwave_cs.c             |    2 +-
+ drivers/net/wireless/ray_cs.c                 |    6 +++---
+ drivers/net/wireless/wavelan_cs.c             |    2 +-
+ drivers/pcmcia/pcmcia_resource.c              |    6 +++---
+ drivers/scsi/pcmcia/nsp_cs.c                  |    2 +-
+ drivers/staging/comedi/drivers/ni_daq_700.c   |    2 +-
+ drivers/staging/comedi/drivers/ni_daq_dio24.c |    2 +-
+ drivers/staging/comedi/drivers/ni_labpc_cs.c  |    2 +-
+ include/pcmcia/ds.h                           |    2 +-
+ 19 files changed, 27 insertions(+), 27 deletions(-)
 
+diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
+index 10af1c0..082146a 100644
+--- a/drivers/char/pcmcia/ipwireless/main.c
++++ b/drivers/char/pcmcia/ipwireless/main.c
+@@ -116,7 +116,7 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 		ipw->request_common_memory.Size = 0x1000;
+ 	ipw->request_common_memory.AccessSpeed = 0;
+ 
+-	ret = pcmcia_request_window(&p_dev, &ipw->request_common_memory,
++	ret = pcmcia_request_window(p_dev, &ipw->request_common_memory,
+ 				&ipw->handle_common_memory);
+ 
+ 	if (ret != 0)
+@@ -145,7 +145,7 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 	ipw->request_attr_memory.Size = 0;	/* this used to be 0x1000 */
+ 	ipw->request_attr_memory.AccessSpeed = 0;
+ 
+-	ret = pcmcia_request_window(&p_dev, &ipw->request_attr_memory,
++	ret = pcmcia_request_window(p_dev, &ipw->request_attr_memory,
+ 				&ipw->handle_attr_memory);
+ 
+ 	if (ret != 0)
+diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
+index 598e17a..331716f 100644
+--- a/drivers/isdn/hisax/sedlbauer_cs.c
++++ b/drivers/isdn/hisax/sedlbauer_cs.c
+@@ -272,7 +272,7 @@ static int sedlbauer_config_check(struct pcmcia_device *p_dev,
+ 		req->Base = mem->win[0].host_addr;
+ 		req->Size = mem->win[0].len;
+ 		req->AccessSpeed = 0;
+-		if (pcmcia_request_window(&p_dev, req, &p_dev->win) != 0)
++		if (pcmcia_request_window(p_dev, req, &p_dev->win) != 0)
+ 			return -ENODEV;
+ 		map.Page = 0;
+ 		map.CardOffset = mem->win[0].card_addr;
+diff --git a/drivers/mtd/maps/pcmciamtd.c b/drivers/mtd/maps/pcmciamtd.c
+index 80b9005..689d6a7 100644
+--- a/drivers/mtd/maps/pcmciamtd.c
++++ b/drivers/mtd/maps/pcmciamtd.c
+@@ -530,7 +530,7 @@ static int pcmciamtd_config(struct pcmcia_device *link)
+ 		int ret;
+ 		DEBUG(2, "requesting window with size = %dKiB memspeed = %d",
+ 		      req.Size >> 10, req.AccessSpeed);
+-		ret = pcmcia_request_window(&link, &req, &link->win);
++		ret = pcmcia_request_window(link, &req, &link->win);
+ 		DEBUG(2, "ret = %d dev->win_size = %d", ret, dev->win_size);
+ 		if(ret) {
+ 			req.Size >>= 1;
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
+index 6b9c79e..85f7c45 100644
+--- a/drivers/net/pcmcia/fmvj18x_cs.c
++++ b/drivers/net/pcmcia/fmvj18x_cs.c
+@@ -567,7 +567,7 @@ static int fmvj18x_get_hwinfo(struct pcmcia_device *link, u_char *node_id)
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+     req.Base = 0; req.Size = 0;
+     req.AccessSpeed = 0;
+-    i = pcmcia_request_window(&link, &req, &link->win);
++    i = pcmcia_request_window(link, &req, &link->win);
+     if (i != 0)
+ 	return -1;
+ 
+@@ -618,7 +618,7 @@ static int fmvj18x_setup_mfc(struct pcmcia_device *link)
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+     req.Base = 0; req.Size = 0;
+     req.AccessSpeed = 0;
+-    i = pcmcia_request_window(&link, &req, &link->win);
++    i = pcmcia_request_window(link, &req, &link->win);
+     if (i != 0)
+ 	return -1;
+ 
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
+index 6fc89eb..14fe5fa 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/pcmcia/ibmtr_cs.c
+@@ -246,7 +246,7 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+     req.Base = 0; 
+     req.Size = 0x2000;
+     req.AccessSpeed = 250;
+-    ret = pcmcia_request_window(&link, &req, &link->win);
++    ret = pcmcia_request_window(link, &req, &link->win);
+     if (ret)
+ 	    goto failed;
+ 
+@@ -263,7 +263,7 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+     req.Base = 0;
+     req.Size = sramsize * 1024;
+     req.AccessSpeed = 250;
+-    ret = pcmcia_request_window(&link, &req, &info->sram_win_handle);
++    ret = pcmcia_request_window(link, &req, &info->sram_win_handle);
+     if (ret)
+ 	    goto failed;
+ 
 diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 75e6894..518b094 100644
+index 518b094..d06a0ce 100644
 --- a/drivers/net/pcmcia/pcnet_cs.c
 +++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -1514,7 +1514,7 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
-     if (i != (TX_PAGES<<8)) {
- 	iounmap(info->base);
- 	pcmcia_release_window(link, link->win);
--	info->base = NULL; link->win = NULL;
-+	info->base = NULL; link->win = 0;
- 	goto failed;
-     }
+@@ -317,7 +317,7 @@ static hw_info_t *get_hwinfo(struct pcmcia_device *link)
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+     req.Base = 0; req.Size = 0;
+     req.AccessSpeed = 0;
+-    i = pcmcia_request_window(&link, &req, &link->win);
++    i = pcmcia_request_window(link, &req, &link->win);
+     if (i != 0)
+ 	return NULL;
  
-diff --git a/drivers/pcmcia/cs_internal.h b/drivers/pcmcia/cs_internal.h
-index 8e09a49..6df41de 100644
---- a/drivers/pcmcia/cs_internal.h
-+++ b/drivers/pcmcia/cs_internal.h
-@@ -149,8 +149,8 @@ extern struct list_head pcmcia_socket_list;
- extern struct class pcmcia_socket_class;
+@@ -1491,7 +1491,7 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
+     req.Attributes |= WIN_USE_WAIT;
+     req.Base = 0; req.Size = window_size;
+     req.AccessSpeed = mem_speed;
+-    ret = pcmcia_request_window(&link, &req, &link->win);
++    ret = pcmcia_request_window(link, &req, &link->win);
+     if (ret)
+ 	    goto failed;
  
- int pcmcia_get_window(struct pcmcia_socket *s,
--		      window_handle_t *handle,
--		      int idx,
-+		      window_handle_t *wh_out,
-+		      window_handle_t wh,
- 		      win_req_t *req);
- int pccard_register_pcmcia(struct pcmcia_socket *s, struct pcmcia_callback *c);
- struct pcmcia_socket *pcmcia_get_socket_by_nr(unsigned int nr);
-diff --git a/drivers/pcmcia/pcmcia_ioctl.c b/drivers/pcmcia/pcmcia_ioctl.c
-index c829ead..6245fde 100644
---- a/drivers/pcmcia/pcmcia_ioctl.c
-+++ b/drivers/pcmcia/pcmcia_ioctl.c
-@@ -916,12 +916,12 @@ static int ds_ioctl(struct inode * inode, struct file * file,
- 	goto free_out;
- 	break;
-     case DS_GET_FIRST_WINDOW:
--	ret = pcmcia_get_window(s, &buf->win_info.handle, 0,
-+	ret = pcmcia_get_window(s, &buf->win_info.handle, 1,
- 			&buf->win_info.window);
- 	break;
-     case DS_GET_NEXT_WINDOW:
- 	ret = pcmcia_get_window(s, &buf->win_info.handle,
--			buf->win_info.handle->index + 1, &buf->win_info.window);
-+			buf->win_info.handle + 1, &buf->win_info.window);
- 	break;
-     case DS_GET_MEM_PAGE:
- 	ret = pcmcia_get_mem_page(s, buf->win_info.handle,
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 4ceaa45..c6ca376 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -472,7 +472,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+     req.Base = req.Size = 0;
+     req.AccessSpeed = 0;
+-    i = pcmcia_request_window(&link, &req, &link->win);
++    i = pcmcia_request_window(link, &req, &link->win);
+     if (i != 0)
+ 	    return -ENODEV;
+ 
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
+index 9bc4d60..265852a 100644
+--- a/drivers/net/pcmcia/xirc2ps_cs.c
++++ b/drivers/net/pcmcia/xirc2ps_cs.c
+@@ -926,7 +926,7 @@ xirc2ps_config(struct pcmcia_device * link)
+ 	req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+ 	req.Base = req.Size = 0;
+ 	req.AccessSpeed = 0;
+-	if ((err = pcmcia_request_window(&link, &req, &link->win)))
++	if ((err = pcmcia_request_window(link, &req, &link->win)))
+ 	    goto config_error;
+ 
+ 	local->dingo_ccr = ioremap(req.Base,0x1000) + 0x0800;
+diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
+index 2aa6978..34d775c 100644
+--- a/drivers/net/wireless/airo_cs.c
++++ b/drivers/net/wireless/airo_cs.c
+@@ -257,7 +257,7 @@ static int airo_cs_config_check(struct pcmcia_device *p_dev,
+ 		req->Base = mem->win[0].host_addr;
+ 		req->Size = mem->win[0].len;
+ 		req->AccessSpeed = 0;
+-		if (pcmcia_request_window(&p_dev, req, &p_dev->win) != 0)
++		if (pcmcia_request_window(p_dev, req, &p_dev->win) != 0)
+ 			return -ENODEV;
+ 		map.Page = 0;
+ 		map.CardOffset = mem->win[0].card_addr;
+diff --git a/drivers/net/wireless/b43/pcmcia.c b/drivers/net/wireless/b43/pcmcia.c
+index c0a34bb..2588358 100644
+--- a/drivers/net/wireless/b43/pcmcia.c
++++ b/drivers/net/wireless/b43/pcmcia.c
+@@ -87,7 +87,7 @@ static int __devinit b43_pcmcia_probe(struct pcmcia_device *dev)
+ 	win.Base = 0;
+ 	win.Size = SSB_CORE_SIZE;
+ 	win.AccessSpeed = 250;
+-	res = pcmcia_request_window(&dev, &win, &dev->win);
++	res = pcmcia_request_window(dev, &win, &dev->win);
+ 	if (res != 0)
+ 		goto err_kfree_ssb;
+ 
+diff --git a/drivers/net/wireless/netwave_cs.c b/drivers/net/wireless/netwave_cs.c
+index 4a8c621..bd4eff7 100644
+--- a/drivers/net/wireless/netwave_cs.c
++++ b/drivers/net/wireless/netwave_cs.c
+@@ -759,7 +759,7 @@ static int netwave_pcmcia_config(struct pcmcia_device *link) {
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_CM|WIN_ENABLE;
+     req.Base = 0; req.Size = 0x8000;
+     req.AccessSpeed = mem_speed;
+-    ret = pcmcia_request_window(&link, &req, &link->win);
++    ret = pcmcia_request_window(link, &req, &link->win);
+     if (ret)
+ 	    goto failed;
+     mem.CardOffset = 0x20000; mem.Page = 0; 
+diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
+index f719ffc..66e2d10 100644
+--- a/drivers/net/wireless/ray_cs.c
++++ b/drivers/net/wireless/ray_cs.c
+@@ -438,7 +438,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	req.Base = 0;
+ 	req.Size = 0x8000;
+ 	req.AccessSpeed = ray_mem_speed;
+-	ret = pcmcia_request_window(&link, &req, &link->win);
++	ret = pcmcia_request_window(link, &req, &link->win);
+ 	if (ret)
+ 		goto failed;
+ 	mem.CardOffset = 0x0000;
+@@ -454,7 +454,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	req.Base = 0;
+ 	req.Size = 0x4000;
+ 	req.AccessSpeed = ray_mem_speed;
+-	ret = pcmcia_request_window(&link, &req, &local->rmem_handle);
++	ret = pcmcia_request_window(link, &req, &local->rmem_handle);
+ 	if (ret)
+ 		goto failed;
+ 	mem.CardOffset = 0x8000;
+@@ -470,7 +470,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	req.Base = 0;
+ 	req.Size = 0x1000;
+ 	req.AccessSpeed = ray_mem_speed;
+-	ret = pcmcia_request_window(&link, &req, &local->amem_handle);
++	ret = pcmcia_request_window(link, &req, &local->amem_handle);
+ 	if (ret)
+ 		goto failed;
+ 	mem.CardOffset = 0x0000;
+diff --git a/drivers/net/wireless/wavelan_cs.c b/drivers/net/wireless/wavelan_cs.c
+index d4df25d..f8c5166 100644
+--- a/drivers/net/wireless/wavelan_cs.c
++++ b/drivers/net/wireless/wavelan_cs.c
+@@ -3876,7 +3876,7 @@ wv_pcmcia_config(struct pcmcia_device *	link)
+       req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+       req.Base = req.Size = 0;
+       req.AccessSpeed = mem_speed;
+-      i = pcmcia_request_window(&link, &req, &link->win);
++      i = pcmcia_request_window(link, &req, &link->win);
+       if (i != 0)
+ 	  break;
+ 
 diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index a092749..25783d1 100644
+index fd20b1a..1f33ed6 100644
 --- a/drivers/pcmcia/pcmcia_resource.c
 +++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -187,15 +187,19 @@ EXPORT_SYMBOL(pcmcia_access_configuration_register);
- 
- /** pcmcia_get_window
+@@ -752,9 +752,9 @@ EXPORT_SYMBOL(pcmcia_request_irq);
+  * Request_window() establishes a mapping between card memory space
+  * and system memory space.
   */
--int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *handle,
--		      int idx, win_req_t *req)
-+int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *wh_out,
-+		window_handle_t wh, win_req_t *req)
+-int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_handle_t *wh)
++int pcmcia_request_window(struct pcmcia_device *p_dev, win_req_t *req, window_handle_t *wh)
  {
- 	window_t *win;
--	int w;
-+	window_handle_t w;
- 
- 	if (!s || !(s->state & SOCKET_PRESENT))
- 		return -ENODEV;
--	for (w = idx; w < MAX_WIN; w++)
-+
-+	wh--;
-+	if (wh >= MAX_WIN)
-+		return -EINVAL;
-+	for (w = wh; w < MAX_WIN; w++)
- 		if (s->state & SOCKET_WIN_REQ(w))
- 			break;
- 	if (w == MAX_WIN)
-@@ -213,7 +217,8 @@ int pcmcia_get_window(struct pcmcia_socket *s, window_handle_t *handle,
- 		req->Attributes |= WIN_DATA_WIDTH_16;
- 	if (win->ctl.flags & MAP_USE_WAIT)
- 		req->Attributes |= WIN_USE_WAIT;
--	*handle = win;
-+
-+	*wh_out = w++;
- 	return 0;
- } /* pcmcia_get_window */
- EXPORT_SYMBOL(pcmcia_get_window);
-@@ -226,12 +231,12 @@ EXPORT_SYMBOL(pcmcia_get_window);
- int pcmcia_get_mem_page(struct pcmcia_socket *skt, window_handle_t wh,
- 			memreq_t *req)
- {
--	window_handle_t win = wh;
--
--	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
-+	wh--;
-+	if (wh >= MAX_WIN)
- 		return -EINVAL;
-+
- 	req->Page = 0;
--	req->CardOffset = win->ctl.card_start;
-+	req->CardOffset = skt->win[wh].ctl.card_start;
- 	return 0;
- } /* pcmcia_get_mem_page */
- EXPORT_SYMBOL(pcmcia_get_mem_page);
-@@ -240,18 +245,17 @@ EXPORT_SYMBOL(pcmcia_get_mem_page);
- int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t wh,
- 			memreq_t *req)
- {
--	struct pcmcia_socket *s;
--	window_handle_t win = wh;
+-	struct pcmcia_socket *s = (*p_dev)->socket;
 +	struct pcmcia_socket *s = p_dev->socket;
- 
--	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
-+	wh--;
-+	if (wh >= MAX_WIN)
- 		return -EINVAL;
--	s = win->sock;
- 	if (req->Page != 0) {
- 		dev_dbg(&s->dev, "failure: requested page is zero\n");
- 		return -EINVAL;
+ 	pccard_mem_map *win;
+ 	u_long align;
+ 	int w;
+@@ -804,7 +804,7 @@ int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_h
+ 			return -EINVAL;
+ 		}
  	}
--	win->ctl.card_start = req->CardOffset;
--	if (s->ops->set_mem_map(s, &win->ctl) != 0) {
-+	s->win[wh].ctl.card_start = req->CardOffset;
-+	if (s->ops->set_mem_map(s, &s->win[wh].ctl) != 0) {
- 		dev_dbg(&s->dev, "failed to set_mem_map\n");
- 		return -EIO;
- 	}
-@@ -450,13 +454,16 @@ static int pcmcia_release_irq(struct pcmcia_device *p_dev, irq_req_t *req)
+-	(*p_dev)->_win |= CLIENT_WIN_REQ(w);
++	p_dev->_win |= CLIENT_WIN_REQ(w);
  
- int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
- {
--	struct pcmcia_socket *s;
--	window_handle_t win = wh;
-+	struct pcmcia_socket *s = p_dev->socket;
-+	window_t *win;
+ 	/* Configure the socket controller */
+ 	win->map = w+1;
+diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
+index c54108f..9dfd6f5 100644
+--- a/drivers/scsi/pcmcia/nsp_cs.c
++++ b/drivers/scsi/pcmcia/nsp_cs.c
+@@ -1684,7 +1684,7 @@ static int nsp_cs_config_check(struct pcmcia_device *p_dev,
+ 			if (cfg_mem->req.Size < 0x1000)
+ 				cfg_mem->req.Size = 0x1000;
+ 			cfg_mem->req.AccessSpeed = 0;
+-			if (pcmcia_request_window(&p_dev, &cfg_mem->req, &p_dev->win) != 0)
++			if (pcmcia_request_window(p_dev, &cfg_mem->req, &p_dev->win) != 0)
+ 				goto next_entry;
+ 			map.Page = 0; map.CardOffset = mem->win[0].card_addr;
+ 			if (pcmcia_map_mem_page(p_dev, p_dev->win, &map) != 0)
+diff --git a/drivers/staging/comedi/drivers/ni_daq_700.c b/drivers/staging/comedi/drivers/ni_daq_700.c
+index aeb85b3..7328a84 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_700.c
++++ b/drivers/staging/comedi/drivers/ni_daq_700.c
+@@ -612,7 +612,7 @@ static int dio700_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		if (req->Size < 0x1000)
+ 			req->Size = 0x1000;
+ 		req->AccessSpeed = 0;
+-		if (pcmcia_request_window(&p_dev, req, &p_dev->win))
++		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+ 		map.Page = 0;
+ 		map.CardOffset = mem->win[0].card_addr;
+diff --git a/drivers/staging/comedi/drivers/ni_daq_dio24.c b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+index 0968a67..5056315 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_dio24.c
++++ b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+@@ -363,7 +363,7 @@ static int dio24_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		if (req->Size < 0x1000)
+ 			req->Size = 0x1000;
+ 		req->AccessSpeed = 0;
+-		if (pcmcia_request_window(&p_dev, req, &p_dev->win))
++		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+ 		map.Page = 0;
+ 		map.CardOffset = mem->win[0].card_addr;
+diff --git a/drivers/staging/comedi/drivers/ni_labpc_cs.c b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+index b4c7dfa..7fb5058 100644
+--- a/drivers/staging/comedi/drivers/ni_labpc_cs.c
++++ b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+@@ -342,7 +342,7 @@ static int labpc_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		if (req->Size < 0x1000)
+ 			req->Size = 0x1000;
+ 		req->AccessSpeed = 0;
+-		if (pcmcia_request_window(&p_dev, req, &p_dev->win))
++		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+ 		map.Page = 0;
+ 		map.CardOffset = mem->win[0].card_addr;
+diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
+index cbf5f05..d6c55fd 100644
+--- a/include/pcmcia/ds.h
++++ b/include/pcmcia/ds.h
+@@ -199,7 +199,7 @@ int pcmcia_request_irq(struct pcmcia_device *p_dev, irq_req_t *req);
+ int pcmcia_request_configuration(struct pcmcia_device *p_dev,
+ 				 config_req_t *req);
  
--	if ((win == NULL) || (win->magic != WINDOW_MAGIC))
-+	wh--;
-+	if (wh >= MAX_WIN)
- 		return -EINVAL;
--	s = win->sock;
--	if (!(win->handle->_win & CLIENT_WIN_REQ(win->index))) {
-+
-+	win = &s->win[wh];
-+
-+	if (!(p_dev->_win & CLIENT_WIN_REQ(wh))) {
- 		dev_dbg(&s->dev, "not releasing unknown window\n");
- 		return -EINVAL;
- 	}
-@@ -464,7 +471,7 @@ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
- 	/* Shut down memory window */
- 	win->ctl.flags &= ~MAP_ACTIVE;
- 	s->ops->set_mem_map(s, &win->ctl);
--	s->state &= ~SOCKET_WIN_REQ(win->index);
-+	s->state &= ~SOCKET_WIN_REQ(wh);
- 
- 	/* Release system memory */
- 	if (win->ctl.res) {
-@@ -472,9 +479,7 @@ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t wh)
- 		kfree(win->ctl.res);
- 		win->ctl.res = NULL;
- 	}
--	win->handle->_win &= ~CLIENT_WIN_REQ(win->index);
--
--	win->magic = 0;
-+	p_dev->_win &= ~CLIENT_WIN_REQ(wh);
- 
- 	return 0;
- } /* pcmcia_release_window */
-@@ -847,10 +852,6 @@ int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_h
- 	}
- 
- 	win = &s->win[w];
--	win->magic = WINDOW_MAGIC;
--	win->index = w;
--	win->handle = *p_dev;
--	win->sock = s;
- 
- 	if (!(s->features & SS_CAP_STATIC_MAP)) {
- 		win->ctl.res = pcmcia_find_mem_region(req->Base, req->Size, align,
-@@ -887,7 +888,7 @@ int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req, window_h
- 	} else {
- 		req->Base = win->ctl.res->start;
- 	}
--	*wh = win;
-+	*wh = w++;
- 
- 	return 0;
- } /* pcmcia_request_window */
-diff --git a/include/pcmcia/cs_types.h b/include/pcmcia/cs_types.h
-index 315965a..f5e3b83 100644
---- a/include/pcmcia/cs_types.h
-+++ b/include/pcmcia/cs_types.h
-@@ -26,8 +26,7 @@ typedef u_int	event_t;
- typedef u_char	cisdata_t;
- typedef u_short	page_t;
- 
--struct window_t;
--typedef struct window_t *window_handle_t;
-+typedef unsigned long window_handle_t;
- 
- struct region_t;
- typedef struct region_t *memory_handle_t;
-diff --git a/include/pcmcia/ss.h b/include/pcmcia/ss.h
-index 753da9b..6301c3f 100644
---- a/include/pcmcia/ss.h
-+++ b/include/pcmcia/ss.h
-@@ -107,12 +107,7 @@ typedef struct io_window_t {
- 	struct resource		*res;
- } io_window_t;
- 
--#define WINDOW_MAGIC	0xB35C
- typedef struct window_t {
--	u_short			magic;
--	u_short			index;
--	struct pcmcia_device	*handle;
--	struct pcmcia_socket 	*sock;
- 	pccard_mem_map		ctl;
- } window_t;
- 
+-int pcmcia_request_window(struct pcmcia_device **p_dev, win_req_t *req,
++int pcmcia_request_window(struct pcmcia_device *p_dev, win_req_t *req,
+ 			  window_handle_t *wh);
+ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t win);
+ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t win,
 -- 
 1.6.0.4
 
