@@ -1,241 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Wed, 11 Nov 2009 09:20:42 +0100
-Message-ID: <4AFA73DA.30308@gmail.com>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] act_mirred: don't go back.
+Date: Wed, 11 Nov 2009 16:44:48 +0800
+Message-ID: <412e6f7f0911110044i22c28ab6pa3a3691c014e76a8@mail.gmail.com>
+References: <4AF7B9F4.6010507@gmail.com> <1257751376.8009.2.camel@bigi>
+	 <412e6f7f0911090031j16ab9c73o47f4d4d3ffd9be3a@mail.gmail.com>
+	 <1257764086.6246.1.camel@bigi>
+	 <412e6f7f0911090433j2b270663ycdf277110fbc6bac@mail.gmail.com>
+	 <1257838834.3647.4.camel@bigi>
+	 <412e6f7f0911100050k39920adfl1ab70e345269833a@mail.gmail.com>
+	 <1257927097.4685.4.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45158 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757147AbZKKIUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 03:20:47 -0500
-In-Reply-To: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:38268 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751554AbZKKIon convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 03:44:43 -0500
+Received: by pwi3 with SMTP id 3so564786pwi.21
+        for <netdev@vger.kernel.org>; Wed, 11 Nov 2009 00:44:48 -0800 (PST)
+In-Reply-To: <1257927097.4685.4.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert a =E9crit :
-> Third version of RPS.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  include/linux/interrupt.h |    1 +
->  include/linux/netdevice.h |   18 ++++
->  include/linux/skbuff.h    |    2 +
->  net/core/dev.c            |  227 +++++++++++++++++++++++++++++++++++=
-+++-------
->  net/core/net-sysfs.c      |  135 +++++++++++++++++++++++++++
->  5 files changed, 348 insertions(+), 35 deletions(-)
->=20
+On Wed, Nov 11, 2009 at 4:11 PM, jamal <hadi@cyberus.ca> wrote:
+> Hi,
+>
+> On Tue, 2009-11-10 at 16:50 +0800, Changli Gao wrote:
+>
+>> Where? After skb2 is allocated, there won't be any failure any more.
+>
+>
+> Sorry, yes, your change does look like an improvement.
+> If you can test a little more - please add my sign-off and submit.
 
-I must say this is really exciting :)
+OK. I'll do some test first, then send it out for review.
 
-> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-> index b78cf81..fa91194 100644
-> --- a/include/linux/interrupt.h
-> +++ b/include/linux/interrupt.h
-> @@ -345,6 +345,7 @@ enum
->  	TIMER_SOFTIRQ,
->  	NET_TX_SOFTIRQ,
->  	NET_RX_SOFTIRQ,
-> +	NET_RPS_SOFTIRQ,
->  	BLOCK_SOFTIRQ,
->  	BLOCK_IOPOLL_SOFTIRQ,
->  	TASKLET_SOFTIRQ,
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 8380009..c1b1bbb 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -639,6 +639,18 @@ struct net_device_ops {
->  };
->=20
->  /*
-> + * Structure for Receive Packet Steering.  Length of map and array o=
-f CPU ID's.
-> + */
-> +struct rps_map {
-> +	int len;
-> +	u16 map[0];
-> +};
-> +
-> +/* Maximum size of RPS map (for allocation) */
-> +#define RPS_MAP_SIZE (sizeof(struct rps_map) + \
-> +    (num_possible_cpus() * sizeof(u16)))
-> +
+>
+>>
+>> It's just OK. When using tc, I also found act_mirred doesn't support
+>> ingress, then I realized that there isn't any difference between
+>> ingress and egress, as it depends on its parent. However I do think =
+it
+>> is confused, when it prints:
+>> filter parent ffff: protocol ip pref 49152 basic handle 0x1
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 action order 1: mirred (Egress Redirect =
+to device ifb0) stolen
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 index 5 ref 1 bind 1.
+>> And the TODO note still is in the source code of act_mirred, it do
+>> make me wonder for a while!
+>
+> Well, you know if you have the energy - doing socket redirect would
+> be very interesting indeed. Ingress is another beast, it requires som=
+e
+> thinking and a lot more testing depending on the devices because of
+> possible loops.
+>
 
-Problem of possible cpus is the number can be very large on some arches=
-,
-but yet few cpus online....
-
-In this kind of situation, get_rps_cpu() will return -1 most of the tim=
-e,
-defeating goal of RPS ?
+The current kernel and iproute2 support ingress in another way, that
+is attaching the filter to the corresponding ingress qdisc. refter to
+http://www.linuxfoundation.org/en/Net:IFB . The loops is avoided in
+netif_receive_skb() and with TTL mechanism. Do you have more
+documentation or examples about socket redirect? Sorry, I don't know
+what it is used to do. Is it sth. like ipt_REDIRECT?
 
 
-> +/*
->   *	The DEVICE structure.
->   *	Actually, this whole structure is a big mistake.  It mixes I/O
->   *	data with strictly "high-level" data, and it has to know about
-> @@ -807,6 +819,9 @@ struct net_device
->  	void			*ax25_ptr;	/* AX.25 specific data */
->  	struct wireless_dev	*ieee80211_ptr;	/* IEEE 802.11 specific data,
->  						   assign before registering */
-> +	void			*rps_maps;	/* Array of per-NAPI maps for
-> +						   receive packet steeing */
-> +	int			rps_num_maps;	/* Number of RPS maps */
->=20
->  /*
->   * Cache line mostly used on receive path (including eth_type_trans(=
-))
-> @@ -1217,6 +1232,9 @@ struct softnet_data
->  	struct Qdisc		*output_queue;
->  	struct sk_buff_head	input_pkt_queue;
->  	struct list_head	poll_list;
-> +
-> +	struct call_single_data	csd;
-> +
->  	struct sk_buff		*completion_queue;
->=20
->  	struct napi_struct	backlog;
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 0c68fbd..95feac7 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -396,6 +396,8 @@ struct sk_buff {
->=20
->  	__u16			vlan_tci;
->=20
-> +	__u32			rxhash;
-> +
->  	sk_buff_data_t		transport_header;
->  	sk_buff_data_t		network_header;
->  	sk_buff_data_t		mac_header;
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 28b0b9e..735e7e3 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1976,6 +1976,162 @@ int weight_p __read_mostly =3D 64;           =
- /*
-> old backlog weight */
->=20
->  DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) =3D { 0, };
->=20
-> +static u32 simple_hashrnd;
-> +
-> +/**
-> + * get_rps_cpu is called from netif_receive_skb and returns the targ=
-et
-> + * CPU from the RPS map of the receiving NAPI instance for a given s=
-kb.
-> + */
-> +static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
-> +{
-> +	u32 addr1, addr2, ports;
-> +	struct ipv6hdr *ip6;
-> +	struct iphdr *ip;
-> +	u32 hash, ihl;
-> +	u8 ip_proto;
-> +	int cpu;
-> +	struct rps_map *map =3D NULL;
-> +
-> +	if (dev->rps_num_maps) {
-> +		/*
-> +		 * Locate the map corresponding to the NAPI queue that
-> +		 * the packet was received on.
-> +		 */
-> +		int index =3D skb_get_rx_queue(skb);
-> +		if (index < 0 || index >=3D dev->rps_num_maps)
-> +			index =3D 0;
-> +
-> +		map =3D (struct rps_map *)
-> +		    (dev->rps_maps + (RPS_MAP_SIZE * index));
-> +		if (!map->len)
-> +			map =3D NULL;
-> +	}
-> +
-> +	if (!map)
-> +		return -1;
-> +
-> +	hash =3D skb->rxhash;
-> +	if (hash)
-> +		goto got_hash; /* Skip hash computation on packet header */
-> +
-> +	switch (skb->protocol) {
-> +	case __constant_htons(ETH_P_IP):
-> +		if (!pskb_may_pull(skb, sizeof(*ip)))
-> +			return -1;
-> +
-> +		ip =3D (struct iphdr *) skb->data;
-> +		ip_proto =3D ip->protocol;
-> +		addr1 =3D ip->saddr;
-> +		addr2 =3D ip->daddr;
-> +		ihl =3D ip->ihl;
-> +		break;
-> +	case __constant_htons(ETH_P_IPV6):
-> +		if (!pskb_may_pull(skb, sizeof(*ip6)))
-> +			return -1;
-> +
-> +		ip6 =3D (struct ipv6hdr *) skb->data;
-> +		ip_proto =3D ip6->nexthdr;
-> +		addr1 =3D ip6->saddr.s6_addr32[3];
-> +		addr2 =3D ip6->daddr.s6_addr32[3];
-> +		ihl =3D (40 >> 2);
-> +		break;
-> +	default:
-> +		return -1;
-> +	}
-> +	ports =3D 0;
-> +	switch (ip_proto) {
-> +	case IPPROTO_TCP:
-> +	case IPPROTO_UDP:
-> +	case IPPROTO_DCCP:
-> +	case IPPROTO_ESP:
-> +	case IPPROTO_AH:
-> +	case IPPROTO_SCTP:
-> +	case IPPROTO_UDPLITE:
-> +		if (pskb_may_pull(skb, (ihl * 4) + 4))
-> +			ports =3D *((u32 *) (skb->data + (ihl * 4)));
-> +		break;
-> +
-> +	default:
-> +		break;
-> +	}
-> +
-> +	hash =3D jhash_3words(addr1, addr2, ports, simple_hashrnd);
-
-I wonder if you tried to exchange addr1/addr2  port1/port2 so that conn=
-tracking/routing
-is also speedup ...
-
-ie make sure hash will be the same regardless of the direction of packe=
-t.
-
-union {
-	u32 port;
-	u16 ports[2];
-} p;
-
-if (addr1 < addr2)
-	swap(addr1, addr2);
-
-if (p.ports[0] < p.ports[1]);
-	swap(p.ports[0], p.ports[1]);
-
-hash =3D jhash_3words(addr1, addr2, ports, simple_hashrnd);
-
-
-I think I'll try to extend your patches with TX completion recycling to=
-o.
-
-Ie record in skb the cpu number of original sender, and queue skb to
-remote queue for destruction (sock_wfree() call and expensive scheduler=
- calls...)
-
-(This probably needs driver cooperation, instead of calling consume_skb=
-(),
-use a different function)
-
-Thanks
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
