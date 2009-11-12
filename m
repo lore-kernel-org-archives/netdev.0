@@ -1,141 +1,137 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ipv4: speedup inet_dump_ifaddr()
-Date: Thu, 12 Nov 2009 18:44:25 +0100
-Message-ID: <4AFC4979.7030007@gmail.com>
-References: <4AFC1798.1060501@gmail.com> <20091112091221.3d523253@nehalam>
+From: Patrick Mullaney <pmullaney@novell.com>
+Subject: [PATCH] netdevice: provide common routine for macvlan and vlan
+	operstate management
+Date: Thu, 12 Nov 2009 13:05:11 -0500
+Message-ID: <20091112180137.10186.9386.stgit@mimic.site>
+References: <4AFAD86A.9070506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52688 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753962AbZKLRoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 12:44:24 -0500
-In-Reply-To: <20091112091221.3d523253@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, arnd@arnd.de, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.rog
+To: kaber@trash.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753987AbZKLSFV@vger.kernel.org>
+In-Reply-To: <4AFAD86A.9070506@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger a =E9crit :
-> On Thu, 12 Nov 2009 15:11:36 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
->> When handling large number of netdevices, inet_dump_ifaddr()
->> is very slow because it has O(N^2) complexity.
->>
->> Instead of scanning one single list, we can use the NETDEV_HASHENTRI=
-ES
->> sub lists of the dev_index hash table, and RCU lookups.
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> You might be able to make RCU critical section smaller by moving
-> it into loop.
->=20
+Patrick,
 
-Indeed. But we dump at most one skb (<=3D 8192 bytes ?), so rcu_read_lo=
-ck
-holding time is small, unless we meet many netdevices without
-addresses. I wonder if its really common...
+This patch is intended to address your comment on moving the operstate
+transition function. I decided to move it to netdevice.h, perhaps that
+is a bad idea? It didn't seem to logically fall into dev.c or link_watch.c.
+I am not against moving them to either one though. Your other comments
+are addressed and I will send out a second series once this gets
+reviewed and agreed on.
 
-Thanks
+Thanks for your review/comments.
+----------
 
-[PATCH net-next-2.6] ipv4: speedup inet_dump_ifaddr()
+Provide common routine for the transition of operational state for a leaf
+device during a root device transition.
 
-When handling large number of netdevices, inet_dump_ifaddr()
-is very slow because it has O(N2) complexity.
-
-Instead of scanning one single list, we can use the NETDEV_HASHENTRIES
-sub lists of the dev_index hash table, and RCU lookups.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
 ---
- net/ipv4/devinet.c |   61 ++++++++++++++++++++++++++-----------------
- 1 files changed, 38 insertions(+), 23 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index c2045f9..7620382 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1174,39 +1174,54 @@ nla_put_failure:
- static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callba=
-ck *cb)
- {
- 	struct net *net =3D sock_net(skb->sk);
--	int idx, ip_idx;
-+	int h, s_h;
-+	int idx, s_idx;
-+	int ip_idx, s_ip_idx;
- 	struct net_device *dev;
- 	struct in_device *in_dev;
- 	struct in_ifaddr *ifa;
--	int s_ip_idx, s_idx =3D cb->args[0];
-+	struct hlist_head *head;
-+	struct hlist_node *node;
-=20
--	s_ip_idx =3D ip_idx =3D cb->args[1];
--	idx =3D 0;
--	for_each_netdev(net, dev) {
--		if (idx < s_idx)
--			goto cont;
--		if (idx > s_idx)
--			s_ip_idx =3D 0;
--		in_dev =3D __in_dev_get_rtnl(dev);
--		if (!in_dev)
--			goto cont;
-+	s_h =3D cb->args[0];
-+	s_idx =3D idx =3D cb->args[1];
-+	s_ip_idx =3D ip_idx =3D cb->args[2];
-=20
--		for (ifa =3D in_dev->ifa_list, ip_idx =3D 0; ifa;
--		     ifa =3D ifa->ifa_next, ip_idx++) {
--			if (ip_idx < s_ip_idx)
--				continue;
--			if (inet_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
-+	for (h =3D s_h; h < NETDEV_HASHENTRIES; h++, s_idx =3D 0) {
-+		idx =3D 0;
-+		head =3D &net->dev_index_head[h];
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
-+			if (idx < s_idx)
-+				goto cont;
-+			if (idx > s_idx)
-+				s_ip_idx =3D 0;
-+			in_dev =3D __in_dev_get_rcu(dev);
-+			if (!in_dev)
-+				goto cont;
-+
-+			for (ifa =3D in_dev->ifa_list, ip_idx =3D 0; ifa;
-+			     ifa =3D ifa->ifa_next, ip_idx++) {
-+				if (ip_idx < s_ip_idx)
-+					continue;
-+				if (inet_fill_ifaddr(skb, ifa,
-+					     NETLINK_CB(cb->skb).pid,
- 					     cb->nlh->nlmsg_seq,
--					     RTM_NEWADDR, NLM_F_MULTI) <=3D 0)
--				goto done;
--		}
-+					     RTM_NEWADDR, NLM_F_MULTI) <=3D 0) {
-+					rcu_read_unlock();
-+					goto done;
-+				}
-+			}
- cont:
--		idx++;
-+			idx++;
-+		}
-+		rcu_read_unlock();
- 	}
-=20
- done:
--	cb->args[0] =3D idx;
--	cb->args[1] =3D ip_idx;
-+	cb->args[0] =3D h;
-+	cb->args[1] =3D idx;
-+	cb->args[2] =3D ip_idx;
-=20
- 	return skb->len;
+ include/linux/netdevice.h |   19 +++++++++++++++++++
+ net/8021q/vlan.c          |   29 ++++-------------------------
+ 2 files changed, 23 insertions(+), 25 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d4a4d98..a15920a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1999,6 +1999,25 @@ static inline u32 dev_ethtool_get_flags(struct net_device *dev)
+ 		return 0;
+ 	return dev->ethtool_ops->get_flags(dev);
  }
++
++static inline
++void netif_stacked_transfer_operstate(const struct net_device *rootdev,
++					struct net_device *dev)
++{
++        if (rootdev->operstate == IF_OPER_DORMANT)
++                netif_dormant_on(dev);
++        else
++                netif_dormant_off(dev);
++
++        if (netif_carrier_ok(rootdev)) {
++                if (!netif_carrier_ok(dev))
++                        netif_carrier_on(dev);
++        } else {
++                if (netif_carrier_ok(dev))
++                        netif_carrier_off(dev);
++        }
++}
++
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _LINUX_NETDEVICE_H */
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index fe64908..5d11c12 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -183,27 +183,6 @@ void unregister_vlan_dev(struct net_device *dev)
+ 	dev_put(real_dev);
+ }
+ 
+-static void vlan_transfer_operstate(const struct net_device *dev,
+-				    struct net_device *vlandev)
+-{
+-	/* Have to respect userspace enforced dormant state
+-	 * of real device, also must allow supplicant running
+-	 * on VLAN device
+-	 */
+-	if (dev->operstate == IF_OPER_DORMANT)
+-		netif_dormant_on(vlandev);
+-	else
+-		netif_dormant_off(vlandev);
+-
+-	if (netif_carrier_ok(dev)) {
+-		if (!netif_carrier_ok(vlandev))
+-			netif_carrier_on(vlandev);
+-	} else {
+-		if (netif_carrier_ok(vlandev))
+-			netif_carrier_off(vlandev);
+-	}
+-}
+-
+ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	const char *name = real_dev->name;
+@@ -267,7 +246,7 @@ int register_vlan_dev(struct net_device *dev)
+ 	/* Account for reference in struct vlan_dev_info */
+ 	dev_hold(real_dev);
+ 
+-	vlan_transfer_operstate(real_dev, dev);
++	netif_stacked_transfer_operstate(real_dev, dev);
+ 	linkwatch_fire_event(dev); /* _MUST_ call rfc2863_policy() */
+ 
+ 	/* So, got the sucker initialized, now lets place
+@@ -449,7 +428,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 			if (!vlandev)
+ 				continue;
+ 
+-			vlan_transfer_operstate(dev, vlandev);
++			netif_stacked_transfer_operstate(dev, vlandev);
+ 		}
+ 		break;
+ 
+@@ -492,7 +471,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 				continue;
+ 
+ 			dev_change_flags(vlandev, flgs & ~IFF_UP);
+-			vlan_transfer_operstate(dev, vlandev);
++			netif_stacked_transfer_operstate(dev, vlandev);
+ 		}
+ 		break;
+ 
+@@ -508,7 +487,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 				continue;
+ 
+ 			dev_change_flags(vlandev, flgs | IFF_UP);
+-			vlan_transfer_operstate(dev, vlandev);
++			netif_stacked_transfer_operstate(dev, vlandev);
+ 		}
+ 		break;
+ 
