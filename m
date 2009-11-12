@@ -1,49 +1,42 @@
-From: =?ISO-8859-1?Q?J=F6rg-Volker_Peetz?= <jvpeetz@web.de>
-Subject: Re: [PATCH 1/4] drivers/net/enic: decrement sizeof size in strncmp
-Date: Thu, 12 Nov 2009 11:17:24 +0100
-Message-ID: <4AFBE0B4.6070904@web.de>
-References: <Pine.LNX.4.64.0911120848100.16627@ask.diku.dk>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: sysfs question
+Date: Thu, 12 Nov 2009 11:39:41 +0100
+Message-ID: <20091112103940.GC322@e-circ.dyndns.org>
+References: <200911021533.25345.matthias.fuchs@esd.eu> <20091106100427.GB323@e-circ.dyndns.org> <20091109112331.GE323@e-circ.dyndns.org> <4AF83EB7.3070401@grandegger.com> <20091112100053.GA322@e-circ.dyndns.org> <4AFBE0DD.1000408@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752190AbZKLKRe@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0911120848100.16627@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.eia.be ([194.78.71.18]:17798 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751418AbZKLKji (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2009 05:39:38 -0500
+Content-Disposition: inline
+In-Reply-To: <4AFBE0DD.1000408@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julia Lawall wrote:
-> From: Julia Law all <julia@diku.dk>
->=20
-> As observed by Joe Perches, sizeof of a constant string includes the
-> trailing 0.  If what is wanted is to check the initial characters of
-> another string, this trailing 0 should not be taken into account.  If=
- an
-> exact match is wanted, strcmp should be used instead.
->=20
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
->=20
-> // <smpl>
-> @@
-> expression foo;
-> constant char *abc;
-> @@
->=20
-> strncmp(foo, abc,=20
-> - sizeof(abc)
-> + sizeof(abc)-1
->  )
-> // </smpl>
->=20
-<snip>
-How about this pattern (uses length of first argument):
+Hi,
 
-strncmp(foo, abc,
-- sizeof(foo)
+Within the socketcan project, we came into a situation that
+might benefit with input from the netdev mailing list.
 
-?
---=20
-Best regards,
-J=F6rg-Volker.
+The main issue is the policy to add sysfs properties in
+/sys/class/net/canX.
+
+The reason for this is that cards (devices) with multiple network
+interfaces may require properties per network.
+
+An obvious property would be the 'channel number of the card'. Other
+properties could be things like type of output circuitry, ..., rather
+hardware specific.
+
+I see currently 3 options:
+1) such properties in /sys/class/net/canX would be allowed.
+2) such properties would belong in /sys/class/net/canX/<subdirectory tbd>/
+3) such properties would go somewhere else.
+
+Some input with regard to sysfs policies would be helpfull.
+
+Kurt
