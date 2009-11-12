@@ -1,50 +1,50 @@
-From: Sriramakrishnan <srk@ti.com>
-Subject: [PATCH] smsc911x: Fix Console Hang when bringing the interface down.
-Date: Thu, 12 Nov 2009 17:44:38 +0530
-Message-ID: <1258028078-10933-1-git-send-email-srk@ti.com>
-Cc: Sriramakrishnan <srk@ti.com>
-To: netdev@vger.kernel.org
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
+Date: Thu, 12 Nov 2009 23:16:20 +1030
+Message-ID: <20091112231620.0b56c0b0@opy.nosense.org>
+References: <20091111.124235.243348591.davem@davemloft.net>
+	<20091111133342.1011e16a@nehalam>
+	<200911112347.41425.opurdila@ixiacom.com>
+	<20091111.183626.202530131.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: opurdila@ixiacom.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:39359 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752608AbZKLMOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2009 07:14:37 -0500
-Received: from dbdp31.itg.ti.com ([172.24.170.98])
-	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id nACCEeuO004717
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 06:14:43 -0600
+Received: from smtp4.adam.net.au ([202.136.110.247]:60924 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426AbZKLMqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 07:46:24 -0500
+In-Reply-To: <20091111.183626.202530131.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the NAPI poll function, check for netif_running() is unnecassary.
-In addition to associated runtime overhead, it also results in
-continuous softirq loop when the interface is brought down under heavy
-traffic(tested with Traffic Generator).Once the interface is disabled,
-the poll function always returns zero(with the check for netif_running)
-and napi_complete() would never get called resulting in softirq loop.
+On Wed, 11 Nov 2009 18:36:26 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Sriramakrishnan <srk@ti.com>
----
-Fix has been validated on OMAP3EVM. Similar issue found with TI Davinci
-EMAC driver for which a patch has been posted to this list.
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Wed, 11 Nov 2009 23:47:41 +0200
+> 
+> > We could use a similar function that will work in the per namespace
+> > initialization context, but this might upset net namespace folks
+> > since we will get a large hash for every namespace.
+> 
+> Use kzalloc(), that's sufficient for a 64K or so hash table which is
+> way more than you ever will need.
+> 
+> Use the GFP_* flags that will silently (ie. without a log message)
+> fail, and divide by two until you successfully allocate the table if
+> you're worried about memory fragmentation at allocation time.
+> 
+> This is so straightforward, I can't believe we're talking so much
+> about how to implement this, it's a 15 minute hack :-)
 
+Yes, but sadly, sometimes there is too much history(!) to be able to be
+fully aware of it. "suck-it-and-see" type patches are possibly a
+quicker way to find out what people are thinking right now!
 
- drivers/net/smsc911x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index ccdd196..f9cdcbc 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -986,7 +986,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
- 	struct net_device *dev = pdata->dev;
- 	int npackets = 0;
- 
--	while (likely(netif_running(dev)) && (npackets < budget)) {
-+	while (npackets < budget) {
- 		unsigned int pktlength;
- 		unsigned int pktwords;
- 		struct sk_buff *skb;
--- 
-1.6.2.4
-
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
