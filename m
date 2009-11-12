@@ -1,35 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6] ipv4: speedup inet_dump_ifaddr()
-Date: Thu, 12 Nov 2009 09:12:21 -0800
-Message-ID: <20091112091221.3d523253@nehalam>
-References: <4AFC1798.1060501@gmail.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] can: Add missing debug flag for making USB CAN devices
+Date: Thu, 12 Nov 2009 18:42:28 +0100
+Message-ID: <4AFC4904.9040500@grandegger.com>
+References: <4AFC2B6B.5090000@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33779 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753439AbZKLRMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2009 12:12:37 -0500
-In-Reply-To: <4AFC1798.1060501@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4AFC2B6B.5090000-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Nov 2009 15:11:36 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> When handling large number of netdevices, inet_dump_ifaddr()
-> is very slow because it has O(N^2) complexity.
+Wolfgang Grandegger wrote:
+> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> ---
+>  drivers/net/can/usb/Makefile |    2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> Instead of scanning one single list, we can use the NETDEV_HASHENTRIES
-> sub lists of the dev_index hash table, and RCU lookups.
+> Index: net-next-2.6/drivers/net/can/usb/Makefile
+> ===================================================================
+> --- net-next-2.6.orig/drivers/net/can/usb/Makefile
+> +++ net-next-2.6/drivers/net/can/usb/Makefile
+> @@ -3,3 +3,5 @@
+>  #
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>  obj-$(CONFIG_CAN_EMS_USB) += ems_usb.o
+> +
+> +ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
 
-You might be able to make RCU critical section smaller by moving
-it into loop.
+Please drop this patch. I just realized that Oliver has already fixed
+this issue in his "[PATCH net-2.6] can: Fix driver Kconfig structure"
+here (see http://marc.info/?l=linux-netdev&m=125802571320568&w=2).
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Sorry for the noise.
+
+Wolfgang.
