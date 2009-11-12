@@ -1,70 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Thu, 12 Nov 2009 20:04:56 +0100
-Message-ID: <4AFC5C58.9030207@gmail.com>
-References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>	 <20091112113836.GA7963@ff.dom.local> <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
+Date: Thu, 12 Nov 2009 11:09:21 -0800
+Message-ID: <20091112110921.07a8412d@nehalam>
+References: <20091110175446.280423729@vyatta.com>
+	<20091110175647.409162953@vyatta.com>
+	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
+	<20091110150617.0e6920f0@nehalam>
+	<20091110155316.2c3d7b6e@nehalam>
+	<e160a17e366ae2f676df822db1e62bc2@coraid.com>
+	<20091112091048.00d00d1b@nehalam>
+	<054b5fbe4b446c6342704cd1bd5265db@coraid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Caleb Cushing <xenoterracide@gmail.com>
+Cc: ecashin@coraid.com, karaluh@karaluh.pl, roel.kluin@gmail.com,
+	harvey.harrison@gmail.com, bzolnier@gmail.com,
+	netdev@vger.kernel.org
+To: Ed Cashin <ecashin@coraid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:36450 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753280AbZKLTJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 14:09:35 -0500
-In-Reply-To: <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:39152 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752806AbZKLTJm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2009 14:09:42 -0500
+In-Reply-To: <054b5fbe4b446c6342704cd1bd5265db@coraid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Caleb Cushing wrote, On 11/12/2009 02:46 PM:
+On Thu, 12 Nov 2009 13:07:35 -0500
+Ed Cashin <ecashin@coraid.com> wrote:
 
->> On 11-11-2009 22:47, Andi Kleen wrote:
->> ...
->>> It might be also useful if you could describe what kind
->>> of network devices you use and how you determine
->>> the packet loss.
->> Btw, you didn't send the stats you compared, and your wireshark dump
->> doesn't show anything wrong either.
->>
->> Jarek P.
->>
+> Thanks for the responses.
 > 
-> I didn't see that sorry. I wasn't sure if the dump would or not (I'm
-> not a networking expert, just know more than the average joe).
+> On Thu Nov 12 12:11:12 EST 2009, shemminger@vyatta.com wrote:
+> ...
+> > Since it is emulating a block device, why not propgate error back
+> > up the stack like a disk that's offline.
 > 
-> from dmesg (networking device)
+> The lack of local interfaces to use for AoE might be temporary.  For
+> example, the admin might be loading a new network driver, or a new
+> link might go online through which the AoE target can be reached.
 > 
-> e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
+> If AoE command packets are not sent or resent but instead are
+> effectively dropped while there are no local interfaces through which
+> to send, then the AoE commands will timeout through the normal
+> mechanisms, at which time the error will be signaled to the block
+> layer.  It will be like normal unreliable ethernet transport.
 > 
-> from lspci
+> In the common case, I think that's going to be the expected behavior,
+> but a printk would probably still be helpful in case the admin doesn't
+> realize why the AoE device is timing out.
 > 
-> 00:19.0 Ethernet controller: Intel Corporation 82562V-2 10/100 Network
-> Connection (rev 02)
 
-So I assume it's your only network device on this box and according
-to these reports it's 192.168.1.3 with 192.168.1.1 as the gateway,
-and your only change is kernel on this 192.168.1.3 box, right?
+Okay, you might want to ratelimit the printk
 
-> the attached png's show mtr with bad being when I have the problem.
-> for those not familiar mtr sends an icmp packet to each hop in 1
-> second then loops. when I'm having this kind of packet loss (and
-> sometimes it's higher) all services including dhcp, dns, and http (web
-> browsing) get flaky, or don't work at all (I really can't browse the
-> web).
-
-Since the loss is seen on the first hop already, it seems it should be
-enough to query 192.168.1.1 only - did you try this? If so, does this
-happen from the beginning of the test or after many loops? Could you
-try to repeat this wireshark dump with more data than before (but just
-to be sure there are a few unanswered pings). If possible it would be
-nice to have wireshark or tcpdump data from 192.168.1.1 too, while
-pinged from 192.168.1.3. Please, send it gzipped to bugzilla only plus
-ifconfig eth0 before and after the test (and let us know here).
-
-Btw, mtr has text reporting too (--report). Larger things send to
-bugzilla only.
-
-Thanks,
-Jarek P.
+-- 
