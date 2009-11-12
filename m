@@ -1,68 +1,63 @@
-From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
-Subject: RE: [PATCH] s2io: fixing a ethtool test that is broken
-Date: Thu, 12 Nov 2009 13:59:53 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705E74E6F@nekter>
-References: <1257882263-7507-1-git-send-email-leitao@linux.vnet.ibm.com>
+From: Joel Becker <Joel.Becker@oracle.com>
+Subject: Re: [patch] Fix: 'return -ENOMEM' instead of 'return
+	ENOMEM'
+Date: Thu, 12 Nov 2009 11:17:58 -0800
+Message-ID: <20091112191758.GA22985@mail.oracle.com>
+References: <4AFB2C0B.50605@gmail.com>
+	<20091111134730.a0da9e38.akpm@linux-foundation.org>
+	<20091112081043.GA25345@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-To: <leitao@linux.vnet.ibm.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:6062 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752811AbZKLTPC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 14:15:02 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <1257882263-7507-1-git-send-email-leitao@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+        "Stephen M. Cameron" <scameron@beardog.cca.cpqcorp.net>,
+        Mike Christie <michaelc@cs.wisc.edu>, David Airlie <airlied@linux.ie>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Jens Axboe <jens.axboe@oracle.com>, Evgeniy Polyakov <zbr@ioremap.net>,
+        iss_storagedev@hp.com, Eric Dumazet <eric.dumazet@gmail.com>,
+        Andy Whitcroft <apw@shadowen.org>, Dave Airlie <airlied@redhat.com>,
+        Hannes Eder <hannes@hanneseder.net>, dri-devel@lists.sourceforge.net,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Mike Miller <mike.miller@hp.com>, Mark Fasheh <mfasheh@suse.com>,
+        Karsten Keil <isdn@linux-pingi.de>, rostedt@goodmis.org,
+        Karen Xie <kxie@chelsio.com>,
+        "James E.J. Bottomley" <James.Bottomley@suse.de>,
+        Hannes Reinecke <hare@suse.de>,
+        Andreas Ever
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <ocfs2-devel-bounces@oss.oracle.com>
+Content-Disposition: inline
+In-Reply-To: <20091112081043.GA25345@elte.hu>
+List-Unsubscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=unsubscribe>
+List-Archive: <http://oss.oracle.com/pipermail/ocfs2-devel>
+List-Post: <mailto:ocfs2-devel@oss.oracle.com>
+List-Help: <mailto:ocfs2-devel-request@oss.oracle.com?subject=help>
+List-Subscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=subscribe>
+Sender: ocfs2-devel-bounces@oss.oracle.com
+Errors-To: ocfs2-devel-bounces@oss.oracle.com
+List-Id: netdev.vger.kernel.org
 
-[Siva] Reviewed the patch. Please accept it.
+On Thu, Nov 12, 2009 at 09:10:43AM +0100, Ingo Molnar wrote:
+> 5 out of 8 places look buggy - i.e. more than 60% - a checkpatch warning 
+> would avoid real bugs here. (even ignoring the cleanliness effects of 
+> using proper error propagation)
+> 
+> Cc:-ed affected maintainers. The rightmost column are my observations. 
+> Below is the patch fixing these.
 
-Acked-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+Acked-by: Joel Becker <joel.becker@oracle.com>
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of leitao@linux.vnet.ibm.com
-Sent: Tuesday, November 10, 2009 11:44 AM
-To: netdev@vger.kernel.org
-Cc: Sreenivasa Honnur; Breno Leitao
-Subject: [PATCH] s2io: fixing a ethtool test that is broken
 
-Due commit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff, it is not more
-possible to pci_restore_state() more than once without calling
-pci_save_state() in the middle.
-
-Actually running a ethtool test on s2io makes the card inactive, 
-and it needs to unload/reload the module to fix. 
-
-This patch just save the state just after it restore in order to
-keep the old behaviour
-
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/s2io.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index ddccf5f..0dd7839 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -3494,6 +3494,7 @@ static void s2io_reset(struct s2io_nic *sp)
- 
- 		/* Restore the PCI state saved during initialization. */
- 		pci_restore_state(sp->pdev);
-+		pci_save_state(sp->pdev);
- 		pci_read_config_word(sp->pdev, 0x2, &val16);
- 		if (check_pci_device_id(val16) != (u16)PCI_ANY_ID)
- 			break;
 -- 
-1.6.0.2
 
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+"Can any of you seriously say the Bill of Rights could get through
+ Congress today?  It wouldn't even get out of committee."
+	- F. Lee Bailey
+
+Joel Becker
+Principal Software Developer
+Oracle
+E-mail: joel.becker@oracle.com
+Phone: (650) 506-8127
