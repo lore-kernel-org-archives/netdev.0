@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
-Date: Wed, 11 Nov 2009 18:42:09 -0800 (PST)
-Message-ID: <20091111.184209.197449129.davem@davemloft.net>
-References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
-	<20091111232103.GA1217@xw6200.broadcom.net>
+Subject: Re: [PATCH net-2.6] Revert "net: Support inclusion of
+ <linux/socket.h> before <sys/socket.h>"
+Date: Wed, 11 Nov 2009 18:51:24 -0800 (PST)
+Message-ID: <20091111.185124.22668587.davem@davemloft.net>
+References: <1257991205.2237.73.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, 538372@bugs.debian.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58872
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50095
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759938AbZKLClm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 21:41:42 -0500
-In-Reply-To: <20091111232103.GA1217@xw6200.broadcom.net>
+	by vger.kernel.org with ESMTP id S1758345AbZKLCu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 21:50:57 -0500
+In-Reply-To: <1257991205.2237.73.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Wed, 11 Nov 2009 15:21:03 -0800
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 12 Nov 2009 02:00:05 +0000
 
-> Is a random hash key really better than arbitrary static values?  
-> Setting the hash key to random values means, from chip reset to chip
-> reset, you could get different performance results.  Unless we
-> we understood how the key affects performance, I would think that
-> reproducable performance numbers would be more desirable, no?
+> This reverts commit 9c501935a3cdcf6b1d35aaee3aa11c7a7051a305.  That
+> commit caused <linux/rtnetlink.h> to require that <sys/socket.h> is
+> included first, breaking autoconf tests for <linux/rtnetlink.h> and
+> presumably some real programs too.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Security.
+I'm not reverting this Ben.  The dependency those programs and
+autoconf tests have is _dubious_ at best.
 
-If someone knows the key and the hash function, they can purposely
-pick address and port combinations that always hash to the same queue,
-decresing your horsepower to handle traffic by orders of magnitude.
+It means they were depending upon the libc5 checks passing, that's
+rediculious and not something we should cater to.
+
+If you really want it to work that linux/rtnetlink.h is included first
+before sys/socket.h in userland, fix that specifically instead.  But
+I believe such a dependency is reasonable and the userspace bits need
+fixing.
+
