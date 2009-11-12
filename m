@@ -1,44 +1,68 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
-Date: Wed, 11 Nov 2009 15:21:03 -0800
-Message-ID: <20091111232103.GA1217@xw6200.broadcom.net>
-References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: [PATCH] X25: Enable setting of cause and diagnostic fields
+Date: Thu, 12 Nov 2009 11:13:27 +1100
+Message-ID: <d45a3acc0911111613v38fa9df4jed21876ce6309097@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3808 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759637AbZKKXXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 18:23:32 -0500
-In-Reply-To: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-x25@vger.kernel.org
+Return-path: <linux-x25-owner@vger.kernel.org>
+Sender: linux-x25-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 10, 2009 at 10:53:36PM -0800, Tom Herbert wrote:
-> @@ -6223,9 +6257,10 @@ static int bnx2x_init_common(struct bnx2x *bp)
->  	bnx2x_init_block(bp, PBF_BLOCK, COMMON_STAGE);
-> 
->  	REG_WR(bp, SRC_REG_SOFT_RST, 1);
-> -	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
-> -		REG_WR(bp, i, 0xc0cac01a);
-> -		/* TODO: replace with something meaningful */
-> +	{
-> +		int i;
-> +		for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4)
-> +			REG_WR(bp, i, random32());
->  	}
->  	bnx2x_init_block(bp, SRCH_BLOCK, COMMON_STAGE);
->  #ifdef BCM_CNIC
+Adds SIOCX25SCAUSEDIAG, allowing X.25 programs to set the cause and
+diagnostic fields.
+Normally used to indicate status upon closing connections.
 
-Is a random hash key really better than arbitrary static values?  
-Setting the hash key to random values means, from chip reset to chip
-reset, you could get different performance results.  Unless we
-we understood how the key affects performance, I would think that
-reproducable performance numbers would be more desirable, no?
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
+
+diff -uprN -X a/Documentation/dontdiff a/include/linux/x25.h
+b/include/linux/x25.h
+--- a/include/linux/x25.h	2009-11-11 14:03:26.659663301 +1100
++++ b/include/linux/x25.h	2009-11-11 16:05:06.625958557 +1100
+@@ -25,6 +25,7 @@
+ #define SIOCX25SENDCALLACCPT    (SIOCPROTOPRIVATE + 9)
+ #define SIOCX25GDTEFACILITIES (SIOCPROTOPRIVATE + 10)
+ #define SIOCX25SDTEFACILITIES (SIOCPROTOPRIVATE + 11)
++#define SIOCX25SCAUSEDIAG     (SIOCPROTOPRIVATE + 12)
+
+ /*
+  *	Values for {get,set}sockopt.
+diff -uprN -X a/Documentation/dontdiff a/net/x25/af_x25.c b/net/x25/af_x25.c
+--- a/net/x25/af_x25.c	2009-11-11 14:02:44.027061001 +1100
++++ b/net/x25/af_x25.c	2009-11-11 16:22:51.374077963 +1100
+@@ -1430,6 +1430,17 @@ static int x25_ioctl(struct socket *sock
+ 			break;
+ 		}
+
++		case SIOCX25SCAUSEDIAG: {
++			struct x25_causediag causediag;
++			rc = -EFAULT;
++			if (copy_from_user(&causediag, argp, sizeof(causediag)))
++				break;
++			x25->causediag = causediag;
++			rc = 0;
++			break;
++
++		}
++
+ 		case SIOCX25SCUDMATCHLEN: {
+ 			struct x25_subaddr sub_addr;
+ 			rc = -EINVAL;
+diff -uprN -X a/Documentation/dontdiff a/net/x25/x25_subr.c b/net/x25/x25_subr.c
+--- a/net/x25/x25_subr.c	2009-11-11 14:02:44.026061128 +1100
++++ b/net/x25/x25_subr.c	2009-11-11 16:28:30.316150252 +1100
+@@ -225,6 +225,12 @@ void x25_write_internal(struct sock *sk,
+ 			break;
+
+ 		case X25_CLEAR_REQUEST:
++			dptr    = skb_put(skb, 3);
++			*dptr++ = frametype;
++			*dptr++ = x25->causediag.cause;
++			*dptr++ = x25->causediag.diagnostic;
++			break;
++
+ 		case X25_RESET_REQUEST:
+ 			dptr    = skb_put(skb, 3);
+ 			*dptr++ = frametype;
