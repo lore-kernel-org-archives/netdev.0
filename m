@@ -1,64 +1,26 @@
-From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Subject: [PATCH] inet: fix inet_bind_bucket_for_each
-Date: Thu, 12 Nov 2009 17:07:26 +0200
-Message-ID: <200911121707.26224.lgrijincu@ixiacom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Thu, 12 Nov 2009 16:11:35 +0100
+Message-ID: <4AFC25A7.10301@trash.net>
+References: <4AFA8911.7050204@gmail.com> <4AFBD911.6000900@gmail.com> <412e6f7f0911120148r48fa553bt610e013d96522a3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_uSC/KDsxHcq8Zq3"
-To: netdev@vger.kernel.org, Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:7476 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752768AbZKLPHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 10:07:24 -0500
+Received: from stinky.trash.net ([213.144.137.162]:59373 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753092AbZKLPIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 10:08:06 -0500
+In-Reply-To: <412e6f7f0911120148r48fa553bt610e013d96522a3d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---Boundary-00=_uSC/KDsxHcq8Zq3
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Changli Gao wrote:
+> The corresponding iprout2 patch is attached.
 
-
-The first "node" is supposed to be the cursor used in the for_each.
-
-The second "node" is ment literally and should not be macro expanded:
-it's the name of the hlist_node field from the inet_bind_bucket.
-
-This currently works because when inet_bind_bucket_for_each is called
-it's argument is still "node".
-
-Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
----
- include/net/inet_hashtables.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-
---Boundary-00=_uSC/KDsxHcq8Zq3
-Content-Type: text/plain;
-  charset="utf-8";
-  name="0001-inet-fix-inet_bind_bucket_for_each.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="0001-inet-fix-inet_bind_bucket_for_each.patch"
-
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 5b698b3..41cbddd 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -92,8 +92,8 @@ static inline struct net *ib_net(struct inet_bind_bucket *ib)
- 	return read_pnet(&ib->ib_net);
- }
- 
--#define inet_bind_bucket_for_each(tb, node, head) \
--	hlist_for_each_entry(tb, node, head, node)
-+#define inet_bind_bucket_for_each(tb, pos, head) \
-+	hlist_for_each_entry(tb, pos, head, node)
- 
- struct inet_bind_hashbucket {
- 	spinlock_t		lock;
-
---Boundary-00=_uSC/KDsxHcq8Zq3--
-
-
+Printing the value during dumps is missing from this patch.
