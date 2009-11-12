@@ -1,56 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Thu, 12 Nov 2009 11:09:21 -0800
-Message-ID: <20091112110921.07a8412d@nehalam>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
-	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-	<20091110150617.0e6920f0@nehalam>
-	<20091110155316.2c3d7b6e@nehalam>
-	<e160a17e366ae2f676df822db1e62bc2@coraid.com>
-	<20091112091048.00d00d1b@nehalam>
-	<054b5fbe4b446c6342704cd1bd5265db@coraid.com>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: [PATCH v2] Documentation: rw_lock lessons learned
+Date: Thu, 12 Nov 2009 14:13:03 -0500
+Message-ID: <4AFC5E3F.7070609@earthlink.net>
+References: <4AF9C540.5090403@gmail.com>	<20091110180646.2e5859a8@nehalam>	<4AFAEF78.4080807@gmail.com> <20091111093724.4f40a48d@nehalam> <4AFBEC44.9030409@gmail.com>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ecashin@coraid.com, karaluh@karaluh.pl, roel.kluin@gmail.com,
-	harvey.harrison@gmail.com, bzolnier@gmail.com,
-	netdev@vger.kernel.org
-To: Ed Cashin <ecashin@coraid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39152 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752806AbZKLTJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2009 14:09:42 -0500
-In-Reply-To: <054b5fbe4b446c6342704cd1bd5265db@coraid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753555AbZKLTNJ@vger.kernel.org>
+In-Reply-To: <4AFBEC44.9030409@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Nov 2009 13:07:35 -0500
-Ed Cashin <ecashin@coraid.com> wrote:
-
-> Thanks for the responses.
+William Allen Simpson wrote:
+> In recent weeks, two different network projects erroneously
+> strayed down the rw_lock path.  Update the Documentation
+> based upon comments by Eric Dumazet and Paul E. McKenney in
+> those threads.
 > 
-> On Thu Nov 12 12:11:12 EST 2009, shemminger@vyatta.com wrote:
-> ...
-> > Since it is emulating a block device, why not propgate error back
-> > up the stack like a disk that's offline.
+> Merged with editorial changes by Stephen Hemminger.
 > 
-> The lack of local interfaces to use for AoE might be temporary.  For
-> example, the admin might be loading a new network driver, or a new
-> link might go online through which the AoE target can be reached.
-> 
-> If AoE command packets are not sent or resent but instead are
-> effectively dropped while there are no local interfaces through which
-> to send, then the AoE commands will timeout through the normal
-> mechanisms, at which time the error will be signaled to the block
-> layer.  It will be like normal unreliable ethernet transport.
-> 
-> In the common case, I think that's going to be the expected behavior,
-> but a printk would probably still be helpful in case the admin doesn't
-> realize why the AoE device is timing out.
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> ---
+>  Documentation/spinlocks.txt |  186 
+> ++++++++++++++++++++-----------------------
+>  1 files changed, 86 insertions(+), 100 deletions(-)
 > 
 
-Okay, you might want to ratelimit the printk
+How up to date is this doc?
+
+http://www.kernel.org/pub/linux/kernel/people/rusty/kernel-locking/index.html
+
+Should it be in the Documentation directory?
+
 
 -- 
+
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
