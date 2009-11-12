@@ -1,222 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: speedup inet6_dump_addr()
-Date: Thu, 12 Nov 2009 15:11:50 +0100
-Message-ID: <4AFC17A6.4040801@gmail.com>
+From: Ed Cashin <ecashin@coraid.com>
+Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
+Date: Thu, 12 Nov 2009 09:33:16 -0500
+Message-ID: <e160a17e366ae2f676df822db1e62bc2@coraid.com>
+References: <20091110175446.280423729@vyatta.com>
+	<20091110175647.409162953@vyatta.com>
+	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
+	<20091110150617.0e6920f0@nehalam>
+	<20091110155316.2c3d7b6e@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: shemminger@vyatta.com, karaluh@karaluh.pl, ecashin@coraid.com,
+	roel.kluin@gmail.com, harvey.harrison@gmail.com,
+	bzolnier@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37585 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606AbZKLOLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 09:11:47 -0500
+Received: from baron.coraid.com ([12.51.113.4]:49921 "EHLO coraid.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752064AbZKLOeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Nov 2009 09:34:15 -0500
+In-Reply-To: <20091110155316.2c3d7b6e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When handling large number of netdevices, inet6_dump_addr()
-is very slow because it has O(N^2) complexity.
+Thanks again for providing this patch to help get things started.
+It's very helpful.  I appreciate the way it reflects and fits into the
+rest of the driver, too.
 
-Instead of scanning one single list, we can use the NETDEV_HASHENTRIES
-sub lists of the dev_index hash table, and RCU lookups.
+In the patch, there's a loop around getif, ejectif inside the new
+aoecmd_flushnet function:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/addrconf.c |  171 +++++++++++++++++++++++-------------------
- 1 files changed, 97 insertions(+), 74 deletions(-)
+  void aoecmd_flushnet(struct aoedev *d, struct net_device *nd)
+  {
+  	struct aoetgt **tt, **te;
+  	tt = d->targets;
+  	te = tt + NTARGETS;
+  	for (; tt < te && *tt; tt++) {
+  		struct aoetgt *t = *tt;
+  		struct aoeif *ifp;
+  
+  		while ( (ifp = getif(t, nd)) )
+  			ejectif(t, ifp);
+  	}
+  }
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 9ff8ab9..522bdc7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3481,91 +3481,114 @@ enum addr_type_t
- 	ANYCAST_ADDR,
- };
- 
-+/* called with rcu_read_lock() */
-+static int in6_dump_addrs(struct inet6_dev *idev, struct sk_buff *skb,
-+			  struct netlink_callback *cb, enum addr_type_t type,
-+			  int s_ip_idx, int *p_ip_idx)
-+{
-+	struct inet6_ifaddr *ifa;
-+	struct ifmcaddr6 *ifmca;
-+	struct ifacaddr6 *ifaca;
-+	int err = 1;
-+	int ip_idx = *p_ip_idx;
-+
-+	read_lock_bh(&idev->lock);
-+	switch (type) {
-+	case UNICAST_ADDR:
-+		/* unicast address incl. temp addr */
-+		for (ifa = idev->addr_list; ifa;
-+		     ifa = ifa->if_next, ip_idx++) {
-+			if (ip_idx < s_ip_idx)
-+				continue;
-+			err = inet6_fill_ifaddr(skb, ifa,
-+						NETLINK_CB(cb->skb).pid,
-+						cb->nlh->nlmsg_seq,
-+						RTM_NEWADDR,
-+						NLM_F_MULTI);
-+			if (err <= 0)
-+				break;
-+		}
-+		break;
-+	case MULTICAST_ADDR:
-+		/* multicast address */
-+		for (ifmca = idev->mc_list; ifmca;
-+		     ifmca = ifmca->next, ip_idx++) {
-+			if (ip_idx < s_ip_idx)
-+				continue;
-+			err = inet6_fill_ifmcaddr(skb, ifmca,
-+						  NETLINK_CB(cb->skb).pid,
-+						  cb->nlh->nlmsg_seq,
-+						  RTM_GETMULTICAST,
-+						  NLM_F_MULTI);
-+			if (err <= 0)
-+				break;
-+		}
-+		break;
-+	case ANYCAST_ADDR:
-+		/* anycast address */
-+		for (ifaca = idev->ac_list; ifaca;
-+		     ifaca = ifaca->aca_next, ip_idx++) {
-+			if (ip_idx < s_ip_idx)
-+				continue;
-+			err = inet6_fill_ifacaddr(skb, ifaca,
-+						  NETLINK_CB(cb->skb).pid,
-+						  cb->nlh->nlmsg_seq,
-+						  RTM_GETANYCAST,
-+						  NLM_F_MULTI);
-+			if (err <= 0)
-+				break;
-+		}
-+		break;
-+	default:
-+		break;
-+	}
-+	read_unlock_bh(&idev->lock);
-+	*p_ip_idx = ip_idx;
-+	return err;
-+}
-+
- static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
- 			   enum addr_type_t type)
- {
-+	struct net *net = sock_net(skb->sk);
-+	int h, s_h;
- 	int idx, ip_idx;
- 	int s_idx, s_ip_idx;
--	int err = 1;
- 	struct net_device *dev;
--	struct inet6_dev *idev = NULL;
--	struct inet6_ifaddr *ifa;
--	struct ifmcaddr6 *ifmca;
--	struct ifacaddr6 *ifaca;
--	struct net *net = sock_net(skb->sk);
-+	struct inet6_dev *idev;
-+	struct hlist_head *head;
-+	struct hlist_node *node;
- 
--	s_idx = cb->args[0];
--	s_ip_idx = ip_idx = cb->args[1];
-+	s_h = cb->args[0];
-+	s_idx = idx = cb->args[1];
-+	s_ip_idx = ip_idx = cb->args[2];
- 
--	idx = 0;
--	for_each_netdev(net, dev) {
--		if (idx < s_idx)
--			goto cont;
--		if (idx > s_idx)
--			s_ip_idx = 0;
--		ip_idx = 0;
--		if ((idev = in6_dev_get(dev)) == NULL)
--			goto cont;
--		read_lock_bh(&idev->lock);
--		switch (type) {
--		case UNICAST_ADDR:
--			/* unicast address incl. temp addr */
--			for (ifa = idev->addr_list; ifa;
--			     ifa = ifa->if_next, ip_idx++) {
--				if (ip_idx < s_ip_idx)
--					continue;
--				err = inet6_fill_ifaddr(skb, ifa,
--							NETLINK_CB(cb->skb).pid,
--							cb->nlh->nlmsg_seq,
--							RTM_NEWADDR,
--							NLM_F_MULTI);
--				if (err <= 0)
--					break;
--			}
--			break;
--		case MULTICAST_ADDR:
--			/* multicast address */
--			for (ifmca = idev->mc_list; ifmca;
--			     ifmca = ifmca->next, ip_idx++) {
--				if (ip_idx < s_ip_idx)
--					continue;
--				err = inet6_fill_ifmcaddr(skb, ifmca,
--							  NETLINK_CB(cb->skb).pid,
--							  cb->nlh->nlmsg_seq,
--							  RTM_GETMULTICAST,
--							  NLM_F_MULTI);
--				if (err <= 0)
--					break;
--			}
--			break;
--		case ANYCAST_ADDR:
--			/* anycast address */
--			for (ifaca = idev->ac_list; ifaca;
--			     ifaca = ifaca->aca_next, ip_idx++) {
--				if (ip_idx < s_ip_idx)
--					continue;
--				err = inet6_fill_ifacaddr(skb, ifaca,
--							  NETLINK_CB(cb->skb).pid,
--							  cb->nlh->nlmsg_seq,
--							  RTM_GETANYCAST,
--							  NLM_F_MULTI);
--				if (err <= 0)
--					break;
--			}
--			break;
--		default:
--			break;
--		}
--		read_unlock_bh(&idev->lock);
--		in6_dev_put(idev);
-+	rcu_read_lock();
-+	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-+		idx = 0;
-+		head = &net->dev_index_head[h];
-+		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
-+			if (idx < s_idx)
-+				goto cont;
-+			if (idx > s_idx)
-+				s_ip_idx = 0;
-+			ip_idx = 0;
-+			if ((idev = __in6_dev_get(dev)) == NULL)
-+				goto cont;
- 
--		if (err <= 0)
--			break;
-+			if (in6_dump_addrs(idev, skb, cb, type,
-+					   s_ip_idx, &ip_idx) <= 0)
-+				goto done;
- cont:
--		idx++;
-+			idx++;
-+		}
- 	}
--	cb->args[0] = idx;
--	cb->args[1] = ip_idx;
-+done:
-+	rcu_read_unlock();
-+	cb->args[0] = h;
-+	cb->args[1] = idx;
-+	cb->args[2] = ip_idx;
-+
- 	return skb->len;
- }
- 
+... but an "if" seems appropriate, since duplicates are avoided when
+network devices are added in aoecmd_cfg_rsp:
+
+  	ifp = getif(t, skb->dev);
+  	if (!ifp) {
+  		ifp = addif(t, skb->dev);
+
+If there's some other reason for it to be "while" in aoecmd_flushnet
+that I'm missing, please let me know.
+
+Regarding the new aoe_device_event function,
+
+  /* Callback on change of state of network device. */
+  static int aoe_device_event(struct notifier_block *unused,
+  			    unsigned long event, void *ptr)
+  {
+  	struct net_device *nd = ptr;
+  
+  	if (is_aoe_netif(nd) && event == NETDEV_UNREGISTER)
+  		aoedev_ejectnet(nd);
+  
+  	return NOTIFY_DONE;
+  }
+
+...  the is_aoe_netif function really answers the question, "Are we
+allowed by the user to do AoE on this local network interface?" The
+user can modify the list of allowable interfaces at runtime via sysfs,
+as it's a module parameter.  So I don't think we can use is_aoe_netif
+in the new aoe_device_event function.  We should eject a net_device in
+this handler even if the user has decided not to use it for AoE.
+Please let me know if I'm missing the point.
+
+You said that,
+
+  > It needs to:
+  > 
+  > 1. Get a device ref count when it remembers a device: (ie addif)
+  > 2. Install a notifier that looks for device removal events
+  > 3. In notifier, remove interface, including flushing all pending
+  >    skb's for that device.
+
+For 3, does the starter patch flush all pending skbs?  Perhaps you
+could elaborate on what you had in mind?
+
+I am trying to find the best way for the aoe driver to handle the
+situation where ther are no usable local network interfaces.  It does
+seem to me that the user would benefit from a notice letting them know
+that they're trying to do AoE without any usable ethernet.  I'm
+thinking that doing something like a printk_once would be appropriate.
+
+(But probably not printk_once itself, because if they add a local
+interface and then it goes away later, they should be told again that
+something's wrong.)
+
+-- 
+  Ed Cashin <ecashin@coraid.com>
+  http://www.coraid.com/
+  http://noserose.net/e/
