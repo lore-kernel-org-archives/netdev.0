@@ -1,51 +1,31 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Thu, 12 Nov 2009 13:07:35 -0500
-Message-ID: <054b5fbe4b446c6342704cd1bd5265db@coraid.com>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
-	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-	<20091110150617.0e6920f0@nehalam>
-	<20091110155316.2c3d7b6e@nehalam>
-	<e160a17e366ae2f676df822db1e62bc2@coraid.com>
-	<20091112091048.00d00d1b@nehalam>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netdevice: provide common routine for macvlan and vlan
+ operstate management
+Date: Thu, 12 Nov 2009 19:21:08 +0100
+Message-ID: <4AFC5214.9030108@trash.net>
+References: <4AFAD86A.9070506@trash.net> <20091112180137.10186.9386.stgit@mimic.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-To: shemminger@vyatta.com, ecashin@coraid.com, karaluh@karaluh.pl,
-	roel.kluin@gmail.com, harvey.harrison@gmail.com,
-	bzolnier@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from baron.coraid.com ([12.51.113.4]:59640 "EHLO coraid.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753319AbZKLSIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2009 13:08:07 -0500
-In-Reply-To: <20091112091048.00d00d1b@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, arnd@arnd.de, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.rog
+To: Patrick Mullaney <pmullaney@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753861AbZKLSVI@vger.kernel.org>
+In-Reply-To: <20091112180137.10186.9386.stgit@mimic.site>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the responses.
+Patrick Mullaney wrote:
+> This patch is intended to address your comment on moving the operstate
+> transition function. I decided to move it to netdevice.h, perhaps that
+> is a bad idea? It didn't seem to logically fall into dev.c or link_watch.c.
+> I am not against moving them to either one though. Your other comments
+> are addressed and I will send out a second series once this gets
+> reviewed and agreed on.
 
-On Thu Nov 12 12:11:12 EST 2009, shemminger@vyatta.com wrote:
-...
-> Since it is emulating a block device, why not propgate error back
-> up the stack like a disk that's offline.
+Thanks. I don't mind much where exactly it is located, but I'd prefer
+to not have it inlined. It doesn't seem terribly wrong to move it to
+dev.c, there are even some helpers for stacked devices already, like
+address list synchronization.
 
-The lack of local interfaces to use for AoE might be temporary.  For
-example, the admin might be loading a new network driver, or a new
-link might go online through which the AoE target can be reached.
-
-If AoE command packets are not sent or resent but instead are
-effectively dropped while there are no local interfaces through which
-to send, then the AoE commands will timeout through the normal
-mechanisms, at which time the error will be signaled to the block
-layer.  It will be like normal unreliable ethernet transport.
-
-In the common case, I think that's going to be the expected behavior,
-but a printk would probably still be helpful in case the admin doesn't
-realize why the AoE device is timing out.
-
--- 
-  Ed Cashin <ecashin@coraid.com>
-  http://www.coraid.com/
-  http://noserose.net/e/
+Besides that the patch looks fine to me.
