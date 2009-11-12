@@ -1,47 +1,71 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: Add missing debug flag for making USB CAN devices
-Date: Thu, 12 Nov 2009 18:42:28 +0100
-Message-ID: <4AFC4904.9040500@grandegger.com>
-References: <4AFC2B6B.5090000@grandegger.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: sysfs question
+Date: Thu, 12 Nov 2009 18:44:36 +0100
+Message-ID: <4AFC4984.8000803@hartkopp.net>
+References: <200911021533.25345.matthias.fuchs@esd.eu>	<20091106100427.GB323@e-circ.dyndns.org>	<20091109112331.GE323@e-circ.dyndns.org>	<4AF83EB7.3070401@grandegger.com>	<20091112100053.GA322@e-circ.dyndns.org>	<4AFBE0DD.1000408@grandegger.com>	<20091112103940.GC322@e-circ.dyndns.org> <20091112090041.1536ccc8@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4AFC2B6B.5090000-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Kurt Van Dijck <kurt.van.dijck@eia.be>,
+	Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:39589 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753739AbZKLRoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 12:44:34 -0500
+In-Reply-To: <20091112090041.1536ccc8@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> ---
->  drivers/net/can/usb/Makefile |    2 ++
->  1 file changed, 2 insertions(+)
+Stephen Hemminger wrote:
+> On Thu, 12 Nov 2009 11:39:41 +0100
+> Kurt Van Dijck <kurt.van.dijck@eia.be> wrote:
 > 
-> Index: net-next-2.6/drivers/net/can/usb/Makefile
-> ===================================================================
-> --- net-next-2.6.orig/drivers/net/can/usb/Makefile
-> +++ net-next-2.6/drivers/net/can/usb/Makefile
-> @@ -3,3 +3,5 @@
->  #
+>> Hi,
+>>
+>> Within the socketcan project, we came into a situation that
+>> might benefit with input from the netdev mailing list.
+>>
+>> The main issue is the policy to add sysfs properties in
+>> /sys/class/net/canX.
+>>
+>> The reason for this is that cards (devices) with multiple network
+>> interfaces may require properties per network.
+>>
+>> An obvious property would be the 'channel number of the card'. Other
+>> properties could be things like type of output circuitry, ..., rather
+>> hardware specific.
+>>
+>> I see currently 3 options:
+>> 1) such properties in /sys/class/net/canX would be allowed.
+>> 2) such properties would belong in /sys/class/net/canX/<subdirectory tbd>/
+>> 3) such properties would go somewhere else.
+>>
+>> Some input with regard to sysfs policies would be helpfull.
+>>
+>> Kurt
 > 
->  obj-$(CONFIG_CAN_EMS_USB) += ems_usb.o
-> +
-> +ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+> It sounds like the property you are proposing is a property of the
+> upper network layer not the hardware. Putting more properties in sysfs
+> is good if is hardware related, but awkward if it is really a protocol
+> attribute.
 
-Please drop this patch. I just realized that Oliver has already fixed
-this issue in his "[PATCH net-2.6] can: Fix driver Kconfig structure"
-here (see http://marc.info/?l=linux-netdev&m=125802571320568&w=2).
+Then it would be good here :-)
 
-Sorry for the noise.
+The problem that can occur here is:
 
-Wolfgang.
+You plug-in a PCMCIA CAN card that has two CAN controllers on-board.
+
+That means, you're getting two CAN independed network interfaces can0 and can1
+pointing to ONE pcmcia device. Both of the CAN netdevs may have different
+bitrates or other CAN controller specific settings (like the type of output
+circuitry Kurt mentioned).
+
+Finally the PCMCIA card itself may contain a serial number and/or a license
+information that needs to be made available.
+
+It's definitely no upper network layer stuff.
+
+Regards,
+Oliver
