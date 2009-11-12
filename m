@@ -1,68 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Thu, 12 Nov 2009 21:23:41 +0100
-Message-ID: <4AFC6ECD.5030009@gmail.com>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+From: Joel Becker <Joel.Becker@oracle.com>
+Subject: Re: [patch] Fix: 'return -ENOMEM' instead of 'return
+	ENOMEM'
+Date: Thu, 12 Nov 2009 12:27:29 -0800
+Message-ID: <20091112202728.GC22985@mail.oracle.com>
+References: <4AFB2C0B.50605@gmail.com>
+	<20091111134730.a0da9e38.akpm@linux-foundation.org>
+	<20091112081043.GA25345@elte.hu>
+	<20091112191758.GA22985@mail.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54807 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754201AbZKLUXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 15:23:43 -0500
-In-Reply-To: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+        "Stephen M. Cameron" <scameron@beardog.cca.cpqcorp.net>,
+        Mike Christie <michaelc@cs.wisc.edu>, David Airlie <airlied@linux.ie>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Jens Axboe <jens.axboe@oracle.com>, Evgeniy Polyakov <zbr@ioremap.net>,
+        iss_storagedev@hp.com, Eric Dumazet <eric.dumazet@gmail.com>,
+        Andy Whitcroft <apw@shadowen.org>, Dave Airlie <airlied@redhat.com>,
+        Hannes Eder <hannes@hanneseder.net>, dri-devel@lists.sourceforge.net,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Mike Miller <mike.miller@hp.com>, Mark Fasheh <mfasheh@suse.com>,
+        Karsten Keil <isdn@linux-pingi.de>, rostedt@goodmis.org,
+        Karen Xie <kxie@chelsio.com>,
+        "James E.J. Bottomley" <James.Bottomley@suse.de>,
+        Hannes Reinecke <hare@suse.de>,
+        Andreas Ever
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <ocfs2-devel-bounces@oss.oracle.com>
+Content-Disposition: inline
+In-Reply-To: <20091112191758.GA22985@mail.oracle.com>
+List-Unsubscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=unsubscribe>
+List-Archive: <http://oss.oracle.com/pipermail/ocfs2-devel>
+List-Post: <mailto:ocfs2-devel@oss.oracle.com>
+List-Help: <mailto:ocfs2-devel-request@oss.oracle.com?subject=help>
+List-Subscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=subscribe>
+Sender: ocfs2-devel-bounces@oss.oracle.com
+Errors-To: ocfs2-devel-bounces@oss.oracle.com
+List-Id: netdev.vger.kernel.org
 
-Tom Herbert a =E9crit :
-> Third version of RPS.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  include/linux/interrupt.h |    1 +
->  include/linux/netdevice.h |   18 ++++
->  include/linux/skbuff.h    |    2 +
->  net/core/dev.c            |  227 +++++++++++++++++++++++++++++++++++=
-+++-------
->  net/core/net-sysfs.c      |  135 +++++++++++++++++++++++++++
->  5 files changed, 348 insertions(+), 35 deletions(-)
->=20
+On Thu, Nov 12, 2009 at 11:17:58AM -0800, Joel Becker wrote:
+> On Thu, Nov 12, 2009 at 09:10:43AM +0100, Ingo Molnar wrote:
+> > 5 out of 8 places look buggy - i.e. more than 60% - a checkpatch warning 
+> > would avoid real bugs here. (even ignoring the cleanliness effects of 
+> > using proper error propagation)
+> > 
+> > Cc:-ed affected maintainers. The rightmost column are my observations. 
+> > Below is the patch fixing these.
+> 
+> Acked-by: Joel Becker <joel.becker@oracle.com>
 
+I take that back.  NAK.
 
+Sorry, I read the code wrong.  This function is just a handler.
+The caller, dlm_send_begin_reco_message(), expects the positive EAGAIN
+as a non-error case.
 
-@@ -2696,21 +2842,24 @@ static int process_backlog(struct napi_struct
-*napi, int quota)
- 	int work =3D 0;
- 	struct softnet_data *queue =3D &__get_cpu_var(softnet_data);
- 	unsigned long start_time =3D jiffies;
-+	unsigned long flags;
+Joel
 
- 	napi->weight =3D weight_p;
- 	do {
- 		struct sk_buff *skb;
+-- 
 
-<<HERE>>	local_irq_disable();
-+		spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
- 		skb =3D __skb_dequeue(&queue->input_pkt_queue);
- 		if (!skb) {
- 			__napi_complete(napi);
--			local_irq_enable();
-+			spin_unlock_irqrestore(&queue->input_pkt_queue.lock,
-+			    flags);
- 			break;
- 		}
--		local_irq_enable();
-+		spin_unlock_irqrestore(&queue->input_pkt_queue.lock, flags);
+Life's Little Instruction Book #337
 
--		netif_receive_skb(skb);
-+		__netif_receive_skb(skb);
- 	} while (++work < quota && jiffies =3D=3D start_time);
+	"Reread your favorite book."
 
- 	return work;
-
-Not sure you still want the local_irq_disable() before=20
-spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);  ?
-
+Joel Becker
+Principal Software Developer
+Oracle
+E-mail: joel.becker@oracle.com
+Phone: (650) 506-8127
