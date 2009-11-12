@@ -1,85 +1,125 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-2.6] Revert "net: Support inclusion of
- <linux/socket.h> before <sys/socket.h>"
-Date: Thu, 12 Nov 2009 03:38:55 +0000
-Message-ID: <1257997135.2237.100.camel@localhost>
-References: <1257991205.2237.73.camel@localhost>
-	 <20091111.185124.22668587.davem@davemloft.net>
-	 <1257995115.2237.90.camel@localhost>
-	 <20091111.190924.27363037.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] igmp: Use next_net_device_rcu()
+Date: Thu, 12 Nov 2009 04:48:52 +0100
+Message-ID: <4AFB85A4.1050408@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-LyYnO2/B2as6CvexidiW"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	538372@bugs.debian.org
-To: Ulrich Drepper <drepper@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40538 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752154AbZKLDi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 22:38:56 -0500
-In-Reply-To: <20091111.190924.27363037.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57913 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751812AbZKLDsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 22:48:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We need to use next_det_device_rcu() in RCU protected section.
 
---=-LyYnO2/B2as6CvexidiW
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+We also can avoid in_dev_get()/in_dev_put() overhead (code size mainly)
+in rcu_read_lock() sections.
 
-On Wed, 2009-11-11 at 19:09 -0800, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Thu, 12 Nov 2009 03:05:15 +0000
->=20
-> > <linux/netlink.h> will not compile for userland, because
-> > <linux/socket.h> is no longer defining sa_family_t.  For userland, this
-> > should be defined by <sys/socket.h>.
->=20
-> Still, you still essentially have two choices:
->=20
-> 1) Tell userland, sorry you need to include sys/socket.h before
->    other "socket stuff" and that means linux/netlink.h in
->    particular
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/igmp.c |   27 +++++++++++----------------
+ 1 files changed, 11 insertions(+), 16 deletions(-)
 
-Which is just nasty; headers should include everything they need.
-
-> 2) Put a !__KERNEL__ sys/socket.h include in there, but that's
->    asking for trouble.
-
-Indeed.
-
-Including <bits/sockaddr.h> would get us exactly what we need, but
-that's not meant to be included directly.
-
-Ulrich, can you make any suggestions as to how we can resolve this?
-
-Ben.
-
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-LyYnO2/B2as6CvexidiW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUASvuDRee/yOyVhhEJAQIsDA//bhhecTM+MRCMw9fuQVcZbiYpF/fLR/Cy
-086azN1z2py/CeP9jBDrXUYLuPpqcftWcwVGr/KXU7vGXPq23dl0AFhV6RwxrPIv
-knt5Hqm3UwkQW2Mr6ltsDpKzqaZ2WViIYfml0NGq7WlqD3Y9brdj7jrcIDqaLyu7
-hqji0vaFnmkKCfZRFALg6TqMmyZYIdkx86GiajeBFnw4xOSE9GiSvCRdT8PL2lzR
-Xv65zLC0pmkOz8Q1zdmXjkIAChJXoxozGNqBG3BPfnQqeR9Rm2DkNQeUZmyHI4xX
-vg6eXVFZSxbj1Bj0+PryvKScRcVFGzTONAUk6E69rdK6gxR47F8EY8jl7S/NN019
-8/aRYIKsMSqXsavjqEx2Irz8YU0od8ipTm0AdyCxY8FMR2SMgk3dDBjH6BIZgc6G
-6yeBlgFDHHeR/wOfSLnvqpXcmZl9znbXgAG+n8gdIsQU87FBYeUi4dLTZkAHXHOC
-HAoCHmi8sXk3EPVKcCkB3+rGXJtYvWWTiBEMEqygw4+SGbPVwAdfdyEBzBSzMAlw
-sh4sq+TERE+GrJS1lJIK1+4WI9ygZ9KMpZ9rPs2IO1okJlnQPRYgu4Ialkx01zxV
-mEPcTekqwEdF/XfzBQ81HFFuQzX3gKZzlmt583VdsSdviWSp5MPH+ufHAJ67kQAv
-ueHRds1vZ5A=
-=ODWE
------END PGP SIGNATURE-----
-
---=-LyYnO2/B2as6CvexidiW--
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index bd24f65..6110c6d 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2313,7 +2313,8 @@ static inline struct ip_mc_list *igmp_mc_get_first(struct seq_file *seq)
+ 	state->in_dev = NULL;
+ 	for_each_netdev_rcu(net, state->dev) {
+ 		struct in_device *in_dev;
+-		in_dev = in_dev_get(state->dev);
++
++		in_dev = __in_dev_get_rcu(state->dev);
+ 		if (!in_dev)
+ 			continue;
+ 		read_lock(&in_dev->mc_list_lock);
+@@ -2323,7 +2324,6 @@ static inline struct ip_mc_list *igmp_mc_get_first(struct seq_file *seq)
+ 			break;
+ 		}
+ 		read_unlock(&in_dev->mc_list_lock);
+-		in_dev_put(in_dev);
+ 	}
+ 	return im;
+ }
+@@ -2333,16 +2333,15 @@ static struct ip_mc_list *igmp_mc_get_next(struct seq_file *seq, struct ip_mc_li
+ 	struct igmp_mc_iter_state *state = igmp_mc_seq_private(seq);
+ 	im = im->next;
+ 	while (!im) {
+-		if (likely(state->in_dev != NULL)) {
++		if (likely(state->in_dev != NULL))
+ 			read_unlock(&state->in_dev->mc_list_lock);
+-			in_dev_put(state->in_dev);
+-		}
+-		state->dev = next_net_device(state->dev);
++
++		state->dev = next_net_device_rcu(state->dev);
+ 		if (!state->dev) {
+ 			state->in_dev = NULL;
+ 			break;
+ 		}
+-		state->in_dev = in_dev_get(state->dev);
++		state->in_dev = __in_dev_get_rcu(state->dev);
+ 		if (!state->in_dev)
+ 			continue;
+ 		read_lock(&state->in_dev->mc_list_lock);
+@@ -2384,7 +2383,6 @@ static void igmp_mc_seq_stop(struct seq_file *seq, void *v)
+ 	struct igmp_mc_iter_state *state = igmp_mc_seq_private(seq);
+ 	if (likely(state->in_dev != NULL)) {
+ 		read_unlock(&state->in_dev->mc_list_lock);
+-		in_dev_put(state->in_dev);
+ 		state->in_dev = NULL;
+ 	}
+ 	state->dev = NULL;
+@@ -2464,7 +2462,7 @@ static inline struct ip_sf_list *igmp_mcf_get_first(struct seq_file *seq)
+ 	state->im = NULL;
+ 	for_each_netdev_rcu(net, state->dev) {
+ 		struct in_device *idev;
+-		idev = in_dev_get(state->dev);
++		idev = __in_dev_get_rcu(state->dev);
+ 		if (unlikely(idev == NULL))
+ 			continue;
+ 		read_lock(&idev->mc_list_lock);
+@@ -2480,7 +2478,6 @@ static inline struct ip_sf_list *igmp_mcf_get_first(struct seq_file *seq)
+ 			spin_unlock_bh(&im->lock);
+ 		}
+ 		read_unlock(&idev->mc_list_lock);
+-		in_dev_put(idev);
+ 	}
+ 	return psf;
+ }
+@@ -2494,16 +2491,15 @@ static struct ip_sf_list *igmp_mcf_get_next(struct seq_file *seq, struct ip_sf_l
+ 		spin_unlock_bh(&state->im->lock);
+ 		state->im = state->im->next;
+ 		while (!state->im) {
+-			if (likely(state->idev != NULL)) {
++			if (likely(state->idev != NULL))
+ 				read_unlock(&state->idev->mc_list_lock);
+-				in_dev_put(state->idev);
+-			}
+-			state->dev = next_net_device(state->dev);
++
++			state->dev = next_net_device_rcu(state->dev);
+ 			if (!state->dev) {
+ 				state->idev = NULL;
+ 				goto out;
+ 			}
+-			state->idev = in_dev_get(state->dev);
++			state->idev = __in_dev_get_rcu(state->dev);
+ 			if (!state->idev)
+ 				continue;
+ 			read_lock(&state->idev->mc_list_lock);
+@@ -2555,7 +2551,6 @@ static void igmp_mcf_seq_stop(struct seq_file *seq, void *v)
+ 	}
+ 	if (likely(state->idev != NULL)) {
+ 		read_unlock(&state->idev->mc_list_lock);
+-		in_dev_put(state->idev);
+ 		state->idev = NULL;
+ 	}
+ 	state->dev = NULL;
