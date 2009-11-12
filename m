@@ -1,63 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Thu, 12 Nov 2009 13:48:54 +0100
-Message-ID: <4AFC0436.9090906@gmail.com>
-References: <4AFA8911.7050204@gmail.com> <4AFBD911.6000900@gmail.com>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: [PATCH] ppp: fix BUG on non-linear SKB (multilink receive)
+Date: Thu, 12 Nov 2009 13:09:57 +0000 (GMT)
+Message-ID: <Pine.LNX.4.58.0911121144380.25398@benxen>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39329 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbZKLMs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 07:48:57 -0500
-In-Reply-To: <4AFBD911.6000900@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, paulus@samba.org, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changli Gao a =A8=A6crit :
-> ifb: add multi-queue support
->=20
-> Add multi-queue support, and one kernel thread is created for per que=
-ue.
-> It can used to emulate multi-queue NIC in software, and distribute wo=
-rk
-> among CPUs.
-> gentux linux # modprobe ifb numtxqs=3D2
-> gentux linux # ifconfig ifb0 up
-> gentux linux # pgrep ifb0
-> 18508
-> 18509
-> gentux linux # taskset -p 1 18508
-> pid 18508's current affinity mask: 3
-> pid 18508's new affinity mask: 1
-> gentux linux # taskset -p 2 18509
-> pid 18509's current affinity mask: 3
-> pid 18509's new affinity mask: 2
-> gentux linux # tc qdisc add dev br0 ingress
-> gentux linux # tc filter add dev br0 parent ffff: protocol ip basic
-> action mirred egress redirect dev ifb0
->=20
-> This patch also introduces a ip link option "numtxqs" for specifying =
-the
-> number of the TX queues. so you can add a new ifb with the command:
->=20
-> ip link add numtxqs 4 type ifb
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
+PPP does not correctly call pskb_may_pull() on all necessary receive paths
+before reading the PPP protocol, thus causing PPP to report seemingly
+random 'unsupported protocols' and eventually trigger BUG_ON(skb->len <
+skb->data_len) in skb_pull_rcsum() when receiving multilink protocol in
+non-linear skbs.
 
-I believe this patch is fine, but maybe Jarek concern about workqueue=20
-vs tasklet should be addressed...
+ppp_receive_nonmp_frame() does not call pskb_may_pull() before reading the
+protocol number.  For the non-mp receive path this is not a problem, as
+this check is done in ppp_receive_frame().  For the mp receive path,
+ppp_mp_reconstruct() usually copies the data into a new linear skb.
+However, in the case where the frame is made up of a single mp fragment,
+the mp header is pulled and the existing skb used.  This skb was then
+passed to ppp_receive_nonmp_frame() without checking if the encapsulated
+protocol header can safely be read.
 
-We could use the previous handling in case numtxqs=3D=3D1 , ie use a ta=
-sklet
-instead of a work queue ?
+Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
+---
+This a long standing bug we have observed with PPP over L2TP received on
+an e1000e interface, although it may arise with other PPP encapsulations
+or devices.
 
+diff -uprN linux-2.6.31.6/drivers/net/ppp_generic.c linux-2.6.31.6-ppp-non-linear-skb/drivers/net/ppp_generic.c
+--- linux-2.6.31.6/drivers/net/ppp_generic.c	2009-11-10 00:32:31.000000000 +0000
++++ linux-2.6.31.6-ppp-non-linear-skb/drivers/net/ppp_generic.c	2009-11-12 11:58:40.000000000 +0000
+@@ -1944,7 +1944,13 @@ ppp_receive_mp_frame(struct ppp *ppp, st
 
-Sorry for this late idea...
+ 	/* Pull completed packets off the queue and receive them. */
+ 	while ((skb = ppp_mp_reconstruct(ppp)))
+-		ppp_receive_nonmp_frame(ppp, skb);
++	  	if (pskb_may_pull(skb, 2))
++			ppp_receive_nonmp_frame(ppp, skb);
++		else {
++			++ppp->dev->stats.rx_length_errors;
++			kfree_skb(skb);
++			ppp_receive_error(ppp);
++		}
+
+ 	return;
+
