@@ -1,93 +1,41 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-2.6] Revert "net: Support inclusion of <linux/socket.h>
- before <sys/socket.h>"
-Date: Thu, 12 Nov 2009 02:00:05 +0000
-Message-ID: <1257991205.2237.73.camel@localhost>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
+Date: Thu, 12 Nov 2009 12:48:37 +1030
+Message-ID: <200911121248.38365.rusty@rustcorp.com.au>
+References: <cover.1257786516.git.mst@redhat.com> <200911101349.09783.rusty@rustcorp.com.au> <20091110113637.GB6989@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, 538372@bugs.debian.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53847 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759518AbZKLCAC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Nov 2009 21:00:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ s.hetze@linux-ag.com,
+ Daniel Walker <dwalker@fifo99.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20091110113637.GB6989@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This reverts commit 9c501935a3cdcf6b1d35aaee3aa11c7a7051a305.  That
-commit caused <linux/rtnetlink.h> to require that <sys/socket.h> is
-included first, breaking autoconf tests for <linux/rtnetlink.h> and
-presumably some real programs too.
+On Tue, 10 Nov 2009 10:06:37 pm Michael S. Tsirkin wrote:
+> If tun is a module, vhost must be a module, too.
+> If tun is built-in or disabled, vhost can be built-in.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-Please apply this to net-2.6.
+I really like the brainbending :)  Keeps readers on their toes...
 
-I'm not sure what the proper solution is; maybe make <linux/socket.h>
-include <sys/socket.h> if __KERNEL__ is not defined?
+Applied,
+Rusty.
 
-Ben.
-
- include/linux/socket.h |   21 ++++++++++++++++++---
- 1 files changed, 18 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 3273a0c..3b461df 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -16,7 +16,7 @@ struct __kernel_sockaddr_storage {
- 				/* _SS_MAXSIZE value minus size of ss_family */
- } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
- 
--#ifdef __KERNEL__
-+#if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
- 
- #include <asm/socket.h>			/* arch-dependent defines	*/
- #include <linux/sockios.h>		/* the SIOCxxx I/O controls	*/
-@@ -101,6 +101,21 @@ struct cmsghdr {
- 			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
- 
- /*
-+ *	This mess will go away with glibc
-+ */
-+ 
-+#ifdef __KERNEL__
-+#define __KINLINE static inline
-+#elif  defined(__GNUC__) 
-+#define __KINLINE static __inline__
-+#elif defined(__cplusplus)
-+#define __KINLINE static inline
-+#else
-+#define __KINLINE static
-+#endif
-+
-+
-+/*
-  *	Get the next cmsg header
-  *
-  *	PLEASE, do not touch this function. If you think, that it is
-@@ -113,7 +128,7 @@ struct cmsghdr {
-  *	ancillary object DATA.				--ANK (980731)
-  */
-  
--static inline struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size,
-+__KINLINE struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size,
- 					       struct cmsghdr *__cmsg)
- {
- 	struct cmsghdr * __ptr;
-@@ -125,7 +140,7 @@ static inline struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size
- 	return __ptr;
- }
- 
--static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr *__cmsg)
-+__KINLINE struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr *__cmsg)
- {
- 	return __cmsg_nxthdr(__msg->msg_control, __msg->msg_controllen, __cmsg);
- }
--- 
-1.6.5.2
-
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
