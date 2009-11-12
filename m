@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [next-next-2.6] net: configurable device name hash
-Date: Wed, 11 Nov 2009 18:36:26 -0800 (PST)
-Message-ID: <20091111.183626.202530131.davem@davemloft.net>
-References: <20091111.124235.243348591.davem@davemloft.net>
-	<20091111133342.1011e16a@nehalam>
-	<200911112347.41425.opurdila@ixiacom.com>
+Subject: Re: [PATCH 2/2] rps: changes to bnx2x to get device hash
+Date: Wed, 11 Nov 2009 18:42:09 -0800 (PST)
+Message-ID: <20091111.184209.197449129.davem@davemloft.net>
+References: <65634d660911102253lbfc0927i4e4c0eba6d7d765d@mail.gmail.com>
+	<20091111232103.GA1217@xw6200.broadcom.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: opurdila@ixiacom.com
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52893
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58872
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759975AbZKLCgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 21:36:00 -0500
-In-Reply-To: <200911112347.41425.opurdila@ixiacom.com>
+	by vger.kernel.org with ESMTP id S1759938AbZKLClm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 21:41:42 -0500
+In-Reply-To: <20091111232103.GA1217@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Wed, 11 Nov 2009 23:47:41 +0200
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Wed, 11 Nov 2009 15:21:03 -0800
 
-> We could use a similar function that will work in the per namespace
-> initialization context, but this might upset net namespace folks
-> since we will get a large hash for every namespace.
+> Is a random hash key really better than arbitrary static values?  
+> Setting the hash key to random values means, from chip reset to chip
+> reset, you could get different performance results.  Unless we
+> we understood how the key affects performance, I would think that
+> reproducable performance numbers would be more desirable, no?
 
-Use kzalloc(), that's sufficient for a 64K or so hash table which is
-way more than you ever will need.
+Security.
 
-Use the GFP_* flags that will silently (ie. without a log message)
-fail, and divide by two until you successfully allocate the table if
-you're worried about memory fragmentation at allocation time.
-
-This is so straightforward, I can't believe we're talking so much
-about how to implement this, it's a 15 minute hack :-)
+If someone knows the key and the hash function, they can purposely
+pick address and port combinations that always hash to the same queue,
+decresing your horsepower to handle traffic by orders of magnitude.
