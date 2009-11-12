@@ -1,41 +1,32 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
-Date: Thu, 12 Nov 2009 12:48:37 +1030
-Message-ID: <200911121248.38365.rusty@rustcorp.com.au>
-References: <cover.1257786516.git.mst@redhat.com> <200911101349.09783.rusty@rustcorp.com.au> <20091110113637.GB6989@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] rps: core implementation
+Date: Wed, 11 Nov 2009 18:32:00 -0800 (PST)
+Message-ID: <20091111.183200.06410858.davem@davemloft.net>
+References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+	<4AFA73DA.30308@gmail.com>
+	<87d43oka86.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- s.hetze@linux-ag.com,
- Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20091110113637.GB6989@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52253
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759948AbZKLCbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Nov 2009 21:31:33 -0500
+In-Reply-To: <87d43oka86.fsf@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Nov 2009 10:06:37 pm Michael S. Tsirkin wrote:
-> If tun is a module, vhost must be a module, too.
-> If tun is built-in or disabled, vhost can be built-in.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Wed, 11 Nov 2009 22:44:25 +0100
 
-I really like the brainbending :)  Keeps readers on their toes...
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>>
+>> Problem of possible cpus is the number can be very large on some arches,
+>> but yet few cpus online....
+> 
+> Actually that should be rare. Especially not very large compared to online.
 
-Applied,
-Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The ratio can be as high as 256/1 on Niagara boxes.
