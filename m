@@ -1,64 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v2] Documentation: rw_lock lessons learned
-Date: Thu, 12 Nov 2009 07:40:30 -0800 (PST)
-Message-ID: <alpine.LFD.2.01.0911120726430.31845@localhost.localdomain>
-References: <4AF9C540.5090403@gmail.com> <20091110180646.2e5859a8@nehalam> <4AFAEF78.4080807@gmail.com> <20091111093724.4f40a48d@nehalam> <4AFBEC44.9030409@gmail.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCH 0/4] vbus: venet macvlan support
+Date: Thu, 12 Nov 2009 10:44:37 -0500
+Message-ID: <4AFC2D65.9040903@gmail.com>
+References: <20091110222632.24100.14884.stgit@mimic.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig75BEB90EED3DC6DAD9C707F9"
+Cc: alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, kaber@trash.net, arnd@arndb.de,
+	bridge@lists.linux-foundation.org, evb@yahoogroups.com,
+	netdev@vger.kernel.org
+To: Patrick Mullaney <pmullaney@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52752 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753145AbZKLPki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 10:40:38 -0500
-In-Reply-To: <4AFBEC44.9030409@gmail.com>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:44282 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753228AbZKLPoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 10:44:38 -0500
+In-Reply-To: <20091110222632.24100.14884.stgit@mimic.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig75BEB90EED3DC6DAD9C707F9
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Patrick Mullaney wrote:
+> (Applies to alacrityvm.git/master:34534534)
+>=20
+> This patchset implements a vbus venet device with a
+> macvlan backend.
+
+Thanks Pat, applied.
+
+If possible, please submit a patch for the userspace side "-net
+venet-macvlan[,macaddr][,lower-devname]" feature ASAP and I will merge
+that as well.
+
+-Greg
 
 
-On Thu, 12 Nov 2009, William Allen Simpson wrote:
->
-> In recent weeks, two different network projects erroneously
-> strayed down the rw_lock path.  Update the Documentation
-> based upon comments by Eric Dumazet and Paul E. McKenney in
-> those threads.
+--------------enig75BEB90EED3DC6DAD9C707F9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-This still retains some pretty old and bogus language. For example, that 
-file still talks about spinlocks being "faster than a global interrupt 
-lock", which is kind of amusing - because we've not done that global 
-interrupt lock thing for the last ten years or so. 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-So I certainly agree with discouraging rwlocks - I don't think we've ever 
-really found a situation where they are useful except for some really 
-special cases - but I suspect the thing needs a bigger overhaul.
+iEYEARECAAYFAkr8LWUACgkQP5K2CMvXmqGRaQCgiC071fN0Uw8BceZbqTkXPYTk
+KX4Anjl1Gbm/ME8ATSrlvBEmr0FckhFM
+=DijE
+-----END PGP SIGNATURE-----
 
-I also suspect somebody should actually take a look at our _users_ of 
-rwlocks. We have a few fairly central ones like 'tasklist_lock', and it 
-may be an example of a _good_ case of rwlocks, but for a very non-obvious 
-reason.
-
-In the case of 'tasklist_lock', the magic subtle reason that makes it a 
-good idea is that that lock is commonly taken for reading in _interrupts_. 
-And the way rwlocks are defined, that means that you can take it for 
-reading without doing the *_irq() or *_irqsave() versions, because rwlocks 
-are not fair, so an active reader will never block a new reader even if 
-there is a blocked writer pending.
-
-So for tasklist_lock, raw rwlocks are still slower than raw spinlocks, but 
-because of the rwlock semantics the common case doesn't need to disable 
-and enable interrupts, so for the common case the comparison is not "raw 
-rwlock vs raw spinlock", but "raw rwlock vs interrupt-disabling spinlock", 
-and then it turns out rwlocks tend to win again.
-
-(Of course, lock_write() needs to disable interrupts for tasklist_lock, 
-but that tends to be the uncommon case).
-
-Ho humm..
-
-		Linus
+--------------enig75BEB90EED3DC6DAD9C707F9--
