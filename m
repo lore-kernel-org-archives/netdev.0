@@ -1,51 +1,55 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: Re: [PATCH v2] Documentation: rw_lock lessons learned
-Date: Thu, 12 Nov 2009 14:13:03 -0500
-Message-ID: <4AFC5E3F.7070609@earthlink.net>
-References: <4AF9C540.5090403@gmail.com>	<20091110180646.2e5859a8@nehalam>	<4AFAEF78.4080807@gmail.com> <20091111093724.4f40a48d@nehalam> <4AFBEC44.9030409@gmail.com>
-Reply-To: sclark46@earthlink.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6] ipv4: speedup inet_dump_ifaddr()
+Date: Thu, 12 Nov 2009 11:12:18 -0800
+Message-ID: <20091112111218.0a561166@nehalam>
+References: <4AFC1798.1060501@gmail.com>
+	<20091112091221.3d523253@nehalam>
+	<4AFC4979.7030007@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753555AbZKLTNJ@vger.kernel.org>
-In-Reply-To: <4AFBEC44.9030409@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:39280 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753059AbZKLTMd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 14:12:33 -0500
+In-Reply-To: <4AFC4979.7030007@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson wrote:
-> In recent weeks, two different network projects erroneously
-> strayed down the rw_lock path.  Update the Documentation
-> based upon comments by Eric Dumazet and Paul E. McKenney in
-> those threads.
-> 
-> Merged with editorial changes by Stephen Hemminger.
-> 
-> Signed-off-by: William.Allen.Simpson@gmail.com
-> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> ---
->  Documentation/spinlocks.txt |  186 
-> ++++++++++++++++++++-----------------------
->  1 files changed, 86 insertions(+), 100 deletions(-)
-> 
+On Thu, 12 Nov 2009 18:44:25 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-How up to date is this doc?
+> Stephen Hemminger a =C3=A9crit :
+> > On Thu, 12 Nov 2009 15:11:36 +0100
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >=20
+> >> When handling large number of netdevices, inet_dump_ifaddr()
+> >> is very slow because it has O(N^2) complexity.
+> >>
+> >> Instead of scanning one single list, we can use the NETDEV_HASHENT=
+RIES
+> >> sub lists of the dev_index hash table, and RCU lookups.
+> >>
+> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >=20
+> > You might be able to make RCU critical section smaller by moving
+> > it into loop.
+> >=20
+>=20
+> Indeed. But we dump at most one skb (<=3D 8192 bytes ?), so rcu_read_=
+lock
+> holding time is small, unless we meet many netdevices without
+> addresses. I wonder if its really common...
+>=20
+> Thanks
 
-http://www.kernel.org/pub/linux/kernel/people/rusty/kernel-locking/index.html
+One case where that might happen is:
+  modprobe dummy numdummies=3D10000
 
-Should it be in the Documentation directory?
+But dummy device should really be added with netlink, not at boot time.
 
-
--- 
-
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+--=20
