@@ -1,109 +1,49 @@
-From: Dave Airlie <airlied@gmail.com>
-Subject: Re: [patch] Fix: 'return -ENOMEM' instead of 'return ENOMEM'
-Date: Thu, 12 Nov 2009 18:43:26 +1000
-Message-ID: <21d7e9970911120043v42c57acyecf07b4bc002ae12@mail.gmail.com>
-References: <4AFB2C0B.50605@gmail.com>
-	<20091111134730.a0da9e38.akpm@linux-foundation.org>
-	<20091112081043.GA25345@elte.hu>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [RACE] net: in process_backlog
+Date: Thu, 12 Nov 2009 16:50:53 +0800
+Message-ID: <412e6f7f0911120050w740377c7j2cdf24ef9fd2ca59@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	"Stephen M. Cameron" <scameron@beardog.cca.cpqcorp.net>,
-	Mike Christie <michaelc@cs.wisc.edu>, David Airlie <airlied@linux.ie>,
-	Jens Axboe <jens.axboe@oracle.com>, Evgeniy Polyakov <zbr@ioremap.net>,
-	Mike Miller <mike.miller@hp.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Joel Becker <joel.becker@oracle.com>, Jeff Liu <jeff.liu@oracle.com>,
-	Andy Whitcroft <apw@shadowen.org>, Dave Airlie <airlied@redhat.com>,
-	Hannes Eder <hannes@hanneseder.net>, dri-devel@lists.sourceforge.net,
-	Alexey Dobriyan <adobriyan@gmail.com>, iss_storagedev@hp.com,
-	Mark Fasheh <mfasheh@suse.com>,
-	Keith Packard <keithp@keithp.com>, rostedt@goodmis.org,
-	Karen Xie <kxie@chelsio.com>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	"James E.J. Bottomley" <James.Bottomley@suse.de>,
-	Hannes Reinecke <hare@suse.de>, Andreas Eversberg <andreas@eversberg.eu>,
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <dri-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20091112081043.GA25345@elte.hu>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=dri-devel>
-List-Post: <mailto:dri-devel@lists.sourceforge.net>
-List-Help: <mailto:dri-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:35878 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683AbZKLIus convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 03:50:48 -0500
+Received: by pwi3 with SMTP id 3so1223769pwi.21
+        for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 00:50:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 12, 2009 at 6:10 PM, Ingo Molnar <mingo@elte.hu> wrote:
->
-> * Andrew Morton <akpm@linux-foundation.org> wrote:
->
->> > @@ -3730,7 +3730,7 @@ tracing_stats_read(struct file *filp, char __use=
-r *ubuf,
->> >
->> > =A0 =A0 s =3D kmalloc(sizeof(*s), GFP_KERNEL);
->> > =A0 =A0 if (!s)
->> > - =A0 =A0 =A0 =A0 =A0 return ENOMEM;
->> > + =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
->> >
->> > =A0 =A0 trace_seq_init(s);
->> >
->>
->> lol, there we go again.
->>
->> Andy, can we have a checkpatch rule please?
->
-> Note, that will upset creative uses of error codes i guess, such as
-> fs/xfs/.
->
-> But yeah, +1 from me too.
->
-> Ob'post'mortem - looked for similar patterns in the kernel and there's
-> quite a few bugs there:
->
-> =A0include/net/inet_hashtables.h: =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0retu=
-rn ENOMEM; =A0 =A0 =A0 =A0 # bug
-> =A0drivers/scsi/aic7xxx/aic7xxx_osm.c: =A0 =A0 =A0 =A0 =A0 =A0 return ENO=
-MEM; =A0 =A0 =A0 =A0 # works but weird
-> =A0drivers/scsi/cxgb3i/cxgb3i_offload.c: =A0 =A0 =A0 =A0 =A0 return ENOME=
-M; =A0 =A0 =A0 =A0 # works but weird
-> =A0fs/ocfs2/dlm/dlmrecovery.c: =A0 =A0 =A0 =A0 =A0 =A0return EAGAIN; =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0# bug
-> =A0drivers/block/cciss_scsi.c: =A0 =A0 =A0 =A0 =A0 =A0 return ENXIO; =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0# works but weird
-> =A0drivers/gpu/drm/radeon/radeon_irq.c: =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0return EINVAL; # bug
-> =A0drivers/gpu/drm/radeon/radeon_irq.c: =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0return EINVAL; # bug
-> =A0drivers/isdn/hardware/mISDN/hfcmulti.c: =A0 =A0 =A0 =A0 return EINVAL;=
- =A0 =A0 =A0 =A0 # bug
->
-> 5 out of 8 places look buggy - i.e. more than 60% - a checkpatch warning
-> would avoid real bugs here. (even ignoring the cleanliness effects of
-> using proper error propagation)
->
-> Cc:-ed affected maintainers. The rightmost column are my observations.
-> Below is the patch fixing these.
->
-> =A0 =A0 =A0 =A0Ingo
->
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Dear Stephen:
 
-Looks good to me for radeon bits.
+I don't think this change
+http://git.kernel.org/?p=3Dlinux/kernel/git/next/linux-next.git;a=3Dcom=
+mitdiff;h=3D6e583ce5242f32e925dcb198f7123256d0798370
+is correct.
 
-Acked-by: Dave Airlie <airlied@redhat.com>
+                        local_irq_enable();
+                        break;
+                }
+-
+                local_irq_enable();
 
-Dave.
+-               dev =3D skb->dev;
+-
+on MP system, flush_backlog() will be called here, and after that
+skb->dev will be invalid, if we access it, sth. unexpected may
+happens.
 
----------------------------------------------------------------------------=
----
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day =
+                netif_receive_skb(skb);
+-
+-               dev_put(dev);
+        } while (++work < quota && jiffies =3D=3D start_time);
 
-trial. Simplify your report design, integration and deployment - and focus =
-on =
+        return work;
 
-what you do best, core application coding. Discover what's new with
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
---
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
