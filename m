@@ -1,26 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Thu, 12 Nov 2009 16:11:35 +0100
-Message-ID: <4AFC25A7.10301@trash.net>
-References: <4AFA8911.7050204@gmail.com> <4AFBD911.6000900@gmail.com> <412e6f7f0911120148r48fa553bt610e013d96522a3d@mail.gmail.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: [PATCH] can: add the missing netlink get_xstats_size callback
+Date: Thu, 12 Nov 2009 16:34:05 +0100
+Message-ID: <4AFC2AED.1090607@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59373 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092AbZKLPIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 10:08:06 -0500
-In-Reply-To: <412e6f7f0911120148r48fa553bt610e013d96522a3d@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Changli Gao wrote:
-> The corresponding iprout2 patch is attached.
+This patch adds the missing "get_xstats_size" callback for the
+netlink interface, which is required if "fill_xstats" is used,
+as pointed out by Patrick McHardy.
 
-Printing the value during dumps is missing from this patch.
+Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+---
+ drivers/net/can/dev.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+Index: net-next-2.6/drivers/net/can/dev.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/dev.c
++++ net-next-2.6/drivers/net/can/dev.c
+@@ -677,6 +677,11 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
++static size_t can_get_xstats_size(const struct net_device *dev)
++{
++	return sizeof(struct can_device_stats);
++}
++
+ static int can_fill_xstats(struct sk_buff *skb, const struct net_device *dev)
+ {
+ 	struct can_priv *priv = netdev_priv(dev);
+@@ -705,6 +710,7 @@ static struct rtnl_link_ops can_link_ops
+ 	.changelink	= can_changelink,
+ 	.get_size	= can_get_size,
+ 	.fill_info	= can_fill_info,
++	.get_xstats_size = can_get_xstats_size,
+ 	.fill_xstats	= can_fill_xstats,
+ };
