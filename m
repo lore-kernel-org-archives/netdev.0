@@ -1,68 +1,93 @@
-From: andrew hendry <andrew.hendry@gmail.com>
-Subject: [PATCH] X25: Enable setting of cause and diagnostic fields
-Date: Thu, 12 Nov 2009 11:13:27 +1100
-Message-ID: <d45a3acc0911111613v38fa9df4jed21876ce6309097@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6] Revert "net: Support inclusion of <linux/socket.h>
+ before <sys/socket.h>"
+Date: Thu, 12 Nov 2009 02:00:05 +0000
+Message-ID: <1257991205.2237.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-x25@vger.kernel.org
-Return-path: <linux-x25-owner@vger.kernel.org>
-Sender: linux-x25-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>, 538372@bugs.debian.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53847 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759518AbZKLCAC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Nov 2009 21:00:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds SIOCX25SCAUSEDIAG, allowing X.25 programs to set the cause and
-diagnostic fields.
-Normally used to indicate status upon closing connections.
+This reverts commit 9c501935a3cdcf6b1d35aaee3aa11c7a7051a305.  That
+commit caused <linux/rtnetlink.h> to require that <sys/socket.h> is
+included first, breaking autoconf tests for <linux/rtnetlink.h> and
+presumably some real programs too.
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Please apply this to net-2.6.
 
+I'm not sure what the proper solution is; maybe make <linux/socket.h>
+include <sys/socket.h> if __KERNEL__ is not defined?
 
-diff -uprN -X a/Documentation/dontdiff a/include/linux/x25.h
-b/include/linux/x25.h
---- a/include/linux/x25.h	2009-11-11 14:03:26.659663301 +1100
-+++ b/include/linux/x25.h	2009-11-11 16:05:06.625958557 +1100
-@@ -25,6 +25,7 @@
- #define SIOCX25SENDCALLACCPT    (SIOCPROTOPRIVATE + 9)
- #define SIOCX25GDTEFACILITIES (SIOCPROTOPRIVATE + 10)
- #define SIOCX25SDTEFACILITIES (SIOCPROTOPRIVATE + 11)
-+#define SIOCX25SCAUSEDIAG     (SIOCPROTOPRIVATE + 12)
+Ben.
 
+ include/linux/socket.h |   21 ++++++++++++++++++---
+ 1 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 3273a0c..3b461df 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -16,7 +16,7 @@ struct __kernel_sockaddr_storage {
+ 				/* _SS_MAXSIZE value minus size of ss_family */
+ } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
+ 
+-#ifdef __KERNEL__
++#if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
+ 
+ #include <asm/socket.h>			/* arch-dependent defines	*/
+ #include <linux/sockios.h>		/* the SIOCxxx I/O controls	*/
+@@ -101,6 +101,21 @@ struct cmsghdr {
+ 			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
+ 
  /*
-  *	Values for {get,set}sockopt.
-diff -uprN -X a/Documentation/dontdiff a/net/x25/af_x25.c b/net/x25/af_x25.c
---- a/net/x25/af_x25.c	2009-11-11 14:02:44.027061001 +1100
-+++ b/net/x25/af_x25.c	2009-11-11 16:22:51.374077963 +1100
-@@ -1430,6 +1430,17 @@ static int x25_ioctl(struct socket *sock
- 			break;
- 		}
++ *	This mess will go away with glibc
++ */
++ 
++#ifdef __KERNEL__
++#define __KINLINE static inline
++#elif  defined(__GNUC__) 
++#define __KINLINE static __inline__
++#elif defined(__cplusplus)
++#define __KINLINE static inline
++#else
++#define __KINLINE static
++#endif
++
++
++/*
+  *	Get the next cmsg header
+  *
+  *	PLEASE, do not touch this function. If you think, that it is
+@@ -113,7 +128,7 @@ struct cmsghdr {
+  *	ancillary object DATA.				--ANK (980731)
+  */
+  
+-static inline struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size,
++__KINLINE struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size,
+ 					       struct cmsghdr *__cmsg)
+ {
+ 	struct cmsghdr * __ptr;
+@@ -125,7 +140,7 @@ static inline struct cmsghdr * __cmsg_nxthdr(void *__ctl, __kernel_size_t __size
+ 	return __ptr;
+ }
+ 
+-static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr *__cmsg)
++__KINLINE struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr *__cmsg)
+ {
+ 	return __cmsg_nxthdr(__msg->msg_control, __msg->msg_controllen, __cmsg);
+ }
+-- 
+1.6.5.2
 
-+		case SIOCX25SCAUSEDIAG: {
-+			struct x25_causediag causediag;
-+			rc = -EFAULT;
-+			if (copy_from_user(&causediag, argp, sizeof(causediag)))
-+				break;
-+			x25->causediag = causediag;
-+			rc = 0;
-+			break;
-+
-+		}
-+
- 		case SIOCX25SCUDMATCHLEN: {
- 			struct x25_subaddr sub_addr;
- 			rc = -EINVAL;
-diff -uprN -X a/Documentation/dontdiff a/net/x25/x25_subr.c b/net/x25/x25_subr.c
---- a/net/x25/x25_subr.c	2009-11-11 14:02:44.026061128 +1100
-+++ b/net/x25/x25_subr.c	2009-11-11 16:28:30.316150252 +1100
-@@ -225,6 +225,12 @@ void x25_write_internal(struct sock *sk,
- 			break;
 
- 		case X25_CLEAR_REQUEST:
-+			dptr    = skb_put(skb, 3);
-+			*dptr++ = frametype;
-+			*dptr++ = x25->causediag.cause;
-+			*dptr++ = x25->causediag.diagnostic;
-+			break;
-+
- 		case X25_RESET_REQUEST:
- 			dptr    = skb_put(skb, 3);
- 			*dptr++ = frametype;
