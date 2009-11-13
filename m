@@ -1,59 +1,60 @@
-From: Raimonds Cicans <ray@apollo.lv>
-Subject: r8169: Fix receive buffer length when MTU is between 1515 and 1536
- (Was: r8169: fix driver drop incoming packets >= 1515 ...)
-Date: Fri, 13 Nov 2009 22:52:19 +0200
-Message-ID: <4AFDC703.10902@apollo.lv>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Fri, 13 Nov 2009 22:16:40 +0100
+Message-ID: <20091113211640.GA2540@ami.dom.local>
+References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
+ <20091112113836.GA7963@ff.dom.local>
+ <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+ <4AFC5C58.9030207@gmail.com>
+ <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070504030607070600070206"
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Caleb Cushing <xenoterracide@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.apollo.lv ([80.232.168.211]:35483 "EHLO smtp1.apollo.lv"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932199AbZKMUwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 15:52:15 -0500
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:60140 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932236AbZKMVQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 16:16:43 -0500
+Content-Disposition: inline
+In-Reply-To: <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070504030607070600070206
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+On Fri, Nov 13, 2009 at 11:25:25AM -0500, Caleb Cushing wrote:
+> > So I assume it's your only network device on this box and according
+> > to these reports it's 192.168.1.3 with 192.168.1.1 as the gateway,
+> > and your only change is kernel on this 192.168.1.3 box, right?
+> 
+> yes, and semi obviously that router is my box (LinkSys wrt 54gl
+> openwrt kamikaze 8.09.1.
+> 
+> > Since the loss is seen on the first hop already, it seems it should be
+> > enough to query 192.168.1.1 only - did you try this? If so, does this
+> > happen from the beginning of the test or after many loops? Could you
+> > try to repeat this wireshark dump with more data than before (but just
+> > to be sure there are a few unanswered pings). If possible it would be
+> > nice to have wireshark or tcpdump data from 192.168.1.1 too, while
+> > pinged from 192.168.1.3. Please, send it gzipped to bugzilla only plus
+> > ifconfig eth0 before and after the test (and let us know here).
+> 
+> same bug? or new bug? I can see what I can do to get a tcpdump from
+> the router.  yes I tried that, I can tell within the first 10 pings. I
+> should say I don't notice it on every kernel boot, it's ~80% of
+> reboots (but that's pulled from my behind). but I haven't noticed it
+> on gfa31221 at all. it's reproducible in 31.6 too (arch just added
+> that).
 
+Might be the same bugzilla report, I guess. We need to establish if
+these pings reach 192.168.1.1, so a short test and tcpdump without any
+special options just to get a few lost cases as seen on both sides.
+(And ifconfigs before and after the test.)
 
---------------070504030607070600070206
-Content-Type: text/plain;
- name="r8169-mtu1536-v2.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="r8169-mtu1536-v2.patch"
+Btw, could you check with lsmod if usbserial module is loaded before
+this test? I'd like to verify this git bisection result. (If the
+module is loaded or you have CONFIG_USB_SERIAL=y instead of m, try to
+recompile the kernel with this option turned off, for this test.)
 
-SW4gcjgxNjkgZHJpdmVyIE1UVSBpcyB1c2VkIHRvIGNhbGN1bGF0ZSByZWNlaXZlIGJ1ZmZl
-ciBzaXplLgpSZWNlaXZlIGJ1ZmZlciBzaXplIGlzIHVzZWQgdG8gY29uZmlndXJlIGhhcmR3
-YXJlIGluY29taW5nIHBhY2tldCBmaWx0ZXIuCgpGb3IganVtYm8gZnJhbWVzOgpSZWNlaXZl
-IGJ1ZmZlciBzaXplID0gTWF4IGZyYW1lIHNpemUgPSBNVFUgKyAxNCAoZXRoZXJuZXQgaGVh
-ZGVyKSArIDQKKHZsYW4gaGVhZGVyKSArIDQgKGV0aGVybmV0IGNoZWNrc3VtKSA9IE1UVSAr
-IDIyCgpCdWc6CmRyaXZlciBmb3IgYWxsIE1UVSB1cCB0byAxNTM2IHVzZSByZWNlaXZlIGJ1
-ZmZlciBzaXplIDE1MzYKCkFzIHlvdSBjYW4gc2VlIGZyb20gZm9ybXVsYSwgdGhpcyBtZWFu
-IGFsbCBJUCBwYWNrZXRzID4gMTUzNiAtIDIyCihmb3IgdmxhbiB0YWdnZWQsIDE1MzYgLSAx
-OCBmb3Igbm90IHRhZ2dlZCkgYXJlIGRyb3BwZWQgYnkgaGFyZHdhcmUKZmlsdGVyLgoKRXhh
-bXBsZToKCmhvc3RfZ29vZD4gIGlmY29uZmlnIGV0aDAgbXR1IDE1MzYKaG9zdF9yODE2OT4g
-aWZjb25maWcgZXRoMCBtdHUgMTUzNgpob3N0X2dvb2Q+ICBwaW5nIGhvc3RfcjgxNjkKT2sK
-aG9zdF9nb29kPiAgcGluZyAtcyAxNTAwIGhvc3RfcjgxNjkKRmFpbApob3N0X2dvb2Q+ICBp
-ZmNvbmZpZyBldGgwIG10dSA3MDAwCmhvc3RfcjgxNjk+IGlmY29uZmlnIGV0aDAgbXR1IDcw
-MDAKaG9zdF9nb29kPiAgcGluZyAtcyAxNTAwIGhvc3RfcjgxNjkKT2sKCgpCb251czogZ290
-IHJpZCBvZiBtYWdpYyBudW1iZXIgOAoKU2lnbmVkLW9mZi1ieTogUmFpbW9uZHMgQ2ljYW5z
-IDxyYXlAYXBvbGxvLmx2PgoKLS0tCgotLS0gbGludXgtMi42LjMxL2RyaXZlcnMvbmV0L3I4
-MTY5LmMub3JpZwkyMDA5LTExLTA2IDIxOjUyOjEyLjcyMjMyNjYwMSArMDIwMAorKysgbGlu
-dXgtMi42LjMxL2RyaXZlcnMvbmV0L3I4MTY5LmMJMjAwOS0xMS0wNiAyMjowOToxNy4yNDIy
-MjQwMTQgKzAyMDAKQEAgLTIyMjksOSArMjIyOSw5IEBAIHN0YXRpYyB2b2lkIF9fZGV2ZXhp
-dCBydGw4MTY5X3JlbW92ZV9vbmUKIHN0YXRpYyB2b2lkIHJ0bDgxNjlfc2V0X3J4YnVmc2l6
-ZShzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCwKIAkJCQkgIHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXYpCiB7Ci0JdW5zaWduZWQgaW50IG10dSA9IGRldi0+bXR1OworCXVuc2lnbmVkIGlu
-dCBtYXhfZnJhbWUgPSBkZXYtPm10dSArIFZMQU5fRVRIX0hMRU4gKyBFVEhfRkNTX0xFTjsK
-IAotCXRwLT5yeF9idWZfc3ogPSAobXR1ID4gUlhfQlVGX1NJWkUpID8gbXR1ICsgRVRIX0hM
-RU4gKyA4IDogUlhfQlVGX1NJWkU7CisJdHAtPnJ4X2J1Zl9zeiA9IChtYXhfZnJhbWUgPiBS
-WF9CVUZfU0laRSkgPyBtYXhfZnJhbWUgOiBSWF9CVUZfU0laRTsKIH0KIAogc3RhdGljIGlu
-dCBydGw4MTY5X29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKmRldikK
---------------070504030607070600070206--
+Thanks,
+Jarek P.
