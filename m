@@ -1,64 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Fri, 13 Nov 2009 08:15:53 -0800
-Message-ID: <20091113081553.0568296c@s6510>
-References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com>
-	<20091113074508.GA6605@ff.dom.local>
-	<412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
-	<20091113091825.GA7449@ff.dom.local>
-	<412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Fri, 13 Nov 2009 11:25:25 -0500
+Message-ID: <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
+References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
+	 <20091112113836.GA7963@ff.dom.local>
+	 <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+	 <4AFC5C58.9030207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35969 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755729AbZKMQQP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 11:16:15 -0500
-In-Reply-To: <412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756383AbZKMQZa@vger.kernel.org>
+In-Reply-To: <4AFC5C58.9030207@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Nov 2009 17:38:56 +0800
-Changli Gao <xiaosuo@gmail.com> wrote:
+> So I assume it's your only network device on this box and according
+> to these reports it's 192.168.1.3 with 192.168.1.1 as the gateway,
+> and your only change is kernel on this 192.168.1.3 box, right?
 
-> On Fri, Nov 13, 2009 at 5:18 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > On Fri, Nov 13, 2009 at 04:54:50PM +0800, Changli Gao wrote:
-> >> On Fri, Nov 13, 2009 at 3:45 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> >>
-> >> I have done a simple test. I run a simple program on computer A, which
-> >> sends SYN packets with random source ports to Computer B's 80 port (No
-> >> socket listens on that port, so tcp reset packets will be sent) in
-> >> 90kpps. On computer B, I redirect the traffic to IFB. At the same
-> >> time, I ping from B to A to get the RTT between them. I can't see any
-> >> difference between the original IFB and my MQ version. They are both:
-> >>
-> >> CPU idle: 50%
-> >> Latency: 0.3-0.4ms, burst 2ms.
-> >>
-> >
-> > I'm mostly concerned with routers doing forwarding with 1Gb or 10Gb
-> > NICs (including multiqueue). Alas/happily I don't have such a problem,
-> > but can't help you with testing either.
-> >
-> 
-> Oh, :) . I know more than one companies use kernel threads to forward
-> packets, and there isn't explicit extra overhead at all. And as you
-> know, as throughput increases, NAPI will bind the NIC to a CPU, and
-> softirqd will be waked up to do the work, which should be done in
-> SoftIRQ context. At that time, there isn't any difference between my
-> approach and the current kernel's.
-> 
-> 
+yes, and semi obviously that router is my box (LinkSys wrt 54gl
+openwrt kamikaze 8.09.1.
 
-Why not make IFB a NAPI device. This would get rid of the extra soft-irq
-round trip from going through netif_rx().  It would also behave like
-regular multi-queue recieive device, and eliminate need for seperate
-tasklets or threads.
+> Since the loss is seen on the first hop already, it seems it should be
+> enough to query 192.168.1.1 only - did you try this? If so, does this
+> happen from the beginning of the test or after many loops? Could you
+> try to repeat this wireshark dump with more data than before (but just
+> to be sure there are a few unanswered pings). If possible it would be
+> nice to have wireshark or tcpdump data from 192.168.1.1 too, while
+> pinged from 192.168.1.3. Please, send it gzipped to bugzilla only plus
+> ifconfig eth0 before and after the test (and let us know here).
 
+same bug? or new bug? I can see what I can do to get a tcpdump from
+the router.  yes I tried that, I can tell within the first 10 pings. I
+should say I don't notice it on every kernel boot, it's ~80% of
+reboots (but that's pulled from my behind). but I haven't noticed it
+on gfa31221 at all. it's reproducible in 31.6 too (arch just added
+that).
+
+> Btw, mtr has text reporting too (--report). Larger things send to
+> bugzilla only.
+
+didn't know that, although I should have guessed (or rtfm), thanks.
+
+
+-- 
+Caleb Cushing
+
+http://xenoterracide.blogspot.com
