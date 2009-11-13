@@ -1,76 +1,157 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bugme-new] [Bug 14586] New: bridge on bonding interface: DHCP
-	replies don't get through
-Date: Thu, 12 Nov 2009 22:23:27 -0500
-Message-ID: <20091113032326.GE1639@gospo.rdu.redhat.com>
-References: <bug-14586-10286@http.bugzilla.kernel.org/> <20091112143913.3d89e4f4.akpm@linux-foundation.org> <20091112145529.303c2659@nehalam>
+From: Kevin Shanahan <kmshanah@disenchant.net>
+Subject: Problem with VLANs and via-velocity driver
+Date: Fri, 13 Nov 2009 14:02:17 +1030
+Message-ID: <20091113033217.GQ838@cubit>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: harald.dunkel@t-online.de,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bridge@lists.linux-foundation.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43805 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755116AbZKMDXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Nov 2009 22:23:42 -0500
+Received: from ipmail05.adl2.internode.on.net ([203.16.214.145]:40641 "EHLO
+	ipmail05.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755544AbZKMDh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 22:37:29 -0500
 Content-Disposition: inline
-In-Reply-To: <20091112145529.303c2659@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 12, 2009 at 02:55:29PM -0800, Stephen Hemminger wrote:
-> > 
-> > I would like to run a bridge for kvm on a bonding interface (4 * 1Gbit, Intel
-> > e1000e). Problem: The DHCPDISCOVER packets sent by the guest show up on my dhcp
-> > server as expected, but the DHCPOFFER sent as a reply doesn't reach the guest
-> > behind the bridge.
-> > 
-> > Using tcpdump on host and guest I can see the DHCPOFFER on the bond0 and br0
-> > interface, but it never shows up on vnet0 or on the guest's eth0.
-> > 
-> > If I drop the bonding interface and use the host's eth2 for the bridge instead,
-> > then there is no such problem.
-> > 
-> > Kernel on host and guest is 2.6.31.5. Attached you can find more information
-> > about my setup. 
-> > 
-> 
-> What is the configuration?
-> # brctl showstp virbr0
-> # brctl showmacs virbr0
-> 
+Hi,
 
-I'm quite sure this output will show us why this isn't working and it
-won't be the first time I've seen this.
+I've had some problems with getting a fairly simple (I thought) VLAN
+configuration working with the on board Via NICs on my Via M700
+board. Looks like as soon as a tagged VLAN interface is added, the
+underlying "raw" (untagged) interface stops responding.
 
-What happens with mode 0 is that the DHCPDISCOVER goes out and since the
-MAC is unlearned by the switch connected to the host, the frame will
-come back on all other members of the bond other than the one that sent
-it.
- 
-Since the bond interface is receiving the frame, the bridge will relearn
-the source address of the guest on the bonding interface and any
-subsequent frames received on the bond interface that have the
-destination MAC of the guest will be dropped by the bridge.  This is as
-expected since a bridge should drop frames when the destination MAC of
-the incoming frame matches an entry in the forwarding database that
-indicates those frames are destined for the receiving port.
+E.g. this is my desired setup on eth1:
 
-I would suggest switching to mode 5 (balance-tlb) if your switch cannot
-handle bonding or mode 2 or 4 (balance-xor or 802.3ad, respectively) if
-it can.  Both of those modes avoid this problem since mode 5 will drop
-additional broadcast frames and modes 2 and 4 will not send broadcast
-frames back to any of the bond member's interfaces.
+Untagged VLAN: 10.193.38.0/24
+  cubert (Linux 2.6.30.5) - 10.193.38.254
+  switch (HP ProCurve)    - 10.193.38.1
 
-There is a Red Hat kbase article that talks about this problem as well:
+Tagged VLAN (101): 10.193.39.192/26
+  cubert (Linux)       - 10.193.39.254
+  switch (HP ProCurve) - 10.193.39.193
 
-http://kbase.redhat.com/faq/docs/DOC-16051
+Starting with just eth1 configured, VLAN interfaces are down:
 
-When it was originally written mode 6 was thought to be a workaround
-as well, but it has been recently proved to still be a problem and the
-article needs to be updated.
+cubert:~# ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:40:63:fa:bb:80  
+          inet addr:10.193.38.254  Bcast:10.193.38.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:4504 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:453 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:49136 (47.9 KiB)  TX bytes:21066 (20.5 KiB)
+          Interrupt:36 Base address:0xdc00 
 
+cubert:~# ping 10.193.38.1
+PING 10.193.38.1 (10.193.38.1) 56(84) bytes of data.
+64 bytes from 10.193.38.1: icmp_seq=1 ttl=64 time=0.885 ms
+64 bytes from 10.193.38.1: icmp_seq=2 ttl=64 time=0.889 ms
+^C
+--- 10.193.38.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.885/0.887/0.889/0.002 ms
+cubert:~# 
+
+So far so good...
+
+cubert:~# ifup vlan101
+Set name-type for VLAN subsystem. Should be visible in /proc/net/vlan/config
+Added VLAN with VID == 101 to IF -:eth1:-
+cubert:~# ifconfig vlan101
+vlan101   Link encap:Ethernet  HWaddr 00:40:63:fa:bb:80  
+          inet addr:10.193.39.254  Bcast:10.193.39.255  Mask:255.255.255.192
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+cubert:~# ping 10.193.39.193
+PING 10.193.39.193 (10.193.39.193) 56(84) bytes of data.
+64 bytes from 10.193.39.193: icmp_seq=1 ttl=64 time=4.24 ms
+64 bytes from 10.193.39.193: icmp_seq=2 ttl=64 time=1.11 ms
+^C
+--- 10.193.39.193 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 1.116/2.681/4.247/1.566 ms
+cubert:~# 
+
+Also looking good, however:
+
+cubert:~# ping 10.193.38.1
+PING 10.193.38.1 (10.193.38.1) 56(84) bytes of data.
+^C
+--- 10.193.38.1 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1010ms
+
+And eth1 won't respond again until I take down vlan101 and eth1 and
+bring eth1 back up again.
+
+cubert:~# ifdown vlan101
+Removed VLAN -:vlan101:-
+cubert:~# ping 10.193.38.1
+PING 10.193.38.1 (10.193.38.1) 56(84) bytes of data.
+^C
+--- 10.193.38.1 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1011ms
+
+cubert:~# ifdown eth1
+cubert:~# ifup eth1
+cubert:~# ping 10.193.38.1
+PING 10.193.38.1 (10.193.38.1) 56(84) bytes of data.
+64 bytes from 10.193.38.1: icmp_seq=1 ttl=64 time=0.869 ms
+64 bytes from 10.193.38.1: icmp_seq=2 ttl=64 time=0.947 ms
+^C
+--- 10.193.38.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1003ms
+rtt min/avg/max/mdev = 0.869/0.908/0.947/0.039 ms
+
+Here is my configuration in /etc/network/interfaces (Debian/Lenny):
+
+iface eth1 inet static
+	address 10.193.38.254
+	netmask 255.255.255.0
+	broadcast 10.193.38.255
+	network 10.193.38.0
+
+iface vlan101 inet static
+	address 10.193.39.254
+	netmask 255.255.255.192
+	broadcast 10.193.39.255
+	network 10.193.39.192
+	vlan_raw_device eth1
+
+A bit of searching found a few references to similar problems going
+back a few years (2005, 2007). Sounded like there were some driver
+issues, but it wasn't clear from the messages I found whether they
+were believed to be fixed or not. I tried the same test using a
+differnt NIC with the tg3 driver and there were no problems, so it
+looks to me like it's still a via-velocity issue. Unfortunately I
+don't have room to add NICs to this machine and need to use the on
+board Via hardware.
+
+This is the network hardware on the non-working Via board:
+
+cubert:~# lspci -k
+...
+02:00.0 Ethernet controller: VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter (rev 82)
+	Kernel driver in use: via-velocity
+03:00.0 Ethernet controller: VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter (rev 82)
+	Kernel driver in use: via-velocity
+
+And on my laptop where this same config does work:
+
+kulgan:~# lspci -k
+...
+09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752 Gigabit Ethernet PCI Express (rev 02)
+	Subsystem: Dell Device 01d6
+	Kernel driver in use: tg3
+
+I understand that it's not best practice to combine tagged and
+untagged frames on the same link (something to do with VLAN hopping
+attacks), so perhaps this is not a priority to fix. However, I'm happy
+to test patches if there are any.
+
+Regards,
+Kevin Shanahan.
