@@ -1,42 +1,40 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: Re: [PATCH 06/13] pcmcia: Pass struct pcmcia_device to pcmcia_map_mem_page()
-Date: Fri, 13 Nov 2009 13:22:17 +0100
-Message-ID: <200911131322.17388.keil@b1-systems.de>
-References: <20091111203303.GA7939@comet.dominikbrodowski.net> <1257971899-9274-6-git-send-email-linux@dominikbrodowski.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Cc: linux-pcmcia@lists.infradead.org, Magnus Damm <damm@opensource.se>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-scsi@vger.kernel.org, Jiri Kosina <jkosina@suse.cz>
-To: Dominik Brodowski <linux@dominikbrodowski.net>
+From: "Stanislav O\. Bezzubtsev" <stas@lvk.cs.msu.su>
+Subject: [PATCH] forcedeth: mac address fix
+Date: Fri, 13 Nov 2009 15:22:55 +0300
+Message-ID: <1258114975-5715-1-git-send-email-stas@lvk.cs.msu.su>
+Cc: davem@davemloft.net, aabdulla@nvidia.com, yinghai@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Stanislav O\. Bezzubtsev" <stas@lvk.cs.msu.su>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from d112a2.x-mailer.de ([212.162.53.4]:44741 "EHLO
-	d112a2.x-mailer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbZKMMWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 07:22:13 -0500
-In-Reply-To: <1257971899-9274-6-git-send-email-linux@dominikbrodowski.net>
+Received: from gate.lvk.cs.msu.su ([158.250.17.1]:45727 "EHLO
+	mail.lvk.cs.msu.su" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751476AbZKMM33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 07:29:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mittwoch, 11. November 2009 21:38:12 Dominik Brodowski wrote:
-> From: Magnus Damm <damm@opensource.se>
-> 
-> No logic changes, just pass struct pcmcia_device to pcmcia_map_mem_page()
-> 
-> [linux@dominikbrodowski.net: update to 2.6.31]
-> CC: netdev@vger.kernel.org
-> CC: linux-wireless@vger.kernel.org
-> CC: linux-scsi@vger.kernel.org
-> CC: Jiri Kosina <jkosina@suse.cz>
-> CC: Karsten Keil <isdn@linux-pingi.de>
-> Signed-off-by: Magnus Damm <damm@opensource.se>
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> ---
->  drivers/char/pcmcia/ipwireless/main.c         |    4 ++--
->  drivers/isdn/hisax/sedlbauer_cs.c             |    2 +-
-For  ISDN 
+Set second bit of randomly generated mac. That marks MAC
+as locally assigned. IEEE802.3, section one, 3.2.3.
 
-Acked-by: Karsten Keil <keil@b1-systems.de>
+Signed-off-by: Stanislav O. Bezzubtsev <stas@lvk.cs.msu.su>
+---
+ drivers/net/forcedeth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index e1da466..b404c7a 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5821,7 +5821,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 		        dev->dev_addr);
+ 		dev_printk(KERN_ERR, &pci_dev->dev,
+ 			"Please complain to your hardware vendor. Switching to a random MAC.\n");
+-		dev->dev_addr[0] = 0x00;
++		dev->dev_addr[0] = 0x02; /* set local assignment bit */
+ 		dev->dev_addr[1] = 0x00;
+ 		dev->dev_addr[2] = 0x6c;
+ 		get_random_bytes(&dev->dev_addr[3], 3);
+-- 
+1.6.5
 
