@@ -1,48 +1,119 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Subject: [PATCH 5/6] bna: Brocade 10Gb Ethernet device driver
-Date: Thu, 12 Nov 2009 21:03:15 -0800
-Message-ID: <20091112210315.65a00551@nehalam>
-References: <200911130346.nAD3kquT001065@blc-10-10.brocade.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 07:01:14 +0200
+Message-ID: <200911130701.14847.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <adapter_linux_open_src_team@brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_agO/KTKQNGMyg3W"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36999 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788AbZKMFDb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 00:03:31 -0500
-In-Reply-To: <200911130346.nAD3kquT001065@blc-10-10.brocade.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:4185 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751143AbZKMFEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 00:04:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Nov 2009 19:46:52 -0800
-Rasesh Mody <rmody@brocade.com> wrote:
-
-> +#define bfa_cb_queue(__bfa, __hcb_qe, __cbfn, __cbarg) do {		\
-> +	(__hcb_qe)->cbfn  = (__cbfn);      \
-> +	(__hcb_qe)->cbarg = (__cbarg);      \
-> +	list_add_tail(&(__hcb_qe)->qe, &(__bfa)->comp_q);      \
-> +} while (0)
-> +
-> +#define bfa_cb_dequeue(__hcb_qe)	list_del(&(__hcb_qe)->qe)
-> +
-> +#define bfa_cb_queue_once(__bfa, __hcb_qe, __cbfn, __cbarg) do {	\
-> +	(__hcb_qe)->cbfn  = (__cbfn);      \
-> +	(__hcb_qe)->cbarg = (__cbarg);      \
-> +	if (!(__hcb_qe)->once) {      \
-> +		list_add_tail((__hcb_qe), &(__bfa)->comp_q);      \
-> +		(__hcb_qe)->once = true;				\
-> +	}								\
-> +} while (0)
-> +
-> +#define bfa_cb_queue_done(__hcb_qe) do {				\
-> +	(__hcb_qe)->once = false;					\
-> +} while (0)
-> +
-
-Could these be inline functions or are they typeless macros?
+This is a multi-part message in MIME format.
+--Boundary-00=_agO/KTKQNGMyg3W
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
 
--- 
+This patch speeds up the network device name allocation for the case
+where a significant number of devices of the same type are created
+consecutively.
+
+Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+and sysfs entries disabled:
+
+Without the patch           With the patch
+
+real    0m 43.43s	    real    0m 0.49s
+user    0m 0.00s	    user    0m 0.00s
+sys     0m 43.43s	    sys     0m 0.48s
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ include/net/net_namespace.h |    3 +++
+ net/core/dev.c              |   23 ++++++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletions(-)
+
+--Boundary-00=_agO/KTKQNGMyg3W
+Content-Type: text/x-patch;
+  charset="utf-8";
+  name="3ad8e007a0c929204c3ee7e7afa309e2e53b5b8a.diff"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: inline;
+	filename="3ad8e007a0c929204c3ee7e7afa309e2e53b5b8a.diff"
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 0addd45..39c65a2 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -56,6 +56,9 @@ struct net {
+ 	struct list_head 	dev_base_head;
+ 	struct hlist_head 	*dev_name_head;
+ 	struct hlist_head	*dev_index_head;
++	/* fast consecutive name allocation (e.g. eth0, eth1, ...) */
++	char                    fcna_name[IFNAMSIZ];
++	int                     fcna_no;
+ 
+ 	/* core fib_rules */
+ 	struct list_head	rules_ops;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ad8e320..008e3c7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -226,8 +226,12 @@ static int list_netdevice(struct net_device *dev)
+  */
+ static void unlist_netdevice(struct net_device *dev)
+ {
++	struct net *net = dev_net(dev);
++
+ 	ASSERT_RTNL();
+ 
++	net->fcna_no = -1;
++
+ 	/* Unlink dev from the device chain */
+ 	write_lock_bh(&dev_base_lock);
+ 	list_del_rcu(&dev->dev_list);
+@@ -872,6 +876,16 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 		if (p[1] != 'd' || strchr(p + 2, '%'))
+ 			return -EINVAL;
+ 
++		/* avoid fast allocation for strange templates like "fan%dcy" */
++		if (net->fcna_no >= 0 && p[2] == 0 &&
++		    net->fcna_name[p - name] == 0 &&
++		    memcmp(name, net->fcna_name, p - name) == 0) {
++			snprintf(buf, IFNAMSIZ, name, ++net->fcna_no);
++			if (!__dev_get_by_name(net, buf))
++				return net->fcna_no;
++			net->fcna_no = -1;
++		}
++
+ 		/* Use one page as a bit array of possible slots */
+ 		inuse = (unsigned long *) get_zeroed_page(GFP_ATOMIC);
+ 		if (!inuse)
+@@ -894,8 +908,15 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 	}
+ 
+ 	snprintf(buf, IFNAMSIZ, name, i);
+-	if (!__dev_get_by_name(net, buf))
++	if (!__dev_get_by_name(net, buf)) {
++		if (p[2] == 0) {
++			memcpy(net->fcna_name, name, p - name);
++			net->fcna_name[p - name] = 0;
++			net->fcna_no = i;
++		}  else
++			net->fcna_no = -1;
+ 		return i;
++	}
+ 
+ 	/* It is possible to run out of possible slots
+ 	 * when the name is long and there isn't enough space left
+
+--Boundary-00=_agO/KTKQNGMyg3W--
+
+
