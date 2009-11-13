@@ -1,269 +1,214 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH v6 2/7 RFC] TCPCT part 1b: generate Responder
- Cookie
-Date: Thu, 12 Nov 2009 23:17:08 -0500
-Message-ID: <4AFCDDC4.1090606@gmail.com>
+Subject: [net-next-2.6 PATCH v6 3/7 RFC] TCPCT part 1c: sysctl_tcp_cookie_size,
+ socket option TCP_COOKIE_TRANSACTIONS
+Date: Thu, 12 Nov 2009 23:31:55 -0500
+Message-ID: <4AFCE13B.4060006@gmail.com>
 References: <4AFCDA9E.8050003@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080402030606090208030703"
+ boundary="------------040301020903070206080603"
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:33269 "EHLO
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:61460 "EHLO
 	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755342AbZKMERG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:17:06 -0500
-Received: by ywh40 with SMTP id 40so989823ywh.33
-        for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 20:17:11 -0800 (PST)
+	with ESMTP id S1755563AbZKMEbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:31:52 -0500
+Received: by ywh40 with SMTP id 40so996809ywh.33
+        for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 20:31:58 -0800 (PST)
 In-Reply-To: <4AFCDA9E.8050003@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------080402030606090208030703
+--------------040301020903070206080603
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Define (missing) hash message size for SHA1.
+Define sysctl (tcp_cookie_size) to turn on and off the cookie option
+default globally, instead of a compiled configuration option.
 
-Define hashing size constants specific to TCP cookies, and add new function.
+Define per socket option (TCP_COOKIE_TRANSACTIONS) for setting constant
+data values, retrieving variable cookie values, and other facilities.
 
-Maintain global secret values for tcp_cookie_generator().
+Move inline tcp_clear_options() unchanged from net/tcp.h to linux/tcp.h,
+near its corresponding struct tcp_options_received (prior to changes).
 
-This is a significantly revised implementation of earlier (15-year-old)
-Photuris [RFC-2522] code for the KA9Q cooperative multitasking platform.
+This is a straightforward re-implementation of an earlier (year-old)
+patch that no longer applies cleanly, with permission of the original
+author (Adam Langley):
 
-Linux RCU technique appears to be well-suited to this application, though
-neither of the circular queue items are freed.
+    http://thread.gmane.org/gmane.linux.network/102586
 
 These functions will also be used in subsequent patches that implement
 additional features.
 
+Requires:
+   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
+
 Signed-off-by: William.Allen.Simpson@gmail.com
 ---
-  include/linux/cryptohash.h |    1 +
-  include/net/tcp.h          |    8 +++
-  net/ipv4/tcp.c             |  146 ++++++++++++++++++++++++++++++++++++++++++++
-  3 files changed, 155 insertions(+), 0 deletions(-)
+  Documentation/networking/ip-sysctl.txt |    8 +++++++
+  include/linux/tcp.h                    |   33 +++++++++++++++++++++++++++++++-
+  include/net/tcp.h                      |    6 +----
+  net/ipv4/sysctl_net_ipv4.c             |    8 +++++++
+  net/ipv4/tcp_output.c                  |    8 +++++++
+  5 files changed, 57 insertions(+), 6 deletions(-)
 
---------------080402030606090208030703
+--------------040301020903070206080603
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1b6.patch"
+ name="TCPCT+1c6.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+1b6.patch"
+ filename="TCPCT+1c6.patch"
 
-diff --git a/include/linux/cryptohash.h b/include/linux/cryptohash.h
-index c118b2a..ec78a4b 100644
---- a/include/linux/cryptohash.h
-+++ b/include/linux/cryptohash.h
-@@ -2,6 +2,7 @@
- #define __CRYPTOHASH_H
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index a0e134d..d47c000 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -164,6 +164,14 @@ tcp_congestion_control - STRING
+ 	additional choices may be available based on kernel configuration.
+ 	Default is set as part of kernel configuration.
  
- #define SHA_DIGEST_WORDS 5
-+#define SHA_MESSAGE_BYTES (512 /*bits*/ / 8)
- #define SHA_WORKSPACE_WORDS 80
++tcp_cookie_size - INTEGER
++	Default size of TCP Cookie Transactions (TCPCT) option, that may be
++	overridden on a per socket basis by the TCPCT socket option.
++	Values greater than the maximum (16) are interpreted as the maximum.
++	Values greater than zero and less than the minimum (8) are interpreted
++	as the minimum.
++	Default: 0 (off).
++
+ tcp_dsack - BOOLEAN
+ 	Allows TCP to send "duplicate" SACKs.
  
- void sha_init(__u32 *buf);
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index ec183fd..4a99a8e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1478,6 +1478,14 @@ struct tcp_request_sock_ops {
- #endif
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 32d7d77..eaa3113 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -102,7 +102,9 @@ enum {
+ #define TCP_QUICKACK		12	/* Block/reenable quick acks */
+ #define TCP_CONGESTION		13	/* Congestion control algorithm */
+ #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
++#define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
+ 
++/* for TCP_INFO socket option */
+ #define TCPI_OPT_TIMESTAMPS	1
+ #define TCPI_OPT_SACK		2
+ #define TCPI_OPT_WSCALE		4
+@@ -174,6 +176,30 @@ struct tcp_md5sig {
+ 	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
  };
  
-+/* Using SHA1 for now, define some constants.
-+ */
-+#define COOKIE_DIGEST_WORDS (SHA_DIGEST_WORDS)
-+#define COOKIE_MESSAGE_WORDS (SHA_MESSAGE_BYTES / 4)
-+#define COOKIE_WORKSPACE_WORDS (COOKIE_DIGEST_WORDS + COOKIE_MESSAGE_WORDS)
++/* for TCP_COOKIE_TRANSACTIONS (TCPCT) socket option */
++#define TCP_COOKIE_MIN		 8		/*  64-bits */
++#define TCP_COOKIE_MAX		16		/* 128-bits */
++#define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
 +
-+extern int tcp_cookie_generator(u32 *bakery);
++/* Flags for both getsockopt and setsockopt */
++#define TCP_COOKIE_IN_ALWAYS	(1 << 0)	/* Discard SYN without cookie */
++#define TCP_COOKIE_OUT_NEVER	(1 << 1)	/* Prohibit outgoing cookies,
++						 * supercedes everything. */
 +
- extern void tcp_v4_init(void);
- extern void tcp_init(void);
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index e0cfa63..3ae01bf 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -264,6 +264,7 @@
- #include <linux/cache.h>
- #include <linux/err.h>
- #include <linux/crypto.h>
-+#include <linux/time.h>
- 
- #include <net/icmp.h>
- #include <net/tcp.h>
-@@ -2842,6 +2843,141 @@ EXPORT_SYMBOL(tcp_md5_hash_key);
- 
- #endif
- 
-+/**
-+ * Each Responder maintains up to two secret values concurrently for
-+ * efficient secret rollover.  Each secret value has 4 states:
-+ *
-+ * Generating.  (tcp_secret_generating != tcp_secret_primary)
-+ *    Generates new Responder-Cookies, but not yet used for primary
-+ *    verification.  This is a short-term state, typically lasting only
-+ *    one round trip time (RTT).
-+ *
-+ * Primary.  (tcp_secret_generating == tcp_secret_primary)
-+ *    Used both for generation and primary verification.
-+ *
-+ * Retiring.  (tcp_secret_retiring != tcp_secret_secondary)
-+ *    Used for verification, until the first failure that can be
-+ *    verified by the newer Generating secret.  At that time, this
-+ *    cookie's state is changed to Secondary, and the Generating
-+ *    cookie's state is changed to Primary.  This is a short-term state,
-+ *    typically lasting only one round trip time (RTT).
-+ *
-+ * Secondary.  (tcp_secret_retiring == tcp_secret_secondary)
-+ *    Used for secondary verification, after primary verification
-+ *    failures.  This state lasts no more than twice the Maximum Segment
-+ *    Lifetime (2MSL).  Then, the secret is discarded.
-+ */
-+struct tcp_cookie_secret {
-+	/* The secret is divided into two parts.  The digest part is the
-+	 * equivalent of previously hashing a secret and saving the state,
-+	 * and serves as an initialization vector (IV).  The message part
-+	 * serves as the trailing secret.
-+	 */
-+	u32				secrets[COOKIE_WORKSPACE_WORDS];
-+	unsigned long			expires;
++/* Flags for getsockopt */
++#define TCP_S_DATA_IN		(1 << 2)	/* Was data received? */
++#define TCP_S_DATA_OUT		(1 << 3)	/* Was data sent? */
++
++/* TCP_COOKIE_TRANSACTIONS data */
++struct tcp_cookie_transactions {
++	__u16	tcpct_flags;			/* see above */
++	__u8	__tcpct_pad1;			/* zero */
++	__u8	tcpct_cookie_desired;		/* bytes */
++	__u16	tcpct_s_data_desired;		/* bytes of variable data */
++	__u16	tcpct_used;			/* bytes in value */
++	__u8	tcpct_value[TCP_MSS_DEFAULT];
 +};
 +
-+#define TCP_SECRET_1MSL (HZ * TCP_PAWS_MSL)
-+#define TCP_SECRET_2MSL (HZ * TCP_PAWS_MSL * 2)
-+#define TCP_SECRET_LIFE (HZ * 600)
-+
-+static struct tcp_cookie_secret tcp_secret_one;
-+static struct tcp_cookie_secret tcp_secret_two;
-+
-+/* Essentially a circular list, without dynamic allocation. */
-+static struct tcp_cookie_secret *tcp_secret_generating;
-+static struct tcp_cookie_secret *tcp_secret_primary;
-+static struct tcp_cookie_secret *tcp_secret_retiring;
-+static struct tcp_cookie_secret *tcp_secret_secondary;
-+
-+static DEFINE_SPINLOCK(tcp_secret_locker);
-+
-+/* Select a random word in the cookie workspace.
-+ */
-+static inline u32 tcp_cookie_work(const u32 *ws, const int n)
+ #ifdef __KERNEL__
+ 
+ #include <linux/skbuff.h>
+@@ -227,6 +253,11 @@ struct tcp_options_received {
+ 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
+ };
+ 
++static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
 +{
-+	return ws[COOKIE_DIGEST_WORDS + ((COOKIE_MESSAGE_WORDS-1) & ws[n])];
++	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
 +}
 +
-+/* Fill bakery[COOKIE_WORKSPACE_WORDS] with generator, updating as needed.
-+ * Called in softirq context.
-+ * Returns: 0 for success.
-+ */
-+int tcp_cookie_generator(u32 *bakery)
-+{
-+	unsigned long jiffy = jiffies;
-+
-+	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
-+		spin_lock_bh(&tcp_secret_locker);
-+		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
-+			/* refreshed by another */
-+			spin_unlock_bh(&tcp_secret_locker);
-+			memcpy(bakery,
-+			       &tcp_secret_generating->secrets[0],
-+			       sizeof(tcp_secret_generating->secrets));
-+		} else {
-+			u32 secrets[COOKIE_WORKSPACE_WORDS];
-+
-+			/* still needs refreshing */
-+			get_random_bytes(secrets, sizeof(secrets));
-+
-+			/* The first time, paranoia assumes that the
-+			 * randomization function isn't as strong.  But,
-+			 * this secret initialization is delayed until
-+			 * the last possible moment (packet arrival).
-+			 * Although that time is observable, it is
-+			 * unpredictably variable.  Mash in the most
-+			 * volatile clock bits available, and expire the
-+			 * secret extra quickly.
-+			 */
-+			if (unlikely(tcp_secret_primary->expires ==
-+				     tcp_secret_secondary->expires)) {
-+				struct timespec tv;
-+
-+				getnstimeofday(&tv);
-+				secrets[COOKIE_DIGEST_WORDS+0] ^=
-+					(u32)tv.tv_nsec;
-+
-+				tcp_secret_secondary->expires = jiffy
-+					+ TCP_SECRET_1MSL
-+					+ (0x0f & tcp_cookie_work(secrets, 0));
-+			} else {
-+				tcp_secret_secondary->expires = jiffy
-+					+ TCP_SECRET_LIFE
-+					+ (0xff & tcp_cookie_work(secrets, 1));
-+				tcp_secret_primary->expires = jiffy
-+					+ TCP_SECRET_2MSL
-+					+ (0x1f & tcp_cookie_work(secrets, 2));
-+			}
-+			memcpy(&tcp_secret_secondary->secrets[0],
-+			       &secrets[0],
-+			       sizeof(secrets));
-+
-+			rcu_assign_pointer(tcp_secret_generating,
-+					   tcp_secret_secondary);
-+			rcu_assign_pointer(tcp_secret_retiring,
-+					   tcp_secret_primary);
-+			spin_unlock_bh(&tcp_secret_locker);
-+			/* Neither call_rcu() or synchronize_rcu() are needed.
-+			 * Retiring data is not freed.  It is replaced after
-+			 * further (locked) pointer updates, and a quiet time
-+			 * (minimum 1MSL, maximum LIFE - 2MSL).
-+			 */
-+			memcpy(bakery,
-+			       &secrets[0],
-+			       sizeof(secrets));
-+		}
-+	} else {
-+		rcu_read_lock_bh();
-+		memcpy(bakery,
-+		       &rcu_dereference(tcp_secret_generating)->secrets[0],
-+		       sizeof(tcp_secret_generating->secrets));
-+		rcu_read_unlock_bh();
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(tcp_cookie_generator);
-+
- void tcp_done(struct sock *sk)
- {
- 	if (sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
-@@ -2876,6 +3012,7 @@ void __init tcp_init(void)
- 	struct sk_buff *skb = NULL;
- 	unsigned long nr_pages, limit;
- 	int order, i, max_share;
-+	unsigned long jiffy = jiffies;
- 
- 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
- 
-@@ -2969,6 +3106,15 @@ void __init tcp_init(void)
- 	       tcp_hashinfo.ehash_mask + 1, tcp_hashinfo.bhash_size);
- 
- 	tcp_register_congestion_control(&tcp_reno);
-+
-+	memset(&tcp_secret_one.secrets[0], 0, sizeof(tcp_secret_one.secrets));
-+	memset(&tcp_secret_two.secrets[0], 0, sizeof(tcp_secret_two.secrets));
-+	tcp_secret_one.expires = jiffy; /* past due */
-+	tcp_secret_two.expires = jiffy; /* past due */
-+	tcp_secret_generating = &tcp_secret_one;
-+	tcp_secret_primary = &tcp_secret_one;
-+	tcp_secret_retiring = &tcp_secret_two;
-+	tcp_secret_secondary = &tcp_secret_two;
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+  * to increse this, although since:
+  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
+@@ -435,6 +466,6 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
+ 	return (struct tcp_timewait_sock *)sk;
  }
  
- EXPORT_SYMBOL(tcp_close);
+-#endif
++#endif	/* __KERNEL__ */
+ 
+ #endif	/* _LINUX_TCP_H */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 4a99a8e..738b65f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -234,6 +234,7 @@ extern int sysctl_tcp_base_mss;
+ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_max_ssthresh;
++extern int sysctl_tcp_cookie_size;
+ 
+ extern atomic_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+@@ -340,11 +341,6 @@ static inline void tcp_dec_quickack_mode(struct sock *sk,
+ 
+ extern void tcp_enter_quickack_mode(struct sock *sk);
+ 
+-static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+-{
+- 	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
+-}
+-
+ #define	TCP_ECN_OK		1
+ #define	TCP_ECN_QUEUE_CWR	2
+ #define	TCP_ECN_DEMAND_CWR	4
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 2dcf04d..3422c54 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -714,6 +714,14 @@ static struct ctl_table ipv4_table[] = {
+ 	},
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "tcp_cookie_size",
++		.data		= &sysctl_tcp_cookie_size,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "udp_mem",
+ 		.data		= &sysctl_udp_mem,
+ 		.maxlen		= sizeof(sysctl_udp_mem),
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1151cb8..e59fa5a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -59,6 +59,14 @@ int sysctl_tcp_base_mss __read_mostly = 512;
+ /* By default, RFC2861 behavior.  */
+ int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
+ 
++#ifdef CONFIG_SYSCTL
++/* By default, let the user enable it. */
++int sysctl_tcp_cookie_size __read_mostly = 0;
++#else
++int sysctl_tcp_cookie_size __read_mostly = TCP_COOKIE_MAX;
++#endif
++
++
+ /* Account for new data that has been sent to the network. */
+ static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
+ {
 -- 
 1.6.3.3
 
 
---------------080402030606090208030703--
+--------------040301020903070206080603--
