@@ -1,253 +1,336 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
- option, extend existing struct's
-Date: Thu, 12 Nov 2009 23:53:48 -0500
-Message-ID: <4AFCE65C.2010104@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [net-next-2.6 PATCH v6 1/7 RFC] TCPCT part 1a: add request_values
+ parameter for sending SYNACK
+Date: Fri, 13 Nov 2009 06:54:52 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911130644280.5285@melkinpaasi.cs.helsinki.fi>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCDB9D.6050804@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090102030605050805060205"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:45971 "EHLO
-	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755611AbZKMExv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:53:51 -0500
-Received: by gxk26 with SMTP id 26so2754639gxk.1
-        for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 20:53:57 -0800 (PST)
-In-Reply-To: <4AFCDA9E.8050003@gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41040 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755887AbZKMEys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:54:48 -0500
+In-Reply-To: <4AFCDB9D.6050804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090102030605050805060205
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, 12 Nov 2009, William Allen Simpson wrote:
 
-Data structures are carefully composed to require minimal additions.
-For example, the struct tcp_options_received cookie_plus variable fits
-between existing 16-bit and 8-bit variables, requiring no additional
-space (taking alignment into consideration).  There are no additions to
-tcp_request_sock, and only 1 pointer in tcp_sock.
+> Add optional function parameters associated with sending SYNACK.
+> These parameters are not needed after sending SYNACK, and are not
+> used for retransmission.  Avoids extending struct tcp_request_sock,
+> and avoids allocating kernel memory.
+> 
+> Also affects DCCP as it uses common struct request_sock_ops,
+> but this parameter is currently reserved for future use.
+> 
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  include/net/request_sock.h      |    8 +++++++-
+>  include/net/tcp.h               |    3 ++-
+>  net/dccp/ipv4.c                 |    5 +++--
+>  net/dccp/ipv6.c                 |    5 +++--
+>  net/dccp/minisocks.c            |    2 +-
+>  net/ipv4/inet_connection_sock.c |    2 +-
+>  net/ipv4/tcp_ipv4.c             |   19 +++++++++++--------
+>  net/ipv4/tcp_minisocks.c        |    2 +-
+>  net/ipv4/tcp_output.c           |    3 ++-
+>  net/ipv6/tcp_ipv6.c             |   28 +++++++++++++---------------
+>  10 files changed, 44 insertions(+), 33 deletions(-)
+> 
 
-This is a significantly revised implementation of an earlier (year-old)
-patch that no longer applies cleanly, with permission of the original
-author (Adam Langley):
+> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+> index c719084..c9b50eb 100644
+> --- a/include/net/request_sock.h
+> +++ b/include/net/request_sock.h
+> @@ -27,13 +27,19 @@ struct sk_buff;
+>  struct dst_entry;
+>  struct proto;
+>  
+> +/* empty to "strongly type" an otherwise void parameter.
+> + */
+> +struct request_values {
+> +};
+> +
+>  struct request_sock_ops {
+>  	int		family;
+>  	int		obj_size;
+>  	struct kmem_cache	*slab;
+>  	char		*slab_name;
+>  	int		(*rtx_syn_ack)(struct sock *sk,
+> -				       struct request_sock *req);
+> +				       struct request_sock *req,
+> +				       struct request_values *rvp);
+>  	void		(*send_ack)(struct sock *sk, struct sk_buff *skb,
+>  				    struct request_sock *req);
+>  	void		(*send_reset)(struct sock *sk,
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 325bfcf..ec183fd 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -440,7 +440,8 @@ extern int			tcp_connect(struct sock *sk);
+>  
+>  extern struct sk_buff *		tcp_make_synack(struct sock *sk,
+>  						struct dst_entry *dst,
+> -						struct request_sock *req);
+> +						struct request_sock *req,
+> +						struct request_values *rvp);
+>  
+>  extern int			tcp_disconnect(struct sock *sk, int flags);
+>  
+> diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+> index 2423a08..efbcfdc 100644
+> --- a/net/dccp/ipv4.c
+> +++ b/net/dccp/ipv4.c
+> @@ -477,7 +477,8 @@ static struct dst_entry* dccp_v4_route_skb(struct net *net, struct sock *sk,
+>  	return &rt->u.dst;
+>  }
+>  
+> -static int dccp_v4_send_response(struct sock *sk, struct request_sock *req)
+> +static int dccp_v4_send_response(struct sock *sk, struct request_sock *req,
+> +				 struct request_values *rv_unused)
+>  {
+>  	int err = -1;
+>  	struct sk_buff *skb;
+> @@ -626,7 +627,7 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+>  	dreq->dreq_iss	   = dccp_v4_init_sequence(skb);
+>  	dreq->dreq_service = service;
+>  
+> -	if (dccp_v4_send_response(sk, req))
+> +	if (dccp_v4_send_response(sk, req, NULL))
+>  		goto drop_and_free;
+>  
+>  	inet_csk_reqsk_queue_hash_add(sk, req, DCCP_TIMEOUT_INIT);
+> diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+> index 50ea91a..6574215 100644
+> --- a/net/dccp/ipv6.c
+> +++ b/net/dccp/ipv6.c
+> @@ -241,7 +241,8 @@ out:
+>  }
+>  
+>  
+> -static int dccp_v6_send_response(struct sock *sk, struct request_sock *req)
+> +static int dccp_v6_send_response(struct sock *sk, struct request_sock *req,
+> +				 struct request_values *rv_unused)
+>  {
+>  	struct inet6_request_sock *ireq6 = inet6_rsk(req);
+>  	struct ipv6_pinfo *np = inet6_sk(sk);
+> @@ -468,7 +469,7 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+>  	dreq->dreq_iss	   = dccp_v6_init_sequence(skb);
+>  	dreq->dreq_service = service;
+>  
+> -	if (dccp_v6_send_response(sk, req))
+> +	if (dccp_v6_send_response(sk, req, NULL))
+>  		goto drop_and_free;
+>  
+>  	inet6_csk_reqsk_queue_hash_add(sk, req, DCCP_TIMEOUT_INIT);
+> diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+> index 5ca49ce..af226a0 100644
+> --- a/net/dccp/minisocks.c
+> +++ b/net/dccp/minisocks.c
+> @@ -184,7 +184,7 @@ struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+>  			 * counter (backoff, monitored by dccp_response_timer).
+>  			 */
+>  			req->retrans++;
+> -			req->rsk_ops->rtx_syn_ack(sk, req);
+> +			req->rsk_ops->rtx_syn_ack(sk, req, NULL);
+>  		}
+>  		/* Network Duplicate, discard packet */
+>  		return NULL;
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index 26fb50e..ad098d6 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -531,7 +531,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+>  					       &expire, &resend);
+>  				if (!expire &&
+>  				    (!resend ||
+> -				     !req->rsk_ops->rtx_syn_ack(parent, req) ||
+> +				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
+>  				     inet_rsk(req)->acked)) {
+>  					unsigned long timeo;
+>  
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index cf7f208..094231b 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -742,8 +742,9 @@ static void tcp_v4_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+>   *	This still operates on a request_sock only, not on a big
+>   *	socket.
+>   */
+> -static int __tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
+> -				struct dst_entry *dst)
+> +static int __tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+> +				struct request_sock *req,
+> +				struct request_values *rvp)
+>  {
+>  	const struct inet_request_sock *ireq = inet_rsk(req);
+>  	int err = -1;
+> @@ -753,7 +754,7 @@ static int __tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
+>  	if (!dst && (dst = inet_csk_route_req(sk, req)) == NULL)
+>  		return -1;
+>  
+> -	skb = tcp_make_synack(sk, dst, req);
+> +	skb = tcp_make_synack(sk, dst, req, rvp);
+>  
+>  	if (skb) {
+>  		struct tcphdr *th = tcp_hdr(skb);
+> @@ -774,9 +775,10 @@ static int __tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
+>  	return err;
+>  }
+>  
+> -static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req)
+> +static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
+> +			      struct request_values *rvp)
+>  {
+> -	return __tcp_v4_send_synack(sk, req, NULL);
+> +	return __tcp_v4_send_synack(sk, NULL, req, rvp);
+>  }
+>  
+>  /*
+> @@ -1211,13 +1213,13 @@ static struct timewait_sock_ops tcp_timewait_sock_ops = {
+>  
+>  int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+>  {
+> -	struct inet_request_sock *ireq;
+>  	struct tcp_options_received tmp_opt;
+>  	struct request_sock *req;
+> +	struct inet_request_sock *ireq;
+> +	struct dst_entry *dst = NULL;
+>  	__be32 saddr = ip_hdr(skb)->saddr;
+>  	__be32 daddr = ip_hdr(skb)->daddr;
+>  	__u32 isn = TCP_SKB_CB(skb)->when;
+> -	struct dst_entry *dst = NULL;
+>  #ifdef CONFIG_SYN_COOKIES
+>  	int want_cookie = 0;
+>  #else
+> @@ -1337,7 +1339,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+>  	}
+>  	tcp_rsk(req)->snt_isn = isn;
+>  
+> -	if (__tcp_v4_send_synack(sk, req, dst) || want_cookie)
+> +	if (__tcp_v4_send_synack(sk, dst, req, NULL)
+> +	 || want_cookie)
+>  		goto drop_and_free;
+>  
+>  	inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 4be2228..7a42990 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -537,7 +537,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+>  		 * Enforce "SYN-ACK" according to figure 8, figure 6
+>  		 * of RFC793, fixed by RFC1122.
+>  		 */
+> -		req->rsk_ops->rtx_syn_ack(sk, req);
+> +		req->rsk_ops->rtx_syn_ack(sk, req, NULL);
+>  		return NULL;
+>  	}
+>  
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 616c686..1151cb8 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2224,7 +2224,8 @@ int tcp_send_synack(struct sock *sk)
+>  
+>  /* Prepare a SYN-ACK. */
+>  struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+> -				struct request_sock *req)
+> +				struct request_sock *req,
+> +				struct request_values *rvp)
+>  {
+>  	struct inet_request_sock *ireq = inet_rsk(req);
+>  	struct tcp_sock *tp = tcp_sk(sk);
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index de70909..3e327bc 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -461,7 +461,8 @@ out:
+>  }
+>  
+>  
+> -static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
+> +static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req,
+> +			      struct request_values *rvp)
+>  {
+>  	struct inet6_request_sock *treq = inet6_rsk(req);
+>  	struct ipv6_pinfo *np = inet6_sk(sk);
+> @@ -499,7 +500,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
+>  	if ((err = xfrm_lookup(sock_net(sk), &dst, &fl, sk, 0)) < 0)
+>  		goto done;
+>  
+> -	skb = tcp_make_synack(sk, dst, req);
+> +	skb = tcp_make_synack(sk, dst, req, rvp);
+>  	if (skb) {
+>  		struct tcphdr *th = tcp_hdr(skb);
+>  
+> @@ -1161,13 +1162,13 @@ static struct sock *tcp_v6_hnd_req(struct sock *sk,struct sk_buff *skb)
+>   */
+>  static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+>  {
+> +	struct tcp_options_received tmp_opt;
+> +	struct request_sock *req;
+>  	struct inet6_request_sock *treq;
+>  	struct ipv6_pinfo *np = inet6_sk(sk);
+> -	struct tcp_options_received tmp_opt;
+>  	struct tcp_sock *tp = tcp_sk(sk);
+> -	struct request_sock *req = NULL;
+> -	__u32 isn = TCP_SKB_CB(skb)->when;
+>  	struct dst_entry *dst = __sk_dst_get(sk);
+> +	__u32 isn = TCP_SKB_CB(skb)->when;
+>  #ifdef CONFIG_SYN_COOKIES
+>  	int want_cookie = 0;
+>  #else
+> @@ -1239,23 +1240,20 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+>  
+>  		isn = tcp_v6_init_sequence(skb);
+>  	}
+> -
+>  	tcp_rsk(req)->snt_isn = isn;
+>  
+>  	security_inet_conn_request(sk, skb, req);
+>  
+> -	if (tcp_v6_send_synack(sk, req))
+> -		goto drop;
+> +	if (tcp_v6_send_synack(sk, req, NULL)
+> +	 || want_cookie)
 
-    http://thread.gmane.org/gmane.linux.network/102586
+This fits to one line very well. There were other unnecessary line-breaks 
+too (might have been in another patch than this).
 
-The principle difference is using a TCP option to carry the cookie nonce,
-instead of a user configured offset in the data.  This is more flexible and
-less subject to user configuration error.  Such a cookie option has been
-suggested for many years, and is also useful without SYN data, allowing
-several related concepts to use the same extension option.
+However, in cases where you really would have to split lines in if 
+statement. Please move || (or &&) to the end of the previous line and use 
+matching indent level on the line below (in this example the text is 
+matching already, so it is just about converting || into spaces here). 
+...As was mentioned by somebody already earlier.
 
-    "Re: SYN floods (was: does history repeat itself?)", September 9, 1996.
-    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
+Splitting of 1-3 is quite ok, the rest haven't arrived yet.
 
-    "Re: what a new TCP header might look like", May 12, 1998.
-    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
-
-These functions will also be used in subsequent patches that implement
-additional features.
-
-Requires:
-   TCPCT part 1a: add request_values parameter for sending SYNACK
-   TCPCT part 1b: generate Responder Cookie
-   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
-
-Signed-off-by: William.Allen.Simpson@gmail.com
----
-  include/linux/tcp.h |   29 ++++++++++++++++----
-  include/net/tcp.h   |   72 +++++++++++++++++++++++++++++++++++++++++++++++++++
-  2 files changed, 95 insertions(+), 6 deletions(-)
-
---------------090102030605050805060205
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1d6.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+1d6.patch"
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index eaa3113..6c5ff66 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -247,31 +247,38 @@ struct tcp_options_received {
- 		sack_ok : 4,	/* SACK seen on SYN packet		*/
- 		snd_wscale : 4,	/* Window scaling received from sender	*/
- 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
--/*	SACKs data	*/
-+	u8	cookie_plus:6,	/* bytes in authenticator/cookie option	*/
-+		cookie_out_never:1,
-+		cookie_in_always:1;
- 	u8	num_sacks;	/* Number of SACK blocks		*/
--	u16	user_mss;  	/* mss requested by user in ioctl */
-+	u16	user_mss;	/* mss requested by user in ioctl	*/
- 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
- };
- 
- static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
- {
--	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
-+	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
-+	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
-+	rx_opt->cookie_plus = 0;
- }
- 
- /* This is the max number of SACKS that we'll generate and process. It's safe
-- * to increse this, although since:
-+ * to increase this, although since:
-  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
-  * only four options will fit in a standard TCP header */
- #define TCP_NUM_SACKS 4
- 
-+struct tcp_cookie_values;
-+struct tcp_request_sock_ops;
-+
- struct tcp_request_sock {
- 	struct inet_request_sock 	req;
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Only used by TCP MD5 Signature so far. */
- 	const struct tcp_request_sock_ops *af_specific;
- #endif
--	u32			 	rcv_isn;
--	u32			 	snt_isn;
-+	u32				rcv_isn;
-+	u32				snt_isn;
- };
- 
- static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
-@@ -441,6 +448,12 @@ struct tcp_sock {
- /* TCP MD5 Signature Option information */
- 	struct tcp_md5sig_info	*md5sig_info;
- #endif
-+
-+	/* When the cookie options are generated and exchanged, then this
-+	 * object holds a reference to them (cookie_values->kref).  Also
-+	 * contains related tcp_cookie_transactions fields.
-+	 */
-+	struct tcp_cookie_values  	*cookie_values;
- };
- 
- static inline struct tcp_sock *tcp_sk(const struct sock *sk)
-@@ -459,6 +472,10 @@ struct tcp_timewait_sock {
- 	u16			  tw_md5_keylen;
- 	u8			  tw_md5_key[TCP_MD5SIG_MAXKEYLEN];
- #endif
-+	/* Few sockets in timewait have cookies; in that case, then this
-+	 * object holds a reference to them (tw_cookie_values->kref).
-+	 */
-+	struct tcp_cookie_values  *tw_cookie_values;
- };
- 
- static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 738b65f..3a4c840 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -30,6 +30,7 @@
- #include <linux/dmaengine.h>
- #include <linux/crypto.h>
- #include <linux/cryptohash.h>
-+#include <linux/kref.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/inet_timewait_sock.h>
-@@ -164,6 +165,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOPT_SACK             5       /* SACK Block */
- #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
- #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
-+#define TCPOPT_COOKIE		253	/* Cookie extension (experimental) */
- 
- /*
-  *     TCP option lengths
-@@ -174,6 +176,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_SACK_PERM      2
- #define TCPOLEN_TIMESTAMP      10
- #define TCPOLEN_MD5SIG         18
-+#define TCPOLEN_COOKIE_BASE    2	/* Cookie-less header extension */
-+#define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
-+#define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
-+#define TCPOLEN_COOKIE_MAX     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MAX)
- 
- /* But this is what stacks really send out. */
- #define TCPOLEN_TSTAMP_ALIGNED		12
-@@ -1482,6 +1488,72 @@ struct tcp_request_sock_ops {
- 
- extern int tcp_cookie_generator(u32 *bakery);
- 
-+/**
-+ * A tcp_sock contains a pointer to the current value, and this is cloned to
-+ * the tcp_timewait_sock.
-+ *
-+ * @cookie_pair:	variable data from the option exchange.
-+ *
-+ * @cookie_desired:	user specified tcpct_cookie_desired.  Zero
-+ *			indicates default (sysctl_tcp_cookie_size).
-+ *			After cookie sent, remembers size of cookie.
-+ *			Range 0, TCP_COOKIE_MIN to TCP_COOKIE_MAX.
-+ *
-+ * @s_data_desired:	user specified tcpct_s_data_desired.  When the
-+ *			constant payload is specified (@s_data_constant),
-+ *			holds its length instead.
-+ *			Range 0 to TCP_MSS_DESIRED.
-+ *
-+ * @s_data_payload:	constant data that is to be included in the
-+ *			payload of SYN or SYNACK segments when the
-+ *			cookie option is present.
-+ */
-+struct tcp_cookie_values {
-+	struct kref	kref;
-+	u8		cookie_pair[TCP_COOKIE_PAIR_SIZE];
-+	u8		cookie_pair_size;
-+	u8		cookie_desired;
-+	u16		s_data_desired:11,
-+			s_data_constant:1,
-+			s_data_in:1,
-+			s_data_out:1,
-+			s_data_unused:2;
-+	u8		s_data_payload[0];
-+};
-+
-+static inline void tcp_cookie_values_release(struct kref *kref)
-+{
-+	kfree(container_of(kref, struct tcp_cookie_values, kref));
-+}
-+
-+/* The length of constant payload data.  Note that s_data_desired is
-+ * overloaded, depending on s_data_constant: either the length of constant
-+ * data (returned here) or the limit on variable data.
-+ */
-+static inline int tcp_s_data_size(const struct tcp_sock *tp)
-+{
-+	return (tp->cookie_values != NULL && tp->cookie_values->s_data_constant)
-+		? tp->cookie_values->s_data_desired
-+		: 0;
-+}
-+
-+/* As tcp_request_sock has already been extended in other places, the
-+ * only remaining method is to pass stack values along as function
-+ * parameters.  These parameters are not needed after sending SYNACK.
-+ */
-+struct tcp_extend_values {
-+	struct request_values		rv;
-+	u32				cookie_bakery[COOKIE_WORKSPACE_WORDS];
-+	u8				cookie_plus:6,
-+					cookie_out_never:1,
-+					cookie_in_always:1;
-+};
-+
-+static inline struct tcp_extend_values *tcp_xv(struct request_values *rvp)
-+{
-+	return (struct tcp_extend_values *)rvp;
-+}
-+
- extern void tcp_v4_init(void);
- extern void tcp_init(void);
- 
+> +		goto drop_and_free;
+>  
+> -	if (!want_cookie) {
+> -		inet6_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+> -		return 0;
+> -	}
+> +	inet6_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+> +	return 0;
+>  
+> +drop_and_free:
+> +	reqsk_free(req);
+>  drop:
+> -	if (req)
+> -		reqsk_free(req);
+> -
+>  	return 0; /* don't send reset */
+>  }
+>  
+> -- 
+> 1.6.3.3
+> 
 -- 
-1.6.3.3
-
-
---------------090102030605050805060205--
+ i.
