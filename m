@@ -1,219 +1,127 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH v6 5/7 RFC] TCPCT part 1e: implement socket option
- TCP_COOKIE_TRANSACTIONS
-Date: Fri, 13 Nov 2009 00:10:49 -0500
-Message-ID: <4AFCEA59.3060707@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 07:20:19 +0200
+Message-ID: <200911130720.19671.opurdila@ixiacom.com>
+References: <200911130701.14847.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070005030508020507000004"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:37881 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970AbZKMFKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 00:10:47 -0500
-Received: by yxe17 with SMTP id 17so2648667yxe.33
-        for <netdev@vger.kernel.org>; Thu, 12 Nov 2009 21:10:53 -0800 (PST)
-In-Reply-To: <4AFCDA9E.8050003@gmail.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:19514 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750834AbZKMFXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 00:23:18 -0500
+In-Reply-To: <200911130701.14847.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070005030508020507000004
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Friday 13 November 2009 07:01:14 you wrote:
+> This patch speeds up the network device name allocation for the case
+> where a significant number of devices of the same type are created
+> consecutively.
+> 
+> Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+> and sysfs entries disabled:
+> 
+> Without the patch           With the patch
+> 
+> real    0m 43.43s	    real    0m 0.49s
+> user    0m 0.00s	    user    0m 0.00s
+> sys     0m 43.43s	    sys     0m 0.48s
+> 
 
-Provide per socket control of the TCP cookie option and SYN/SYNACK data.
+Oops, pasting root prompts (e.g. # modprobe ....) directly into the git commit message is not a good idea :) Here it is again, with the full commit message.
 
-This is a straightforward re-implementation of an earlier (year-old)
-patch that no longer applies cleanly, with permission of the original
-author (Adam Langley):
+[net-next-2.6 PATCH] net: fast consecutive name allocation
 
-    http://thread.gmane.org/gmane.linux.network/102586
+This patch speeds up the network device name allocation for the case
+where a significant number of devices of the same type are created
+consecutively.
 
-The principle difference is using a TCP option to carry the cookie nonce,
-instead of a user configured offset in the data.
+Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+and sysfs entries disabled:
 
-Allocations have been rearranged to avoid requiring GFP_ATOMIC.
+$ time insmod /lib/modules/dummy.ko numdummies=8000
 
-Requires:
-   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
-   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
-   TCPCT part 1d: define TCP cookie option, extend existing struct's
+Without the patch           With the patch
 
-Signed-off-by: William.Allen.Simpson@gmail.com
+real    0m 43.43s	    real    0m 0.49s
+user    0m 0.00s	    user    0m 0.00s
+sys     0m 43.43s	    sys     0m 0.48s
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
-  net/ipv4/tcp.c |  133 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
-  1 files changed, 131 insertions(+), 2 deletions(-)
+ include/net/net_namespace.h |    3 +++
+ net/core/dev.c              |   23 ++++++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletions(-)
 
---------------070005030508020507000004
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1e6.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+1e6.patch"
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3ae01bf..3424499 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2079,8 +2079,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 	int val;
- 	int err = 0;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 0addd45..39c65a2 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -56,6 +56,9 @@ struct net {
+ 	struct list_head 	dev_base_head;
+ 	struct hlist_head 	*dev_name_head;
+ 	struct hlist_head	*dev_index_head;
++	/* fast consecutive name allocation (e.g. eth0, eth1, ...) */
++	char                    fcna_name[IFNAMSIZ];
++	int                     fcna_no;
  
--	/* This is a string value all the others are int's */
--	if (optname == TCP_CONGESTION) {
-+	/* These are data/string values, all the others are ints */
-+	switch (optname) {
-+	case TCP_CONGESTION: {
- 		char name[TCP_CA_NAME_MAX];
+ 	/* core fib_rules */
+ 	struct list_head	rules_ops;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ad8e320..008e3c7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -226,8 +226,12 @@ static int list_netdevice(struct net_device *dev)
+  */
+ static void unlist_netdevice(struct net_device *dev)
+ {
++	struct net *net = dev_net(dev);
++
+ 	ASSERT_RTNL();
  
- 		if (optlen < 1)
-@@ -2097,6 +2098,93 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		release_sock(sk);
- 		return err;
++	net->fcna_no = -1;
++
+ 	/* Unlink dev from the device chain */
+ 	write_lock_bh(&dev_base_lock);
+ 	list_del_rcu(&dev->dev_list);
+@@ -872,6 +876,16 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 		if (p[1] != 'd' || strchr(p + 2, '%'))
+ 			return -EINVAL;
+ 
++		/* avoid fast allocation for strange templates like "fan%dcy" */
++		if (net->fcna_no >= 0 && p[2] == 0 &&
++		    net->fcna_name[p - name] == 0 &&
++		    memcmp(name, net->fcna_name, p - name) == 0) {
++			snprintf(buf, IFNAMSIZ, name, ++net->fcna_no);
++			if (!__dev_get_by_name(net, buf))
++				return net->fcna_no;
++			net->fcna_no = -1;
++		}
++
+ 		/* Use one page as a bit array of possible slots */
+ 		inuse = (unsigned long *) get_zeroed_page(GFP_ATOMIC);
+ 		if (!inuse)
+@@ -894,8 +908,15 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
  	}
-+	case TCP_COOKIE_TRANSACTIONS: {
-+		struct tcp_cookie_transactions ctd;
-+		struct tcp_cookie_values *cvp = NULL;
-+
-+		if (sizeof(ctd) > optlen)
-+			return -EINVAL;
-+		if (copy_from_user(&ctd, optval, sizeof(ctd)))
-+			return -EFAULT;
-+
-+		if (ctd.tcpct_used > sizeof(ctd.tcpct_value)
-+		 || ctd.tcpct_s_data_desired > TCP_MSS_DESIRED)
-+			return -EINVAL;
-+
-+		if (ctd.tcpct_cookie_desired == 0) {
-+			/* default to global value */
-+		} else if ((0x1 & ctd.tcpct_cookie_desired)
-+			|| ctd.tcpct_cookie_desired > TCP_COOKIE_MAX
-+			|| ctd.tcpct_cookie_desired < TCP_COOKIE_MIN) {
-+			return -EINVAL;
-+		}
-+
-+		if (TCP_COOKIE_OUT_NEVER & ctd.tcpct_flags) {
-+			/* Supercedes all other values */
-+			lock_sock(sk);
-+			if (tp->cookie_values != NULL) {
-+				kref_put(&tp->cookie_values->kref,
-+					 tcp_cookie_values_release);
-+				tp->cookie_values = NULL;
-+			}
-+			tp->rx_opt.cookie_in_always = 0; /* false */
-+			tp->rx_opt.cookie_out_never = 1; /* true */
-+			release_sock(sk);
-+			return err;
-+		}
-+
-+		/* Allocate ancillary memory before locking.
-+		 */
-+		if (ctd.tcpct_used > 0
-+		 || (tp->cookie_values == NULL
-+		  && (sysctl_tcp_cookie_size > 0
-+		   || ctd.tcpct_cookie_desired > 0
-+		   || ctd.tcpct_s_data_desired > 0))) {
-+			cvp = kzalloc(sizeof(*cvp) + ctd.tcpct_used,
-+				      GFP_KERNEL);
-+			if (cvp == NULL)
-+				return -ENOMEM;
-+		}
-+		lock_sock(sk);
-+		tp->rx_opt.cookie_in_always =
-+			(TCP_COOKIE_IN_ALWAYS & ctd.tcpct_flags);
-+		tp->rx_opt.cookie_out_never = 0; /* false */
-+
-+		if (tp->cookie_values != NULL) {
-+			if (cvp != NULL) {
-+				/* Changed values are recorded by a changed
-+				 * pointer, ensuring the cookie will differ,
-+				 * without separately hashing each value later.
-+				 */
-+				kref_put(&tp->cookie_values->kref,
-+					 tcp_cookie_values_release);
-+				kref_init(&cvp->kref);
-+				tp->cookie_values = cvp;
-+			} else {
-+				cvp = tp->cookie_values;
-+			}
-+		}
-+		if (cvp != NULL) {
-+			cvp->cookie_desired = ctd.tcpct_cookie_desired;
-+
-+			if (ctd.tcpct_used > 0) {
-+				memcpy(cvp->s_data_payload, ctd.tcpct_value,
-+				       ctd.tcpct_used);
-+				cvp->s_data_desired = ctd.tcpct_used;
-+				cvp->s_data_constant = 1; /* true */
-+			} else {
-+				/* No constant payload data. */
-+				cvp->s_data_desired = ctd.tcpct_s_data_desired;
-+				cvp->s_data_constant = 0; /* false */
-+			}
-+		}
-+		release_sock(sk);
-+		return err;
-+	}
-+	default:
-+		/* fallthru */
-+		break;
-+	};
  
- 	if (optlen < sizeof(int))
- 		return -EINVAL;
-@@ -2421,6 +2509,47 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 		if (copy_to_user(optval, icsk->icsk_ca_ops->name, len))
- 			return -EFAULT;
- 		return 0;
-+
-+	case TCP_COOKIE_TRANSACTIONS: {
-+		struct tcp_cookie_transactions ctd;
-+		struct tcp_cookie_values *cvp = tp->cookie_values;
-+
-+		if (get_user(len, optlen))
-+			return -EFAULT;
-+		if (len < sizeof(ctd))
-+			return -EINVAL;
-+
-+		memset(&ctd, 0, sizeof(ctd));
-+		ctd.tcpct_flags = (tp->rx_opt.cookie_in_always
-+				   ? TCP_COOKIE_IN_ALWAYS : 0)
-+				+ (tp->rx_opt.cookie_out_never
-+				   ? TCP_COOKIE_OUT_NEVER : 0);
-+
-+		if (cvp != NULL) {
-+			ctd.tcpct_flags += (cvp->s_data_in
-+					    ? TCP_S_DATA_IN : 0)
-+					 + (cvp->s_data_out
-+					    ? TCP_S_DATA_OUT : 0);
-+
-+			ctd.tcpct_cookie_desired = cvp->cookie_desired;
-+			ctd.tcpct_s_data_desired = cvp->s_data_desired;
-+
-+			/* Cookie(s) saved, return as nonce */
-+			if (sizeof(ctd.tcpct_value) < cvp->cookie_pair_size) {
-+				/* impossible? */
-+				return -EINVAL;
-+			}
-+			memcpy(&ctd.tcpct_value[0], &cvp->cookie_pair[0],
-+			       cvp->cookie_pair_size);
-+			ctd.tcpct_used = cvp->cookie_pair_size;
-+		}
-+
-+		if (put_user(sizeof(ctd), optlen))
-+			return -EFAULT;
-+		if (copy_to_user(optval, &ctd, sizeof(ctd)))
-+			return -EFAULT;
-+		return 0;
+ 	snprintf(buf, IFNAMSIZ, name, i);
+-	if (!__dev_get_by_name(net, buf))
++	if (!__dev_get_by_name(net, buf)) {
++		if (p[2] == 0) {
++			memcpy(net->fcna_name, name, p - name);
++			net->fcna_name[p - name] = 0;
++			net->fcna_no = i;
++		}  else
++			net->fcna_no = -1;
+ 		return i;
 +	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
+ 
+ 	/* It is possible to run out of possible slots
+ 	 * when the name is long and there isn't enough space left
 -- 
-1.6.3.3
+1.5.6.5
 
-
---------------070005030508020507000004--
