@@ -1,50 +1,37 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] bonding: fix 802.3ad standards compliance error
-Date: Fri, 13 Nov 2009 15:47:33 -0800
-Message-ID: <6802.1258156053@death.nxdomain.ibm.com>
-References: <3048.1258153981@death.nxdomain.ibm.com> <20091113153058.4b739ea3@nehalam>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	martin@gear6.com
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 18:52:10 -0500
+Message-ID: <20091113235210.GR19478@kvack.org>
+References: <200911130701.14847.opurdila@ixiacom.com> <4AFCF8D3.6090905@gmail.com> <20091112222608.79d90e9e@nehalam> <200911131151.31677.opurdila@ixiacom.com> <20091113142939.35879efe@s6510> <20091113224043.GP19478@kvack.org> <20091113144937.23693bb4@nehalam> <20091113233504.GQ19478@kvack.org> <20091113153924.6130135f@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:39172 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932435AbZKMXrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 18:47:37 -0500
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e32.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id nADNgT4J028367
-	for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 16:42:29 -0700
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nADNlgEI181912
-	for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 16:47:42 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nADNlgVv018904
-	for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 16:47:42 -0700
-In-reply-to: <20091113153058.4b739ea3@nehalam>
+Received: from kanga.kvack.org ([205.233.56.17]:48311 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932313AbZKMXwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 18:52:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20091113153924.6130135f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+On Fri, Nov 13, 2009 at 03:39:24PM -0800, Stephen Hemminger wrote:
+> Well TCP handles lots of connections, but a socket has different overhead
+> than a network device. Why should 10Gbps need 10K PPPoE sessions?
+> Even Vlan's are less overhead than PPP
 
->On Fri, 13 Nov 2009 15:13:01 -0800
->Jay Vosburgh <fubar@us.ibm.com> wrote:
->
->> +	// check if all parameters are alike
->> +	if (((ntohs(lacpdu->partner_port) == port->actor_port_number) &&
->> +	     (ntohs(lacpdu->partner_port_priority) == port->actor_port_priority) &&
->> +	     !MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) &&
->> +	     (ntohs(lacpdu->partner_system_priority) == port->actor_system_priority) &&
->> +	     (ntohs(lacpdu->partner_key) == port->actor_oper_port_key) &&
->> +	     ((lacpdu->partner_state & AD_STATE_AGGREGATION) == (port->actor_oper_port_state & AD_STATE_AGGREGATION))) ||
->> +	    // or this is individual link(aggregation == FALSE)
->
->I know the code here doesn't follow kernel style, but please don't
->add more C99 comments or overly long lines.
+PPP's overhead is acceptable.  It makes managing networks a lot easier, since 
+the authentication done by PPP is able to look up any end user specific 
+information required (ie static ips and routes), while the access part of 
+the network is a fairly generic config that uses switchs and things like the 
+GVRP.  Without that, the configuration of any aggregation switch becomes a 
+huge management nightmare.
 
-	I didn't, really; I moved the function up in the file rather
-than adding a forward declaration.
+If you don't want the overhead from this kind of scaling, stick it under a 
+config option, but please don't stop other people from pushing Linux into 
+new uses which have these scaling requirements.
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+		-ben
