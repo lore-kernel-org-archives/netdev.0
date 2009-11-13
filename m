@@ -1,34 +1,49 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v6 5/7 RFC] TCPCT part 1e: implement socket
- option TCP_COOKIE_TRANSACTIONS
-Date: Fri, 13 Nov 2009 11:32:12 -0500
-Message-ID: <4AFD8A0C.50008@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com> <4AFCEA59.3060707@gmail.com> <87bpj6tszv.fsf@basil.nowhere.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] vlan: Use __vlan_hwaccel_put_tag() in rx
+Date: Fri, 13 Nov 2009 17:33:11 +0100
+Message-ID: <4AFD8A47.1070908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:51889 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755239AbZKMQcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 11:32:12 -0500
-Received: by fxm21 with SMTP id 21so652622fxm.21
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 08:32:17 -0800 (PST)
-In-Reply-To: <87bpj6tszv.fsf@basil.nowhere.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36301 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756339AbZKMQdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 11:33:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> BTW if you add new socket options you should always submit a manpage
-> patch to linux-man@vger.kernel.org too
-> 
-Thanks muchly, I'd wondered where one does that!  I'll do that as soon
-as the code goes into the net tree (rather than net-next) for staging
-out to the main line, as otherwise that could be pretty confusing for
-others (non-existent options).
+Commit 05423b241311c9380 (vlan: allow null VLAN ID to be used)
+forgot to update __vlan_hwaccel_rx() & vlan_gro_common()
 
-I'd found Documentation/networking/ip-sysctl.txt, updated in part 1c.
+We need to set VLAN_TAG_PRESENT flag in skb->vlan_tci
 
-Any technical corrections to this patch (or part 1c)?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/8021q/vlan_core.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 8d5ca2a..971d375 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -14,7 +14,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 	if (skb_bond_should_drop(skb))
+ 		goto drop;
+ 
+-	skb->vlan_tci = vlan_tci;
++	__vlan_hwaccel_put_tag(skb, vlan_tci);
+ 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+ 
+ 	if (!skb->dev)
+@@ -83,7 +83,7 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+ 	if (skb_bond_should_drop(skb))
+ 		goto drop;
+ 
+-	skb->vlan_tci = vlan_tci;
++	__vlan_hwaccel_put_tag(skb, vlan_tci);
+ 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+ 
+ 	if (!skb->dev)
