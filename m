@@ -1,45 +1,59 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Documentation: rw_lock lessons learned
-Date: Fri, 13 Nov 2009 09:59:29 +0100
-Message-ID: <4AFD1FF1.7080906@s5r6.in-berlin.de>
-References: <4AF9C540.5090403@gmail.com>	<20091110180646.2e5859a8@nehalam>	<4AFAEF78.4080807@gmail.com>	<20091111093724.4f40a48d@nehalam>	<4AFBEC44.9030409@gmail.com>	<4AFC5E3F.7070609@earthlink.net> <20091112150029.1a26c641@nehalam>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Fri, 13 Nov 2009 09:18:25 +0000
+Message-ID: <20091113091825.GA7449@ff.dom.local>
+References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com> <20091113074508.GA6605@ff.dom.local> <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: sclark46@earthlink.net,
-	William Allen Simpson <william.allen.simpson@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:51661 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754659AbZKMI7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 03:59:44 -0500
-In-Reply-To: <20091112150029.1a26c641@nehalam>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:42121 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755660AbZKMJS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 04:18:27 -0500
+Received: by fxm21 with SMTP id 21so209581fxm.21
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 01:18:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 12 Nov 2009 14:13:03 -0500
-> Stephen Clark <sclark46@earthlink.net> wrote:
->> How up to date is this doc?
->> 
->> http://www.kernel.org/pub/linux/kernel/people/rusty/kernel-locking/index.html
->> 
+On Fri, Nov 13, 2009 at 04:54:50PM +0800, Changli Gao wrote:
+> On Fri, Nov 13, 2009 at 3:45 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > On 13-11-2009 07:16, Changli Gao wrote:
+> >
+> > I don't think so. There would be a lot of code duplication and later
+> > maintenance problems only because of the scheduling method. The main
+> > question is to establish if there is really no performance difference
+> > (which I doubt) - unless Changli can show some tests for various
+> > setups now. On the other hand, if there is a difference, why keep
+> > ineffective solution - similar thing should be possible to do in the
+> > softirq context as well.
+> >
+> > So it should not be a big problem to do it a bit messy for some
+> > testing time. Since we can use separate ->ndo_start_xmit() etc. it
+> > shouldn't be too messy, I guess.
+> >
 > 
-> Out of date.
-> 1. Missing mutex's which have largely replaced semaphores.
+> I have done a simple test. I run a simple program on computer A, which
+> sends SYN packets with random source ports to Computer B's 80 port (No
+> socket listens on that port, so tcp reset packets will be sent) in
+> 90kpps. On computer B, I redirect the traffic to IFB. At the same
+> time, I ping from B to A to get the RTT between them. I can't see any
+> difference between the original IFB and my MQ version. They are both:
 > 
-> 2. Missing change to lock initialization in later kernels.
+> CPU idle: 50%
+> Latency: 0.3-0.4ms, burst 2ms.
 > 
-> 3. Missing description of lock dependency checker which should be in same guide.
 
-4. The section on atomic reference counting should refer to <linux/kref.h>.
--- 
-Stefan Richter
--=====-==--= =-== -==-=
-http://arcgraph.de/sr/
+I'm mostly concerned with routers doing forwarding with 1Gb or 10Gb
+NICs (including multiqueue). Alas/happily I don't have such a problem,
+but can't help you with testing either.
+
+Regards,
+Jarek P.
