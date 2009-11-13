@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 17/20] tg3: Create aliases for rx producer mailbox regs
-Date: Fri, 13 Nov 2009 15:03:49 -0800
-Message-ID: <1258153432-7036-18-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 18/20] tg3: Add rx prod ring consolidation
+Date: Fri, 13 Nov 2009 15:03:50 -0800
+Message-ID: <1258153432-7036-19-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,97 +10,286 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3252 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4236 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932469AbZKMXEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932464AbZKMXEW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Nov 2009 18:04:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rx producer mailbox registers are used in several spots in the code.
-The addition of TG3_64BIT_REG_LOW makes register references
-uncomfortably long.  This patch creates an alias for the standard and
-jumbo ring producer index registers to make the code cleaner.
+This patch adds code to funnel each MSI-X vector's rx packet buffers
+into a single set of producer rings which will then be submitted to the
+hardware.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   18 ++++++------------
- drivers/net/tg3.h |    4 ++++
- 2 files changed, 10 insertions(+), 12 deletions(-)
+ drivers/net/tg3.c |  171 +++++++++++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/tg3.h |    3 +
+ 2 files changed, 164 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 168a7ca..05fd42f 100644
+index 05fd42f..3ff2d40 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -402,7 +402,7 @@ static void tg3_write_indirect_mbox(struct tg3 *tp, u32 off, u32 val)
- 				       TG3_64BIT_REG_LOW, val);
- 		return;
- 	}
--	if (off == (MAILBOX_RCV_STD_PROD_IDX + TG3_64BIT_REG_LOW)) {
-+	if (off == TG3_RX_STD_PROD_IDX_REG) {
- 		pci_write_config_dword(tp->pdev, TG3PCI_STD_RING_PROD_IDX +
- 				       TG3_64BIT_REG_LOW, val);
- 		return;
-@@ -4684,9 +4684,7 @@ next_pkt:
+@@ -4558,7 +4558,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 	u32 sw_idx = tnapi->rx_rcb_ptr;
+ 	u16 hw_idx;
+ 	int received;
+-	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
++	struct tg3_rx_prodring_set *tpr = tnapi->prodring;
  
- 		if (unlikely(rx_std_posted >= tp->rx_std_max_post)) {
- 			u32 idx = *post_ptr % TG3_RX_RING_SIZE;
--
--			tw32_rx_mbox(MAILBOX_RCV_STD_PROD_IDX +
--				     TG3_64BIT_REG_LOW, idx);
-+			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG, idx);
- 			work_mask &= ~RXD_OPAQUE_RING_STD;
- 			rx_std_posted = 0;
- 		}
-@@ -4708,13 +4706,11 @@ next_pkt_nopost:
+ 	hw_idx = *(tnapi->rx_rcb_prod_idx);
+ 	/*
+@@ -4581,13 +4581,13 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
+ 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
+ 		if (opaque_key == RXD_OPAQUE_RING_STD) {
+-			ri = &tpr->rx_std_buffers[desc_idx];
++			ri = &tp->prodring[0].rx_std_buffers[desc_idx];
+ 			dma_addr = pci_unmap_addr(ri, mapping);
+ 			skb = ri->skb;
+ 			post_ptr = &std_prod_idx;
+ 			rx_std_posted++;
+ 		} else if (opaque_key == RXD_OPAQUE_RING_JUMBO) {
+-			ri = &tpr->rx_jmb_buffers[desc_idx];
++			ri = &tp->prodring[0].rx_jmb_buffers[desc_idx];
+ 			dma_addr = pci_unmap_addr(ri, mapping);
+ 			skb = ri->skb;
+ 			post_ptr = &jmb_prod_idx;
+@@ -4704,15 +4704,30 @@ next_pkt_nopost:
+ 	tw32_rx_mbox(tnapi->consmbox, sw_idx);
+ 
  	/* Refill RX ring(s). */
- 	if (work_mask & RXD_OPAQUE_RING_STD) {
+-	if (work_mask & RXD_OPAQUE_RING_STD) {
++	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) || tnapi == &tp->napi[1]) {
++		if (work_mask & RXD_OPAQUE_RING_STD) {
++			tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
++			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG,
++				     tpr->rx_std_prod_idx);
++		}
++		if (work_mask & RXD_OPAQUE_RING_JUMBO) {
++			tpr->rx_jmb_prod_idx = jmb_prod_idx %
++					       TG3_RX_JUMBO_RING_SIZE;
++			tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG,
++				     tpr->rx_jmb_prod_idx);
++		}
++		mmiowb();
++	} else if (work_mask) {
++		/* rx_std_buffers[] and rx_jmb_buffers[] entries must be
++		 * updated before the producer indices can be updated.
++		 */
++		smp_wmb();
++
  		tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
--		tw32_rx_mbox(MAILBOX_RCV_STD_PROD_IDX + TG3_64BIT_REG_LOW,
--			     tpr->rx_std_prod_idx);
-+		tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG, tpr->rx_std_prod_idx);
- 	}
- 	if (work_mask & RXD_OPAQUE_RING_JUMBO) {
+-		tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG, tpr->rx_std_prod_idx);
+-	}
+-	if (work_mask & RXD_OPAQUE_RING_JUMBO) {
  		tpr->rx_jmb_prod_idx = jmb_prod_idx % TG3_RX_JUMBO_RING_SIZE;
--		tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
--			     tpr->rx_jmb_prod_idx);
-+		tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG, tpr->rx_jmb_prod_idx);
+-		tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG, tpr->rx_jmb_prod_idx);
++
++		napi_schedule(&tp->napi[1].napi);
  	}
- 	mmiowb();
+-	mmiowb();
  
-@@ -7526,13 +7522,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	tw32(RCVDBDI_STD_BD + TG3_BDINFO_MAXLEN_FLAGS, val);
+ 	return received;
+ }
+@@ -4743,6 +4758,93 @@ static void tg3_poll_link(struct tg3 *tp)
+ 	}
+ }
  
- 	tpr->rx_std_prod_idx = tp->rx_pending;
--	tw32_rx_mbox(MAILBOX_RCV_STD_PROD_IDX + TG3_64BIT_REG_LOW,
--		     tpr->rx_std_prod_idx);
-+	tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG, tpr->rx_std_prod_idx);
++static void tg3_rx_prodring_xfer(struct tg3 *tp,
++				 struct tg3_rx_prodring_set *dpr,
++				 struct tg3_rx_prodring_set *spr)
++{
++	u32 si, di, cpycnt, src_prod_idx;
++	int i;
++
++	while (1) {
++		src_prod_idx = spr->rx_std_prod_idx;
++
++		/* Make sure updates to the rx_std_buffers[] entries and the
++		 * standard producer index are seen in the correct order.
++		 */
++		smp_rmb();
++
++		if (spr->rx_std_cons_idx == src_prod_idx)
++			break;
++
++		if (spr->rx_std_cons_idx < src_prod_idx)
++			cpycnt = src_prod_idx - spr->rx_std_cons_idx;
++		else
++			cpycnt = TG3_RX_RING_SIZE - spr->rx_std_cons_idx;
++
++		cpycnt = min(cpycnt, TG3_RX_RING_SIZE - dpr->rx_std_prod_idx);
++
++		si = spr->rx_std_cons_idx;
++		di = dpr->rx_std_prod_idx;
++
++		memcpy(&dpr->rx_std_buffers[di],
++		       &spr->rx_std_buffers[si],
++		       cpycnt * sizeof(struct ring_info));
++
++		for (i = 0; i < cpycnt; i++, di++, si++) {
++			struct tg3_rx_buffer_desc *sbd, *dbd;
++			sbd = &spr->rx_std[si];
++			dbd = &dpr->rx_std[di];
++			dbd->addr_hi = sbd->addr_hi;
++			dbd->addr_lo = sbd->addr_lo;
++		}
++
++		spr->rx_std_cons_idx = (spr->rx_std_cons_idx + cpycnt) %
++				       TG3_RX_RING_SIZE;
++		dpr->rx_std_prod_idx = (dpr->rx_std_prod_idx + cpycnt) %
++				       TG3_RX_RING_SIZE;
++	}
++
++	while (1) {
++		src_prod_idx = spr->rx_jmb_prod_idx;
++
++		/* Make sure updates to the rx_jmb_buffers[] entries and
++		 * the jumbo producer index are seen in the correct order.
++		 */
++		smp_rmb();
++
++		if (spr->rx_jmb_cons_idx == src_prod_idx)
++			break;
++
++		if (spr->rx_jmb_cons_idx < src_prod_idx)
++			cpycnt = src_prod_idx - spr->rx_jmb_cons_idx;
++		else
++			cpycnt = TG3_RX_JUMBO_RING_SIZE - spr->rx_jmb_cons_idx;
++
++		cpycnt = min(cpycnt,
++			     TG3_RX_JUMBO_RING_SIZE - dpr->rx_jmb_prod_idx);
++
++		si = spr->rx_jmb_cons_idx;
++		di = dpr->rx_jmb_prod_idx;
++
++		memcpy(&dpr->rx_jmb_buffers[di],
++		       &spr->rx_jmb_buffers[si],
++		       cpycnt * sizeof(struct ring_info));
++
++		for (i = 0; i < cpycnt; i++, di++, si++) {
++			struct tg3_rx_buffer_desc *sbd, *dbd;
++			sbd = &spr->rx_jmb[si].std;
++			dbd = &dpr->rx_jmb[di].std;
++			dbd->addr_hi = sbd->addr_hi;
++			dbd->addr_lo = sbd->addr_lo;
++		}
++
++		spr->rx_jmb_cons_idx = (spr->rx_jmb_cons_idx + cpycnt) %
++				       TG3_RX_JUMBO_RING_SIZE;
++		dpr->rx_jmb_prod_idx = (dpr->rx_jmb_prod_idx + cpycnt) %
++				       TG3_RX_JUMBO_RING_SIZE;
++	}
++}
++
+ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ {
+ 	struct tg3 *tp = tnapi->tp;
+@@ -4761,6 +4863,30 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 	if (*(tnapi->rx_rcb_prod_idx) != tnapi->rx_rcb_ptr)
+ 		work_done += tg3_rx(tnapi, budget - work_done);
  
- 	tpr->rx_jmb_prod_idx = (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) ?
- 			  tp->rx_jumbo_pending : 0;
--	tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
--		     tpr->rx_jmb_prod_idx);
-+	tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG, tpr->rx_jmb_prod_idx);
++	if ((tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) && tnapi == &tp->napi[1]) {
++		int i;
++		u32 std_prod_idx = tp->prodring[0].rx_std_prod_idx;
++		u32 jmb_prod_idx = tp->prodring[0].rx_jmb_prod_idx;
++
++		for (i = 2; i < tp->irq_cnt; i++)
++			tg3_rx_prodring_xfer(tp, tnapi->prodring,
++					     tp->napi[i].prodring);
++
++		wmb();
++
++		if (std_prod_idx != tp->prodring[0].rx_std_prod_idx) {
++			u32 mbox = TG3_RX_STD_PROD_IDX_REG;
++			tw32_rx_mbox(mbox, tp->prodring[0].rx_std_prod_idx);
++		}
++
++		if (jmb_prod_idx != tp->prodring[0].rx_jmb_prod_idx) {
++			u32 mbox = TG3_RX_JMB_PROD_IDX_REG;
++			tw32_rx_mbox(mbox, tp->prodring[0].rx_jmb_prod_idx);
++		}
++
++		mmiowb();
++	}
++
+ 	return work_done;
+ }
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
- 		tw32(STD_REPLENISH_LWM, 32);
+@@ -5715,8 +5841,23 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
+ {
+ 	int i;
+ 
+-	if (tpr != &tp->prodring[0])
++	if (tpr != &tp->prodring[0]) {
++		for (i = tpr->rx_std_cons_idx; i != tpr->rx_std_prod_idx;
++		     i = (i + 1) % TG3_RX_RING_SIZE)
++			tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
++					tp->rx_pkt_map_sz);
++
++		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
++			for (i = tpr->rx_jmb_cons_idx;
++			     i != tpr->rx_jmb_prod_idx;
++			     i = (i + 1) % TG3_RX_JUMBO_RING_SIZE) {
++				tg3_rx_skb_free(tp, &tpr->rx_jmb_buffers[i],
++						TG3_RX_JMB_MAP_SZ);
++			}
++		}
++
+ 		return;
++	}
+ 
+ 	for (i = 0; i < TG3_RX_RING_SIZE; i++)
+ 		tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
+@@ -5741,6 +5882,11 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ {
+ 	u32 i, rx_pkt_dma_sz;
+ 
++	tpr->rx_std_cons_idx = 0;
++	tpr->rx_std_prod_idx = 0;
++	tpr->rx_jmb_cons_idx = 0;
++	tpr->rx_jmb_prod_idx = 0;
++
+ 	if (tpr != &tp->prodring[0]) {
+ 		memset(&tpr->rx_std_buffers[0], 0, TG3_RX_STD_BUFF_RING_SIZE);
+ 		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE)
+@@ -6062,6 +6208,11 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 			break;
+ 		}
+ 
++		if (tp->irq_cnt == 1)
++			tnapi->prodring = &tp->prodring[0];
++		else if (i)
++			tnapi->prodring = &tp->prodring[i - 1];
++
+ 		/*
+ 		 * If multivector RSS is enabled, vector 0 does not handle
+ 		 * rx or tx interrupts.  Don't allocate any resources for it.
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 715df2b..bbfbc5e 100644
+index bbfbc5e..6be46ab 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -242,7 +242,11 @@
- #define MAILBOX_GENERAL_7		0x00000258 /* 64-bit */
- #define MAILBOX_RELOAD_STAT		0x00000260 /* 64-bit */
- #define MAILBOX_RCV_STD_PROD_IDX	0x00000268 /* 64-bit */
-+#define TG3_RX_STD_PROD_IDX_REG		(MAILBOX_RCV_STD_PROD_IDX + \
-+					 TG3_64BIT_REG_LOW)
- #define MAILBOX_RCV_JUMBO_PROD_IDX	0x00000270 /* 64-bit */
-+#define TG3_RX_JMB_PROD_IDX_REG		(MAILBOX_RCV_JUMBO_PROD_IDX + \
-+					 TG3_64BIT_REG_LOW)
- #define MAILBOX_RCV_MINI_PROD_IDX	0x00000278 /* 64-bit */
- #define MAILBOX_RCVRET_CON_IDX_0	0x00000280 /* 64-bit */
- #define MAILBOX_RCVRET_CON_IDX_1	0x00000288 /* 64-bit */
+@@ -2575,7 +2575,9 @@ struct tg3_ethtool_stats {
+ 
+ struct tg3_rx_prodring_set {
+ 	u32				rx_std_prod_idx;
++	u32				rx_std_cons_idx;
+ 	u32				rx_jmb_prod_idx;
++	u32				rx_jmb_cons_idx;
+ 	struct tg3_rx_buffer_desc	*rx_std;
+ 	struct tg3_ext_rx_buffer_desc	*rx_jmb;
+ 	struct ring_info		*rx_std_buffers;
+@@ -2603,6 +2605,7 @@ struct tg3_napi {
+ 	u32				consmbox;
+ 	u32				rx_rcb_ptr;
+ 	u16				*rx_rcb_prod_idx;
++	struct tg3_rx_prodring_set	*prodring;
+ 
+ 	struct tg3_rx_buffer_desc	*rx_rcb;
+ 	struct tg3_tx_buffer_desc	*tx_ring;
 -- 
 1.6.4.4
 
