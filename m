@@ -1,111 +1,21 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 04/20] tg3: Move TG3_FLG2_PROTECTED_NVRAM to tg3_flags3
-Date: Fri, 13 Nov 2009 15:03:36 -0800
-Message-ID: <1258153432-7036-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 00/20] tg3: 5717 updates
+Date: Fri, 13 Nov 2009 15:03:32 -0800
+Message-ID: <1258153432-7036-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	"Matt Carlson" <mcarlson@broadcom.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3259 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3239 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932455AbZKMXER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932453AbZKMXER (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Nov 2009 18:04:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need room for another TSO flag and it would be most efficient if it
-resided in tg3_flags2.  This patch moves the TG3_FLG2_PROTECTED_NVRAM
-to tg3_flags3 to make room.
-
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/tg3.c |   12 ++++++------
- drivers/net/tg3.h |    2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 072e3ee..f74d80d 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -2249,7 +2249,7 @@ static void tg3_nvram_unlock(struct tg3 *tp)
- static void tg3_enable_nvram_access(struct tg3 *tp)
- {
- 	if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
--	    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM)) {
-+	    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM)) {
- 		u32 nvaccess = tr32(NVRAM_ACCESS);
- 
- 		tw32(NVRAM_ACCESS, nvaccess | ACCESS_ENABLE);
-@@ -2260,7 +2260,7 @@ static void tg3_enable_nvram_access(struct tg3 *tp)
- static void tg3_disable_nvram_access(struct tg3 *tp)
- {
- 	if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
--	    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM)) {
-+	    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM)) {
- 		u32 nvaccess = tr32(NVRAM_ACCESS);
- 
- 		tw32(NVRAM_ACCESS, nvaccess & ~ACCESS_ENABLE);
-@@ -10970,7 +10970,7 @@ static void __devinit tg3_get_5752_nvram_info(struct tg3 *tp)
- 
- 	/* NVRAM protection for TPM */
- 	if (nvcfg1 & (1 << 27))
--		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
-+		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
- 
- 	switch (nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK) {
- 	case FLASH_5752VENDOR_ATMEL_EEPROM_64KHZ:
-@@ -11011,7 +11011,7 @@ static void __devinit tg3_get_5755_nvram_info(struct tg3 *tp)
- 
- 	/* NVRAM protection for TPM */
- 	if (nvcfg1 & (1 << 27)) {
--		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
-+		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
- 		protect = 1;
- 	}
- 
-@@ -11105,7 +11105,7 @@ static void __devinit tg3_get_5761_nvram_info(struct tg3 *tp)
- 
- 	/* NVRAM protection for TPM */
- 	if (nvcfg1 & (1 << 27)) {
--		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
-+		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
- 		protect = 1;
- 	}
- 
-@@ -11607,7 +11607,7 @@ static int tg3_nvram_write_block(struct tg3 *tp, u32 offset, u32 len, u8 *buf)
- 
- 		tg3_enable_nvram_access(tp);
- 		if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
--		    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM))
-+		    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM))
- 			tw32(NVRAM_WRITE1, 0x406);
- 
- 		grc_mode = tr32(GRC_MODE);
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index e0a8b61..590a692 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2753,7 +2753,6 @@ struct tg3 {
- #define TG3_FLG2_SERDES_PREEMPHASIS	0x00020000
- #define TG3_FLG2_5705_PLUS		0x00040000
- #define TG3_FLG2_5750_PLUS		0x00080000
--#define TG3_FLG2_PROTECTED_NVRAM	0x00100000
- #define TG3_FLG2_USING_MSI		0x00200000
- #define TG3_FLG2_USING_MSIX		0x00400000
- #define TG3_FLG2_USING_MSI_OR_MSIX	(TG3_FLG2_USING_MSI | \
-@@ -2773,6 +2772,7 @@ struct tg3 {
- 	u32				tg3_flags3;
- #define TG3_FLG3_NO_NVRAM_ADDR_TRANS	0x00000001
- #define TG3_FLG3_ENABLE_APE		0x00000002
-+#define TG3_FLG3_PROTECTED_NVRAM	0x00000004
- #define TG3_FLG3_5701_DMA_BUG		0x00000008
- #define TG3_FLG3_USE_PHYLIB		0x00000010
- #define TG3_FLG3_MDIOBUS_INITED		0x00000020
--- 
-1.6.4.4
+This patchset implements the final set of changes required for
+5717 support.
 
 
