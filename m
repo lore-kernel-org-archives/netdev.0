@@ -1,52 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Fri, 13 Nov 2009 14:55:50 +0100
-Message-ID: <4AFD6566.2040007@gmail.com>
-References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com>	 <20091113074508.GA6605@ff.dom.local> <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [net-next-2.6 PATCH v6 5/7 RFC] TCPCT part 1e: implement socket option TCP_COOKIE_TRANSACTIONS
+Date: Fri, 13 Nov 2009 15:11:00 +0100
+Message-ID: <87bpj6tszv.fsf@basil.nowhere.org>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCEA59.3060707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54425 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754359AbZKMNzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 08:55:52 -0500
-In-Reply-To: <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:46550 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312AbZKMOK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 09:10:57 -0500
+In-Reply-To: <4AFCEA59.3060707@gmail.com> (William Allen Simpson's message of "Fri, 13 Nov 2009 00:10:49 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao a =C3=A9crit :
+William Allen Simpson <william.allen.simpson@gmail.com> writes:
 
-> I have done a simple test. I run a simple program on computer A, whic=
-h
-> sends SYN packets with random source ports to Computer B's 80 port (N=
-o
-> socket listens on that port, so tcp reset packets will be sent) in
-> 90kpps. On computer B, I redirect the traffic to IFB. At the same
-> time, I ping from B to A to get the RTT between them. I can't see any
-> difference between the original IFB and my MQ version. They are both:
->=20
-> CPU idle: 50%
-> Latency: 0.3-0.4ms, burst 2ms.
+> This is a straightforward re-implementation of an earlier (year-old)
+> patch that no longer applies cleanly, with permission of the original
+> author (Adam Langley):
+>
+>    http://thread.gmane.org/gmane.linux.network/102586
+>
+> The principle difference is using a TCP option to carry the cookie nonce,
+> instead of a user configured offset in the data.
+>
+> Allocations have been rearranged to avoid requiring GFP_ATOMIC.
+>
+> Requires:
+>   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
+>   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
+>   TCPCT part 1d: define TCP cookie option, extend existing struct's
 
-Yes, but redo your test with normal load (including several user thread=
-s
-fighting for scheduler/cpu use) :)
+BTW if you add new socket options you should always submit a manpage
+patch to linux-man@vger.kernel.org too
 
-softirq preempts user threads instantly (they are interrupts after all =
-:) ),
-while workqueue do compete with other workqueues/threads.
+-Andi
 
-Tom Herbert RPS solution is still using softirqs.
-
-I like to test workqueue based solution with IFB, but some people might=
- still
-keep previous pure softirq solution for production environment, not ben=
-chmarks...
-
+-- 
+ak@linux.intel.com -- Speaking for myself only.
