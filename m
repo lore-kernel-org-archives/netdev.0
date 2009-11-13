@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/7] igb: Rework how netdev->stats is handled
-Date: Thu, 12 Nov 2009 20:37:38 -0800
-Message-ID: <20091113043737.1240.18360.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 5/7] igb: removed unused tx/rx total
+	bytes/packets from adapter struct
+Date: Thu, 12 Nov 2009 20:37:56 -0800
+Message-ID: <20091113043756.1240.6977.stgit@localhost.localdomain>
 References: <20091113043604.1240.80142.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,345 +12,39 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:50486
-	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755910AbZKMEht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:37:49 -0500
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:48201
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755635AbZKMEiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Nov 2009 23:38:09 -0500
 In-Reply-To: <20091113043604.1240.80142.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch does some refactoring work that I felt was needed after reviewing
-the changes recently submitted relating to the replacement of net_stats with
-netdev->stats.
-
-This patch essentially creates two different collections of stats.  The
-first handles the adapter specific states and is stored in gstring_stats,
-and the second is for netdev specific stats and is stored in
-gstring_net_stats.
+This patch removes unused variables total_tx_bytes, total_tx_packets,
+total_rx_bytes, and total_rx_packets from the adapter struct.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_ethtool.c |  171 +++++++++++++++++++++--------------------
- drivers/net/igb/igb_main.c    |   40 +++++-----
- 2 files changed, 108 insertions(+), 103 deletions(-)
+ drivers/net/igb/igb.h |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index f2b2825..c1cde5b 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -37,77 +37,88 @@
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index 2bb9549..63abd1c 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -249,10 +249,6 @@ struct igb_adapter {
+ 	u16 link_speed;
+ 	u16 link_duplex;
  
- #include "igb.h"
- 
--enum {NETDEV_STATS, IGB_STATS};
--
- struct igb_stats {
- 	char stat_string[ETH_GSTRING_LEN];
--	int type;
- 	int sizeof_stat;
- 	int stat_offset;
- };
- 
--#define IGB_STAT(m)		IGB_STATS, \
--				FIELD_SIZEOF(struct igb_adapter, m), \
--				offsetof(struct igb_adapter, m)
--#define IGB_NETDEV_STAT(m)	NETDEV_STATS, \
--				FIELD_SIZEOF(struct net_device, m), \
--				offsetof(struct net_device, m)
--
-+#define IGB_STAT(_name, _stat) { \
-+	.stat_string = _name, \
-+	.sizeof_stat = FIELD_SIZEOF(struct igb_adapter, _stat), \
-+	.stat_offset = offsetof(struct igb_adapter, _stat) \
-+}
- static const struct igb_stats igb_gstrings_stats[] = {
--	{ "rx_packets", IGB_STAT(stats.gprc) },
--	{ "tx_packets", IGB_STAT(stats.gptc) },
--	{ "rx_bytes", IGB_STAT(stats.gorc) },
--	{ "tx_bytes", IGB_STAT(stats.gotc) },
--	{ "rx_broadcast", IGB_STAT(stats.bprc) },
--	{ "tx_broadcast", IGB_STAT(stats.bptc) },
--	{ "rx_multicast", IGB_STAT(stats.mprc) },
--	{ "tx_multicast", IGB_STAT(stats.mptc) },
--	{ "rx_errors", IGB_NETDEV_STAT(stats.rx_errors) },
--	{ "tx_errors", IGB_NETDEV_STAT(stats.tx_errors) },
--	{ "tx_dropped", IGB_NETDEV_STAT(stats.tx_dropped) },
--	{ "multicast", IGB_STAT(stats.mprc) },
--	{ "collisions", IGB_STAT(stats.colc) },
--	{ "rx_length_errors", IGB_NETDEV_STAT(stats.rx_length_errors) },
--	{ "rx_over_errors", IGB_NETDEV_STAT(stats.rx_over_errors) },
--	{ "rx_crc_errors", IGB_STAT(stats.crcerrs) },
--	{ "rx_frame_errors", IGB_NETDEV_STAT(stats.rx_frame_errors) },
--	{ "rx_no_buffer_count", IGB_STAT(stats.rnbc) },
--	{ "rx_queue_drop_packet_count", IGB_NETDEV_STAT(stats.rx_fifo_errors) },
--	{ "rx_missed_errors", IGB_STAT(stats.mpc) },
--	{ "tx_aborted_errors", IGB_STAT(stats.ecol) },
--	{ "tx_carrier_errors", IGB_STAT(stats.tncrs) },
--	{ "tx_fifo_errors", IGB_NETDEV_STAT(stats.tx_fifo_errors) },
--	{ "tx_heartbeat_errors", IGB_NETDEV_STAT(stats.tx_heartbeat_errors) },
--	{ "tx_window_errors", IGB_STAT(stats.latecol) },
--	{ "tx_abort_late_coll", IGB_STAT(stats.latecol) },
--	{ "tx_deferred_ok", IGB_STAT(stats.dc) },
--	{ "tx_single_coll_ok", IGB_STAT(stats.scc) },
--	{ "tx_multi_coll_ok", IGB_STAT(stats.mcc) },
--	{ "tx_timeout_count", IGB_STAT(tx_timeout_count) },
--	{ "rx_long_length_errors", IGB_STAT(stats.roc) },
--	{ "rx_short_length_errors", IGB_STAT(stats.ruc) },
--	{ "rx_align_errors", IGB_STAT(stats.algnerrc) },
--	{ "tx_tcp_seg_good", IGB_STAT(stats.tsctc) },
--	{ "tx_tcp_seg_failed", IGB_STAT(stats.tsctfc) },
--	{ "rx_flow_control_xon", IGB_STAT(stats.xonrxc) },
--	{ "rx_flow_control_xoff", IGB_STAT(stats.xoffrxc) },
--	{ "tx_flow_control_xon", IGB_STAT(stats.xontxc) },
--	{ "tx_flow_control_xoff", IGB_STAT(stats.xofftxc) },
--	{ "rx_long_byte_count", IGB_STAT(stats.gorc) },
--	{ "tx_dma_out_of_sync", IGB_STAT(stats.doosync) },
--	{ "tx_smbus", IGB_STAT(stats.mgptc) },
--	{ "rx_smbus", IGB_STAT(stats.mgprc) },
--	{ "dropped_smbus", IGB_STAT(stats.mgpdc) },
-+	IGB_STAT("rx_packets", stats.gprc),
-+	IGB_STAT("tx_packets", stats.gptc),
-+	IGB_STAT("rx_bytes", stats.gorc),
-+	IGB_STAT("tx_bytes", stats.gotc),
-+	IGB_STAT("rx_broadcast", stats.bprc),
-+	IGB_STAT("tx_broadcast", stats.bptc),
-+	IGB_STAT("rx_multicast", stats.mprc),
-+	IGB_STAT("tx_multicast", stats.mptc),
-+	IGB_STAT("multicast", stats.mprc),
-+	IGB_STAT("collisions", stats.colc),
-+	IGB_STAT("rx_crc_errors", stats.crcerrs),
-+	IGB_STAT("rx_no_buffer_count", stats.rnbc),
-+	IGB_STAT("rx_missed_errors", stats.mpc),
-+	IGB_STAT("tx_aborted_errors", stats.ecol),
-+	IGB_STAT("tx_carrier_errors", stats.tncrs),
-+	IGB_STAT("tx_window_errors", stats.latecol),
-+	IGB_STAT("tx_abort_late_coll", stats.latecol),
-+	IGB_STAT("tx_deferred_ok", stats.dc),
-+	IGB_STAT("tx_single_coll_ok", stats.scc),
-+	IGB_STAT("tx_multi_coll_ok", stats.mcc),
-+	IGB_STAT("tx_timeout_count", tx_timeout_count),
-+	IGB_STAT("rx_long_length_errors", stats.roc),
-+	IGB_STAT("rx_short_length_errors", stats.ruc),
-+	IGB_STAT("rx_align_errors", stats.algnerrc),
-+	IGB_STAT("tx_tcp_seg_good", stats.tsctc),
-+	IGB_STAT("tx_tcp_seg_failed", stats.tsctfc),
-+	IGB_STAT("rx_flow_control_xon", stats.xonrxc),
-+	IGB_STAT("rx_flow_control_xoff", stats.xoffrxc),
-+	IGB_STAT("tx_flow_control_xon", stats.xontxc),
-+	IGB_STAT("tx_flow_control_xoff", stats.xofftxc),
-+	IGB_STAT("rx_long_byte_count", stats.gorc),
-+	IGB_STAT("tx_dma_out_of_sync", stats.doosync),
-+	IGB_STAT("tx_smbus", stats.mgptc),
-+	IGB_STAT("rx_smbus", stats.mgprc),
-+	IGB_STAT("dropped_smbus", stats.mgpdc),
-+};
-+
-+#define IGB_NETDEV_STAT(_net_stat) { \
-+	.stat_string = __stringify(_net_stat), \
-+	.sizeof_stat = FIELD_SIZEOF(struct net_device_stats, _net_stat), \
-+	.stat_offset = offsetof(struct net_device_stats, _net_stat) \
-+}
-+static const struct igb_stats igb_gstrings_net_stats[] = {
-+	IGB_NETDEV_STAT(rx_errors),
-+	IGB_NETDEV_STAT(tx_errors),
-+	IGB_NETDEV_STAT(tx_dropped),
-+	IGB_NETDEV_STAT(rx_length_errors),
-+	IGB_NETDEV_STAT(rx_over_errors),
-+	IGB_NETDEV_STAT(rx_frame_errors),
-+	IGB_NETDEV_STAT(rx_fifo_errors),
-+	IGB_NETDEV_STAT(tx_fifo_errors),
-+	IGB_NETDEV_STAT(tx_heartbeat_errors)
- };
- 
-+#define IGB_GLOBAL_STATS_LEN	\
-+	(sizeof(igb_gstrings_stats) / sizeof(struct igb_stats))
-+#define IGB_NETDEV_STATS_LEN	\
-+	(sizeof(igb_gstrings_net_stats) / sizeof(struct igb_stats))
-+#define IGB_RX_QUEUE_STATS_LEN \
-+	(sizeof(struct igb_rx_queue_stats) / sizeof(u64))
-+#define IGB_TX_QUEUE_STATS_LEN \
-+	(sizeof(struct igb_tx_queue_stats) / sizeof(u64))
- #define IGB_QUEUE_STATS_LEN \
- 	((((struct igb_adapter *)netdev_priv(netdev))->num_rx_queues * \
--	  (sizeof(struct igb_rx_queue_stats) / sizeof(u64))) + \
-+	  IGB_RX_QUEUE_STATS_LEN) + \
- 	 (((struct igb_adapter *)netdev_priv(netdev))->num_tx_queues * \
--	  (sizeof(struct igb_tx_queue_stats) / sizeof(u64))))
--#define IGB_GLOBAL_STATS_LEN	\
--	(sizeof(igb_gstrings_stats) / sizeof(struct igb_stats))
--#define IGB_STATS_LEN (IGB_GLOBAL_STATS_LEN + IGB_QUEUE_STATS_LEN)
-+	  IGB_TX_QUEUE_STATS_LEN))
-+#define IGB_STATS_LEN \
-+	(IGB_GLOBAL_STATS_LEN + IGB_NETDEV_STATS_LEN + IGB_QUEUE_STATS_LEN)
-+
- static const char igb_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register test  (offline)", "Eeprom test    (offline)",
- 	"Interrupt test (offline)", "Loopback test  (offline)",
-@@ -1922,43 +1933,32 @@ static void igb_get_ethtool_stats(struct net_device *netdev,
- 				  struct ethtool_stats *stats, u64 *data)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct net_device_stats *net_stats = &netdev->stats;
- 	u64 *queue_stat;
--	int stat_count_tx = sizeof(struct igb_tx_queue_stats) / sizeof(u64);
--	int stat_count_rx = sizeof(struct igb_rx_queue_stats) / sizeof(u64);
--	int j;
--	int i;
--	char *p = NULL;
-+	int i, j, k;
-+	char *p;
- 
- 	igb_update_stats(adapter);
- 
- 	for (i = 0; i < IGB_GLOBAL_STATS_LEN; i++) {
--		switch (igb_gstrings_stats[i].type) {
--		case NETDEV_STATS:
--			p = (char *) netdev +
--					igb_gstrings_stats[i].stat_offset;
--			break;
--		case IGB_STATS:
--			p = (char *) adapter +
--					igb_gstrings_stats[i].stat_offset;
--			break;
--		}
--
-+		p = (char *)adapter + igb_gstrings_stats[i].stat_offset;
- 		data[i] = (igb_gstrings_stats[i].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
-+	for (j = 0; j < IGB_NETDEV_STATS_LEN; j++, i++) {
-+		p = (char *)net_stats + igb_gstrings_net_stats[j].stat_offset;
-+		data[i] = (igb_gstrings_net_stats[j].sizeof_stat ==
-+			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-+	}
- 	for (j = 0; j < adapter->num_tx_queues; j++) {
--		int k;
- 		queue_stat = (u64 *)&adapter->tx_ring[j].tx_stats;
--		for (k = 0; k < stat_count_tx; k++)
--			data[i + k] = queue_stat[k];
--		i += k;
-+		for (k = 0; k < IGB_TX_QUEUE_STATS_LEN; k++, i++)
-+			data[i] = queue_stat[k];
- 	}
- 	for (j = 0; j < adapter->num_rx_queues; j++) {
--		int k;
- 		queue_stat = (u64 *)&adapter->rx_ring[j].rx_stats;
--		for (k = 0; k < stat_count_rx; k++)
--			data[i + k] = queue_stat[k];
--		i += k;
-+		for (k = 0; k < IGB_RX_QUEUE_STATS_LEN; k++, i++)
-+			data[i] = queue_stat[k];
- 	}
- }
- 
-@@ -1979,6 +1979,11 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 			       ETH_GSTRING_LEN);
- 			p += ETH_GSTRING_LEN;
- 		}
-+		for (i = 0; i < IGB_NETDEV_STATS_LEN; i++) {
-+			memcpy(p, igb_gstrings_net_stats[i].stat_string,
-+			       ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
- 		for (i = 0; i < adapter->num_tx_queues; i++) {
- 			sprintf(p, "tx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 0235220..4d4ab87 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3789,7 +3789,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 
- void igb_update_stats(struct igb_adapter *adapter)
- {
--	struct net_device *netdev = adapter->netdev;
-+	struct net_device_stats *net_stats = igb_get_stats(adapter->netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u32 rnbc;
-@@ -3813,13 +3813,13 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		u32 rqdpc_tmp = rd32(E1000_RQDPC(i)) & 0x0FFF;
- 		adapter->rx_ring[i].rx_stats.drops += rqdpc_tmp;
--		netdev->stats.rx_fifo_errors += rqdpc_tmp;
-+		net_stats->rx_fifo_errors += rqdpc_tmp;
- 		bytes += adapter->rx_ring[i].rx_stats.bytes;
- 		packets += adapter->rx_ring[i].rx_stats.packets;
- 	}
- 
--	netdev->stats.rx_bytes = bytes;
--	netdev->stats.rx_packets = packets;
-+	net_stats->rx_bytes = bytes;
-+	net_stats->rx_packets = packets;
- 
- 	bytes = 0;
- 	packets = 0;
-@@ -3827,8 +3827,8 @@ void igb_update_stats(struct igb_adapter *adapter)
- 		bytes += adapter->tx_ring[i].tx_stats.bytes;
- 		packets += adapter->tx_ring[i].tx_stats.packets;
- 	}
--	netdev->stats.tx_bytes = bytes;
--	netdev->stats.tx_packets = packets;
-+	net_stats->tx_bytes = bytes;
-+	net_stats->tx_packets = packets;
- 
- 	/* read stats registers */
- 	adapter->stats.crcerrs += rd32(E1000_CRCERRS);
-@@ -3865,7 +3865,7 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	rd32(E1000_GOTCH); /* clear GOTCL */
- 	rnbc = rd32(E1000_RNBC);
- 	adapter->stats.rnbc += rnbc;
--	netdev->stats.rx_fifo_errors += rnbc;
-+	net_stats->rx_fifo_errors += rnbc;
- 	adapter->stats.ruc += rd32(E1000_RUC);
- 	adapter->stats.rfc += rd32(E1000_RFC);
- 	adapter->stats.rjc += rd32(E1000_RJC);
-@@ -3906,29 +3906,29 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	adapter->stats.icrxdmtc += rd32(E1000_ICRXDMTC);
- 
- 	/* Fill out the OS statistics structure */
--	netdev->stats.multicast = adapter->stats.mprc;
--	netdev->stats.collisions = adapter->stats.colc;
-+	net_stats->multicast = adapter->stats.mprc;
-+	net_stats->collisions = adapter->stats.colc;
- 
- 	/* Rx Errors */
- 
- 	/* RLEC on some newer hardware can be incorrect so build
- 	 * our own version based on RUC and ROC */
--	netdev->stats.rx_errors = adapter->stats.rxerrc +
-+	net_stats->rx_errors = adapter->stats.rxerrc +
- 		adapter->stats.crcerrs + adapter->stats.algnerrc +
- 		adapter->stats.ruc + adapter->stats.roc +
- 		adapter->stats.cexterr;
--	netdev->stats.rx_length_errors = adapter->stats.ruc +
--					      adapter->stats.roc;
--	netdev->stats.rx_crc_errors = adapter->stats.crcerrs;
--	netdev->stats.rx_frame_errors = adapter->stats.algnerrc;
--	netdev->stats.rx_missed_errors = adapter->stats.mpc;
-+	net_stats->rx_length_errors = adapter->stats.ruc +
-+				      adapter->stats.roc;
-+	net_stats->rx_crc_errors = adapter->stats.crcerrs;
-+	net_stats->rx_frame_errors = adapter->stats.algnerrc;
-+	net_stats->rx_missed_errors = adapter->stats.mpc;
- 
- 	/* Tx Errors */
--	netdev->stats.tx_errors = adapter->stats.ecol +
--				       adapter->stats.latecol;
--	netdev->stats.tx_aborted_errors = adapter->stats.ecol;
--	netdev->stats.tx_window_errors = adapter->stats.latecol;
--	netdev->stats.tx_carrier_errors = adapter->stats.tncrs;
-+	net_stats->tx_errors = adapter->stats.ecol +
-+			       adapter->stats.latecol;
-+	net_stats->tx_aborted_errors = adapter->stats.ecol;
-+	net_stats->tx_window_errors = adapter->stats.latecol;
-+	net_stats->tx_carrier_errors = adapter->stats.tncrs;
- 
- 	/* Tx Dropped needs to be maintained elsewhere */
- 
+-	unsigned int total_tx_bytes;
+-	unsigned int total_tx_packets;
+-	unsigned int total_rx_bytes;
+-	unsigned int total_rx_packets;
+ 	/* Interrupt Throttle Rate */
+ 	u32 rx_itr_setting;
+ 	u32 tx_itr_setting;
 
