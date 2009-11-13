@@ -1,43 +1,48 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [net-next-2.6 PATCH v6 5/7 RFC] TCPCT part 1e: implement socket option TCP_COOKIE_TRANSACTIONS
-Date: Fri, 13 Nov 2009 15:11:00 +0100
-Message-ID: <87bpj6tszv.fsf@basil.nowhere.org>
-References: <4AFCDA9E.8050003@gmail.com> <4AFCEA59.3060707@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v6 2/7 RFC] TCPCT part 1b: generate Responder
+ Cookie
+Date: Fri, 13 Nov 2009 09:35:36 -0500
+Message-ID: <4AFD6EB8.20406@gmail.com>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCDDC4.1090606@gmail.com> <4AFCFAD0.4010701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:46550 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312AbZKMOK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 09:10:57 -0500
-In-Reply-To: <4AFCEA59.3060707@gmail.com> (William Allen Simpson's message of "Fri, 13 Nov 2009 00:10:49 -0500")
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:38766 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753375AbZKMOfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 09:35:38 -0500
+Received: by fxm21 with SMTP id 21so528026fxm.21
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 06:35:43 -0800 (PST)
+In-Reply-To: <4AFCFAD0.4010701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson <william.allen.simpson@gmail.com> writes:
-
-> This is a straightforward re-implementation of an earlier (year-old)
-> patch that no longer applies cleanly, with permission of the original
-> author (Adam Langley):
->
->    http://thread.gmane.org/gmane.linux.network/102586
->
-> The principle difference is using a TCP option to carry the cookie nonce,
-> instead of a user configured offset in the data.
->
-> Allocations have been rearranged to avoid requiring GFP_ATOMIC.
->
-> Requires:
->   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
->   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
->   TCPCT part 1d: define TCP cookie option, extend existing struct's
-
-BTW if you add new socket options you should always submit a manpage
-patch to linux-man@vger.kernel.org too
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Eric Dumazet wrote:
+> Small point :
+> 
+> +	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
+> +		spin_lock_bh(&tcp_secret_locker);
+> +		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
+> +			/* refreshed by another */
+> +			spin_unlock_bh(&tcp_secret_locker);
+> +			memcpy(bakery,
+> +			       &tcp_secret_generating->secrets[0],
+> +			       sizeof(tcp_secret_generating->secrets));
+> 
+> Technically speaking, you should perform the memcpy() before spin_unlock_bh()
+> 
+> +	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
+> +		spin_lock_bh(&tcp_secret_locker);
+> +		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
+> +			/* refreshed by another */
+> +			memcpy(bakery,
+> +			       &tcp_secret_generating->secrets[0],
+> +			       sizeof(tcp_secret_generating->secrets));
+> +			spin_unlock_bh(&tcp_secret_locker);
+> 
+Technically speaking is exactly what I need!  I'd thought from your
+earlier description of memory barriers that it should be after the unlock.
+Done.
