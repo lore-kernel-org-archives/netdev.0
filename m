@@ -1,73 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v6 2/7 RFC] TCPCT part 1b: generate Responder
- Cookie
-Date: Fri, 13 Nov 2009 07:21:04 +0100
-Message-ID: <4AFCFAD0.4010701@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com> <4AFCDDC4.1090606@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Thu, 12 Nov 2009 22:26:08 -0800
+Message-ID: <20091112222608.79d90e9e@nehalam>
+References: <200911130701.14847.opurdila@ixiacom.com>
+	<200911130720.19671.opurdila@ixiacom.com>
+	<4AFCF8D3.6090905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40838 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765AbZKMGVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 01:21:01 -0500
-In-Reply-To: <4AFCDDC4.1090606@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:40034 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752838AbZKMG0T convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 01:26:19 -0500
+In-Reply-To: <4AFCF8D3.6090905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-> Define (missing) hash message size for SHA1.
->=20
-> Define hashing size constants specific to TCP cookies, and add new
-> function.
->=20
-> Maintain global secret values for tcp_cookie_generator().
->=20
-> This is a significantly revised implementation of earlier (15-year-ol=
-d)
-> Photuris [RFC-2522] code for the KA9Q cooperative multitasking platfo=
-rm.
->=20
-> Linux RCU technique appears to be well-suited to this application, th=
-ough
-> neither of the circular queue items are freed.
->=20
-> These functions will also be used in subsequent patches that implemen=
-t
-> additional features.
->=20
-> Signed-off-by: William.Allen.Simpson@gmail.com
-> ---
->  include/linux/cryptohash.h |    1 +
->  include/net/tcp.h          |    8 +++
->  net/ipv4/tcp.c             |  146
-> ++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 155 insertions(+), 0 deletions(-)
->=20
+On Fri, 13 Nov 2009 07:12:35 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Small point :
+> Octavian Purdila a =C3=A9crit :
+> > On Friday 13 November 2009 07:01:14 you wrote:
+> >> This patch speeds up the network device name allocation for the ca=
+se
+> >> where a significant number of devices of the same type are created
+> >> consecutively.
+> >>
+> >> Tests performed on a PPC750 @ 800Mhz machine with per device sysct=
+l
+> >> and sysfs entries disabled:
+> >>
+> >> Without the patch           With the patch
+> >>
+> >> real    0m 43.43s	    real    0m 0.49s
+> >> user    0m 0.00s	    user    0m 0.00s
+> >> sys     0m 43.43s	    sys     0m 0.48s
+> >>
+> >=20
 
-+	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
-+		spin_lock_bh(&tcp_secret_locker);
-+		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
-+			/* refreshed by another */
-+			spin_unlock_bh(&tcp_secret_locker);
-+			memcpy(bakery,
-+			       &tcp_secret_generating->secrets[0],
-+			       sizeof(tcp_secret_generating->secrets));
+No one has give a reasonable use case for this network device name
+explosion, what is the benchmark doing this nosense, and how do I
+get paid to do it...
 
-Technically speaking, you should perform the memcpy() before spin_unloc=
-k_bh()
+But I have to say no for another reason. You cause the kernel to choose
+a different name for the case where a device is deleted or renamed.
+The old code would find and fill the hole when a new device was added.
 
-+	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
-+		spin_lock_bh(&tcp_secret_locker);
-+		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
-+			/* refreshed by another */
-+			memcpy(bakery,
-+			       &tcp_secret_generating->secrets[0],
-+			       sizeof(tcp_secret_generating->secrets));
-+			spin_unlock_bh(&tcp_secret_locker);
+Since this is a semantic ABI change, the kind that drives users nuts.
 
+--=20
