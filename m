@@ -1,52 +1,48 @@
-From: Marin Mitov <mitov@issp.bas.bg>
-Subject: [PATCH]remove deprecated and not used: print_mac()
-Date: Fri, 13 Nov 2009 19:58:41 +0200
-Message-ID: <200911131958.42263.mitov@issp.bas.bg>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next-2.6 PATCH v6 2/7 RFC] TCPCT part 1b: generate
+ Responder Cookie
+Date: Fri, 13 Nov 2009 10:04:17 -0800
+Message-ID: <1258135457.16857.107.camel@Joe-Laptop.home>
+References: <4AFCDA9E.8050003@gmail.com>  <4AFCDDC4.1090606@gmail.com>
+	 <1258093594.16857.43.camel@Joe-Laptop.home>  <4AFD728F.4030206@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756535AbZKMSAQ@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1040 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756413AbZKMSEM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 13:04:12 -0500
+In-Reply-To: <4AFD728F.4030206@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Fri, 2009-11-13 at 09:51 -0500, William Allen Simpson wrote:
+> Since Eric says it can be inside the locked path, I can do away with
+> that entirely, and just use the result (bakery) pointer itself.  Saves a
+> memcpy, too.
+> Here's my revised attempt (untested).  Any other technical corrections?
 
-The function print_mac in net/ethernet/eth.c is marked __deprecated
-and not used. Remove it.
+Just one, thanks for persisting.
 
-The patch is against 2.6.32-rc7.
+> +	if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
+> +		spin_lock_bh(&tcp_secret_locker);
+> +		if (!time_after_eq(jiffy, tcp_secret_generating->expires)) {
+[]
+> +			spin_unlock_bh(&tcp_secret_locker);
+> +		} else {
+[]
+> +			spin_unlock_bh(&tcp_secret_locker);
+[removed comments]
+> +		}
 
-Signed-off-by: Marin Mitov <mitov@issp.bas.bg>
+perhaps deleting the two unlocks above and moving it
+to the same indent level here is trivially better.
 
-=====================================================================
---- a/include/linux/if_ether.h	2009-11-13 19:16:15.000000000 +0200
-+++ b/include/linux/if_ether.h	2009-11-13 19:18:25.000000000 +0200
-@@ -136,10 +136,6 @@
- 
- extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
- 
--/*
-- *	Display a 6 byte device address (MAC) in a readable format.
-- */
--extern char *print_mac(char *buf, const unsigned char *addr) __deprecated;
- #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
- #define MAC_BUF_SIZE	18
- #define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE]
+		spin_unlock_bh(&tcp_secret_locker);
 
---- a/net/ethernet/eth.c	2009-11-13 19:16:30.000000000 +0200
-+++ b/net/ethernet/eth.c	2009-11-13 19:20:31.000000000 +0200
-@@ -393,10 +393,3 @@
- 	return ((ssize_t) l);
- }
- EXPORT_SYMBOL(sysfs_format_mac);
--
--char *print_mac(char *buf, const unsigned char *addr)
--{
--	_format_mac_addr(buf, MAC_BUF_SIZE, addr, ETH_ALEN);
--	return buf;
--}
--EXPORT_SYMBOL(print_mac);
+
