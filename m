@@ -1,53 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Problem with VLANs and via-velocity driver
-Date: Fri, 13 Nov 2009 12:11:18 +0100
-Message-ID: <4AFD3ED6.2040606@trash.net>
-References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net> <4AFD36C0.3090302@e-teleport.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Fri, 13 Nov 2009 19:25:33 +0800
+Message-ID: <412e6f7f0911130325r20e2fbbbg21e2e384de1f7c0f@mail.gmail.com>
+References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com>
+	 <20091113074508.GA6605@ff.dom.local>
+	 <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
+	 <20091113091825.GA7449@ff.dom.local>
+	 <412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
+	 <20091113095731.GA7749@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kevin Shanahan <kmshanah@disenchant.net>, netdev@vger.kernel.org
-To: technique@e-teleport.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47966 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756208AbZKMLLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 06:11:14 -0500
-In-Reply-To: <4AFD36C0.3090302@e-teleport.net>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:41551 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753921AbZKMLZ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 06:25:28 -0500
+Received: by pzk1 with SMTP id 1so1229692pzk.33
+        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 03:25:33 -0800 (PST)
+In-Reply-To: <20091113095731.GA7749@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-S=E9guier R=E9gis wrote:
-> Patrick McHardy a =E9crit :
->> Kevin Shanahan wrote:
->> =20
->>> I've had some problems with getting a fairly simple (I thought) VLA=
-N
->>> configuration working with the on board Via NICs on my Via M700
->>> board. Looks like as soon as a tagged VLAN interface is added, the
->>> underlying "raw" (untagged) interface stops responding.
->>>
->>>
->> There's some special-casing for VID 0 in velocity_init_cam_filter().
->> Does "ip link add link eth0 type vlan id 0" make any difference?
->> If not, does "ip link set eth0 promisc on"?
->>  =20
-> When we patch the driver to support multiple vlan, we decide to use t=
-he
-> vlan 0 to desactivate the vlan filtering.
+On Fri, Nov 13, 2009 at 5:57 PM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+>
+> I'm not against your solution at all. It only needs more proof...
 
-Why? The usual behaviour is to receive both tagged and untagged
-frames.
+I know. :)
 
-> via-velocity: fix vlan receipt
->=20
-> - vlans were using a single CAM register (see mac_set_vlan_cam)
-> - setting the address filtering registers for vlans is not
->  needed when there is no vlan
->=20
-> The non-tagged interface is filtered out as soon as a tagged
-> (!=3D 0) interface is created. Its traffic appears again when an
-> zero-tagged interface is created.
+> You seem to forget the main networking paths now are just softirq, an=
+d
+> it's probably for some reason. If kernel threads are good enough, it
+> seems we should do more such changes.
+>
 
-VID 0 doesn't mean untagged, it means the tag contains only a priority
-value.
+I find there is still a softirqd kernel thread for each online CPU,
+and these threads will be waked up if there are more SoftIRQs need to
+be done after restarting the SoftIRQ processing many times, to keep
+the whole system responsible. Did I miss sth.? And at the other side,
+real time branch just wants to make all the activities based on kernel
+threads, even ISR.
+
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
