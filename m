@@ -1,55 +1,107 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Fri, 13 Nov 2009 06:56:29 +0100
-Message-ID: <4AFCF50D.6040106@gmail.com>
-References: <4AFA8911.7050204@gmail.com> <4AFBD911.6000900@gmail.com>	 <4AFC0436.9090906@gmail.com> <412e6f7f0911121726t47874807g2223d2f1141818f5@mail.gmail.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 07:12:35 +0100
+Message-ID: <4AFCF8D3.6090905@gmail.com>
+References: <200911130701.14847.opurdila@ixiacom.com> <200911130720.19671.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36243 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59504 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063AbZKMF4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 00:56:35 -0500
-In-Reply-To: <412e6f7f0911121726t47874807g2223d2f1141818f5@mail.gmail.com>
+	with ESMTP id S1751695AbZKMGMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 01:12:34 -0500
+In-Reply-To: <200911130720.19671.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao a =A8=A6crit :
-> 2009/11/12 Eric Dumazet <eric.dumazet@gmail.com>:
->> I believe this patch is fine, but maybe Jarek concern about workqueu=
-e
->> vs tasklet should be addressed...
+Octavian Purdila a =E9crit :
+> On Friday 13 November 2009 07:01:14 you wrote:
+>> This patch speeds up the network device name allocation for the case
+>> where a significant number of devices of the same type are created
+>> consecutively.
 >>
->> We could use the previous handling in case numtxqs=3D=3D1 , ie use a=
- tasklet
->> instead of a work queue ?
+>> Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+>> and sysfs entries disabled:
+>>
+>> Without the patch           With the patch
+>>
+>> real    0m 43.43s	    real    0m 0.49s
+>> user    0m 0.00s	    user    0m 0.00s
+>> sys     0m 43.43s	    sys     0m 0.48s
+>>
 >=20
-> I don't think it is a good idea. If we do so, the code will be messy,
-> and lost the flexibility of process. In fact, latency isn't a problem
-> when system load isn't high, and when system load is high (due to too
-> many NIC IRQs), throughput and interaction is more important, and the
-> current linux networking subsystem just dose so through the softirqd
-> mechanism.
+> Oops, pasting root prompts (e.g. # modprobe ....) directly into the g=
+it commit message is not a good idea :) Here it is again, with the full=
+ commit message.
 >=20
+> [net-next-2.6 PATCH] net: fast consecutive name allocation
+>=20
+> This patch speeds up the network device name allocation for the case
+> where a significant number of devices of the same type are created
+> consecutively.
+>=20
+> Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+> and sysfs entries disabled:
+>=20
+> $ time insmod /lib/modules/dummy.ko numdummies=3D8000
+>=20
+> Without the patch           With the patch
+>=20
+> real    0m 43.43s	    real    0m 0.49s
+> user    0m 0.00s	    user    0m 0.00s
+> sys     0m 43.43s	    sys     0m 0.48s
+>=20
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> ---
 
-Messy ? Because of few tests added in code, and branches always
-correctly predicted ?
+Honestly I dont like this bloat.
 
-Still some people might rely on tasklet instead of workqueues
-and added scheduler stress and latency penalty. Tasklet are softirq
-and normally are processed a few nanosecs later than RX softirq,=20
-on the same CPU, while with your workqueue, I guess the scheduler will
-try to not migrate it, so we add a penalty for light to moderate load.
+Changing dummy.c is trivial, and you can allocate 100.000.000 dummies i=
+f you want now :)
 
-I guess this new ifb mode would be a regression for them ?
+I not tested yet this patch but here it is :
 
-If you dont want to maintain a compatibility mode, maybe you
-should introduce a complete new driver, drivers/net/ifbmq.c or ifbwq.c
+[PATCH] dummy: Allow more than 32768 dummies
 
-(multiqueue or workqueue references)
+And speedup name allocation : O(N) instead of O(N^2)
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/dummy.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 37dcfdc..f600c4c 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -107,12 +107,14 @@ static struct rtnl_link_ops dummy_link_ops __read=
+_mostly =3D {
+ module_param(numdummies, int, 0);
+ MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+=20
+-static int __init dummy_init_one(void)
++static int __init dummy_init_one(int i)
+ {
+ 	struct net_device *dev_dummy;
+ 	int err;
++	char name[IFNAMSIZ];
+=20
+-	dev_dummy =3D alloc_netdev(0, "dummy%d", dummy_setup);
++	snprintf(name, IFNAMSIZ, "dummy%d", i);
++	dev_dummy =3D alloc_netdev(0, name, dummy_setup);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
+=20
+@@ -139,7 +141,7 @@ static int __init dummy_init_module(void)
+ 	err =3D __rtnl_link_register(&dummy_link_ops);
+=20
+ 	for (i =3D 0; i < numdummies && !err; i++)
+-		err =3D dummy_init_one();
++		err =3D dummy_init_one(i);
+ 	if (err < 0)
+ 		__rtnl_link_unregister(&dummy_link_ops);
+ 	rtnl_unlock();
+
