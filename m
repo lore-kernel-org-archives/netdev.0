@@ -1,42 +1,50 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Fri, 13 Nov 2009 14:24:07 -0800
-Message-ID: <20091113142407.2fab4d7b@s6510>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
-	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-	<20091110150617.0e6920f0@nehalam>
-	<a30adfc1658e1d5f2f35fee1bb89b364@coraid.com>
-	<11632bada28093377596d63180fe6c1c@coraid.com>
+Subject: Re: [net-next-2.6 PATCH] allow access to sysfs_groups member
+Date: Fri, 13 Nov 2009 14:27:38 -0800
+Message-ID: <20091113142738.1aa81a03@s6510>
+References: <20091113105157.GA322@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ecashin@coraid.com, davem@davemloft.net, harvey.harrison@gmail.com,
-	bzolnier@gmail.com, netdev@vger.kernel.org
-To: Ed Cashin <ecashin@coraid.com>
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54560 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:54737 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755448AbZKMWYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 17:24:23 -0500
-In-Reply-To: <11632bada28093377596d63180fe6c1c@coraid.com>
+	id S1756682AbZKMW1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 17:27:43 -0500
+In-Reply-To: <20091113105157.GA322@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Nov 2009 16:39:49 -0500
-Ed Cashin <ecashin@coraid.com> wrote:
+On Fri, 13 Nov 2009 11:51:57 +0100
+Kurt Van Dijck <kurt.van.dijck@eia.be> wrote:
 
-> I will be testing the patch below on Monday.  It is based on Stephen
-> Hemminger's starter patch (Thanks!).  It adds handling for the case
-> where all of the local network interfaces have become unusable.  In
-> that case, sent packets and retransmitted packets are effectively
-> dropped, and the driver's handling of ethernet's unreliability takes
-> care of things as usual.  If a local interface becomes usable in time
-> no I/O will fail.
-> 
-> After testing I'll make a proper changelog entry.  In brief this patch
-> allows the aoe driver to correctly take references on the net_device's
-> that it uses, handle their removal via a callback, and handle their
-> complete absence, too.
+> +/* Add a sysfs group to the netdev groups */
+> +int netdev_sysfs_add_group(struct net_device *net,
+> +		struct attribute_group *grp)
+> +{
+> +	struct attribute_group **groups = net->sysfs_groups;
+> +	struct attribute_group **end;
+> +
+> +	/* end pointer, with room for null terminator */
+> +	end = &net->sysfs_groups[ARRAY_SIZE(net->sysfs_groups) - 1];
+> +	for (; groups < end; ++groups) {
+> +		if (!*groups) {
+> +			*groups = grp;
+> +			return 0;
+> +		}
+> +	}
+> +	return -ENOSPC;
+> +}
+> +EXPORT_SYMBOL(netdev_sysfs_add_group);
 
-Looks good, good luck with testing.
+EXPORT_SYMBOL_GPL() for all device/sysfs related stuff.
+
+Also, need some way to BUG() if this is done after device has
+been registered.  
+
+Another way to add sub-directories which is what bridge, bonding,
+and others do is to use another kobject. I think this is what you
+want for the case of two CAN objects under one netdevice.
