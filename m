@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 10/20] tg3: Move napi_add calls below tg3_get_invariants
-Date: Fri, 13 Nov 2009 15:03:42 -0800
-Message-ID: <1258153432-7036-11-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 12/20] tg3: Add prodring parameter to tg3_alloc_rx_skb()
+Date: Fri, 13 Nov 2009 15:03:44 -0800
+Message-ID: <1258153432-7036-13-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,137 +9,144 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4661 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4666 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932471AbZKMXEX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932407AbZKMXEX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Nov 2009 18:04:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tg3_get_invariants(), among other things, discovers whether or not
-the device is MSI-X capable and how many interrupts it supports.
-This discovery needs to happen before registering NAPI instances with
-netdev.  This patch moves the code block that calls napi_add later in
-tg3_init_one() so that tg3_get_invariants() has a chance to run first.
+This patch changes the tg3_alloc_rx_skb() implementation to accept the
+destination producer ring set pointer as a parameter rather than
+assuming the source and destination producer rings are the same.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   94 ++++++++++++++++++++++++++--------------------------
- 1 files changed, 47 insertions(+), 47 deletions(-)
+ drivers/net/tg3.c |   41 +++++++++++++++++++++--------------------
+ 1 files changed, 21 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5e17abb..f0360f8 100644
+index ef64080..9251bb5 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -14089,53 +14089,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	tp->rx_pending = TG3_DEF_RX_RING_PENDING;
- 	tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
+@@ -4408,8 +4408,9 @@ static void tg3_tx(struct tg3_napi *tnapi)
+  * buffers the cpu only reads the last cacheline of the RX descriptor
+  * (to fetch the error flags, vlan tag, checksum, and opaque cookie).
+  */
+-static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
+-			    u32 dest_idx_unmasked)
++static int tg3_alloc_rx_skb(struct tg3_napi *tnapi,
++			    struct tg3_rx_prodring_set *tpr,
++			    u32 opaque_key, u32 dest_idx_unmasked)
+ {
+ 	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_rx_buffer_desc *desc;
+@@ -4417,7 +4418,6 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
+ 	struct sk_buff *skb;
+ 	dma_addr_t mapping;
+ 	int skb_size, dest_idx;
+-	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
  
--	intmbx = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
--	rcvmbx = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
--	sndmbx = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
--	for (i = 0; i < TG3_IRQ_MAX_VECS; i++) {
--		struct tg3_napi *tnapi = &tp->napi[i];
--
--		tnapi->tp = tp;
--		tnapi->tx_pending = TG3_DEF_TX_RING_PENDING;
--
--		tnapi->int_mbox = intmbx;
--		if (i < 4)
--			intmbx += 0x8;
--		else
--			intmbx += 0x4;
--
--		tnapi->consmbox = rcvmbx;
--		tnapi->prodmbox = sndmbx;
--
--		if (i) {
--			tnapi->coal_now = HOSTCC_MODE_COAL_VEC1_NOW << (i - 1);
--			netif_napi_add(dev, &tnapi->napi, tg3_poll_msix, 64);
--		} else {
--			tnapi->coal_now = HOSTCC_MODE_NOW;
--			netif_napi_add(dev, &tnapi->napi, tg3_poll, 64);
--		}
--
--		if (!(tp->tg3_flags & TG3_FLAG_SUPPORT_MSIX))
--			break;
--
--		/*
--		 * If we support MSIX, we'll be using RSS.  If we're using
--		 * RSS, the first vector only handles link interrupts and the
--		 * remaining vectors handle rx and tx interrupts.  Reuse the
--		 * mailbox values for the next iteration.  The values we setup
--		 * above are still useful for the single vectored mode.
--		 */
--		if (!i)
--			continue;
--
--		rcvmbx += 0x8;
--
--		if (sndmbx & 0x4)
--			sndmbx -= 0x4;
--		else
--			sndmbx += 0xc;
--	}
--
- 	dev->ethtool_ops = &tg3_ethtool_ops;
- 	dev->watchdog_timeo = TG3_TX_TIMEOUT;
- 	dev->irq = pdev->irq;
-@@ -14278,6 +14231,53 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
- 	tp->link_config.flowctrl = FLOW_CTRL_TX | FLOW_CTRL_RX;
+ 	src_map = NULL;
+ 	switch (opaque_key) {
+@@ -4471,30 +4471,32 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
+  * members of the RX descriptor are invariant.  See notes above
+  * tg3_alloc_rx_skb for full details.
+  */
+-static void tg3_recycle_rx(struct tg3_napi *tnapi, u32 opaque_key,
+-			   int src_idx, u32 dest_idx_unmasked)
++static void tg3_recycle_rx(struct tg3_napi *tnapi,
++			   struct tg3_rx_prodring_set *dpr,
++			   u32 opaque_key, int src_idx,
++			   u32 dest_idx_unmasked)
+ {
+ 	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_rx_buffer_desc *src_desc, *dest_desc;
+ 	struct ring_info *src_map, *dest_map;
+ 	int dest_idx;
+-	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
++	struct tg3_rx_prodring_set *spr = &tp->prodring[0];
  
-+	intmbx = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
-+	rcvmbx = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
-+	sndmbx = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
-+	for (i = 0; i < TG3_IRQ_MAX_VECS; i++) {
-+		struct tg3_napi *tnapi = &tp->napi[i];
-+
-+		tnapi->tp = tp;
-+		tnapi->tx_pending = TG3_DEF_TX_RING_PENDING;
-+
-+		tnapi->int_mbox = intmbx;
-+		if (i < 4)
-+			intmbx += 0x8;
-+		else
-+			intmbx += 0x4;
-+
-+		tnapi->consmbox = rcvmbx;
-+		tnapi->prodmbox = sndmbx;
-+
-+		if (i) {
-+			tnapi->coal_now = HOSTCC_MODE_COAL_VEC1_NOW << (i - 1);
-+			netif_napi_add(dev, &tnapi->napi, tg3_poll_msix, 64);
-+		} else {
-+			tnapi->coal_now = HOSTCC_MODE_NOW;
-+			netif_napi_add(dev, &tnapi->napi, tg3_poll, 64);
-+		}
-+
-+		if (!(tp->tg3_flags & TG3_FLAG_SUPPORT_MSIX))
-+			break;
-+
-+		/*
-+		 * If we support MSIX, we'll be using RSS.  If we're using
-+		 * RSS, the first vector only handles link interrupts and the
-+		 * remaining vectors handle rx and tx interrupts.  Reuse the
-+		 * mailbox values for the next iteration.  The values we setup
-+		 * above are still useful for the single vectored mode.
-+		 */
-+		if (!i)
-+			continue;
-+
-+		rcvmbx += 0x8;
-+
-+		if (sndmbx & 0x4)
-+			sndmbx -= 0x4;
-+		else
-+			sndmbx += 0xc;
-+	}
-+
- 	tg3_init_coal(tp);
+ 	switch (opaque_key) {
+ 	case RXD_OPAQUE_RING_STD:
+ 		dest_idx = dest_idx_unmasked % TG3_RX_RING_SIZE;
+-		dest_desc = &tpr->rx_std[dest_idx];
+-		dest_map = &tpr->rx_std_buffers[dest_idx];
+-		src_desc = &tpr->rx_std[src_idx];
+-		src_map = &tpr->rx_std_buffers[src_idx];
++		dest_desc = &dpr->rx_std[dest_idx];
++		dest_map = &dpr->rx_std_buffers[dest_idx];
++		src_desc = &spr->rx_std[src_idx];
++		src_map = &spr->rx_std_buffers[src_idx];
+ 		break;
  
- 	pci_set_drvdata(pdev, dev);
+ 	case RXD_OPAQUE_RING_JUMBO:
+ 		dest_idx = dest_idx_unmasked % TG3_RX_JUMBO_RING_SIZE;
+-		dest_desc = &tpr->rx_jmb[dest_idx].std;
+-		dest_map = &tpr->rx_jmb_buffers[dest_idx];
+-		src_desc = &tpr->rx_jmb[src_idx].std;
+-		src_map = &tpr->rx_jmb_buffers[src_idx];
++		dest_desc = &dpr->rx_jmb[dest_idx].std;
++		dest_map = &dpr->rx_jmb_buffers[dest_idx];
++		src_desc = &spr->rx_jmb[src_idx].std;
++		src_map = &spr->rx_jmb_buffers[src_idx];
+ 		break;
+ 
+ 	default:
+@@ -4506,7 +4508,6 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi, u32 opaque_key,
+ 			   pci_unmap_addr(src_map, mapping));
+ 	dest_desc->addr_hi = src_desc->addr_hi;
+ 	dest_desc->addr_lo = src_desc->addr_lo;
+-
+ 	src_map->skb = NULL;
+ }
+ 
+@@ -4580,7 +4581,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		if ((desc->err_vlan & RXD_ERR_MASK) != 0 &&
+ 		    (desc->err_vlan != RXD_ERR_ODD_NIBBLE_RCVD_MII)) {
+ 		drop_it:
+-			tg3_recycle_rx(tnapi, opaque_key,
++			tg3_recycle_rx(tnapi, tpr, opaque_key,
+ 				       desc_idx, *post_ptr);
+ 		drop_it_no_recycle:
+ 			/* Other statistics kept track of by card. */
+@@ -4600,7 +4601,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		) {
+ 			int skb_size;
+ 
+-			skb_size = tg3_alloc_rx_skb(tnapi, opaque_key,
++			skb_size = tg3_alloc_rx_skb(tnapi, tpr, opaque_key,
+ 						    *post_ptr);
+ 			if (skb_size < 0)
+ 				goto drop_it;
+@@ -4614,7 +4615,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		} else {
+ 			struct sk_buff *copy_skb;
+ 
+-			tg3_recycle_rx(tnapi, opaque_key,
++			tg3_recycle_rx(tnapi, tpr, opaque_key,
+ 				       desc_idx, *post_ptr);
+ 
+ 			copy_skb = netdev_alloc_skb(tp->dev,
+@@ -5770,7 +5771,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ 
+ 	/* Now allocate fresh SKBs for each rx ring. */
+ 	for (i = 0; i < tp->rx_pending; i++) {
+-		if (tg3_alloc_rx_skb(tnapi, RXD_OPAQUE_RING_STD, i) < 0) {
++		if (tg3_alloc_rx_skb(tnapi, tpr, RXD_OPAQUE_RING_STD, i) < 0) {
+ 			printk(KERN_WARNING PFX
+ 			       "%s: Using a smaller RX standard ring, "
+ 			       "only %d out of %d buffers were allocated "
+@@ -5801,7 +5802,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ 		}
+ 
+ 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
+-			if (tg3_alloc_rx_skb(tnapi, RXD_OPAQUE_RING_JUMBO,
++			if (tg3_alloc_rx_skb(tnapi, tpr, RXD_OPAQUE_RING_JUMBO,
+ 					     i) < 0) {
+ 				printk(KERN_WARNING PFX
+ 				       "%s: Using a smaller RX jumbo ring, "
 -- 
 1.6.4.4
 
