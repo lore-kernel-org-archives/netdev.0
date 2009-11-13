@@ -1,115 +1,69 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: [net-next-2.6 PATCH] allow access to sysfs_groups member
-Date: Fri, 13 Nov 2009 11:51:57 +0100
-Message-ID: <20091113105157.GA322@e-circ.dyndns.org>
+From: =?ISO-8859-15?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+Subject: Re: Problem with VLANs and via-velocity driver
+Date: Fri, 13 Nov 2009 11:36:49 +0100
+Message-ID: <4AFD36C0.3090302@e-teleport.net>
+References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net>
+Reply-To: technique@e-teleport.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
+To: Kevin Shanahan <kmshanah@disenchant.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:21609 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbZKMKv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 05:51:56 -0500
-Content-Disposition: inline
+Received: from smtp.e-teleport.net ([213.190.64.162]:59200 "EHLO
+	smtp.e-teleport.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835AbZKMLC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 06:02:59 -0500
+In-Reply-To: <4AFCFF67.3060802@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In a recent post, I asked for way to hold the uevent that adds a
-net_device until a driver had added some extra sysfs files.
+Patrick McHardy a =E9crit :
+> Kevin Shanahan wrote:
+>  =20
+>> Hi,
+>>
+>> I've had some problems with getting a fairly simple (I thought) VLAN
+>> configuration working with the on board Via NICs on my Via M700
+>> board. Looks like as soon as a tagged VLAN interface is added, the
+>> underlying "raw" (untagged) interface stops responding.
+>>
+>> ...
+>>
+>> A bit of searching found a few references to similar problems going
+>> back a few years (2005, 2007). Sounded like there were some driver
+>> issues, but it wasn't clear from the messages I found whether they
+>> were believed to be fixed or not. I tried the same test using a
+>> differnt NIC with the tg3 driver and there were no problems, so it
+>> looks to me like it's still a via-velocity issue. Unfortunately I
+>> don't have room to add NICs to this machine and need to use the on
+>> board Via hardware.
+>>    =20
+>
+> There's some special-casing for VID 0 in velocity_init_cam_filter().
+> Does "ip link add link eth0 type vlan id 0" make any difference?
+> If not, does "ip link set eth0 promisc on"?
+>  =20
+When we patch the driver to support multiple vlan, we decide to use the=
+=20
+vlan 0 to desactivate the vlan filtering.
 
-The use-case for such thing is a (PCMCIA) CAN card, that has 2 (CAN)
-network chips. The driver could add a 'channel' sysfs file that
-indicates the channel on the card, but this sysfs file is not present
-yet when the uevent is generated.
+via-velocity: fix vlan receipt
 
-This patch applied to a 2.6.30 kernel did allow to use non-standard
-sysfs properties in udev rules (together with a match on device/driver).
+- vlans were using a single CAM register (see mac_set_vlan_cam)
+- setting the address filtering registers for vlans is not
+  needed when there is no vlan
 
-I believe the above use-case is not limited to CAN, but any other
-network type.
+The non-tagged interface is filtered out as soon as a tagged
+(!=3D 0) interface is created. Its traffic appears again when an
+zero-tagged interface is created.
 
-This patch allows adding sysfs attribute groups during netdevice registration.
-The idea is that before the register_netdev call, several calls to
-netdev_sysfs_add_group can be done.
-The existing sysfs groups that are added in netdev_register_kobject use the
-same function too.
-I did not touch the number of possible groups (currently still 3).
+Tested on Via Epia SN (VT6130 chipset) with several vlans whose
+tag was above or beyond 255.
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
----
-
- include/linux/netdevice.h |    2 ++
- net/core/net-sysfs.c      |   28 +++++++++++++++++++++++-----
- 2 files changed, 25 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8380009..9d16687 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1115,6 +1115,8 @@ extern int		dev_open(struct net_device *dev);
- extern int		dev_close(struct net_device *dev);
- extern void		dev_disable_lro(struct net_device *dev);
- extern int		dev_queue_xmit(struct sk_buff *skb);
-+extern int		netdev_sysfs_add_group(struct net_device *net,
-+				struct attribute_group *grp);
- extern int		register_netdevice(struct net_device *dev);
- extern void		unregister_netdevice(struct net_device *dev);
- extern void		free_netdev(struct net_device *dev);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 753c420..2938fdc 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -527,27 +527,45 @@ void netdev_unregister_kobject(struct net_device * net)
- 	device_del(dev);
- }
- 
-+/* Add a sysfs group to the netdev groups */
-+int netdev_sysfs_add_group(struct net_device *net,
-+		struct attribute_group *grp)
-+{
-+	struct attribute_group **groups = net->sysfs_groups;
-+	struct attribute_group **end;
-+
-+	/* end pointer, with room for null terminator */
-+	end = &net->sysfs_groups[ARRAY_SIZE(net->sysfs_groups) - 1];
-+	for (; groups < end; ++groups) {
-+		if (!*groups) {
-+			*groups = grp;
-+			return 0;
-+		}
-+	}
-+	return -ENOSPC;
-+}
-+EXPORT_SYMBOL(netdev_sysfs_add_group);
-+
- /* Create sysfs entries for network device. */
- int netdev_register_kobject(struct net_device *net)
- {
- 	struct device *dev = &(net->dev);
--	const struct attribute_group **groups = net->sysfs_groups;
- 
- 	dev->class = &net_class;
- 	dev->platform_data = net;
--	dev->groups = groups;
-+	dev->groups = net->sysfs_groups;
- 
- 	dev_set_name(dev, "%s", net->name);
- 
- #ifdef CONFIG_SYSFS
--	*groups++ = &netstat_group;
-+	netdev_sysfs_add_group(net, &netstat_group);
- 
- #ifdef CONFIG_WIRELESS_EXT_SYSFS
- 	if (net->ieee80211_ptr)
--		*groups++ = &wireless_group;
-+		netdev_sysfs_add_group(net, &wireless_group);
- #ifdef CONFIG_WIRELESS_EXT
- 	else if (net->wireless_handlers)
--		*groups++ = &wireless_group;
-+		netdev_sysfs_add_group(net, &wireless_group);
- #endif
- #endif
- #endif /* CONFIG_SYSFS */
+Signed-off-by: S=E9guier R=E9gis <rseguier@e-teleport.net>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+--=20
+R=E9gis S=E9guier
