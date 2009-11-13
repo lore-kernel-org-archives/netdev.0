@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 14/20] tg3: rename rx_[std|jmb]_ptr
-Date: Fri, 13 Nov 2009 15:03:46 -0800
-Message-ID: <1258153432-7036-15-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 16/20] tg3: Lay proucer ring handling groundwork
+Date: Fri, 13 Nov 2009 15:03:48 -0800
+Message-ID: <1258153432-7036-17-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,93 +9,202 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4579 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4747 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932483AbZKMXE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932485AbZKMXE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Nov 2009 18:04:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A later patch is going to add consumer indicies for the producer rings.
-To keep things readable, this patch renames rx_[std|jmb]_ptr to
-rx_[std|jmb]_prod_idx.
+The patch increases the number of producer rings available and
+implements the constructor and destructor code that deals with them.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   16 ++++++++--------
- drivers/net/tg3.h |    4 ++--
- 2 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/tg3.c |   85 ++++++++++++++++++++++++++++++----------------------
+ drivers/net/tg3.h |    2 +-
+ 2 files changed, 50 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 00e7e14..59a715a 100644
+index beda9bf..168a7ca 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4564,13 +4564,13 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 			ri = &tpr->rx_std_buffers[desc_idx];
- 			dma_addr = pci_unmap_addr(ri, mapping);
- 			skb = ri->skb;
--			post_ptr = &tpr->rx_std_ptr;
-+			post_ptr = &tpr->rx_std_prod_idx;
- 			rx_std_posted++;
- 		} else if (opaque_key == RXD_OPAQUE_RING_JUMBO) {
- 			ri = &tpr->rx_jmb_buffers[desc_idx];
- 			dma_addr = pci_unmap_addr(ri, mapping);
- 			skb = ri->skb;
--			post_ptr = &tpr->rx_jmb_ptr;
-+			post_ptr = &tpr->rx_jmb_prod_idx;
- 		} else
- 			goto next_pkt_nopost;
+@@ -137,6 +137,12 @@
+ #define TG3_RX_STD_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_STD_DMA_SZ)
+ #define TG3_RX_JMB_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_JMB_DMA_SZ)
  
-@@ -4687,12 +4687,12 @@ next_pkt_nopost:
++#define TG3_RX_STD_BUFF_RING_SIZE \
++	(sizeof(struct ring_info) * TG3_RX_RING_SIZE)
++
++#define TG3_RX_JMB_BUFF_RING_SIZE \
++	(sizeof(struct ring_info) * TG3_RX_JUMBO_RING_SIZE)
++
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
  
- 	/* Refill RX ring(s). */
- 	if (work_mask & RXD_OPAQUE_RING_STD) {
--		sw_idx = tpr->rx_std_ptr % TG3_RX_RING_SIZE;
-+		sw_idx = tpr->rx_std_prod_idx % TG3_RX_RING_SIZE;
- 		tw32_rx_mbox(MAILBOX_RCV_STD_PROD_IDX + TG3_64BIT_REG_LOW,
- 			     sw_idx);
+@@ -4397,6 +4403,17 @@ static void tg3_tx(struct tg3_napi *tnapi)
  	}
- 	if (work_mask & RXD_OPAQUE_RING_JUMBO) {
--		sw_idx = tpr->rx_jmb_ptr % TG3_RX_JUMBO_RING_SIZE;
-+		sw_idx = tpr->rx_jmb_prod_idx % TG3_RX_JUMBO_RING_SIZE;
- 		tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
- 			     sw_idx);
+ }
+ 
++static void tg3_rx_skb_free(struct tg3 *tp, struct ring_info *ri, u32 map_sz)
++{
++	if (!ri->skb)
++		return;
++
++	pci_unmap_single(tp->pdev, pci_unmap_addr(ri, mapping),
++			 map_sz, PCI_DMA_FROMDEVICE);
++	dev_kfree_skb_any(ri->skb);
++	ri->skb = NULL;
++}
++
+ /* Returns size of skb allocated or < 0 on error.
+  *
+  * We only need to fill in the address because the other members
+@@ -5701,36 +5718,18 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
+ 				 struct tg3_rx_prodring_set *tpr)
+ {
+ 	int i;
+-	struct ring_info *rxp;
+ 
+-	for (i = 0; i < TG3_RX_RING_SIZE; i++) {
+-		rxp = &tpr->rx_std_buffers[i];
++	if (tpr != &tp->prodring[0])
++		return;
+ 
+-		if (rxp->skb == NULL)
+-			continue;
+-
+-		pci_unmap_single(tp->pdev,
+-				 pci_unmap_addr(rxp, mapping),
+-				 tp->rx_pkt_map_sz,
+-				 PCI_DMA_FROMDEVICE);
+-		dev_kfree_skb_any(rxp->skb);
+-		rxp->skb = NULL;
+-	}
++	for (i = 0; i < TG3_RX_RING_SIZE; i++)
++		tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
++				tp->rx_pkt_map_sz);
+ 
+ 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+-		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
+-			rxp = &tpr->rx_jmb_buffers[i];
+-
+-			if (rxp->skb == NULL)
+-				continue;
+-
+-			pci_unmap_single(tp->pdev,
+-					 pci_unmap_addr(rxp, mapping),
+-					 TG3_RX_JMB_MAP_SZ,
+-					 PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb_any(rxp->skb);
+-			rxp->skb = NULL;
+-		}
++		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++)
++			tg3_rx_skb_free(tp, &tpr->rx_jmb_buffers[i],
++					TG3_RX_JMB_MAP_SZ);
  	}
-@@ -7509,14 +7509,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ }
  
- 	tw32(RCVDBDI_STD_BD + TG3_BDINFO_MAXLEN_FLAGS, val);
+@@ -5746,6 +5745,14 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ {
+ 	u32 i, rx_pkt_dma_sz;
  
--	tpr->rx_std_ptr = tp->rx_pending;
-+	tpr->rx_std_prod_idx = tp->rx_pending;
- 	tw32_rx_mbox(MAILBOX_RCV_STD_PROD_IDX + TG3_64BIT_REG_LOW,
--		     tpr->rx_std_ptr);
-+		     tpr->rx_std_prod_idx);
++	if (tpr != &tp->prodring[0]) {
++		memset(&tpr->rx_std_buffers[0], 0, TG3_RX_STD_BUFF_RING_SIZE);
++		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE)
++			memset(&tpr->rx_jmb_buffers[0], 0,
++			       TG3_RX_JMB_BUFF_RING_SIZE);
++		goto done;
++	}
++
+ 	/* Zero out all descriptors. */
+ 	memset(tpr->rx_std, 0, TG3_RX_RING_BYTES);
  
--	tpr->rx_jmb_ptr = (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) ?
-+	tpr->rx_jmb_prod_idx = (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) ?
- 			  tp->rx_jumbo_pending : 0;
- 	tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
--		     tpr->rx_jmb_ptr);
-+		     tpr->rx_jmb_prod_idx);
+@@ -5847,8 +5854,7 @@ static void tg3_rx_prodring_fini(struct tg3 *tp,
+ static int tg3_rx_prodring_init(struct tg3 *tp,
+ 				struct tg3_rx_prodring_set *tpr)
+ {
+-	tpr->rx_std_buffers = kzalloc(sizeof(struct ring_info) *
+-				      TG3_RX_RING_SIZE, GFP_KERNEL);
++	tpr->rx_std_buffers = kzalloc(TG3_RX_STD_BUFF_RING_SIZE, GFP_KERNEL);
+ 	if (!tpr->rx_std_buffers)
+ 		return -ENOMEM;
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
- 		tw32(STD_REPLENISH_LWM, 32);
+@@ -5858,8 +5864,7 @@ static int tg3_rx_prodring_init(struct tg3 *tp,
+ 		goto err_out;
+ 
+ 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+-		tpr->rx_jmb_buffers = kzalloc(sizeof(struct ring_info) *
+-					      TG3_RX_JUMBO_RING_SIZE,
++		tpr->rx_jmb_buffers = kzalloc(TG3_RX_JMB_BUFF_RING_SIZE,
+ 					      GFP_KERNEL);
+ 		if (!tpr->rx_jmb_buffers)
+ 			goto err_out;
+@@ -5915,9 +5920,10 @@ static void tg3_free_rings(struct tg3 *tp)
+ 
+ 			dev_kfree_skb_any(skb);
+ 		}
+-	}
+ 
+-	tg3_rx_prodring_free(tp, &tp->prodring[0]);
++		if (tp->irq_cnt == 1 || j != tp->irq_cnt - 1)
++			tg3_rx_prodring_free(tp, &tp->prodring[j]);
++	}
+ }
+ 
+ /* Initialize tx/rx rings for packet processing.
+@@ -5951,9 +5957,13 @@ static int tg3_init_rings(struct tg3 *tp)
+ 		tnapi->rx_rcb_ptr = 0;
+ 		if (tnapi->rx_rcb)
+ 			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
++
++		if ((tp->irq_cnt == 1 || i != tp->irq_cnt - 1) &&
++			tg3_rx_prodring_alloc(tp, &tp->prodring[i]))
++			return -ENOMEM;
+ 	}
+ 
+-	return tg3_rx_prodring_alloc(tp, &tp->prodring[0]);
++	return 0;
+ }
+ 
+ /*
+@@ -5997,7 +6007,8 @@ static void tg3_free_consistent(struct tg3 *tp)
+ 		tp->hw_stats = NULL;
+ 	}
+ 
+-	tg3_rx_prodring_fini(tp, &tp->prodring[0]);
++	for (i = 0; i < (tp->irq_cnt == 1 ? 1 : tp->irq_cnt - 1); i++)
++		tg3_rx_prodring_fini(tp, &tp->prodring[i]);
+ }
+ 
+ /*
+@@ -6008,8 +6019,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ {
+ 	int i;
+ 
+-	if (tg3_rx_prodring_init(tp, &tp->prodring[0]))
+-		return -ENOMEM;
++	for (i = 0; i < (tp->irq_cnt == 1 ? 1 : tp->irq_cnt - 1); i++) {
++		if (tg3_rx_prodring_init(tp, &tp->prodring[i]))
++			goto err_out;
++	}
+ 
+ 	tp->hw_stats = pci_alloc_consistent(tp->pdev,
+ 					    sizeof(struct tg3_hw_stats),
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 42fefa1..e0b86ba 100644
+index e0b86ba..715df2b 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2570,8 +2570,8 @@ struct tg3_ethtool_stats {
- };
+@@ -2682,7 +2682,7 @@ struct tg3 {
+ 	struct vlan_group		*vlgrp;
+ #endif
  
- struct tg3_rx_prodring_set {
--	u32				rx_std_ptr;
--	u32				rx_jmb_ptr;
-+	u32				rx_std_prod_idx;
-+	u32				rx_jmb_prod_idx;
- 	struct tg3_rx_buffer_desc	*rx_std;
- 	struct tg3_ext_rx_buffer_desc	*rx_jmb;
- 	struct ring_info		*rx_std_buffers;
+-	struct tg3_rx_prodring_set	prodring[1];
++	struct tg3_rx_prodring_set	prodring[TG3_IRQ_MAX_VECS - 1];
+ 
+ 
+ 	/* begin "everything else" cacheline(s) section */
 -- 
 1.6.4.4
 
