@@ -1,7 +1,8 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 03/20] tg3: Napify tg3_start_xmit_dma_bug()
-Date: Fri, 13 Nov 2009 15:03:35 -0800
-Message-ID: <1258153432-7036-4-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 09/20] tg3: Create tg3_poll_msix() for non-zero MSIX
+ vecs
+Date: Fri, 13 Nov 2009 15:03:41 -0800
+Message-ID: <1258153432-7036-10-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,113 +10,145 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3240 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3239 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932459AbZKMXER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 18:04:17 -0500
+	id S932467AbZKMXEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 18:04:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts tg3_start_xmit_dma_bug() to accomodate multiple NAPI
-instances.  This is prep work for a later patch in this series.
+This patch gives all non-zero MSIX vectors their own NAPI handler.  This
+will make NAPI handling for those vectors slightly more efficient.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   32 +++++++++++++++++++-------------
- 1 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/tg3.c |   68 ++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 60 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index e1f4a18..072e3ee 100644
+index 1c1cf68..5e17abb 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5119,11 +5119,11 @@ static inline int tg3_40bit_overflow_test(struct tg3 *tp, dma_addr_t mapping,
- static void tg3_set_txd(struct tg3_napi *, int, dma_addr_t, int, u32, u32);
+@@ -4706,18 +4706,17 @@ next_pkt_nopost:
+ 	return received;
+ }
  
- /* Workaround 4GB and 40-bit hardware DMA bugs. */
--static int tigon3_dma_hwbug_workaround(struct tg3 *tp, struct sk_buff *skb,
--				       u32 last_plus_one, u32 *start,
--				       u32 base_flags, u32 mss)
-+static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
-+				       struct sk_buff *skb, u32 last_plus_one,
-+				       u32 *start, u32 base_flags, u32 mss)
+-static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
++static void tg3_poll_link(struct tg3 *tp)
  {
--	struct tg3_napi *tnapi = &tp->napi[0];
+-	struct tg3 *tp = tnapi->tp;
+-	struct tg3_hw_status *sblk = tnapi->hw_status;
+-
+ 	/* handle link change and other phy events */
+ 	if (!(tp->tg3_flags &
+ 	      (TG3_FLAG_USE_LINKCHG_REG |
+ 	       TG3_FLAG_POLL_SERDES))) {
++		struct tg3_hw_status *sblk = tp->napi[0].hw_status;
++
+ 		if (sblk->status & SD_STATUS_LINK_CHG) {
+ 			sblk->status = SD_STATUS_UPDATED |
+-				(sblk->status & ~SD_STATUS_LINK_CHG);
++				       (sblk->status & ~SD_STATUS_LINK_CHG);
+ 			spin_lock(&tp->lock);
+ 			if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
+ 				tw32_f(MAC_STATUS,
+@@ -4731,6 +4730,11 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 			spin_unlock(&tp->lock);
+ 		}
+ 	}
++}
++
++static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
++{
 +	struct tg3 *tp = tnapi->tp;
- 	struct sk_buff *new_skb;
- 	dma_addr_t new_addr = 0;
- 	u32 entry = *start;
-@@ -5392,9 +5392,13 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	struct skb_shared_info *sp;
- 	int would_hit_hwbug;
- 	dma_addr_t mapping;
--	struct tg3_napi *tnapi = &tp->napi[0];
-+	struct tg3_napi *tnapi;
-+	struct netdev_queue *txq;
  
--	len = skb_headlen(skb);
-+	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
-+	if (tp->tg3_flags2 & TG3_FLG2_USING_MSIX)
-+		tnapi++;
+ 	/* run TX completion thread */
+ 	if (tnapi->hw_status->idx[0].tx_consumer != tnapi->tx_cons) {
+@@ -4749,6 +4753,50 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 	return work_done;
+ }
  
- 	/* We are running in BH disabled context with netif_tx_lock
- 	 * and TX reclaim runs via tp->napi.poll inside of a software
-@@ -5402,8 +5406,8 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	 * no IRQ context deadlocks to worry about either.  Rejoice!
- 	 */
- 	if (unlikely(tg3_tx_avail(tnapi) <= (skb_shinfo(skb)->nr_frags + 1))) {
--		if (!netif_queue_stopped(dev)) {
--			netif_stop_queue(dev);
-+		if (!netif_tx_queue_stopped(txq)) {
-+			netif_tx_stop_queue(txq);
- 
- 			/* This is a hard error, log it. */
- 			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
-@@ -5416,7 +5420,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	base_flags = 0;
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		base_flags |= TXD_FLAG_TCPUDP_CSUM;
--	mss = 0;
++static int tg3_poll_msix(struct napi_struct *napi, int budget)
++{
++	struct tg3_napi *tnapi = container_of(napi, struct tg3_napi, napi);
++	struct tg3 *tp = tnapi->tp;
++	int work_done = 0;
++	struct tg3_hw_status *sblk = tnapi->hw_status;
 +
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
- 		struct iphdr *iph;
- 		u32 tcp_opt_len, ip_tcp_len, hdr_len;
-@@ -5488,6 +5492,8 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 	would_hit_hwbug = 0;
- 
-+	len = skb_headlen(skb);
++	while (1) {
++		work_done = tg3_poll_work(tnapi, work_done, budget);
 +
- 	if ((tp->tg3_flags3 & TG3_FLG3_SHORT_DMA_BUG) && len <= 8)
- 		would_hit_hwbug = 1;
++		if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING))
++			goto tx_recovery;
++
++		if (unlikely(work_done >= budget))
++			break;
++
++		/* tp->last_tag is used in tg3_restart_ints() below
++		 * to tell the hw how much work has been processed,
++		 * so we must read it before checking for more work.
++		 */
++		tnapi->last_tag = sblk->status_tag;
++		tnapi->last_irq_tag = tnapi->last_tag;
++		rmb();
++
++		/* check for RX/TX work to do */
++		if (sblk->idx[0].tx_consumer == tnapi->tx_cons &&
++		    *(tnapi->rx_rcb_prod_idx) == tnapi->rx_rcb_ptr) {
++			napi_complete(napi);
++			/* Reenable interrupts. */
++			tw32_mailbox(tnapi->int_mbox, tnapi->last_tag << 24);
++			mmiowb();
++			break;
++		}
++	}
++
++	return work_done;
++
++tx_recovery:
++	/* work_done is guaranteed to be less than budget. */
++	napi_complete(napi);
++	schedule_work(&tp->reset_task);
++	return work_done;
++}
++
+ static int tg3_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct tg3_napi *tnapi = container_of(napi, struct tg3_napi, napi);
+@@ -4757,6 +4805,8 @@ static int tg3_poll(struct napi_struct *napi, int budget)
+ 	struct tg3_hw_status *sblk = tnapi->hw_status;
  
-@@ -5553,7 +5559,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 		/* If the workaround fails due to memory/mapping
- 		 * failure, silently drop this packet.
- 		 */
--		if (tigon3_dma_hwbug_workaround(tp, skb, last_plus_one,
-+		if (tigon3_dma_hwbug_workaround(tnapi, skb, last_plus_one,
- 						&start, base_flags, mss))
- 			goto out_unlock;
+ 	while (1) {
++		tg3_poll_link(tp);
++
+ 		work_done = tg3_poll_work(tnapi, work_done, budget);
  
-@@ -5561,13 +5567,13 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 		if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING))
+@@ -14057,10 +14107,13 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		tnapi->consmbox = rcvmbx;
+ 		tnapi->prodmbox = sndmbx;
+ 
+-		if (i)
++		if (i) {
+ 			tnapi->coal_now = HOSTCC_MODE_COAL_VEC1_NOW << (i - 1);
+-		else
++			netif_napi_add(dev, &tnapi->napi, tg3_poll_msix, 64);
++		} else {
+ 			tnapi->coal_now = HOSTCC_MODE_NOW;
++			netif_napi_add(dev, &tnapi->napi, tg3_poll, 64);
++		}
+ 
+ 		if (!(tp->tg3_flags & TG3_FLAG_SUPPORT_MSIX))
+ 			break;
+@@ -14083,7 +14136,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 			sndmbx += 0xc;
  	}
  
- 	/* Packets are ready, update Tx producer idx local and on card. */
--	tw32_tx_mbox(MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW, entry);
-+	tw32_tx_mbox(tnapi->prodmbox, entry);
- 
- 	tnapi->tx_prod = entry;
- 	if (unlikely(tg3_tx_avail(tnapi) <= (MAX_SKB_FRAGS + 1))) {
--		netif_stop_queue(dev);
-+		netif_tx_stop_queue(txq);
- 		if (tg3_tx_avail(tnapi) > TG3_TX_WAKEUP_THRESH(tnapi))
--			netif_wake_queue(tp->dev);
-+			netif_tx_wake_queue(txq);
- 	}
- 
- out_unlock:
+-	netif_napi_add(dev, &tp->napi[0].napi, tg3_poll, 64);
+ 	dev->ethtool_ops = &tg3_ethtool_ops;
+ 	dev->watchdog_timeo = TG3_TX_TIMEOUT;
+ 	dev->irq = pdev->irq;
 -- 
 1.6.4.4
 
