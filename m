@@ -1,45 +1,75 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Fri, 13 Nov 2009 09:57:31 +0000
-Message-ID: <20091113095731.GA7749@ff.dom.local>
-References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com> <20091113074508.GA6605@ff.dom.local> <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com> <20091113091825.GA7449@ff.dom.local> <412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 11:55:43 +0200
+Message-ID: <200911131155.43714.opurdila@ixiacom.com>
+References: <200911130701.14847.opurdila@ixiacom.com> <200911130720.19671.opurdila@ixiacom.com> <4AFCF8D3.6090905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:61559 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755606AbZKMJ5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 04:57:31 -0500
-Received: by fxm21 with SMTP id 21so243649fxm.21
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 01:57:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:18989 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755741AbZKMJ6n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 04:58:43 -0500
+In-Reply-To: <4AFCF8D3.6090905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 13, 2009 at 05:38:56PM +0800, Changli Gao wrote:
-> On Fri, Nov 13, 2009 at 5:18 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > I'm mostly concerned with routers doing forwarding with 1Gb or 10Gb
-> > NICs (including multiqueue). Alas/happily I don't have such a problem,
-> > but can't help you with testing either.
+On Friday 13 November 2009 08:12:35 you wrote:
+> Octavian Purdila a =E9crit :
+> > On Friday 13 November 2009 07:01:14 you wrote:
+> >> This patch speeds up the network device name allocation for the ca=
+se
+> >> where a significant number of devices of the same type are created
+> >> consecutively.
+> >>
+> >> Tests performed on a PPC750 @ 800Mhz machine with per device sysct=
+l
+> >> and sysfs entries disabled:
+> >>
+> >> Without the patch           With the patch
+> >>
+> >> real    0m 43.43s	    real    0m 0.49s
+> >> user    0m 0.00s	    user    0m 0.00s
+> >> sys     0m 43.43s	    sys     0m 0.48s
 > >
-> 
-> Oh, :) . I know more than one companies use kernel threads to forward
-> packets, and there isn't explicit extra overhead at all. And as you
-> know, as throughput increases, NAPI will bind the NIC to a CPU, and
-> softirqd will be waked up to do the work, which should be done in
-> SoftIRQ context. At that time, there isn't any difference between my
-> approach and the current kernel's.
+> > Oops, pasting root prompts (e.g. # modprobe ....) directly into the=
+ git
+> > commit message is not a good idea :) Here it is again, with the ful=
+l
+> > commit message.
+> >
+> > [net-next-2.6 PATCH] net: fast consecutive name allocation
+> >
+> > This patch speeds up the network device name allocation for the cas=
+e
+> > where a significant number of devices of the same type are created
+> > consecutively.
+> >
+> > Tests performed on a PPC750 @ 800Mhz machine with per device sysctl
+> > and sysfs entries disabled:
+> >
+> > $ time insmod /lib/modules/dummy.ko numdummies=3D8000
+> >
+> > Without the patch           With the patch
+> >
+> > real    0m 43.43s	    real    0m 0.49s
+> > user    0m 0.00s	    user    0m 0.00s
+> > sys     0m 43.43s	    sys     0m 0.48s
+> >
+> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> > ---
+>=20
+> Honestly I dont like this bloat.
+>=20
+> Changing dummy.c is trivial, and you can allocate 100.000.000 dummies=
+ if
+>  you want now :)
+>=20
 
-I'm not against your solution at all. It only needs more proof... You
-seem to forget the main networking paths now are just softirq, and
-it's probably for some reason. If kernel threads are good enough, it
-seems we should do more such changes.
+Yep we can do that - actually we are doing exactly this in our drivers.=
+ But in=20
+that way, you get to "bloat" every driver which needs this.=20
 
-Jarek P.
