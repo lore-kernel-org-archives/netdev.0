@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 12/20] tg3: Add prodring parameter to tg3_alloc_rx_skb()
-Date: Fri, 13 Nov 2009 15:03:44 -0800
-Message-ID: <1258153432-7036-13-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 05/20] tg3: Refine TSO and MSI discovery
+Date: Fri, 13 Nov 2009 15:03:37 -0800
+Message-ID: <1258153432-7036-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,144 +9,118 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4666 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4587 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932407AbZKMXEX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 18:04:23 -0500
+	id S932461AbZKMXES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 18:04:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the tg3_alloc_rx_skb() implementation to accept the
-destination producer ring set pointer as a parameter rather than
-assuming the source and destination producer rings are the same.
+This patch consolidates the TSO capability discovery code into its own
+code block.  The code that decides whether or not to allow TSO is then
+cleaned up.  Finally, the patch consolidates all MSI and MSIX
+capability code into a single code block.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   41 +++++++++++++++++++++--------------------
- 1 files changed, 21 insertions(+), 20 deletions(-)
+ drivers/net/tg3.c |   64 ++++++++++++++++++++++++++++------------------------
+ 1 files changed, 34 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ef64080..9251bb5 100644
+index f74d80d..29276e6 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4408,8 +4408,9 @@ static void tg3_tx(struct tg3_napi *tnapi)
-  * buffers the cpu only reads the last cacheline of the RX descriptor
-  * (to fetch the error flags, vlan tag, checksum, and opaque cookie).
-  */
--static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
--			    u32 dest_idx_unmasked)
-+static int tg3_alloc_rx_skb(struct tg3_napi *tnapi,
-+			    struct tg3_rx_prodring_set *tpr,
-+			    u32 opaque_key, u32 dest_idx_unmasked)
- {
- 	struct tg3 *tp = tnapi->tp;
- 	struct tg3_rx_buffer_desc *desc;
-@@ -4417,7 +4418,6 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
- 	struct sk_buff *skb;
- 	dma_addr_t mapping;
- 	int skb_size, dest_idx;
--	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
+@@ -12669,6 +12669,27 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 			tp->dev->features |= NETIF_F_IPV6_CSUM;
+ 	}
  
- 	src_map = NULL;
- 	switch (opaque_key) {
-@@ -4471,30 +4471,32 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
-  * members of the RX descriptor are invariant.  See notes above
-  * tg3_alloc_rx_skb for full details.
-  */
--static void tg3_recycle_rx(struct tg3_napi *tnapi, u32 opaque_key,
--			   int src_idx, u32 dest_idx_unmasked)
-+static void tg3_recycle_rx(struct tg3_napi *tnapi,
-+			   struct tg3_rx_prodring_set *dpr,
-+			   u32 opaque_key, int src_idx,
-+			   u32 dest_idx_unmasked)
- {
- 	struct tg3 *tp = tnapi->tp;
- 	struct tg3_rx_buffer_desc *src_desc, *dest_desc;
- 	struct ring_info *src_map, *dest_map;
- 	int dest_idx;
--	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
-+	struct tg3_rx_prodring_set *spr = &tp->prodring[0];
++	/* Determine TSO capabilities */
++	if ((tp->tg3_flags3 & TG3_FLG3_5755_PLUS) ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
++		tp->tg3_flags2 |= TG3_FLG2_HW_TSO_2;
++	else if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
++		tp->tg3_flags2 |= TG3_FLG2_HW_TSO_1 | TG3_FLG2_TSO_BUG;
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 &&
++		    tp->pci_chip_rev_id >= CHIPREV_ID_5750_C2)
++			tp->tg3_flags2 &= ~TG3_FLG2_TSO_BUG;
++	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
++		   GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701 &&
++		   tp->pci_chip_rev_id != CHIPREV_ID_5705_A0) {
++		tp->tg3_flags2 |= TG3_FLG2_TSO_BUG;
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)
++			tp->fw_needed = FIRMWARE_TG3TSO5;
++		else
++			tp->fw_needed = FIRMWARE_TG3TSO;
++	}
++
++	tp->irq_max = 1;
++
+ 	if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
+ 		tp->tg3_flags |= TG3_FLAG_SUPPORT_MSI;
+ 		if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX ||
+@@ -12680,22 +12701,13 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
  
- 	switch (opaque_key) {
- 	case RXD_OPAQUE_RING_STD:
- 		dest_idx = dest_idx_unmasked % TG3_RX_RING_SIZE;
--		dest_desc = &tpr->rx_std[dest_idx];
--		dest_map = &tpr->rx_std_buffers[dest_idx];
--		src_desc = &tpr->rx_std[src_idx];
--		src_map = &tpr->rx_std_buffers[src_idx];
-+		dest_desc = &dpr->rx_std[dest_idx];
-+		dest_map = &dpr->rx_std_buffers[dest_idx];
-+		src_desc = &spr->rx_std[src_idx];
-+		src_map = &spr->rx_std_buffers[src_idx];
- 		break;
- 
- 	case RXD_OPAQUE_RING_JUMBO:
- 		dest_idx = dest_idx_unmasked % TG3_RX_JUMBO_RING_SIZE;
--		dest_desc = &tpr->rx_jmb[dest_idx].std;
--		dest_map = &tpr->rx_jmb_buffers[dest_idx];
--		src_desc = &tpr->rx_jmb[src_idx].std;
--		src_map = &tpr->rx_jmb_buffers[src_idx];
-+		dest_desc = &dpr->rx_jmb[dest_idx].std;
-+		dest_map = &dpr->rx_jmb_buffers[dest_idx];
-+		src_desc = &spr->rx_jmb[src_idx].std;
-+		src_map = &spr->rx_jmb_buffers[src_idx];
- 		break;
- 
- 	default:
-@@ -4506,7 +4508,6 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi, u32 opaque_key,
- 			   pci_unmap_addr(src_map, mapping));
- 	dest_desc->addr_hi = src_desc->addr_hi;
- 	dest_desc->addr_lo = src_desc->addr_lo;
--
- 	src_map->skb = NULL;
- }
- 
-@@ -4580,7 +4581,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		if ((desc->err_vlan & RXD_ERR_MASK) != 0 &&
- 		    (desc->err_vlan != RXD_ERR_ODD_NIBBLE_RCVD_MII)) {
- 		drop_it:
--			tg3_recycle_rx(tnapi, opaque_key,
-+			tg3_recycle_rx(tnapi, tpr, opaque_key,
- 				       desc_idx, *post_ptr);
- 		drop_it_no_recycle:
- 			/* Other statistics kept track of by card. */
-@@ -4600,7 +4601,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		) {
- 			int skb_size;
- 
--			skb_size = tg3_alloc_rx_skb(tnapi, opaque_key,
-+			skb_size = tg3_alloc_rx_skb(tnapi, tpr, opaque_key,
- 						    *post_ptr);
- 			if (skb_size < 0)
- 				goto drop_it;
-@@ -4614,7 +4615,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		} else {
- 			struct sk_buff *copy_skb;
- 
--			tg3_recycle_rx(tnapi, opaque_key,
-+			tg3_recycle_rx(tnapi, tpr, opaque_key,
- 				       desc_idx, *post_ptr);
- 
- 			copy_skb = netdev_alloc_skb(tp->dev,
-@@ -5770,7 +5771,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
- 
- 	/* Now allocate fresh SKBs for each rx ring. */
- 	for (i = 0; i < tp->rx_pending; i++) {
--		if (tg3_alloc_rx_skb(tnapi, RXD_OPAQUE_RING_STD, i) < 0) {
-+		if (tg3_alloc_rx_skb(tnapi, tpr, RXD_OPAQUE_RING_STD, i) < 0) {
- 			printk(KERN_WARNING PFX
- 			       "%s: Using a smaller RX standard ring, "
- 			       "only %d out of %d buffers were allocated "
-@@ -5801,7 +5802,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ 		if ((tp->tg3_flags3 & TG3_FLG3_5755_PLUS) ||
+ 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+-			tp->tg3_flags2 |= TG3_FLG2_HW_TSO_2;
+ 			tp->tg3_flags2 |= TG3_FLG2_1SHOT_MSI;
+-		} else {
+-			tp->tg3_flags2 |= TG3_FLG2_HW_TSO_1 | TG3_FLG2_TSO_BUG;
+-			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
+-				ASIC_REV_5750 &&
+-	     		    tp->pci_chip_rev_id >= CHIPREV_ID_5750_C2)
+-				tp->tg3_flags2 &= ~TG3_FLG2_TSO_BUG;
  		}
+-	}
+-
+-	tp->irq_max = 1;
  
- 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
--			if (tg3_alloc_rx_skb(tnapi, RXD_OPAQUE_RING_JUMBO,
-+			if (tg3_alloc_rx_skb(tnapi, tpr, RXD_OPAQUE_RING_JUMBO,
- 					     i) < 0) {
- 				printk(KERN_WARNING PFX
- 				       "%s: Using a smaller RX jumbo ring, "
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+-		tp->tg3_flags |= TG3_FLAG_SUPPORT_MSIX;
+-		tp->irq_max = TG3_IRQ_MAX_VECS;
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
++			tp->tg3_flags |= TG3_FLAG_SUPPORT_MSIX;
++			tp->irq_max = TG3_IRQ_MAX_VECS;
++		}
+ 	}
+ 
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_5755_PLUS)) {
+@@ -14108,25 +14120,17 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 
+ 	tg3_init_bufmgr_config(tp);
+ 
+-	if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0)
+-		tp->fw_needed = FIRMWARE_TG3;
+-
+-	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
++	/* Selectively allow TSO based on operating conditions */
++	if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
++	    (tp->fw_needed && !(tp->tg3_flags & TG3_FLAG_ENABLE_ASF)))
+ 		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
++	else {
++		tp->tg3_flags2 &= ~(TG3_FLG2_TSO_CAPABLE | TG3_FLG2_TSO_BUG);
++		tp->fw_needed = NULL;
+ 	}
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
+-	    tp->pci_chip_rev_id == CHIPREV_ID_5705_A0 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906 ||
+-	    (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
+-		tp->tg3_flags2 &= ~TG3_FLG2_TSO_CAPABLE;
+-	} else {
+-		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE | TG3_FLG2_TSO_BUG;
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)
+-			tp->fw_needed = FIRMWARE_TG3TSO5;
+-		else
+-			tp->fw_needed = FIRMWARE_TG3TSO;
+-	}
++
++	if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0)
++		tp->fw_needed = FIRMWARE_TG3;
+ 
+ 	/* TSO is on by default on chips that support hardware TSO.
+ 	 * Firmware TSO on older chips gives lower performance, so it
 -- 
 1.6.4.4
 
