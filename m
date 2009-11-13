@@ -1,66 +1,53 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Fri, 13 Nov 2009 17:38:56 +0800
-Message-ID: <412e6f7f0911130138td181935w36cab3119972753e@mail.gmail.com>
-References: <412e6f7f0911122216u6880e855g6a15dac29ad6a100@mail.gmail.com>
-	 <20091113074508.GA6605@ff.dom.local>
-	 <412e6f7f0911130054i7a508a6ah16368f11bdc7353d@mail.gmail.com>
-	 <20091113091825.GA7449@ff.dom.local>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: Make queue pairs on single MSI-X
+	interrupts
+Date: Fri, 13 Nov 2009 01:50:43 -0800
+Message-ID: <20091113095035.2059.13992.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:64897 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755631AbZKMJiu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 04:38:50 -0500
-Received: by pzk1 with SMTP id 1so1181141pzk.33
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 01:38:56 -0800 (PST)
-In-Reply-To: <20091113091825.GA7449@ff.dom.local>
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:36219
+	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754895AbZKMJuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 04:50:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 13, 2009 at 5:18 PM, Jarek Poplawski <jarkao2@gmail.com> wr=
-ote:
-> On Fri, Nov 13, 2009 at 04:54:50PM +0800, Changli Gao wrote:
->> On Fri, Nov 13, 2009 at 3:45 PM, Jarek Poplawski <jarkao2@gmail.com>=
- wrote:
->>
->> I have done a simple test. I run a simple program on computer A, whi=
-ch
->> sends SYN packets with random source ports to Computer B's 80 port (=
-No
->> socket listens on that port, so tcp reset packets will be sent) in
->> 90kpps. On computer B, I redirect the traffic to IFB. At the same
->> time, I ping from B to A to get the RTT between them. I can't see an=
-y
->> difference between the original IFB and my MQ version. They are both=
-:
->>
->> CPU idle: 50%
->> Latency: 0.3-0.4ms, burst 2ms.
->>
->
-> I'm mostly concerned with routers doing forwarding with 1Gb or 10Gb
-> NICs (including multiqueue). Alas/happily I don't have such a problem=
-,
-> but can't help you with testing either.
->
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-Oh, :) . I know more than one companies use kernel threads to forward
-packets, and there isn't explicit extra overhead at all. And as you
-know, as throughput increases, NAPI will bind the NIC to a CPU, and
-softirqd will be waked up to do the work, which should be done in
-SoftIRQ context. At that time, there isn't any difference between my
-approach and the current kernel's.
+This patch pairs similar-numbered Rx and Tx queues onto a single
+MSI-X vector.  For example, Tx queue 0 and Rx queue 0's interrupt
+with be ethX-RxTx-0.  This allows for more efficient cleanup, since
+fewer interrupts will be firing during device operation.  It also
+helps with a cleaner CPU affinity for IRQ affinity.
 
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 0489286..884152d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3626,10 +3626,10 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 	 * It's easy to be greedy for MSI-X vectors, but it really
+ 	 * doesn't do us much good if we have a lot more vectors
+ 	 * than CPU's.  So let's be conservative and only ask for
+-	 * (roughly) twice the number of vectors as there are CPU's.
++	 * (roughly) the same number of vectors as there are CPU's.
+ 	 */
+ 	v_budget = min(adapter->num_rx_queues + adapter->num_tx_queues,
+-	               (int)(num_online_cpus() * 2)) + NON_Q_VECTORS;
++	               (int)num_online_cpus()) + NON_Q_VECTORS;
+ 
+ 	/*
+ 	 * At the same time, hardware can only support a maximum of
+
