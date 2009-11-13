@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 08/20] tg3: Allow DMAs to cross cacheline boundaries
-Date: Fri, 13 Nov 2009 15:03:40 -0800
-Message-ID: <1258153432-7036-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 04/20] tg3: Move TG3_FLG2_PROTECTED_NVRAM to tg3_flags3
+Date: Fri, 13 Nov 2009 15:03:36 -0800
+Message-ID: <1258153432-7036-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,97 +9,102 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3252 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3259 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932458AbZKMXER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932455AbZKMXER (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Nov 2009 18:04:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, the 5717 (and future chips) break up PCIe DMA packets across
-cacheline boundaries.  This isn't necessary on x86.  This patch
-selectively loosens the restriction.
+We need room for another TSO flag and it would be most efficient if it
+resided in tg3_flags2.  This patch moves the TG3_FLG2_PROTECTED_NVRAM
+to tg3_flags3 to make room.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   20 +++++++++++++++-----
- drivers/net/tg3.h |    3 +--
- 2 files changed, 16 insertions(+), 7 deletions(-)
+ drivers/net/tg3.c |   12 ++++++------
+ drivers/net/tg3.h |    2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 2d58406..1c1cf68 100644
+index 072e3ee..f74d80d 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7294,9 +7294,12 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	if (err)
- 		return err;
- 
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5784 &&
--	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5761 &&
--	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717) {
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
-+		val = tr32(TG3PCI_DMA_RW_CTRL) &
-+		      ~DMA_RWCTRL_DIS_CACHE_ALIGNMENT;
-+		tw32(TG3PCI_DMA_RW_CTRL, val | tp->dma_rwctrl);
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5784 &&
-+		   GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5761) {
- 		/* This value is determined during the probe time DMA
- 		 * engine test, tg3_test_dma.
- 		 */
-@@ -13329,6 +13332,11 @@ static u32 __devinit tg3_calc_dma_bndry(struct tg3 *tp, u32 val)
- #endif
- #endif
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
-+		val = goal ? 0 : DMA_RWCTRL_DIS_CACHE_ALIGNMENT;
-+		goto out;
-+	}
-+
- 	if (!goal)
- 		goto out;
- 
-@@ -13523,7 +13531,7 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
+@@ -2249,7 +2249,7 @@ static void tg3_nvram_unlock(struct tg3 *tp)
+ static void tg3_enable_nvram_access(struct tg3 *tp)
  {
- 	dma_addr_t buf_dma;
- 	u32 *buf, saved_dma_rwctrl;
--	int ret;
-+	int ret = 0;
+ 	if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
+-	    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM)) {
++	    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM)) {
+ 		u32 nvaccess = tr32(NVRAM_ACCESS);
  
- 	buf = pci_alloc_consistent(tp->pdev, TEST_BUFFER_SIZE, &buf_dma);
- 	if (!buf) {
-@@ -13536,6 +13544,9 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
+ 		tw32(NVRAM_ACCESS, nvaccess | ACCESS_ENABLE);
+@@ -2260,7 +2260,7 @@ static void tg3_enable_nvram_access(struct tg3 *tp)
+ static void tg3_disable_nvram_access(struct tg3 *tp)
+ {
+ 	if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
+-	    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM)) {
++	    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM)) {
+ 		u32 nvaccess = tr32(NVRAM_ACCESS);
  
- 	tp->dma_rwctrl = tg3_calc_dma_bndry(tp, tp->dma_rwctrl);
+ 		tw32(NVRAM_ACCESS, nvaccess & ~ACCESS_ENABLE);
+@@ -10970,7 +10970,7 @@ static void __devinit tg3_get_5752_nvram_info(struct tg3 *tp)
  
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717)
-+		goto out;
-+
- 	if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) {
- 		/* DMA read watermark not used on PCIE */
- 		tp->dma_rwctrl |= 0x00180000;
-@@ -13608,7 +13619,6 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
- 	tg3_switch_clocks(tp);
- #endif
+ 	/* NVRAM protection for TPM */
+ 	if (nvcfg1 & (1 << 27))
+-		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
++		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
  
--	ret = 0;
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701)
- 		goto out;
+ 	switch (nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK) {
+ 	case FLASH_5752VENDOR_ATMEL_EEPROM_64KHZ:
+@@ -11011,7 +11011,7 @@ static void __devinit tg3_get_5755_nvram_info(struct tg3 *tp)
+ 
+ 	/* NVRAM protection for TPM */
+ 	if (nvcfg1 & (1 << 27)) {
+-		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
++		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
+ 		protect = 1;
+ 	}
+ 
+@@ -11105,7 +11105,7 @@ static void __devinit tg3_get_5761_nvram_info(struct tg3 *tp)
+ 
+ 	/* NVRAM protection for TPM */
+ 	if (nvcfg1 & (1 << 27)) {
+-		tp->tg3_flags2 |= TG3_FLG2_PROTECTED_NVRAM;
++		tp->tg3_flags3 |= TG3_FLG3_PROTECTED_NVRAM;
+ 		protect = 1;
+ 	}
+ 
+@@ -11607,7 +11607,7 @@ static int tg3_nvram_write_block(struct tg3 *tp, u32 offset, u32 len, u8 *buf)
+ 
+ 		tg3_enable_nvram_access(tp);
+ 		if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
+-		    !(tp->tg3_flags2 & TG3_FLG2_PROTECTED_NVRAM))
++		    !(tp->tg3_flags3 & TG3_FLG3_PROTECTED_NVRAM))
+ 			tw32(NVRAM_WRITE1, 0x406);
+ 
+ 		grc_mode = tr32(GRC_MODE);
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index e7916bd..42fefa1 100644
+index e0a8b61..590a692 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -142,8 +142,7 @@
- #define   METAL_REV_B1			 0x01
- #define   METAL_REV_B2			 0x02
- #define TG3PCI_DMA_RW_CTRL		0x0000006c
--#define  DMA_RWCTRL_MIN_DMA		 0x000000ff
--#define  DMA_RWCTRL_MIN_DMA_SHIFT	 0
-+#define  DMA_RWCTRL_DIS_CACHE_ALIGNMENT  0x00000001
- #define  DMA_RWCTRL_READ_BNDRY_MASK	 0x00000700
- #define  DMA_RWCTRL_READ_BNDRY_DISAB	 0x00000000
- #define  DMA_RWCTRL_READ_BNDRY_16	 0x00000100
+@@ -2753,7 +2753,6 @@ struct tg3 {
+ #define TG3_FLG2_SERDES_PREEMPHASIS	0x00020000
+ #define TG3_FLG2_5705_PLUS		0x00040000
+ #define TG3_FLG2_5750_PLUS		0x00080000
+-#define TG3_FLG2_PROTECTED_NVRAM	0x00100000
+ #define TG3_FLG2_USING_MSI		0x00200000
+ #define TG3_FLG2_USING_MSIX		0x00400000
+ #define TG3_FLG2_USING_MSI_OR_MSIX	(TG3_FLG2_USING_MSI | \
+@@ -2773,6 +2772,7 @@ struct tg3 {
+ 	u32				tg3_flags3;
+ #define TG3_FLG3_NO_NVRAM_ADDR_TRANS	0x00000001
+ #define TG3_FLG3_ENABLE_APE		0x00000002
++#define TG3_FLG3_PROTECTED_NVRAM	0x00000004
+ #define TG3_FLG3_5701_DMA_BUG		0x00000008
+ #define TG3_FLG3_USE_PHYLIB		0x00000010
+ #define TG3_FLG3_MDIOBUS_INITED		0x00000020
 -- 
 1.6.4.4
 
