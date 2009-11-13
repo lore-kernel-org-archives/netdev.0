@@ -1,49 +1,77 @@
-From: =?ISO-8859-15?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
-Subject: Re: Problem with VLANs and via-velocity driver
-Date: Fri, 13 Nov 2009 12:40:05 +0100
-Message-ID: <4AFD4595.1070904@e-teleport.net>
-References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net> <4AFD36C0.3090302@e-teleport.net> <4AFD3ED6.2040606@trash.net>
+From: Joel Becker <Joel.Becker@oracle.com>
+Subject: Re: [patch] Fix: 'return -ENOMEM' instead of 'return
+	ENOMEM'
+Date: Fri, 13 Nov 2009 03:56:10 -0800
+Message-ID: <20091113115610.GB28530@mail.oracle.com>
+References: <4AFB2C0B.50605@gmail.com>
+	<20091111134730.a0da9e38.akpm@linux-foundation.org>
+	<20091112081043.GA25345@elte.hu>
+	<20091112191758.GA22985@mail.oracle.com>
+	<20091112202728.GC22985@mail.oracle.com>
+	<20091113075306.GB2775@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kevin Shanahan <kmshanah@disenchant.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.e-teleport.net ([213.190.64.162]:59413 "EHLO
-	smtp.e-teleport.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756159AbZKMLkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 06:40:00 -0500
-In-Reply-To: <4AFD3ED6.2040606@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+        "Stephen M. Cameron" <scameron@beardog.cca.cpqcorp.net>,
+        Mike Christie <michaelc@cs.wisc.edu>, David Airlie <airlied@linux.ie>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Jens Axboe <jens.axboe@oracle.com>, Evgeniy Polyakov <zbr@ioremap.net>,
+        iss_storagedev@hp.com, Eric Dumazet <eric.dumazet@gmail.com>,
+        Andy Whitcroft <apw@shadowen.org>, Dave Airlie <airlied@redhat.com>,
+        Hannes Eder <hannes@hanneseder.net>, dri-devel@lists.sourceforge.net,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Mike Miller <mike.miller@hp.com>, Mark Fasheh <mfasheh@suse.com>,
+        Karsten Keil <isdn@linux-pingi.de>, rostedt@goodmis.org,
+        Karen Xie <kxie@chelsio.com>,
+        "James E.J. Bottomley" <James.Bottomley@suse.de>,
+        Hannes Reinecke <hare@suse.de>,
+        Andreas Ever
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <ocfs2-devel-bounces@oss.oracle.com>
+Content-Disposition: inline
+In-Reply-To: <20091113075306.GB2775@elte.hu>
+List-Unsubscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=unsubscribe>
+List-Archive: <http://oss.oracle.com/pipermail/ocfs2-devel>
+List-Post: <mailto:ocfs2-devel@oss.oracle.com>
+List-Help: <mailto:ocfs2-devel-request@oss.oracle.com?subject=help>
+List-Subscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
+	<mailto:ocfs2-devel-request@oss.oracle.com?subject=subscribe>
+Sender: ocfs2-devel-bounces@oss.oracle.com
+Errors-To: ocfs2-devel-bounces@oss.oracle.com
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy a =E9crit :
->
->>> There's some special-casing for VID 0 in velocity_init_cam_filter()=
-=2E
->>> Does "ip link add link eth0 type vlan id 0" make any difference?
->>> If not, does "ip link set eth0 promisc on"?
->>>  =20
->>>      =20
->> When we patch the driver to support multiple vlan, we decide to use =
-the
->> vlan 0 to desactivate the vlan filtering.
->>    =20
->
-> Why? The usual behaviour is to receive both tagged and untagged
-> frames.
->  =20
-We decide this with fran=E7ois as an alternative to desactivate the NIC=
-=20
-vlan filtering instead of creating a modul parameter.
-The vlan id 0 need to be created but not necessary activate.
+On Fri, Nov 13, 2009 at 08:53:06AM +0100, Ingo Molnar wrote:
+> > Sorry, I read the code wrong.  This function is just a handler. The 
+> > caller, dlm_send_begin_reco_message(), expects the positive EAGAIN as 
+> > a non-error case.
+> 
+> Well, at minimum the error code usage is very confused. The 
+> dlm_begin_reco_handler gets registered via o2net_register_handler(). 
+> Here's where dlm_begin_reco_handler gets registered, followed by 
+> dlm_finalize_reco_handler right afterwards:
+<snip> 
+> A negative error code right there. The other event handlers are seem to 
+> be similar - dlm_begin_reco_handler() is the odd one out.
 
-In september 2008, we had a discution about exactly the same problem.
-You speak about the possibility of an ALLVLAN device flag.
+	The usage of the handlers - 'status' is the return code of the
+handler - is pretty straightforward.  Once you're in the mindset of the
+o2net code, of course.  This is old stuff, from the earliest days of
+ocfs2 development, so we haven't had to spelunk in here for a while ;-)
+	Sunil and I both thought while looking at this code that we
+could probably return -EAGAIN just as easily, though.  We'll probably
+clean it that way at some point.
 
-I think i proposed a patch to desactivate NIC vlan filtering when we ar=
-e=20
-in promisc mode but not used.
---=20
-R=E9gis S=E9guier
+Joel
+
+-- 
+
+ There are morethings in heaven and earth, Horatio,
+ Than are dreamt of in your philosophy.
+
+Joel Becker
+Principal Software Developer
+Oracle
+E-mail: joel.becker@oracle.com
+Phone: (650) 506-8127
