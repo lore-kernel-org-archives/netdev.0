@@ -1,22 +1,21 @@
 From: Wu Fengguang <fengguang.wu@intel.com>
-Subject: (unknown)
-Date: Fri, 13 Nov 2009 14:35:44 +0800
-Message-ID: <20091113063544.GA28859@localhost>
+Subject: [PATCH] netfilter: nf_log: fix sleeping function called from
+	invalid context in seq_show()
+Date: Fri, 13 Nov 2009 14:36:40 +0800
+Message-ID: <20091113063640.GA29012@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: LKML <linux-kernel@vger.kernel.org>,
 	"Yin, Kangkai" <kangkai.yin@intel.com>, netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:56011 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10674 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753463AbZKMGfm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Nov 2009 01:35:42 -0500
+	id S1753437AbZKMGgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 01:36:38 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-netfilter: nf_log: fix sleeping function called from invalid context in seq_show()
 
 [  171.925285] BUG: sleeping function called from invalid context at kernel/mutex.c:280
 [  171.925296] in_atomic(): 1, irqs_disabled(): 0, pid: 671, name: grep
