@@ -1,175 +1,97 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v6 2/7 RFC] TCPCT part 1b: generate Responder
- Cookie
-Date: Fri, 13 Nov 2009 09:51:59 -0500
-Message-ID: <4AFD728F.4030206@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com>  <4AFCDDC4.1090606@gmail.com> <1258093594.16857.43.camel@Joe-Laptop.home>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH net-next 1/2] Phonet: put protocols array under RCU
+Date: Fri, 13 Nov 2009 17:01:18 +0200
+Message-ID: <1258124479-1167-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050200010508070901080903"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:52271 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900AbZKMOwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 09:52:02 -0500
-Received: by bwz27 with SMTP id 27so3507065bwz.21
-        for <netdev@vger.kernel.org>; Fri, 13 Nov 2009 06:52:06 -0800 (PST)
-In-Reply-To: <1258093594.16857.43.camel@Joe-Laptop.home>
+Received: from yop.chewa.net ([91.121.105.214]:42995 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755097AbZKMPBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Nov 2009 10:01:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050200010508070901080903
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Joe Perches wrote:
-> Rather than using stack, could you use
-> u32 *secrets = &tcp_secret_secondary->secrets[0];
-> 
-That was because I thought it needed to be copied after the unlock.
-Since Eric says it can be inside the locked path, I can do away with
-that entirely, and just use the result (bakery) pointer itself.  Saves a
-memcpy, too.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/af_phonet.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
 
-Here's my revised attempt (untested).  Any other technical corrections?
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index 8d3a55b..ed65da2 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -35,7 +35,6 @@
+=20
+ /* Transport protocol registration */
+ static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
+-static DEFINE_SPINLOCK(proto_tab_lock);
+=20
+ static struct phonet_protocol *phonet_proto_get(int protocol)
+ {
+@@ -44,11 +43,11 @@ static struct phonet_protocol *phonet_proto_get(int=
+ protocol)
+ 	if (protocol >=3D PHONET_NPROTO)
+ 		return NULL;
+=20
+-	spin_lock(&proto_tab_lock);
++	rcu_read_lock();
+ 	pp =3D proto_tab[protocol];
+ 	if (pp && !try_module_get(pp->prot->owner))
+ 		pp =3D NULL;
+-	spin_unlock(&proto_tab_lock);
++	rcu_read_unlock();
+=20
+ 	return pp;
+ }
+@@ -439,6 +438,8 @@ static struct packet_type phonet_packet_type __read=
+_mostly =3D {
+ 	.func =3D phonet_rcv,
+ };
+=20
++static DEFINE_MUTEX(proto_tab_lock);
++
+ int __init_or_module phonet_proto_register(int protocol,
+ 						struct phonet_protocol *pp)
+ {
+@@ -451,12 +452,12 @@ int __init_or_module phonet_proto_register(int pr=
+otocol,
+ 	if (err)
+ 		return err;
+=20
+-	spin_lock(&proto_tab_lock);
++	mutex_lock(&proto_tab_lock);
+ 	if (proto_tab[protocol])
+ 		err =3D -EBUSY;
+ 	else
+-		proto_tab[protocol] =3D pp;
+-	spin_unlock(&proto_tab_lock);
++		rcu_assign_pointer(proto_tab[protocol], pp);
++	mutex_unlock(&proto_tab_lock);
+=20
+ 	return err;
+ }
+@@ -464,10 +465,11 @@ EXPORT_SYMBOL(phonet_proto_register);
+=20
+ void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
+ {
+-	spin_lock(&proto_tab_lock);
++	mutex_lock(&proto_tab_lock);
+ 	BUG_ON(proto_tab[protocol] !=3D pp);
+-	proto_tab[protocol] =3D NULL;
+-	spin_unlock(&proto_tab_lock);
++	rcu_assign_pointer(proto_tab[protocol], NULL);
++	mutex_unlock(&proto_tab_lock);
++	synchronize_rcu();
+ 	proto_unregister(pp->prot);
+ }
+ EXPORT_SYMBOL(phonet_proto_unregister);
+--=20
+1.6.3.3
 
---------------050200010508070901080903
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1b6+.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="TCPCT+1b6+.patch"
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvY3J5cHRvaGFzaC5oIGIvaW5jbHVkZS9saW51
-eC9jcnlwdG9oYXNoLmgKaW5kZXggYzExOGIyYS4uZWM3OGE0YiAxMDA2NDQKLS0tIGEvaW5j
-bHVkZS9saW51eC9jcnlwdG9oYXNoLmgKKysrIGIvaW5jbHVkZS9saW51eC9jcnlwdG9oYXNo
-LmgKQEAgLTIsNiArMiw3IEBACiAjZGVmaW5lIF9fQ1JZUFRPSEFTSF9ICiAKICNkZWZpbmUg
-U0hBX0RJR0VTVF9XT1JEUyA1CisjZGVmaW5lIFNIQV9NRVNTQUdFX0JZVEVTICg1MTIgLypi
-aXRzKi8gLyA4KQogI2RlZmluZSBTSEFfV09SS1NQQUNFX1dPUkRTIDgwCiAKIHZvaWQgc2hh
-X2luaXQoX191MzIgKmJ1Zik7CmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC90Y3AuaCBiL2lu
-Y2x1ZGUvbmV0L3RjcC5oCmluZGV4IGVjMTgzZmQuLjRhOTlhOGUgMTAwNjQ0Ci0tLSBhL2lu
-Y2x1ZGUvbmV0L3RjcC5oCisrKyBiL2luY2x1ZGUvbmV0L3RjcC5oCkBAIC0xNDc4LDYgKzE0
-NzgsMTQgQEAgc3RydWN0IHRjcF9yZXF1ZXN0X3NvY2tfb3BzIHsKICNlbmRpZgogfTsKIAor
-LyogVXNpbmcgU0hBMSBmb3Igbm93LCBkZWZpbmUgc29tZSBjb25zdGFudHMuCisgKi8KKyNk
-ZWZpbmUgQ09PS0lFX0RJR0VTVF9XT1JEUyAoU0hBX0RJR0VTVF9XT1JEUykKKyNkZWZpbmUg
-Q09PS0lFX01FU1NBR0VfV09SRFMgKFNIQV9NRVNTQUdFX0JZVEVTIC8gNCkKKyNkZWZpbmUg
-Q09PS0lFX1dPUktTUEFDRV9XT1JEUyAoQ09PS0lFX0RJR0VTVF9XT1JEUyArIENPT0tJRV9N
-RVNTQUdFX1dPUkRTKQorCitleHRlcm4gaW50IHRjcF9jb29raWVfZ2VuZXJhdG9yKHUzMiAq
-YmFrZXJ5KTsKKwogZXh0ZXJuIHZvaWQgdGNwX3Y0X2luaXQodm9pZCk7CiBleHRlcm4gdm9p
-ZCB0Y3BfaW5pdCh2b2lkKTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwLmMgYi9uZXQv
-aXB2NC90Y3AuYwppbmRleCBlMGNmYTYzLi4zYWUwMWJmIDEwMDY0NAotLS0gYS9uZXQvaXB2
-NC90Y3AuYworKysgYi9uZXQvaXB2NC90Y3AuYwpAQCAtMjY0LDYgKzI2NCw3IEBACiAjaW5j
-bHVkZSA8bGludXgvY2FjaGUuaD4KICNpbmNsdWRlIDxsaW51eC9lcnIuaD4KICNpbmNsdWRl
-IDxsaW51eC9jcnlwdG8uaD4KKyNpbmNsdWRlIDxsaW51eC90aW1lLmg+CiAKICNpbmNsdWRl
-IDxuZXQvaWNtcC5oPgogI2luY2x1ZGUgPG5ldC90Y3AuaD4KQEAgLTI4NDIsNiArMjg0Mywx
-MzYgQEAgRVhQT1JUX1NZTUJPTCh0Y3BfbWQ1X2hhc2hfa2V5KTsKIAogI2VuZGlmCiAKKy8q
-KgorICogRWFjaCBSZXNwb25kZXIgbWFpbnRhaW5zIHVwIHRvIHR3byBzZWNyZXQgdmFsdWVz
-IGNvbmN1cnJlbnRseSBmb3IKKyAqIGVmZmljaWVudCBzZWNyZXQgcm9sbG92ZXIuICBFYWNo
-IHNlY3JldCB2YWx1ZSBoYXMgNCBzdGF0ZXM6CisgKgorICogR2VuZXJhdGluZy4gICh0Y3Bf
-c2VjcmV0X2dlbmVyYXRpbmcgIT0gdGNwX3NlY3JldF9wcmltYXJ5KQorICogICAgR2VuZXJh
-dGVzIG5ldyBSZXNwb25kZXItQ29va2llcywgYnV0IG5vdCB5ZXQgdXNlZCBmb3IgcHJpbWFy
-eQorICogICAgdmVyaWZpY2F0aW9uLiAgVGhpcyBpcyBhIHNob3J0LXRlcm0gc3RhdGUsIHR5
-cGljYWxseSBsYXN0aW5nIG9ubHkKKyAqICAgIG9uZSByb3VuZCB0cmlwIHRpbWUgKFJUVCku
-CisgKgorICogUHJpbWFyeS4gICh0Y3Bfc2VjcmV0X2dlbmVyYXRpbmcgPT0gdGNwX3NlY3Jl
-dF9wcmltYXJ5KQorICogICAgVXNlZCBib3RoIGZvciBnZW5lcmF0aW9uIGFuZCBwcmltYXJ5
-IHZlcmlmaWNhdGlvbi4KKyAqCisgKiBSZXRpcmluZy4gICh0Y3Bfc2VjcmV0X3JldGlyaW5n
-ICE9IHRjcF9zZWNyZXRfc2Vjb25kYXJ5KQorICogICAgVXNlZCBmb3IgdmVyaWZpY2F0aW9u
-LCB1bnRpbCB0aGUgZmlyc3QgZmFpbHVyZSB0aGF0IGNhbiBiZQorICogICAgdmVyaWZpZWQg
-YnkgdGhlIG5ld2VyIEdlbmVyYXRpbmcgc2VjcmV0LiAgQXQgdGhhdCB0aW1lLCB0aGlzCisg
-KiAgICBjb29raWUncyBzdGF0ZSBpcyBjaGFuZ2VkIHRvIFNlY29uZGFyeSwgYW5kIHRoZSBH
-ZW5lcmF0aW5nCisgKiAgICBjb29raWUncyBzdGF0ZSBpcyBjaGFuZ2VkIHRvIFByaW1hcnku
-ICBUaGlzIGlzIGEgc2hvcnQtdGVybSBzdGF0ZSwKKyAqICAgIHR5cGljYWxseSBsYXN0aW5n
-IG9ubHkgb25lIHJvdW5kIHRyaXAgdGltZSAoUlRUKS4KKyAqCisgKiBTZWNvbmRhcnkuICAo
-dGNwX3NlY3JldF9yZXRpcmluZyA9PSB0Y3Bfc2VjcmV0X3NlY29uZGFyeSkKKyAqICAgIFVz
-ZWQgZm9yIHNlY29uZGFyeSB2ZXJpZmljYXRpb24sIGFmdGVyIHByaW1hcnkgdmVyaWZpY2F0
-aW9uCisgKiAgICBmYWlsdXJlcy4gIFRoaXMgc3RhdGUgbGFzdHMgbm8gbW9yZSB0aGFuIHR3
-aWNlIHRoZSBNYXhpbXVtIFNlZ21lbnQKKyAqICAgIExpZmV0aW1lICgyTVNMKS4gIFRoZW4s
-IHRoZSBzZWNyZXQgaXMgZGlzY2FyZGVkLgorICovCitzdHJ1Y3QgdGNwX2Nvb2tpZV9zZWNy
-ZXQgeworCS8qIFRoZSBzZWNyZXQgaXMgZGl2aWRlZCBpbnRvIHR3byBwYXJ0cy4gIFRoZSBk
-aWdlc3QgcGFydCBpcyB0aGUKKwkgKiBlcXVpdmFsZW50IG9mIHByZXZpb3VzbHkgaGFzaGlu
-ZyBhIHNlY3JldCBhbmQgc2F2aW5nIHRoZSBzdGF0ZSwKKwkgKiBhbmQgc2VydmVzIGFzIGFu
-IGluaXRpYWxpemF0aW9uIHZlY3RvciAoSVYpLiAgVGhlIG1lc3NhZ2UgcGFydAorCSAqIHNl
-cnZlcyBhcyB0aGUgdHJhaWxpbmcgc2VjcmV0LgorCSAqLworCXUzMgkJCQlzZWNyZXRzW0NP
-T0tJRV9XT1JLU1BBQ0VfV09SRFNdOworCXVuc2lnbmVkIGxvbmcJCQlleHBpcmVzOworfTsK
-KworI2RlZmluZSBUQ1BfU0VDUkVUXzFNU0wgKEhaICogVENQX1BBV1NfTVNMKQorI2RlZmlu
-ZSBUQ1BfU0VDUkVUXzJNU0wgKEhaICogVENQX1BBV1NfTVNMICogMikKKyNkZWZpbmUgVENQ
-X1NFQ1JFVF9MSUZFIChIWiAqIDYwMCkKKworc3RhdGljIHN0cnVjdCB0Y3BfY29va2llX3Nl
-Y3JldCB0Y3Bfc2VjcmV0X29uZTsKK3N0YXRpYyBzdHJ1Y3QgdGNwX2Nvb2tpZV9zZWNyZXQg
-dGNwX3NlY3JldF90d287CisKKy8qIEVzc2VudGlhbGx5IGEgY2lyY3VsYXIgbGlzdCwgd2l0
-aG91dCBkeW5hbWljIGFsbG9jYXRpb24uICovCitzdGF0aWMgc3RydWN0IHRjcF9jb29raWVf
-c2VjcmV0ICp0Y3Bfc2VjcmV0X2dlbmVyYXRpbmc7CitzdGF0aWMgc3RydWN0IHRjcF9jb29r
-aWVfc2VjcmV0ICp0Y3Bfc2VjcmV0X3ByaW1hcnk7CitzdGF0aWMgc3RydWN0IHRjcF9jb29r
-aWVfc2VjcmV0ICp0Y3Bfc2VjcmV0X3JldGlyaW5nOworc3RhdGljIHN0cnVjdCB0Y3BfY29v
-a2llX3NlY3JldCAqdGNwX3NlY3JldF9zZWNvbmRhcnk7CisKK3N0YXRpYyBERUZJTkVfU1BJ
-TkxPQ0sodGNwX3NlY3JldF9sb2NrZXIpOworCisvKiBTZWxlY3QgYSBwc2V1ZG8tcmFuZG9t
-IHdvcmQgaW4gdGhlIGNvb2tpZSB3b3Jrc3BhY2UuCisgKi8KK3N0YXRpYyBpbmxpbmUgdTMy
-IHRjcF9jb29raWVfd29yayhjb25zdCB1MzIgKndzLCBjb25zdCBpbnQgbikKK3sKKwlyZXR1
-cm4gd3NbQ09PS0lFX0RJR0VTVF9XT1JEUyArICgoQ09PS0lFX01FU1NBR0VfV09SRFMtMSkg
-JiB3c1tuXSldOworfQorCisvKiBGaWxsIGJha2VyeVtDT09LSUVfV09SS1NQQUNFX1dPUkRT
-XSB3aXRoIGdlbmVyYXRvciwgdXBkYXRpbmcgYXMgbmVlZGVkLgorICogQ2FsbGVkIGluIHNv
-ZnRpcnEgY29udGV4dC4KKyAqIFJldHVybnM6IDAgZm9yIHN1Y2Nlc3MuCisgKi8KK2ludCB0
-Y3BfY29va2llX2dlbmVyYXRvcih1MzIgKmJha2VyeSkKK3sKKwl1bnNpZ25lZCBsb25nIGpp
-ZmZ5ID0gamlmZmllczsKKworCWlmICh1bmxpa2VseSh0aW1lX2FmdGVyX2VxKGppZmZ5LCB0
-Y3Bfc2VjcmV0X2dlbmVyYXRpbmctPmV4cGlyZXMpKSkgeworCQlzcGluX2xvY2tfYmgoJnRj
-cF9zZWNyZXRfbG9ja2VyKTsKKwkJaWYgKCF0aW1lX2FmdGVyX2VxKGppZmZ5LCB0Y3Bfc2Vj
-cmV0X2dlbmVyYXRpbmctPmV4cGlyZXMpKSB7CisJCQkvKiByZWZyZXNoZWQgYnkgYW5vdGhl
-ciAqLworCQkJbWVtY3B5KGJha2VyeSwKKwkJCSAgICAgICAmdGNwX3NlY3JldF9nZW5lcmF0
-aW5nLT5zZWNyZXRzWzBdLAorCQkJICAgICAgIENPT0tJRV9XT1JLU1BBQ0VfV09SRFMpOwor
-CQkJc3Bpbl91bmxvY2tfYmgoJnRjcF9zZWNyZXRfbG9ja2VyKTsKKwkJfSBlbHNlIHsKKwkJ
-CS8qIHN0aWxsIG5lZWRzIHJlZnJlc2hpbmcgKi8KKwkJCWdldF9yYW5kb21fYnl0ZXMoYmFr
-ZXJ5LCBDT09LSUVfV09SS1NQQUNFX1dPUkRTKTsKKworCQkJLyogVGhlIGZpcnN0IHRpbWUs
-IHBhcmFub2lhIGFzc3VtZXMgdGhhdCB0aGUKKwkJCSAqIHJhbmRvbWl6YXRpb24gZnVuY3Rp
-b24gaXNuJ3QgYXMgc3Ryb25nLiAgQnV0LAorCQkJICogdGhpcyBzZWNyZXQgaW5pdGlhbGl6
-YXRpb24gaXMgZGVsYXllZCB1bnRpbAorCQkJICogdGhlIGxhc3QgcG9zc2libGUgbW9tZW50
-IChwYWNrZXQgYXJyaXZhbCkuCisJCQkgKiBBbHRob3VnaCB0aGF0IHRpbWUgaXMgb2JzZXJ2
-YWJsZSwgaXQgaXMKKwkJCSAqIHVucHJlZGljdGFibHkgdmFyaWFibGUuICBNYXNoIGluIHRo
-ZSBtb3N0CisJCQkgKiB2b2xhdGlsZSBjbG9jayBiaXRzIGF2YWlsYWJsZSwgYW5kIGV4cGly
-ZSB0aGUKKwkJCSAqIHNlY3JldCBleHRyYSBxdWlja2x5LgorCQkJICovCisJCQlpZiAodW5s
-aWtlbHkodGNwX3NlY3JldF9wcmltYXJ5LT5leHBpcmVzID09CisJCQkJICAgICB0Y3Bfc2Vj
-cmV0X3NlY29uZGFyeS0+ZXhwaXJlcykpIHsKKwkJCQlzdHJ1Y3QgdGltZXNwZWMgdHY7CisK
-KwkJCQlnZXRuc3RpbWVvZmRheSgmdHYpOworCQkJCWJha2VyeVtDT09LSUVfRElHRVNUX1dP
-UkRTKzBdIF49CisJCQkJCSh1MzIpdHYudHZfbnNlYzsKKworCQkJCXRjcF9zZWNyZXRfc2Vj
-b25kYXJ5LT5leHBpcmVzID0gamlmZnkKKwkJCQkJKyBUQ1BfU0VDUkVUXzFNU0wKKwkJCQkJ
-KyAoMHgwZiAmIHRjcF9jb29raWVfd29yayhiYWtlcnksIDApKTsKKwkJCX0gZWxzZSB7CisJ
-CQkJdGNwX3NlY3JldF9zZWNvbmRhcnktPmV4cGlyZXMgPSBqaWZmeQorCQkJCQkrIFRDUF9T
-RUNSRVRfTElGRQorCQkJCQkrICgweGZmICYgdGNwX2Nvb2tpZV93b3JrKGJha2VyeSwgMSkp
-OworCQkJCXRjcF9zZWNyZXRfcHJpbWFyeS0+ZXhwaXJlcyA9IGppZmZ5CisJCQkJCSsgVENQ
-X1NFQ1JFVF8yTVNMCisJCQkJCSsgKDB4MWYgJiB0Y3BfY29va2llX3dvcmsoYmFrZXJ5LCAy
-KSk7CisJCQl9CisJCQltZW1jcHkoJnRjcF9zZWNyZXRfZ2VuZXJhdGluZy0+c2VjcmV0c1sw
-XSwKKwkJCSAgICAgICBiYWtlcnksIENPT0tJRV9XT1JLU1BBQ0VfV09SRFMpOworCisJCQly
-Y3VfYXNzaWduX3BvaW50ZXIodGNwX3NlY3JldF9nZW5lcmF0aW5nLAorCQkJCQkgICB0Y3Bf
-c2VjcmV0X3NlY29uZGFyeSk7CisJCQlyY3VfYXNzaWduX3BvaW50ZXIodGNwX3NlY3JldF9y
-ZXRpcmluZywKKwkJCQkJICAgdGNwX3NlY3JldF9wcmltYXJ5KTsKKwkJCXNwaW5fdW5sb2Nr
-X2JoKCZ0Y3Bfc2VjcmV0X2xvY2tlcik7CisJCQkvKgorCQkJICogTmVpdGhlciBjYWxsX3Jj
-dSgpIG9yIHN5bmNocm9uaXplX3JjdSgpIGFyZSBuZWVkZWQuCisJCQkgKiBSZXRpcmluZyBk
-YXRhIGlzIG5vdCBmcmVlZC4gIEl0IGlzIHJlcGxhY2VkIGFmdGVyCisJCQkgKiBmdXJ0aGVy
-IChsb2NrZWQpIHBvaW50ZXIgdXBkYXRlcywgYW5kIGEgcXVpZXQgdGltZQorCQkJICogKG1p
-bmltdW0gMU1TTCwgbWF4aW11bSBMSUZFIC0gMk1TTCkuCisJCQkgKi8KKwkJfQorCX0gZWxz
-ZSB7CisJCXJjdV9yZWFkX2xvY2tfYmgoKTsKKwkJbWVtY3B5KGJha2VyeSwKKwkJICAgICAg
-ICZyY3VfZGVyZWZlcmVuY2UodGNwX3NlY3JldF9nZW5lcmF0aW5nKS0+c2VjcmV0c1swXSwK
-KwkJICAgICAgIENPT0tJRV9XT1JLU1BBQ0VfV09SRFMpOworCQlyY3VfcmVhZF91bmxvY2tf
-YmgoKTsKKwl9CisJcmV0dXJuIDA7Cit9CitFWFBPUlRfU1lNQk9MKHRjcF9jb29raWVfZ2Vu
-ZXJhdG9yKTsKKwogdm9pZCB0Y3BfZG9uZShzdHJ1Y3Qgc29jayAqc2spCiB7CiAJaWYgKHNr
-LT5za19zdGF0ZSA9PSBUQ1BfU1lOX1NFTlQgfHwgc2stPnNrX3N0YXRlID09IFRDUF9TWU5f
-UkVDVikKQEAgLTI4NzYsNiArMzAxMiw3IEBAIHZvaWQgX19pbml0IHRjcF9pbml0KHZvaWQp
-CiAJc3RydWN0IHNrX2J1ZmYgKnNrYiA9IE5VTEw7CiAJdW5zaWduZWQgbG9uZyBucl9wYWdl
-cywgbGltaXQ7CiAJaW50IG9yZGVyLCBpLCBtYXhfc2hhcmU7CisJdW5zaWduZWQgbG9uZyBq
-aWZmeSA9IGppZmZpZXM7CiAKIAlCVUlMRF9CVUdfT04oc2l6ZW9mKHN0cnVjdCB0Y3Bfc2ti
-X2NiKSA+IHNpemVvZihza2ItPmNiKSk7CiAKQEAgLTI5NjksNiArMzEwNiwxNSBAQCB2b2lk
-IF9faW5pdCB0Y3BfaW5pdCh2b2lkKQogCSAgICAgICB0Y3BfaGFzaGluZm8uZWhhc2hfbWFz
-ayArIDEsIHRjcF9oYXNoaW5mby5iaGFzaF9zaXplKTsKIAogCXRjcF9yZWdpc3Rlcl9jb25n
-ZXN0aW9uX2NvbnRyb2woJnRjcF9yZW5vKTsKKworCW1lbXNldCgmdGNwX3NlY3JldF9vbmUu
-c2VjcmV0c1swXSwgMCwgc2l6ZW9mKHRjcF9zZWNyZXRfb25lLnNlY3JldHMpKTsKKwltZW1z
-ZXQoJnRjcF9zZWNyZXRfdHdvLnNlY3JldHNbMF0sIDAsIHNpemVvZih0Y3Bfc2VjcmV0X3R3
-by5zZWNyZXRzKSk7CisJdGNwX3NlY3JldF9vbmUuZXhwaXJlcyA9IGppZmZ5OyAvKiBwYXN0
-IGR1ZSAqLworCXRjcF9zZWNyZXRfdHdvLmV4cGlyZXMgPSBqaWZmeTsgLyogcGFzdCBkdWUg
-Ki8KKwl0Y3Bfc2VjcmV0X2dlbmVyYXRpbmcgPSAmdGNwX3NlY3JldF9vbmU7CisJdGNwX3Nl
-Y3JldF9wcmltYXJ5ID0gJnRjcF9zZWNyZXRfb25lOworCXRjcF9zZWNyZXRfcmV0aXJpbmcg
-PSAmdGNwX3NlY3JldF90d287CisJdGNwX3NlY3JldF9zZWNvbmRhcnkgPSAmdGNwX3NlY3Jl
-dF90d287CiB9CiAKIEVYUE9SVF9TWU1CT0wodGNwX2Nsb3NlKTsKLS0gCjEuNi4zLjMKCg==
---------------050200010508070901080903--
