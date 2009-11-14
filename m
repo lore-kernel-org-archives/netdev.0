@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Set source addresses on the association before
- adding transports
-Date: Fri, 13 Nov 2009 19:57:09 -0800 (PST)
-Message-ID: <20091113.195709.164224314.davem@davemloft.net>
-References: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: Fix regression introduced by new sctp_connectx
+ api
+Date: Fri, 13 Nov 2009 19:57:17 -0800 (PST)
+Message-ID: <20091113.195717.177244655.davem@davemloft.net>
+References: <1257963564-26376-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35590
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35593
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757595AbZKND4x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 22:56:53 -0500
-In-Reply-To: <1257879454-31661-1-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1757708AbZKND5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 22:57:01 -0500
+In-Reply-To: <1257963564-26376-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 10 Nov 2009 13:57:34 -0500
+Date: Wed, 11 Nov 2009 13:19:24 -0500
 
-> Recent commit 8da645e101a8c20c6073efda3c7cc74eec01b87f
-> 	sctp: Get rid of an extra routing lookup when adding a transport
-> introduced a regression in the connection setup.  The behavior was
-> different between IPv4 and IPv6.  IPv4 case ended up working because the
-> route lookup routing returned a NULL route, which triggered another
-> route lookup later in the output patch that succeeded.  In the IPv6 case,
-> a valid route was returned for first call, but we could not find a valid
-> source address at the time since the source addresses were not set on the
-> association yet.  Thus resulted in a hung connection.
+> A new (unrealeased to the user) sctp_connectx api
 > 
-> The solution is to set the source addresses on the association prior to
-> adding peers.
+> c6ba68a26645dbc5029a9faa5687ebe6fcfc53e4
+>     sctp: support non-blocking version of the new sctp_connectx() API
+> 
+> introduced a regression cought by the user regression test
+> suite.  In particular, the API requires the user library to
+> re-allocate the buffer and could potentially trigger a SIGFAULT.
+> 
+> This change corrects that regression by passing the original
+> address buffer to the kernel unmodified, but still allows for
+> a returned association id.
 > 
 > Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
