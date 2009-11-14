@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] ixgbe: Make queue pairs on single MSI-X
- interrupts
-Date: Fri, 13 Nov 2009 20:49:11 -0800 (PST)
-Message-ID: <20091113.204911.170074980.davem@davemloft.net>
-References: <20091113095035.2059.13992.stgit@localhost.localdomain>
+Subject: Re: [PATCH] inet: fix inet_bind_bucket_for_each
+Date: Fri, 13 Nov 2009 20:49:43 -0800 (PST)
+Message-ID: <20091113.204943.94495380.davem@davemloft.net>
+References: <200911121707.26224.lgrijincu@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, opurdila@ixiacom.com
+To: lgrijincu@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50265
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50268
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756109AbZKNEsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 23:48:55 -0500
-In-Reply-To: <20091113095035.2059.13992.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753753AbZKNEt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 23:49:27 -0500
+In-Reply-To: <200911121707.26224.lgrijincu@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 13 Nov 2009 01:50:43 -0800
+From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+Date: Thu, 12 Nov 2009 17:07:26 +0200
 
-> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> The first "node" is supposed to be the cursor used in the for_each.
 > 
-> This patch pairs similar-numbered Rx and Tx queues onto a single
-> MSI-X vector.  For example, Tx queue 0 and Rx queue 0's interrupt
-> with be ethX-RxTx-0.  This allows for more efficient cleanup, since
-> fewer interrupts will be firing during device operation.  It also
-> helps with a cleaner CPU affinity for IRQ affinity.
+> The second "node" is ment literally and should not be macro expanded:
+> it's the name of the hlist_node field from the inet_bind_bucket.
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> This currently works because when inet_bind_bucket_for_each is called
+> it's argument is still "node".
+> 
+> Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
 
 Applied.
