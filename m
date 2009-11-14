@@ -1,40 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
-Date: Sat, 14 Nov 2009 08:21:16 +0100
-Message-ID: <4AFE5A6C.2030301@gmail.com>
-References: <200911130701.14847.opurdila@ixiacom.com>	<4AFCF8D3.6090905@gmail.com> <20091112222608.79d90e9e@nehalam>	<200911131151.31677.opurdila@ixiacom.com>	<20091113142939.35879efe@s6510> <20091113224043.GP19478@kvack.org>	<20091113144937.23693bb4@nehalam> <m3r5s1bn3f.fsf@ursa.amorsen.dk>
+Subject: Re: [RFC] vlan: GRO rx statistics
+Date: Sat, 14 Nov 2009 08:27:29 +0100
+Message-ID: <4AFE5BE1.2000909@gmail.com>
+References: <4AF99A50.5080301@gmail.com> <4AFD8C31.10703@gmail.com> <20091114012741.GA18764@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
-	Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53342 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42586 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758AbZKNHVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 02:21:20 -0500
-In-Reply-To: <m3r5s1bn3f.fsf@ursa.amorsen.dk>
+	with ESMTP id S1753444AbZKNH1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 02:27:32 -0500
+In-Reply-To: <20091114012741.GA18764@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benny Amorsen a =E9crit :
-> Stephen Hemminger <shemminger@vyatta.com> writes:
+Herbert Xu a =E9crit :
+> On Fri, Nov 13, 2009 at 05:41:21PM +0100, Eric Dumazet wrote:
+>> Replying to myself, I found root of the problem and posted a fix.
 >=20
->> Then maybe network devices aren't the right layering model. At some
->> point the paradigm has to be re-examined.
->=20
-> I'm not quite sure where this becomes a problem. We have 1185 network
-> interfaces (VLAN's) on one box. Boot time is a problem, but other tha=
-n
-> that it works ok. If something like this would help speed up booting,
-> that would be very nice.
+> Just curious, do you have a link to that fix?
 >=20
 
-It would be very nice if you tell us why booting is very long,
-ie what is done and how much time it takes.
+Sure, I thought you were a netdev subscriber, sorry :)
 
-It's clear that ~1000 vlans is quite reasonable :)
+[PATCH net-next-2.6] vlan: Use __vlan_hwaccel_put_tag() in rx
 
+http://patchwork.ozlabs.org/patch/38377/
+
+
+>> Still the race while updating dev->stats.tx_{bytes|packets} should b=
+e addressed eventually...
+>=20
+> Well making it per-napi_struct should do the trick.
+>=20
+> Cheers,
 
