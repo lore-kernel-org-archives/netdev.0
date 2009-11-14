@@ -1,62 +1,59 @@
-From: Tomas Winkler <tomas.winkler@intel.com>
-Subject: [net-next 2/2] iwmc3200top: simplify the driver version
-Date: Sat, 14 Nov 2009 20:36:36 +0200
-Message-ID: <1258223796-8486-2-git-send-email-tomas.winkler@intel.com>
-References: <1258223796-8486-1-git-send-email-tomas.winkler@intel.com>
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	guy.cohen@intel.com, ron.rindjunsky@intel.com,
-	Tomas Winkler <tomas.winkler@intel.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1258223796-8486-1-git-send-email-tomas.winkler@intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Satish Chowdhury <satish.chowdhury@oneconvergence.com>
+Subject: Sharing VF device among Xen VMs
+Date: Sun, 15 Nov 2009 01:19:31 +0530
+Message-ID: <be5d34890911141149v45ba176ax5705d681def3470e@mail.gmail.com>
+References: <be5d34890911130925j7b7d70f3j1f205b9ad7624b76@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:51446 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751313AbZKNTtp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 14:49:45 -0500
+Received: by iwn8 with SMTP id 8so3413065iwn.33
+        for <netdev@vger.kernel.org>; Sat, 14 Nov 2009 11:49:51 -0800 (PST)
+In-Reply-To: <be5d34890911130925j7b7d70f3j1f205b9ad7624b76@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drop the version parts not needed for in-tree driver
+Hi,
 
-Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
----
- drivers/misc/iwmc3200top/main.c |   16 +---------------
- 1 files changed, 1 insertions(+), 15 deletions(-)
+I am trying to verify a situation where VMs share a VF device of Intel
+82576 dual port for data traffic.
 
-diff --git a/drivers/misc/iwmc3200top/main.c b/drivers/misc/iwmc3200top/main.c
-index a1ce97e..02b3dad 100644
---- a/drivers/misc/iwmc3200top/main.c
-+++ b/drivers/misc/iwmc3200top/main.c
-@@ -41,21 +41,7 @@
- #define DRIVER_DESCRIPTION "Intel(R) IWMC 3200 Top Driver"
- #define DRIVER_COPYRIGHT "Copyright (c) 2008 Intel Corporation."
- 
--#define IWMCT_VERSION "0.1.62"
--
--#ifdef REPOSITORY_LABEL
--#define RL REPOSITORY_LABEL
--#else
--#define RL local
--#endif
--
--#ifdef CONFIG_IWMC3200TOP_DEBUG
--#define VD "-d"
--#else
--#define VD
--#endif
--
--#define DRIVER_VERSION IWMCT_VERSION "-"  __stringify(RL) VD
-+#define DRIVER_VERSION  "0.1.62"
- 
- MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
- MODULE_VERSION(DRIVER_VERSION);
--- 
-1.6.0.6
+Setup:
+Case -1: On a Vt-d machine Xen(xen-1) is installed. On dom0 multiple
+VFs are created for 82576ET dual port card. One of the VF is
+pass-through to a VM.=A0 Now, the VM again has Xen (xen-2) installed.
+So, the VMs of Xen-2 have to share the passthrough VF device for data
+traffic.
 
----------------------------------------------------------------------
-Intel Israel (74) Limited
+Will I be able to send data from Xen-2 VMs to external world?
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+I had issues while creating VMs for Xen2. So, could not do the experime=
+nt.
 
+Case-2:=A0 On Xen-1 itself I loaded igbvf driver. Changed xen
+configuration to make VF as default interface on dom0. Now VMs of
+Xen-1 should share the VF device.
+
+Ping from VF interface on VM=A0 and PF ip address works.
+Ping between VMs goes through.
+But, ping from domU to another machine on same network on switch doesn'=
+t work.
+
+The arp broadcast request goes out through VF interface. But the arp
+reply doesn't reach VF interface, they get routed to PF interface. If
+PF interface to the bridge on dom0 then ping from VMs to external
+machine work.
+
+In my experiment, the arp reply that reaches the NIC, has mac address
+of interface on VM(domU). 82576 performs L2 filtering based on VF MAC
+address. So, packet is not queued to VF interface.
+
+Is it possible to add VMs mac address to L2 filtering pool of the NIC?
+
+Regards,
+-Satish
