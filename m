@@ -1,130 +1,121 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP throughput drops sharply around MTU of 180 bytes
-Date: Sat, 14 Nov 2009 11:19:14 +0100
-Message-ID: <4AFE8422.4000901@gmail.com>
-References: <51d384e10911140028r76e1aefei3a224b5c542d82e8@mail.gmail.com>	 <4AFE6FF0.3030101@gmail.com> <4AFE748C.3050100@gmail.com> <51d384e10911140124g285621a5n54afa1bdb1b02997@mail.gmail.com> <4AFE7F15.1080504@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] check the return value of ndo_select_queue()
+Date: Sat, 14 Nov 2009 20:14:28 +0800
+Message-ID: <412e6f7f0911140414x4918d8d2teb60ee585ebdfce9@mail.gmail.com>
+References: <412e6f7f0911131650j6d13f95bt20aa607f9f44c3af@mail.gmail.com>
+	 <4AFE621C.1020004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ang Way Chuang <wcang79@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38897 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753587AbZKNKTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 05:19:11 -0500
-In-Reply-To: <4AFE7F15.1080504@gmail.com>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:34948 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753550AbZKNMOW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 07:14:22 -0500
+Received: by pzk1 with SMTP id 1so1851459pzk.33
+        for <netdev@vger.kernel.org>; Sat, 14 Nov 2009 04:14:28 -0800 (PST)
+In-Reply-To: <4AFE621C.1020004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Ang Way Chuang a =E9crit :
->> I assume that ip route .... advmss achieves that effect? I tried it,
->> but it doesn't work.
->>
->=20
-> It should. Please provide your kernel version and what you tried exac=
-tly.
->=20
->=20
-
-Here a tcpdump of an iperf -M 120 session on current net-next-2.6 kerne=
-l
-iperf -M 120 -c 192.168.0.1 -m
-WARNING: attempt to set TCP maximum segment size to 120, but got 536
-------------------------------------------------------------
-Client connecting to 192.168.0.1, TCP port 5001
-TCP window size: 16.0 KByte (default)
-------------------------------------------------------------
-[  3] local 192.168.0.2 port 48178 connected with 192.168.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  26.4 MBytes  22.1 Mbits/sec
-[  3] MSS size 108 bytes (MTU 148 bytes, unknown interface)
-
-
-hints :
-
-1) Use iperf -M 120 flag on both sides
-2) disable tso/gso on sender
-   ethtool -K eth0 tso off gso off
-
-11:15:17.052202 IP 192.168.0.2.48177 > 192.168.0.1.5001: S 3914872183:3=
-914872183(0) win 480 <mss 120,nop,nop,timestamp 63768988 0,nop,wscale 6=
+On Sat, Nov 14, 2009 at 3:54 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
 >
-11:15:17.052291 IP 192.168.0.1.5001 > 192.168.0.2.48177: S 2771326659:2=
-771326659(0) ack 3914872184 win 432 <mss 120,nop,nop,timestamp 58092392=
-0 63768988,nop,wscale 6>
-11:15:17.052494 IP 192.168.0.2.48177 > 192.168.0.1.5001: . ack 1 win 8 =
-<nop,nop,timestamp 63768988 580923920>
-11:15:17.052514 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 1:25(24) ack=
- 1 win 8 <nop,nop,timestamp 63768988 580923920>
-11:15:17.052532 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 25:133(108) =
-ack 1 win 8 <nop,nop,timestamp 63768988 580923920>
-11:15:17.052534 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 133:241(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923920>
-11:15:17.052537 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 241:349(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923920>
-11:15:17.052612 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 25 win 7=
- <nop,nop,timestamp 580923921 63768988>
-11:15:17.052621 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 349:457(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052624 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 133 win =
-7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052629 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 457:565(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052631 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 349 win =
-7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052635 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 565:673(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052638 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 673:781(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052711 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 565 win =
-7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052715 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 781:889(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052718 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 889:997(108)=
- ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052720 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 781 win =
-7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052724 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 997:1105(108=
-) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052727 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1105:1213(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052804 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 997 win =
-7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052813 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 1213:1321(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052816 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1321:1429(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052823 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 1213 win=
- 7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052827 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1429:1537(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052829 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 1537:1645(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052901 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 1429 win=
- 7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052910 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1645:1753(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052913 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1753:1861(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052914 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 1645 win=
- 7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052917 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 1861:1969(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052920 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 1969:2077(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768988 580923921>
-11:15:17.052990 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 1861 win=
- 7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.052996 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 2077:2185(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768989 580923921>
-11:15:17.052999 IP 192.168.0.2.48177 > 192.168.0.1.5001: P 2185:2293(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768989 580923921>
-11:15:17.053001 IP 192.168.0.1.5001 > 192.168.0.2.48177: . ack 2077 win=
- 7 <nop,nop,timestamp 580923921 63768988>
-11:15:17.053005 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 2293:2401(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768989 580923921>
-11:15:17.053008 IP 192.168.0.2.48177 > 192.168.0.1.5001: . 2401:2509(10=
-8) ack 1 win 8 <nop,nop,timestamp 63768989 580923921>
+>
+> Please always use scripts/checkpatch.pl before sending patches
+>
+> } else if((select_queue =3D dev->netdev_ops->ndo_select_queue)) {
+>
+> A space is required after the "if"
+>
+
+Thanks.
+
+> It seems to me this patch is not matching its ChangeLog :
+>
+> You moved the :
+>
+> if (sk && sk->sk_dst_cache)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sk_tx_queue_set(sk, queue_index);
+
+Maybe I did more in my patch, but I think these little changes doesn't
+need separate patches.
+
+>
+> Why not using much readable patch like :
+>
+>
+> [PATCH] check the return value of ndo_select_queue()
+>
+> check the return value of ndo_select_queue()
+>
+> Check the return value of ndo_select_queue(). If the value isn't smal=
+ler
+> than the real_num_tx_queues, print a warning message, and reset it to=
+ zero.
+>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ----
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index ad8e320..bbc9a41 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1845,6 +1845,20 @@ u16 skb_tx_hash(const struct net_device *dev, =
+const struct sk_buff *skb)
+> =C2=A0}
+> =C2=A0EXPORT_SYMBOL(skb_tx_hash);
+>
+> +static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_=
+index)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 if (unlikely(queue_index >=3D dev->real_num_tx=
+_queues)) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (net_ratelimit(=
+)) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 WARN(1, "%s selects TX queue %d, but "
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0"real number of TX queues is %d\n",
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->name, queue_index,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->real_num_tx_queues);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 0;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 return queue_index;
+> +}
+> +
+> =C2=A0static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0s=
+truct sk_buff *skb)
+> =C2=A0{
+> @@ -1858,6 +1872,7 @@ static struct netdev_queue *dev_pick_tx(struct =
+net_device *dev,
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ops->ndo_s=
+elect_queue) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0queue_index =3D ops->ndo_select_queue(dev, skb);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 queue_index =3D dev_cap_txqueue(dev, queue_index);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0} else {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0queue_index =3D 0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0if (dev->real_num_tx_queues > 1)
+>
+>
+>
+
+It seems better than mime.
 
 
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
