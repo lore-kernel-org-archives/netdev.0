@@ -1,69 +1,70 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v6 3/7 RFC] TCPCT part 1c: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS
-Date: Sat, 14 Nov 2009 10:43:33 -0500
-Message-ID: <4AFED025.1060202@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com>  <4AFCE13B.4060006@gmail.com> <1258137443.16857.124.camel@Joe-Laptop.home> <4AFDB740.3060509@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Sat, 14 Nov 2009 08:16:46 -0800
+Message-ID: <4AFED7EE.2000209@candelatech.com>
+References: <200911130701.14847.opurdila@ixiacom.com>	<4AFCF8D3.6090905@gmail.com> <20091112222608.79d90e9e@nehalam>	<200911131151.31677.opurdila@ixiacom.com>	<20091113142939.35879efe@s6510> <20091113224043.GP19478@kvack.org>	<20091113144937.23693bb4@nehalam> <m3r5s1bn3f.fsf@ursa.amorsen.dk> <4AFE5A6C.2030301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:33691 "EHLO
-	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754698AbZKNPnp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 10:43:45 -0500
-Received: by gxk26 with SMTP id 26so3855662gxk.1
-        for <netdev@vger.kernel.org>; Sat, 14 Nov 2009 07:43:51 -0800 (PST)
-In-Reply-To: <4AFDB740.3060509@gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:49850 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788AbZKNQQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 11:16:53 -0500
+In-Reply-To: <4AFE5A6C.2030301@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson wrote:
-> Joe Perches wrote:
->> or even adding proc_dointvec_minmax_even
->> might save some cycles during cookie handling.
+Eric Dumazet wrote:
+> Benny Amorsen a =E9crit :
+>  =20
+>> Stephen Hemminger <shemminger@vyatta.com> writes:
 >>
-> Well, that would have to be proc_dointvec_minmax_even_zero(), as the
-> valid values can be 0, 8, 10, 12, 14, or 16.  ...
-> 
-> And it seems to me a case of "premature optimization" -- it might save
-> 1 or 2 tests in the order I've listed them in tcp_cookie_size_check(),
-> ...
-> 
-> On the server side, we have to test during parsing anyway.  I never trust
-> any data that comes over the network....
-> 
-I looked at this again today, and proc_dointvec_minmax_even_zero() still
-seems to be overkill.  I couldn't find anybody else that does such things
-at sysctl parsing time.
+>>    =20
+>>> Then maybe network devices aren't the right layering model. At some
+>>> point the paradigm has to be re-examined.
+>>>      =20
+>> I'm not quite sure where this becomes a problem. We have 1185 networ=
+k
+>> interfaces (VLAN's) on one box. Boot time is a problem, but other th=
+an
+>> that it works ok. If something like this would help speed up booting=
+,
+>> that would be very nice.
+>>
+>>    =20
+>
+> It would be very nice if you tell us why booting is very long,
+> ie what is done and how much time it takes.
+>
+> It's clear that ~1000 vlans is quite reasonable :)
+>  =20
+At least sometimes, hotplug can degrade into a nasty case where it runs=
+=20
+'ifconfig -a' for each
+interface created.   (This was F11 if I recall correctly).
 
-I did find we could eliminate a test for odd (in part 1f),
+If you configure hotplug to ignore vlans, it might help your boot time.
 
-+		if (unlikely(0x1 & cookie_size)) {
-+			/* 8-bit multiple, illegal, ignore */
-+			cookie_size = 0;
+Thanks,
+Ben
 
-by using a better test for the network data (in part 1g), and it
-should be faster, too (assuming gcc is smart enough):
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  =20
 
-Was:
-+				if (TCPOLEN_COOKIE_MAX >= opsize
-+				 && TCPOLEN_COOKIE_MIN <= opsize) {
 
-Now:
-+				switch (opsize) {
-+				case TCPOLEN_COOKIE_MIN+0:
-+				case TCPOLEN_COOKIE_MIN+2:
-+				case TCPOLEN_COOKIE_MIN+4:
-+				case TCPOLEN_COOKIE_MIN+6:
-+				case TCPOLEN_COOKIE_MAX:
+--=20
+Ben Greear <greearb@candelatech.com>=20
+Candela Technologies Inc  http://www.candelatech.com
 
-(This division into so many parts for review is driving me crazy....)
-
-Saved 2 if's for every cookie!  Of course, there's a cpu intensive
-SHA1 for each cookie, so this pales in comparison.
-
-Premature optimization or not, thanks for the ideas!
 
