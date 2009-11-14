@@ -1,36 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Sat, 14 Nov 2009 10:51:35 +0800
-Message-ID: <20091114025135.GA19289@gondor.apana.org.au>
-References: <4AF919020200005A000586A9@sinclair.provo.novell.com> <20091110131722.GA19645@redhat.com> <4AF9747E.8020408@novell.com> <20091110143652.GB19645@redhat.com> <4AF98A8C.9040201@novell.com> <20091114011229.GA18580@gondor.apana.org.au> <4AFE08EF.2030308@gmail.com> <20091114022103.GA19020@gondor.apana.org.au> <4AFE15AD.6000208@gmail.com> <20091113184503.13f6d447@s6510>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Fri, 13 Nov 2009 18:59:37 -0800 (PST)
+Message-ID: <20091113.185937.251557071.davem@davemloft.net>
+References: <20091113233504.GQ19478@kvack.org>
+	<20091113153924.6130135f@nehalam>
+	<20091113235210.GR19478@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Gregory Haskins <ghaskins@novell.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756975AbZKNCvk@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091113184503.13f6d447@s6510>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, opurdila@ixiacom.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: bcrl@lhnet.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34003
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753908AbZKNC7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 21:59:21 -0500
+In-Reply-To: <20091113235210.GR19478@kvack.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 13, 2009 at 06:45:03PM -0800, Stephen Hemminger wrote:
-> 
-> No all the interfaces require a copy. Actually, sendfile makes no guarantee about synchronization
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Date: Fri, 13 Nov 2009 18:52:10 -0500
 
-Actually sendfile does not require a copy.
+> If you don't want the overhead from this kind of scaling, stick it under a 
+> config option, but please don't stop other people from pushing Linux into 
+> new uses which have these scaling requirements.
 
-> because the receiver of said file could be arbitrarily slow, and any attempt at locking down
-> current contents of file is a denial of service exposure.
+This 'scaling requirement' only exists in environments where people
+undersubsribe their networks, right?
 
-Agreed.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm not saying we won't put scaling into these areas, I'm just trying
+to make a point to show that this "need" only exists because people
+have purposefully created these situations where they feel the need to
+massively control their users usage in order to generate revenue.
