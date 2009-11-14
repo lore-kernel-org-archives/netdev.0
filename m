@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] X25: Enable setting of cause and diagnostic fields
-Date: Fri, 13 Nov 2009 20:32:48 -0800 (PST)
-Message-ID: <20091113.203248.84989794.davem@davemloft.net>
-References: <d45a3acc0911111613v38fa9df4jed21876ce6309097@mail.gmail.com>
+Subject: Re: [patch 4/5] [PATCH] qeth: rework TSO functions
+Date: Fri, 13 Nov 2009 20:36:21 -0800 (PST)
+Message-ID: <20091113.203621.39740182.davem@davemloft.net>
+References: <20091112101140.882313000@de.ibm.com>
+	<20091112101301.126320000@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-x25@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: andrew.hendry@gmail.com
-Return-path: <linux-x25-owner@vger.kernel.org>
-In-Reply-To: <d45a3acc0911111613v38fa9df4jed21876ce6309097@mail.gmail.com>
-Sender: linux-x25-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46835
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757548AbZKNEgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Nov 2009 23:36:05 -0500
+In-Reply-To: <20091112101301.126320000@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: andrew hendry <andrew.hendry@gmail.com>
-Date: Thu, 12 Nov 2009 11:13:27 +1100
+From: frank.blaschka@de.ibm.com
+Date: Thu, 12 Nov 2009 11:11:44 +0100
 
-> Adds SIOCX25SCAUSEDIAG, allowing X.25 programs to set the cause and
-> diagnostic fields.
-> Normally used to indicate status upon closing connections.
+> From: Frank Blaschka <frank.blaschka@de.ibm.com>
 > 
-> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+> The maximum TSO size OSA can handle is 15 * PAGE_SIZE. This
+> patch reduces gso_max_size to this value and adds some sanity
+> checks and statistics to the TSO implementation.
+> Since only layer 3 is able to do TSO move all TSO related functions
+> to the qeth_l3 module.
+> 
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-This change is incomplete.
-
-You need to add handling to compat_x25_ioctl().
+Please don't add sysctl knobs for getting and setting TSO enabling,
+that's what ethtool is for.
