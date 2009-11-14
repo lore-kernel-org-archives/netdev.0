@@ -1,124 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [rfc 0/4] igb: bandwidth allocation
-Date: Sat, 14 Nov 2009 00:01:32 -0800
-Message-ID: <9929d2390911140001t2938271ep7455de5874ee0144@mail.gmail.com>
-References: <20091105005847.941190065@vergenet.net>
-	<9929d2390911041746g2b5f51cdia489bd87d87e41ef@mail.gmail.com>
-	<20091105022123.GA22019@verge.net.au>
+From: Ang Way Chuang <wcang79@gmail.com>
+Subject: TCP throughput drops sharply around MTU of 180 bytes
+Date: Sat, 14 Nov 2009 16:28:05 +0800
+Message-ID: <51d384e10911140028r76e1aefei3a224b5c542d82e8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Arnd Bergmann <arndbergmann@googlemail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20091105022123.GA22019@verge.net.au>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:50240 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754034AbZKNI17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 03:27:59 -0500
+Received: by pzk1 with SMTP id 1so1783655pzk.33
+        for <netdev@vger.kernel.org>; Sat, 14 Nov 2009 00:28:05 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBOb3YgNCwgMjAwOSBhdCAxODoyMSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5u
-ZXQuYXU+IHdyb3RlOgo+IE9uIFdlZCwgTm92IDA0LCAyMDA5IGF0IDA1OjQ2OjUwUE0gLTA4MDAs
-IEplZmYgS2lyc2hlciB3cm90ZToKPj4gT24gV2VkLCBOb3YgNCwgMjAwOSBhdCAxNjo1OCwgU2lt
-b24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+PiA+IEhpLAo+PiA+Cj4+ID4g
-dGhpcyBzZXJpZXMgb2YgcGF0Y2hlcyBleHBvc2VzIHRoZSBiYW5kd2lkdGggYWxsb2NhdGlvbgo+
-PiA+IGhhcmR3YXJlIHN1cHBvcnQgb2YgdGhlIEludGVsIDgyNTc2LiBJdCBkb2VzIHNvIHRocm91
-Z2gKPj4gPiBhIHJhdGhlciBoYWNraXNoIHN5c2ZzIGVudHJ5LiBUaGF0IGludGVyZmFjZSBpcyBq
-dXN0IGludGVuZGVkCj4+ID4gZm9yIHRlc3Rpbmcgc28gdGhhdCB0aGUgZXhwb3NlZCBoYXJkd2Fy
-ZSBmZWF0dXJlIGNhbgo+PiA+IGJlIGV4ZXJjaXNlZC4gSSB3b3VsZCBsaWtlIHRvIGZpbmQgYSBn
-ZW5lcmljIHdheSB0byBleHBvc2UKPj4gPiB0aGlzIGZlYXR1cmUgdG8gdXNlci1zcGFjZS4KPj4g
-Pgo+Pgo+PiBUaGFua3MgU2ltb24uIMKgSSBoYXZlIGFkZCB0aGUgNCBwYXRjaCBzZXJpZXMgdG8g
-bXkgdHJlZSBmb3IgdGVzdGluZy4KPgo+IFRoYW5rcy4gSSB3YW50ZWQgdG8gZ2V0IHRoZSBjb2Rl
-IG91dCByYXRoZXIgdGhhbiBzaXR0aW5nIG9uIGl0Cj4gZm9yIGxhY2sgb2YgYSBiZXR0ZXIgdXNl
-ci1zcGFjZSBpbnRlcmZhY2UuIEFsdGhvdWdoIHRoZXJlCj4gaXMgYSBsb3Qgb2YgZmx1ZmYgdGhl
-IGFjdHVhbCByZWdpc3RlciB0d2lkZGxpbmcgZm9yCj4gYmFuZHdpZHRoIGFsbG9jYXRpb24gdHVy
-bmVkIG91dCB0byBiZSBxdWl0ZSBzaW1wbGUuCj4KClNpbW9uIC0KQWZ0ZXIgZG9pbmcgc29tZSB0
-ZXN0aW5nIG9uIHRoZSBzZXJpZXMgb2YgcGF0Y2hlcywgd2UgYXJlIGdldHRpbmcgYQpwYW5pYyB3
-aXRoIHRoZXNlIHBhdGNoZXMgYXBwbGllZCB0byBuZXQtbmV4dC4gIEkgaGF2ZSBwcm92aWRlZCBi
-ZWxvdwp0aGUgcGFuaWMgd2Ugc2F3LCByaWdodCBub3cgd2UgaGF2ZSBhIGxhcmdlIHBhdGNoIGxv
-YWQgc28gYSBiaXNlY3QKd2lsbCBoYXZlIHRvIHdhaXQuICBIb3BlZnVsbHkgd2l0aCB0aW1lIHBl
-cm1pdHRpbmcsIHdlIHdpbGwgYmUgYWJsZSB0bwpyZXZpc2l0IHRoZXNlIHBhdGNoZXMgc29vbi4K
-CmlnYnZmIDAwMDA6MDI6MTAuMDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAu
-MjogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuNDogUEYgc3RpbGwgcmVzZXR0
-aW5nCmlnYnZmIDAwMDA6MDI6MTAuNjogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6
-MTEuMDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMjogUEYgc3RpbGwgcmVz
-ZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuNDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6
-MDI6MTAuMTogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuMzogUEYgc3RpbGwg
-cmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuNTogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAw
-MDA6MDI6MTAuNzogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMTogUEYgc3Rp
-bGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMzogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZm
-IDAwMDA6MDI6MTEuNTogUEYgc3RpbGwgcmVzZXR0aW5nCkJVRzogdW5hYmxlIHRvIGhhbmRsZSBr
-ZXJuZWwgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0IDAwMDAwMDAwMDAwMDAwMDgKSVA6IFs8
-ZmZmZmZmZmZhMDA4N2QzYz5dIGlnYl94bWl0X2ZyYW1lX3JpbmdfYWR2KzB4MWQvMHg3MWEgW2ln
-Yl0gUEdEIDAKT29wczogMDAwMCBbIzFdIFBSRUVNUFQgU01QIERFQlVHX1BBR0VBTExPQyBsYXN0
-IHN5c2ZzIGZpbGU6Ci9zeXMvYnVzL3BjaS9zbG90cy8xLTEvYWRkcmVzcyBDUFUgMSBNb2R1bGVz
-IGxpbmtlZCBpbjogaWdidmYgaWdiIGlwdjYKYXV0b2ZzNCBzdW5ycGMgY3B1ZnJlcV9vbmRlbWFu
-ZCBhY3BpX2NwdWZyZXEgZnJlcV90YWJsZSB2aWRlbyBvdXRwdXQKc2JzIHNic2hjIGpveWRldiBl
-MTAwMGUgZTEwMDAgaTJjX2k4MDEgc2hwY2hwIGkyY19jb3JlIHBjc3BrciBpVENPX3dkdAppVENP
-X3ZlbmRvcl9zdXBwb3J0IHVzYl9zdG9yYWdlIFtsYXN0IHVubG9hZGVkOiBpZ2JdClBpZDogNTIs
-IGNvbW06IGV2ZW50cy8xIE5vdCB0YWludGVkIDIuNi4zMi1yYzMtbmV0LW5leHQtdmYtdGFnMTEx
-MTA5ICMxIFM1NTIwSEMKUklQOiAwMDEwOls8ZmZmZmZmZmZhMDA4N2QzYz5dICBbPGZmZmZmZmZm
-YTAwODdkM2M+XQppZ2JfeG1pdF9mcmFtZV9yaW5nX2FkdisweDFkLzB4NzFhIFtpZ2JdClJTUDog
-MDAxODpmZmZmODgwMWY4ODAzYWEwICBFRkxBR1M6IDAwMDEwMjg2ClJBWDogMDAwMDAwMDAwMDAw
-MDAwMSBSQlg6IDAwMDAwMDAwMDAwMDA2MDAgUkNYOiAwMDAwMDAwMDAwMDAwMDAwClJEWDogZmZm
-Zjg4MDM2MDllNDcwMCBSU0k6IDAwMDAwMDAwMDAwMDAwMDAgUkRJOiBmZmZmODgwMzY1NTlkNTAw
-ClJCUDogZmZmZjg4MDFmODgwM2IxMCBSMDg6IDAwMDAwMDAwMDAwMDAwMDAgUjA5OiBmZmZmODgw
-MWY4OTk0MDE4ClIxMDogZmZmZjg4MDM2NTU5ZDUwMCBSMTE6IGZmZmZmZmZmODFlOWNhZjggUjEy
-OiBmZmZmODgwMzY1NTlkNTAwClIxMzogZmZmZjg4MDM2NTU5ZDUwMCBSMTQ6IDAwMDAwMDAwMDAw
-MDAwMDAgUjE1OiBmZmZmODgwMzY3OTFhNGMwCkZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBH
-UzpmZmZmODgwMWY4ODAwMDAwKDAwMDApIGtubEdTOjAwMDAwMDAwMDAwMDAwMDAKQ1M6ICAwMDEw
-IERTOiAwMDE4IEVTOiAwMDE4IENSMDogMDAwMDAwMDA4MDA1MDAzYgpDUjI6IDAwMDAwMDAwMDAw
-MDAwMDggQ1IzOiAwMDAwMDAwMDAxMDAxMDAwIENSNDogMDAwMDAwMDAwMDAwMDZlMApEUjA6IDAw
-MDAwMDAwMDAwMDAwMDAgRFIxOiAwMDAwMDAwMDAwMDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAw
-MApEUjM6IDAwMDAwMDAwMDAwMDAwMDAgRFI2OiAwMDAwMDAwMGZmZmYwZmYwIERSNzogMDAwMDAw
-MDAwMDAwMDQwMApQcm9jZXNzIGV2ZW50cy8xIChwaWQ6IDUyLCB0aHJlYWRpbmZvIGZmZmY4ODAx
-ZTkxYTYwMDAsIHRhc2sKZmZmZjg4MDFlOTFhYmZjMCkKU3RhY2s6CiBmZmZmODgwMWU5MWFiZmMw
-IDAwMDAwMDAwMDAwMDAwMDAgMDAwMDAwMDAwMDAwMDAwMSAwMDAwMDAwMDAwMDAwMDAwCjwwPiBm
-ZmZmODgwMWY4ODAzYjIwIDAwMDAwMDAwMDAwMDAyNDYgMDAwMDAwMDAwMDAwMDAwMApmZmZmZmZm
-ZjgxMmY3NTU4IDwwPiBmZmZmODgwMTAwMDAwMDAwIGZmZmY4ODAzNjA5ZjRlMDAKZmZmZjg4MDM2
-NTU5ZDUwMCBmZmZmODgwMzYwOWU0MDAwIENhbGwgVHJhY2U6CiA8SVJRPgogWzxmZmZmZmZmZjgx
-MmY3NTU4Pl0gPyBfX25ldGlmX3R4X2xvY2srMHgxNi8weDFmCls8ZmZmZmZmZmZhMDA4YzEzMD5d
-IGlnYl94bWl0X2ZyYW1lX2FkdisweDNhLzB4M2MgW2lnYl0KWzxmZmZmZmZmZjgxMmU1NWQ3Pl0g
-ZGV2X2hhcmRfc3RhcnRfeG1pdCsweDFkMS8weDI3ZQpbPGZmZmZmZmZmODEyZjdjYzI+XSBzY2hf
-ZGlyZWN0X3htaXQrMHg2OC8weDE0ZSAgWzxmZmZmZmZmZjgxMmU1OWJkPl0KZGV2X3F1ZXVlX3ht
-aXQrMHgyMmUvMHgzNzggIFs8ZmZmZmZmZmY4MTJlNTg4ZD5dID8KZGV2X3F1ZXVlX3htaXQrMHhm
-ZS8weDM3OCAgWzxmZmZmZmZmZjgxMDRiNTY1Pl0gPwpfbG9jYWxfYmhfZW5hYmxlX2lwKzB4OWMv
-MHhhNyAgWzxmZmZmZmZmZjgxMmViNzJjPl0KbmVpZ2hfcmVzb2x2ZV9vdXRwdXQrMHgxZjAvMHgy
-MjUgIFs8ZmZmZmZmZmZhMDEzYTNiZT5dCmlwNl9vdXRwdXRfZmluaXNoKzB4NmYvMHhkNiBbaXB2
-Nl0gIFs8ZmZmZmZmZmZhMDEzYWRiYj5dCmlwNl9vdXRwdXQyKzB4MzI4LzB4MzM3IFtpcHY2XSAg
-WzxmZmZmZmZmZmEwMTNiY2NlPl0KaXA2X291dHB1dCsweGYwNC8weGYyOCBbaXB2Nl0gIFs8ZmZm
-ZmZmZmZhMDE1NDdhZj5dIGRzdF9vdXRwdXQrMHhiLzB4ZApbaXB2Nl0gIFs8ZmZmZmZmZmZhMDE1
-NWVhNz5dIG1sZF9zZW5kcGFjaysweDJhYS8weDQ4ZiBbaXB2Nl0KWzxmZmZmZmZmZmEwMTU3MDAx
-Pl0gbWxkX2lmY190aW1lcl9leHBpcmUrMHgxYzgvMHgyMDEgW2lwdjZdCls8ZmZmZmZmZmZhMDE1
-NmUzOT5dID8gbWxkX2lmY190aW1lcl9leHBpcmUrMHgwLzB4MjAxIFtpcHY2XQpbPGZmZmZmZmZm
-ODEwNTE2Njc+XSBydW5fdGltZXJfc29mdGlycSsweDFiMC8weDI2YgpbPGZmZmZmZmZmODEwNTE1
-ZGE+XSA/IHJ1bl90aW1lcl9zb2Z0aXJxKzB4MTIzLzB4MjZiCls8ZmZmZmZmZmY4MTA2NjgxYj5d
-ID8ga3RpbWVfZ2V0KzB4NzMvMHg4ZSAgWzxmZmZmZmZmZjgxMDZhNzllPl0gPwp0aWNrX2Rldl9w
-cm9ncmFtX2V2ZW50KzB4MmEvMHg5YyAgWzxmZmZmZmZmZjgxMDRiY2YxPl0KX19kb19zb2Z0aXJx
-KzB4ZDUvMHgxOWQgIFs8ZmZmZmZmZmY4MTAwY2M5Yz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzQK
-WzxmZmZmZmZmZjgxMDBlMmQ4Pl0gZG9fc29mdGlycSsweDMzLzB4NmIgIFs8ZmZmZmZmZmY4MTA0
-Yjk1OT5dCmlycV9leGl0KzB4MzYvMHg4YSAgWzxmZmZmZmZmZjgxMDIwMTI5Pl0Kc21wX2FwaWNf
-dGltZXJfaW50ZXJydXB0KzB4NzgvMHg4NwogWzxmZmZmZmZmZjgxMDBjNjczPl0gYXBpY190aW1l
-cl9pbnRlcnJ1cHQrMHgxMy8weDIwICA8RU9JPgpbPGZmZmZmZmZmODEzMGRlYzQ+XSA/IHJ0X2Nh
-Y2hlX2ZsdXNoKzB4MTU0LzB4MTY5Cls8ZmZmZmZmZmY4MTMzZmVlYj5dID8gZmliX25ldGRldl9l
-dmVudCsweDg0LzB4OGIKWzxmZmZmZmZmZjgxMzgyYjFjPl0gPyBub3RpZmllcl9jYWxsX2NoYWlu
-KzB4MzMvMHg1YgpbPGZmZmZmZmZmODEyZjBmZDU+XSA/IGxpbmt3YXRjaF9ldmVudCsweDAvMHgz
-MSAgWzxmZmZmZmZmZjgxMDYyNjc5Pl0KPyBfX3Jhd19ub3RpZmllcl9jYWxsX2NoYWluKzB4OS8w
-eGIgIFs8ZmZmZmZmZmY4MTA2MjY4YT5dID8KcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4rMHhmLzB4
-MTEgIFs8ZmZmZmZmZmY4MTJlNWI5ZD5dID8KY2FsbF9uZXRkZXZpY2Vfbm90aWZpZXJzKzB4MTYv
-MHgxOAoKCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpMZXQgQ3J5c3Rh
-bCBSZXBvcnRzIGhhbmRsZSB0aGUgcmVwb3J0aW5nIC0gRnJlZSBDcnlzdGFsIFJlcG9ydHMgMjAw
-OCAzMC1EYXkgCnRyaWFsLiBTaW1wbGlmeSB5b3VyIHJlcG9ydCBkZXNpZ24sIGludGVncmF0aW9u
-IGFuZCBkZXBsb3ltZW50IC0gYW5kIGZvY3VzIG9uIAp3aGF0IHlvdSBkbyBiZXN0LCBjb3JlIGFw
-cGxpY2F0aW9uIGNvZGluZy4gRGlzY292ZXIgd2hhdCdzIG5ldyB3aXRoCkNyeXN0YWwgUmVwb3J0
-cyBub3cuICBodHRwOi8vcC5zZi5uZXQvc2Z1L2JvYmotanVseQpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
-MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsCg==
+Hi kernel networking gurus,
+
+      I came across a situation where I need to evaluate the packing
+efficiency of
+small packets. Because TCP is byte oriented protocol, there is no way
+to force it
+to generate small packets, so I forced it by adjusting MTU.
+
+     However, through the experiment, I found that measured throughput
+of TCP stream dropped significantly if MTU is set to value less than 180 bytes.
+At first, I thought it must be some bugs on my code. So, I decided to repeat
+the test over a dedicated 10Mbps Ethernet link. The results that I measured
+over Ethernet is shown below:
+
+
+MTU                 Throughput (Mbps)
+-----                  --------------
+181                  4.50
+180                  4.39
+179                  3.05
+178                  3.04
+
+     I used iperf throughout the tests. Can someone enlighten me on this matter?
+Why the throughput drops sharply if MTU is less than 180 bytes? Is there some
+special meaning associated with 180 that I don't know of?
+
+   Some basic information about my system:
+kernel version: 2.6.27.5-117.fc10.x86_64
+distro: fedora 10
+CPU: Pentium 4 3.00 GHz
+
+    Should you need more information, I shall gladly cooperate. Please keep me
+in the loop because it is hard for me to cop with the volume of emails on netdev
+mailing list.
+
+     Thank you in advance.
+
+Regards,
+Ang Way Chuang
