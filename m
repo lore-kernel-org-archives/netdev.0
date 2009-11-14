@@ -1,153 +1,124 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] check the return value of ndo_select_queue()
-Date: Sat, 14 Nov 2009 08:54:04 +0100
-Message-ID: <4AFE621C.1020004@gmail.com>
-References: <412e6f7f0911131650j6d13f95bt20aa607f9f44c3af@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [rfc 0/4] igb: bandwidth allocation
+Date: Sat, 14 Nov 2009 00:01:32 -0800
+Message-ID: <9929d2390911140001t2938271ep7455de5874ee0144@mail.gmail.com>
+References: <20091105005847.941190065@vergenet.net>
+	<9929d2390911041746g2b5f51cdia489bd87d87e41ef@mail.gmail.com>
+	<20091105022123.GA22019@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44276 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693AbZKNHyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 02:54:03 -0500
-In-Reply-To: <412e6f7f0911131650j6d13f95bt20aa607f9f44c3af@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Arnd Bergmann <arndbergmann@googlemail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091105022123.GA22019@verge.net.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Changli Gao a =E9crit :
-> check the return value of ndo_select_queue()
->=20
-> Check the return value of ndo_select_queue(). If the value isn't smal=
-ler
-> than the real_num_tx_queues, print a warning message, and reset it to=
- zero.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
->  net/core/dev.c |   33 ++++++++++++++++++++++++---------
->  1 file changed, 24 insertions(+), 9 deletions(-)
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index bf629ac..74a3824 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1849,22 +1849,37 @@ static struct netdev_queue *dev_pick_tx(struc=
-t
-> net_device *dev,
->  {
->  	u16 queue_index;
->  	struct sock *sk =3D skb->sk;
-> +	unsigned int real_num_tx_queues =3D dev->real_num_tx_queues;
->=20
->  	if (sk_tx_queue_recorded(sk)) {
->  		queue_index =3D sk_tx_queue_get(sk);
-> +		if (unlikely(queue_index >=3D real_num_tx_queues)) {
-> +			do {
-> +				queue_index -=3D real_num_tx_queues;
-> +			} while (queue_index >=3D real_num_tx_queues);
-> +			sk_tx_queue_set(sk, queue_index);
-> +		}
->  	} else {
-> -		const struct net_device_ops *ops =3D dev->netdev_ops;
-> +		u16 (*select_queue)(struct net_device *, struct sk_buff *);
->=20
-> -		if (ops->ndo_select_queue) {
-> -			queue_index =3D ops->ndo_select_queue(dev, skb);
-> -		} else {
-> +		if (real_num_tx_queues =3D=3D 1) {
->  			queue_index =3D 0;
-> -			if (dev->real_num_tx_queues > 1)
-> -				queue_index =3D skb_tx_hash(dev, skb);
-> -
-> -			if (sk && sk->sk_dst_cache)
-> -				sk_tx_queue_set(sk, queue_index);
-> +		} else if((select_queue =3D dev->netdev_ops->ndo_select_queue)) {
-> +			queue_index =3D select_queue(dev, skb);
-> +			if (unlikely(queue_index >=3D real_num_tx_queues)) {
-> +				if (net_ratelimit())
-> +					WARN(1, "%s selects TX queue %d, but "
-> +					     "real number of TX queues is %d\n",
-> +					     dev->name, queue_index,
-> +					     real_num_tx_queues);
-> +				queue_index =3D 0;
-> +			}
-> +		} else {
-> +			queue_index =3D skb_tx_hash(dev, skb);
->  		}
-> +
-> +		if (sk && sk->sk_dst_cache)
-> +			sk_tx_queue_set(sk, queue_index);
->  	}
->=20
->  	skb_set_queue_mapping(skb, queue_index);
-
-
-Please always use scripts/checkpatch.pl before sending patches
-
-} else if((select_queue =3D dev->netdev_ops->ndo_select_queue)) {
-
-A space is required after the "if"
-
-It seems to me this patch is not matching its ChangeLog :
-
-You moved the :
-
-if (sk && sk->sk_dst_cache)
-	sk_tx_queue_set(sk, queue_index);
-
-Why not using much readable patch like :
-
-
-[PATCH] check the return value of ndo_select_queue()
-
-check the return value of ndo_select_queue()
-
-Check the return value of ndo_select_queue(). If the value isn't smalle=
-r
-than the real_num_tx_queues, print a warning message, and reset it to z=
-ero.
-
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-----
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ad8e320..bbc9a41 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1845,6 +1845,20 @@ u16 skb_tx_hash(const struct net_device *dev, co=
-nst struct sk_buff *skb)
- }
- EXPORT_SYMBOL(skb_tx_hash);
-=20
-+static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_in=
-dex)
-+{
-+	if (unlikely(queue_index >=3D dev->real_num_tx_queues)) {
-+		if (net_ratelimit()) {
-+			WARN(1, "%s selects TX queue %d, but "
-+			     "real number of TX queues is %d\n",
-+			     dev->name, queue_index,
-+			     dev->real_num_tx_queues);
-+		}
-+		return 0;
-+	}
-+	return queue_index;
-+}
-+
- static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 					struct sk_buff *skb)
- {
-@@ -1858,6 +1872,7 @@ static struct netdev_queue *dev_pick_tx(struct ne=
-t_device *dev,
-=20
- 		if (ops->ndo_select_queue) {
- 			queue_index =3D ops->ndo_select_queue(dev, skb);
-+			queue_index =3D dev_cap_txqueue(dev, queue_index);
- 		} else {
- 			queue_index =3D 0;
- 			if (dev->real_num_tx_queues > 1)
-
-
+T24gV2VkLCBOb3YgNCwgMjAwOSBhdCAxODoyMSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5u
+ZXQuYXU+IHdyb3RlOgo+IE9uIFdlZCwgTm92IDA0LCAyMDA5IGF0IDA1OjQ2OjUwUE0gLTA4MDAs
+IEplZmYgS2lyc2hlciB3cm90ZToKPj4gT24gV2VkLCBOb3YgNCwgMjAwOSBhdCAxNjo1OCwgU2lt
+b24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+PiA+IEhpLAo+PiA+Cj4+ID4g
+dGhpcyBzZXJpZXMgb2YgcGF0Y2hlcyBleHBvc2VzIHRoZSBiYW5kd2lkdGggYWxsb2NhdGlvbgo+
+PiA+IGhhcmR3YXJlIHN1cHBvcnQgb2YgdGhlIEludGVsIDgyNTc2LiBJdCBkb2VzIHNvIHRocm91
+Z2gKPj4gPiBhIHJhdGhlciBoYWNraXNoIHN5c2ZzIGVudHJ5LiBUaGF0IGludGVyZmFjZSBpcyBq
+dXN0IGludGVuZGVkCj4+ID4gZm9yIHRlc3Rpbmcgc28gdGhhdCB0aGUgZXhwb3NlZCBoYXJkd2Fy
+ZSBmZWF0dXJlIGNhbgo+PiA+IGJlIGV4ZXJjaXNlZC4gSSB3b3VsZCBsaWtlIHRvIGZpbmQgYSBn
+ZW5lcmljIHdheSB0byBleHBvc2UKPj4gPiB0aGlzIGZlYXR1cmUgdG8gdXNlci1zcGFjZS4KPj4g
+Pgo+Pgo+PiBUaGFua3MgU2ltb24uIMKgSSBoYXZlIGFkZCB0aGUgNCBwYXRjaCBzZXJpZXMgdG8g
+bXkgdHJlZSBmb3IgdGVzdGluZy4KPgo+IFRoYW5rcy4gSSB3YW50ZWQgdG8gZ2V0IHRoZSBjb2Rl
+IG91dCByYXRoZXIgdGhhbiBzaXR0aW5nIG9uIGl0Cj4gZm9yIGxhY2sgb2YgYSBiZXR0ZXIgdXNl
+ci1zcGFjZSBpbnRlcmZhY2UuIEFsdGhvdWdoIHRoZXJlCj4gaXMgYSBsb3Qgb2YgZmx1ZmYgdGhl
+IGFjdHVhbCByZWdpc3RlciB0d2lkZGxpbmcgZm9yCj4gYmFuZHdpZHRoIGFsbG9jYXRpb24gdHVy
+bmVkIG91dCB0byBiZSBxdWl0ZSBzaW1wbGUuCj4KClNpbW9uIC0KQWZ0ZXIgZG9pbmcgc29tZSB0
+ZXN0aW5nIG9uIHRoZSBzZXJpZXMgb2YgcGF0Y2hlcywgd2UgYXJlIGdldHRpbmcgYQpwYW5pYyB3
+aXRoIHRoZXNlIHBhdGNoZXMgYXBwbGllZCB0byBuZXQtbmV4dC4gIEkgaGF2ZSBwcm92aWRlZCBi
+ZWxvdwp0aGUgcGFuaWMgd2Ugc2F3LCByaWdodCBub3cgd2UgaGF2ZSBhIGxhcmdlIHBhdGNoIGxv
+YWQgc28gYSBiaXNlY3QKd2lsbCBoYXZlIHRvIHdhaXQuICBIb3BlZnVsbHkgd2l0aCB0aW1lIHBl
+cm1pdHRpbmcsIHdlIHdpbGwgYmUgYWJsZSB0bwpyZXZpc2l0IHRoZXNlIHBhdGNoZXMgc29vbi4K
+CmlnYnZmIDAwMDA6MDI6MTAuMDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAu
+MjogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuNDogUEYgc3RpbGwgcmVzZXR0
+aW5nCmlnYnZmIDAwMDA6MDI6MTAuNjogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6
+MTEuMDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMjogUEYgc3RpbGwgcmVz
+ZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuNDogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6
+MDI6MTAuMTogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuMzogUEYgc3RpbGwg
+cmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTAuNTogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAw
+MDA6MDI6MTAuNzogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMTogUEYgc3Rp
+bGwgcmVzZXR0aW5nCmlnYnZmIDAwMDA6MDI6MTEuMzogUEYgc3RpbGwgcmVzZXR0aW5nCmlnYnZm
+IDAwMDA6MDI6MTEuNTogUEYgc3RpbGwgcmVzZXR0aW5nCkJVRzogdW5hYmxlIHRvIGhhbmRsZSBr
+ZXJuZWwgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0IDAwMDAwMDAwMDAwMDAwMDgKSVA6IFs8
+ZmZmZmZmZmZhMDA4N2QzYz5dIGlnYl94bWl0X2ZyYW1lX3JpbmdfYWR2KzB4MWQvMHg3MWEgW2ln
+Yl0gUEdEIDAKT29wczogMDAwMCBbIzFdIFBSRUVNUFQgU01QIERFQlVHX1BBR0VBTExPQyBsYXN0
+IHN5c2ZzIGZpbGU6Ci9zeXMvYnVzL3BjaS9zbG90cy8xLTEvYWRkcmVzcyBDUFUgMSBNb2R1bGVz
+IGxpbmtlZCBpbjogaWdidmYgaWdiIGlwdjYKYXV0b2ZzNCBzdW5ycGMgY3B1ZnJlcV9vbmRlbWFu
+ZCBhY3BpX2NwdWZyZXEgZnJlcV90YWJsZSB2aWRlbyBvdXRwdXQKc2JzIHNic2hjIGpveWRldiBl
+MTAwMGUgZTEwMDAgaTJjX2k4MDEgc2hwY2hwIGkyY19jb3JlIHBjc3BrciBpVENPX3dkdAppVENP
+X3ZlbmRvcl9zdXBwb3J0IHVzYl9zdG9yYWdlIFtsYXN0IHVubG9hZGVkOiBpZ2JdClBpZDogNTIs
+IGNvbW06IGV2ZW50cy8xIE5vdCB0YWludGVkIDIuNi4zMi1yYzMtbmV0LW5leHQtdmYtdGFnMTEx
+MTA5ICMxIFM1NTIwSEMKUklQOiAwMDEwOls8ZmZmZmZmZmZhMDA4N2QzYz5dICBbPGZmZmZmZmZm
+YTAwODdkM2M+XQppZ2JfeG1pdF9mcmFtZV9yaW5nX2FkdisweDFkLzB4NzFhIFtpZ2JdClJTUDog
+MDAxODpmZmZmODgwMWY4ODAzYWEwICBFRkxBR1M6IDAwMDEwMjg2ClJBWDogMDAwMDAwMDAwMDAw
+MDAwMSBSQlg6IDAwMDAwMDAwMDAwMDA2MDAgUkNYOiAwMDAwMDAwMDAwMDAwMDAwClJEWDogZmZm
+Zjg4MDM2MDllNDcwMCBSU0k6IDAwMDAwMDAwMDAwMDAwMDAgUkRJOiBmZmZmODgwMzY1NTlkNTAw
+ClJCUDogZmZmZjg4MDFmODgwM2IxMCBSMDg6IDAwMDAwMDAwMDAwMDAwMDAgUjA5OiBmZmZmODgw
+MWY4OTk0MDE4ClIxMDogZmZmZjg4MDM2NTU5ZDUwMCBSMTE6IGZmZmZmZmZmODFlOWNhZjggUjEy
+OiBmZmZmODgwMzY1NTlkNTAwClIxMzogZmZmZjg4MDM2NTU5ZDUwMCBSMTQ6IDAwMDAwMDAwMDAw
+MDAwMDAgUjE1OiBmZmZmODgwMzY3OTFhNGMwCkZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBH
+UzpmZmZmODgwMWY4ODAwMDAwKDAwMDApIGtubEdTOjAwMDAwMDAwMDAwMDAwMDAKQ1M6ICAwMDEw
+IERTOiAwMDE4IEVTOiAwMDE4IENSMDogMDAwMDAwMDA4MDA1MDAzYgpDUjI6IDAwMDAwMDAwMDAw
+MDAwMDggQ1IzOiAwMDAwMDAwMDAxMDAxMDAwIENSNDogMDAwMDAwMDAwMDAwMDZlMApEUjA6IDAw
+MDAwMDAwMDAwMDAwMDAgRFIxOiAwMDAwMDAwMDAwMDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAw
+MApEUjM6IDAwMDAwMDAwMDAwMDAwMDAgRFI2OiAwMDAwMDAwMGZmZmYwZmYwIERSNzogMDAwMDAw
+MDAwMDAwMDQwMApQcm9jZXNzIGV2ZW50cy8xIChwaWQ6IDUyLCB0aHJlYWRpbmZvIGZmZmY4ODAx
+ZTkxYTYwMDAsIHRhc2sKZmZmZjg4MDFlOTFhYmZjMCkKU3RhY2s6CiBmZmZmODgwMWU5MWFiZmMw
+IDAwMDAwMDAwMDAwMDAwMDAgMDAwMDAwMDAwMDAwMDAwMSAwMDAwMDAwMDAwMDAwMDAwCjwwPiBm
+ZmZmODgwMWY4ODAzYjIwIDAwMDAwMDAwMDAwMDAyNDYgMDAwMDAwMDAwMDAwMDAwMApmZmZmZmZm
+ZjgxMmY3NTU4IDwwPiBmZmZmODgwMTAwMDAwMDAwIGZmZmY4ODAzNjA5ZjRlMDAKZmZmZjg4MDM2
+NTU5ZDUwMCBmZmZmODgwMzYwOWU0MDAwIENhbGwgVHJhY2U6CiA8SVJRPgogWzxmZmZmZmZmZjgx
+MmY3NTU4Pl0gPyBfX25ldGlmX3R4X2xvY2srMHgxNi8weDFmCls8ZmZmZmZmZmZhMDA4YzEzMD5d
+IGlnYl94bWl0X2ZyYW1lX2FkdisweDNhLzB4M2MgW2lnYl0KWzxmZmZmZmZmZjgxMmU1NWQ3Pl0g
+ZGV2X2hhcmRfc3RhcnRfeG1pdCsweDFkMS8weDI3ZQpbPGZmZmZmZmZmODEyZjdjYzI+XSBzY2hf
+ZGlyZWN0X3htaXQrMHg2OC8weDE0ZSAgWzxmZmZmZmZmZjgxMmU1OWJkPl0KZGV2X3F1ZXVlX3ht
+aXQrMHgyMmUvMHgzNzggIFs8ZmZmZmZmZmY4MTJlNTg4ZD5dID8KZGV2X3F1ZXVlX3htaXQrMHhm
+ZS8weDM3OCAgWzxmZmZmZmZmZjgxMDRiNTY1Pl0gPwpfbG9jYWxfYmhfZW5hYmxlX2lwKzB4OWMv
+MHhhNyAgWzxmZmZmZmZmZjgxMmViNzJjPl0KbmVpZ2hfcmVzb2x2ZV9vdXRwdXQrMHgxZjAvMHgy
+MjUgIFs8ZmZmZmZmZmZhMDEzYTNiZT5dCmlwNl9vdXRwdXRfZmluaXNoKzB4NmYvMHhkNiBbaXB2
+Nl0gIFs8ZmZmZmZmZmZhMDEzYWRiYj5dCmlwNl9vdXRwdXQyKzB4MzI4LzB4MzM3IFtpcHY2XSAg
+WzxmZmZmZmZmZmEwMTNiY2NlPl0KaXA2X291dHB1dCsweGYwNC8weGYyOCBbaXB2Nl0gIFs8ZmZm
+ZmZmZmZhMDE1NDdhZj5dIGRzdF9vdXRwdXQrMHhiLzB4ZApbaXB2Nl0gIFs8ZmZmZmZmZmZhMDE1
+NWVhNz5dIG1sZF9zZW5kcGFjaysweDJhYS8weDQ4ZiBbaXB2Nl0KWzxmZmZmZmZmZmEwMTU3MDAx
+Pl0gbWxkX2lmY190aW1lcl9leHBpcmUrMHgxYzgvMHgyMDEgW2lwdjZdCls8ZmZmZmZmZmZhMDE1
+NmUzOT5dID8gbWxkX2lmY190aW1lcl9leHBpcmUrMHgwLzB4MjAxIFtpcHY2XQpbPGZmZmZmZmZm
+ODEwNTE2Njc+XSBydW5fdGltZXJfc29mdGlycSsweDFiMC8weDI2YgpbPGZmZmZmZmZmODEwNTE1
+ZGE+XSA/IHJ1bl90aW1lcl9zb2Z0aXJxKzB4MTIzLzB4MjZiCls8ZmZmZmZmZmY4MTA2NjgxYj5d
+ID8ga3RpbWVfZ2V0KzB4NzMvMHg4ZSAgWzxmZmZmZmZmZjgxMDZhNzllPl0gPwp0aWNrX2Rldl9w
+cm9ncmFtX2V2ZW50KzB4MmEvMHg5YyAgWzxmZmZmZmZmZjgxMDRiY2YxPl0KX19kb19zb2Z0aXJx
+KzB4ZDUvMHgxOWQgIFs8ZmZmZmZmZmY4MTAwY2M5Yz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzQK
+WzxmZmZmZmZmZjgxMDBlMmQ4Pl0gZG9fc29mdGlycSsweDMzLzB4NmIgIFs8ZmZmZmZmZmY4MTA0
+Yjk1OT5dCmlycV9leGl0KzB4MzYvMHg4YSAgWzxmZmZmZmZmZjgxMDIwMTI5Pl0Kc21wX2FwaWNf
+dGltZXJfaW50ZXJydXB0KzB4NzgvMHg4NwogWzxmZmZmZmZmZjgxMDBjNjczPl0gYXBpY190aW1l
+cl9pbnRlcnJ1cHQrMHgxMy8weDIwICA8RU9JPgpbPGZmZmZmZmZmODEzMGRlYzQ+XSA/IHJ0X2Nh
+Y2hlX2ZsdXNoKzB4MTU0LzB4MTY5Cls8ZmZmZmZmZmY4MTMzZmVlYj5dID8gZmliX25ldGRldl9l
+dmVudCsweDg0LzB4OGIKWzxmZmZmZmZmZjgxMzgyYjFjPl0gPyBub3RpZmllcl9jYWxsX2NoYWlu
+KzB4MzMvMHg1YgpbPGZmZmZmZmZmODEyZjBmZDU+XSA/IGxpbmt3YXRjaF9ldmVudCsweDAvMHgz
+MSAgWzxmZmZmZmZmZjgxMDYyNjc5Pl0KPyBfX3Jhd19ub3RpZmllcl9jYWxsX2NoYWluKzB4OS8w
+eGIgIFs8ZmZmZmZmZmY4MTA2MjY4YT5dID8KcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4rMHhmLzB4
+MTEgIFs8ZmZmZmZmZmY4MTJlNWI5ZD5dID8KY2FsbF9uZXRkZXZpY2Vfbm90aWZpZXJzKzB4MTYv
+MHgxOAoKCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpMZXQgQ3J5c3Rh
+bCBSZXBvcnRzIGhhbmRsZSB0aGUgcmVwb3J0aW5nIC0gRnJlZSBDcnlzdGFsIFJlcG9ydHMgMjAw
+OCAzMC1EYXkgCnRyaWFsLiBTaW1wbGlmeSB5b3VyIHJlcG9ydCBkZXNpZ24sIGludGVncmF0aW9u
+IGFuZCBkZXBsb3ltZW50IC0gYW5kIGZvY3VzIG9uIAp3aGF0IHlvdSBkbyBiZXN0LCBjb3JlIGFw
+cGxpY2F0aW9uIGNvZGluZy4gRGlzY292ZXIgd2hhdCdzIG5ldyB3aXRoCkNyeXN0YWwgUmVwb3J0
+cyBub3cuICBodHRwOi8vcC5zZi5uZXQvc2Z1L2JvYmotanVseQpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
+MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
+bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsCg==
