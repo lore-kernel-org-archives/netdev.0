@@ -1,91 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
-Date: Sun, 15 Nov 2009 08:48:27 +0100
-Message-ID: <4AFFB24B.7050508@gmail.com>
-References: <20091113233504.GQ19478@kvack.org> <20091113.185937.251557071.davem@davemloft.net> <20091115090604.331d75c2@opy.nosense.org> <200911150355.15204.denys@visp.net.lb>
+From: Satish Chowdhury <satish.chowdhury@oneconvergence.com>
+Subject: Sharing VF device among Xen VMs
+Date: Sun, 15 Nov 2009 15:22:56 +0530
+Message-ID: <be5d34890911150152w2a2b28fbo9d28ccded757fd23@mail.gmail.com>
+References: <be5d34890911130925j7b7d70f3j1f205b9ad7624b76@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	David Miller <davem@davemloft.net>, bcrl@lhnet.ca,
-	shemminger@vyatta.com, opurdila@ixiacom.com, netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44395 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbZKOHsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 02:48:35 -0500
-In-Reply-To: <200911150355.15204.denys@visp.net.lb>
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:47060 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbZKOJxK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 04:53:10 -0500
+Received: by iwn8 with SMTP id 8so3610391iwn.33
+        for <netdev@vger.kernel.org>; Sun, 15 Nov 2009 01:53:16 -0800 (PST)
+In-Reply-To: <be5d34890911130925j7b7d70f3j1f205b9ad7624b76@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryschenko a =E9crit :
-> On Sunday 15 November 2009 00:36:04 Mark Smith wrote:
->> On the occasions I've looked at whether a Linux box would be an
->> alternative to the Cisco BRAS platform we use, the last time I looke=
-d
->> the number of sessions people were saying they were running was
->> 500. I don't consider Linux to be feasible in that role until you're
->> able to run at least 5000 sessions on a single box. I'm a bit unusua=
-l
-> I am running up to 3500 on single NAS, but there is only 3 biggest on=
-e like=20
-> this, and i am limited only by subscribers on this location (network =
-is=20
-> distributed over the country, and i have around 200 NAS servers runni=
-ng in=20
-> summary). And it is just PC bought from nearest supermarket with chea=
-p PCI=20
-> RTL8169, and similar quality LOM adapter e1000e. Everything running o=
-n=20
-> cheapest USB flash from same supermarket.
->=20
-> For my case running Linux NAS on cheap PC's is only choice. It is 3rd=
- world=20
-> country, and many reasons (i can explain each, but it is not technica=
-l=20
-> subject) doesn't let me to think, that "professional" equipment is fe=
-asible=20
-> for me.
->=20
-> Here people build networks on cheapest unmanageable switches, same=20
-> cost/quality 802.11b/g wireless networks, and only a way to terminate=
- them=20
-> reliably is PPPoE. I know, it is also weak and easy to break, but it =
-is=20
-> single choice i have.
-> I know also ISP's in Russia, who have somehow partially "managed" net=
-works,=20
-> but PPPoE letting them to drop running costs.
->=20
-> And interface creation speed is important for me, when electricity go=
-es down=20
-> here, many customers disconnects (up to 500 on single NAS), and then =
-join=20
-> again to NAS. Load average was jumping to sky on such situations, jus=
-t option=20
-> to not create sysfs entries helped me a lot (was posted recently).
-> Electricity outage is usual here, happens 2-3 times daily.
+Hi,
 
-I found in my cases (not pppoe) that load was very high because of udev=
-,
-doing crazy loops of :
+I am trying to verify a situation where VMs share a VF device of Intel
+82576 dual port for data traffic.
 
-if (!rtnl_trylock())
-     return restart_syscall();
+Setup:
+Case -1: On a Vt-d machine Xen(xen-1) is installed. On dom0 multiple
+VFs are created for 82576ET dual port card. One of the VF is
+pass-through to a VM.=A0 Now, the VM again has Xen (xen-2) installed.
+So, the VMs of Xen-2 have to share the passthrough VF device for data
+traffic.
 
-About pppoe, we have a 16 slots hash table, protected by a single rwloc=
-k.
+Will I be able to send data from Xen-2 VMs to external world?
 
-This wont scale to 50000 sessions, unless we use larger hashtable and
-maybe RCU as well.
+I had issues while creating VMs for Xen2. So, could not do the experime=
+nt.
 
-About the dismantling phase, it is currently a synchronous thing
-(as the resquester process has to wait for many rcu grace periods
-for each netdevice to dismantle). Thats typically ~20 ms per device !
+Case-2:=A0 On Xen-1 itself I loaded igbvf driver. Changed xen
+configuration to make VF as default interface on dom0. Now VMs of
+Xen-1 should share the VF device.
 
-=46or 'anonymous' netdevices, we probably could queue them and use a
- worker thread to handle this queue using the new batch mode,
-added in net-next-2.6.
+Ping from VF interface on VM=A0 and PF ip address works.
+Ping between VMs goes through.
+But, ping from domU to another machine on same network on switch doesn'=
+t work.
 
+The arp broadcast request goes out through VF interface. But the arp
+reply doesn't reach VF interface, they get routed to PF interface. If
+PF interface to the bridge on dom0 then ping from VMs to external
+machine work.
 
+In my experiment, the arp reply that reaches the NIC, has mac address
+of interface on VM(domU). 82576 performs L2 filtering based on VF MAC
+address. So, packet is not queued to VF interface.
+
+Is it possible to add VMs mac address to L2 filtering pool of the NIC?
+
+Regards,
+-Satish
