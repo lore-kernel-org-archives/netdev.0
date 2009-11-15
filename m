@@ -1,54 +1,91 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] act_mirred: cleanup and optimization
-Date: Sun, 15 Nov 2009 01:13:35 -0500
-Message-ID: <1258265615.3251.10.camel@bigi>
-References: <4AFCF06B.1090602@gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Sun, 15 Nov 2009 08:48:27 +0100
+Message-ID: <4AFFB24B.7050508@gmail.com>
+References: <20091113233504.GQ19478@kvack.org> <20091113.185937.251557071.davem@davemloft.net> <20091115090604.331d75c2@opy.nosense.org> <200911150355.15204.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	David Miller <davem@davemloft.net>, bcrl@lhnet.ca,
+	shemminger@vyatta.com, opurdila@ixiacom.com, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:43551 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbZKOGNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 01:13:32 -0500
-Received: by yxe17 with SMTP id 17so3974189yxe.33
-        for <netdev@vger.kernel.org>; Sat, 14 Nov 2009 22:13:38 -0800 (PST)
-In-Reply-To: <4AFCF06B.1090602@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44395 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817AbZKOHsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 02:48:35 -0500
+In-Reply-To: <200911150355.15204.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Denys Fedoryschenko a =E9crit :
+> On Sunday 15 November 2009 00:36:04 Mark Smith wrote:
+>> On the occasions I've looked at whether a Linux box would be an
+>> alternative to the Cisco BRAS platform we use, the last time I looke=
+d
+>> the number of sessions people were saying they were running was
+>> 500. I don't consider Linux to be feasible in that role until you're
+>> able to run at least 5000 sessions on a single box. I'm a bit unusua=
+l
+> I am running up to 3500 on single NAS, but there is only 3 biggest on=
+e like=20
+> this, and i am limited only by subscribers on this location (network =
+is=20
+> distributed over the country, and i have around 200 NAS servers runni=
+ng in=20
+> summary). And it is just PC bought from nearest supermarket with chea=
+p PCI=20
+> RTL8169, and similar quality LOM adapter e1000e. Everything running o=
+n=20
+> cheapest USB flash from same supermarket.
+>=20
+> For my case running Linux NAS on cheap PC's is only choice. It is 3rd=
+ world=20
+> country, and many reasons (i can explain each, but it is not technica=
+l=20
+> subject) doesn't let me to think, that "professional" equipment is fe=
+asible=20
+> for me.
+>=20
+> Here people build networks on cheapest unmanageable switches, same=20
+> cost/quality 802.11b/g wireless networks, and only a way to terminate=
+ them=20
+> reliably is PPPoE. I know, it is also weak and easy to break, but it =
+is=20
+> single choice i have.
+> I know also ISP's in Russia, who have somehow partially "managed" net=
+works,=20
+> but PPPoE letting them to drop running costs.
+>=20
+> And interface creation speed is important for me, when electricity go=
+es down=20
+> here, many customers disconnects (up to 500 on single NAS), and then =
+join=20
+> again to NAS. Load average was jumping to sky on such situations, jus=
+t option=20
+> to not create sysfs entries helped me a lot (was posted recently).
+> Electricity outage is usual here, happens 2-3 times daily.
 
-On Fri, 2009-11-13 at 13:36 +0800, Changli Gao wrote:
-> act_mirred: cleanup and optimization.
-> 
-> cleanup and optimization.
-> 1. don't let go back using goto.
-> 2. move checking if eaction is valid in tcf_mirred_init().
-> 3. don't call skb_act_clone() until it is necessary.
-> 4. one exit of the critical context.
-> 5. allow eaction is TCA_INGRESS_MIRROR & TCA_INGRESS_REDIR.
-> 
+I found in my cases (not pppoe) that load was very high because of udev=
+,
+doing crazy loops of :
 
-I would break this into the following patches:
-patch 1: #1, #3, and #4 (this is what we discussed before)
-patch 2: #2 (Ive had this in my todo list forever)
+if (!rtnl_trylock())
+     return restart_syscall();
 
-For #5 i think you misunderstood me earlier - TCA_INGRESS_* means
-not to do dev xmit (that is the domain of TCA_EGRESS_*) but rather
-something along the lines of netif_rx; this needs a lot of 
-validation - the code has changed quiet a bit since the early days
-and as it has turned out noone has exactly been shedding any tears
-for that feature. The challenge is in the variety of netdevices which
-have different semantics..
+About pppoe, we have a 16 slots hash table, protected by a single rwloc=
+k.
 
-Sorry - I am in some hectic travel mode (hence delayed response)
-but to answer your earlier question: no you cant redirect to packet
-socket today.
+This wont scale to 50000 sessions, unless we use larger hashtable and
+maybe RCU as well.
 
-cheers,
-jamal
+About the dismantling phase, it is currently a synchronous thing
+(as the resquester process has to wait for many rcu grace periods
+for each netdevice to dismantle). Thats typically ~20 ms per device !
+
+=46or 'anonymous' netdevices, we probably could queue them and use a
+ worker thread to handle this queue using the new batch mode,
+added in net-next-2.6.
+
 
