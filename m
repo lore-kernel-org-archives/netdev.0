@@ -1,53 +1,35 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
-Date: Sun, 15 Nov 2009 03:55:14 +0200
-Message-ID: <200911150355.15204.denys@visp.net.lb>
-References: <20091113233504.GQ19478@kvack.org> <20091113.185937.251557071.davem@davemloft.net> <20091115090604.331d75c2@opy.nosense.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [NEXT 1/1] Please pull small fix for
+	ieee802.15.4
+Date: Sat, 14 Nov 2009 20:25:56 -0800 (PST)
+Message-ID: <20091114.202556.244744799.davem@davemloft.net>
+References: <20091112211715.GA13347@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bcrl@lhnet.ca,
-	shemminger@vyatta.com, opurdila@ixiacom.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:59686 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617AbZKOBxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 20:53:48 -0500
-In-Reply-To: <20091115090604.331d75c2@opy.nosense.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20091112211715.GA13347-nIupHZaCssqR2kOLt6zJ8ErlnG4Plg33XqFh9Ls21Oc@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sunday 15 November 2009 00:36:04 Mark Smith wrote:
-> On the occasions I've looked at whether a Linux box would be an
-> alternative to the Cisco BRAS platform we use, the last time I looked
-> the number of sessions people were saying they were running was
-> 500. I don't consider Linux to be feasible in that role until you're
-> able to run at least 5000 sessions on a single box. I'm a bit unusual
-I am running up to 3500 on single NAS, but there is only 3 biggest one like 
-this, and i am limited only by subscribers on this location (network is 
-distributed over the country, and i have around 200 NAS servers running in 
-summary). And it is just PC bought from nearest supermarket with cheap PCI 
-RTL8169, and similar quality LOM adapter e1000e. Everything running on 
-cheapest USB flash from same supermarket.
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Fri, 13 Nov 2009 00:17:15 +0300
 
-For my case running Linux NAS on cheap PC's is only choice. It is 3rd world 
-country, and many reasons (i can explain each, but it is not technical 
-subject) doesn't let me to think, that "professional" equipment is feasible 
-for me.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
 
-Here people build networks on cheapest unmanageable switches, same 
-cost/quality 802.11b/g wireless networks, and only a way to terminate them 
-reliably is PPPoE. I know, it is also weak and easy to break, but it is 
-single choice i have.
-I know also ISP's in Russia, who have somehow partially "managed" networks, 
-but PPPoE letting them to drop running costs.
+Pulled, thanks.
 
-And interface creation speed is important for me, when electricity goes down 
-here, many customers disconnects (up to 500 on single NAS), and then join 
-again to NAS. Load average was jumping to sky on such situations, just option 
-to not create sysfs entries helped me a lot (was posted recently).
-Electricity outage is usual here, happens 2-3 times daily.
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
