@@ -1,68 +1,53 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+From: Denys Fedoryschenko <denys@visp.net.lb>
 Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
-Date: Sun, 15 Nov 2009 12:19:14 +1030
-Message-ID: <20091115121914.07adaee0@opy.nosense.org>
-References: <20091113233504.GQ19478@kvack.org>
-	<20091113153924.6130135f@nehalam>
-	<20091113235210.GR19478@kvack.org>
-	<20091113.185937.251557071.davem@davemloft.net>
-	<20091115090604.331d75c2@opy.nosense.org>
-	<20091114172224.5ca4c94e@s6510>
+Date: Sun, 15 Nov 2009 03:55:14 +0200
+Message-ID: <200911150355.15204.denys@visp.net.lb>
+References: <20091113233504.GQ19478@kvack.org> <20091113.185937.251557071.davem@davemloft.net> <20091115090604.331d75c2@opy.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, bcrl@lhnet.ca,
-	opurdila@ixiacom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+	shemminger@vyatta.com, opurdila@ixiacom.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.adam.net.au ([202.136.110.251]:43969 "EHLO
-	smtp2.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbZKOBtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 20:49:19 -0500
-In-Reply-To: <20091114172224.5ca4c94e@s6510>
+Received: from hosting.visp.net.lb ([194.146.153.11]:59686 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617AbZKOBxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Nov 2009 20:53:48 -0500
+In-Reply-To: <20091115090604.331d75c2@opy.nosense.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 14 Nov 2009 17:22:24 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+On Sunday 15 November 2009 00:36:04 Mark Smith wrote:
+> On the occasions I've looked at whether a Linux box would be an
+> alternative to the Cisco BRAS platform we use, the last time I looked
+> the number of sessions people were saying they were running was
+> 500. I don't consider Linux to be feasible in that role until you're
+> able to run at least 5000 sessions on a single box. I'm a bit unusual
+I am running up to 3500 on single NAS, but there is only 3 biggest one like 
+this, and i am limited only by subscribers on this location (network is 
+distributed over the country, and i have around 200 NAS servers running in 
+summary). And it is just PC bought from nearest supermarket with cheap PCI 
+RTL8169, and similar quality LOM adapter e1000e. Everything running on 
+cheapest USB flash from same supermarket.
 
-> On Sun, 15 Nov 2009 09:06:04 +1030
-> Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote:
-> 
-> > The fundamental purpose of PPPoE is nothing to do with any scaling or
-> > architecture, it is purely to make a more modern shared networking
-> > technology like Ethernet look like high speed dial up. This has occurred
-> > mainly because when broadband came along it allowed ISPs to introduce
-> > it quickly, without having to also upgrade their dial up oriented
-> > backend systems i.e. customer authentication/accounting and customer
-> > support systems. It wasn't ideal then and it isn't ideal now. PPPoE adds
-> > an overhead of 8 bytes per packet, yet the only thing it is doing is
-> > changing ethernet from multipoint to point-to-point so PPP can run
-> > over it and providing ISPs with an ability to identify the subscriber.
-> > There are other methods to solve customer identity problem without the
-> > PPPoE overheads. Moving to them however can be a long drawn out process
-> > because it also means changes to customer's CPE settings, or running
-> > the old and new methods in parallel for the foreseeable future.
-> 
-> Carriers still haven't figured out that circuit switched networks don't
-> scale. They just can't learn the lesson of the Internet.
+For my case running Linux NAS on cheap PC's is only choice. It is 3rd world 
+country, and many reasons (i can explain each, but it is not technical 
+subject) doesn't let me to think, that "professional" equipment is feasible 
+for me.
 
-I don't really think that is the case. The authors of the PPPoE
-spec were all from "Internet" companies, including UUNET, the first
-Internet company, and the largest at the time, so I'm sure they all knew
-about Internet scaling.
+Here people build networks on cheapest unmanageable switches, same 
+cost/quality 802.11b/g wireless networks, and only a way to terminate them 
+reliably is PPPoE. I know, it is also weak and easy to break, but it is 
+single choice i have.
+I know also ISP's in Russia, who have somehow partially "managed" networks, 
+but PPPoE letting them to drop running costs.
 
-Here's what they had to say in the RFC2516 intro:
-
-"  Modern access technologies are faced with several conflicting goals.
-   It is desirable to connect multiple hosts at a remote site through
-   the same customer premise access device.  It is also a goal to
-   provide access control and billing functionality in a manner similar
-   to dial-up services using PPP.  In many access technologies, the most
-   cost effective method to attach multiple hosts to the customer
-   premise access device, is via Ethernet.  In addition, it is desirable
-   to keep the cost of this device as low as possible while requiring
-   little or no configuration."
-
-
+And interface creation speed is important for me, when electricity goes down 
+here, many customers disconnects (up to 500 on single NAS), and then join 
+again to NAS. Load average was jumping to sky on such situations, just option 
+to not create sysfs entries helped me a lot (was posted recently).
+Electricity outage is usual here, happens 2-3 times daily.
