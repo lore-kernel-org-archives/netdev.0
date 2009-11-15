@@ -1,63 +1,42 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: Phonet userspace bits?
-Date: Sun, 15 Nov 2009 18:31:23 +0200
-Message-ID: <200911151831.23974.remi@remlab.net>
-References: <!256485B18-474275-V2@support.norwegian.no> <1272976626.71600.1258301725789.JavaMail.mail@webmail06>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [net-next-2.6 PATCH] net: fast consecutive name allocation
+Date: Sun, 15 Nov 2009 11:50:15 -0500
+Message-ID: <20091115165015.GU19478@kvack.org>
+References: <20091113233504.GQ19478@kvack.org> <20091113.185937.251557071.davem@davemloft.net> <20091115090604.331d75c2@opy.nosense.org> <200911150355.15204.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: dag@bakke.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:54009 "EHLO yop.chewa.net"
+Received: from kanga.kvack.org ([205.233.56.17]:48130 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753245AbZKOQbU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 11:31:20 -0500
-In-Reply-To: <1272976626.71600.1258301725789.JavaMail.mail@webmail06>
+	id S1751844AbZKOQuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Nov 2009 11:50:10 -0500
+Content-Disposition: inline
+In-Reply-To: <200911150355.15204.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hello,
+Hi Denys,
 
-Le dimanche 15 novembre 2009 18:15:25 dag@bakke.com, vous avez =C3=A9cr=
-it :
-> How do an end-user make use of a phonet network interface?
->=20
-> Nov 15 16:31:54 toshr500 usb 1-1: New USB device found, idVendor=3D04=
-21,
->  idProduct=3D046e Nov 15 16:31:54 toshr500 usb 1-1: New USB device st=
-rings:
->  Mfr=3D1, Product=3D2, SerialNumber=3D0 Nov 15 16:31:54 toshr500 usb =
-1-1:
->  Product: Nokia 6110 Navigator
-> Nov 15 16:31:54 toshr500 usb 1-1: Manufacturer: Nokia
-> Nov 15 16:31:54 toshr500 usb 1-1: configuration #1 chosen from 1 choi=
-ce
-> Nov 15 16:31:54 toshr500 cdc_acm 1-1:1.8: ttyACM0: USB ACM device
->=20
-> So I can use /dev/ttyACM0 with pppd and get a 3G connection. so far, =
-so
->  good.
->=20
-> But what is the usbpn0 network interface, and could I use that instea=
-d of
->  fiddling with chatscripts and pppd, to get a 3G connection? Is this
->  feature complete?
+On Sun, Nov 15, 2009 at 03:55:14AM +0200, Denys Fedoryschenko wrote:
+> And interface creation speed is important for me, when electricity goes down 
+> here, many customers disconnects (up to 500 on single NAS), and then join 
+> again to NAS. Load average was jumping to sky on such situations, just option 
+> to not create sysfs entries helped me a lot (was posted recently).
+> Electricity outage is usual here, happens 2-3 times daily.
 
-Just like with PPP, only the Phonet data path is implemented in kernel.=
- The=20
-setup is done in userspace. In theory, it could be done in kernelspace =
-too,=20
-but there was strong reluctance against this on usb-devel. And well, ma=
-ybe we=20
-don't want to taint the kernel with too much of the GPRS specifics.
+This is exactly the type of scenario I'm looking at.  The design of the 
+Babylon PPP stack is meant to scale somewhat better that pppd.  It uses a 
+single process (although I'm starting to add threads to improve scaling on 
+SMP systems) for all PPP/L2TP sessions, and has rather lower connection 
+setup overhead (no fork()/exec() being the biggest one).  With udev tuned, 
+irqbalance disabled and a few other tweaks, it gets >500 connections per 
+second in startup on a modern 2.6GHz processor for L2TP traffic.  There 
+is PPPoE support, but it needs a bit more work done to scale automatically 
+(there are a few hardcoded limits in the PPPoE implementation).
 
-There was a preliminary patch adding the userspace bits to oFono here:
-http://lists.ofono.org/pipermail/ofono/2009-September/000376.html
-(especially part 0003) but this is still work in progress.
-
-Best regards,
-
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
+		-ben
