@@ -1,85 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Mon, 16 Nov 2009 09:02:32 -0800
-Message-ID: <65634d660911160902t677a4fb4r71602cb0d10f1cce@mail.gmail.com>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
-	 <87hbt0kaae.fsf@basil.nowhere.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Mon, 16 Nov 2009 19:08:19 +0200
+Message-ID: <4B018703.3080507@redhat.com>
+References: <4AF98A8C.9040201@novell.com>	<20091114011229.GA18580@gondor.apana.org.au>	<4AFE08EF.2030308@gmail.com> <20091113.190438.78469912.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:15767 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752866AbZKPRCc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 12:02:32 -0500
-Received: from spaceape8.eur.corp.google.com (spaceape8.eur.corp.google.com [172.28.16.142])
-	by smtp-out.google.com with ESMTP id nAGH2aMZ030722
-	for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 09:02:37 -0800
-Received: from pwi12 (pwi12.prod.google.com [10.241.219.12])
-	by spaceape8.eur.corp.google.com with ESMTP id nAGH2SGi000906
-	for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 09:02:33 -0800
-Received: by pwi12 with SMTP id 12so3619585pwi.2
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 09:02:32 -0800 (PST)
-In-Reply-To: <87hbt0kaae.fsf@basil.nowhere.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gregory.haskins@gmail.com, herbert@gondor.apana.org.au,
+	ghaskins@novell.com, mst@redhat.com,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753612AbZKPRIh@vger.kernel.org>
+In-Reply-To: <20091113.190438.78469912.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> + =A0 =A0 case __constant_htons(ETH_P_IPV6):
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (!pskb_may_pull(skb, sizeof(*ip6)))
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
->> +
->> + =A0 =A0 =A0 =A0 =A0 =A0 ip6 =3D (struct ipv6hdr *) skb->data;
->> + =A0 =A0 =A0 =A0 =A0 =A0 ip_proto =3D ip6->nexthdr;
->> + =A0 =A0 =A0 =A0 =A0 =A0 addr1 =3D ip6->saddr.s6_addr32[3];
->> + =A0 =A0 =A0 =A0 =A0 =A0 addr2 =3D ip6->daddr.s6_addr32[3];
+On 11/14/2009 05:04 AM, David Miller wrote:
+> From: Gregory Haskins<gregory.haskins@gmail.com>
+> Date: Fri, 13 Nov 2009 20:33:35 -0500
 >
-> Why only [3] ? Is this future proof?
+>    
+>> Well, not with respect to the overall protocol, of course not.  But with
+>> respect to the buffer in question, it _has_ to be.  Or am I missing
+>> something?
+>>      
+> sendfile() absolutely, and positively, is not.
 >
-No.  But it's same as inet6_ehashfn :-)
-
->> + =A0 =A0 for_each_cpu_mask_nr(cpu, __get_cpu_var(rps_remote_softirq=
-_cpus)) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 struct softnet_data *queue =3D &per_cpu(so=
-ftnet_data, cpu);
->> + =A0 =A0 =A0 =A0 =A0 =A0 __smp_call_function_single(cpu, &queue->cs=
-d, 0);
+> Any entity can write to the pages being send via sendfile(), at will,
+> and those writes will show up in the packet stream if they occur
+> before the NIC DMA's the memory backed by those pages into it's
+> buffer.
 >
-> How do you get around the standard deadlocks with IPI called from
-> irq disabled section?
+> There is zero data synchronization whatsoever, we don't lock the
+> pages, we don't block their usage while they are queued up in the
+> socket send queue, nothing like that.
 >
+>    
 
-What are the standard deadlocks?  Looks like __send_remote_softirq
-will call __smp_call_function with irq's disabled...
+But it must maintain a reference count on the page being dmaed and drop 
+it only after dma is complete.  Otherwise we risk the page being 
+recycled and arbitrary memory sent out on the wire; and an application 
+can trivially cause this by truncate()ing a sendfile.
 
-> And why are the interrupts are disabled here anyways?
->
+> The user returns long before it every hits the wire and there is zero
+> "notification" to the user that the pages in question for the
+> sendfile() request are no longer in use.
+>    
 
-Protects rps_remote_softirq_cpus.
+The put_page() is a notification except it doesn't reach the caller.  
+Gregory's patch (and previous shared info destructor patches) is an 
+attempt to make it reach the caller, IIUC.
 
-
-> It's a standard pet peeve of me, but it's quite unlikely you'll
-> get any useful entropy at this time of kernel startup.
->
-> Normally it's always the same.
->
-Would it make sense to just use skb_tx_hashrnd for the receive hash
-key also (renaming it to be more general)?
-
-
->> + =A0 =A0 if (err)
->> + =A0 =A0 =A0 =A0 =A0 =A0 return err;
->> +
->> + =A0 =A0 rtnl_lock();
->
-> It seems weird to do user parsing while holding that lock.
-> Better first set up and allocate and then finally initialize global s=
-tate.
-
-Yes.  We could build a new map each time and then insert it into the
-device structure using an rcu lock (which I hope would be sufficient
-locking)
-
-Thanks,
-Tom
+-- 
+error compiling committee.c: too many arguments to function
