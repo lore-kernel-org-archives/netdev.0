@@ -1,7 +1,7 @@
 From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH 1/2] net: introduce NETDEV_UNREGISTER_PERNET
-Date: Tue, 17 Nov 2009 01:49:35 +0200
-Message-ID: <200911170149.35240.opurdila@ixiacom.com>
+Subject: [PATCH 2/2] ipv4: factorize cache clearing for batched unregister operations
+Date: Tue, 17 Nov 2009 01:49:49 +0200
+Message-ID: <200911170149.50011.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -9,115 +9,67 @@ Content-Transfer-Encoding: 7bit
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13543 "EHLO
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:3519 "EHLO
 	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753592AbZKPXwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 18:52:37 -0500
+	with ESMTP id S1754582AbZKPXwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 18:52:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new event is called once for each unique net namespace in batched
-unregister operations (with the argument set to a random device from
-that namespace) and once per device in non-batched unregister
-operations.
-
-It allows us to factorize some device unregister work such as clearing the
-routing cache.
-
 Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- include/linux/notifier.h |    1 +
- net/core/dev.c           |   29 +++++++++++++++++++++++++++--
- 2 files changed, 28 insertions(+), 2 deletions(-)
+ net/ipv4/fib_frontend.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index 29714b8..b0c3671 100644
---- a/include/linux/notifier.h
-+++ b/include/linux/notifier.h
-@@ -202,6 +202,7 @@ static inline int notifier_to_errno(int ret)
- #define NETDEV_BONDING_OLDTYPE  0x000E
- #define NETDEV_BONDING_NEWTYPE  0x000F
- #define NETDEV_POST_INIT	0x0010
-+#define NETDEV_UNREGISTER_PERNET 0x0011
- 
- #define SYS_DOWN	0x0001	/* Notify of system down */
- #define SYS_RESTART	SYS_DOWN
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4b24d79..2bd357a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1343,6 +1343,7 @@ rollback:
- 				nb->notifier_call(nb, NETDEV_DOWN, dev);
- 			}
- 			nb->notifier_call(nb, NETDEV_UNREGISTER, dev);
-+			nb->notifier_call(nb, NETDEV_UNREGISTER_PERNET, dev);
- 		}
- 	}
- 
-@@ -4720,7 +4721,8 @@ static void net_set_todo(struct net_device *dev)
- 
- static void rollback_registered_many(struct list_head *head)
- {
--	struct net_device *dev;
-+	struct net_device *dev, *aux, *fdev;
-+	LIST_HEAD(pernet_list);
- 
- 	BUG_ON(dev_boot_phase);
- 	ASSERT_RTNL();
-@@ -4778,8 +4780,24 @@ static void rollback_registered_many(struct list_head *head)
- 
- 	synchronize_net();
- 
--	list_for_each_entry(dev, head, unreg_list)
-+	list_for_each_entry_safe(dev, aux, head, unreg_list) {
-+		int new_net = 1;
-+		list_for_each_entry(fdev, &pernet_list, unreg_list) {
-+			if (dev_net(dev) == dev_net(fdev)) {
-+				new_net = 0;
-+				dev_put(dev);
-+				break;
-+			}
-+		}
-+		if (new_net)
-+			list_move(&dev->unreg_list, &pernet_list);
-+	}
-+
-+	list_for_each_entry_safe(dev, aux, &pernet_list, unreg_list) {
-+		call_netdevice_notifiers(NETDEV_UNREGISTER_PERNET, dev);
-+		list_move(&dev->unreg_list, head);
- 		dev_put(dev);
-+	}
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 816e218..6c1e56a 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -895,11 +895,11 @@ static void nl_fib_lookup_exit(struct net *net)
+ 	net->ipv4.fibnl = NULL;
  }
  
- static void rollback_registered(struct net_device *dev)
-@@ -5073,6 +5091,8 @@ static void netdev_wait_allrefs(struct net_device *dev)
- 
- 			/* Rebroadcast unregister notification */
- 			call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-+			/* don't resend NETDEV_UNREGISTER_PERNET, _PERNET users
-+			 * should have already handle it the first time */
- 
- 			if (test_bit(__LINK_STATE_LINKWATCH_PENDING,
- 				     &dev->state)) {
-@@ -5374,6 +5394,10 @@ EXPORT_SYMBOL(unregister_netdevice_queue);
-  *	unregister_netdevice_many - unregister many devices
-  *	@head: list of devices
-  *
-+ *	WARNING: Calling this modifies the given list
-+ *	(in rollback_registered_many). It may change the order of the elements
-+ *	in the list. However, you can assume it does not add or delete elements
-+ *	to/from the list.
-  */
- void unregister_netdevice_many(struct list_head *head)
+-static void fib_disable_ip(struct net_device *dev, int force)
++static void fib_disable_ip(struct net_device *dev, int force, int delay)
  {
-@@ -5493,6 +5517,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	   this device. They should clean all the things.
- 	*/
- 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-+	call_netdevice_notifiers(NETDEV_UNREGISTER_PERNET, dev);
+ 	if (fib_sync_down_dev(dev, force))
+ 		fib_flush(dev_net(dev));
+-	rt_cache_flush(dev_net(dev), 0);
++	rt_cache_flush(dev_net(dev), delay);
+ 	arp_ifdown(dev);
+ }
  
- 	/*
- 	 *	Flush the unicast and multicast chains
+@@ -922,7 +922,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 			/* Last address was deleted from this interface.
+ 			   Disable IP.
+ 			 */
+-			fib_disable_ip(dev, 1);
++			fib_disable_ip(dev, 1, 0);
+ 		} else {
+ 			rt_cache_flush(dev_net(dev), -1);
+ 		}
+@@ -937,7 +937,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
+ 
+ 	if (event == NETDEV_UNREGISTER) {
+-		fib_disable_ip(dev, 2);
++		fib_disable_ip(dev, 2, -1);
+ 		return NOTIFY_DONE;
+ 	}
+ 
+@@ -955,10 +955,11 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 		rt_cache_flush(dev_net(dev), -1);
+ 		break;
+ 	case NETDEV_DOWN:
+-		fib_disable_ip(dev, 0);
++		fib_disable_ip(dev, 0, 0);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 	case NETDEV_CHANGE:
++	case NETDEV_UNREGISTER_PERNET:
+ 		rt_cache_flush(dev_net(dev), 0);
+ 		break;
+ 	}
 -- 
 1.5.6.5
 
