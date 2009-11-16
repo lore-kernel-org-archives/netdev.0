@@ -1,68 +1,44 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: Re: [PATCH net-2.6 V2] tg3: Fix phylib locking strategy
-Date: Mon, 16 Nov 2009 22:53:57 +0200
-Message-ID: <4B01BBE5.9060105@embedded-sol.com>
-References: <1254801692.18507@xw6200>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: netlink: remove subscriptions check on notifier
+Date: Mon, 16 Nov 2009 23:05:34 +0100
+Message-ID: <1258409134.1375.0.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	andy@greyhouse.net
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: Patrick McHardy <kaber@trash.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:37320 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbZKPWCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 17:02:37 -0500
-In-Reply-To: <1254801692.18507@xw6200>
+Received: from xc.sipsolutions.net ([83.246.72.84]:57198 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753587AbZKPWFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 17:05:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Matt
+The netlink URELEASE notifier doesn't notify for
+sockets that have been used to receive multicast
+but it should be called for such sockets as well
+since they might _also_ be used for sending and
+not solely for receiving multicast. We will need
+that for nl80211 (generic netlink sockets) in the
+future.
 
-Matt Carlson wrote:
-> O.K.  Here is the latest version.  Felix, can you verify your problem
-> is solved with this patch?
->
-> ---
->
-> Felix Radensky noted that chip resets were generating stack trace dumps.
-> This is because the driver is attempting to acquire the mdio bus mutex
-> while holding the tp->lock spinlock.  The fix is to change the code such
-> that every phy access takes the tp->lock spinlock instead.
->
->   
-Sorry for a very long delay, I didn't have access to hardware until today.
-Your patch fixes initial problem I've reported, but I have a different
-problem now, maybe it's related. It is 100% reproducible by the following
-sequence
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Cc: Patrick McHardy <kaber@trash.net>
+---
+ net/netlink/af_netlink.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-modprobe tg3
-ifconfig eth2 up
-ifconfig eth2 down
-ifconfig eth2 up
+--- wireless-testing.orig/net/netlink/af_netlink.c	2009-11-16 23:02:13.000000000 +0100
++++ wireless-testing/net/netlink/af_netlink.c	2009-11-16 23:02:23.000000000 +0100
+@@ -497,7 +497,7 @@ static int netlink_release(struct socket
+ 
+ 	skb_queue_purge(&sk->sk_write_queue);
+ 
+-	if (nlk->pid && !nlk->subscriptions) {
++	if (nlk->pid) {
+ 		struct netlink_notify n = {
+ 						.net = sock_net(sk),
+ 						.protocol = sk->sk_protocol,
 
-As a result, link is not recognized after third invocation of ifconfig,
-although network cable is plugged in. Below are relevant kernel messages.
-Reloading tg3 driver fixes the problem.
-
-tg3.c:v3.102 (September 1, 2009)
-tg3 0002:05:00.0: PME# disabled
-tg3 mdio bus: probed
-eth2: Tigon3 [partno(BCM57760) rev 57780001] (PCI Express) MAC address 
-00:10:18:00:00:00
-eth2: attached PHY driver [Broadcom BCM57780] (mii_bus:phy_addr=500:01)
-eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-eth2: dma_rwctrl[76180000] dma_mask[64-bit]
-tg3 0002:05:00.0: PME# disabled
-tg3: eth2: Link is down.
-tg3: eth2: Link is up at 1000 Mbps, full duplex.
-tg3: eth2: Flow control is on for TX and on for RX.
-tg3: eth2: Link is down.
-tg3 0002:05:00.0: PME# disabled
-tg3: eth2: Link is down.
-
-Thanks.
-
-Felix.
 
