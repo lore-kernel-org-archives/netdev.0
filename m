@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] bnx2x: Handle Rx and Tx together in NAPI
-Date: Mon, 16 Nov 2009 02:41:30 -0800 (PST)
-Message-ID: <20091116.024130.156214496.davem@davemloft.net>
-References: <1258365669.8392.3.camel@lb-tlvb-vladz.il.broadcom.com>
-	<20091116.022012.81633492.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B950BEF@zin33exm22.fsl.freescale.net>
+Subject: Re: [PATCH 1/2] act_mirred: cleanup
+Date: Mon, 16 Nov 2009 02:48:24 -0800 (PST)
+Message-ID: <20091116.024824.267061616.davem@davemloft.net>
+References: <412e6f7f0911160033h649b44b2o669196b8b14bf6fc@mail.gmail.com>
+	<1258363479.3251.25.camel@bigi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: B05799@freescale.com
+Cc: xiaosuo@gmail.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59969
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52876
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751445AbZKPKlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 05:41:14 -0500
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B950BEF@zin33exm22.fsl.freescale.net>
+	by vger.kernel.org with ESMTP id S1751445AbZKPKsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 05:48:09 -0500
+In-Reply-To: <1258363479.3251.25.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Date: Mon, 16 Nov 2009 16:02:04 +0530
+From: jamal <hadi@cyberus.ca>
+Date: Mon, 16 Nov 2009 04:24:39 -0500
 
-> Can we actually introduce NAPI mechanism for cleaning TX ring ??
+> On Mon, 2009-11-16 at 16:33 +0800, Changli Gao wrote:
+>> act_mirred: cleanup
+>> 
+>> 1. don't let go back using goto.
+>> 2. don't call skb_act_clone() until it is necessary.
+>> 3. one exit of the critical context.
+>> 
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> 
+> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-You really should if you can.
-
-Preferably you should combine it with RX work in a shared NAPI context
-(1 TX queue + 1 RX queue per NAPI context, for example), doing the TX
-reclaim first in your ->poll() routine, before the RX processing,
-because this TX reclaim provides freshly freed up SKBs for RX work
-that generates responses (TCP ACKs, etc.)
+Applied.
