@@ -1,53 +1,75 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Pull request: bluetooth-2.6 2009-11-16
-Date: Mon, 16 Nov 2009 01:48:20 +0100
-Message-ID: <cover.1258331614.git.marcel@holtmann.org>
+Subject: [PATCH 3/3] Bluetooth: Fix regression with L2CAP configuration in Basic Mode
+Date: Mon, 16 Nov 2009 01:48:23 +0100
+Message-ID: <68ae6639b6dff117ba37f648f1611a4629abadf0.1258331614.git.marcel@holtmann.org>
+References: <cover.1258331614.git.marcel@holtmann.org>
+ <93f19c9fc8c98bb6d2e9825115989603ffd5cd1f.1258331614.git.marcel@holtmann.org>
+ <a0e55a32afc2130e5ae506755e4b8eb42a23b568.1258331614.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:46536 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:46542 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152AbZKPAsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:48:25 -0500
+	with ESMTP id S1752579AbZKPAs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:48:27 -0500
+In-Reply-To: <a0e55a32afc2130e5ae506755e4b8eb42a23b568.1258331614.git.marcel@holtmann.org>
+In-Reply-To: <cover.1258331614.git.marcel@holtmann.org>
+References: <cover.1258331614.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 
-here are three additional patches that should go into 2.6.32 before its
-final release.
+Basic Mode is the default mode of operation of a L2CAP entity. In
+this case the RFC (Retransmission and Flow Control) configuration
+option should not be used at all.
 
-The first one fixes a regression with Secure Simple Pairing support. I
-had that patch for a while, but it took some time to verify that it
-doesn't break the Bluetooth qualification. The Bluetooth 2.1 GAP testing
-is a major pain and always surprises you.
+Normally remote L2CAP implementation should just ignore this option,
+but it can cause various side effects with other Bluetooth stacks
+that are not capable of handling unknown options.
 
-The second and third patches are fixing two regression from the L2CAP
-ERTM support. When ERTM is not supported or not configured we have to
-use Basic Mode and really stick to it. Other Bluetooth stacks are not
-capable of handling unknown options properly.
+Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ net/bluetooth/l2cap.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-Regards
-
-Marcel
-
-
-Please pull from
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
-
-This will update the following files:
-
- net/bluetooth/hci_conn.c |    1 +
- net/bluetooth/l2cap.c    |   13 +++++++++----
- 2 files changed, 10 insertions(+), 4 deletions(-)
-
-through these ChangeSets:
-
-Andrei Emeltchenko (1):
-    Bluetooth: Set general bonding security for ACL by default
-
-Gustavo F. Padovan (2):
-    Bluetooth: Select Basic Mode as default for SOCK_SEQPACKET
-    Bluetooth: Fix regression with L2CAP configuration in Basic Mode
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 076caa1..947f8bb 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -2394,6 +2394,10 @@ done:
+ 			rfc.monitor_timeout = L2CAP_DEFAULT_MONITOR_TO;
+ 
+ 			pi->conf_state |= L2CAP_CONF_MODE_DONE;
++
++			l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
++					sizeof(rfc), (unsigned long) &rfc);
++
+ 			break;
+ 
+ 		case L2CAP_MODE_STREAMING:
+@@ -2401,6 +2405,10 @@ done:
+ 			pi->max_pdu_size = rfc.max_pdu_size;
+ 
+ 			pi->conf_state |= L2CAP_CONF_MODE_DONE;
++
++			l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
++					sizeof(rfc), (unsigned long) &rfc);
++
+ 			break;
+ 
+ 		default:
+@@ -2410,9 +2418,6 @@ done:
+ 			rfc.mode = pi->mode;
+ 		}
+ 
+-		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
+-					sizeof(rfc), (unsigned long) &rfc);
+-
+ 		if (result == L2CAP_CONF_SUCCESS)
+ 			pi->conf_state |= L2CAP_CONF_OUTPUT_DONE;
+ 	}
+-- 
+1.6.2.5
 
