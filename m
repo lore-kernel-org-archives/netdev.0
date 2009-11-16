@@ -1,69 +1,56 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 2/2] act_mirred: optimization
-Date: Mon, 16 Nov 2009 21:05:28 +0800
-Message-ID: <412e6f7f0911160505x10da9a92j694669db9d030da1@mail.gmail.com>
-References: <412e6f7f0911160153g31d5eado7c5569d9e95f7d01@mail.gmail.com>
-	 <20091116.024839.257258321.davem@davemloft.net>
-	 <20091116.025859.78494103.davem@davemloft.net>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] net/can: add driver for mscan family & mpc52xx_mscan
+Date: Mon, 16 Nov 2009 14:08:39 +0100
+Message-ID: <4B014ED7.1050500@grandegger.com>
+References: <1258128892-28800-1-git-send-email-w.sang@pengutronix.de> <4B0110D5.6010405@grandegger.com> <20091116102414.GB30609@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
+	socketcan-core@lists.berlios.de, linuxppc-dev@ozlabs.org,
+	David Miller <davem@davemloft.net>
+To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:49910 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765AbZKPNFW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 08:05:22 -0500
-Received: by pzk1 with SMTP id 1so2763974pzk.33
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 05:05:28 -0800 (PST)
-In-Reply-To: <20091116.025859.78494103.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.9]:60030 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbZKPNJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 08:09:12 -0500
+In-Reply-To: <20091116102414.GB30609@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 16, 2009 at 6:58 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 16 Nov 2009 02:48:39 -0800 (PST)
->
->> From: Changli Gao <xiaosuo@gmail.com>
->> Date: Mon, 16 Nov 2009 17:53:29 +0800
+Hi Wolfram,
+
+Wolfram Sang wrote:
+> Hi Wolfgang,
+> 
+> On Mon, Nov 16, 2009 at 09:44:05AM +0100, Wolfgang Grandegger wrote:
+>> Hi Wolfram,
 >>
->>> act_mirred: optimization.
->>>
->>> move checking if eaction is valid in tcf_mirred_init()
->>>
->>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->>> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
->>
->> Also applied, thank you.
->
-> Nevermind, you're NOT TESTING the patches you are posting:
->
-> net/sched/act_mirred.c: In function =E2=80=98tcf_mirred=E2=80=99:
-> net/sched/act_mirred.c:168: error: label =E2=80=98out=E2=80=99 used b=
-ut not defined
-> net/sched/act_mirred.c:158: warning: unused variable =E2=80=98err=E2=80=
-=99
-> net/sched/act_mirred.c:158: warning: unused variable =E2=80=98retval=E2=
-=80=99
-> make[2]: *** [net/sched/act_mirred.o] Error 1
-> make[1]: *** [net/sched] Error 2
-> make[1]: *** Waiting for unfinished jobs....
->
-> I'm thus reverting both changes.
->
-> Don't submit changes which are untested, it wastes my time.
->
+>> thanks for pushing this driver to mainline. I think you should also add
+>> a CC to the Devicetree-discuss ML.
+> 
+> thank you very much for your review! I agree with nearly all of your points and will
+> send an update today. The only thing I have doubts about is removing those lines:
 
-I am sorry about that. But I did test it before submitting these two,
-and I am just wondering if they are applied without any error. Would
-you post the file after being patched? I think it will be helpful to
-finger out the real problem.
+Thanks, quite a bit of work.
 
-BTW: since my email client thunderbird was broken, I used google
-webmail(with ViewSourceWith addon) to submit these two patches.
+>> +MODULE_AUTHOR("Andrey Volkov <avolkov@varma-el.com>");
+>> +MODULE_LICENSE("GPL v2");
+>> +MODULE_DESCRIPTION("CAN port driver for a MSCAN based chips");
+> 
+> I looked around in the kernel sources and found that they are often present in
+> generic modules, even if they can't be used without a wrapper (examples are all
+> files in drivers/i2c/algos or drivers/net/wireless/iwlwifi/iwl-core.c). As I'm
+> also a bit anxious to fiddle with other people's authorship, I'd prefer to keep
+> them.
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+They do not harm, fine for me.
+
+> Finally, I'll also try to test suspend/resume, but I have to find out if it is
+> supported on that board in general.
+
+Maybe somebody else already uses suspend/resume on a MPC5200 board with
+Socket-CAN and could provide some feedback.
+
+Wolfgang.
