@@ -1,60 +1,74 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: sparse vs. skbuff.h
-Date: Mon, 16 Nov 2009 20:21:11 +0100
-Message-ID: <1258399271.32159.39.camel@johannes.local>
+Subject: Re: sparse vs. skbuff.h
+Date: Mon, 16 Nov 2009 20:27:07 +0100
+Message-ID: <1258399627.32159.41.camel@johannes.local>
+References: <1258399271.32159.39.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-O+qeE3SDtWj/COxRAjbV"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-+UNVwAzErLEyezYferqc"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Vegard Nossum <vegard.nossum@gmail.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:53763 "EHLO
+Received: from xc.sipsolutions.net ([83.246.72.84]:34424 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbZKPTVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 14:21:11 -0500
+	with ESMTP id S1751777AbZKPT1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 14:27:02 -0500
+In-Reply-To: <1258399271.32159.39.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-O+qeE3SDtWj/COxRAjbV
+--=-+UNVwAzErLEyezYferqc
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-commit 14d18a81b5171d4433e41129619c75748b4f4d26
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Thu Oct 29 00:10:37 2009 +0000
+On Mon, 2009-11-16 at 20:21 +0100, Johannes Berg wrote:
+> commit 14d18a81b5171d4433e41129619c75748b4f4d26
+> Author: Eric Dumazet <eric.dumazet@gmail.com>
+> Date:   Thu Oct 29 00:10:37 2009 +0000
+>=20
+>     net: fix kmemcheck annotations
+>=20
+>=20
+> broke sparse endian checks on everything that includes skbuff.h because
+> the first and only (because it's an error) thing sparse now reports is
+> this:
+>=20
+> include/linux/skbuff.h:357:41: error: invalid bitfield specifier for type=
+ restricted __be16.
 
-    net: fix kmemcheck annotations
+Simply changing from
+	__be16 protocol:16;
+to
+	__be16 protocol;
 
-
-broke sparse endian checks on everything that includes skbuff.h because
-the first and only (because it's an error) thing sparse now reports is
-this:
-
-include/linux/skbuff.h:357:41: error: invalid bitfield specifier for type r=
-estricted __be16.
+but leaving it inside the kmemcheck annotation seems to do the right
+thing. Except of course that kmemcheck will not properly check it now.
+Maybe those annotations should simply be made to have no impact on
+struct padding instead?
 
 johannes
 
---=-O+qeE3SDtWj/COxRAjbV
+--=-+UNVwAzErLEyezYferqc
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAABAgAGBQJLAaYjAAoJEODzc/N7+QmaBy4P/2b9nLK7vn9E8a1rFiya+JOt
-TIg+DsiJ/n4hKgSGfzpWlt/OA1oNqkAPGg+8FbjzEizOOJyYGVuork2GKI9K3XvY
-8+pTgC/v8LoyIK7bKc6As0dtDz7iYzNBrgsFIPzLv6mgz8w6iwoQA8EcR8Q1f0gj
-pk8PnAY73oyNSsXNlqNamuYIK8vZGnqfQZqJvMbs9sBBpG6R/6uLKdUjTSb74nNZ
-yxjCigP81yuDx594vHzZEPYvdMPbiM7lTq5IEHMWbUDc1du9bpoAvycsS791vi+E
-rYvbbKOweMhmItopEW9aA1wyVpBv0o0i2puipdoV4jW5h2PsaZ4KU55dk69odeu0
-q83sIeKtiG7ImyRA5L9nTbJ/mULV/wrP9ZHhhGirEJVd5d8qFXgisdH3JLZoueqd
-lLZHn1zlxYEz4CbaXfeu00BIwd03nGS8X68Dprc7H8wH/pko1+1zreVML8euQVPO
-/ccuZkvmfNElpogzF/oz/c4uAMfKTS5C0pJXl9vqgbfYw4Zf1XmFoKcnfBGfnTc6
-WDAScVmy9y+krToMk3vb7Tn/CfRNyeB5Em2IJcT+Y29h+iqbxreN3RV05XLPxBqi
-6/MP8PVxvVt0VQGZtogC+ochUGUDAvIOY9CzHNqMV0Pi5k4stD59u1cCfehhPOQo
-+0oElf8EICv+a1v+Kqnk
-=IVKC
+iQIcBAABAgAGBQJLAaeIAAoJEODzc/N7+QmaOToQAJssJqFKdIhNxC80+voAaOow
+4HtItwFXovwow1opbJ3cr/Pl10mc5pgI2Q8d/WhtNrb5r1+y2g4fXHlL/Kw8MSGD
+4AvesOkKDWuFSIwZRSTjrVxDwUt8BIbAxo7AIGF6Jrkum0oiVJG7Yoi5WMt9mw0E
+5QEtEUf9vDFeTO7dvh4pHiclZOIAHvCa5xMn20TyB0Ei9Ef6bvHlrxHBIKwGqe7f
+0fJxkRFcVGwKRX/m4Zg7Ge05/mteD7orrc6TeAkhNbu70jFnhZXvc+8W00m4DQi/
+QKEHzzaZZVm8+rl/AIcm18CO7BRcqhOeIbsVUtoSOBcAMhdj4TQrA1GjWOw4TR99
+Ok/BU0zCJw89diOzN8UEzMN51Hrk39VHt9nAf+6JW4y2mbvmp5TvYtsV9AhgjOBD
+h0OAgZudjQEkJ0sy+44/pkSGaawtOQnsluE40cJdd9lnA1HmldeSMrHkAJPD8J0T
+A1PRdtX2QhQN2tuyZUKRFMszj+al4LcEDu5fhPNaasC1aTE1yUI/lbLCwSkJwlpl
+IpVgK499zVIOWYuoOqGnPqbOfwkTG0A1MyAgyHPKCsBaaMwHG3xiqYGSFbuzS7Hr
+z9NnKfx9WDc6oiq0/U5ZKiOaUeSh301VSOY1tXYjZRTeL8tn9OkUcx7UnCq+raxQ
+tIpAsg7SCvw7kikp6rOz
+=huv5
 -----END PGP SIGNATURE-----
 
---=-O+qeE3SDtWj/COxRAjbV--
+--=-+UNVwAzErLEyezYferqc--
 
