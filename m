@@ -1,7 +1,7 @@
 From: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Subject: [PATCHv6 07/10] ib_core: RDMAoE UD packet packing support
-Date: Mon, 16 Nov 2009 17:53:54 +0200
-Message-ID: <20091116155354.GH2463@mtls03>
+Subject: [PATCHv6 08/10] ib_core: Add API to support RDMAoE from userspace
+Date: Mon, 16 Nov 2009 17:54:01 +0200
+Message-ID: <20091116155401.GI2463@mtls03>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux RDMA list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
@@ -12,212 +12,192 @@ Content-Disposition: inline
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add support functions to aid in packing RDMAoE packets.
+Add ib_uverbs_get_mac() to be used by ibv_create_ah() to retirieve the remore
+port's MAC address. Port transport is also returned by ibv_query_port().
+ABI version is incremented from 6 to 7.
 
 Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 ---
- drivers/infiniband/core/ud_header.c |  111 +++++++++++++++++++++++++++++++++++
- include/rdma/ib_pack.h              |   26 ++++++++
- 2 files changed, 137 insertions(+), 0 deletions(-)
+ drivers/infiniband/core/uverbs.h      |    1 +
+ drivers/infiniband/core/uverbs_cmd.c  |   32 ++++++++++++++++++++++++++++++++
+ drivers/infiniband/core/uverbs_main.c |    1 +
+ drivers/infiniband/core/verbs.c       |   10 ++++++++++
+ include/rdma/ib_user_verbs.h          |   21 ++++++++++++++++++---
+ include/rdma/ib_verbs.h               |   12 ++++++++++++
+ 6 files changed, 74 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/core/ud_header.c b/drivers/infiniband/core/ud_header.c
-index 8ec7876..d04b6f2 100644
---- a/drivers/infiniband/core/ud_header.c
-+++ b/drivers/infiniband/core/ud_header.c
-@@ -80,6 +80,29 @@ static const struct ib_field lrh_table[]  = {
- 	  .size_bits    = 16 }
+diff --git a/drivers/infiniband/core/uverbs.h b/drivers/infiniband/core/uverbs.h
+index b3ea958..e69b04c 100644
+--- a/drivers/infiniband/core/uverbs.h
++++ b/drivers/infiniband/core/uverbs.h
+@@ -194,5 +194,6 @@ IB_UVERBS_DECLARE_CMD(create_srq);
+ IB_UVERBS_DECLARE_CMD(modify_srq);
+ IB_UVERBS_DECLARE_CMD(query_srq);
+ IB_UVERBS_DECLARE_CMD(destroy_srq);
++IB_UVERBS_DECLARE_CMD(get_mac);
+ 
+ #endif /* UVERBS_H */
+diff --git a/drivers/infiniband/core/uverbs_cmd.c b/drivers/infiniband/core/uverbs_cmd.c
+index 56feab6..012aadf 100644
+--- a/drivers/infiniband/core/uverbs_cmd.c
++++ b/drivers/infiniband/core/uverbs_cmd.c
+@@ -452,6 +452,7 @@ ssize_t ib_uverbs_query_port(struct ib_uverbs_file *file,
+ 	resp.active_width    = attr.active_width;
+ 	resp.active_speed    = attr.active_speed;
+ 	resp.phys_state      = attr.phys_state;
++	resp.transport	     = attr.transport;
+ 
+ 	if (copy_to_user((void __user *) (unsigned long) cmd.response,
+ 			 &resp, sizeof resp))
+@@ -1824,6 +1825,37 @@ err:
+ 	return ret;
+ }
+ 
++ssize_t ib_uverbs_get_mac(struct ib_uverbs_file *file, const char __user *buf,
++			  int in_len, int out_len)
++{
++	struct ib_uverbs_get_mac        cmd;
++	struct ib_uverbs_get_mac_resp   resp;
++	int              ret;
++	struct ib_pd    *pd;
++
++	if (out_len < sizeof resp)
++		return -ENOSPC;
++
++	if (copy_from_user(&cmd, buf, sizeof cmd))
++		return -EFAULT;
++
++	pd = idr_read_pd(cmd.pd_handle, file->ucontext);
++	if (!pd)
++		return -EINVAL;
++
++	ret = ib_get_mac(pd->device, cmd.port, cmd.gid, resp.mac);
++	put_pd_read(pd);
++	if (!ret) {
++		if (copy_to_user((void __user *) (unsigned long) cmd.response,
++				 &resp, sizeof resp))
++			return -EFAULT;
++
++		return in_len;
++	}
++
++	return ret;
++}
++
+ ssize_t ib_uverbs_destroy_ah(struct ib_uverbs_file *file,
+ 			     const char __user *buf, int in_len, int out_len)
+ {
+diff --git a/drivers/infiniband/core/uverbs_main.c b/drivers/infiniband/core/uverbs_main.c
+index aec0fbd..d8f98f3 100644
+--- a/drivers/infiniband/core/uverbs_main.c
++++ b/drivers/infiniband/core/uverbs_main.c
+@@ -109,6 +109,7 @@ static ssize_t (*uverbs_cmd_table[])(struct ib_uverbs_file *file,
+ 	[IB_USER_VERBS_CMD_MODIFY_SRQ]    	= ib_uverbs_modify_srq,
+ 	[IB_USER_VERBS_CMD_QUERY_SRQ]     	= ib_uverbs_query_srq,
+ 	[IB_USER_VERBS_CMD_DESTROY_SRQ]   	= ib_uverbs_destroy_srq,
++	[IB_USER_VERBS_CMD_GET_MAC]		= ib_uverbs_get_mac,
  };
  
-+static const struct ib_field eth_table[]  = {
-+	{ STRUCT_FIELD(eth, dmac_h),
-+	  .offset_words = 0,
-+	  .offset_bits  = 0,
-+	  .size_bits    = 32 },
-+	{ STRUCT_FIELD(eth, dmac_l),
-+	  .offset_words = 1,
-+	  .offset_bits  = 0,
-+	  .size_bits    = 16 },
-+	{ STRUCT_FIELD(eth, smac_h),
-+	  .offset_words = 1,
-+	  .offset_bits  = 16,
-+	  .size_bits    = 16 },
-+	{ STRUCT_FIELD(eth, smac_l),
-+	  .offset_words = 2,
-+	  .offset_bits  = 0,
-+	  .size_bits    = 32 },
-+	{ STRUCT_FIELD(eth, type),
-+	  .offset_words = 3,
-+	  .offset_bits  = 0,
-+	  .size_bits    = 16 }
-+};
+ static struct vfsmount *uverbs_event_mnt;
+diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+index d81e217..aaa8778 100644
+--- a/drivers/infiniband/core/verbs.c
++++ b/drivers/infiniband/core/verbs.c
+@@ -925,3 +925,13 @@ int ib_detach_mcast(struct ib_qp *qp, union ib_gid *gid, u16 lid)
+ 	return qp->device->detach_mcast(qp, gid, lid);
+ }
+ EXPORT_SYMBOL(ib_detach_mcast);
 +
- static const struct ib_field grh_table[]  = {
- 	{ STRUCT_FIELD(grh, ip_version),
- 	  .offset_words = 0,
-@@ -241,6 +264,53 @@ void ib_ud_header_init(int     		    payload_bytes,
- EXPORT_SYMBOL(ib_ud_header_init);
- 
- /**
-+ * ib_rdmaoe_ud_header_init - Initialize UD header structure
-+ * @payload_bytes:Length of packet payload
-+ * @grh_present:GRH flag (if non-zero, GRH will be included)
-+ * @header:Structure to initialize
-+ *
-+ * ib_rdmaoe_ud_header_init() initializes the grh.ip_version, grh.payload_length,
-+ * grh.next_header, bth.opcode, bth.pad_count and
-+ * bth.transport_header_version fields of a &struct eth_ud_header given
-+ * the payload length and whether a GRH will be included.
-+ */
-+void ib_rdmaoe_ud_header_init(int     		    payload_bytes,
-+			   int    		    grh_present,
-+			   struct eth_ud_header    *header)
++int ib_get_mac(struct ib_device *device, u8 port, u8 *gid, u8 *mac)
 +{
-+	int header_len;
++	if (!device->get_mac)
++		return -ENOSYS;
 +
-+	memset(header, 0, sizeof *header);
-+
-+	header_len =
-+		sizeof header->eth  +
-+		IB_BTH_BYTES  +
-+		IB_DETH_BYTES;
-+	if (grh_present)
-+		header_len += IB_GRH_BYTES;
-+
-+	header->grh_present          = grh_present;
-+	if (grh_present) {
-+		header->grh.ip_version      = 6;
-+		header->grh.payload_length  =
-+			cpu_to_be16((IB_BTH_BYTES     +
-+				     IB_DETH_BYTES    +
-+				     payload_bytes    +
-+				     4                + /* ICRC     */
-+				     3) & ~3);          /* round up */
-+		header->grh.next_header     = 0x1b;
-+	}
-+
-+	if (header->immediate_present)
-+		header->bth.opcode           = IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE;
-+	else
-+		header->bth.opcode           = IB_OPCODE_UD_SEND_ONLY;
-+	header->bth.pad_count                = (4 - payload_bytes) & 3;
-+	header->bth.transport_header_version = 0;
++	return device->get_mac(device, port, gid, mac);
 +}
-+EXPORT_SYMBOL(ib_rdmaoe_ud_header_init);
++EXPORT_SYMBOL(ib_get_mac);
 +
-+/**
-  * ib_ud_header_pack - Pack UD header struct into wire format
-  * @header:UD header struct
-  * @buf:Buffer to pack into
-@@ -281,6 +351,47 @@ int ib_ud_header_pack(struct ib_ud_header *header,
- EXPORT_SYMBOL(ib_ud_header_pack);
- 
- /**
-+ * rdmaoe_ud_header_pack - Pack UD header struct into eth wire format
-+ * @header:UD header struct
-+ * @buf:Buffer to pack into
-+ *
-+ * ib_ud_header_pack() packs the UD header structure @header into wire
-+ * format in the buffer @buf.
-+ */
-+int rdmaoe_ud_header_pack(struct eth_ud_header *header,
-+		       void                 *buf)
-+{
-+	int len = 0;
-+
-+	ib_pack(eth_table, ARRAY_SIZE(eth_table),
-+		&header->eth, buf);
-+	len += IB_ETH_BYTES;
-+
-+	if (header->grh_present) {
-+		ib_pack(grh_table, ARRAY_SIZE(grh_table),
-+			&header->grh, buf + len);
-+		len += IB_GRH_BYTES;
-+	}
-+
-+	ib_pack(bth_table, ARRAY_SIZE(bth_table),
-+		&header->bth, buf + len);
-+	len += IB_BTH_BYTES;
-+
-+	ib_pack(deth_table, ARRAY_SIZE(deth_table),
-+		&header->deth, buf + len);
-+	len += IB_DETH_BYTES;
-+
-+	if (header->immediate_present) {
-+		memcpy(buf + len, &header->immediate_data,
-+		       sizeof header->immediate_data);
-+		len += sizeof header->immediate_data;
-+	}
-+
-+	return len;
-+}
-+EXPORT_SYMBOL(rdmaoe_ud_header_pack);
-+
-+/**
-  * ib_ud_header_unpack - Unpack UD header struct from wire format
-  * @header:UD header struct
-  * @buf:Buffer to pack into
-diff --git a/include/rdma/ib_pack.h b/include/rdma/ib_pack.h
-index d7fc45c..bf199eb 100644
---- a/include/rdma/ib_pack.h
-+++ b/include/rdma/ib_pack.h
-@@ -37,6 +37,7 @@
+diff --git a/include/rdma/ib_user_verbs.h b/include/rdma/ib_user_verbs.h
+index a17f771..49eee8a 100644
+--- a/include/rdma/ib_user_verbs.h
++++ b/include/rdma/ib_user_verbs.h
+@@ -42,7 +42,7 @@
+  * Increment this value if any changes that break userspace ABI
+  * compatibility are made.
+  */
+-#define IB_USER_VERBS_ABI_VERSION	6
++#define IB_USER_VERBS_ABI_VERSION	7
  
  enum {
- 	IB_LRH_BYTES  = 8,
-+	IB_ETH_BYTES  = 14,
- 	IB_GRH_BYTES  = 40,
- 	IB_BTH_BYTES  = 12,
- 	IB_DETH_BYTES = 8
-@@ -210,6 +211,14 @@ struct ib_unpacked_deth {
- 	__be32       source_qpn;
+ 	IB_USER_VERBS_CMD_GET_CONTEXT,
+@@ -81,7 +81,8 @@ enum {
+ 	IB_USER_VERBS_CMD_MODIFY_SRQ,
+ 	IB_USER_VERBS_CMD_QUERY_SRQ,
+ 	IB_USER_VERBS_CMD_DESTROY_SRQ,
+-	IB_USER_VERBS_CMD_POST_SRQ_RECV
++	IB_USER_VERBS_CMD_POST_SRQ_RECV,
++	IB_USER_VERBS_CMD_GET_MAC
  };
  
-+struct ib_unpacked_eth {
-+	u8	dmac_h[4];
-+	u8	dmac_l[2];
-+	u8	smac_h[2];
-+	u8	smac_l[4];
-+	__be16	type;
-+};
-+
- struct ib_ud_header {
- 	struct ib_unpacked_lrh  lrh;
- 	int                     grh_present;
-@@ -220,6 +229,16 @@ struct ib_ud_header {
- 	__be32         		immediate_data;
+ /*
+@@ -205,7 +206,8 @@ struct ib_uverbs_query_port_resp {
+ 	__u8  active_width;
+ 	__u8  active_speed;
+ 	__u8  phys_state;
+-	__u8  reserved[3];
++	__u8  transport;
++	__u8  reserved[2];
  };
  
-+struct eth_ud_header {
-+	struct ib_unpacked_eth  eth;
-+	int                     grh_present;
-+	struct ib_unpacked_grh  grh;
-+	struct ib_unpacked_bth  bth;
-+	struct ib_unpacked_deth deth;
-+	int            		immediate_present;
-+	__be32         		immediate_data;
+ struct ib_uverbs_alloc_pd {
+@@ -621,6 +623,19 @@ struct ib_uverbs_destroy_ah {
+ 	__u32 ah_handle;
+ };
+ 
++struct ib_uverbs_get_mac {
++	__u64	response;
++	__u32	pd_handle;
++	__u8	port;
++	__u8	reserved[3];
++	__u8	gid[16];
 +};
 +
- void ib_pack(const struct ib_field        *desc,
- 	     int                           desc_len,
- 	     void                         *structure,
-@@ -234,10 +253,17 @@ void ib_ud_header_init(int     		   payload_bytes,
- 		       int    		   grh_present,
- 		       struct ib_ud_header *header);
- 
-+void ib_rdmaoe_ud_header_init(int     		   payload_bytes,
-+			   int    		   grh_present,
-+			   struct eth_ud_header   *header);
++struct ib_uverbs_get_mac_resp {
++	__u8	mac[6];
++	__u16	reserved;
++};
 +
- int ib_ud_header_pack(struct ib_ud_header *header,
- 		      void                *buf);
- 
- int ib_ud_header_unpack(void                *buf,
- 			struct ib_ud_header *header);
- 
-+int rdmaoe_ud_header_pack(struct eth_ud_header *header,
-+		       void                 *buf);
+ struct ib_uverbs_attach_mcast {
+ 	__u8  gid[16];
+ 	__u32 qp_handle;
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index d9146c4..bf6e860 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1131,6 +1131,9 @@ struct ib_device {
+ 						  struct ib_grh *in_grh,
+ 						  struct ib_mad *in_mad,
+ 						  struct ib_mad *out_mad);
++	int                        (*get_mac)(struct ib_device *device, u8 port,
++					      u8 *gid, u8 *mac);
 +
- #endif /* IB_PACK_H */
+ 
+ 	struct ib_dma_mapping_ops   *dma_ops;
+ 
+@@ -2037,4 +2040,13 @@ int ib_attach_mcast(struct ib_qp *qp, union ib_gid *gid, u16 lid);
+  */
+ int ib_detach_mcast(struct ib_qp *qp, union ib_gid *gid, u16 lid);
+ 
++/**
++  * ib_get_mac - get the mac address for the specified gid
++  * @device: IB device used for traffic
++  * @port: port number used.
++  * @gid: gid to be resolved into mac
++  * @mac: mac of the port bearing this gid
++  */
++int ib_get_mac(struct ib_device *device, u8 port, u8 *gid, u8 *mac);
++
+ #endif /* IB_VERBS_H */
 -- 
 1.6.5.2
 
