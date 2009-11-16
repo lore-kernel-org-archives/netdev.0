@@ -1,134 +1,89 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v6 3/7 RFC] TCPCT part 1c: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS
-Date: Mon, 16 Nov 2009 15:40:14 -0500
-Message-ID: <4B01B8AE.50105@gmail.com>
-References: <4AFCDA9E.8050003@gmail.com>  <4AFCE13B.4060006@gmail.com> <1258137443.16857.124.camel@Joe-Laptop.home> <4AFDB740.3060509@gmail.com> <4AFED025.1060202@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: sparse vs. skbuff.h
+Date: Mon, 16 Nov 2009 21:42:52 +0100
+Message-ID: <4B01B94C.4050401@gmail.com>
+References: <1258399271.32159.39.camel@johannes.local>	 <1258399627.32159.41.camel@johannes.local>	 <4B01AD5F.7020402@gmail.com> <19f34abd0911161223s3ead190aka62bf4295a3f935@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050801030803040205090708"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:49336 "EHLO
-	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869AbZKPUkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 15:40:11 -0500
-Received: by ywh40 with SMTP id 40so3476124ywh.33
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 12:40:17 -0800 (PST)
-In-Reply-To: <4AFED025.1060202@gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34456 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752432AbZKPUnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 15:43:05 -0500
+In-Reply-To: <19f34abd0911161223s3ead190aka62bf4295a3f935@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050801030803040205090708
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Vegard Nossum a =C3=A9crit :
+> 2009/11/16 Eric Dumazet <eric.dumazet@gmail.com>:
+>> Johannes Berg a =C3=A9crit :
+>>> On Mon, 2009-11-16 at 20:21 +0100, Johannes Berg wrote:
+>>>> commit 14d18a81b5171d4433e41129619c75748b4f4d26
+>>>> Author: Eric Dumazet <eric.dumazet@gmail.com>
+>>>> Date:   Thu Oct 29 00:10:37 2009 +0000
+>>>>
+>>>>     net: fix kmemcheck annotations
+>>>>
+>>>>
+>>>> broke sparse endian checks on everything that includes skbuff.h be=
+cause
+>>>> the first and only (because it's an error) thing sparse now report=
+s is
+>>>> this:
+>>>>
+>>>> include/linux/skbuff.h:357:41: error: invalid bitfield specifier f=
+or type restricted __be16.
+>>> Simply changing from
+>>>       __be16 protocol:16;
+>>> to
+>>>       __be16 protocol;
+>>>
+>>> but leaving it inside the kmemcheck annotation seems to do the righ=
+t
+>>> thing. Except of course that kmemcheck will not properly check it n=
+ow.
+>>> Maybe those annotations should simply be made to have no impact on
+>>> struct padding instead?
+>>>
+>> Hmm, I have really no idea of what is the right way to fix this stuf=
+f.
+>>
+>> Last time I did adding a non bitfield element inside the begin/end a=
+nnotations,
+>> I was flamed, because a bitfield is a bitfield, not a char/short
+>>
+>> http://www.spinics.net/lists/netdev/msg108803.html
+>>
+>> Now sparse is complaining... What will be the next story ?
+>=20
+> If by "I was flamed" you are referring to my reply:
+>=20
+> http://www.spinics.net/lists/netdev/msg108825.html
+>=20
+> then I am really sorry, because I had no intentions to insult you. In
+> fact, I am grateful that you are finding bugs and telling me about
+> them But I should also be allowed to disagree with a patch if I truly
+> believe it is the wrong thing to do.
 
-Improved Documentation to match existing code:
+Oh well, maybe flamed is not the right word Vegard, and I did not feel
+being insulted at all ! Sorry if the tone of my mail was misleading.
 
-   Odd values are interpreted as the next even value.
+>=20
+> For the issue in question: If the variable is turned into a
+> non-bitfield (as Johannes suggested), it would be fine, because now
+> GCC won't emit masking operations (AND, OR) when initializing it, but
+> a regular MOV. Also, the struct annotations do not by themselves do
+> anything, but they are used by kmemcheck_annotate_bitfield().
+>=20
+> In other words, I think the right thing to do is to turn it into a
+> non-bitfield and move it _outside_ the bitfield annotation. Johannes,
+> can you make the patch and let us have a look? In the meantime I will
+> submit the patch that fixes the extraneous field padding in
+> KMEMCHECK=3Dn kernels.
+>=20
 
---------------050801030803040205090708
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1c6+.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="TCPCT+1c6+.patch"
-
-ZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0IGIv
-RG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0bC50eHQKaW5kZXggYTBlMTM0ZC4u
-ODIwZGQ0YiAxMDA2NDQKLS0tIGEvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0
-bC50eHQKKysrIGIvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0bC50eHQKQEAg
-LTE2NCw2ICsxNjQsMTQgQEAgdGNwX2Nvbmdlc3Rpb25fY29udHJvbCAtIFNUUklORwogCWFk
-ZGl0aW9uYWwgY2hvaWNlcyBtYXkgYmUgYXZhaWxhYmxlIGJhc2VkIG9uIGtlcm5lbCBjb25m
-aWd1cmF0aW9uLgogCURlZmF1bHQgaXMgc2V0IGFzIHBhcnQgb2Yga2VybmVsIGNvbmZpZ3Vy
-YXRpb24uCiAKK3RjcF9jb29raWVfc2l6ZSAtIElOVEVHRVIKKwlEZWZhdWx0IHNpemUgb2Yg
-VENQIENvb2tpZSBUcmFuc2FjdGlvbnMgKFRDUENUKSBvcHRpb24sIHRoYXQgbWF5IGJlCisJ
-b3ZlcnJpZGRlbiBvbiBhIHBlciBzb2NrZXQgYmFzaXMgYnkgdGhlIFRDUENUIHNvY2tldCBv
-cHRpb24uCisJVmFsdWVzIGdyZWF0ZXIgdGhhbiB0aGUgbWF4aW11bSAoMTYpIGFyZSBpbnRl
-cnByZXRlZCBhcyB0aGUgbWF4aW11bS4KKwlWYWx1ZXMgZ3JlYXRlciB0aGFuIHplcm8gYW5k
-IGxlc3MgdGhhbiB0aGUgbWluaW11bSAoOCkgYXJlIGludGVycHJldGVkCisJYXMgdGhlIG1p
-bmltdW0uICBPZGQgdmFsdWVzIGFyZSBpbnRlcnByZXRlZCBhcyB0aGUgbmV4dCBldmVuIHZh
-bHVlLgorCURlZmF1bHQ6IDAgKG9mZikuCisKIHRjcF9kc2FjayAtIEJPT0xFQU4KIAlBbGxv
-d3MgVENQIHRvIHNlbmQgImR1cGxpY2F0ZSIgU0FDS3MuCiAKZGlmZiAtLWdpdCBhL2luY2x1
-ZGUvbGludXgvdGNwLmggYi9pbmNsdWRlL2xpbnV4L3RjcC5oCmluZGV4IDMyZDdkNzcuLmVh
-YTMxMTMgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGNwLmgKKysrIGIvaW5jbHVkZS9s
-aW51eC90Y3AuaApAQCAtMTAyLDcgKzEwMiw5IEBAIGVudW0gewogI2RlZmluZSBUQ1BfUVVJ
-Q0tBQ0sJCTEyCS8qIEJsb2NrL3JlZW5hYmxlIHF1aWNrIGFja3MgKi8KICNkZWZpbmUgVENQ
-X0NPTkdFU1RJT04JCTEzCS8qIENvbmdlc3Rpb24gY29udHJvbCBhbGdvcml0aG0gKi8KICNk
-ZWZpbmUgVENQX01ENVNJRwkJMTQJLyogVENQIE1ENSBTaWduYXR1cmUgKFJGQzIzODUpICov
-CisjZGVmaW5lIFRDUF9DT09LSUVfVFJBTlNBQ1RJT05TCTE1CS8qIFRDUCBDb29raWUgVHJh
-bnNhY3Rpb25zICovCiAKKy8qIGZvciBUQ1BfSU5GTyBzb2NrZXQgb3B0aW9uICovCiAjZGVm
-aW5lIFRDUElfT1BUX1RJTUVTVEFNUFMJMQogI2RlZmluZSBUQ1BJX09QVF9TQUNLCQkyCiAj
-ZGVmaW5lIFRDUElfT1BUX1dTQ0FMRQkJNApAQCAtMTc0LDYgKzE3NiwzMCBAQCBzdHJ1Y3Qg
-dGNwX21kNXNpZyB7CiAJX191OAl0Y3BtX2tleVtUQ1BfTUQ1U0lHX01BWEtFWUxFTl07CQkv
-KiBrZXkgKGJpbmFyeSkgKi8KIH07CiAKKy8qIGZvciBUQ1BfQ09PS0lFX1RSQU5TQUNUSU9O
-UyAoVENQQ1QpIHNvY2tldCBvcHRpb24gKi8KKyNkZWZpbmUgVENQX0NPT0tJRV9NSU4JCSA4
-CQkvKiAgNjQtYml0cyAqLworI2RlZmluZSBUQ1BfQ09PS0lFX01BWAkJMTYJCS8qIDEyOC1i
-aXRzICovCisjZGVmaW5lIFRDUF9DT09LSUVfUEFJUl9TSVpFCSgyKlRDUF9DT09LSUVfTUFY
-KQorCisvKiBGbGFncyBmb3IgYm90aCBnZXRzb2Nrb3B0IGFuZCBzZXRzb2Nrb3B0ICovCisj
-ZGVmaW5lIFRDUF9DT09LSUVfSU5fQUxXQVlTCSgxIDw8IDApCS8qIERpc2NhcmQgU1lOIHdp
-dGhvdXQgY29va2llICovCisjZGVmaW5lIFRDUF9DT09LSUVfT1VUX05FVkVSCSgxIDw8IDEp
-CS8qIFByb2hpYml0IG91dGdvaW5nIGNvb2tpZXMsCisJCQkJCQkgKiBzdXBlcmNlZGVzIGV2
-ZXJ5dGhpbmcuICovCisKKy8qIEZsYWdzIGZvciBnZXRzb2Nrb3B0ICovCisjZGVmaW5lIFRD
-UF9TX0RBVEFfSU4JCSgxIDw8IDIpCS8qIFdhcyBkYXRhIHJlY2VpdmVkPyAqLworI2RlZmlu
-ZSBUQ1BfU19EQVRBX09VVAkJKDEgPDwgMykJLyogV2FzIGRhdGEgc2VudD8gKi8KKworLyog
-VENQX0NPT0tJRV9UUkFOU0FDVElPTlMgZGF0YSAqLworc3RydWN0IHRjcF9jb29raWVfdHJh
-bnNhY3Rpb25zIHsKKwlfX3UxNgl0Y3BjdF9mbGFnczsJCQkvKiBzZWUgYWJvdmUgKi8KKwlf
-X3U4CV9fdGNwY3RfcGFkMTsJCQkvKiB6ZXJvICovCisJX191OAl0Y3BjdF9jb29raWVfZGVz
-aXJlZDsJCS8qIGJ5dGVzICovCisJX191MTYJdGNwY3Rfc19kYXRhX2Rlc2lyZWQ7CQkvKiBi
-eXRlcyBvZiB2YXJpYWJsZSBkYXRhICovCisJX191MTYJdGNwY3RfdXNlZDsJCQkvKiBieXRl
-cyBpbiB2YWx1ZSAqLworCV9fdTgJdGNwY3RfdmFsdWVbVENQX01TU19ERUZBVUxUXTsKK307
-CisKICNpZmRlZiBfX0tFUk5FTF9fCiAKICNpbmNsdWRlIDxsaW51eC9za2J1ZmYuaD4KQEAg
-LTIyNyw2ICsyNTMsMTEgQEAgc3RydWN0IHRjcF9vcHRpb25zX3JlY2VpdmVkIHsKIAl1MTYJ
-bXNzX2NsYW1wOwkvKiBNYXhpbWFsIG1zcywgbmVnb3RpYXRlZCBhdCBjb25uZWN0aW9uIHNl
-dHVwICovCiB9OwogCitzdGF0aWMgaW5saW5lIHZvaWQgdGNwX2NsZWFyX29wdGlvbnMoc3Ry
-dWN0IHRjcF9vcHRpb25zX3JlY2VpdmVkICpyeF9vcHQpCit7CisJcnhfb3B0LT50c3RhbXBf
-b2sgPSByeF9vcHQtPnNhY2tfb2sgPSByeF9vcHQtPndzY2FsZV9vayA9IHJ4X29wdC0+c25k
-X3dzY2FsZSA9IDA7Cit9CisKIC8qIFRoaXMgaXMgdGhlIG1heCBudW1iZXIgb2YgU0FDS1Mg
-dGhhdCB3ZSdsbCBnZW5lcmF0ZSBhbmQgcHJvY2Vzcy4gSXQncyBzYWZlCiAgKiB0byBpbmNy
-ZXNlIHRoaXMsIGFsdGhvdWdoIHNpbmNlOgogICogICBzaXplID0gVENQT0xFTl9TQUNLX0JB
-U0VfQUxJR05FRCAoNCkgKyBuICogVENQT0xFTl9TQUNLX1BFUkJMT0NLICg4KQpAQCAtNDM1
-LDYgKzQ2Niw2IEBAIHN0YXRpYyBpbmxpbmUgc3RydWN0IHRjcF90aW1ld2FpdF9zb2NrICp0
-Y3BfdHdzayhjb25zdCBzdHJ1Y3Qgc29jayAqc2spCiAJcmV0dXJuIChzdHJ1Y3QgdGNwX3Rp
-bWV3YWl0X3NvY2sgKilzazsKIH0KIAotI2VuZGlmCisjZW5kaWYJLyogX19LRVJORUxfXyAq
-LwogCiAjZW5kaWYJLyogX0xJTlVYX1RDUF9IICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL25l
-dC90Y3AuaCBiL2luY2x1ZGUvbmV0L3RjcC5oCmluZGV4IDRhOTlhOGUuLjczOGI2NWYgMTAw
-NjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L3RjcC5oCisrKyBiL2luY2x1ZGUvbmV0L3RjcC5oCkBA
-IC0yMzQsNiArMjM0LDcgQEAgZXh0ZXJuIGludCBzeXNjdGxfdGNwX2Jhc2VfbXNzOwogZXh0
-ZXJuIGludCBzeXNjdGxfdGNwX3dvcmthcm91bmRfc2lnbmVkX3dpbmRvd3M7CiBleHRlcm4g
-aW50IHN5c2N0bF90Y3Bfc2xvd19zdGFydF9hZnRlcl9pZGxlOwogZXh0ZXJuIGludCBzeXNj
-dGxfdGNwX21heF9zc3RocmVzaDsKK2V4dGVybiBpbnQgc3lzY3RsX3RjcF9jb29raWVfc2l6
-ZTsKIAogZXh0ZXJuIGF0b21pY190IHRjcF9tZW1vcnlfYWxsb2NhdGVkOwogZXh0ZXJuIHN0
-cnVjdCBwZXJjcHVfY291bnRlciB0Y3Bfc29ja2V0c19hbGxvY2F0ZWQ7CkBAIC0zNDAsMTEg
-KzM0MSw2IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCB0Y3BfZGVjX3F1aWNrYWNrX21vZGUoc3Ry
-dWN0IHNvY2sgKnNrLAogCiBleHRlcm4gdm9pZCB0Y3BfZW50ZXJfcXVpY2thY2tfbW9kZShz
-dHJ1Y3Qgc29jayAqc2spOwogCi1zdGF0aWMgaW5saW5lIHZvaWQgdGNwX2NsZWFyX29wdGlv
-bnMoc3RydWN0IHRjcF9vcHRpb25zX3JlY2VpdmVkICpyeF9vcHQpCi17Ci0gCXJ4X29wdC0+
-dHN0YW1wX29rID0gcnhfb3B0LT5zYWNrX29rID0gcnhfb3B0LT53c2NhbGVfb2sgPSByeF9v
-cHQtPnNuZF93c2NhbGUgPSAwOwotfQotCiAjZGVmaW5lCVRDUF9FQ05fT0sJCTEKICNkZWZp
-bmUJVENQX0VDTl9RVUVVRV9DV1IJMgogI2RlZmluZQlUQ1BfRUNOX0RFTUFORF9DV1IJNApk
-aWZmIC0tZ2l0IGEvbmV0L2lwdjQvc3lzY3RsX25ldF9pcHY0LmMgYi9uZXQvaXB2NC9zeXNj
-dGxfbmV0X2lwdjQuYwppbmRleCAyZGNmMDRkLi4zNDIyYzU0IDEwMDY0NAotLS0gYS9uZXQv
-aXB2NC9zeXNjdGxfbmV0X2lwdjQuYworKysgYi9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQu
-YwpAQCAtNzE0LDYgKzcxNCwxNCBAQCBzdGF0aWMgc3RydWN0IGN0bF90YWJsZSBpcHY0X3Rh
-YmxlW10gPSB7CiAJfSwKIAl7CiAJCS5jdGxfbmFtZQk9IENUTF9VTk5VTUJFUkVELAorCQku
-cHJvY25hbWUJPSAidGNwX2Nvb2tpZV9zaXplIiwKKwkJLmRhdGEJCT0gJnN5c2N0bF90Y3Bf
-Y29va2llX3NpemUsCisJCS5tYXhsZW4JCT0gc2l6ZW9mKGludCksCisJCS5tb2RlCQk9IDA2
-NDQsCisJCS5wcm9jX2hhbmRsZXIJPSBwcm9jX2RvaW50dmVjCisJfSwKKwl7CisJCS5jdGxf
-bmFtZQk9IENUTF9VTk5VTUJFUkVELAogCQkucHJvY25hbWUJPSAidWRwX21lbSIsCiAJCS5k
-YXRhCQk9ICZzeXNjdGxfdWRwX21lbSwKIAkJLm1heGxlbgkJPSBzaXplb2Yoc3lzY3RsX3Vk
-cF9tZW0pLApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX291dHB1dC5jIGIvbmV0L2lwdjQv
-dGNwX291dHB1dC5jCmluZGV4IDExNTFjYjguLmU1OWZhNWEgMTAwNjQ0Ci0tLSBhL25ldC9p
-cHY0L3RjcF9vdXRwdXQuYworKysgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMKQEAgLTU5LDYg
-KzU5LDE0IEBAIGludCBzeXNjdGxfdGNwX2Jhc2VfbXNzIF9fcmVhZF9tb3N0bHkgPSA1MTI7
-CiAvKiBCeSBkZWZhdWx0LCBSRkMyODYxIGJlaGF2aW9yLiAgKi8KIGludCBzeXNjdGxfdGNw
-X3Nsb3dfc3RhcnRfYWZ0ZXJfaWRsZSBfX3JlYWRfbW9zdGx5ID0gMTsKIAorI2lmZGVmIENP
-TkZJR19TWVNDVEwKKy8qIEJ5IGRlZmF1bHQsIGxldCB0aGUgdXNlciBlbmFibGUgaXQuICov
-CitpbnQgc3lzY3RsX3RjcF9jb29raWVfc2l6ZSBfX3JlYWRfbW9zdGx5ID0gMDsKKyNlbHNl
-CitpbnQgc3lzY3RsX3RjcF9jb29raWVfc2l6ZSBfX3JlYWRfbW9zdGx5ID0gVENQX0NPT0tJ
-RV9NQVg7CisjZW5kaWYKKworCiAvKiBBY2NvdW50IGZvciBuZXcgZGF0YSB0aGF0IGhhcyBi
-ZWVuIHNlbnQgdG8gdGhlIG5ldHdvcmsuICovCiBzdGF0aWMgdm9pZCB0Y3BfZXZlbnRfbmV3
-X2RhdGFfc2VudChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCiB7Cg==
---------------050801030803040205090708--
+Thanks
