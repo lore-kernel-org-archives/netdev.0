@@ -1,43 +1,57 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] ixgbe: Fixing EEH handler to handle more than one error
-Date: Mon, 16 Nov 2009 11:01:13 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0911161100030.16132@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <1257878267-7489-1-git-send-email-leitao@linux.vnet.ibm.com>
- <20091115.221628.243358818.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] dev->refcnt long term holder
+Date: Mon, 16 Nov 2009 11:02:07 -0800
+Message-ID: <20091116110207.08b60c81@nehalam>
+References: <4B019381.2010509@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32761 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:37519 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752731AbZKPTBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2009 14:01:08 -0500
-In-Reply-To: <20091115.221628.243358818.davem@davemloft.net>
+	id S1753794AbZKPTC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Nov 2009 14:02:26 -0500
+In-Reply-To: <4B019381.2010509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 15 Nov 2009, David Miller wrote:
+On Mon, 16 Nov 2009 19:01:37 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> From: leitao@linux.vnet.ibm.com
-> Date: Tue, 10 Nov 2009 13:37:47 -0500
+> time ip link del eth3.103 ; time ip link del eth3.104 ; time ip link del eth3.105
 > 
-> > After commmit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff EEH breaks
-> > after the second error, since it calls pci_restore_state()
-> > but it returns 0, since pci->state_saved is false.
-> > 
-> > So, this patch just call pci_save_state() after pci_restore_state().
-> > 
-> > Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> real	0m0.266s
+> user	0m0.000s
+> sys	0m0.001s
 > 
-> Intel folks, are you integrating or looking at this patch?
+> real	0m0.770s
+> user	0m0.000s
+> sys	0m0.000s
+> 
+> real	0m1.022s
+> user	0m0.000s
+> sys	0m0.000s
+> 
+> 
+> One problem of current schem in vlan dismantle phase is the
+> holding of device done by following chain :
+> 
+> vlan_dev_stop() ->
+> 	netif_carrier_off(dev) ->
+> 		linkwatch_fire_event(dev) ->
+> 			dev_hold() ...
+> 
+> And __linkwatch_run_queue() run up to one second later...
+> 
+> Is following patch one way to avoid the problem, or should
+> we add a new linkwatch_forgetpro_device(dev) method to immediately
+> release the device reference (and unlink device from the list) ?
+> (This would probably need a doubly linked list instead of single link list)
 
-This patch looks correct and makes sense to me.  I'm going to ACK it now, 
-but we'll still pull it in and test it.  If we see any issues, we'll 
-report them with possible fixes.  But at this point, I think this patch is 
-fine.
+Or both..
 
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+-- 
