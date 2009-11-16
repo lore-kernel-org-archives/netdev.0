@@ -1,54 +1,53 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 1/3] Bluetooth: Set general bonding security for ACL by default
-Date: Mon, 16 Nov 2009 01:48:21 +0100
-Message-ID: <93f19c9fc8c98bb6d2e9825115989603ffd5cd1f.1258331614.git.marcel@holtmann.org>
-References: <cover.1258331614.git.marcel@holtmann.org>
+Subject: Pull request: bluetooth-2.6 2009-11-16
+Date: Mon, 16 Nov 2009 01:48:20 +0100
+Message-ID: <cover.1258331614.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:46538 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:46536 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577AbZKPAs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:48:26 -0500
-In-Reply-To: <cover.1258331614.git.marcel@holtmann.org>
-In-Reply-To: <cover.1258331614.git.marcel@holtmann.org>
-References: <cover.1258331614.git.marcel@holtmann.org>
+	with ESMTP id S1752152AbZKPAsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:48:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrei Emeltchenko <andrei.emeltchenko@nokia.com>
+Hi Dave,
 
-This patch fixes double pairing issues with Secure Simple
-Paring support. It was observed that when pairing with SSP
-enabled, that the confirmation will be asked twice.
+here are three additional patches that should go into 2.6.32 before its
+final release.
 
-http://www.spinics.net/lists/linux-bluetooth/msg02473.html
+The first one fixes a regression with Secure Simple Pairing support. I
+had that patch for a while, but it took some time to verify that it
+doesn't break the Bluetooth qualification. The Bluetooth 2.1 GAP testing
+is a major pain and always surprises you.
 
-This also causes bug when initiating SSP connection from
-Windows Vista.
+The second and third patches are fixing two regression from the L2CAP
+ERTM support. When ERTM is not supported or not configured we have to
+use Basic Mode and really stick to it. Other Bluetooth stacks are not
+capable of handling unknown options properly.
 
-The reason is because bluetoothd does not store link keys
-since HCIGETAUTHINFO returns 0. Setting default to general
-bonding fixes these issues.
+Regards
 
-Signed-off-by: Andrei Emeltchenko <andrei.emeltchenko@nokia.com>
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
+Marcel
+
+
+Please pull from
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
+
+This will update the following files:
+
  net/bluetooth/hci_conn.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c    |   13 +++++++++----
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index a975098..b7c4224 100644
---- a/net/bluetooth/hci_conn.c
-+++ b/net/bluetooth/hci_conn.c
-@@ -211,6 +211,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst)
- 	conn->type  = type;
- 	conn->mode  = HCI_CM_ACTIVE;
- 	conn->state = BT_OPEN;
-+	conn->auth_type = HCI_AT_GENERAL_BONDING;
- 
- 	conn->power_save = 1;
- 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
--- 
-1.6.2.5
+through these ChangeSets:
+
+Andrei Emeltchenko (1):
+    Bluetooth: Set general bonding security for ACL by default
+
+Gustavo F. Padovan (2):
+    Bluetooth: Select Basic Mode as default for SOCK_SEQPACKET
+    Bluetooth: Fix regression with L2CAP configuration in Basic Mode
 
