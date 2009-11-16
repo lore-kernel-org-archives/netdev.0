@@ -1,146 +1,59 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 2/2] act_mirred: optimization
-Date: Mon, 16 Nov 2009 16:56:51 +0800
-Message-ID: <412e6f7f0911160056k6718dd55w6dcd7c7e673459c4@mail.gmail.com>
+From: zeal <zealcook@gmail.com>
+Subject: KS8695: problem with ethernet driver
+Date: Mon, 16 Nov 2009 17:23:32 +0800
+Message-ID: <efc9214f0911160123t31d7df31tc1afcbd5129b7d86@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+Cc: "Figo.zhang" <figo1802@gmail.com>,
+	Vincent Sanders <vince@simtec.co.uk>,
+	Ben Dooks <ben@simtec.co.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:61554 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbZKPI4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 03:56:46 -0500
-Received: by pwi3 with SMTP id 3so3147054pwi.21
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 00:56:51 -0800 (PST)
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:39979 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbZKPJX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 04:23:29 -0500
+Received: by yxe17 with SMTP id 17so4539926yxe.33
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 01:23:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-act_mirred: optimization.
+Hi,
 
-1. move checking if eaction is valid in tcf_mirred_init()
-2. fixed a race condition between __dev_get_by_index() and dev_get()
+I've two questions on the ks8695.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- act_mirred.c |   67
- +++++++++++++++++++++++++++++------------------------------
-  1 file changed, 34 insertions(+), 33 deletions(-)
---- a/net/sched/act_mirred.c	2009-11-16 16:21:21.000000000 +0800
-+++ b/net/sched/act_mirred.c	2009-11-16 16:25:37.000000000 +0800
-@@ -65,52 +65,61 @@
- 	struct tc_mirred *parm;
- 	struct tcf_mirred *m;
- 	struct tcf_common *pc;
--	struct net_device *dev = NULL;
--	int ret = 0, err;
--	int ok_push = 0;
-+	struct net_device *dev;
-+	int ret, ok_push = 0;
+1. We knew recently Figo.zhang has added NAPI support for ks8695 net driver.
+Thanks him. But on our ks8695 board it couldn't work well as i thought.
+We used net-next-git kernel.
 
- 	if (nla == NULL)
- 		return -EINVAL;
--
--	err = nla_parse_nested(tb, TCA_MIRRED_MAX, nla, mirred_policy);
--	if (err < 0)
--		return err;
--
-+	ret = nla_parse_nested(tb, TCA_MIRRED_MAX, nla, mirred_policy);
-+	if (ret < 0)
-+		return ret;
- 	if (tb[TCA_MIRRED_PARMS] == NULL)
- 		return -EINVAL;
- 	parm = nla_data(tb[TCA_MIRRED_PARMS]);
--
-+	switch (parm->eaction) {
-+	case TCA_EGRESS_MIRROR:
-+	case TCA_EGRESS_REDIR:
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
- 	if (parm->ifindex) {
--		dev = __dev_get_by_index(&init_net, parm->ifindex);
-+		dev = dev_get_by_index(&init_net, parm->ifindex);
- 		if (dev == NULL)
- 			return -ENODEV;
- 		switch (dev->type) {
--			case ARPHRD_TUNNEL:
--			case ARPHRD_TUNNEL6:
--			case ARPHRD_SIT:
--			case ARPHRD_IPGRE:
--			case ARPHRD_VOID:
--			case ARPHRD_NONE:
--				ok_push = 0;
--				break;
--			default:
--				ok_push = 1;
--				break;
-+		case ARPHRD_TUNNEL:
-+		case ARPHRD_TUNNEL6:
-+		case ARPHRD_SIT:
-+		case ARPHRD_IPGRE:
-+		case ARPHRD_VOID:
-+		case ARPHRD_NONE:
-+			ok_push = 0;
-+			break;
-+		default:
-+			ok_push = 1;
-+			break;
- 		}
-+	} else {
-+		dev = NULL;
- 	}
+IP layer cannot receive any frame from lan or wan port(s).
 
- 	pc = tcf_hash_check(parm->index, a, bind, &mirred_hash_info);
- 	if (!pc) {
--		if (!parm->ifindex)
-+		if (dev == NULL)
- 			return -EINVAL;
- 		pc = tcf_hash_create(parm->index, est, a, sizeof(*m), bind,
- 				     &mirred_idx_gen, &mirred_hash_info);
--		if (IS_ERR(pc))
--		    return PTR_ERR(pc);
-+		if (IS_ERR(pc)) {
-+			dev_put(dev);
-+			return PTR_ERR(pc);
-+		}
- 		ret = ACT_P_CREATED;
- 	} else {
- 		if (!ovr) {
- 			tcf_mirred_release(to_mirred(pc), bind);
-+			if (dev != NULL)
-+				dev_put(dev);
- 			return -EEXIST;
- 		}
- 	}
-@@ -119,12 +128,11 @@
- 	spin_lock_bh(&m->tcf_lock);
- 	m->tcf_action = parm->action;
- 	m->tcfm_eaction = parm->eaction;
--	if (parm->ifindex) {
-+	if (dev != NULL) {
- 		m->tcfm_ifindex = parm->ifindex;
- 		if (ret != ACT_P_CREATED)
- 			dev_put(m->tcfm_dev);
- 		m->tcfm_dev = dev;
--		dev_hold(dev);
- 		m->tcfm_ok_push = ok_push;
- 	}
- 	spin_unlock_bh(&m->tcf_lock);
-@@ -154,13 +162,6 @@
+After dig into the driver, I found the rx interrupt occurs,
+but the corresponding status bit is not set. So it won't go into napi
+schedule block.
 
- 	spin_lock(&m->tcf_lock);
- 	m->tcf_tm.lastuse = jiffies;
--	if (m->tcfm_eaction != TCA_EGRESS_MIRROR &&
--	    m->tcfm_eaction != TCA_EGRESS_REDIR) {
--		if (net_ratelimit())
--			printk("tcf_mirred unknown action %d\n",
--			       m->tcfm_eaction);
--		goto out;
--	}
+        if (status & mask_bit) {
+                if (napi_schedule_prep(&ksp->napi)) {
+                        /*disable rx interrupt*/
+                        status &= ~mask_bit;
+                        writel(status , KS8695_IRQ_VA + KS8695_INTEN);
+                        __napi_schedule(&ksp->napi);
+                }
+        }
 
- 	dev = m->tcfm_dev;
- 	if (!(dev->flags & IFF_UP)) {
+Does anybody tested this NAPI driver succeeded before? If so it maybe
+hardware issue.
+
+2. It's a extend topic about ks8695. Does the cpu port can tell the
+source port (i.e. lan port ID)
+when it receive a frame from LAN ports? I think a smart switch need
+know where the frame come from
+and then decide where it to go. And many switch-chip in this way.
+The manual can't help me at all as i've done according to it.
+
+Any hint is appreciated.
+
+-- 
+Thanks & Regards
+
+zeal
