@@ -1,53 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: Fix the rollback test in dev_change_name()
-Date: Mon, 16 Nov 2009 03:31:12 -0800 (PST)
-Message-ID: <20091116.033112.150073379.davem@davemloft.net>
-References: <20091116093024.GA13115@ff.dom.local>
-	<20091116.024936.14048478.davem@davemloft.net>
-	<4B0132A6.7090305@gmail.com>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [net-next] bnx2x: Handle Rx and Tx together in NAPI
+Date: Mon, 16 Nov 2009 17:26:33 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81B950C11@zin33exm22.fsl.freescale.net>
+References: <9F4C7D19E8361D4C94921B95BE08B81B950BEF@zin33exm22.fsl.freescale.net><20091116.024130.156214496.davem@davemloft.net><9F4C7D19E8361D4C94921B95BE08B81B950BFF@zin33exm22.fsl.freescale.net> <20091116.030504.268003197.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <vladz@broadcom.com>, <netdev@vger.kernel.org>,
+	<eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60411
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751645AbZKPLa4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2009 06:30:56 -0500
-In-Reply-To: <4B0132A6.7090305@gmail.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:62261 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677AbZKPL4e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 06:56:34 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nAGBuavZ011446
+	for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 04:56:36 -0700 (MST)
+Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id nAGC04KN013247
+	for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 06:00:05 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20091116.030504.268003197.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 16 Nov 2009 12:08:22 +0100
+ 
 
-> David Miller a =E9crit :
->> From: Jarek Poplawski <jarkao2@gmail.com>
->> Date: Mon, 16 Nov 2009 09:30:24 +0000
->>=20
->>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>>
->>> net: Fix the rollback test in dev_change_name()
->>>
->>> In dev_change_name() an err variable is used for storing the origin=
-al
->>> call_netdevice_notifiers() errno (negative) and testing for a rollb=
-ack
->>> error later, but the test for non-zero is wrong, because the err mi=
-ght
->>> have positive value as well - from dev_alloc_name(). It means the
->>> rollback for a netdevice with a number > 0 will never happen. (The =
-err
->>> test is reordered btw. to make it more readable.)
->>>
->>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
- ...
->> Eric please give your signoff and I'll put this where it needs
->> to go.
- ...
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> I was talking about an independent napi routine for cleaning 
+>tx ring, 
+>> I do not want to mix the rx and tx clean ring processes.
+>
+>But you absolutely should do this, it will give optimal performance.
+>
 
-Applied to net-2.6 and queued for -stable, thanks everyone!
+In the current implemnetation, the ->poll() function does the cleanup of
+the tx and rx rings of the same device.
+In case of forwarding scenarios (for eg, eth0 --> eth1) we should clean
+the tx ring of eth1 so that the buffers can be reclaimed and they be
+reused for eth0 RX and same is the case for opposite flow. With the
+current implementation there will be a problem for the bidirectional
+flow as a ->poll() function will try to cleanup the rx and tx ring of
+the same device.
+
+Hence I feel, if we separate out the tx and rx clean ring processes, it
+would be more advantageous as the reclaim process can be more effective.
+
+
+--
+
+Thanks
+Sandeep 
