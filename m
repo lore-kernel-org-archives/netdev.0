@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Optimize hard_start_xmit() return
- checking
-Date: Sun, 15 Nov 2009 22:09:21 -0800 (PST)
-Message-ID: <20091115.220921.65235245.davem@davemloft.net>
-References: <20091115172012.GA2976@ami.dom.local>
+Subject: Re: [net-next 1/2] iwmc3200top: use prefered style for the device
+ table.
+Date: Sun, 15 Nov 2009 22:09:27 -0800 (PST)
+Message-ID: <20091115.220927.136588526.davem@davemloft.net>
+References: <1258223796-8486-1-git-send-email-tomas.winkler@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
+	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	guy.cohen@intel.com, ron.rindjunsky@intel.com
+To: tomas.winkler@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33255
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33257
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751214AbZKPGJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 01:09:05 -0500
-In-Reply-To: <20091115172012.GA2976@ami.dom.local>
+	by vger.kernel.org with ESMTP id S1752283AbZKPGJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 01:09:11 -0500
+In-Reply-To: <1258223796-8486-1-git-send-email-tomas.winkler@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sun, 15 Nov 2009 18:20:12 +0100
+From: Tomas Winkler <tomas.winkler@intel.com>
+Date: Sat, 14 Nov 2009 20:36:35 +0200
 
-> Recent changes in the TX error propagation require additional checking
-> and masking of values returned from hard_start_xmit(), mainly to
-> separate cases where skb was consumed. This aim can be simplified by
-> changing the order of NETDEV_TX and NET_XMIT codes, because the latter
-> are treated similarly to negative (ERRNO) values.
+> Use device id number directly accompany with
+> comment rather then a #define
 > 
-> After this change much simpler dev_xmit_complete() is also used in
-> sch_direct_xmit(), so it is moved to netdevice.h.
-> 
-> Additionally NET_RX definitions in netdevice.h are moved up from
-> between TX codes to avoid confusion while reading the TX comment.
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
 
-Looks good, applied, thanks!
+Applied.
