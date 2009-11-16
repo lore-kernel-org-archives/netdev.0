@@ -1,28 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] bnx2x: Handle Rx and Tx together in NAPI
-Date: Mon, 16 Nov 2009 03:05:04 -0800 (PST)
-Message-ID: <20091116.030504.268003197.davem@davemloft.net>
-References: <9F4C7D19E8361D4C94921B95BE08B81B950BEF@zin33exm22.fsl.freescale.net>
-	<20091116.024130.156214496.davem@davemloft.net>
-	<9F4C7D19E8361D4C94921B95BE08B81B950BFF@zin33exm22.fsl.freescale.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: Fix the rollback test in dev_change_name()
+Date: Mon, 16 Nov 2009 12:08:22 +0100
+Message-ID: <4B0132A6.7090305@gmail.com>
+References: <4AEB7BB1.9000901@gmail.com>	<20091102.000549.114598716.davem@davemloft.net>	<20091116093024.GA13115@ff.dom.local> <20091116.024936.14048478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: B05799@freescale.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56084
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751864AbZKPLEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 06:04:48 -0500
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81B950BFF@zin33exm22.fsl.freescale.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55346 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbZKPLIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 06:08:20 -0500
+In-Reply-To: <20091116.024936.14048478.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Date: Mon, 16 Nov 2009 16:33:56 +0530
+David Miller a =E9crit :
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 16 Nov 2009 09:30:24 +0000
+>=20
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>
+>> net: Fix the rollback test in dev_change_name()
+>>
+>> In dev_change_name() an err variable is used for storing the origina=
+l
+>> call_netdevice_notifiers() errno (negative) and testing for a rollba=
+ck
+>> error later, but the test for non-zero is wrong, because the err mig=
+ht
+>> have positive value as well - from dev_alloc_name(). It means the
+>> rollback for a netdevice with a number > 0 will never happen. (The e=
+rr
+>> test is reordered btw. to make it more readable.)
+>>
+>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Ok.
+>=20
+> Eric please give your signoff and I'll put this where it needs
+> to go.
+>=20
 
-> I was talking about an independent napi routine for cleaning tx ring, I
-> do not want to mix the rx and tx clean ring processes.
+I finaly understood why I got stuck on this one : I thought dev_alloc_n=
+ame()
+was returning 0 in case of success. The test was thus realy obscure for=
+ me.
 
-But you absolutely should do this, it will give optimal performance.
+So Jarek patch is pretty clear now I saw the light !
+
+Thanks
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
