@@ -1,933 +1,503 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [net-next] bnx2x: Handle Rx and Tx together in NAPI
-Date: Mon, 16 Nov 2009 18:05:58 +0200
-Message-ID: <1258387558.30637.77.camel@lb-tlvb-vladz.il.broadcom.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2009-11-16
+Date: Mon, 16 Nov 2009 11:26:55 -0500
+Message-ID: <20091116162655.GD14410@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3383 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752763AbZKPQFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2009 11:05:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Put Tx and Rx DPC to be handled in the NAPI:
-  - Saves status blocks.
-  - Moves the Tx work from hardIRQ to NAPI.
+Dave,
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+One last(?) set of fixes intended for 2.6.32...
+
+The biggest is a revert of the patch that added cfg80211 support
+to ipw2200.  It was ill conceived and inadvertantly caused problems
+for ipw2100.  There are fixes available now, but they are just as
+big as the revert -- I'll restage them for 2.6.33.  There is little
+activity in ipw2200, so it the revert should be set.  Plus, I've
+tested the revert locally.
+
+There is also a warning fix for where p54usb was using stack memory for
+DMA.  And finally, two small MAINTAINERS fixes.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
 ---
- drivers/net/bnx2x.h      |   21 +--
- drivers/net/bnx2x_main.c |  367 +++++++++++++++++++---------------------------
- 2 files changed, 157 insertions(+), 231 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 928942b..602ab86 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -259,9 +259,6 @@ struct bnx2x_eth_q_stats {
- struct bnx2x_fastpath {
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+
+---
+
+The following changes since commit d01032e4fd33110f9f3a085a36cb819c1dfc5827:
+  Wey-Yi Guy (1):
+        iwlwifi: Fix issue on file transfer stalled in HT mode
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Gertjan van Wingerde (1):
+      rt2x00: Update MAINTAINERS
+
+Joe Perches (1):
+      MAINTAINERS: RFKILL - Fix pattern entry missing colon
+
+John W. Linville (1):
+      Revert "libipw: initiate cfg80211 API conversion"
+
+Larry Finger (1):
+      p54usb: Remove DMA buffer from stack
+
+ MAINTAINERS                                  |    3 +-
+ drivers/net/wireless/ipw2x00/ipw2100.c       |    6 +-
+ drivers/net/wireless/ipw2x00/ipw2200.c       |  141 +++++---------------------
+ drivers/net/wireless/ipw2x00/libipw.h        |    8 +-
+ drivers/net/wireless/ipw2x00/libipw_module.c |   42 +-------
+ drivers/net/wireless/p54/p54usb.c            |   10 ++-
+ 6 files changed, 45 insertions(+), 165 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index b37e0cd..887b50b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4281,6 +4281,7 @@ F:	drivers/video/aty/aty128fb.c
+ RALINK RT2X00 WIRELESS LAN DRIVER
+ P:	rt2x00 project
+ M:	Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++M:	Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ L:	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org (moderated for non-subscribers)
+ W:	http://rt2x00.serialmonkey.com/
+@@ -4368,7 +4369,7 @@ RFKILL
+ M:	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+ L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ S:	Maintained
+-F	Documentation/rfkill.txt
++F:	Documentation/rfkill.txt
+ F:	net/rfkill/
  
- 	struct napi_struct	napi;
--
--	u8			is_rx_queue;
--
- 	struct host_status_block *status_blk;
- 	dma_addr_t		status_blk_mapping;
+ RISCOM8 DRIVER
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 240cff1..6e2fc0c 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -6029,7 +6029,7 @@ static struct net_device *ipw2100_alloc_device(struct pci_dev *pci_dev,
+ 	struct ipw2100_priv *priv;
+ 	struct net_device *dev;
  
-@@ -970,8 +967,7 @@ struct bnx2x {
- #define BNX2X_STATE_ERROR		0xf000
+-	dev = alloc_ieee80211(sizeof(struct ipw2100_priv), 0);
++	dev = alloc_ieee80211(sizeof(struct ipw2100_priv));
+ 	if (!dev)
+ 		return NULL;
+ 	priv = libipw_priv(dev);
+@@ -6342,7 +6342,7 @@ static int ipw2100_pci_init_one(struct pci_dev *pci_dev,
+ 		sysfs_remove_group(&pci_dev->dev.kobj,
+ 				   &ipw2100_attribute_group);
  
- 	int			multi_mode;
--	int			num_rx_queues;
--	int			num_tx_queues;
-+	int			num_queues;
- 
- 	u32			rx_mode;
- #define BNX2X_RX_MODE_NONE		0
-@@ -1074,20 +1070,15 @@ struct bnx2x {
- };
- 
- 
--#define BNX2X_MAX_QUEUES(bp)	(IS_E1HMF(bp) ? (MAX_CONTEXT/(2 * E1HVN_MAX)) \
--					      : (MAX_CONTEXT/2))
--#define BNX2X_NUM_QUEUES(bp)	(bp->num_rx_queues + bp->num_tx_queues)
--#define is_multi(bp)		(BNX2X_NUM_QUEUES(bp) > 2)
-+#define BNX2X_MAX_QUEUES(bp)	(IS_E1HMF(bp) ? (MAX_CONTEXT/E1HVN_MAX) \
-+					      : MAX_CONTEXT)
-+#define BNX2X_NUM_QUEUES(bp)	(bp->num_queues)
-+#define is_multi(bp)		(BNX2X_NUM_QUEUES(bp) > 1)
- 
--#define for_each_rx_queue(bp, var) \
--			for (var = 0; var < bp->num_rx_queues; var++)
--#define for_each_tx_queue(bp, var) \
--			for (var = bp->num_rx_queues; \
--			     var < BNX2X_NUM_QUEUES(bp); var++)
- #define for_each_queue(bp, var) \
- 			for (var = 0; var < BNX2X_NUM_QUEUES(bp); var++)
- #define for_each_nondefault_queue(bp, var) \
--			for (var = 1; var < bp->num_rx_queues; var++)
-+			for (var = 1; var < BNX2X_NUM_QUEUES(bp); var++)
- 
- 
- void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32);
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index e2cf686..bdecd42 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -57,7 +57,7 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
- 
--#define DRV_MODULE_VERSION	"1.52.1-4"
-+#define DRV_MODULE_VERSION	"1.52.1-5"
- #define DRV_MODULE_RELDATE	"2009/11/09"
- #define BNX2X_BC_VER		0x040200
- 
-@@ -91,15 +91,10 @@ module_param(multi_mode, int, 0);
- MODULE_PARM_DESC(multi_mode, " Multi queue mode "
- 			     "(0 Disable; 1 Enable (default))");
- 
--static int num_rx_queues;
--module_param(num_rx_queues, int, 0);
--MODULE_PARM_DESC(num_rx_queues, " Number of Rx queues for multi_mode=1"
--				" (default is half number of CPUs)");
--
--static int num_tx_queues;
--module_param(num_tx_queues, int, 0);
--MODULE_PARM_DESC(num_tx_queues, " Number of Tx queues for multi_mode=1"
--				" (default is half number of CPUs)");
-+static int num_queues;
-+module_param(num_queues, int, 0);
-+MODULE_PARM_DESC(num_queues, " Number of queues for multi_mode=1"
-+				" (default is as a number of CPUs)");
- 
- static int disable_tpa;
- module_param(disable_tpa, int, 0);
-@@ -558,7 +553,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
- 
- 	/* Rx */
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		BNX2X_ERR("fp%d: rx_bd_prod(%x)  rx_bd_cons(%x)"
-@@ -575,7 +570,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+-		free_ieee80211(dev, 0);
++		free_ieee80211(dev);
+ 		pci_set_drvdata(pci_dev, NULL);
  	}
  
- 	/* Tx */
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
+@@ -6400,7 +6400,7 @@ static void __devexit ipw2100_pci_remove_one(struct pci_dev *pci_dev)
+ 		if (dev->base_addr)
+ 			iounmap((void __iomem *)dev->base_addr);
  
- 		BNX2X_ERR("fp%d: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
-@@ -590,7 +585,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 
- 	/* Rings */
- 	/* Rx */
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		start = RX_BD(le16_to_cpu(*fp->rx_cons_sb) - 10);
-@@ -624,7 +619,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+-		free_ieee80211(dev, 0);
++		free_ieee80211(dev);
  	}
  
- 	/* Tx */
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
-@@ -792,21 +787,13 @@ static inline void bnx2x_ack_sb(struct bnx2x *bp, u8 sb_id,
- 	barrier();
- }
- 
--static inline u16 bnx2x_update_fpsb_idx(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_update_fpsb_idx(struct bnx2x_fastpath *fp)
- {
- 	struct host_status_block *fpsb = fp->status_blk;
--	u16 rc = 0;
- 
- 	barrier(); /* status block is written to by the chip */
--	if (fp->fp_c_idx != fpsb->c_status_block.status_block_index) {
--		fp->fp_c_idx = fpsb->c_status_block.status_block_index;
--		rc |= 1;
--	}
--	if (fp->fp_u_idx != fpsb->u_status_block.status_block_index) {
--		fp->fp_u_idx = fpsb->u_status_block.status_block_index;
--		rc |= 2;
--	}
--	return rc;
-+	fp->fp_c_idx = fpsb->c_status_block.status_block_index;
-+	fp->fp_u_idx = fpsb->u_status_block.status_block_index;
- }
- 
- static u16 bnx2x_ack_int(struct bnx2x *bp)
-@@ -846,6 +833,9 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	u16 bd_idx = TX_BD(tx_buf->first_bd), new_cons;
- 	int nbd;
- 
-+	/* prefetch skb end pointer to speedup dev_kfree_skb() */
-+	prefetch(&skb->end);
-+
- 	DP(BNX2X_MSG_OFF, "pkt_idx %d  buff @(%p)->skb %p\n",
- 	   idx, tx_buf, skb);
- 
-@@ -890,7 +880,7 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 
- 	/* release skb */
- 	WARN_ON(!skb);
--	dev_kfree_skb_any(skb);
-+	dev_kfree_skb(skb);
- 	tx_buf->first_bd = 0;
- 	tx_buf->skb = NULL;
- 
-@@ -920,19 +910,28 @@ static inline u16 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
- 	return (s16)(fp->bp->tx_ring_size) - used;
- }
- 
--static void bnx2x_tx_int(struct bnx2x_fastpath *fp)
-+static inline int bnx2x_has_tx_work(struct bnx2x_fastpath *fp)
-+{
-+	u16 hw_cons;
-+
-+	/* Tell compiler that status block fields can change */
-+	barrier();
-+	hw_cons = le16_to_cpu(*fp->tx_cons_sb);
-+	return hw_cons != fp->tx_pkt_cons;
-+}
-+
-+static int bnx2x_tx_int(struct bnx2x_fastpath *fp)
- {
- 	struct bnx2x *bp = fp->bp;
- 	struct netdev_queue *txq;
- 	u16 hw_cons, sw_cons, bd_cons = fp->tx_bd_cons;
--	int done = 0;
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
--		return;
-+		return -1;
+ 	pci_release_regions(pci_dev);
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 8d58e6e..0d30a9e 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -103,25 +103,6 @@ static int antenna = CFG_SYS_ANTENNA_BOTH;
+ static int rtap_iface = 0;     /* def: 0 -- do not create rtap interface */
  #endif
  
--	txq = netdev_get_tx_queue(bp->dev, fp->index - bp->num_rx_queues);
-+	txq = netdev_get_tx_queue(bp->dev, fp->index);
- 	hw_cons = le16_to_cpu(*fp->tx_cons_sb);
- 	sw_cons = fp->tx_pkt_cons;
+-static struct ieee80211_rate ipw2200_rates[] = {
+-	{ .bitrate = 10 },
+-	{ .bitrate = 20, .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+-	{ .bitrate = 55, .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+-	{ .bitrate = 110, .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+-	{ .bitrate = 60 },
+-	{ .bitrate = 90 },
+-	{ .bitrate = 120 },
+-	{ .bitrate = 180 },
+-	{ .bitrate = 240 },
+-	{ .bitrate = 360 },
+-	{ .bitrate = 480 },
+-	{ .bitrate = 540 }
+-};
+-
+-#define ipw2200_a_rates		(ipw2200_rates + 4)
+-#define ipw2200_num_a_rates	8
+-#define ipw2200_bg_rates	(ipw2200_rates + 0)
+-#define ipw2200_num_bg_rates	12
  
-@@ -953,7 +952,6 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp)
- */
- 		bd_cons = bnx2x_free_tx_pkt(bp, fp, pkt_cons);
- 		sw_cons++;
--		done++;
+ #ifdef CONFIG_IPW2200_QOS
+ static int qos_enable = 0;
+@@ -8673,6 +8654,24 @@ static int ipw_sw_reset(struct ipw_priv *priv, int option)
+  *
+  */
+ 
++static int ipw_wx_get_name(struct net_device *dev,
++			   struct iw_request_info *info,
++			   union iwreq_data *wrqu, char *extra)
++{
++	struct ipw_priv *priv = libipw_priv(dev);
++	mutex_lock(&priv->mutex);
++	if (priv->status & STATUS_RF_KILL_MASK)
++		strcpy(wrqu->name, "radio off");
++	else if (!(priv->status & STATUS_ASSOCIATED))
++		strcpy(wrqu->name, "unassociated");
++	else
++		snprintf(wrqu->name, IFNAMSIZ, "IEEE 802.11%c",
++			 ipw_modes[priv->assoc_request.ieee_mode]);
++	IPW_DEBUG_WX("Name: %s\n", wrqu->name);
++	mutex_unlock(&priv->mutex);
++	return 0;
++}
++
+ static int ipw_set_channel(struct ipw_priv *priv, u8 channel)
+ {
+ 	if (channel == 0) {
+@@ -9972,7 +9971,7 @@ static int ipw_wx_sw_reset(struct net_device *dev,
+ /* Rebase the WE IOCTLs to zero for the handler array */
+ #define IW_IOCTL(x) [(x)-SIOCSIWCOMMIT]
+ static iw_handler ipw_wx_handlers[] = {
+-	IW_IOCTL(SIOCGIWNAME) = (iw_handler) cfg80211_wext_giwname,
++	IW_IOCTL(SIOCGIWNAME) = ipw_wx_get_name,
+ 	IW_IOCTL(SIOCSIWFREQ) = ipw_wx_set_freq,
+ 	IW_IOCTL(SIOCGIWFREQ) = ipw_wx_get_freq,
+ 	IW_IOCTL(SIOCSIWMODE) = ipw_wx_set_mode,
+@@ -11416,100 +11415,16 @@ static void ipw_bg_down(struct work_struct *work)
+ /* Called by register_netdev() */
+ static int ipw_net_init(struct net_device *dev)
+ {
+-	int i, rc = 0;
+ 	struct ipw_priv *priv = libipw_priv(dev);
+-	const struct libipw_geo *geo = libipw_get_geo(priv->ieee);
+-	struct wireless_dev *wdev = &priv->ieee->wdev;
+ 	mutex_lock(&priv->mutex);
+ 
+ 	if (ipw_up(priv)) {
+-		rc = -EIO;
+-		goto out;
+-	}
+-
+-	memcpy(wdev->wiphy->perm_addr, priv->mac_addr, ETH_ALEN);
+-
+-	/* fill-out priv->ieee->bg_band */
+-	if (geo->bg_channels) {
+-		struct ieee80211_supported_band *bg_band = &priv->ieee->bg_band;
+-
+-		bg_band->band = IEEE80211_BAND_2GHZ;
+-		bg_band->n_channels = geo->bg_channels;
+-		bg_band->channels =
+-			kzalloc(geo->bg_channels *
+-				sizeof(struct ieee80211_channel), GFP_KERNEL);
+-		/* translate geo->bg to bg_band.channels */
+-		for (i = 0; i < geo->bg_channels; i++) {
+-			bg_band->channels[i].band = IEEE80211_BAND_2GHZ;
+-			bg_band->channels[i].center_freq = geo->bg[i].freq;
+-			bg_band->channels[i].hw_value = geo->bg[i].channel;
+-			bg_band->channels[i].max_power = geo->bg[i].max_power;
+-			if (geo->bg[i].flags & LIBIPW_CH_PASSIVE_ONLY)
+-				bg_band->channels[i].flags |=
+-					IEEE80211_CHAN_PASSIVE_SCAN;
+-			if (geo->bg[i].flags & LIBIPW_CH_NO_IBSS)
+-				bg_band->channels[i].flags |=
+-					IEEE80211_CHAN_NO_IBSS;
+-			if (geo->bg[i].flags & LIBIPW_CH_RADAR_DETECT)
+-				bg_band->channels[i].flags |=
+-					IEEE80211_CHAN_RADAR;
+-			/* No equivalent for LIBIPW_CH_80211H_RULES,
+-			   LIBIPW_CH_UNIFORM_SPREADING, or
+-			   LIBIPW_CH_B_ONLY... */
+-		}
+-		/* point at bitrate info */
+-		bg_band->bitrates = ipw2200_bg_rates;
+-		bg_band->n_bitrates = ipw2200_num_bg_rates;
+-
+-		wdev->wiphy->bands[IEEE80211_BAND_2GHZ] = bg_band;
+-	}
+-
+-	/* fill-out priv->ieee->a_band */
+-	if (geo->a_channels) {
+-		struct ieee80211_supported_band *a_band = &priv->ieee->a_band;
+-
+-		a_band->band = IEEE80211_BAND_5GHZ;
+-		a_band->n_channels = geo->a_channels;
+-		a_band->channels =
+-			kzalloc(geo->a_channels *
+-				sizeof(struct ieee80211_channel), GFP_KERNEL);
+-		/* translate geo->bg to a_band.channels */
+-		for (i = 0; i < geo->a_channels; i++) {
+-			a_band->channels[i].band = IEEE80211_BAND_2GHZ;
+-			a_band->channels[i].center_freq = geo->a[i].freq;
+-			a_band->channels[i].hw_value = geo->a[i].channel;
+-			a_band->channels[i].max_power = geo->a[i].max_power;
+-			if (geo->a[i].flags & LIBIPW_CH_PASSIVE_ONLY)
+-				a_band->channels[i].flags |=
+-					IEEE80211_CHAN_PASSIVE_SCAN;
+-			if (geo->a[i].flags & LIBIPW_CH_NO_IBSS)
+-				a_band->channels[i].flags |=
+-					IEEE80211_CHAN_NO_IBSS;
+-			if (geo->a[i].flags & LIBIPW_CH_RADAR_DETECT)
+-				a_band->channels[i].flags |=
+-					IEEE80211_CHAN_RADAR;
+-			/* No equivalent for LIBIPW_CH_80211H_RULES,
+-			   LIBIPW_CH_UNIFORM_SPREADING, or
+-			   LIBIPW_CH_B_ONLY... */
+-		}
+-		/* point at bitrate info */
+-		a_band->bitrates = ipw2200_a_rates;
+-		a_band->n_bitrates = ipw2200_num_a_rates;
+-
+-		wdev->wiphy->bands[IEEE80211_BAND_5GHZ] = a_band;
+-	}
+-
+-	set_wiphy_dev(wdev->wiphy, &priv->pci_dev->dev);
+-
+-	/* With that information in place, we can now register the wiphy... */
+-	if (wiphy_register(wdev->wiphy)) {
+-		rc = -EIO;
+-		goto out;
++		mutex_unlock(&priv->mutex);
++		return -EIO;
  	}
  
- 	fp->tx_pkt_cons = sw_cons;
-@@ -975,6 +973,7 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp)
- 		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
- 			netif_tx_wake_queue(txq);
- 	}
+-out:
+ 	mutex_unlock(&priv->mutex);
+-	return rc;
 +	return 0;
  }
  
- #ifdef BCM_CNIC
-@@ -1561,6 +1560,8 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		} else {
- 			rx_buf = &fp->rx_buf_ring[bd_cons];
- 			skb = rx_buf->skb;
-+			prefetch(skb);
-+			prefetch((u8 *)skb + 256);
- 			len = le16_to_cpu(cqe->fast_path_cqe.pkt_len);
- 			pad = cqe->fast_path_cqe.placement_offset;
+ /* PCI driver stuff */
+@@ -11640,7 +11555,7 @@ static int ipw_prom_alloc(struct ipw_priv *priv)
+ 	if (priv->prom_net_dev)
+ 		return -EPERM;
  
-@@ -1742,27 +1743,13 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- 	if (unlikely(bp->panic))
- 		return IRQ_HANDLED;
- #endif
--	/* Handle Rx or Tx according to MSI-X vector */
--	if (fp->is_rx_queue) {
--		prefetch(fp->rx_cons_sb);
--		prefetch(&fp->status_blk->u_status_block.status_block_index);
--
--		napi_schedule(&bnx2x_fp(bp, fp->index, napi));
--
--	} else {
--		prefetch(fp->tx_cons_sb);
--		prefetch(&fp->status_blk->c_status_block.status_block_index);
--
--		bnx2x_update_fpsb_idx(fp);
--		rmb();
--		bnx2x_tx_int(fp);
- 
--		/* Re-enable interrupts */
--		bnx2x_ack_sb(bp, fp->sb_id, USTORM_ID,
--			     le16_to_cpu(fp->fp_u_idx), IGU_INT_NOP, 1);
--		bnx2x_ack_sb(bp, fp->sb_id, CSTORM_ID,
--			     le16_to_cpu(fp->fp_c_idx), IGU_INT_ENABLE, 1);
--	}
-+	/* Handle Rx and Tx according to MSI-X vector */
-+	prefetch(fp->rx_cons_sb);
-+	prefetch(fp->tx_cons_sb);
-+	prefetch(&fp->status_blk->u_status_block.status_block_index);
-+	prefetch(&fp->status_blk->c_status_block.status_block_index);
-+	napi_schedule(&bnx2x_fp(bp, fp->index, napi));
- 
- 	return IRQ_HANDLED;
- }
-@@ -1797,31 +1784,14 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 
- 		mask = 0x2 << fp->sb_id;
- 		if (status & mask) {
--			/* Handle Rx or Tx according to SB id */
--			if (fp->is_rx_queue) {
--				prefetch(fp->rx_cons_sb);
--				prefetch(&fp->status_blk->u_status_block.
--							status_block_index);
--
--				napi_schedule(&bnx2x_fp(bp, fp->index, napi));
--
--			} else {
--				prefetch(fp->tx_cons_sb);
--				prefetch(&fp->status_blk->c_status_block.
--							status_block_index);
--
--				bnx2x_update_fpsb_idx(fp);
--				rmb();
--				bnx2x_tx_int(fp);
--
--				/* Re-enable interrupts */
--				bnx2x_ack_sb(bp, fp->sb_id, USTORM_ID,
--					     le16_to_cpu(fp->fp_u_idx),
--					     IGU_INT_NOP, 1);
--				bnx2x_ack_sb(bp, fp->sb_id, CSTORM_ID,
--					     le16_to_cpu(fp->fp_c_idx),
--					     IGU_INT_ENABLE, 1);
--			}
-+			/* Handle Rx and Tx according to SB id */
-+			prefetch(fp->rx_cons_sb);
-+			prefetch(&fp->status_blk->u_status_block.
-+						status_block_index);
-+			prefetch(fp->tx_cons_sb);
-+			prefetch(&fp->status_blk->c_status_block.
-+						status_block_index);
-+			napi_schedule(&bnx2x_fp(bp, fp->index, napi));
- 			status &= ~mask;
- 		}
- 	}
-@@ -4027,7 +3997,7 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 	estats->no_buff_discard_hi = 0;
- 	estats->no_buff_discard_lo = 0;
- 
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 		int cl_id = fp->cl_id;
- 		struct tstorm_per_client_stats *tclient =
-@@ -4244,7 +4214,7 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
- 	nstats->tx_bytes = bnx2x_hilo(&estats->total_bytes_transmitted_hi);
- 
- 	nstats->rx_dropped = estats->mac_discard;
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		nstats->rx_dropped +=
- 			le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
- 
-@@ -4298,7 +4268,7 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
- 	estats->rx_err_discard_pkt = 0;
- 	estats->rx_skb_alloc_failed = 0;
- 	estats->hw_csum_err = 0;
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_eth_q_stats *qstats = &bp->fp[i].eth_q_stats;
- 
- 		estats->driver_xoff += qstats->driver_xoff;
-@@ -4329,7 +4299,7 @@ static void bnx2x_stats_update(struct bnx2x *bp)
- 
- 	if (bp->msglevel & NETIF_MSG_TIMER) {
- 		struct bnx2x_fastpath *fp0_rx = bp->fp;
--		struct bnx2x_fastpath *fp0_tx = &(bp->fp[bp->num_rx_queues]);
-+		struct bnx2x_fastpath *fp0_tx = bp->fp;
- 		struct tstorm_per_client_stats *old_tclient =
- 							&bp->fp->old_tclient;
- 		struct bnx2x_eth_q_stats *qstats = &bp->fp->eth_q_stats;
-@@ -4984,7 +4954,7 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 
- 	if (bp->flags & TPA_ENABLE_FLAG) {
- 
--		for_each_rx_queue(bp, j) {
-+		for_each_queue(bp, j) {
- 			struct bnx2x_fastpath *fp = &bp->fp[j];
- 
- 			for (i = 0; i < max_agg_queues; i++) {
-@@ -5007,16 +4977,13 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 		}
- 	}
- 
--	for_each_rx_queue(bp, j) {
-+	for_each_queue(bp, j) {
- 		struct bnx2x_fastpath *fp = &bp->fp[j];
- 
- 		fp->rx_bd_cons = 0;
- 		fp->rx_cons_sb = BNX2X_RX_SB_INDEX;
- 		fp->rx_bd_cons_sb = BNX2X_RX_SB_BD_INDEX;
- 
--		/* Mark queue as Rx */
--		fp->is_rx_queue = 1;
--
- 		/* "next page" elements initialization */
- 		/* SGE ring */
- 		for (i = 1; i <= NUM_RX_SGE_PAGES; i++) {
-@@ -5122,7 +5089,7 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
- {
- 	int i, j;
- 
--	for_each_tx_queue(bp, j) {
-+	for_each_queue(bp, j) {
- 		struct bnx2x_fastpath *fp = &bp->fp[j];
- 
- 		for (i = 1; i <= NUM_TX_RINGS; i++) {
-@@ -5148,10 +5115,6 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
- 		fp->tx_cons_sb = BNX2X_TX_SB_INDEX;
- 		fp->tx_pkt = 0;
- 	}
--
--	/* clean tx statistics */
--	for_each_rx_queue(bp, i)
--		bnx2x_fp(bp, i, tx_pkt) = 0;
- }
- 
- static void bnx2x_init_sp_ring(struct bnx2x *bp)
-@@ -5180,7 +5143,8 @@ static void bnx2x_init_context(struct bnx2x *bp)
- {
- 	int i;
- 
--	for_each_rx_queue(bp, i) {
-+	/* Rx */
-+	for_each_queue(bp, i) {
- 		struct eth_context *context = bnx2x_sp(bp, context[i].eth);
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 		u8 cl_id = fp->cl_id;
-@@ -5232,10 +5196,11 @@ static void bnx2x_init_context(struct bnx2x *bp)
- 					       ETH_CONNECTION_TYPE);
- 	}
- 
--	for_each_tx_queue(bp, i) {
-+	/* Tx */
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 		struct eth_context *context =
--			bnx2x_sp(bp, context[i - bp->num_rx_queues].eth);
-+			bnx2x_sp(bp, context[i].eth);
- 
- 		context->cstorm_st_context.sb_index_number =
- 						C_SB_ETH_TX_CQ_INDEX;
-@@ -5263,7 +5228,7 @@ static void bnx2x_init_ind_table(struct bnx2x *bp)
- 	for (i = 0; i < TSTORM_INDIRECTION_TABLE_SIZE; i++)
- 		REG_WR8(bp, BAR_TSTRORM_INTMEM +
- 			TSTORM_INDIRECTION_TABLE_OFFSET(func) + i,
--			bp->fp->cl_id + (i % bp->num_rx_queues));
-+			bp->fp->cl_id + (i % bp->num_queues));
- }
- 
- static void bnx2x_set_client_config(struct bnx2x *bp)
-@@ -5507,7 +5472,7 @@ static void bnx2x_init_internal_func(struct bnx2x *bp)
- 		min((u32)(min((u32)8, (u32)MAX_SKB_FRAGS) *
- 			  SGE_PAGE_SIZE * PAGES_PER_SGE),
- 		    (u32)0xffff);
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		REG_WR(bp, BAR_USTRORM_INTMEM +
-@@ -5542,7 +5507,7 @@ static void bnx2x_init_internal_func(struct bnx2x *bp)
- 		rx_pause.cqe_thr_high = 350;
- 		rx_pause.sge_thr_high = 0;
- 
--		for_each_rx_queue(bp, i) {
-+		for_each_queue(bp, i) {
- 			struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 			if (!fp->disable_tpa) {
-@@ -5637,9 +5602,6 @@ static void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
- #else
- 		fp->sb_id = fp->cl_id;
- #endif
--		/* Suitable Rx and Tx SBs are served by the same client */
--		if (i >= bp->num_rx_queues)
--			fp->cl_id -= bp->num_rx_queues;
- 		DP(NETIF_MSG_IFUP,
- 		   "queue[%d]:  bnx2x_init_sb(%p,%p)  cl_id %d  sb %d\n",
- 		   i, bp, fp->status_blk, fp->cl_id, fp->sb_id);
-@@ -6749,7 +6711,7 @@ static void bnx2x_free_mem(struct bnx2x *bp)
- 			       sizeof(struct host_status_block));
- 	}
- 	/* Rx */
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 
- 		/* fastpath rx rings: rx_buf rx_desc rx_comp */
- 		BNX2X_FREE(bnx2x_fp(bp, i, rx_buf_ring));
-@@ -6769,7 +6731,7 @@ static void bnx2x_free_mem(struct bnx2x *bp)
- 			       BCM_PAGE_SIZE * NUM_RX_SGE_PAGES);
- 	}
- 	/* Tx */
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 
- 		/* fastpath tx rings: tx_buf tx_desc */
- 		BNX2X_FREE(bnx2x_fp(bp, i, tx_buf_ring));
-@@ -6831,7 +6793,7 @@ static int bnx2x_alloc_mem(struct bnx2x *bp)
- 				sizeof(struct host_status_block));
- 	}
- 	/* Rx */
--	for_each_rx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 
- 		/* fastpath rx rings: rx_buf rx_desc rx_comp */
- 		BNX2X_ALLOC(bnx2x_fp(bp, i, rx_buf_ring),
-@@ -6853,7 +6815,7 @@ static int bnx2x_alloc_mem(struct bnx2x *bp)
- 				BCM_PAGE_SIZE * NUM_RX_SGE_PAGES);
- 	}
- 	/* Tx */
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 
- 		/* fastpath tx rings: tx_buf tx_desc */
- 		BNX2X_ALLOC(bnx2x_fp(bp, i, tx_buf_ring),
-@@ -6909,7 +6871,7 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
- {
- 	int i;
- 
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		u16 bd_cons = fp->tx_bd_cons;
-@@ -6927,7 +6889,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
- {
- 	int i, j;
- 
--	for_each_rx_queue(bp, j) {
-+	for_each_queue(bp, j) {
- 		struct bnx2x_fastpath *fp = &bp->fp[j];
- 
- 		for (i = 0; i < NUM_RX_BD; i++) {
-@@ -7042,12 +7004,8 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
- #endif
- 	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
--
--		if (i < bp->num_rx_queues)
--			sprintf(fp->name, "%s-rx-%d", bp->dev->name, i);
--		else
--			sprintf(fp->name, "%s-tx-%d",
--				bp->dev->name, i - bp->num_rx_queues);
-+		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
-+			 bp->dev->name, i);
- 
- 		rc = request_irq(bp->msix_table[i + offset].vector,
- 				 bnx2x_msix_fp_int, 0, fp->name, fp);
-@@ -7106,7 +7064,7 @@ static void bnx2x_napi_enable(struct bnx2x *bp)
- {
- 	int i;
- 
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		napi_enable(&bnx2x_fp(bp, i, napi));
- }
- 
-@@ -7114,7 +7072,7 @@ static void bnx2x_napi_disable(struct bnx2x *bp)
- {
- 	int i;
- 
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		napi_disable(&bnx2x_fp(bp, i, napi));
- }
- 
-@@ -7410,88 +7368,60 @@ static int bnx2x_setup_multi(struct bnx2x *bp, int index)
- 
- static int bnx2x_poll(struct napi_struct *napi, int budget);
- 
--static void bnx2x_set_int_mode_msix(struct bnx2x *bp, int *num_rx_queues_out,
--				    int *num_tx_queues_out)
-+static void bnx2x_set_num_queues_msix(struct bnx2x *bp)
- {
--	int _num_rx_queues = 0, _num_tx_queues = 0;
- 
- 	switch (bp->multi_mode) {
- 	case ETH_RSS_MODE_DISABLED:
--		_num_rx_queues = 1;
--		_num_tx_queues = 1;
-+		bp->num_queues = 1;
- 		break;
- 
- 	case ETH_RSS_MODE_REGULAR:
--		if (num_rx_queues)
--			_num_rx_queues = min_t(u32, num_rx_queues,
--					       BNX2X_MAX_QUEUES(bp));
--		else
--			_num_rx_queues = min_t(u32, num_online_cpus(),
--					       BNX2X_MAX_QUEUES(bp));
--
--		if (num_tx_queues)
--			_num_tx_queues = min_t(u32, num_tx_queues,
--					       BNX2X_MAX_QUEUES(bp));
-+		if (num_queues)
-+			bp->num_queues = min_t(u32, num_queues,
-+						  BNX2X_MAX_QUEUES(bp));
- 		else
--			_num_tx_queues = min_t(u32, num_online_cpus(),
--					       BNX2X_MAX_QUEUES(bp));
--
--		/* There must be not more Tx queues than Rx queues */
--		if (_num_tx_queues > _num_rx_queues) {
--			BNX2X_ERR("number of tx queues (%d) > "
--				  "number of rx queues (%d)"
--				  "  defaulting to %d\n",
--				  _num_tx_queues, _num_rx_queues,
--				  _num_rx_queues);
--			_num_tx_queues = _num_rx_queues;
--		}
-+			bp->num_queues = min_t(u32, num_online_cpus(),
-+						  BNX2X_MAX_QUEUES(bp));
- 		break;
- 
- 
- 	default:
--		_num_rx_queues = 1;
--		_num_tx_queues = 1;
-+		bp->num_queues = 1;
- 		break;
- 	}
--
--	*num_rx_queues_out = _num_rx_queues;
--	*num_tx_queues_out = _num_tx_queues;
- }
- 
--static int bnx2x_set_int_mode(struct bnx2x *bp)
-+static int bnx2x_set_num_queues(struct bnx2x *bp)
- {
- 	int rc = 0;
- 
- 	switch (int_mode) {
- 	case INT_MODE_INTx:
- 	case INT_MODE_MSI:
--		bp->num_rx_queues = 1;
--		bp->num_tx_queues = 1;
-+		bp->num_queues = 1;
- 		DP(NETIF_MSG_IFUP, "set number of queues to 1\n");
- 		break;
- 
- 	case INT_MODE_MSIX:
- 	default:
--		/* Set interrupt mode according to bp->multi_mode value */
--		bnx2x_set_int_mode_msix(bp, &bp->num_rx_queues,
--					&bp->num_tx_queues);
-+		/* Set number of queues according to bp->multi_mode value */
-+		bnx2x_set_num_queues_msix(bp);
- 
--		DP(NETIF_MSG_IFUP, "set number of queues to: rx %d tx %d\n",
--		   bp->num_rx_queues, bp->num_tx_queues);
-+		DP(NETIF_MSG_IFUP, "set number of queues to %d\n",
-+		   bp->num_queues);
- 
- 		/* if we can't use MSI-X we only need one fp,
- 		 * so try to enable MSI-X with the requested number of fp's
- 		 * and fallback to MSI or legacy INTx with one fp
- 		 */
- 		rc = bnx2x_enable_msix(bp);
--		if (rc) {
-+		if (rc)
- 			/* failed to enable MSI-X */
--			bp->num_rx_queues = 1;
--			bp->num_tx_queues = 1;
--		}
-+			bp->num_queues = 1;
- 		break;
- 	}
--	bp->dev->real_num_tx_queues = bp->num_tx_queues;
-+	bp->dev->real_num_tx_queues = bp->num_queues;
- 	return rc;
- }
- 
-@@ -7513,16 +7443,16 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 
- 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
- 
--	rc = bnx2x_set_int_mode(bp);
-+	rc = bnx2x_set_num_queues(bp);
- 
- 	if (bnx2x_alloc_mem(bp))
+-	priv->prom_net_dev = alloc_ieee80211(sizeof(struct ipw_prom_priv), 1);
++	priv->prom_net_dev = alloc_ieee80211(sizeof(struct ipw_prom_priv));
+ 	if (priv->prom_net_dev == NULL)
  		return -ENOMEM;
  
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		bnx2x_fp(bp, i, disable_tpa) =
- 					((bp->flags & TPA_ENABLE_FLAG) == 0);
+@@ -11659,7 +11574,7 @@ static int ipw_prom_alloc(struct ipw_priv *priv)
  
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
- 			       bnx2x_poll, 128);
+ 	rc = register_netdev(priv->prom_net_dev);
+ 	if (rc) {
+-		free_ieee80211(priv->prom_net_dev, 1);
++		free_ieee80211(priv->prom_net_dev);
+ 		priv->prom_net_dev = NULL;
+ 		return rc;
+ 	}
+@@ -11673,7 +11588,7 @@ static void ipw_prom_free(struct ipw_priv *priv)
+ 		return;
  
-@@ -7536,7 +7466,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 		}
- 	} else {
- 		/* Fall to INTx if failed to enable MSI-X due to lack of
--		   memory (in bnx2x_set_int_mode()) */
-+		   memory (in bnx2x_set_num_queues()) */
- 		if ((rc != -ENOMEM) && (int_mode != INT_MODE_INTx))
- 			bnx2x_enable_msi(bp);
- 		bnx2x_ack_int(bp);
-@@ -7730,14 +7660,14 @@ load_error3:
- 	bp->port.pmf = 0;
- 	/* Free SKBs, SGEs, TPA pool and driver internals */
- 	bnx2x_free_skbs(bp);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
- load_error2:
- 	/* Release IRQs */
- 	bnx2x_free_irq(bp);
- load_error1:
- 	bnx2x_napi_disable(bp);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+ 	unregister_netdev(priv->prom_net_dev);
+-	free_ieee80211(priv->prom_net_dev, 1);
++	free_ieee80211(priv->prom_net_dev);
  
-@@ -7928,7 +7858,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 	bnx2x_free_irq(bp);
+ 	priv->prom_net_dev = NULL;
+ }
+@@ -11701,7 +11616,7 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
+ 	struct ipw_priv *priv;
+ 	int i;
  
- 	/* Wait until tx fastpath tasks complete */
--	for_each_tx_queue(bp, i) {
-+	for_each_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
+-	net_dev = alloc_ieee80211(sizeof(struct ipw_priv), 0);
++	net_dev = alloc_ieee80211(sizeof(struct ipw_priv));
+ 	if (net_dev == NULL) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -11849,7 +11764,7 @@ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+       out_free_ieee80211:
+-	free_ieee80211(priv->net_dev, 0);
++	free_ieee80211(priv->net_dev);
+       out:
+ 	return err;
+ }
+@@ -11916,7 +11831,7 @@ static void __devexit ipw_pci_remove(struct pci_dev *pdev)
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+-	free_ieee80211(priv->net_dev, 0);
++	free_ieee80211(priv->net_dev);
+ 	free_firmware();
+ }
  
- 		cnt = 1000;
-@@ -8071,9 +8001,9 @@ unload_error:
+diff --git a/drivers/net/wireless/ipw2x00/libipw.h b/drivers/net/wireless/ipw2x00/libipw.h
+index bf45391..1e334ff 100644
+--- a/drivers/net/wireless/ipw2x00/libipw.h
++++ b/drivers/net/wireless/ipw2x00/libipw.h
+@@ -31,7 +31,6 @@
+ #include <linux/ieee80211.h>
  
- 	/* Free SKBs, SGEs, TPA pool and driver internals */
- 	bnx2x_free_skbs(bp);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+ #include <net/lib80211.h>
+-#include <net/cfg80211.h>
  
-@@ -10269,7 +10199,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode, u8 link_up)
- 	struct sk_buff *skb;
- 	unsigned char *packet;
- 	struct bnx2x_fastpath *fp_rx = &bp->fp[0];
--	struct bnx2x_fastpath *fp_tx = &bp->fp[bp->num_rx_queues];
-+	struct bnx2x_fastpath *fp_tx = &bp->fp[0];
- 	u16 tx_start_idx, tx_idx;
- 	u16 rx_start_idx, rx_idx;
- 	u16 pkt_prod, bd_prod;
-@@ -10346,7 +10276,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode, u8 link_up)
+ #define LIBIPW_VERSION "git-1.1.13"
  
- 	fp_tx->tx_db.data.prod += 2;
- 	barrier();
--	DOORBELL(bp, fp_tx->index - bp->num_rx_queues, fp_tx->tx_db.raw);
-+	DOORBELL(bp, fp_tx->index, fp_tx->tx_db.raw);
+@@ -784,15 +783,12 @@ struct libipw_geo {
  
- 	mmiowb();
+ struct libipw_device {
+ 	struct net_device *dev;
+-	struct wireless_dev wdev;
+ 	struct libipw_security sec;
  
-@@ -10725,7 +10655,7 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
- 	switch(stringset) {
- 	case ETH_SS_STATS:
- 		if (is_multi(bp)) {
--			num_stats = BNX2X_NUM_Q_STATS * bp->num_rx_queues;
-+			num_stats = BNX2X_NUM_Q_STATS * bp->num_queues;
- 			if (!IS_E1HMF_MODE_STAT(bp))
- 				num_stats += BNX2X_NUM_STATS;
- 		} else {
-@@ -10756,7 +10686,7 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- 	case ETH_SS_STATS:
- 		if (is_multi(bp)) {
- 			k = 0;
--			for_each_rx_queue(bp, i) {
-+			for_each_queue(bp, i) {
- 				for (j = 0; j < BNX2X_NUM_Q_STATS; j++)
- 					sprintf(buf + (k + j)*ETH_GSTRING_LEN,
- 						bnx2x_q_stats_arr[j].string, i);
-@@ -10793,7 +10723,7 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
+ 	/* Bookkeeping structures */
+ 	struct libipw_stats ieee_stats;
  
- 	if (is_multi(bp)) {
- 		k = 0;
--		for_each_rx_queue(bp, i) {
-+		for_each_queue(bp, i) {
- 			hw_stats = (u32 *)&bp->fp[i].eth_q_stats;
- 			for (j = 0; j < BNX2X_NUM_Q_STATS; j++) {
- 				if (bnx2x_q_stats_arr[j].size == 0) {
-@@ -10989,54 +10919,60 @@ static inline int bnx2x_has_rx_work(struct bnx2x_fastpath *fp)
+ 	struct libipw_geo geo;
+-	struct ieee80211_supported_band bg_band;
+-	struct ieee80211_supported_band a_band;
  
- static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 	/* Probe / Beacon management */
+ 	struct list_head network_free_list;
+@@ -1018,8 +1014,8 @@ static inline int libipw_is_cck_rate(u8 rate)
+ }
+ 
+ /* ieee80211.c */
+-extern void free_ieee80211(struct net_device *dev, int monitor);
+-extern struct net_device *alloc_ieee80211(int sizeof_priv, int monitor);
++extern void free_ieee80211(struct net_device *dev);
++extern struct net_device *alloc_ieee80211(int sizeof_priv);
+ extern int libipw_change_mtu(struct net_device *dev, int new_mtu);
+ 
+ extern void libipw_networks_age(struct libipw_device *ieee,
+diff --git a/drivers/net/wireless/ipw2x00/libipw_module.c b/drivers/net/wireless/ipw2x00/libipw_module.c
+index a0e9f6a..eb2b608 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_module.c
++++ b/drivers/net/wireless/ipw2x00/libipw_module.c
+@@ -62,9 +62,6 @@ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+ MODULE_AUTHOR(DRV_COPYRIGHT);
+ MODULE_LICENSE("GPL");
+ 
+-struct cfg80211_ops libipw_config_ops = { };
+-void *libipw_wiphy_privid = &libipw_wiphy_privid;
+-
+ static int libipw_networks_allocate(struct libipw_device *ieee)
  {
-+	int work_done = 0;
- 	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
- 						 napi);
- 	struct bnx2x *bp = fp->bp;
--	int work_done = 0;
+ 	if (ieee->networks)
+@@ -143,7 +140,7 @@ int libipw_change_mtu(struct net_device *dev, int new_mtu)
+ }
+ EXPORT_SYMBOL(libipw_change_mtu);
  
-+	while (1) {
- #ifdef BNX2X_STOP_ON_ERROR
--	if (unlikely(bp->panic))
--		goto poll_panic;
-+		if (unlikely(bp->panic)) {
-+			napi_complete(napi);
-+			return 0;
-+		}
- #endif
+-struct net_device *alloc_ieee80211(int sizeof_priv, int monitor)
++struct net_device *alloc_ieee80211(int sizeof_priv)
+ {
+ 	struct libipw_device *ieee;
+ 	struct net_device *dev;
+@@ -160,31 +157,10 @@ struct net_device *alloc_ieee80211(int sizeof_priv, int monitor)
  
--	prefetch(fp->rx_buf_ring[RX_BD(fp->rx_bd_cons)].skb);
--	prefetch((char *)(fp->rx_buf_ring[RX_BD(fp->rx_bd_cons)].skb) + 256);
+ 	ieee->dev = dev;
+ 
+-	if (!monitor) {
+-		ieee->wdev.wiphy = wiphy_new(&libipw_config_ops, 0);
+-		if (!ieee->wdev.wiphy) {
+-			LIBIPW_ERROR("Unable to allocate wiphy.\n");
+-			goto failed_free_netdev;
+-		}
 -
--	bnx2x_update_fpsb_idx(fp);
+-		ieee->dev->ieee80211_ptr = &ieee->wdev;
+-		ieee->wdev.iftype = NL80211_IFTYPE_STATION;
 -
--	if (bnx2x_has_rx_work(fp)) {
--		work_done = bnx2x_rx_int(fp, budget);
-+		if (bnx2x_has_tx_work(fp))
-+			bnx2x_tx_int(fp);
- 
--		/* must not complete if we consumed full budget */
--		if (work_done >= budget)
--			goto poll_again;
+-		/* Fill-out wiphy structure bits we know...  Not enough info
+-		   here to call set_wiphy_dev or set MAC address or channel info
+-		   -- have to do that in ->ndo_init... */
+-		ieee->wdev.wiphy->privid = libipw_wiphy_privid;
+-
+-		ieee->wdev.wiphy->max_scan_ssids = 1;
+-		ieee->wdev.wiphy->max_scan_ie_len = 0;
+-		ieee->wdev.wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION)
+-						| BIT(NL80211_IFTYPE_ADHOC);
 -	}
-+		if (bnx2x_has_rx_work(fp)) {
-+			work_done += bnx2x_rx_int(fp, budget - work_done);
- 
--	/* bnx2x_has_rx_work() reads the status block, thus we need to
--	 * ensure that status block indices have been actually read
--	 * (bnx2x_update_fpsb_idx) prior to this check (bnx2x_has_rx_work)
--	 * so that we won't write the "newer" value of the status block to IGU
--	 * (if there was a DMA right after bnx2x_has_rx_work and
--	 * if there is no rmb, the memory reading (bnx2x_update_fpsb_idx)
--	 * may be postponed to right before bnx2x_ack_sb). In this case
--	 * there will never be another interrupt until there is another update
--	 * of the status block, while there is still unhandled work.
--	 */
--	rmb();
-+			/* must not complete if we consumed full budget */
-+			if (work_done >= budget)
-+				break;
-+		}
- 
--	if (!bnx2x_has_rx_work(fp)) {
--#ifdef BNX2X_STOP_ON_ERROR
--poll_panic:
--#endif
--		napi_complete(napi);
-+		/* Fall out from the NAPI loop if needed */
-+		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
-+			bnx2x_update_fpsb_idx(fp);
-+		/* bnx2x_has_rx_work() reads the status block, thus we need
-+		 * to ensure that status block indices have been actually read
-+		 * (bnx2x_update_fpsb_idx) prior to this check
-+		 * (bnx2x_has_rx_work) so that we won't write the "newer"
-+		 * value of the status block to IGU (if there was a DMA right
-+		 * after bnx2x_has_rx_work and if there is no rmb, the memory
-+		 * reading (bnx2x_update_fpsb_idx) may be postponed to right
-+		 * before bnx2x_ack_sb). In this case there will never be
-+		 * another interrupt until there is another update of the
-+		 * status block, while there is still unhandled work.
-+		 */
-+			rmb();
- 
--		bnx2x_ack_sb(bp, fp->sb_id, USTORM_ID,
--			     le16_to_cpu(fp->fp_u_idx), IGU_INT_NOP, 1);
--		bnx2x_ack_sb(bp, fp->sb_id, CSTORM_ID,
--			     le16_to_cpu(fp->fp_c_idx), IGU_INT_ENABLE, 1);
-+			if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
-+				napi_complete(napi);
-+				/* Re-enable interrupts */
-+				bnx2x_ack_sb(bp, fp->sb_id, CSTORM_ID,
-+					     le16_to_cpu(fp->fp_c_idx),
-+					     IGU_INT_NOP, 1);
-+				bnx2x_ack_sb(bp, fp->sb_id, USTORM_ID,
-+					     le16_to_cpu(fp->fp_u_idx),
-+					     IGU_INT_ENABLE, 1);
-+				break;
-+			}
-+		}
+-
+ 	err = libipw_networks_allocate(ieee);
+ 	if (err) {
+ 		LIBIPW_ERROR("Unable to allocate beacon storage: %d\n", err);
+-		goto failed_free_wiphy;
++		goto failed_free_netdev;
  	}
+ 	libipw_networks_initialize(ieee);
  
--poll_again:
- 	return work_done;
+@@ -217,31 +193,19 @@ struct net_device *alloc_ieee80211(int sizeof_priv, int monitor)
+ 
+ 	return dev;
+ 
+-failed_free_wiphy:
+-	if (!monitor)
+-		wiphy_free(ieee->wdev.wiphy);
+ failed_free_netdev:
+ 	free_netdev(dev);
+ failed:
+ 	return NULL;
  }
  
-@@ -11221,7 +11157,7 @@ exit_lbl:
- static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-void free_ieee80211(struct net_device *dev, int monitor)
++void free_ieee80211(struct net_device *dev)
  {
- 	struct bnx2x *bp = netdev_priv(dev);
--	struct bnx2x_fastpath *fp, *fp_stat;
-+	struct bnx2x_fastpath *fp;
- 	struct netdev_queue *txq;
- 	struct sw_tx_bd *tx_buf;
- 	struct eth_tx_start_bd *tx_start_bd;
-@@ -11243,11 +11179,10 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	fp_index = skb_get_queue_mapping(skb);
- 	txq = netdev_get_tx_queue(dev, fp_index);
+ 	struct libipw_device *ieee = netdev_priv(dev);
  
--	fp = &bp->fp[fp_index + bp->num_rx_queues];
--	fp_stat = &bp->fp[fp_index];
-+	fp = &bp->fp[fp_index];
+ 	lib80211_crypt_info_free(&ieee->crypt_info);
  
- 	if (unlikely(bnx2x_tx_avail(fp) < (skb_shinfo(skb)->nr_frags + 3))) {
--		fp_stat->eth_q_stats.driver_xoff++;
-+		fp->eth_q_stats.driver_xoff++;
- 		netif_tx_stop_queue(txq);
- 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
- 		return NETDEV_TX_BUSY;
-@@ -11473,7 +11408,7 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	fp->tx_db.data.prod += nbd;
- 	barrier();
--	DOORBELL(bp, fp->index - bp->num_rx_queues, fp->tx_db.raw);
-+	DOORBELL(bp, fp->index, fp->tx_db.raw);
- 
- 	mmiowb();
- 
-@@ -11484,11 +11419,11 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		/* We want bnx2x_tx_int to "see" the updated tx_bd_prod
- 		   if we put Tx into XOFF state. */
- 		smp_mb();
--		fp_stat->eth_q_stats.driver_xoff++;
-+		fp->eth_q_stats.driver_xoff++;
- 		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
- 			netif_tx_wake_queue(txq);
- 	}
--	fp_stat->tx_pkt++;
-+	fp->tx_pkt++;
- 
- 	return NETDEV_TX_OK;
+ 	libipw_networks_free(ieee);
+-
+-	/* free cfg80211 resources */
+-	if (!monitor) {
+-		wiphy_unregister(ieee->wdev.wiphy);
+-		kfree(ieee->a_band.channels);
+-		kfree(ieee->bg_band.channels);
+-		wiphy_free(ieee->wdev.wiphy);
+-	}
+-
+ 	free_netdev(dev);
  }
-@@ -12376,9 +12311,9 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
  
- 	/* Free SKBs, SGEs, TPA pool and driver internals */
- 	bnx2x_free_skbs(bp);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
--	for_each_rx_queue(bp, i)
-+	for_each_queue(bp, i)
- 		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
+index 17e1995..92af9b9 100644
+--- a/drivers/net/wireless/p54/p54usb.c
++++ b/drivers/net/wireless/p54/p54usb.c
+@@ -426,12 +426,16 @@ static const char p54u_romboot_3887[] = "~~~~";
+ static int p54u_firmware_reset_3887(struct ieee80211_hw *dev)
+ {
+ 	struct p54u_priv *priv = dev->priv;
+-	u8 buf[4];
++	u8 *buf;
+ 	int ret;
  
+-	memcpy(&buf, p54u_romboot_3887, sizeof(buf));
++	buf = kmalloc(4, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++	memcpy(buf, p54u_romboot_3887, 4);
+ 	ret = p54u_bulk_msg(priv, P54U_PIPE_DATA,
+-			    buf, sizeof(buf));
++			    buf, 4);
++	kfree(buf);
+ 	if (ret)
+ 		dev_err(&priv->udev->dev, "(p54usb) unable to jump to "
+ 			"boot ROM (%d)!\n", ret);
 -- 
-1.6.3.3
-
-
-
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
