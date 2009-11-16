@@ -1,89 +1,57 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] net: factorize rt_do_flush for batch device unregistering
-Date: Tue, 17 Nov 2009 00:03:44 +0200
-Message-ID: <200911170003.44099.opurdila@ixiacom.com>
-References: <200911162308.59730.opurdila@ixiacom.com> <4B01C507.9050908@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Mon, 16 Nov 2009 17:09:17 -0500
+Message-ID: <4B01CD8D.1000305@gmail.com>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCE65C.2010104@gmail.com> <4AFCFD86.6020504@gmail.com> <4AFD8421.6090003@gmail.com> <4B01BB33.7080702@gmail.com> <4B01BF65.1010203@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Joe Perches <joe@perches.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9023 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752978AbZKPWGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 17:06:45 -0500
-In-Reply-To: <4B01C507.9050908@gmail.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:36181 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798AbZKPWJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 17:09:15 -0500
+Received: by yxe17 with SMTP id 17so292082yxe.33
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 14:09:20 -0800 (PST)
+In-Reply-To: <4B01BF65.1010203@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 16 November 2009 23:32:55 you wrote:
-
-> > @@ -5374,6 +5395,9 @@ EXPORT_SYMBOL(unregister_netdevice_queue);
-> >   *	unregister_netdevice_many - unregister many devices
-> >   *	@head: list of devices
-> >   *
-> > + *	WARNING: This function modifies the list. It may change the order of
-> > the + *	elements in the list. However, you can assume it does not add or
-> > delete + *	elements to/from the list.
+Eric Dumazet wrote:
+> I am a bit uneasy on this patch, since apparently you have infrastructure
+> to send DATA payload on SYN, but I thought it was an optional part of your 'RFC'
+> and as such, being implemented later ?
 > 
-> Sorry I dont understand this comment
+There is nothing yet in this patch series to send data with a SYN.  Back in
+early October, David required that the various s_data and cookie structures
+be compressed and consolidated.  So, for the client side, the cookie_*
+fields are filled and the s_data_* fields are zero (ignored), while the
+server side can have both filled.
+
+Moreover, *this* patch does nothing other than allocate and deallocate the
+structure, zero filled by kzalloc().
+
+SYN data will be implemented (much) later.
+
+
+> I remember a previous remark from David that our skb queues would not contain
+> DATA on SYN packets...
 > 
+I haven't seen anything by David, but there's an existing comment in
+tcp_input.c at the place where SYN data will be added later:
 
-The  list passed to unregister_netdevice_many(), as the "head" parameter, may 
-be altered, e.g. order may change between the elements.
+			/* Now we have several options: In theory there is
+			 * nothing else in the frame. KA9Q has an option to
+			 * send data with the syn, BSD accepts data with the
+			 * syn up to the [to be] advertised window and
+			 * Solaris 2.1 gives you a protocol error. For now
+			 * we just ignore it, that fits the spec precisely
+			 * and avoids incompatibilities. It would be nice in
+			 * future to drop through and process the data.
 
-That is because we temporarily move the items from the list to the 
-rt_flush_list for the flush. When we add the items back they may not be added in 
-the same place.
-
-Perhaps the confusion comes from the fact that I did not specified which list? 
-(i.e. head)
-
-> > @@ -937,7 +937,10 @@ static int fib_netdev_event(struct notifier_block
-> > *this, unsigned long event, vo struct in_device *in_dev =
-> > __in_dev_get_rtnl(dev);
-> >
-> >  	if (event == NETDEV_UNREGISTER) {
-> > -		fib_disable_ip(dev, 2);
-> > +		/* if this event is part of a batch then don't flush the cache
-> > +		 * now; we will receive another event at the end of the batch */
-> > +		int rt_flush = list_empty(&dev->unreg_list) ? 0 : -1;
-> 
-> hmm... a bit ugly...
-> 
-
-Would it be better if I would add a dev_is_batch_unregister()  instead?
-
-Or add a new device flag to explicitly signal the batch unregister?
-
-
-> > +		fib_disable_ip(dev, 2, rt_flush);
-> >  		return NOTIFY_DONE;
-> >  	}
-> >
-> > @@ -955,7 +958,7 @@ static int fib_netdev_event(struct notifier_block
-> > *this, unsigned long event, vo rt_cache_flush(dev_net(dev), -1);
-> >  		break;
-> >  	case NETDEV_DOWN:
-> > -		fib_disable_ip(dev, 0);
-> > +		fib_disable_ip(dev, 0, 0);
-> >  		break;
-> >  	case NETDEV_CHANGEMTU:
-> >  	case NETDEV_CHANGE:
-> 
-> Are you sure you want to overload NETDEV_UNREGISTER ?
-> 
-> Maybe it would be cleaner to add a new value, NETDEV_UNREGISTER_PERNET or
->  something for the final loop...
-> 
-
-Hmm, I think that will allow us to get rid of the ugly test: never flush the 
-cache for NETDEV_UNREGISTER, only flush it for NETDEV_UNREGISTER_PERNET. 
-
-We just need to make sure to add NETDEV_UNREGISTER_PERNET in other places 
-where NETDEV_UNREGISTER is called.
-
-I'll try this in the next patch. Thanks for reviewing.
-
+As you know, there's an old Linux t/tcp patch series out there to add SYN
+data.  I'm also working with my KA9Q and BSD sources.
