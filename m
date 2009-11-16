@@ -1,163 +1,340 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: factorize rt_do_flush for batch device unregistering
-Date: Mon, 16 Nov 2009 22:32:55 +0100
-Message-ID: <4B01C507.9050908@gmail.com>
-References: <200911162308.59730.opurdila@ixiacom.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v6 6/7 RFC] TCPCT part 1f: Initiator Cookie
+ => Responder
+Date: Mon, 16 Nov 2009 16:35:17 -0500
+Message-ID: <4B01C595.607@gmail.com>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCF134.2060208@gmail.com> <4AFD8E9D.9050602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: multipart/mixed;
+ boundary="------------020705070202050808070404"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39617 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754464AbZKPVcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 16:32:54 -0500
-In-Reply-To: <200911162308.59730.opurdila@ixiacom.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:37247 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613AbZKPVfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 16:35:15 -0500
+Received: by yxe17 with SMTP id 17so263967yxe.33
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 13:35:21 -0800 (PST)
+In-Reply-To: <4AFD8E9D.9050602@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila a =E9crit :
-> Tests performed with per device sysctl/sysfs entries disabled:
->=20
-> $ insmod /lib/modules/dummy.ko numdummies=3D8000
-> $ time rmmod dummy
->=20
-> Without the patch:    With the patch:
-> real    0m 3.65s      real    0m 0.27s
-> user    0m 0.00s      user    0m 0.00s
-> sys     0m 3.42s      sys     0m 0.24s
->=20
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> ---
->  net/core/dev.c          |   28 ++++++++++++++++++++++++++--
->  net/ipv4/fib_frontend.c |   13 ++++++++-----
->  2 files changed, 34 insertions(+), 7 deletions(-)
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 4b24d79..b0a14f0 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4720,7 +4720,8 @@ static void net_set_todo(struct net_device *dev=
-)
-> =20
->  static void rollback_registered_many(struct list_head *head)
->  {
-> -	struct net_device *dev;
-> +	struct net_device *dev, *aux, *fdev;
-> +	LIST_HEAD(rt_flush_list);
-> =20
->  	BUG_ON(dev_boot_phase);
->  	ASSERT_RTNL();
-> @@ -4778,8 +4779,28 @@ static void rollback_registered_many(struct li=
-st_head *head)
-> =20
->  	synchronize_net();
-> =20
-> -	list_for_each_entry(dev, head, unreg_list)
-> +	/* flush route cache by resending one NETDEV_UNREGISTER per namespa=
-ce */
-> +	list_for_each_entry_safe(dev, aux, head, unreg_list) {
-> +		int needs_flush =3D 1;
-> +		list_for_each_entry(fdev, &rt_flush_list, unreg_list) {
-> +			if (dev_net(dev) =3D=3D dev_net(fdev)) {
-> +				needs_flush =3D 0;
-> +				dev_put(dev);
-> +				break;
-> +			}
-> +		}
-> +		if (needs_flush) {
-> +			list_del(&dev->unreg_list);
-> +			list_add(&dev->unreg_list, &rt_flush_list);
+This is a multi-part message in MIME format.
+--------------020705070202050808070404
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-list_move ...
+William Allen Simpson wrote:
+> Moving the initialization (and destruction) to part 1d makes this about as
+> short and easy to analyze as possible.  Any more technical observations?
+> 
+Removed 8-bit test, the result of related comments in part 1c.
 
-> +		}
-> +	}
-> +
-> +	list_for_each_entry_safe(dev, aux, &rt_flush_list, unreg_list) {
-> +		list_del_init(&dev->unreg_list);
-> +		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-> +		list_add(&dev->unreg_list, head);
->  		dev_put(dev);
-> +	}
->  }
-> =20
->  static void rollback_registered(struct net_device *dev)
-> @@ -5374,6 +5395,9 @@ EXPORT_SYMBOL(unregister_netdevice_queue);
->   *	unregister_netdevice_many - unregister many devices
->   *	@head: list of devices
->   *
-> + *	WARNING: This function modifies the list. It may change the order=
- of the
-> + *	elements in the list. However, you can assume it does not add or =
-delete
-> + *	elements to/from the list.
+Seeking Acks.
 
-Sorry I dont understand this comment
+--------------020705070202050808070404
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1f6++.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1f6++.patch"
 
->   */
->  void unregister_netdevice_many(struct list_head *head)
->  {
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index 816e218..1972760 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -895,11 +895,11 @@ static void nl_fib_lookup_exit(struct net *net)
->  	net->ipv4.fibnl =3D NULL;
->  }
-> =20
-> -static void fib_disable_ip(struct net_device *dev, int force)
-> +static void fib_disable_ip(struct net_device *dev, int force, int de=
-lay)
->  {
->  	if (fib_sync_down_dev(dev, force))
->  		fib_flush(dev_net(dev));
-> -	rt_cache_flush(dev_net(dev), 0);
-> +	rt_cache_flush(dev_net(dev), delay);
->  	arp_ifdown(dev);
->  }
-> =20
-> @@ -922,7 +922,7 @@ static int fib_inetaddr_event(struct notifier_blo=
-ck *this, unsigned long event,
->  			/* Last address was deleted from this interface.
->  			   Disable IP.
->  			 */
-> -			fib_disable_ip(dev, 1);
-> +			fib_disable_ip(dev, 1, 0);
->  		} else {
->  			rt_cache_flush(dev_net(dev), -1);
->  		}
-> @@ -937,7 +937,10 @@ static int fib_netdev_event(struct notifier_bloc=
-k *this, unsigned long event, vo
->  	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
-> =20
->  	if (event =3D=3D NETDEV_UNREGISTER) {
-> -		fib_disable_ip(dev, 2);
-> +		/* if this event is part of a batch then don't flush the cache
-> +		 * now; we will receive another event at the end of the batch */
-> +		int rt_flush =3D list_empty(&dev->unreg_list) ? 0 : -1;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e59fa5a..34b750e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -370,15 +370,45 @@ static inline int tcp_urg_mode(const struct tcp_sock *tp)
+ #define OPTION_TS		(1 << 1)
+ #define OPTION_MD5		(1 << 2)
+ #define OPTION_WSCALE		(1 << 3)
++#define OPTION_COOKIE_EXTENSION	(1 << 4)
+ 
+ struct tcp_out_options {
+ 	u8 options;		/* bit field of OPTION_* */
+ 	u8 ws;			/* window scale, 0 to disable */
+ 	u8 num_sack_blocks;	/* number of SACK blocks to include */
++	u8 hash_size;		/* bytes in hash_location */
+ 	u16 mss;		/* 0 to disable */
+ 	__u32 tsval, tsecr;	/* need to include OPTION_TS */
++	__u8 *hash_location;	/* temporary pointer, overloaded */
+ };
+ 
++/* The sysctl int routines are generic, so check consistency here.
++ */
++static u8 tcp_cookie_size_check(u8 desired)
++{
++	if (desired > 0) {
++		/* previously specified */
++		return desired;
++	}
++	if (sysctl_tcp_cookie_size <= 0) {
++		/* no default specified */
++		return 0;
++	}
++	if (sysctl_tcp_cookie_size < TCP_COOKIE_MIN) {
++		/* value too small, increase to minimum */
++		return TCP_COOKIE_MIN;
++	}
++	if (sysctl_tcp_cookie_size > TCP_COOKIE_MAX) {
++		/* value too large, decrease to maximum */
++		return TCP_COOKIE_MAX;
++	}
++	if (0x1 & sysctl_tcp_cookie_size) {
++		/* 8-bit multiple, illegal, fix it */
++		return (u8)(sysctl_tcp_cookie_size + 0x1);
++	}
++	return (u8)sysctl_tcp_cookie_size;
++}
++
+ /* Write previously computed TCP options to the packet.
+  *
+  * Beware: Something in the Internet is very sensitive to the ordering of
+@@ -393,17 +423,34 @@ struct tcp_out_options {
+  * (but it may well be that other scenarios fail similarly).
+  */
+ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+-			      const struct tcp_out_options *opts,
+-			      __u8 **md5_hash) {
+-	if (unlikely(OPTION_MD5 & opts->options)) {
+-		*ptr++ = htonl((TCPOPT_NOP << 24) |
+-			       (TCPOPT_NOP << 16) |
+-			       (TCPOPT_MD5SIG << 8) |
+-			       TCPOLEN_MD5SIG);
+-		*md5_hash = (__u8 *)ptr;
++			      struct tcp_out_options *opts)
++{
++	u8 options = opts->options;	/* mungable copy */
++
++	/* Having both authentication and cookies for security is redundant,
++	 * and there's certainly not enough room.  Instead, the cookie-less
++	 * extension variant is proposed.
++	 *
++	 * Consider the pessimal case with authentication.  The options
++	 * could look like:
++	 *   COOKIE|MD5(20) + MSS(4) + SACK|TS(12) + WSCALE(4) == 40
++	 */
++	if (unlikely(OPTION_MD5 & options)) {
++		if (unlikely(OPTION_COOKIE_EXTENSION & options)) {
++			*ptr++ = htonl((TCPOPT_COOKIE << 24) |
++				       (TCPOLEN_COOKIE_BASE << 16) |
++				       (TCPOPT_MD5SIG << 8) |
++				       TCPOLEN_MD5SIG);
++		} else {
++			*ptr++ = htonl((TCPOPT_NOP << 24) |
++				       (TCPOPT_NOP << 16) |
++				       (TCPOPT_MD5SIG << 8) |
++				       TCPOLEN_MD5SIG);
++		}
++		options &= ~OPTION_COOKIE_EXTENSION;
++		/* overload cookie hash location */
++		opts->hash_location = (__u8 *)ptr;
+ 		ptr += 4;
+-	} else {
+-		*md5_hash = NULL;
+ 	}
+ 
+ 	if (unlikely(opts->mss)) {
+@@ -412,12 +459,13 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 			       opts->mss);
+ 	}
+ 
+-	if (likely(OPTION_TS & opts->options)) {
+-		if (unlikely(OPTION_SACK_ADVERTISE & opts->options)) {
++	if (likely(OPTION_TS & options)) {
++		if (unlikely(OPTION_SACK_ADVERTISE & options)) {
+ 			*ptr++ = htonl((TCPOPT_SACK_PERM << 24) |
+ 				       (TCPOLEN_SACK_PERM << 16) |
+ 				       (TCPOPT_TIMESTAMP << 8) |
+ 				       TCPOLEN_TIMESTAMP);
++			options &= ~OPTION_SACK_ADVERTISE;
+ 		} else {
+ 			*ptr++ = htonl((TCPOPT_NOP << 24) |
+ 				       (TCPOPT_NOP << 16) |
+@@ -428,15 +476,52 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
+ 		*ptr++ = htonl(opts->tsecr);
+ 	}
+ 
+-	if (unlikely(OPTION_SACK_ADVERTISE & opts->options &&
+-		     !(OPTION_TS & opts->options))) {
++	/* Specification requires after timestamp, so do it now.
++	 *
++	 * Consider the pessimal case without authentication.  The options
++	 * could look like:
++	 *   MSS(4) + SACK|TS(12) + COOKIE(20) + WSCALE(4) == 40
++	 */
++	if (unlikely(OPTION_COOKIE_EXTENSION & options)) {
++		__u8 *cookie_copy = opts->hash_location;
++		u8 cookie_size = opts->hash_size;
++
++		/* 8-bit multiple handled in tcp_cookie_size_check() above,
++		 * and elsewhere.
++		 */
++		if (0x2 & cookie_size) {
++			__u8 *p = (__u8 *)ptr;
++
++			/* 16-bit multiple */
++			*p++ = TCPOPT_COOKIE;
++			*p++ = TCPOLEN_COOKIE_BASE + cookie_size;
++			*p++ = *cookie_copy++;
++			*p++ = *cookie_copy++;
++			ptr++;
++			cookie_size -= 2;
++		} else {
++			/* 32-bit multiple */
++			*ptr++ = htonl(((TCPOPT_NOP << 24) |
++					(TCPOPT_NOP << 16) |
++					(TCPOPT_COOKIE << 8) |
++					TCPOLEN_COOKIE_BASE) +
++				       cookie_size);
++		}
++
++		if (cookie_size > 0) {
++			memcpy(ptr, cookie_copy, cookie_size);
++			ptr += (cookie_size / 4);
++		}
++	}
++
++	if (unlikely(OPTION_SACK_ADVERTISE & options)) {
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) |
+ 			       (TCPOPT_NOP << 16) |
+ 			       (TCPOPT_SACK_PERM << 8) |
+ 			       TCPOLEN_SACK_PERM);
+ 	}
+ 
+-	if (unlikely(OPTION_WSCALE & opts->options)) {
++	if (unlikely(OPTION_WSCALE & options)) {
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) |
+ 			       (TCPOPT_WINDOW << 16) |
+ 			       (TCPOLEN_WINDOW << 8) |
+@@ -471,8 +556,12 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 				struct tcp_out_options *opts,
+ 				struct tcp_md5sig_key **md5) {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	unsigned size = 0;
++	struct tcp_cookie_values *cvp = tp->cookie_values;
+ 	struct dst_entry *dst = __sk_dst_get(sk);
++	unsigned size = 0;
++	u8 cookie_size = (!tp->rx_opt.cookie_out_never && cvp != NULL)
++			 ? tcp_cookie_size_check(cvp->cookie_desired)
++			 : 0;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	*md5 = tp->af_specific->md5_lookup(sk, sk);
+@@ -517,6 +606,53 @@ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 			size += TCPOLEN_SACKPERM_ALIGNED;
+ 	}
+ 
++	/* Note that timestamps are required by the specification.
++	 *
++	 * Odd numbers of bytes are prohibited by the specification, ensuring
++	 * that the cookie is 16-bit aligned, and the resulting cookie pair is
++	 * 32-bit aligned.
++	 */
++	if (*md5 == NULL
++	 && (OPTION_TS & opts->options)
++	 && cookie_size > 0) {
++		int need = TCPOLEN_COOKIE_BASE + cookie_size;
++		int remaining = MAX_TCP_OPTION_SPACE - size;
++
++		if (0x2 & need) {
++			/* 32-bit multiple */
++			need += 2; /* NOPs */
++
++			if (need > remaining) {
++				/* try shrinking cookie to fit */
++				cookie_size -= 2;
++				need -= 4;
++			}
++		}
++		while (need > remaining && TCP_COOKIE_MIN <= cookie_size) {
++			cookie_size -= 4;
++			need -= 4;
++		}
++		if (TCP_COOKIE_MIN <= cookie_size) {
++			opts->options |= OPTION_COOKIE_EXTENSION;
++			opts->hash_location = (__u8 *)&cvp->cookie_pair[0];
++			opts->hash_size = cookie_size;
++
++			/* Remember for future incarnations. */
++			cvp->cookie_desired = cookie_size;
++
++			if (cvp->cookie_desired != cvp->cookie_pair_size) {
++				/* Currently use random bytes as a nonce,
++				 * assuming these are completely unpredictable
++				 * by hostile users of the same system.
++				 */
++				get_random_bytes(&cvp->cookie_pair[0],
++						 cookie_size);
++				cvp->cookie_pair_size = cookie_size;
++			}
++
++			size += need;
++		}
++	}
+ 	return size;
+ }
+ 
+@@ -632,7 +768,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	struct tcp_out_options opts;
+ 	unsigned tcp_options_size, tcp_header_size;
+ 	struct tcp_md5sig_key *md5;
+-	__u8 *md5_hash_location;
+ 	struct tcphdr *th;
+ 	int err;
+ 
+@@ -703,7 +838,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		}
+ 	}
+ 
+-	tcp_options_write((__be32 *)(th + 1), tp, &opts, &md5_hash_location);
++	tcp_options_write((__be32 *)(th + 1), tp, &opts);
+ 	if (likely((tcb->flags & TCPCB_FLAG_SYN) == 0))
+ 		TCP_ECN_send(sk, skb, tcp_header_size);
+ 
+@@ -711,7 +846,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	/* Calculate the MD5 hash, as we have all we need now */
+ 	if (md5) {
+ 		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+-		tp->af_specific->calc_md5_hash(md5_hash_location,
++		tp->af_specific->calc_md5_hash(opts.hash_location,
+ 					       md5, sk, NULL, skb);
+ 	}
+ #endif
+@@ -2235,14 +2370,13 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 				struct request_sock *req,
+ 				struct request_values *rvp)
+ {
++	struct tcp_out_options opts;
+ 	struct inet_request_sock *ireq = inet_rsk(req);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcphdr *th;
+-	int tcp_header_size;
+-	struct tcp_out_options opts;
+ 	struct sk_buff *skb;
+ 	struct tcp_md5sig_key *md5;
+-	__u8 *md5_hash_location;
++	int tcp_header_size;
+ 	int mss;
+ 
+ 	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
+@@ -2303,14 +2437,14 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
+ 	th->window = htons(min(req->rcv_wnd, 65535U));
+-	tcp_options_write((__be32 *)(th + 1), tp, &opts, &md5_hash_location);
++	tcp_options_write((__be32 *)(th + 1), tp, &opts);
+ 	th->doff = (tcp_header_size >> 2);
+ 	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Okay, we have all we need - do the md5 hash if needed */
+ 	if (md5) {
+-		tcp_rsk(req)->af_specific->calc_md5_hash(md5_hash_location,
++		tcp_rsk(req)->af_specific->calc_md5_hash(opts.hash_location,
+ 					       md5, NULL, req, skb);
+ 	}
+ #endif
 
-hmm... a bit ugly...
-
-> +		fib_disable_ip(dev, 2, rt_flush);
->  		return NOTIFY_DONE;
->  	}
-> =20
-> @@ -955,7 +958,7 @@ static int fib_netdev_event(struct notifier_block=
- *this, unsigned long event, vo
->  		rt_cache_flush(dev_net(dev), -1);
->  		break;
->  	case NETDEV_DOWN:
-> -		fib_disable_ip(dev, 0);
-> +		fib_disable_ip(dev, 0, 0);
->  		break;
->  	case NETDEV_CHANGEMTU:
->  	case NETDEV_CHANGE:
-
-
-Are you sure you want to overload NETDEV_UNREGISTER ?
-
-Maybe it would be cleaner to add a new value, NETDEV_UNREGISTER_PERNET =
-or something=20
-for the final loop...
+--------------020705070202050808070404--
