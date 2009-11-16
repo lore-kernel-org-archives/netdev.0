@@ -1,15 +1,14 @@
 From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 08/11] net/can/mpc52xx_can: improve properties and their
-	description
-Date: Mon, 16 Nov 2009 23:57:51 +0100
-Message-ID: <1258412274-14686-9-git-send-email-w.sang@pengutronix.de>
+Subject: [PATCH 09/11] net/can/mscan: replace hardcoded values with defines
+Date: Mon, 16 Nov 2009 23:57:52 +0100
+Message-ID: <1258412274-14686-10-git-send-email-w.sang@pengutronix.de>
 References: <1258412274-14686-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 In-Reply-To: <1258412274-14686-1-git-send-email-w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
@@ -24,52 +23,63 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Cc: devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
----
- Documentation/powerpc/dts-bindings/fsl/mpc5200.txt |    9 +++++----
- drivers/net/can/mscan/mpc52xx_can.c                |    3 +--
- 2 files changed, 6 insertions(+), 6 deletions(-)
+Not all hardcoded values have been replaced as this made the code quite
+unreadable. IMHO this compromise serves the purpose of readability.
 
-diff --git a/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt b/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
-index b151fb1..cabc780 100644
---- a/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
-+++ b/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
-@@ -181,9 +181,10 @@ External interrupts:
- fsl,mpc5200-mscan nodes
- -----------------------
- In addition to the required compatible-, reg- and interrupt-properites, you can
--also specify which clock shall be used for the bus:
-+also specify which clock source shall be used for the controller:
+Signed-off-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ drivers/net/can/mscan/mscan.c |   15 ++++++++++-----
+ drivers/net/can/mscan/mscan.h |    5 +++++
+ 2 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index 20d1991..263d1a9 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -211,18 +211,23 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
--- fsl,mscan-clk-src	- a string describing the clock source. Valid values
--			  are "ip" for IP_CLK and "sys" for SYS_XTAL.
--			  "sys" is the default in case the property is not
-+- fsl,mscan-clock-source- a string describing the clock source. Valid values
-+			  are:	"ip" for ip bus clock
-+				"ref" for reference clock (XTAL)
-+			  "ref" is default in case this property is not
- 			  present.
-diff --git a/drivers/net/can/mscan/mpc52xx_can.c b/drivers/net/can/mscan/mpc52xx_can.c
-index a915959..1de6f63 100644
---- a/drivers/net/can/mscan/mpc52xx_can.c
-+++ b/drivers/net/can/mscan/mpc52xx_can.c
-@@ -130,7 +130,7 @@ static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
- 	 * choice as it has less jitter. For this reason, it is selected
- 	 * by default.
- 	 */
--	clk_src = of_get_property(np, "fsl,mscan-clk-src", NULL);
-+	clk_src = of_get_property(np, "fsl,mscan-clock-source", NULL);
- 	if (clk_src && strcmp(clk_src, "ip") == 0)
- 		clock_src = MSCAN_CLKSRC_BUS;
- 	else
-@@ -227,7 +227,6 @@ static int mpc5xxx_can_resume(struct of_device *ofdev)
+ 	rtr = frame->can_id & CAN_RTR_FLAG;
  
- static struct of_device_id __devinitdata mpc5xxx_can_table[] = {
- 	{.compatible = "fsl,mpc5200-mscan"},
--	{.compatible = "fsl,mpc5200b-mscan"},
- 	{},
- };
++	/* RTR is always the lowest bit of interest, then IDs follow */
+ 	if (frame->can_id & CAN_EFF_FLAG) {
+-		can_id = (frame->can_id & CAN_EFF_MASK) << 1;
++		can_id = (frame->can_id & CAN_EFF_MASK)
++			 << (MSCAN_EFF_RTR_SHIFT + 1);
+ 		if (rtr)
+-			can_id |= 1;
++			can_id |= 1 << MSCAN_EFF_RTR_SHIFT;
+ 		out_be16(&regs->tx.idr3_2, can_id);
  
+ 		can_id >>= 16;
+-		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0) | (3 << 3);
++		/* EFF_FLAGS are inbetween the IDs :( */
++		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0)
++			 | MSCAN_EFF_FLAGS;
+ 	} else {
+-		can_id = (frame->can_id & CAN_SFF_MASK) << 5;
++		can_id = (frame->can_id & CAN_SFF_MASK)
++			 << (MSCAN_SFF_RTR_SHIFT + 1);
+ 		if (rtr)
+-			can_id |= 1 << 4;
++			can_id |= 1 << MSCAN_SFF_RTR_SHIFT;
+ 	}
+ 	out_be16(&regs->tx.idr1_0, can_id);
+ 
+diff --git a/drivers/net/can/mscan/mscan.h b/drivers/net/can/mscan/mscan.h
+index 2018000..00fc4aa 100644
+--- a/drivers/net/can/mscan/mscan.h
++++ b/drivers/net/can/mscan/mscan.h
+@@ -131,6 +131,11 @@
+ /* MSCAN Miscellaneous Register (CANMISC) bits */
+ #define MSCAN_BOHOLD		0x01
+ 
++/* MSCAN Identifier Register (IDR) bits */
++#define MSCAN_SFF_RTR_SHIFT	4
++#define MSCAN_EFF_RTR_SHIFT	0
++#define MSCAN_EFF_FLAGS		0x18	/* IDE + SRR */
++
+ #ifdef MSCAN_FOR_MPC5200
+ #define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
+ #define _MSCAN_RESERVED_DSR_SIZE	2
 -- 
 1.6.3.3
