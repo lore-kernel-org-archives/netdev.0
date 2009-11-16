@@ -1,643 +1,363 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 11/11] net/can/mscan: improve build
-Date: Mon, 16 Nov 2009 23:57:54 +0100
-Message-ID: <1258412274-14686-12-git-send-email-w.sang@pengutronix.de>
-References: <1258412274-14686-1-git-send-email-w.sang@pengutronix.de>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.32-rc7-git1: Reported regressions 2.6.30 -> 2.6.31
+Date: Mon, 16 Nov 2009 23:58:32 +0100 (CET)
+Message-ID: <ipicVA1QUFF.A.zWB.1mdALB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1258412274-14686-1-git-send-email-w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- move Kconfig entries to the subdirectory
-- do remaining renames of mpc52xx to mpc5xxx
+This message contains a list of some regressions introduced between 2.6=
+=2E30 and
+2.6.31, for which there are no fixes in the mainline I know of.  If any=
+ of them
+have been fixed already, please let me know.
 
-Signed-off-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- drivers/net/can/Kconfig             |   19 +---
- drivers/net/can/mscan/Kconfig       |   23 +++
- drivers/net/can/mscan/Makefile      |    4 +-
- drivers/net/can/mscan/mpc52xx_can.c |  259 -----------------------------------
- drivers/net/can/mscan/mpc5xxx_can.c |  259 +++++++++++++++++++++++++++++++++++
- 5 files changed, 285 insertions(+), 279 deletions(-)
- create mode 100644 drivers/net/can/mscan/Kconfig
- delete mode 100644 drivers/net/can/mscan/mpc52xx_can.c
- create mode 100644 drivers/net/can/mscan/mpc5xxx_can.c
+If you know of any other unresolved regressions introduced between 2.6.=
+30
+and 2.6.31, please let me know either and I'll add them to the list.
+Also, please let me know if any of the entries below are invalid.
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index c16e6ff..c1cfe2e 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -108,24 +108,7 @@ config CAN_MCP251X
- 	---help---
- 	  Driver for the Microchip MCP251x SPI CAN controllers.
- 
--config CAN_MSCAN
--	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
--	tristate "Support for Freescale MSCAN based chips"
--	---help---
--	  The Motorola Scalable Controller Area Network (MSCAN) definition
--	  is based on the MSCAN12 definition which is the specific
--	  implementation of the Motorola Scalable CAN concept targeted for
--	  the Motorola MC68HC12 Microcontroller Family.
--
--config CAN_MPC52XX
--	tristate "Freescale MPC5xxx onboard CAN controller"
--	depends on CAN_MSCAN && PPC_MPC52xx
--	---help---
--	  If you say yes here you get support for Freescale's MPC52xx
--	  onboard dualCAN controller.
--
--	  This driver can also be built as a module.  If so, the module
--	  will be called mpc5xxx_can.
-+source "drivers/net/can/mscan/Kconfig"
- 
- config CAN_DEBUG_DEVICES
- 	bool "CAN devices debugging messages"
-diff --git a/drivers/net/can/mscan/Kconfig b/drivers/net/can/mscan/Kconfig
-new file mode 100644
-index 0000000..cd0f2d6
---- /dev/null
-+++ b/drivers/net/can/mscan/Kconfig
-@@ -0,0 +1,23 @@
-+config CAN_MSCAN
-+	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
-+	tristate "Support for Freescale MSCAN based chips"
-+	---help---
-+	  The Motorola Scalable Controller Area Network (MSCAN) definition
-+	  is based on the MSCAN12 definition which is the specific
-+	  implementation of the Motorola Scalable CAN concept targeted for
-+	  the Motorola MC68HC12 Microcontroller Family.
-+
-+if CAN_MSCAN
-+
-+config CAN_MPC5XXX
-+	tristate "Freescale MPC5xxx onboard CAN controller"
-+	depends on PPC_MPC52xx
-+	---help---
-+	  If you say yes here you get support for Freescale's MPC5xxx
-+	  onboard CAN controller.
-+
-+	  This driver can also be built as a module.  If so, the module
-+	  will be called mscan-mpc5xxx.ko.
-+
-+endif
-+
-diff --git a/drivers/net/can/mscan/Makefile b/drivers/net/can/mscan/Makefile
-index 2bd9f04..c9fab17 100644
---- a/drivers/net/can/mscan/Makefile
-+++ b/drivers/net/can/mscan/Makefile
-@@ -1,5 +1,5 @@
- 
--obj-$(CONFIG_CAN_MPC52XX)	+= mscan-mpc52xx.o
--mscan-mpc52xx-objs		:= mscan.o mpc52xx_can.o
-+obj-$(CONFIG_CAN_MPC5XXX)	+= mscan-mpc5xxx.o
-+mscan-mpc5xxx-objs		:= mscan.o mpc5xxx_can.o
- 
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/mscan/mpc52xx_can.c b/drivers/net/can/mscan/mpc52xx_can.c
-deleted file mode 100644
-index 1de6f63..0000000
---- a/drivers/net/can/mscan/mpc52xx_can.c
-+++ /dev/null
-@@ -1,259 +0,0 @@
--/*
-- * CAN bus driver for the Freescale MPC5xxx embedded CPU.
-- *
-- * Copyright (C) 2004-2005 Andrey Volkov <avolkov-ppI4tVfbJvJWk0Htik3J/w@public.gmane.org>,
-- *                         Varma Electronics Oy
-- * Copyright (C) 2008-2009 Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-- * Copyright (C) 2009 Wolfram Sang, Pengutronix <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the version 2 of the GNU General Public License
-- * as published by the Free Software Foundation
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-- * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-- */
--
--#include <linux/kernel.h>
--#include <linux/module.h>
--#include <linux/interrupt.h>
--#include <linux/platform_device.h>
--#include <linux/netdevice.h>
--#include <linux/can.h>
--#include <linux/can/dev.h>
--#include <linux/of_platform.h>
--#include <sysdev/fsl_soc.h>
--#include <linux/io.h>
--#include <asm/mpc52xx.h>
--
--#include "mscan.h"
--
--#define DRV_NAME "mpc5xxx_can"
--
--static struct of_device_id mpc52xx_cdm_ids[] __devinitdata = {
--	{ .compatible = "fsl,mpc5200-cdm", },
--	{}
--};
--
--/*
-- * Get frequency of the MSCAN clock source
-- *
-- * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock (IP_CLK)
-- * can be selected. According to the MPC5200 user's manual, the oscillator
-- * clock is the better choice as it has less jitter but due to a hardware
-- * bug, it can not be selected for the old MPC5200 Rev. A chips.
-- */
--
--static unsigned int  __devinit mpc52xx_can_clock_freq(struct of_device *of,
--						      int clock_src)
--{
--	unsigned int pvr;
--	struct mpc52xx_cdm  __iomem *cdm;
--	struct device_node *np_cdm;
--	unsigned int freq;
--	u32 val;
--
--	pvr = mfspr(SPRN_PVR);
--
--	freq = mpc5xxx_get_bus_frequency(of->node);
--	if (!freq)
--		return 0;
--
--	if (clock_src == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
--		return freq;
--
--	/* Determine SYS_XTAL_IN frequency from the clock domain settings */
--	np_cdm = of_find_matching_node(NULL, mpc52xx_cdm_ids);
--	if (!np_cdm) {
--		dev_err(&of->dev, "can't get clock node!\n");
--		return 0;
--	}
--	cdm = of_iomap(np_cdm, 0);
--	of_node_put(np_cdm);
--
--	if (in_8(&cdm->ipb_clk_sel) & 0x1)
--		freq *= 2;
--	val = in_be32(&cdm->rstcfg);
--
--	freq *= (val & (1 << 5)) ? 8 : 4;
--	freq /= (val & (1 << 6)) ? 12 : 16;
--
--	iounmap(cdm);
--
--	return freq;
--}
--
--static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
--				       const struct of_device_id *id)
--{
--	struct device_node *np = ofdev->node;
--	struct net_device *dev;
--	struct mscan_priv *priv;
--	void __iomem *base;
--	const char *clk_src;
--	int err, irq, clock_src;
--
--	base = of_iomap(ofdev->node, 0);
--	if (!base) {
--		dev_err(&ofdev->dev, "couldn't ioremap\n");
--		err = -ENOMEM;
--		goto exit_release_mem;
--	}
--
--	irq = irq_of_parse_and_map(np, 0);
--	if (!irq) {
--		dev_err(&ofdev->dev, "no irq found\n");
--		err = -ENODEV;
--		goto exit_unmap_mem;
--	}
--
--	dev = alloc_mscandev();
--	if (!dev) {
--		err = -ENOMEM;
--		goto exit_dispose_irq;
--	}
--
--	priv = netdev_priv(dev);
--	priv->reg_base = base;
--	dev->irq = irq;
--
--	/*
--	 * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock
--	 * (IP_CLK) can be selected as MSCAN clock source. According to
--	 * the MPC5200 user's manual, the oscillator clock is the better
--	 * choice as it has less jitter. For this reason, it is selected
--	 * by default.
--	 */
--	clk_src = of_get_property(np, "fsl,mscan-clock-source", NULL);
--	if (clk_src && strcmp(clk_src, "ip") == 0)
--		clock_src = MSCAN_CLKSRC_BUS;
--	else
--		clock_src = MSCAN_CLKSRC_XTAL;
--	priv->can.clock.freq = mpc52xx_can_clock_freq(ofdev, clock_src);
--	if (!priv->can.clock.freq) {
--		dev_err(&ofdev->dev, "couldn't get MSCAN clock frequency\n");
--		err = -ENODEV;
--		goto exit_free_mscan;
--	}
--
--	SET_NETDEV_DEV(dev, &ofdev->dev);
--
--	err = register_mscandev(dev, clock_src);
--	if (err) {
--		dev_err(&ofdev->dev, "registering %s failed (err=%d)\n",
--			DRV_NAME, err);
--		goto exit_free_mscan;
--	}
--
--	dev_set_drvdata(&ofdev->dev, dev);
--
--	dev_info(&ofdev->dev, "MSCAN at 0x%p, irq %d, clock %d Hz\n",
--		 priv->reg_base, dev->irq, priv->can.clock.freq);
--
--	return 0;
--
--exit_free_mscan:
--	free_candev(dev);
--exit_dispose_irq:
--	irq_dispose_mapping(irq);
--exit_unmap_mem:
--	iounmap(base);
--exit_release_mem:
--	return err;
--}
--
--static int __devexit mpc5xxx_can_remove(struct of_device *ofdev)
--{
--	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
--	struct mscan_priv *priv = netdev_priv(dev);
--
--	dev_set_drvdata(&ofdev->dev, NULL);
--
--	unregister_mscandev(dev);
--	iounmap(priv->reg_base);
--	irq_dispose_mapping(dev->irq);
--	free_candev(dev);
--
--	return 0;
--}
--
--#ifdef CONFIG_PM
--static struct mscan_regs saved_regs;
--static int mpc5xxx_can_suspend(struct of_device *ofdev, pm_message_t state)
--{
--	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
--	struct mscan_priv *priv = netdev_priv(dev);
--	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
--
--	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
--
--	return 0;
--}
--
--static int mpc5xxx_can_resume(struct of_device *ofdev)
--{
--	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
--	struct mscan_priv *priv = netdev_priv(dev);
--	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
--
--	regs->canctl0 |= MSCAN_INITRQ;
--	while (!(regs->canctl1 & MSCAN_INITAK))
--		udelay(10);
--
--	regs->canctl1 = saved_regs.canctl1;
--	regs->canbtr0 = saved_regs.canbtr0;
--	regs->canbtr1 = saved_regs.canbtr1;
--	regs->canidac = saved_regs.canidac;
--
--	/* restore masks, buffers etc. */
--	_memcpy_toio(&regs->canidar1_0, (void *)&saved_regs.canidar1_0,
--		     sizeof(*regs) - offsetof(struct mscan_regs, canidar1_0));
--
--	regs->canctl0 &= ~MSCAN_INITRQ;
--	regs->cantbsel = saved_regs.cantbsel;
--	regs->canrier = saved_regs.canrier;
--	regs->cantier = saved_regs.cantier;
--	regs->canctl0 = saved_regs.canctl0;
--
--	return 0;
--}
--#endif
--
--static struct of_device_id __devinitdata mpc5xxx_can_table[] = {
--	{.compatible = "fsl,mpc5200-mscan"},
--	{},
--};
--
--static struct of_platform_driver mpc5xxx_can_driver = {
--	.owner = THIS_MODULE,
--	.name = "mpc5xxx_can",
--	.probe = mpc5xxx_can_probe,
--	.remove = __devexit_p(mpc5xxx_can_remove),
--#ifdef CONFIG_PM
--	.suspend = mpc5xxx_can_suspend,
--	.resume = mpc5xxx_can_resume,
--#endif
--	.match_table = mpc5xxx_can_table,
--};
--
--static int __init mpc5xxx_can_init(void)
--{
--	return of_register_platform_driver(&mpc5xxx_can_driver);
--}
--module_init(mpc5xxx_can_init);
--
--static void __exit mpc5xxx_can_exit(void)
--{
--	return of_unregister_platform_driver(&mpc5xxx_can_driver);
--};
--module_exit(mpc5xxx_can_exit);
--
--MODULE_AUTHOR("Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>");
--MODULE_DESCRIPTION("Freescale MPC5200 CAN driver");
--MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-new file mode 100644
-index 0000000..1de6f63
---- /dev/null
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -0,0 +1,259 @@
-+/*
-+ * CAN bus driver for the Freescale MPC5xxx embedded CPU.
-+ *
-+ * Copyright (C) 2004-2005 Andrey Volkov <avolkov-ppI4tVfbJvJWk0Htik3J/w@public.gmane.org>,
-+ *                         Varma Electronics Oy
-+ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-+ * Copyright (C) 2009 Wolfram Sang, Pengutronix <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/platform_device.h>
-+#include <linux/netdevice.h>
-+#include <linux/can.h>
-+#include <linux/can/dev.h>
-+#include <linux/of_platform.h>
-+#include <sysdev/fsl_soc.h>
-+#include <linux/io.h>
-+#include <asm/mpc52xx.h>
-+
-+#include "mscan.h"
-+
-+#define DRV_NAME "mpc5xxx_can"
-+
-+static struct of_device_id mpc52xx_cdm_ids[] __devinitdata = {
-+	{ .compatible = "fsl,mpc5200-cdm", },
-+	{}
-+};
-+
-+/*
-+ * Get frequency of the MSCAN clock source
-+ *
-+ * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock (IP_CLK)
-+ * can be selected. According to the MPC5200 user's manual, the oscillator
-+ * clock is the better choice as it has less jitter but due to a hardware
-+ * bug, it can not be selected for the old MPC5200 Rev. A chips.
-+ */
-+
-+static unsigned int  __devinit mpc52xx_can_clock_freq(struct of_device *of,
-+						      int clock_src)
-+{
-+	unsigned int pvr;
-+	struct mpc52xx_cdm  __iomem *cdm;
-+	struct device_node *np_cdm;
-+	unsigned int freq;
-+	u32 val;
-+
-+	pvr = mfspr(SPRN_PVR);
-+
-+	freq = mpc5xxx_get_bus_frequency(of->node);
-+	if (!freq)
-+		return 0;
-+
-+	if (clock_src == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
-+		return freq;
-+
-+	/* Determine SYS_XTAL_IN frequency from the clock domain settings */
-+	np_cdm = of_find_matching_node(NULL, mpc52xx_cdm_ids);
-+	if (!np_cdm) {
-+		dev_err(&of->dev, "can't get clock node!\n");
-+		return 0;
-+	}
-+	cdm = of_iomap(np_cdm, 0);
-+	of_node_put(np_cdm);
-+
-+	if (in_8(&cdm->ipb_clk_sel) & 0x1)
-+		freq *= 2;
-+	val = in_be32(&cdm->rstcfg);
-+
-+	freq *= (val & (1 << 5)) ? 8 : 4;
-+	freq /= (val & (1 << 6)) ? 12 : 16;
-+
-+	iounmap(cdm);
-+
-+	return freq;
-+}
-+
-+static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
-+				       const struct of_device_id *id)
-+{
-+	struct device_node *np = ofdev->node;
-+	struct net_device *dev;
-+	struct mscan_priv *priv;
-+	void __iomem *base;
-+	const char *clk_src;
-+	int err, irq, clock_src;
-+
-+	base = of_iomap(ofdev->node, 0);
-+	if (!base) {
-+		dev_err(&ofdev->dev, "couldn't ioremap\n");
-+		err = -ENOMEM;
-+		goto exit_release_mem;
-+	}
-+
-+	irq = irq_of_parse_and_map(np, 0);
-+	if (!irq) {
-+		dev_err(&ofdev->dev, "no irq found\n");
-+		err = -ENODEV;
-+		goto exit_unmap_mem;
-+	}
-+
-+	dev = alloc_mscandev();
-+	if (!dev) {
-+		err = -ENOMEM;
-+		goto exit_dispose_irq;
-+	}
-+
-+	priv = netdev_priv(dev);
-+	priv->reg_base = base;
-+	dev->irq = irq;
-+
-+	/*
-+	 * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock
-+	 * (IP_CLK) can be selected as MSCAN clock source. According to
-+	 * the MPC5200 user's manual, the oscillator clock is the better
-+	 * choice as it has less jitter. For this reason, it is selected
-+	 * by default.
-+	 */
-+	clk_src = of_get_property(np, "fsl,mscan-clock-source", NULL);
-+	if (clk_src && strcmp(clk_src, "ip") == 0)
-+		clock_src = MSCAN_CLKSRC_BUS;
-+	else
-+		clock_src = MSCAN_CLKSRC_XTAL;
-+	priv->can.clock.freq = mpc52xx_can_clock_freq(ofdev, clock_src);
-+	if (!priv->can.clock.freq) {
-+		dev_err(&ofdev->dev, "couldn't get MSCAN clock frequency\n");
-+		err = -ENODEV;
-+		goto exit_free_mscan;
-+	}
-+
-+	SET_NETDEV_DEV(dev, &ofdev->dev);
-+
-+	err = register_mscandev(dev, clock_src);
-+	if (err) {
-+		dev_err(&ofdev->dev, "registering %s failed (err=%d)\n",
-+			DRV_NAME, err);
-+		goto exit_free_mscan;
-+	}
-+
-+	dev_set_drvdata(&ofdev->dev, dev);
-+
-+	dev_info(&ofdev->dev, "MSCAN at 0x%p, irq %d, clock %d Hz\n",
-+		 priv->reg_base, dev->irq, priv->can.clock.freq);
-+
-+	return 0;
-+
-+exit_free_mscan:
-+	free_candev(dev);
-+exit_dispose_irq:
-+	irq_dispose_mapping(irq);
-+exit_unmap_mem:
-+	iounmap(base);
-+exit_release_mem:
-+	return err;
-+}
-+
-+static int __devexit mpc5xxx_can_remove(struct of_device *ofdev)
-+{
-+	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
-+	struct mscan_priv *priv = netdev_priv(dev);
-+
-+	dev_set_drvdata(&ofdev->dev, NULL);
-+
-+	unregister_mscandev(dev);
-+	iounmap(priv->reg_base);
-+	irq_dispose_mapping(dev->irq);
-+	free_candev(dev);
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_PM
-+static struct mscan_regs saved_regs;
-+static int mpc5xxx_can_suspend(struct of_device *ofdev, pm_message_t state)
-+{
-+	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
-+	struct mscan_priv *priv = netdev_priv(dev);
-+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
-+
-+	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
-+
-+	return 0;
-+}
-+
-+static int mpc5xxx_can_resume(struct of_device *ofdev)
-+{
-+	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
-+	struct mscan_priv *priv = netdev_priv(dev);
-+	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
-+
-+	regs->canctl0 |= MSCAN_INITRQ;
-+	while (!(regs->canctl1 & MSCAN_INITAK))
-+		udelay(10);
-+
-+	regs->canctl1 = saved_regs.canctl1;
-+	regs->canbtr0 = saved_regs.canbtr0;
-+	regs->canbtr1 = saved_regs.canbtr1;
-+	regs->canidac = saved_regs.canidac;
-+
-+	/* restore masks, buffers etc. */
-+	_memcpy_toio(&regs->canidar1_0, (void *)&saved_regs.canidar1_0,
-+		     sizeof(*regs) - offsetof(struct mscan_regs, canidar1_0));
-+
-+	regs->canctl0 &= ~MSCAN_INITRQ;
-+	regs->cantbsel = saved_regs.cantbsel;
-+	regs->canrier = saved_regs.canrier;
-+	regs->cantier = saved_regs.cantier;
-+	regs->canctl0 = saved_regs.canctl0;
-+
-+	return 0;
-+}
-+#endif
-+
-+static struct of_device_id __devinitdata mpc5xxx_can_table[] = {
-+	{.compatible = "fsl,mpc5200-mscan"},
-+	{},
-+};
-+
-+static struct of_platform_driver mpc5xxx_can_driver = {
-+	.owner = THIS_MODULE,
-+	.name = "mpc5xxx_can",
-+	.probe = mpc5xxx_can_probe,
-+	.remove = __devexit_p(mpc5xxx_can_remove),
-+#ifdef CONFIG_PM
-+	.suspend = mpc5xxx_can_suspend,
-+	.resume = mpc5xxx_can_resume,
-+#endif
-+	.match_table = mpc5xxx_can_table,
-+};
-+
-+static int __init mpc5xxx_can_init(void)
-+{
-+	return of_register_platform_driver(&mpc5xxx_can_driver);
-+}
-+module_init(mpc5xxx_can_init);
-+
-+static void __exit mpc5xxx_can_exit(void)
-+{
-+	return of_unregister_platform_driver(&mpc5xxx_can_driver);
-+};
-+module_exit(mpc5xxx_can_exit);
-+
-+MODULE_AUTHOR("Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>");
-+MODULE_DESCRIPTION("Freescale MPC5200 CAN driver");
-+MODULE_LICENSE("GPL v2");
--- 
-1.6.3.3
+Each entry from the list will be sent additionally in an automatic repl=
+y to
+this message with CCs to the people involved in reporting and handling =
+the
+issue.
+
+
+Listed regressions statistics:
+
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2009-11-17      176       34          30
+  2009-10-26      170       37          32
+  2009-10-12      161       45          35
+  2009-10-02      151       49          42
+  2009-09-06      123       34          27
+  2009-08-26      108       33          26
+  2009-08-20      102       32          29
+  2009-08-10       89       27          24
+  2009-08-02       76       36          28
+  2009-07-27       70       51          43
+  2009-07-07       35       25          21
+  2009-06-29       22       22          15
+
+
+Unresolved regressions
+----------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14623
+Subject		: Mount -o sync regression in 2.6.31
+Submitter	: Stephen Hemminger <shemminger@vyatta.com>
+Date		: 2009-11-11 20:33 (6 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125797165709131&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14588
+Subject		: Kernel panic - not syncing: stack-protector: Kernel stack is=
+ corrupted in: ccccb5b0
+Submitter	: Hideki Yamane <henrich@debian.or.jp>
+Date		: 2009-11-12 02:25 (5 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14484
+Subject		: no video output after suspend
+Submitter	: Riccardo Magliocchetti <riccardo.magliocchetti@gmail.com>
+Date		: 2009-10-25 20:57 (23 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125650430123713&w=3D=
+4
+Handled-By	: Jesse Barnes <jbarnes@virtuousgeek.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14476
+Subject		: Unable to handle kernel paging request in nfs_write_mapping
+Submitter	: Stephan von Krawczynski <skraw@ithnet.com>
+Date		: 2009-10-14 9:53 (34 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125551421405656&w=3D=
+4
+Handled-By	: Trond Myklebust <Trond.Myklebust@netapp.com>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14474
+Subject		: restorecond going crazy on 2.6.31.4 - inotify regression?
+Submitter	: Robert Hancock <hancockrwd@gmail.com>
+Date		: 2009-10-16 0:03 (32 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125565159520489&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14460
+Subject		: No wireless connection with Ralink RT2500 since update to ke=
+rnel 2.6.31
+Submitter	: Filipp Andjelo <andjelo@gmx.net>
+Date		: 2009-10-24 21:18 (24 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14450
+Subject		: [2.6.31] Network interfaces are dead with 2.6.31 (iwlagn and=
+ sky2)
+Submitter	: A. G. <orion.linbug@gmail.com>
+Date		: 2009-10-21 07:30 (27 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14448
+Subject		: PAT cpu feature is absent but detected by Xorg and others, c=
+uses video driver problems
+Submitter	: Aleksei Lukin <lukin@stu.cn.ua>
+Date		: 2009-10-20 17:54 (28 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14417
+Subject		: [Regression] Wireless driver iwlagn+iwlcore doesn't work aft=
+er resume (needs reloading)
+Submitter	: Eddy Petri=C8=99or <eddy.petrisor+linbug@gmail.com>
+Date		: 2009-10-16 11:07 (32 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14400
+Subject		: disable/enable wlan broken with ath5k
+Submitter	: Daniel Bumke <danielbumke@gmail.com>
+Date		: 2009-10-13 12:35 (35 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14391
+Subject		: use after free of struct powernow_k8_data
+Submitter	: Michal Schmidt <mschmidt@redhat.com>
+Date		: 2009-09-24 14:51 (54 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125380383515615&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14385
+Subject		: DMAR regression in 2.6.31 leads to ext4 corruption?
+Submitter	: Andy Isaacson <adi@hexapodia.org>
+Date		: 2009-10-08 23:56 (40 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125504643703877&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14294
+Subject		: kernel BUG at drivers/ide/ide-disk.c:187
+Submitter	: Santiago Garcia Mantinan <manty@manty.net>
+Date		: 2009-09-30 11:05 (48 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125430926311466&w=3D=
+4
+Handled-By	: David Miller <davem@davemloft.net>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14267
+Subject		: Disassociating atheros wlan
+Submitter	: Kristoffer Ericson <kristoffer.ericson@gmail.com>
+Date		: 2009-09-24 10:16 (54 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125378723723384&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14265
+Subject		: ifconfig: page allocation failure. order:5, mode:0x8020 w/ e=
+100
+Submitter	: Karol Lewandowski <karol.k.lewandowski@gmail.com>
+Date		: 2009-09-15 12:05 (63 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125301636509517&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14257
+Subject		: Not able to boot on 32 bit System
+Submitter	: Rishikesh <risrajak@linux.vnet.ibm.com>
+Date		: 2009-09-21 15:25 (57 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125354604314412&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14256
+Subject		: kernel BUG at fs/ext3/super.c:435
+Submitter	: Mikael Pettersson <mikpe@it.uu.se>
+Date		: 2009-09-21 7:29 (57 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125351816109264&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14252
+Subject		: WARNING: at include/linux/skbuff.h:1382 w/ e1000
+Submitter	: Stephan von Krawczynski <skraw@ithnet.com>
+Date		: 2009-09-20 11:26 (58 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125344599006033&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14204
+Subject		: MCE prevent booting on my computer(pentium iii @500Mhz)
+Submitter	: GNUtoo <GNUtoo@no-log.org>
+Date		: 2009-09-21 20:36 (57 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14181
+Subject		: b43 causes panic at ifconfig down / shutdown
+Submitter	: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date		: 2009-09-15 18:34 (63 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14157
+Subject		: end_request: I/O error, dev cciss/cXdX, sector 0
+Submitter	:  <jiri.harcarik@gmail.com>
+Date		: 2009-09-11 07:42 (67 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14141
+Subject		: order 2 page allocation failures in iwlagn
+Submitter	: Frans Pop <elendil@planet.nl>
+Date		: 2009-09-06 7:40 (72 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D2ff05b2b4eac2e63d345fc731ea151a060247f53
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125222287419691&w=3D=
+4
+		  http://lkml.org/lkml/2009/10/2/86
+		  http://lkml.org/lkml/2009/10/5/24
+		  http://lkml.indiana.edu/hypermail/linux/kernel/0910.1/01395.html
+Handled-By	: Pekka Enberg <penberg@cs.helsinki.fi>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14114
+Subject		: Tuning a saa7134 based card is broken in kernel 2.6.31-rc7
+Submitter	: Tsvety Petrov <Tsvetoslav.Petrov@itron.com>
+Date		: 2009-09-03 21:06 (75 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13987
+Subject		: Received NMI interrupt at resume
+Submitter	: Christian Casteyde <casteyde.christian@free.fr>
+Date		: 2009-08-15 07:55 (94 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3Df41f3f373dd72344c65d801d6381fe83ef3a2c54
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13943
+Subject		: WARNING: at net/mac80211/mlme.c:2292 with ath5k
+Submitter	: Fabio Comolli <fabio.comolli@gmail.com>
+Date		: 2009-08-06 20:15 (103 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124958978600600&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13941
+Subject		: x86 Geode issue
+Submitter	: Martin-=C3=89ric Racine <q-funk@iki.fi>
+Date		: 2009-08-03 12:58 (106 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124930434732481&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13836
+Subject		: suspend script fails, related to stdout?
+Submitter	: Tomas M. <tmezzadra@gmail.com>
+Date		: 2009-07-17 21:24 (123 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124785853811667&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13809
+Subject		: oprofile: possible circular locking dependency detected
+Submitter	: Jerome Marchand <jmarchan@redhat.com>
+Date		: 2009-07-22 13:35 (118 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13733
+Subject		: 2.6.31-rc2: irq 16: nobody cared
+Submitter	: Niel Lambrechts <niel.lambrechts@gmail.com>
+Date		: 2009-07-06 18:32 (134 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D124690524027166&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13645
+Subject		: NULL pointer dereference at (null) (level2_spare_pgt)
+Submitter	: poornima nayak <mpnayak@linux.vnet.ibm.com>
+Date		: 2009-06-17 17:56 (153 days old)
+References	: http://lkml.org/lkml/2009/6/17/194
+
+
+Regressions with patches
+------------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14340
+Subject		: speedstep-ich driver not working in 2.6.31
+Submitter	:  <dave.mueller@gmx.ch>
+Date		: 2009-10-07 08:16 (41 days old)
+Handled-By	: Eric Pielbug <e.a.b.piel@tudelft.nl>
+		  Rusty Russell <rusty@rustcorp.com.au>
+Patch		: http://patchwork.kernel.org/patch/54672/
+		  http://patchwork.kernel.org/patch/54671/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14253
+Subject		: Oops in driversbasefirmware_class
+Submitter	: Lars Ericsson <Lars_Ericsson@telia.com>
+Date		: 2009-09-16 20:44 (62 days old)
+References	: http://lkml.org/lkml/2009/9/16/461
+Handled-By	: Frederik Deweerdt <frederik.deweerdt@xprog.eu>
+Patch		: http://patchwork.kernel.org/patch/49914/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14137
+Subject		: usb console regressions
+Submitter	: Jason Wessel <jason.wessel@windriver.com>
+Date		: 2009-09-05 21:08 (73 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125218501310512&w=3D=
+4
+Handled-By	: Jason Wessel <jason.wessel@windriver.com>
+Patch		: http://patchwork.kernel.org/patch/45953/
+		  http://patchwork.kernel.org/patch/45952/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14017
+Subject		: _end symbol missing from Symbol.map
+Submitter	: Hannes Reinecke <hare@suse.de>
+Date		: 2009-08-13 6:45 (96 days old)
+=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D091e52c3551d3031343df24b573b770b4c6c72b6
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D=
+4
+Handled-By	: Hannes Reinecke <hare@suse.de>
+Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D125014649102253&w=3D4
+
+
+=46or details, please visit the bug entries and follow the links given =
+in
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 2.6.30 and 2.6.31, unresolved as well as resolved, at:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=3D13615
+
+Please let me know if there are any Bugzilla entries that should be add=
+ed to
+the list in there.
+
+Thanks,
+Rafael
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
