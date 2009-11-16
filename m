@@ -1,49 +1,52 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 2/3] Bluetooth: Select Basic Mode as default for SOCK_SEQPACKET
-Date: Mon, 16 Nov 2009 01:48:22 +0100
-Message-ID: <a0e55a32afc2130e5ae506755e4b8eb42a23b568.1258331614.git.marcel@holtmann.org>
-References: <cover.1258331614.git.marcel@holtmann.org>
- <93f19c9fc8c98bb6d2e9825115989603ffd5cd1f.1258331614.git.marcel@holtmann.org>
+From: Kevin Shanahan <kmshanah@disenchant.net>
+Subject: Re: Problem with VLANs and via-velocity driver
+Date: Mon, 16 Nov 2009 11:27:50 +1030
+Message-ID: <20091116005750.GR838@cubit>
+References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:46539 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184AbZKPAs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:48:26 -0500
-In-Reply-To: <93f19c9fc8c98bb6d2e9825115989603ffd5cd1f.1258331614.git.marcel@holtmann.org>
-In-Reply-To: <cover.1258331614.git.marcel@holtmann.org>
-References: <cover.1258331614.git.marcel@holtmann.org>
+Received: from ipmail02.adl6.internode.on.net ([203.16.214.140]:31879 "EHLO
+	ipmail02.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752537AbZKPA5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Nov 2009 19:57:48 -0500
+Content-Disposition: inline
+In-Reply-To: <4AFCFF67.3060802@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+On Fri, Nov 13, 2009 at 07:40:39AM +0100, Patrick McHardy wrote:
+> Kevin Shanahan wrote:
+> > Hi,
+> > 
+> > I've had some problems with getting a fairly simple (I thought) VLAN
+> > configuration working with the on board Via NICs on my Via M700
+> > board. Looks like as soon as a tagged VLAN interface is added, the
+> > underlying "raw" (untagged) interface stops responding.
+> > 
+> > ...
+> > 
+> > A bit of searching found a few references to similar problems going
+> > back a few years (2005, 2007). Sounded like there were some driver
+> > issues, but it wasn't clear from the messages I found whether they
+> > were believed to be fixed or not. I tried the same test using a
+> > differnt NIC with the tg3 driver and there were no problems, so it
+> > looks to me like it's still a via-velocity issue. Unfortunately I
+> > don't have room to add NICs to this machine and need to use the on
+> > board Via hardware.
+> 
+> There's some special-casing for VID 0 in velocity_init_cam_filter().
+> Does "ip link add link eth0 type vlan id 0" make any difference?
 
-The default mode for SOCK_SEQPACKET is Basic Mode. So when no
-mode has been specified, Basic Mode shall be used.
+Thanks Patrick, this command got the untagged interface working again
+(eth1 in my case). I can use this as a work around.
 
-This is important for current application to keep working as
-expected and not cause a regression.
+I didn't really understand if there was a good reason for the
+special-casing in this driver, but from at least from my user
+perspective I think it would be better if the drivers were consistent
+in how they handle this.
 
-Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
- net/bluetooth/l2cap.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 77e9fb1..076caa1 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -2205,7 +2205,7 @@ static int l2cap_build_conf_req(struct sock *sk, void *data)
- {
- 	struct l2cap_pinfo *pi = l2cap_pi(sk);
- 	struct l2cap_conf_req *req = data;
--	struct l2cap_conf_rfc rfc = { .mode = L2CAP_MODE_ERTM };
-+	struct l2cap_conf_rfc rfc = { .mode = L2CAP_MODE_BASIC };
- 	void *ptr = req->data;
- 
- 	BT_DBG("sk %p", sk);
--- 
-1.6.2.5
-
+Regards,
+Kevin Shanahan.
