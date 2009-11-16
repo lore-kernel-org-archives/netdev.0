@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 14594] New: ISDN-B-channel-bundling broken
-Date: Sun, 15 Nov 2009 22:23:27 -0800 (PST)
-Message-ID: <20091115.222327.61827479.davem@davemloft.net>
-References: <bug-14594-10822@http.bugzilla.kernel.org/>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: [patch 4/5] [PATCH] qeth: rework TSO functions
+Date: Mon, 16 Nov 2009 07:58:37 +0100
+Message-ID: <4B00F81D.8090106@linux.vnet.ibm.com>
+References: <20091112101140.882313000@de.ibm.com> <20091112101301.126320000@de.ibm.com> <20091113.203621.39740182.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bugzilla-daemon@bugzilla.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55875
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752003AbZKPGXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 01:23:11 -0500
-In-Reply-To: <bug-14594-10822@http.bugzilla.kernel.org/>
+Received: from mtagate7.de.ibm.com ([195.212.17.167]:54809 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbZKPG6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 01:58:31 -0500
+In-Reply-To: <20091113.203621.39740182.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: bugzilla-daemon@bugzilla.kernel.org
-Date: Fri, 13 Nov 2009 17:21:21 GMT
-
-> This bug is present since since kernel 2.6.28 (2.6.27-rc6) and has been
-> introduced with
+David Miller schrieb:
+> From: frank.blaschka@de.ibm.com
+> Date: Thu, 12 Nov 2009 11:11:44 +0100
 > 
-> commit 38783e671399b5405f1fd177d602c400a9577ae6
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Mon Sep 22 01:15:02 2008 -0700
+>> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+>>
+>> The maximum TSO size OSA can handle is 15 * PAGE_SIZE. This
+>> patch reduces gso_max_size to this value and adds some sanity
+>> checks and statistics to the TSO implementation.
+>> Since only layer 3 is able to do TSO move all TSO related functions
+>> to the qeth_l3 module.
+>>
+>> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 > 
->     isdn: isdn_ppp: Use SKB list facilities instead of home-grown
-> implementation.
+> Please don't add sysctl knobs for getting and setting TSO enabling,
+> that's what ethtool is for.
+I did not add any new sysfs knobs for TSO. The old one was just moved
+from the core part of the driver to the L3 discipline. I know ethtool
+is the way to configure TSO and I would be happy to drop sysfs off, but
+we have to keep this legacy interface because of our customers and
+distributors. If you say there is no way to keep it let me know and I
+will rework the patch.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-s390" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I'll revert this, thanks.
+
