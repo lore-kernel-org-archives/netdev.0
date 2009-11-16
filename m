@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: mac address fix
-Date: Sun, 15 Nov 2009 21:17:12 -0800 (PST)
-Message-ID: <20091115.211712.254217052.davem@davemloft.net>
-References: <1258187485-11549-1-git-send-email-stas@lvk.cs.msu.su>
+Subject: Re: [RFC] vlan: GRO rx statistics
+Date: Sun, 15 Nov 2009 21:21:36 -0800 (PST)
+Message-ID: <20091115.212136.202646803.davem@davemloft.net>
+References: <4AFD8C31.10703@gmail.com>
+	<20091114012741.GA18764@gondor.apana.org.au>
+	<4B00581C.3060303@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aabdulla@nvidia.com, yinghai@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: stas@lvk.cs.msu.su
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751769AbZKPFQ6@vger.kernel.org>
-In-Reply-To: <1258187485-11549-1-git-send-email-stas@lvk.cs.msu.su>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43619
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751822AbZKPFVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 00:21:20 -0500
+In-Reply-To: <4B00581C.3060303@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Stanislav O\. Bezzubtsev" <stas@lvk.cs.msu.su>
-Date: Sat, 14 Nov 2009 11:31:25 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 15 Nov 2009 20:35:56 +0100
 
-> Use the existing random_ether_addr() to generate random MAC
-> instead of doing it by-hand.
-> 
-> Signed-off-by: Stanislav O. Bezzubtsev <stas@lvk.cs.msu.su>
+> vlan_hwaccel_do_receive() has no napi context.
 
-Applied, thank you.
+But this is a choice :-)  And being able to split up the RX
+counters would be another reason to potentially change that
+choice.
