@@ -1,28 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] act_mirred: optimization
-Date: Mon, 16 Nov 2009 05:33:29 -0800 (PST)
-Message-ID: <20091116.053329.215126585.davem@davemloft.net>
-References: <412e6f7f0911160505x10da9a92j694669db9d030da1@mail.gmail.com>
-	<20091116.051722.255835290.davem@davemloft.net>
-	<412e6f7f0911160522w34895b0eked14f69ccc62c96b@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 1/2 net-next-2.6] net: add dev_txq_stats_fold() helper
+Date: Mon, 16 Nov 2009 14:36:51 +0100
+Message-ID: <4B015573.9090502@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, shemminger@vyatta.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33539
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751827AbZKPNdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 08:33:13 -0500
-In-Reply-To: <412e6f7f0911160522w34895b0eked14f69ccc62c96b@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42454 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752923AbZKPNgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 08:36:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Mon, 16 Nov 2009 21:22:46 +0800
+Some drivers ndo_get_stats() method need to perform txqueue stats folding.
 
-> I am working against linux-next. I'll check if there is any
-> difference. BTW: were these patches applied in order, 1 - 2?
+Move folding from dev_get_stats() to a new dev_txq_stats_fold() function
 
-Yes, they were.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/netdevice.h |    1 
+ net/core/dev.c            |   48 +++++++++++++++++++++---------------
+ 2 files changed, 30 insertions(+), 19 deletions(-)
+
+
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 7043f85..c8fa462 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1941,6 +1941,7 @@ extern void		netdev_features_change(struct net_device *dev);
+ extern void		dev_load(struct net *net, const char *name);
+ extern void		dev_mcast_init(void);
+ extern const struct net_device_stats *dev_get_stats(struct net_device *dev);
++extern void		dev_txq_stats_fold(const struct net_device *dev, struct net_device_stats *stats);
+ 
+ extern int		netdev_max_backlog;
+ extern int		weight_p;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4b24d79..49417ba 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5168,6 +5168,32 @@ void netdev_run_todo(void)
+ }
+ 
+ /**
++ *	dev_txq_stats_fold - fold tx_queues stats
++ *	@dev: device to get statistics from
++ *	@stats: struct net_device_stats to hold results
++ */
++void dev_txq_stats_fold(const struct net_device *dev,
++			struct net_device_stats *stats)
++{
++	unsigned long tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
++	unsigned int i;
++	struct netdev_queue *txq;
++
++	for (i = 0; i < dev->num_tx_queues; i++) {
++		txq = netdev_get_tx_queue(dev, i);
++		tx_bytes   += txq->tx_bytes;
++		tx_packets += txq->tx_packets;
++		tx_dropped += txq->tx_dropped;
++	}
++	if (tx_bytes || tx_packets || tx_dropped) {
++		stats->tx_bytes   = tx_bytes;
++		stats->tx_packets = tx_packets;
++		stats->tx_dropped = tx_dropped;
++	}
++}
++EXPORT_SYMBOL(dev_txq_stats_fold);
++
++/**
+  *	dev_get_stats	- get network device statistics
+  *	@dev: device to get statistics from
+  *
+@@ -5181,25 +5207,9 @@ const struct net_device_stats *dev_get_stats(struct net_device *dev)
+ 
+ 	if (ops->ndo_get_stats)
+ 		return ops->ndo_get_stats(dev);
+-	else {
+-		unsigned long tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
+-		struct net_device_stats *stats = &dev->stats;
+-		unsigned int i;
+-		struct netdev_queue *txq;
+-
+-		for (i = 0; i < dev->num_tx_queues; i++) {
+-			txq = netdev_get_tx_queue(dev, i);
+-			tx_bytes   += txq->tx_bytes;
+-			tx_packets += txq->tx_packets;
+-			tx_dropped += txq->tx_dropped;
+-		}
+-		if (tx_bytes || tx_packets || tx_dropped) {
+-			stats->tx_bytes   = tx_bytes;
+-			stats->tx_packets = tx_packets;
+-			stats->tx_dropped = tx_dropped;
+-		}
+-		return stats;
+-	}
++
++	dev_txq_stats_fold(dev, &dev->stats);
++	return &dev->stats;
+ }
+ EXPORT_SYMBOL(dev_get_stats);
+ 
