@@ -1,99 +1,89 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Mon, 16 Nov 2009 15:18:17 -0500
-Message-ID: <4B01B389.9090507@gmail.com>
-References: <20091002141407.30224.54207.stgit@dev.haskins.net>	<20091110115335.GC6989@redhat.com>	<4AF919020200005A000586A9@sinclair.provo.novell.com>	<20091110131722.GA19645@redhat.com>	<4AF9747E.8020408@novell.com>	<20091110143652.GB19645@redhat.com>	<4AF98A8C.9040201@novell.com>	<20091114011229.GA18580@gondor.apana.org.au>	<4AFE08EF.2030308@gmail.com>	<20091114022103.GA19020@gondor.apana.org.au>	<4AFE15AD.6000208@gmail.com>	<20091113184503.13f6d447@s6510>	<4AFE3FD2.6030403@gmail.com> <20091116115931.6266f9c9@nehalam>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: Re: sparse vs. skbuff.h
+Date: Mon, 16 Nov 2009 21:23:59 +0100
+Message-ID: <19f34abd0911161223s3ead190aka62bf4295a3f935@mail.gmail.com>
+References: <1258399271.32159.39.camel@johannes.local>
+	 <1258399627.32159.41.camel@johannes.local>
+	 <4B01AD5F.7020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigCAF29B2210E4E39837024CE9"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Gregory Haskins <ghaskins@novell.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.26]:48730 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753831AbZKPUSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 15:18:15 -0500
-In-Reply-To: <20091116115931.6266f9c9@nehalam>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:51909 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753513AbZKPUXz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 15:23:55 -0500
+Received: by bwz27 with SMTP id 27so6079525bwz.21
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 12:23:59 -0800 (PST)
+In-Reply-To: <4B01AD5F.7020402@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCAF29B2210E4E39837024CE9
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Stephen Hemminger wrote:
-> On Sat, 14 Nov 2009 00:27:46 -0500
-> Gregory Haskins <gregory.haskins@gmail.com> wrote:
->=20
->> Stephen Hemminger wrote:
-
->=20
->>> People have tried doing copy-less send by page flipping, but the over=
-head of the IPI to
->>> invalidate the TLB exceeded the overhead of the copy. There was an In=
-tel paper on this in
->>> at Linux Symposium (Ottawa) several years ago.
->> I think you are confusing copy-less tx with copy-less rx.  You can try=
-
->> to do copy-less rx with page flipping, which has the IPI/TLB thrashing=
-
->> properties you mention, and I agree is problematic.  We are talking
->> about copy-less tx here, however, and therefore no page-flipping is
->> involved.  Rather, we are just posting SG lists of pages directly to t=
-he
->> NIC (assuming the nic supports HIGH_DMA, etc).  You do not need to fli=
-p
->> the page, or invalidate the TLB (and thus IPI the other cores) to do
->> this to my knowledge.
+2009/11/16 Eric Dumazet <eric.dumazet@gmail.com>:
+> Johannes Berg a =C3=A9crit :
+>> On Mon, 2009-11-16 at 20:21 +0100, Johannes Berg wrote:
+>>> commit 14d18a81b5171d4433e41129619c75748b4f4d26
+>>> Author: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: =C2=A0 Thu Oct 29 00:10:37 2009 +0000
+>>>
+>>> =C2=A0 =C2=A0 net: fix kmemcheck annotations
+>>>
+>>>
+>>> broke sparse endian checks on everything that includes skbuff.h bec=
+ause
+>>> the first and only (because it's an error) thing sparse now reports=
+ is
+>>> this:
+>>>
+>>> include/linux/skbuff.h:357:41: error: invalid bitfield specifier fo=
+r type restricted __be16.
 >>
->=20
-> If you want to do copy-less tx for all applications, you have to
-> do COW to handle the trivial case of :
->=20
-> while (cc =3D read(infd, buffer, sizeof buffer)) {
->    send(outsock, buffer, cc);
-> }
->=20
->=20
+>> Simply changing from
+>> =C2=A0 =C2=A0 =C2=A0 __be16 protocol:16;
+>> to
+>> =C2=A0 =C2=A0 =C2=A0 __be16 protocol;
+>>
+>> but leaving it inside the kmemcheck annotation seems to do the right
+>> thing. Except of course that kmemcheck will not properly check it no=
+w.
+>> Maybe those annotations should simply be made to have no impact on
+>> struct padding instead?
+>>
+>
+> Hmm, I have really no idea of what is the right way to fix this stuff=
+=2E
+>
+> Last time I did adding a non bitfield element inside the begin/end an=
+notations,
+> I was flamed, because a bitfield is a bitfield, not a char/short
+>
+> http://www.spinics.net/lists/netdev/msg108803.html
+>
+> Now sparse is complaining... What will be the next story ?
 
-You certainly _could_ implement this as a COW I suppose, but that would
-be insane.  If someone did do this, you are right: you need TLB
-invalidation.
+If by "I was flamed" you are referring to my reply:
 
-However, if I were going to actually propose the changeover of the
-system calls to use zero-copy (note that I am not), it would be based on
-the concept in this patch.  That is: the send() would block until the
-NIC completes the DMA and the shinfo block is freed.  Alternate
-implementations would be AIO based, where the shinfo destructor
-signifies the generation of the completion event.
+http://www.spinics.net/lists/netdev/msg108825.html
 
-FWIW: The latter is conceptually similar to how this is being used in
-AlacrityVM.
+then I am really sorry, because I had no intentions to insult you. In
+fact, I am grateful that you are finding bugs and telling me about
+them But I should also be allowed to disagree with a patch if I truly
+believe it is the wrong thing to do.
 
-HTH
+=46or the issue in question: If the variable is turned into a
+non-bitfield (as Johannes suggested), it would be fine, because now
+GCC won't emit masking operations (AND, OR) when initializing it, but
+a regular MOV. Also, the struct annotations do not by themselves do
+anything, but they are used by kmemcheck_annotate_bitfield().
 
-Kind Regards,
--Greg
+In other words, I think the right thing to do is to turn it into a
+non-bitfield and move it _outside_ the bitfield annotation. Johannes,
+can you make the patch and let us have a look? In the meantime I will
+submit the patch that fixes the extraneous field padding in
+KMEMCHECK=3Dn kernels.
 
 
---------------enigCAF29B2210E4E39837024CE9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksBs4kACgkQP5K2CMvXmqETQACfeydFUnIJYpjoIrLpDM+eQGMA
-p60An09PbHED3QzdR+Ri5+/N1uQTwbux
-=7M4I
------END PGP SIGNATURE-----
-
---------------enigCAF29B2210E4E39837024CE9--
+Vegard
