@@ -1,7 +1,7 @@
 From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 09/11] net/can/mscan: replace hardcoded values with defines
-Date: Mon, 16 Nov 2009 23:57:52 +0100
-Message-ID: <1258412274-14686-10-git-send-email-w.sang@pengutronix.de>
+Subject: [PATCH 10/11] net/can/mscan: add error path to mscan_open()
+Date: Mon, 16 Nov 2009 23:57:53 +0100
+Message-ID: <1258412274-14686-11-git-send-email-w.sang@pengutronix.de>
 References: <1258412274-14686-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,63 +23,48 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Not all hardcoded values have been replaced as this made the code quite
-unreadable. IMHO this compromise serves the purpose of readability.
-
 Signed-off-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- drivers/net/can/mscan/mscan.c |   15 ++++++++++-----
- drivers/net/can/mscan/mscan.h |    5 +++++
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/can/mscan/mscan.c |   16 +++++++++++-----
+ 1 files changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
-index 20d1991..263d1a9 100644
+index 263d1a9..bb06dfb 100644
 --- a/drivers/net/can/mscan/mscan.c
 +++ b/drivers/net/can/mscan/mscan.c
-@@ -211,18 +211,23 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -542,10 +542,8 @@ static int mscan_open(struct net_device *dev)
  
- 	rtr = frame->can_id & CAN_RTR_FLAG;
- 
-+	/* RTR is always the lowest bit of interest, then IDs follow */
- 	if (frame->can_id & CAN_EFF_FLAG) {
--		can_id = (frame->can_id & CAN_EFF_MASK) << 1;
-+		can_id = (frame->can_id & CAN_EFF_MASK)
-+			 << (MSCAN_EFF_RTR_SHIFT + 1);
- 		if (rtr)
--			can_id |= 1;
-+			can_id |= 1 << MSCAN_EFF_RTR_SHIFT;
- 		out_be16(&regs->tx.idr3_2, can_id);
- 
- 		can_id >>= 16;
--		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0) | (3 << 3);
-+		/* EFF_FLAGS are inbetween the IDs :( */
-+		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0)
-+			 | MSCAN_EFF_FLAGS;
- 	} else {
--		can_id = (frame->can_id & CAN_SFF_MASK) << 5;
-+		can_id = (frame->can_id & CAN_SFF_MASK)
-+			 << (MSCAN_SFF_RTR_SHIFT + 1);
- 		if (rtr)
--			can_id |= 1 << 4;
-+			can_id |= 1 << MSCAN_SFF_RTR_SHIFT;
+ 	ret = request_irq(dev->irq, mscan_isr, 0, dev->name, dev);
+ 	if (ret < 0) {
+-		napi_disable(&priv->napi);
+-		printk(KERN_ERR "%s - failed to attach interrupt\n",
+-		       dev->name);
+-		return ret;
++		dev_err(dev->dev.parent, "failed to attach interrupt\n");
++		goto exit_napi_disable;
  	}
- 	out_be16(&regs->tx.idr1_0, can_id);
  
-diff --git a/drivers/net/can/mscan/mscan.h b/drivers/net/can/mscan/mscan.h
-index 2018000..00fc4aa 100644
---- a/drivers/net/can/mscan/mscan.h
-+++ b/drivers/net/can/mscan/mscan.h
-@@ -131,6 +131,11 @@
- /* MSCAN Miscellaneous Register (CANMISC) bits */
- #define MSCAN_BOHOLD		0x01
+ 	priv->open_time = jiffies;
+@@ -554,11 +552,19 @@ static int mscan_open(struct net_device *dev)
  
-+/* MSCAN Identifier Register (IDR) bits */
-+#define MSCAN_SFF_RTR_SHIFT	4
-+#define MSCAN_EFF_RTR_SHIFT	0
-+#define MSCAN_EFF_FLAGS		0x18	/* IDE + SRR */
+ 	ret = mscan_start(dev);
+ 	if (ret)
+-		return ret;
++		goto exit_free_irq;
+ 
+ 	netif_start_queue(dev);
+ 
+ 	return 0;
 +
- #ifdef MSCAN_FOR_MPC5200
- #define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
- #define _MSCAN_RESERVED_DSR_SIZE	2
++exit_free_irq:
++	priv->open_time = 0;
++	free_irq(dev->irq, dev);
++exit_napi_disable:
++	napi_disable(&priv->napi);
++	close_candev(dev);
++	return ret;
+ }
+ 
+ static int mscan_close(struct net_device *dev)
 -- 
 1.6.3.3
