@@ -1,48 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 compilation errors: missing wireless/i82593.h
-Date: Tue, 17 Nov 2009 03:44:28 -0800 (PST)
-Message-ID: <20091117.034428.47467823.davem@davemloft.net>
-References: <4B028A37.1010202@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Tue, 17 Nov 2009 06:49:20 -0500
+Message-ID: <4B028DC0.2010907@gmail.com>
+References: <20091117111454.GA8341@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com
-To: william.allen.simpson@gmail.com
+Cc: huananhu@huawei.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43310
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753741AbZKQLoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 06:44:12 -0500
-In-Reply-To: <4B028A37.1010202@gmail.com>
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:63582 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753709AbZKQLtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 06:49:19 -0500
+In-Reply-To: <20091117111454.GA8341@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Date: Tue, 17 Nov 2009 06:34:15 -0500
-
-> For the past 9-10 days, net-next-2.6 has failed to compile.  In
-> addition to the errors and warnings already reported here last week,
-
-Those seemed to be for Android drivers and such, so I hope you
-reported those failures to the driver maintainers as well as
-linux-kernel.
-
-For the time being could you just disable those drivers in your
-build just to get work done or do you absolutely need them?
-
-> since Nov 12th there has been another missing file.  I kept hoping
-> it was temporary, but no joy.
+Jarek Poplawski wrote:
+> On 17-11-2009 11:20, William Allen Simpson wrote:
+>> David Miller wrote:
+>>> Your patch is broken, please don't wate my time like this.
+>>>
+>>> + git apply --check --whitespace=error-all diff
+>>> error: patch failed: drivers/net/ppp_async.c:36
+>>> error: drivers/net/ppp_async.c: patch does not apply
+>>>
+>> What David may have meant, had he followed Documentation/ManagementStyle
+>> or had any project management skills what-so-ever, is that you need to
+>> follow Documentation/SubmittingPatches more carefully.
 > 
-> /home/administer/net-next-2.6/drivers/net/znet.c:107:29: error:
-> wireless/i82593.h: No such file or directory
-
-That header file got moved out to drivers/staging along with the
-wavelan driver.
-
-The header file should instead be moved to, perhaps, include/linux
-while there are still other users of it.
-
-That's incredibly clumsy what drivers/net/znet.c is doing.
-
-John please fix this up, thanks!
+> I think this time it was only about a missing tab ;-)
+> 
+In his inimitable inimical manner, comprehensively comprehensible. ;-)
