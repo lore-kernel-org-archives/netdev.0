@@ -1,68 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/3] macvlan: add vepa and bridge mode
-Date: Tue, 17 Nov 2009 22:39:07 +0000
-Message-ID: <1258497551-25959-1-git-send-email-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	Anna Fischer <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@linux-foundation.com,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56157 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756003AbZKQWl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 17:41:26 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
+Date: Wed, 18 Nov 2009 09:42:38 +1100
+Message-ID: <646765f40911171442m467efbc8ped7abc9d529ed095@mail.gmail.com>
+References: <1258465585.3682.7.camel@johannes.local> <1258490898.21197.42.camel@johannes.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1258490898.21197.42.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is based on an earlier patch from Eric Biederman adding
-forwarding between macvlans. I extended his approach to
-allow the administrator to choose the mode for each macvlan,
-and to implement a functional VEPA between macvlan.
+On Wed, Nov 18, 2009 at 07:48, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org=
+> wrote:
+> --- wireless-testing.orig/net/mac80211/iface.c =A02009-11-17 14:20:19=
+=2E000000000 +0100
+> +++ wireless-testing/net/mac80211/iface.c =A0 =A0 =A0 2009-11-17 17:5=
+6:08.000000000 +0100
+> @@ -745,6 +745,11 @@ int ieee80211_if_change_type(struct ieee
+> =A0 =A0 =A0 =A0if (type =3D=3D sdata->vif.type)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
+>
+> + =A0 =A0 =A0 /* if it's part of a bridge, reject changing type to st=
+ation/ibss */
+> + =A0 =A0 =A0 if (sdata->dev->br_port && (type =3D=3D NL80211_IFTYPE_=
+ADHOC ||
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ type =3D=3D NL80211_IFTYPE_STATION))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EBUSY;
 
-Still missing from this is support for communication between
-the lower device that the macvlans are based on. This would
-be extremely useful but as others have found out before me
-requires significant changes not only to macvlan but also
-to the common transmit path.
+Busy doesn't seem like the right error here ... maybe use -EOPNOTSUPP
+like the next test?
 
-I've seen one panic during testing this that I still need
-to track down, but it generally does what is advertised.
-I've tested VEPA operation with the hairpin support
-added to the bridge driver by Anna Fischer.
+Thanks,
 
-My current plan is to submit this for inclusion in 2.6.33
-when people are happy with it and I tracked down any
-remaining bugs, and possibly to do the communication with
-the lower device one release later.
+--=20
 
-	Arnd <><
+Julian Calaby
 
----
-
-Arnd Bergmann (3):
-  macvlan: implement VEPA and private mode
-  macvlan: export macvlan mode through netlink
-  iplink: add macvlan options for bridge mode
-
-Eric Biederman (1):
-  macvlan: Reflect macvlan packets meant for other macvlan devices
-
- linux/drivers/net/macvlan.c   |  170 +++++++++++++++++++++++++++++++++-----
- linux/include/linux/if_link.h |   15 +++
- 2 files changed, 161 insertions(+), 24 deletions(-)
-
- iproute2/include/linux/if_link.h |   15 +++
- iproute2/ip/Makefile             |    3 +-
- iproute2/ip/iplink_macvlan.c     |   93 ++++++++++++++++++
- 3 files changed, 110 insertions(+), 1 deletions(-)
- create mode 100644 ip/iplink_macvlan.c
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+=2EPlan: http://sites.google.com/site/juliancalaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
