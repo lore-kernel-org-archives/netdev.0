@@ -1,50 +1,52 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-Date: Tue, 17 Nov 2009 05:20:09 -0500
-Message-ID: <4B0278D9.6030806@gmail.com>
-References: <faf197be196ee.196eefaf197be@huawei.com> <20091117.012248.86306050.davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Tue, 17 Nov 2009 05:41:15 -0500
+Message-ID: <4B027DCB.9060403@gmail.com>
+References: <4B01BF65.1010203@gmail.com>	<4B01CD8D.1000305@gmail.com>	<4B01D17C.4010407@gmail.com> <20091116.191522.178198674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: huananhu@huawei.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:63673 "EHLO
-	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbZKQKUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 05:20:17 -0500
-In-Reply-To: <20091117.012248.86306050.davem@davemloft.net>
+Received: from mail-gx0-f226.google.com ([209.85.217.226]:32934 "EHLO
+	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754839AbZKQKlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 05:41:12 -0500
+Received: by gxk26 with SMTP id 26so1637170gxk.1
+        for <netdev@vger.kernel.org>; Tue, 17 Nov 2009 02:41:18 -0800 (PST)
+In-Reply-To: <20091116.191522.178198674.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 David Miller wrote:
-> Your patch is broken, please don't wate my time like this.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 16 Nov 2009 23:26:04 +0100
 > 
-> + git apply --check --whitespace=error-all diff
-> error: patch failed: drivers/net/ppp_async.c:36
-> error: drivers/net/ppp_async.c: patch does not apply
+>> So adding DATA to SYN packets might be problematic for part of our tcp stack.
 > 
-What David may have meant, had he followed Documentation/ManagementStyle
-or had any project management skills what-so-ever, is that you need to
-follow Documentation/SubmittingPatches more carefully.
+But is outside the scope of anything in this part 1 patch series.
 
-Look at 15) The canonical patch format
+Of course, part 2 will dispense with the request_sock entirely....
 
-[PATCH 17/11] makes no sense, you don't have 11 patches, and the 17th
-patch of 11 can never exist.
 
-Need a better "subsystem: summary phrase", perhaps
-   "net: PPP buffer too small for higher speed connections"
+> I can almost guarentee it won't work.  For one thing getting a SACK
+> response to a SYN+DATA packet will explode quite nicely for one thing.
+> 
+Sounds like a lack of error handling to me....  Never trust that sensible
+data will appear from the network!
 
-A marker line containing simply "---".
 
-And your trailer boilerplate badly breaks the system, because it's
-missing the SMTP email standard "--" line in front of it.
+> A lot of the other retransmit queue handling would need to be audited
+> as well.  So much code assumes that if we see sent data in the
+> retransmit queue, there won't be SYN or SYN+ACK things in there to
+> contend with.
+> 
+Well then, it's a darn tootin' good thing that the code in part 1g doesn't
+send SYNACK data in the retransmit queue, and the code in 1d (here) doesn't
+include the SYNACK data in the tcp_minisocks.c clone.  The prominent
+comment might have been a sign to the careful reviewer:
 
-You'll get nicer formatting with 'git format-patch -o ~ HEAD~1' after you
-do a 'git commit -a' on your git tree.
-
-It takes some time, even for a simple 1 line fix like this....
-
-Hope that helps.
++		 * as it differs for each connection.  There is no need to
++		 * copy any s_data_payload stored at the original socket.
