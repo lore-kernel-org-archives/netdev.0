@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 3/3] macvlan: export macvlan mode through netlink
-Date: Tue, 17 Nov 2009 22:39:10 +0000
-Message-ID: <1258497551-25959-4-git-send-email-arnd@arndb.de>
+Subject: [PATCH 2/3] macvlan: implement VEPA and private mode
+Date: Tue, 17 Nov 2009 22:39:09 +0000
+Message-ID: <1258497551-25959-3-git-send-email-arnd@arndb.de>
 References: <1258497551-25959-1-git-send-email-arnd@arndb.de>
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@vyatta.com>,
@@ -17,168 +17,150 @@ Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
 	Arnd Bergmann <arnd@arndb.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756512AbZKQWkj@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:64802 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756464AbZKQWlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 17:41:11 -0500
 In-Reply-To: <1258497551-25959-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to support all three modes of macvlan at
-runtime, extend the existing netlink protocol
-to allow choosing the mode per macvlan slave
-interface.
+This allows each macvlan slave device to be in one
+of three modes, depending on the use case:
 
-This depends on a matching patch to iproute2
-in order to become accessible in user land.
+MACVLAN_MODE_PRIVATE:
+  The device never communicates with any other device
+  on the same upper_dev. This even includes frames
+  coming back from a reflective relay, where supported
+  by the adjacent bridge.
+
+MACVLAN_MODE_VEPA:
+  The new Virtual Ethernet Port Aggregator (VEPA) mode,
+  we assume that the adjacent bridge returns all frames
+  where both source and destination are local to the
+  macvlan port, i.e. the bridge is set up as a reflective
+  relay.
+  Broadcast frames coming in from the upper_dev get
+  flooded to all macvlan interfaces in VEPA mode.
+  We never deliver any frames locally.
+
+MACVLAN_MODE_BRIDGE:
+  We provide the behavior of a simple bridge between
+  different macvlan interfaces on the same port. Frames
+  from one interface to another one get delivered directly
+  and are not sent out externally. Broadcast frames get
+  flooded to all other bridge ports and to the external
+  interface, but when they come back from a reflective
+  relay, we don't deliver them again.
+  Since we know all the MAC addresses, the macvlan bridge
+  mode does not require learning or STP like the bridge
+  module does.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/macvlan.c   |   67 +++++++++++++++++++++++++++++++++++++++++-----
- include/linux/if_link.h |   15 ++++++++++
- 2 files changed, 74 insertions(+), 8 deletions(-)
+ drivers/net/macvlan.c |   46 +++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 37 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index fa8b568..731017e 100644
+index 406b8b5..fa8b568 100644
 --- a/drivers/net/macvlan.c
 +++ b/drivers/net/macvlan.c
-@@ -33,12 +33,6 @@
+@@ -33,6 +33,12 @@
  
  #define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
  
--enum macvlan_type {
--	MACVLAN_PRIVATE		= 1,
--	MACVLAN_VEPA		= 2,
--	MACVLAN_BRIDGE		= 4,
--};
--
++enum macvlan_type {
++	MACVLAN_PRIVATE		= 1,
++	MACVLAN_VEPA		= 2,
++	MACVLAN_BRIDGE		= 4,
++};
++
  struct macvlan_port {
  	struct net_device	*dev;
  	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
-@@ -51,7 +45,7 @@ struct macvlan_dev {
+@@ -45,6 +51,7 @@ struct macvlan_dev {
  	struct hlist_node	hlist;
  	struct macvlan_port	*port;
  	struct net_device	*lowerdev;
--	enum macvlan_mode	mode;
-+	enum ifla_macvlan_mode	mode;
++	enum macvlan_mode	mode;
  };
  
  
-@@ -112,7 +106,7 @@ static int macvlan_addr_busy(const struct macvlan_port *port,
+@@ -104,7 +111,8 @@ static int macvlan_addr_busy(const struct macvlan_port *port,
+ 
  static void macvlan_broadcast(struct sk_buff *skb,
  			      const struct macvlan_port *port,
- 			      struct net_device *src,
--			      enum macvlan_mode mode)
-+			      enum ifla_macvlan_mode mode)
+-			      struct net_device *src)
++			      struct net_device *src,
++			      enum macvlan_mode mode)
  {
  	const struct ethhdr *eth = eth_hdr(skb);
  	const struct macvlan_dev *vlan;
-@@ -553,6 +547,18 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
+@@ -123,6 +131,9 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ 			if (dev == src)
+ 				continue;
+ 
++			if (!(vlan->mode & mode))
++				continue;
++
+ 			nskb = skb_clone(skb, GFP_ATOMIC);
+ 			if (nskb == NULL) {
+ 				dev->stats.rx_errors++;
+@@ -177,13 +188,27 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ 	const struct ethhdr *eth = eth_hdr(skb);
+ 	const struct macvlan_port *port;
+ 	const struct macvlan_dev *vlan;
++	const struct macvlan_dev *src;
+ 
+ 	port = rcu_dereference(skb->dev->macvlan_port);
+ 	if (port == NULL)
+ 		return skb;
+ 
+ 	if (is_multicast_ether_addr(eth->h_dest)) {
+-		macvlan_broadcast(skb, port, NULL);
++		src = macvlan_hash_lookup(port, eth->h_source);
++		if (!src)
++			/* frame comes from an external address */
++			macvlan_broadcast(skb, port, NULL, MACVLAN_MODE_VEPA
++				| MACVLAN_MODE_VEPA | MACVLAN_MODE_BRIDGE);
++		else if (src->mode == MACVLAN_MODE_VEPA)
++			/* flood to everyone except source */
++			macvlan_broadcast(skb, port, src->dev,
++				MACVLAN_MODE_VEPA | MACVLAN_MODE_BRIDGE);
++		else if (src->mode == MACVLAN_MODE_BRIDGE)
++			/* flood only to VEPA ports, bridge ports
++			   already saw the frame */
++			macvlan_broadcast(skb, port, src->dev,
++				MACVLAN_MODE_VEPA);
+ 		return skb;
  	}
-+
-+	if (data && data[IFLA_MACVLAN_MODE]) {
-+		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-+		switch (mode) {
-+		case MACVLAN_MODE_PRIVATE:
-+		case MACVLAN_MODE_VEPA:
-+		case MACVLAN_MODE_BRIDGE:
-+			break;
-+		default:
-+			return -EINVAL;
+ 
+@@ -218,14 +243,17 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	secpath_reset(skb);
+ 	nf_reset(skb);
+ 
+-	if (is_multicast_ether_addr(eth->h_dest)) {
+-		macvlan_broadcast(skb, port, dev);
+-		return macvlan_xmit_world(skb, dev);
+-	}
++	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
++		/* send to other bridge ports directly */
++		if (is_multicast_ether_addr(eth->h_dest)) {
++			macvlan_broadcast(skb, port, dev, MACVLAN_MODE_BRIDGE);
++			return macvlan_xmit_world(skb, dev);
 +		}
+ 
+-	dest = macvlan_hash_lookup(port, eth->h_dest);
+-	if (dest)
+-		return macvlan_unicast(skb, dest);
++		dest = macvlan_hash_lookup(port, eth->h_dest);
++		if (dest && dest->mode == MACVLAN_MODE_BRIDGE)
++			return macvlan_unicast(skb, dest);
 +	}
- 	return 0;
+ 
+ 	return macvlan_xmit_world(skb, dev);
  }
- 
-@@ -617,6 +623,13 @@ static int macvlan_newlink(struct net_device *dev,
- 	vlan->dev      = dev;
- 	vlan->port     = port;
- 
-+	vlan->mode     = MACVLAN_MODE_VEPA;
-+	if (data && data[IFLA_MACVLAN_MODE]) {
-+		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-+
-+		vlan->mode     = mode;
-+	}
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		return err;
-@@ -638,6 +651,39 @@ static void macvlan_dellink(struct net_device *dev)
- 		macvlan_port_destroy(port->dev);
- }
- 
-+static int macvlan_changelink(struct net_device *dev,
-+		struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	if (data && data[IFLA_MACVLAN_MODE]) {
-+		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-+		vlan->mode     = mode;
-+	}
-+
-+	return 0;
-+}
-+
-+static size_t macvlan_get_size(const struct net_device *dev)
-+{
-+	return nla_total_size(4);
-+}
-+
-+static int macvlan_fill_info(struct sk_buff *skb,
-+				const struct net_device *dev)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);	
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
-+	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
-+};
-+
- static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
- 	.kind		= "macvlan",
- 	.priv_size	= sizeof(struct macvlan_dev),
-@@ -646,6 +692,11 @@ static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
- 	.validate	= macvlan_validate,
- 	.newlink	= macvlan_newlink,
- 	.dellink	= macvlan_dellink,
-+	.maxtype	= IFLA_MACVLAN_MAX,
-+	.policy		= macvlan_policy,
-+	.changelink	= macvlan_changelink,
-+	.get_size	= macvlan_get_size,
-+	.fill_info	= macvlan_fill_info,
- };
- 
- static int macvlan_device_event(struct notifier_block *unused,
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 176c518..ef70ebc 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -190,4 +190,19 @@ struct ifla_vlan_qos_mapping
- 	__u32 to;
- };
- 
-+/* MACVLAN section */
-+enum {
-+	IFLA_MACVLAN_UNSPEC,
-+	IFLA_MACVLAN_MODE,
-+	__IFLA_MACVLAN_MAX,
-+};
-+
-+#define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
-+
-+enum ifla_macvlan_mode {
-+	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
-+	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
-+	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
-+};
-+
- #endif /* _LINUX_IF_LINK_H */
 -- 
 1.6.3.3
+
