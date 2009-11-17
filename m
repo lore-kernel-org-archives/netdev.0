@@ -1,48 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ixgbe: Fixing EEH handler to handle more than one error
-Date: Mon, 16 Nov 2009 23:52:09 -0800 (PST)
-Message-ID: <20091116.235209.227827212.davem@davemloft.net>
-References: <1257878267-7489-1-git-send-email-leitao@linux.vnet.ibm.com>
-	<20091115.221628.243358818.davem@davemloft.net>
-	<Pine.WNT.4.64.0911161100030.16132@ppwaskie-MOBL2.amr.corp.intel.com>
+Subject: Re: [PATCH] ppp: fix BUG on non-linear SKB (multilink receive)
+Date: Mon, 16 Nov 2009 23:52:54 -0800 (PST)
+Message-ID: <20091116.235254.148428748.davem@davemloft.net>
+References: <Pine.LNX.4.58.0911121144380.25398@benxen>
+	<20091113.194650.214404898.davem@davemloft.net>
+	<Pine.LNX.4.58.0911161334240.15274@benxen>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: peter.p.waskiewicz.jr@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754053AbZKQHvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 02:51:53 -0500
-In-Reply-To: <Pine.WNT.4.64.0911161100030.16132@ppwaskie-MOBL2.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paulus@samba.org, netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: ben@netservers.co.uk
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.58.0911161334240.15274@benxen>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 16 Nov 2009 11:01:13 -0800 (Pacific Standard Time)
+From: Ben McKeegan <ben@netservers.co.uk>
+Date: Mon, 16 Nov 2009 13:44:25 +0000 (GMT)
 
-> On Sun, 15 Nov 2009, David Miller wrote:
+> PPP does not correctly call pskb_may_pull() on all necessary receive paths
+> before reading the PPP protocol, thus causing PPP to report seemingly
+> random 'unsupported protocols' and eventually trigger BUG_ON(skb->len <
+> skb->data_len) in skb_pull_rcsum() when receiving multilink protocol in
+> non-linear skbs.
 > 
->> From: leitao@linux.vnet.ibm.com
->> Date: Tue, 10 Nov 2009 13:37:47 -0500
->> 
->> > After commmit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff EEH breaks
->> > after the second error, since it calls pci_restore_state()
->> > but it returns 0, since pci->state_saved is false.
->> > 
->> > So, this patch just call pci_save_state() after pci_restore_state().
->> > 
->> > Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
->> 
->> Intel folks, are you integrating or looking at this patch?
+> ppp_receive_nonmp_frame() does not call pskb_may_pull() before reading the
+> protocol number.  For the non-mp receive path this is not a problem, as
+> this check is done in ppp_receive_frame().  For the mp receive path,
+> ppp_mp_reconstruct() usually copies the data into a new linear skb.
+> However, in the case where the frame is made up of a single mp fragment,
+> the mp header is pulled and the existing skb used.  This skb was then
+> passed to ppp_receive_nonmp_frame() without checking if the encapsulated
+> protocol header could safely be read.
 > 
-> This patch looks correct and makes sense to me.  I'm going to ACK it now, 
-> but we'll still pull it in and test it.  If we see any issues, we'll 
-> report them with possible fixes.  But at this point, I think this patch is 
-> fine.
-> 
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
 
-Applied, thanks.
+Applied but:
+
+> +	while ((skb = ppp_mp_reconstruct(ppp))) {
+> +	  	if (pskb_may_pull(skb, 2))
+
+There is a mix of space and tab characters leading up to
+the "if (pskb_may_pull" there, I fixed it up but please
+take care of such trivial issues before submitting your
+patch next time.
+
+Thanks.
