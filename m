@@ -1,147 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
-Date: Tue, 17 Nov 2009 21:48:18 +0100
-Message-ID: <1258490898.21197.42.camel@johannes.local>
-References: <1258465585.3682.7.camel@johannes.local>
+From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Subject: Re: Shared i2c adapter locking
+Date: Wed, 18 Nov 2009 07:59:17 +1100
+Message-ID: <20091118075917.9ac0248c.sfr@canb.auug.org.au>
+References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+	<20091029154317.651904b9@hyperion.delvare>
+	<1256828976.2827.27.camel@achroite>
+	<20091105141122.56b6b4f8@hyperion.delvare>
+	<1257429444.2793.2.camel@achroite.uk.solarflarecom.com>
+	<20091105150715.692b5200@hyperion.delvare>
+	<20091117193313.b750804e.sfr@canb.auug.org.au>
+	<20091117103554.03971b2f@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:46369 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbZKQUsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 15:48:43 -0500
-In-Reply-To: <1258465585.3682.7.camel@johannes.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__18_Nov_2009_07_59_17_+1100_4c.670WErxsQBW.b"
+Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mika Kuoppala <mika.kuoppala-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
+	Linux I2C <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091117103554.03971b2f-ig7AzVSIIG7kN2dkZ6Wm7A@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-A number of people have tried to add a wireless interface
-(in managed mode) to a bridge and then complained that it
-doesn't work. It cannot work, however, because in 802.11
-networks all packets need to be acknowledged and as such
-need to be sent to the right address. Promiscuous doesn't
-help here. The wireless address format used for these
-links has only space for three addresses, the
- * transmitter, which must be equal to the sender (origin)
- * receiver (on the wireless medium), which is the AP in
-   the case of managed mode
- * the recipient (destination), which is on the APs local
-   network segment
+--Signature=_Wed__18_Nov_2009_07_59_17_+1100_4c.670WErxsQBW.b
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-In an IBSS, it is similar, but the receiver and recipient
-must match and the third address is used as the BSSID.
+Hi Jean,
 
-To avoid such mistakes in the future, disallow adding a
-wireless interface to a bridge.
+On Tue, 17 Nov 2009 10:35:54 +0100 Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org> wrote:
+>
+> Haven't you read this:
+> http://www.spinics.net/lists/linux-next/msg07839.html
+>=20
+> and the 3 following posts?
 
-Felix has recently added a four-address mode to the AP
-and client side that can be used (after negotiating that
-it is possible, which must happen out-of-band by setting
-up both sides) for bridging, so allow that case.
+Somehow I missed that, sorry :-(
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
-v2: * change error code as requested by Michael
-    * disallow changing wireless mode on a bridged iface
+> If you did and something is still not clear, please let me know. My
+> understanding is that the action token is in David's hands now.
 
-Should more (all?) of this be in cfg80211?
+OK, I will await developments :-)
 
- include/linux/if.h   |    1 +
- net/bridge/br_if.c   |    4 ++++
- net/mac80211/cfg.c   |    9 ++++++++-
- net/mac80211/iface.c |   22 ++++++++++++++++++++--
- 4 files changed, 33 insertions(+), 3 deletions(-)
+--=20
+Cheers,
+Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+http://www.canb.auug.org.au/~sfr/
 
---- wireless-testing.orig/include/linux/if.h	2009-11-17 14:18:36.000000000 +0100
-+++ wireless-testing/include/linux/if.h	2009-11-17 14:19:04.000000000 +0100
-@@ -70,6 +70,7 @@
- #define IFF_XMIT_DST_RELEASE 0x400	/* dev_hard_start_xmit() is allowed to
- 					 * release skb->dst
- 					 */
-+#define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
---- wireless-testing.orig/net/bridge/br_if.c	2009-11-17 14:19:17.000000000 +0100
-+++ wireless-testing/net/bridge/br_if.c	2009-11-17 15:07:59.000000000 +0100
-@@ -390,6 +390,10 @@ int br_add_if(struct net_bridge *br, str
- 	if (dev->br_port != NULL)
- 		return -EBUSY;
- 
-+	/* No bridging devices that dislike that (e.g. wireless) */
-+	if (dev->priv_flags & IFF_DONT_BRIDGE)
-+		return -EOPNOTSUPP;
-+
- 	p = new_nbp(br, dev);
- 	if (IS_ERR(p))
- 		return PTR_ERR(p);
---- wireless-testing.orig/net/mac80211/cfg.c	2009-11-17 14:21:24.000000000 +0100
-+++ wireless-testing/net/mac80211/cfg.c	2009-11-17 14:37:13.000000000 +0100
-@@ -106,8 +106,15 @@ static int ieee80211_change_iface(struct
- 					    params->mesh_id_len,
- 					    params->mesh_id);
- 
--	if (params->use_4addr >= 0)
-+	if (params->use_4addr >= 0) {
- 		sdata->use_4addr = !!params->use_4addr;
-+		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
-+
-+		if ((sdata->vif.type == NL80211_IFTYPE_STATION ||
-+		     sdata->vif.type == NL80211_IFTYPE_ADHOC) &&
-+		    !sdata->use_4addr)
-+			sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
-+	}
- 
- 	if (sdata->vif.type != NL80211_IFTYPE_MONITOR || !flags)
- 		return 0;
---- wireless-testing.orig/net/mac80211/iface.c	2009-11-17 14:20:19.000000000 +0100
-+++ wireless-testing/net/mac80211/iface.c	2009-11-17 17:56:08.000000000 +0100
-@@ -745,6 +745,11 @@ int ieee80211_if_change_type(struct ieee
- 	if (type == sdata->vif.type)
- 		return 0;
- 
-+	/* if it's part of a bridge, reject changing type to station/ibss */
-+	if (sdata->dev->br_port && (type == NL80211_IFTYPE_ADHOC ||
-+				    type == NL80211_IFTYPE_STATION))
-+		return -EBUSY;
-+
- 	/* Setting ad-hoc mode on non-IBSS channel is not supported. */
- 	if (sdata->local->oper_channel->flags & IEEE80211_CHAN_NO_IBSS &&
- 	    type == NL80211_IFTYPE_ADHOC)
-@@ -769,6 +774,11 @@ int ieee80211_if_change_type(struct ieee
- 			sdata->local->hw.conf.channel->band);
- 	sdata->drop_unencrypted = 0;
- 	sdata->use_4addr = 0;
-+	if (sdata->vif.type == NL80211_IFTYPE_STATION ||
-+	    sdata->vif.type == NL80211_IFTYPE_ADHOC)
-+		sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
-+	else
-+		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
- 
- 	return 0;
- }
-@@ -843,8 +853,16 @@ int ieee80211_if_add(struct ieee80211_lo
- 					    params->mesh_id_len,
- 					    params->mesh_id);
- 
--	if (params && params->use_4addr >= 0)
--		sdata->use_4addr = !!params->use_4addr;
-+	if (sdata->vif.type == NL80211_IFTYPE_STATION ||
-+	    sdata->vif.type == NL80211_IFTYPE_ADHOC)
-+		sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
-+	else
-+		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
-+
-+	if (params && params->use_4addr > 0) {
-+		sdata->use_4addr = true;
-+		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
-+	}
- 
- 	mutex_lock(&local->iflist_mtx);
- 	list_add_tail_rcu(&sdata->list, &local->interfaces);
+--Signature=_Wed__18_Nov_2009_07_59_17_+1100_4c.670WErxsQBW.b
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
+iEYEARECAAYFAksDDqUACgkQjjKRsyhoI8ye2wCePBRJDwGffoAbkqiiTpm0cyFr
+odwAn1zxSq7OJHHQ6zr6QdCUc1ZB8P4S
+=wZxa
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__18_Nov_2009_07_59_17_+1100_4c.670WErxsQBW.b--
