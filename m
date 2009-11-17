@@ -1,35 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP
- cookie option, extend existing struct's
-Date: Mon, 16 Nov 2009 19:15:22 -0800 (PST)
-Message-ID: <20091116.191522.178198674.davem@davemloft.net>
-References: <4B01BF65.1010203@gmail.com>
-	<4B01CD8D.1000305@gmail.com>
-	<4B01D17C.4010407@gmail.com>
+From: zeal <zealcook@gmail.com>
+Subject: Re: [PATCH 1/2 v2] KS8695: fix ks8695_rx_irq() bug.
+Date: Tue, 17 Nov 2009 12:28:33 +0800
+Message-ID: <efc9214f0911162028te62eca0h90f11b9b1e7a5d6e@mail.gmail.com>
+References: <4b016886.1d255e0a.16f1.ffff866a@mx.google.com>
+	 <1258043088.1931.13.camel@myhost>
+	 <efc9214f0911160718o4c7cd0ecv2e86b8d5ad7691ae@mail.gmail.com>
+	 <1258045910.1931.16.camel@myhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: william.allen.simpson@gmail.com, netdev@vger.kernel.org,
-	joe@perches.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, ben@simtec.co.uk, davem@davemloft.net
+To: "Figo.zhang" <figo1802@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34642
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752373AbZKQDPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 22:15:05 -0500
-In-Reply-To: <4B01D17C.4010407@gmail.com>
+Received: from mail-yw0-f202.google.com ([209.85.211.202]:63405 "EHLO
+	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754139AbZKQE22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 23:28:28 -0500
+Received: by ywh40 with SMTP id 40so3787411ywh.33
+        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 20:28:33 -0800 (PST)
+In-Reply-To: <1258045910.1931.16.camel@myhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 16 Nov 2009 23:26:04 +0100
+On Fri, Nov 13, 2009 at 1:11 AM, Figo.zhang <figo1802@gmail.com> wrote:
+> On Mon, 2009-11-16 at 23:18 +0800, zeal wrote:
+>> On Fri, Nov 13, 2009 at 12:24 AM, Figo.zhang <figo1802@gmail.com> wrote:
+>> > On Mon, 2009-11-16 at 22:58 +0800, zeal wrote:
+>> >> From: zeal <zealcook@gmail.com>
+>> >>
+>> >> Sorry for the previously patches. THEY'RE NOT RIGHT. It's my mistake.
+>> >> Please forgive my noise.
+>> >> Please review the following patches and ignore the last (v1).
+>> >>
+>> >> ks8695 rx irq is edge-level. Before arriving at irq handler, the
+>> >> corresponding status bit has been clear(irq's ack).
+>> >> So we should not check it after that.
+>> >
+>> > see <KS8695X Integrated Multi-Port Gateway Solution Register
+>> > Description> Version 1.00
+>> >
+>> > Interrupt Status Register(INTST Offset 0xE208)
+>> >
+>> > it has said: This edge-triggered interrupt status is cleared by writting
+>> > 1 , so we should write 1 to clear status bit manually.
+>> >
+>> Yeah, but irq_chip's ack has done that.
+>> Please check arch/arm/mach-ks8695/irq.c ks8695_irq_edge_chip->ack()
+>
+> yes, you are right, but you have better add this description at commit
+> log.
 
-> So adding DATA to SYN packets might be problematic for part of our tcp stack.
+'the corresponding status bit has been clear(irq's ack)' is not enough?
 
-I can almost guarentee it won't work.  For one thing getting a SACK
-response to a SYN+DATA packet will explode quite nicely for one thing.
+[snip]
 
-A lot of the other retransmit queue handling would need to be audited
-as well.  So much code assumes that if we see sent data in the
-retransmit queue, there won't be SYN or SYN+ACK things in there to
-contend with.
+-- 
+Thanks & Regards
+
+zeal
