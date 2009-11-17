@@ -1,78 +1,38 @@
-From: Franko Fang <huananhu@huawei.com>
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-Date: Tue, 17 Nov 2009 19:54:43 +0800
-Message-ID: <00b301ca677c$c03f25d0$76900b0a@china.huawei.com>
-References: <20091117111454.GA8341@ff.dom.local>
+From: fangxiaozhi 00110321 <huananhu@huawei.com>
+Subject: [PATCH 1/5]net: PPP buffer too small for higher speed connections
+Date: Tue, 17 Nov 2009 19:59:05 +0800
+Message-ID: <fb8cc3511cffa.1cffafb8cc351@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>,
-	William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755980AbZKQLyt@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	william.allen.simpson@gmail.com, jarkao2@gmail.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755989AbZKQL7D@vger.kernel.org>
+Content-language: zh-CN
+Content-disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Well, yes, I think that it misses the tab.
+From: fangxiaozhi <huananhu@huawei.com>
+1. This patch is based on the kernel of 2.6.32-rc7 
+2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+-----------------------------------------------------------------------------------------
+--- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
++++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
+@@ -36,7 +36,7 @@
+ 
+ #define PPP_VERSION	"2.4.2"
+ 
+-#define OBUFSIZE	256
++#define OBUFSIZE	4096
+ 
+ /* Structure for storing local state. */
+ struct asyncppp {
 
-I will update the patch, and resubmit it again.
 
- Thanks for all  .
------ Original Message ----- 
-From: "Jarek Poplawski" <jarkao2@gmail.com>
-To: "William Allen Simpson" <william.allen.simpson@gmail.com>
-Cc: <huananhu@huawei.com>; "David Miller" <davem@davemloft.net>; <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>
-Sent: Tuesday, November 17, 2009 7:14 PM
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-
-
-> On 17-11-2009 11:20, William Allen Simpson wrote:
->> David Miller wrote:
->>> Your patch is broken, please don't wate my time like this.
->>>
->>> + git apply --check --whitespace=error-all diff
->>> error: patch failed: drivers/net/ppp_async.c:36
->>> error: drivers/net/ppp_async.c: patch does not apply
->>>
->> What David may have meant, had he followed Documentation/ManagementStyle
->> or had any project management skills what-so-ever, is that you need to
->> follow Documentation/SubmittingPatches more carefully.
-> 
-> I think this time it was only about a missing tab ;-)
-> 
-> Jarek P.
-> 
->> 
->> Look at 15) The canonical patch format
->> 
->> [PATCH 17/11] makes no sense, you don't have 11 patches, and the 17th
->> patch of 11 can never exist.
->> 
->> Need a better "subsystem: summary phrase", perhaps
->>    "net: PPP buffer too small for higher speed connections"
->> 
->> A marker line containing simply "---".
->> 
->> And your trailer boilerplate badly breaks the system, because it's
->> missing the SMTP email standard "--" line in front of it.
->> 
->> You'll get nicer formatting with 'git format-patch -o ~ HEAD~1' after you
->> do a 'git commit -a' on your git tree.
->> 
->> It takes some time, even for a simple 1 line fix like this....
->> 
->> Hope that helps.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> 
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+******************************************************************************************
+ This email and its attachments contain confidential information from HUAWEI, which is intended only for the person or entity whose address is listed above. Any use of the information contained here in any way (including, but not limited to, total or partial disclosure, reproduction, or dissemination) by persons other than the intended recipient(s) is prohibited. If you receive this email in error, please notify the sender by phone or email
+ immediately and delete it!
+ *****************************************************************************************
