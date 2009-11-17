@@ -1,258 +1,787 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2 net-next-2.6] vlan: Precise RX stats accounting
-Date: Tue, 17 Nov 2009 15:53:09 +0100
-Message-ID: <4B02B8D5.8040402@gmail.com>
-References: <4B01558F.5000306@gmail.com> <20091117.002037.229474882.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Dan Smith <danms@us.ibm.com>
+Subject: [PATCH 2/4] [RFC] Add c/r support for connected INET sockets (v5)
+Date: Tue, 17 Nov 2009 07:26:28 -0800
+Message-ID: <1258471590-29768-3-git-send-email-danms@us.ibm.com>
+References: <1258471590-29768-1-git-send-email-danms@us.ibm.com>
+Cc: orenl@librato.com, netdev@vger.kernel.org
+To: containers@lists.osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53594 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbZKQOxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 09:53:08 -0500
-In-Reply-To: <20091117.002037.229474882.davem@davemloft.net>
+Received: from stein.danplanet.com ([71.245.107.83]:45601 "EHLO
+	stein.danplanet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753023AbZKQPVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 10:21:44 -0500
+In-Reply-To: <1258471590-29768-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
->=20
-> Eric, please make allocation failure cause the vlan_setup()
-> to fail and propagate -EFAULT back to the caller.
->=20
+This patch adds basic support for C/R of open INET sockets.  I think that
+all the important bits of the TCP and ICSK socket structures is saved,
+but I think there is still some additional IPv6 stuff that needs to be
+handled.
 
-Given that vlan_setup(struct net_device *) is void and cannot
-return error status, unless using a global variable (ugly),
-or changing all setup() prototypes (oh well...)
+With this patch applied, the following script can be used to demonstrate
+the functionality:
 
-One possibility is to perform the allocation in vlan_dev_init()
-(called from register_netdevice()), and freeing it in vlan_dev_uninit()=
-=2E
+  https://lists.linux-foundation.org/pipermail/containers/2009-October/021239.html
 
-Thanks
+It shows that this enables migration of a sendmail process with open
+connections from one machine to another without dropping.
 
-[PATCH net-next-2.6 take2] vlan: Precise RX stats accounting
+We probably need comments from the netdev people about the quality of
+sanity checking we do on the values in the ckpt_hdr_socket_inet
+structure on restart.
 
-With multi queue devices, its possible that several cpus call
-vlan RX routines simultaneously for the same vlan device.
+Note that this still doesn't address lingering sockets yet.
 
-We update RX stats counter without any locking, so we can
-get slightly wrong counters.
+Changes in v5:
+ - Change ckpt_write_err() to ckpt_err()
 
-One possible fix is to use percpu counters, to get precise
-accounting and also get guarantee of no cache line ping pongs
-between cpus.
+Changes in v4:
+ - Use the new socket buffer restore functions introduced in the
+   previous patch
+ - Move listen_sockets list under the restart items in ckpt_ctx
+ - Rename RESTART_SOCK_LISTENONLY to RESTART_CONN_RESET
 
-Note: this adds 16 bytes (32 bytes on 64bit arches) of percpu
-data per vlan device.
+Changes in v3:
+ - Prevent restart from allowing a bind on a <1024 port unless the
+   user is granted that capability
+ - Add some sanity checking in the inet_precheck() function to make sure
+   the values read from the checkpoint image are within acceptable ranges
+ - Check the result of sock_restore_header_info() and fail if needed
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Changes in v2:
+ - Restore saddr, rcv_saddr, daddr, sport, and dport from the sockaddr
+   structure instead of saving them separately
+ - Fix 'sock' naming in sock_cptrst()
+ - Don't take the queue lock before skb_queue_tail() since it is
+   done for us
+ - Allow "listen only" restore behavior if RESTART_SOCK_LISTENONLY
+   flag is specified on sys_restart()
+ - Pull the implementation of the list of listening sockets back into
+   this patch
+ - Fix dangling printk
+ - Add some comments around the parent/child restore logic
+
+Cc: netdev@vger.kernel.org
+Acked-by: Oren Laadan <orenl@librato.com>
+Signed-off-by: Dan Smith <danms@us.ibm.com>
 ---
- net/8021q/vlan.h      |   17 ++++++++++++++
- net/8021q/vlan_core.c |   12 +++++-----
- net/8021q/vlan_dev.c  |   47 ++++++++++++++++++++++++++++++++++------
- 3 files changed, 65 insertions(+), 11 deletions(-)
+ checkpoint/sys.c                 |    4 +
+ include/linux/checkpoint.h       |    5 +-
+ include/linux/checkpoint_hdr.h   |   95 +++++++++
+ include/linux/checkpoint_types.h |    1 +
+ net/checkpoint.c                 |   27 ++--
+ net/ipv4/checkpoint.c            |  391 ++++++++++++++++++++++++++++++++++----
+ 6 files changed, 473 insertions(+), 50 deletions(-)
 
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index 68f9290..5685296 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -16,6 +16,21 @@ struct vlan_priority_tci_mapping {
- 	struct vlan_priority_tci_mapping	*next;
- };
-=20
+diff --git a/checkpoint/sys.c b/checkpoint/sys.c
+index 9f9e825..baed891 100644
+--- a/checkpoint/sys.c
++++ b/checkpoint/sys.c
+@@ -244,6 +244,8 @@ static void ckpt_ctx_free(struct ckpt_ctx *ctx)
+ 
+ 	kfree(ctx->pids_arr);
+ 
++	sock_listening_list_free(&ctx->listen_sockets);
 +
-+/**
-+ *	struct vlan_rx_stats - VLAN percpu rx stats
-+ *	@rx_packets: number of received packets
-+ *	@rx_bytes: number of received bytes
-+ *	@multicast: number of received multicast packets
-+ *	@rx_errors: number of errors
-+ */
-+struct vlan_rx_stats {
-+	unsigned long rx_packets;
-+	unsigned long rx_bytes;
-+	unsigned long multicast;
-+	unsigned long rx_errors;
+ 	kfree(ctx);
+ }
+ 
+@@ -274,6 +276,8 @@ static struct ckpt_ctx *ckpt_ctx_alloc(int fd, unsigned long uflags,
+ 
+ 	mutex_init(&ctx->msg_mutex);
+ 
++	INIT_LIST_HEAD(&ctx->listen_sockets);
++
+ 	err = -EBADF;
+ 	ctx->file = fget(fd);
+ 	if (!ctx->file)
+diff --git a/include/linux/checkpoint.h b/include/linux/checkpoint.h
+index 0eff43e..ddc9aa0 100644
+--- a/include/linux/checkpoint.h
++++ b/include/linux/checkpoint.h
+@@ -20,6 +20,7 @@
+ #define RESTART_FROZEN		0x2
+ #define RESTART_GHOST		0x4
+ #define RESTART_KEEP_LSM	0x8
++#define RESTART_CONN_RESET      0x10
+ 
+ /* misc user visible */
+ #define CHECKPOINT_FD_NONE	-1
+@@ -53,7 +54,8 @@
+ 	(RESTART_TASKSELF | \
+ 	 RESTART_FROZEN | \
+ 	 RESTART_KEEP_LSM | \
+-	 RESTART_GHOST)
++	 RESTART_GHOST | \
++	 RESTART_CONN_RESET)
+ #define CKPT_LSM_INFO_LEN 200
+ #define CKPT_LSM_STRING_MAX 1024
+ 
+@@ -105,6 +107,7 @@ extern int ckpt_sock_getnames(struct ckpt_ctx *ctx,
+ 			      struct sockaddr *loc, unsigned *loc_len,
+ 			      struct sockaddr *rem, unsigned *rem_len);
+ struct sk_buff *sock_restore_skb(struct ckpt_ctx *ctx);
++void sock_listening_list_free(struct list_head *head);
+ 
+ /* ckpt kflags */
+ #define ckpt_set_ctx_kflag(__ctx, __kflag)  \
+diff --git a/include/linux/checkpoint_hdr.h b/include/linux/checkpoint_hdr.h
+index 787cf89..d1a93e3 100644
+--- a/include/linux/checkpoint_hdr.h
++++ b/include/linux/checkpoint_hdr.h
+@@ -15,6 +15,7 @@
+ #include <linux/socket.h>
+ #include <linux/un.h>
+ #include <linux/in.h>
++#include <linux/in6.h>
+ #else
+ #include <sys/types.h>
+ #include <linux/types.h>
+@@ -625,6 +626,100 @@ struct ckpt_hdr_socket_unix {
+ 
+ struct ckpt_hdr_socket_inet {
+ 	struct ckpt_hdr h;
++	__u32 daddr;
++	__u32 rcv_saddr;
++	__u32 saddr;
++	__u16 dport;
++	__u16 num;
++	__u16 sport;
++	__s16 uc_ttl;
++	__u16 cmsg_flags;
++
++	struct {
++		__u64 timeout;
++		__u32 ato;
++		__u32 lrcvtime;
++		__u16 last_seg_size;
++		__u16 rcv_mss;
++		__u8 pending;
++		__u8 quick;
++		__u8 pingpong;
++		__u8 blocked;
++	} icsk_ack __attribute__ ((aligned(8)));
++
++	/* FIXME: Skipped opt, tos, multicast, cork settings */
++
++	struct {
++		__u32 rcv_nxt;
++		__u32 copied_seq;
++		__u32 rcv_wup;
++		__u32 snd_nxt;
++		__u32 snd_una;
++		__u32 snd_sml;
++		__u32 rcv_tstamp;
++		__u32 lsndtime;
++
++		__u32 snd_wl1;
++		__u32 snd_wnd;
++		__u32 max_window;
++		__u32 mss_cache;
++		__u32 window_clamp;
++		__u32 rcv_ssthresh;
++		__u32 frto_highmark;
++
++		__u32 srtt;
++		__u32 mdev;
++		__u32 mdev_max;
++		__u32 rttvar;
++		__u32 rtt_seq;
++
++		__u32 packets_out;
++		__u32 retrans_out;
++
++		__u32 snd_up;
++		__u32 rcv_wnd;
++		__u32 write_seq;
++		__u32 pushed_seq;
++		__u32 lost_out;
++		__u32 sacked_out;
++		__u32 fackets_out;
++		__u32 tso_deferred;
++		__u32 bytes_acked;
++
++		__s32 lost_cnt_hint;
++		__u32 retransmit_high;
++
++		__u32 lost_retrans_low;
++
++		__u32 prior_ssthresh;
++		__u32 high_seq;
++
++		__u32 retrans_stamp;
++		__u32 undo_marker;
++		__s32 undo_retrans;
++		__u32 total_retrans;
++
++		__u32 urg_seq;
++		__u32 keepalive_time;
++		__u32 keepalive_intvl;
++
++		__u16 urg_data;
++		__u16 advmss;
++		__u8 frto_counter;
++		__u8 nonagle;
++
++		__u8 ecn_flags;
++		__u8 reordering;
++
++		__u8 keepalive_probes;
++	} tcp __attribute__ ((aligned(8)));
++
++	struct {
++		struct in6_addr saddr;
++		struct in6_addr rcv_saddr;
++		struct in6_addr daddr;
++	} inet6 __attribute__ ((aligned(8)));
++
+ 	__u32 laddr_len;
+ 	__u32 raddr_len;
+ 	struct sockaddr_in laddr;
+diff --git a/include/linux/checkpoint_types.h b/include/linux/checkpoint_types.h
+index 77f8592..79c9c09 100644
+--- a/include/linux/checkpoint_types.h
++++ b/include/linux/checkpoint_types.h
+@@ -82,6 +82,7 @@ struct ckpt_ctx {
+ 	wait_queue_head_t waitq;	/* waitqueue for restarting tasks */
+ 	wait_queue_head_t ghostq;	/* waitqueue for ghost tasks */
+ 	struct cred *realcred, *ecred;	/* tmp storage for cred at restart */
++	struct list_head listen_sockets;/* listening parent sockets */
+ 
+ 	struct ckpt_stats stats;	/* statistics */
+ 
+diff --git a/net/checkpoint.c b/net/checkpoint.c
+index 49d9a2f..aba1497 100644
+--- a/net/checkpoint.c
++++ b/net/checkpoint.c
+@@ -324,6 +324,7 @@ static int __sock_write_skb(struct ckpt_ctx *ctx,
+ 
+ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 				struct sk_buff_head *queue,
++				uint16_t family,
+ 				int dst_objref)
+ {
+ 	struct sk_buff *skb;
+@@ -336,11 +337,11 @@ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 			return -EBUSY;
+ 		}
+ 
+-		/* The other ancillary messages are always present
+-		 * unlike descriptors.  Even though we can't detect
+-		 * them and fail the checkpoint, we're not at risk
+-		 * because we don't save out (or restore) the control
+-		 * information contained in the skb.
++		/* The other ancillary messages UNIX are always
++		 * present unlike descriptors.  Even though we can't
++		 * detect them and fail the checkpoint, we're not at
++		 * risk because we don't restore the control
++		 * information in the UNIX code.
+ 		 */
+ 
+ 		ret = __sock_write_skb(ctx, skb, dst_objref);
+@@ -353,6 +354,7 @@ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 
+ static int sock_write_buffers(struct ckpt_ctx *ctx,
+ 			      struct sk_buff_head *queue,
++			      uint16_t family,
+ 			      int dst_objref)
+ {
+ 	struct ckpt_hdr_socket_queue *h;
+@@ -372,7 +374,7 @@ static int sock_write_buffers(struct ckpt_ctx *ctx,
+ 	h->skb_count = ret;
+ 	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
+ 	if (!ret)
+-		ret = __sock_write_buffers(ctx, &tmpq, dst_objref);
++		ret = __sock_write_buffers(ctx, &tmpq, family, dst_objref);
+ 
+  out:
+ 	ckpt_hdr_put(ctx, h);
+@@ -394,12 +396,14 @@ int sock_deferred_write_buffers(void *data)
+ 		return dst_objref;
+ 	}
+ 
+-	ret = sock_write_buffers(ctx, &dq->sk->sk_receive_queue, dst_objref);
++	ret = sock_write_buffers(ctx, &dq->sk->sk_receive_queue,
++				 dq->sk->sk_family, dst_objref);
+ 	ckpt_debug("write recv buffers: %i\n", ret);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = sock_write_buffers(ctx, &dq->sk->sk_write_queue, dst_objref);
++	ret = sock_write_buffers(ctx, &dq->sk->sk_write_queue,
++				 dq->sk->sk_family, dst_objref);
+ 	ckpt_debug("write send buffers: %i\n", ret);
+ 
+ 	return ret;
+@@ -924,10 +928,9 @@ struct sock *do_sock_restore(struct ckpt_ctx *ctx)
+ 		goto err;
+ 
+ 	if ((h->sock_common.family == AF_INET) &&
+-	    (h->sock.state != TCP_LISTEN)) {
+-		/* Temporary hack to enable restore of TCP_LISTEN sockets
+-		 * while forcing anything else to a closed state
+-		 */
++	    (h->sock.state != TCP_LISTEN) &&
++	    (ctx->uflags & RESTART_CONN_RESET)) {
++		ckpt_debug("Forcing open socket closed\n");
+ 		sock->sk->sk_state = TCP_CLOSE;
+ 		sock->state = SS_UNCONNECTED;
+ 	}
+diff --git a/net/ipv4/checkpoint.c b/net/ipv4/checkpoint.c
+index 9cbbf5e..3e20cc9 100644
+--- a/net/ipv4/checkpoint.c
++++ b/net/ipv4/checkpoint.c
+@@ -17,6 +17,7 @@
+ #include <linux/deferqueue.h>
+ #include <net/tcp_states.h>
+ #include <net/tcp.h>
++#include <net/ipv6.h>
+ 
+ struct dq_sock {
+ 	struct ckpt_ctx *ctx;
+@@ -28,6 +29,236 @@ struct dq_buffers {
+ 	struct sock *sk;
+ };
+ 
++struct listen_item {
++	struct sock *sk;
++	struct list_head list;
 +};
 +
- /**
-  *	struct vlan_dev_info - VLAN private device data
-  *	@nr_ingress_mappings: number of ingress priority mappings
-@@ -29,6 +44,7 @@ struct vlan_priority_tci_mapping {
-  *	@dent: proc dir entry
-  *	@cnt_inc_headroom_on_tx: statistic - number of skb expansions on TX
-  *	@cnt_encap_on_xmit: statistic - number of skb encapsulations on TX
-+ *	@vlan_rx_stats: ptr to percpu rx stats
-  */
- struct vlan_dev_info {
- 	unsigned int				nr_ingress_mappings;
-@@ -45,6 +61,7 @@ struct vlan_dev_info {
- 	struct proc_dir_entry			*dent;
- 	unsigned long				cnt_inc_headroom_on_tx;
- 	unsigned long				cnt_encap_on_xmit;
-+	struct vlan_rx_stats			*vlan_rx_stats;
- };
-=20
- static inline struct vlan_dev_info *vlan_dev_info(const struct net_dev=
-ice *dev)
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 971d375..e75a2f3 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -31,7 +31,7 @@ EXPORT_SYMBOL(__vlan_hwaccel_rx);
- int vlan_hwaccel_do_receive(struct sk_buff *skb)
- {
- 	struct net_device *dev =3D skb->dev;
--	struct net_device_stats *stats;
-+	struct vlan_rx_stats     *rx_stats;
-=20
- 	skb->dev =3D vlan_dev_info(dev)->real_dev;
- 	netif_nit_deliver(skb);
-@@ -40,15 +40,17 @@ int vlan_hwaccel_do_receive(struct sk_buff *skb)
- 	skb->priority =3D vlan_get_ingress_priority(dev, skb->vlan_tci);
- 	skb->vlan_tci =3D 0;
-=20
--	stats =3D &dev->stats;
--	stats->rx_packets++;
--	stats->rx_bytes +=3D skb->len;
-+	rx_stats =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats,
-+			       smp_processor_id());
++void sock_listening_list_free(struct list_head *head)
++{
++	struct listen_item *item, *tmp;
 +
-+	rx_stats->rx_packets++;
-+	rx_stats->rx_bytes +=3D skb->len;
-=20
- 	switch (skb->pkt_type) {
- 	case PACKET_BROADCAST:
- 		break;
- 	case PACKET_MULTICAST:
--		stats->multicast++;
-+		rx_stats->multicast++;
- 		break;
- 	case PACKET_OTHERHOST:
- 		/* Our lower layer thinks this is not local, let's make sure.
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 9159659..de0dc6b 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -140,7 +140,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_d=
-evice *dev,
- 		  struct packet_type *ptype, struct net_device *orig_dev)
- {
- 	struct vlan_hdr *vhdr;
--	struct net_device_stats *stats;
-+	struct vlan_rx_stats *rx_stats;
- 	u16 vlan_id;
- 	u16 vlan_tci;
-=20
-@@ -163,9 +163,10 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_=
-device *dev,
- 		goto err_unlock;
- 	}
-=20
--	stats =3D &skb->dev->stats;
--	stats->rx_packets++;
--	stats->rx_bytes +=3D skb->len;
-+	rx_stats =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats,
-+			       smp_processor_id());
-+	rx_stats->rx_packets++;
-+	rx_stats->rx_bytes +=3D skb->len;
-=20
- 	skb_pull_rcsum(skb, VLAN_HLEN);
-=20
-@@ -180,7 +181,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_d=
-evice *dev,
- 		break;
-=20
- 	case PACKET_MULTICAST:
--		stats->multicast++;
-+		rx_stats->multicast++;
- 		break;
-=20
- 	case PACKET_OTHERHOST:
-@@ -200,7 +201,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_d=
-evice *dev,
-=20
- 	skb =3D vlan_check_reorder_header(skb);
- 	if (!skb) {
--		stats->rx_errors++;
-+		rx_stats->rx_errors++;
- 		goto err_unlock;
- 	}
-=20
-@@ -731,6 +732,11 @@ static int vlan_dev_init(struct net_device *dev)
- 		subclass =3D 1;
-=20
- 	vlan_dev_set_lockdep_class(dev, subclass);
++	list_for_each_entry_safe(item, tmp, head, list) {
++		list_del(&item->list);
++		kfree(item);
++	}
++}
 +
-+	vlan_dev_info(dev)->vlan_rx_stats =3D alloc_percpu(struct vlan_rx_sta=
-ts);
-+	if (!vlan_dev_info(dev)->vlan_rx_stats)
++static int sock_listening_list_add(struct ckpt_ctx *ctx, struct sock *sk)
++{
++	struct listen_item *item;
++
++	item = kmalloc(sizeof(*item), GFP_KERNEL);
++	if (!item)
 +		return -ENOMEM;
++
++	item->sk = sk;
++	list_add(&item->list, &ctx->listen_sockets);
++
++	return 0;
++}
++
++static struct sock *sock_get_parent(struct ckpt_ctx *ctx, struct sock *sk)
++{
++	struct listen_item *item;
++
++	list_for_each_entry(item, &ctx->listen_sockets, list) {
++		if (inet_sk(sk)->sport == inet_sk(item->sk)->sport)
++			return item->sk;
++	}
++
++	return NULL;
++}
++
++static int sock_hash_parent(void *data)
++{
++	struct dq_sock *dq = (struct dq_sock *)data;
++	struct sock *parent;
++
++	ckpt_debug("INET post-restart hash\n");
++
++	dq->sk->sk_prot->hash(dq->sk);
++
++	/* If there is a listening socket with the same source port,
++	 * then become a child of that socket [we are the result of an
++	 * accept()].  Otherwise hash ourselves directly in [we are
++	 * the result of a connect()]
++	 */
++
++	parent = sock_get_parent(dq->ctx, dq->sk);
++	if (parent) {
++		inet_sk(dq->sk)->num = ntohs(inet_sk(dq->sk)->sport);
++		local_bh_disable();
++		__inet_inherit_port(parent, dq->sk);
++		local_bh_enable();
++	} else {
++		inet_sk(dq->sk)->num = 0;
++		inet_hash_connect(&tcp_death_row, dq->sk);
++		inet_sk(dq->sk)->num = ntohs(inet_sk(dq->sk)->sport);
++	}
++
++	return 0;
++}
++
++static int sock_defer_hash(struct ckpt_ctx *ctx, struct sock *sock)
++{
++	struct dq_sock dq;
++
++	dq.sk = sock;
++	dq.ctx = ctx;
++
++	return deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
++			      sock_hash_parent, NULL);
++}
++
++static int sock_inet_tcp_cptrst(struct ckpt_ctx *ctx,
++				struct tcp_sock *sk,
++				struct ckpt_hdr_socket_inet *hh,
++				int op)
++{
++	CKPT_COPY(op, hh->tcp.rcv_nxt, sk->rcv_nxt);
++	CKPT_COPY(op, hh->tcp.copied_seq, sk->copied_seq);
++	CKPT_COPY(op, hh->tcp.rcv_wup, sk->rcv_wup);
++	CKPT_COPY(op, hh->tcp.snd_nxt, sk->snd_nxt);
++	CKPT_COPY(op, hh->tcp.snd_una, sk->snd_una);
++	CKPT_COPY(op, hh->tcp.snd_sml, sk->snd_sml);
++	CKPT_COPY(op, hh->tcp.rcv_tstamp, sk->rcv_tstamp);
++	CKPT_COPY(op, hh->tcp.lsndtime, sk->lsndtime);
++
++	CKPT_COPY(op, hh->tcp.snd_wl1, sk->snd_wl1);
++	CKPT_COPY(op, hh->tcp.snd_wnd, sk->snd_wnd);
++	CKPT_COPY(op, hh->tcp.max_window, sk->max_window);
++	CKPT_COPY(op, hh->tcp.mss_cache, sk->mss_cache);
++	CKPT_COPY(op, hh->tcp.window_clamp, sk->window_clamp);
++	CKPT_COPY(op, hh->tcp.rcv_ssthresh, sk->rcv_ssthresh);
++	CKPT_COPY(op, hh->tcp.frto_highmark, sk->frto_highmark);
++	CKPT_COPY(op, hh->tcp.advmss, sk->advmss);
++	CKPT_COPY(op, hh->tcp.frto_counter, sk->frto_counter);
++	CKPT_COPY(op, hh->tcp.nonagle, sk->nonagle);
++
++	CKPT_COPY(op, hh->tcp.srtt, sk->srtt);
++	CKPT_COPY(op, hh->tcp.mdev, sk->mdev);
++	CKPT_COPY(op, hh->tcp.mdev_max, sk->mdev_max);
++	CKPT_COPY(op, hh->tcp.rttvar, sk->rttvar);
++	CKPT_COPY(op, hh->tcp.rtt_seq, sk->rtt_seq);
++
++	CKPT_COPY(op, hh->tcp.packets_out, sk->packets_out);
++	CKPT_COPY(op, hh->tcp.retrans_out, sk->retrans_out);
++
++	CKPT_COPY(op, hh->tcp.urg_data, sk->urg_data);
++	CKPT_COPY(op, hh->tcp.ecn_flags, sk->ecn_flags);
++	CKPT_COPY(op, hh->tcp.reordering, sk->reordering);
++	CKPT_COPY(op, hh->tcp.snd_up, sk->snd_up);
++
++	CKPT_COPY(op, hh->tcp.keepalive_probes, sk->keepalive_probes);
++
++	CKPT_COPY(op, hh->tcp.rcv_wnd, sk->rcv_wnd);
++	CKPT_COPY(op, hh->tcp.write_seq, sk->write_seq);
++	CKPT_COPY(op, hh->tcp.pushed_seq, sk->pushed_seq);
++	CKPT_COPY(op, hh->tcp.lost_out, sk->lost_out);
++	CKPT_COPY(op, hh->tcp.sacked_out, sk->sacked_out);
++	CKPT_COPY(op, hh->tcp.fackets_out, sk->fackets_out);
++	CKPT_COPY(op, hh->tcp.tso_deferred, sk->tso_deferred);
++	CKPT_COPY(op, hh->tcp.bytes_acked, sk->bytes_acked);
++
++	CKPT_COPY(op, hh->tcp.lost_cnt_hint, sk->lost_cnt_hint);
++	CKPT_COPY(op, hh->tcp.retransmit_high, sk->retransmit_high);
++
++	CKPT_COPY(op, hh->tcp.lost_retrans_low, sk->lost_retrans_low);
++
++	CKPT_COPY(op, hh->tcp.prior_ssthresh, sk->prior_ssthresh);
++	CKPT_COPY(op, hh->tcp.high_seq, sk->high_seq);
++
++	CKPT_COPY(op, hh->tcp.retrans_stamp, sk->retrans_stamp);
++	CKPT_COPY(op, hh->tcp.undo_marker, sk->undo_marker);
++	CKPT_COPY(op, hh->tcp.undo_retrans, sk->undo_retrans);
++	CKPT_COPY(op, hh->tcp.total_retrans, sk->total_retrans);
++
++	CKPT_COPY(op, hh->tcp.urg_seq, sk->urg_seq);
++	CKPT_COPY(op, hh->tcp.keepalive_time, sk->keepalive_time);
++	CKPT_COPY(op, hh->tcp.keepalive_intvl, sk->keepalive_intvl);
++
++	if (!skb_queue_empty(&sk->ucopy.prequeue))
++		printk("PREQUEUE!\n");
++
++	return 0;
++}
++
++static int sock_inet_restore_addrs(struct inet_sock *inet,
++				   struct ckpt_hdr_socket_inet *hh)
++{
++	inet->daddr = hh->raddr.sin_addr.s_addr;
++	inet->saddr = hh->laddr.sin_addr.s_addr;
++	inet->rcv_saddr = inet->saddr;
++
++	inet->dport = hh->raddr.sin_port;
++	inet->sport = hh->laddr.sin_port;
++
++	return 0;
++}
++
++static int sock_inet_cptrst(struct ckpt_ctx *ctx,
++			    struct sock *sk,
++			    struct ckpt_hdr_socket_inet *hh,
++			    int op)
++{
++	struct inet_sock *inet = inet_sk(sk);
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	int ret;
++
++	if (op == CKPT_CPT) {
++		CKPT_COPY(op, hh->daddr, inet->daddr);
++		CKPT_COPY(op, hh->rcv_saddr, inet->rcv_saddr);
++		CKPT_COPY(op, hh->dport, inet->dport);
++		CKPT_COPY(op, hh->saddr, inet->saddr);
++		CKPT_COPY(op, hh->sport, inet->sport);
++	} else {
++		ret = sock_inet_restore_addrs(inet, hh);
++		if (ret)
++			return ret;
++	}
++
++	CKPT_COPY(op, hh->num, inet->num);
++	CKPT_COPY(op, hh->uc_ttl, inet->uc_ttl);
++	CKPT_COPY(op, hh->cmsg_flags, inet->cmsg_flags);
++
++	CKPT_COPY(op, hh->icsk_ack.pending, icsk->icsk_ack.pending);
++	CKPT_COPY(op, hh->icsk_ack.quick, icsk->icsk_ack.quick);
++	CKPT_COPY(op, hh->icsk_ack.pingpong, icsk->icsk_ack.pingpong);
++	CKPT_COPY(op, hh->icsk_ack.blocked, icsk->icsk_ack.blocked);
++	CKPT_COPY(op, hh->icsk_ack.ato, icsk->icsk_ack.ato);
++	CKPT_COPY(op, hh->icsk_ack.timeout, icsk->icsk_ack.timeout);
++	CKPT_COPY(op, hh->icsk_ack.lrcvtime, icsk->icsk_ack.lrcvtime);
++	CKPT_COPY(op,
++		  hh->icsk_ack.last_seg_size, icsk->icsk_ack.last_seg_size);
++	CKPT_COPY(op, hh->icsk_ack.rcv_mss, icsk->icsk_ack.rcv_mss);
++
++	if (sk->sk_protocol == IPPROTO_TCP)
++		ret = sock_inet_tcp_cptrst(ctx, tcp_sk(sk), hh, op);
++	else if (sk->sk_protocol == IPPROTO_UDP)
++		ret = 0;
++	else {
++		ret = -EINVAL;
++		ckpt_err(ctx, ret, "unknown socket protocol %d",
++			 sk->sk_protocol);
++	}
++
++	if (sk->sk_family == AF_INET6) {
++		struct ipv6_pinfo *inet6 = inet6_sk(sk);
++		if (op == CKPT_CPT) {
++			ipv6_addr_copy(&hh->inet6.saddr, &inet6->saddr);
++			ipv6_addr_copy(&hh->inet6.rcv_saddr, &inet6->rcv_saddr);
++			ipv6_addr_copy(&hh->inet6.daddr, &inet6->daddr);
++		} else {
++			ipv6_addr_copy(&inet6->saddr, &hh->inet6.saddr);
++			ipv6_addr_copy(&inet6->rcv_saddr, &hh->inet6.rcv_saddr);
++			ipv6_addr_copy(&inet6->daddr, &hh->inet6.daddr);
++		}
++	}
++
++	return ret;
++}
++
+ int inet_checkpoint(struct ckpt_ctx *ctx, struct socket *sock)
+ {
+ 	struct ckpt_hdr_socket_inet *in;
+@@ -43,6 +274,10 @@ int inet_checkpoint(struct ckpt_ctx *ctx, struct socket *sock)
+ 	if (ret)
+ 		goto out;
+ 
++	ret = sock_inet_cptrst(ctx, sock->sk, in, CKPT_CPT);
++	if (ret < 0)
++		goto out;
++
+ 	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) in);
+  out:
+ 	ckpt_hdr_put(ctx, in);
+@@ -55,51 +290,22 @@ int inet_collect(struct ckpt_ctx *ctx, struct socket *sock)
+ 	return ckpt_obj_collect(ctx, sock->sk, CKPT_OBJ_SOCK);
+ }
+ 
+-static int inet_read_buffer(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++static int inet_read_buffer(struct ckpt_ctx *ctx,
++			    struct sk_buff_head *queue)
+ {
+-	struct ckpt_hdr_socket_buffer *h;
+-	int len;
+-	int ret;
+ 	struct sk_buff *skb = NULL;
+ 
+-	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_BUFFER);
+-	if (IS_ERR(h))
+-		return PTR_ERR(h);
+-
+-	len = _ckpt_read_obj_type(ctx, NULL, 0, CKPT_HDR_BUFFER);
+-	if (len < 0) {
+-		ret = len;
+-		goto out;
+-	} else if (len > SKB_MAX_ALLOC) {
+-		ckpt_debug("Socket buffer too big (%i > %lu)",
+-			   len, SKB_MAX_ALLOC);
+-		ret = -ENOSPC;
+-		goto out;
+-	}
+-
+-	skb = alloc_skb(len, GFP_KERNEL);
+-	if (!skb) {
+-		ret = -ENOMEM;
+-		goto out;
+-	}
+-
+-	ret = ckpt_kread(ctx, skb_put(skb, len), len);
+-	if (ret < 0)
+-		goto out;
++	skb = sock_restore_skb(ctx);
++	if (IS_ERR(skb))
++		return PTR_ERR(skb);
+ 
+-	spin_lock(&queue->lock);
+ 	skb_queue_tail(queue, skb);
+-	spin_unlock(&queue->lock);
+- out:
+-	ckpt_hdr_put(ctx, h);
+-
+-	if ((ret < 0) && skb)
+-		kfree_skb(skb);
+ 
+-	return ret;
++	return skb->len;
+ }
+ 
+-static int inet_read_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++static int inet_read_buffers(struct ckpt_ctx *ctx,
++			     struct sk_buff_head *queue)
+ {
+ 	struct ckpt_hdr_socket_queue *h;
+ 	int ret = 0;
+@@ -162,6 +368,19 @@ static int inet_defer_restore_buffers(struct ckpt_ctx *ctx, struct sock *sk)
+ 
+ static int inet_precheck(struct socket *sock, struct ckpt_hdr_socket_inet *in)
+ {
++	__u8 icsk_ack_mask = ICSK_ACK_SCHED | ICSK_ACK_TIMER |
++		ICSK_ACK_PUSHED | ICSK_ACK_PUSHED2;
++	__u16 urg_mask = TCP_URG_VALID | TCP_URG_NOTYET | TCP_URG_READ;
++	__u8 nonagle_mask = TCP_NAGLE_OFF | TCP_NAGLE_CORK | TCP_NAGLE_PUSH;
++	__u8 ecn_mask = TCP_ECN_OK | TCP_ECN_QUEUE_CWR | TCP_ECN_DEMAND_CWR;
++
++	if ((htons(in->laddr.sin_port) < PROT_SOCK) &&
++	    !capable(CAP_NET_BIND_SERVICE)) {
++		ckpt_debug("unable to bind to port %hu\n",
++			   htons(in->laddr.sin_port));
++		return -EINVAL;
++	}
++
+ 	if (in->laddr_len > sizeof(struct sockaddr_in)) {
+ 		ckpt_debug("laddr_len is too big\n");
+ 		return -EINVAL;
+@@ -172,6 +391,77 @@ static int inet_precheck(struct socket *sock, struct ckpt_hdr_socket_inet *in)
+ 		return -EINVAL;
+ 	}
+ 
++	/* Set ato to the default */
++	in->icsk_ack.ato = TCP_ATO_MIN;
++
++	/* No quick acks are scheduled after a restart */
++	in->icsk_ack.quick = 0;
++
++	if (in->icsk_ack.pending & ~icsk_ack_mask) {
++		ckpt_debug("invalid pending flags 0x%x\n",
++			   in->icsk_ack.pending & ~icsk_ack_mask);
++		return -EINVAL;
++	}
++
++	if (in->icsk_ack.pingpong > 1) {
++		ckpt_debug("invalid icsk_ack.pingpong value\n");
++		return -EINVAL;
++	}
++
++	if (in->icsk_ack.blocked > 1) {
++		ckpt_debug("invalid icsk_ack.blocked value\n");
++		return -EINVAL;
++	}
++
++	/* do_tcp_setsockopt() quietly makes this coercion */
++	if (in->tcp.window_clamp < (SOCK_MIN_RCVBUF / 2))
++		in->tcp.window_clamp = SOCK_MIN_RCVBUF / 2;
++	else if (in->tcp.window_clamp > 65535U) {
++		ckpt_debug("invalid window_clamp value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.rcv_ssthresh > (4U * in->tcp.advmss))
++		in->tcp.rcv_ssthresh = 4U * in->tcp.advmss;
++
++	/* These will all be recalculated on the next call to
++	 * tcp_rtt_estimator()
++	 */
++	in->tcp.srtt = in->tcp.mdev = in->tcp.mdev_max = 0;
++	in->tcp.rttvar = in->tcp.rtt_seq = 0;
++
++	/* Might want to set packets_out to zero ? */
++
++	if (in->tcp.rcv_wnd > MAX_TCP_WINDOW)
++		in->tcp.rcv_wnd = MAX_TCP_WINDOW;
++
++	if (in->tcp.keepalive_intvl > MAX_TCP_KEEPINTVL) {
++		ckpt_debug("keepalive_intvl %i out of range\n",
++			   in->tcp.keepalive_intvl);
++		return -EINVAL;
++	}
++
++	if (in->tcp.keepalive_probes > MAX_TCP_KEEPCNT) {
++		ckpt_debug("Invalid keepalive_probes value %i\n",
++			   in->tcp.keepalive_probes);
++		return -EINVAL;
++	}
++
++	if (in->tcp.urg_data & ~urg_mask) {
++		ckpt_debug("Invalid urg_data value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.nonagle & ~nonagle_mask) {
++		ckpt_debug("Invalid nonagle value\n");
++		return -EINVAL;
++	}
++
++	if (in->tcp.ecn_flags & ~ecn_mask) {
++		ckpt_debug("Invalid ecn_flags value\n");
++		return -EINVAL;
++	}
 +
  	return 0;
  }
-=20
-@@ -740,6 +746,8 @@ static void vlan_dev_uninit(struct net_device *dev)
- 	struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
- 	int i;
-=20
-+	free_percpu(vlan->vlan_rx_stats);
-+	vlan->vlan_rx_stats =3D NULL;
- 	for (i =3D 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
- 		while ((pm =3D vlan->egress_priority_map[i]) !=3D NULL) {
- 			vlan->egress_priority_map[i] =3D pm->next;
-@@ -775,6 +783,31 @@ static u32 vlan_ethtool_get_flags(struct net_devic=
-e *dev)
- 	return dev_ethtool_get_flags(vlan->real_dev);
- }
-=20
-+static struct net_device_stats *vlan_dev_get_stats(struct net_device *=
-dev)
-+{
-+	struct net_device_stats *stats =3D &dev->stats;
+ 
+@@ -209,8 +499,35 @@ int inet_restore(struct ckpt_ctx *ctx,
+ 			ckpt_debug("inet listen: %i\n", ret);
+ 			if (ret < 0)
+ 				goto out;
 +
-+	dev_txq_stats_fold(dev, stats);
++			/* We are a listening socket, so add ourselves
++			 * to the list of parent sockets.  This will
++			 * allow our children to find us later and
++			 * link up
++			 */
 +
-+	if (vlan_dev_info(dev)->vlan_rx_stats) {
-+		struct vlan_rx_stats *p, rx =3D {0};
-+		int i;
++			ret = sock_listening_list_add(ctx, sock->sk);
++			if (ret < 0)
++				goto out;
+ 		}
+ 	} else {
++		ret = sock_inet_cptrst(ctx, sock->sk, in, CKPT_RST);
++		if (ret)
++			goto out;
 +
-+		for_each_possible_cpu(i) {
-+			p =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats, i);
-+			rx.rx_packets +=3D p->rx_packets;
-+			rx.rx_bytes   +=3D p->rx_bytes;
-+			rx.rx_errors  +=3D p->rx_errors;
-+			rx.multicast  +=3D p->multicast;
++		if ((h->sock.state == TCP_ESTABLISHED) &&
++		    (h->sock.protocol == IPPROTO_TCP)) {
++			/* A connected socket that was spawned from an
++			 * accept() needs to be hashed with its parent
++			 * listening socket in order to receive
++			 * traffic on the original port.  Since we may
++			 * not have restarted the parent yet, we defer
++			 * this until later when we know we have all
++			 * the listening sockets accounted for.
++			 */
++			ret = sock_defer_hash(ctx, sock->sk);
 +		}
-+		stats->rx_packets =3D rx.rx_packets;
-+		stats->rx_bytes   =3D rx.rx_bytes;
-+		stats->rx_errors  =3D rx.rx_errors;
-+		stats->multicast  =3D rx.multicast;
-+	}
-+	return stats;
-+}
 +
- static const struct ethtool_ops vlan_ethtool_ops =3D {
- 	.get_settings	        =3D vlan_ethtool_get_settings,
- 	.get_drvinfo	        =3D vlan_ethtool_get_drvinfo,
-@@ -797,6 +830,7 @@ static const struct net_device_ops vlan_netdev_ops =
-=3D {
- 	.ndo_change_rx_flags	=3D vlan_dev_change_rx_flags,
- 	.ndo_do_ioctl		=3D vlan_dev_ioctl,
- 	.ndo_neigh_setup	=3D vlan_dev_neigh_setup,
-+	.ndo_get_stats		=3D vlan_dev_get_stats,
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	.ndo_fcoe_ddp_setup	=3D vlan_dev_fcoe_ddp_setup,
- 	.ndo_fcoe_ddp_done	=3D vlan_dev_fcoe_ddp_done,
-@@ -820,6 +854,7 @@ static const struct net_device_ops vlan_netdev_acce=
-l_ops =3D {
- 	.ndo_change_rx_flags	=3D vlan_dev_change_rx_flags,
- 	.ndo_do_ioctl		=3D vlan_dev_ioctl,
- 	.ndo_neigh_setup	=3D vlan_dev_neigh_setup,
-+	.ndo_get_stats		=3D vlan_dev_get_stats,
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	.ndo_fcoe_ddp_setup	=3D vlan_dev_fcoe_ddp_setup,
- 	.ndo_fcoe_ddp_done	=3D vlan_dev_fcoe_ddp_done,
+ 		if (!sock_flag(sock->sk, SOCK_DEAD))
+ 			ret = inet_defer_restore_buffers(ctx, sock->sk);
+ 	}
+-- 
+1.6.2.5
+
