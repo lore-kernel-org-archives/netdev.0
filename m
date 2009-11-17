@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 23/10]Optimize the upload speed for PPP connection.
-Date: Tue, 17 Nov 2009 01:08:21 -0800 (PST)
-Message-ID: <20091117.010821.159592646.davem@davemloft.net>
-References: <fb8ed0e9a479.a479fb8ed0e9@huawei.com>
-	<f9f4a7c31b02f.1b02ff9f4a7c3@huawei.com>
+From: fangxiaozhi 00110321 <huananhu@huawei.com>
+Subject: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Tue, 17 Nov 2009 17:19:02 +0800
+Message-ID: <faf197be196ee.196eefaf197be@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, william.allen.simpson@gmail.com
-To: huananhu@huawei.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	william.allen.simpson@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39146
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752876AbZKQJIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 04:08:05 -0500
-In-Reply-To: <f9f4a7c31b02f.1b02ff9f4a7c3@huawei.com>
+Received: from szxga04-in.huawei.com ([119.145.14.67]:52419 "EHLO
+	szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591AbZKQJS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 04:18:57 -0500
+Content-language: zh-CN
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fangxiaozhi 00110321 <huananhu@huawei.com>
-Date: Tue, 17 Nov 2009 16:45:30 +0800
+From: fangxiaozhi <huananhu@huawei.com>
+1. This patch is based on the kernel of 2.6.32-rc4 
+2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+-----------------------------------------------------------------------------------------
+--- a/drivers/net/ppp_async.c 2009-10-12 05:43:56.000000000 +0800
++++ b/drivers/net/ppp_async.c 2009-10-15 16:29:56.000000000 +0800
+@@ -36,7 +36,7 @@
+ 
+ #define PPP_VERSION "2.4.2"
+ 
+-#define OBUFSIZE 256
++#define OBUFSIZE 4096
+ 
+ /* Structure for storing local state. */
+ struct asyncppp {
 
->     Excuse me, how about my patch now?
->     
->     Will my patch be fixed in the newest kernel version? What version is it?
 
-I said to make changes to your patch, and we'll look at the
-updated version of the patch when you submit it.
-
-The ball is in your court and has been so this entire time.
+******************************************************************************************
+ This email and its attachments contain confidential information from HUAWEI, which is intended only for the person or entity whose address is listed above. Any use of the information contained here in any way (including, but not limited to, total or partial disclosure, reproduction, or dissemination) by persons other than the intended recipient(s) is prohibited. If you receive this email in error, please notify the sender by phone or email
+ immediately and delete it!
+ *****************************************************************************************
