@@ -1,55 +1,42 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH] net: fix mdio section mismatch warning
-Date: Tue, 17 Nov 2009 19:47:33 +1100
-Message-ID: <20091117194733.bd2308a8.sfr@canb.auug.org.au>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Tue, 17 Nov 2009 00:57:38 -0800
+Message-ID: <200911170857.nAH8vcS5028892@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Laurent Pinchart <laurentp@cse-semaphore.com>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Mark Ware <mware@elphinstone.net>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:53639 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752579AbZKQIre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 03:47:34 -0500
+Received: from hq-exedge.brocade.com ([66.243.153.82]:52487 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588AbZKQI5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 03:57:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following warning:
+From: Rasesh Mody <rmody@brocade.com>
 
-WARNING: drivers/net/phy/built-in.o(.devexit.text+0x70): Section mismatch in reference from the function .mdio_gpio_bus_destroy() to the function .devinit.text:.mdio_gpio_bus_deinit()
-The function __devexit .mdio_gpio_bus_destroy() references
-a function __devinit .mdio_gpio_bus_deinit().
-This is often seen when error handling in the exit function
-uses functionality in the init path.
-The fix is often to remove the __devinit annotation of
-.mdio_gpio_bus_deinit() so it may be used outside an init section.
+This is patch 0/6 which contains the summary of changes we've
+done in this perticular submission for Brocade's BR1010/BR1020
+10Gb CEE capable ethernet adapter. Source is based against
+net-next-2.6.
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+We wish this patch to be considered for inclusion in net-next-2.6.
+
+We have addressed the following list of review comments:
+
+1. Removed bfa_cb_queue macros and the corresponding file, #define WWN_NULL, Replaced MAC_ADDRLEN with ETH_ALEN
+
+2. Removed lun_t
+
+3. Removed references to LICENSE.bna
+
+4. Using cpu_to_be64 in bna_dma_addr64() instead of swab64()
+
+5. Addressed failure in case of "make allyesconfig"
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/phy/mdio-gpio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ 0 files changed
 
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 8659d34..3589713 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -139,7 +139,7 @@ out:
- 	return NULL;
- }
- 
--static void __devinit mdio_gpio_bus_deinit(struct device *dev)
-+static void mdio_gpio_bus_deinit(struct device *dev)
- {
- 	struct mii_bus *bus = dev_get_drvdata(dev);
- 	struct mdio_gpio_info *bitbang = bus->priv;
--- 
-1.6.5.2
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
