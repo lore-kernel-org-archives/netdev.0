@@ -1,46 +1,56 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
- option, extend existing struct's
-Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
-References: <4B01BF65.1010203@gmail.com> <4B01CD8D.1000305@gmail.com> <4B01D17C.4010407@gmail.com> <20091116.191522.178198674.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP
+ cookie option, extend existing struct's
+Date: Tue, 17 Nov 2009 04:22:50 -0800 (PST)
+Message-ID: <20091117.042250.28821014.davem@davemloft.net>
+References: <4B01D17C.4010407@gmail.com>
+	<20091116.191522.178198674.davem@davemloft.net>
+	<alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
-	Netdev <netdev@vger.kernel.org>, joe@perches.com
-To: David Miller <davem@davemloft.net>
+	netdev@vger.kernel.org, joe@perches.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57335 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755860AbZKQMSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:18:51 -0500
-In-Reply-To: <20091116.191522.178198674.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51581
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755069AbZKQMWe convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 07:22:34 -0500
+In-Reply-To: <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Nov 2009, David Miller wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 16 Nov 2009 23:26:04 +0100
-> 
-> > So adding DATA to SYN packets might be problematic for part of our tcp 
-> > stack. 
-> 
-> I can almost guarentee it won't work.  For one thing getting a SACK
-> response to a SYN+DATA packet will explode quite nicely for one thing.
+> On Mon, 16 Nov 2009, David Miller wrote:
+>=20
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 16 Nov 2009 23:26:04 +0100
+>>=20
+>> > So adding DATA to SYN packets might be problematic for part of our=
+ tcp=20
+>> > stack.=20
+>>=20
+>> I can almost guarentee it won't work.  For one thing getting a SACK
+>> response to a SYN+DATA packet will explode quite nicely for one thin=
+g.
+>=20
+> Now I'm really lost??? How can you get SACKs for that in the first=20
+> place since they are either lost or delivered in unison???
 
-Now I'm really lost??? How can you get SACKs for that in the first 
-place since they are either lost or delivered in unison???
+Ideally, you're probably right.
 
-> A lot of the other retransmit queue handling would need to be audited
-> as well.  So much code assumes that if we see sent data in the
-> retransmit queue, there won't be SYN or SYN+ACK things in there to
-> contend with.
+However, it seems to me that the receiver can do whatever it likes
+with it's receive queue when it's under memory pressure.
 
-...Valid ACKs will either remove that SYN+DATA segment completely, other 
-ACK could (or should) just be dropped. I kind of fail to see what is the 
-problem here.
+It can chop packets up, partially free bits, and then send a SACK
+block back to you for the parts it tried to free.
 
--- 
- i.
+If you'll recall, I wanted to put some tough restrictions into what is
+allowed with SACK so that we could optimize things on the sender side.
+But there was resistence and therefore we have to keep allowing all
+kinds of silly situations, the one we're talking about here merely
+being one of them :-)
