@@ -1,48 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: fix BUG on non-linear SKB (multilink receive)
-Date: Mon, 16 Nov 2009 23:52:54 -0800 (PST)
-Message-ID: <20091116.235254.148428748.davem@davemloft.net>
-References: <Pine.LNX.4.58.0911121144380.25398@benxen>
-	<20091113.194650.214404898.davem@davemloft.net>
-	<Pine.LNX.4.58.0911161334240.15274@benxen>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Tue, 17 Nov 2009 09:00:18 +0100
+Message-ID: <4B025812.6060807@hartkopp.net>
+References: <20091117131637.3a35f898.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: ben@netservers.co.uk
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.58.0911161334240.15274@benxen>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Christian Pellegrin <chripell@fsfe.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Anant Gole <anantgole@ti.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754147AbZKQIAo@vger.kernel.org>
+In-Reply-To: <20091117131637.3a35f898.sfr@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben McKeegan <ben@netservers.co.uk>
-Date: Mon, 16 Nov 2009 13:44:25 +0000 (GMT)
+Hello Stephen,
 
-> PPP does not correctly call pskb_may_pull() on all necessary receive paths
-> before reading the PPP protocol, thus causing PPP to report seemingly
-> random 'unsupported protocols' and eventually trigger BUG_ON(skb->len <
-> skb->data_len) in skb_pull_rcsum() when receiving multilink protocol in
-> non-linear skbs.
+Stephen Rothwell wrote:
+
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/can/Kconfig between commit
+> b93cf3f0bb45560d2ce62bdcc2181c40660cfdbf ("can: Fix driver Kconfig
+> structure") from the net-current tree 
+
+Indeed this cleanup was made in net-2.6 to fix the Kconfig structure before
+2.6.32 is finalized.
+
+The commits
+
+> 3758bf25db8caeec667e4e56e030da0ec3060529 ("can: add TI CAN (HECC)
+> driver"), e0000163e30eeb112b41486ea113fd54f64e1f17 ("can: Driver for the
+> Microchip MCP251x SPI CAN controllers") and
+> afa17a500a3667f66df450100538d06769529bba ("net/can: add driver for mscan
+> family & mpc52xx_mscan") from the net tree.
+
+added Kconfig entries right behind the CAN_AT91 driver - and that's because
+the net-2.6 patch "can: Fix driver Kconfig structure" refuses to apply cleanly
+on net-next-2.6 ...
+
 > 
-> ppp_receive_nonmp_frame() does not call pskb_may_pull() before reading the
-> protocol number.  For the non-mp receive path this is not a problem, as
-> this check is done in ppp_receive_frame().  For the mp receive path,
-> ppp_mp_reconstruct() usually copies the data into a new linear skb.
-> However, in the case where the frame is made up of a single mp fragment,
-> the mp header is pulled and the existing skb used.  This skb was then
-> passed to ppp_receive_nonmp_frame() without checking if the encapsulated
-> protocol header could safely be read.
+> I fixed it up (see below) and can carry the fix for a while. (I am not
+> sure the fix is entirely correct.)
 > 
-> Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
 
-Applied but:
+Yes. You only added the new Kconfig entries (for CAN_TI_HECC, CAN_MCP251X,
+CAN_MSCAN, ...) to the patch "can: Fix driver Kconfig structure", right?
 
-> +	while ((skb = ppp_mp_reconstruct(ppp))) {
-> +	  	if (pskb_may_pull(skb, 2))
+These are the only added items in drivers/net/can/Kconfig from net-2.6 to
+net-next-2.6.
 
-There is a mix of space and tab characters leading up to
-the "if (pskb_may_pull" there, I fixed it up but please
-take care of such trivial issues before submitting your
-patch next time.
-
-Thanks.
+Thanks,
+Oliver
