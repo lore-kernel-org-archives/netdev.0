@@ -1,60 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Fix illegal merging of trailer trash
-Date: Tue, 17 Nov 2009 20:44:14 +0800
-Message-ID: <20091117124414.GA14951@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP
+ cookie option, extend existing struct's
+Date: Tue, 17 Nov 2009 04:48:17 -0800 (PST)
+Message-ID: <20091117.044817.129685938.davem@davemloft.net>
+References: <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
+	<20091117.042250.28821014.davem@davemloft.net>
+	<alpine.DEB.2.00.0911171432420.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Wagner <mwagner@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
+	netdev@vger.kernel.org, joe@perches.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43428 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751445AbZKQMoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:44:11 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35947
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752531AbZKQMsB convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 07:48:01 -0500
+In-Reply-To: <alpine.DEB.2.00.0911171432420.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 17 Nov 2009 14:38:42 +0200 (EET)
 
-Just found this thanks to Mark Wagner testing GRO with Xen.
-We'll need this for stable too.
+> Right, but we could be just as crazy and just drop such things and
+> keep resending SYN+DATA without any harm?
 
-gro: Fix illegal merging of trailer trash
+Two crazies =3D=3D sane? :-)
 
-When we've merged skb's with page frags, and subsequently receive
-a trailer skb (< MSS) that is not completely non-linear (this can
-occur on Intel NICs if the packet size falls below the threshold),
-GRO ends up producing an illegal GSO skb with a frag_list.
-
-This is harmless unless the skb is then forwarded through an
-interface that requires software GSO, whereupon the GSO code
-will BUG.
-
-This patch detects this case in GRO and avoids merging the
-trailer skb.
-
-Reported-by: Mark Wagner <mwagner@redhat.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 80a9616..ec85681 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2701,7 +2701,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- 		NAPI_GRO_CB(skb)->free = 1;
- 		goto done;
--	}
-+	} else if (skb_gro_len(p) != pinfo->gso_size)
-+		return -E2BIG;
- 
- 	headroom = skb_headroom(p);
- 	nskb = netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Sure, we could do that.
