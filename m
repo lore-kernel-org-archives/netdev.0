@@ -1,285 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PATCH net-next-2.6] linkwatch: linkwatch_forget_dev() to speedup
- device dismantle
-Date: Tue, 17 Nov 2009 16:59:21 +0100
-Message-ID: <4B02C859.6020100@gmail.com>
-References: <4B019381.2010509@gmail.com> <4B01C938.8000705@gmail.com> <20091116143917.14e4fa4f@s6510> <20091117.042604.99618154.davem@davemloft.net> <20091117123133.GA14831@gondor.apana.org.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] ethtool: Add PHY type to ethtool get_drvinfo
+Date: Tue, 17 Nov 2009 08:13:24 -0800
+Message-ID: <20091117161309.11341.9165.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38924 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754708AbZKQP7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 10:59:24 -0500
-In-Reply-To: <20091117123133.GA14831@gondor.apana.org.au>
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:42438 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752608AbZKQQN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 11:13:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu a =E9crit :
-> On Tue, Nov 17, 2009 at 04:26:04AM -0800, David Miller wrote:
->> Really, the link watch stuff is just due for a redesign.  I don't
->> think a simple hack is going to cut it this time, sorry Eric :-)
->=20
-> I have no objections against any redesigns, but since the only
-> caller of linkwatch_forget_dev runs in process context with the
-> RTNL, it could also legally emit those events.
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-Thanks guys, here an updated version then, before linkwatch surgery ?
+Allow the PHY type to be passed from a driver to ethtool when
+ethtool -i ethX is called.  With newer network cards having SFP
+and SFP+ PHY cages, this information can be useful, especially
+if the NIC supports hot-swapping of the PHY modules.
 
-In this version, I force the event to be sent synchronously.
-
-[PATCH net-next-2.6] linkwatch: linkwatch_forget_dev() to speedup devic=
-e dismantle
-
-time ip link del eth3.103 ; time ip link del eth3.104 ; time ip link de=
-l eth3.105
-
-real	0m0.266s
-user	0m0.000s
-sys	0m0.001s
-
-real	0m0.770s
-user	0m0.000s
-sys	0m0.000s
-
-real	0m1.022s
-user	0m0.000s
-sys	0m0.000s
-
-
-One problem of current schem in vlan dismantle phase is the
-holding of device done by following chain :
-
-vlan_dev_stop() ->
-	netif_carrier_off(dev) ->
-		linkwatch_fire_event(dev) ->
-			dev_hold() ...
-
-And __linkwatch_run_queue() runs up to one second later...
-
-A generic fix to this problem is to add a linkwatch_forget_dev() method
-to unlink the device from the list of watched devices.
-
-dev->link_watch_next becomes dev->link_watch_list (and use a bit more m=
-emory),
-to be able to unlink device in O(1).
-
-After patch :
-time ip link del eth3.103 ; time ip link del eth3.104 ; time ip link de=
-l eth3.105
-
-real    0m0.024s
-user    0m0.000s
-sys     0m0.000s
-
-real    0m0.032s
-user    0m0.000s
-sys     0m0.001s
-
-real    0m0.033s
-user    0m0.000s
-sys     0m0.000s
-
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/netdevice.h |    3 -
- net/core/dev.c            |    3 +
- net/core/link_watch.c     |   94 +++++++++++++++++++++---------------
- 3 files changed, 62 insertions(+), 38 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7043f85..4e25730 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -896,7 +896,7 @@ struct net_device {
- 	/* device index hash chain */
- 	struct hlist_node	index_hlist;
-=20
--	struct net_device	*link_watch_next;
-+	struct list_head	link_watch_list;
-=20
- 	/* register/unregister state machine */
- 	enum { NETREG_UNINITIALIZED=3D0,
-@@ -1600,6 +1600,7 @@ static inline void dev_hold(struct net_device *de=
-v)
-  */
-=20
- extern void linkwatch_fire_event(struct net_device *dev);
-+extern void linkwatch_forget_dev(struct net_device *dev);
-=20
- /**
-  *	netif_carrier_ok - test if carrier present
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d867522..9b58c04 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5067,6 +5067,8 @@ static void netdev_wait_allrefs(struct net_device=
- *dev)
- {
- 	unsigned long rebroadcast_time, warning_time;
-=20
-+	linkwatch_forget_dev(dev);
+ include/linux/ethtool.h |   24 +++++++++++++++++++++++-
+ 1 files changed, 23 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index edd03b7..d6606a5 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -59,7 +59,8 @@ struct ethtool_drvinfo {
+ 	char	bus_info[ETHTOOL_BUSINFO_LEN];	/* Bus info for this IF. */
+ 				/* For PCI devices, use pci_name(pci_dev). */
+ 	char	reserved1[32];
+-	char	reserved2[12];
++	char	reserved2[11];
++	__u8	phy_type;	/* PHY type present on the NIC */
+ 	__u32	n_priv_flags;	/* number of flags valid in ETHTOOL_GPFLAGS */
+ 	__u32	n_stats;	/* number of u64's from ETHTOOL_GSTATS */
+ 	__u32	testinfo_len;
+@@ -291,6 +292,27 @@ enum ethtool_flags {
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+ };
+ 
++/*
++ * PHY types supported
++ *
++ * 0    - PHY not specified
++ * 1    - SFP/SFP+ Fiber (SR and LR)
++ * 2    - XFP Fiber (SR and LR)
++ * 3    - SFP+ Direct Attach (TwinAX)
++ * 4    - BASE-T (RJ-45)
++ * MAX  - PHY not present
++ */
++enum ethtool_phy_type {
++	ETH_PHY_UNSPECIFIED = 0,
++	ETH_PHY_SFP_FIBER,
++	ETH_PHY_XFP_FIBER,
++	ETH_PHY_DA_TWINAX,
++	ETH_PHY_BASE_T,
 +
- 	rebroadcast_time =3D warning_time =3D jiffies;
- 	while (atomic_read(&dev->refcnt) !=3D 0) {
- 		if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
-@@ -5281,6 +5283,7 @@ struct net_device *alloc_netdev_mq(int sizeof_pri=
-v, const char *name,
-=20
- 	INIT_LIST_HEAD(&dev->napi_list);
- 	INIT_LIST_HEAD(&dev->unreg_list);
-+	INIT_LIST_HEAD(&dev->link_watch_list);
- 	dev->priv_flags =3D IFF_XMIT_DST_RELEASE;
- 	setup(dev);
- 	strcpy(dev->name, name);
-diff --git a/net/core/link_watch.c b/net/core/link_watch.c
-index bf8f7af..5910b55 100644
---- a/net/core/link_watch.c
-+++ b/net/core/link_watch.c
-@@ -35,7 +35,7 @@ static unsigned long linkwatch_nextevent;
- static void linkwatch_event(struct work_struct *dummy);
- static DECLARE_DELAYED_WORK(linkwatch_work, linkwatch_event);
-=20
--static struct net_device *lweventlist;
-+static LIST_HEAD(lweventlist);
- static DEFINE_SPINLOCK(lweventlist_lock);
-=20
- static unsigned char default_operstate(const struct net_device *dev)
-@@ -89,8 +89,10 @@ static void linkwatch_add_event(struct net_device *d=
-ev)
- 	unsigned long flags;
-=20
- 	spin_lock_irqsave(&lweventlist_lock, flags);
--	dev->link_watch_next =3D lweventlist;
--	lweventlist =3D dev;
-+	if (list_empty(&dev->link_watch_list)) {
-+		list_add_tail(&dev->link_watch_list, &lweventlist);
-+		dev_hold(dev);
-+	}
- 	spin_unlock_irqrestore(&lweventlist_lock, flags);
- }
-=20
-@@ -133,9 +135,35 @@ static void linkwatch_schedule_work(int urgent)
- }
-=20
-=20
-+static void linkwatch_do_dev(struct net_device *dev)
-+{
-+	/*
-+	 * Make sure the above read is complete since it can be
-+	 * rewritten as soon as we clear the bit below.
-+	 */
-+	smp_mb__before_clear_bit();
++	/* This must be the last entry */
++	ETH_PHY_NOT_PRESENT,
++};
 +
-+	/* We are about to handle this device,
-+	 * so new events can be accepted
-+	 */
-+	clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
-+
-+	rfc2863_policy(dev);
-+	if (dev->flags & IFF_UP) {
-+		if (netif_carrier_ok(dev))
-+			dev_activate(dev);
-+		else
-+			dev_deactivate(dev);
-+
-+		netdev_state_change(dev);
-+	}
-+	dev_put(dev);
-+}
-+
- static void __linkwatch_run_queue(int urgent_only)
- {
--	struct net_device *next;
-+	struct net_device *dev;
-+	LIST_HEAD(wrk);
-=20
- 	/*
- 	 * Limit the number of linkwatch events to one
-@@ -153,46 +181,40 @@ static void __linkwatch_run_queue(int urgent_only=
-)
- 	clear_bit(LW_URGENT, &linkwatch_flags);
-=20
- 	spin_lock_irq(&lweventlist_lock);
--	next =3D lweventlist;
--	lweventlist =3D NULL;
--	spin_unlock_irq(&lweventlist_lock);
-+	list_splice_init(&lweventlist, &wrk);
-=20
--	while (next) {
--		struct net_device *dev =3D next;
-+	while (!list_empty(&wrk)) {
-=20
--		next =3D dev->link_watch_next;
-+		dev =3D list_first_entry(&wrk, struct net_device, link_watch_list);
-+		list_del_init(&dev->link_watch_list);
-=20
- 		if (urgent_only && !linkwatch_urgent_event(dev)) {
--			linkwatch_add_event(dev);
-+			list_add_tail(&dev->link_watch_list, &lweventlist);
- 			continue;
- 		}
--
--		/*
--		 * Make sure the above read is complete since it can be
--		 * rewritten as soon as we clear the bit below.
--		 */
--		smp_mb__before_clear_bit();
--
--		/* We are about to handle this device,
--		 * so new events can be accepted
--		 */
--		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
--
--		rfc2863_policy(dev);
--		if (dev->flags & IFF_UP) {
--			if (netif_carrier_ok(dev))
--				dev_activate(dev);
--			else
--				dev_deactivate(dev);
--
--			netdev_state_change(dev);
--		}
--
--		dev_put(dev);
-+		spin_unlock_irq(&lweventlist_lock);
-+		linkwatch_do_dev(dev);
-+		spin_lock_irq(&lweventlist_lock);
- 	}
-=20
--	if (lweventlist)
-+	if (!list_empty(&lweventlist))
- 		linkwatch_schedule_work(0);
-+	spin_unlock_irq(&lweventlist_lock);
-+}
-+
-+void linkwatch_forget_dev(struct net_device *dev)
-+{
-+	unsigned long flags;
-+	int clean =3D 0;
-+
-+	spin_lock_irqsave(&lweventlist_lock, flags);
-+	if (!list_empty(&dev->link_watch_list)) {
-+		list_del_init(&dev->link_watch_list);
-+		clean =3D 1;
-+	}
-+	spin_unlock_irqrestore(&lweventlist_lock, flags);
-+	if (clean)
-+		linkwatch_do_dev(dev);
- }
-=20
-=20
-@@ -216,8 +238,6 @@ void linkwatch_fire_event(struct net_device *dev)
- 	bool urgent =3D linkwatch_urgent_event(dev);
-=20
- 	if (!test_and_set_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state)) {
--		dev_hold(dev);
--
- 		linkwatch_add_event(dev);
- 	} else if (!urgent)
- 		return;
+ /* The following structures are for supporting RX network flow
+  * classification configuration. Note, all multibyte fields, e.g.,
+  * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
+
