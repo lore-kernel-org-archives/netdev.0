@@ -1,58 +1,190 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/5]net: PPP buffer too small for higher speed
- connections
-Date: Tue, 17 Nov 2009 12:35:42 -0800
-Message-ID: <1258490142.4447.19.camel@localhost.localdomain>
-References: <fb8cc3511cffa.1cffafb8cc351@huawei.com>
-	 <20091117172102.GH15159@caffeine.csclub.uwaterloo.ca>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next-2.6 PATCH] net: device name allocation cleanups
+Date: Tue, 17 Nov 2009 22:33:53 +0200
+Message-ID: <200911172233.53119.opurdila@ixiacom.com>
+References: <200911171849.03870.opurdila@ixiacom.com> <20091117090157.2a07bed5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: fangxiaozhi 00110321 <huananhu@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	william.allen.simpson@gmail.com, jarkao2@gmail.com
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752566AbZKQUfu@vger.kernel.org>
-In-Reply-To: <20091117172102.GH15159@caffeine.csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:10983 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751920AbZKQUgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 15:36:54 -0500
+In-Reply-To: <20091117090157.2a07bed5@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-17 at 12:21 -0500, Lennart Sorensen wrote:
-> On Tue, Nov 17, 2009 at 07:59:05PM +0800, fangxiaozhi 00110321 wrote:
-> > From: fangxiaozhi <huananhu@huawei.com>
-> > 1. This patch is based on the kernel of 2.6.32-rc7 
-> > 2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
-> > Signed-off-by: fangxiaozhi <huananhu@huawei.com>
-> > -----------------------------------------------------------------------------------------
-> > --- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
-> > +++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
-> > @@ -36,7 +36,7 @@
-> >  
-> >  #define PPP_VERSION	"2.4.2"
-> >  
-> > -#define OBUFSIZE	256
-> > +#define OBUFSIZE	4096
-> >  
-> >  /* Structure for storing local state. */
-> >  struct asyncppp {
+On Tuesday 17 November 2009 19:01:57 you wrote:
+ 
+> You have merged the dev_alloc_name into all the registration paths.
+> Before it was possible for device to call register_netdevice with a name
+> with a % in it. Only if it did dev_alloc_name or register_netdev would
+> the %d be interpreted.
 > 
-> I don't know what an HSUPA connection is, so what kind of speed is that?
+> So this patch causes a change which may be visible in user space.
 
-(Google and Wikipedia know everything and are only a click away...)
+Oops, didn't saw that coming :) How about this one?
 
-High-Speed Uplink Packet Access is a enhancement for around 5.7Mbps
-uplinks on mobile broadband networks based on GSM/UMTS standards.
+(tested all code paths except the dev_change_net_namespace)
 
-In the end, what all the mobile manufacturers like Huawei should already
-be doing is converting their devices to use an AT-based control port and
-a netdev-based data port like Option (hso) and Ericsson (cdc-acm and
-cdc-ether) already have.  Then we don't need to do the useless PPP
-session between the host and the card.  With GSM/UMTS/HSPA, PPP never
-goes over the air, it's purely between the card and the host.  And thus
-is pointless and a netdev-type architecture would work a lot better.
+[net-next-2.6 PATCH] net: device name allocation cleanups
 
-Dan
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ net/core/dev.c |   73 +++++++++++++++++++++----------------------------------
+ 1 files changed, 28 insertions(+), 45 deletions(-)
 
-> I am just wondering if this would affect ppp on other connections that
-> are async (in a positive manner that is).
-> 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4b24d79..eec13de 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -893,7 +893,8 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 		free_page((unsigned long) inuse);
+ 	}
+ 
+-	snprintf(buf, IFNAMSIZ, name, i);
++	if (buf != name)
++		snprintf(buf, IFNAMSIZ, name, i);
+ 	if (!__dev_get_by_name(net, buf))
+ 		return i;
+ 
+@@ -933,6 +934,25 @@ int dev_alloc_name(struct net_device *dev, const char *name)
+ }
+ EXPORT_SYMBOL(dev_alloc_name);
+ 
++static int dev_get_valid_name(struct net *net, const char *name, char *buf,
++			      int fmt)
++{
++	if (!dev_valid_name(name))
++		return -EINVAL;
++
++	if (fmt) {
++		if (strchr(name, '%'))
++			return __dev_alloc_name(net, name, buf);
++	}
++
++	if (__dev_get_by_name(net, name))
++		return -EEXIST;
++	else
++		if (buf != name)
++			strlcpy(buf, name, IFNAMSIZ);
++
++	return 0;
++}
+ 
+ /**
+  *	dev_change_name - change name of a device
+@@ -956,22 +976,14 @@ int dev_change_name(struct net_device *dev, const char *newname)
+ 	if (dev->flags & IFF_UP)
+ 		return -EBUSY;
+ 
+-	if (!dev_valid_name(newname))
+-		return -EINVAL;
+-
+ 	if (strncmp(newname, dev->name, IFNAMSIZ) == 0)
+ 		return 0;
+ 
+ 	memcpy(oldname, dev->name, IFNAMSIZ);
+ 
+-	if (strchr(newname, '%')) {
+-		err = dev_alloc_name(dev, newname);
+-		if (err < 0)
+-			return err;
+-	} else if (__dev_get_by_name(net, newname))
+-		return -EEXIST;
+-	else
+-		strlcpy(dev->name, newname, IFNAMSIZ);
++	err = dev_get_valid_name(net, newname, dev->name, 1);
++	if (err < 0)
++		return err;
+ 
+ rollback:
+ 	/* For now only devices in the initial network namespace
+@@ -4864,8 +4876,6 @@ EXPORT_SYMBOL(netdev_fix_features);
+ 
+ int register_netdevice(struct net_device *dev)
+ {
+-	struct hlist_head *head;
+-	struct hlist_node *p;
+ 	int ret;
+ 	struct net *net = dev_net(dev);
+ 
+@@ -4894,26 +4904,14 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	if (!dev_valid_name(dev->name)) {
+-		ret = -EINVAL;
++	ret = dev_get_valid_name(net, dev->name, dev->name, 0);
++	if (ret)
+ 		goto err_uninit;
+-	}
+ 
+ 	dev->ifindex = dev_new_index(net);
+ 	if (dev->iflink == -1)
+ 		dev->iflink = dev->ifindex;
+ 
+-	/* Check for existence of name */
+-	head = dev_name_hash(net, dev->name);
+-	hlist_for_each(p, head) {
+-		struct net_device *d
+-			= hlist_entry(p, struct net_device, name_hlist);
+-		if (!strncmp(d->name, dev->name, IFNAMSIZ)) {
+-			ret = -EEXIST;
+-			goto err_uninit;
+-		}
+-	}
+-
+ 	/* Fix illegal checksum combinations */
+ 	if ((dev->features & NETIF_F_HW_CSUM) &&
+ 	    (dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
+@@ -5422,8 +5420,6 @@ EXPORT_SYMBOL(unregister_netdev);
+ 
+ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char *pat)
+ {
+-	char buf[IFNAMSIZ];
+-	const char *destname;
+ 	int err;
+ 
+ 	ASSERT_RTNL();
+@@ -5456,20 +5452,11 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	 * we can use it in the destination network namespace.
+ 	 */
+ 	err = -EEXIST;
+-	destname = dev->name;
+-	if (__dev_get_by_name(net, destname)) {
++	if (__dev_get_by_name(net, dev->name)) {
+ 		/* We get here if we can't use the current device name */
+ 		if (!pat)
+ 			goto out;
+-		if (!dev_valid_name(pat))
+-			goto out;
+-		if (strchr(pat, '%')) {
+-			if (__dev_alloc_name(net, pat, buf) < 0)
+-				goto out;
+-			destname = buf;
+-		} else
+-			destname = pat;
+-		if (__dev_get_by_name(net, destname))
++		if (dev_get_valid_name(net, pat, dev->name, 1))
+ 			goto out;
+ 	}
+ 
+@@ -5505,10 +5492,6 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	/* Actually switch the network namespace */
+ 	dev_net_set(dev, net);
+ 
+-	/* Assign the new device name */
+-	if (destname != dev->name)
+-		strcpy(dev->name, destname);
+-
+ 	/* If there is an ifindex conflict assign a new one */
+ 	if (__dev_get_by_index(net, dev->ifindex)) {
+ 		int iflink = (dev->iflink == dev->ifindex);
+-- 
+1.5.6.5
+
