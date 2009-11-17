@@ -1,66 +1,60 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
- option, extend existing struct's
-Date: Tue, 17 Nov 2009 14:38:42 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911171432420.7024@wel-95.cs.helsinki.fi>
-References: <4B01D17C.4010407@gmail.com> <20091116.191522.178198674.davem@davemloft.net> <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi> <20091117.042250.28821014.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Fix illegal merging of trailer trash
+Date: Tue, 17 Nov 2009 20:44:14 +0800
+Message-ID: <20091117124414.GA14951@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1666960572-1258461522=:7024"
-Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
-	Netdev <netdev@vger.kernel.org>, joe@perches.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Wagner <mwagner@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58804 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752356AbZKQMig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:38:36 -0500
-In-Reply-To: <20091117.042250.28821014.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:43428 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751445AbZKQMoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:44:11 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi Dave:
 
---8323329-1666960572-1258461522=:7024
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
+Just found this thanks to Mark Wagner testing GRO with Xen.
+We'll need this for stable too.
 
-On Tue, 17 Nov 2009, David Miller wrote:
+gro: Fix illegal merging of trailer trash
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
-> 
-> > On Mon, 16 Nov 2009, David Miller wrote:
-> > 
-> >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Date: Mon, 16 Nov 2009 23:26:04 +0100
-> >> 
-> >> > So adding DATA to SYN packets might be problematic for part of our tcp 
-> >> > stack. 
-> >> 
-> >> I can almost guarentee it won't work.  For one thing getting a SACK
-> >> response to a SYN+DATA packet will explode quite nicely for one thing.
-> > 
-> > Now I'm really lost??? How can you get SACKs for that in the first 
-> > place since they are either lost or delivered in unison???
-> 
-> Ideally, you're probably right.
-> 
-> However, it seems to me that the receiver can do whatever it likes
-> with it's receive queue when it's under memory pressure.
-> 
-> It can chop packets up, partially free bits, and then send a SACK
-> block back to you for the parts it tried to free.
-> 
-> If you'll recall, I wanted to put some tough restrictions into what is
-> allowed with SACK so that we could optimize things on the sender side.
-> But there was resistence and therefore we have to keep allowing all
-> kinds of silly situations, the one we're talking about here merely
-> being one of them :-)
+When we've merged skb's with page frags, and subsequently receive
+a trailer skb (< MSS) that is not completely non-linear (this can
+occur on Intel NICs if the packet size falls below the threshold),
+GRO ends up producing an illegal GSO skb with a frag_list.
 
-Right, but we could be just as crazy and just drop such things and keep 
-resending SYN+DATA without any harm?
+This is harmless unless the skb is then forwarded through an
+interface that requires software GSO, whereupon the GSO code
+will BUG.
 
+This patch detects this case in GRO and avoids merging the
+trailer skb.
+
+Reported-by: Mark Wagner <mwagner@redhat.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 80a9616..ec85681 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2701,7 +2701,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 
+ 		NAPI_GRO_CB(skb)->free = 1;
+ 		goto done;
+-	}
++	} else if (skb_gro_len(p) != pinfo->gso_size)
++		return -E2BIG;
+ 
+ 	headroom = skb_headroom(p);
+ 	nskb = netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
+
+Thanks,
 -- 
- i.
---8323329-1666960572-1258461522=:7024--
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
