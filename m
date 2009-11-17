@@ -1,34 +1,30 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Using netconsole and getting double prints
-Date: Mon, 16 Nov 2009 16:18:35 -0800
-Message-ID: <43e72e890911161618p39818606yf163ac687bc5aa43@mail.gmail.com>
-References: <43e72e890911051654i19c18bf3nd397662ed79712c4@mail.gmail.com>
-	<1257484663.2873.622.camel@calx> <43e72e890911060832k1b831f32w93357c71b370e71c@mail.gmail.com>
-	<4AF452B8.7080306@googlemail.com> <43e72e890911060914i6233b71dgd68e228074869096@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [PATCH 2/2] ipv4: factorize cache clearing for batched unregister operations
+Date: Mon, 16 Nov 2009 19:22:38 -0500
+Message-ID: <20091117002238.GH12422@kvack.org>
+References: <200911170149.50011.opurdila@ixiacom.com> <20091116160646.39c0a1ac@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andre Naujoks <nautsch2@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:60539 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753592AbZKQASt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 19:18:49 -0500
-In-Reply-To: <43e72e890911060914i6233b71dgd68e228074869096@mail.gmail.com>
+Received: from kanga.kvack.org ([205.233.56.17]:41382 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755215AbZKQAWd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Nov 2009 19:22:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20091116160646.39c0a1ac@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 6, 2009 at 9:14 AM, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
-> On Fri, Nov 6, 2009 at 8:45 AM, Andre Naujoks <nautsch2@googlemail.com> wrote:
->
->> I think the intention behind this is for you to check if they are double
->> prints on your end or double sends on the other end.
->
-> Ah yeah, good point :)
+On Mon, Nov 16, 2009 at 04:06:46PM -0800, Stephen Hemminger wrote:
+> And what about IPV6?
 
-Sniffed and saw the issue. My local router was echo'ing the message,
-solution was to simply add the destination mac address on netconsole
-module parameters passed.
+It's not possible to create more than a few thousand IPv6 interfaces in 
+my tests with a 4GB vm.  The culprit seems to be the per-cpu arrays for 
+statistics using vmalloc() and wasting gobs of memory as a result (memory 
+usage seems to be 10x per interface vs what IPv4 is using), but I haven't 
+dug too deeply yet.
 
-  Luis
+		-ben
