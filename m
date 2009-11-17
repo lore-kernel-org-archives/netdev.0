@@ -1,89 +1,28 @@
-From: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-Subject: [PATCH net-next-2.6] can: fix setting mcp251x bit timing on open
-Date: Tue, 17 Nov 2009 17:20:44 +0100
-Message-ID: <1258474844-10239-1-git-send-email-chripell@fsfe.org>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
+Date: Tue, 17 Nov 2009 17:21:34 +0100
+Message-ID: <20091117162134.GA282@e-circ.dyndns.org>
+References: <20091113105157.GA322@e-circ.dyndns.org> <20091113142738.1aa81a03@s6510> <20091114165408.GA283@e-circ.dyndns.org> <20091116084612.3654bdd1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org,
-	pthomas8589-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:26628 "EHLO
+	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752599AbZKQQVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 11:21:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20091116084612.3654bdd1@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 16, 2009 at 08:46:12AM -0800, Stephen Hemminger wrote:
+> 
+[...]
+> 
 
-Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
----
- drivers/net/can/mcp251x.c |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
+Stephen,
+Thanks for your review.
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 8f48f4b..78b1b69 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -594,13 +594,7 @@ static int mcp251x_do_set_bittiming(struct net_device *net)
- static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
- 			 struct spi_device *spi)
- {
--	int ret;
--
--	ret = open_candev(net);
--	if (ret) {
--		dev_err(&spi->dev, "unable to set initial baudrate!\n");
--		return ret;
--	}
-+	mcp251x_do_set_bittiming(net);
- 
- 	/* Enable RX0->RX1 buffer roll over and disable filters */
- 	mcp251x_write_bits(spi, RXBCTRL(0),
-@@ -671,6 +665,12 @@ static int mcp251x_open(struct net_device *net)
- 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
- 	int ret;
- 
-+	ret = open_candev(net);
-+	if (ret) {
-+		dev_err(&spi->dev, "unable to set initial baudrate!\n");
-+		return ret;
-+	}
-+
- 	if (pdata->transceiver_enable)
- 		pdata->transceiver_enable(1);
- 
-@@ -684,6 +684,7 @@ static int mcp251x_open(struct net_device *net)
- 		dev_err(&spi->dev, "failed to acquire irq %d\n", spi->irq);
- 		if (pdata->transceiver_enable)
- 			pdata->transceiver_enable(0);
-+		close_candev(net);
- 		return ret;
- 	}
- 
-@@ -692,8 +693,10 @@ static int mcp251x_open(struct net_device *net)
- 	ret = mcp251x_setup(net, priv, spi);
- 	if (ret) {
- 		free_irq(spi->irq, net);
-+		mcp251x_hw_sleep(spi);
- 		if (pdata->transceiver_enable)
- 			pdata->transceiver_enable(0);
-+		close_candev(net);
- 		return ret;
- 	}
- 	mcp251x_set_normal_mode(spi);
-@@ -956,7 +959,6 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
- 	priv->can.bittiming_const = &mcp251x_bittiming_const;
- 	priv->can.do_set_mode = mcp251x_do_set_mode;
- 	priv->can.clock.freq = pdata->oscillator_frequency / 2;
--	priv->can.do_set_bittiming = mcp251x_do_set_bittiming;
- 	priv->net = net;
- 	dev_set_drvdata(&spi->dev, priv);
- 
--- 
-1.5.6.5
+Kurt
