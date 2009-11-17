@@ -1,47 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ifb: add multi-queue support
-Date: Mon, 16 Nov 2009 22:02:47 -0800
-Message-ID: <20091116220247.564fb0b6@nehalam>
-References: <4AFBD911.6000900@gmail.com>
-	<4AFCE273.7010901@gmail.com>
-	<20091116083905.634b8f56@nehalam>
-	<20091116.191054.131722163.davem@davemloft.net>
-	<412e6f7f0911162138k6537afd1l5f8eeeaa6c636289@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: 2.6.32-rc7-git1: Reported regressions from 2.6.31
+Date: Mon, 16 Nov 2009 23:14:02 -0800
+Message-ID: <m1einxipxh.fsf@fess.ebiederm.org>
+References: <GUZt44bIwCE.A.vLF.pSdALB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38178 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753227AbZKQGC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 01:02:57 -0500
-In-Reply-To: <412e6f7f0911162138k6537afd1l5f8eeeaa6c636289@mail.gmail.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:49239 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752481AbZKQHOH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 02:14:07 -0500
+In-Reply-To: <GUZt44bIwCE.A.vLF.pSdALB@chimera> (Rafael J. Wysocki's message of "Mon\, 16 Nov 2009 23\:33\:23 +0100 \(CET\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Nov 2009 13:38:29 +0800
-Changli Gao <xiaosuo@gmail.com> wrote:
+"Rafael J. Wysocki" <rjw@sisk.pl> writes:
 
-> On Tue, Nov 17, 2009 at 11:10 AM, David Miller <davem@davemloft.net> wrote:
-> > From: Stephen Hemminger <shemminger@vyatta.com>
-> > Date: Mon, 16 Nov 2009 08:39:05 -0800
-> >
-> >> My $.02 is that receive packet steering RPS should be done generically at
-> >> receive layer. Then all the CPU, mapping and configuration issues can be
-> >> done once, not just for IFB, Bridge, VLAN, ... The number of users of IFB
-> >> is small, and setup is complex. Steering packets in IFB is optimizing only
-> >> a rarely used corner.
-> >>
-> >> Layered link services like IFB need to be multi-threaded lockless to maintain
-> >> the advantages of multi-queue and RPS.
-> >
-> > You're probably right.
-> >
-> 
-> So I have to wait RPS, and after it gets merged, I'll back with
-> multi-threaded lockless IFB.
+> This message contains a list of some regressions from 2.6.31, for which there
+> are no fixes in the mainline I know of.  If any of them have been fixed already,
+> please let me know.
+>
+> If you know of any other unresolved regressions from 2.6.31, please let me know
+> either and I'll add them to the list.  Also, please let me know if any of the
+> entries below are invalid.
+>
+> Each entry from the list will be sent additionally in an automatic reply to
+> this message with CCs to the people involved in reporting and handling the
+> issue.
 
-Please don't wait... Help, test it make sure it works.
+Not in 2.6.31 but in 2.6.32-rc5 I get a firmware hang from my netxen
+nic when I try to bring the link up.  I have reported and was working
+with the developer for a while.  I haven't heard anything in the last
+week or so.
+
+Eric
