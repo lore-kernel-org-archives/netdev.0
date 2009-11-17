@@ -1,38 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.32-rc7-git1: Reported regressions from 2.6.31
-Date: Mon, 16 Nov 2009 23:14:02 -0800
-Message-ID: <m1einxipxh.fsf@fess.ebiederm.org>
-References: <GUZt44bIwCE.A.vLF.pSdALB@chimera>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 2/2] ipv4: factorize cache clearing for batched unregister operations
+Date: Tue, 17 Nov 2009 09:22:08 +0200
+Message-ID: <200911170922.08486.opurdila@ixiacom.com>
+References: <200911170149.50011.opurdila@ixiacom.com> <20091116160646.39c0a1ac@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:49239 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752481AbZKQHOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 02:14:07 -0500
-In-Reply-To: <GUZt44bIwCE.A.vLF.pSdALB@chimera> (Rafael J. Wysocki's message of "Mon\, 16 Nov 2009 23\:33\:23 +0100 \(CET\)")
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:21923 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755326AbZKQHZd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 02:25:33 -0500
+In-Reply-To: <20091116160646.39c0a1ac@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Rafael J. Wysocki" <rjw@sisk.pl> writes:
+On Tuesday 17 November 2009 02:06:46 you wrote:
+> On Tue, 17 Nov 2009 01:49:49 +0200
+> 
+> Octavian Purdila <opurdila@ixiacom.com> wrote:
+> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> > ---
+> >  net/ipv4/fib_frontend.c |   11 ++++++-----
+> >  1 files changed, 6 insertions(+), 5 deletions(-)
+> 
+> And what about IPV6?
+> 
 
-> This message contains a list of some regressions from 2.6.31, for which there
-> are no fixes in the mainline I know of.  If any of them have been fixed already,
-> please let me know.
->
-> If you know of any other unresolved regressions from 2.6.31, please let me know
-> either and I'll add them to the list.  Also, please let me know if any of the
-> entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic reply to
-> this message with CCs to the people involved in reporting and handling the
-> issue.
+IPv6 did not appear during profiling my simple dummy test and also a quick scan 
+through the code did not reveal anything obvious on the unregister path which 
+could be factorized.
 
-Not in 2.6.31 but in 2.6.32-rc5 I get a firmware hang from my netxen
-nic when I try to bring the link up.  I have reported and was working
-with the developer for a while.  I haven't heard anything in the last
-week or so.
+BTW, it appears we don't have a route cache for IPv6. Right?
 
-Eric
+I known we will run into other scalability issues when we  will set IPv4/IPv6 
+addresses, and that is one of the next items on my list to profile :)
+
