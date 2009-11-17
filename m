@@ -1,36 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PATCH net-next-2.6] linkwatch: linkwatch_forget_dev() to
-	speedup device dismantle
-Date: Tue, 17 Nov 2009 20:31:33 +0800
-Message-ID: <20091117123133.GA14831@gondor.apana.org.au>
-References: <4B019381.2010509@gmail.com> <4B01C938.8000705@gmail.com> <20091116143917.14e4fa4f@s6510> <20091117.042604.99618154.davem@davemloft.net>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Tue, 17 Nov 2009 07:33:47 -0500
+Message-ID: <4B02982B.9070004@gmail.com>
+References: <4AF98A8C.9040201@novell.com> <20091114011229.GA18580@gondor.apana.org.au> <4AFE08EF.2030308@gmail.com> <20091113.190438.78469912.davem@davemloft.net> <4B016041.5030000@gmail.com> <20091117010238.GA10029@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37345 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752454AbZKQMbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:31:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20091117.042604.99618154.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig14FCFE4AEA081A13D5F2A978"
+Cc: David Miller <davem@davemloft.net>, ghaskins@novell.com,
+	mst@redhat.com, alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752937AbZKQMdr@vger.kernel.org>
+In-Reply-To: <20091117010238.GA10029@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 17, 2009 at 04:26:04AM -0800, David Miller wrote:
->
-> Really, the link watch stuff is just due for a redesign.  I don't
-> think a simple hack is going to cut it this time, sorry Eric :-)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig14FCFE4AEA081A13D5F2A978
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I have no objections against any redesigns, but since the only
-caller of linkwatch_forget_dev runs in process context with the
-RTNL, it could also legally emit those events.
+Herbert Xu wrote:
+> On Mon, Nov 16, 2009 at 09:22:57AM -0500, Gregory Haskins wrote:
+>> But really, this is somewhat orthogonal to the original problem, so le=
+t
+>> me see if we can bring it back on topic.  Michael stated that this pat=
+ch
+>> in question may be problematic because there are places in the stack
+>> that can get_page() without also maintaining a reference to the shinfo=
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>> object.  Evgeniy seems to say the opposite.  I am not sure who is righ=
+t,
+>> or if I misunderstood one or both of them.  Any thoughts?
+>=20
+> There are loads of places where this can happen.  Start with
+> pskb_expand_head.
+
+Indeed, I see your point.  Looks like we can potentially solve that with
+an extra level of indirection.  E.g. skb->shinfo->owner, with a
+ref-count+callback.  Thoughts?
+
+Kind Regards,
+-Greg
+
+
+
+--------------enig14FCFE4AEA081A13D5F2A978
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksCmCsACgkQP5K2CMvXmqEBHACfZqq+/JO3jy6r51tAidUP8S5E
+pA4AnjnBVnGhT8F4l3nYH9QiG5P6AK0L
+=Pu3Q
+-----END PGP SIGNATURE-----
+
+--------------enig14FCFE4AEA081A13D5F2A978--
