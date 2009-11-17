@@ -1,45 +1,33 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [PATCH] e1000e: Fix usage under kexec
-Date: Tue, 17 Nov 2009 10:21:40 +0100
-Message-ID: <4B026B24.5040108@redhat.com>
-References: <4AF87AB1.1070603@anduras.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Tue, 17 Nov 2009 01:22:48 -0800 (PST)
+Message-ID: <20091117.012248.86306050.davem@davemloft.net>
+References: <faf197be196ee.196eefaf197be@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Sven Anders <sven@anduras.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	william.allen.simpson@gmail.com
+To: huananhu@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30001 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674AbZKQJVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 04:21:41 -0500
-In-Reply-To: <4AF87AB1.1070603@anduras.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33321
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752771AbZKQJWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 04:22:32 -0500
+In-Reply-To: <faf197be196ee.196eefaf197be@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.11.2009 21:25, Sven Anders wrote:
-> Hello!
-> 
-> We're experiencing the following problem:
-> 
-> We start a minimal linux system, prepare the system and start the
-> final system via kexec.
-> On two different systems (one with a 82573 and one with a 82574),
-> the driver cannot initialize the network hardware, because the PHY
-> is not recognized.
-> 
-> We get the following error:
->   e1000e: probe of 0000:02:00.0 failed with error -2
+From: fangxiaozhi 00110321 <huananhu@huawei.com>
+Date: Tue, 17 Nov 2009 17:19:02 +0800
 
-Hi Sven,
+> From: fangxiaozhi <huananhu@huawei.com>
+> 1. This patch is based on the kernel of 2.6.32-rc4 
+> 2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+> Signed-off-by: fangxiaozhi <huananhu@huawei.com>
 
-have a look at the following thread, it seems very similar.
-http://kerneltrap.org/mailarchive/linux-netdev/2009/3/7/5114394
+Your patch is broken, please don't wate my time like this.
 
-  Stefan
---
-Stefan Assmann         | Red Hat GmbH
-Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
-                       | HR: Amtsgericht Muenchen HRB 153243
-                       | GF: Brendan Lane, Charlie Peters,
-sassmann at redhat.com |     Michael Cunningham, Charles Cachera
++ git apply --check --whitespace=error-all diff
+error: patch failed: drivers/net/ppp_async.c:36
+error: drivers/net/ppp_async.c: patch does not apply
