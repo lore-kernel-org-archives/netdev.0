@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] act_mirred: optimization
-Date: Tue, 17 Nov 2009 04:16:05 -0800 (PST)
-Message-ID: <20091117.041605.220030469.davem@davemloft.net>
-References: <412e6f7f0911160522w34895b0eked14f69ccc62c96b@mail.gmail.com>
-	<20091116.053329.215126585.davem@davemloft.net>
-	<412e6f7f0911162149q1eedf18vfbf980fc690629f5@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
+References: <4B01BF65.1010203@gmail.com> <4B01CD8D.1000305@gmail.com> <4B01D17C.4010407@gmail.com> <20091116.191522.178198674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, shemminger@vyatta.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
+	Netdev <netdev@vger.kernel.org>, joe@perches.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39551
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755849AbZKQMPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:15:48 -0500
-In-Reply-To: <412e6f7f0911162149q1eedf18vfbf980fc690629f5@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57335 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755860AbZKQMSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:18:51 -0500
+In-Reply-To: <20091116.191522.178198674.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Tue, 17 Nov 2009 13:49:00 +0800
+On Mon, 16 Nov 2009, David Miller wrote:
 
-> On Mon, Nov 16, 2009 at 9:33 PM, David Miller <davem@davemloft.net> wrote:
->> From: Changli Gao <xiaosuo@gmail.com>
->> Date: Mon, 16 Nov 2009 21:22:46 +0800
->>
->>> I am working against linux-next. I'll check if there is any
->>> difference. BTW: were these patches applied in order, 1 - 2?
->>
->> Yes, they were.
->>
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 16 Nov 2009 23:26:04 +0100
 > 
-> Patch is resubmitted as attachment.
+> > So adding DATA to SYN packets might be problematic for part of our tcp 
+> > stack. 
+> 
+> I can almost guarentee it won't work.  For one thing getting a SACK
+> response to a SYN+DATA packet will explode quite nicely for one thing.
 
-Also applied, thanks.
+Now I'm really lost??? How can you get SACKs for that in the first 
+place since they are either lost or delivered in unison???
+
+> A lot of the other retransmit queue handling would need to be audited
+> as well.  So much code assumes that if we see sent data in the
+> retransmit queue, there won't be SYN or SYN+ACK things in there to
+> contend with.
+
+...Valid ACKs will either remove that SYN+DATA segment completely, other 
+ACK could (or should) just be dropped. I kind of fail to see what is the 
+problem here.
+
+-- 
+ i.
