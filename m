@@ -1,26 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Shared i2c adapter locking
-Date: Tue, 17 Nov 2009 06:13:55 -0800 (PST)
-Message-ID: <20091117.061355.205349414.davem@davemloft.net>
-References: <20091117103554.03971b2f@hyperion.delvare>
-	<20091117.035147.80164577.davem@davemloft.net>
-	<1258464774.2732.6.camel@achroite.uk.solarflarecom.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [RFC] mac80211: disallow bridging managed/adhoc interfaces
+Date: Tue, 17 Nov 2009 09:06:27 -0500
+Message-ID: <20091117140626.GE27743@tuxdriver.com>
+References: <1258465585.3682.7.camel@johannes.local> <200911171504.54170.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khali@linux-fr.org, sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mika.kuoppala@nokia.com, linux-i2c@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752695AbZKQONl@vger.kernel.org>
-In-Reply-To: <1258464774.2732.6.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200911171504.54170.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 17 Nov 2009 13:32:54 +0000
+On Tue, Nov 17, 2009 at 03:04:52PM +0100, Michael Buesch wrote:
+> On Tuesday 17 November 2009 14:46:25 Johannes Berg wrote:
+> > --- wireless-testing.orig/net/bridge/br_if.c	2009-11-17 14:19:17.000000000 +0100
+> > +++ wireless-testing/net/bridge/br_if.c	2009-11-17 14:20:03.000000000 +0100
+> > @@ -390,6 +390,10 @@ int br_add_if(struct net_bridge *br, str
+> >  	if (dev->br_port != NULL)
+> >  		return -EBUSY;
+> >  
+> > +	/* No bridging devices that dislike that (e.g. wireless) */
+> > +	if (dev->priv_flags & IFF_DONT_BRIDGE)
+> > +		return -EINVAL;
+> 
+> -EOPNOTSUPP?
+> That would probably produce a better error message in userspace.
 
-> You will need to merge Linus's tree into net-next-2.6 and resolve the
-> conflict by applying Jean's changes to drivers/net/sfc/falcon_boards.c.
+Yes, good point.
 
-Ok, I'll sort this out after I next push to Linus, thanks!
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
