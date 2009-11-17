@@ -1,28 +1,27 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
-Date: Tue, 17 Nov 2009 17:21:34 +0100
-Message-ID: <20091117162134.GA282@e-circ.dyndns.org>
-References: <20091113105157.GA322@e-circ.dyndns.org> <20091113142738.1aa81a03@s6510> <20091114165408.GA283@e-circ.dyndns.org> <20091116084612.3654bdd1@nehalam>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] can: fix setting mcp251x bit timing on open
+Date: Tue, 17 Nov 2009 17:23:22 +0100
+Message-ID: <4B02CDFA.6040700@grandegger.com>
+References: <1258474844-10239-1-git-send-email-chripell@fsfe.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:26628 "EHLO
-	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752599AbZKQQVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 11:21:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20091116084612.3654bdd1@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1258474844-10239-1-git-send-email-chripell-VaTbYqLCNhc@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 16, 2009 at 08:46:12AM -0800, Stephen Hemminger wrote:
-> 
-[...]
-> 
+Christian Pellegrin wrote:
+> Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
 
-Stephen,
-Thanks for your review.
-
-Kurt
+Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
