@@ -1,89 +1,58 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: [PATCH] net/s390 drivers: add missing 'const' attribute
-Date: Tue, 17 Nov 2009 14:48:15 +0100
-Message-ID: <20091117134815.GE5124@osiris.boeblingen.de.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [RFC] mac80211: disallow bridging managed/adhoc interfaces
+Date: Tue, 17 Nov 2009 08:58:17 -0500
+Message-ID: <20091117135817.GC27743@tuxdriver.com>
+References: <1258465585.3682.7.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ursula Braun <braunu@de.ibm.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:46698 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708AbZKQNtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 08:49:06 -0500
-Received: from d06nrmr1707.portsmouth.uk.ibm.com (d06nrmr1707.portsmouth.uk.ibm.com [9.149.39.225])
-	by mtagate7.uk.ibm.com (8.14.3/8.13.8) with ESMTP id nAHDmPTn334942
-	for <netdev@vger.kernel.org>; Tue, 17 Nov 2009 13:48:30 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1707.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nAHDmFkJ962570
-	for <netdev@vger.kernel.org>; Tue, 17 Nov 2009 13:48:15 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id nAHDmFRc002132
-	for <netdev@vger.kernel.org>; Tue, 17 Nov 2009 13:48:15 GMT
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1258465585.3682.7.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Subject: [PATCH] net/s390 drivers: add missing 'const' attribute
+On Tue, Nov 17, 2009 at 02:46:25PM +0100, Johannes Berg wrote:
+> A number of people have tried to add a wireless interface
+> (in managed mode) to a bridge and then complained that it
+> doesn't work. It cannot work, however, because in 802.11
+> networks all packets need to be acknowledged and as such
+> need to be sent to the right address. Promiscuous doesn't
+> help here. The wireless address format used for these
+> links has only space for three addresses, the
+>  * transmitter, which must be equal to the sender (origin)
+>  * receiver (on the wireless medium), which is the AP in
+>    the case of managed mode
+>  * the recipient (destination), which is on the APs local
+>    network segment
+> 
+> In an IBSS, it is similar, but the receiver and recipient
+> must match and the third address is used as the BSSID.
+> 
+> To avoid such mistakes in the future, disallow adding a
+> wireless interface to a bridge.
+> 
+> Felix has recently added a four-address mode to the AP
+> and client side that can be used (after negotiating that
+> it is possible, which must happen out-of-band by setting
+> up both sides) for bridging, so allow that case.
+> 
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+ACK -- we get these complaints fairly often...
 
-Add missing 'const' attribute to avoid the following compile warnings:
+I don't think I've sent the 4addr stuff to Dave yet.  Should I just
+take this through my tree?
 
-drivers/s390/net/ctcm_main.c: In function 'ctcm_init':
-drivers/s390/net/ctcm_main.c:1864: warning: assignment from incompatible pointer type
-drivers/s390/net/lcs.c: In function 'lcs_init_module':
-drivers/s390/net/lcs.c:2468: warning: assignment from incompatible pointer type
-drivers/s390/net/claw.c: In function 'claw_init':
-drivers/s390/net/claw.c:3408: warning: assignment from incompatible pointer type
-
-Cc: Ursula Braun <braunu@de.ibm.com>
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
----
-
-Patch applies on top of linux-next of 17th November.
-
- drivers/s390/net/claw.c      |    2 +-
- drivers/s390/net/ctcm_main.c |    2 +-
- drivers/s390/net/lcs.c       |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-Index: linux-next/drivers/s390/net/ctcm_main.c
-===================================================================
---- linux-next.orig/drivers/s390/net/ctcm_main.c
-+++ linux-next/drivers/s390/net/ctcm_main.c
-@@ -1806,7 +1806,7 @@ static struct attribute_group ctcm_group
- 	.attrs = ctcm_group_attrs,
- };
- 
--static struct attribute_group *ctcm_group_attr_groups[] = {
-+static const struct attribute_group *ctcm_group_attr_groups[] = {
- 	&ctcm_group_attr_group,
- 	NULL,
- };
-Index: linux-next/drivers/s390/net/lcs.c
-===================================================================
---- linux-next.orig/drivers/s390/net/lcs.c
-+++ linux-next/drivers/s390/net/lcs.c
-@@ -2440,7 +2440,7 @@ static struct attribute_group lcs_group_
- 	.attrs = lcs_group_attrs,
- };
- 
--static struct attribute_group *lcs_group_attr_groups[] = {
-+static const struct attribute_group *lcs_group_attr_groups[] = {
- 	&lcs_group_attr_group,
- 	NULL,
- };
-Index: linux-next/drivers/s390/net/claw.c
-===================================================================
---- linux-next.orig/drivers/s390/net/claw.c
-+++ linux-next/drivers/s390/net/claw.c
-@@ -310,7 +310,7 @@ static struct attribute_group claw_group
- 	.attrs = claw_group_attrs,
- };
- 
--static struct attribute_group *claw_group_attr_groups[] = {
-+static const struct attribute_group *claw_group_attr_groups[] = {
- 	&claw_group_attr_group,
- 	NULL,
- };
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
