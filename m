@@ -1,60 +1,37 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Shared i2c adapter locking
-Date: Tue, 17 Nov 2009 19:33:13 +1100
-Message-ID: <20091117193313.b750804e.sfr@canb.auug.org.au>
-References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
-	<20091029154317.651904b9@hyperion.delvare>
-	<1256828976.2827.27.camel@achroite>
-	<20091105141122.56b6b4f8@hyperion.delvare>
-	<1257429444.2793.2.camel@achroite.uk.solarflarecom.com>
-	<20091105150715.692b5200@hyperion.delvare>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv4: factorize cache clearing for batched
+ unregister operations
+Date: Tue, 17 Nov 2009 00:34:49 -0800 (PST)
+Message-ID: <20091117.003449.153994565.davem@davemloft.net>
+References: <200911170149.50011.opurdila@ixiacom.com>
+	<20091116160646.39c0a1ac@nehalam>
+	<200911170922.08486.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm"
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mika Kuoppala <mika.kuoppala@nokia.com>,
-	Linux I2C <linux-i2c@vger.kernel.org>
-To: Jean Delvare <khali@linux-fr.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754822AbZKQIdT@vger.kernel.org>
-In-Reply-To: <20091105150715.692b5200@hyperion.delvare>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: opurdila@ixiacom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49547
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754726AbZKQIec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 03:34:32 -0500
+In-Reply-To: <200911170922.08486.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Tue, 17 Nov 2009 09:22:08 +0200
 
-Hi Jean,
+> BTW, it appears we don't have a route cache for IPv6. Right?
 
-On Thu, 5 Nov 2009 15:07:15 +0100 Jean Delvare <khali@linux-fr.org> wrote:
->
-> > Presumably this is meant for net-next-2.6, and you'll implement
->=20
-> Actually I meant to push this to Linus immediately, through my i2c
-> tree. This is essentially a no-op: the binary code will be the same as
-> before the patch, so guaranteed to be safe, and this will solve
-> conflicts in linux-next.
+That's right, no IPV6 route cache.
 
-Any word on this?
+But it doesn't seem to matter so much, as routing tables are
+still small in that realm.  Although I heard the trend is for
+that to change.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAksCX8kACgkQjjKRsyhoI8wh4wCgjjbOxLXKpfD46dgZudQt8F0G
-GTUAoJJtBZcV1xUtVw8tP9A34tgBn5dw
-=/oxd
------END PGP SIGNATURE-----
-
---Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm--
+I also suspect that with things like policy routing we could run into
+problems, but we have a multi-way tree for the IPV6 routing table
+datastructure explicitly to handle those kinds of things.
