@@ -1,59 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Tue, 17 Nov 2009 19:16:52 +1100
-Message-ID: <20091117191652.615575fe.sfr@canb.auug.org.au>
-References: <20091117131637.3a35f898.sfr@canb.auug.org.au>
-	<4B025812.6060807@hartkopp.net>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH net-next] Phonet: missing rcu_dereference()
+Date: Tue, 17 Nov 2009 10:17:24 +0200
+Message-ID: <1258445844-6079-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__17_Nov_2009_19_16_52_+1100_Xtb=DuGdTuPc1sfB"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Anant Gole <anantgole@ti.com>
-To: Oliver Hartkopp <oliver@hartkopp.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753996AbZKQIQz@vger.kernel.org>
-In-Reply-To: <4B025812.6060807@hartkopp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:57760 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753227AbZKQIRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 03:17:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__17_Nov_2009_19_16_52_+1100_Xtb=DuGdTuPc1sfB
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Hi Oliver,
+Reported-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/af_phonet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-On Tue, 17 Nov 2009 09:00:18 +0100 Oliver Hartkopp <oliver@hartkopp.net> wr=
-ote:
->
-> Yes. You only added the new Kconfig entries (for CAN_TI_HECC, CAN_MCP251X,
-> CAN_MSCAN, ...) to the patch "can: Fix driver Kconfig structure", right?
-
-Yes.
-
-> These are the only added items in drivers/net/can/Kconfig from net-2.6 to
-> net-next-2.6.
-
-And it looks like Dave will fix this up for me tomorrow.
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index ed65da2..526d027 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -44,7 +44,7 @@ static struct phonet_protocol *phonet_proto_get(int p=
+rotocol)
+ 		return NULL;
+=20
+ 	rcu_read_lock();
+-	pp =3D proto_tab[protocol];
++	pp =3D rcu_dereference(proto_tab[protocol]);
+ 	if (pp && !try_module_get(pp->prot->owner))
+ 		pp =3D NULL;
+ 	rcu_read_unlock();
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+1.6.3.3
 
---Signature=_Tue__17_Nov_2009_19_16_52_+1100_Xtb=DuGdTuPc1sfB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAksCW/QACgkQjjKRsyhoI8yKeQCfWWsM+3cyFBAn/zjaIn7Odq3Q
-oqgAn1o/AcXJbnmKLtl+mZCSGxo751jU
-=U0bA
------END PGP SIGNATURE-----
-
---Signature=_Tue__17_Nov_2009_19_16_52_+1100_Xtb=DuGdTuPc1sfB--
