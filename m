@@ -1,41 +1,33 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH 2/2] ipv4: factorize cache clearing for batched unregister operations
-Date: Tue, 17 Nov 2009 09:22:08 +0200
-Message-ID: <200911170922.08486.opurdila@ixiacom.com>
-References: <200911170149.50011.opurdila@ixiacom.com> <20091116160646.39c0a1ac@nehalam>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-11-16
+Date: Mon, 16 Nov 2009 23:46:43 -0800 (PST)
+Message-ID: <20091116.234643.137631670.davem@davemloft.net>
+References: <20091116162655.GD14410@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:21923 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755326AbZKQHZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 02:25:33 -0500
-In-Reply-To: <20091116160646.39c0a1ac@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091116162655.GD14410-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 November 2009 02:06:46 you wrote:
-> On Tue, 17 Nov 2009 01:49:49 +0200
-> 
-> Octavian Purdila <opurdila@ixiacom.com> wrote:
-> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> > ---
-> >  net/ipv4/fib_frontend.c |   11 ++++++-----
-> >  1 files changed, 6 insertions(+), 5 deletions(-)
-> 
-> And what about IPV6?
-> 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 16 Nov 2009 11:26:55 -0500
 
-IPv6 did not appear during profiling my simple dummy test and also a quick scan 
-through the code did not reveal anything obvious on the unregister path which 
-could be factorized.
+> The biggest is a revert of the patch that added cfg80211 support
+> to ipw2200.  It was ill conceived and inadvertantly caused problems
+> for ipw2100.  There are fixes available now, but they are just as
+> big as the revert -- I'll restage them for 2.6.33.  There is little
+> activity in ipw2200, so it the revert should be set.  Plus, I've
+> tested the revert locally.
+ ...
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-BTW, it appears we don't have a route cache for IPv6. Right?
-
-I known we will run into other scalability issues when we  will set IPv4/IPv6 
-addresses, and that is one of the next items on my list to profile :)
-
+Pulled, thanks a lot.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
