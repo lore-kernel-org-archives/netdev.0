@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-Date: Tue, 17 Nov 2009 03:49:59 -0800 (PST)
-Message-ID: <20091117.034959.159359822.davem@davemloft.net>
-References: <faf197be196ee.196eefaf197be@huawei.com>
-	<20091117.012248.86306050.davem@davemloft.net>
-	<4B0278D9.6030806@gmail.com>
+Subject: Re: Shared i2c adapter locking
+Date: Tue, 17 Nov 2009 03:51:47 -0800 (PST)
+Message-ID: <20091117.035147.80164577.davem@davemloft.net>
+References: <20091105150715.692b5200@hyperion.delvare>
+	<20091117193313.b750804e.sfr@canb.auug.org.au>
+	<20091117103554.03971b2f@hyperion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huananhu@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: william.allen.simpson@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755814AbZKQLto@vger.kernel.org>
-In-Reply-To: <4B0278D9.6030806@gmail.com>
+Cc: sfr@canb.auug.org.au, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mika.kuoppala@nokia.com,
+	linux-i2c@vger.kernel.org
+To: khali@linux-fr.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755923AbZKQLvc@vger.kernel.org>
+In-Reply-To: <20091117103554.03971b2f@hyperion.delvare>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Date: Tue, 17 Nov 2009 05:20:09 -0500
+From: Jean Delvare <khali@linux-fr.org>
+Date: Tue, 17 Nov 2009 10:35:54 +0100
 
-> What David may have meant, had he followed
-> Documentation/ManagementStyle or had any project management skills
-> what-so-ever, is that you need to follow
-> Documentation/SubmittingPatches more carefully.
+> If you did and something is still not clear, please let me know. My
+> understanding is that the action token is in David's hands now.
 
-Are personal attacks on me really necessary?
+So what exactly do I need to do?
 
-Do you want me to look closely at your patches with a high priority
-when you submit them for inclusion?  If so, then you may want to
-think twice about saying things like this.
+All I see that needs to happen is to pull from Linus's tree into
+net-2.6
 
-You may be right, but that doesn't matter if you're interested in
-working together with me in the future.  There are diplomatic ways to
-do everything, and this wasn't one of those ways.
+But frankly I don't see how that helps resolve anything in linux-next
+since Stephen starts with Linus's tree then pulls in everyone's work.
+
+Or is that pull necessary so that some other patch can be applied
+to net-2.6 or similar?
