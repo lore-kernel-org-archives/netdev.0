@@ -1,43 +1,63 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [RFC] mac80211: disallow bridging managed/adhoc interfaces
-Date: Tue, 17 Nov 2009 09:06:27 -0500
-Message-ID: <20091117140626.GE27743@tuxdriver.com>
-References: <1258465585.3682.7.camel@johannes.local> <200911171504.54170.mb@bu3sch.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] vlan: Fix register_vlan_dev() error path
+Date: Tue, 17 Nov 2009 15:41:26 +0100
+Message-ID: <4B02B616.3020801@gmail.com>
+References: <4B01558F.5000306@gmail.com> <20091117.002037.229474882.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200911171504.54170.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42100 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbZKQOlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 09:41:24 -0500
+In-Reply-To: <20091117.002037.229474882.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 17, 2009 at 03:04:52PM +0100, Michael Buesch wrote:
-> On Tuesday 17 November 2009 14:46:25 Johannes Berg wrote:
-> > --- wireless-testing.orig/net/bridge/br_if.c	2009-11-17 14:19:17.000000000 +0100
-> > +++ wireless-testing/net/bridge/br_if.c	2009-11-17 14:20:03.000000000 +0100
-> > @@ -390,6 +390,10 @@ int br_add_if(struct net_bridge *br, str
-> >  	if (dev->br_port != NULL)
-> >  		return -EBUSY;
-> >  
-> > +	/* No bridging devices that dislike that (e.g. wireless) */
-> > +	if (dev->priv_flags & IFF_DONT_BRIDGE)
-> > +		return -EINVAL;
-> 
-> -EOPNOTSUPP?
-> That would probably produce a better error message in userspace.
+David Miller a =E9crit :
 
-Yes, good point.
+> Eric, please make allocation failure cause the vlan_setup()
+> to fail and propagate -EFAULT back to the caller.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure ! (You meant -ENOMEM probably...)
+
+While testing my new patch in OOM situations, I found following bug
+in vlan code, that gave me crashes or infinite loops.
+
+
+[PATCH] vlan: Fix register_vlan_dev() error path
+
+In case register_netdevice() returns an error, and a new vlan_group was
+allocated and inserted in vlan_group_hash[] we call vlan_group_free() w=
+ithout
+deleting group from hash table. Future lookups can give infinite loops =
+or crashes.
+
+We must delete the vlan_group using RCU safe procedure.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/8021q/vlan.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 8836575..a29c5ab 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -281,8 +281,11 @@ out_uninit_applicant:
+ 	if (ngrp)
+ 		vlan_gvrp_uninit_applicant(real_dev);
+ out_free_group:
+-	if (ngrp)
+-		vlan_group_free(ngrp);
++	if (ngrp) {
++		hlist_del_rcu(&ngrp->hlist);
++		/* Free the group, after all cpu's are done. */
++		call_rcu(&ngrp->rcu, vlan_rcu_free);
++	}
+ 	return err;
+ }
+=20
