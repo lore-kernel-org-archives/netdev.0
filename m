@@ -1,56 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP
- cookie option, extend existing struct's
-Date: Tue, 17 Nov 2009 04:22:50 -0800 (PST)
-Message-ID: <20091117.042250.28821014.davem@davemloft.net>
-References: <4B01D17C.4010407@gmail.com>
-	<20091116.191522.178198674.davem@davemloft.net>
-	<alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
+Subject: Re: PATCH net-next-2.6] linkwatch: linkwatch_forget_dev() to
+ speedup device dismantle
+Date: Tue, 17 Nov 2009 04:26:04 -0800 (PST)
+Message-ID: <20091117.042604.99618154.davem@davemloft.net>
+References: <4B019381.2010509@gmail.com>
+	<4B01C938.8000705@gmail.com>
+	<20091116143917.14e4fa4f@s6510>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
-	netdev@vger.kernel.org, joe@perches.com
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51581
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35478
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755069AbZKQMWe convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 07:22:34 -0500
-In-Reply-To: <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1751839AbZKQMZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:25:48 -0500
+In-Reply-To: <20091116143917.14e4fa4f@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 16 Nov 2009 14:39:17 -0800
 
-> On Mon, 16 Nov 2009, David Miller wrote:
->=20
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 16 Nov 2009 23:26:04 +0100
->>=20
->> > So adding DATA to SYN packets might be problematic for part of our=
- tcp=20
->> > stack.=20
->>=20
->> I can almost guarentee it won't work.  For one thing getting a SACK
->> response to a SYN+DATA packet will explode quite nicely for one thin=
-g.
->=20
-> Now I'm really lost??? How can you get SACKs for that in the first=20
-> place since they are either lost or delivered in unison???
+> On Mon, 16 Nov 2009 22:50:48 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Ideally, you're probably right.
+Is this really valid?
 
-However, it seems to me that the receiver can do whatever it likes
-with it's receive queue when it's under memory pressure.
+The whole point in emitting the netif_carrier_off() is so
+that applications see the event in userspace and therefore
+can clean things up.
 
-It can chop packets up, partially free bits, and then send a SACK
-block back to you for the parts it tried to free.
+Sure, the kernel will no longer make the device visible, and therefore
+the application can't operate on it any longer.  But the application
+is deserved of receiving the event anyways so that it can clean up
+internal state and datastructures.
 
-If you'll recall, I wanted to put some tough restrictions into what is
-allowed with SACK so that we could optimize things on the sender side.
-But there was resistence and therefore we have to keep allowing all
-kinds of silly situations, the one we're talking about here merely
-being one of them :-)
+It seem to me that in this ->stop() case we'll now elide the event
+emission, and I don't see how that can be right.
+
+Really, the link watch stuff is just due for a redesign.  I don't
+think a simple hack is going to cut it this time, sorry Eric :-)
