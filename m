@@ -1,56 +1,199 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-Date: Tue, 17 Nov 2009 13:49:47 -0500
-Message-ID: <13129.1258483787@turing-police.cc.vt.edu>
-References: <faf197be196ee.196eefaf197be@huawei.com> <20091117.012248.86306050.davem@davemloft.net>
-            <4B0278D9.6030806@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] macvlan: Precise RX stats accounting
+Date: Tue, 17 Nov 2009 19:53:49 +0100
+Message-ID: <4B02F13D.1060903@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1258483787_3145P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: huananhu@huawei.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754628AbZKQSt7@vger.kernel.org>
-In-Reply-To: Your message of "Tue, 17 Nov 2009 05:20:09 EST."
-             <4B0278D9.6030806@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48016 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754307AbZKQSxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 13:53:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1258483787_3145P
-Content-Type: text/plain; charset=us-ascii
+David, here is the macvlan part as well, it also depends on 
+dev_txq_stats_fold() being added first.
 
-On Tue, 17 Nov 2009 05:20:09 EST, William Allen Simpson said:
+Thanks
 
-> And your trailer boilerplate badly breaks the system, because it's
-> missing the SMTP email standard "--" line in front of it.
+[PATCH net-next-2.6] macvlan: Precise RX stats accounting
 
-Ahem.
+With multi queue devices, its possible that several cpus call
+macvlan RX routines simultaneously for the same macvlan device.
 
-It's not an 'SMTP standard' - in fact, SMTP doesn't even care diddly about the
-user-visible *headers* in the mail, much less what the convention for a
-signature block is.  If you get EHLO, MAIL FROM, RCPT TO, DATA, '.', and QUIT,
-that's 95% of SMTP right there.  And none of it where normal users can even see
-it (though the MAIL FROM can show up as Return-Path: sometimes).
+We update RX stats counter without any locking, so we can
+get slightly wrong counters.
 
-The '-- ' *convention* isn't even at the next layer up, MIME.  If anything,
-it's out at the liveware level (though some MUAs provide code to make it
-a bit easier to deal with...)
+One possible fix is to use percpu counters, to get precise
+accounting and also get guarantee of no cache line ping pongs
+between cpus.
 
-(Feel free to cite RFC chapter-and-verse if you disagree, and note that
-'Informational' RFCs are never standards. ;)
+Note: this adds 16 bytes (32 bytes on 64bit arches) of percpu
+data per macvlan device.
 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/macvlan.c |   76 ++++++++++++++++++++++++++++++++++------
+ 1 files changed, 66 insertions(+), 10 deletions(-)
 
---==_Exmh_1258483787_3145P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFLAvBLcC3lWbTT17ARAh4gAJ0UgrRzYglUYi7BUvV0tJBgMqvInQCg96oH
-aHc4tK9YfM0wvn2Qct92I8k=
-=yer/
------END PGP SIGNATURE-----
-
---==_Exmh_1258483787_3145P--
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 271aa7e..f2389a2 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -38,12 +38,27 @@ struct macvlan_port {
+ 	struct list_head	vlans;
+ };
+ 
++/**
++ *	struct macvlan_rx_stats - MACVLAN percpu rx stats
++ *	@rx_packets: number of received packets
++ *	@rx_bytes: number of received bytes
++ *	@multicast: number of received multicast packets
++ *	@rx_errors: number of errors
++ */
++struct macvlan_rx_stats {
++	unsigned long rx_packets;
++	unsigned long rx_bytes;
++	unsigned long multicast;
++	unsigned long rx_errors;
++};
++
+ struct macvlan_dev {
+ 	struct net_device	*dev;
+ 	struct list_head	list;
+ 	struct hlist_node	hlist;
+ 	struct macvlan_port	*port;
+ 	struct net_device	*lowerdev;
++	struct macvlan_rx_stats *rx_stats;
+ };
+ 
+ 
+@@ -110,6 +125,7 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ 	struct net_device *dev;
+ 	struct sk_buff *nskb;
+ 	unsigned int i;
++	struct macvlan_rx_stats *rx_stats;
+ 
+ 	if (skb->protocol == htons(ETH_P_PAUSE))
+ 		return;
+@@ -117,17 +133,17 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
+ 		hlist_for_each_entry_rcu(vlan, n, &port->vlan_hash[i], hlist) {
+ 			dev = vlan->dev;
++			rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+ 
+ 			nskb = skb_clone(skb, GFP_ATOMIC);
+ 			if (nskb == NULL) {
+-				dev->stats.rx_errors++;
+-				dev->stats.rx_dropped++;
++				rx_stats->rx_errors++;
+ 				continue;
+ 			}
+ 
+-			dev->stats.rx_bytes += skb->len + ETH_HLEN;
+-			dev->stats.rx_packets++;
+-			dev->stats.multicast++;
++			rx_stats->rx_bytes += skb->len + ETH_HLEN;
++			rx_stats->rx_packets++;
++			rx_stats->multicast++;
+ 
+ 			nskb->dev = dev;
+ 			if (!compare_ether_addr_64bits(eth->h_dest, dev->broadcast))
+@@ -147,6 +163,7 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ 	const struct macvlan_port *port;
+ 	const struct macvlan_dev *vlan;
+ 	struct net_device *dev;
++	struct macvlan_rx_stats *rx_stats;
+ 
+ 	port = rcu_dereference(skb->dev->macvlan_port);
+ 	if (port == NULL)
+@@ -166,16 +183,15 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		return NULL;
+ 	}
+-
++	rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (skb == NULL) {
+-		dev->stats.rx_errors++;
+-		dev->stats.rx_dropped++;
++		rx_stats->rx_errors++;
+ 		return NULL;
+ 	}
+ 
+-	dev->stats.rx_bytes += skb->len + ETH_HLEN;
+-	dev->stats.rx_packets++;
++	rx_stats->rx_bytes += skb->len + ETH_HLEN;
++	rx_stats->rx_packets++;
+ 
+ 	skb->dev = dev;
+ 	skb->pkt_type = PACKET_HOST;
+@@ -365,9 +381,47 @@ static int macvlan_init(struct net_device *dev)
+ 
+ 	macvlan_set_lockdep_class(dev);
+ 
++	vlan->rx_stats = alloc_percpu(struct macvlan_rx_stats);
++	if (!vlan->rx_stats)
++		return -ENOMEM;
++
+ 	return 0;
+ }
+ 
++static void macvlan_uninit(struct net_device *dev)
++{
++	struct macvlan_dev *vlan = netdev_priv(dev);
++
++	free_percpu(vlan->rx_stats);
++}
++
++static struct net_device_stats *macvlan_dev_get_stats(struct net_device *dev)
++{
++	struct net_device_stats *stats = &dev->stats;
++	struct macvlan_dev *vlan = netdev_priv(dev);
++
++	dev_txq_stats_fold(dev, stats);
++
++	if (vlan->rx_stats) {
++		struct macvlan_rx_stats *p, rx = {0};
++		int i;
++
++		for_each_possible_cpu(i) {
++			p = per_cpu_ptr(vlan->rx_stats, i);
++			rx.rx_packets += p->rx_packets;
++			rx.rx_bytes   += p->rx_bytes;
++			rx.rx_errors  += p->rx_errors;
++			rx.multicast  += p->multicast;
++		}
++		stats->rx_packets = rx.rx_packets;
++		stats->rx_bytes   = rx.rx_bytes;
++		stats->rx_errors  = rx.rx_errors;
++		stats->rx_dropped = rx.rx_errors;
++		stats->multicast  = rx.multicast;
++	}
++	return stats;
++}
++
+ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+ 					struct ethtool_drvinfo *drvinfo)
+ {
+@@ -404,6 +458,7 @@ static const struct ethtool_ops macvlan_ethtool_ops = {
+ 
+ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_init		= macvlan_init,
++	.ndo_uninit		= macvlan_uninit,
+ 	.ndo_open		= macvlan_open,
+ 	.ndo_stop		= macvlan_stop,
+ 	.ndo_start_xmit		= macvlan_start_xmit,
+@@ -411,6 +466,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_change_rx_flags	= macvlan_change_rx_flags,
+ 	.ndo_set_mac_address	= macvlan_set_mac_address,
+ 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
++	.ndo_get_stats		= macvlan_dev_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 
