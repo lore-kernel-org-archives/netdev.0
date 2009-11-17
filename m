@@ -1,34 +1,60 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: Subject: [PATCH 5/6] bna: Brocade 10Gb Ethernet device driver
-Date: Tue, 17 Nov 2009 00:32:45 -0800
-Message-ID: <CBE1CC7A31453F4CA63C13EFCE6A0F6C05BAD1DD1B@HQ-EXCH-7.corp.brocade.com>
-References: <200911130346.nAD3kquT001065@blc-10-10.brocade.com>
- <20091112210751.06e2d3c6@nehalam>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Shared i2c adapter locking
+Date: Tue, 17 Nov 2009 19:33:13 +1100
+Message-ID: <20091117193313.b750804e.sfr@canb.auug.org.au>
+References: <20091026133757.7cf87e49.sfr@canb.auug.org.au>
+	<20091029154317.651904b9@hyperion.delvare>
+	<1256828976.2827.27.camel@achroite>
+	<20091105141122.56b6b4f8@hyperion.delvare>
+	<1257429444.2793.2.camel@achroite.uk.solarflarecom.com>
+	<20091105150715.692b5200@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Adapter Linux Open SRC Team"
-	<adapter_linux_open_src_team@Brocade.COM>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hq-exedge.brocade.com ([66.243.153.83]:40642 "EHLO
-	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754116AbZKQIcm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 03:32:42 -0500
-In-Reply-To: <20091112210751.06e2d3c6@nehalam>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm"
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mika Kuoppala <mika.kuoppala@nokia.com>,
+	Linux I2C <linux-i2c@vger.kernel.org>
+To: Jean Delvare <khali@linux-fr.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754822AbZKQIdT@vger.kernel.org>
+In-Reply-To: <20091105150715.692b5200@hyperion.delvare>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +
-> +#define wwn_t u64
-> +#define lun_t u64
+--Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-"No need for obfuscation, at least use a typedef."
+Hi Jean,
 
-Hi Stephen,
+On Thu, 5 Nov 2009 15:07:15 +0100 Jean Delvare <khali@linux-fr.org> wrote:
+>
+> > Presumably this is meant for net-next-2.6, and you'll implement
+>=20
+> Actually I meant to push this to Linus immediately, through my i2c
+> tree. This is essentially a no-op: the binary code will be the same as
+> before the patch, so guaranteed to be safe, and this will solve
+> conflicts in linux-next.
 
-When using a typedef in place of #define for wwn_t we are getting check-patch warning. Is it advisable to use a typedef?
+Any word on this?
 
-- Rasesh
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAksCX8kACgkQjjKRsyhoI8wh4wCgjjbOxLXKpfD46dgZudQt8F0G
+GTUAoJJtBZcV1xUtVw8tP9A34tgBn5dw
+=/oxd
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__17_Nov_2009_19_33_13_+1100_.m=8U0Qtf1ssOISm--
