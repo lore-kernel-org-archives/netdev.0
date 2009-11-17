@@ -1,46 +1,73 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] net/can: add driver for mscan family & mpc52xx_mscan
-Date: Tue, 17 Nov 2009 20:17:55 +0100
-Message-ID: <4B02F6E3.6000503@grandegger.com>
-References: <1258128892-28800-1-git-send-email-w.sang@pengutronix.de>	<fa686aa40911130939x54ac53f9x173a875a5a4435d3@mail.gmail.com>	<20091116184416.GA21491@pengutronix.de>
-	<4B02EABA.3060905@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] dev->refcnt long term holder
+Date: Tue, 17 Nov 2009 11:18:10 -0800 (PST)
+Message-ID: <20091117.111810.181262927.davem@davemloft.net>
+References: <4B01ADF5.8090904@gmail.com>
+	<20091117.003019.196504832.davem@davemloft.net>
+	<20091117095846.6ef8b4f6@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B02EABA.3060905-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52437
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754690AbZKQTRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 14:17:54 -0500
+In-Reply-To: <20091117095846.6ef8b4f6@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Wolfram Sang wrote:
->> Hi Grant,
->>
->> Wolfgang commented on some points already, I will pick up the other remarks,
->> just one question:
->>
->>>> +       clk_src = of_get_property(np, "fsl,mscan-clk-src", NULL);
->>>> +       if (clk_src && strcmp(clk_src, "ip") == 0)
->>> Should protect against non-null.  strncmp() maybe?
->> "ip" is null-terminated, or what do you mean?
-> 
-> Imagine somebody defines:
-> 
->   fsl,mscan-clk-src = <0xbaeee>;
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 17 Nov 2009 09:58:46 -0800
 
-Forget my comment. I will not harm in the above case. I was just worried
-about non-null-teminated strings.
+> I thought it was to handle:
+>  1) carrier on old devices would bounce, so it provides ratelimiting
+>     of state changes. Modern hardware and CPU's probably makes this a non-issue.
+>  2) wasn't there some code path with device changes, hotplug, uevent and
+>     udev that meant that we couldn't do notifiers immediately.
 
-Wolfgang.
+I did a lot of code review in this area last night and it seems to be
+#1 above and simply being able to do sleeping things to send the
+events even though the carrier state changes happen in interrupt
+context.
+
+Even for what it's designed to do, it's overengineered.
+
+So what I propose is that we simplify the design and also allow direct
+invocation for cases where we're already in a sleepable context and/or
+holding RTNL.  Similar to how Eric is doing in his latest linkwatch
+patch for VLANs.
+
+Note also that linkwatch's current implementation is the sole reason
+we do the real work of netdevice destruction after dropping RTNL :-)
+Linkwatch and unregister_netdevice() used to deadlock on RTNL.
+
+>From history-2.6 GIT:
+
+commit ff936f4e8148e75b20595eda5de6d3a4bb55b631
+Author: David S. Miller <davem@nuts.ninka.net>
+Date:   Mon May 19 04:30:48 2003 -0700
+
+    [NET]: Fix netdevice unregister races.
+    
+    We had two major issues when unregistering networking devices.
+    1) Even trying to run hotplug asynchronously could deadlock
+       if keventd was currently trying to get the RTNL semaphore
+       in order to process linkwatch events.
+    2) Unregister needs to wait for the last reference to go away
+       before the finalization of the unregister can execute.  This
+       cannot occur under the RTNL semaphore as this is deadlock
+       prone as well.
+    
+    The solution is to do all of this stuff after dropping the
+    RTNL semaphore.  rtnl_lock, if it is about to protect a region
+    of code that could unregister network devices, registers a list
+    to which unregistered netdevs are attached.  At rtnl_unlock time
+    this list is processed to wait for refcounts to drop to zero and
+    then finalize the unregister.
+
+
+
