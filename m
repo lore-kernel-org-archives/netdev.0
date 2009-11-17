@@ -1,61 +1,146 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] mac80211: disallow bridging managed/adhoc interfaces
-Date: Tue, 17 Nov 2009 17:43:43 +0100
-Message-ID: <1258476223.21197.0.camel@johannes.local>
-References: <1258465585.3682.7.camel@johannes.local>
-	 <200911171504.54170.mb@bu3sch.de> <1258466868.3682.13.camel@johannes.local>
-	 <20091117083741.1b165274@nehalam>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [net-next-2.6 PATCH] net: device name allocation cleanups
+Date: Tue, 17 Nov 2009 18:49:03 +0200
+Message-ID: <200911171849.03870.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-ptwFEf4fyZay9gg7e8zo"
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091117083741.1b165274@nehalam>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9254 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752582AbZKQQwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 11:52:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ net/core/dev.c |   58 +++++++++++++------------------------------------------
+ 1 files changed, 14 insertions(+), 44 deletions(-)
 
---=-ptwFEf4fyZay9gg7e8zo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4b24d79..6226960 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -862,6 +862,9 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 	unsigned long *inuse;
+ 	struct net_device *d;
+ 
++	if (!dev_valid_name(name))
++		return -EINVAL;
++
+ 	p = strnchr(name, IFNAMSIZ-1, '%');
+ 	if (p) {
+ 		/*
+@@ -901,7 +904,9 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ 	 * when the name is long and there isn't enough space left
+ 	 * for the digits, or if all bits are used.
+ 	 */
+-	return -ENFILE;
++	if (p)
++		return -ENFILE;
++	return -EEXIST;
+ }
+ 
+ /**
+@@ -956,22 +961,14 @@ int dev_change_name(struct net_device *dev, const char *newname)
+ 	if (dev->flags & IFF_UP)
+ 		return -EBUSY;
+ 
+-	if (!dev_valid_name(newname))
+-		return -EINVAL;
+-
+ 	if (strncmp(newname, dev->name, IFNAMSIZ) == 0)
+ 		return 0;
+ 
+ 	memcpy(oldname, dev->name, IFNAMSIZ);
+ 
+-	if (strchr(newname, '%')) {
+-		err = dev_alloc_name(dev, newname);
+-		if (err < 0)
+-			return err;
+-	} else if (__dev_get_by_name(net, newname))
+-		return -EEXIST;
+-	else
+-		strlcpy(dev->name, newname, IFNAMSIZ);
++	err = dev_alloc_name(dev, newname);
++	if (err < 0)
++		return err;
+ 
+ rollback:
+ 	/* For now only devices in the initial network namespace
+@@ -4864,8 +4861,6 @@ EXPORT_SYMBOL(netdev_fix_features);
+ 
+ int register_netdevice(struct net_device *dev)
+ {
+-	struct hlist_head *head;
+-	struct hlist_node *p;
+ 	int ret;
+ 	struct net *net = dev_net(dev);
+ 
+@@ -4894,26 +4889,10 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	if (!dev_valid_name(dev->name)) {
+-		ret = -EINVAL;
+-		goto err_uninit;
+-	}
+-
+ 	dev->ifindex = dev_new_index(net);
+ 	if (dev->iflink == -1)
+ 		dev->iflink = dev->ifindex;
+ 
+-	/* Check for existence of name */
+-	head = dev_name_hash(net, dev->name);
+-	hlist_for_each(p, head) {
+-		struct net_device *d
+-			= hlist_entry(p, struct net_device, name_hlist);
+-		if (!strncmp(d->name, dev->name, IFNAMSIZ)) {
+-			ret = -EEXIST;
+-			goto err_uninit;
+-		}
+-	}
+-
+ 	/* Fix illegal checksum combinations */
+ 	if ((dev->features & NETIF_F_HW_CSUM) &&
+ 	    (dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
+@@ -5038,11 +5017,9 @@ int register_netdev(struct net_device *dev)
+ 	 * If the name is a format string the caller wants us to do a
+ 	 * name allocation.
+ 	 */
+-	if (strchr(dev->name, '%')) {
+-		err = dev_alloc_name(dev, dev->name);
+-		if (err < 0)
+-			goto out;
+-	}
++	err = dev_alloc_name(dev, dev->name);
++	if (err < 0)
++		goto out;
+ 
+ 	err = register_netdevice(dev);
+ out:
+@@ -5461,16 +5438,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 		/* We get here if we can't use the current device name */
+ 		if (!pat)
+ 			goto out;
+-		if (!dev_valid_name(pat))
+-			goto out;
+-		if (strchr(pat, '%')) {
+-			if (__dev_alloc_name(net, pat, buf) < 0)
+-				goto out;
+-			destname = buf;
+-		} else
+-			destname = pat;
+-		if (__dev_get_by_name(net, destname))
++		if (__dev_alloc_name(net, pat, buf) < 0)
+ 			goto out;
++		destname = buf;
+ 	}
+ 
+ 	/*
+-- 
+1.5.6.5
 
-On Tue, 2009-11-17 at 08:37 -0800, Stephen Hemminger wrote:
-
-> But there are people bridging wireless, and hostap even has a mode for
-> that.=20
-
-But that's the AP side, which this patch doesn't attempt to prevent. It
-just makes no sense to bridge when connected to an AP or part of an
-IBSS.
-
-johannes
-
---=-ptwFEf4fyZay9gg7e8zo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJLAtK7AAoJEODzc/N7+QmaKVMQAMj3N0Kfy3bCDMkK7itoK1Rw
-HDrkc7tiOfTzgdVD3xsUaZaZcqnsuJi7U7xp0XfwDtkqUGXjQgEzjTrC7cCqPkcE
-7H/qeNCfrKIXzNKJF6Cni41U1J088s1ufFsa5PgoH8dJcET8xnys9wQ0jeXxwwFh
-BtOXaZngjy0KkP7K/yTVsTMdwAoa3NPg/2yzKRwl7YqDrRxInGeN8pRUEK2dpg0V
-qoqMkLJOoJEc4qvwo/3qxkgeiqIA38t0ib9LDT3lbDx+HK+XTG2p33lgvTwNOIFb
-hRiIITLcqTK4eY9Z/6PRCQTyhLYr7bkLgKe2BesGw6lFHH7VY/rJvA4UMJzQzx3w
-8474UIId1/luY8gpC38Wuo4GcZO/NDgegeX9vsgczoTstq7mUBmfRUEuVeB5cHeu
-MVwRGvh6SjzbMkGSlKCHY/hv5cCYl5StxfJRtXIC68+SAuc01tD64WAk2HX9k+px
-jTVSZCh4054hpFnfzhoBHW46cSq96DOtbZ83Zltf7yNIuyou2mY2hsedH3qZ6poc
-L/XJjUiOuA10fEJji6YW9ZbEpJ0tqGxPsSD1DbCEdVxVwkTs7+c6P/ywF281aLF+
-dbKfY7eyWrJ1++1SgyfUOsilwlTASjoa1gtKHIEmI2ba2/Q0Nw2Zjp8vVyAZdm91
-AKM6RXZ8+m5uIbuObQVk
-=gPCk
------END PGP SIGNATURE-----
-
---=-ptwFEf4fyZay9gg7e8zo--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
