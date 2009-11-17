@@ -1,63 +1,66 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
-Date: Tue, 17 Nov 2009 07:33:47 -0500
-Message-ID: <4B02982B.9070004@gmail.com>
-References: <4AF98A8C.9040201@novell.com> <20091114011229.GA18580@gondor.apana.org.au> <4AFE08EF.2030308@gmail.com> <20091113.190438.78469912.davem@davemloft.net> <4B016041.5030000@gmail.com> <20091117010238.GA10029@gondor.apana.org.au>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Tue, 17 Nov 2009 14:38:42 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911171432420.7024@wel-95.cs.helsinki.fi>
+References: <4B01D17C.4010407@gmail.com> <20091116.191522.178198674.davem@davemloft.net> <alpine.DEB.2.00.0911171412380.7024@wel-95.cs.helsinki.fi> <20091117.042250.28821014.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig14FCFE4AEA081A13D5F2A978"
-Cc: David Miller <davem@davemloft.net>, ghaskins@novell.com,
-	mst@redhat.com, alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752937AbZKQMdr@vger.kernel.org>
-In-Reply-To: <20091117010238.GA10029@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1666960572-1258461522=:7024"
+Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
+	Netdev <netdev@vger.kernel.org>, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58804 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356AbZKQMig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 07:38:36 -0500
+In-Reply-To: <20091117.042250.28821014.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig14FCFE4AEA081A13D5F2A978
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Herbert Xu wrote:
-> On Mon, Nov 16, 2009 at 09:22:57AM -0500, Gregory Haskins wrote:
->> But really, this is somewhat orthogonal to the original problem, so le=
-t
->> me see if we can bring it back on topic.  Michael stated that this pat=
-ch
->> in question may be problematic because there are places in the stack
->> that can get_page() without also maintaining a reference to the shinfo=
+--8323329-1666960572-1258461522=:7024
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: 8BIT
 
->> object.  Evgeniy seems to say the opposite.  I am not sure who is righ=
-t,
->> or if I misunderstood one or both of them.  Any thoughts?
->=20
-> There are loads of places where this can happen.  Start with
-> pskb_expand_head.
+On Tue, 17 Nov 2009, David Miller wrote:
 
-Indeed, I see your point.  Looks like we can potentially solve that with
-an extra level of indirection.  E.g. skb->shinfo->owner, with a
-ref-count+callback.  Thoughts?
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Tue, 17 Nov 2009 14:18:57 +0200 (EET)
+> 
+> > On Mon, 16 Nov 2009, David Miller wrote:
+> > 
+> >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Date: Mon, 16 Nov 2009 23:26:04 +0100
+> >> 
+> >> > So adding DATA to SYN packets might be problematic for part of our tcp 
+> >> > stack. 
+> >> 
+> >> I can almost guarentee it won't work.  For one thing getting a SACK
+> >> response to a SYN+DATA packet will explode quite nicely for one thing.
+> > 
+> > Now I'm really lost??? How can you get SACKs for that in the first 
+> > place since they are either lost or delivered in unison???
+> 
+> Ideally, you're probably right.
+> 
+> However, it seems to me that the receiver can do whatever it likes
+> with it's receive queue when it's under memory pressure.
+> 
+> It can chop packets up, partially free bits, and then send a SACK
+> block back to you for the parts it tried to free.
+> 
+> If you'll recall, I wanted to put some tough restrictions into what is
+> allowed with SACK so that we could optimize things on the sender side.
+> But there was resistence and therefore we have to keep allowing all
+> kinds of silly situations, the one we're talking about here merely
+> being one of them :-)
 
-Kind Regards,
--Greg
+Right, but we could be just as crazy and just drop such things and keep 
+resending SYN+DATA without any harm?
 
-
-
---------------enig14FCFE4AEA081A13D5F2A978
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksCmCsACgkQP5K2CMvXmqEBHACfZqq+/JO3jy6r51tAidUP8S5E
-pA4AnjnBVnGhT8F4l3nYH9QiG5P6AK0L
-=Pu3Q
------END PGP SIGNATURE-----
-
---------------enig14FCFE4AEA081A13D5F2A978--
+-- 
+ i.
+--8323329-1666960572-1258461522=:7024--
