@@ -1,42 +1,38 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 1/5]net: PPP buffer too small for higher speed
-	connections
-Date: Tue, 17 Nov 2009 12:21:02 -0500
-Message-ID: <20091117172102.GH15159@caffeine.csclub.uwaterloo.ca>
-References: <fb8cc3511cffa.1cffafb8cc351@huawei.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] dev->refcnt long term holder
+Date: Tue, 17 Nov 2009 09:58:46 -0800
+Message-ID: <20091117095846.6ef8b4f6@nehalam>
+References: <4B019381.2010509@gmail.com>
+	<20091116110207.08b60c81@nehalam>
+	<4B01ADF5.8090904@gmail.com>
+	<20091117.003019.196504832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, william.allen.simpson@gmail.com,
-	jarkao2@gmail.com
-To: fangxiaozhi 00110321 <huananhu@huawei.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756090AbZKQRU5@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <fb8cc3511cffa.1cffafb8cc351@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38629 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752637AbZKQR6v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 12:58:51 -0500
+In-Reply-To: <20091117.003019.196504832.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 17, 2009 at 07:59:05PM +0800, fangxiaozhi 00110321 wrote:
-> From: fangxiaozhi <huananhu@huawei.com>
-> 1. This patch is based on the kernel of 2.6.32-rc7 
-> 2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
-> Signed-off-by: fangxiaozhi <huananhu@huawei.com>
-> -----------------------------------------------------------------------------------------
-> --- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
-> +++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
-> @@ -36,7 +36,7 @@
->  
->  #define PPP_VERSION	"2.4.2"
->  
-> -#define OBUFSIZE	256
-> +#define OBUFSIZE	4096
->  
->  /* Structure for storing local state. */
->  struct asyncppp {
+On Tue, 17 Nov 2009 00:30:19 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-I don't know what an HSUPA connection is, so what kind of speed is that?
-I am just wondering if this would affect ppp on other connections that
-are async (in a positive manner that is).
+> I'm trying to remember why we added this asynchronous link state event
+> processing monster.  It probably has something to do with needing a
+> sleepable context.  What's amusing is that linkwatch has repeatably
+> caused RTNL deadlock issues over the years. :-)
+
+I thought it was to handle:
+ 1) carrier on old devices would bounce, so it provides ratelimiting
+    of state changes. Modern hardware and CPU's probably makes this a non-issue.
+ 2) wasn't there some code path with device changes, hotplug, uevent and
+    udev that meant that we couldn't do notifiers immediately.
 
 -- 
-Len Sorensen
