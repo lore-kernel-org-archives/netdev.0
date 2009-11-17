@@ -1,72 +1,103 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
-Date: Wed, 18 Nov 2009 09:50:49 +1100
-Message-ID: <646765f40911171450q421cc4bv4a9a8aec0b278486@mail.gmail.com>
-References: <1258465585.3682.7.camel@johannes.local> <1258490898.21197.42.camel@johannes.local>
-	<646765f40911171442m467efbc8ped7abc9d529ed095@mail.gmail.com>
-	<1258498005.30511.3.camel@johannes.local>
+From: David Woodhouse <david.woodhouse@intel.com>
+Subject: Re: [patch 1/1] drivers/atm/solos-pci.c: fix warning/bug, clean up
+ code
+Date: Tue, 17 Nov 2009 22:55:55 +0000
+Message-ID: <1258498555.6132.71.camel@macbook.infradead.org>
+References: <200911172246.nAHMkiK2004221@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"chas@cmf.nrl.navy.mil" <chas@cmf.nrl.navy.mil>,
+	"nathan@traverse.com.au" <nathan@traverse.com.au>
+To: "akpm@linux-foundation.org" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:34260 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756629AbZKQWvD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 17:51:03 -0500
-In-Reply-To: <1258498005.30511.3.camel@johannes.local>
+Received: from mga03.intel.com ([143.182.124.21]:25241 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756295AbZKQWzw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 17:55:52 -0500
+In-Reply-To: <200911172246.nAHMkiK2004221@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2009 at 09:46, Johannes Berg <johannes@sipsolutions.net=
-> wrote:
-> On Wed, 2009-11-18 at 09:42 +1100, Julian Calaby wrote:
->> On Wed, Nov 18, 2009 at 07:48, Johannes Berg <johannes@sipsolutions.=
-net> wrote:
->> > --- wireless-testing.orig/net/mac80211/iface.c =A02009-11-17 14:20=
-:19.000000000 +0100
->> > +++ wireless-testing/net/mac80211/iface.c =A0 =A0 =A0 2009-11-17 1=
-7:56:08.000000000 +0100
->> > @@ -745,6 +745,11 @@ int ieee80211_if_change_type(struct ieee
->> > =A0 =A0 =A0 =A0if (type =3D=3D sdata->vif.type)
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
->> >
->> > + =A0 =A0 =A0 /* if it's part of a bridge, reject changing type to=
- station/ibss */
->> > + =A0 =A0 =A0 if (sdata->dev->br_port && (type =3D=3D NL80211_IFTY=
-PE_ADHOC ||
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 type =3D=3D NL80211_IFTYPE_STATION))
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EBUSY;
->>
->> Busy doesn't seem like the right error here ... maybe use -EOPNOTSUP=
-P
->> like the next test?
->
-> Not sure, it's a temporary error and you can fix it by removing it fr=
-om
-> the bridge, so it's "busy" in the sense that it is fixed to the curre=
-nt
-> mode or any other bridging mode by being in the bridge ... it's not t=
-hat
-> it doesn't support the mode.
+On Tue, 2009-11-17 at 14:46 -0800, akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> drivers/atm/solos-pci.c: In function 'flash_upgrade':
+> drivers/atm/solos-pci.c:528: warning: 'fw_name' may be used uninitialized in this function
+> 
+> Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+> Cc: Nathan Williams <nathan@traverse.com.au>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Arguably the test following this (ensuring that we don't set ad-hoc
-mode on a non-ad-hoc channel) is equally temporary - i.e. both actions
-require the user to do something before they'll work again.
+Acked-By: David Woodhouse <David.Woodhouse@intel.com>
 
-But then, the test after that - for whether the interface is running -
-returns -EBUSY - and is just as easy to remedy, so........
+> ---
+> 
+>  drivers/atm/solos-pci.c |   29 ++++++++++++++++-------------
+>  1 file changed, 16 insertions(+), 13 deletions(-)
+> 
+> diff -puN drivers/atm/solos-pci.c~drivers-atm-solos-pcic-fix-warning-bug-clean-up-code drivers/atm/solos-pci.c
+> --- a/drivers/atm/solos-pci.c~drivers-atm-solos-pcic-fix-warning-bug-clean-up-code
+> +++ a/drivers/atm/solos-pci.c
+> @@ -531,34 +531,37 @@ static int flash_upgrade(struct solos_ca
+>  	int numblocks = 0;
+>  	int offset;
+>  
+> -	if (chip == 0) {
+> +	switch (chip) {
+> +	case 0:
+>  		fw_name = "solos-FPGA.bin";
+>  		blocksize = FPGA_BLOCK;
+> -	} 
+> -	
+> -	if (chip == 1) {
+> +		break;
+> +	case 1:
+>  		fw_name = "solos-Firmware.bin";
+>  		blocksize = SOLOS_BLOCK;
+> -	}
+> -	
+> -	if (chip == 2){
+> +		break;
+> +	case 2:
+>  		if (card->fpga_version > LEGACY_BUFFERS){
+>  			fw_name = "solos-db-FPGA.bin";
+>  			blocksize = FPGA_BLOCK;
+>  		} else {
+> -			dev_info(&card->dev->dev, "FPGA version doesn't support daughter board upgrades\n");
+> +			dev_info(&card->dev->dev, "FPGA version doesn't support"
+> +					" daughter board upgrades\n");
+>  			return -EPERM;
+>  		}
+> -	}
+> -	
+> -	if (chip == 3){
+> +		break;
+> +	case 3:
+>  		if (card->fpga_version > LEGACY_BUFFERS){
+>  			fw_name = "solos-Firmware.bin";
+>  			blocksize = SOLOS_BLOCK;
+>  		} else {
+> -		dev_info(&card->dev->dev, "FPGA version doesn't support daughter board upgrades\n");
+> -		return -EPERM;
+> +			dev_info(&card->dev->dev, "FPGA version doesn't support"
+> +					" daughter board upgrades\n");
+> +			return -EPERM;
+>  		}
+> +		break;
+> +	default:
+> +		return -ENODEV;
+>  	}
+>  
+>  	if (request_firmware(&fw, fw_name, &card->dev->dev))
+> _
 
-Thanks,
 
---=20
 
-Julian Calaby
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
-Email: julian.calaby@gmail.com
-=2EPlan: http://sites.google.com/site/juliancalaby/
