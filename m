@@ -1,30 +1,39 @@
-From: Benjamin LaHaise <bcrl@lhnet.ca>
-Subject: Re: [PATCH 2/2] ipv4: factorize cache clearing for batched unregister operations
-Date: Mon, 16 Nov 2009 19:22:38 -0500
-Message-ID: <20091117002238.GH12422@kvack.org>
-References: <200911170149.50011.opurdila@ixiacom.com> <20091116160646.39c0a1ac@nehalam>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH] net: add dataref destructor to sk_buff
+Date: Tue, 17 Nov 2009 09:02:38 +0800
+Message-ID: <20091117010238.GA10029@gondor.apana.org.au>
+References: <4AF98A8C.9040201@novell.com> <20091114011229.GA18580@gondor.apana.org.au> <4AFE08EF.2030308@gmail.com> <20091113.190438.78469912.davem@davemloft.net> <4B016041.5030000@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, ghaskins@novell.com,
+	mst@redhat.com, alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gregory Haskins <gregory.haskins@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:41382 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755215AbZKQAWd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Nov 2009 19:22:33 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:43064 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755393AbZKQBCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Nov 2009 20:02:42 -0500
 Content-Disposition: inline
-In-Reply-To: <20091116160646.39c0a1ac@nehalam>
+In-Reply-To: <4B016041.5030000@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 16, 2009 at 04:06:46PM -0800, Stephen Hemminger wrote:
-> And what about IPV6?
+On Mon, Nov 16, 2009 at 09:22:57AM -0500, Gregory Haskins wrote:
+> 
+> But really, this is somewhat orthogonal to the original problem, so let
+> me see if we can bring it back on topic.  Michael stated that this patch
+> in question may be problematic because there are places in the stack
+> that can get_page() without also maintaining a reference to the shinfo
+> object.  Evgeniy seems to say the opposite.  I am not sure who is right,
+> or if I misunderstood one or both of them.  Any thoughts?
 
-It's not possible to create more than a few thousand IPv6 interfaces in 
-my tests with a 4GB vm.  The culprit seems to be the per-cpu arrays for 
-statistics using vmalloc() and wasting gobs of memory as a result (memory 
-usage seems to be 10x per interface vs what IPv4 is using), but I haven't 
-dug too deeply yet.
+There are loads of places where this can happen.  Start with
+pskb_expand_head.
 
-		-ben
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
