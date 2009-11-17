@@ -1,52 +1,55 @@
-From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
-Date: Wed, 18 Nov 2009 09:42:38 +1100
-Message-ID: <646765f40911171442m467efbc8ped7abc9d529ed095@mail.gmail.com>
-References: <1258465585.3682.7.camel@johannes.local> <1258490898.21197.42.camel@johannes.local>
+Date: Tue, 17 Nov 2009 14:42:39 -0800
+Message-ID: <20091117144239.47930866@nehalam>
+References: <1258465585.3682.7.camel@johannes.local>
+	<1258490898.21197.42.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1258490898.21197.42.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51549 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755857AbZKQWmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 17:42:54 -0500
+In-Reply-To: <1258490898.21197.42.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 18, 2009 at 07:48, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org=
-> wrote:
-> --- wireless-testing.orig/net/mac80211/iface.c =A02009-11-17 14:20:19=
-=2E000000000 +0100
-> +++ wireless-testing/net/mac80211/iface.c =A0 =A0 =A0 2009-11-17 17:5=
-6:08.000000000 +0100
-> @@ -745,6 +745,11 @@ int ieee80211_if_change_type(struct ieee
-> =A0 =A0 =A0 =A0if (type =3D=3D sdata->vif.type)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
->
-> + =A0 =A0 =A0 /* if it's part of a bridge, reject changing type to st=
-ation/ibss */
-> + =A0 =A0 =A0 if (sdata->dev->br_port && (type =3D=3D NL80211_IFTYPE_=
-ADHOC ||
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- type =3D=3D NL80211_IFTYPE_STATION))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EBUSY;
+On Tue, 17 Nov 2009 21:48:18 +0100
+Johannes Berg <johannes@sipsolutions.net> wrote:
 
-Busy doesn't seem like the right error here ... maybe use -EOPNOTSUPP
-like the next test?
+> A number of people have tried to add a wireless interface
+> (in managed mode) to a bridge and then complained that it
+> doesn't work. It cannot work, however, because in 802.11
+> networks all packets need to be acknowledged and as such
+> need to be sent to the right address. Promiscuous doesn't
+> help here. The wireless address format used for these
+> links has only space for three addresses, the
+>  * transmitter, which must be equal to the sender (origin)
+>  * receiver (on the wireless medium), which is the AP in
+>    the case of managed mode
+>  * the recipient (destination), which is on the APs local
+>    network segment
+> 
+> In an IBSS, it is similar, but the receiver and recipient
+> must match and the third address is used as the BSSID.
+> 
+> To avoid such mistakes in the future, disallow adding a
+> wireless interface to a bridge.
+> 
+> Felix has recently added a four-address mode to the AP
+> and client side that can be used (after negotiating that
+> it is possible, which must happen out-of-band by setting
+> up both sides) for bridging, so allow that case.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Thanks,
+Looks good, maybe true four-address mode support will be available
+more widely, and this will no longer be an issue.
 
---=20
-
-Julian Calaby
-
-Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-=2EPlan: http://sites.google.com/site/juliancalaby/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
