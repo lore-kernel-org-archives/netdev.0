@@ -1,48 +1,58 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] ethtool: Add PHY type to ethtool
- get_drvinfo
-Date: Tue, 17 Nov 2009 11:56:57 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0911171156090.15476@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20091117161309.11341.9165.stgit@localhost.localdomain>
- <20091117090719.7d83492a@nehalam>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/5]net: PPP buffer too small for higher speed
+ connections
+Date: Tue, 17 Nov 2009 12:35:42 -0800
+Message-ID: <1258490142.4447.19.camel@localhost.localdomain>
+References: <fb8cc3511cffa.1cffafb8cc351@huawei.com>
+	 <20091117172102.GH15159@caffeine.csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63482 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755583AbZKQT4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 14:56:49 -0500
-In-Reply-To: <20091117090719.7d83492a@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: fangxiaozhi 00110321 <huananhu@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	william.allen.simpson@gmail.com, jarkao2@gmail.com
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752566AbZKQUfu@vger.kernel.org>
+In-Reply-To: <20091117172102.GH15159@caffeine.csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Nov 2009, Stephen Hemminger wrote:
-
-> On Tue, 17 Nov 2009 08:13:24 -0800
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+On Tue, 2009-11-17 at 12:21 -0500, Lennart Sorensen wrote:
+> On Tue, Nov 17, 2009 at 07:59:05PM +0800, fangxiaozhi 00110321 wrote:
+> > From: fangxiaozhi <huananhu@huawei.com>
+> > 1. This patch is based on the kernel of 2.6.32-rc7 
+> > 2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+> > Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+> > -----------------------------------------------------------------------------------------
+> > --- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
+> > +++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
+> > @@ -36,7 +36,7 @@
+> >  
+> >  #define PPP_VERSION	"2.4.2"
+> >  
+> > -#define OBUFSIZE	256
+> > +#define OBUFSIZE	4096
+> >  
+> >  /* Structure for storing local state. */
+> >  struct asyncppp {
 > 
-> > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> > 
-> > Allow the PHY type to be passed from a driver to ethtool when
-> > ethtool -i ethX is called.  With newer network cards having SFP
-> > and SFP+ PHY cages, this information can be useful, especially
-> > if the NIC supports hot-swapping of the PHY modules.
-> > 
-> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
+> I don't know what an HSUPA connection is, so what kind of speed is that?
+
+(Google and Wikipedia know everything and are only a click away...)
+
+High-Speed Uplink Packet Access is a enhancement for around 5.7Mbps
+uplinks on mobile broadband networks based on GSM/UMTS standards.
+
+In the end, what all the mobile manufacturers like Huawei should already
+be doing is converting their devices to use an AT-based control port and
+a netdev-based data port like Option (hso) and Ericsson (cdc-acm and
+cdc-ether) already have.  Then we don't need to do the useless PPP
+session between the host and the card.  With GSM/UMTS/HSPA, PPP never
+goes over the air, it's purely between the card and the host.  And thus
+is pointless and a netdev-type architecture would work a lot better.
+
+Dan
+
+> I am just wondering if this would affect ppp on other connections that
+> are async (in a positive manner that is).
 > 
-> Maybe revive usage of connector port in ethtool rather than adding new API?
-> It is already there but values are out of date with current hardware.
-
-You're referring to the MODE_GSET port settings?  If so, I like this 
-approach, and will update my patches accordingly.
-
-Thanks Stephen,
--PJ
