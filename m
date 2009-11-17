@@ -1,63 +1,128 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Shared i2c adapter locking
-Date: Tue, 17 Nov 2009 13:32:54 +0000
-Message-ID: <1258464774.2732.6.camel@achroite.uk.solarflarecom.com>
-References: <20091105150715.692b5200@hyperion.delvare>
-	 <20091117193313.b750804e.sfr@canb.auug.org.au>
-	 <20091117103554.03971b2f@hyperion.delvare>
-	 <20091117.035147.80164577.davem@davemloft.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [RFC] mac80211: disallow bridging managed/adhoc interfaces
+Date: Tue, 17 Nov 2009 14:46:25 +0100
+Message-ID: <1258465585.3682.7.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: khali@linux-fr.org, sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mika.kuoppala@nokia.com, linux-i2c@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752693AbZKQNc6@vger.kernel.org>
-In-Reply-To: <20091117.035147.80164577.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-11-17 at 03:51 -0800, David Miller wrote:
-> From: Jean Delvare <khali@linux-fr.org>
-> Date: Tue, 17 Nov 2009 10:35:54 +0100
->=20
-> > If you did and something is still not clear, please let me know. My
-> > understanding is that the action token is in David's hands now.
->=20
-> So what exactly do I need to do?
->=20
-> All I see that needs to happen is to pull from Linus's tree into
-> net-2.6
->=20
-> But frankly I don't see how that helps resolve anything in linux-next
-> since Stephen starts with Linus's tree then pulls in everyone's work.
->=20
-> Or is that pull necessary so that some other patch can be applied
-> to net-2.6 or similar?
+A number of people have tried to add a wireless interface
+(in managed mode) to a bridge and then complained that it
+doesn't work. It cannot work, however, because in 802.11
+networks all packets need to be acknowledged and as such
+need to be sent to the right address. Promiscuous doesn't
+help here. The wireless address format used for these
+links has only space for three addresses, the
+ * transmitter, which must be equal to the sender (origin)
+ * receiver (on the wireless medium), which is the AP in
+   the case of managed mode
+ * the recipient (destination), which is on the APs local
+   network segment
 
-There is now a conflict between this in Linus's tree:
+In an IBSS, it is similar, but the receiver and recipient
+must match and the third address is used as the BSSID.
 
-commit afa08974fe80c198b8650f73ed8ab59135ca10d0
-Author: Jean Delvare <khali@linux-fr.org>
-Date:   Sat Nov 7 13:10:46 2009 +0100
+To avoid such mistakes in the future, disallow adding a
+wireless interface to a bridge.
 
-    i2c: Add an interface to lock/unlock an I2C bus segment
+Felix has recently added a four-address mode to the AP
+and client side that can be used (after negotiating that
+it is possible, which must happen out-of-band by setting
+up both sides) for bridging, so allow that case.
 
-and =EF=BB=BFthis in net-next-2.6:
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+---
+ include/linux/if.h   |    1 +
+ net/bridge/br_if.c   |    4 ++++
+ net/mac80211/cfg.c   |    9 ++++++++-
+ net/mac80211/iface.c |   17 +++++++++++++++--
+ 4 files changed, 28 insertions(+), 3 deletions(-)
 
-commit c9597d4f89565b6562bd3026adbe6eac6c317f47
-Author: Ben Hutchings <bhutchings@solarflare.com>
-Date:   Fri Oct 23 08:29:33 2009 +0000
+--- wireless-testing.orig/include/linux/if.h	2009-11-17 14:18:36.000000000 +0100
++++ wireless-testing/include/linux/if.h	2009-11-17 14:19:04.000000000 +0100
+@@ -70,6 +70,7 @@
+ #define IFF_XMIT_DST_RELEASE 0x400	/* dev_hard_start_xmit() is allowed to
+ 					 * release skb->dst
+ 					 */
++#define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+--- wireless-testing.orig/net/bridge/br_if.c	2009-11-17 14:19:17.000000000 +0100
++++ wireless-testing/net/bridge/br_if.c	2009-11-17 14:20:03.000000000 +0100
+@@ -390,6 +390,10 @@ int br_add_if(struct net_bridge *br, str
+ 	if (dev->br_port != NULL)
+ 		return -EBUSY;
+ 
++	/* No bridging devices that dislike that (e.g. wireless) */
++	if (dev->priv_flags & IFF_DONT_BRIDGE)
++		return -EINVAL;
++
+ 	p = new_nbp(br, dev);
+ 	if (IS_ERR(p))
+ 		return PTR_ERR(p);
+--- wireless-testing.orig/net/mac80211/cfg.c	2009-11-17 14:21:24.000000000 +0100
++++ wireless-testing/net/mac80211/cfg.c	2009-11-17 14:37:13.000000000 +0100
+@@ -106,8 +106,15 @@ static int ieee80211_change_iface(struct
+ 					    params->mesh_id_len,
+ 					    params->mesh_id);
+ 
+-	if (params->use_4addr >= 0)
++	if (params->use_4addr >= 0) {
+ 		sdata->use_4addr = !!params->use_4addr;
++		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
++
++		if ((sdata->vif.type == NL80211_IFTYPE_STATION ||
++		     sdata->vif.type == NL80211_IFTYPE_ADHOC) &&
++		    !sdata->use_4addr)
++			sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
++	}
+ 
+ 	if (sdata->vif.type != NL80211_IFTYPE_MONITOR || !flags)
+ 		return 0;
+--- wireless-testing.orig/net/mac80211/iface.c	2009-11-17 14:20:19.000000000 +0100
++++ wireless-testing/net/mac80211/iface.c	2009-11-17 14:33:25.000000000 +0100
+@@ -769,6 +769,11 @@ int ieee80211_if_change_type(struct ieee
+ 			sdata->local->hw.conf.channel->band);
+ 	sdata->drop_unencrypted = 0;
+ 	sdata->use_4addr = 0;
++	if (sdata->vif.type == NL80211_IFTYPE_STATION ||
++	    sdata->vif.type == NL80211_IFTYPE_ADHOC)
++		sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
++	else
++		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
+ 
+ 	return 0;
+ }
+@@ -843,8 +848,16 @@ int ieee80211_if_add(struct ieee80211_lo
+ 					    params->mesh_id_len,
+ 					    params->mesh_id);
+ 
+-	if (params && params->use_4addr >= 0)
+-		sdata->use_4addr = !!params->use_4addr;
++	if (sdata->vif.type == NL80211_IFTYPE_STATION ||
++	    sdata->vif.type == NL80211_IFTYPE_ADHOC)
++		sdata->dev->priv_flags |= IFF_DONT_BRIDGE;
++	else
++		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
++
++	if (params && params->use_4addr > 0) {
++		sdata->use_4addr = true;
++		sdata->dev->priv_flags &= ~IFF_DONT_BRIDGE;
++	}
+ 
+ 	mutex_lock(&local->iflist_mtx);
+ 	list_add_tail_rcu(&sdata->list, &local->interfaces);
 
-    sfc: Merge sfe4001.c into falcon_boards.c
 
-You will need to merge Linus's tree into net-next-2.6 and resolve the
-conflict by applying Jean's changes to drivers/net/sfc/falcon_boards.c.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
