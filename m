@@ -1,199 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] macvlan: Precise RX stats accounting
-Date: Tue, 17 Nov 2009 19:53:49 +0100
-Message-ID: <4B02F13D.1060903@gmail.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] net/can: add driver for mscan family & mpc52xx_mscan
+Date: Tue, 17 Nov 2009 20:17:55 +0100
+Message-ID: <4B02F6E3.6000503@grandegger.com>
+References: <1258128892-28800-1-git-send-email-w.sang@pengutronix.de>	<fa686aa40911130939x54ac53f9x173a875a5a4435d3@mail.gmail.com>	<20091116184416.GA21491@pengutronix.de>
+	<4B02EABA.3060905@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48016 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754307AbZKQSxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 13:53:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B02EABA.3060905-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David, here is the macvlan part as well, it also depends on 
-dev_txq_stats_fold() being added first.
+Wolfgang Grandegger wrote:
+> Wolfram Sang wrote:
+>> Hi Grant,
+>>
+>> Wolfgang commented on some points already, I will pick up the other remarks,
+>> just one question:
+>>
+>>>> +       clk_src = of_get_property(np, "fsl,mscan-clk-src", NULL);
+>>>> +       if (clk_src && strcmp(clk_src, "ip") == 0)
+>>> Should protect against non-null.  strncmp() maybe?
+>> "ip" is null-terminated, or what do you mean?
+> 
+> Imagine somebody defines:
+> 
+>   fsl,mscan-clk-src = <0xbaeee>;
 
-Thanks
+Forget my comment. I will not harm in the above case. I was just worried
+about non-null-teminated strings.
 
-[PATCH net-next-2.6] macvlan: Precise RX stats accounting
-
-With multi queue devices, its possible that several cpus call
-macvlan RX routines simultaneously for the same macvlan device.
-
-We update RX stats counter without any locking, so we can
-get slightly wrong counters.
-
-One possible fix is to use percpu counters, to get precise
-accounting and also get guarantee of no cache line ping pongs
-between cpus.
-
-Note: this adds 16 bytes (32 bytes on 64bit arches) of percpu
-data per macvlan device.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/macvlan.c |   76 ++++++++++++++++++++++++++++++++++------
- 1 files changed, 66 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 271aa7e..f2389a2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -38,12 +38,27 @@ struct macvlan_port {
- 	struct list_head	vlans;
- };
- 
-+/**
-+ *	struct macvlan_rx_stats - MACVLAN percpu rx stats
-+ *	@rx_packets: number of received packets
-+ *	@rx_bytes: number of received bytes
-+ *	@multicast: number of received multicast packets
-+ *	@rx_errors: number of errors
-+ */
-+struct macvlan_rx_stats {
-+	unsigned long rx_packets;
-+	unsigned long rx_bytes;
-+	unsigned long multicast;
-+	unsigned long rx_errors;
-+};
-+
- struct macvlan_dev {
- 	struct net_device	*dev;
- 	struct list_head	list;
- 	struct hlist_node	hlist;
- 	struct macvlan_port	*port;
- 	struct net_device	*lowerdev;
-+	struct macvlan_rx_stats *rx_stats;
- };
- 
- 
-@@ -110,6 +125,7 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 	struct net_device *dev;
- 	struct sk_buff *nskb;
- 	unsigned int i;
-+	struct macvlan_rx_stats *rx_stats;
- 
- 	if (skb->protocol == htons(ETH_P_PAUSE))
- 		return;
-@@ -117,17 +133,17 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
- 		hlist_for_each_entry_rcu(vlan, n, &port->vlan_hash[i], hlist) {
- 			dev = vlan->dev;
-+			rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
- 
- 			nskb = skb_clone(skb, GFP_ATOMIC);
- 			if (nskb == NULL) {
--				dev->stats.rx_errors++;
--				dev->stats.rx_dropped++;
-+				rx_stats->rx_errors++;
- 				continue;
- 			}
- 
--			dev->stats.rx_bytes += skb->len + ETH_HLEN;
--			dev->stats.rx_packets++;
--			dev->stats.multicast++;
-+			rx_stats->rx_bytes += skb->len + ETH_HLEN;
-+			rx_stats->rx_packets++;
-+			rx_stats->multicast++;
- 
- 			nskb->dev = dev;
- 			if (!compare_ether_addr_64bits(eth->h_dest, dev->broadcast))
-@@ -147,6 +163,7 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
- 	const struct macvlan_port *port;
- 	const struct macvlan_dev *vlan;
- 	struct net_device *dev;
-+	struct macvlan_rx_stats *rx_stats;
- 
- 	port = rcu_dereference(skb->dev->macvlan_port);
- 	if (port == NULL)
-@@ -166,16 +183,15 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
- 		kfree_skb(skb);
- 		return NULL;
- 	}
--
-+	rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (skb == NULL) {
--		dev->stats.rx_errors++;
--		dev->stats.rx_dropped++;
-+		rx_stats->rx_errors++;
- 		return NULL;
- 	}
- 
--	dev->stats.rx_bytes += skb->len + ETH_HLEN;
--	dev->stats.rx_packets++;
-+	rx_stats->rx_bytes += skb->len + ETH_HLEN;
-+	rx_stats->rx_packets++;
- 
- 	skb->dev = dev;
- 	skb->pkt_type = PACKET_HOST;
-@@ -365,9 +381,47 @@ static int macvlan_init(struct net_device *dev)
- 
- 	macvlan_set_lockdep_class(dev);
- 
-+	vlan->rx_stats = alloc_percpu(struct macvlan_rx_stats);
-+	if (!vlan->rx_stats)
-+		return -ENOMEM;
-+
- 	return 0;
- }
- 
-+static void macvlan_uninit(struct net_device *dev)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	free_percpu(vlan->rx_stats);
-+}
-+
-+static struct net_device_stats *macvlan_dev_get_stats(struct net_device *dev)
-+{
-+	struct net_device_stats *stats = &dev->stats;
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	dev_txq_stats_fold(dev, stats);
-+
-+	if (vlan->rx_stats) {
-+		struct macvlan_rx_stats *p, rx = {0};
-+		int i;
-+
-+		for_each_possible_cpu(i) {
-+			p = per_cpu_ptr(vlan->rx_stats, i);
-+			rx.rx_packets += p->rx_packets;
-+			rx.rx_bytes   += p->rx_bytes;
-+			rx.rx_errors  += p->rx_errors;
-+			rx.multicast  += p->multicast;
-+		}
-+		stats->rx_packets = rx.rx_packets;
-+		stats->rx_bytes   = rx.rx_bytes;
-+		stats->rx_errors  = rx.rx_errors;
-+		stats->rx_dropped = rx.rx_errors;
-+		stats->multicast  = rx.multicast;
-+	}
-+	return stats;
-+}
-+
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -404,6 +458,7 @@ static const struct ethtool_ops macvlan_ethtool_ops = {
- 
- static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_init		= macvlan_init,
-+	.ndo_uninit		= macvlan_uninit,
- 	.ndo_open		= macvlan_open,
- 	.ndo_stop		= macvlan_stop,
- 	.ndo_start_xmit		= macvlan_start_xmit,
-@@ -411,6 +466,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_change_rx_flags	= macvlan_change_rx_flags,
- 	.ndo_set_mac_address	= macvlan_set_mac_address,
- 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
-+	.ndo_get_stats		= macvlan_dev_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
+Wolfgang.
