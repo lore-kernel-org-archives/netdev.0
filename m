@@ -1,94 +1,47 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 2/2] act_mirred: optimization
-Date: Tue, 17 Nov 2009 13:49:00 +0800
-Message-ID: <412e6f7f0911162149q1eedf18vfbf980fc690629f5@mail.gmail.com>
-References: <412e6f7f0911160505x10da9a92j694669db9d030da1@mail.gmail.com>
-	 <20091116.051722.255835290.davem@davemloft.net>
-	 <412e6f7f0911160522w34895b0eked14f69ccc62c96b@mail.gmail.com>
-	 <20091116.053329.215126585.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ifb: add multi-queue support
+Date: Mon, 16 Nov 2009 22:02:47 -0800
+Message-ID: <20091116220247.564fb0b6@nehalam>
+References: <4AFBD911.6000900@gmail.com>
+	<4AFCE273.7010901@gmail.com>
+	<20091116083905.634b8f56@nehalam>
+	<20091116.191054.131722163.davem@davemloft.net>
+	<412e6f7f0911162138k6537afd1l5f8eeeaa6c636289@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001636e1f73dd870b504788aae0a
-Cc: hadi@cyberus.ca, shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:48391 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbZKQFsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 00:48:55 -0500
-Received: by pzk1 with SMTP id 1so3339066pzk.33
-        for <netdev@vger.kernel.org>; Mon, 16 Nov 2009 21:49:01 -0800 (PST)
-In-Reply-To: <20091116.053329.215126585.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:38178 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753227AbZKQGC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 01:02:57 -0500
+In-Reply-To: <412e6f7f0911162138k6537afd1l5f8eeeaa6c636289@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001636e1f73dd870b504788aae0a
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, 17 Nov 2009 13:38:29 +0800
+Changli Gao <xiaosuo@gmail.com> wrote:
 
-On Mon, Nov 16, 2009 at 9:33 PM, David Miller <davem@davemloft.net> wrote:
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Mon, 16 Nov 2009 21:22:46 +0800
->
->> I am working against linux-next. I'll check if there is any
->> difference. BTW: were these patches applied in order, 1 - 2?
->
-> Yes, they were.
->
+> On Tue, Nov 17, 2009 at 11:10 AM, David Miller <davem@davemloft.net> wrote:
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > Date: Mon, 16 Nov 2009 08:39:05 -0800
+> >
+> >> My $.02 is that receive packet steering RPS should be done generically at
+> >> receive layer. Then all the CPU, mapping and configuration issues can be
+> >> done once, not just for IFB, Bridge, VLAN, ... The number of users of IFB
+> >> is small, and setup is complex. Steering packets in IFB is optimizing only
+> >> a rarely used corner.
+> >>
+> >> Layered link services like IFB need to be multi-threaded lockless to maintain
+> >> the advantages of multi-queue and RPS.
+> >
+> > You're probably right.
+> >
+> 
+> So I have to wait RPS, and after it gets merged, I'll back with
+> multi-threaded lockless IFB.
 
-Patch is resubmitted as attachment.
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
-
---001636e1f73dd870b504788aae0a
-Content-Type: application/octet-stream; name="act_mirred_opt.diff"
-Content-Disposition: attachment; filename="act_mirred_opt.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g248ug5h0
-
-LS0tIGEvbmV0L3NjaGVkL2FjdF9taXJyZWQuYwkyMDA5LTExLTE2IDE2OjIxOjIxLjAwMDAwMDAw
-MCArMDgwMAorKysgYi9uZXQvc2NoZWQvYWN0X21pcnJlZC5jCTIwMDktMTEtMTYgMTc6NDM6Mzcu
-MDAwMDAwMDAwICswODAwCkBAIC02NSw0OCArNjUsNTMgQEAKIAlzdHJ1Y3QgdGNfbWlycmVkICpw
-YXJtOwogCXN0cnVjdCB0Y2ZfbWlycmVkICptOwogCXN0cnVjdCB0Y2ZfY29tbW9uICpwYzsKLQlz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gTlVMTDsKLQlpbnQgcmV0ID0gMCwgZXJyOwotCWludCBv
-a19wdXNoID0gMDsKKwlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2OworCWludCByZXQsIG9rX3B1c2gg
-PSAwOwogCiAJaWYgKG5sYSA9PSBOVUxMKQogCQlyZXR1cm4gLUVJTlZBTDsKLQotCWVyciA9IG5s
-YV9wYXJzZV9uZXN0ZWQodGIsIFRDQV9NSVJSRURfTUFYLCBubGEsIG1pcnJlZF9wb2xpY3kpOwot
-CWlmIChlcnIgPCAwKQotCQlyZXR1cm4gZXJyOwotCisJcmV0ID0gbmxhX3BhcnNlX25lc3RlZCh0
-YiwgVENBX01JUlJFRF9NQVgsIG5sYSwgbWlycmVkX3BvbGljeSk7CisJaWYgKHJldCA8IDApCisJ
-CXJldHVybiByZXQ7CiAJaWYgKHRiW1RDQV9NSVJSRURfUEFSTVNdID09IE5VTEwpCiAJCXJldHVy
-biAtRUlOVkFMOwogCXBhcm0gPSBubGFfZGF0YSh0YltUQ0FfTUlSUkVEX1BBUk1TXSk7Ci0KKwlz
-d2l0Y2ggKHBhcm0tPmVhY3Rpb24pIHsKKwljYXNlIFRDQV9FR1JFU1NfTUlSUk9SOgorCWNhc2Ug
-VENBX0VHUkVTU19SRURJUjoKKwkJYnJlYWs7CisJZGVmYXVsdDoKKwkJcmV0dXJuIC1FSU5WQUw7
-CisJfQogCWlmIChwYXJtLT5pZmluZGV4KSB7CiAJCWRldiA9IF9fZGV2X2dldF9ieV9pbmRleCgm
-aW5pdF9uZXQsIHBhcm0tPmlmaW5kZXgpOwogCQlpZiAoZGV2ID09IE5VTEwpCiAJCQlyZXR1cm4g
-LUVOT0RFVjsKIAkJc3dpdGNoIChkZXYtPnR5cGUpIHsKLQkJCWNhc2UgQVJQSFJEX1RVTk5FTDoK
-LQkJCWNhc2UgQVJQSFJEX1RVTk5FTDY6Ci0JCQljYXNlIEFSUEhSRF9TSVQ6Ci0JCQljYXNlIEFS
-UEhSRF9JUEdSRToKLQkJCWNhc2UgQVJQSFJEX1ZPSUQ6Ci0JCQljYXNlIEFSUEhSRF9OT05FOgot
-CQkJCW9rX3B1c2ggPSAwOwotCQkJCWJyZWFrOwotCQkJZGVmYXVsdDoKLQkJCQlva19wdXNoID0g
-MTsKLQkJCQlicmVhazsKKwkJY2FzZSBBUlBIUkRfVFVOTkVMOgorCQljYXNlIEFSUEhSRF9UVU5O
-RUw2OgorCQljYXNlIEFSUEhSRF9TSVQ6CisJCWNhc2UgQVJQSFJEX0lQR1JFOgorCQljYXNlIEFS
-UEhSRF9WT0lEOgorCQljYXNlIEFSUEhSRF9OT05FOgorCQkJb2tfcHVzaCA9IDA7CisJCQlicmVh
-azsKKwkJZGVmYXVsdDoKKwkJCW9rX3B1c2ggPSAxOworCQkJYnJlYWs7CiAJCX0KKwl9IGVsc2Ug
-eworCQlkZXYgPSBOVUxMOwogCX0KIAogCXBjID0gdGNmX2hhc2hfY2hlY2socGFybS0+aW5kZXgs
-IGEsIGJpbmQsICZtaXJyZWRfaGFzaF9pbmZvKTsKIAlpZiAoIXBjKSB7Ci0JCWlmICghcGFybS0+
-aWZpbmRleCkKKwkJaWYgKGRldiA9PSBOVUxMKQogCQkJcmV0dXJuIC1FSU5WQUw7CiAJCXBjID0g
-dGNmX2hhc2hfY3JlYXRlKHBhcm0tPmluZGV4LCBlc3QsIGEsIHNpemVvZigqbSksIGJpbmQsCiAJ
-CQkJICAgICAmbWlycmVkX2lkeF9nZW4sICZtaXJyZWRfaGFzaF9pbmZvKTsKIAkJaWYgKElTX0VS
-UihwYykpCi0JCSAgICByZXR1cm4gUFRSX0VSUihwYyk7CisJCQlyZXR1cm4gUFRSX0VSUihwYyk7
-CiAJCXJldCA9IEFDVF9QX0NSRUFURUQ7CiAJfSBlbHNlIHsKIAkJaWYgKCFvdnIpIHsKQEAgLTEx
-OSwxMiArMTI0LDEyIEBACiAJc3Bpbl9sb2NrX2JoKCZtLT50Y2ZfbG9jayk7CiAJbS0+dGNmX2Fj
-dGlvbiA9IHBhcm0tPmFjdGlvbjsKIAltLT50Y2ZtX2VhY3Rpb24gPSBwYXJtLT5lYWN0aW9uOwot
-CWlmIChwYXJtLT5pZmluZGV4KSB7CisJaWYgKGRldiAhPSBOVUxMKSB7CiAJCW0tPnRjZm1faWZp
-bmRleCA9IHBhcm0tPmlmaW5kZXg7CiAJCWlmIChyZXQgIT0gQUNUX1BfQ1JFQVRFRCkKIAkJCWRl
-dl9wdXQobS0+dGNmbV9kZXYpOwotCQltLT50Y2ZtX2RldiA9IGRldjsKIAkJZGV2X2hvbGQoZGV2
-KTsKKwkJbS0+dGNmbV9kZXYgPSBkZXY7CiAJCW0tPnRjZm1fb2tfcHVzaCA9IG9rX3B1c2g7CiAJ
-fQogCXNwaW5fdW5sb2NrX2JoKCZtLT50Y2ZfbG9jayk7CkBAIC0xNTQsMTMgKzE1OSw2IEBACiAK
-IAlzcGluX2xvY2soJm0tPnRjZl9sb2NrKTsKIAltLT50Y2ZfdG0ubGFzdHVzZSA9IGppZmZpZXM7
-Ci0JaWYgKG0tPnRjZm1fZWFjdGlvbiAhPSBUQ0FfRUdSRVNTX01JUlJPUiAmJgotCSAgICBtLT50
-Y2ZtX2VhY3Rpb24gIT0gVENBX0VHUkVTU19SRURJUikgewotCQlpZiAobmV0X3JhdGVsaW1pdCgp
-KQotCQkJcHJpbnRrKCJ0Y2ZfbWlycmVkIHVua25vd24gYWN0aW9uICVkXG4iLAotCQkJICAgICAg
-IG0tPnRjZm1fZWFjdGlvbik7Ci0JCWdvdG8gb3V0OwotCX0KIAogCWRldiA9IG0tPnRjZm1fZGV2
-OwogCWlmICghKGRldi0+ZmxhZ3MgJiBJRkZfVVApKSB7Cg==
---001636e1f73dd870b504788aae0a--
+Please don't wait... Help, test it make sure it works.
