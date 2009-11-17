@@ -1,61 +1,72 @@
-From: akpm@linux-foundation.org
-Subject: [patch for 2.6.32? 2/2] hso: fix soft-lockup
-Date: Tue, 17 Nov 2009 14:50:32 -0800
-Message-ID: <200911172250.nAHMoW1k013162@imap1.linux-foundation.org>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
+Date: Wed, 18 Nov 2009 09:50:49 +1100
+Message-ID: <646765f40911171450q421cc4bv4a9a8aec0b278486@mail.gmail.com>
+References: <1258465585.3682.7.camel@johannes.local> <1258490898.21197.42.camel@johannes.local>
+	<646765f40911171442m467efbc8ped7abc9d529ed095@mail.gmail.com>
+	<1258498005.30511.3.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	antti.kaijanmaki@nomovok.com, greg@kroah.com,
-	randy.dunlap@oracle.com, stable@kernel.org
-To: davem@davemloft.net
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50125 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756601AbZKQWvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 17:51:32 -0500
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:34260 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756629AbZKQWvD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 17:51:03 -0500
+In-Reply-To: <1258498005.30511.3.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Antti Kaijanm=E4ki <antti.kaijanmaki@nomovok.com>
+On Wed, Nov 18, 2009 at 09:46, Johannes Berg <johannes@sipsolutions.net=
+> wrote:
+> On Wed, 2009-11-18 at 09:42 +1100, Julian Calaby wrote:
+>> On Wed, Nov 18, 2009 at 07:48, Johannes Berg <johannes@sipsolutions.=
+net> wrote:
+>> > --- wireless-testing.orig/net/mac80211/iface.c =A02009-11-17 14:20=
+:19.000000000 +0100
+>> > +++ wireless-testing/net/mac80211/iface.c =A0 =A0 =A0 2009-11-17 1=
+7:56:08.000000000 +0100
+>> > @@ -745,6 +745,11 @@ int ieee80211_if_change_type(struct ieee
+>> > =A0 =A0 =A0 =A0if (type =3D=3D sdata->vif.type)
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
+>> >
+>> > + =A0 =A0 =A0 /* if it's part of a bridge, reject changing type to=
+ station/ibss */
+>> > + =A0 =A0 =A0 if (sdata->dev->br_port && (type =3D=3D NL80211_IFTY=
+PE_ADHOC ||
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 type =3D=3D NL80211_IFTYPE_STATION))
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EBUSY;
+>>
+>> Busy doesn't seem like the right error here ... maybe use -EOPNOTSUP=
+P
+>> like the next test?
+>
+> Not sure, it's a temporary error and you can fix it by removing it fr=
+om
+> the bridge, so it's "busy" in the sense that it is fixed to the curre=
+nt
+> mode or any other bridging mode by being in the bridge ... it's not t=
+hat
+> it doesn't support the mode.
 
-=46ix soft-lockup in hso.c which is triggered on SMP machine when
-modem is removed while file descriptor(s) under /dev are still open:
+Arguably the test following this (ensuring that we don't set ad-hoc
+mode on a non-ad-hoc channel) is equally temporary - i.e. both actions
+require the user to do something before they'll work again.
 
-  old version called kref_put() too early which resulted in destroying
-  hso_serial and hso_device objects which were still used later on.
+But then, the test after that - for whether the interface is running -
+returns -EBUSY - and is just as easy to remedy, so........
 
-Signed-off-by: Antti Kaijanm=E4ki <antti.kaijanmaki@nomovok.com>
-Cc: Greg KH <greg@kroah.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: <stable@kernel.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+Thanks,
 
- drivers/net/usb/hso.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+--=20
 
-diff -puN drivers/net/usb/hso.c~hso-fix-soft-lockup drivers/net/usb/hso=
-=2Ec
---- a/drivers/net/usb/hso.c~hso-fix-soft-lockup
-+++ a/drivers/net/usb/hso.c
-@@ -1363,7 +1363,7 @@ static void hso_serial_close(struct tty_
- 	/* reset the rts and dtr */
- 	/* do the actual close */
- 	serial->open_count--;
--	kref_put(&serial->parent->ref, hso_serial_ref_free);
-+
- 	if (serial->open_count <=3D 0) {
- 		serial->open_count =3D 0;
- 		spin_lock_irq(&serial->serial_lock);
-@@ -1383,6 +1383,8 @@ static void hso_serial_close(struct tty_
- 		usb_autopm_put_interface(serial->parent->interface);
-=20
- 	mutex_unlock(&serial->parent->mutex);
-+
-+	kref_put(&serial->parent->ref, hso_serial_ref_free);
- }
-=20
- /* close the requested serial port */
-_
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+=2EPlan: http://sites.google.com/site/juliancalaby/
