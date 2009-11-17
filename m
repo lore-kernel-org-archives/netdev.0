@@ -1,31 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: updates to the mscan-driver in net-next
-Date: Tue, 17 Nov 2009 03:54:16 -0800 (PST)
-Message-ID: <20091117.035416.250564986.davem@davemloft.net>
-References: <1258412274-14686-1-git-send-email-w.sang@pengutronix.de>
+From: Franko Fang <huananhu@huawei.com>
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Tue, 17 Nov 2009 19:54:43 +0800
+Message-ID: <00b301ca677c$c03f25d0$76900b0a@china.huawei.com>
+References: <20091117111454.GA8341@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	socketcan-core@lists.berlios.de, grant.likely@secretlab.ca,
-	wg@grandegger.com
-To: w.sang@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39348
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754017AbZKQLyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 06:54:00 -0500
-In-Reply-To: <1258412274-14686-1-git-send-email-w.sang@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755980AbZKQLyt@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wolfram Sang <w.sang@pengutronix.de>
-Date: Mon, 16 Nov 2009 23:57:43 +0100
+Well, yes, I think that it misses the tab.
 
-> here are the patches which fix the issues for the mscan & mpc52xx_can drivers
-> raised by Wolfgang Grandegger and Grant Likely. They are based on the initial
-> version of the drivers I sent a few days ago. Devicetree-discuss has been added
-> for the property changes. I will also update my branch on pengutronix.de
-> tomorrow, I seem to have issues when trying that from home :(^
+I will update the patch, and resubmit it again.
 
-All applied to net-next-2.6, thank you.
+ Thanks for all  .
+----- Original Message ----- 
+From: "Jarek Poplawski" <jarkao2@gmail.com>
+To: "William Allen Simpson" <william.allen.simpson@gmail.com>
+Cc: <huananhu@huawei.com>; "David Miller" <davem@davemloft.net>; <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>
+Sent: Tuesday, November 17, 2009 7:14 PM
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+
+
+> On 17-11-2009 11:20, William Allen Simpson wrote:
+>> David Miller wrote:
+>>> Your patch is broken, please don't wate my time like this.
+>>>
+>>> + git apply --check --whitespace=error-all diff
+>>> error: patch failed: drivers/net/ppp_async.c:36
+>>> error: drivers/net/ppp_async.c: patch does not apply
+>>>
+>> What David may have meant, had he followed Documentation/ManagementStyle
+>> or had any project management skills what-so-ever, is that you need to
+>> follow Documentation/SubmittingPatches more carefully.
+> 
+> I think this time it was only about a missing tab ;-)
+> 
+> Jarek P.
+> 
+>> 
+>> Look at 15) The canonical patch format
+>> 
+>> [PATCH 17/11] makes no sense, you don't have 11 patches, and the 17th
+>> patch of 11 can never exist.
+>> 
+>> Need a better "subsystem: summary phrase", perhaps
+>>    "net: PPP buffer too small for higher speed connections"
+>> 
+>> A marker line containing simply "---".
+>> 
+>> And your trailer boilerplate badly breaks the system, because it's
+>> missing the SMTP email standard "--" line in front of it.
+>> 
+>> You'll get nicer formatting with 'git format-patch -o ~ HEAD~1' after you
+>> do a 'git commit -a' on your git tree.
+>> 
+>> It takes some time, even for a simple 1 line fix like this....
+>> 
+>> Hope that helps.
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
