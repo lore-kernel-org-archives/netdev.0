@@ -1,55 +1,97 @@
-From: Jeff Haran <jharan@Brocade.COM>
-Subject: RE: NETLINK sockets dont honor SO_RCVLOWAT?
-Date: Wed, 18 Nov 2009 11:00:35 -0800
-Message-ID: <D67825C5985D0647BE40A5F5B0B70D1106E9C5690C@HQ-EXCH-7.corp.brocade.com>
-References: <D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
-	<20091118.102434.160976750.davem@davemloft.net>
-	<D67825C5985D0647BE40A5F5B0B70D1106E9C568FE@HQ-EXCH-7.corp.brocade.com>
- <20091118.104434.185425439.davem@davemloft.net>
+From: Troy Kisky <troy.kisky-Q5RJGjKts06CY9SHAMCTRUEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH 2/3] TI Davinci EMAC : add platform specific interrupt
+	enable/disable logic.
+Date: Wed, 18 Nov 2009 12:08:24 -0700
+Message-ID: <4B044628.9030701@boundarydevices.com>
+References: <1258537328-31527-1-git-send-email-srk@ti.com>	<1258537328-31527-2-git-send-email-srk@ti.com>
+	<1258537328-31527-3-git-send-email-srk@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hq-exedge.brocade.com ([66.243.153.83]:55334 "EHLO
-	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758308AbZKRTAa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 14:00:30 -0500
-In-Reply-To: <20091118.104434.185425439.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+To: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1258537328-31527-3-git-send-email-srk-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Wednesday, November 18, 2009 10:45 AM
-> To: Jeff Haran
-> Cc: netdev@vger.kernel.org
-> Subject: Re: NETLINK sockets dont honor SO_RCVLOWAT?
+Sriramakrishnan wrote:
+> On certain SOCs, the EMAC controller is interfaced with a wrapper logic
+> for handling interrupts. This  patch implements a platform
+> specific hook to cater to platforms that require custom interrupt
+> handling logic
 > 
-> From: Jeff Haran <jharan@Brocade.COM>
-> Date: Wed, 18 Nov 2009 10:41:06 -0800
+> Signed-off-by: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
+> Acked-by: Chaithrika U S <chaithrika-l0cyMroinI0@public.gmane.org>
+> ---
+>  drivers/net/davinci_emac.c   |   11 +++++++++++
+>  include/linux/davinci_emac.h |    2 ++
+>  2 files changed, 13 insertions(+), 0 deletions(-)
 > 
-> > The operative term is "shall". The RFCs define "shall" to be
-> > required behavior. I realize the RFCs do not dictate how Linux
-> > works, but even the common English language usage of the word
-> > "shall" conveys this meaning.
-> 
-> The low water mark can be seen as a hint, therefore we can
-> apply the term "support" loosely here.
->
-> And the errors are advisory, just like things like -EFAULT.
-> 
-> Look, I'm not going to add a feature flag or some callback just to
-> handle this.
-> 
-> You have to know what kind of protocol you are working with, and
-> therefore which socket options make any sense for it.
+> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+> index 6aec8f5..81931f8 100644
+> --- a/drivers/net/davinci_emac.c
+> +++ b/drivers/net/davinci_emac.c
+> @@ -487,6 +487,9 @@ struct emac_priv {
+>  	struct mii_bus *mii_bus;
+>  	struct phy_device *phydev;
+>  	spinlock_t lock;
+> +	/*platform specific members*/
+> +	void (*wrapper_int_enable) (void);
+> +	void (*wrapper_int_disable) (void);
 
-If the open source community doesn't want a fix for something that is obviously broken, that's fine. We fix a lot of broken kernel code here at Brocade. But at least now I know that I need not bother with submitting a patch. That will save everybody a lot of time.
+Would platform_int_enable be more appropriate then wrapper_int_enable ?
 
-Thanks,
-
-Jeff Haran
-Brocade Communications
+>  };
+>  
+>  /* clock frequency for EMAC */
+> @@ -1001,6 +1004,8 @@ static void emac_int_disable(struct emac_priv *priv)
+>  		emac_ctrl_write(EMAC_DM646X_CMRXINTEN, 0x0);
+>  		emac_ctrl_write(EMAC_DM646X_CMTXINTEN, 0x0);
+>  		/* NOTE: Rx Threshold and Misc interrupts are not disabled */
+> +		if (priv->wrapper_int_disable)
+> +			priv->wrapper_int_disable();
+>  
+>  		local_irq_restore(flags);
+>  
+> @@ -1020,6 +1025,9 @@ static void emac_int_disable(struct emac_priv *priv)
+>  static void emac_int_enable(struct emac_priv *priv)
+>  {
+>  	if (priv->version == EMAC_VERSION_2) {
+> +		if (priv->wrapper_int_enable)
+> +			priv->wrapper_int_enable();
+> +
+>  		emac_ctrl_write(EMAC_DM646X_CMRXINTEN, 0xff);
+>  		emac_ctrl_write(EMAC_DM646X_CMTXINTEN, 0xff);
+>  
+> @@ -2662,6 +2670,9 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+>  	priv->phy_mask = pdata->phy_mask;
+>  	priv->rmii_en = pdata->rmii_en;
+>  	priv->version = pdata->version;
+> +	priv->wrapper_int_enable = pdata->wrapper_interrupt_enable;
+> +	priv->wrapper_int_disable = pdata->wrapper_interrupt_disable;
+> +
+>  	emac_dev = &ndev->dev;
+>  	/* Get EMAC platform data */
+>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+> index ff55487..eb24dc0 100644
+> --- a/include/linux/davinci_emac.h
+> +++ b/include/linux/davinci_emac.h
+> @@ -25,6 +25,8 @@ struct emac_platform_data {
+>  	u32 mdio_max_freq;
+>  	u8 rmii_en;
+>  	u8 version;
+> +	void (*wrapper_interrupt_enable) (void);
+> +	void (*wrapper_interrupt_disable) (void);
+>  };
+>  
+>  enum {
