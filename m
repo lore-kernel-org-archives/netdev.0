@@ -1,20 +1,15 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 6/16] drivers/net/pppol2tp.c: remove exceptional & on function
- name
-Date: Wed, 18 Nov 2009 19:22:44 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181922240.20943@ask.diku.dk>
+Subject: [PATCH 5/16] drivers/net/irda: remove exceptional & on function name
+Date: Wed, 18 Nov 2009 19:22:05 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181921450.20943@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
+To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
 	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:56281 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932176AbZKRSWj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2009 13:22:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932246AbZKRSWE@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -41,19 +36,19 @@ identifier r.f;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/pppol2tp.c              |    2 +-
+ drivers/net/irda/irda-usb.c         |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 849cc9c..8dcc26f 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -1537,7 +1537,7 @@ static struct sock *pppol2tp_prepare_tunnel_socket(struct net *net,
- 	 * if the tunnel socket goes away.
- 	 */
- 	tunnel->old_sk_destruct = sk->sk_destruct;
--	sk->sk_destruct = &pppol2tp_tunnel_destruct;
-+	sk->sk_destruct = pppol2tp_tunnel_destruct;
- 
- 	tunnel->sock = sk;
- 	sk->sk_allocation = GFP_ATOMIC;
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index 5e462b9..e591b36 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -852,7 +852,7 @@ static void irda_usb_receive(struct urb *urb)
+ 		 * hot unplug of the dongle...
+ 		 * Lowest effective timer is 10ms...
+ 		 * Jean II */
+-		self->rx_defer_timer.function = &irda_usb_rx_defer_expired;
++		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
+ 		self->rx_defer_timer.data = (unsigned long) urb;
+ 		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
+ 		return;
