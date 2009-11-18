@@ -1,281 +1,192 @@
 From: Sriramakrishnan <srk@ti.com>
-Subject: [PATCH 1/3] TI Davinci EMAC : Re-use driver for other platforms.
-Date: Wed, 18 Nov 2009 15:12:06 +0530
-Message-ID: <1258537328-31527-2-git-send-email-srk@ti.com>
+Subject: [PATCH 3/3] TI Davinci EMAC : Abstract Buffer address translation logic.
+Date: Wed, 18 Nov 2009 15:12:08 +0530
+Message-ID: <1258537328-31527-4-git-send-email-srk@ti.com>
 References: <1258537328-31527-1-git-send-email-srk@ti.com>
+ <1258537328-31527-2-git-send-email-srk@ti.com>
+ <1258537328-31527-3-git-send-email-srk@ti.com>
 Cc: davinci-linux-open-source@linux.davincidsp.com,
 	Sriramakrishnan <srk@ti.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:56557 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbZKRJmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 04:42:10 -0500
+Received: from bear.ext.ti.com ([192.94.94.41]:47083 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754978AbZKRJmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2009 04:42:10 -0500
 Received: from dbdp31.itg.ti.com ([172.24.170.98])
-	by devils.ext.ti.com (8.13.7/8.13.7) with ESMTP id nAI9gDaF010849
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id nAI9gEqh028560
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
 	for <netdev@vger.kernel.org>; Wed, 18 Nov 2009 03:42:16 -0600
-In-Reply-To: <1258537328-31527-1-git-send-email-srk@ti.com>
+In-Reply-To: <1258537328-31527-3-git-send-email-srk@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The davinci EMAC peripheral is also available on other TI
-platforms -notably TI AM3517 SoC. This patch modifies the
-config option and the platform structure header files so that
-the driver can be reused on non-davinci platforms as well.
+When programming the DMA engine, the next pointers must be
+programmed with physical address as seen from the DMA master
+address space. This address may be different from physical
+address of the buffer RAM area. This patch abstracts the
+buffer address translation logic.
 
 Signed-off-by: Sriramakrishnan <srk@ti.com>
 Acked-by: Chaithrika U S <chaithrika@ti.com>
 ---
- arch/arm/mach-davinci/board-dm644x-evm.c    |    2 +-
- arch/arm/mach-davinci/board-dm646x-evm.c    |    2 +-
- arch/arm/mach-davinci/common.c              |    2 +-
- arch/arm/mach-davinci/include/mach/da8xx.h  |    2 +-
- arch/arm/mach-davinci/include/mach/dm365.h  |    2 +-
- arch/arm/mach-davinci/include/mach/dm644x.h |    2 +-
- arch/arm/mach-davinci/include/mach/dm646x.h |    2 +-
- arch/arm/mach-davinci/include/mach/emac.h   |   36 ---------------------------
- drivers/net/Kconfig                         |    2 +-
- drivers/net/davinci_emac.c                  |    3 +-
- include/linux/davinci_emac.h                |   36 +++++++++++++++++++++++++++
- 11 files changed, 45 insertions(+), 46 deletions(-)
- delete mode 100644 arch/arm/mach-davinci/include/mach/emac.h
- create mode 100644 include/linux/davinci_emac.h
+ drivers/net/davinci_emac.c   |   41 ++++++++++++++++++++++++-----------------
+ include/linux/davinci_emac.h |    1 +
+ 2 files changed, 25 insertions(+), 17 deletions(-)
 
-diff --git a/arch/arm/mach-davinci/board-dm644x-evm.c b/arch/arm/mach-davinci/board-dm644x-evm.c
-index 1213a00..e930281 100644
---- a/arch/arm/mach-davinci/board-dm644x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm644x-evm.c
-@@ -29,6 +29,7 @@
- #include <linux/phy.h>
- #include <linux/clk.h>
- #include <linux/videodev2.h>
-+#include <linux/davinci_emac.h>
- 
- #include <media/tvp514x.h>
- 
-@@ -47,7 +48,6 @@
- #include <mach/psc.h>
- #include <mach/nand.h>
- #include <mach/mmc.h>
--#include <mach/emac.h>
- 
- #define DM644X_EVM_PHY_MASK		(0x2)
- #define DM644X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
-diff --git a/arch/arm/mach-davinci/board-dm646x-evm.c b/arch/arm/mach-davinci/board-dm646x-evm.c
-index 24e0e13..6f9fe36 100644
---- a/arch/arm/mach-davinci/board-dm646x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm646x-evm.c
-@@ -33,6 +33,7 @@
- #include <linux/i2c/at24.h>
- #include <linux/i2c/pcf857x.h>
- #include <linux/etherdevice.h>
-+#include <linux/davinci_emac.h>
- 
- #include <media/tvp514x.h>
- 
-@@ -48,7 +49,6 @@
- #include <mach/serial.h>
- #include <mach/i2c.h>
- #include <mach/mmc.h>
--#include <mach/emac.h>
- 
- #if defined(CONFIG_BLK_DEV_PALMCHIP_BK3710) || \
-     defined(CONFIG_BLK_DEV_PALMCHIP_BK3710_MODULE)
-diff --git a/arch/arm/mach-davinci/common.c b/arch/arm/mach-davinci/common.c
-index 61ede19..d62398b 100644
---- a/arch/arm/mach-davinci/common.c
-+++ b/arch/arm/mach-davinci/common.c
-@@ -11,13 +11,13 @@
- #include <linux/module.h>
- #include <linux/io.h>
- #include <linux/etherdevice.h>
-+#include <linux/davinci_emac.h>
- 
- #include <asm/tlb.h>
- #include <asm/mach/map.h>
- 
- #include <mach/common.h>
- #include <mach/cputype.h>
--#include <mach/emac.h>
- 
- #include "clock.h"
- 
-diff --git a/arch/arm/mach-davinci/include/mach/da8xx.h b/arch/arm/mach-davinci/include/mach/da8xx.h
-index d4095d0..f056178 100644
---- a/arch/arm/mach-davinci/include/mach/da8xx.h
-+++ b/arch/arm/mach-davinci/include/mach/da8xx.h
-@@ -11,10 +11,10 @@
- #ifndef __ASM_ARCH_DAVINCI_DA8XX_H
- #define __ASM_ARCH_DAVINCI_DA8XX_H
- 
-+#include <linux/davinci_emac.h>
- #include <mach/serial.h>
- #include <mach/edma.h>
- #include <mach/i2c.h>
--#include <mach/emac.h>
- #include <mach/asp.h>
- #include <mach/mmc.h>
- 
-diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
-index 09db434..f2e34d8 100644
---- a/arch/arm/mach-davinci/include/mach/dm365.h
-+++ b/arch/arm/mach-davinci/include/mach/dm365.h
-@@ -14,8 +14,8 @@
- #define __ASM_ARCH_DM665_H
- 
- #include <linux/platform_device.h>
-+#include <linux/davinci_emac.h>
- #include <mach/hardware.h>
--#include <mach/emac.h>
- 
- #define DM365_EMAC_BASE			(0x01D07000)
- #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
-diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
-index 0efb738..dad3622 100644
---- a/arch/arm/mach-davinci/include/mach/dm644x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm644x.h
-@@ -23,8 +23,8 @@
- #define __ASM_ARCH_DM644X_H
- 
- #include <linux/platform_device.h>
-+#include <linux/davinci_emac.h>
- #include <mach/hardware.h>
--#include <mach/emac.h>
- #include <mach/asp.h>
- #include <media/davinci/vpfe_capture.h>
- 
-diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
-index 8cec746..5c92dfb 100644
---- a/arch/arm/mach-davinci/include/mach/dm646x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm646x.h
-@@ -12,10 +12,10 @@
- #define __ASM_ARCH_DM646X_H
- 
- #include <mach/hardware.h>
--#include <mach/emac.h>
- #include <mach/asp.h>
- #include <linux/i2c.h>
- #include <linux/videodev2.h>
-+#include <linux/davinci_emac.h>
- 
- #define DM646X_EMAC_BASE		(0x01C80000)
- #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
-diff --git a/arch/arm/mach-davinci/include/mach/emac.h b/arch/arm/mach-davinci/include/mach/emac.h
-deleted file mode 100644
-index beff4fb..0000000
---- a/arch/arm/mach-davinci/include/mach/emac.h
-+++ /dev/null
-@@ -1,36 +0,0 @@
--/*
-- * TI DaVinci EMAC platform support
-- *
-- * Author: Kevin Hilman, Deep Root Systems, LLC
-- *
-- * 2007 (c) Deep Root Systems, LLC. This file is licensed under
-- * the terms of the GNU General Public License version 2. This program
-- * is licensed "as is" without any warranty of any kind, whether express
-- * or implied.
-- */
--#ifndef _MACH_DAVINCI_EMAC_H
--#define _MACH_DAVINCI_EMAC_H
--
--#include <linux/if_ether.h>
--#include <linux/memory.h>
--
--struct emac_platform_data {
--	char mac_addr[ETH_ALEN];
--	u32 ctrl_reg_offset;
--	u32 ctrl_mod_reg_offset;
--	u32 ctrl_ram_offset;
--	u32 mdio_reg_offset;
--	u32 ctrl_ram_size;
--	u32 phy_mask;
--	u32 mdio_max_freq;
--	u8 rmii_en;
--	u8 version;
--};
--
--enum {
--	EMAC_VERSION_1,	/* DM644x */
--	EMAC_VERSION_2,	/* DM646x */
--};
--
--void davinci_get_mac_addr(struct memory_accessor *mem_acc, void *context);
--#endif
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index e19ca4b..2d3443c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -920,7 +920,7 @@ config NET_NETX
- 
- config TI_DAVINCI_EMAC
- 	tristate "TI DaVinci EMAC Support"
--	depends on ARM && ARCH_DAVINCI
-+	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
- 	select PHYLIB
- 	help
- 	  This driver supports TI's DaVinci Ethernet .
 diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 4cf80ec..6aec8f5 100644
+index 81931f8..d4e173b 100644
 --- a/drivers/net/davinci_emac.c
 +++ b/drivers/net/davinci_emac.c
-@@ -62,12 +62,11 @@
- #include <linux/bitops.h>
- #include <linux/io.h>
- #include <linux/uaccess.h>
-+#include <linux/davinci_emac.h>
+@@ -464,6 +464,7 @@ struct emac_priv {
+ 	void __iomem *ctrl_base;
+ 	void __iomem *emac_ctrl_ram;
+ 	u32 ctrl_ram_size;
++	u32 hw_ram_addr;
+ 	struct emac_txch *txch[EMAC_DEF_MAX_TX_CH];
+ 	struct emac_rxch *rxch[EMAC_DEF_MAX_RX_CH];
+ 	u32 link; /* 1=link on, 0=link off */
+@@ -497,11 +498,9 @@ static struct clk *emac_clk;
+ static unsigned long emac_bus_frequency;
+ static unsigned long mdio_max_freq;
  
- #include <asm/irq.h>
- #include <asm/page.h>
+-/* EMAC internal utility function */
+-static inline u32 emac_virt_to_phys(void __iomem *addr)
+-{
+-	return (u32 __force) io_v2p(addr);
+-}
++#define emac_virt_to_phys(addr, priv) \
++	(((u32 __force)(addr) - (u32 __force)(priv->emac_ctrl_ram)) \
++	+ priv->hw_ram_addr)
  
--#include <mach/emac.h>
--
- static int debug_level;
- module_param(debug_level, int, 0);
- MODULE_PARM_DESC(debug_level, "DaVinci EMAC debug level (NETIF_MSG bits)");
+ /* Cache macros - Packet buffers would be from skb pool which is cached */
+ #define EMAC_VIRT_NOCACHE(addr) (addr)
+@@ -1309,7 +1308,7 @@ static int emac_tx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 	curr_bd = txch->active_queue_head;
+ 	if (NULL == curr_bd) {
+ 		emac_write(EMAC_TXCP(ch),
+-			   emac_virt_to_phys(txch->last_hw_bdprocessed));
++			   emac_virt_to_phys(txch->last_hw_bdprocessed, priv));
+ 		txch->no_active_pkts++;
+ 		spin_unlock_irqrestore(&priv->tx_lock, flags);
+ 		return 0;
+@@ -1319,7 +1318,7 @@ static int emac_tx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 	while ((curr_bd) &&
+ 	      ((frame_status & EMAC_CPPI_OWNERSHIP_BIT) == 0) &&
+ 	      (pkts_processed < budget)) {
+-		emac_write(EMAC_TXCP(ch), emac_virt_to_phys(curr_bd));
++		emac_write(EMAC_TXCP(ch), emac_virt_to_phys(curr_bd, priv));
+ 		txch->active_queue_head = curr_bd->next;
+ 		if (frame_status & EMAC_CPPI_EOQ_BIT) {
+ 			if (curr_bd->next) {	/* misqueued packet */
+@@ -1406,7 +1405,7 @@ static int emac_send(struct emac_priv *priv, struct emac_netpktobj *pkt, u32 ch)
+ 		txch->active_queue_tail = curr_bd;
+ 		if (1 != txch->queue_active) {
+ 			emac_write(EMAC_TXHDP(ch),
+-					emac_virt_to_phys(curr_bd));
++					emac_virt_to_phys(curr_bd, priv));
+ 			txch->queue_active = 1;
+ 		}
+ 		++txch->queue_reinit;
+@@ -1418,10 +1417,11 @@ static int emac_send(struct emac_priv *priv, struct emac_netpktobj *pkt, u32 ch)
+ 		tail_bd->next = curr_bd;
+ 		txch->active_queue_tail = curr_bd;
+ 		tail_bd = EMAC_VIRT_NOCACHE(tail_bd);
+-		tail_bd->h_next = (int)emac_virt_to_phys(curr_bd);
++		tail_bd->h_next = (int)emac_virt_to_phys(curr_bd, priv);
+ 		frame_status = tail_bd->mode;
+ 		if (frame_status & EMAC_CPPI_EOQ_BIT) {
+-			emac_write(EMAC_TXHDP(ch), emac_virt_to_phys(curr_bd));
++			emac_write(EMAC_TXHDP(ch),
++				emac_virt_to_phys(curr_bd, priv));
+ 			frame_status &= ~(EMAC_CPPI_EOQ_BIT);
+ 			tail_bd->mode = frame_status;
+ 			++txch->end_of_queue_add;
+@@ -1611,7 +1611,8 @@ static int emac_init_rxch(struct emac_priv *priv, u32 ch, char *param)
+ 		}
+ 
+ 		/* populate the hardware descriptor */
+-		curr_bd->h_next = emac_virt_to_phys(rxch->active_queue_head);
++		curr_bd->h_next = emac_virt_to_phys(rxch->active_queue_head,
++				priv);
+ 		/* FIXME buff_ptr = dma_map_single(... data_ptr ...) */
+ 		curr_bd->buff_ptr = virt_to_phys(curr_bd->data_ptr);
+ 		curr_bd->off_b_len = rxch->buf_size;
+@@ -1886,7 +1887,7 @@ static void emac_addbd_to_rx_queue(struct emac_priv *priv, u32 ch,
+ 		rxch->active_queue_tail = curr_bd;
+ 		if (0 != rxch->queue_active) {
+ 			emac_write(EMAC_RXHDP(ch),
+-				   emac_virt_to_phys(rxch->active_queue_head));
++			   emac_virt_to_phys(rxch->active_queue_head, priv));
+ 			rxch->queue_active = 1;
+ 		}
+ 	} else {
+@@ -1897,11 +1898,11 @@ static void emac_addbd_to_rx_queue(struct emac_priv *priv, u32 ch,
+ 		rxch->active_queue_tail = curr_bd;
+ 		tail_bd->next = curr_bd;
+ 		tail_bd = EMAC_VIRT_NOCACHE(tail_bd);
+-		tail_bd->h_next = emac_virt_to_phys(curr_bd);
++		tail_bd->h_next = emac_virt_to_phys(curr_bd, priv);
+ 		frame_status = tail_bd->mode;
+ 		if (frame_status & EMAC_CPPI_EOQ_BIT) {
+ 			emac_write(EMAC_RXHDP(ch),
+-					emac_virt_to_phys(curr_bd));
++					emac_virt_to_phys(curr_bd, priv));
+ 			frame_status &= ~(EMAC_CPPI_EOQ_BIT);
+ 			tail_bd->mode = frame_status;
+ 			++rxch->end_of_queue_add;
+@@ -1994,7 +1995,7 @@ static int emac_rx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 		curr_pkt->num_bufs = 1;
+ 		curr_pkt->pkt_length =
+ 			(frame_status & EMAC_RX_BD_PKT_LENGTH_MASK);
+-		emac_write(EMAC_RXCP(ch), emac_virt_to_phys(curr_bd));
++		emac_write(EMAC_RXCP(ch), emac_virt_to_phys(curr_bd, priv));
+ 		++rxch->processed_bd;
+ 		last_bd = curr_bd;
+ 		curr_bd = last_bd->next;
+@@ -2005,7 +2006,7 @@ static int emac_rx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 			if (curr_bd) {
+ 				++rxch->mis_queued_packets;
+ 				emac_write(EMAC_RXHDP(ch),
+-					   emac_virt_to_phys(curr_bd));
++					   emac_virt_to_phys(curr_bd, priv));
+ 			} else {
+ 				++rxch->end_of_queue;
+ 				rxch->queue_active = 0;
+@@ -2106,7 +2107,7 @@ static int emac_hw_enable(struct emac_priv *priv)
+ 		emac_write(EMAC_RXINTMASKSET, BIT(ch));
+ 		rxch->queue_active = 1;
+ 		emac_write(EMAC_RXHDP(ch),
+-			   emac_virt_to_phys(rxch->active_queue_head));
++			   emac_virt_to_phys(rxch->active_queue_head, priv));
+ 	}
+ 
+ 	/* Enable MII */
+@@ -2705,6 +2706,12 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	priv->ctrl_ram_size = pdata->ctrl_ram_size;
+ 	priv->emac_ctrl_ram = priv->remap_addr + pdata->ctrl_ram_offset;
+ 
++	if (pdata->hw_ram_addr)
++		priv->hw_ram_addr = pdata->hw_ram_addr;
++	else
++		priv->hw_ram_addr = (u32 __force)res->start +
++					pdata->ctrl_ram_offset;
++
+ 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 	if (!res) {
+ 		dev_err(emac_dev, "DaVinci EMAC: Error getting irq res\n");
 diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
-new file mode 100644
-index 0000000..ff55487
---- /dev/null
+index eb24dc0..b318dfd 100644
+--- a/include/linux/davinci_emac.h
 +++ b/include/linux/davinci_emac.h
-@@ -0,0 +1,36 @@
-+/*
-+ * TI DaVinci EMAC platform support
-+ *
-+ * Author: Kevin Hilman, Deep Root Systems, LLC
-+ *
-+ * 2007 (c) Deep Root Systems, LLC. This file is licensed under
-+ * the terms of the GNU General Public License version 2. This program
-+ * is licensed "as is" without any warranty of any kind, whether express
-+ * or implied.
-+ */
-+#ifndef _LINUX_DAVINCI_EMAC_H
-+#define _LINUX_DAVINCI_EMAC_H
-+
-+#include <linux/if_ether.h>
-+#include <linux/memory.h>
-+
-+struct emac_platform_data {
-+	char mac_addr[ETH_ALEN];
-+	u32 ctrl_reg_offset;
-+	u32 ctrl_mod_reg_offset;
-+	u32 ctrl_ram_offset;
-+	u32 mdio_reg_offset;
-+	u32 ctrl_ram_size;
-+	u32 phy_mask;
-+	u32 mdio_max_freq;
-+	u8 rmii_en;
-+	u8 version;
-+};
-+
-+enum {
-+	EMAC_VERSION_1,	/* DM644x */
-+	EMAC_VERSION_2,	/* DM646x */
-+};
-+
-+void davinci_get_mac_addr(struct memory_accessor *mem_acc, void *context);
-+#endif
+@@ -19,6 +19,7 @@ struct emac_platform_data {
+ 	u32 ctrl_reg_offset;
+ 	u32 ctrl_mod_reg_offset;
+ 	u32 ctrl_ram_offset;
++	u32 hw_ram_addr;
+ 	u32 mdio_reg_offset;
+ 	u32 ctrl_ram_size;
+ 	u32 phy_mask;
 -- 
 1.6.2.4
 
