@@ -1,13 +1,14 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 5/16] drivers/net/irda: remove exceptional & on function name
-Date: Wed, 18 Nov 2009 19:22:05 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181921450.20943@ask.diku.dk>
+Subject: [PATCH 8/16] drivers/net/smsc9420.c: remove exceptional & on function
+ name
+Date: Wed, 18 Nov 2009 19:23:17 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181923010.20943@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932246AbZKRSWE@vger.kernel.org>
+To: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org, arnd@arndb.de, joe@perches.com,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932289AbZKRSXT@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -36,19 +37,19 @@ identifier r.f;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/irda/irda-usb.c         |    2 +-
+ drivers/net/smsc9420.c              |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 5e462b9..e591b36 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -852,7 +852,7 @@ static void irda_usb_receive(struct urb *urb)
- 		 * hot unplug of the dongle...
- 		 * Lowest effective timer is 10ms...
- 		 * Jean II */
--		self->rx_defer_timer.function = &irda_usb_rx_defer_expired;
-+		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
- 		self->rx_defer_timer.data = (unsigned long) urb;
- 		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
- 		return;
+diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
+index b4909a2..92e2bbe 100644
+--- a/drivers/net/smsc9420.c
++++ b/drivers/net/smsc9420.c
+@@ -1161,7 +1161,7 @@ static int smsc9420_mii_probe(struct net_device *dev)
+ 		phydev->phy_id);
+ 
+ 	phydev = phy_connect(dev, dev_name(&phydev->dev),
+-		&smsc9420_phy_adjust_link, 0, PHY_INTERFACE_MODE_MII);
++		smsc9420_phy_adjust_link, 0, PHY_INTERFACE_MODE_MII);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		pr_err("%s: Could not attach to PHY\n", dev->name);
