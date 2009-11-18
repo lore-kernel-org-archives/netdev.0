@@ -1,45 +1,31 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
-	hardware queue MAC and VLAN filters
-Date: Wed, 18 Nov 2009 14:37:32 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
-References: <20091117214923.15119.98918.stgit@localhost.localdomain>
- <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
+Date: Wed, 18 Nov 2009 22:42:26 +0100
+Message-ID: <20091118214226.GA283@e-circ.dyndns.org>
+References: <20091118164126.GF325@e-circ.dyndns.org> <20091118.095716.61189059.davem@davemloft.net> <20091118205952.GB282@e-circ.dyndns.org> <20091118.130859.99831401.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54359 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755865AbZKRVh3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 16:37:29 -0500
-In-Reply-To: <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:63915 "EHLO
+	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932325AbZKRVmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 16:42:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20091118.130859.99831401.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
->From: Ben Hutchings [mailto:bhutchings@solarflare.com]
->Sent: Wednesday, November 18, 2009 11:53 AM
-
->How do you remove a filter?
+On Wed, Nov 18, 2009 at 01:08:59PM -0800, David Miller wrote:
 >
+> Unfortunately, the code in this function is much different
+> in net-next-2.6 which is where I want to add this, and your
+> patch doesn't apply.
+> 
+> Please rebase your patch on that tree, thank you.
+As I mentioned, I'm not experienced with using git yet.
+Is there a fine manual I can inspect? I get lost in the man-pages.
 
-You remove a filter by setting it to 0 on that queue. Works for either MAC or VLAN.
-
->What about filtering on both MAC address and VLAN (our new controller
->supports that)?
-
-Setting a MAC filter doesn't blow away the VLAN filter, or vice-versa. So just run 'ip' twice to set the filters. Our hardware does it too, and it works fine for me:
-
-$ ip link set eth1 queue 1 mac 00:11:22:33:44:55
-$ ip link set eth1 queue 1 vlan 10
-
--Mitch
+Sorry for generating so much noise.
+Kurt
