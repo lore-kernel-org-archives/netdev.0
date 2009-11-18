@@ -1,41 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] ixgbe: Set MSI-X vectors to
- NOBALANCING and set affinity
-Date: Wed, 18 Nov 2009 10:10:30 -0800 (PST)
-Message-ID: <20091118.101030.22004862.davem@davemloft.net>
-References: <20091021022713.32449.54868.stgit@localhost.localdomain>
-	<20091021.215031.57955781.davem@davemloft.net>
-	<F86E8680A7D9D74A99DC6345E35A69293E3D4171@orsmsx503.amr.corp.intel.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 3/16] drivers/net: remove exceptional & on function name
+Date: Wed, 18 Nov 2009 19:21:04 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181920450.20943@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, gospo@redhat.com,
-	netdev@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, arnd@arndb.de, joe@perches.com,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53462
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932174AbZKRSKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 13:10:14 -0500
-In-Reply-To: <F86E8680A7D9D74A99DC6345E35A69293E3D4171@orsmsx503.amr.corp.intel.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:56220 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758195AbZKRSVA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2009 13:21:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Thu, 12 Nov 2009 11:12:22 -0800
+From: Julia Lawall <julia@diku.dk>
 
-> Jesse Brandeburg and I talked with Arjan yesterday regarding these patches.
+In this file, function names are otherwise used as pointers without &.
 
-Thanks for the update.
+A simplified version of the semantic patch that makes this change is as
+follows: (http://coccinelle.lip6.fr/)
 
-> We also discussed the need for irqbalance to distinguish between Rx
-> and Tx queue vectors.  Right now, irqbalance can identify an
-> interrupt belong to an Ethernet device, but it stops there.  It
-> needs to also distinguish the directional vectors, and make sure to
-> balance the right queue vector with its paired queue (i.e. make sure
-> Tx queue 0's vector lines up with Rx queue 0's vector).
+// <smpl>
+@r@
+identifier f;
+@@
 
-Why don't you just simply use the same MSI-X vector for both TX
-queue 0 and RX queue 0, can't your hardware do that?
+f(...) { ... }
 
-That's what I plan on doing in the NIU driver soon.
+@@
+identifier r.f;
+@@
+
+- &f
++ f
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/ethoc.c             |    2 +-
+ drivers/net/pcmcia/fmvj18x_cs.c |    2 +-
+ drivers/net/pcmcia/nmclan_cs.c  |    2 +-
+ drivers/net/tokenring/3c359.c   |    3 +--
+ drivers/net/tokenring/olympic.c |    4 ++--
+ 5 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 50f1923..bd1db92 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -641,7 +641,7 @@ static int ethoc_mdio_probe(struct net_device *dev)
+ 		return -ENXIO;
+ 	}
+ 
+-	phy = phy_connect(dev, dev_name(&phy->dev), &ethoc_mdio_poll, 0,
++	phy = phy_connect(dev, dev_name(&phy->dev), ethoc_mdio_poll, 0,
+ 			PHY_INTERFACE_MODE_GMII);
+ 	if (IS_ERR(phy)) {
+ 		dev_err(&dev->dev, "could not attach to PHY\n");
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
+index fdec5c3..d3a81ad 100644
+--- a/drivers/net/pcmcia/fmvj18x_cs.c
++++ b/drivers/net/pcmcia/fmvj18x_cs.c
+@@ -257,7 +257,7 @@ static int fmvj18x_probe(struct pcmcia_device *link)
+     /* Interrupt setup */
+     link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING|IRQ_HANDLE_PRESENT;
+     link->irq.IRQInfo1 = IRQ_LEVEL_ID;
+-    link->irq.Handler = &fjn_interrupt;
++    link->irq.Handler = fjn_interrupt;
+     link->irq.Instance = dev;
+ 
+     /* General socket configuration */
+diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
+index a536348..8fda8a4 100644
+--- a/drivers/net/pcmcia/nmclan_cs.c
++++ b/drivers/net/pcmcia/nmclan_cs.c
+@@ -465,7 +465,7 @@ static int nmclan_probe(struct pcmcia_device *link)
+     link->io.IOAddrLines = 5;
+     link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+     link->irq.IRQInfo1 = IRQ_LEVEL_ID;
+-    link->irq.Handler = &mace_interrupt;
++    link->irq.Handler = mace_interrupt;
+     link->irq.Instance = dev;
+     link->conf.Attributes = CONF_ENABLE_IRQ;
+     link->conf.IntType = INT_MEMORY_AND_IO;
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
+index 7241589..cf552d1 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -610,9 +610,8 @@ static int xl_open(struct net_device *dev)
+ 
+ 	u16 switchsettings, switchsettings_eeprom  ;
+  
+-	if(request_irq(dev->irq, &xl_interrupt, IRQF_SHARED , "3c359", dev)) {
++	if (request_irq(dev->irq, xl_interrupt, IRQF_SHARED , "3c359", dev))
+ 		return -EAGAIN;
+-	}
+ 
+ 	/* 
+ 	 * Read the information from the EEPROM that we need.
+diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
+index d9ec7f0..df32025 100644
+--- a/drivers/net/tokenring/olympic.c
++++ b/drivers/net/tokenring/olympic.c
+@@ -445,9 +445,9 @@ static int olympic_open(struct net_device *dev)
+ 
+ 	olympic_init(dev);
+ 
+-	if(request_irq(dev->irq, &olympic_interrupt, IRQF_SHARED , "olympic", dev)) {
++	if (request_irq(dev->irq, olympic_interrupt, IRQF_SHARED , "olympic",
++			dev))
+ 		return -EAGAIN;
+-	}
+ 
+ #if OLYMPIC_DEBUG
+ 	printk("BMCTL: %x\n",readl(olympic_mmio+BMCTL_SUM));
