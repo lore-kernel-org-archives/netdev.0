@@ -1,36 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Wed, 18 Nov 2009 23:38:51 +0100
-Message-ID: <20091118223851.GA5191@ami.dom.local>
-References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
- <20091112113836.GA7963@ff.dom.local>
- <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
- <4AFC5C58.9030207@gmail.com>
- <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
- <20091113211640.GA2540@ami.dom.local>
- <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
- <20091118135136.GA9224@ff.dom.local>
- <81bfc67a0911181021n1b969565y4a39b181360b5e92@mail.gmail.com>
- <20091118201034.GA3060@ami.dom.local>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Wed, 18 Nov 2009 14:59:36 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0911181455260.2793@localhost.localdomain>
+References: <20091118.072506.229926265.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753998AbZKRWjO@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091118201034.GA3060@ami.dom.local>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757380AbZKRW7f@vger.kernel.org>
+In-Reply-To: <20091118.072506.229926265.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 18, 2009 at 09:10:34PM +0100, Jarek Poplawski wrote:
-> On Wed, Nov 18, 2009 at 01:21:19PM -0500, Caleb Cushing wrote:
-> > yeah testing it under my known working config first. I'll get back w/ you later.
+
+
+On Wed, 18 Nov 2009, David Miller wrote:
 > 
-> Btw, since dropping at hardware (NIC) level seems more likely to me,
-> could you send 'ethtool eth0', and 'ethtool -S eth0' after such tests
-> (both sides).
+> The following changes since commit 7c9abfb884b8737f0afdc8a88bcea77526f0da87:
+>   Linus Torvalds (1):
+>         Merge branch 'kvm-updates/2.6.32' of git://git.kernel.org/pub/scm/virt/kvm/kvm
+> 
+> are available in the git repository at:
 
-Hmm... and 'netstat -s' before and after the test (both sides).
+Nope, they are not.
 
-Jarek P.
+I'm not seeing half of it, including these first ones listed (among many 
+others):
+
+> Ajit Khaparde (2):
+>       be2net: fix to set proper flow control on resume
+>       be2net: Bug fix to send config commands to hardware after netdev_register
+
+because I already pulled half of it over a week ago.. You seem to not have 
+noticed, possibly because of some confusion?
+
+Anyway, I do seem to get a proper subset, _and_ the stuff I don't get seem 
+to be old stuff I already got earlier, so I think everything is fine. But 
+you should double-check, because my diffstat/shortlog doesn't match yours 
+due to you apparently having included data from previous pull requests..
+
+			Linus
