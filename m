@@ -1,32 +1,29 @@
-From: Stefan Monnier <monnier-CRDzTM1onBSWkKpYnGOUKg@public.gmane.org>
-Subject: Re: [RFC v2] mac80211: disallow bridging managed/adhoc interfaces
-Date: Tue, 17 Nov 2009 20:59:03 -0500
-Message-ID: <jwvy6m4bnqp.fsf-monnier+gmane.linux.kernel.wireless.general@gnu.org>
-References: <1258465585.3682.7.camel@johannes.local>
-	<1258490898.21197.42.camel@johannes.local>
+From: Jeff Haran <jharan@Brocade.COM>
+Subject: NETLINK sockets dont honor SO_RCVLOWAT?
+Date: Tue, 17 Nov 2009 17:54:59 -0800
+Message-ID: <D67825C5985D0647BE40A5F5B0B70D1106E9C56894@HQ-EXCH-7.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hq-exedge.brocade.com ([66.243.153.82]:59483 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908AbZKRB77 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 20:59:59 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> A number of people have tried to add a wireless interface
-> (in managed mode) to a bridge and then complained that it
-> doesn't work. It cannot work, however, because in 802.11
-[...]
-> To avoid such mistakes in the future, disallow adding a
-> wireless interface to a bridge.
+Hi,
 
-As someone who's been bitten by this, I fully support this change.
-Still, it makes me wonder: my broadcom-based home-router using the wl.o
-driver can be set in "client bridge" mode.  How does it work?
+Am I correct in my observation that the SO_RCVLOWAT socket option is not honored when one calls readv() on a PF_NETLINK socket?
 
+The test application I wrote returns data as soon as it's available regardless of the option value I've specified and my perusal of the kernel sources leads me to believe that the NETLINK code does not honor it (support for the option appears to be protocol specific and I don't see it in the netlink code), but I could be missing something.
 
-        Stefan
+Please respond directly to my email address, jharan (at) brocade.com, as I do not subscribe to this list.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+
+Jeff Haran
+Brocade Communications
