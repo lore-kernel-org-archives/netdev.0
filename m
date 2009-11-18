@@ -1,17 +1,20 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 13/16] drivers/net/adm8211.c: remove exceptional & on function
- name
-Date: Wed, 18 Nov 2009 19:24:50 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181924310.20943@ask.diku.dk>
+Subject: [PATCH 10/16] drivers/net/via-rhine.c: remove exceptional & on
+ function name
+Date: Wed, 18 Nov 2009 19:23:53 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181923340.20943@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Michael Wu <flamingice@sourmilk.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	arnd@arndb.de, joe@perches.com, linux-kernel
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932374AbZKRSYv@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
+	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:45547 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932225AbZKRSXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2009 13:23:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -38,19 +41,19 @@ identifier r.f;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/adm8211.c      |    2 +-
+ drivers/net/via-rhine.c             |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-index b80f514..3941001 100644
---- a/drivers/net/wireless/adm8211.c
-+++ b/drivers/net/wireless/adm8211.c
-@@ -1538,7 +1538,7 @@ static int adm8211_start(struct ieee80211_hw *dev)
- 	adm8211_hw_init(dev);
- 	adm8211_rf_set_channel(dev, priv->channel);
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 4535e89..ec94ddf 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -1150,7 +1150,7 @@ static int rhine_open(struct net_device *dev)
+ 	void __iomem *ioaddr = rp->base;
+ 	int rc;
  
--	retval = request_irq(priv->pdev->irq, &adm8211_interrupt,
-+	retval = request_irq(priv->pdev->irq, adm8211_interrupt,
- 			     IRQF_SHARED, "adm8211", dev);
- 	if (retval) {
- 		printk(KERN_ERR "%s: failed to register IRQ handler\n",
+-	rc = request_irq(rp->pdev->irq, &rhine_interrupt, IRQF_SHARED, dev->name,
++	rc = request_irq(rp->pdev->irq, rhine_interrupt, IRQF_SHARED, dev->name,
+ 			dev);
+ 	if (rc)
+ 		return rc;
