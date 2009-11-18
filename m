@@ -1,43 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next-2.6 PATCH] net: device name allocation cleanups
-Date: Tue, 17 Nov 2009 16:46:33 -0800
-Message-ID: <20091117164633.49e5fa44@nehalam>
-References: <200911171849.03870.opurdila@ixiacom.com>
-	<20091117090157.2a07bed5@nehalam>
-	<200911172233.53119.opurdila@ixiacom.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-next-2.6 PATCH 1/2] ethtool: Add PHY type to ethtool
+ get_drvinfo
+Date: Tue, 17 Nov 2009 16:47:16 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0911171646450.14640@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20091117161309.11341.9165.stgit@localhost.localdomain>
+ <20091117090719.7d83492a@nehalam> <Pine.WNT.4.64.0911171156090.15476@ppwaskie-MOBL2.amr.corp.intel.com>
+ <20091117164104.5da05b81@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56847 "EHLO mail.vyatta.com"
+Received: from mga14.intel.com ([143.182.124.37]:33283 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751825AbZKRAqd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Nov 2009 19:46:33 -0500
-In-Reply-To: <200911172233.53119.opurdila@ixiacom.com>
+	id S1752373AbZKRArJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Nov 2009 19:47:09 -0500
+In-Reply-To: <20091117164104.5da05b81@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Nov 2009 22:33:53 +0200
-Octavian Purdila <opurdila@ixiacom.com> wrote:
+On Tue, 17 Nov 2009, Stephen Hemminger wrote:
 
-> +	if (fmt) {
-> +		if (strchr(name, '%'))
-> +			return __dev_alloc_name(net, name, buf);
-> +	}
-> +
-> +	if (__dev_get_by_name(net, name))
+> On Tue, 17 Nov 2009 11:56:57 -0800 (Pacific Standard Time)
+> "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
+> 
+> > On Tue, 17 Nov 2009, Stephen Hemminger wrote:
+> > 
+> > > On Tue, 17 Nov 2009 08:13:24 -0800
+> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > > 
+> > > > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> > > > 
+> > > > Allow the PHY type to be passed from a driver to ethtool when
+> > > > ethtool -i ethX is called.  With newer network cards having SFP
+> > > > and SFP+ PHY cages, this information can be useful, especially
+> > > > if the NIC supports hot-swapping of the PHY modules.
+> > > > 
+> > > > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > > ---
+> > > 
+> > > Maybe revive usage of connector port in ethtool rather than adding new API?
+> > > It is already there but values are out of date with current hardware.
+> > 
+> > You're referring to the MODE_GSET port settings?  If so, I like this 
+> > approach, and will update my patches accordingly.
+> 
+> Yes. cmd->port is always PORT_TP or PORT_FIBRE now but could be extended
+> Likewise cmd->transceiver could be modified.  I haven't seen an external transceiver
+> since the old fat yellow cable with vampire taps (and that was 20 yrs ago).
 
+I have patches that I sent to Jeff for internal testing that fixes up the 
+cmd->port field (per your and Ben's suggestion).  I like it much better 
+too.  :-)
 
-Flatten this logic out.
-
-        if (fmt && strchr(name, '%'))
-		return __dev_alloc_name(net, name, buf);
-	else if (__dev_get_by_name(net, name))
-		return -EEXIST;
-	else if (buf != name) 
-		strlcpy(buf, name, IFNAMSIZ);
-
-	return 0;
-
+-PJ
