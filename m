@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NETLINK sockets dont honor SO_RCVLOWAT?
-Date: Wed, 18 Nov 2009 10:24:34 -0800 (PST)
-Message-ID: <20091118.102434.160976750.davem@davemloft.net>
-References: <D67825C5985D0647BE40A5F5B0B70D1106E9C56894@HQ-EXCH-7.corp.brocade.com>
-	<20091117.231706.125598146.davem@davemloft.net>
-	<D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 11/16] drivers/net/via-velocity.c: remove exceptional & on
+ function name
+Date: Wed, 18 Nov 2009 19:24:13 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181923540.20943@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jharan@Brocade.COM
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59955
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932327AbZKRSYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 13:24:17 -0500
-In-Reply-To: <D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:56402 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932248AbZKRSYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2009 13:24:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Haran <jharan@Brocade.COM>
-Date: Wed, 18 Nov 2009 10:22:54 -0800
+From: Julia Lawall <julia@diku.dk>
 
-> So is this a bug or a feature?
+In this file, function names are otherwise used as pointers without &.
 
-It definitely seems intentional.
+A simplified version of the semantic patch that makes this change is as
+follows: (http://coccinelle.lip6.fr/)
 
-> When I call setsockopt() to set this option on a NETLINK socket,
-> setsockopt() appears to return 0 to indicate success. If it's not
-> going to be supported, shouldn't setsockopt() return -1 with
-> ENOPROTOOPT in errno in this case?
+// <smpl>
+@r@
+identifier f;
+@@
 
-There are a lot of socket option values that can be set but which
-are not used by the protocol in question.
+f(...) { ... }
 
-I don't think any changes need to be made.
+@@
+identifier r.f;
+@@
+
+- &f
++ f
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/via-velocity.c          |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 158f411..1e6b395 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -2176,7 +2176,7 @@ static int velocity_open(struct net_device *dev)
+ 
+ 	velocity_init_registers(vptr, VELOCITY_INIT_COLD);
+ 
+-	ret = request_irq(vptr->pdev->irq, &velocity_intr, IRQF_SHARED,
++	ret = request_irq(vptr->pdev->irq, velocity_intr, IRQF_SHARED,
+ 			  dev->name, dev);
+ 	if (ret < 0) {
+ 		/* Power down the chip */
