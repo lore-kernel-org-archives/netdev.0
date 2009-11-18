@@ -1,77 +1,72 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
- option, extend existing struct's
-Date: Wed, 18 Nov 2009 16:08:55 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911181600400.7024@wel-95.cs.helsinki.fi>
-References: <4AFCDA9E.8050003@gmail.com> <4AFCE65C.2010104@gmail.com> <4AFCFD86.6020504@gmail.com> <4AFD8421.6090003@gmail.com> <4B01BB33.7080702@gmail.com> <4B01BF65.1010203@gmail.com> <4B01CD8D.1000305@gmail.com> <4B01D17C.4010407@gmail.com>
- <alpine.DEB.2.00.0911171402260.7024@wel-95.cs.helsinki.fi> <4B03FCE4.5020403@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] macvlan: Reflect macvlan packets meant for other macvlan devices
+Date: Wed, 18 Nov 2009 06:37:50 -0800
+Message-ID: <m1pr7fdhkx.fsf@fess.ebiederm.org>
+References: <1258497551-25959-1-git-send-email-arnd@arndb.de>
+	<1258497551-25959-2-git-send-email-arnd@arndb.de>
+	<4B03949D.4000908@gmail.com> <200911181047.07974.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-713708243-1258553053=:7024"
+Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	Anna Fischer <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org,
+	virtualization@linux-foundation.com,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39768 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbZKROIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:08:51 -0500
-In-Reply-To: <4B03FCE4.5020403@gmail.com>
-Content-ID: <alpine.DEB.2.00.0911181605510.7024@wel-95.cs.helsinki.fi>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49405 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757216AbZKROh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:37:58 -0500
+In-Reply-To: <200911181047.07974.arnd@arndb.de> (Arnd Bergmann's message of "Wed\, 18 Nov 2009 10\:47\:07 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Arnd Bergmann <arnd@arndb.de> writes:
 
---8323329-713708243-1258553053=:7024
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.0911181605511.7024@wel-95.cs.helsinki.fi>
+> On Wednesday 18 November 2009, Eric Dumazet wrote:
+>> > -     skb->dev = dev;
+>> > -     skb->pkt_type = PACKET_HOST;
+>> > +     skb->protocol = eth_type_trans(skb, dev);
+>> > +     eth = eth_hdr(skb);
+>> >  
+>> > -     netif_rx(skb);
+>> > -     return NULL;
+>> > +     skb_dst_drop(skb);
+>> 
+>> Why do you drop dst here ?
+>> 
+>> It seems strange, since this driver specifically masks out IFF_XMIT_DST_RELEASE
+>> in its macvlan_setup() :
+>> 
+>> dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+>> 
+>> If we really want to drop dst, it could be done by caller, if IFF_XMIT_DST_RELEASE
+>> was not masked in macvlan_setup().
+>> 
+>
+> That must be my fault, it is the only change I did to Eric B's patch when
+> forward-porting to 2.6.32. The original patch did
+>
+> 	skb->protocol = eth_type_trans(skb, dev);
+> 	eth = eth_hdr(skb);
+> 	dst_release(skb->dst);
+> 	skb->dst = NULL;
+> 	skb->mark = 0;
+>
+> and I tried to convert that in the same way that other drivers did, but I
+> have to admit that I did not understand the mechanics of IFF_XMIT_DST_RELEASE.
 
-On Wed, 18 Nov 2009, William Allen Simpson wrote:
+Please copy and ideally share code with the veth driver for recycling a skb.
+There are bunch of little things you have to do to get it right.  As I recally
+I was missing a few details in my original patch.
 
-> Ilpo Järvinen wrote:
-> > You both are right (and that's what is causing confusion)...
-> > 
-> In this case, for /this/ code, *none* of you are correct, and _that's_
-> causing confusion. There is no independent retransmission of SYNACK data!
-> None!!  Nada!!!  There is no retransmission queue for SYNACK data.
-> 
-> SYN with SACK should never be sent, and should never be received -- and
-> already should be discarded and ignored (outside the scope of this patch).
-> 
-> As I've already mentioned in this thread 2 days ago, in my earlier patches
-> (now deferred to part 2 after the functional split requested by Eric and
-> Ilpo), the request_sock was removed entirely (just like syncookies).
-> There wasn't (and won't be) any struct or timer lying around to allow
-> SYNACK data retransmissions to occur.
-> 
-> Even now, the entire s_data_* edifice isn't passed to be retransmitted.
-> Note the code (in part 1a), already reviewed and Ack'd:
-> 
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index 4be2228..7a42990 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -537,7 +537,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff
-> *skb,
->  		 * Enforce "SYN-ACK" according to figure 8, figure 6
->  		 * of RFC793, fixed by RFC1122.
->  		 */
-> -		req->rsk_ops->rtx_syn_ack(sk, req);
-> +		req->rsk_ops->rtx_syn_ack(sk, req, NULL);
->  		return NULL;
->  	}
-> 
-> See that NULL?  There's no cookie data structure for retransmission!
-> 
-> Could we end this diversion into rampant speculation?
-
-...I was just commenting on the disagreement in the interpretation of what 
-DaveM said vs comments you mentioned... :-)
-
--- 
- i.
---8323329-713708243-1258553053=:7024--
+Eric
