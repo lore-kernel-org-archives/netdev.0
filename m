@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
-Date: Wed, 18 Nov 2009 08:08:49 -0800 (PST)
-Message-ID: <20091118.080849.196755366.davem@davemloft.net>
-References: <20091114165408.GA283@e-circ.dyndns.org>
-	<20091116084612.3654bdd1@nehalam>
-	<20091118154313.GE325@e-circ.dyndns.org>
+From: Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Subject: Re: [ewg] [PATCHv6 0/10] RDMAoE support
+Date: Wed, 18 Nov 2009 18:34:38 +0200
+Message-ID: <4B04221E.3060201@voltaire.com>
+References: <20091116155302.GA2463@mtls03>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: kurt.van.dijck@eia.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54941
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757380AbZKRQIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 11:08:32 -0500
-In-Reply-To: <20091118154313.GE325@e-circ.dyndns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Linux RDMA list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ewg <ewg-ZwoEplunGu1OwGhvXhtEPSCwEArCW2h5@public.gmane.org>
+To: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20091116155302.GA2463@mtls03>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Date: Wed, 18 Nov 2009 16:43:13 +0100
+Eli Cohen wrote:
+> This new series reflects changes based on feedback from the community on the previous set of patches, and is tagged v6. Previous series were posted to the openfabrics general list only.
+>
+> Changes from v5:
+> 1. Bug fixes.
+How do you expect a reviewer to learn what were the bugs and what are 
+the fixes and if there are bugs that are known and weren't fixed yet? is 
+one expected to do a diff between patches? where is the listing of 
+changes from vX for X=1,2,3,4?
 
-> Is there anything I'm supposed to do/deliver to get the patch committed?
+Or.
 
-Please just resubmit it fully with full changelog and signoffs.
-
-Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
