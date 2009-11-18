@@ -1,18 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/16] drivers/net/can: remove exceptional & on function name
-Date: Wed, 18 Nov 2009 19:20:44 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181920250.20943@ask.diku.dk>
+Subject: [PATCH 6/16] drivers/net/pppol2tp.c: remove exceptional & on function
+ name
+Date: Wed, 18 Nov 2009 19:22:44 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181922240.20943@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org, arnd@arndb.de, joe@perches.com,
-	linux-kernel@vger.kernel.org, ker
+To: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
+	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:45412 "EHLO mgw2.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:56281 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758218AbZKRSUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2009 13:20:40 -0500
+	id S932176AbZKRSWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Nov 2009 13:22:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -41,19 +41,19 @@ identifier r.f;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/can/sja1000/sja1000.c   |    2 +-
+ drivers/net/pppol2tp.c              |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 782a47f..b4ba88a 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -516,7 +516,7 @@ static int sja1000_open(struct net_device *dev)
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index 849cc9c..8dcc26f 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -1537,7 +1537,7 @@ static struct sock *pppol2tp_prepare_tunnel_socket(struct net *net,
+ 	 * if the tunnel socket goes away.
+ 	 */
+ 	tunnel->old_sk_destruct = sk->sk_destruct;
+-	sk->sk_destruct = &pppol2tp_tunnel_destruct;
++	sk->sk_destruct = pppol2tp_tunnel_destruct;
  
- 	/* register interrupt handler, if not done by the device driver */
- 	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
--		err = request_irq(dev->irq, &sja1000_interrupt, priv->irq_flags,
-+		err = request_irq(dev->irq, sja1000_interrupt, priv->irq_flags,
- 				  dev->name, (void *)dev);
- 		if (err) {
- 			close_candev(dev);
+ 	tunnel->sock = sk;
+ 	sk->sk_allocation = GFP_ATOMIC;
