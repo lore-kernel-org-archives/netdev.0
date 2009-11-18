@@ -1,58 +1,36 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH 2/3] TI Davinci EMAC : add platform specific interrupt enable/disable logic.
-Date: Wed, 18 Nov 2009 14:29:54 -0800
-Message-ID: <87pr7fbh5p.fsf@deeprootsystems.com>
-References: <1258537328-31527-1-git-send-email-srk@ti.com>
-	<1258537328-31527-2-git-send-email-srk@ti.com>
-	<1258537328-31527-3-git-send-email-srk@ti.com>
-	<4B044628.9030701@boundarydevices.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Wed, 18 Nov 2009 23:38:51 +0100
+Message-ID: <20091118223851.GA5191@ami.dom.local>
+References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
+ <20091112113836.GA7963@ff.dom.local>
+ <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+ <4AFC5C58.9030207@gmail.com>
+ <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
+ <20091113211640.GA2540@ami.dom.local>
+ <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
+ <20091118135136.GA9224@ff.dom.local>
+ <81bfc67a0911181021n1b969565y4a39b181360b5e92@mail.gmail.com>
+ <20091118201034.GA3060@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sriramakrishnan <srk@ti.com>, netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: Troy Kisky <troy.kisky@boundarydevices.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:51163 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbZKRW3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 17:29:50 -0500
-Received: by pzk1 with SMTP id 1so1126715pzk.33
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2009 14:29:56 -0800 (PST)
-In-Reply-To: <4B044628.9030701@boundarydevices.com> (Troy Kisky's message of "Wed\, 18 Nov 2009 12\:08\:24 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Caleb Cushing <xenoterracide@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753998AbZKRWjO@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091118201034.GA3060@ami.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Troy Kisky <troy.kisky@boundarydevices.com> writes:
+On Wed, Nov 18, 2009 at 09:10:34PM +0100, Jarek Poplawski wrote:
+> On Wed, Nov 18, 2009 at 01:21:19PM -0500, Caleb Cushing wrote:
+> > yeah testing it under my known working config first. I'll get back w/ you later.
+> 
+> Btw, since dropping at hardware (NIC) level seems more likely to me,
+> could you send 'ethtool eth0', and 'ethtool -S eth0' after such tests
+> (both sides).
 
-> Sriramakrishnan wrote:
->> On certain SOCs, the EMAC controller is interfaced with a wrapper logic
->> for handling interrupts. This  patch implements a platform
->> specific hook to cater to platforms that require custom interrupt
->> handling logic
->> 
->> Signed-off-by: Sriramakrishnan <srk@ti.com>
->> Acked-by: Chaithrika U S <chaithrika@ti.com>
->> ---
->>  drivers/net/davinci_emac.c   |   11 +++++++++++
->>  include/linux/davinci_emac.h |    2 ++
->>  2 files changed, 13 insertions(+), 0 deletions(-)
->> 
->> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
->> index 6aec8f5..81931f8 100644
->> --- a/drivers/net/davinci_emac.c
->> +++ b/drivers/net/davinci_emac.c
->> @@ -487,6 +487,9 @@ struct emac_priv {
->>  	struct mii_bus *mii_bus;
->>  	struct phy_device *phydev;
->>  	spinlock_t lock;
->> +	/*platform specific members*/
->> +	void (*wrapper_int_enable) (void);
->> +	void (*wrapper_int_disable) (void);
->
-> Would platform_int_enable be more appropriate then wrapper_int_enable ?
->
+Hmm... and 'netstat -s' before and after the test (both sides).
 
-Or just int_enable.  As it's being used through a private pointer,
-it's clear that it's a wrapper.
-
-Kevin
+Jarek P.
