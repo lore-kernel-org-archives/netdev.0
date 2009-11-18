@@ -1,40 +1,407 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/3] macvlan: Reflect macvlan packets meant for other macvlan devices
-Date: Wed, 18 Nov 2009 15:44:24 +0100
-Message-ID: <200911181544.24275.arnd@arndb.de>
-References: <1258497551-25959-1-git-send-email-arnd@arndb.de> <200911181047.07974.arnd@arndb.de> <m1pr7fdhkx.fsf@fess.ebiederm.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Wed, 18 Nov 2009 09:42:15 -0500
+Message-ID: <4B0407C7.1030503@gmail.com>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCE65C.2010104@gmail.com> <4AFCFD86.6020504@gmail.com> <4AFD8421.6090003@gmail.com> <4B01BB33.7080702@gmail.com> <4B01BF65.1010203@gmail.com> <4B01CD8D.1000305@gmail.com> <4B01D17C.4010407@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	Anna Fischer <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@lists.linux-foundation.org,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/mixed;
+ boundary="------------060308090906000502080501"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Joe Perches <joe@perches.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:54528 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757002AbZKROoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:44:32 -0500
-In-Reply-To: <m1pr7fdhkx.fsf@fess.ebiederm.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:43638 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757371AbZKROmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:42:15 -0500
+Received: by yxe17 with SMTP id 17so1031269yxe.33
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2009 06:42:21 -0800 (PST)
+In-Reply-To: <4B01D17C.4010407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 November 2009, Eric W. Biederman wrote:
-> Please copy and ideally share code with the veth driver for recycling a skb.
-> There are bunch of little things you have to do to get it right.  As I recally
-> I was missing a few details in my original patch.
+This is a multi-part message in MIME format.
+--------------060308090906000502080501
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Ok, thanks for the hint!
+Eric Dumazet wrote:
+> William Allen Simpson a écrit :
+>> There is nothing yet in this patch series to send data with a SYN.  Back in
+>> early October, David required that the various s_data and cookie structures
+>> be compressed and consolidated.  So, for the client side, the cookie_*
+>> fields are filled and the s_data_* fields are zero (ignored), while the
+>> server side can have both filled.
+>>
+>> Moreover, *this* patch does nothing other than allocate and deallocate the
+>> structure, zero filled by kzalloc().
+>>
+>> SYN data will be implemented (much) later.
+> 
+> okay
+> 
+Still no technical corrections.  Seeking Acks.
 
-	Arnd <><
+Trying to get review back on track.  The patch is still the same.
+
+This patch allocates and deallocates the structures.  One main
+difference (off the top of my head) from Alan's original patch is
+that it uses sk->sk_allocation instead of GFP_ATOMIC in a couple of
+places.  David Miller wanted to reduce the number of atomic
+allocations, and sk->sk_allocation can be GFP_KERNEL or GFP_ATOMIC.
+
+AFAICT, it's usually GFP_KERNEL in both tcp_v4_init_sock() and
+tcp_v6_init_sock(), as they're called by inet_create() via
+sk->sk_prot->init() shortly after calling sock_init_data() that set
+sk->sk_allocation to GFP_KERNEL.
+
+I used the existing variable just in case there are other code paths
+that I've missed, and just in case there are future changes adding
+code paths.
+
+Limited multiple (=) assignments to only 2 per line for readability
+(that in existing code have 4 per line and run well beyond 80
+characters, triggering a warning in scripts/checkpatch.pl).
+
+Data structures are carefully composed to require minimal additions.
+For example, the struct tcp_options_received cookie_plus variable fits
+between existing 16-bit and 8-bit variables, requiring no additional
+space (taking alignment into consideration).  There are no additions to
+tcp_request_sock, and only 1 pointer in tcp_sock.
+
+
+--------------060308090906000502080501
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1d6++.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1d6++.patch"
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index eaa3113..7fee8a4 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -247,31 +247,38 @@ struct tcp_options_received {
+ 		sack_ok : 4,	/* SACK seen on SYN packet		*/
+ 		snd_wscale : 4,	/* Window scaling received from sender	*/
+ 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
+-/*	SACKs data	*/
++	u8	cookie_plus:6,	/* bytes in authenticator/cookie option	*/
++		cookie_out_never:1,
++		cookie_in_always:1;
+ 	u8	num_sacks;	/* Number of SACK blocks		*/
+-	u16	user_mss;  	/* mss requested by user in ioctl */
++	u16	user_mss;	/* mss requested by user in ioctl	*/
+ 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
+ };
+ 
+ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+ {
+-	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
++	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++	rx_opt->cookie_plus = 0;
+ }
+ 
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+- * to increse this, although since:
++ * to increase this, although since:
+  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
+  * only four options will fit in a standard TCP header */
+ #define TCP_NUM_SACKS 4
+ 
++struct tcp_cookie_values;
++struct tcp_request_sock_ops;
++
+ struct tcp_request_sock {
+ 	struct inet_request_sock 	req;
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Only used by TCP MD5 Signature so far. */
+ 	const struct tcp_request_sock_ops *af_specific;
+ #endif
+-	u32			 	rcv_isn;
+-	u32			 	snt_isn;
++	u32				rcv_isn;
++	u32				snt_isn;
+ };
+ 
+ static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
+@@ -441,6 +448,12 @@ struct tcp_sock {
+ /* TCP MD5 Signature Option information */
+ 	struct tcp_md5sig_info	*md5sig_info;
+ #endif
++
++	/* When the cookie options are generated and exchanged, then this
++	 * object holds a reference to them (cookie_values->kref).  Also
++	 * contains related tcp_cookie_transactions fields.
++	 */
++	struct tcp_cookie_values  *cookie_values;
+ };
+ 
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+@@ -459,6 +472,10 @@ struct tcp_timewait_sock {
+ 	u16			  tw_md5_keylen;
+ 	u8			  tw_md5_key[TCP_MD5SIG_MAXKEYLEN];
+ #endif
++	/* Few sockets in timewait have cookies; in that case, then this
++	 * object holds a reference to them (tw_cookie_values->kref).
++	 */
++	struct tcp_cookie_values  *tw_cookie_values;
+ };
+ 
+ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 738b65f..f9abd9b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -30,6 +30,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/crypto.h>
+ #include <linux/cryptohash.h>
++#include <linux/kref.h>
+ 
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_timewait_sock.h>
+@@ -164,6 +165,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOPT_SACK             5       /* SACK Block */
+ #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
+ #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
++#define TCPOPT_COOKIE		253	/* Cookie extension (experimental) */
+ 
+ /*
+  *     TCP option lengths
+@@ -174,6 +176,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_SACK_PERM      2
+ #define TCPOLEN_TIMESTAMP      10
+ #define TCPOLEN_MD5SIG         18
++#define TCPOLEN_COOKIE_BASE    2	/* Cookie-less header extension */
++#define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
++#define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
++#define TCPOLEN_COOKIE_MAX     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MAX)
+ 
+ /* But this is what stacks really send out. */
+ #define TCPOLEN_TSTAMP_ALIGNED		12
+@@ -1482,6 +1488,83 @@ struct tcp_request_sock_ops {
+ 
+ extern int tcp_cookie_generator(u32 *bakery);
+ 
++/**
++ *	struct tcp_cookie_values - each socket needs extra space for the
++ *	cookies, together with (optional) space for any SYN data.
++ *
++ *	A tcp_sock contains a pointer to the current value, and this is
++ *	cloned to the tcp_timewait_sock.
++ *
++ * @cookie_pair:	variable data from the option exchange.
++ *
++ * @cookie_desired:	user specified tcpct_cookie_desired.  Zero
++ *			indicates default (sysctl_tcp_cookie_size).
++ *			After cookie sent, remembers size of cookie.
++ *			Range 0, TCP_COOKIE_MIN to TCP_COOKIE_MAX.
++ *
++ * @s_data_desired:	user specified tcpct_s_data_desired.  When the
++ *			constant payload is specified (@s_data_constant),
++ *			holds its length instead.
++ *			Range 0 to TCP_MSS_DESIRED.
++ *
++ * @s_data_payload:	constant data that is to be included in the
++ *			payload of SYN or SYNACK segments when the
++ *			cookie option is present.
++ */
++struct tcp_cookie_values {
++	struct kref	kref;
++	u8		cookie_pair[TCP_COOKIE_PAIR_SIZE];
++	u8		cookie_pair_size;
++	u8		cookie_desired;
++	u16		s_data_desired:11,
++			s_data_constant:1,
++			s_data_in:1,
++			s_data_out:1,
++			s_data_unused:2;
++	u8		s_data_payload[0];
++};
++
++static inline void tcp_cookie_values_release(struct kref *kref)
++{
++	kfree(container_of(kref, struct tcp_cookie_values, kref));
++}
++
++/* The length of constant payload data.  Note that s_data_desired is
++ * overloaded, depending on s_data_constant: either the length of constant
++ * data (returned here) or the limit on variable data.
++ */
++static inline int tcp_s_data_size(const struct tcp_sock *tp)
++{
++	return (tp->cookie_values != NULL && tp->cookie_values->s_data_constant)
++		? tp->cookie_values->s_data_desired
++		: 0;
++}
++
++/**
++ *	struct tcp_extend_values - tcp_ipv?.c to tcp_output.c workspace.
++ *
++ *	As tcp_request_sock has already been extended in other places, the
++ *	only remaining method is to pass stack values along as function
++ *	parameters.  These parameters are not needed after sending SYNACK.
++ *
++ * @cookie_bakery:	cryptographic secret and message workspace.
++ *
++ * @cookie_plus:	bytes in authenticator/cookie option, copied from
++ *			struct tcp_options_received (above).
++ */
++struct tcp_extend_values {
++	struct request_values		rv;
++	u32				cookie_bakery[COOKIE_WORKSPACE_WORDS];
++	u8				cookie_plus:6,
++					cookie_out_never:1,
++					cookie_in_always:1;
++};
++
++static inline struct tcp_extend_values *tcp_xv(struct request_values *rvp)
++{
++	return (struct tcp_extend_values *)rvp;
++}
++
+ extern void tcp_v4_init(void);
+ extern void tcp_init(void);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 397ab8f..2bb7864 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1834,6 +1834,19 @@ static int tcp_v4_init_sock(struct sock *sk)
+ 	tp->af_specific = &tcp_sock_ipv4_specific;
+ #endif
+ 
++	/* TCP Cookie Transactions */
++	if (sysctl_tcp_cookie_size > 0) {
++		/* Default, cookies without s_data_payload. */
++		tp->cookie_values =
++			kzalloc(sizeof(*tp->cookie_values),
++				sk->sk_allocation);
++		if (tp->cookie_values != NULL)
++			kref_init(&tp->cookie_values->kref);
++	}
++	/* Presumed zeroed, in order of appearance:
++	 *	cookie_in_always, cookie_out_never,
++	 *	s_data_constant, s_data_in, s_data_out
++	 */
+ 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
+@@ -1887,6 +1900,13 @@ void tcp_v4_destroy_sock(struct sock *sk)
+ 		sk->sk_sndmsg_page = NULL;
+ 	}
+ 
++	/* TCP Cookie Transactions */
++	if (tp->cookie_values != NULL) {
++		kref_put(&tp->cookie_values->kref,
++			 tcp_cookie_values_release);
++		tp->cookie_values = NULL;
++	}
++
+ 	percpu_counter_dec(&tcp_sockets_allocated);
+ }
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 7a42990..53ef6d8 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -389,14 +389,43 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		const struct inet_request_sock *ireq = inet_rsk(req);
+ 		struct tcp_request_sock *treq = tcp_rsk(req);
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
+-		struct tcp_sock *newtp;
++		struct tcp_sock *newtp = tcp_sk(newsk);
++		struct tcp_sock *oldtp = tcp_sk(sk);
++		struct tcp_cookie_values *oldcvp = oldtp->cookie_values;
++
++		/* TCP Cookie Transactions require space for the cookie pair,
++		 * as it differs for each connection.  There is no need to
++		 * copy any s_data_payload stored at the original socket.
++		 * Failure will prevent resuming the connection.
++		 *
++		 * Presumed copied, in order of appearance:
++		 *	cookie_in_always, cookie_out_never
++		 */
++		if (oldcvp != NULL) {
++			struct tcp_cookie_values *newcvp =
++				kzalloc(sizeof(*newtp->cookie_values),
++					GFP_ATOMIC);
++
++			if (newcvp != NULL) {
++				kref_init(&newcvp->kref);
++				newcvp->cookie_desired =
++						oldcvp->cookie_desired;
++				newtp->cookie_values = newcvp;
++			} else {
++				/* Not Yet Implemented */
++				newtp->cookie_values = NULL;
++			}
++		}
+ 
+ 		/* Now setup tcp_sock */
+-		newtp = tcp_sk(newsk);
+ 		newtp->pred_flags = 0;
+-		newtp->rcv_wup = newtp->copied_seq = newtp->rcv_nxt = treq->rcv_isn + 1;
+-		newtp->snd_sml = newtp->snd_una = newtp->snd_nxt = treq->snt_isn + 1;
+-		newtp->snd_up = treq->snt_isn + 1;
++
++		newtp->rcv_wup = newtp->copied_seq =
++		newtp->rcv_nxt = treq->rcv_isn + 1;
++
++		newtp->snd_sml = newtp->snd_una =
++		newtp->snd_nxt = newtp->snd_up =
++			treq->snt_isn + 1 + tcp_s_data_size(oldtp);
+ 
+ 		tcp_prequeue_init(newtp);
+ 
+@@ -429,8 +458,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		tcp_set_ca_state(newsk, TCP_CA_Open);
+ 		tcp_init_xmit_timers(newsk);
+ 		skb_queue_head_init(&newtp->out_of_order_queue);
+-		newtp->write_seq = treq->snt_isn + 1;
+-		newtp->pushed_seq = newtp->write_seq;
++		newtp->write_seq = newtp->pushed_seq =
++			treq->snt_isn + 1 + tcp_s_data_size(oldtp);
+ 
+ 		newtp->rx_opt.saw_tstamp = 0;
+ 
+@@ -596,7 +625,8 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	 * Invalid ACK: reset will be sent by listening socket
+ 	 */
+ 	if ((flg & TCP_FLAG_ACK) &&
+-	    (TCP_SKB_CB(skb)->ack_seq != tcp_rsk(req)->snt_isn + 1))
++	    (TCP_SKB_CB(skb)->ack_seq !=
++	     tcp_rsk(req)->snt_isn + 1 + tcp_s_data_size(tcp_sk(sk))))
+ 		return sk;
+ 
+ 	/* Also, it would be not so bad idea to check rcv_tsecr, which
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3e327bc..973096a 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1865,6 +1865,19 @@ static int tcp_v6_init_sock(struct sock *sk)
+ 	tp->af_specific = &tcp_sock_ipv6_specific;
+ #endif
+ 
++	/* TCP Cookie Transactions */
++	if (sysctl_tcp_cookie_size > 0) {
++		/* Default, cookies without s_data_payload. */
++		tp->cookie_values =
++			kzalloc(sizeof(*tp->cookie_values),
++				sk->sk_allocation);
++		if (tp->cookie_values != NULL)
++			kref_init(&tp->cookie_values->kref);
++	}
++	/* Presumed zeroed, in order of appearance:
++	 *	cookie_in_always, cookie_out_never,
++	 *	s_data_constant, s_data_in, s_data_out
++	 */
+ 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
+
+--------------060308090906000502080501--
