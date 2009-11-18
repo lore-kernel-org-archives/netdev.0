@@ -1,60 +1,37 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 16/16] drivers/net/wireless/rtl818x: remove exceptional & on
- function name
-Date: Wed, 18 Nov 2009 19:26:02 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181925440.20943@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NETLINK sockets dont honor SO_RCVLOWAT?
+Date: Wed, 18 Nov 2009 10:24:34 -0800 (PST)
+Message-ID: <20091118.102434.160976750.davem@davemloft.net>
+References: <D67825C5985D0647BE40A5F5B0B70D1106E9C56894@HQ-EXCH-7.corp.brocade.com>
+	<20091117.231706.125598146.davem@davemloft.net>
+	<D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jharan@Brocade.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:59995 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932389AbZKRSZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2009 13:25:58 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59955
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932327AbZKRSYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 13:24:17 -0500
+In-Reply-To: <D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Jeff Haran <jharan@Brocade.COM>
+Date: Wed, 18 Nov 2009 10:22:54 -0800
 
-In this file, function names are otherwise used as pointers without &.
+> So is this a bug or a feature?
 
-A simplified version of the semantic patch that makes this change is as
-follows: (http://coccinelle.lip6.fr/)
+It definitely seems intentional.
 
-// <smpl>
-@r@
-identifier f;
-@@
+> When I call setsockopt() to set this option on a NETLINK socket,
+> setsockopt() appears to return 0 to indicate success. If it's not
+> going to be supported, shouldn't setsockopt() return -1 with
+> ENOPROTOOPT in errno in this case?
 
-f(...) { ... }
+There are a lot of socket option values that can be set but which
+are not used by the protocol in question.
 
-@@
-identifier r.f;
-@@
-
-- &f
-+ f
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/wireless/rtl818x/rtl8180_dev.c     |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/rtl818x/rtl8180_dev.c b/drivers/net/wireless/rtl818x/rtl8180_dev.c
-index 16429c4..a1a3dd1 100644
---- a/drivers/net/wireless/rtl818x/rtl8180_dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8180_dev.c
-@@ -548,7 +548,7 @@ static int rtl8180_start(struct ieee80211_hw *dev)
- 	rtl818x_iowrite32(priv, &priv->map->TNPDA, priv->tx_ring[1].dma);
- 	rtl818x_iowrite32(priv, &priv->map->TLPDA, priv->tx_ring[0].dma);
- 
--	ret = request_irq(priv->pdev->irq, &rtl8180_interrupt,
-+	ret = request_irq(priv->pdev->irq, rtl8180_interrupt,
- 			  IRQF_SHARED, KBUILD_MODNAME, dev);
- 	if (ret) {
- 		printk(KERN_ERR "%s: failed to register IRQ handler\n",
+I don't think any changes need to be made.
