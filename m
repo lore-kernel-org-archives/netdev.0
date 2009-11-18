@@ -1,54 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] macvlan: export macvlan mode through netlink
-Date: Wed, 18 Nov 2009 10:59:45 +0100
-Message-ID: <200911181059.45331.arnd@arndb.de>
-References: <1258497551-25959-1-git-send-email-arnd@arndb.de> <1258497551-25959-4-git-send-email-arnd@arndb.de> <4B0398D4.8030904@gmail.com>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Wed, 18 Nov 2009 05:00:45 -0500
+Message-ID: <81bfc67a0911180200k53293d46g8d366f74547b7bb1@mail.gmail.com>
+References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
+	 <20091112113836.GA7963@ff.dom.local>
+	 <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+	 <4AFC5C58.9030207@gmail.com>
+	 <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
+	 <20091113211640.GA2540@ami.dom.local>
+	 <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	Anna Fischer <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@lists.linux-foundation.org,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:53621 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbZKRJ7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 04:59:50 -0500
-In-Reply-To: <4B0398D4.8030904@gmail.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:34349 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756682AbZKRKAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 05:00:39 -0500
+In-Reply-To: <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 November 2009, Eric Dumazet wrote:
-> > --- a/drivers/net/macvlan.c
-> > +++ b/drivers/net/macvlan.c
-> > @@ -33,12 +33,6 @@
-> >  
-> >  #define MACVLAN_HASH_SIZE    (1 << BITS_PER_BYTE)
-> >  
-> > -enum macvlan_type {
-> > -     MACVLAN_PRIVATE         = 1,
-> > -     MACVLAN_VEPA            = 2,
-> > -     MACVLAN_BRIDGE          = 4,
-> > -};
-> 
-> I realize you defined MACVLAN_PRIVATE in patch 2, but used MACVLAN_MODE_PRIVATE,
-> so patch 2 is not compilable and breaks bisection ?
-> 
+p.s. dumps are on the old bug here...
+http://bugzilla.kernel.org/show_bug.cgi?id=13835
 
-Hmm, right. I'll fix that up as well.
 
-Thanks,
+-- 
+Caleb Cushing
 
-	Arnd <><
+http://xenoterracide.blogspot.com
