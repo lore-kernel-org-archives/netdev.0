@@ -1,61 +1,58 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH iproute2] ip: Add support for setting MAC and VLAN
- on hardware queues
-Date: Wed, 18 Nov 2009 15:07:23 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA69A3201@rrsmsx501.amr.corp.intel.com>
-References: <20091117215432.15195.94504.stgit@localhost.localdomain>
-	<20091117140641.7f8c8ac0@nehalam>
-	<20091118.100728.91511216.davem@davemloft.net>
- <20091118111555.0e4caa8f@nehalam>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH 2/3] TI Davinci EMAC : add platform specific interrupt enable/disable logic.
+Date: Wed, 18 Nov 2009 14:29:54 -0800
+Message-ID: <87pr7fbh5p.fsf@deeprootsystems.com>
+References: <1258537328-31527-1-git-send-email-srk@ti.com>
+	<1258537328-31527-2-git-send-email-srk@ti.com>
+	<1258537328-31527-3-git-send-email-srk@ti.com>
+	<4B044628.9030701@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sriramakrishnan <srk@ti.com>, netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:36318 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756962AbZKRWHU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 17:07:20 -0500
-In-Reply-To: <20091118111555.0e4caa8f@nehalam>
-Content-Language: en-US
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:51163 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751986AbZKRW3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 17:29:50 -0500
+Received: by pzk1 with SMTP id 1so1126715pzk.33
+        for <netdev@vger.kernel.org>; Wed, 18 Nov 2009 14:29:56 -0800 (PST)
+In-Reply-To: <4B044628.9030701@boundarydevices.com> (Troy Kisky's message of "Wed\, 18 Nov 2009 12\:08\:24 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Stephen Hemminger [mailto:shemminger@vyatta.com]
->Sent: Wednesday, November 18, 2009 11:16 AM
->> >
->> > Is there anything to avoid prevent this from being misused by users who
->> > are doing multiqueue. Maybe we need equivalent of "mounted" flag that
->block
->> > devices have?
->>
->> It's a privileged config operation as far as I can tell.
->>
->> Given that, what could we possibly need to protect?
->>
->> This stuff looks basically fine to me.
->>
+Troy Kisky <troy.kisky@boundarydevices.com> writes:
+
+> Sriramakrishnan wrote:
+>> On certain SOCs, the EMAC controller is interfaced with a wrapper logic
+>> for handling interrupts. This  patch implements a platform
+>> specific hook to cater to platforms that require custom interrupt
+>> handling logic
+>> 
+>> Signed-off-by: Sriramakrishnan <srk@ti.com>
+>> Acked-by: Chaithrika U S <chaithrika@ti.com>
+>> ---
+>>  drivers/net/davinci_emac.c   |   11 +++++++++++
+>>  include/linux/davinci_emac.h |    2 ++
+>>  2 files changed, 13 insertions(+), 0 deletions(-)
+>> 
+>> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+>> index 6aec8f5..81931f8 100644
+>> --- a/drivers/net/davinci_emac.c
+>> +++ b/drivers/net/davinci_emac.c
+>> @@ -487,6 +487,9 @@ struct emac_priv {
+>>  	struct mii_bus *mii_bus;
+>>  	struct phy_device *phydev;
+>>  	spinlock_t lock;
+>> +	/*platform specific members*/
+>> +	void (*wrapper_int_enable) (void);
+>> +	void (*wrapper_int_disable) (void);
 >
->I was thinking that maybe the general question of SR-IOV overlap with other
->multiqueue usage. How is it possible to be sure queue is not being used
->for other traffic?  The MAC stuff itself is fine, just an example where
->changing a queue being used for SR-IOV makes sense, but if being used
->for regular multiqueue receive doesn't.
->
->The filesystem example is that for years it was possible to do something
->dumb like do fsck on a mounted filesystem and cause trouble (on unix and
->early
->linux); but current systems don't allow it because it is stupid idea.
+> Would platform_int_enable be more appropriate then wrapper_int_enable ?
 >
 
-Right now, this is only intended for SR-IOV usage, and the ixgbe driver enforces that by returning error if you try to set filters on queue 0, which corresponds to the PF device. We could conceivably extend this for use with non-IOV device queues and filters, but we'd need to look long and hard at the use cases and semantics of "what is a queue?" before we do that.
+Or just int_enable.  As it's being used through a private pointer,
+it's clear that it's a wrapper.
 
-In this case (SR-IOV), we really can't realistically do any policy enforcement aside from root privilege.  Yeah, it's a bad idea to change these filters on an active queue - the VM would just mysteriously stop receiving traffic.  OTOH, the driver can't tell for sure what's going on with the VF device. Is it running, unloaded, crashed, booting...? There's no way to tell.
-
-So we have to allow the filters to be changed at any time, even if there's a possibility that the VM is using the queue. We have to trust that the VM manager/hypervisor/whatever knows what it's doing, because we have no choice.
-
--Mitch
+Kevin
