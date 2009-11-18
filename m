@@ -1,55 +1,54 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 7/16] drivers/net/r6040.c: remove exceptional & on function
- name
-Date: Wed, 18 Nov 2009 19:23:00 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181922450.20943@ask.diku.dk>
+From: Jeff Haran <jharan@Brocade.COM>
+Subject: RE: NETLINK sockets dont honor SO_RCVLOWAT?
+Date: Wed, 18 Nov 2009 10:22:54 -0800
+Message-ID: <D67825C5985D0647BE40A5F5B0B70D1106E9C568F1@HQ-EXCH-7.corp.brocade.com>
+References: <D67825C5985D0647BE40A5F5B0B70D1106E9C56894@HQ-EXCH-7.corp.brocade.com>
+ <20091117.231706.125598146.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
-	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932274AbZKRSXA@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hq-exedge.brocade.com ([66.243.153.82]:13812 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932254AbZKRSWu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 13:22:50 -0500
+In-Reply-To: <20091117.231706.125598146.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Tuesday, November 17, 2009 11:17 PM
+> To: Jeff Haran
+> Cc: netdev@vger.kernel.org
+> Subject: Re: NETLINK sockets dont honor SO_RCVLOWAT?
+> 
+> From: Jeff Haran <jharan@Brocade.COM>
+> Date: Tue, 17 Nov 2009 17:54:59 -0800
+> 
+> > Am I correct in my observation that the SO_RCVLOWAT socket option is
+> > not honored when one calls readv() on a PF_NETLINK socket?
+> 
+> That's correct.
+> 
+> SO_RCVLOWAT is only available on stream based sockets such as TCP and
+> UNIX.
+> 
 
-In this file, function names are otherwise used as pointers without &.
+David,
 
-A simplified version of the semantic patch that makes this change is as
-follows: (http://coccinelle.lip6.fr/)
+Thanks for the prompt response.
 
-// <smpl>
-@r@
-identifier f;
-@@
+So is this a bug or a feature?
 
-f(...) { ... }
+When I call setsockopt() to set this option on a NETLINK socket, setsockopt() appears to return 0 to indicate success. If it's not going to be supported, shouldn't setsockopt() return -1 with ENOPROTOOPT in errno in this case?
 
-@@
-identifier r.f;
-@@
+This is the behavior I would assume from reading the setsockopt() man page.
 
-- &f
-+ f
-// </smpl>
+I am running this on a 2.6.14 kernel, so perhaps this had been corrected in later versions.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/r6040.c                 |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 7dfcb58..91ebef0 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -842,7 +842,7 @@ static int r6040_open(struct net_device *dev)
- 	int ret;
- 
- 	/* Request IRQ and Register interrupt handler */
--	ret = request_irq(dev->irq, &r6040_interrupt,
-+	ret = request_irq(dev->irq, r6040_interrupt,
- 		IRQF_SHARED, dev->name, dev);
- 	if (ret)
- 		return ret;
+Jeff Haran
+Brocade Communications
