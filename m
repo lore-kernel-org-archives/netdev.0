@@ -1,40 +1,38 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH 0/3] TI EMAC driver : Make driver re-usable on non-davinci platforms.
-Date: Wed, 18 Nov 2009 09:53:47 -0800
-Message-ID: <87r5rvd8ic.fsf@deeprootsystems.com>
-References: <1258537328-31527-1-git-send-email-srk@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
+Date: Wed, 18 Nov 2009 09:57:16 -0800 (PST)
+Message-ID: <20091118.095716.61189059.davem@davemloft.net>
+References: <20091118154313.GE325@e-circ.dyndns.org>
+	<20091118.080849.196755366.davem@davemloft.net>
+	<20091118164126.GF325@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: Sriramakrishnan <srk@ti.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: kurt.van.dijck@eia.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:34448 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758064AbZKRRxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 12:53:48 -0500
-Received: by bwz27 with SMTP id 27so1397722bwz.21
-        for <netdev@vger.kernel.org>; Wed, 18 Nov 2009 09:53:54 -0800 (PST)
-In-Reply-To: <1258537328-31527-1-git-send-email-srk@ti.com> (Sriramakrishnan's message of "Wed\, 18 Nov 2009 15\:12\:05 +0530")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51876
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757836AbZKRR47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 12:56:59 -0500
+In-Reply-To: <20091118164126.GF325@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sriramakrishnan <srk@ti.com> writes:
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Date: Wed, 18 Nov 2009 17:41:26 +0100
 
-> The Davinci EMAC peripheral is also available on other TI platforms -
-> notably TI AM3517 SoC. The following series of patches modify the driver 
-> suitably to make it platform agnostic.
->
-> Sriramakrishnan (3):
->   TI Davinci EMAC : Re-use driver for other platforms.
->   TI Davinci EMAC : add platform specific interrupt enable/disable
->     logic.
->   TI Davinci EMAC : Abstract Buffer address translation logic.
->
+> This patch allows adding sysfs attribute groups during netdevice registration.
+> The idea is that before the register_netdev call, several calls to
+> netdev_sysfs_add_group can be done. These attributes are accessible (by
+> udev) during the uevent.
+> 
+> Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-As David proposed, this should go upstream via the ARM/DaVinci route.
+Patch is corrupted by your email client.  Tab characters have
+been turned into spaces, etc.
 
-Can you please re-submit against current DaVinci git?  This series
-doesn't apply there currently.
+Please fix this up and resubmit.
 
-Kevin
+Thanks.
