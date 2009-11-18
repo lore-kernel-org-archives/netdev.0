@@ -1,21 +1,16 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 4/16] drivers/net/ipg.c: remove exceptional & on function
+Subject: [PATCH 7/16] drivers/net/r6040.c: remove exceptional & on function
  name
-Date: Wed, 18 Nov 2009 19:21:45 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0911181921050.20943@ask.diku.dk>
+Date: Wed, 18 Nov 2009 19:23:00 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911181922450.20943@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Sorbica Shieh <sorbica@icplus.com.tw>,
-	Jesse Huang <jesse@icplus.com.tw>, netdev@vger.kernel.org,
-	arnd@arndb.de, joe@perches.com, linux-kernel@
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:45439 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932183AbZKRSVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2009 13:21:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
+	arnd@arndb.de, joe@perches.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932274AbZKRSXA@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -42,19 +37,19 @@ identifier r.f;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/ipg.c                   |    2 +-
+ drivers/net/r6040.c                 |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index 63056e7..ba8d246 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -1751,7 +1751,7 @@ static int ipg_nic_open(struct net_device *dev)
- 	/* Register the interrupt line to be used by the IPG within
- 	 * the Linux system.
- 	 */
--	rc = request_irq(pdev->irq, &ipg_interrupt_handler, IRQF_SHARED,
-+	rc = request_irq(pdev->irq, ipg_interrupt_handler, IRQF_SHARED,
- 			 dev->name, dev);
- 	if (rc < 0) {
- 		printk(KERN_INFO "%s: Error when requesting interrupt.\n",
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 7dfcb58..91ebef0 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -842,7 +842,7 @@ static int r6040_open(struct net_device *dev)
+ 	int ret;
+ 
+ 	/* Request IRQ and Register interrupt handler */
+-	ret = request_irq(dev->irq, &r6040_interrupt,
++	ret = request_irq(dev->irq, r6040_interrupt,
+ 		IRQF_SHARED, dev->name, dev);
+ 	if (ret)
+ 		return ret;
