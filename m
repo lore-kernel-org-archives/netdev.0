@@ -1,495 +1,77 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH 2/7] bnx2x: Refactor MAC address setup code.
-Date: Wed, 18 Nov 2009 06:01:59 -0800
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADCB2D1416D6@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1255218419-17320-1-git-send-email-mchan@broadcom.com>
- <1255218419-17320-2-git-send-email-mchan@broadcom.com>
- <20091118110608.GA2358@dhcp-lab-161.englab.brq.redhat.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [net-next-2.6 PATCH v6 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Wed, 18 Nov 2009 16:08:55 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911181600400.7024@wel-95.cs.helsinki.fi>
+References: <4AFCDA9E.8050003@gmail.com> <4AFCE65C.2010104@gmail.com> <4AFCFD86.6020504@gmail.com> <4AFD8421.6090003@gmail.com> <4B01BB33.7080702@gmail.com> <4B01BF65.1010203@gmail.com> <4B01CD8D.1000305@gmail.com> <4B01D17C.4010407@gmail.com>
+ <alpine.DEB.2.00.0911171402260.7024@wel-95.cs.helsinki.fi> <4B03FCE4.5020403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
-	"Shmulik Ravid - Rabinovitz" <shmulikr@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Stanislaw Gruszka" <sgruszka@redhat.com>,
-	"Michael Chan" <mchan@broadcom.com>
+Content-Type: MULTIPART/MIXED; boundary="8323329-713708243-1258553053=:7024"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Joe Perches <joe@perches.com>,
+	David Miller <davem@davemloft.net>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2406 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751534AbZKROCF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:02:05 -0500
-In-Reply-To: <20091118110608.GA2358@dhcp-lab-161.englab.brq.redhat.com>
-Content-Language: en-US
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39768 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534AbZKROIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 09:08:51 -0500
+In-Reply-To: <4B03FCE4.5020403@gmail.com>
+Content-ID: <alpine.DEB.2.00.0911181605510.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The main idea of this counter is to make the set MAC functions return only when FW has
-finished handling the ramrod. Currently the only valid values of this "counter" is 0 and 1.
-So before sending the ramrod the counter is incremented,
-then there is an smp_wmb() (to ensure that the future DPC handler will see the up to date value
-before it decrements it during handling ramrod completion in the bnx2x_sp_event()) and only then the ramrod is sent.
-So, smp_wmb() will just do right in a single "set MAC" operation flow. Then, if we recall
-that MAC is always changed under the rtnl lock we'll see that the current implementation is
-just fine.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I agree that atomic_t could be used here but then I should have used the
-smp_mb__after_atomic_dec()/smp_mb__after_atomic_inc() to ensure the proper ordering.
-IMHO the above is not better than the current implementation.
+--8323329-713708243-1258553053=:7024
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0911181605511.7024@wel-95.cs.helsinki.fi>
 
-Regards,
-vlad
+On Wed, 18 Nov 2009, William Allen Simpson wrote:
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Stanislaw Gruszka
-> Sent: Wednesday, November 18, 2009 1:06 PM
-> To: Michael Chan
-> Cc: davem@davemloft.net; netdev@vger.kernel.org;
-> michaelc@cs.wisc.edu; Shmulik Ravid - Rabinovitz; Eilon Greenstein
-> Subject: Re: [PATCH 2/7] bnx2x: Refactor MAC address setup code.
->
-> Hi Michael
->
-> On Sat, Oct 10, 2009 at 04:46:54PM -0700, Michael Chan wrote:
-> > For iSCSI MAC address setup in later patches.
-> >
-> > Signed-off-by: Shmulik Ravid - Rabinovitz <shmulikr@broadcom.com>
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > Acked-by: Eilon Greenstein <eilong@broadcom.com>
->
-> In this patch you become to use ->set_mac_pending as a
-> counter. It looks
-> like you are trying to do smb_wmb() to make incrementing/decrementing
-> operations correct on many processors. But this seems to be wrong,
-> since there is no data dependency and smp_wmb()/smp_rmb() does noting.
-> In particular these barriers not prevent to race when two processors
-> decrement/increment counter. IMHO atomic_t should be used.
->
-> Stanislaw
->
-> > ---
-> >  drivers/net/bnx2x.h      |    4 +-
-> >  drivers/net/bnx2x_main.c |  162
-> ++++++++++++++++++++++++++++++++--------------
-> >  2 files changed, 114 insertions(+), 52 deletions(-)
-> >
-> > diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-> > index bbf8422..1f07063 100644
-> > --- a/drivers/net/bnx2x.h
-> > +++ b/drivers/net/bnx2x.h
-> > @@ -863,8 +863,8 @@ struct bnx2x {
-> >
-> >     /* Flags for marking that there is a STAT_QUERY or
-> >        SET_MAC ramrod pending */
-> > -   u8                      stats_pending;
-> > -   u8                      set_mac_pending;
-> > +   int                     stats_pending;
-> > +   int                     set_mac_pending;
-> >
-> >     /* End of fields used in the performance code paths */
-> >
-> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> > index 713d669..02ce3b3 100644
-> > --- a/drivers/net/bnx2x_main.c
-> > +++ b/drivers/net/bnx2x_main.c
-> > @@ -1026,12 +1026,15 @@ static void bnx2x_sp_event(struct
-> bnx2x_fastpath *fp,
-> >     case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_OPEN):
-> >     case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_DIAG):
-> >             DP(NETIF_MSG_IFUP, "got set mac ramrod\n");
-> > -           bp->set_mac_pending = 0;
-> > +           bp->set_mac_pending--;
-> > +           smp_wmb();
-> >             break;
-> >
-> >     case (RAMROD_CMD_ID_ETH_SET_MAC |
-> BNX2X_STATE_CLOSING_WAIT4_HALT):
-> >     case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_DISABLED):
-> >             DP(NETIF_MSG_IFDOWN, "got (un)set mac ramrod\n");
-> > +           bp->set_mac_pending--;
-> > +           smp_wmb();
-> >             break;
-> >
-> >     default:
-> > @@ -2530,7 +2533,7 @@ u32 bnx2x_fw_command(struct bnx2x
-> *bp, u32 command)
-> >  }
-> >
-> >  static void bnx2x_set_storm_rx_mode(struct bnx2x *bp);
-> > -static void bnx2x_set_mac_addr_e1h(struct bnx2x *bp, int set);
-> > +static void bnx2x_set_eth_mac_addr_e1h(struct bnx2x *bp, int set);
-> >  static void bnx2x_set_rx_mode(struct net_device *dev);
-> >
-> >  static void bnx2x_e1h_disable(struct bnx2x *bp)
-> > @@ -2546,7 +2549,7 @@ static void bnx2x_e1h_disable(struct
-> bnx2x *bp)
-> >
-> >     REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 0);
-> >
-> > -   bnx2x_set_mac_addr_e1h(bp, 0);
-> > +   bnx2x_set_eth_mac_addr_e1h(bp, 0);
-> >
-> >     for (i = 0; i < MC_HASH_SIZE; i++)
-> >             REG_WR(bp, MC_HASH_OFFSET(bp, i), 0);
-> > @@ -2560,7 +2563,7 @@ static void bnx2x_e1h_enable(struct bnx2x *bp)
-> >
-> >     REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 1);
-> >
-> > -   bnx2x_set_mac_addr_e1h(bp, 1);
-> > +   bnx2x_set_eth_mac_addr_e1h(bp, 1);
-> >
-> >     /* Tx queue should be only reenabled */
-> >     netif_tx_wake_all_queues(bp->dev);
-> > @@ -7036,7 +7039,19 @@ static void bnx2x_netif_stop(struct
-> bnx2x *bp, int disable_hw)
-> >   * Init service functions
-> >   */
-> >
-> > -static void bnx2x_set_mac_addr_e1(struct bnx2x *bp, int set)
-> > +/**
-> > + * Sets a MAC in a CAM for a few L2 Clients for E1 chip
-> > + *
-> > + * @param bp driver descriptor
-> > + * @param set set or clear an entry (1 or 0)
-> > + * @param mac pointer to a buffer containing a MAC
-> > + * @param cl_bit_vec bit vector of clients to register a MAC for
-> > + * @param cam_offset offset in a CAM to use
-> > + * @param with_bcast set broadcast MAC as well
-> > + */
-> > +static void bnx2x_set_mac_addr_e1_gen(struct bnx2x *bp,
-> int set, u8 *mac,
-> > +                                 u32 cl_bit_vec, u8 cam_offset,
-> > +                                 u8 with_bcast)
-> >  {
-> >     struct mac_configuration_cmd *config = bnx2x_sp(bp, mac_config);
-> >     int port = BP_PORT(bp);
-> > @@ -7045,25 +7060,25 @@ static void
-> bnx2x_set_mac_addr_e1(struct bnx2x *bp, int set)
-> >      * unicasts 0-31:port0 32-63:port1
-> >      * multicast 64-127:port0 128-191:port1
-> >      */
-> > -   config->hdr.length = 2;
-> > -   config->hdr.offset = port ? 32 : 0;
-> > -   config->hdr.client_id = bp->fp->cl_id;
-> > +   config->hdr.length = 1 + (with_bcast ? 1 : 0);
-> > +   config->hdr.offset = cam_offset;
-> > +   config->hdr.client_id = 0xff;
-> >     config->hdr.reserved1 = 0;
-> >
-> >     /* primary MAC */
-> >     config->config_table[0].cam_entry.msb_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[0]);
-> > +                                   swab16(*(u16 *)&mac[0]);
-> >     config->config_table[0].cam_entry.middle_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[2]);
-> > +                                   swab16(*(u16 *)&mac[2]);
-> >     config->config_table[0].cam_entry.lsb_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[4]);
-> > +                                   swab16(*(u16 *)&mac[4]);
-> >     config->config_table[0].cam_entry.flags = cpu_to_le16(port);
-> >     if (set)
-> >             config->config_table[0].target_table_entry.flags = 0;
-> >     else
-> >             CAM_INVALIDATE(config->config_table[0]);
-> >     config->config_table[0].target_table_entry.clients_bit_vector =
-> > -                                           cpu_to_le32(1
-> << BP_L_ID(bp));
-> > +                                           cpu_to_le32(cl_bit_vec);
-> >     config->config_table[0].target_table_entry.vlan_id = 0;
-> >
-> >     DP(NETIF_MSG_IFUP, "%s MAC (%04x:%04x:%04x)\n",
-> > @@ -7073,47 +7088,58 @@ static void
-> bnx2x_set_mac_addr_e1(struct bnx2x *bp, int set)
-> >        config->config_table[0].cam_entry.lsb_mac_addr);
-> >
-> >     /* broadcast */
-> > -   config->config_table[1].cam_entry.msb_mac_addr =
-> cpu_to_le16(0xffff);
-> > -   config->config_table[1].cam_entry.middle_mac_addr =
-> cpu_to_le16(0xffff);
-> > -   config->config_table[1].cam_entry.lsb_mac_addr =
-> cpu_to_le16(0xffff);
-> > -   config->config_table[1].cam_entry.flags = cpu_to_le16(port);
-> > -   if (set)
-> > -           config->config_table[1].target_table_entry.flags =
-> > -                           TSTORM_CAM_TARGET_TABLE_ENTRY_BROADCAST;
-> > -   else
-> > -           CAM_INVALIDATE(config->config_table[1]);
-> > -   config->config_table[1].target_table_entry.clients_bit_vector =
-> > -                                           cpu_to_le32(1
-> << BP_L_ID(bp));
-> > -   config->config_table[1].target_table_entry.vlan_id = 0;
-> > +   if (with_bcast) {
-> > +           config->config_table[1].cam_entry.msb_mac_addr =
-> > +                   cpu_to_le16(0xffff);
-> > +           config->config_table[1].cam_entry.middle_mac_addr =
-> > +                   cpu_to_le16(0xffff);
-> > +           config->config_table[1].cam_entry.lsb_mac_addr =
-> > +                   cpu_to_le16(0xffff);
-> > +           config->config_table[1].cam_entry.flags =
-> cpu_to_le16(port);
-> > +           if (set)
-> > +
-> config->config_table[1].target_table_entry.flags =
-> > +
-> TSTORM_CAM_TARGET_TABLE_ENTRY_BROADCAST;
-> > +           else
-> > +                   CAM_INVALIDATE(config->config_table[1]);
-> > +
-> config->config_table[1].target_table_entry.clients_bit_vector =
-> > +
-> cpu_to_le32(cl_bit_vec);
-> > +           config->config_table[1].target_table_entry.vlan_id = 0;
-> > +   }
-> >
-> >     bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-> >                   U64_HI(bnx2x_sp_mapping(bp, mac_config)),
-> >                   U64_LO(bnx2x_sp_mapping(bp, mac_config)), 0);
-> >  }
-> >
-> > -static void bnx2x_set_mac_addr_e1h(struct bnx2x *bp, int set)
-> > +/**
-> > + * Sets a MAC in a CAM for a few L2 Clients for E1H chip
-> > + *
-> > + * @param bp driver descriptor
-> > + * @param set set or clear an entry (1 or 0)
-> > + * @param mac pointer to a buffer containing a MAC
-> > + * @param cl_bit_vec bit vector of clients to register a MAC for
-> > + * @param cam_offset offset in a CAM to use
-> > + */
-> > +static void bnx2x_set_mac_addr_e1h_gen(struct bnx2x *bp,
-> int set, u8 *mac,
-> > +                                  u32 cl_bit_vec, u8 cam_offset)
-> >  {
-> >     struct mac_configuration_cmd_e1h *config =
-> >             (struct mac_configuration_cmd_e1h
-> *)bnx2x_sp(bp, mac_config);
-> >
-> > -   /* CAM allocation for E1H
-> > -    * unicasts: by func number
-> > -    * multicast: 20+FUNC*20, 20 each
-> > -    */
-> >     config->hdr.length = 1;
-> > -   config->hdr.offset = BP_FUNC(bp);
-> > -   config->hdr.client_id = bp->fp->cl_id;
-> > +   config->hdr.offset = cam_offset;
-> > +   config->hdr.client_id = 0xff;
-> >     config->hdr.reserved1 = 0;
-> >
-> >     /* primary MAC */
-> >     config->config_table[0].msb_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[0]);
-> > +                                   swab16(*(u16 *)&mac[0]);
-> >     config->config_table[0].middle_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[2]);
-> > +                                   swab16(*(u16 *)&mac[2]);
-> >     config->config_table[0].lsb_mac_addr =
-> > -                                   swab16(*(u16
-> *)&bp->dev->dev_addr[4]);
-> > +                                   swab16(*(u16 *)&mac[4]);
-> >     config->config_table[0].clients_bit_vector =
-> > -                                   cpu_to_le32(1 << BP_L_ID(bp));
-> > +                                   cpu_to_le32(cl_bit_vec);
-> >     config->config_table[0].vlan_id = 0;
-> >     config->config_table[0].e1hov_id = cpu_to_le16(bp->e1hov);
-> >     if (set)
-> > @@ -7122,11 +7148,11 @@ static void
-> bnx2x_set_mac_addr_e1h(struct bnx2x *bp, int set)
-> >             config->config_table[0].flags =
-> >                             MAC_CONFIGURATION_ENTRY_E1H_ACTION_TYPE;
-> >
-> > -   DP(NETIF_MSG_IFUP, "%s MAC (%04x:%04x:%04x)  E1HOV %d
-> CLID %d\n",
-> > +   DP(NETIF_MSG_IFUP, "%s MAC (%04x:%04x:%04x)  E1HOV %d
-> CLID mask %d\n",
-> >        (set ? "setting" : "clearing"),
-> >        config->config_table[0].msb_mac_addr,
-> >        config->config_table[0].middle_mac_addr,
-> > -      config->config_table[0].lsb_mac_addr, bp->e1hov,
-> BP_L_ID(bp));
-> > +      config->config_table[0].lsb_mac_addr, bp->e1hov, cl_bit_vec);
-> >
-> >     bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-> >                   U64_HI(bnx2x_sp_mapping(bp, mac_config)),
-> > @@ -7178,6 +7204,31 @@ static int bnx2x_wait_ramrod(struct
-> bnx2x *bp, int state, int idx,
-> >     return -EBUSY;
-> >  }
-> >
-> > +static void bnx2x_set_eth_mac_addr_e1h(struct bnx2x *bp, int set)
-> > +{
-> > +   bp->set_mac_pending++;
-> > +   smp_wmb();
-> > +
-> > +   bnx2x_set_mac_addr_e1h_gen(bp, set, bp->dev->dev_addr,
-> > +                              (1 << bp->fp->cl_id), BP_FUNC(bp));
-> > +
-> > +   /* Wait for a completion */
-> > +   bnx2x_wait_ramrod(bp, 0, 0, &bp->set_mac_pending, set ? 0 : 1);
-> > +}
-> > +
-> > +static void bnx2x_set_eth_mac_addr_e1(struct bnx2x *bp, int set)
-> > +{
-> > +   bp->set_mac_pending++;
-> > +   smp_wmb();
-> > +
-> > +   bnx2x_set_mac_addr_e1_gen(bp, set, bp->dev->dev_addr,
-> > +                             (1 << bp->fp->cl_id),
-> (BP_PORT(bp) ? 32 : 0),
-> > +                             1);
-> > +
-> > +   /* Wait for a completion */
-> > +   bnx2x_wait_ramrod(bp, 0, 0, &bp->set_mac_pending, set ? 0 : 1);
-> > +}
-> > +
-> >  static int bnx2x_setup_leading(struct bnx2x *bp)
-> >  {
-> >     int rc;
-> > @@ -7452,9 +7503,9 @@ static int bnx2x_nic_load(struct
-> bnx2x *bp, int load_mode)
-> >             }
-> >
-> >             if (CHIP_IS_E1(bp))
-> > -                   bnx2x_set_mac_addr_e1(bp, 1);
-> > +                   bnx2x_set_eth_mac_addr_e1(bp, 1);
-> >             else
-> > -                   bnx2x_set_mac_addr_e1h(bp, 1);
-> > +                   bnx2x_set_eth_mac_addr_e1h(bp, 1);
-> >     }
-> >
-> >     if (bp->port.pmf)
-> > @@ -7717,7 +7768,7 @@ static int bnx2x_nic_unload(struct
-> bnx2x *bp, int unload_mode)
-> >             struct mac_configuration_cmd *config =
-> >                                             bnx2x_sp(bp,
-> mcast_config);
-> >
-> > -           bnx2x_set_mac_addr_e1(bp, 0);
-> > +           bnx2x_set_eth_mac_addr_e1(bp, 0);
-> >
-> >             for (i = 0; i < config->hdr.length; i++)
-> >                     CAM_INVALIDATE(config->config_table[i]);
-> > @@ -7730,6 +7781,9 @@ static int bnx2x_nic_unload(struct
-> bnx2x *bp, int unload_mode)
-> >             config->hdr.client_id = bp->fp->cl_id;
-> >             config->hdr.reserved1 = 0;
-> >
-> > +           bp->set_mac_pending++;
-> > +           smp_wmb();
-> > +
-> >             bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-> >                           U64_HI(bnx2x_sp_mapping(bp,
-> mcast_config)),
-> >                           U64_LO(bnx2x_sp_mapping(bp,
-> mcast_config)), 0);
-> > @@ -7737,7 +7791,7 @@ static int bnx2x_nic_unload(struct
-> bnx2x *bp, int unload_mode)
-> >     } else { /* E1H */
-> >             REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 0);
-> >
-> > -           bnx2x_set_mac_addr_e1h(bp, 0);
-> > +           bnx2x_set_eth_mac_addr_e1h(bp, 0);
-> >
-> >             for (i = 0; i < MC_HASH_SIZE; i++)
-> >                     REG_WR(bp, MC_HASH_OFFSET(bp, i), 0);
-> > @@ -8520,6 +8574,14 @@ static void __devinit
-> bnx2x_link_settings_requested(struct bnx2x *bp)
-> >                    bp->link_params.req_flow_ctrl,
-> bp->port.advertising);
-> >  }
-> >
-> > +static void __devinit bnx2x_set_mac_buf(u8 *mac_buf, u32
-> mac_lo, u16 mac_hi)
-> > +{
-> > +   mac_hi = cpu_to_be16(mac_hi);
-> > +   mac_lo = cpu_to_be32(mac_lo);
-> > +   memcpy(mac_buf, &mac_hi, sizeof(mac_hi));
-> > +   memcpy(mac_buf + sizeof(mac_hi), &mac_lo, sizeof(mac_lo));
-> > +}
-> > +
-> >  static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
-> >  {
-> >     int port = BP_PORT(bp);
-> > @@ -8601,12 +8663,7 @@ static void __devinit
-> bnx2x_get_port_hwinfo(struct bnx2x *bp)
-> >
-> >     val2 = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_upper);
-> >     val = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_lower);
-> > -   bp->dev->dev_addr[0] = (u8)(val2 >> 8 & 0xff);
-> > -   bp->dev->dev_addr[1] = (u8)(val2 & 0xff);
-> > -   bp->dev->dev_addr[2] = (u8)(val >> 24 & 0xff);
-> > -   bp->dev->dev_addr[3] = (u8)(val >> 16 & 0xff);
-> > -   bp->dev->dev_addr[4] = (u8)(val >> 8  & 0xff);
-> > -   bp->dev->dev_addr[5] = (u8)(val & 0xff);
-> > +   bnx2x_set_mac_buf(bp->dev->dev_addr, val, val2);
-> >     memcpy(bp->link_params.mac_addr, bp->dev->dev_addr, ETH_ALEN);
-> >     memcpy(bp->dev->perm_addr, bp->dev->dev_addr, ETH_ALEN);
-> >  }
-> > @@ -10232,14 +10289,16 @@ static int bnx2x_test_intr(struct
-> bnx2x *bp)
-> >     config->hdr.client_id = bp->fp->cl_id;
-> >     config->hdr.reserved1 = 0;
-> >
-> > +   bp->set_mac_pending++;
-> > +   smp_wmb();
-> >     rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-> >                        U64_HI(bnx2x_sp_mapping(bp, mac_config)),
-> >                        U64_LO(bnx2x_sp_mapping(bp, mac_config)), 0);
-> >     if (rc == 0) {
-> > -           bp->set_mac_pending++;
-> >             for (i = 0; i < 10; i++) {
-> >                     if (!bp->set_mac_pending)
-> >                             break;
-> > +                   smp_rmb();
-> >                     msleep_interruptible(10);
-> >             }
-> >             if (i == 10)
-> > @@ -11337,6 +11396,9 @@ static void
-> bnx2x_set_rx_mode(struct net_device *dev)
-> >                     config->hdr.client_id = bp->fp->cl_id;
-> >                     config->hdr.reserved1 = 0;
-> >
-> > +                   bp->set_mac_pending++;
-> > +                   smp_wmb();
-> > +
-> >                     bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, 0,
-> >                                U64_HI(bnx2x_sp_mapping(bp,
-> mcast_config)),
-> >                                U64_LO(bnx2x_sp_mapping(bp,
-> mcast_config)),
-> > @@ -11386,9 +11448,9 @@ static int
-> bnx2x_change_mac_addr(struct net_device *dev, void *p)
-> >     memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-> >     if (netif_running(dev)) {
-> >             if (CHIP_IS_E1(bp))
-> > -                   bnx2x_set_mac_addr_e1(bp, 1);
-> > +                   bnx2x_set_eth_mac_addr_e1(bp, 1);
-> >             else
-> > -                   bnx2x_set_mac_addr_e1h(bp, 1);
-> > +                   bnx2x_set_eth_mac_addr_e1h(bp, 1);
-> >     }
-> >
-> >     return 0;
-> > --
-> > 1.6.4.GIT
-> >
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+> Ilpo Järvinen wrote:
+> > You both are right (and that's what is causing confusion)...
+> > 
+> In this case, for /this/ code, *none* of you are correct, and _that's_
+> causing confusion. There is no independent retransmission of SYNACK data!
+> None!!  Nada!!!  There is no retransmission queue for SYNACK data.
+> 
+> SYN with SACK should never be sent, and should never be received -- and
+> already should be discarded and ignored (outside the scope of this patch).
+> 
+> As I've already mentioned in this thread 2 days ago, in my earlier patches
+> (now deferred to part 2 after the functional split requested by Eric and
+> Ilpo), the request_sock was removed entirely (just like syncookies).
+> There wasn't (and won't be) any struct or timer lying around to allow
+> SYNACK data retransmissions to occur.
+> 
+> Even now, the entire s_data_* edifice isn't passed to be retransmitted.
+> Note the code (in part 1a), already reviewed and Ack'd:
+> 
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 4be2228..7a42990 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -537,7 +537,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff
+> *skb,
+>  		 * Enforce "SYN-ACK" according to figure 8, figure 6
+>  		 * of RFC793, fixed by RFC1122.
+>  		 */
+> -		req->rsk_ops->rtx_syn_ack(sk, req);
+> +		req->rsk_ops->rtx_syn_ack(sk, req, NULL);
+>  		return NULL;
+>  	}
+> 
+> See that NULL?  There's no cookie data structure for retransmission!
+> 
+> Could we end this diversion into rampant speculation?
 
+...I was just commenting on the disagreement in the interpretation of what 
+DaveM said vs comments you mentioned... :-)
+
+-- 
+ i.
+--8323329-713708243-1258553053=:7024--
