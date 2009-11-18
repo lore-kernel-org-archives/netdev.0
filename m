@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
-Date: Wed, 18 Nov 2009 09:57:16 -0800 (PST)
-Message-ID: <20091118.095716.61189059.davem@davemloft.net>
-References: <20091118154313.GE325@e-circ.dyndns.org>
-	<20091118.080849.196755366.davem@davemloft.net>
-	<20091118164126.GF325@e-circ.dyndns.org>
+Subject: Re: Patches for hso driver
+Date: Wed, 18 Nov 2009 10:01:45 -0800 (PST)
+Message-ID: <20091118.100145.80625674.davem@davemloft.net>
+References: <DDA9430807DF40968BE983465235D580@mschille2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: kurt.van.dijck@eia.be
+Cc: netdev@vger.kernel.org
+To: mschiller@tdt.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51876
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37086
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757836AbZKRR47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 12:56:59 -0500
-In-Reply-To: <20091118164126.GF325@e-circ.dyndns.org>
+	by vger.kernel.org with ESMTP id S1758153AbZKRSB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 13:01:28 -0500
+In-Reply-To: <DDA9430807DF40968BE983465235D580@mschille2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Date: Wed, 18 Nov 2009 17:41:26 +0100
+From: "Martin Schiller" <mschiller@tdt.de>
+Date: Wed, 18 Nov 2009 08:35:30 +0100
 
-> This patch allows adding sysfs attribute groups during netdevice registration.
-> The idea is that before the register_netdev call, several calls to
-> netdev_sysfs_add_group can be done. These attributes are accessible (by
-> udev) during the uevent.
-> 
-> Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Have a look at the "hso-memleak.patch" file to see what I mean.
 
-Patch is corrupted by your email client.  Tab characters have
-been turned into spaces, etc.
+Hmmm...
 
-Please fix this up and resubmit.
+Please make sure this all works properly, considering
+the games that hso_kick_transmit() plays wherein it
+swaps ->tx_data and ->tx_buffer every packet send.
+
+Also, please submit your patches sperately and numbered
+with changelog and signoffs specific to each change as
+described in  linux/Documentation/SubmittingPatches 
 
 Thanks.
