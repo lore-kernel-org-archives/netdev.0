@@ -1,69 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] ethtool: Add PHY type to ethtool
- get_drvinfo
-Date: Wed, 18 Nov 2009 01:23:41 +0000
-Message-ID: <1258507421.2810.14.camel@localhost>
-References: <20091117161309.11341.9165.stgit@localhost.localdomain>
-	 <20091117090719.7d83492a@nehalam>
-	 <Pine.WNT.4.64.0911171156090.15476@ppwaskie-MOBL2.amr.corp.intel.com>
-	 <20091117164104.5da05b81@nehalam>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: [PATCH] Documentation, clarify tuntap IPX example.
+Date: Wed, 18 Nov 2009 12:30:42 +1100
+Message-ID: <d45a3acc0911171730kc3a03d5iacec6d9ef4b1874c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel <linux-kernel@vger.kernel.org>
+To: maxk@qualcomm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:35176 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbZKRBXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 20:23:48 -0500
-In-Reply-To: <20091117164104.5da05b81@nehalam>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:37793 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756586AbZKRBag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Nov 2009 20:30:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-17 at 16:41 -0800, Stephen Hemminger wrote:
-> On Tue, 17 Nov 2009 11:56:57 -0800 (Pacific Standard Time)
-> "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
-> 
-> > On Tue, 17 Nov 2009, Stephen Hemminger wrote:
-> > 
-> > > On Tue, 17 Nov 2009 08:13:24 -0800
-> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > > 
-> > > > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> > > > 
-> > > > Allow the PHY type to be passed from a driver to ethtool when
-> > > > ethtool -i ethX is called.  With newer network cards having SFP
-> > > > and SFP+ PHY cages, this information can be useful, especially
-> > > > if the NIC supports hot-swapping of the PHY modules.
-> > > > 
-> > > > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > 
-> > > Maybe revive usage of connector port in ethtool rather than adding new API?
-> > > It is already there but values are out of date with current hardware.
-> > 
-> > You're referring to the MODE_GSET port settings?  If so, I like this 
-> > approach, and will update my patches accordingly.
-> 
-> Yes. cmd->port is always PORT_TP or PORT_FIBRE now but could be extended
-> Likewise cmd->transceiver could be modified.  I haven't seen an external transceiver
-> since the old fat yellow cable with vampire taps (and that was 20 yrs ago).
+Can the TUNSETIFF ioctl change a tap's protocol to IPX as the
+documentation suggests?
+I think tun.c would need IFF_IPX_TAP added for it to work as described?
+Otherwise tap can only be ptp or ethernet, and there is no way to
+route or use AF_IPX.
 
-It seems to me there should be a transceiver type code or codes for
-connectors like SFP where the bulk of the transceiver is internal but
-the optical part is an external module.  SFP+ is a tricky case because
-it also supports passive cables.
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-Ben.
+--- a/Documentation/networking/tuntap.txt       2009-11-11
+14:03:22.676167648 +1100
++++ b/Documentation/networking/tuntap.txt       2009-11-18
+11:34:18.106647029 +1100
+@@ -127,12 +127,14 @@ Ethernet device, which instead of receiv
+ media, receives them from user space program and instead of sending
+ packets via physical media sends them to the user space program.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-Let's say that you configured IPX on the tap0, then whenever
+-the kernel sends an IPX packet to tap0, it is passed to the application
+-(VTun for example). The application encrypts, compresses and sends it to
+-the other side over TCP or UDP. The application on the other side decompresses
+-and decrypts the data received and writes the packet to the TAP device,
+-the kernel handles the packet like it came from real physical device.
++Let's say for the purpose of example, IPX support was added to tuntap.
++Then whenever the kernel routes an IPX packet to tap0, it is passed to the
++application reading the file descriptor from /dev/net/tun (VTun for example).
++The application encrypts, compresses and sends it to the other side over TCP
++or UDP. The application on the other side decompresses and decrypts the data
++received and writes the packet to the TAP device, the remote kernel handles
++the packet like it came from real physical device. The IPX applications are
++able to communicate as if there was a real IPX network.
 
+ 4. What is the difference between TUN driver and TAP driver?
+ TUN works with IP frames. TAP works with Ethernet frames.
