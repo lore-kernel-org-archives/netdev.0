@@ -1,57 +1,83 @@
-From: Ed Cashin <ecashin@coraid.com>
-Subject: Re: [PATCH 04/10] AOE: use rcu to find network device
-Date: Wed, 18 Nov 2009 11:49:03 -0500
-Message-ID: <ca0871f61dfa85d98f218db8e3dd5178@coraid.com>
-References: <20091110175446.280423729@vyatta.com>
-	<20091110175647.409162953@vyatta.com>
-	<8ffe0a1df67d13a45a413f40d00dd80a@coraid.com>
-	<20091110150617.0e6920f0@nehalam>
-	<20091110155316.2c3d7b6e@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] veth: Fix veth_get_stats()
+Date: Wed, 18 Nov 2009 18:09:39 +0100
+Message-ID: <4B042A53.9010301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: shemminger@vyatta.com, karaluh@karaluh.pl, ecashin@coraid.com,
-	roel.kluin@gmail.com, harvey.harrison@gmail.com,
-	bzolnier@gmail.com, netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baron.coraid.com ([12.51.113.4]:49192 "EHLO coraid.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757838AbZKRQuD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Nov 2009 11:50:03 -0500
-In-Reply-To: <20091110155316.2c3d7b6e@nehalam>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53027 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757667AbZKRRJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Nov 2009 12:09:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue Nov 10 18:53:43 EST 2009, shemminger@vyatta.com wrote:
+veth_get_stats() can be called in parallel on several cpus.
 
-...
-> --- a/drivers/block/aoe/aoecmd.c	2009-11-10 15:13:25.673859220 -0800
-> +++ b/drivers/block/aoe/aoecmd.c	2009-11-10 15:49:20.009047132 -0800
-...
-> @@ -424,12 +426,29 @@ static void
->  ejectif(struct aoetgt *t, struct aoeif *ifp)
->  {
->  	struct aoeif *e;
-> +	struct net_device *nd;
->  	ulong n;
->  
->  	e = t->ifs + NAOEIFS - 1;
-> +	nd = e->nd;
->  	n = (e - ifp) * sizeof *ifp;
->  	memmove(ifp, ifp+1, n);
->  	e->nd = NULL;
-> +	dev_put(nd);
-> +}
+It's better to not reset dev->stats as it could give wrong result on
+one cpu. Use temporary variables, then store the final results.
 
-I didn't notice this before, but e->nd will be the net_device pointer
-from the last ifp in the allocated array, whether it's NULL or not,
-and usually won't be ifp->nd, the one we need to give to dev_put.  I
-think that's why I see an oops when testing the version of the patch
-that I sent last.  The test is doing rmmod on the interface that's
-being used to create an ext2 fs on an AoE target.
+Also, we should loop on every possible cpus, not only online cpus,
+or cpu hotplug can suddenly give wrong veth stats.
 
-I'll use ifp->nd instead of e->nd and test again tomorrow.  I have to
-step away from the computer today.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/veth.c |   35 ++++++++++++++++-------------------
+ 1 files changed, 16 insertions(+), 19 deletions(-)
 
--- 
-  Ed
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index ade5b34..52af501 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -210,32 +210,29 @@ rx_drop:
+ static struct net_device_stats *veth_get_stats(struct net_device *dev)
+ {
+ 	struct veth_priv *priv;
+-	struct net_device_stats *dev_stats;
+ 	int cpu;
+-	struct veth_net_stats *stats;
++	struct veth_net_stats *stats, total = {0};
+ 
+ 	priv = netdev_priv(dev);
+-	dev_stats = &dev->stats;
+-
+-	dev_stats->rx_packets = 0;
+-	dev_stats->tx_packets = 0;
+-	dev_stats->rx_bytes = 0;
+-	dev_stats->tx_bytes = 0;
+-	dev_stats->tx_dropped = 0;
+-	dev_stats->rx_dropped = 0;
+ 
+-	for_each_online_cpu(cpu) {
++	for_each_possible_cpu(cpu) {
+ 		stats = per_cpu_ptr(priv->stats, cpu);
+ 
+-		dev_stats->rx_packets += stats->rx_packets;
+-		dev_stats->tx_packets += stats->tx_packets;
+-		dev_stats->rx_bytes += stats->rx_bytes;
+-		dev_stats->tx_bytes += stats->tx_bytes;
+-		dev_stats->tx_dropped += stats->tx_dropped;
+-		dev_stats->rx_dropped += stats->rx_dropped;
++		total.rx_packets += stats->rx_packets;
++		total.tx_packets += stats->tx_packets;
++		total.rx_bytes   += stats->rx_bytes;
++		total.tx_bytes   += stats->tx_bytes;
++		total.tx_dropped += stats->tx_dropped;
++		total.rx_dropped += stats->rx_dropped;
+ 	}
+-
+-	return dev_stats;
++	dev->stats.rx_packets = total.rx_packets;
++	dev->stats.tx_packets = total.tx_packets;
++	dev->stats.rx_bytes   = total.rx_bytes;
++	dev->stats.tx_bytes   = total.tx_bytes;
++	dev->stats.tx_dropped = total.tx_dropped;
++	dev->stats.rx_dropped = total.rx_dropped;
++
++	return &dev->stats;
+ }
+ 
+ static int veth_open(struct net_device *dev)
