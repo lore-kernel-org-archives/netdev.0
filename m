@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/6] e1000e: set flow control thresholds properly
-	after enabling/disabling pause
-Date: Thu, 19 Nov 2009 14:35:08 -0800
-Message-ID: <20091119223508.29164.18162.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 4/6] e1000e: add Tx timeout factor for 100Mbps
+Date: Thu, 19 Nov 2009 14:35:26 -0800
+Message-ID: <20091119223526.29164.42989.stgit@localhost.localdomain>
 References: <20091119223406.29164.22513.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,50 +11,37 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:44867 "EHLO
-	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757395AbZKSWfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 17:35:18 -0500
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:38481
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752284AbZKSWfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 17:35:38 -0500
 In-Reply-To: <20091119223406.29164.22513.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-When flow control (pause) parameters were changed via ethtool (i.e. enabled
-or disabled), the newly calculated thresholds were not being written to the
-device for non-fiber media.
+On some devices (e.g. 82578) not having a Tx timeout factor when linked at
+100Mbps can cause false reports of hardware hangs on busy hubs.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ethtool.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 1bf4d2a..e82638e 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -327,10 +327,18 @@ static int e1000_set_pauseparam(struct net_device *netdev,
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index a1a5a6f..6345827 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3627,7 +3627,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			case SPEED_100:
+ 				txb2b = 0;
+ 				netdev->tx_queue_len = 100;
+-				/* maybe add some timeout factor ? */
++				adapter->tx_timeout_factor = 10;
+ 				break;
+ 			}
  
- 		hw->fc.current_mode = hw->fc.requested_mode;
- 
--		retval = ((hw->phy.media_type == e1000_media_type_fiber) ?
--			  hw->mac.ops.setup_link(hw) : e1000e_force_mac_fc(hw));
-+		if (hw->phy.media_type == e1000_media_type_fiber) {
-+			retval = hw->mac.ops.setup_link(hw);
-+			/* implicit goto out */
-+		} else {
-+			retval = e1000e_force_mac_fc(hw);
-+			if (retval)
-+				goto out;
-+			e1000e_set_fc_watermarks(hw);
-+		}
- 	}
- 
-+out:
- 	clear_bit(__E1000_RESETTING, &adapter->state);
- 	return retval;
- }
 
