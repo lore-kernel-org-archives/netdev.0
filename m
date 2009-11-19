@@ -1,31 +1,80 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH] ieee802154: dont leak skbs in ieee802154_fake_xmit()
-Date: Thu, 19 Nov 2009 18:57:48 +0300
-Message-ID: <bc64b4640911190757w7eea481sd346085e3ceb1276@mail.gmail.com>
-References: <4B052BCA.4020901@gmail.com>
+From: Felix Radensky <felix@embedded-sol.com>
+Subject: Re: tg3: link is permanently down after ifdown and ifup
+Date: Thu, 19 Nov 2009 18:08:37 +0200
+Message-ID: <4B056D85.5010904@embedded-sol.com>
+References: <4B056158.5060104@embedded-sol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f202.google.com ([209.85.211.202]:33662 "EHLO
-	mail-yw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753543AbZKSP5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 10:57:42 -0500
-Received: by ywh40 with SMTP id 40so1388586ywh.33
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 07:57:48 -0800 (PST)
-In-Reply-To: <4B052BCA.4020901@gmail.com>
+Received: from vega.surpasshosting.com ([72.29.83.9]:55722 "EHLO
+	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752931AbZKSQI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 11:08:29 -0500
+In-Reply-To: <4B056158.5060104@embedded-sol.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2009 at 2:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> ieee802154_fake_xmit() should free skbs since it returns NETDEV_TX_OK
+Hi,
 
-Acked-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+The problem goes away if I remove the call to
 
-David, please apply.
+tg3_set_power_state(tp, PCI_D3hot);
 
--- 
-With best wishes
-Dmitry
+from tg3_close().
+
+Some relevant stuff from dmesg:
+
+pci 0002:05:00.0: PME# supported from D3hot D3cold
+pci 0002:05:00.0: PME# disabled
+tg3.c:v3.102 (September 1, 2009)
+tg3 0002:05:00.0: enabling device (0000 -> 0002)
+tg3 0002:05:00.0: PME# disabled
+tg3 mdio bus: probed
+eth2: Tigon3 [partno(BCM57760) rev 57780001] (PCI Express) MAC address 
+00:10:18:00:00:00
+eth2: attached PHY driver [Broadcom BCM57780] (mii_bus:phy_addr=500:01)
+eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+eth2: dma_rwctrl[76180000] dma_mask[64-bit]
+
+Is my problem related to hardware or it's a tg3 driver bug ?
+
+Thanks a lot.
+
+Felix.
+
+Felix Radensky wrote:
+> Hi,
+>
+> I have a problem with tg3 driver on a custom MPC8536 based board
+> running linux-2.6.31, with tg3 and Broadcom phy drivers taken from
+> linux-2.6.32-rc7. Broadcom NIC is BCM57760, phy is BCM57780.
+>
+> The problem I'm seeing is that the downing and interface leads to
+> permanent link loss, even after interface is upped again. E.g, to
+> reproduce the problem it is sufficient to run:
+>
+> modprobe tg3
+> ifconfig eth2 up
+> ifconfig eth2 down
+> ifconfig eth2 up
+>
+> After ifdown PHY LEDs also go down and do not come back
+> after ifup. Ethtool reports that no link is detected. After reloading
+> the driver the link comes back.
+>
+> Am I the only one seeing this problem  ?
+> Any help on fixing this is appreciated.
+>
+> Thanks a lot.
+>
+> Felix.
+>
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@lists.ozlabs.org
+> https://lists.ozlabs.org/listinfo/linuxppc-dev
+
+
