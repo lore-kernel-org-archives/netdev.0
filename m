@@ -1,78 +1,46 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: NET: Questions about supporting older kernel's with kmods
-Date: Thu, 19 Nov 2009 09:59:18 -0500
-Message-ID: <4B055D46.6060407@gmail.com>
-References: <4B055479.8070101@gmail.com> <1258642393.2837.5.camel@achroite.uk.solarflarecom.com>
+From: Felix Radensky <felix@embedded-sol.com>
+Subject: tg3: link is permanently down after ifdown and ifup
+Date: Thu, 19 Nov 2009 17:16:40 +0200
+Message-ID: <4B056158.5060104@embedded-sol.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigE308AAB0D08EA3D53A0CD144"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756849AbZKSO7S@vger.kernel.org>
-In-Reply-To: <1258642393.2837.5.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE308AAB0D08EA3D53A0CD144
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-Ben Hutchings wrote:
-> On Thu, 2009-11-19 at 09:21 -0500, Gregory Haskins wrote:
-[...]
->=20
->> or should I simply look at the kernel version?
->=20
-> That works up to a point, but the 'enterprise' distros backport a lot t=
-o
-> earlier kernel versions which can make version tests invalid.
+I have a problem with tg3 driver on a custom MPC8536 based board
+running linux-2.6.31, with tg3 and Broadcom phy drivers taken from
+linux-2.6.32-rc7. Broadcom NIC is BCM57760, phy is BCM57780.
 
-Good point
+The problem I'm seeing is that the downing and interface leads to
+permanent link loss, even after interface is upped again. E.g, to
+reproduce the problem it is sufficient to run:
 
->=20
-> Some out-of-tree/backported drivers use autoconf-style tests, but there=
+modprobe tg3
+ifconfig eth2 up
+ifconfig eth2 down
+ifconfig eth2 up
 
-> is no standard way of doing this.
->=20
+After ifdown PHY LEDs also go down and do not come back
+after ifup. Ethtool reports that no link is detected. After reloading
+the driver the link comes back.
 
-Yeah, this might be the only sane way.  It turns out that my ETHTOOL
-issue was trivial.  I was missing "#include <linux/ethtool.h>" which
-worked in upstream, but not in older kernels.  So that issue is resolved.=
+Am I the only one seeing this problem  ?
+Any help on fixing this is appreciated.
 
+Thanks a lot.
 
-Now I just need to figure out netdev_ops.  Perhaps I will just patch the
-netdev_ops out when building a kmod, since its just
-a different way to describe the same thing, and the resulting driver
-will perform the same.
-
-> =EF=BB=BF[...]
->> Q2) Is it considered "bad form" to include such compile-time directive=
-s
->> in the version of the code going upstream?
-> [...]
->=20
-> Yes.  Don't do that.
-
-Ok.
-
-Thanks Ben,
--Greg
-
-
---------------enigE308AAB0D08EA3D53A0CD144
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksFXUYACgkQP5K2CMvXmqGtxwCfQnxSt+62yv2eZaKOd9viBfAW
-0LkAn2CJeEM8qjs6wGU/iiMczBeld1I5
-=xy/f
------END PGP SIGNATURE-----
-
---------------enigE308AAB0D08EA3D53A0CD144--
+Felix.
