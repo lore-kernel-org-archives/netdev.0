@@ -1,66 +1,35 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: NET: Questions about supporting older kernel's with kmods
-Date: Thu, 19 Nov 2009 09:21:45 -0500
-Message-ID: <4B055479.8070101@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netlink: remove subscriptions check on notifier
+Date: Thu, 19 Nov 2009 15:22:38 +0100
+Message-ID: <4B0554AE.1070100@trash.net>
+References: <1258409134.1375.0.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig87BC562EEA99524E08FF33E3"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:59572 "EHLO
-	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752251AbZKSOVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 09:21:45 -0500
+Received: from stinky.trash.net ([213.144.137.162]:43407 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752251AbZKSOWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 09:22:33 -0500
+In-Reply-To: <1258409134.1375.0.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig87BC562EEA99524E08FF33E3
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Johannes Berg wrote:
+> The netlink URELEASE notifier doesn't notify for
+> sockets that have been used to receive multicast
+> but it should be called for such sockets as well
+> since they might _also_ be used for sending and
+> not solely for receiving multicast. We will need
+> that for nl80211 (generic netlink sockets) in the
+> future.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Cc: Patrick McHardy <kaber@trash.net>
 
-Hi All,
+I've audited all users of this (all within netfilter) and this
+change makes sense for them as well.
 
-So I was in the process of packaging up my venet driver so that it could
-not only support the in-tree build (in -next), but also build as a KMP
-for inclusion in existing distros that already shipped (like SLE, RHEL,
-CentOS, etc).
-
-The problem I ran into is that the ethtool and netdev_ops components of
-the in-tree version do not necessarily align with the substrate
-capabilities of older kernels.  What are the best-practices surrounding
-this issue?
-
-Q1) Is there any official CONFIG tags (e.g. HAVE_NETDEV_OPS) I can key
-off of, or should I simply look at the kernel version?  If the latter,
-any recommendation on what to use for the aforementioned features?  (I
-can always try to git-annotate to figure it out, but I wonder if there
-are best-practices already in place).
-
-Q2) Is it considered "bad form" to include such compile-time directives
-in the version of the code going upstream?  E.g. can my driver in -next
-have "#ifdef CONFIG_HAVE_NETDEV_OPS" or other version/capability deps,
-or do I need to patch these externally into the code destined for the
-kmod, and leave the upstream code "pure"?
-
-Thanks in advance,
--Greg
-
-
---------------enig87BC562EEA99524E08FF33E3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksFVHkACgkQP5K2CMvXmqEx6ACeNFgKO8X0f3TYAPcoenc11yRf
-ungAn0JhYG23/1XVsJcMfn0gqbvBTPeB
-=P0ZY
------END PGP SIGNATURE-----
-
---------------enig87BC562EEA99524E08FF33E3--
+Acked-by: Patrick McHardy <kaber@trash.net>
