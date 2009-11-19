@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] hso: memory leak in hso_serial_common_free()
-Date: Thu, 19 Nov 2009 12:20:28 -0800 (PST)
-Message-ID: <20091119.122028.155178577.davem@davemloft.net>
-References: <1C487791B6A047B7A26F2B3C54BE0A70@mschille2>
+Subject: Re: [net-next-2.6 PATCH] be2net:Patch to flash redboot section
+ while firmware update.
+Date: Thu, 19 Nov 2009 12:23:56 -0800 (PST)
+Message-ID: <20091119.122356.62955207.davem@davemloft.net>
+References: <20091119084829.GA19247@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mschiller@tdt.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755536AbZKSUUM@vger.kernel.org>
-In-Reply-To: <1C487791B6A047B7A26F2B3C54BE0A70@mschille2>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sarveshwarb@serverengines.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51865
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755163AbZKSUXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 15:23:39 -0500
+In-Reply-To: <20091119084829.GA19247@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Martin Schiller" <mschiller@tdt.de>
-Date: Thu, 19 Nov 2009 09:43:57 +0100
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Date: Thu, 19 Nov 2009 14:18:43 +0530
 
-> This patch fixes a memory leak in the hso_serial_common_free()
-> function.
-> The tx_buffer of a serial device was never freed here.
+> Please apply patch to update redboot section while firmware update. Code
+> checks if section needs to be updated before actually doing it.
 > 
-> Signed-off-by: Martin Schiller <mschiller@tdt.de>
+> Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 
-All three of your patches have been severely corrupted by
-your email client.  Sequences of one or more tab characters
-have been converted in a single space, etc.
-
-> 09:04:29.000000000 +0100
-> @@ -2296,6 +2296,7 @@ static void hso_serial_common_free(struc
->  /* unlink and free TX URB */
->  usb_free_urb(serial->tx_urb);
->  kfree(serial->tx_data);
-> + kfree(serial->tx_buffer);
-> }
-> 
-
-This makes your changes unusable.
-
-You've already gone through two iterations trying to submit
-these bug fixes.  Please take some time out to verify that
-your outging patches in emails can be received accurately
-and applied by the receiver (send the patch to yourself
-and try to apply it, for example).
-
-Thanks.
+What is this redboot section all about?
