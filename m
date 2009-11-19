@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 01/02: xt_osf: fix xt_osf_remove_callback() return
- value
-Date: Thu, 19 Nov 2009 12:28:04 -0800 (PST)
-Message-ID: <20091119.122804.241406687.davem@davemloft.net>
-References: <20091119145902.18633.28666.sendpatchset@x2.localnet>
-	<20091119145903.18633.79066.sendpatchset@x2.localnet>
+Subject: Re: [PATCH] drivers/net: tasklet_init - Remove unnecessary leading
+ & from second arg
+Date: Thu, 19 Nov 2009 12:29:52 -0800 (PST)
+Message-ID: <20091119.122952.66871908.davem@davemloft.net>
+References: <1258659010.3863.11.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20091119145903.18633.79066.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754841AbZKSU3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 15:29:35 -0500
+In-Reply-To: <1258659010.3863.11.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 19 Nov 2009 15:59:03 +0100 (MET)
+From: Joe Perches <joe@perches.com>
+Date: Thu, 19 Nov 2009 11:30:10 -0800
 
-> commit 1c622ae67bfc729891f5cd80795b15b87e6ac471
-> Author: Roel Kluin <roel.kluin@gmail.com>
-> Date:   Fri Nov 13 09:31:35 2009 +0100
+> Changed function pointer use from non-majority address-of style
+> to majority short form without & via: (was: 8 with &, 36 without)
 > 
->     netfilter: xt_osf: fix xt_osf_remove_callback() return value
->     
->     Return a negative error value.
->     
->     Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> grep -rPl "\btasklet_init\s*\([^,\)]+,\s*\&" drivers/net | while read file ; do \
+> 	perl -i -e 'local $/; while (<>) { s@(\btasklet_init\s*\([^,\)]+,\s*)\&@\1@g ; print ; }' $file ;\
+> done
+> 
+> Compile tested allyesconfig x86
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
