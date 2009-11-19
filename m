@@ -1,57 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] gianfar: multi queue stuff not complete
-Date: Thu, 19 Nov 2009 09:28:15 +0100
-Message-ID: <4B05019F.4090208@gmail.com>
+From: "Martin Schiller" <mschiller@tdt.de>
+Subject: [PATCH 1/3] hso: memory leak in hso_serial_common_free()
+Date: Thu, 19 Nov 2009 09:43:57 +0100
+Message-ID: <1C487791B6A047B7A26F2B3C54BE0A70@mschille2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+Cc: <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59560 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753009AbZKSI2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 03:28:13 -0500
+Received: from ns.tdt.de ([195.243.126.82]:54647 "EHLO ns.tdt.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753282AbZKSIoG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2009 03:44:06 -0500
+Received: from ns (root@localhost)
+	by ns.tdt.de (8.11.6/8.11.6/SuSE Linux 0.5) with SMTP id nAJ8iFX22110
+	for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 09:44:15 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed gianfar got multiqueue support recently, but it still
-updates dev->stats.{tx_bytes|tx_packets|tx_dropped} without proper locking
-(several cpus could update stats at same time while xmitting on different tx queues)
 
-It should use txq->{tx_bytes|tx_packets|tx_dropped} to avoid wrong tx stats
+This patch fixes a memory leak in the hso_serial_common_free() function.
+The tx_buffer of a serial device was never freed here.
 
+Signed-off-by: Martin Schiller <mschiller@tdt.de>
+---
 
-I cooked following preliminar patch but its only for discussion, because I
-dont know yet how to transform dev->stats.tx_dropped++; in gfar_error(),
-and also because I cannot compile this driver on my dev machine.
-
-(if a driver uses txq->tx... counters, it must not use any dev->stats.{tx_bytes|tx_packets|tx_dropped}
-that are overwritten by dev_txq_stats_fold(). Or we could change dev_txq_stats_fold() logic
-to get a mask of what fields a drivers updates in txq-> or dev->stats
-
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 16def13..8fe38aa 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1937,7 +1937,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/* Update transmit stats */
--	dev->stats.tx_bytes += skb->len;
-+	txq->tx_bytes += skb->len;
-+	txq->tx_packets++;
- 
- 	txbdp = txbdp_start = tx_queue->cur_tx;
- 
-@@ -2295,8 +2296,6 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	tx_queue->skb_dirtytx = skb_dirtytx;
- 	tx_queue->dirty_tx = bdp;
- 
--	dev->stats.tx_packets += howmany;
--
- 	return howmany;
+--- linux-2.6.32-rc7-git3/drivers/net/usb/hso.c.orig 2009-11-19 08:54:08.000000000 +0100
++++ linux-2.6.32-rc7-git3/drivers/net/usb/hso.c 2009-11-19 09:04:29.000000000 +0100
+@@ -2296,6 +2296,7 @@ static void hso_serial_common_free(struc
+  /* unlink and free TX URB */
+  usb_free_urb(serial->tx_urb);
+  kfree(serial->tx_data);
++ kfree(serial->tx_buffer);
  }
  
+ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+
+
