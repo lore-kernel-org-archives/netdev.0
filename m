@@ -1,66 +1,57 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: NET: Questions about supporting older kernel's with kmods
-Date: Thu, 19 Nov 2009 14:53:13 +0000
-Message-ID: <1258642393.2837.5.camel@achroite.uk.solarflarecom.com>
-References: <4B055479.8070101@gmail.com>
+Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+	hardware queue MAC and VLAN filters
+Date: Thu, 19 Nov 2009 14:54:53 +0000
+Message-ID: <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+References: <20091117214923.15119.98918.stgit@localhost.localdomain>
+	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
+	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Gregory Haskins <gregory.haskins@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58850 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:58922 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbZKSOxK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 09:53:10 -0500
-In-Reply-To: <4B055479.8070101@gmail.com>
+	with ESMTP id S1753658AbZKSOyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 09:54:49 -0500
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-11-19 at 09:21 -0500, Gregory Haskins wrote:
-> Hi All,
->=20
-> So I was in the process of packaging up my venet driver so that it co=
-uld
-> not only support the in-tree build (in -next), but also build as a KM=
-P
-> for inclusion in existing distros that already shipped (like SLE, RHE=
-L,
-> CentOS, etc).
->=20
-> The problem I ran into is that the ethtool and netdev_ops components =
-of
-> the in-tree version do not necessarily align with the substrate
-> capabilities of older kernels.  What are the best-practices surroundi=
-ng
-> this issue?
+On Wed, 2009-11-18 at 16:33 -0700, Williams, Mitch A wrote:
+[...]
+> In the case of SR-IOV on our hardware, these filters are perfect - no
+> hash tables are required. (We do use hash tables when we have a bunch
+> of multicast addresses, but that's not what this is about.)
+> 
+> MAC filters deny packets by default, so you won't get anything without
+> a valid MAC filter on the queue.
+> 
+> A queue with no VLAN filters will receive packets from all VLANs,
+> albeit with the tags passed up intact.  So in that sense, the VLAN
+> filters are default-allow.  
+> 
+> However, once you enable any VLAN filter, the hardware starts
+> stripping tags and begins to deny packets by default.
 >
-> Q1) Is there any official CONFIG tags (e.g. HAVE_NETDEV_OPS) I can ke=
-y
-> off of,
-
-These feature test macros are not consistently provided.
-
-> or should I simply look at the kernel version?
-
-That works up to a point, but the 'enterprise' distros backport a lot t=
-o
-earlier kernel versions which can make version tests invalid.
-
-Some out-of-tree/backported drivers use autoconf-style tests, but there
-is no standard way of doing this.
-
-=EF=BB=BF[...]
-> Q2) Is it considered "bad form" to include such compile-time directiv=
-es
-> in the version of the code going upstream?
+> Based on these semantics, the filtering operation that I've described
+> above makes perfect sense.
 [...]
 
-Yes.  Don't do that.
+But they are not the semantics we would want in supposedly generic
+netdev operations.
 
 Ben.
 
---=20
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
