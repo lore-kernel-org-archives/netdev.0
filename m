@@ -1,58 +1,104 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
-	hardware queue MAC and VLAN filters
-Date: Thu, 19 Nov 2009 14:54:53 +0000
-Message-ID: <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
-References: <20091117214923.15119.98918.stgit@localhost.localdomain>
-	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
-	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58922 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753658AbZKSOyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 09:54:49 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 02/02: nf_log: fix sleeping function called from invalid context in seq_show()
+Date: Thu, 19 Nov 2009 15:59:05 +0100 (MET)
+Message-ID: <20091119145904.18633.11963.sendpatchset@x2.localnet>
+References: <20091119145902.18633.28666.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20091119145902.18633.28666.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-11-18 at 16:33 -0700, Williams, Mitch A wrote:
-[...]
-> In the case of SR-IOV on our hardware, these filters are perfect - no
-> hash tables are required. (We do use hash tables when we have a bunch
-> of multicast addresses, but that's not what this is about.)
-> 
-> MAC filters deny packets by default, so you won't get anything without
-> a valid MAC filter on the queue.
-> 
-> A queue with no VLAN filters will receive packets from all VLANs,
-> albeit with the tags passed up intact.  So in that sense, the VLAN
-> filters are default-allow.  
-> 
-> However, once you enable any VLAN filter, the hardware starts
-> stripping tags and begins to deny packets by default.
->
-> Based on these semantics, the filtering operation that I've described
-> above makes perfect sense.
-[...]
+commit 7378396cd172cc058fa62220c6486419046c4e0c
+Author: Wu Fengguang <fengguang.wu@intel.com>
+Date:   Fri Nov 13 09:34:44 2009 +0100
 
-But they are not the semantics we would want in supposedly generic
-netdev operations.
+    netfilter: nf_log: fix sleeping function called from invalid context in seq_show()
+    
+    [  171.925285] BUG: sleeping function called from invalid context at kernel/mutex.c:280
+    [  171.925296] in_atomic(): 1, irqs_disabled(): 0, pid: 671, name: grep
+    [  171.925306] 2 locks held by grep/671:
+    [  171.925312]  #0:  (&p->lock){+.+.+.}, at: [<c10b8acd>] seq_read+0x25/0x36c
+    [  171.925340]  #1:  (rcu_read_lock){.+.+..}, at: [<c1391dac>] seq_start+0x0/0x44
+    [  171.925372] Pid: 671, comm: grep Not tainted 2.6.31.6-4-netbook #3
+    [  171.925380] Call Trace:
+    [  171.925398]  [<c105104e>] ? __debug_show_held_locks+0x1e/0x20
+    [  171.925414]  [<c10264ac>] __might_sleep+0xfb/0x102
+    [  171.925430]  [<c1461521>] mutex_lock_nested+0x1c/0x2ad
+    [  171.925444]  [<c1391c9e>] seq_show+0x74/0x127
+    [  171.925456]  [<c10b8c5c>] seq_read+0x1b4/0x36c
+    [  171.925469]  [<c10b8aa8>] ? seq_read+0x0/0x36c
+    [  171.925483]  [<c10d5c8e>] proc_reg_read+0x60/0x74
+    [  171.925496]  [<c10d5c2e>] ? proc_reg_read+0x0/0x74
+    [  171.925510]  [<c10a4468>] vfs_read+0x87/0x110
+    [  171.925523]  [<c10a458a>] sys_read+0x3b/0x60
+    [  171.925538]  [<c1002a49>] syscall_call+0x7/0xb
+    
+    Fix it by replacing RCU with nf_log_mutex.
+    
+    Reported-by: "Yin, Kangkai" <kangkai.yin@intel.com>
+    Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index c93494f..d65d348 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -128,9 +128,8 @@ EXPORT_SYMBOL(nf_log_packet);
+ 
+ #ifdef CONFIG_PROC_FS
+ static void *seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(RCU)
+ {
+-	rcu_read_lock();
++	mutex_lock(&nf_log_mutex);
+ 
+ 	if (*pos >= ARRAY_SIZE(nf_loggers))
+ 		return NULL;
+@@ -149,9 +148,8 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
+ }
+ 
+ static void seq_stop(struct seq_file *s, void *v)
+-	__releases(RCU)
+ {
+-	rcu_read_unlock();
++	mutex_unlock(&nf_log_mutex);
+ }
+ 
+ static int seq_show(struct seq_file *s, void *v)
+@@ -161,7 +159,7 @@ static int seq_show(struct seq_file *s, void *v)
+ 	struct nf_logger *t;
+ 	int ret;
+ 
+-	logger = rcu_dereference(nf_loggers[*pos]);
++	logger = nf_loggers[*pos];
+ 
+ 	if (!logger)
+ 		ret = seq_printf(s, "%2lld NONE (", *pos);
+@@ -171,22 +169,16 @@ static int seq_show(struct seq_file *s, void *v)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	mutex_lock(&nf_log_mutex);
+ 	list_for_each_entry(t, &nf_loggers_l[*pos], list[*pos]) {
+ 		ret = seq_printf(s, "%s", t->name);
+-		if (ret < 0) {
+-			mutex_unlock(&nf_log_mutex);
++		if (ret < 0)
+ 			return ret;
+-		}
+ 		if (&t->list[*pos] != nf_loggers_l[*pos].prev) {
+ 			ret = seq_printf(s, ",");
+-			if (ret < 0) {
+-				mutex_unlock(&nf_log_mutex);
++			if (ret < 0)
+ 				return ret;
+-			}
+ 		}
+ 	}
+-	mutex_unlock(&nf_log_mutex);
+ 
+ 	return seq_printf(s, ")\n");
+ }
