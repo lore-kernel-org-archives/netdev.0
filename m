@@ -1,45 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Thu, 19 Nov 2009 08:08:31 +0000
-Message-ID: <20091119080831.GA6874@ff.dom.local>
-References: <65634d660911160843j3df398f2w876044083181cfcd@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] gianfar: multi queue stuff not complete
+Date: Thu, 19 Nov 2009 09:28:15 +0100
+Message-ID: <4B05019F.4090208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:5625 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbZKSIIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 03:08:32 -0500
-Received: by fg-out-1718.google.com with SMTP id d23so664895fga.1
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 00:08:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <65634d660911160843j3df398f2w876044083181cfcd@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59560 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753009AbZKSI2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 03:28:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-2009 17:43, Tom Herbert wrote:
-> On Mon, Nov 16, 2009 at 3:19 AM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <therbert@google.com>
->> Date: Tue, 10 Nov 2009 22:53:17 -0800
->>
->>> +             /* Schedule NAPI for backlog device */
->>> +             if (napi_schedule_prep(&queue->backlog)) {
->>> +                     if (cpu != smp_processor_id()) {
->>> +                             cpu_set(cpu,
->>> +                                 get_cpu_var(rps_remote_softirq_cpus));
->>> +                             __raise_softirq_irqoff(NET_RPS_SOFTIRQ);
->>> +                     } else
->>> +                             __napi_schedule(&queue->backlog);
->>> +             }
->>> +             goto enqueue;
->> {,__}send_remote_softirq() doesn't work? :-)
->>
-> NET_RPS_SOFTIRQ is intended to provide coalescing of IPIs.
+I noticed gianfar got multiqueue support recently, but it still
+updates dev->stats.{tx_bytes|tx_packets|tx_dropped} without proper locking
+(several cpus could update stats at same time while xmitting on different tx queues)
 
-It seems calling net_rps_action() at the end of net_rx_action() should
-do (mostly) the same, at least for napi drivers. And I'm not sure it's
-worth to add a new softirq because of non-napis.
+It should use txq->{tx_bytes|tx_packets|tx_dropped} to avoid wrong tx stats
 
-Jarek P.
+
+I cooked following preliminar patch but its only for discussion, because I
+dont know yet how to transform dev->stats.tx_dropped++; in gfar_error(),
+and also because I cannot compile this driver on my dev machine.
+
+(if a driver uses txq->tx... counters, it must not use any dev->stats.{tx_bytes|tx_packets|tx_dropped}
+that are overwritten by dev_txq_stats_fold(). Or we could change dev_txq_stats_fold() logic
+to get a mask of what fields a drivers updates in txq-> or dev->stats
+
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 16def13..8fe38aa 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1937,7 +1937,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	/* Update transmit stats */
+-	dev->stats.tx_bytes += skb->len;
++	txq->tx_bytes += skb->len;
++	txq->tx_packets++;
+ 
+ 	txbdp = txbdp_start = tx_queue->cur_tx;
+ 
+@@ -2295,8 +2296,6 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	tx_queue->skb_dirtytx = skb_dirtytx;
+ 	tx_queue->dirty_tx = bdp;
+ 
+-	dev->stats.tx_packets += howmany;
+-
+ 	return howmany;
+ }
+ 
