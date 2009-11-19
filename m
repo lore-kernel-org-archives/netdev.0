@@ -1,56 +1,53 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: wanPMC-CxT1E1
-Date: Thu, 19 Nov 2009 14:25:51 -0800
-Message-ID: <20091119222551.GA18710@kroah.com>
-References: <4f6ba3b0910261322j273c977fm356506c46f095832@mail.gmail.com>
- <20091026204144.GA28436@kroah.com>
- <4f6ba3b0910271048n10ff37fek9af191b133892e1e@mail.gmail.com>
- <m3d4454phz.fsf@intrepid.localdomain>
- <4f6ba3b0911021241gb6d9684ga76228013e0f5f14@mail.gmail.com>
- <20091102205911.GA23443@kroah.com>
- <4f6ba3b0911021316v16ff7431s4dfa939743541df6@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Network hangs with 2.6.30.5
+Date: Thu, 19 Nov 2009 15:40:38 -0800 (PST)
+Message-ID: <20091119.154038.194307613.davem@davemloft.net>
+References: <20090907072143.GA5966@ff.dom.local>
+	<20091001.154913.88345178.davem@davemloft.net>
+	<alpine.DEB.2.00.0910021104130.13543@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Bob Beers <bob.beers@gmail.com>
+Cc: jarkao2@gmail.com, holger.hoffstaette@googlemail.com,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com, zbr@ioremap.net
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:41166 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756398AbZKSXGy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Nov 2009 18:06:54 -0500
-Content-Disposition: inline
-In-Reply-To: <4f6ba3b0911021316v16ff7431s4dfa939743541df6@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59005
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758155AbZKSXkW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2009 18:40:22 -0500
+In-Reply-To: <alpine.DEB.2.00.0910021104130.13543@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 02, 2009 at 04:16:25PM -0500, Bob Beers wrote:
-> >>
-> >> commit d54e08030785153c8c0f4eb4f1cf320d60fff286
-> >> Author: Bob Beers <bob.beers@gmail.com>
-> >> Date: =A0 Mon Nov 2 15:06:19 2009 -0500
-> >>
-> >> =A0 =A0 Add CXT1E1 [1,2,4] channel wan card driver.
-> >>
-> >> =A0drivers/net/wan/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- | =A0 =A01 +
-> >
-> > This file shouldn't need to be modified. =A0But I can fix that up b=
-y hand.
-> >
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Fri, 2 Oct 2009 11:11:55 +0300 (EEST)
+
+> On Thu, 1 Oct 2009, David Miller wrote:
 >=20
-> Yeah, sorry about that.
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Mon, 7 Sep 2009 07:21:43 +0000
+>>=20
+>> I also looked through all the TCP commits in 2.6.29 to 2.6.30
+>> and I could not find anything else that might cause stalls with
+>> time-wait recycled connections.
+>=20
+> What about the more than 64k connections change a9d8f9110d7e953c2f2 (=
+or=20
+> its fixes), it might be another possibility? ...It certainly does=20
+> something related to reuse and happens to be in the correct time fram=
+e...=20
+> (I've added Evgeniy).
 
-Sorry for the long delay, my fault :(
+So I've been studying this one quite a bit.
 
-Anyway, I need a "Signed-off-by:" line for the patch so that I can appl=
-y
-it.  Also, who is the original author of the driver, any ideas?  We
-should at least credit them with this, right?
+This change could only cause problems in timewait recycling if it:
 
-Can you resend with a signed-off-by: line, and the other fixes all
-rolled up into one patch?
+1) Would accept using a bind bucket that previously it would not
 
-thanks,
+2) Caused socket corruption due to bad locking
 
-greg k-h
+And I can find neither problem with the Evgeniy's bind changes.
+
+So we've back to square one I think.
