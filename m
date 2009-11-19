@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/1] iwmc3200top: revamp fw name handling
-Date: Wed, 18 Nov 2009 23:30:08 -0800 (PST)
-Message-ID: <20091118.233008.18598625.davem@davemloft.net>
-References: <1258588519-7939-1-git-send-email-tomas.winkler@intel.com>
+Subject: Re: [PATCH] X25: Enable setting of cause and diagnostic fields
+Date: Wed, 18 Nov 2009 23:30:51 -0800 (PST)
+Message-ID: <20091118.233051.80180466.davem@davemloft.net>
+References: <d45a3acc0911111613v38fa9df4jed21876ce6309097@mail.gmail.com>
+	<20091113.203248.84989794.davem@davemloft.net>
+	<d45a3acc0911181524t58a87d07s42930bda765a97d7@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
-	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	guy.cohen@intel.com, ron.rindjunsky@intel.com
-To: tomas.winkler@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32772
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752595AbZKSH3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 02:29:50 -0500
-In-Reply-To: <1258588519-7939-1-git-send-email-tomas.winkler@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-x25@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: andrew.hendry@gmail.com
+Return-path: <linux-x25-owner@vger.kernel.org>
+In-Reply-To: <d45a3acc0911181524t58a87d07s42930bda765a97d7@mail.gmail.com>
+Sender: linux-x25-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tomas Winkler <tomas.winkler@intel.com>
-Date: Thu, 19 Nov 2009 01:55:19 +0200
+From: andrew hendry <andrew.hendry@gmail.com>
+Date: Thu, 19 Nov 2009 10:24:01 +1100
 
-> 1. define macro for handling firmware api version
-> 2. add MODULE_FIRMWARE
-> 3. cleanup iwmct_fw_load style
+> Adds SIOCX25SCAUSEDIAG, allowing X.25 programs to set the cause and
+> diagnostic fields.
+> Normally used to indicate status upon closing connections.
 > 
-> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 Applied, thanks.
