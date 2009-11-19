@@ -1,43 +1,74 @@
-From: Jens Rosenboom <me@jayr.de>
-Subject: Re: [BUG] netxen: Stops working between 2.6.30 and 2.6.31-rc1
-Date: Thu, 19 Nov 2009 19:36:07 +0100
-Message-ID: <20091119183607.GK14661@jayr.de>
-References: <20091119163908.GJ14661@jayr.de> <7608421F3572AB4292BB2532AE89D5658B0B95BD5C@AVEXMB1.qlogic.org>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+	hardware queue MAC and VLAN filters
+Date: Thu, 19 Nov 2009 11:43:54 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
+References: <20091117214923.15119.98918.stgit@localhost.localdomain>
+	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
+	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
+ <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Rosenboom <me@jayr.de>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amit Salecha <amit.salecha@qlogic.com>
-To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout1.freenet.de ([195.4.92.91]:55142 "EHLO mout1.freenet.de"
+Received: from mga02.intel.com ([134.134.136.20]:9850 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753978AbZKSSgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Nov 2009 13:36:15 -0500
-Content-Disposition: inline
-In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0B95BD5C@AVEXMB1.qlogic.org>
+	id S1754223AbZKSSnu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 13:43:50 -0500
+In-Reply-To: <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2009 at 10:07:21AM -0800, Dhananjay Phadke wrote:
-> > My netxen 10G card stops working somewhere between 2.6.30 and 2.6.31-rc1.
-> > With the
-> > newer kernel I can see packets been received on the switch it is
-> > connected to, but
-> > the kernel doesn't report any sent packets in the interface counters and
-> > nothing
-> > is being received either.
-> > 
-> > I've tried to bisect this, but only seems the end up with kernels that do
-> > not boot
-> > at all because some SCSI stuff goes bad.
-> 
-> Any particular reason for using -rc1 kernel and not 2.6.31 stable kernel?
+>From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+>Sent: Thursday, November 19, 2009 6:55 AM
 
-Sorry, I forgot to mention that all later kernels that I tested
-including 2.6.31 and the current net-2.6 also fail, so the badness 
-comes in somewhere in between 2.6.30 and 2.6.31-rc1.
 
-I also noticed that the newer kernel allocate four interrupts for the
-card instead of only one, but none of them seem to get triggered, the
-/proc/interrupts counters all stay at zero.
+>[...]
+>> In the case of SR-IOV on our hardware, these filters are perfect - no
+>> hash tables are required. (We do use hash tables when we have a bunch
+>> of multicast addresses, but that's not what this is about.)
+>>
+>> MAC filters deny packets by default, so you won't get anything without
+>> a valid MAC filter on the queue.
+>>
+>> A queue with no VLAN filters will receive packets from all VLANs,
+>> albeit with the tags passed up intact.  So in that sense, the VLAN
+>> filters are default-allow.
+>>
+>> However, once you enable any VLAN filter, the hardware starts
+>> stripping tags and begins to deny packets by default.
+>>
+>> Based on these semantics, the filtering operation that I've described
+>> above makes perfect sense.
+>[...]
+>
+>But they are not the semantics we would want in supposedly generic
+>netdev operations.
+>
+
+OK, point taken.  Specific hardware features/limitations shouldn't affect kernel policy.
+
+However, I'm still back to code complexity, and general usage models.
+
+Please explain specifically what you perceive to be the difference between:
+
+$ ip link set eth1 queue 1 mac <blah>
+$ ip link set eth1 queue 1 vlan <foo>
+
+and
+
+$ ip link set eth1 queue 1 mac <blah> vlan <foo>
+
+The two filter types are, in my mind, completely orthogonal.  You can have one, or the other, or both, or neither. What do we gain by glomming both options on one command line?  And is this worth the tradeoff of more complex code?
+
+-Mitch
+
