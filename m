@@ -1,44 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ieee802154: dont leak skbs in ieee802154_fake_xmit()
-Date: Thu, 19 Nov 2009 12:28:10 +0100
-Message-ID: <4B052BCA.4020901@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/3] macvlan: Reflect macvlan packets meant for other macvlan devices
+Date: Thu, 19 Nov 2009 12:44:43 +0100
+Message-ID: <200911191244.43916.arnd@arndb.de>
+References: <1258497551-25959-1-git-send-email-arnd@arndb.de> <200911182332.56309.arnd@arndb.de> <m1bpiz8k1x.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59993 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbZKSL2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 06:28:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	Anna Fischer <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org,
+	virtualization@linux-foundation.com,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751872AbZKSLrB@vger.kernel.org>
+In-Reply-To: <m1bpiz8k1x.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ieee802154_fake_xmit() should free skbs since it returns NETDEV_TX_OK
+On Thursday 19 November 2009, Eric W. Biederman wrote:
+> > It seems that we should never drop dst then. We either forward the frame to
+> > netif_rx or to dev_queue_xmit, and from how I read it now, we want to keep
+> > the dst in both cases.
+> 
+> When we loop back on our selves we certainly need to have dst clear because
+> we don't know how to cache routes through multiple network namespaces.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
+Ah, right. So should I add the explicit dst_drop to the new dev_forward_skb()
+then? The veth driver doesn't need it, but it also looks like it won't hurt.
 
-diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
-index 96a2959..7c544f7 100644
---- a/drivers/ieee802154/fakehard.c
-+++ b/drivers/ieee802154/fakehard.c
-@@ -260,15 +260,12 @@ static int ieee802154_fake_close(struct net_device *dev)
- static netdev_tx_t ieee802154_fake_xmit(struct sk_buff *skb,
- 					      struct net_device *dev)
- {
--	skb->iif = dev->ifindex;
--	skb->dev = dev;
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
- 
--	dev->trans_start = jiffies;
--
- 	/* FIXME: do hardware work here ... */
- 
-+	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
- 
+	Arnd <><
