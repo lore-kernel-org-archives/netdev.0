@@ -1,36 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/isdn/gigaset: tasklet_init - Remove
- unnecessary leading & from second arg
-Date: Thu, 19 Nov 2009 12:29:59 -0800 (PST)
-Message-ID: <20091119.122959.235896961.davem@davemloft.net>
-References: <1258660553.3863.18.camel@Joe-Laptop.home>
+Subject: Re: [PATCH 2.6.32-rc6] drivers/net: ks8851_mll ethernet network
+ driver
+Date: Thu, 19 Nov 2009 13:19:51 -0800 (PST)
+Message-ID: <20091119.131951.26921972.davem@davemloft.net>
+References: <C43529A246480145B0A6D0234BDB0F0D021299@MELANITE.micrel.com>
+	<20091119.122734.89781869.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hjlipp@web.de, tilman@imap.cc,
-	isdn@linux-pingi.de, gigaset307x-common@lists.sourceforge.net
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35977
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755783AbZKSU3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 15:29:42 -0500
-In-Reply-To: <1258660553.3863.18.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shemminger@vyatta.com, greg@kroah.com
+To: David.Choi@Micrel.Com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755138AbZKSVTg@vger.kernel.org>
+In-Reply-To: <20091119.122734.89781869.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 19 Nov 2009 11:55:53 -0800
+From: David Miller <davem@davemloft.net>
+Date: Thu, 19 Nov 2009 12:27:34 -0800 (PST)
 
-> Changed function pointer use from non-majority address-of style
-> to majority short form without & via:
+> From: "Choi, David" <David.Choi@Micrel.Com>
+> Date: Tue, 17 Nov 2009 15:02:36 -0800
 > 
-> grep -rPl "\btasklet_init\s*\([^,\)]+,\s*\&" drivers/isdn | while read file ; do \
->         perl -i -e 'local $/; while (<>) { s@(\btasklet_init\s*\([^,\)]+,\s*)\&@\1@g ; print ; }' $file ;\
-> done
+>> This patch is for ks8851 16bit MLL Ethernet network device driver in order to fix bugs and to enhance functions.
+>  ...
+>> Signed-off-by: David J. Choi <david.choi@micrel.com>
 > 
-> Compile tested allyesconfig x86
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Applied.
 
-Applied.
+Sorry I had to revert this, it adds new warnings to the
+build.
+
+You can't cast pointers to 'int' in order to print them,
+that emits a warning on 64-bit systems because you're
+truncating the top bits.
+
+There is really no point in printing __iomem pointers,
+those are very architecture specific.  So is the IRQ
+number.
+
+I would just remove this part of your patch entirely
+(don't forget to update the commit message to match).
+
+Please fix this up and resubmit, thank you.
