@@ -1,75 +1,96 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Thu, 19 Nov 2009 09:57:31 +0000
-Message-ID: <20091119095730.GA7661@ff.dom.local>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+Date: Thu, 19 Nov 2009 11:08:05 +0100
+Message-ID: <20091119100805.GA22938@basil.fritz.box>
+References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com> <87hbt0kaae.fsf@basil.nowhere.org> <65634d660911160902t677a4fb4r71602cb0d10f1cce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:57683 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbZKSJ5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 04:57:32 -0500
-Received: by fxm21 with SMTP id 21so2176723fxm.21
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 01:57:37 -0800 (PST)
+Received: from one.firstfloor.org ([213.235.205.2]:56702 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757462AbZKSKIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 05:08:05 -0500
 Content-Disposition: inline
-In-Reply-To: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+In-Reply-To: <65634d660911160902t677a4fb4r71602cb0d10f1cce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-11-2009 07:53, Tom Herbert wrote:
-> Third version of RPS.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-...
-> @@ -2266,10 +2401,10 @@ void netif_nit_deliver(struct sk_buff *skb)
->  }
-> 
->  /**
-> - *	netif_receive_skb - process receive buffer from network
-> + *	__netif_receive_skb - process receive buffer from network
->   *	@skb: buffer to process
->   *
-> - *	netif_receive_skb() is the main receive data processing function.
-> + *	__netif__napireceive_skb() is the main receive data processing function.
+On Mon, Nov 16, 2009 at 09:02:32AM -0800, Tom Herbert wrote:
 
---------------->^^^^^^^^^^^^ ?
+Sorry for the late answer.
 
->   *	It always succeeds. The buffer may be dropped during processing
->   *	for congestion control or by the protocol layers.
->   *
-> @@ -2280,7 +2415,8 @@ void netif_nit_deliver(struct sk_buff *skb)
->   *	NET_RX_SUCCESS: no congestion
->   *	NET_RX_DROP: packet was dropped
->   */
-> -int netif_receive_skb(struct sk_buff *skb)
-> +
-> +int __netif_receive_skb(struct sk_buff *skb)
->  {
->  	struct packet_type *ptype, *pt_prev;
->  	struct net_device *orig_dev;
-> @@ -2378,6 +2514,16 @@ out:
->  }
->  EXPORT_SYMBOL(netif_receive_skb);
-> 
-> +int netif_receive_skb(struct sk_buff *skb)
-> +{
-> +	int cpu = get_rps_cpu(skb->dev, skb);
-> +
-> +	if (cpu < 0)
+> >> + =A0 =A0 case __constant_htons(ETH_P_IPV6):
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 if (!pskb_may_pull(skb, sizeof(*ip6)))
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
+> >> +
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 ip6 =3D (struct ipv6hdr *) skb->data;
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 ip_proto =3D ip6->nexthdr;
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 addr1 =3D ip6->saddr.s6_addr32[3];
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 addr2 =3D ip6->daddr.s6_addr32[3];
+> >
+> > Why only [3] ? Is this future proof?
+> >
+> No.  But it's same as inet6_ehashfn :-)
 
-The description reads: "This solution queues packets early on in the
-receive path on the backlog queues of other CPUs.", so I'm not sure
-it's intended. Did you test it like this (and it was visibly worse)?:
+Perhaps it would be good to consolidate all these ipv6 hashes
+into one place where they could be at least fixed easily.
 
-	if (cpu < 0 || cpu == smp_processor_id())
+>=20
+> >> + =A0 =A0 for_each_cpu_mask_nr(cpu, __get_cpu_var(rps_remote_softi=
+rq_cpus)) {
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 struct softnet_data *queue =3D &per_cpu(=
+softnet_data, cpu);
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 __smp_call_function_single(cpu, &queue->=
+csd, 0);
+> >
+> > How do you get around the standard deadlocks with IPI called from
+> > irq disabled section?
+> >
+>=20
+> What are the standard deadlocks?  Looks like __send_remote_softirq
+> will call __smp_call_function with irq's disabled...
 
-> +		return __netif_receive_skb(skb);
-> +	else
-> +		return enqueue_to_backlog(skb, cpu);
-> +}
-> +
+The traditional deadlock (that was before the queue smp_call_function)
+was
 
-Jarek P.
+A                        B
+                         grab lock
+interrupts off
+spin on lock                =20
+                         send IPI
+                         wait for specific CPU
+
+never answers because
+interrupts are off
+                         hangs forever
+
+
+I think with the queued smp_call_function it's better because
+the locks are only hold much shorter and that particular scenario
+is gone, but I'm not sure the problem has fully gone away.=20
+
+At least there are still plenty of WARN_ON( ... irqs_disabled()) in=20
+kernel/smp.c
+
+
+> > It's a standard pet peeve of me, but it's quite unlikely you'll
+> > get any useful entropy at this time of kernel startup.
+> >
+> > Normally it's always the same.
+> >
+> Would it make sense to just use skb_tx_hashrnd for the receive hash
+> key also (renaming it to be more general)?
+
+That has the same problem, although it's at least a bit later,
+but I suspect it would be still not very random.
+
+You could just drop it and always use a constant hash rnd?
+
+-Andi
+
+--=20
+ak@linux.intel.com -- Speaking for myself only.
