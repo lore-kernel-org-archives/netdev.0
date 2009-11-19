@@ -1,73 +1,115 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
-	hardware queue MAC and VLAN filters
-Date: Thu, 19 Nov 2009 12:34:46 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
-References: <20091117214923.15119.98918.stgit@localhost.localdomain>
-	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
-	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
-	 <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
- <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] drivers/isdn/gigaset: tasklet_init - Remove
+ unnecessary leading & from second arg
+Date: Thu, 19 Nov 2009 11:55:53 -0800
+Message-ID: <1258660553.3863.18.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hansjoerg Lipp <hjlipp@web.de>,
+	Tilman Schmidt <tilman@imap.cc>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	gigaset307x-common@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4893 "EHLO mga02.intel.com"
+Received: from mail.perches.com ([173.55.12.10]:1054 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753278AbZKSTes convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 14:34:48 -0500
-In-Reply-To: <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+	id S1753532AbZKSTzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2009 14:55:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Ben Hutchings [mailto:bhutchings@solarflare.com]
->Sent: Thursday, November 19, 2009 10:59 AM
+Changed function pointer use from non-majority address-of style
+to majority short form without & via:
 
->> Please explain specifically what you perceive to be the difference
->between:
->>
->> $ ip link set eth1 queue 1 mac <blah>
->> $ ip link set eth1 queue 1 vlan <foo>
->>
->> and
->>
->> $ ip link set eth1 queue 1 mac <blah> vlan <foo>
->>
->> The two filter types are, in my mind, completely orthogonal.  You can
->> have one, or the other, or both, or neither. What do we gain by
->> glomming both options on one command line?  And is this worth the
->> tradeoff of more complex code?
->
->I think you need to state clearly what semantics you are now proposing
->before I can make any judgement on them.
->
+grep -rPl "\btasklet_init\s*\([^,\)]+,\s*\&" drivers/isdn | while read file ; do \
+        perl -i -e 'local $/; while (<>) { s@(\btasklet_init\s*\([^,\)]+,\s*)\&@\1@g ; print ; }' $file ;\
+done
 
-OK, now I'm really confused, Ben. It seems that we are both asking each other the same question.
+Compile tested allyesconfig x86
 
-What I'm proposing is really the same as we have now for single-queue devices:
+Signed-off-by: Joe Perches <joe@perches.com>
 
-- A MAC filter is enabled by default. If you want to change the MAC address, you use a tool (ip or ifconfig) to change it.
+ drivers/isdn/gigaset/bas-gigaset.c |    4 ++--
+ drivers/isdn/gigaset/common.c      |    2 +-
+ drivers/isdn/gigaset/interface.c   |    2 +-
+ drivers/isdn/gigaset/ser-gigaset.c |    2 +-
+ drivers/isdn/gigaset/usb-gigaset.c |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
 
-- A VLAN filter is not enabled by default. If you want to filter on VLANs, then you load the 8021q module, and enable a filter.
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index 9fd19db..95ebc51 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -2117,7 +2117,7 @@ static int gigaset_initbcshw(struct bc_state *bcs)
+ 		return 0;
+ 	}
+ 	tasklet_init(&ubc->sent_tasklet,
+-		     &write_iso_tasklet, (unsigned long) bcs);
++		     write_iso_tasklet, (unsigned long) bcs);
+ 
+ 	spin_lock_init(&ubc->isoinlock);
+ 	for (i = 0; i < BAS_INURBS; ++i)
+@@ -2138,7 +2138,7 @@ static int gigaset_initbcshw(struct bc_state *bcs)
+ 	ubc->shared0s = 0;
+ 	ubc->stolen0s = 0;
+ 	tasklet_init(&ubc->rcvd_tasklet,
+-		     &read_iso_tasklet, (unsigned long) bcs);
++		     read_iso_tasklet, (unsigned long) bcs);
+ 	return 1;
+ }
+ 
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index c438cfc..82ed1cd 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -727,7 +727,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+ 	cs->ev_tail = 0;
+ 	cs->ev_head = 0;
+ 
+-	tasklet_init(&cs->event_tasklet, &gigaset_handle_event,
++	tasklet_init(&cs->event_tasklet, gigaset_handle_event,
+ 		     (unsigned long) cs);
+ 	cs->commands_pending = 0;
+ 	cs->cur_at_seq = 0;
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index 577809c..d2260b0 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -584,7 +584,7 @@ void gigaset_if_init(struct cardstate *cs)
+ 	if (!drv->have_tty)
+ 		return;
+ 
+-	tasklet_init(&cs->if_wake_tasklet, &if_wake, (unsigned long) cs);
++	tasklet_init(&cs->if_wake_tasklet, if_wake, (unsigned long) cs);
+ 
+ 	mutex_lock(&cs->mutex);
+ 	cs->tty_dev = tty_register_device(drv->tty, cs->minor_index, NULL);
+diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+index ac3409e..168d585 100644
+--- a/drivers/isdn/gigaset/ser-gigaset.c
++++ b/drivers/isdn/gigaset/ser-gigaset.c
+@@ -434,7 +434,7 @@ static int gigaset_initcshw(struct cardstate *cs)
+ 	dev_set_drvdata(&cs->hw.ser->dev.dev, cs);
+ 
+ 	tasklet_init(&cs->write_tasklet,
+-		     &gigaset_modem_fill, (unsigned long) cs);
++		     gigaset_modem_fill, (unsigned long) cs);
+ 	return 1;
+ }
+ 
+diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
+index f56b2a8..3ab1dae 100644
+--- a/drivers/isdn/gigaset/usb-gigaset.c
++++ b/drivers/isdn/gigaset/usb-gigaset.c
+@@ -614,7 +614,7 @@ static int gigaset_initcshw(struct cardstate *cs)
+ 	ucs->bulk_out_urb = NULL;
+ 	ucs->read_urb = NULL;
+ 	tasklet_init(&cs->write_tasklet,
+-		     &gigaset_modem_fill, (unsigned long) cs);
++		     gigaset_modem_fill, (unsigned long) cs);
+ 
+ 	return 1;
+ }
 
-The MAC filter is configured completely separately from the VLAN filter. Either one can be changed without affecting the other one and, in fact, you use two different tools to do these operations.
-
-For SR-IOV VF devices, my proposed changes implement exactly the same thing.  You use one command to change the MAC address.  You use another command to change the VLAN filter. Changing one does not affect the other.
-
-In this case, we use the same tool for both operations, but they're still separate operations.
-
--Mitch
-
-N.B.
-The major difference in VLAN filtering is that this implementation allows the VF to participate in only one VLAN, and the filter is applied independently of the VF driver. So you can put a specific VM on a VLAN without its knowledge. If you want the VM to have more intelligent VLAN filtering, you don't use this filter, and you load 8021q in the VM and set your filters there.
 
