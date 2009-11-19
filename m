@@ -1,61 +1,35 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Shared i2c adapter locking
-Date: Thu, 19 Nov 2009 18:05:08 +1100
-Message-ID: <20091119180508.0d5bffdc.sfr@canb.auug.org.au>
-References: <20091117193313.b750804e.sfr@canb.auug.org.au>
-	<20091117103554.03971b2f@hyperion.delvare>
-	<20091118075917.9ac0248c.sfr@canb.auug.org.au>
-	<20091118.225332.18917545.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] drivers/net: request_irq - Remove unnecessary
+ leading & from second arg
+Date: Wed, 18 Nov 2009 23:29:27 -0800 (PST)
+Message-ID: <20091118.232927.133649487.davem@davemloft.net>
+References: <Pine.LNX.4.64.0911181925440.20943@ask.diku.dk>
+	<20091118.105237.127029548.davem@davemloft.net>
+	<1258587958.24178.222.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__19_Nov_2009_18_05_08_+1100_yST2g=Iw.zrcc3HG"
-Cc: khali@linux-fr.org, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mika.kuoppala@nokia.com,
-	linux-i2c@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752843AbZKSHFR@vger.kernel.org>
-In-Reply-To: <20091118.225332.18917545.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, julia@diku.dk, ebiederm@xmission.com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32768
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752074AbZKSH3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 02:29:10 -0500
+In-Reply-To: <1258587958.24178.222.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__19_Nov_2009_18_05_08_+1100_yST2g=Iw.zrcc3HG
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Joe Perches <joe@perches.com>
+Date: Wed, 18 Nov 2009 15:45:57 -0800
 
-Hi Dave,
+> Not as fancy as coccinelle.  Checkpatch errors ignored.
+> Compile tested allyesconfig x86, not all files compiled.
+> 
+> grep -rPl --include=*.[ch] "\brequest_irq\s*\([^,\)]+,\s*\&" drivers/net | while read file ; do \
+> 	perl -i -e 'local $/; while (<>) { s@(\brequest_irq\s*\([^,\)]+,\s*)\&@\1@g ; print ; }' $file ;\
+> done
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-On Wed, 18 Nov 2009 22:53:32 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 18 Nov 2009 07:59:17 +1100
->=20
-> >> If you did and something is still not clear, please let me know. My
-> >> understanding is that the action token is in David's hands now.
-> >=20
-> > OK, I will await developments :-)
->=20
-> I just took care of all of this.
-
-Excellent, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__19_Nov_2009_18_05_08_+1100_yST2g=Iw.zrcc3HG
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEUEARECAAYFAksE7iQACgkQjjKRsyhoI8zdtACguHmvYrF55M2wuUU9uxdJpUnx
-WR4AmKrXey/JFiDU+4WMsbKvqG928Wo=
-=BjGH
------END PGP SIGNATURE-----
-
---Signature=_Thu__19_Nov_2009_18_05_08_+1100_yST2g=Iw.zrcc3HG--
+Applied, thanks.
