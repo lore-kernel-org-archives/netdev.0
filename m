@@ -1,45 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.32-rc6] drivers/net: ks8851_mll ethernet network
- driver
-Date: Thu, 19 Nov 2009 13:19:51 -0800 (PST)
-Message-ID: <20091119.131951.26921972.davem@davemloft.net>
-References: <C43529A246480145B0A6D0234BDB0F0D021299@MELANITE.micrel.com>
-	<20091119.122734.89781869.davem@davemloft.net>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: RE: [BUG] netxen: Stops working between 2.6.30 and 2.6.31-rc1
+Date: Thu, 19 Nov 2009 14:11:33 -0800
+Message-ID: <7608421F3572AB4292BB2532AE89D5658B0B95BDC9@AVEXMB1.qlogic.org>
+References: <20091119163908.GJ14661@jayr.de>
+ <7608421F3572AB4292BB2532AE89D5658B0B95BD5C@AVEXMB1.qlogic.org>
+ <20091119183607.GK14661@jayr.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, greg@kroah.com
-To: David.Choi@Micrel.Com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755138AbZKSVTg@vger.kernel.org>
-In-Reply-To: <20091119.122734.89781869.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Amit Salecha <amit.salecha@qlogic.com>
+To: Jens Rosenboom <me@jayr.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:41583 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbZKSWMl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 17:12:41 -0500
+In-Reply-To: <20091119183607.GK14661@jayr.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 19 Nov 2009 12:27:34 -0800 (PST)
-
-> From: "Choi, David" <David.Choi@Micrel.Com>
-> Date: Tue, 17 Nov 2009 15:02:36 -0800
+> Sorry, I forgot to mention that all later kernels that I tested
+> including 2.6.31 and the current net-2.6 also fail, so the badness
+> comes in somewhere in between 2.6.30 and 2.6.31-rc1.
 > 
->> This patch is for ks8851 16bit MLL Ethernet network device driver in order to fix bugs and to enhance functions.
->  ...
->> Signed-off-by: David J. Choi <david.choi@micrel.com>
-> 
-> Applied.
+> I also noticed that the newer kernel allocate four interrupts for the
+> card instead of only one, but none of them seem to get triggered, the
+> /proc/interrupts counters all stay at zero.
 
-Sorry I had to revert this, it adds new warnings to the
-build.
+What firmware revision you have? Since you are saying nothing
+transmitted as well, I doubt if you have a link. Otherwise I
+would imagine kernel tries to send some neighbor solicitation
+crap as soon as you bring up interface. What does your
+"ethtool ethx" say about the link? 
 
-You can't cast pointers to 'int' in order to print them,
-that emits a warning on 64-bit systems because you're
-truncating the top bits.
+It's possible to bisect commits which applied in driver/net/netxen.
+That way you have fewer commits to rewind and remains focused on
+the driver rather than screwing scsi.
 
-There is really no point in printing __iomem pointers,
-those are very architecture specific.  So is the IRQ
-number.
-
-I would just remove this part of your patch entirely
-(don't forget to update the commit message to match).
-
-Please fix this up and resubmit, thank you.
+Thanks,
+Dhananjay
