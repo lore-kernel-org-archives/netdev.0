@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Wed, 18 Nov 2009 21:23:59 -0800 (PST)
-Message-ID: <20091118.212359.23452604.davem@davemloft.net>
-References: <20091118.072506.229926265.davem@davemloft.net>
-	<alpine.LFD.2.00.0911181455260.2793@localhost.localdomain>
+Subject: Re: [net-next-2.6 PATCH 2/3] ixgbe: Set MSI-X vectors to
+ NOBALANCING and set affinity
+Date: Wed, 18 Nov 2009 22:28:34 -0800 (PST)
+Message-ID: <20091118.222834.01656318.davem@davemloft.net>
+References: <1258573570.2780.14.camel@achroite.uk.solarflarecom.com>
+	<20091118.115039.41419484.davem@davemloft.net>
+	<1258593299.3103.0.camel@ppwaskie-mobl2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
+	gospo@redhat.com, netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51881
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49240
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750925AbZKSFXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 00:23:42 -0500
-In-Reply-To: <alpine.LFD.2.00.0911181455260.2793@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751129AbZKSG2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 01:28:18 -0500
+In-Reply-To: <1258593299.3103.0.camel@ppwaskie-mobl2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 18 Nov 2009 14:59:36 -0800 (PST)
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Date: Wed, 18 Nov 2009 17:14:57 -0800
 
-> Anyway, I do seem to get a proper subset, _and_ the stuff I don't get seem 
-> to be old stuff I already got earlier, so I think everything is fine. But 
-> you should double-check, because my diffstat/shortlog doesn't match yours 
-> due to you apparently having included data from previous pull requests..
+> We actually just submitted a patch that pairs our Rx queue 0 and Tx
+> queue 0 (up until the number of queues) onto the same MSI-X
+> interrupt.  Arjan had indicated though he'd still like to make
+> irqbalance smart enough to distinguish Rx and Tx from one another,
+> regardless if the drivers just move to queue pairs or not.  I don't
+> care either way, since my queues are now paired.
 
-I forgot to update my origin before generating the pull request, sorry
-about that.
+Ok.
