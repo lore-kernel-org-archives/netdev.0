@@ -1,62 +1,37 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: A generic kernel compatibilty code
-Date: Fri, 20 Nov 2009 13:38:45 -0800
-Message-ID: <43e72e890911201338w4c403d51q651afc3638d1739c@mail.gmail.com>
-References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
-	<43e72e890911201251t6210ee19n177eaf003a4fffc@mail.gmail.com>
-	<43e72e890911201253obc466c8k2102e04457c48c92@mail.gmail.com>
-	<20091120211837.GA22815@tuxdriver.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] net: Xmit Packet Steering (XPS)
+Date: Fri, 20 Nov 2009 13:43:34 -0800
+Message-ID: <1258753414.28239.66.camel@Joe-Laptop.home>
+References: <4B05D8DC.7020907@gmail.com> <4B0701E2.1070806@gmail.com>
+	 <4B070BAC.1090406@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091120211837.GA22815-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1070 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755130AbZKTVn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Nov 2009 16:43:29 -0500
+In-Reply-To: <4B070BAC.1090406@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2009 at 1:18 PM, John W. Linville
-<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> On Fri, Nov 20, 2009 at 12:53:51PM -0800, Luis R. Rodriguez wrote:
->> On Fri, Nov 20, 2009 at 12:51 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8@public.gmane.org=
-m> wrote:
->> > On Fri, Nov 20, 2009 at 12:45 PM, Luis R. Rodriguez <mcgrof@gmail.=
-com> wrote:
->> >> Everyone and their mother reinvents the wheel when it comes to
->> >> backporting kernel modules. It a painful job and it seems to me a=
-n
->> >> alternative is possible. If we can write generic compatibilty cod=
-e for
->> >> a new routine introduced on the next kernel how about just mergin=
-g it
->> >> to the kernel under some generic compat module. This would be
->> >> completey ignored by everyone using the stable kernel but can be
->> >> copied by anyone doing backport work.
->> >>
->> >> So I'm thinking something as simple as a generic compat/comat.ko =
-with
->> >> compat-2.6.32.[ch] files.
->> >
->> > FWIW, I meant a compat-2.6.32.[ch] and compat-2.6.31.[ch] and so o=
-n.
->> > All these would link to the compat.ko
->>
->> I supose this could juse be a separate tree with some generic
->> compat.ko module. That might work better.
->
-> This is what I would suggest for pursuing this idea. =C2=A0Perhaps yo=
-u
-> could split-off from compat-wireless, then make that tree depend on
-> the new tree (compat-core?)...
+On Fri, 2009-11-20 at 22:35 +0100, Eric Dumazet wrote:
+> Jarek Poplawski a =C3=A9crit :
+> > There is one more problem: this will break things like act_mirred +=
+ ifb,
+> > and other cases using skb->iif e.g. for filtering on virtual device=
+s at
+> > the xmit path.
+> Following patch might help us to locate real uses of this obscure fie=
+ld :)
+> [PATCH net-next-2.6] net: rename skb->iif to skb->skb_iif
 
-OK thanks, will try that for the next kernel.
+Prefixing member names generally doesn't end well.
+Prefixing selected member names? ick.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
