@@ -1,55 +1,45 @@
-From: Kalle Valo <kalle.valo@iki.fi>
-Subject: Re: [RFC] p54: software hot-swap eeprom image
-Date: Fri, 20 Nov 2009 22:32:43 +0200
-Message-ID: <87tywpaqdw.fsf@purkki.valot.fi>
-References: <200911202027.13284.chunkeey@googlemail.com>
-	<1258746786.26965.83.camel@localhost.localdomain>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: A generic kernel compatibilty code
+Date: Fri, 20 Nov 2009 12:45:51 -0800
+Message-ID: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:50973 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754484AbZKTUck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 15:32:40 -0500
-In-Reply-To: <1258746786.26965.83.camel@localhost.localdomain> (Dan Williams's message of "Fri\, 20 Nov 2009 11\:53\:06 -0800")
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:64591 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752989AbZKTUqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 15:46:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Williams <dcbw@redhat.com> writes:
+Everyone and their mother reinvents the wheel when it comes to
+backporting kernel modules. It a painful job and it seems to me an
+alternative is possible. If we can write generic compatibilty code for
+a new routine introduced on the next kernel how about just merging it
+to the kernel under some generic compat module. This would be
+completey ignored by everyone using the stable kernel but can be
+copied by anyone doing backport work.
 
-> On Fri, 2009-11-20 at 20:27 +0100, Christian Lamparter wrote:
->> This (aggregated) patch adds a new sysfs file "eeprom_overwrite"
->> which can be used to upload an customized eeprom image to the
->> driver during normal operation.
+So I'm thinking something as simple as a generic compat/comat.ko with
+compat-2.6.32.[ch] files.
 
-[...]
+We've already backported everything needed for wireless drivers under
+compat-wireless under this format down to even 2.6.25. I volunteer to
+be the sucker for this if this is reasonable and given the shot to try
+it.
 
-> Honestly I wonder if this would be better done with ethtool.  There's
-> already ethtool --eeprom-dump, would it be so hard to do an ethtool
-> --eeprom-load ?
->
-> I can see a number of devices doing this, so in my mind it makes sense
-> to have a generic facility for this sort of thing.  But then again it's
-> not so common an operation and its fraught with danger :)
+If you would like a better idea of what I mean please check out this
+git tree and check out the files under compat/*.[ch]
 
-I think that devices without eeprom at all (eg. stlc4550, most wl1251
-and all wl1271 chips) request_firmware() and a udev script is the best
-way to go, as they will need the eeprom data from user space during
-every boot. This was discussed few months back, but unfortunately I
-have yet to seen an implementation of this :) Hopefully I find some
-time to try this soon.
+git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/compat-wireless-2.6.git
 
-But for devices with eeprom, having support in ethtool sounds good to
-me.
+Things which *cannot* be backported through new defines or exported
+symbols are handled manually through patches (check compat/patches/)
+but no need for something like that upstream it seems.
 
-> Libertas could potentially use this, but libertas has *two* EEPROM
-> images that it might need to update. So if ethtool did grow
-> --eeprom-load we may want to account for more than one eeprom image.
+Please let me know what you think.
 
-Makes sense to mee.
-
--- 
-Kalle Valo
+ Luis
