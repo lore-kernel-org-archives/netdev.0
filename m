@@ -1,110 +1,84 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next-2.6] net: Xmit Packet Steering (XPS)
-Date: Fri, 20 Nov 2009 05:58:36 +0100
-Message-ID: <4B0621FC.6060004@gmail.com>
-References: <4B05D8DC.7020907@gmail.com> <412e6f7f0911191812uf0abc61w2f0d44f4d71bd55@mail.gmail.com>
+Date: Fri, 20 Nov 2009 06:08:29 +0100
+Message-ID: <4B06244D.9060004@gmail.com>
+References: <4B05D8DC.7020907@gmail.com> <65634d660911191641o4210a797mf1e8168dd8dd8b60@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44521 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33165 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754626AbZKTE6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 23:58:39 -0500
-In-Reply-To: <412e6f7f0911191812uf0abc61w2f0d44f4d71bd55@mail.gmail.com>
+	with ESMTP id S1750803AbZKTFIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 00:08:31 -0500
+In-Reply-To: <65634d660911191641o4210a797mf1e8168dd8dd8b60@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao a =C3=A9crit :
-> On Fri, Nov 20, 2009 at 7:46 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 9977288..9e134f6 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -2000,6 +2001,7 @@ gso:
->>         */
->>        rcu_read_lock_bh();
->>
->> +       skb->sending_cpu =3D cpu =3D smp_processor_id();
->>        txq =3D dev_pick_tx(dev, skb);
->>        q =3D rcu_dereference(txq->qdisc);
+Tom Herbert a =E9crit :
 >=20
-> I think assigning cpu to skb->sending_cpu just before calling
-> hard_start_xmit is better, because the CPU which dequeues the skb wil=
-l
-> be another one.
+>=20
+> On Thu, Nov 19, 2009 at 3:46 PM, Eric Dumazet <eric.dumazet@gmail.com
+> <mailto:eric.dumazet@gmail.com>> wrote:
+>=20
+>     Here is first version of XPS.
+>=20
+> Very cool!  The infrastructure to move lists of skb's from cpu to
+> another and the IPI to kick processing look like something that could=
+ be
+> consolidated between rps and xps :-)
 
-I want to record the application CPU, because I want the application CP=
-U
-to call sock_wfree(), not the CPU that happened to dequeue skb to trans=
-mit it
-in case of txq contention.
+Sure, but RPS seems quite slow to integrate (no offense Tom) :)
+I wanted to cook a patch on top on yours, but got no sign you were
+about to release RPS version 4 soon.
 
 >=20
->> @@ -2024,8 +2026,6 @@ gso:
->>           Either shot noqueue qdisc, it is even simpler 8)
->>         */
->>        if (dev->flags & IFF_UP) {
->> -               int cpu =3D smp_processor_id(); /* ok because BHs ar=
-e off */
->> -
->>                if (txq->xmit_lock_owner !=3D cpu) {
->>
->>                        HARD_TX_LOCK(dev, txq, cpu);
->> @@ -2967,7 +2967,7 @@ static void net_rx_action(struct softirq_actio=
-n *h)
->>        }
->>  out:
->>        local_irq_enable();
->> -
->> +       xps_flush();
+>     Goal of XPS is to free TX completed skbs by the cpu that submitte=
+d
+>     the transmit.
 >=20
-> If there isn't any new skbs, the memory will be hold forever. I know
-> you want to eliminate unnecessary IPI, how about sending IPI only whe=
+>     Because I chose to union skb->iif with skb->sending_cpu, I chose
+>     to introduce a new xps_consume_skb(skb), and not generalize
+>     consume_skb() itself.
+>=20
+>     This means that selected drivers must use new function to benefit
+>     from XPS
+>=20
+>=20
+> Is this better than modifying consume_skb so this can be used by any =
+driver?
+
+consume_skb() is also used by RX side, and this side doesnt want XPS.
+
+Adding a flag in skb to differentiate the use might be possible,
+but we add a new test in hot paths...
+
+> =20
+>=20
+>     =20
+>=20
+>     Preliminary tests are quite good, especially on NUMA machines.
+>=20
+>     Only NAPI drivers can use this new infrastructure (xps_consume_sk=
+b()
+>     cannot
+>     be called from hardirq context, only from softirq)
+>=20
+> Is this a strict requirement, especially considering devices with
+> separate TX interrupts?  For a hardirq we could we just put the skb o=
 n
-> the remote xps_pcpu_queues are changed from empty to nonempty?
+> local percpu queue and schedule a softirq to do the ipi.
 
-I dont understand your remark, and dont see the problem, yet.
+I chose this way because any sane and up2date driver should really
+not use hardirqs TX completion. I want fast processing, without
+masking local interrupts in xps_consume_skb(), and wihout testing
+our context.
 
-I send IPI only on cpus I know I have at least one skb queueud for them=
-=2E
-=46or each cpu taking TX completion interrupts I have :
+Note : if TX completion and RX are run in different NAPI contexts,
+there is no problem using xps_consume_skb().
 
-One bitmask (xps_cpus) of cpus I will eventually send IPI at end of net=
-_rx_action()
 
-One array of skb lists per remote cpu, allocated on cpu node memory, th=
-anks
-to __alloc_percpu() at boot time.
-
-I say _eventually_ because the algo is :
-
-+		if (cpu_online(cpu)) {
-+			spin_lock(&q->list.lock);
-+			prevlen =3D skb_queue_len(&q->list);
-+			skb_queue_splice_init(&head[cpu], &q->list);
-+			spin_unlock(&q->list.lock);
-+			/*
-+			 * We hope remote cpu will be fast enough to transfert
-+			 * this list to its completion queue before our
-+			 * next xps_flush() call
-+			 */
-+			if (!prevlen)
-+				__smp_call_function_single(cpu, &q->csd, 0);
-+			continue;
-
-So I send an IPI only if needed, once for the whole skb list.
-
-With my pktgen (no skb cloning setup) tests, and
-
-ethtool -C eth3 tx-usecs 1000 tx-frames 100
-
-I really saw batches of 100 frames given from CPU X (NIC interrupts) to=
- CPU Y (pktgen cpu)
-
-What memory is hold forever ?
+Thanks for reviewing Tom.
