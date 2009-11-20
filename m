@@ -1,45 +1,42 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: A generic kernel compatibilty code
-Date: Fri, 20 Nov 2009 12:45:51 -0800
-Message-ID: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [net-next-2.6 PATCH v7 2/7 RFC] TCPCT part 1b: generate Responder Cookie secret
+Date: Fri, 20 Nov 2009 21:47:17 +0100
+Message-ID: <87eins53fu.fsf@basil.nowhere.org>
+References: <4B06A1FF.8000202@gmail.com> <4B06A659.3020109@gmail.com>
+	<20091120.092228.216274668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: william.allen.simpson@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:64591 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989AbZKTUqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 15:46:05 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:41619 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753443AbZKTUrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 15:47:17 -0500
+In-Reply-To: <20091120.092228.216274668.davem@davemloft.net> (David Miller's message of "Fri, 20 Nov 2009 09:22:28 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Everyone and their mother reinvents the wheel when it comes to
-backporting kernel modules. It a painful job and it seems to me an
-alternative is possible. If we can write generic compatibilty code for
-a new routine introduced on the next kernel how about just merging it
-to the kernel under some generic compat module. This would be
-completey ignored by everyone using the stable kernel but can be
-copied by anyone doing backport work.
+David Miller <davem@davemloft.net> writes:
 
-So I'm thinking something as simple as a generic compat/comat.ko with
-compat-2.6.32.[ch] files.
+> From: William Allen Simpson <william.allen.simpson@gmail.com>
+> Date: Fri, 20 Nov 2009 09:23:21 -0500
+>
+>> +static DEFINE_SPINLOCK(tcp_secret_locker);
+>
+> So connection creation scalability will be limited now because
+> we'll always have to go through this centralized spinlock even
+> for independent listening sockets, right?
 
-We've already backported everything needed for wireless drivers under
-compat-wireless under this format down to even 2.6.25. I volunteer to
-be the sucker for this if this is reasonable and given the shot to try
-it.
+I was about to complain about the same thing in a earlier version
+of this patch kit, but then I noticed the spin lock aquiring 
+is guarded by
 
-If you would like a better idea of what I mean please check out this
-git tree and check out the files under compat/*.[ch]
+if (unlikely(time_after_eq(jiffy, tcp_secret_generating->expires))) {
 
-git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/compat-wireless-2.6.git
+which presumably makes it rare enough?
 
-Things which *cannot* be backported through new defines or exported
-symbols are handled manually through patches (check compat/patches/)
-but no need for something like that upstream it seems.
+-Andi
 
-Please let me know what you think.
-
- Luis
+-- 
+ak@linux.intel.com -- Speaking for myself only.
