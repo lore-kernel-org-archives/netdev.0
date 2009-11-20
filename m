@@ -1,46 +1,50 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
-Date: Fri, 20 Nov 2009 11:21:13 +0100
-Message-ID: <20091120102113.GC282@e-circ.dyndns.org>
-References: <20091118164126.GF325@e-circ.dyndns.org> <20091118.095716.61189059.davem@davemloft.net> <20091118205952.GB282@e-circ.dyndns.org> <20091118.130859.99831401.davem@davemloft.net> <20091118214226.GA283@e-circ.dyndns.org> <m1vdh6t2y6.fsf@fess.ebiederm.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Network hangs with 2.6.30.5
+Date: Fri, 20 Nov 2009 15:04:52 +0300
+Message-ID: <20091120120452.GA11462@ioremap.net>
+References: <20090907072143.GA5966@ff.dom.local> <20091001.154913.88345178.davem@davemloft.net> <alpine.DEB.2.00.0910021104130.13543@wel-95.cs.helsinki.fi> <20091119.154038.194307613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ilpo.jarvinen@helsinki.fi, jarkao2@gmail.com,
+	holger.hoffstaette@googlemail.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay011.isp.belgacom.be ([195.238.6.178]:35458 "EHLO
-	mailrelay011.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751910AbZKTKVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 05:21:09 -0500
+Received: from cet.com.ru ([195.178.208.66]:50557 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751887AbZKTMEs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Nov 2009 07:04:48 -0500
 Content-Disposition: inline
-In-Reply-To: <m1vdh6t2y6.fsf@fess.ebiederm.org>
+In-Reply-To: <20091119.154038.194307613.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 19, 2009 at 05:11:45PM -0800, Eric W. Biederman wrote:
-> Kurt Van Dijck <kurt.van.dijck@eia.be> writes:
-> 
-> > On Wed, Nov 18, 2009 at 01:08:59PM -0800, David Miller wrote:
-> >>
-> >> Unfortunately, the code in this function is much different
-> >> in net-next-2.6 which is where I want to add this, and your
-> >> patch doesn't apply.
-> >> 
-> >> Please rebase your patch on that tree, thank you.
-> > As I mentioned, I'm not experienced with using git yet.
-> > Is there a fine manual I can inspect? I get lost in the man-pages.
-> 
-> git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-> 
-> Should get you started.
-$ git pull git://git.kernel.... master
-did the job today. It took me a while
-> 
-> In this case please look at how I modified the bonding driver to do
-> what you are trying to do.  That is the conflict in net-next and
-> I think it was actually less code.
-It _is_ less code (does a little less too :-) ).
-It solves the problem anyway. I'll stop with my patch.
+Hi.
 
-Thanks.
-Kurt
+On Thu, Nov 19, 2009 at 03:40:38PM -0800, David Miller (davem@davemloft.net) wrote:
+> >> I also looked through all the TCP commits in 2.6.29 to 2.6.30
+> >> and I could not find anything else that might cause stalls with
+> >> time-wait recycled connections.
+> > 
+> > What about the more than 64k connections change a9d8f9110d7e953c2f2 (or 
+> > its fixes), it might be another possibility? ...It certainly does 
+> > something related to reuse and happens to be in the correct time frame... 
+> > (I've added Evgeniy).
+> 
+> So I've been studying this one quite a bit.
+> 
+> This change could only cause problems in timewait recycling if it:
+> 
+> 1) Would accept using a bind bucket that previously it would not
+> 
+> 2) Caused socket corruption due to bad locking
+> 
+> And I can find neither problem with the Evgeniy's bind changes.
+> 
+> So we've back to square one I think.
+
+Wasn't solution found for this problem, I recall related discussion
+recently, or should I dig deeper into this one?
+
+-- 
+	Evgeniy Polyakov
