@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.32-rc6] drivers/net: ks8851_mll ethernet network
- driver -resubmit
-Date: Fri, 20 Nov 2009 13:55:12 -0800 (PST)
-Message-ID: <20091120.135512.230579850.davem@davemloft.net>
-References: <C43529A246480145B0A6D0234BDB0F0D02129B@MELANITE.micrel.com>
+Subject: Re: [PATCH] net: ETHOC should depend on HAS_DMA
+Date: Fri, 20 Nov 2009 13:56:57 -0800 (PST)
+Message-ID: <20091120.135657.78955091.davem@davemloft.net>
+References: <10f740e80911201119h6db1e2e1t2c6d40ef1e614094@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, greg@kroah.com
-To: David.Choi@Micrel.Com
+Cc: heiko.carstens@de.ibm.com, thierry.reding@avionic-design.de,
+	schwidefsky@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-s390@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45568
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45583
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755462AbZKTVyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 16:54:54 -0500
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D02129B@MELANITE.micrel.com>
+	by vger.kernel.org with ESMTP id S1755921AbZKTV4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 16:56:40 -0500
+In-Reply-To: <10f740e80911201119h6db1e2e1t2c6d40ef1e614094@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Thu, 19 Nov 2009 17:34:30 -0800
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Fri, 20 Nov 2009 20:19:10 +0100
 
-> This patch is for ks8851 16bit MLL Ethernet network device driver in order to 
-> fix bugs and to enhance functions. This resubmit removes a printk statement causing
-> the compile warning in 64bit processors.
+> Subject: [PATCH] net: ETHOC should depend on HAS_DMA
+> 
+> When building for Sun 3:
+> 
+> drivers/net/ethoc.c:1091: undefined reference to `dma_free_coherent'
+> drivers/built-in.o: In function `ethoc_probe':
+> drivers/net/ethoc.c:965: undefined reference to `dma_alloc_coherent'
+> drivers/net/ethoc.c:1063: undefined reference to `dma_free_coherent'
+> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Applied.
-
->>From 	: David J. Choi <david.choi@micrel.com>
-
-Please fix how this is emiited in your emails.  GIT won't pick
-it up to use this as the author information unless it is
-formatted correctly.  That leading '>' character and the
-TAB between "From" and ":" need to go away.
-
-I edited it out by hand this time.
-
-Thanks.
+Applied, thanks.
