@@ -1,41 +1,50 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH 7/7] via-velocity: Bump version
-Date: Fri, 20 Nov 2009 16:12:46 +0100
-Message-ID: <20091120161246.7c3ba871@marrow.netinsight.se>
-References: <20091120160633.77b7aee0@marrow.netinsight.se>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
+ and big packets in virtio_net
+Date: Fri, 20 Nov 2009 08:08:52 -0800
+Message-ID: <1258733332.4108.6.camel@localhost.localdomain>
+References: <1258697745.7416.20.camel@localhost.localdomain>
+	 <4B063509.10006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, davej@redhat.com, shemminger@vyatta.com,
-	romieu@fr.zoreil.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:42331 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753974AbZKTPQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 10:16:51 -0500
-In-Reply-To: <20091120160633.77b7aee0@marrow.netinsight.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754127AbZKTQIy@vger.kernel.org>
+In-Reply-To: <4B063509.10006@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
----
- drivers/net/via-velocity.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Fri, 2009-11-20 at 07:19 +0100, Eric Dumazet wrote:
+> > +void virtio_free_pages(void *buf)
+> > +{
+> > +     struct page *page = (struct page *)buf;
+> > +
+> > +     while (page) {
+> > +             __free_pages(page, 0);
+> > +             page = (struct page *)page->private;
+> > +     }
+> > +}
+> > +
+> 
+> Interesting use after free :)
 
-diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
-index 22bfea4..083585b 100644
---- a/drivers/net/via-velocity.h
-+++ b/drivers/net/via-velocity.h
-@@ -29,7 +29,7 @@
- 
- #define VELOCITY_NAME          "via-velocity"
- #define VELOCITY_FULL_DRV_NAM  "VIA Networking Velocity Family Gigabit Ethernet Adapter Driver"
--#define VELOCITY_VERSION       "1.14"
-+#define VELOCITY_VERSION       "1.15"
- 
- #define VELOCITY_IO_SIZE	256
- #define VELOCITY_NAPI_WEIGHT	64
--- 
-1.6.0.4
+Good catch. This code was run when virtio_net removal. I run many times
+of remove virtio_net, and didn't hit any panic :(. Fixed it as below:
 
+void virtio_free_pages(void *buf)
+{
+	struct page *page = (struct page *)buf;
+	struct page *npage;
+
+	while (page) {
+		npage = page->private;
+		__free_pages(page, 0);
+		page = npage;
+	}
+}
+
+Thanks
+Shirley
