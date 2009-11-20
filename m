@@ -1,594 +1,187 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH v7 7/7 RFC] TCPCT part 1g: Responder Cookie =>
- Initiator
-Date: Fri, 20 Nov 2009 10:06:40 -0500
-Message-ID: <4B06B080.3000404@gmail.com>
-References: <4B06A1FF.8000202@gmail.com>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: [PATCH 0/7] via-velocity performance fixes
+Date: Fri, 20 Nov 2009 16:06:33 +0100
+Message-ID: <20091120160633.77b7aee0@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030803080504020604030006"
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
+	shemminger@vyatta.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:52181 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbZKTPGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 10:06:41 -0500
-Received: by yxe17 with SMTP id 17so2975145yxe.33
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 07:06:47 -0800 (PST)
-In-Reply-To: <4B06A1FF.8000202@gmail.com>
+Received: from ernst.netinsight.se ([194.16.221.21]:42331 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753934AbZKTPQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 10:16:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030803080504020604030006
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi everyone!
 
-Parse incoming TCP_COOKIE option(s).
-
-Calculate <SYN,ACK> TCP_COOKIE option.
-
-Send optional <SYN,ACK> data.
-
-This is a significantly revised implementation of an earlier (year-old)
-patch that no longer applies cleanly, with permission of the original
-author (Adam Langley):
-
-    http://thread.gmane.org/gmane.linux.network/102586
-
-Requires:
-   TCPCT part 1a: add request_values parameter for sending SYNACK
-   TCPCT part 1b: generate Responder Cookie secret
-   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
-   TCPCT part 1d: define TCP cookie option, extend existing struct's
-   TCPCT part 1e: implement socket option TCP_COOKIE_TRANSACTIONS
-   TCPCT part 1f: Initiator Cookie => Responder
-
-Signed-off-by: William.Allen.Simpson@gmail.com
----
-  include/net/tcp.h        |    1 +
-  net/ipv4/syncookies.c    |    5 ++-
-  net/ipv4/tcp_input.c     |   77 +++++++++++++++++++++++++++++++++++++++------
-  net/ipv4/tcp_ipv4.c      |   46 +++++++++++++++++++++++++--
-  net/ipv4/tcp_minisocks.c |   14 +++++---
-  net/ipv4/tcp_output.c    |   76 +++++++++++++++++++++++++++++++++++++++++++--
-  net/ipv6/syncookies.c    |    5 ++-
-  net/ipv6/tcp_ipv6.c      |   51 +++++++++++++++++++++++++++++-
-  8 files changed, 244 insertions(+), 31 deletions(-)
-
---------------030803080504020604030006
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1g7.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+1g7.patch"
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f9abd9b..28b04ff 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -407,6 +407,7 @@ extern int			tcp_recvmsg(struct kiocb *iocb, struct sock *sk,
- 
- extern void			tcp_parse_options(struct sk_buff *skb,
- 						  struct tcp_options_received *opt_rx,
-+						  u8 **hvpp,
- 						  int estab,
- 						  struct dst_entry *dst);
- 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 3146cc4..26399ad 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -253,6 +253,8 @@ EXPORT_SYMBOL(cookie_check_timestamp);
- struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 			     struct ip_options *opt)
- {
-+	struct tcp_options_received tcp_opt;
-+	u8 *hash_location;
- 	struct inet_request_sock *ireq;
- 	struct tcp_request_sock *treq;
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -263,7 +265,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	int mss;
- 	struct rtable *rt;
- 	__u8 rcv_wscale;
--	struct tcp_options_received tcp_opt;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack)
- 		goto out;
-@@ -341,7 +342,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, 0, &rt->u.dst);
-+	tcp_parse_options(skb, &tcp_opt, &hash_location, 0, &rt->u.dst);
- 
- 	if (tcp_opt.saw_tstamp)
- 		cookie_check_timestamp(&tcp_opt);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index cc306ac..1470615 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3698,7 +3698,7 @@ old_ack:
-  * the fast version below fails.
-  */
- void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
--		       int estab,  struct dst_entry *dst)
-+		       u8 **hvpp, int estab,  struct dst_entry *dst)
- {
- 	unsigned char *ptr;
- 	struct tcphdr *th = tcp_hdr(skb);
-@@ -3785,7 +3785,30 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
- 				 */
- 				break;
- #endif
--			}
-+			case TCPOPT_COOKIE:
-+				/* This option is variable length.
-+				 */
-+				switch (opsize) {
-+				case TCPOLEN_COOKIE_BASE:
-+					/* not yet implemented */
-+					break;
-+				case TCPOLEN_COOKIE_PAIR:
-+					/* not yet implemented */
-+					break;
-+				case TCPOLEN_COOKIE_MIN+0:
-+				case TCPOLEN_COOKIE_MIN+2:
-+				case TCPOLEN_COOKIE_MIN+4:
-+				case TCPOLEN_COOKIE_MIN+6:
-+				case TCPOLEN_COOKIE_MAX:
-+					/* 16-bit multiple */
-+					opt_rx->cookie_plus = opsize;
-+					*hvpp = ptr;
-+				default:
-+					/* ignore option */
-+					break;
-+				};
-+				break;
-+			};
- 
- 			ptr += opsize-2;
- 			length -= opsize;
-@@ -3813,17 +3836,20 @@ static int tcp_parse_aligned_timestamp(struct tcp_sock *tp, struct tcphdr *th)
-  * If it is wrong it falls back on tcp_parse_options().
-  */
- static int tcp_fast_parse_options(struct sk_buff *skb, struct tcphdr *th,
--				  struct tcp_sock *tp)
-+				  struct tcp_sock *tp, u8 **hvpp)
- {
--	if (th->doff == sizeof(struct tcphdr) >> 2) {
-+	/* In the spirit of fast parsing, compare doff directly to constant
-+	 * values.  Because equality is used, short doff can be ignored here.
-+	 */
-+	if (th->doff == (sizeof(*th) / 4)) {
- 		tp->rx_opt.saw_tstamp = 0;
- 		return 0;
- 	} else if (tp->rx_opt.tstamp_ok &&
--		   th->doff == (sizeof(struct tcphdr)>>2)+(TCPOLEN_TSTAMP_ALIGNED>>2)) {
-+		   th->doff == ((sizeof(*th) + TCPOLEN_TSTAMP_ALIGNED) / 4)) {
- 		if (tcp_parse_aligned_timestamp(tp, th))
- 			return 1;
- 	}
--	tcp_parse_options(skb, &tp->rx_opt, 1, NULL);
-+	tcp_parse_options(skb, &tp->rx_opt, hvpp, 1, NULL);
- 	return 1;
- }
- 
-@@ -5077,11 +5103,13 @@ out:
- static int tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 			      struct tcphdr *th, int syn_inerr)
- {
-+	u8 *hash_location;
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
- 	/* RFC1323: H1. Apply PAWS check first. */
--	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
--	    tcp_paws_discard(sk, skb)) {
-+	if (tcp_fast_parse_options(skb, th, tp, &hash_location)
-+	 && tp->rx_opt.saw_tstamp
-+	 && tcp_paws_discard(sk, skb)) {
- 		if (!th->rst) {
- 			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
- 			tcp_send_dupack(sk, skb);
-@@ -5368,12 +5396,14 @@ discard:
- static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 					 struct tcphdr *th, unsigned len)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
-+	u8 *hash_location;
- 	struct inet_connection_sock *icsk = inet_csk(sk);
--	int saved_clamp = tp->rx_opt.mss_clamp;
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	struct dst_entry *dst = __sk_dst_get(sk);
-+	struct tcp_cookie_values *cvp = tp->cookie_values;
-+	int saved_clamp = tp->rx_opt.mss_clamp;
- 
--	tcp_parse_options(skb, &tp->rx_opt, 0, dst);
-+	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, dst);
- 
- 	if (th->ack) {
- 		/* rfc793:
-@@ -5470,6 +5500,31 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 		 * Change state from SYN-SENT only after copied_seq
- 		 * is initialized. */
- 		tp->copied_seq = tp->rcv_nxt;
-+
-+		if (cvp != NULL
-+		 && cvp->cookie_pair_size > 0
-+		 && tp->rx_opt.cookie_plus > 0) {
-+			int cookie_size = tp->rx_opt.cookie_plus
-+					- TCPOLEN_COOKIE_BASE;
-+			int cookie_pair_size = cookie_size
-+					     + cvp->cookie_desired;
-+
-+			/* A cookie extension option was sent and returned.
-+			 * Note that each incoming SYNACK replaces the
-+			 * Responder cookie.  The initial exchange is most
-+			 * fragile, as protection against spoofing relies
-+			 * entirely upon the sequence and timestamp (above).
-+			 * This replacement strategy allows the correct pair to
-+			 * pass through, while any others will be filtered via
-+			 * Responder verification later.
-+			 */
-+			if (sizeof(cvp->cookie_pair) >= cookie_pair_size) {
-+				memcpy(&cvp->cookie_pair[cvp->cookie_desired],
-+				       hash_location, cookie_size);
-+				cvp->cookie_pair_size = cookie_pair_size;
-+			}
-+		}
-+
- 		smp_mb();
- 		tcp_set_state(sk, TCP_ESTABLISHED);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2bb7864..15bc4c5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1213,9 +1213,12 @@ static struct timewait_sock_ops tcp_timewait_sock_ops = {
- 
- int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- {
-+	struct tcp_extend_values tmp_ext;
- 	struct tcp_options_received tmp_opt;
-+	u8 *hash_location;
- 	struct request_sock *req;
- 	struct inet_request_sock *ireq;
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	struct dst_entry *dst = NULL;
- 	__be32 saddr = ip_hdr(skb)->saddr;
- 	__be32 daddr = ip_hdr(skb)->daddr;
-@@ -1271,15 +1274,49 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = TCP_MSS_DEFAULT;
--	tmp_opt.user_mss  = tcp_sk(sk)->rx_opt.user_mss;
-+	tmp_opt.user_mss  = tp->rx_opt.user_mss;
-+	tcp_parse_options(skb, &tmp_opt, &hash_location, 0, dst);
-+
-+	if (tmp_opt.cookie_plus > 0
-+	 && tmp_opt.saw_tstamp
-+	 && !tp->rx_opt.cookie_out_never
-+	 && (sysctl_tcp_cookie_size > 0
-+	  || (tp->cookie_values != NULL
-+	   && tp->cookie_values->cookie_desired > 0))) {
-+		u8 *c;
-+		u32 *mess = &tmp_ext.cookie_bakery[COOKIE_DIGEST_WORDS];
-+		int l = tmp_opt.cookie_plus - TCPOLEN_COOKIE_BASE;
-+
-+		if (tcp_cookie_generator(&tmp_ext.cookie_bakery[0]) != 0)
-+			goto drop_and_release;
-+
-+		/* Secret recipe starts with IP addresses */
-+		*mess++ ^= daddr;
-+		*mess++ ^= saddr;
- 
--	tcp_parse_options(skb, &tmp_opt, 0, dst);
-+		/* plus variable length Initiator Cookie */
-+		c = (u8 *)mess;
-+		while (l-- > 0)
-+			*c++ ^= *hash_location++;
-+
-+#ifdef CONFIG_SYN_COOKIES
-+		want_cookie = 0;	/* not our kind of cookie */
-+#endif
-+		tmp_ext.cookie_out_never = 0; /* false */
-+		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
-+	} else if (!tp->rx_opt.cookie_in_always) {
-+		/* redundant indications, but ensure initialization. */
-+		tmp_ext.cookie_out_never = 1; /* true */
-+		tmp_ext.cookie_plus = 0;
-+	} else {
-+		goto drop_and_release;
-+	}
-+	tmp_ext.cookie_in_always = tp->rx_opt.cookie_in_always;
- 
- 	if (want_cookie && !tmp_opt.saw_tstamp)
- 		tcp_clear_options(&tmp_opt);
- 
- 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
--
- 	tcp_openreq_init(req, &tmp_opt, skb);
- 
- 	if (security_inet_conn_request(sk, skb, req))
-@@ -1339,7 +1376,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	}
- 	tcp_rsk(req)->snt_isn = isn;
- 
--	if (__tcp_v4_send_synack(sk, dst, req, NULL)
-+	if (__tcp_v4_send_synack(sk, dst, req,
-+				 (struct request_values *)&tmp_ext)
- 	 || want_cookie)
- 		goto drop_and_free;
- 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 53ef6d8..16a9040 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -96,13 +96,14 @@ enum tcp_tw_status
- tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 			   const struct tcphdr *th)
- {
--	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
- 	struct tcp_options_received tmp_opt;
-+	u8 *hash_location;
-+	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
- 	int paws_reject = 0;
- 
- 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
- 		tmp_opt.tstamp_ok = 1;
--		tcp_parse_options(skb, &tmp_opt, 1, NULL);
-+		tcp_parse_options(skb, &tmp_opt, &hash_location, 1, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent	= tcptw->tw_ts_recent;
-@@ -524,15 +525,16 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 			   struct request_sock *req,
- 			   struct request_sock **prev)
- {
-+	struct tcp_options_received tmp_opt;
-+	u8 *hash_location;
-+	struct sock *child;
- 	const struct tcphdr *th = tcp_hdr(skb);
- 	__be32 flg = tcp_flag_word(th) & (TCP_FLAG_RST|TCP_FLAG_SYN|TCP_FLAG_ACK);
- 	int paws_reject = 0;
--	struct tcp_options_received tmp_opt;
--	struct sock *child;
- 
--	if ((th->doff > (sizeof(struct tcphdr)>>2)) && (req->ts_recent)) {
-+	if ((th->doff > (sizeof(*th) >> 2)) && (req->ts_recent)) {
- 		tmp_opt.tstamp_ok = 1;
--		tcp_parse_options(skb, &tmp_opt, 1, NULL);
-+		tcp_parse_options(skb, &tmp_opt, &hash_location, 1, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent = req->ts_recent;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 76dab84..ac7ab9b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -661,9 +661,14 @@ static unsigned tcp_synack_options(struct sock *sk,
- 				   struct request_sock *req,
- 				   unsigned mss, struct sk_buff *skb,
- 				   struct tcp_out_options *opts,
--				   struct tcp_md5sig_key **md5) {
--	unsigned size = 0;
-+				   struct tcp_md5sig_key **md5,
-+				   struct tcp_extend_values *xvp)
-+{
- 	struct inet_request_sock *ireq = inet_rsk(req);
-+	unsigned size = 0;
-+	u8 cookie_plus = (xvp != NULL && !xvp->cookie_out_never)
-+			 ? xvp->cookie_plus
-+			 : 0;
- 	char doing_ts;
- 
- #ifdef CONFIG_TCP_MD5SIG
-@@ -702,6 +707,29 @@ static unsigned tcp_synack_options(struct sock *sk,
- 			size += TCPOLEN_SACKPERM_ALIGNED;
- 	}
- 
-+	/* Similar rationale to tcp_syn_options() applies here, too.
-+	 * If the <SYN> options fit, the same options should fit now!
-+	 */
-+	if (*md5 == NULL
-+	 && doing_ts
-+	 && cookie_plus > TCPOLEN_COOKIE_BASE) {
-+		int need = cookie_plus; /* has TCPOLEN_COOKIE_BASE */
-+		int remaining = MAX_TCP_OPTION_SPACE - size;
-+
-+		if (0x2 & need) {
-+			/* 32-bit multiple */
-+			need += 2; /* NOPs */
-+		}
-+		if (need <= remaining) {
-+			opts->options |= OPTION_COOKIE_EXTENSION;
-+			opts->hash_size = cookie_plus - TCPOLEN_COOKIE_BASE;
-+			size += need;
-+		} else {
-+			/* There's no error return, so flag it. */
-+			xvp->cookie_out_never = 1; /* true */
-+			opts->hash_size = 0;
-+		}
-+	}
- 	return size;
- }
- 
-@@ -2371,6 +2399,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 				struct request_values *rvp)
- {
- 	struct tcp_out_options opts;
-+	struct tcp_extend_values *xvp = tcp_xv(rvp);
- 	struct inet_request_sock *ireq = inet_rsk(req);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcphdr *th;
-@@ -2414,8 +2443,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- #endif
- 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
- 	tcp_header_size = tcp_synack_options(sk, req, mss,
--					     skb, &opts, &md5) +
--			  sizeof(struct tcphdr);
-+					     skb, &opts, &md5, xvp)
-+			+ sizeof(*th);
- 
- 	skb_push(skb, tcp_header_size);
- 	skb_reset_transport_header(skb);
-@@ -2432,6 +2461,45 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	 */
- 	tcp_init_nondata_skb(skb, tcp_rsk(req)->snt_isn,
- 			     TCPCB_FLAG_SYN | TCPCB_FLAG_ACK);
-+
-+	if (OPTION_COOKIE_EXTENSION & opts.options) {
-+		const struct tcp_cookie_values *cvp = tp->cookie_values;
-+
-+		if (cvp != NULL
-+		 && cvp->s_data_constant
-+		 && cvp->s_data_desired > 0) {
-+			u8 *buf = skb_put(skb, cvp->s_data_desired);
-+
-+			/* copy data directly from the listening socket. */
-+			memcpy(buf, cvp->s_data_payload, cvp->s_data_desired);
-+			TCP_SKB_CB(skb)->end_seq += cvp->s_data_desired;
-+		}
-+
-+		if (opts.hash_size > 0) {
-+			__u32 workspace[SHA_WORKSPACE_WORDS];
-+			u32 *mess = &xvp->cookie_bakery[COOKIE_DIGEST_WORDS];
-+			u32 *tail = &mess[COOKIE_MESSAGE_WORDS-1];
-+
-+			/* Secret recipe depends on the Timestamp, (future)
-+			 * Sequence and Acknowledgment Numbers, Initiator
-+			 * Cookie, and others handled by IP variant caller.
-+			 */
-+			*tail-- ^= opts.tsval;
-+			*tail-- ^= tcp_rsk(req)->rcv_isn + 1;
-+			*tail-- ^= TCP_SKB_CB(skb)->seq + 1;
-+
-+			/* recommended */
-+			*tail-- ^= ((th->dest << 16) | th->source);
-+			*tail-- ^= (u32)cvp; /* per sockopt */
-+
-+			sha_transform((__u32 *)&xvp->cookie_bakery[0],
-+				      (char *)mess,
-+				      &workspace[0]);
-+			opts.hash_location =
-+				(__u8 *)&xvp->cookie_bakery[0];
-+		}
-+	}
-+
- 	th->seq = htonl(TCP_SKB_CB(skb)->seq);
- 	th->ack_seq = htonl(tcp_rsk(req)->rcv_isn + 1);
- 
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 612fc53..5b9af50 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -159,6 +159,8 @@ static inline int cookie_check(struct sk_buff *skb, __u32 cookie)
- 
- struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- {
-+	struct tcp_options_received tcp_opt;
-+	u8 *hash_location;
- 	struct inet_request_sock *ireq;
- 	struct inet6_request_sock *ireq6;
- 	struct tcp_request_sock *treq;
-@@ -171,7 +173,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	int mss;
- 	struct dst_entry *dst;
- 	__u8 rcv_wscale;
--	struct tcp_options_received tcp_opt;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack)
- 		goto out;
-@@ -254,7 +255,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, 0, dst);
-+	tcp_parse_options(skb, &tcp_opt, &hash_location, 0, dst);
- 
- 	if (tcp_opt.saw_tstamp)
- 		cookie_check_timestamp(&tcp_opt);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 973096a..a37ce5d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1162,7 +1162,9 @@ static struct sock *tcp_v6_hnd_req(struct sock *sk,struct sk_buff *skb)
-  */
- static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- {
-+	struct tcp_extend_values tmp_ext;
- 	struct tcp_options_received tmp_opt;
-+	u8 *hash_location;
- 	struct request_sock *req;
- 	struct inet6_request_sock *treq;
- 	struct ipv6_pinfo *np = inet6_sk(sk);
-@@ -1206,8 +1208,52 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = IPV6_MIN_MTU - sizeof(struct tcphdr) - sizeof(struct ipv6hdr);
- 	tmp_opt.user_mss = tp->rx_opt.user_mss;
-+	tcp_parse_options(skb, &tmp_opt, &hash_location, 0, dst);
-+
-+	if (tmp_opt.cookie_plus > 0
-+	 && tmp_opt.saw_tstamp
-+	 && !tp->rx_opt.cookie_out_never
-+	 && (sysctl_tcp_cookie_size > 0
-+	  || (tp->cookie_values != NULL
-+	   && tp->cookie_values->cookie_desired > 0))) {
-+		u8 *c;
-+		u32 *d;
-+		u32 *mess = &tmp_ext.cookie_bakery[COOKIE_DIGEST_WORDS];
-+		int l = tmp_opt.cookie_plus - TCPOLEN_COOKIE_BASE;
-+
-+		if (tcp_cookie_generator(&tmp_ext.cookie_bakery[0]) != 0)
-+			goto drop_and_free;
-+
-+		/* Secret recipe starts with IP addresses */
-+		d = &ipv6_hdr(skb)->daddr.s6_addr32[0];
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+		d = &ipv6_hdr(skb)->saddr.s6_addr32[0];
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+		*mess++ ^= *d++;
-+
-+		/* plus variable length Initiator Cookie */
-+		c = (u8 *)mess;
-+		while (l-- > 0)
-+			*c++ ^= *hash_location++;
- 
--	tcp_parse_options(skb, &tmp_opt, 0, dst);
-+#ifdef CONFIG_SYN_COOKIES
-+		want_cookie = 0;	/* not our kind of cookie */
-+#endif
-+		tmp_ext.cookie_out_never = 0; /* false */
-+		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
-+	} else if (!tp->rx_opt.cookie_in_always) {
-+		/* redundant indications, but ensure initialization. */
-+		tmp_ext.cookie_out_never = 1; /* true */
-+		tmp_ext.cookie_plus = 0;
-+	} else {
-+		goto drop_and_free;
-+	}
-+	tmp_ext.cookie_in_always = tp->rx_opt.cookie_in_always;
- 
- 	if (want_cookie && !tmp_opt.saw_tstamp)
- 		tcp_clear_options(&tmp_opt);
-@@ -1244,7 +1290,8 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 
- 	security_inet_conn_request(sk, skb, req);
- 
--	if (tcp_v6_send_synack(sk, req, NULL)
-+	if (tcp_v6_send_synack(sk, req,
-+			       (struct request_values *)&tmp_ext)
- 	 || want_cookie)
- 		goto drop_and_free;
- 
--- 
-1.6.3.3
+I've been fighting with the via-velocity driver for a while,
+suffered a few bad blows, but finally managed to land a few patches on
+it. I'm sending them together with this mail.
 
 
---------------030803080504020604030006--
+The main reason for the work is to get performance for the mainline
+driver back on par with the out-of-tree VIA driver. Most of it are
+backports from the VIA driver although there is some original work as
+well. The series comes with a RFC tag, and I'd like feedback and
+(preferably) testing of the patches since I'm not that familiar with
+the driver and Linux networking.
+
+
+The patches are:
+
+1. Correct setting of skipped checksums (unsure about this). The
+   mainline driver sets CHECKSUM_UNNECESSARY if this is an IP packet
+   except if the TCP checksum is NOT ok.
+
+   The VIA driver sets CHECKSUM_UNNECESSARY if this is an UDP/TCP
+   packet except if the TCP checksum is not OK. The patch selects the
+   VIA behavior.
+
+2. See to it that data is 64-byte aligned (as required by the
+   hardware). Again different behavior than the VIA driver, and from
+   looking at the code, it seems to me that VIA handles it correct here.
+
+3. Enable support for adaptive interrupt supression. The velocity
+   hardware is able to supress interrupts during bursts. This (together
+   with the next patch) improves behavior quite a bit in my tests.
+
+4. Add NAPI support for via velocity. Also takes in a change in the
+   interrupt handler from upstream VIA (run rx/tx handlers twice) which
+   improves performance.
+
+5. Change the DMA_LENGTH_DEF to that of the VIA driver. Large
+   performance improvement together with the last two patches.
+
+6. Take back the transmit scatter-gather support. A few months after
+   Dave removed it, it gets back in a fixed manner again :-). I'm
+   unsure about this one since it doesn't improve performance in my
+   netperf tests (rather decreases it!).
+
+   It might be that I need other tests to benefit from this, or that
+   it's simply not improving things, but obviously I'm unsure if this
+   should be added at all.
+
+7. Bump the version number.
+
+
+The tests I run are basic (quite arbitrary I must say) netperf tests:
+
+  #!/bin/sh
+
+  netperf -H $1 -c -C -l 20 -t UDP_STREAM
+  netperf -H $1 -c -C -l 20 -t TCP_STREAM
+  netperf -H $1 -c -C -l 20 -t TCP_SENDFILE
+
+and I have two identical 1.4GHz Pentium M boards with VIA velocities
+that the traffic goes between. The remote board has all patches
+applied. The numbers are below:
+
+2.6.32-rc8  without patches
+---------------------------
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages                   CPU      Service
+Size    Size     Time         Okay Errors   Throughput   Util     Demand
+bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+
+107520   65507   20.00       20680      0      541.8     41.10    6.214 
+108544           20.00       20680             541.8     16.96    2.564 
+
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.02       505.25   60.54    29.52    9.817   4.787  
+TCP SENDFILE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.02       507.64   60.45    27.63    9.754   4.458  
+
+# cat /proc/interrupts 
+           CPU0       
+  0:      22153   IO-APIC-edge      timer
+  [...]
+ 16:    2673939   IO-APIC-fasteoi   uhci_hcd:usb1, eth-swa
+
+
+
+2.6.32-rc8  with NAPI + adaptive
+--------------------------------
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages                   CPU      Service
+Size    Size     Time         Okay Errors   Throughput   Util     Demand
+bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+
+107520   65507   20.00       26615      0      697.3     17.61    2.069 
+108544           20.00       26613             697.2     23.55    2.767 
+
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.02       641.77   41.62    35.61    5.312   4.546  
+TCP SENDFILE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.02       641.98   43.76    36.50    5.584   4.658  
+
+# cat /proc/interrupts 
+           CPU0       
+  0:      22605   IO-APIC-edge      timer
+  [...]
+ 16:     321020   IO-APIC-fasteoi   uhci_hcd:usb1, eth-swa
+
+
+
+2.6.32-rc8  with all patches
+---------------------------
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Socket  Message  Elapsed      Messages                   CPU      Service
+Size    Size     Time         Okay Errors   Throughput   Util     Demand
+bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+
+107520   65507   20.00       26606      0      697.1     17.60    2.068 
+108544           20.00       26605             697.1     24.95    2.932 
+
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.02       563.36   25.58    31.23    3.720   4.542  
+TCP SENDFILE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to pl-ncaa (169.254.1.33) port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    20.03       562.54   22.12    30.77    3.221   4.480  
+
+# cat /proc/interrupts 
+           CPU0       
+  0:      23652   IO-APIC-edge      timer
+  [...]
+ 16:     341394   IO-APIC-fasteoi   uhci_hcd:usb1, eth-swa
+
+
+As you can see, the best results for this particular test are without
+the transmit scatter-gather stuff. Also note the difference in
+CPU-utilization and interrupt count between the first and second case,
+which is fairly nice. With the patches, the performance is again on par
+with the VIA driver.
+
+// Simon
