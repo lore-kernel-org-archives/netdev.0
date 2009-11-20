@@ -1,48 +1,49 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] RDMA/addr: Use appropriate locking with
- for_each_netdev()
-Date: Thu, 19 Nov 2009 21:40:47 -0800
-Message-ID: <20091119214047.1a966c79@nehalam>
-References: <4AF8EBA4.2070102@gmail.com>
-	<D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com>
-	<adaocn8x6j7.fsf@roland-alpha.cisco.com>
-	<8C10E584257A46DB9A0AD193520CF4A7@amr.corp.intel.com>
-	<4B0628E0.6000404@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: Xmit Packet Steering (XPS)
+Date: Fri, 20 Nov 2009 06:42:41 +0100
+Message-ID: <4B062C51.8090100@gmail.com>
+References: <4B05D8DC.7020907@gmail.com>	 <412e6f7f0911191812uf0abc61w2f0d44f4d71bd55@mail.gmail.com>	 <4B0621FC.6060004@gmail.com>	 <412e6f7f0911192111jbc8b237sc619a54510219336@mail.gmail.com>	 <4B0627FA.3060103@gmail.com> <412e6f7f0911192134m24beca36m1887513513f130b8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"'Roland Dreier'" <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4B0628E0.6000404-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47684 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753999AbZKTFmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 00:42:42 -0500
+In-Reply-To: <412e6f7f0911192134m24beca36m1887513513f130b8@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Nov 2009 06:28:00 +0100
-Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+Changli Gao a =C3=A9crit :
+> On Fri, Nov 20, 2009 at 1:24 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>> Changli Gao a =C3=A9crit :
+>>
+>> Please re-read my patch, you misunderstood it, or I dont get you.
+>=20
+> I think I didn't misunderstand it. If local socket only sends packets=
+,
+> which don't need replies from receiver, so new NIC RX IRQ, and NET_RX
+> softirq won't be triggered. Who will call xps_flush() to free the
+> memory used by locally generated packets?
+>=20
 
-> +		read_lock(&dev_base_lock);
->  		for_each_netdev(&init_net, dev) {
->  			if (ipv6_chk_addr(&init_net,
->  					  &((struct sockaddr_in6 *) addr)->sin6_addr,
-> @@ -139,6 +140,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
->  				break;
->  			}
->  		}
-> +		read_unlock(&dev_base_lock);
+Changli, when we transmit a skb on NIC, NIC is supposed to have a TX co=
+mpletion
+call back, to free this skb.
 
-what about for_each_netdev_rcu() here instead...
+These completion calls are running from net_rx_action(), if driver is N=
+API enabled.
+
+Only NAPI enabled drivers are allowed to use XPS infrastructure.
+
+I sent 100.000.000 packets in my pktgen+tg3 tests, without receiving a =
+single packet
+in return, I can tell you all packets were correctly freed :)
 
 
-
--- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
