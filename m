@@ -1,84 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
 Subject: Re: [PATCH net-next-2.6] net: Xmit Packet Steering (XPS)
-Date: Fri, 20 Nov 2009 06:08:29 +0100
-Message-ID: <4B06244D.9060004@gmail.com>
-References: <4B05D8DC.7020907@gmail.com> <65634d660911191641o4210a797mf1e8168dd8dd8b60@mail.gmail.com>
+Date: Fri, 20 Nov 2009 13:11:39 +0800
+Message-ID: <412e6f7f0911192111jbc8b237sc619a54510219336@mail.gmail.com>
+References: <4B05D8DC.7020907@gmail.com>
+	 <412e6f7f0911191812uf0abc61w2f0d44f4d71bd55@mail.gmail.com>
+	 <4B0621FC.6060004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:33165 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbZKTFIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 00:08:31 -0500
-In-Reply-To: <65634d660911191641o4210a797mf1e8168dd8dd8b60@mail.gmail.com>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:49216 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753144AbZKTFLf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 00:11:35 -0500
+Received: by pzk1 with SMTP id 1so2153776pzk.33
+        for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 21:11:41 -0800 (PST)
+In-Reply-To: <4B0621FC.6060004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert a =E9crit :
->=20
->=20
-> On Thu, Nov 19, 2009 at 3:46 PM, Eric Dumazet <eric.dumazet@gmail.com
-> <mailto:eric.dumazet@gmail.com>> wrote:
->=20
->     Here is first version of XPS.
->=20
-> Very cool!  The infrastructure to move lists of skb's from cpu to
-> another and the IPI to kick processing look like something that could=
- be
-> consolidated between rps and xps :-)
+On Fri, Nov 20, 2009 at 12:58 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Changli Gao a =C3=A9crit :
+>> On Fri, Nov 20, 2009 at 7:46 AM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 9977288..9e134f6 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -2000,6 +2001,7 @@ gso:
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0rcu_read_lock_bh();
+>>>
+>>> + =C2=A0 =C2=A0 =C2=A0 skb->sending_cpu =3D cpu =3D smp_processor_i=
+d();
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0txq =3D dev_pick_tx(dev, skb);
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0q =3D rcu_dereference(txq->qdisc);
+>>
+>> I think assigning cpu to skb->sending_cpu just before calling
+>> hard_start_xmit is better, because the CPU which dequeues the skb wi=
+ll
+>> be another one.
+>
+> I want to record the application CPU, because I want the application =
+CPU
+> to call sock_wfree(), not the CPU that happened to dequeue skb to tra=
+nsmit it
+> in case of txq contention.
+>
 
-Sure, but RPS seems quite slow to integrate (no offense Tom) :)
-I wanted to cook a patch on top on yours, but got no sign you were
-about to release RPS version 4 soon.
+got it.
 
->=20
->     Goal of XPS is to free TX completed skbs by the cpu that submitte=
-d
->     the transmit.
->=20
->     Because I chose to union skb->iif with skb->sending_cpu, I chose
->     to introduce a new xps_consume_skb(skb), and not generalize
->     consume_skb() itself.
->=20
->     This means that selected drivers must use new function to benefit
->     from XPS
->=20
->=20
-> Is this better than modifying consume_skb so this can be used by any =
-driver?
+>>
+>>> @@ -2024,8 +2026,6 @@ gso:
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Either shot noqueue qdisc, it is=
+ even simpler 8)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (dev->flags & IFF_UP) {
+>>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int cpu =3D smp_=
+processor_id(); /* ok because BHs are off */
+>>> -
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (txq->xmi=
+t_lock_owner !=3D cpu) {
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0HARD_TX_LOCK(dev, txq, cpu);
+>>> @@ -2967,7 +2967,7 @@ static void net_rx_action(struct softirq_acti=
+on *h)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>>> =C2=A0out:
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0local_irq_enable();
+>>> -
+>>> + =C2=A0 =C2=A0 =C2=A0 xps_flush();
+>>
+>> If there isn't any new skbs, the memory will be hold forever. I know
+>> you want to eliminate unnecessary IPI, how about sending IPI only wh=
+en
+>> the remote xps_pcpu_queues are changed from empty to nonempty?
+>
+> I dont understand your remark, and dont see the problem, yet.
+>
+> I send IPI only on cpus I know I have at least one skb queueud for th=
+em.
+> For each cpu taking TX completion interrupts I have :
+>
+> One bitmask (xps_cpus) of cpus I will eventually send IPI at end of n=
+et_rx_action()
+>
 
-consume_skb() is also used by RX side, and this side doesnt want XPS.
+You call xps_flush() in net_rx_aciton(). It means that if no new
+packet arrives, xps_flush() won't be called forever, and the memory
+used by skbs will be hold forever. Did I misunderstand? Your algorithm
+only works with packet forwarding but sending packets from local
+sockets.
 
-Adding a flag in skb to differentiate the use might be possible,
-but we add a new test in hot paths...
-
-> =20
->=20
->     =20
->=20
->     Preliminary tests are quite good, especially on NUMA machines.
->=20
->     Only NAPI drivers can use this new infrastructure (xps_consume_sk=
-b()
->     cannot
->     be called from hardirq context, only from softirq)
->=20
-> Is this a strict requirement, especially considering devices with
-> separate TX interrupts?  For a hardirq we could we just put the skb o=
-n
-> local percpu queue and schedule a softirq to do the ipi.
-
-I chose this way because any sane and up2date driver should really
-not use hardirqs TX completion. I want fast processing, without
-masking local interrupts in xps_consume_skb(), and wihout testing
-our context.
-
-Note : if TX completion and RX are run in different NAPI contexts,
-there is no problem using xps_consume_skb().
-
-
-Thanks for reviewing Tom.
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
