@@ -1,57 +1,47 @@
-From: Mauro Carvalho Chehab <mchehab@infradead.org>
+From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: A generic kernel compatibilty code
-Date: Fri, 20 Nov 2009 19:16:39 -0200
-Message-ID: <20091120191639.263714e2@pedra>
-References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
+Date: Fri, 20 Nov 2009 16:18:38 -0500
+Message-ID: <20091120211837.GA22815@tuxdriver.com>
+References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com> <43e72e890911201251t6210ee19n177eaf003a4fffc@mail.gmail.com> <43e72e890911201253obc466c8k2102e04457c48c92@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org,
 	linux-wireless <linux-wireless@vger.kernel.org>,
 	netdev@vger.kernel.org
 To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755698AbZKTVQi@vger.kernel.org>
-In-Reply-To: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756158AbZKTVag@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <43e72e890911201253obc466c8k2102e04457c48c92@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Luis,
-
-Em Fri, 20 Nov 2009 12:45:51 -0800
-"Luis R. Rodriguez" <mcgrof@gmail.com> escreveu:
-
-> Everyone and their mother reinvents the wheel when it comes to
-> backporting kernel modules. It a painful job and it seems to me an
-> alternative is possible. If we can write generic compatibilty code for
-> a new routine introduced on the next kernel how about just merging it
-> to the kernel under some generic compat module. This would be
-> completey ignored by everyone using the stable kernel but can be
-> copied by anyone doing backport work.
+On Fri, Nov 20, 2009 at 12:53:51PM -0800, Luis R. Rodriguez wrote:
+> On Fri, Nov 20, 2009 at 12:51 PM, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
+> > On Fri, Nov 20, 2009 at 12:45 PM, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
+> >> Everyone and their mother reinvents the wheel when it comes to
+> >> backporting kernel modules. It a painful job and it seems to me an
+> >> alternative is possible. If we can write generic compatibilty code for
+> >> a new routine introduced on the next kernel how about just merging it
+> >> to the kernel under some generic compat module. This would be
+> >> completey ignored by everyone using the stable kernel but can be
+> >> copied by anyone doing backport work.
+> >>
+> >> So I'm thinking something as simple as a generic compat/comat.ko with
+> >> compat-2.6.32.[ch] files.
+> >
+> > FWIW, I meant a compat-2.6.32.[ch] and compat-2.6.31.[ch] and so on.
+> > All these would link to the compat.ko
 > 
-> So I'm thinking something as simple as a generic compat/comat.ko with
-> compat-2.6.32.[ch] files.
-> 
-> We've already backported everything needed for wireless drivers under
-> compat-wireless under this format down to even 2.6.25. I volunteer to
-> be the sucker for this if this is reasonable and given the shot to try
-> it.
-> 
+> I supose this could juse be a separate tree with some generic
+> compat.ko module. That might work better.
 
-We have several backport stuff at our development tree, that works for
-V4L/DVB up to kernel 2.6.16 (so, up to RHEL5).
+This is what I would suggest for pursuing this idea.  Perhaps you
+could split-off from compat-wireless, then make that tree depend on
+the new tree (compat-core?)...
 
-It is based on a compat.h file, plus some extra tests inside the drivers.
-They are at:
-	http://linuxtv.org/hg/v4l-dvb
+Hth...
 
-I also started working on a different approach of dynamically patching the
-drivers based on some semantic rules, parsed in perl, but I hadn't enough
-time to finish.
-
-If you want to take a look, it is at:
-
-	http://linuxtv.org/hg/~mchehab/backport/
-
-
-Cheers,
-Mauro
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
