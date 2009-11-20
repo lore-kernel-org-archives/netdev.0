@@ -1,49 +1,48 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT] netxen: remove PCI IDs of CNA device
-Date: Thu, 19 Nov 2009 17:08:12 -0800
-Message-ID: <1258679292-26098-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: davem@davemloft.net
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-next-2.6 PATCH v2] allow access to sysfs_groups member
+Date: Thu, 19 Nov 2009 17:11:45 -0800
+Message-ID: <m1vdh6t2y6.fsf@fess.ebiederm.org>
+References: <20091118164126.GF325@e-circ.dyndns.org>
+	<20091118.095716.61189059.davem@davemloft.net>
+	<20091118205952.GB282@e-circ.dyndns.org>
+	<20091118.130859.99831401.davem@davemloft.net>
+	<20091118214226.GA283@e-circ.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:58403 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757056AbZKTBIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Nov 2009 20:08:07 -0500
+Received: from out02.mta.xmission.com ([166.70.13.232]:48583 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756983AbZKTBLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 20:11:45 -0500
+In-Reply-To: <20091118214226.GA283@e-circ.dyndns.org> (Kurt Van Dijck's message of "Wed\, 18 Nov 2009 22\:42\:26 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove PCI vendor and device IDs for QLE8240 and QLE8242
-CNA devices. CNA devices will have separate driver.
+Kurt Van Dijck <kurt.van.dijck@eia.be> writes:
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_main.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+> On Wed, Nov 18, 2009 at 01:08:59PM -0800, David Miller wrote:
+>>
+>> Unfortunately, the code in this function is much different
+>> in net-next-2.6 which is where I want to add this, and your
+>> patch doesn't apply.
+>> 
+>> Please rebase your patch on that tree, thank you.
+> As I mentioned, I'm not experienced with using git yet.
+> Is there a fine manual I can inspect? I get lost in the man-pages.
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 12d1037..bfbf75c 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -95,11 +95,6 @@ static void netxen_config_indev_addr(struct net_device *dev, unsigned long);
- #define ENTRY(device) \
- 	{PCI_DEVICE(PCI_VENDOR_ID_NETXEN, (device)), \
- 	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
--#define ENTRY2(device) \
--	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
--	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
--
--#define PCI_DEVICE_ID_QLOGIC_QLE824X	0x8020
- 
- static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
- 	ENTRY(PCI_DEVICE_ID_NX2031_10GXSR),
-@@ -110,7 +105,6 @@ static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
- 	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT),
- 	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT2),
- 	ENTRY(PCI_DEVICE_ID_NX3031),
--	ENTRY2(PCI_DEVICE_ID_QLOGIC_QLE824X),
- 	{0,}
- };
- 
--- 
-1.6.0.2
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
 
+Should get you started.
+
+In this case please look at how I modified the bonding driver to do
+what you are trying to do.  That is the conflict in net-next and
+I think it was actually less code.
+
+The other very useful command is: git log -u some/path/
+
+Git has fine manual pages and git command --help works for the builtin
+git commands.
+
+Eric
