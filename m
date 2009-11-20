@@ -1,159 +1,63 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (RESENT)] stmmac: do not fail when the timer cannot be used.
-Date: Fri, 20 Nov 2009 08:16:20 +0100
-Message-ID: <1258701380-24554-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+Subject: Re: stmmac patches...
+Date: Fri, 20 Nov 2009 08:19:14 +0100
+Message-ID: <4B0642F2.7060308@st.com>
+References: <20091119.121821.51205410.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:37819 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754699AbZKTHQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 02:16:27 -0500
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id B0BA8B4
-	for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 07:16:30 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6E09B670
-	for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 07:16:30 +0000 (GMT)
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:46264 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754857AbZKTHTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 02:19:16 -0500
+In-Reply-To: <20091119.121821.51205410.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the external timer cannot be used the driver
-will continue to work without mitigation.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/stmmac_main.c  |   50 ++++++++++++++++++++----------------
- drivers/net/stmmac/stmmac_timer.h |    1 +
- 2 files changed, 29 insertions(+), 22 deletions(-)
+Hi David,
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index c2f14dc..9542995 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -416,13 +416,8 @@ static void init_dma_desc_rings(struct net_device *dev)
- 	unsigned int txsize = priv->dma_tx_size;
- 	unsigned int rxsize = priv->dma_rx_size;
- 	unsigned int bfsize = priv->dma_buf_sz;
--	int buff2_needed = 0;
--	int dis_ic = 0;
-+	int buff2_needed = 0, dis_ic = 0;
- 
--#ifdef CONFIG_STMMAC_TIMER
--	/* Using Timers disable interrupts on completion for the reception */
--	dis_ic = 1;
--#endif
- 	/* Set the Buffer size according to the MTU;
- 	 * indeed, in case of jumbo we need to bump-up the buffer sizes.
- 	 */
-@@ -437,6 +432,11 @@ static void init_dma_desc_rings(struct net_device *dev)
- 	else
- 		bfsize = DMA_BUFFER_SIZE;
- 
-+#ifdef CONFIG_STMMAC_TIMER
-+	/* Disable interrupts on completion for the reception if timer is on */
-+	if (likely(priv->tm->enable))
-+		dis_ic = 1;
-+#endif
- 	/* If the MTU exceeds 8k so use the second buffer in the chain */
- 	if (bfsize >= BUF_SIZE_8KiB)
- 		buff2_needed = 1;
-@@ -809,20 +809,22 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 
- static inline void stmmac_enable_irq(struct stmmac_priv *priv)
- {
--#ifndef CONFIG_STMMAC_TIMER
--	writel(DMA_INTR_DEFAULT_MASK, priv->dev->base_addr + DMA_INTR_ENA);
--#else
--	priv->tm->timer_start(tmrate);
-+#ifdef CONFIG_STMMAC_TIMER
-+	if (likely(priv->tm->enable))
-+		priv->tm->timer_start(tmrate);
-+	else
- #endif
-+	writel(DMA_INTR_DEFAULT_MASK, priv->dev->base_addr + DMA_INTR_ENA);
- }
- 
- static inline void stmmac_disable_irq(struct stmmac_priv *priv)
- {
--#ifndef CONFIG_STMMAC_TIMER
--	writel(0, priv->dev->base_addr + DMA_INTR_ENA);
--#else
--	priv->tm->timer_stop();
-+#ifdef CONFIG_STMMAC_TIMER
-+	if (likely(priv->tm->enable))
-+		priv->tm->timer_stop();
-+	else
- #endif
-+	writel(0, priv->dev->base_addr + DMA_INTR_ENA);
- }
- 
- static int stmmac_has_work(struct stmmac_priv *priv)
-@@ -1031,22 +1033,23 @@ static int stmmac_open(struct net_device *dev)
- 	}
- 
- #ifdef CONFIG_STMMAC_TIMER
--	priv->tm = kmalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
-+	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
- 	if (unlikely(priv->tm == NULL)) {
- 		pr_err("%s: ERROR: timer memory alloc failed \n", __func__);
- 		return -ENOMEM;
- 	}
- 	priv->tm->freq = tmrate;
- 
--	/* Test if the HW timer can be actually used.
--	 * In case of failure continue with no timer. */
-+	/* Test if the external timer can be actually used.
-+	 * In case of failure continue without timer. */
- 	if (unlikely((stmmac_open_ext_timer(dev, priv->tm)) < 0)) {
--		pr_warning("stmmaceth: cannot attach the HW timer\n");
-+		pr_warning("stmmaceth: cannot attach the external timer.\n");
- 		tmrate = 0;
- 		priv->tm->freq = 0;
- 		priv->tm->timer_start = stmmac_no_timer_started;
- 		priv->tm->timer_stop = stmmac_no_timer_stopped;
--	}
-+	} else
-+		priv->tm->enable = 1;
- #endif
- 
- 	/* Create and initialize the TX/RX descriptors chains. */
-@@ -1322,9 +1325,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Interrupt on completition only for the latest segment */
- 	priv->mac_type->ops->close_tx_desc(desc);
-+
- #ifdef CONFIG_STMMAC_TIMER
--	/* Clean IC while using timers */
--	priv->mac_type->ops->clear_tx_ic(desc);
-+	/* Clean IC while using timer */
-+	if (likely(priv->tm->enable))
-+		priv->mac_type->ops->clear_tx_ic(desc);
- #endif
- 	/* To avoid raise condition */
- 	priv->mac_type->ops->set_tx_owner(first);
-@@ -2028,7 +2033,8 @@ static int stmmac_suspend(struct platform_device *pdev, pm_message_t state)
- 
- #ifdef CONFIG_STMMAC_TIMER
- 		priv->tm->timer_stop();
--		dis_ic = 1;
-+		if (likely(priv->tm->enable))
-+			dis_ic = 1;
- #endif
- 		napi_disable(&priv->napi);
- 
-diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/stmmac/stmmac_timer.h
-index f795cae..6863590 100644
---- a/drivers/net/stmmac/stmmac_timer.h
-+++ b/drivers/net/stmmac/stmmac_timer.h
-@@ -26,6 +26,7 @@ struct stmmac_timer {
- 	void (*timer_start) (unsigned int new_freq);
- 	void (*timer_stop) (void);
- 	unsigned int freq;
-+	unsigned int enable;
- };
- 
- /* Open the HW timer device and return 0 in case of success */
--- 
-1.6.0.4
+David Miller wrote:
+> Please do not intermix coding style changes with bug
+> fixes.
+> 
+> In your second patch you change the indentation of
+> the arguments to ->init_rx_desc() in stmmac_suspend()
+> 
+> Not only is this inappropriate in a bug fix patch, it
+> is actually making the indentation incorrect.  The
+> arguments should line up to the column after the
+> function argument set openning '(' on the previous
+> line.
 
+I agree with you and thanks for your feedback.
+
+> Please fix this up and resubmit both of your patches.
+
+I've just resent the second patch:
+ [PATCH (RESENT)] stmmac: do not fail when the timer cannot be used.
+Let me know if I have to review something in my first patch as well.
+
+Peppe
+
+> 
+> Thank you.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAksGQvIACgkQ2Xo3j31MSSKodQCgopGgPPXTU+K5xESR5WXawTlc
+MagAn21fS/y+pCAuiOoJVbOU5Z79yqWt
+=58TT
+-----END PGP SIGNATURE-----
