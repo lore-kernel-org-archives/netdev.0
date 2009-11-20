@@ -1,214 +1,403 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [net-next-2.6 PATCH v7 3/7 RFC] TCPCT part 1c: sysctl_tcp_cookie_size,
- socket option TCP_COOKIE_TRANSACTIONS
-Date: Fri, 20 Nov 2009 09:33:51 -0500
-Message-ID: <4B06A8CF.3000303@gmail.com>
+Subject: [net-next-2.6 PATCH v7 4/7 RFC] TCPCT part 1d: define TCP cookie
+ option, extend existing struct's
+Date: Fri, 20 Nov 2009 09:38:12 -0500
+Message-ID: <4B06A9D4.8070007@gmail.com>
 References: <4B06A1FF.8000202@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000502040102040905050504"
+ boundary="------------010901020206040804060502"
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:54308 "EHLO
+Received: from mail-gx0-f226.google.com ([209.85.217.226]:42892 "EHLO
 	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753355AbZKTOdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 09:33:49 -0500
-Received: by gxk26 with SMTP id 26so2993974gxk.1
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 06:33:55 -0800 (PST)
+	with ESMTP id S1752895AbZKTOiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 09:38:17 -0500
+Received: by gxk26 with SMTP id 26so2997722gxk.1
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 06:38:23 -0800 (PST)
 In-Reply-To: <4B06A1FF.8000202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------000502040102040905050504
+--------------010901020206040804060502
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Define sysctl (tcp_cookie_size) to turn on and off the cookie option
-default globally, instead of a compiled configuration option.
+Data structures are carefully composed to require minimal additions.
+For example, the struct tcp_options_received cookie_plus variable fits
+between existing 16-bit and 8-bit variables, requiring no additional
+space (taking alignment into consideration).  There are no additions to
+tcp_request_sock, and only 1 pointer in tcp_sock.
 
-Define per socket option (TCP_COOKIE_TRANSACTIONS) for setting constant
-data values, retrieving variable cookie values, and other facilities.
-
-Move inline tcp_clear_options() unchanged from net/tcp.h to linux/tcp.h,
-near its corresponding struct tcp_options_received (prior to changes).
-
-This is a straightforward re-implementation of an earlier (year-old)
+This is a significantly revised implementation of an earlier (year-old)
 patch that no longer applies cleanly, with permission of the original
 author (Adam Langley):
 
     http://thread.gmane.org/gmane.linux.network/102586
 
+The principle difference is using a TCP option to carry the cookie nonce,
+instead of a user configured offset in the data.  This is more flexible and
+less subject to user configuration error.  Such a cookie option has been
+suggested for many years, and is also useful without SYN data, allowing
+several related concepts to use the same extension option.
+
+    "Re: SYN floods (was: does history repeat itself?)", September 9, 1996.
+    http://www.merit.net/mail.archives/nanog/1996-09/msg00235.html
+
+    "Re: what a new TCP header might look like", May 12, 1998.
+    ftp://ftp.isi.edu/end2end/end2end-interest-1998.mail
+
 These functions will also be used in subsequent patches that implement
 additional features.
 
 Requires:
-   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
+   TCPCT part 1a: add request_values parameter for sending SYNACK
+   TCPCT part 1b: generate Responder Cookie secret
+   TCPCT part 1c: sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
 
 Signed-off-by: William.Allen.Simpson@gmail.com
 ---
-  Documentation/networking/ip-sysctl.txt |    8 +++++++
-  include/linux/tcp.h                    |   33 +++++++++++++++++++++++++++++++-
-  include/net/tcp.h                      |    6 +----
-  net/ipv4/sysctl_net_ipv4.c             |    8 +++++++
-  net/ipv4/tcp_output.c                  |    8 +++++++
-  5 files changed, 57 insertions(+), 6 deletions(-)
+  include/linux/tcp.h      |   29 +++++++++++++---
+  include/net/tcp.h        |   83 ++++++++++++++++++++++++++++++++++++++++++++++
+  net/ipv4/tcp_ipv4.c      |   20 +++++++++++
+  net/ipv4/tcp_minisocks.c |   46 +++++++++++++++++++++----
+  net/ipv6/tcp_ipv6.c      |   13 +++++++
+  5 files changed, 177 insertions(+), 14 deletions(-)
 
---------------000502040102040905050504
+--------------010901020206040804060502
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+1c7.patch"
+ name="TCPCT+1d7.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+1c7.patch"
+ filename="TCPCT+1d7.patch"
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index a0e134d..820dd4b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -164,6 +164,14 @@ tcp_congestion_control - STRING
- 	additional choices may be available based on kernel configuration.
- 	Default is set as part of kernel configuration.
- 
-+tcp_cookie_size - INTEGER
-+	Default size of TCP Cookie Transactions (TCPCT) option, that may be
-+	overridden on a per socket basis by the TCPCT socket option.
-+	Values greater than the maximum (16) are interpreted as the maximum.
-+	Values greater than zero and less than the minimum (8) are interpreted
-+	as the minimum.  Odd values are interpreted as the next even value.
-+	Default: 0 (off).
-+
- tcp_dsack - BOOLEAN
- 	Allows TCP to send "duplicate" SACKs.
- 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 32d7d77..eaa3113 100644
+index eaa3113..7fee8a4 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -102,7 +102,9 @@ enum {
- #define TCP_QUICKACK		12	/* Block/reenable quick acks */
- #define TCP_CONGESTION		13	/* Congestion control algorithm */
- #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
-+#define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
- 
-+/* for TCP_INFO socket option */
- #define TCPI_OPT_TIMESTAMPS	1
- #define TCPI_OPT_SACK		2
- #define TCPI_OPT_WSCALE		4
-@@ -174,6 +176,30 @@ struct tcp_md5sig {
- 	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
- };
- 
-+/* for TCP_COOKIE_TRANSACTIONS (TCPCT) socket option */
-+#define TCP_COOKIE_MIN		 8		/*  64-bits */
-+#define TCP_COOKIE_MAX		16		/* 128-bits */
-+#define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
-+
-+/* Flags for both getsockopt and setsockopt */
-+#define TCP_COOKIE_IN_ALWAYS	(1 << 0)	/* Discard SYN without cookie */
-+#define TCP_COOKIE_OUT_NEVER	(1 << 1)	/* Prohibit outgoing cookies,
-+						 * supercedes everything. */
-+
-+/* Flags for getsockopt */
-+#define TCP_S_DATA_IN		(1 << 2)	/* Was data received? */
-+#define TCP_S_DATA_OUT		(1 << 3)	/* Was data sent? */
-+
-+/* TCP_COOKIE_TRANSACTIONS data */
-+struct tcp_cookie_transactions {
-+	__u16	tcpct_flags;			/* see above */
-+	__u8	__tcpct_pad1;			/* zero */
-+	__u8	tcpct_cookie_desired;		/* bytes */
-+	__u16	tcpct_s_data_desired;		/* bytes of variable data */
-+	__u16	tcpct_used;			/* bytes in value */
-+	__u8	tcpct_value[TCP_MSS_DEFAULT];
-+};
-+
- #ifdef __KERNEL__
- 
- #include <linux/skbuff.h>
-@@ -227,6 +253,11 @@ struct tcp_options_received {
+@@ -247,31 +247,38 @@ struct tcp_options_received {
+ 		sack_ok : 4,	/* SACK seen on SYN packet		*/
+ 		snd_wscale : 4,	/* Window scaling received from sender	*/
+ 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
+-/*	SACKs data	*/
++	u8	cookie_plus:6,	/* bytes in authenticator/cookie option	*/
++		cookie_out_never:1,
++		cookie_in_always:1;
+ 	u8	num_sacks;	/* Number of SACK blocks		*/
+-	u16	user_mss;  	/* mss requested by user in ioctl */
++	u16	user_mss;	/* mss requested by user in ioctl	*/
  	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
  };
  
-+static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
-+{
-+	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
-+}
-+
- /* This is the max number of SACKS that we'll generate and process. It's safe
-  * to increse this, although since:
-  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
-@@ -435,6 +466,6 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
- 	return (struct tcp_timewait_sock *)sk;
+ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+ {
+-	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
++	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++	rx_opt->cookie_plus = 0;
  }
  
--#endif
-+#endif	/* __KERNEL__ */
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+- * to increse this, although since:
++ * to increase this, although since:
+  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
+  * only four options will fit in a standard TCP header */
+ #define TCP_NUM_SACKS 4
  
- #endif	/* _LINUX_TCP_H */
++struct tcp_cookie_values;
++struct tcp_request_sock_ops;
++
+ struct tcp_request_sock {
+ 	struct inet_request_sock 	req;
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Only used by TCP MD5 Signature so far. */
+ 	const struct tcp_request_sock_ops *af_specific;
+ #endif
+-	u32			 	rcv_isn;
+-	u32			 	snt_isn;
++	u32				rcv_isn;
++	u32				snt_isn;
+ };
+ 
+ static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
+@@ -441,6 +448,12 @@ struct tcp_sock {
+ /* TCP MD5 Signature Option information */
+ 	struct tcp_md5sig_info	*md5sig_info;
+ #endif
++
++	/* When the cookie options are generated and exchanged, then this
++	 * object holds a reference to them (cookie_values->kref).  Also
++	 * contains related tcp_cookie_transactions fields.
++	 */
++	struct tcp_cookie_values  *cookie_values;
+ };
+ 
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+@@ -459,6 +472,10 @@ struct tcp_timewait_sock {
+ 	u16			  tw_md5_keylen;
+ 	u8			  tw_md5_key[TCP_MD5SIG_MAXKEYLEN];
+ #endif
++	/* Few sockets in timewait have cookies; in that case, then this
++	 * object holds a reference to them (tw_cookie_values->kref).
++	 */
++	struct tcp_cookie_values  *tw_cookie_values;
+ };
+ 
+ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 4a99a8e..738b65f 100644
+index 738b65f..f9abd9b 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -234,6 +234,7 @@ extern int sysctl_tcp_base_mss;
- extern int sysctl_tcp_workaround_signed_windows;
- extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_max_ssthresh;
-+extern int sysctl_tcp_cookie_size;
+@@ -30,6 +30,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/crypto.h>
+ #include <linux/cryptohash.h>
++#include <linux/kref.h>
  
- extern atomic_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-@@ -340,11 +341,6 @@ static inline void tcp_dec_quickack_mode(struct sock *sk,
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_timewait_sock.h>
+@@ -164,6 +165,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOPT_SACK             5       /* SACK Block */
+ #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
+ #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
++#define TCPOPT_COOKIE		253	/* Cookie extension (experimental) */
  
- extern void tcp_enter_quickack_mode(struct sock *sk);
+ /*
+  *     TCP option lengths
+@@ -174,6 +176,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_SACK_PERM      2
+ #define TCPOLEN_TIMESTAMP      10
+ #define TCPOLEN_MD5SIG         18
++#define TCPOLEN_COOKIE_BASE    2	/* Cookie-less header extension */
++#define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
++#define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
++#define TCPOLEN_COOKIE_MAX     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MAX)
  
--static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
--{
-- 	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
--}
--
- #define	TCP_ECN_OK		1
- #define	TCP_ECN_QUEUE_CWR	2
- #define	TCP_ECN_DEMAND_CWR	4
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 2dcf04d..3422c54 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -714,6 +714,14 @@ static struct ctl_table ipv4_table[] = {
- 	},
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "tcp_cookie_size",
-+		.data		= &sysctl_tcp_cookie_size,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "udp_mem",
- 		.data		= &sysctl_udp_mem,
- 		.maxlen		= sizeof(sysctl_udp_mem),
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1151cb8..e59fa5a 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -59,6 +59,14 @@ int sysctl_tcp_base_mss __read_mostly = 512;
- /* By default, RFC2861 behavior.  */
- int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
+ /* But this is what stacks really send out. */
+ #define TCPOLEN_TSTAMP_ALIGNED		12
+@@ -1482,6 +1488,83 @@ struct tcp_request_sock_ops {
  
-+#ifdef CONFIG_SYSCTL
-+/* By default, let the user enable it. */
-+int sysctl_tcp_cookie_size __read_mostly = 0;
-+#else
-+int sysctl_tcp_cookie_size __read_mostly = TCP_COOKIE_MAX;
-+#endif
+ extern int tcp_cookie_generator(u32 *bakery);
+ 
++/**
++ *	struct tcp_cookie_values - each socket needs extra space for the
++ *	cookies, together with (optional) space for any SYN data.
++ *
++ *	A tcp_sock contains a pointer to the current value, and this is
++ *	cloned to the tcp_timewait_sock.
++ *
++ * @cookie_pair:	variable data from the option exchange.
++ *
++ * @cookie_desired:	user specified tcpct_cookie_desired.  Zero
++ *			indicates default (sysctl_tcp_cookie_size).
++ *			After cookie sent, remembers size of cookie.
++ *			Range 0, TCP_COOKIE_MIN to TCP_COOKIE_MAX.
++ *
++ * @s_data_desired:	user specified tcpct_s_data_desired.  When the
++ *			constant payload is specified (@s_data_constant),
++ *			holds its length instead.
++ *			Range 0 to TCP_MSS_DESIRED.
++ *
++ * @s_data_payload:	constant data that is to be included in the
++ *			payload of SYN or SYNACK segments when the
++ *			cookie option is present.
++ */
++struct tcp_cookie_values {
++	struct kref	kref;
++	u8		cookie_pair[TCP_COOKIE_PAIR_SIZE];
++	u8		cookie_pair_size;
++	u8		cookie_desired;
++	u16		s_data_desired:11,
++			s_data_constant:1,
++			s_data_in:1,
++			s_data_out:1,
++			s_data_unused:2;
++	u8		s_data_payload[0];
++};
 +
++static inline void tcp_cookie_values_release(struct kref *kref)
++{
++	kfree(container_of(kref, struct tcp_cookie_values, kref));
++}
 +
- /* Account for new data that has been sent to the network. */
- static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
- {
++/* The length of constant payload data.  Note that s_data_desired is
++ * overloaded, depending on s_data_constant: either the length of constant
++ * data (returned here) or the limit on variable data.
++ */
++static inline int tcp_s_data_size(const struct tcp_sock *tp)
++{
++	return (tp->cookie_values != NULL && tp->cookie_values->s_data_constant)
++		? tp->cookie_values->s_data_desired
++		: 0;
++}
++
++/**
++ *	struct tcp_extend_values - tcp_ipv?.c to tcp_output.c workspace.
++ *
++ *	As tcp_request_sock has already been extended in other places, the
++ *	only remaining method is to pass stack values along as function
++ *	parameters.  These parameters are not needed after sending SYNACK.
++ *
++ * @cookie_bakery:	cryptographic secret and message workspace.
++ *
++ * @cookie_plus:	bytes in authenticator/cookie option, copied from
++ *			struct tcp_options_received (above).
++ */
++struct tcp_extend_values {
++	struct request_values		rv;
++	u32				cookie_bakery[COOKIE_WORKSPACE_WORDS];
++	u8				cookie_plus:6,
++					cookie_out_never:1,
++					cookie_in_always:1;
++};
++
++static inline struct tcp_extend_values *tcp_xv(struct request_values *rvp)
++{
++	return (struct tcp_extend_values *)rvp;
++}
++
+ extern void tcp_v4_init(void);
+ extern void tcp_init(void);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 397ab8f..2bb7864 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1834,6 +1834,19 @@ static int tcp_v4_init_sock(struct sock *sk)
+ 	tp->af_specific = &tcp_sock_ipv4_specific;
+ #endif
+ 
++	/* TCP Cookie Transactions */
++	if (sysctl_tcp_cookie_size > 0) {
++		/* Default, cookies without s_data_payload. */
++		tp->cookie_values =
++			kzalloc(sizeof(*tp->cookie_values),
++				sk->sk_allocation);
++		if (tp->cookie_values != NULL)
++			kref_init(&tp->cookie_values->kref);
++	}
++	/* Presumed zeroed, in order of appearance:
++	 *	cookie_in_always, cookie_out_never,
++	 *	s_data_constant, s_data_in, s_data_out
++	 */
+ 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
+@@ -1887,6 +1900,13 @@ void tcp_v4_destroy_sock(struct sock *sk)
+ 		sk->sk_sndmsg_page = NULL;
+ 	}
+ 
++	/* TCP Cookie Transactions */
++	if (tp->cookie_values != NULL) {
++		kref_put(&tp->cookie_values->kref,
++			 tcp_cookie_values_release);
++		tp->cookie_values = NULL;
++	}
++
+ 	percpu_counter_dec(&tcp_sockets_allocated);
+ }
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 7a42990..53ef6d8 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -389,14 +389,43 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		const struct inet_request_sock *ireq = inet_rsk(req);
+ 		struct tcp_request_sock *treq = tcp_rsk(req);
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
+-		struct tcp_sock *newtp;
++		struct tcp_sock *newtp = tcp_sk(newsk);
++		struct tcp_sock *oldtp = tcp_sk(sk);
++		struct tcp_cookie_values *oldcvp = oldtp->cookie_values;
++
++		/* TCP Cookie Transactions require space for the cookie pair,
++		 * as it differs for each connection.  There is no need to
++		 * copy any s_data_payload stored at the original socket.
++		 * Failure will prevent resuming the connection.
++		 *
++		 * Presumed copied, in order of appearance:
++		 *	cookie_in_always, cookie_out_never
++		 */
++		if (oldcvp != NULL) {
++			struct tcp_cookie_values *newcvp =
++				kzalloc(sizeof(*newtp->cookie_values),
++					GFP_ATOMIC);
++
++			if (newcvp != NULL) {
++				kref_init(&newcvp->kref);
++				newcvp->cookie_desired =
++						oldcvp->cookie_desired;
++				newtp->cookie_values = newcvp;
++			} else {
++				/* Not Yet Implemented */
++				newtp->cookie_values = NULL;
++			}
++		}
+ 
+ 		/* Now setup tcp_sock */
+-		newtp = tcp_sk(newsk);
+ 		newtp->pred_flags = 0;
+-		newtp->rcv_wup = newtp->copied_seq = newtp->rcv_nxt = treq->rcv_isn + 1;
+-		newtp->snd_sml = newtp->snd_una = newtp->snd_nxt = treq->snt_isn + 1;
+-		newtp->snd_up = treq->snt_isn + 1;
++
++		newtp->rcv_wup = newtp->copied_seq =
++		newtp->rcv_nxt = treq->rcv_isn + 1;
++
++		newtp->snd_sml = newtp->snd_una =
++		newtp->snd_nxt = newtp->snd_up =
++			treq->snt_isn + 1 + tcp_s_data_size(oldtp);
+ 
+ 		tcp_prequeue_init(newtp);
+ 
+@@ -429,8 +458,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		tcp_set_ca_state(newsk, TCP_CA_Open);
+ 		tcp_init_xmit_timers(newsk);
+ 		skb_queue_head_init(&newtp->out_of_order_queue);
+-		newtp->write_seq = treq->snt_isn + 1;
+-		newtp->pushed_seq = newtp->write_seq;
++		newtp->write_seq = newtp->pushed_seq =
++			treq->snt_isn + 1 + tcp_s_data_size(oldtp);
+ 
+ 		newtp->rx_opt.saw_tstamp = 0;
+ 
+@@ -596,7 +625,8 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	 * Invalid ACK: reset will be sent by listening socket
+ 	 */
+ 	if ((flg & TCP_FLAG_ACK) &&
+-	    (TCP_SKB_CB(skb)->ack_seq != tcp_rsk(req)->snt_isn + 1))
++	    (TCP_SKB_CB(skb)->ack_seq !=
++	     tcp_rsk(req)->snt_isn + 1 + tcp_s_data_size(tcp_sk(sk))))
+ 		return sk;
+ 
+ 	/* Also, it would be not so bad idea to check rcv_tsecr, which
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3e327bc..973096a 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1865,6 +1865,19 @@ static int tcp_v6_init_sock(struct sock *sk)
+ 	tp->af_specific = &tcp_sock_ipv6_specific;
+ #endif
+ 
++	/* TCP Cookie Transactions */
++	if (sysctl_tcp_cookie_size > 0) {
++		/* Default, cookies without s_data_payload. */
++		tp->cookie_values =
++			kzalloc(sizeof(*tp->cookie_values),
++				sk->sk_allocation);
++		if (tp->cookie_values != NULL)
++			kref_init(&tp->cookie_values->kref);
++	}
++	/* Presumed zeroed, in order of appearance:
++	 *	cookie_in_always, cookie_out_never,
++	 *	s_data_constant, s_data_in, s_data_out
++	 */
+ 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
+ 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
+ 
 -- 
 1.6.3.3
 
 
---------------000502040102040905050504--
+--------------010901020206040804060502--
