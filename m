@@ -1,48 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: do not initiate autonegotiation during OEM
-	configuration
-Date: Thu, 19 Nov 2009 16:17:30 -0800
-Message-ID: <20091120001722.29775.22407.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT] netxen: remove PCI IDs of CNA device
+Date: Thu, 19 Nov 2009 17:08:12 -0800
+Message-ID: <1258679292-26098-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:56569
-	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757772AbZKTARm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Nov 2009 19:17:42 -0500
+Received: from mvnat01.qlogic.com ([198.186.3.73]:58403 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1757056AbZKTBIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Nov 2009 20:08:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Remove PCI vendor and device IDs for QLE8240 and QLE8242
+CNA devices. CNA devices will have separate driver.
 
-When configuring the OEM bits in the PHY on 82577/82578, do not restart
-autonegotiation if the firmware is blocking it (e.g. when an IDE-R session
-is active) because the link must not go down.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
+ drivers/net/netxen/netxen_nic_main.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
- drivers/net/e1000e/ich8lan.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 92cf103..eff3f47 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1118,7 +1118,8 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
- 			oem_reg |= HV_OEM_BITS_LPLU;
- 	}
- 	/* Restart auto-neg to activate the bits */
--	oem_reg |= HV_OEM_BITS_RESTART_AN;
-+	if (!e1000_check_reset_block(hw))
-+		oem_reg |= HV_OEM_BITS_RESTART_AN;
- 	ret_val = hw->phy.ops.write_phy_reg_locked(hw, HV_OEM_BITS, oem_reg);
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 12d1037..bfbf75c 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -95,11 +95,6 @@ static void netxen_config_indev_addr(struct net_device *dev, unsigned long);
+ #define ENTRY(device) \
+ 	{PCI_DEVICE(PCI_VENDOR_ID_NETXEN, (device)), \
+ 	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
+-#define ENTRY2(device) \
+-	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
+-	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
+-
+-#define PCI_DEVICE_ID_QLOGIC_QLE824X	0x8020
  
- out:
+ static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
+ 	ENTRY(PCI_DEVICE_ID_NX2031_10GXSR),
+@@ -110,7 +105,6 @@ static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
+ 	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT),
+ 	ENTRY(PCI_DEVICE_ID_NX2031_XG_MGMT2),
+ 	ENTRY(PCI_DEVICE_ID_NX3031),
+-	ENTRY2(PCI_DEVICE_ID_QLOGIC_QLE824X),
+ 	{0,}
+ };
+ 
+-- 
+1.6.0.2
 
