@@ -1,58 +1,39 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 1/2] rps: core implementation
-Date: Thu, 19 Nov 2009 22:41:11 -0800
-Message-ID: <65634d660911192241q30a3928bg44854fc929dae218@mail.gmail.com>
-References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
-	 <87hbt0kaae.fsf@basil.nowhere.org>
-	 <65634d660911160902t677a4fb4r71602cb0d10f1cce@mail.gmail.com>
-	 <20091119100805.GA22938@basil.fritz.box>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] RDMA/addr: Use appropriate locking with for_each_netdev()
+Date: Thu, 19 Nov 2009 22:48:24 -0800
+Message-ID: <adak4xl669z.fsf@roland-alpha.cisco.com>
+References: <4AF8EBA4.2070102@gmail.com>
+	<D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com>
+	<adaocn8x6j7.fsf@roland-alpha.cisco.com>
+	<8C10E584257A46DB9A0AD193520CF4A7@amr.corp.intel.com>
+	<4B0628E0.6000404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:59433 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552AbZKTGlK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 01:41:10 -0500
-Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
-	by smtp-out.google.com with ESMTP id nAK6fEQJ013652
-	for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 06:41:15 GMT
-Received: from pwj1 (pwj1.prod.google.com [10.241.219.65])
-	by wpaz37.hot.corp.google.com with ESMTP id nAK6eq29020044
-	for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 22:41:12 -0800
-Received: by pwj1 with SMTP id 1so1931414pwj.0
-        for <netdev@vger.kernel.org>; Thu, 19 Nov 2009 22:41:12 -0800 (PST)
-In-Reply-To: <20091119100805.GA22938@basil.fritz.box>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B0628E0.6000404-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Eric Dumazet's message of "Fri, 20
+	Nov 2009 06:28:00 +0100")
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> What are the standard deadlocks? =A0Looks like __send_remote_softirq
->> will call __smp_call_function with irq's disabled...
->
-> The traditional deadlock (that was before the queue smp_call_function=
-)
-> was
->
-> A =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0B
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 grab lock
-> interrupts off
-> spin on lock
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 send IPI
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 wait for specific CPU
->
-> never answers because
-> interrupts are off
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hangs forever
->
->
-> I think with the queued smp_call_function it's better because
-> the locks are only hold much shorter and that particular scenario
-> is gone, but I'm not sure the problem has fully gone away.
->
-> At least there are still plenty of WARN_ON( ... irqs_disabled()) in
-> kernel/smp.c
->
 
-So is send_remote_softirq also broken according to this?
+ > Any news of this patch ?
+ > 
+ > We need it for 2.6.32 and also to prepare 2.6.33 with upcoming patches.
+
+Sorry for not explicitly emailing about this patch.  I applied it as
+part of Sean's series, but I just added it to my 2.6.33 queue.  At this
+point in the release cycle it doesn't look severe enough for 2.6.32,
+unless I miss something.
+
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
