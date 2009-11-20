@@ -1,43 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: Xmit Packet Steering (XPS)
-Date: Fri, 20 Nov 2009 22:43:55 +0100
-Message-ID: <4B070D9B.60409@gmail.com>
-References: <20091120133245.GA9038@ff.dom.local> <4B06AB96.8040805@gmail.com> <20091120200434.GB2688@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ixgbe: move tc variable to CONFIG_IXGBE_DCB
+Date: Fri, 20 Nov 2009 13:47:40 -0800 (PST)
+Message-ID: <20091120.134740.255777264.davem@davemloft.net>
+References: <9929d2390911200624mf352c28u55a8b2aee8b52fa3@mail.gmail.com>
+	<20091120.111355.141716974.davem@davemloft.net>
+	<9929d2390911201116l562291cbh8e6a557b64fa7ef0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jaswinder@kernel.org, yi.zou@intel.com,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34562 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387AbZKTVn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 16:43:56 -0500
-In-Reply-To: <20091120200434.GB2688@ami.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42919
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754466AbZKTVrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 16:47:24 -0500
+In-Reply-To: <9929d2390911201116l562291cbh8e6a557b64fa7ef0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> On Fri, Nov 20, 2009 at 03:45:42PM +0100, Eric Dumazet wrote:
->> Jarek Poplawski a =E9crit :
->>> On 20-11-2009 00:46, Eric Dumazet wrote:
->>> scheduled) IPIs?
->> Repeat after me :
->>
->> lockdep is my friend, lockdep is my friend, lockdep is my friend... =
-:)
->=20
-> Hmm... Actually, why did I have to do lockdep's job...
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 20 Nov 2009 11:16:54 -0800
 
-In fact I could not find why irq masking is necessary, and lockdep is
-fine with my code and my testings. Care to explain what problem you spo=
-tted ?
+> :) That is fine.  The end result is the same.
+> 
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-
-In fact, I originally used  cmpxchg() and xchg() (no spinlock),
-but had to find the end of skb list in the IPI handler, so I chose
-to use a skb_head instead to let the IPI handler be as short as possibl=
-e.
-
+Great, applied.
