@@ -1,28 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT] netxen: remove PCI IDs of CNA device
-Date: Fri, 20 Nov 2009 10:00:39 -0800 (PST)
-Message-ID: <20091120.100039.215405778.davem@davemloft.net>
-References: <1258679292-26098-1-git-send-email-amit.salecha@qlogic.com>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: Re: [BUG] netxen: Stops working between 2.6.30 and 2.6.31-rc1
+Date: Fri, 20 Nov 2009 10:07:53 -0800
+Message-ID: <4B06DAF9.6080108@qlogic.com>
+References: <20091119163908.GJ14661@jayr.de>	<7608421F3572AB4292BB2532AE89D5658B0B95BD5C@AVEXMB1.qlogic.org>	<20091119183607.GK14661@jayr.de> <m1ocmyt2ly.fsf@fess.ebiederm.org>	<20091120075258.GM14661@jayr.de> <m1tywprvl4.fsf@fess.ebiederm.org>	<4B06D234.4060600@qlogic.com> <m1d43drt0g.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: Jens Rosenboom <me@jayr.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Amit Salecha <amit.salecha@qlogic.com>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43826
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755072AbZKTSAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 13:00:22 -0500
-In-Reply-To: <1258679292-26098-1-git-send-email-amit.salecha@qlogic.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:41754 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753396AbZKTSI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 13:08:59 -0500
+In-Reply-To: <m1d43drt0g.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Thu, 19 Nov 2009 17:08:12 -0800
 
-> Remove PCI vendor and device IDs for QLE8240 and QLE8242
-> CNA devices. CNA devices will have separate driver.
+
+Eric W. Biederman wrote:
+> MSI-X uses the same messages on the wire is the same as MSI it is
+> only the programming interface that is different.  So if MSI works and
+> MSI-X does not it is not a platform problem.
 > 
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Applied.
+Sure, but firmware and driver see it differently. IMO, this points to 
+some firmware issue (which is why I asked him to get right version from 
+right source). All that driver did was tried to enable msi-x, from my 
+testing, I can tell that both msi and msix work on all revisions of the 
+nic asic, but firmware revision can make a difference. For chiprev 0x25, 
+3.4.339 is the right firmware version.
+
+Thanks,
+Dhananjay
