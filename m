@@ -1,80 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/7] via-velocity: Enable support for adaptive interrupt
- supression
-Date: Fri, 20 Nov 2009 09:05:05 -0800
-Message-ID: <20091120090505.0fa700e6@nehalam>
-References: <20091120160633.77b7aee0@marrow.netinsight.se>
-	<20091120161217.45e611a6@marrow.netinsight.se>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 1/2] rps: core implementation
+Date: Fri, 20 Nov 2009 09:08:10 -0800
+Message-ID: <65634d660911200908l5acbf3d0v5fc9a2e1adb7c3a5@mail.gmail.com>
+References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+	 <20091119095730.GA7661@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
-	romieu@fr.zoreil.com
-To: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40756 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752540AbZKTRFP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Nov 2009 12:05:15 -0500
-In-Reply-To: <20091120161217.45e611a6@marrow.netinsight.se>
+Received: from smtp-out.google.com ([216.239.33.17]:12613 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751547AbZKTRIJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 12:08:09 -0500
+Received: from spaceape13.eur.corp.google.com (spaceape13.eur.corp.google.com [172.28.16.147])
+	by smtp-out.google.com with ESMTP id nAKH8EpI018427
+	for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 17:08:14 GMT
+Received: from pwj6 (pwj6.prod.google.com [10.241.219.70])
+	by spaceape13.eur.corp.google.com with ESMTP id nAKH6fHM019970
+	for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 09:08:10 -0800
+Received: by pwj6 with SMTP id 6so2306894pwj.35
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 09:08:10 -0800 (PST)
+In-Reply-To: <20091119095730.GA7661@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Nov 2009 16:12:17 +0100
-Simon Kagstrom <simon.kagstrom@netinsight.net> wrote:
+> The description reads: "This solution queues packets early on in the
+> receive path on the backlog queues of other CPUs.", so I'm not sure
+> it's intended.
 
-> (From the upstream VIA driver). This reduces the amount of interrupts
-> under load and improves performance by quite a bit by reducing the
-> amount of work for the CPU.
-> 
-> Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
-> ---
->  drivers/net/via-velocity.c |   70 +++++++++++++++++++++++++++++++++++++++++++-
->  drivers/net/via-velocity.h |    7 ++++-
->  2 files changed, 75 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-> index 944a678..932339b 100644
-> --- a/drivers/net/via-velocity.c
-> +++ b/drivers/net/via-velocity.c
-> @@ -364,6 +364,26 @@ static int rx_copybreak = 200;
->  module_param(rx_copybreak, int, 0644);
->  MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
->  
-> +#define TXQUEUE_TIMER_DEF     0x59
-> +#define TXQUEUE_TIMER_MIN     0x00
-> +#define TXQUEUE_TIMER_MAX     0xFF
-> +VELOCITY_PARAM(txqueue_timer, "Tx Queue Empty defer timer");
-> +
-> +#define RXQUEUE_TIMER_DEF     0x14
-> +#define RXQUEUE_TIMER_MIN     0x00
-> +#define RXQUEUE_TIMER_MAX     0xFF
-> +VELOCITY_PARAM(rxqueue_timer, "Rx Queue Empty defer timer");
-> +
-> +#define TX_INTSUP_DEF       0x1F
-> +#define TX_INTSUP_MIN       0x01
-> +#define TX_INTSUP_MAX       0x3F
-> +VELOCITY_PARAM(tx_intsup, "Tx Interrupt Suppression Threshold");
-> +
-> +#define RX_INTSUP_DEF       0x1F
-> +#define RX_INTSUP_MIN       0x01
-> +#define RX_INTSUP_MAX       0x3F
-> +VELOCITY_PARAM(rx_intsup, "Rx Interrupt Suppression Threshold");
-> +
->  #ifdef CONFIG_PM
->  static DEFINE_SPINLOCK(velocity_dev_list_lock);
->  static LIST_HEAD(velocity_dev_list);
-> @@ -517,6 +537,10 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
->  	velocity_set_int_opt((int *) &opts->spd_dpx, speed_duplex[index], MED_LNK_MIN, MED_LNK_MAX, MED_LNK_DEF, "Media link mode", devname);
->  	velocity_set_int_opt((int *) &opts->wol_opts, wol_opts[index], WOL_OPT_MIN, WOL_OPT_MAX, WOL_OPT_DEF, "Wake On Lan options", devname);
->  	velocity_set_int_opt((int *) &opts->int_works, int_works[index], INT_WORKS_MIN, INT_WORKS_MAX, INT_WORKS_DEF, "Interrupt service works", devname);
-> +	velocity_set_int_opt((int *) &opts->txqueue_timer, txqueue_timer[index], TXQUEUE_TIMER_MIN, TXQUEUE_TIMER_MAX, TXQUEUE_TIMER_DEF, "TX queue empty defer timer", devname);
-> +	velocity_set_int_opt((int *) &opts->rxqueue_timer, rxqueue_timer[index], RXQUEUE_TIMER_MIN, RXQUEUE_TIMER_MAX, RXQUEUE_TIMER_DEF, "RX queue empty defer timer", devname);
-> +	velocity_set_int_opt((int *) &opts->tx_intsup, tx_intsup[index], TX_INTSUP_MIN, TX_INTSUP_MAX, TX_INTSUP_DEF, "TX interrupt suppression threshold", devname);
-> +	velocity_set_int_opt((int *) &opts->rx_intsup, rx_intsup[index], RX_INTSUP_MIN, RX_INTSUP_MAX, RX_INTSUP_DEF, "RX interrupt suppression threshold", devname);
->  	opts->numrx = (opts->numrx & ~3);
->  }
+That is precisely the intent.  Getting packets quickly distributed to
+the target cpus maximizes parallelism and reduces latency.
 
-This should be done via ethtool irq coalescing settings not more module paramets.
+Did you test it like this (and it was visibly worse)?:
+>
+> =A0 =A0 =A0 =A0if (cpu < 0 || cpu =3D=3D smp_processor_id())
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return __netif_receive_skb(skb);
+>> + =A0 =A0 else
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return enqueue_to_backlog(skb, cpu);
+>> +}
+>> +
+This increases overall latency due to head of line blocking which will
+outweigh the benefits of optimizing for this one case.
 
--- 
+Tom
