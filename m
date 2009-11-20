@@ -1,45 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [BUG] netxen: Stops working between 2.6.30 and 2.6.31-rc1
-Date: Fri, 20 Nov 2009 10:21:05 -0800
-Message-ID: <m16395rram.fsf@fess.ebiederm.org>
-References: <20091119163908.GJ14661@jayr.de>
-	<7608421F3572AB4292BB2532AE89D5658B0B95BD5C@AVEXMB1.qlogic.org>
-	<20091119183607.GK14661@jayr.de> <m1ocmyt2ly.fsf@fess.ebiederm.org>
-	<20091120075258.GM14661@jayr.de> <m1tywprvl4.fsf@fess.ebiederm.org>
-	<4B06D234.4060600@qlogic.com> <m1d43drt0g.fsf@fess.ebiederm.org>
-	<4B06DAF9.6080108@qlogic.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 1/2] rps: core implementation
+Date: Fri, 20 Nov 2009 20:00:07 +0100
+Message-ID: <20091120190007.GA2688@ami.dom.local>
+References: <65634d660911102253o2b4f7a19kfed5849e5c88bfe1@mail.gmail.com>
+ <20091119095730.GA7661@ff.dom.local>
+ <65634d660911200908l5acbf3d0v5fc9a2e1adb7c3a5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Rosenboom <me@jayr.de>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amit Salecha <amit.salecha@qlogic.com>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:55307 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753439AbZKTSVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 13:21:06 -0500
-In-Reply-To: <4B06DAF9.6080108@qlogic.com> (Dhananjay Phadke's message of "Fri\, 20 Nov 2009 10\:07\:53 -0800")
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:43866 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752033AbZKTTAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 14:00:42 -0500
+Received: by bwz27 with SMTP id 27so3671223bwz.21
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 11:00:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <65634d660911200908l5acbf3d0v5fc9a2e1adb7c3a5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dhananjay Phadke <dhananjay.phadke@qlogic.com> writes:
+On Fri, Nov 20, 2009 at 09:08:10AM -0800, Tom Herbert wrote:
+> > The description reads: "This solution queues packets early on in th=
+e
+> > receive path on the backlog queues of other CPUs.", so I'm not sure
+> > it's intended.
+>=20
+> That is precisely the intent.  Getting packets quickly distributed to
+> the target cpus maximizes parallelism and reduces latency.
 
-> Eric W. Biederman wrote:
->> MSI-X uses the same messages on the wire is the same as MSI it is
->> only the programming interface that is different.  So if MSI works and
->> MSI-X does not it is not a platform problem.
->>
->
-> Sure, but firmware and driver see it differently. IMO, this points to some
-> firmware issue (which is why I asked him to get right version from right
-> source). All that driver did was tried to enable msi-x, from my testing, I can
-> tell that both msi and msix work on all revisions of the nic asic, but firmware
-> revision can make a difference. For chiprev 0x25, 3.4.339 is the right firmware
-> version.
+Then precisely the intent is "the backlog queues of target CPUs".
+"The backlog queues of other CPUs" may suggest that e.g. one cpu is
+only doing distribution etc.
 
-Sorry I meant that only as a clarification, not to derail the conversation.
-This does sound like a firmware mismatch issue to me as well.
+>=20
+> Did you test it like this (and it was visibly worse)?:
+> >
+> > =A0 =A0 =A0 =A0if (cpu < 0 || cpu =3D=3D smp_processor_id())
+> >
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 return __netif_receive_skb(skb);
+> >> + =A0 =A0 else
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 return enqueue_to_backlog(skb, cpu);
+> >> +}
+> >> +
+> This increases overall latency due to head of line blocking which wil=
+l
+> outweigh the benefits of optimizing for this one case.
 
-Eric
+The way I asked should suggest I "suspected" it's on purpose, and was
+curious about "digits", but thanks for confirming this.
+
+Jarek P.
