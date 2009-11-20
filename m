@@ -1,8 +1,8 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH 6/7] via-velocity: Re-enable the transmit scatter-gather
- support
-Date: Fri, 20 Nov 2009 16:12:35 +0100
-Message-ID: <20091120161235.0c2cf460@marrow.netinsight.se>
+Subject: [PATCH 5/7] via-velocity: Change DMA_LENGTH_DEF (from the VIA
+ driver)
+Date: Fri, 20 Nov 2009 16:12:29 +0100
+Message-ID: <20091120161229.7ee276f4@marrow.netinsight.se>
 References: <20091120160633.77b7aee0@marrow.netinsight.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -13,191 +13,34 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ernst.netinsight.se ([194.16.221.21]:42331 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753951AbZKTPQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 10:16:50 -0500
+	with SMTP id S1752922AbZKTPQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 10:16:49 -0500
 In-Reply-To: <20091120160633.77b7aee0@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The velocity hardware can handle up to 7 memory segments.
+The VIA driver has changed the default for the DMA_LENGTH_DEF parameter.
+Together with adaptive interrupt supression and NAPI support, this
+improves performance quite a bit
 
 Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
 ---
- drivers/net/via-velocity.c |   89 ++++++++++++++++++++++++++++---------------
- 1 files changed, 58 insertions(+), 31 deletions(-)
+ drivers/net/via-velocity.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index be75814..8cce9ea 100644
+index a59ea12..be75814 100644
 --- a/drivers/net/via-velocity.c
 +++ b/drivers/net/via-velocity.c
-@@ -9,7 +9,6 @@
-  *
-  * TODO
-  *	rx_copybreak/alignment
-- *	Scatter gather
-  *	More testing
-  *
-  * The changes are (c) Copyright 2004, Red Hat Inc. <alan@lxorguk.ukuu.org.uk>
-@@ -1649,12 +1648,10 @@ out:
-  */
- static int velocity_init_td_ring(struct velocity_info *vptr)
- {
--	dma_addr_t curr;
- 	int j;
+@@ -275,7 +275,7 @@ VELOCITY_PARAM(rx_thresh, "Receive fifo threshold");
  
- 	/* Init the TD ring entries */
- 	for (j = 0; j < vptr->tx.numq; j++) {
--		curr = vptr->tx.pool_dma[j];
+ #define DMA_LENGTH_MIN  0
+ #define DMA_LENGTH_MAX  7
+-#define DMA_LENGTH_DEF  0
++#define DMA_LENGTH_DEF  6
  
- 		vptr->tx.infos[j] = kcalloc(vptr->options.numtx,
- 					    sizeof(struct velocity_td_info),
-@@ -1720,21 +1717,27 @@ err_free_dma_rings_0:
-  *	Release an transmit buffer. If the buffer was preallocated then
-  *	recycle it, if not then unmap the buffer.
-  */
--static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *tdinfo)
-+static void velocity_free_tx_buf(struct velocity_info *vptr,
-+		struct velocity_td_info *tdinfo, struct tx_desc *td)
- {
- 	struct sk_buff *skb = tdinfo->skb;
--	int i;
--	int pktlen;
- 
- 	/*
- 	 *	Don't unmap the pre-allocated tx_bufs
- 	 */
- 	if (tdinfo->skb_dma) {
-+		int i;
- 
--		pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
- 		for (i = 0; i < tdinfo->nskb_dma; i++) {
--			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i], pktlen, PCI_DMA_TODEVICE);
--			tdinfo->skb_dma[i] = 0;
-+			size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
-+
-+			/* For scatter-gather */
-+			if (skb_shinfo(skb)->nr_frags > 0)
-+				pktlen = max_t(size_t, pktlen,
-+						td->td_buf[i].size & ~TD_QUEUE);
-+
-+			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
-+					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
- 		}
- 	}
- 	dev_kfree_skb_irq(skb);
-@@ -1949,7 +1952,7 @@ static int velocity_tx_srv(struct velocity_info *vptr, u32 status)
- 				stats->tx_packets++;
- 				stats->tx_bytes += tdinfo->skb->len;
- 			}
--			velocity_free_tx_buf(vptr, tdinfo);
-+			velocity_free_tx_buf(vptr, tdinfo, td);
- 			vptr->tx.used[qnum]--;
- 		}
- 		vptr->tx.tail[qnum] = idx;
-@@ -2549,14 +2552,27 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	struct velocity_td_info *tdinfo;
- 	unsigned long flags;
- 	int pktlen;
--	__le16 len;
--	int index;
-+	int index, prev;
-+	int i = 0;
- 
- 	if (skb_padto(skb, ETH_ZLEN))
- 		goto out;
--	pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
- 
--	len = cpu_to_le16(pktlen);
-+	/* The hardware can handle at most 7 memory segments, so merge
-+	 * the skb if there are more */
-+	if (skb_shinfo(skb)->nr_frags > 6 && __skb_linearize(skb)) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+	/* If it's still above 6 we can't do anything */
-+	if (skb_shinfo(skb)->nr_frags > 6) {
-+		dev_err(&vptr->pdev->dev,
-+				"via-velocity: more than 6 frags, can't send.\n");
-+		return 0;
-+	}
-+	pktlen = skb_shinfo(skb)->nr_frags == 0 ?
-+			max_t(unsigned int, skb->len, ETH_ZLEN) :
-+				skb_headlen(skb);
- 
- 	spin_lock_irqsave(&vptr->lock, flags);
- 
-@@ -2573,11 +2589,24 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	 */
- 	tdinfo->skb = skb;
- 	tdinfo->skb_dma[0] = pci_map_single(vptr->pdev, skb->data, pktlen, PCI_DMA_TODEVICE);
--	td_ptr->tdesc0.len = len;
-+	td_ptr->tdesc0.len = cpu_to_le16(pktlen);
- 	td_ptr->td_buf[0].pa_low = cpu_to_le32(tdinfo->skb_dma[0]);
- 	td_ptr->td_buf[0].pa_high = 0;
--	td_ptr->td_buf[0].size = len;
--	tdinfo->nskb_dma = 1;
-+	td_ptr->td_buf[0].size = cpu_to_le16(pktlen);
-+
-+	/* Handle fragments */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+
-+		tdinfo->skb_dma[i + 1] = pci_map_page(vptr->pdev, frag->page,
-+				frag->page_offset, frag->size,
-+				PCI_DMA_TODEVICE);
-+
-+		td_ptr->td_buf[i + 1].pa_low = cpu_to_le32(tdinfo->skb_dma[i + 1]);
-+		td_ptr->td_buf[i + 1].pa_high = 0;
-+		td_ptr->td_buf[i + 1].size = cpu_to_le16(frag->size);
-+	}
-+	tdinfo->nskb_dma = i + 1;
- 
- 	td_ptr->tdesc1.cmd = TCPLS_NORMAL + (tdinfo->nskb_dma + 1) * 16;
- 
-@@ -2598,23 +2627,21 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 			td_ptr->tdesc1.TCR |= (TCR0_UDPCK);
- 		td_ptr->tdesc1.TCR |= TCR0_IPCK;
- 	}
--	{
- 
--		int prev = index - 1;
-+	prev = index - 1;
-+	if (prev < 0)
-+		prev = vptr->options.numtx - 1;
-+	td_ptr->tdesc0.len |= OWNED_BY_NIC;
-+	vptr->tx.used[qnum]++;
-+	vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
- 
--		if (prev < 0)
--			prev = vptr->options.numtx - 1;
--		td_ptr->tdesc0.len |= OWNED_BY_NIC;
--		vptr->tx.used[qnum]++;
--		vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
-+	if (AVAIL_TD(vptr, qnum) < 1)
-+		netif_stop_queue(dev);
- 
--		if (AVAIL_TD(vptr, qnum) < 1)
--			netif_stop_queue(dev);
-+	td_ptr = &(vptr->tx.rings[qnum][prev]);
-+	td_ptr->td_buf[0].size |= TD_QUEUE;
-+	mac_tx_queue_wake(vptr->mac_regs, qnum);
- 
--		td_ptr = &(vptr->tx.rings[qnum][prev]);
--		td_ptr->td_buf[0].size |= TD_QUEUE;
--		mac_tx_queue_wake(vptr->mac_regs, qnum);
--	}
- 	dev->trans_start = jiffies;
- 	spin_unlock_irqrestore(&vptr->lock, flags);
- out:
-@@ -2837,7 +2864,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
- 	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
- 
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
--		NETIF_F_HW_VLAN_RX;
-+		NETIF_F_HW_VLAN_RX | NETIF_F_SG;
- 
- 	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM)
- 		dev->features |= NETIF_F_IP_CSUM;
+ /* DMA_length[] is used for controlling the DMA length
+    0: 8 DWORDs
 -- 
 1.6.0.4
 
