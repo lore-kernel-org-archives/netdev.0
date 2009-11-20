@@ -1,43 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 PATCH v7 5/7 RFC] TCPCT part 1e: implement
- socket option TCP_COOKIE_TRANSACTIONS
-Date: Fri, 20 Nov 2009 12:54:36 -0800
-Message-ID: <1258750476.28239.63.camel@Joe-Laptop.home>
-References: <4B06A1FF.8000202@gmail.com> <4B06AC2C.3070102@gmail.com>
-	 <20091120.092651.254794724.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: A generic kernel compatibilty code
+Date: Fri, 20 Nov 2009 21:00:58 +0000
+Message-ID: <1258750858.2877.58.camel@achroite.uk.solarflarecom.com>
+References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: william.allen.simpson@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1066 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755714AbZKTUyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Nov 2009 15:54:32 -0500
-In-Reply-To: <20091120.092651.254794724.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755824AbZKTVBB@vger.kernel.org>
+In-Reply-To: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-11-20 at 09:26 -0800, David Miller wrote:
-> From: William Allen Simpson <william.allen.simpson@gmail.com>
-> > +		ctd.tcpct_flags = (tp->rx_opt.cookie_in_always
-> > +				   ? TCP_COOKIE_IN_ALWAYS : 0)
-> > +				| (tp->rx_opt.cookie_out_never
-> > +				   ? TCP_COOKIE_OUT_NEVER : 0);
+On Fri, 2009-11-20 at 12:45 -0800, Luis R. Rodriguez wrote:
+> Everyone and their mother reinvents the wheel when it comes to
+> backporting kernel modules. It a painful job and it seems to me an
+> alternative is possible. If we can write generic compatibilty code for
+> a new routine introduced on the next kernel how about just merging it
+> to the kernel under some generic compat module. This would be
+> completey ignored by everyone using the stable kernel but can be
+> copied by anyone doing backport work.
 > 
-> "?" should be at end of previous line not at beginning of
-> next one, please fix this up.
+> So I'm thinking something as simple as a generic compat/comat.ko with
+> compat-2.6.32.[ch] files.
+> 
+> We've already backported everything needed for wireless drivers under
+> compat-wireless under this format down to even 2.6.25.
+[...]
 
-Perhaps the ? position is taster's choice.
+If you think 2.6.25 is old then I don't think you understand the scale
+of the problem.
 
-(false positives exist)
+OEMs still expect us to support RHEL 4 (2.6.9) and SLES 9 (2.6.5) though
+the latter will probably be dropped soon.  Some other vendors apparently
+still need to support even 2.4 kernels!
 
-$ grep -rP --include=*.[ch] "^\s*\?" * | wc -l
-884
+Ben.
 
-$ grep -rP --include=*.[ch] -h "\?\s*$" * | \
-  grep -vP "^\s*\*" | grep -vP "(//|/\*)" | wc -l
-2968
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
