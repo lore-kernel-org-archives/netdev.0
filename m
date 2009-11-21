@@ -1,32 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tulip : kernel BUG in tulip_up/tulip_resume
-Date: Sat, 21 Nov 2009 11:10:45 -0800 (PST)
-Message-ID: <20091121.111045.170330916.davem@davemloft.net>
-References: <20090127165727.GA25748@frolo.macqel>
-	<20090129210701.GA8092@frolo.macqel>
-	<20091108223305.GA21072@frolo.macqel>
+Subject: Re: Bridge + Conntrack + SKB Recycle: Fragment Reassembly Errors
+Date: Sat, 21 Nov 2009 11:08:32 -0800 (PST)
+Message-ID: <20091121.110832.213888237.davem@davemloft.net>
+References: <767BAF49E93AFB4B815B11325788A8ED45F0BA@L01SLCXDB03.calltower.com>
+	<4AF999DE.9060206@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: phdm@macqel.be
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756786AbZKUTK3@vger.kernel.org>
-In-Reply-To: <20091108223305.GA21072@frolo.macqel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ben@bigfootnetworks.com, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45539
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754271AbZKUTIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 14:08:14 -0500
+In-Reply-To: <4AF999DE.9060206@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe De Muyter <phdm@macqel.be>
-Date: Sun, 8 Nov 2009 23:33:05 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 10 Nov 2009 17:50:38 +0100
 
-> I have just installed 2.6.31 (from opensuse 11.2) one a tulip-equipped
-> computer and I get the following error message from the kernel :
+> This code in ip_fragment() looks suspicious:
+> 
+> 	if (skb_has_frags(skb)) {
+> 	...
+> 		skb_walk_frags(skb, frag) {
+> 			...
+> 			if (skb->sk) {
+> 				frag->sk = skb->sk;
+> 				frag->destructor = sock_wfree;
+> 				truesizes += frag->truesize;
+> 			}
+> 
+> truesizes is later used to adjust truesize of the head skb.
+> For some reason this is only done when it originated from a
+> local socket.
 
-I took some looks at this bug.
+Well, it shouldn't look _that_ suspicious.
 
-I simply can't figure out how this is possible.  As both suspend
-and resume make sure to make the necessary napi_disable() and
-napi_enable() calls, and therefore they should match up and not
-trigger this BUG().
+What this code is doing is making sure that after we make all of these
+changes, the truesize of the SKBs referrng to the socket do not
+change.
 
-I'll try to study the code some more when I get a chance.
+It's simply making sure that the math works out when all the
+sock_wfree() calls occur later.
+
+If we don't have a socket involved, there is no reason to make
+these adjustments.
