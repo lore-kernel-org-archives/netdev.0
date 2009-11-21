@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 22/23] e1000e: cosmetic - group local variables
-	of the same type
-Date: Sat, 21 Nov 2009 01:28:37 -0800
-Message-ID: <20091121092836.5715.2628.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 23/23] e1000e: update Tx Unit hang detection
+	message
+Date: Sat, 21 Nov 2009 01:28:56 -0800
+Message-ID: <20091121092855.5715.11832.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,109 +12,146 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:48967
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752761AbZKUJ2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:28:48 -0500
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:34630
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752762AbZKUJ3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:29:08 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+The Tx unit hang detection code in e1000e detects other hangs caused by
+hardware components (e.g. Rx, DMA units), but it is not possible to detect
+exactly which component is hung so it has always assumed a Tx unit hang.
+When dumping a message to the system log because of a hang, this patch adds
+more data to help narrow the cause of the issue and makes the message
+non-Tx-specific.  Because this new code reads PHY registers which can
+sleep, move it off to a workqueue.  This and all previously existing work
+tasks in the driver are now cancelled when the driver is removed.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   11 +++--------
- drivers/net/e1000e/es2lan.c  |    6 ++----
- drivers/net/e1000e/ich8lan.c |    8 ++++----
- 3 files changed, 9 insertions(+), 16 deletions(-)
+ drivers/net/e1000e/e1000.h  |    1 +
+ drivers/net/e1000e/netdev.c |   46 ++++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 474f4e4..62bbc6e 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -693,8 +693,7 @@ static s32 e1000_write_nvm_eewr_82571(struct e1000_hw *hw, u16 offset,
- 				      u16 words, u16 *data)
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 5ac8675..c9fcef7 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -364,6 +364,7 @@ struct e1000_adapter {
+ 	struct work_struct downshift_task;
+ 	struct work_struct update_phy_task;
+ 	struct work_struct led_blink_task;
++	struct work_struct print_hang_task;
+ };
+ 
+ struct e1000_info {
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 39f01d9..11a5274 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -544,15 +544,27 @@ static void e1000_put_txbuf(struct e1000_adapter *adapter,
+ 	buffer_info->time_stamp = 0;
+ }
+ 
+-static void e1000_print_tx_hang(struct e1000_adapter *adapter)
++static void e1000_print_hw_hang(struct work_struct *work)
  {
- 	struct e1000_nvm_info *nvm = &hw->nvm;
--	u32 i;
--	u32 eewr = 0;
-+	u32 i, eewr = 0;
- 	s32 ret_val = 0;
- 
- 	/*
-@@ -829,10 +828,7 @@ static s32 e1000_set_d0_lplu_state_82571(struct e1000_hw *hw, bool active)
-  **/
- static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- {
--	u32 ctrl;
--	u32 extcnf_ctrl;
--	u32 ctrl_ext;
--	u32 icr;
-+	u32 ctrl, extcnf_ctrl, ctrl_ext, icr;
- 	s32 ret_val;
- 	u16 i = 0;
- 
-@@ -941,8 +937,7 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	struct e1000_mac_info *mac = &hw->mac;
- 	u32 reg_data;
- 	s32 ret_val;
--	u16 i;
--	u16 rar_count = mac->rar_entry_count;
-+	u16 i, rar_count = mac->rar_entry_count;
- 
- 	e1000_initialize_hw_bits_82571(hw);
- 
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 6ba1228..e505798 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -695,8 +695,7 @@ static s32 e1000_get_cable_length_80003es2lan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
- 	s32 ret_val;
--	u16 phy_data;
--	u16 index;
-+	u16 phy_data, index;
- 
- 	ret_val = e1e_rphy(hw, GG82563_PHY_DSP_DISTANCE, &phy_data);
- 	if (ret_val)
-@@ -746,8 +745,7 @@ static s32 e1000_get_link_up_info_80003es2lan(struct e1000_hw *hw, u16 *speed,
-  **/
- static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
- {
--	u32 ctrl;
--	u32 icr;
-+	u32 ctrl, icr;
- 	s32 ret_val;
- 
- 	/*
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index f991b14..568bb25 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -706,7 +706,9 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
-  **/
- static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw)
- {
--	u32 fwsm = er32(FWSM);
-+	u32 fwsm;
++	struct e1000_adapter *adapter = container_of(work,
++	                                             struct e1000_adapter,
++	                                             print_hang_task);
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	unsigned int i = tx_ring->next_to_clean;
+ 	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
+ 	struct e1000_tx_desc *eop_desc = E1000_TX_DESC(*tx_ring, eop);
++	struct e1000_hw *hw = &adapter->hw;
++	u16 phy_status, phy_1000t_status, phy_ext_status;
++	u16 pci_status;
 +
-+	fwsm = er32(FWSM);
++	e1e_rphy(hw, PHY_STATUS, &phy_status);
++	e1e_rphy(hw, PHY_1000T_STATUS, &phy_1000t_status);
++	e1e_rphy(hw, PHY_EXT_STATUS, &phy_ext_status);
  
- 	return (fwsm & E1000_FWSM_MODE_MASK) ==
- 		(E1000_ICH_MNG_IAMT_MODE << E1000_FWSM_MODE_SHIFT);
-@@ -2349,9 +2351,7 @@ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank)
- 	u32 flash_bank_size = nvm->flash_bank_size * 2;
- 	s32 ret_val;
- 	s32 count = 0;
--	s32 iteration;
--	s32 sector_size;
--	s32 j;
-+	s32 j, iteration, sector_size;
+-	/* detected Tx unit hang */
+-	e_err("Detected Tx Unit Hang:\n"
++	pci_read_config_word(adapter->pdev, PCI_STATUS, &pci_status);
++
++	/* detected Hardware unit hang */
++	e_err("Detected Hardware Unit Hang:\n"
+ 	      "  TDH                  <%x>\n"
+ 	      "  TDT                  <%x>\n"
+ 	      "  next_to_use          <%x>\n"
+@@ -561,7 +573,12 @@ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
+ 	      "  time_stamp           <%lx>\n"
+ 	      "  next_to_watch        <%x>\n"
+ 	      "  jiffies              <%lx>\n"
+-	      "  next_to_watch.status <%x>\n",
++	      "  next_to_watch.status <%x>\n"
++	      "MAC Status             <%x>\n"
++	      "PHY Status             <%x>\n"
++	      "PHY 1000BASE-T Status  <%x>\n"
++	      "PHY Extended Status    <%x>\n"
++	      "PCI Status             <%x>\n",
+ 	      readl(adapter->hw.hw_addr + tx_ring->head),
+ 	      readl(adapter->hw.hw_addr + tx_ring->tail),
+ 	      tx_ring->next_to_use,
+@@ -569,7 +586,12 @@ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
+ 	      tx_ring->buffer_info[eop].time_stamp,
+ 	      eop,
+ 	      jiffies,
+-	      eop_desc->upper.fields.status);
++	      eop_desc->upper.fields.status,
++	      er32(STATUS),
++	      phy_status,
++	      phy_1000t_status,
++	      phy_ext_status,
++	      pci_status);
+ }
  
- 	hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
+ /**
+@@ -643,14 +665,16 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 	}
  
+ 	if (adapter->detect_tx_hung) {
+-		/* Detect a transmit hang in hardware, this serializes the
+-		 * check with the clearing of time_stamp and movement of i */
++		/*
++		 * Detect a transmit hang in hardware, this serializes the
++		 * check with the clearing of time_stamp and movement of i
++		 */
+ 		adapter->detect_tx_hung = 0;
+ 		if (tx_ring->buffer_info[i].time_stamp &&
+ 		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp
+ 			       + (adapter->tx_timeout_factor * HZ))
+ 		    && !(er32(STATUS) & E1000_STATUS_TXOFF)) {
+-			e1000_print_tx_hang(adapter);
++			schedule_work(&adapter->print_hang_task);
+ 			netif_stop_queue(netdev);
+ 		}
+ 	}
+@@ -5118,6 +5142,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
+ 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
+ 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
++	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
+ 
+ 	/* Initialize link parameters. User can change them with ethtool */
+ 	adapter->hw.mac.autoneg = 1;
+@@ -5241,6 +5266,11 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 	del_timer_sync(&adapter->phy_info_timer);
+ 
++	cancel_work_sync(&adapter->reset_task);
++	cancel_work_sync(&adapter->watchdog_task);
++	cancel_work_sync(&adapter->downshift_task);
++	cancel_work_sync(&adapter->update_phy_task);
++	cancel_work_sync(&adapter->print_hang_task);
+ 	flush_scheduled_work();
+ 
+ 	/*
 
