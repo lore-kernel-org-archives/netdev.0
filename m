@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bridge + Conntrack + SKB Recycle: Fragment Reassembly Errors
-Date: Sat, 21 Nov 2009 11:08:32 -0800 (PST)
-Message-ID: <20091121.110832.213888237.davem@davemloft.net>
-References: <767BAF49E93AFB4B815B11325788A8ED45F0BA@L01SLCXDB03.calltower.com>
-	<4AF999DE.9060206@trash.net>
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Sat, 21 Nov 2009 11:00:04 -0800 (PST)
+Message-ID: <20091121.110004.227058882.davem@davemloft.net>
+References: <4B0278D9.6030806@gmail.com>
+	<20091117.034959.159359822.davem@davemloft.net>
+	<20091121092933.GB1932@ucw.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@bigfootnetworks.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: william.allen.simpson@gmail.com, huananhu@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pavel@ucw.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45539
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36089
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754271AbZKUTIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 14:08:14 -0500
-In-Reply-To: <4AF999DE.9060206@trash.net>
+	by vger.kernel.org with ESMTP id S1753960AbZKUS7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 13:59:50 -0500
+In-Reply-To: <20091121092933.GB1932@ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 10 Nov 2009 17:50:38 +0100
+From: Pavel Machek <pavel@ucw.cz>
+Date: Sat, 21 Nov 2009 10:29:33 +0100
 
-> This code in ip_fragment() looks suspicious:
+> On Tue 2009-11-17 03:49:59, David Miller wrote:
+>> From: William Allen Simpson <william.allen.simpson@gmail.com>
+>> Date: Tue, 17 Nov 2009 05:20:09 -0500
+>> 
+>> > What David may have meant, had he followed
+>> > Documentation/ManagementStyle or had any project management skills
+>> > what-so-ever, is that you need to follow
+>> > Documentation/SubmittingPatches more carefully.
+>> 
+>> Are personal attacks on me really necessary?
+>> 
+>> Do you want me to look closely at your patches with a high priority
+>> when you submit them for inclusion?  If so, then you may want to
+>> think twice about saying things like this.
 > 
-> 	if (skb_has_frags(skb)) {
-> 	...
-> 		skb_walk_frags(skb, frag) {
-> 			...
-> 			if (skb->sk) {
-> 				frag->sk = skb->sk;
-> 				frag->destructor = sock_wfree;
-> 				truesizes += frag->truesize;
-> 			}
-> 
-> truesizes is later used to adjust truesize of the head skb.
-> For some reason this is only done when it originated from a
-> local socket.
+> Was this kind of threats really neccessary?
 
-Well, it shouldn't look _that_ suspicious.
-
-What this code is doing is making sure that after we make all of these
-changes, the truesize of the SKBs referrng to the socket do not
-change.
-
-It's simply making sure that the math works out when all the
-sock_wfree() calls occur later.
-
-If we don't have a socket involved, there is no reason to make
-these adjustments.
+It's not a threat, it's human nature.  People defer as much as
+possible interactions with others they find unpleasant.
