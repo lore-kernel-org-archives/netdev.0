@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 11/23] e1000e: consolidate two dbug macros into
-	one simpler one
-Date: Sat, 21 Nov 2009 01:25:07 -0800
-Message-ID: <20091121092506.5715.11195.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 12/23] e1000e: cleanup ops function pointers
+Date: Sat, 21 Nov 2009 01:25:26 -0800
+Message-ID: <20091121092524.5715.22539.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,1591 +11,1265 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:50481 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751747AbZKUJZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:25:18 -0500
+Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:50853 "EHLO
+	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752349AbZKUJZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:25:36 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch depends on a previous one that cleans up redundant #includes.
+The phy and nvm operations structures have function pointers that contain
+"phy" and "nvm" in the pointer names which are redundant since the
+structures are already obviously in phy and nvm structures.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   40 +++++++-------
- drivers/net/e1000e/e1000.h   |    4 +
- drivers/net/e1000e/es2lan.c  |   23 ++++----
- drivers/net/e1000e/hw.h      |   11 ----
- drivers/net/e1000e/ich8lan.c |   69 ++++++++++++------------
- drivers/net/e1000e/lib.c     |  122 +++++++++++++++++++++---------------------
- drivers/net/e1000e/netdev.c  |   28 +++-------
- drivers/net/e1000e/phy.c     |   92 ++++++++++++++++----------------
- 8 files changed, 183 insertions(+), 206 deletions(-)
+ drivers/net/e1000e/82571.c   |   54 +++++++--------
+ drivers/net/e1000e/e1000.h   |   16 ++--
+ drivers/net/e1000e/es2lan.c  |   26 ++++---
+ drivers/net/e1000e/hw.h      |   32 ++++-----
+ drivers/net/e1000e/ich8lan.c |  156 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/lib.c     |    6 +-
+ drivers/net/e1000e/netdev.c  |    4 +
+ drivers/net/e1000e/phy.c     |  110 +++++++++++++++---------------
+ 8 files changed, 201 insertions(+), 203 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 407637f..680b7c7 100644
+index 680b7c7..6fe1b3c 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -309,7 +309,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 			 * indicates that the bootagent or EFI code has
- 			 * improperly left this bit enabled
- 			 */
--			hw_dbg(hw, "Please update your 82571 Bootagent\n");
-+			e_dbg("Please update your 82571 Bootagent\n");
- 		}
- 		ew32(SWSM, swsm & ~E1000_SWSM_SMBI);
- 	}
-@@ -483,7 +483,7 @@ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
- 	}
- 
- 	if (i == sw_timeout) {
--		hw_dbg(hw, "Driver can't access device - SMBI bit is set.\n");
-+		e_dbg("Driver can't access device - SMBI bit is set.\n");
- 		hw->dev_spec.e82571.smb_counter++;
- 	}
- 	/* Get the FW semaphore. */
-@@ -501,7 +501,7 @@ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
- 	if (i == fw_timeout) {
- 		/* Release semaphores */
- 		e1000_put_hw_semaphore_82571(hw);
--		hw_dbg(hw, "Driver can't access the NVM\n");
-+		e_dbg("Driver can't access the NVM\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -708,7 +708,7 @@ static s32 e1000_write_nvm_eewr_82571(struct e1000_hw *hw, u16 offset,
- 	 */
- 	if ((offset >= nvm->word_size) || (words > (nvm->word_size - offset)) ||
- 	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
-+		e_dbg("nvm parameter(s) out of bounds\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -749,7 +749,7 @@ static s32 e1000_get_cfg_done_82571(struct e1000_hw *hw)
- 		timeout--;
- 	}
- 	if (!timeout) {
--		hw_dbg(hw, "MNG configuration cycle has not completed.\n");
-+		e_dbg("MNG configuration cycle has not completed.\n");
- 		return -E1000_ERR_RESET;
- 	}
- 
-@@ -848,9 +848,9 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	 */
- 	ret_val = e1000e_disable_pcie_master(hw);
- 	if (ret_val)
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
-+		e_dbg("PCI-E Master disable polling has failed.\n");
- 
--	hw_dbg(hw, "Masking off all interrupts\n");
-+	e_dbg("Masking off all interrupts\n");
- 	ew32(IMC, 0xffffffff);
- 
- 	ew32(RCTL, 0);
-@@ -889,7 +889,7 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 
- 	ctrl = er32(CTRL);
- 
--	hw_dbg(hw, "Issuing a global reset to MAC\n");
-+	e_dbg("Issuing a global reset to MAC\n");
- 	ew32(CTRL, ctrl | E1000_CTRL_RST);
- 
- 	if (hw->nvm.type == e1000_nvm_flash_hw) {
-@@ -955,12 +955,12 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	/* Initialize identification LED */
- 	ret_val = e1000e_id_led_init(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error initializing identification LED\n");
-+		e_dbg("Error initializing identification LED\n");
- 		return ret_val;
- 	}
- 
- 	/* Disabling VLAN filtering */
--	hw_dbg(hw, "Initializing the IEEE VLAN\n");
-+	e_dbg("Initializing the IEEE VLAN\n");
- 	e1000e_clear_vfta(hw);
- 
- 	/* Setup the receive address. */
-@@ -974,7 +974,7 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	e1000e_init_rx_addrs(hw, rar_count);
- 
- 	/* Zero out the Multicast HASH table */
--	hw_dbg(hw, "Zeroing the MTA\n");
-+	e_dbg("Zeroing the MTA\n");
- 	for (i = 0; i < mac->mta_reg_count; i++)
- 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
- 
-@@ -1383,7 +1383,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				 */
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_autoneg_progress;
--				hw_dbg(hw, "AN_UP     -> AN_PROG\n");
-+				e_dbg("AN_UP     -> AN_PROG\n");
- 			}
- 		break;
- 
-@@ -1401,7 +1401,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				    (ctrl & ~E1000_CTRL_SLU));
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_autoneg_progress;
--				hw_dbg(hw, "FORCED_UP -> AN_PROG\n");
-+				e_dbg("FORCED_UP -> AN_PROG\n");
- 			}
- 			break;
- 
-@@ -1415,7 +1415,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			if (status & E1000_STATUS_LU)  {
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_autoneg_complete;
--				hw_dbg(hw, "AN_PROG   -> AN_UP\n");
-+				e_dbg("AN_PROG   -> AN_UP\n");
- 			} else {
- 				/*
- 				 * Disable autoneg, force link up and
-@@ -1430,12 +1430,12 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				ret_val =
- 				    e1000e_config_fc_after_link_up(hw);
- 				if (ret_val) {
--					hw_dbg(hw, "Error config flow control\n");
-+					e_dbg("Error config flow control\n");
- 					break;
- 				}
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_forced_up;
--				hw_dbg(hw, "AN_PROG   -> FORCED_UP\n");
-+				e_dbg("AN_PROG   -> FORCED_UP\n");
- 			}
- 			mac->serdes_has_link = true;
- 			break;
-@@ -1450,14 +1450,14 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			    (ctrl & ~E1000_CTRL_SLU));
- 			mac->serdes_link_state =
- 			    e1000_serdes_link_autoneg_progress;
--			hw_dbg(hw, "DOWN      -> AN_PROG\n");
-+			e_dbg("DOWN      -> AN_PROG\n");
- 			break;
- 		}
- 	} else {
- 		if (!(rxcw & E1000_RXCW_SYNCH)) {
- 			mac->serdes_has_link = false;
- 			mac->serdes_link_state = e1000_serdes_link_down;
--			hw_dbg(hw, "ANYSTATE  -> DOWN\n");
-+			e_dbg("ANYSTATE  -> DOWN\n");
- 		} else {
- 			/*
- 			 * We have sync, and can tolerate one
-@@ -1469,7 +1469,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			if (rxcw & E1000_RXCW_IV) {
- 				mac->serdes_link_state = e1000_serdes_link_down;
- 				mac->serdes_has_link = false;
--				hw_dbg(hw, "ANYSTATE  -> DOWN\n");
-+				e_dbg("ANYSTATE  -> DOWN\n");
- 			}
- 		}
- 	}
-@@ -1491,7 +1491,7 @@ static s32 e1000_valid_led_default_82571(struct e1000_hw *hw, u16 *data)
- 
- 	ret_val = e1000_read_nvm(hw, NVM_ID_LED_SETTINGS, 1, data);
- 	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
- 	}
- 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index ac5d855..dac00a0 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -48,9 +48,9 @@ struct e1000_info;
- 
- #ifdef DEBUG
- #define e_dbg(format, arg...) \
--	e_printk(KERN_DEBUG , adapter, format, ## arg)
-+	e_printk(KERN_DEBUG , hw->adapter, format, ## arg)
- #else
--#define e_dbg(format, arg...) do { (void)(adapter); } while (0)
-+#define e_dbg(format, arg...) do { (void)(hw); } while (0)
- #endif
- 
- #define e_err(format, arg...) \
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 6fd46f5..f5601c5 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -394,8 +394,7 @@ static s32 e1000_acquire_swfw_sync_80003es2lan(struct e1000_hw *hw, u16 mask)
- 	}
- 
- 	if (i == timeout) {
--		hw_dbg(hw,
--		       "Driver can't access resource, SW_FW_SYNC timeout.\n");
-+		e_dbg("Driver can't access resource, SW_FW_SYNC timeout.\n");
- 		return -E1000_ERR_SWFW_SYNC;
- 	}
- 
-@@ -597,7 +596,7 @@ static s32 e1000_get_cfg_done_80003es2lan(struct e1000_hw *hw)
- 		timeout--;
- 	}
- 	if (!timeout) {
--		hw_dbg(hw, "MNG configuration cycle has not completed.\n");
-+		e_dbg("MNG configuration cycle has not completed.\n");
- 		return -E1000_ERR_RESET;
- 	}
- 
-@@ -630,7 +629,7 @@ static s32 e1000_phy_force_speed_duplex_80003es2lan(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	hw_dbg(hw, "GG82563 PSCR: %X\n", phy_data);
-+	e_dbg("GG82563 PSCR: %X\n", phy_data);
- 
- 	ret_val = e1e_rphy(hw, PHY_CONTROL, &phy_data);
- 	if (ret_val)
-@@ -648,7 +647,7 @@ static s32 e1000_phy_force_speed_duplex_80003es2lan(struct e1000_hw *hw)
- 	udelay(1);
- 
- 	if (hw->phy.autoneg_wait_to_complete) {
--		hw_dbg(hw, "Waiting for forced speed/duplex link "
-+		e_dbg("Waiting for forced speed/duplex link "
- 			 "on GG82563 phy.\n");
- 
- 		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-@@ -771,9 +770,9 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
- 	 */
- 	ret_val = e1000e_disable_pcie_master(hw);
- 	if (ret_val)
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
-+		e_dbg("PCI-E Master disable polling has failed.\n");
- 
--	hw_dbg(hw, "Masking off all interrupts\n");
-+	e_dbg("Masking off all interrupts\n");
- 	ew32(IMC, 0xffffffff);
- 
- 	ew32(RCTL, 0);
-@@ -785,7 +784,7 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
- 	ctrl = er32(CTRL);
- 
- 	ret_val = e1000_acquire_phy_80003es2lan(hw);
--	hw_dbg(hw, "Issuing a global reset to MAC\n");
-+	e_dbg("Issuing a global reset to MAC\n");
- 	ew32(CTRL, ctrl | E1000_CTRL_RST);
- 	e1000_release_phy_80003es2lan(hw);
- 
-@@ -820,19 +819,19 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
- 	/* Initialize identification LED */
- 	ret_val = e1000e_id_led_init(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error initializing identification LED\n");
-+		e_dbg("Error initializing identification LED\n");
- 		return ret_val;
- 	}
- 
- 	/* Disabling VLAN filtering */
--	hw_dbg(hw, "Initializing the IEEE VLAN\n");
-+	e_dbg("Initializing the IEEE VLAN\n");
- 	e1000e_clear_vfta(hw);
- 
- 	/* Setup the receive address. */
- 	e1000e_init_rx_addrs(hw, mac->rar_entry_count);
- 
- 	/* Zero out the Multicast HASH table */
--	hw_dbg(hw, "Zeroing the MTA\n");
-+	e_dbg("Zeroing the MTA\n");
- 	for (i = 0; i < mac->mta_reg_count; i++)
- 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
- 
-@@ -989,7 +988,7 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 	/* SW Reset the PHY so all changes take effect */
- 	ret_val = e1000e_commit_phy(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error Resetting the PHY\n");
-+		e_dbg("Error Resetting the PHY\n");
- 		return ret_val;
- 	}
- 
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index aaea41e..44808b0 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -925,15 +925,4 @@ struct e1000_hw {
- 	} dev_spec;
+@@ -1671,64 +1671,64 @@ static struct e1000_mac_operations e82571_mac_ops = {
  };
  
--#ifdef DEBUG
--#define hw_dbg(hw, format, arg...) \
--	printk(KERN_DEBUG "%s: " format, e1000e_get_hw_dev_name(hw), ##arg)
--#else
--static inline int __attribute__ ((format (printf, 2, 3)))
--hw_dbg(struct e1000_hw *hw, const char *format, ...)
--{
--	return 0;
--}
--#endif
--
- #endif
+ static struct e1000_phy_operations e82_phy_ops_igp = {
+-	.acquire_phy		= e1000_get_hw_semaphore_82571,
++	.acquire		= e1000_get_hw_semaphore_82571,
+ 	.check_reset_block	= e1000e_check_reset_block_generic,
+-	.commit_phy		= NULL,
++	.commit			= NULL,
+ 	.force_speed_duplex	= e1000e_phy_force_speed_duplex_igp,
+ 	.get_cfg_done		= e1000_get_cfg_done_82571,
+ 	.get_cable_length	= e1000e_get_cable_length_igp_2,
+-	.get_phy_info		= e1000e_get_phy_info_igp,
+-	.read_phy_reg		= e1000e_read_phy_reg_igp,
+-	.release_phy		= e1000_put_hw_semaphore_82571,
+-	.reset_phy		= e1000e_phy_hw_reset_generic,
++	.get_info		= e1000e_get_phy_info_igp,
++	.read_reg		= e1000e_read_phy_reg_igp,
++	.release		= e1000_put_hw_semaphore_82571,
++	.reset			= e1000e_phy_hw_reset_generic,
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+-	.write_phy_reg		= e1000e_write_phy_reg_igp,
++	.write_reg		= e1000e_write_phy_reg_igp,
+ 	.cfg_on_link_up      	= NULL,
+ };
+ 
+ static struct e1000_phy_operations e82_phy_ops_m88 = {
+-	.acquire_phy		= e1000_get_hw_semaphore_82571,
++	.acquire		= e1000_get_hw_semaphore_82571,
+ 	.check_reset_block	= e1000e_check_reset_block_generic,
+-	.commit_phy		= e1000e_phy_sw_reset,
++	.commit			= e1000e_phy_sw_reset,
+ 	.force_speed_duplex	= e1000e_phy_force_speed_duplex_m88,
+ 	.get_cfg_done		= e1000e_get_cfg_done,
+ 	.get_cable_length	= e1000e_get_cable_length_m88,
+-	.get_phy_info		= e1000e_get_phy_info_m88,
+-	.read_phy_reg		= e1000e_read_phy_reg_m88,
+-	.release_phy		= e1000_put_hw_semaphore_82571,
+-	.reset_phy		= e1000e_phy_hw_reset_generic,
++	.get_info		= e1000e_get_phy_info_m88,
++	.read_reg		= e1000e_read_phy_reg_m88,
++	.release		= e1000_put_hw_semaphore_82571,
++	.reset			= e1000e_phy_hw_reset_generic,
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+-	.write_phy_reg		= e1000e_write_phy_reg_m88,
++	.write_reg		= e1000e_write_phy_reg_m88,
+ 	.cfg_on_link_up      	= NULL,
+ };
+ 
+ static struct e1000_phy_operations e82_phy_ops_bm = {
+-	.acquire_phy		= e1000_get_hw_semaphore_82571,
++	.acquire		= e1000_get_hw_semaphore_82571,
+ 	.check_reset_block	= e1000e_check_reset_block_generic,
+-	.commit_phy		= e1000e_phy_sw_reset,
++	.commit			= e1000e_phy_sw_reset,
+ 	.force_speed_duplex	= e1000e_phy_force_speed_duplex_m88,
+ 	.get_cfg_done		= e1000e_get_cfg_done,
+ 	.get_cable_length	= e1000e_get_cable_length_m88,
+-	.get_phy_info		= e1000e_get_phy_info_m88,
+-	.read_phy_reg		= e1000e_read_phy_reg_bm2,
+-	.release_phy		= e1000_put_hw_semaphore_82571,
+-	.reset_phy		= e1000e_phy_hw_reset_generic,
++	.get_info		= e1000e_get_phy_info_m88,
++	.read_reg		= e1000e_read_phy_reg_bm2,
++	.release		= e1000_put_hw_semaphore_82571,
++	.reset			= e1000e_phy_hw_reset_generic,
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+-	.write_phy_reg		= e1000e_write_phy_reg_bm2,
++	.write_reg		= e1000e_write_phy_reg_bm2,
+ 	.cfg_on_link_up      	= NULL,
+ };
+ 
+ static struct e1000_nvm_operations e82571_nvm_ops = {
+-	.acquire_nvm		= e1000_acquire_nvm_82571,
+-	.read_nvm		= e1000e_read_nvm_eerd,
+-	.release_nvm		= e1000_release_nvm_82571,
+-	.update_nvm		= e1000_update_nvm_checksum_82571,
++	.acquire		= e1000_acquire_nvm_82571,
++	.read			= e1000e_read_nvm_eerd,
++	.release		= e1000_release_nvm_82571,
++	.update			= e1000_update_nvm_checksum_82571,
+ 	.valid_led_default	= e1000_valid_led_default_82571,
+-	.validate_nvm		= e1000_validate_nvm_checksum_82571,
+-	.write_nvm		= e1000_write_nvm_82571,
++	.validate		= e1000_validate_nvm_checksum_82571,
++	.write			= e1000_write_nvm_82571,
+ };
+ 
+ struct e1000_info e1000_82571_info = {
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index dac00a0..602598c 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -584,7 +584,7 @@ extern s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
+ 
+ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.reset_phy(hw);
++	return hw->phy.ops.reset(hw);
+ }
+ 
+ static inline s32 e1000_check_reset_block(struct e1000_hw *hw)
+@@ -594,12 +594,12 @@ static inline s32 e1000_check_reset_block(struct e1000_hw *hw)
+ 
+ static inline s32 e1e_rphy(struct e1000_hw *hw, u32 offset, u16 *data)
+ {
+-	return hw->phy.ops.read_phy_reg(hw, offset, data);
++	return hw->phy.ops.read_reg(hw, offset, data);
+ }
+ 
+ static inline s32 e1e_wphy(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+-	return hw->phy.ops.write_phy_reg(hw, offset, data);
++	return hw->phy.ops.write_reg(hw, offset, data);
+ }
+ 
+ static inline s32 e1000_get_cable_length(struct e1000_hw *hw)
+@@ -619,27 +619,27 @@ extern s32 e1000e_read_mac_addr(struct e1000_hw *hw);
+ 
+ static inline s32 e1000_validate_nvm_checksum(struct e1000_hw *hw)
+ {
+-	return hw->nvm.ops.validate_nvm(hw);
++	return hw->nvm.ops.validate(hw);
+ }
+ 
+ static inline s32 e1000e_update_nvm_checksum(struct e1000_hw *hw)
+ {
+-	return hw->nvm.ops.update_nvm(hw);
++	return hw->nvm.ops.update(hw);
+ }
+ 
+ static inline s32 e1000_read_nvm(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ {
+-	return hw->nvm.ops.read_nvm(hw, offset, words, data);
++	return hw->nvm.ops.read(hw, offset, words, data);
+ }
+ 
+ static inline s32 e1000_write_nvm(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ {
+-	return hw->nvm.ops.write_nvm(hw, offset, words, data);
++	return hw->nvm.ops.write(hw, offset, words, data);
+ }
+ 
+ static inline s32 e1000_get_phy_info(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.get_phy_info(hw);
++	return hw->phy.ops.get_info(hw);
+ }
+ 
+ static inline s32 e1000e_check_mng_mode(struct e1000_hw *hw)
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index f5601c5..d024e20 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -1378,30 +1378,30 @@ static struct e1000_mac_operations es2_mac_ops = {
+ };
+ 
+ static struct e1000_phy_operations es2_phy_ops = {
+-	.acquire_phy		= e1000_acquire_phy_80003es2lan,
++	.acquire		= e1000_acquire_phy_80003es2lan,
+ 	.check_reset_block	= e1000e_check_reset_block_generic,
+-	.commit_phy	 	= e1000e_phy_sw_reset,
++	.commit		 	= e1000e_phy_sw_reset,
+ 	.force_speed_duplex 	= e1000_phy_force_speed_duplex_80003es2lan,
+ 	.get_cfg_done       	= e1000_get_cfg_done_80003es2lan,
+ 	.get_cable_length   	= e1000_get_cable_length_80003es2lan,
+-	.get_phy_info       	= e1000e_get_phy_info_m88,
+-	.read_phy_reg       	= e1000_read_phy_reg_gg82563_80003es2lan,
+-	.release_phy		= e1000_release_phy_80003es2lan,
+-	.reset_phy	  	= e1000e_phy_hw_reset_generic,
++	.get_info       	= e1000e_get_phy_info_m88,
++	.read_reg       	= e1000_read_phy_reg_gg82563_80003es2lan,
++	.release		= e1000_release_phy_80003es2lan,
++	.reset		  	= e1000e_phy_hw_reset_generic,
+ 	.set_d0_lplu_state  	= NULL,
+ 	.set_d3_lplu_state  	= e1000e_set_d3_lplu_state,
+-	.write_phy_reg      	= e1000_write_phy_reg_gg82563_80003es2lan,
++	.write_reg      	= e1000_write_phy_reg_gg82563_80003es2lan,
+ 	.cfg_on_link_up      	= e1000_cfg_on_link_up_80003es2lan,
+ };
+ 
+ static struct e1000_nvm_operations es2_nvm_ops = {
+-	.acquire_nvm		= e1000_acquire_nvm_80003es2lan,
+-	.read_nvm		= e1000e_read_nvm_eerd,
+-	.release_nvm		= e1000_release_nvm_80003es2lan,
+-	.update_nvm		= e1000e_update_nvm_checksum_generic,
++	.acquire		= e1000_acquire_nvm_80003es2lan,
++	.read			= e1000e_read_nvm_eerd,
++	.release		= e1000_release_nvm_80003es2lan,
++	.update			= e1000e_update_nvm_checksum_generic,
+ 	.valid_led_default	= e1000e_valid_led_default,
+-	.validate_nvm		= e1000e_validate_nvm_checksum_generic,
+-	.write_nvm		= e1000_write_nvm_80003es2lan,
++	.validate		= e1000e_validate_nvm_checksum_generic,
++	.write			= e1000_write_nvm_80003es2lan,
+ };
+ 
+ struct e1000_info e1000_es2_info = {
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 44808b0..842d8e7 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -755,34 +755,34 @@ struct e1000_mac_operations {
+ 
+ /* Function pointers for the PHY. */
+ struct e1000_phy_operations {
+-	s32  (*acquire_phy)(struct e1000_hw *);
++	s32  (*acquire)(struct e1000_hw *);
++	s32  (*cfg_on_link_up)(struct e1000_hw *);
+ 	s32  (*check_polarity)(struct e1000_hw *);
+ 	s32  (*check_reset_block)(struct e1000_hw *);
+-	s32  (*commit_phy)(struct e1000_hw *);
++	s32  (*commit)(struct e1000_hw *);
+ 	s32  (*force_speed_duplex)(struct e1000_hw *);
+ 	s32  (*get_cfg_done)(struct e1000_hw *hw);
+ 	s32  (*get_cable_length)(struct e1000_hw *);
+-	s32  (*get_phy_info)(struct e1000_hw *);
+-	s32  (*read_phy_reg)(struct e1000_hw *, u32, u16 *);
+-	s32  (*read_phy_reg_locked)(struct e1000_hw *, u32, u16 *);
+-	void (*release_phy)(struct e1000_hw *);
+-	s32  (*reset_phy)(struct e1000_hw *);
++	s32  (*get_info)(struct e1000_hw *);
++	s32  (*read_reg)(struct e1000_hw *, u32, u16 *);
++	s32  (*read_reg_locked)(struct e1000_hw *, u32, u16 *);
++	void (*release)(struct e1000_hw *);
++	s32  (*reset)(struct e1000_hw *);
+ 	s32  (*set_d0_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*set_d3_lplu_state)(struct e1000_hw *, bool);
+-	s32  (*write_phy_reg)(struct e1000_hw *, u32, u16);
+-	s32  (*write_phy_reg_locked)(struct e1000_hw *, u32, u16);
+-	s32  (*cfg_on_link_up)(struct e1000_hw *);
++	s32  (*write_reg)(struct e1000_hw *, u32, u16);
++	s32  (*write_reg_locked)(struct e1000_hw *, u32, u16);
+ };
+ 
+ /* Function pointers for the NVM. */
+ struct e1000_nvm_operations {
+-	s32  (*acquire_nvm)(struct e1000_hw *);
+-	s32  (*read_nvm)(struct e1000_hw *, u16, u16, u16 *);
+-	void (*release_nvm)(struct e1000_hw *);
+-	s32  (*update_nvm)(struct e1000_hw *);
++	s32  (*acquire)(struct e1000_hw *);
++	s32  (*read)(struct e1000_hw *, u16, u16, u16 *);
++	void (*release)(struct e1000_hw *);
++	s32  (*update)(struct e1000_hw *);
+ 	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
+-	s32  (*validate_nvm)(struct e1000_hw *);
+-	s32  (*write_nvm)(struct e1000_hw *, u16, u16, u16 *);
++	s32  (*validate)(struct e1000_hw *);
++	s32  (*write)(struct e1000_hw *, u16, u16, u16 *);
+ };
+ 
+ struct e1000_mac_info {
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index bef5e33..101a271 100644
+index 101a271..dd94fc2 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -368,7 +368,7 @@ static s32 e1000_init_nvm_params_ich8lan(struct e1000_hw *hw)
+@@ -260,12 +260,12 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->reset_delay_us           = 100;
  
- 	/* Can't read flash registers if the register set isn't mapped. */
- 	if (!hw->flash_address) {
--		hw_dbg(hw, "ERROR: Flash registers not mapped\n");
-+		e_dbg("ERROR: Flash registers not mapped\n");
- 		return -E1000_ERR_CONFIG;
+ 	phy->ops.check_polarity       = e1000_check_polarity_ife_ich8lan;
+-	phy->ops.read_phy_reg         = e1000_read_phy_reg_hv;
+-	phy->ops.read_phy_reg_locked  = e1000_read_phy_reg_hv_locked;
++	phy->ops.read_reg             = e1000_read_phy_reg_hv;
++	phy->ops.read_reg_locked      = e1000_read_phy_reg_hv_locked;
+ 	phy->ops.set_d0_lplu_state    = e1000_set_lplu_state_pchlan;
+ 	phy->ops.set_d3_lplu_state    = e1000_set_lplu_state_pchlan;
+-	phy->ops.write_phy_reg        = e1000_write_phy_reg_hv;
+-	phy->ops.write_phy_reg_locked = e1000_write_phy_reg_hv_locked;
++	phy->ops.write_reg            = e1000_write_phy_reg_hv;
++	phy->ops.write_reg_locked     = e1000_write_phy_reg_hv_locked;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+ 
+ 	phy->id = e1000_phy_unknown;
+@@ -277,8 +277,8 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		phy->ops.force_speed_duplex =
+ 			e1000_phy_force_speed_duplex_82577;
+ 		phy->ops.get_cable_length   = e1000_get_cable_length_82577;
+-		phy->ops.get_phy_info = e1000_get_phy_info_82577;
+-		phy->ops.commit_phy = e1000e_phy_sw_reset;
++		phy->ops.get_info = e1000_get_phy_info_82577;
++		phy->ops.commit = e1000e_phy_sw_reset;
  	}
  
-@@ -550,7 +550,7 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+ 	return ret_val;
+@@ -305,8 +305,8 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
  	 */
- 	ret_val = e1000e_config_fc_after_link_up(hw);
+ 	ret_val = e1000e_determine_phy_address(hw);
+ 	if (ret_val) {
+-		hw->phy.ops.write_phy_reg = e1000e_write_phy_reg_bm;
+-		hw->phy.ops.read_phy_reg  = e1000e_read_phy_reg_bm;
++		phy->ops.write_reg = e1000e_write_phy_reg_bm;
++		phy->ops.read_reg  = e1000e_read_phy_reg_bm;
+ 		ret_val = e1000e_determine_phy_address(hw);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -326,8 +326,8 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
+ 	case IGP03E1000_E_PHY_ID:
+ 		phy->type = e1000_phy_igp_3;
+ 		phy->autoneg_mask = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+-		phy->ops.read_phy_reg_locked = e1000e_read_phy_reg_igp_locked;
+-		phy->ops.write_phy_reg_locked = e1000e_write_phy_reg_igp_locked;
++		phy->ops.read_reg_locked = e1000e_read_phy_reg_igp_locked;
++		phy->ops.write_reg_locked = e1000e_write_phy_reg_igp_locked;
+ 		break;
+ 	case IFE_E_PHY_ID:
+ 	case IFE_PLUS_E_PHY_ID:
+@@ -338,9 +338,9 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
+ 	case BME1000_E_PHY_ID:
+ 		phy->type = e1000_phy_bm;
+ 		phy->autoneg_mask = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+-		hw->phy.ops.read_phy_reg = e1000e_read_phy_reg_bm;
+-		hw->phy.ops.write_phy_reg = e1000e_write_phy_reg_bm;
+-		hw->phy.ops.commit_phy = e1000e_phy_sw_reset;
++		phy->ops.read_reg = e1000e_read_phy_reg_bm;
++		phy->ops.write_reg = e1000e_write_phy_reg_bm;
++		phy->ops.commit = e1000e_phy_sw_reset;
+ 		break;
+ 	default:
+ 		return -E1000_ERR_PHY;
+@@ -816,7 +816,7 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 word_addr, reg_data, reg_addr, phy_page = 0;
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
  	if (ret_val)
--		hw_dbg(hw, "Error configuring flow control\n");
-+		e_dbg("Error configuring flow control\n");
+ 		return ret_val;
+ 
+@@ -912,7 +912,7 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 			reg_addr &= PHY_REG_MASK;
+ 			reg_addr |= phy_page;
+ 
+-			ret_val = phy->ops.write_phy_reg_locked(hw,
++			ret_val = phy->ops.write_reg_locked(hw,
+ 			                                    (u32)reg_addr,
+ 			                                    reg_data);
+ 			if (ret_val)
+@@ -921,7 +921,7 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 	}
  
  out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
  	return ret_val;
-@@ -644,7 +644,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	}
+ }
  
- 	if (!timeout) {
--		hw_dbg(hw, "SW/FW/HW has locked the resource for too long.\n");
-+		e_dbg("SW/FW/HW has locked the resource for too long.\n");
- 		ret_val = -E1000_ERR_CONFIG;
+@@ -945,15 +945,14 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
  		goto out;
- 	}
-@@ -664,7 +664,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	}
  
- 	if (!timeout) {
--		hw_dbg(hw, "Failed to acquire the semaphore.\n");
-+		e_dbg("Failed to acquire the semaphore.\n");
- 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
- 		ew32(EXTCNF_CTRL, extcnf_ctrl);
- 		ret_val = -E1000_ERR_CONFIG;
-@@ -773,12 +773,12 @@ static s32 e1000_phy_force_speed_duplex_ich8lan(struct e1000_hw *hw)
+ 	/* Wrap the whole flow with the sw flag */
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		goto out;
+ 
+ 	/* Disable K1 when link is 1Gbps, otherwise use the NVM setting */
+ 	if (link) {
+ 		if (hw->phy.type == e1000_phy_82578) {
+-			ret_val = hw->phy.ops.read_phy_reg_locked(hw,
+-			                                          BM_CS_STATUS,
++			ret_val = hw->phy.ops.read_reg_locked(hw, BM_CS_STATUS,
+ 			                                          &status_reg);
+ 			if (ret_val)
+ 				goto release;
+@@ -969,8 +968,7 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 		}
+ 
+ 		if (hw->phy.type == e1000_phy_82577) {
+-			ret_val = hw->phy.ops.read_phy_reg_locked(hw,
+-			                                          HV_M_STATUS,
++			ret_val = hw->phy.ops.read_reg_locked(hw, HV_M_STATUS,
+ 			                                          &status_reg);
+ 			if (ret_val)
+ 				goto release;
+@@ -986,14 +984,14 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 		}
+ 
+ 		/* Link stall fix for link up */
+-		ret_val = hw->phy.ops.write_phy_reg_locked(hw, PHY_REG(770, 19),
++		ret_val = hw->phy.ops.write_reg_locked(hw, PHY_REG(770, 19),
+ 		                                           0x0100);
+ 		if (ret_val)
+ 			goto release;
+ 
+ 	} else {
+ 		/* Link stall fix for link down */
+-		ret_val = hw->phy.ops.write_phy_reg_locked(hw, PHY_REG(770, 19),
++		ret_val = hw->phy.ops.write_reg_locked(hw, PHY_REG(770, 19),
+ 		                                           0x4100);
+ 		if (ret_val)
+ 			goto release;
+@@ -1002,7 +1000,7 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 	ret_val = e1000_configure_k1_ich8lan(hw, k1_enable);
+ 
+ release:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ out:
+ 	return ret_val;
+ }
+@@ -1078,7 +1076,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
+ 	if (hw->mac.type != e1000_pchlan)
+ 		return ret_val;
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
  	if (ret_val)
  		return ret_val;
  
--	hw_dbg(hw, "IFE PMC: %X\n", data);
-+	e_dbg("IFE PMC: %X\n", data);
+@@ -1092,7 +1090,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
  
- 	udelay(1);
+ 	mac_reg = er32(PHY_CTRL);
  
- 	if (phy->autoneg_wait_to_complete) {
--		hw_dbg(hw, "Waiting for forced speed/duplex link on IFE phy.\n");
-+		e_dbg("Waiting for forced speed/duplex link on IFE phy.\n");
+-	ret_val = hw->phy.ops.read_phy_reg_locked(hw, HV_OEM_BITS, &oem_reg);
++	ret_val = hw->phy.ops.read_reg_locked(hw, HV_OEM_BITS, &oem_reg);
+ 	if (ret_val)
+ 		goto out;
  
- 		ret_val = e1000e_phy_has_link_generic(hw,
- 						     PHY_FORCE_LIMIT,
-@@ -788,7 +788,7 @@ static s32 e1000_phy_force_speed_duplex_ich8lan(struct e1000_hw *hw)
- 			return ret_val;
+@@ -1113,10 +1111,10 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
+ 	}
+ 	/* Restart auto-neg to activate the bits */
+ 	oem_reg |= HV_OEM_BITS_RESTART_AN;
+-	ret_val = hw->phy.ops.write_phy_reg_locked(hw, HV_OEM_BITS, oem_reg);
++	ret_val = hw->phy.ops.write_reg_locked(hw, HV_OEM_BITS, oem_reg);
  
- 		if (!link)
--			hw_dbg(hw, "Link taking longer than expected.\n");
-+			e_dbg("Link taking longer than expected.\n");
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
  
- 		/* Try once more */
- 		ret_val = e1000e_phy_has_link_generic(hw,
-@@ -1203,7 +1203,7 @@ static void e1000_lan_init_done_ich8lan(struct e1000_hw *hw)
- 	 * leave the PHY in a bad state possibly resulting in no link.
- 	 */
- 	if (loop == 0)
--		hw_dbg(hw, "LAN_INIT_DONE not set, increase timeout\n");
-+		e_dbg("LAN_INIT_DONE not set, increase timeout\n");
+ 	return ret_val;
+ }
+@@ -1159,7 +1157,7 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	}
  
- 	/* Clear the Init Done bit for the next init event */
- 	data = er32(STATUS);
-@@ -1274,7 +1274,7 @@ static s32 e1000_get_phy_info_ife_ich8lan(struct e1000_hw *hw)
+ 	/* Select page 0 */
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
  		return ret_val;
  
- 	if (!link) {
--		hw_dbg(hw, "Phy info is only valid if link is up\n");
-+		e_dbg("Phy info is only valid if link is up\n");
- 		return -E1000_ERR_CONFIG;
- 	}
+@@ -1167,7 +1165,7 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT, 0);
+ 	if (ret_val)
+ 		goto out;
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
  
-@@ -1604,7 +1604,7 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
- 
- 			return 0;
- 		}
--		hw_dbg(hw, "Unable to determine valid NVM bank via EEC - "
-+		e_dbg("Unable to determine valid NVM bank via EEC - "
- 		       "reading flash signature\n");
- 		/* fall-thru */
- 	default:
-@@ -1634,7 +1634,7 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
- 			return 0;
- 		}
- 
--		hw_dbg(hw, "ERROR: No valid NVM bank present\n");
-+		e_dbg("ERROR: No valid NVM bank present\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1662,7 +1662,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
- 
- 	if ((offset >= nvm->word_size) || (words > nvm->word_size - offset) ||
- 	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
-+		e_dbg("nvm parameter(s) out of bounds\n");
- 		ret_val = -E1000_ERR_NVM;
+ 	/*
+ 	 * Configure the K1 Si workaround during phy reset assuming there is
+@@ -1667,7 +1665,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
  		goto out;
  	}
-@@ -1671,7 +1671,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
+ 
+-	nvm->ops.acquire_nvm(hw);
++	nvm->ops.acquire(hw);
  
  	ret_val = e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
  	if (ret_val) {
--		hw_dbg(hw, "Could not detect valid bank, assuming bank 0\n");
-+		e_dbg("Could not detect valid bank, assuming bank 0\n");
- 		bank = 0;
- 	}
- 
-@@ -1697,7 +1697,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
- 
- out:
- 	if (ret_val)
--		hw_dbg(hw, "NVM read error: %d\n", ret_val);
-+		e_dbg("NVM read error: %d\n", ret_val);
- 
- 	return ret_val;
- }
-@@ -1719,7 +1719,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 
- 	/* Check if the flash descriptor is valid */
- 	if (hsfsts.hsf_status.fldesvalid == 0) {
--		hw_dbg(hw, "Flash descriptor invalid.  "
-+		e_dbg("Flash descriptor invalid.  "
- 			 "SW Sequencing must be used.");
- 		return -E1000_ERR_NVM;
- 	}
-@@ -1769,7 +1769,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 			hsfsts.hsf_status.flcdone = 1;
- 			ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
- 		} else {
--			hw_dbg(hw, "Flash controller busy, cannot get access");
-+			e_dbg("Flash controller busy, cannot get access");
+@@ -1693,7 +1691,7 @@ static s32 e1000_read_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
  		}
  	}
  
-@@ -1919,7 +1919,7 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 				/* Repeat for some time before giving up. */
- 				continue;
- 			} else if (hsfsts.hsf_status.flcdone == 0) {
--				hw_dbg(hw, "Timeout error - flash cycle "
-+				e_dbg("Timeout error - flash cycle "
- 					 "did not complete.");
- 				break;
- 			}
-@@ -1947,7 +1947,7 @@ static s32 e1000_write_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
+-	nvm->ops.release_nvm(hw);
++	nvm->ops.release(hw);
  
- 	if ((offset >= nvm->word_size) || (words > nvm->word_size - offset) ||
- 	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
-+		e_dbg("nvm parameter(s) out of bounds\n");
+ out:
+ 	if (ret_val)
+@@ -1951,14 +1949,14 @@ static s32 e1000_write_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
  		return -E1000_ERR_NVM;
  	}
  
-@@ -1998,7 +1998,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 */
- 	ret_val =  e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
- 	if (ret_val) {
--		hw_dbg(hw, "Could not detect valid bank, assuming bank 0\n");
-+		e_dbg("Could not detect valid bank, assuming bank 0\n");
- 		bank = 0;
+-	nvm->ops.acquire_nvm(hw);
++	nvm->ops.acquire(hw);
+ 
+ 	for (i = 0; i < words; i++) {
+ 		dev_spec->shadow_ram[offset+i].modified = 1;
+ 		dev_spec->shadow_ram[offset+i].value = data[i];
  	}
  
-@@ -2072,7 +2072,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 */
+-	nvm->ops.release_nvm(hw);
++	nvm->ops.release(hw);
+ 
+ 	return 0;
+ }
+@@ -1989,7 +1987,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 	if (nvm->type != e1000_nvm_flash_sw)
+ 		goto out;
+ 
+-	nvm->ops.acquire_nvm(hw);
++	nvm->ops.acquire(hw);
+ 
+ 	/*
+ 	 * We're writing to the opposite bank so if we're on bank 1,
+@@ -2007,7 +2005,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 		old_bank_offset = 0;
+ 		ret_val = e1000_erase_flash_bank_ich8lan(hw, 1);
+ 		if (ret_val) {
+-			nvm->ops.release_nvm(hw);
++			nvm->ops.release(hw);
+ 			goto out;
+ 		}
+ 	} else {
+@@ -2015,7 +2013,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 		new_bank_offset = 0;
+ 		ret_val = e1000_erase_flash_bank_ich8lan(hw, 0);
+ 		if (ret_val) {
+-			nvm->ops.release_nvm(hw);
++			nvm->ops.release(hw);
+ 			goto out;
+ 		}
+ 	}
+@@ -2073,7 +2071,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
  	if (ret_val) {
  		/* Possibly read-only, see e1000e_write_protect_nvm_ich8lan() */
--		hw_dbg(hw, "Flash commit failed.\n");
-+		e_dbg("Flash commit failed.\n");
- 		nvm->ops.release_nvm(hw);
+ 		e_dbg("Flash commit failed.\n");
+-		nvm->ops.release_nvm(hw);
++		nvm->ops.release(hw);
  		goto out;
  	}
-@@ -2128,7 +2128,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
  
- out:
- 	if (ret_val)
--		hw_dbg(hw, "NVM update error: %d\n", ret_val);
-+		e_dbg("NVM update error: %d\n", ret_val);
- 
- 	return ret_val;
- }
-@@ -2278,7 +2278,7 @@ static s32 e1000_write_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 			/* Repeat for some time before giving up. */
- 			continue;
- 		if (hsfsts.hsf_status.flcdone == 0) {
--			hw_dbg(hw, "Timeout error - flash cycle "
-+			e_dbg("Timeout error - flash cycle "
- 				 "did not complete.");
- 			break;
- 		}
-@@ -2323,7 +2323,7 @@ static s32 e1000_retry_write_flash_byte_ich8lan(struct e1000_hw *hw,
- 		return ret_val;
- 
- 	for (program_retries = 0; program_retries < 100; program_retries++) {
--		hw_dbg(hw, "Retrying Byte %2.2X at offset %u\n", byte, offset);
-+		e_dbg("Retrying Byte %2.2X at offset %u\n", byte, offset);
- 		udelay(100);
- 		ret_val = e1000_write_flash_byte_ich8lan(hw, offset, byte);
- 		if (!ret_val)
-@@ -2458,7 +2458,7 @@ static s32 e1000_valid_led_default_ich8lan(struct e1000_hw *hw, u16 *data)
- 
- 	ret_val = e1000_read_nvm(hw, NVM_ID_LED_SETTINGS, 1, data);
+@@ -2086,7 +2084,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 	act_offset = new_bank_offset + E1000_ICH_NVM_SIG_WORD;
+ 	ret_val = e1000_read_flash_word_ich8lan(hw, act_offset, &data);
  	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
+-		nvm->ops.release_nvm(hw);
++		nvm->ops.release(hw);
+ 		goto out;
+ 	}
+ 	data &= 0xBFFF;
+@@ -2094,7 +2092,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 						       act_offset * 2 + 1,
+ 						       (u8)(data >> 8));
+ 	if (ret_val) {
+-		nvm->ops.release_nvm(hw);
++		nvm->ops.release(hw);
+ 		goto out;
  	}
  
-@@ -2588,10 +2588,10 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 	 */
- 	ret_val = e1000e_disable_pcie_master(hw);
+@@ -2107,7 +2105,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 	act_offset = (old_bank_offset + E1000_ICH_NVM_SIG_WORD) * 2 + 1;
+ 	ret_val = e1000_retry_write_flash_byte_ich8lan(hw, act_offset, 0);
  	if (ret_val) {
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
-+		e_dbg("PCI-E Master disable polling has failed.\n");
+-		nvm->ops.release_nvm(hw);
++		nvm->ops.release(hw);
+ 		goto out;
  	}
  
--	hw_dbg(hw, "Masking off all interrupts\n");
-+	e_dbg("Masking off all interrupts\n");
- 	ew32(IMC, 0xffffffff);
+@@ -2117,7 +2115,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 		dev_spec->shadow_ram[i].value = 0xFFFF;
+ 	}
+ 
+-	nvm->ops.release_nvm(hw);
++	nvm->ops.release(hw);
  
  	/*
-@@ -2643,7 +2643,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 	}
- 	ret_val = e1000_acquire_swflag_ich8lan(hw);
- 	/* Whether or not the swflag was acquired, we need to reset the part */
--	hw_dbg(hw, "Issuing a global reset to ich8lan\n");
-+	e_dbg("Issuing a global reset to ich8lan\n");
- 	ew32(CTRL, (ctrl | E1000_CTRL_RST));
- 	msleep(20);
+ 	 * Reload the EEPROM, or else modifications will not appear
+@@ -2186,7 +2184,7 @@ void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw)
+ 	union ich8_hws_flash_status hsfsts;
+ 	u32 gfpreg;
  
-@@ -2663,7 +2663,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 			 * return with an error. This can happen in situations
- 			 * where there is no eeprom and prevents getting link.
- 			 */
--			hw_dbg(hw, "Auto Read Done did not complete\n");
-+			e_dbg("Auto Read Done did not complete\n");
- 		}
- 	}
- 	/* Dummy read to clear the phy wakeup bit after lcd reset */
-@@ -2725,7 +2725,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 	/* Initialize identification LED */
- 	ret_val = mac->ops.id_led_init(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error initializing identification LED\n");
-+		e_dbg("Error initializing identification LED\n");
- 		return ret_val;
- 	}
+-	nvm->ops.acquire_nvm(hw);
++	nvm->ops.acquire(hw);
  
-@@ -2733,7 +2733,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 	e1000e_init_rx_addrs(hw, mac->rar_entry_count);
+ 	gfpreg = er32flash(ICH_FLASH_GFPREG);
  
- 	/* Zero out the Multicast HASH table */
--	hw_dbg(hw, "Zeroing the MTA\n");
-+	e_dbg("Zeroing the MTA\n");
- 	for (i = 0; i < mac->mta_reg_count; i++)
- 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
+@@ -2207,7 +2205,7 @@ void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw)
+ 	hsfsts.hsf_status.flockdn = true;
+ 	ew32flash(ICH_FLASH_HSFSTS, hsfsts.regval);
  
-@@ -2879,7 +2879,7 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
- 	 */
- 	hw->fc.current_mode = hw->fc.requested_mode;
- 
--	hw_dbg(hw, "After fix-ups FlowControl is now = %x\n",
-+	e_dbg("After fix-ups FlowControl is now = %x\n",
- 		hw->fc.current_mode);
- 
- 	/* Continue to configure the copper link. */
-@@ -3094,7 +3094,7 @@ void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
- 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
- 
- 	if (hw->mac.type != e1000_ich8lan) {
--		hw_dbg(hw, "Workaround applies to ICH8 only.\n");
-+		e_dbg("Workaround applies to ICH8 only.\n");
- 		return;
- 	}
- 
-@@ -3372,8 +3372,7 @@ static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
- 		if (status & E1000_STATUS_PHYRA)
- 			ew32(STATUS, status & ~E1000_STATUS_PHYRA);
- 		else
--			hw_dbg(hw,
--			       "PHY Reset Asserted not set - needs delay\n");
-+			e_dbg("PHY Reset Asserted not set - needs delay\n");
- 	}
- 
- 	e1000e_get_cfg_done(hw);
-@@ -3388,7 +3387,7 @@ static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
- 	} else {
- 		if (e1000_valid_nvm_bank_detect_ich8lan(hw, &bank)) {
- 			/* Maybe we should do a basic PHY config */
--			hw_dbg(hw, "EEPROM not present\n");
-+			e_dbg("EEPROM not present\n");
- 			return -E1000_ERR_CONFIG;
- 		}
- 	}
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 5a670a2..fa31c51 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -110,12 +110,12 @@ void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
- 	u32 i;
- 
- 	/* Setup the receive address */
--	hw_dbg(hw, "Programming MAC Address into RAR[0]\n");
-+	e_dbg("Programming MAC Address into RAR[0]\n");
- 
- 	e1000e_rar_set(hw, hw->mac.addr, 0);
- 
- 	/* Zero out the other (rar_entry_count - 1) receive addresses */
--	hw_dbg(hw, "Clearing RAR[1-%u]\n", rar_count-1);
-+	e_dbg("Clearing RAR[1-%u]\n", rar_count-1);
- 	for (i = 1; i < rar_count; i++) {
- 		E1000_WRITE_REG_ARRAY(hw, E1000_RA, (i << 1), 0);
- 		e1e_flush();
-@@ -271,7 +271,7 @@ void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
- 	for (; mc_addr_count > 0; mc_addr_count--) {
- 		u32 hash_value, hash_reg, hash_bit, mta;
- 		hash_value = e1000_hash_mc_addr(hw, mc_addr_list);
--		hw_dbg(hw, "Hash value = 0x%03X\n", hash_value);
-+		e_dbg("Hash value = 0x%03X\n", hash_value);
- 		hash_reg = (hash_value >> 5) & (hw->mac.mta_reg_count - 1);
- 		hash_bit = hash_value & 0x1F;
- 		mta = (1 << hash_bit);
-@@ -403,7 +403,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- 	 */
- 	ret_val = e1000e_config_fc_after_link_up(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error configuring flow control\n");
-+		e_dbg("Error configuring flow control\n");
- 	}
- 
- 	return ret_val;
-@@ -443,7 +443,7 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 			mac->autoneg_failed = 1;
- 			return 0;
- 		}
--		hw_dbg(hw, "NOT RXing /C/, disable AutoNeg and force link.\n");
-+		e_dbg("NOT RXing /C/, disable AutoNeg and force link.\n");
- 
- 		/* Disable auto-negotiation in the TXCW register */
- 		ew32(TXCW, (mac->txcw & ~E1000_TXCW_ANE));
-@@ -456,7 +456,7 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 		/* Configure Flow Control after forcing link up. */
- 		ret_val = e1000e_config_fc_after_link_up(hw);
- 		if (ret_val) {
--			hw_dbg(hw, "Error configuring flow control\n");
-+			e_dbg("Error configuring flow control\n");
- 			return ret_val;
- 		}
- 	} else if ((ctrl & E1000_CTRL_SLU) && (rxcw & E1000_RXCW_C)) {
-@@ -466,7 +466,7 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 		 * and disable forced link in the Device Control register
- 		 * in an attempt to auto-negotiate with our link partner.
- 		 */
--		hw_dbg(hw, "RXing /C/, enable AutoNeg and stop forcing link.\n");
-+		e_dbg("RXing /C/, enable AutoNeg and stop forcing link.\n");
- 		ew32(TXCW, mac->txcw);
- 		ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 
-@@ -508,7 +508,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 			mac->autoneg_failed = 1;
- 			return 0;
- 		}
--		hw_dbg(hw, "NOT RXing /C/, disable AutoNeg and force link.\n");
-+		e_dbg("NOT RXing /C/, disable AutoNeg and force link.\n");
- 
- 		/* Disable auto-negotiation in the TXCW register */
- 		ew32(TXCW, (mac->txcw & ~E1000_TXCW_ANE));
-@@ -521,7 +521,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 		/* Configure Flow Control after forcing link up. */
- 		ret_val = e1000e_config_fc_after_link_up(hw);
- 		if (ret_val) {
--			hw_dbg(hw, "Error configuring flow control\n");
-+			e_dbg("Error configuring flow control\n");
- 			return ret_val;
- 		}
- 	} else if ((ctrl & E1000_CTRL_SLU) && (rxcw & E1000_RXCW_C)) {
-@@ -531,7 +531,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 		 * and disable forced link in the Device Control register
- 		 * in an attempt to auto-negotiate with our link partner.
- 		 */
--		hw_dbg(hw, "RXing /C/, enable AutoNeg and stop forcing link.\n");
-+		e_dbg("RXing /C/, enable AutoNeg and stop forcing link.\n");
- 		ew32(TXCW, mac->txcw);
- 		ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 
-@@ -548,11 +548,11 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 		if (rxcw & E1000_RXCW_SYNCH) {
- 			if (!(rxcw & E1000_RXCW_IV)) {
- 				mac->serdes_has_link = true;
--				hw_dbg(hw, "SERDES: Link up - forced.\n");
-+				e_dbg("SERDES: Link up - forced.\n");
- 			}
- 		} else {
- 			mac->serdes_has_link = false;
--			hw_dbg(hw, "SERDES: Link down - force failed.\n");
-+			e_dbg("SERDES: Link down - force failed.\n");
- 		}
- 	}
- 
-@@ -565,20 +565,20 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 			if (rxcw & E1000_RXCW_SYNCH) {
- 				if (!(rxcw & E1000_RXCW_IV)) {
- 					mac->serdes_has_link = true;
--					hw_dbg(hw, "SERDES: Link up - autoneg "
-+					e_dbg("SERDES: Link up - autoneg "
- 					   "completed sucessfully.\n");
- 				} else {
- 					mac->serdes_has_link = false;
--					hw_dbg(hw, "SERDES: Link down - invalid"
-+					e_dbg("SERDES: Link down - invalid"
- 					   "codewords detected in autoneg.\n");
- 				}
- 			} else {
- 				mac->serdes_has_link = false;
--				hw_dbg(hw, "SERDES: Link down - no sync.\n");
-+				e_dbg("SERDES: Link down - no sync.\n");
- 			}
- 		} else {
- 			mac->serdes_has_link = false;
--			hw_dbg(hw, "SERDES: Link down - autoneg failed\n");
-+			e_dbg("SERDES: Link down - autoneg failed\n");
- 		}
- 	}
- 
-@@ -609,7 +609,7 @@ static s32 e1000_set_default_fc_generic(struct e1000_hw *hw)
- 	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &nvm_data);
- 
- 	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
- 	}
- 
-@@ -662,7 +662,7 @@ s32 e1000e_setup_link(struct e1000_hw *hw)
- 	 */
- 	hw->fc.current_mode = hw->fc.requested_mode;
- 
--	hw_dbg(hw, "After fix-ups FlowControl is now = %x\n",
-+	e_dbg("After fix-ups FlowControl is now = %x\n",
- 		hw->fc.current_mode);
- 
- 	/* Call the necessary media_type subroutine to configure the link. */
-@@ -676,7 +676,7 @@ s32 e1000e_setup_link(struct e1000_hw *hw)
- 	 * control is disabled, because it does not hurt anything to
- 	 * initialize these registers.
- 	 */
--	hw_dbg(hw, "Initializing the Flow Control address, type and timer regs\n");
-+	e_dbg("Initializing the Flow Control address, type and timer regs\n");
- 	ew32(FCT, FLOW_CONTROL_TYPE);
- 	ew32(FCAH, FLOW_CONTROL_ADDRESS_HIGH);
- 	ew32(FCAL, FLOW_CONTROL_ADDRESS_LOW);
-@@ -746,7 +746,7 @@ static s32 e1000_commit_fc_settings_generic(struct e1000_hw *hw)
- 		txcw = (E1000_TXCW_ANE | E1000_TXCW_FD | E1000_TXCW_PAUSE_MASK);
- 		break;
- 	default:
--		hw_dbg(hw, "Flow control param set incorrectly\n");
-+		e_dbg("Flow control param set incorrectly\n");
- 		return -E1000_ERR_CONFIG;
- 		break;
- 	}
-@@ -784,7 +784,7 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
- 			break;
- 	}
- 	if (i == FIBER_LINK_UP_LIMIT) {
--		hw_dbg(hw, "Never got a valid link from auto-neg!!!\n");
-+		e_dbg("Never got a valid link from auto-neg!!!\n");
- 		mac->autoneg_failed = 1;
- 		/*
- 		 * AutoNeg failed to achieve a link, so we'll call
-@@ -794,13 +794,13 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
- 		 */
- 		ret_val = mac->ops.check_for_link(hw);
- 		if (ret_val) {
--			hw_dbg(hw, "Error while checking for link\n");
-+			e_dbg("Error while checking for link\n");
- 			return ret_val;
- 		}
- 		mac->autoneg_failed = 0;
- 	} else {
- 		mac->autoneg_failed = 0;
--		hw_dbg(hw, "Valid Link Found\n");
-+		e_dbg("Valid Link Found\n");
- 	}
- 
- 	return 0;
-@@ -836,7 +836,7 @@ s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw)
- 	 * then the link-up status bit will be set and the flow control enable
- 	 * bits (RFCE and TFCE) will be set according to their negotiated value.
- 	 */
--	hw_dbg(hw, "Auto-negotiation enabled\n");
-+	e_dbg("Auto-negotiation enabled\n");
- 
- 	ew32(CTRL, ctrl);
- 	e1e_flush();
-@@ -851,7 +851,7 @@ s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw)
- 	    (er32(CTRL) & E1000_CTRL_SWDPIN1)) {
- 		ret_val = e1000_poll_fiber_serdes_link_generic(hw);
- 	} else {
--		hw_dbg(hw, "No signal detected\n");
-+		e_dbg("No signal detected\n");
- 	}
- 
- 	return 0;
-@@ -947,7 +947,7 @@ s32 e1000e_force_mac_fc(struct e1000_hw *hw)
- 	 *      3:  Both Rx and Tx flow control (symmetric) is enabled.
- 	 *  other:  No other values should be possible at this point.
- 	 */
--	hw_dbg(hw, "hw->fc.current_mode = %u\n", hw->fc.current_mode);
-+	e_dbg("hw->fc.current_mode = %u\n", hw->fc.current_mode);
- 
- 	switch (hw->fc.current_mode) {
- 	case e1000_fc_none:
-@@ -965,7 +965,7 @@ s32 e1000e_force_mac_fc(struct e1000_hw *hw)
- 		ctrl |= (E1000_CTRL_TFCE | E1000_CTRL_RFCE);
- 		break;
- 	default:
--		hw_dbg(hw, "Flow control param set incorrectly\n");
-+		e_dbg("Flow control param set incorrectly\n");
- 		return -E1000_ERR_CONFIG;
- 	}
- 
-@@ -1006,7 +1006,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 	}
- 
- 	if (ret_val) {
--		hw_dbg(hw, "Error forcing flow control settings\n");
-+		e_dbg("Error forcing flow control settings\n");
- 		return ret_val;
- 	}
- 
-@@ -1030,7 +1030,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			return ret_val;
- 
- 		if (!(mii_status_reg & MII_SR_AUTONEG_COMPLETE)) {
--			hw_dbg(hw, "Copper PHY and Auto Neg "
-+			e_dbg("Copper PHY and Auto Neg "
- 				 "has not completed.\n");
- 			return ret_val;
- 		}
-@@ -1095,10 +1095,10 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			 */
- 			if (hw->fc.requested_mode == e1000_fc_full) {
- 				hw->fc.current_mode = e1000_fc_full;
--				hw_dbg(hw, "Flow Control = FULL.\r\n");
-+				e_dbg("Flow Control = FULL.\r\n");
- 			} else {
- 				hw->fc.current_mode = e1000_fc_rx_pause;
--				hw_dbg(hw, "Flow Control = "
-+				e_dbg("Flow Control = "
- 					 "RX PAUSE frames only.\r\n");
- 			}
- 		}
-@@ -1116,7 +1116,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_tx_pause;
--			hw_dbg(hw, "Flow Control = Tx PAUSE frames only.\r\n");
-+			e_dbg("Flow Control = Tx PAUSE frames only.\r\n");
- 		}
- 		/*
- 		 * For transmitting PAUSE frames ONLY.
-@@ -1132,14 +1132,14 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			 !(mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_rx_pause;
--			hw_dbg(hw, "Flow Control = Rx PAUSE frames only.\r\n");
-+			e_dbg("Flow Control = Rx PAUSE frames only.\r\n");
- 		} else {
- 			/*
- 			 * Per the IEEE spec, at this point flow control
- 			 * should be disabled.
- 			 */
- 			hw->fc.current_mode = e1000_fc_none;
--			hw_dbg(hw, "Flow Control = NONE.\r\n");
-+			e_dbg("Flow Control = NONE.\r\n");
- 		}
- 
- 		/*
-@@ -1149,7 +1149,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		 */
- 		ret_val = mac->ops.get_link_up_info(hw, &speed, &duplex);
- 		if (ret_val) {
--			hw_dbg(hw, "Error getting link speed and duplex\n");
-+			e_dbg("Error getting link speed and duplex\n");
- 			return ret_val;
- 		}
- 
-@@ -1162,7 +1162,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		 */
- 		ret_val = e1000e_force_mac_fc(hw);
- 		if (ret_val) {
--			hw_dbg(hw, "Error forcing flow control settings\n");
-+			e_dbg("Error forcing flow control settings\n");
- 			return ret_val;
- 		}
- 	}
-@@ -1186,21 +1186,21 @@ s32 e1000e_get_speed_and_duplex_copper(struct e1000_hw *hw, u16 *speed, u16 *dup
- 	status = er32(STATUS);
- 	if (status & E1000_STATUS_SPEED_1000) {
- 		*speed = SPEED_1000;
--		hw_dbg(hw, "1000 Mbs, ");
-+		e_dbg("1000 Mbs, ");
- 	} else if (status & E1000_STATUS_SPEED_100) {
- 		*speed = SPEED_100;
--		hw_dbg(hw, "100 Mbs, ");
-+		e_dbg("100 Mbs, ");
- 	} else {
- 		*speed = SPEED_10;
--		hw_dbg(hw, "10 Mbs, ");
-+		e_dbg("10 Mbs, ");
- 	}
- 
- 	if (status & E1000_STATUS_FD) {
- 		*duplex = FULL_DUPLEX;
--		hw_dbg(hw, "Full Duplex\n");
-+		e_dbg("Full Duplex\n");
- 	} else {
- 		*duplex = HALF_DUPLEX;
--		hw_dbg(hw, "Half Duplex\n");
-+		e_dbg("Half Duplex\n");
- 	}
- 
- 	return 0;
-@@ -1246,7 +1246,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
- 	}
- 
- 	if (i == timeout) {
--		hw_dbg(hw, "Driver can't access device - SMBI bit is set.\n");
-+		e_dbg("Driver can't access device - SMBI bit is set.\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1265,7 +1265,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
- 	if (i == timeout) {
- 		/* Release semaphores */
- 		e1000e_put_hw_semaphore(hw);
--		hw_dbg(hw, "Driver can't access the NVM\n");
-+		e_dbg("Driver can't access the NVM\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1305,7 +1305,7 @@ s32 e1000e_get_auto_rd_done(struct e1000_hw *hw)
- 	}
- 
- 	if (i == AUTO_READ_DONE_TIMEOUT) {
--		hw_dbg(hw, "Auto read by HW from NVM has not completed.\n");
-+		e_dbg("Auto read by HW from NVM has not completed.\n");
- 		return -E1000_ERR_RESET;
- 	}
- 
-@@ -1326,7 +1326,7 @@ s32 e1000e_valid_led_default(struct e1000_hw *hw, u16 *data)
- 
- 	ret_val = e1000_read_nvm(hw, NVM_ID_LED_SETTINGS, 1, data);
- 	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
- 	}
- 
-@@ -1580,7 +1580,7 @@ s32 e1000e_disable_pcie_master(struct e1000_hw *hw)
- 	}
- 
- 	if (!timeout) {
--		hw_dbg(hw, "Master requests are pending.\n");
-+		e_dbg("Master requests are pending.\n");
- 		return -E1000_ERR_MASTER_REQUESTS_PENDING;
- 	}
- 
-@@ -1804,7 +1804,7 @@ s32 e1000e_acquire_nvm(struct e1000_hw *hw)
- 	if (!timeout) {
- 		eecd &= ~E1000_EECD_REQ;
- 		ew32(EECD, eecd);
--		hw_dbg(hw, "Could not acquire NVM grant\n");
-+		e_dbg("Could not acquire NVM grant\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1909,7 +1909,7 @@ static s32 e1000_ready_nvm_eeprom(struct e1000_hw *hw)
- 		}
- 
- 		if (!timeout) {
--			hw_dbg(hw, "SPI NVM Status error\n");
-+			e_dbg("SPI NVM Status error\n");
- 			return -E1000_ERR_NVM;
- 		}
- 	}
-@@ -1938,7 +1938,7 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 	 */
- 	if ((offset >= nvm->word_size) || (words > (nvm->word_size - offset)) ||
- 	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
-+		e_dbg("nvm parameter(s) out of bounds\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1981,7 +1981,7 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 	 */
- 	if ((offset >= nvm->word_size) || (words > (nvm->word_size - offset)) ||
- 	    (words == 0)) {
--		hw_dbg(hw, "nvm parameter(s) out of bounds\n");
-+		e_dbg("nvm parameter(s) out of bounds\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -2061,7 +2061,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- 		ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
- 					 &mac_addr_offset);
- 		if (ret_val) {
--			hw_dbg(hw, "NVM Read Error\n");
-+			e_dbg("NVM Read Error\n");
- 			return ret_val;
- 		}
- 		if (mac_addr_offset == 0xFFFF)
-@@ -2076,7 +2076,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- 			ret_val = e1000_read_nvm(hw, mac_addr_offset, 1,
- 						 &nvm_data);
- 			if (ret_val) {
--				hw_dbg(hw, "NVM Read Error\n");
-+				e_dbg("NVM Read Error\n");
- 				return ret_val;
- 			}
- 			if (nvm_data & 0x0001)
-@@ -2091,7 +2091,7 @@ s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- 		offset = mac_addr_offset + (i >> 1);
- 		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
- 		if (ret_val) {
--			hw_dbg(hw, "NVM Read Error\n");
-+			e_dbg("NVM Read Error\n");
- 			return ret_val;
- 		}
- 		hw->mac.perm_addr[i] = (u8)(nvm_data & 0xFF);
-@@ -2124,14 +2124,14 @@ s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw)
- 	for (i = 0; i < (NVM_CHECKSUM_REG + 1); i++) {
- 		ret_val = e1000_read_nvm(hw, i, 1, &nvm_data);
- 		if (ret_val) {
--			hw_dbg(hw, "NVM Read Error\n");
-+			e_dbg("NVM Read Error\n");
- 			return ret_val;
- 		}
- 		checksum += nvm_data;
- 	}
- 
- 	if (checksum != (u16) NVM_SUM) {
--		hw_dbg(hw, "NVM Checksum Invalid\n");
-+		e_dbg("NVM Checksum Invalid\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -2155,7 +2155,7 @@ s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw)
- 	for (i = 0; i < NVM_CHECKSUM_REG; i++) {
- 		ret_val = e1000_read_nvm(hw, i, 1, &nvm_data);
- 		if (ret_val) {
--			hw_dbg(hw, "NVM Read Error while updating checksum.\n");
-+			e_dbg("NVM Read Error while updating checksum.\n");
- 			return ret_val;
- 		}
- 		checksum += nvm_data;
-@@ -2163,7 +2163,7 @@ s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw)
- 	checksum = (u16) NVM_SUM - checksum;
- 	ret_val = e1000_write_nvm(hw, NVM_CHECKSUM_REG, 1, &checksum);
- 	if (ret_val)
--		hw_dbg(hw, "NVM Write Error while updating checksum.\n");
-+		e_dbg("NVM Write Error while updating checksum.\n");
- 
- 	return ret_val;
+-	nvm->ops.release_nvm(hw);
++	nvm->ops.release(hw);
  }
-@@ -2226,7 +2226,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
- 	/* Check that the host interface is enabled. */
- 	hicr = er32(HICR);
- 	if ((hicr & E1000_HICR_EN) == 0) {
--		hw_dbg(hw, "E1000_HOST_EN bit disabled.\n");
-+		e_dbg("E1000_HOST_EN bit disabled.\n");
- 		return -E1000_ERR_HOST_INTERFACE_COMMAND;
- 	}
- 	/* check the previous command is completed */
-@@ -2238,7 +2238,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
+ 
+ /**
+@@ -2743,7 +2741,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+ 	 * Reset the phy after disabling host wakeup to reset the Rx buffer.
+ 	 */
+ 	if (hw->phy.type == e1000_phy_82578) {
+-		hw->phy.ops.read_phy_reg(hw, BM_WUC, &i);
++		hw->phy.ops.read_reg(hw, BM_WUC, &i);
+ 		ret_val = e1000_phy_hw_reset_ich8lan(hw);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -2890,7 +2888,7 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
+ 	ew32(FCTTV, hw->fc.pause_time);
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+-		ret_val = hw->phy.ops.write_phy_reg(hw,
++		ret_val = hw->phy.ops.write_reg(hw,
+ 		                             PHY_REG(BM_PORT_CTRL_PAGE, 27),
+ 		                             hw->fc.pause_time);
+ 		if (ret_val)
+@@ -2953,7 +2951,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
+ 			return ret_val;
+ 		break;
+ 	case e1000_phy_ife:
+-		ret_val = hw->phy.ops.read_phy_reg(hw, IFE_PHY_MDIX_CONTROL,
++		ret_val = hw->phy.ops.read_reg(hw, IFE_PHY_MDIX_CONTROL,
+ 		                               &reg_data);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -2972,7 +2970,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
+ 			reg_data |= IFE_PMC_AUTO_MDIX;
+ 			break;
+ 		}
+-		ret_val = hw->phy.ops.write_phy_reg(hw, IFE_PHY_MDIX_CONTROL,
++		ret_val = hw->phy.ops.write_reg(hw, IFE_PHY_MDIX_CONTROL,
+ 		                                reg_data);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -3274,7 +3272,7 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
+  **/
+ static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.write_phy_reg(hw, HV_LED_CONFIG,
++	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
+ 					(u16)hw->mac.ledctl_mode1);
+ }
+ 
+@@ -3286,7 +3284,7 @@ static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
+  **/
+ static s32 e1000_cleanup_led_pchlan(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.write_phy_reg(hw, HV_LED_CONFIG,
++	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
+ 					(u16)hw->mac.ledctl_default);
+ }
+ 
+@@ -3318,7 +3316,7 @@ static s32 e1000_led_on_pchlan(struct e1000_hw *hw)
+ 		}
  	}
  
- 	if (i == E1000_MNG_DHCP_COMMAND_TIMEOUT) {
--		hw_dbg(hw, "Previous command timeout failed .\n");
-+		e_dbg("Previous command timeout failed .\n");
- 		return -E1000_ERR_HOST_INTERFACE_COMMAND;
+-	return hw->phy.ops.write_phy_reg(hw, HV_LED_CONFIG, data);
++	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
+ }
+ 
+ /**
+@@ -3349,7 +3347,7 @@ static s32 e1000_led_off_pchlan(struct e1000_hw *hw)
+ 		}
  	}
  
-@@ -2509,14 +2509,14 @@ s32 e1000e_read_pba_num(struct e1000_hw *hw, u32 *pba_num)
+-	return hw->phy.ops.write_phy_reg(hw, HV_LED_CONFIG, data);
++	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
+ }
  
- 	ret_val = e1000_read_nvm(hw, NVM_PBA_OFFSET_0, 1, &nvm_data);
- 	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
+ /**
+@@ -3426,20 +3424,20 @@ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
+ 	/* Clear PHY statistics registers */
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+-		hw->phy.ops.read_phy_reg(hw, HV_SCC_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_SCC_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_ECOL_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_ECOL_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_MCC_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_MCC_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_LATECOL_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_LATECOL_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_COLC_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_COLC_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_DC_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_DC_LOWER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_TNCRS_UPPER, &phy_data);
+-		hw->phy.ops.read_phy_reg(hw, HV_TNCRS_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_SCC_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_SCC_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_ECOL_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_ECOL_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_MCC_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_MCC_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_LATECOL_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_LATECOL_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_COLC_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_COLC_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_DC_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_DC_LOWER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_TNCRS_UPPER, &phy_data);
++		hw->phy.ops.read_reg(hw, HV_TNCRS_LOWER, &phy_data);
  	}
- 	*pba_num = (u32)(nvm_data << 16);
+ }
  
- 	ret_val = e1000_read_nvm(hw, NVM_PBA_OFFSET_1, 1, &nvm_data);
- 	if (ret_val) {
--		hw_dbg(hw, "NVM Read Error\n");
-+		e_dbg("NVM Read Error\n");
- 		return ret_val;
- 	}
- 	*pba_num |= nvm_data;
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index ff9f9f1..0b53523 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -65,17 +65,6 @@ static const struct e1000_info *e1000_info_tbl[] = {
- 	[board_pchlan]		= &e1000_pch_info,
+@@ -3462,29 +3460,29 @@ static struct e1000_mac_operations ich8_mac_ops = {
  };
  
--#ifdef DEBUG
--/**
-- * e1000_get_hw_dev_name - return device name string
-- * used by hardware layer to print debugging information
-- **/
--char *e1000e_get_hw_dev_name(struct e1000_hw *hw)
--{
--	return hw->adapter->netdev->name;
--}
--#endif
--
- /**
-  * e1000_desc_unused - calculate if we have unused descriptors
-  **/
-@@ -415,6 +404,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
-+	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *rx_ring = adapter->rx_ring;
- 	struct e1000_rx_desc *rx_desc, *next_rxd;
- 	struct e1000_buffer *buffer_info, *next_buffer;
-@@ -464,8 +454,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		 * packet, also make sure the frame isn't just CRC only */
- 		if (!(status & E1000_RXD_STAT_EOP) || (length <= 4)) {
- 			/* All receives must fit into a single buffer */
--			e_dbg("%s: Receive packet consumed multiple buffers\n",
--			      netdev->name);
-+			e_dbg("Receive packet consumed multiple buffers\n");
- 			/* recycle */
- 			buffer_info->skb = skb;
- 			goto next_desc;
-@@ -682,6 +671,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 				  int *work_done, int work_to_do)
- {
-+	struct e1000_hw *hw = &adapter->hw;
- 	union e1000_rx_desc_packet_split *rx_desc, *next_rxd;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
-@@ -725,8 +715,8 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 		buffer_info->dma = 0;
+ static struct e1000_phy_operations ich8_phy_ops = {
+-	.acquire_phy		= e1000_acquire_swflag_ich8lan,
++	.acquire		= e1000_acquire_swflag_ich8lan,
+ 	.check_reset_block	= e1000_check_reset_block_ich8lan,
+-	.commit_phy		= NULL,
++	.commit			= NULL,
+ 	.force_speed_duplex	= e1000_phy_force_speed_duplex_ich8lan,
+ 	.get_cfg_done		= e1000_get_cfg_done_ich8lan,
+ 	.get_cable_length	= e1000e_get_cable_length_igp_2,
+-	.get_phy_info		= e1000_get_phy_info_ich8lan,
+-	.read_phy_reg		= e1000e_read_phy_reg_igp,
+-	.release_phy		= e1000_release_swflag_ich8lan,
+-	.reset_phy		= e1000_phy_hw_reset_ich8lan,
++	.get_info		= e1000_get_phy_info_ich8lan,
++	.read_reg		= e1000e_read_phy_reg_igp,
++	.release		= e1000_release_swflag_ich8lan,
++	.reset			= e1000_phy_hw_reset_ich8lan,
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_ich8lan,
+ 	.set_d3_lplu_state	= e1000_set_d3_lplu_state_ich8lan,
+-	.write_phy_reg		= e1000e_write_phy_reg_igp,
++	.write_reg		= e1000e_write_phy_reg_igp,
+ };
  
- 		if (!(staterr & E1000_RXD_STAT_EOP)) {
--			e_dbg("%s: Packet Split buffers didn't pick up the "
--			      "full packet\n", netdev->name);
-+			e_dbg("Packet Split buffers didn't pick up the full "
-+			      "packet\n");
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -739,8 +729,8 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 		length = le16_to_cpu(rx_desc->wb.middle.length0);
+ static struct e1000_nvm_operations ich8_nvm_ops = {
+-	.acquire_nvm		= e1000_acquire_nvm_ich8lan,
+-	.read_nvm	 	= e1000_read_nvm_ich8lan,
+-	.release_nvm		= e1000_release_nvm_ich8lan,
+-	.update_nvm		= e1000_update_nvm_checksum_ich8lan,
++	.acquire		= e1000_acquire_nvm_ich8lan,
++	.read		 	= e1000_read_nvm_ich8lan,
++	.release		= e1000_release_nvm_ich8lan,
++	.update			= e1000_update_nvm_checksum_ich8lan,
+ 	.valid_led_default	= e1000_valid_led_default_ich8lan,
+-	.validate_nvm		= e1000_validate_nvm_checksum_ich8lan,
+-	.write_nvm		= e1000_write_nvm_ich8lan,
++	.validate		= e1000_validate_nvm_checksum_ich8lan,
++	.write			= e1000_write_nvm_ich8lan,
+ };
  
- 		if (!length) {
--			e_dbg("%s: Last part of the packet spanning multiple "
--			      "descriptors\n", netdev->name);
-+			e_dbg("Last part of the packet spanning multiple "
-+			      "descriptors\n");
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -2931,7 +2921,7 @@ static irqreturn_t e1000_intr_msi_test(int irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 icr = er32(ICR);
- 
--	e_dbg("%s: icr is %08X\n", netdev->name, icr);
-+	e_dbg("icr is %08X\n", icr);
- 	if (icr & E1000_ICR_RXSEQ) {
- 		adapter->flags &= ~FLAG_MSI_TEST_FAILED;
- 		wmb();
-@@ -3001,7 +2991,7 @@ static int e1000_test_msi_interrupt(struct e1000_adapter *adapter)
- 		goto msi_test_failed;
- 
- 	/* okay so the test worked, restore settings */
--	e_dbg("%s: MSI interrupt test succeeded!\n", netdev->name);
-+	e_dbg("MSI interrupt test succeeded!\n");
- msi_test_failed:
- 	e1000e_set_interrupt_capability(adapter);
- 	e1000_request_irq(adapter);
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 95a8196..cff1df2 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -212,7 +212,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	u32 i, mdic = 0;
- 
- 	if (offset > MAX_PHY_REG_ADDRESS) {
--		hw_dbg(hw, "PHY Address %d is out of range\n", offset);
-+		e_dbg("PHY Address %d is out of range\n", offset);
- 		return -E1000_ERR_PARAM;
+ struct e1000_info e1000_ich8_info = {
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index fa31c51..f664fc0 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1985,7 +1985,7 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ 		return -E1000_ERR_NVM;
  	}
  
-@@ -239,11 +239,11 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 			break;
- 	}
- 	if (!(mdic & E1000_MDIC_READY)) {
--		hw_dbg(hw, "MDI Read did not complete\n");
-+		e_dbg("MDI Read did not complete\n");
- 		return -E1000_ERR_PHY;
- 	}
- 	if (mdic & E1000_MDIC_ERROR) {
--		hw_dbg(hw, "MDI Error\n");
-+		e_dbg("MDI Error\n");
- 		return -E1000_ERR_PHY;
- 	}
- 	*data = (u16) mdic;
-@@ -265,7 +265,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 	u32 i, mdic = 0;
- 
- 	if (offset > MAX_PHY_REG_ADDRESS) {
--		hw_dbg(hw, "PHY Address %d is out of range\n", offset);
-+		e_dbg("PHY Address %d is out of range\n", offset);
- 		return -E1000_ERR_PARAM;
- 	}
- 
-@@ -293,11 +293,11 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 			break;
- 	}
- 	if (!(mdic & E1000_MDIC_READY)) {
--		hw_dbg(hw, "MDI Write did not complete\n");
-+		e_dbg("MDI Write did not complete\n");
- 		return -E1000_ERR_PHY;
- 	}
- 	if (mdic & E1000_MDIC_ERROR) {
--		hw_dbg(hw, "MDI Error\n");
-+		e_dbg("MDI Error\n");
- 		return -E1000_ERR_PHY;
- 	}
- 
-@@ -786,7 +786,7 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
- 	/* Commit the changes. */
- 	ret_val = e1000e_commit_phy(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error committing the PHY changes\n");
-+		e_dbg("Error committing the PHY changes\n");
- 		return ret_val;
- 	}
- 
-@@ -823,7 +823,7 @@ s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw)
- 
- 	ret_val = e1000_phy_hw_reset(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error resetting the PHY.\n");
-+		e_dbg("Error resetting the PHY.\n");
- 		return ret_val;
- 	}
- 
-@@ -836,7 +836,7 @@ s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw)
- 	/* disable lplu d0 during driver init */
- 	ret_val = e1000_set_d0_lplu_state(hw, 0);
- 	if (ret_val) {
--		hw_dbg(hw, "Error Disabling LPLU D0\n");
-+		e_dbg("Error Disabling LPLU D0\n");
- 		return ret_val;
- 	}
- 	/* Configure mdi-mdix settings */
-@@ -972,39 +972,39 @@ static s32 e1000_phy_setup_autoneg(struct e1000_hw *hw)
- 				 NWAY_AR_10T_HD_CAPS);
- 	mii_1000t_ctrl_reg &= ~(CR_1000T_HD_CAPS | CR_1000T_FD_CAPS);
- 
--	hw_dbg(hw, "autoneg_advertised %x\n", phy->autoneg_advertised);
-+	e_dbg("autoneg_advertised %x\n", phy->autoneg_advertised);
- 
- 	/* Do we want to advertise 10 Mb Half Duplex? */
- 	if (phy->autoneg_advertised & ADVERTISE_10_HALF) {
--		hw_dbg(hw, "Advertise 10mb Half duplex\n");
-+		e_dbg("Advertise 10mb Half duplex\n");
- 		mii_autoneg_adv_reg |= NWAY_AR_10T_HD_CAPS;
- 	}
- 
- 	/* Do we want to advertise 10 Mb Full Duplex? */
- 	if (phy->autoneg_advertised & ADVERTISE_10_FULL) {
--		hw_dbg(hw, "Advertise 10mb Full duplex\n");
-+		e_dbg("Advertise 10mb Full duplex\n");
- 		mii_autoneg_adv_reg |= NWAY_AR_10T_FD_CAPS;
- 	}
- 
- 	/* Do we want to advertise 100 Mb Half Duplex? */
- 	if (phy->autoneg_advertised & ADVERTISE_100_HALF) {
--		hw_dbg(hw, "Advertise 100mb Half duplex\n");
-+		e_dbg("Advertise 100mb Half duplex\n");
- 		mii_autoneg_adv_reg |= NWAY_AR_100TX_HD_CAPS;
- 	}
- 
- 	/* Do we want to advertise 100 Mb Full Duplex? */
- 	if (phy->autoneg_advertised & ADVERTISE_100_FULL) {
--		hw_dbg(hw, "Advertise 100mb Full duplex\n");
-+		e_dbg("Advertise 100mb Full duplex\n");
- 		mii_autoneg_adv_reg |= NWAY_AR_100TX_FD_CAPS;
- 	}
- 
- 	/* We do not allow the Phy to advertise 1000 Mb Half Duplex */
- 	if (phy->autoneg_advertised & ADVERTISE_1000_HALF)
--		hw_dbg(hw, "Advertise 1000mb Half duplex request denied!\n");
-+		e_dbg("Advertise 1000mb Half duplex request denied!\n");
- 
- 	/* Do we want to advertise 1000 Mb Full Duplex? */
- 	if (phy->autoneg_advertised & ADVERTISE_1000_FULL) {
--		hw_dbg(hw, "Advertise 1000mb Full duplex\n");
-+		e_dbg("Advertise 1000mb Full duplex\n");
- 		mii_1000t_ctrl_reg |= CR_1000T_FD_CAPS;
- 	}
- 
-@@ -1063,7 +1063,7 @@ static s32 e1000_phy_setup_autoneg(struct e1000_hw *hw)
- 		mii_autoneg_adv_reg |= (NWAY_AR_ASM_DIR | NWAY_AR_PAUSE);
- 		break;
- 	default:
--		hw_dbg(hw, "Flow control param set incorrectly\n");
-+		e_dbg("Flow control param set incorrectly\n");
- 		ret_val = -E1000_ERR_CONFIG;
- 		return ret_val;
- 	}
-@@ -1072,7 +1072,7 @@ static s32 e1000_phy_setup_autoneg(struct e1000_hw *hw)
+-	ret_val = nvm->ops.acquire_nvm(hw);
++	ret_val = nvm->ops.acquire(hw);
  	if (ret_val)
  		return ret_val;
  
--	hw_dbg(hw, "Auto-Neg Advertising %x\n", mii_autoneg_adv_reg);
-+	e_dbg("Auto-Neg Advertising %x\n", mii_autoneg_adv_reg);
+@@ -1996,7 +1996,7 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
  
- 	if (phy->autoneg_mask & ADVERTISE_1000_FULL) {
- 		ret_val = e1e_wphy(hw, PHY_1000T_CTRL, mii_1000t_ctrl_reg);
-@@ -1109,13 +1109,13 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
- 	if (phy->autoneg_advertised == 0)
- 		phy->autoneg_advertised = phy->autoneg_mask;
- 
--	hw_dbg(hw, "Reconfiguring auto-neg advertisement params\n");
-+	e_dbg("Reconfiguring auto-neg advertisement params\n");
- 	ret_val = e1000_phy_setup_autoneg(hw);
- 	if (ret_val) {
--		hw_dbg(hw, "Error Setting up Auto-Negotiation\n");
-+		e_dbg("Error Setting up Auto-Negotiation\n");
- 		return ret_val;
- 	}
--	hw_dbg(hw, "Restarting Auto-Neg\n");
-+	e_dbg("Restarting Auto-Neg\n");
- 
- 	/*
- 	 * Restart auto-negotiation by setting the Auto Neg Enable bit and
-@@ -1137,7 +1137,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
- 	if (phy->autoneg_wait_to_complete) {
- 		ret_val = e1000_wait_autoneg(hw);
+ 		ret_val = e1000_ready_nvm_eeprom(hw);
  		if (ret_val) {
--			hw_dbg(hw, "Error while waiting for "
-+			e_dbg("Error while waiting for "
- 				 "autoneg to complete\n");
+-			nvm->ops.release_nvm(hw);
++			nvm->ops.release(hw);
  			return ret_val;
  		}
-@@ -1175,10 +1175,10 @@ s32 e1000e_setup_copper_link(struct e1000_hw *hw)
- 		 * PHY will be set to 10H, 10F, 100H or 100F
- 		 * depending on user settings.
+ 
+@@ -2035,7 +2035,7 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ 	}
+ 
+ 	msleep(10);
+-	nvm->ops.release_nvm(hw);
++	nvm->ops.release(hw);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 0b53523..6eb9693 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4419,7 +4419,7 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ 	e1e_wphy(&adapter->hw, BM_WUC, E1000_WUC_PME_EN);
+ 
+ 	/* activate PHY wakeup */
+-	retval = hw->phy.ops.acquire_phy(hw);
++	retval = hw->phy.ops.acquire(hw);
+ 	if (retval) {
+ 		e_err("Could not acquire PHY\n");
+ 		return retval;
+@@ -4436,7 +4436,7 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ 	if (retval)
+ 		e_err("Could not set PHY Host Wakeup bit\n");
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 
+ 	return retval;
+ }
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index cff1df2..765dc38 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -131,7 +131,7 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
+ 	u16 phy_id;
+ 	u16 retry_count = 0;
+ 
+-	if (!(phy->ops.read_phy_reg))
++	if (!(phy->ops.read_reg))
+ 		goto out;
+ 
+ 	while (retry_count < 2) {
+@@ -157,24 +157,24 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
+ 		 * MDIC mode. No harm in trying again in this case since
+ 		 * the PHY ID is unknown at this point anyway
  		 */
--		hw_dbg(hw, "Forcing Speed and Duplex\n");
-+		e_dbg("Forcing Speed and Duplex\n");
- 		ret_val = e1000_phy_force_speed_duplex(hw);
- 		if (ret_val) {
--			hw_dbg(hw, "Error Forcing Speed and Duplex\n");
-+			e_dbg("Error Forcing Speed and Duplex\n");
- 			return ret_val;
- 		}
- 	}
-@@ -1195,11 +1195,11 @@ s32 e1000e_setup_copper_link(struct e1000_hw *hw)
- 		return ret_val;
+-		ret_val = phy->ops.acquire_phy(hw);
++		ret_val = phy->ops.acquire(hw);
+ 		if (ret_val)
+ 			goto out;
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw, true);
+ 		if (ret_val)
+ 			goto out;
+-		phy->ops.release_phy(hw);
++		phy->ops.release(hw);
  
- 	if (link) {
--		hw_dbg(hw, "Valid link established!!!\n");
-+		e_dbg("Valid link established!!!\n");
- 		e1000e_config_collision_dist(hw);
- 		ret_val = e1000e_config_fc_after_link_up(hw);
- 	} else {
--		hw_dbg(hw, "Unable to establish link!!!\n");
-+		e_dbg("Unable to establish link!!!\n");
+ 		retry_count++;
+ 	}
+ out:
+ 	/* Revert to MDIO fast mode, if applicable */
+ 	if (retry_count) {
+-		ret_val = phy->ops.acquire_phy(hw);
++		ret_val = phy->ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw, false);
+-		phy->ops.release_phy(hw);
++		phy->ops.release(hw);
  	}
  
  	return ret_val;
-@@ -1245,12 +1245,12 @@ s32 e1000e_phy_force_speed_duplex_igp(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	hw_dbg(hw, "IGP PSCR: %X\n", phy_data);
-+	e_dbg("IGP PSCR: %X\n", phy_data);
- 
- 	udelay(1);
- 
- 	if (phy->autoneg_wait_to_complete) {
--		hw_dbg(hw, "Waiting for forced speed/duplex link on IGP phy.\n");
-+		e_dbg("Waiting for forced speed/duplex link on IGP phy.\n");
- 
- 		ret_val = e1000e_phy_has_link_generic(hw,
- 						     PHY_FORCE_LIMIT,
-@@ -1260,7 +1260,7 @@ s32 e1000e_phy_force_speed_duplex_igp(struct e1000_hw *hw)
- 			return ret_val;
- 
- 		if (!link)
--			hw_dbg(hw, "Link taking longer than expected.\n");
-+			e_dbg("Link taking longer than expected.\n");
- 
- 		/* Try once more */
- 		ret_val = e1000e_phy_has_link_generic(hw,
-@@ -1304,7 +1304,7 @@ s32 e1000e_phy_force_speed_duplex_m88(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	hw_dbg(hw, "M88E1000 PSCR: %X\n", phy_data);
-+	e_dbg("M88E1000 PSCR: %X\n", phy_data);
- 
- 	ret_val = e1e_rphy(hw, PHY_CONTROL, &phy_data);
- 	if (ret_val)
-@@ -1322,7 +1322,7 @@ s32 e1000e_phy_force_speed_duplex_m88(struct e1000_hw *hw)
- 		return ret_val;
- 
- 	if (phy->autoneg_wait_to_complete) {
--		hw_dbg(hw, "Waiting for forced speed/duplex link on M88 phy.\n");
-+		e_dbg("Waiting for forced speed/duplex link on M88 phy.\n");
- 
- 		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
- 						     100000, &link);
-@@ -1413,11 +1413,11 @@ void e1000e_phy_force_speed_duplex_setup(struct e1000_hw *hw, u16 *phy_ctrl)
- 	if (mac->forced_speed_duplex & E1000_ALL_HALF_DUPLEX) {
- 		ctrl &= ~E1000_CTRL_FD;
- 		*phy_ctrl &= ~MII_CR_FULL_DUPLEX;
--		hw_dbg(hw, "Half Duplex\n");
-+		e_dbg("Half Duplex\n");
- 	} else {
- 		ctrl |= E1000_CTRL_FD;
- 		*phy_ctrl |= MII_CR_FULL_DUPLEX;
--		hw_dbg(hw, "Full Duplex\n");
-+		e_dbg("Full Duplex\n");
- 	}
- 
- 	/* Forcing 10mb or 100mb? */
-@@ -1425,12 +1425,12 @@ void e1000e_phy_force_speed_duplex_setup(struct e1000_hw *hw, u16 *phy_ctrl)
- 		ctrl |= E1000_CTRL_SPD_100;
- 		*phy_ctrl |= MII_CR_SPEED_100;
- 		*phy_ctrl &= ~(MII_CR_SPEED_1000 | MII_CR_SPEED_10);
--		hw_dbg(hw, "Forcing 100mb\n");
-+		e_dbg("Forcing 100mb\n");
- 	} else {
- 		ctrl &= ~(E1000_CTRL_SPD_1000 | E1000_CTRL_SPD_100);
- 		*phy_ctrl |= MII_CR_SPEED_10;
- 		*phy_ctrl &= ~(MII_CR_SPEED_1000 | MII_CR_SPEED_100);
--		hw_dbg(hw, "Forcing 10mb\n");
-+		e_dbg("Forcing 10mb\n");
- 	}
- 
- 	e1000e_config_collision_dist(hw);
-@@ -1826,7 +1826,7 @@ s32 e1000e_get_phy_info_m88(struct e1000_hw *hw)
- 	bool link;
- 
- 	if (hw->phy.media_type != e1000_media_type_copper) {
--		hw_dbg(hw, "Phy info is only valid for copper media\n");
-+		e_dbg("Phy info is only valid for copper media\n");
- 		return -E1000_ERR_CONFIG;
- 	}
- 
-@@ -1835,7 +1835,7 @@ s32 e1000e_get_phy_info_m88(struct e1000_hw *hw)
- 		return ret_val;
- 
- 	if (!link) {
--		hw_dbg(hw, "Phy info is only valid if link is up\n");
-+		e_dbg("Phy info is only valid if link is up\n");
- 		return -E1000_ERR_CONFIG;
- 	}
- 
-@@ -1903,7 +1903,7 @@ s32 e1000e_get_phy_info_igp(struct e1000_hw *hw)
- 		return ret_val;
- 
- 	if (!link) {
--		hw_dbg(hw, "Phy info is only valid if link is up\n");
-+		e_dbg("Phy info is only valid if link is up\n");
- 		return -E1000_ERR_CONFIG;
- 	}
- 
-@@ -2031,7 +2031,7 @@ s32 e1000e_get_cfg_done(struct e1000_hw *hw)
-  **/
- s32 e1000e_phy_init_script_igp3(struct e1000_hw *hw)
+@@ -318,14 +318,14 @@ s32 e1000e_read_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 *data)
  {
--	hw_dbg(hw, "Running IGP 3 PHY init script\n");
-+	e_dbg("Running IGP 3 PHY init script\n");
+ 	s32 ret_val;
  
- 	/* PHY init IGP 3 */
- 	/* Enable rise/fall, 10-mode work in class-A */
-@@ -2474,7 +2474,7 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
- 	/* Gig must be disabled for MDIO accesses to page 800 */
- 	if ((hw->mac.type == e1000_pchlan) &&
- 	   (!(er32(PHY_CTRL) & E1000_PHY_CTRL_GBE_DISABLE)))
--		hw_dbg(hw, "Attempting to access page 800 while gig enabled\n");
-+		e_dbg("Attempting to access page 800 while gig enabled\n");
- 
- 	/* All operations in this function are phy address 1 */
- 	hw->phy.addr = 1;
-@@ -2884,7 +2884,7 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
- 	/* masking with 0x3F to remove the page from offset */
- 	ret_val = e1000e_write_phy_reg_mdic(hw, addr_reg, (u16)offset & 0x3F);
- 	if (ret_val) {
--		hw_dbg(hw, "Could not write PHY the HV address register\n");
-+		e_dbg("Could not write PHY the HV address register\n");
- 		goto out;
- 	}
- 
-@@ -2895,7 +2895,7 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
- 		ret_val = e1000e_write_phy_reg_mdic(hw, data_reg, *data);
- 
- 	if (ret_val) {
--		hw_dbg(hw, "Could not read data value from HV data register\n");
-+		e_dbg("Could not read data value from HV data register\n");
- 		goto out;
- 	}
- 
-@@ -3021,12 +3021,12 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
  	if (ret_val)
- 		goto out;
+ 		return ret_val;
  
--	hw_dbg(hw, "I82577_PHY_CTRL_2: %X\n", phy_data);
-+	e_dbg("I82577_PHY_CTRL_2: %X\n", phy_data);
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+ 					   data);
  
- 	udelay(1);
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
  
- 	if (phy->autoneg_wait_to_complete) {
--		hw_dbg(hw, "Waiting for forced speed/duplex link on 82577 phy\n");
-+		e_dbg("Waiting for forced speed/duplex link on 82577 phy\n");
+ 	return ret_val;
+ }
+@@ -343,14 +343,14 @@ s32 e1000e_write_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+ 	s32 ret_val;
  
- 		ret_val = e1000e_phy_has_link_generic(hw,
- 		                                     PHY_FORCE_LIMIT,
-@@ -3036,7 +3036,7 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+ 					    data);
+ 
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 
+ 	return ret_val;
+ }
+@@ -372,10 +372,10 @@ static s32 __e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	s32 ret_val = 0;
+ 
+ 	if (!locked) {
+-		if (!(hw->phy.ops.acquire_phy))
++		if (!(hw->phy.ops.acquire))
  			goto out;
  
- 		if (!link)
--			hw_dbg(hw, "Link taking longer than expected.\n");
-+			e_dbg("Link taking longer than expected.\n");
- 
- 		/* Try once more */
- 		ret_val = e1000e_phy_has_link_generic(hw,
-@@ -3072,7 +3072,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
- 		goto out;
- 
- 	if (!link) {
--		hw_dbg(hw, "Phy info is only valid if link is up\n");
-+		e_dbg("Phy info is only valid if link is up\n");
- 		ret_val = -E1000_ERR_CONFIG;
- 		goto out;
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			goto out;
  	}
+@@ -393,7 +393,7 @@ static s32 __e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data,
+ 
+ release:
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ out:
+ 	return ret_val;
+ }
+@@ -443,10 +443,10 @@ static s32 __e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data,
+ 	s32 ret_val = 0;
+ 
+ 	if (!locked) {
+-		if (!(hw->phy.ops.acquire_phy))
++		if (!(hw->phy.ops.acquire))
+ 			goto out;
+ 
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			goto out;
+ 	}
+@@ -464,7 +464,7 @@ static s32 __e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data,
+ 
+ release:
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ 
+ out:
+ 	return ret_val;
+@@ -516,10 +516,10 @@ static s32 __e1000_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	s32 ret_val = 0;
+ 
+ 	if (!locked) {
+-		if (!(hw->phy.ops.acquire_phy))
++		if (!(hw->phy.ops.acquire))
+ 			goto out;
+ 
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			goto out;
+ 	}
+@@ -534,7 +534,7 @@ static s32 __e1000_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	*data = (u16)kmrnctrlsta;
+ 
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ 
+ out:
+ 	return ret_val;
+@@ -588,10 +588,10 @@ static s32 __e1000_write_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 data,
+ 	s32 ret_val = 0;
+ 
+ 	if (!locked) {
+-		if (!(hw->phy.ops.acquire_phy))
++		if (!(hw->phy.ops.acquire))
+ 			goto out;
+ 
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			goto out;
+ 	}
+@@ -603,7 +603,7 @@ static s32 __e1000_write_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 data,
+ 	udelay(2);
+ 
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ 
+ out:
+ 	return ret_val;
+@@ -650,7 +650,7 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ 	u16 phy_data;
+ 
+ 	/* Enable CRS on TX. This must be set for half-duplex operation. */
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_CFG_REG, &phy_data);
++	ret_val = phy->ops.read_reg(hw, I82577_CFG_REG, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -659,16 +659,16 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ 	/* Enable downshift */
+ 	phy_data |= I82577_CFG_ENABLE_DOWNSHIFT;
+ 
+-	ret_val = phy->ops.write_phy_reg(hw, I82577_CFG_REG, phy_data);
++	ret_val = phy->ops.write_reg(hw, I82577_CFG_REG, phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+ 	/* Set number of link attempts before downshift */
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_CTRL_REG, &phy_data);
++	ret_val = phy->ops.read_reg(hw, I82577_CTRL_REG, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 	phy_data &= ~I82577_CTRL_DOWNSHIFT_MASK;
+-	ret_val = phy->ops.write_phy_reg(hw, I82577_CTRL_REG, phy_data);
++	ret_val = phy->ops.write_reg(hw, I82577_CTRL_REG, phy_data);
+ 
+ out:
+ 	return ret_val;
+@@ -791,7 +791,7 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
+ 	}
+ 
+ 	if (phy->type == e1000_phy_82578) {
+-		ret_val = phy->ops.read_phy_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
++		ret_val = phy->ops.read_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
+ 		                            &phy_data);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -799,7 +799,7 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
+ 		/* 82578 PHY - set the downshift count to 1x. */
+ 		phy_data |= I82578_EPSCR_DOWNSHIFT_ENABLE;
+ 		phy_data &= ~I82578_EPSCR_DOWNSHIFT_COUNTER_MASK;
+-		ret_val = phy->ops.write_phy_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
++		ret_val = phy->ops.write_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
+ 		                             phy_data);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -1990,7 +1990,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		return 0;
+ 
+-	ret_val = phy->ops.acquire_phy(hw);
++	ret_val = phy->ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+@@ -2005,7 +2005,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
+ 
+ 	udelay(150);
+ 
+-	phy->ops.release_phy(hw);
++	phy->ops.release(hw);
+ 
+ 	return e1000_get_phy_cfg_done(hw);
+ }
+@@ -2256,7 +2256,7 @@ s32 e1000e_write_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 data)
+ 	u32 page = offset >> IGP_PAGE_SHIFT;
+ 	u32 page_shift = 0;
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+@@ -2294,7 +2294,7 @@ s32 e1000e_write_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 data)
+ 	                                    data);
+ 
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 	return ret_val;
+ }
+ 
+@@ -2315,7 +2315,7 @@ s32 e1000e_read_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	u32 page = offset >> IGP_PAGE_SHIFT;
+ 	u32 page_shift = 0;
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+@@ -2352,7 +2352,7 @@ s32 e1000e_read_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+ 	                                   data);
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 	return ret_val;
+ }
+ 
+@@ -2371,7 +2371,7 @@ s32 e1000e_read_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	s32 ret_val;
+ 	u16 page = (u16)(offset >> IGP_PAGE_SHIFT);
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+@@ -2397,7 +2397,7 @@ s32 e1000e_read_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+ 					   data);
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 	return ret_val;
+ }
+ 
+@@ -2415,7 +2415,7 @@ s32 e1000e_write_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 data)
+ 	s32 ret_val;
+ 	u16 page = (u16)(offset >> IGP_PAGE_SHIFT);
+ 
+-	ret_val = hw->phy.ops.acquire_phy(hw);
++	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+ 
+@@ -2441,7 +2441,7 @@ s32 e1000e_write_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 data)
+ 					    data);
+ 
+ out:
+-	hw->phy.ops.release_phy(hw);
++	hw->phy.ops.release(hw);
+ 	return ret_val;
+ }
+ 
+@@ -2544,8 +2544,8 @@ out:
+  **/
+ s32 e1000e_commit_phy(struct e1000_hw *hw)
+ {
+-	if (hw->phy.ops.commit_phy)
+-		return hw->phy.ops.commit_phy(hw);
++	if (hw->phy.ops.commit)
++		return hw->phy.ops.commit(hw);
+ 
+ 	return 0;
+ }
+@@ -2624,7 +2624,7 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	bool in_slow_mode = false;
+ 
+ 	if (!locked) {
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+ 	}
+@@ -2681,7 +2681,7 @@ out:
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw, false);
+ 
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ 
+ 	return ret_val;
+ }
+@@ -2734,7 +2734,7 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 	bool in_slow_mode = false;
+ 
+ 	if (!locked) {
+-		ret_val = hw->phy.ops.acquire_phy(hw);
++		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+ 	}
+@@ -2808,7 +2808,7 @@ out:
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw, false);
+ 
+ 	if (!locked)
+-		hw->phy.ops.release_phy(hw);
++		hw->phy.ops.release(hw);
+ 
+ 	return ret_val;
+ }
+@@ -2923,12 +2923,12 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
+ 		goto out;
+ 
+ 	/* Do not apply workaround if in PHY loopback bit 14 set */
+-	hw->phy.ops.read_phy_reg(hw, PHY_CONTROL, &data);
++	hw->phy.ops.read_reg(hw, PHY_CONTROL, &data);
+ 	if (data & PHY_CONTROL_LB)
+ 		goto out;
+ 
+ 	/* check if link is up and at 1Gbps */
+-	ret_val = hw->phy.ops.read_phy_reg(hw, BM_CS_STATUS, &data);
++	ret_val = hw->phy.ops.read_reg(hw, BM_CS_STATUS, &data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -2944,13 +2944,13 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
+ 	mdelay(200);
+ 
+ 	/* flush the packets in the fifo buffer */
+-	ret_val = hw->phy.ops.write_phy_reg(hw, HV_MUX_DATA_CTRL,
++	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
+ 	                                HV_MUX_DATA_CTRL_GEN_TO_MAC |
+ 	                                HV_MUX_DATA_CTRL_FORCE_SPEED);
+ 	if (ret_val)
+ 		goto out;
+ 
+-	ret_val = hw->phy.ops.write_phy_reg(hw, HV_MUX_DATA_CTRL,
++	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
+ 	                                HV_MUX_DATA_CTRL_GEN_TO_MAC);
+ 
+ out:
+@@ -2971,7 +2971,7 @@ s32 e1000_check_polarity_82577(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 data;
+ 
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_PHY_STATUS_2, &data);
++	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
+ 
+ 	if (!ret_val)
+ 		phy->cable_polarity = (data & I82577_PHY_STATUS2_REV_POLARITY)
+@@ -2996,13 +2996,13 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
+ 	u16 phy_data;
+ 	bool link;
+ 
+-	ret_val = phy->ops.read_phy_reg(hw, PHY_CONTROL, &phy_data);
++	ret_val = phy->ops.read_reg(hw, PHY_CONTROL, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+ 	e1000e_phy_force_speed_duplex_setup(hw, &phy_data);
+ 
+-	ret_val = phy->ops.write_phy_reg(hw, PHY_CONTROL, phy_data);
++	ret_val = phy->ops.write_reg(hw, PHY_CONTROL, phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3010,14 +3010,14 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
+ 	 * Clear Auto-Crossover to force MDI manually.  82577 requires MDI
+ 	 * forced whenever speed and duplex are forced.
+ 	 */
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_PHY_CTRL_2, &phy_data);
++	ret_val = phy->ops.read_reg(hw, I82577_PHY_CTRL_2, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+ 	phy_data &= ~I82577_PHY_CTRL2_AUTO_MDIX;
+ 	phy_data &= ~I82577_PHY_CTRL2_FORCE_MDI_MDIX;
+ 
+-	ret_val = phy->ops.write_phy_reg(hw, I82577_PHY_CTRL_2, phy_data);
++	ret_val = phy->ops.write_reg(hw, I82577_PHY_CTRL_2, phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3083,7 +3083,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		goto out;
+ 
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_PHY_STATUS_2, &data);
++	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3095,7 +3095,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
+ 		if (ret_val)
+ 			goto out;
+ 
+-		ret_val = phy->ops.read_phy_reg(hw, PHY_1000T_STATUS, &data);
++		ret_val = phy->ops.read_reg(hw, PHY_1000T_STATUS, &data);
+ 		if (ret_val)
+ 			goto out;
+ 
+@@ -3129,7 +3129,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 phy_data, length;
+ 
+-	ret_val = phy->ops.read_phy_reg(hw, I82577_PHY_DIAG_STATUS, &phy_data);
++	ret_val = phy->ops.read_reg(hw, I82577_PHY_DIAG_STATUS, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
 
