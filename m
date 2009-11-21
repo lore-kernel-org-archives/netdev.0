@@ -1,73 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: A generic kernel compatibilty code
-Date: Fri, 20 Nov 2009 18:12:27 -0800
-Message-ID: <43e72e890911201812r6551422bk276bbcaf3179d5cc@mail.gmail.com>
-References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
-	<43e72e890911201251t6210ee19n177eaf003a4fffc@mail.gmail.com>
-	<43e72e890911201253obc466c8k2102e04457c48c92@mail.gmail.com>
-	<20091120211837.GA22815@tuxdriver.com> <43e72e890911201338w4c403d51q651afc3638d1739c@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <43e72e890911201338w4c403d51q651afc3638d1739c-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] Au1x00: fix crash when trying register_netdev()
+Date: Sat, 21 Nov 2009 06:07:35 +0300
+Message-ID: <1258772855-9141-1-git-send-email-a.beregalov@gmail.com>
+Cc: netdev@vger.kernel.org, alohre@gmail.com,
+	Alexander Beregalov <a.beregalov@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:46053 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753766AbZKUDNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 22:13:36 -0500
+Received: by fxm21 with SMTP id 21so4330403fxm.21
+        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 19:13:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 20, 2009 at 1:38 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
-rote:
-> On Fri, Nov 20, 2009 at 1:18 PM, John W. Linville
-> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> On Fri, Nov 20, 2009 at 12:53:51PM -0800, Luis R. Rodriguez wrote:
->>> On Fri, Nov 20, 2009 at 12:51 PM, Luis R. Rodriguez <mcgrof@gmail.c=
-om> wrote:
->>> > On Fri, Nov 20, 2009 at 12:45 PM, Luis R. Rodriguez <mcgrof@gmail=
-=2Ecom> wrote:
->>> >> Everyone and their mother reinvents the wheel when it comes to
->>> >> backporting kernel modules. It a painful job and it seems to me =
-an
->>> >> alternative is possible. If we can write generic compatibilty co=
-de for
->>> >> a new routine introduced on the next kernel how about just mergi=
-ng it
->>> >> to the kernel under some generic compat module. This would be
->>> >> completey ignored by everyone using the stable kernel but can be
->>> >> copied by anyone doing backport work.
->>> >>
->>> >> So I'm thinking something as simple as a generic compat/comat.ko=
- with
->>> >> compat-2.6.32.[ch] files.
->>> >
->>> > FWIW, I meant a compat-2.6.32.[ch] and compat-2.6.31.[ch] and so =
-on.
->>> > All these would link to the compat.ko
->>>
->>> I supose this could juse be a separate tree with some generic
->>> compat.ko module. That might work better.
->>
->> This is what I would suggest for pursuing this idea. =C2=A0Perhaps y=
-ou
->> could split-off from compat-wireless, then make that tree depend on
->> the new tree (compat-core?)...
->
-> OK thanks, will try that for the next kernel.
+Andreas Lohre reported that the driver crashes when trying
+to register_netdev(), he sugessted to move dev->netdev_ops initialization
+before calling register_netdev(), it worked for him.
 
-I've packaged a compat.ko here:
+Reported-by: Andreas Lohre <alohre@gmail.com>
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
 
-git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/compat.git
+David, please send it to stable@ for 2.6.31
 
-This should be up as soon as the kernel.org synchs. The missing piece
-would just be to define a common place to put the headers for
-distributions who want to use external modules which want to use this
-thing.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/au1000_eth.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index ce6f1ac..3f4b430 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -1088,7 +1088,14 @@ static struct net_device * au1000_probe(int port_num)
+ 		return NULL;
+ 	}
+ 
+-	if ((err = register_netdev(dev)) != 0) {
++	dev->base_addr = base;
++	dev->irq = irq;
++	dev->netdev_ops = &au1000_netdev_ops;
++	SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
++	dev->watchdog_timeo = ETH_TX_TIMEOUT;
++
++	err = register_netdev(dev);
++	if (err != 0) {
+ 		printk(KERN_ERR "%s: Cannot register net device, error %d\n",
+ 				DRV_NAME, err);
+ 		free_netdev(dev);
+@@ -1209,12 +1216,6 @@ static struct net_device * au1000_probe(int port_num)
+ 		aup->tx_db_inuse[i] = pDB;
+ 	}
+ 
+-	dev->base_addr = base;
+-	dev->irq = irq;
+-	dev->netdev_ops = &au1000_netdev_ops;
+-	SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
+-	dev->watchdog_timeo = ETH_TX_TIMEOUT;
+-
+ 	/*
+ 	 * The boot code uses the ethernet controller, so reset it to start
+ 	 * fresh.  au1000_init() expects that the device is in reset state.
+-- 
+1.6.5.3
+
