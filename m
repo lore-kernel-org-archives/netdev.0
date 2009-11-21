@@ -1,42 +1,49 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
-Date: Sat, 21 Nov 2009 10:29:33 +0100
-Message-ID: <20091121092933.GB1932@ucw.cz>
-References: <faf197be196ee.196eefaf197be@huawei.com> <20091117.012248.86306050.davem@davemloft.net> <4B0278D9.6030806@gmail.com> <20091117.034959.159359822.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 1/1] rps: core implementation
+Date: Sat, 21 Nov 2009 10:31:31 +0100
+Message-ID: <4B07B373.1090801@gmail.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <4B079FDF.9040809@gmail.com> <65634d660911210103k2a55e324o8c07ca87eae16faa@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: william.allen.simpson@gmail.com, huananhu@huawei.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:33743 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752813AbZKUJ3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:29:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20091117.034959.159359822.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34035 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807AbZKUJbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:31:35 -0500
+In-Reply-To: <65634d660911210103k2a55e324o8c07ca87eae16faa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue 2009-11-17 03:49:59, David Miller wrote:
-> From: William Allen Simpson <william.allen.simpson@gmail.com>
-> Date: Tue, 17 Nov 2009 05:20:09 -0500
-> 
-> > What David may have meant, had he followed
-> > Documentation/ManagementStyle or had any project management skills
-> > what-so-ever, is that you need to follow
-> > Documentation/SubmittingPatches more carefully.
-> 
-> Are personal attacks on me really necessary?
-> 
-> Do you want me to look closely at your patches with a high priority
-> when you submit them for inclusion?  If so, then you may want to
-> think twice about saying things like this.
+>>        percpu_add(netdev_rx_stat.total, 1);
+>>        spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
+>>
+> Would it make sense to percpu_add into dev.c just for this when other
+> parts in dev.c would still use __get_cpu_var(stat)++?  Also, I think
+> this results in more instructions...
 
-Was this kind of threats really neccessary?
+Dont worry, this is out of RPS scope anyway, but percpu_add() is
+better on x86 at least.
 
-									Pavel
+	__get_cpu_var(netdev_rx_stat).total++;
+->
+	mov    $0xc17aa6b8,%eax  // per_cpu__netdev_rx_stat
+	mov    %fs:0xc17a77c0,%edx // per_cpu__this_cpu_off
+	incl   (%edx,%eax,1)
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+While
+
+	percpu_add(netdev_rx_stat.total, 1);
+->
+	addl   $0x1,%fs:0xc17aa6b8 // per_cpu__netdev_rx_stat
+
+
+Later can be done in any context, and use no register, so :
+
+1) we reduce window with disabled interrupts.
+2) allow compiler to not scratch two registers.
+
