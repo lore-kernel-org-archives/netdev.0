@@ -1,67 +1,45 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] Au1x00: fix crash when trying register_netdev()
-Date: Sat, 21 Nov 2009 06:07:35 +0300
-Message-ID: <1258772855-9141-1-git-send-email-a.beregalov@gmail.com>
-Cc: netdev@vger.kernel.org, alohre@gmail.com,
-	Alexander Beregalov <a.beregalov@gmail.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 3/3] netxen : fix BOND_MODE_TLB/ALB mode.
+Date: Fri, 20 Nov 2009 21:48:20 -0800 (PST)
+Message-ID: <20091120.214820.259339697.davem@davemloft.net>
+References: <1258765774-27068-1-git-send-email-amit@netxen.com>
+	<1258765774-27068-4-git-send-email-amit@netxen.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
+	narender.kumar@qlogic.com, amit.salecha@qlogic.com
+To: amit@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:46053 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753766AbZKUDNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Nov 2009 22:13:36 -0500
-Received: by fxm21 with SMTP id 21so4330403fxm.21
-        for <netdev@vger.kernel.org>; Fri, 20 Nov 2009 19:13:41 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33486
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750796AbZKUFsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 00:48:03 -0500
+In-Reply-To: <1258765774-27068-4-git-send-email-amit@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Lohre reported that the driver crashes when trying
-to register_netdev(), he sugessted to move dev->netdev_ops initialization
-before calling register_netdev(), it worked for him.
+From: Amit Kumar Salecha <amit@netxen.com>
+Date: Fri, 20 Nov 2009 17:09:34 -0800
 
-Reported-by: Andreas Lohre <alohre@gmail.com>
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
+> @@ -437,6 +437,7 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
+>  		netdev->dev_addr[i] = *(p + 5 - i);
+>  
+>  	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+> +	memcpy(adapter->mac_addr, netdev->dev_addr, netdev->addr_len);
+>  
+>  	/* set station address */
+>  
 
-David, please send it to stable@ for 2.6.31
+I don't think this is correct.
 
+You have to maintain a valid netdev->perm_addr even if you don't use
+that value later on internally.  This is how the permanent, probed,
+MAC address of the card is made available to the user.
 
- drivers/net/au1000_eth.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+Second of all, it is not clear at all why you need to maintain this
+value internally.  Why does it not work to simply use
+netdev->dev_addr?
 
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index ce6f1ac..3f4b430 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -1088,7 +1088,14 @@ static struct net_device * au1000_probe(int port_num)
- 		return NULL;
- 	}
- 
--	if ((err = register_netdev(dev)) != 0) {
-+	dev->base_addr = base;
-+	dev->irq = irq;
-+	dev->netdev_ops = &au1000_netdev_ops;
-+	SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
-+	dev->watchdog_timeo = ETH_TX_TIMEOUT;
-+
-+	err = register_netdev(dev);
-+	if (err != 0) {
- 		printk(KERN_ERR "%s: Cannot register net device, error %d\n",
- 				DRV_NAME, err);
- 		free_netdev(dev);
-@@ -1209,12 +1216,6 @@ static struct net_device * au1000_probe(int port_num)
- 		aup->tx_db_inuse[i] = pDB;
- 	}
- 
--	dev->base_addr = base;
--	dev->irq = irq;
--	dev->netdev_ops = &au1000_netdev_ops;
--	SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
--	dev->watchdog_timeo = ETH_TX_TIMEOUT;
--
- 	/*
- 	 * The boot code uses the ethernet controller, so reset it to start
- 	 * fresh.  au1000_init() expects that the device is in reset state.
--- 
-1.6.5.3
-
+Whatever the reason, you need to explain the details of this in your
+commit message.
