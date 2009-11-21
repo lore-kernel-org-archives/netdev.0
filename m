@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 15/23] e1000e: provide comment for 82571
-	workaround
-Date: Sat, 21 Nov 2009 01:26:24 -0800
-Message-ID: <20091121092623.5715.76622.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 16/23] e1000e: set bools to true/false instead of
+	1/0
+Date: Sat, 21 Nov 2009 01:26:44 -0800
+Message-ID: <20091121092642.5715.99271.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,39 +12,287 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:39106
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750832AbZKUJ0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:26:35 -0500
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:56995
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750950AbZKUJ0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:26:55 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+Set booleans to 'true' or 'false' to make it clear it is a boolean.  Also
+change instances of TRUE/FALSE in comments to lowercase true/false.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/82571.c   |    7 ++++---
+ drivers/net/e1000e/es2lan.c  |    3 ++-
+ drivers/net/e1000e/ich8lan.c |   18 +++++++++---------
+ drivers/net/e1000e/lib.c     |   24 ++++++++++++------------
+ drivers/net/e1000e/phy.c     |    6 +++---
+ 5 files changed, 30 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 7cdf176..0e8aa34 100644
+index 0e8aa34..468dd7d 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -1114,6 +1114,13 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 		reg |= (1 << 22);
- 		ew32(GCR, reg);
+@@ -230,7 +230,8 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	/* Set rar entry count */
+ 	mac->rar_entry_count = E1000_RAR_ENTRIES;
+ 	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK) ? 1 : 0;
++	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
++	                ? true : false;
  
-+		/*
-+		 * Workaround for hardware errata.
-+		 * apply workaround for hardware errata documented in errata
-+		 * docs Fixes issue where some error prone or unreliable PCIe
-+		 * completions are occurring, particularly with ASPM enabled.
-+		 * Without fix, issue can cause tx timeouts.
-+		 */
- 		reg = er32(GCR2);
- 		reg |= 1;
- 		ew32(GCR2, reg);
+ 	/* check for link */
+ 	switch (hw->phy.media_type) {
+@@ -753,7 +754,7 @@ static s32 e1000_get_cfg_done_82571(struct e1000_hw *hw)
+ /**
+  *  e1000_set_d0_lplu_state_82571 - Set Low Power Linkup D0 state
+  *  @hw: pointer to the HW structure
+- *  @active: TRUE to enable LPLU, FALSE to disable
++ *  @active: true to enable LPLU, false to disable
+  *
+  *  Sets the LPLU D0 state according to the active flag.  When activating LPLU
+  *  this function also disables smart speed and vice versa.  LPLU will not be
+@@ -1521,7 +1522,7 @@ static s32 e1000_valid_led_default_82571(struct e1000_hw *hw, u16 *data)
+ bool e1000e_get_laa_state_82571(struct e1000_hw *hw)
+ {
+ 	if (hw->mac.type != e1000_82571)
+-		return 0;
++		return false;
+ 
+ 	return hw->dev_spec.e82571.laa_is_present;
+ }
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 2d14156..795d433 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -213,7 +213,8 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
+ 	/* Set rar entry count */
+ 	mac->rar_entry_count = E1000_RAR_ENTRIES;
+ 	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK) ? 1 : 0;
++	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
++                        ? true : false;
+ 
+ 	/* check for link */
+ 	switch (hw->phy.media_type) {
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 191a4e3..f8ee0f2 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -401,7 +401,7 @@ static s32 e1000_init_nvm_params_ich8lan(struct e1000_hw *hw)
+ 
+ 	/* Clear shadow ram */
+ 	for (i = 0; i < nvm->word_size; i++) {
+-		dev_spec->shadow_ram[i].modified = 0;
++		dev_spec->shadow_ram[i].modified = false;
+ 		dev_spec->shadow_ram[i].value    = 0xFFFF;
+ 	}
+ 
+@@ -430,7 +430,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
+ 	if (mac->type == e1000_ich8lan)
+ 		mac->rar_entry_count--;
+ 	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = 1;
++	mac->arc_subsystem_valid = true;
+ 
+ 	/* LED operations */
+ 	switch (mac->type) {
+@@ -464,7 +464,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
+ 
+ 	/* Enable PCS Lock-loss workaround for ICH8 */
+ 	if (mac->type == e1000_ich8lan)
+-		e1000e_set_kmrn_lock_loss_workaround_ich8lan(hw, 1);
++		e1000e_set_kmrn_lock_loss_workaround_ich8lan(hw, true);
+ 
+ 	return 0;
+ }
+@@ -1403,7 +1403,7 @@ out:
+ /**
+  *  e1000_set_d0_lplu_state_ich8lan - Set Low Power Linkup D0 state
+  *  @hw: pointer to the HW structure
+- *  @active: TRUE to enable LPLU, FALSE to disable
++ *  @active: true to enable LPLU, false to disable
+  *
+  *  Sets the LPLU D0 state according to the active flag.  When
+  *  activating LPLU this function also disables smart speed
+@@ -1489,7 +1489,7 @@ static s32 e1000_set_d0_lplu_state_ich8lan(struct e1000_hw *hw, bool active)
+ /**
+  *  e1000_set_d3_lplu_state_ich8lan - Set Low Power Linkup D3 state
+  *  @hw: pointer to the HW structure
+- *  @active: TRUE to enable LPLU, FALSE to disable
++ *  @active: true to enable LPLU, false to disable
+  *
+  *  Sets the LPLU D3 state according to the active flag.  When
+  *  activating LPLU this function also disables smart speed
+@@ -1952,7 +1952,7 @@ static s32 e1000_write_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
+ 	nvm->ops.acquire(hw);
+ 
+ 	for (i = 0; i < words; i++) {
+-		dev_spec->shadow_ram[offset+i].modified = 1;
++		dev_spec->shadow_ram[offset+i].modified = true;
+ 		dev_spec->shadow_ram[offset+i].value = data[i];
+ 	}
+ 
+@@ -2111,7 +2111,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 
+ 	/* Great!  Everything worked, we can now clear the cached entries. */
+ 	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
+-		dev_spec->shadow_ram[i].modified = 0;
++		dev_spec->shadow_ram[i].modified = false;
+ 		dev_spec->shadow_ram[i].value = 0xFFFF;
+ 	}
+ 
+@@ -3083,8 +3083,8 @@ static s32 e1000_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw)
+  *  @hw: pointer to the HW structure
+  *  @state: boolean value used to set the current Kumeran workaround state
+  *
+- *  If ICH8, set the current Kumeran workaround state (enabled - TRUE
+- *  /disabled - FALSE).
++ *  If ICH8, set the current Kumeran workaround state (enabled - true
++ *  /disabled - false).
+  **/
+ void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
+ 						 bool state)
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index 0c6ad0e..d173bf8 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -371,7 +371,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
+ 	if (!link)
+ 		return ret_val; /* No link detected */
+ 
+-	mac->get_link_status = 0;
++	mac->get_link_status = false;
+ 
+ 	/*
+ 	 * Check if there was DownShift, must be checked
+@@ -1603,7 +1603,7 @@ void e1000e_reset_adaptive(struct e1000_hw *hw)
+ 	mac->ifs_step_size = IFS_STEP;
+ 	mac->ifs_ratio = IFS_RATIO;
+ 
+-	mac->in_ifs_mode = 0;
++	mac->in_ifs_mode = false;
+ 	ew32(AIT, 0);
+ }
+ 
+@@ -1620,7 +1620,7 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
+ 
+ 	if ((mac->collision_delta * mac->ifs_ratio) > mac->tx_packet_delta) {
+ 		if (mac->tx_packet_delta > MIN_NUM_XMITS) {
+-			mac->in_ifs_mode = 1;
++			mac->in_ifs_mode = true;
+ 			if (mac->current_ifs_val < mac->ifs_max_val) {
+ 				if (!mac->current_ifs_val)
+ 					mac->current_ifs_val = mac->ifs_min_val;
+@@ -1634,7 +1634,7 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
+ 		if (mac->in_ifs_mode &&
+ 		    (mac->tx_packet_delta <= MIN_NUM_XMITS)) {
+ 			mac->current_ifs_val = 0;
+-			mac->in_ifs_mode = 0;
++			mac->in_ifs_mode = false;
+ 			ew32(AIT, 0);
+ 		}
+ 	}
+@@ -2277,7 +2277,7 @@ bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw)
+ 
+ 	/* No manageability, no filtering */
+ 	if (!e1000e_check_mng_mode(hw)) {
+-		hw->mac.tx_pkt_filtering = 0;
++		hw->mac.tx_pkt_filtering = false;
+ 		return 0;
+ 	}
+ 
+@@ -2287,7 +2287,7 @@ bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw)
+ 	 */
+ 	ret_val = e1000_mng_enable_host_if(hw);
+ 	if (ret_val != 0) {
+-		hw->mac.tx_pkt_filtering = 0;
++		hw->mac.tx_pkt_filtering = false;
+ 		return ret_val;
+ 	}
+ 
+@@ -2306,17 +2306,17 @@ bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw)
+ 	 * take the safe route of assuming Tx filtering is enabled.
+ 	 */
+ 	if ((hdr_csum != csum) || (hdr->signature != E1000_IAMT_SIGNATURE)) {
+-		hw->mac.tx_pkt_filtering = 1;
++		hw->mac.tx_pkt_filtering = true;
+ 		return 1;
+ 	}
+ 
+ 	/* Cookie area is valid, make the final check for filtering. */
+ 	if (!(hdr->status & E1000_MNG_DHCP_COOKIE_STATUS_PARSING)) {
+-		hw->mac.tx_pkt_filtering = 0;
++		hw->mac.tx_pkt_filtering = false;
+ 		return 0;
+ 	}
+ 
+-	hw->mac.tx_pkt_filtering = 1;
++	hw->mac.tx_pkt_filtering = true;
+ 	return 1;
+ }
+ 
+@@ -2473,7 +2473,7 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ {
+ 	u32 manc;
+ 	u32 fwsm, factps;
+-	bool ret_val = 0;
++	bool ret_val = false;
+ 
+ 	manc = er32(MANC);
+ 
+@@ -2488,13 +2488,13 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ 		if (!(factps & E1000_FACTPS_MNGCG) &&
+ 		    ((fwsm & E1000_FWSM_MODE_MASK) ==
+ 		     (e1000_mng_mode_pt << E1000_FWSM_MODE_SHIFT))) {
+-			ret_val = 1;
++			ret_val = true;
+ 			return ret_val;
+ 		}
+ 	} else {
+ 		if ((manc & E1000_MANC_SMBUS_EN) &&
+ 		    !(manc & E1000_MANC_ASF_EN)) {
+-			ret_val = 1;
++			ret_val = true;
+ 			return ret_val;
+ 		}
+ 	}
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 440f366..99d53fa 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -834,7 +834,7 @@ s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw)
+ 	msleep(100);
+ 
+ 	/* disable lplu d0 during driver init */
+-	ret_val = e1000_set_d0_lplu_state(hw, 0);
++	ret_val = e1000_set_d0_lplu_state(hw, false);
+ 	if (ret_val) {
+ 		e_dbg("Error Disabling LPLU D0\n");
+ 		return ret_val;
+@@ -1545,7 +1545,7 @@ s32 e1000e_check_downshift(struct e1000_hw *hw)
+ 		break;
+ 	default:
+ 		/* speed downshift not supported */
+-		phy->speed_downgraded = 0;
++		phy->speed_downgraded = false;
+ 		return 0;
+ 	}
+ 
+@@ -1907,7 +1907,7 @@ s32 e1000e_get_phy_info_igp(struct e1000_hw *hw)
+ 		return -E1000_ERR_CONFIG;
+ 	}
+ 
+-	phy->polarity_correction = 1;
++	phy->polarity_correction = true;
+ 
+ 	ret_val = e1000_check_polarity_igp(hw);
+ 	if (ret_val)
 
