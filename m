@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 14/23] e1000e: remove comments regarding a
-	non-existent api module
-Date: Sat, 21 Nov 2009 01:26:05 -0800
-Message-ID: <20091121092604.5715.59555.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 15/23] e1000e: provide comment for 82571
+	workaround
+Date: Sat, 21 Nov 2009 01:26:24 -0800
+Message-ID: <20091121092623.5715.76622.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,10 +12,10 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:51297
-	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752614AbZKUJ0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:26:16 -0500
+Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:39106
+	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750832AbZKUJ0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:26:35 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,174 +26,25 @@ Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c  |    9 +--------
- drivers/net/e1000e/es2lan.c |   30 +++++++-----------------------
- 2 files changed, 8 insertions(+), 31 deletions(-)
+ drivers/net/e1000e/82571.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index a984bc3..7cdf176 100644
+index 7cdf176..0e8aa34 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -72,8 +72,6 @@ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw);
- /**
-  *  e1000_init_phy_params_82571 - Init PHY func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
- {
-@@ -136,8 +134,6 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
- /**
-  *  e1000_init_nvm_params_82571 - Init NVM func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
- {
-@@ -201,8 +197,6 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
- /**
-  *  e1000_init_mac_params_82571 - Init MAC func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- {
-@@ -830,8 +824,7 @@ static s32 e1000_set_d0_lplu_state_82571(struct e1000_hw *hw, bool active)
-  *  e1000_reset_hw_82571 - Reset hardware
-  *  @hw: pointer to the HW structure
-  *
-- *  This resets the hardware into a known state.  This is a
-- *  function pointer entry point called by the api module.
-+ *  This resets the hardware into a known state.
-  **/
- static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 103dc64..2d14156 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -116,8 +116,6 @@ static s32  e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
- /**
-  *  e1000_init_phy_params_80003es2lan - Init ESB2 PHY func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_phy_params_80003es2lan(struct e1000_hw *hw)
- {
-@@ -147,8 +145,6 @@ static s32 e1000_init_phy_params_80003es2lan(struct e1000_hw *hw)
- /**
-  *  e1000_init_nvm_params_80003es2lan - Init ESB2 NVM func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
- {
-@@ -195,8 +191,6 @@ static s32 e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
- /**
-  *  e1000_init_mac_params_80003es2lan - Init ESB2 MAC func ptrs.
-  *  @hw: pointer to the HW structure
-- *
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
- {
-@@ -267,8 +261,7 @@ static s32 e1000_get_variants_80003es2lan(struct e1000_adapter *adapter)
-  *  e1000_acquire_phy_80003es2lan - Acquire rights to access PHY
-  *  @hw: pointer to the HW structure
-  *
-- *  A wrapper to acquire access rights to the correct PHY.  This is a
-- *  function pointer entry point called by the api module.
-+ *  A wrapper to acquire access rights to the correct PHY.
-  **/
- static s32 e1000_acquire_phy_80003es2lan(struct e1000_hw *hw)
- {
-@@ -282,8 +275,7 @@ static s32 e1000_acquire_phy_80003es2lan(struct e1000_hw *hw)
-  *  e1000_release_phy_80003es2lan - Release rights to access PHY
-  *  @hw: pointer to the HW structure
-  *
-- *  A wrapper to release access rights to the correct PHY.  This is a
-- *  function pointer entry point called by the api module.
-+ *  A wrapper to release access rights to the correct PHY.
-  **/
- static void e1000_release_phy_80003es2lan(struct e1000_hw *hw)
- {
-@@ -328,8 +320,7 @@ static void e1000_release_mac_csr_80003es2lan(struct e1000_hw *hw)
-  *  e1000_acquire_nvm_80003es2lan - Acquire rights to access NVM
-  *  @hw: pointer to the HW structure
-  *
-- *  Acquire the semaphore to access the EEPROM.  This is a function
-- *  pointer entry point called by the api module.
-+ *  Acquire the semaphore to access the EEPROM.
-  **/
- static s32 e1000_acquire_nvm_80003es2lan(struct e1000_hw *hw)
- {
-@@ -351,8 +342,7 @@ static s32 e1000_acquire_nvm_80003es2lan(struct e1000_hw *hw)
-  *  e1000_release_nvm_80003es2lan - Relinquish rights to access NVM
-  *  @hw: pointer to the HW structure
-  *
-- *  Release the semaphore used to access the EEPROM.  This is a
-- *  function pointer entry point called by the api module.
-+ *  Release the semaphore used to access the EEPROM.
-  **/
- static void e1000_release_nvm_80003es2lan(struct e1000_hw *hw)
- {
-@@ -434,8 +424,7 @@ static void e1000_release_swfw_sync_80003es2lan(struct e1000_hw *hw, u16 mask)
-  *  @offset: offset of the register to read
-  *  @data: pointer to the data returned from the operation
-  *
-- *  Read the GG82563 PHY register.  This is a function pointer entry
-- *  point called by the api module.
-+ *  Read the GG82563 PHY register.
-  **/
- static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 						  u32 offset, u16 *data)
-@@ -499,8 +488,7 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
-  *  @offset: offset of the register to read
-  *  @data: value to write to the register
-  *
-- *  Write to the GG82563 PHY register.  This is a function pointer entry
-- *  point called by the api module.
-+ *  Write to the GG82563 PHY register.
-  **/
- static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 						   u32 offset, u16 data)
-@@ -565,8 +553,7 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
-  *  @words: number of words to write
-  *  @data: buffer of data to write to the NVM
-  *
-- *  Write "words" of data to the ESB2 NVM.  This is a function
-- *  pointer entry point called by the api module.
-+ *  Write "words" of data to the ESB2 NVM.
-  **/
- static s32 e1000_write_nvm_80003es2lan(struct e1000_hw *hw, u16 offset,
- 				       u16 words, u16 *data)
-@@ -730,7 +717,6 @@ static s32 e1000_get_cable_length_80003es2lan(struct e1000_hw *hw)
-  *  @duplex: pointer to duplex buffer
-  *
-  *  Retrieve the current speed and duplex configuration.
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_get_link_up_info_80003es2lan(struct e1000_hw *hw, u16 *speed,
- 					      u16 *duplex)
-@@ -756,7 +742,6 @@ static s32 e1000_get_link_up_info_80003es2lan(struct e1000_hw *hw, u16 *speed,
-  *  @hw: pointer to the HW structure
-  *
-  *  Perform a global reset to the ESB2 controller.
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
- {
-@@ -805,7 +790,6 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
-  *  @hw: pointer to the HW structure
-  *
-  *  Initialize the hw bits, LED, VFTA, MTA, link and hw counters.
-- *  This is a function pointer entry point called by the api module.
-  **/
- static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
- {
+@@ -1114,6 +1114,13 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 		reg |= (1 << 22);
+ 		ew32(GCR, reg);
+ 
++		/*
++		 * Workaround for hardware errata.
++		 * apply workaround for hardware errata documented in errata
++		 * docs Fixes issue where some error prone or unreliable PCIe
++		 * completions are occurring, particularly with ASPM enabled.
++		 * Without fix, issue can cause tx timeouts.
++		 */
+ 		reg = er32(GCR2);
+ 		reg |= 1;
+ 		ew32(GCR2, reg);
 
