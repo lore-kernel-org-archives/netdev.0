@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v7 3/7 RFC] TCPCT part 1c:
- sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
-Date: Sat, 21 Nov 2009 11:18:44 -0800 (PST)
-Message-ID: <20091121.111844.54272535.davem@davemloft.net>
-References: <4B06A8CF.3000303@gmail.com>
-	<20091120.092408.208010931.davem@davemloft.net>
-	<4B081A81.5000602@gmail.com>
+Subject: Re: tulip : kernel BUG in tulip_up/tulip_resume
+Date: Sat, 21 Nov 2009 11:10:45 -0800 (PST)
+Message-ID: <20091121.111045.170330916.davem@davemloft.net>
+References: <20090127165727.GA25748@frolo.macqel>
+	<20090129210701.GA8092@frolo.macqel>
+	<20091108223305.GA21072@frolo.macqel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: william.allen.simpson@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41345
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754212AbZKUTS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 14:18:26 -0500
-In-Reply-To: <4B081A81.5000602@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: grundler@parisc-linux.org, kyle@mcmartin.ca,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: phdm@macqel.be
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756786AbZKUTK3@vger.kernel.org>
+In-Reply-To: <20091108223305.GA21072@frolo.macqel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Date: Sat, 21 Nov 2009 11:51:13 -0500
+From: Philippe De Muyter <phdm@macqel.be>
+Date: Sun, 8 Nov 2009 23:33:05 +0100
 
-> This code was based on net/ipv4/tcp_minisocks.c for syncookies.
-> Apparently, default for syncookies has been controversial.
+> I have just installed 2.6.31 (from opensuse 11.2) one a tulip-equipped
+> computer and I get the following error message from the kernel :
 
-I'll have to change that, it doesn't make any sense.  Thanks
-for pointing it out.
+I took some looks at this bug.
 
-> Would you accept always default to TCP_COOKIE_MAX?
+I simply can't figure out how this is possible.  As both suspend
+and resume make sure to make the necessary napi_disable() and
+napi_enable() calls, and therefore they should match up and not
+trigger this BUG().
 
-Sure, let's see what breaks.
+I'll try to study the code some more when I get a chance.
