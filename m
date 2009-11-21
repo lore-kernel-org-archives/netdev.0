@@ -1,70 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v7 3/7 RFC] TCPCT part 1c:
- sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS
-Date: Sat, 21 Nov 2009 11:22:49 -0800 (PST)
-Message-ID: <20091121.112249.67550818.davem@davemloft.net>
-References: <20091120.092408.208010931.davem@davemloft.net>
-	<4B081A81.5000602@gmail.com>
-	<20091121.111844.54272535.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [Resend][PATCH] Wireless / ath5k: Simplify suspend and resume callbacks
+Date: Sat, 21 Nov 2009 23:44:24 +0100
+Message-ID: <200911212344.24170.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: william.allen.simpson@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60794
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753373AbZKUTWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 14:22:32 -0500
-In-Reply-To: <20091121.111844.54272535.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, Bob Copeland <me@bobcopeland.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	netdev@vger.kernel.org, "Luis R. Rodriguez" <mcgrof@gmail.com>
+To: ath5k-devel@lists.ath5k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753969AbZKUWo0@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 21 Nov 2009 11:18:44 -0800 (PST)
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: Wireless / ath5k: Simplify suspend and resume callbacks
 
-> From: William Allen Simpson <william.allen.simpson@gmail.com>
-> Date: Sat, 21 Nov 2009 11:51:13 -0500
-> 
->> This code was based on net/ipv4/tcp_minisocks.c for syncookies.
->> Apparently, default for syncookies has been controversial.
-> 
-> I'll have to change that, it doesn't make any sense.  Thanks
-> for pointing it out.
+Simplify the suspend and resume callbacks of ath5k by converting the
+driver to struct dev_pm_ops and allowing the PCI PM core to do the
+PCI-specific suspend/resume handling.
 
-Ok, here's what I'll push out to net-next-2.6, thanks again.
+Tested with Atheros Communications Inc. AR2413 802.11bg NIC (rev 01)
+D-Link CardBus.adapter.
 
-tcp: Don't make syn cookies initial setting depend on CONFIG_SYSCTL
-
-That's extremely non-intuitive, noticed by William Allen Simpson.
-
-And let's make the default be on, it's been suggested by a lot of
-people so we'll give it a try.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 ---
- net/ipv4/tcp_minisocks.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
+ drivers/net/wireless/ath/ath5k/base.c |   35 ++++++++++------------------------
+ 1 file changed, 11 insertions(+), 24 deletions(-)
 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 4be2228..ab32c18 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -26,13 +26,7 @@
- #include <net/inet_common.h>
- #include <net/xfrm.h>
+Index: linux-2.6/drivers/net/wireless/ath/ath5k/base.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/ath/ath5k/base.c
++++ linux-2.6/drivers/net/wireless/ath/ath5k/base.c
+@@ -195,12 +195,13 @@ static int __devinit	ath5k_pci_probe(str
+ 				const struct pci_device_id *id);
+ static void __devexit	ath5k_pci_remove(struct pci_dev *pdev);
+ #ifdef CONFIG_PM
+-static int		ath5k_pci_suspend(struct pci_dev *pdev,
+-					pm_message_t state);
+-static int		ath5k_pci_resume(struct pci_dev *pdev);
++static int		ath5k_pci_suspend(struct device *dev);
++static int		ath5k_pci_resume(struct device *dev);
++
++SIMPLE_DEV_PM_OPS(ath5k_pm_ops, ath5k_pci_suspend, ath5k_pci_resume);
++#define ATH5K_PM_OPS	(&ath5k_pm_ops)
+ #else
+-#define ath5k_pci_suspend NULL
+-#define ath5k_pci_resume NULL
++#define ATH5K_PM_OPS	NULL
+ #endif /* CONFIG_PM */
  
--#ifdef CONFIG_SYSCTL
--#define SYNC_INIT 0 /* let the user enable it */
--#else
--#define SYNC_INIT 1
--#endif
+ static struct pci_driver ath5k_pci_driver = {
+@@ -208,8 +209,7 @@ static struct pci_driver ath5k_pci_drive
+ 	.id_table	= ath5k_pci_id_table,
+ 	.probe		= ath5k_pci_probe,
+ 	.remove		= __devexit_p(ath5k_pci_remove),
+-	.suspend	= ath5k_pci_suspend,
+-	.resume		= ath5k_pci_resume,
++	.driver.pm	= ATH5K_PM_OPS,
+ };
+ 
+ 
+@@ -669,33 +669,20 @@ ath5k_pci_remove(struct pci_dev *pdev)
+ }
+ 
+ #ifdef CONFIG_PM
+-static int
+-ath5k_pci_suspend(struct pci_dev *pdev, pm_message_t state)
++static int ath5k_pci_suspend(struct device *dev)
+ {
+-	struct ieee80211_hw *hw = pci_get_drvdata(pdev);
++	struct ieee80211_hw *hw = pci_get_drvdata(to_pci_dev(dev));
+ 	struct ath5k_softc *sc = hw->priv;
+ 
+ 	ath5k_led_off(sc);
 -
--int sysctl_tcp_syncookies __read_mostly = SYNC_INIT;
-+int sysctl_tcp_syncookies __read_mostly = 1;
- EXPORT_SYMBOL(sysctl_tcp_syncookies);
+-	pci_save_state(pdev);
+-	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, PCI_D3hot);
+-
+ 	return 0;
+ }
  
- int sysctl_tcp_abort_on_overflow __read_mostly;
--- 
-1.6.5.3
-
+-static int
+-ath5k_pci_resume(struct pci_dev *pdev)
++static int ath5k_pci_resume(struct device *dev)
+ {
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct ieee80211_hw *hw = pci_get_drvdata(pdev);
+ 	struct ath5k_softc *sc = hw->priv;
+-	int err;
+-
+-	pci_restore_state(pdev);
+-
+-	err = pci_enable_device(pdev);
+-	if (err)
+-		return err;
+ 
+ 	/*
+ 	 * Suspend/Resume resets the PCI configuration space, so we have to
