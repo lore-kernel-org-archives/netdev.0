@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 17/23] e1000e: cleanup - shift indentation left
-	by exiting early in e1000_tso
-Date: Sat, 21 Nov 2009 01:27:03 -0800
-Message-ID: <20091121092702.5715.79005.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 18/23] e1000e: cleanup functions that clear
+	hardware statistics
+Date: Sat, 21 Nov 2009 01:27:21 -0800
+Message-ID: <20091121092720.5715.50914.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,144 +12,321 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:51809 "EHLO
-	QMTA01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751354AbZKUJ1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:27:13 -0500
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:47894 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751684AbZKUJ1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:27:32 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+The e1000_clear_hw_cntrs_*() functions read the registers to clear them.
+There is no reason to save the register contents so the temp variable can
+be removed.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |  104 +++++++++++++++++++++----------------------
- 1 files changed, 50 insertions(+), 54 deletions(-)
+ drivers/net/e1000e/82571.c   |   70 +++++++++++++++++++--------------------
+ drivers/net/e1000e/es2lan.c  |   70 +++++++++++++++++++--------------------
+ drivers/net/e1000e/ich8lan.c |   23 ++++++-------
+ drivers/net/e1000e/lib.c     |   76 ++++++++++++++++++++----------------------
+ 4 files changed, 116 insertions(+), 123 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index a571676..25b0ef8 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3725,68 +3725,64 @@ static int e1000_tso(struct e1000_adapter *adapter,
- 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
- 	int err;
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 468dd7d..c5dc1b3 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1613,44 +1613,42 @@ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw)
+  **/
+ static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw)
+ {
+-	u32 temp;
+-
+ 	e1000e_clear_hw_cntrs_base(hw);
  
--	if (skb_is_gso(skb)) {
--		if (skb_header_cloned(skb)) {
--			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
--			if (err)
--				return err;
--		}
-+	if (!skb_is_gso(skb))
-+		return 0;
- 
--		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
--		mss = skb_shinfo(skb)->gso_size;
--		if (skb->protocol == htons(ETH_P_IP)) {
--			struct iphdr *iph = ip_hdr(skb);
--			iph->tot_len = 0;
--			iph->check = 0;
--			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--								 iph->daddr, 0,
--								 IPPROTO_TCP,
--								 0);
--			cmd_length = E1000_TXD_CMD_IP;
--			ipcse = skb_transport_offset(skb) - 1;
--		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
--			ipv6_hdr(skb)->payload_len = 0;
--			tcp_hdr(skb)->check =
--				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
--						 &ipv6_hdr(skb)->daddr,
--						 0, IPPROTO_TCP, 0);
--			ipcse = 0;
--		}
--		ipcss = skb_network_offset(skb);
--		ipcso = (void *)&(ip_hdr(skb)->check) - (void *)skb->data;
--		tucss = skb_transport_offset(skb);
--		tucso = (void *)&(tcp_hdr(skb)->check) - (void *)skb->data;
--		tucse = 0;
-+	if (skb_header_cloned(skb)) {
-+		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		if (err)
-+			return err;
-+	}
- 
--		cmd_length |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE |
--			       E1000_TXD_CMD_TCP | (skb->len - (hdr_len)));
-+	hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *iph = ip_hdr(skb);
-+		iph->tot_len = 0;
-+		iph->check = 0;
-+		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-+		                                         0, IPPROTO_TCP, 0);
-+		cmd_length = E1000_TXD_CMD_IP;
-+		ipcse = skb_transport_offset(skb) - 1;
-+	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
-+		ipv6_hdr(skb)->payload_len = 0;
-+		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+		                                       &ipv6_hdr(skb)->daddr,
-+		                                       0, IPPROTO_TCP, 0);
-+		ipcse = 0;
-+	}
-+	ipcss = skb_network_offset(skb);
-+	ipcso = (void *)&(ip_hdr(skb)->check) - (void *)skb->data;
-+	tucss = skb_transport_offset(skb);
-+	tucso = (void *)&(tcp_hdr(skb)->check) - (void *)skb->data;
-+	tucse = 0;
- 
--		i = tx_ring->next_to_use;
--		context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
--		buffer_info = &tx_ring->buffer_info[i];
-+	cmd_length |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE |
-+	               E1000_TXD_CMD_TCP | (skb->len - (hdr_len)));
- 
--		context_desc->lower_setup.ip_fields.ipcss  = ipcss;
--		context_desc->lower_setup.ip_fields.ipcso  = ipcso;
--		context_desc->lower_setup.ip_fields.ipcse  = cpu_to_le16(ipcse);
--		context_desc->upper_setup.tcp_fields.tucss = tucss;
--		context_desc->upper_setup.tcp_fields.tucso = tucso;
--		context_desc->upper_setup.tcp_fields.tucse = cpu_to_le16(tucse);
--		context_desc->tcp_seg_setup.fields.mss     = cpu_to_le16(mss);
--		context_desc->tcp_seg_setup.fields.hdr_len = hdr_len;
--		context_desc->cmd_and_length = cpu_to_le32(cmd_length);
-+	i = tx_ring->next_to_use;
-+	context_desc = E1000_CONTEXT_DESC(*tx_ring, i);
-+	buffer_info = &tx_ring->buffer_info[i];
- 
--		buffer_info->time_stamp = jiffies;
--		buffer_info->next_to_watch = i;
-+	context_desc->lower_setup.ip_fields.ipcss  = ipcss;
-+	context_desc->lower_setup.ip_fields.ipcso  = ipcso;
-+	context_desc->lower_setup.ip_fields.ipcse  = cpu_to_le16(ipcse);
-+	context_desc->upper_setup.tcp_fields.tucss = tucss;
-+	context_desc->upper_setup.tcp_fields.tucso = tucso;
-+	context_desc->upper_setup.tcp_fields.tucse = cpu_to_le16(tucse);
-+	context_desc->tcp_seg_setup.fields.mss     = cpu_to_le16(mss);
-+	context_desc->tcp_seg_setup.fields.hdr_len = hdr_len;
-+	context_desc->cmd_and_length = cpu_to_le32(cmd_length);
- 
--		i++;
--		if (i == tx_ring->count)
--			i = 0;
--		tx_ring->next_to_use = i;
-+	buffer_info->time_stamp = jiffies;
-+	buffer_info->next_to_watch = i;
- 
--		return 1;
--	}
-+	i++;
-+	if (i == tx_ring->count)
-+		i = 0;
-+	tx_ring->next_to_use = i;
- 
--	return 0;
-+	return 1;
+-	temp = er32(PRC64);
+-	temp = er32(PRC127);
+-	temp = er32(PRC255);
+-	temp = er32(PRC511);
+-	temp = er32(PRC1023);
+-	temp = er32(PRC1522);
+-	temp = er32(PTC64);
+-	temp = er32(PTC127);
+-	temp = er32(PTC255);
+-	temp = er32(PTC511);
+-	temp = er32(PTC1023);
+-	temp = er32(PTC1522);
+-
+-	temp = er32(ALGNERRC);
+-	temp = er32(RXERRC);
+-	temp = er32(TNCRS);
+-	temp = er32(CEXTERR);
+-	temp = er32(TSCTC);
+-	temp = er32(TSCTFC);
+-
+-	temp = er32(MGTPRC);
+-	temp = er32(MGTPDC);
+-	temp = er32(MGTPTC);
+-
+-	temp = er32(IAC);
+-	temp = er32(ICRXOC);
+-
+-	temp = er32(ICRXPTC);
+-	temp = er32(ICRXATC);
+-	temp = er32(ICTXPTC);
+-	temp = er32(ICTXATC);
+-	temp = er32(ICTXQEC);
+-	temp = er32(ICTXQMTC);
+-	temp = er32(ICRXDMTC);
++	er32(PRC64);
++	er32(PRC127);
++	er32(PRC255);
++	er32(PRC511);
++	er32(PRC1023);
++	er32(PRC1522);
++	er32(PTC64);
++	er32(PTC127);
++	er32(PTC255);
++	er32(PTC511);
++	er32(PTC1023);
++	er32(PTC1522);
++
++	er32(ALGNERRC);
++	er32(RXERRC);
++	er32(TNCRS);
++	er32(CEXTERR);
++	er32(TSCTC);
++	er32(TSCTFC);
++
++	er32(MGTPRC);
++	er32(MGTPDC);
++	er32(MGTPTC);
++
++	er32(IAC);
++	er32(ICRXOC);
++
++	er32(ICRXPTC);
++	er32(ICRXATC);
++	er32(ICTXPTC);
++	er32(ICTXATC);
++	er32(ICTXQEC);
++	er32(ICTXQMTC);
++	er32(ICRXDMTC);
  }
  
- static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
+ static struct e1000_mac_operations e82571_mac_ops = {
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 795d433..8a08956 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -1304,44 +1304,42 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
+  **/
+ static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw)
+ {
+-	u32 temp;
+-
+ 	e1000e_clear_hw_cntrs_base(hw);
+ 
+-	temp = er32(PRC64);
+-	temp = er32(PRC127);
+-	temp = er32(PRC255);
+-	temp = er32(PRC511);
+-	temp = er32(PRC1023);
+-	temp = er32(PRC1522);
+-	temp = er32(PTC64);
+-	temp = er32(PTC127);
+-	temp = er32(PTC255);
+-	temp = er32(PTC511);
+-	temp = er32(PTC1023);
+-	temp = er32(PTC1522);
+-
+-	temp = er32(ALGNERRC);
+-	temp = er32(RXERRC);
+-	temp = er32(TNCRS);
+-	temp = er32(CEXTERR);
+-	temp = er32(TSCTC);
+-	temp = er32(TSCTFC);
+-
+-	temp = er32(MGTPRC);
+-	temp = er32(MGTPDC);
+-	temp = er32(MGTPTC);
+-
+-	temp = er32(IAC);
+-	temp = er32(ICRXOC);
+-
+-	temp = er32(ICRXPTC);
+-	temp = er32(ICRXATC);
+-	temp = er32(ICTXPTC);
+-	temp = er32(ICTXATC);
+-	temp = er32(ICTXQEC);
+-	temp = er32(ICTXQMTC);
+-	temp = er32(ICRXDMTC);
++	er32(PRC64);
++	er32(PRC127);
++	er32(PRC255);
++	er32(PRC511);
++	er32(PRC1023);
++	er32(PRC1522);
++	er32(PTC64);
++	er32(PTC127);
++	er32(PTC255);
++	er32(PTC511);
++	er32(PTC1023);
++	er32(PTC1522);
++
++	er32(ALGNERRC);
++	er32(RXERRC);
++	er32(TNCRS);
++	er32(CEXTERR);
++	er32(TSCTC);
++	er32(TSCTFC);
++
++	er32(MGTPRC);
++	er32(MGTPDC);
++	er32(MGTPTC);
++
++	er32(IAC);
++	er32(ICRXOC);
++
++	er32(ICRXPTC);
++	er32(ICRXATC);
++	er32(ICTXPTC);
++	er32(ICTXATC);
++	er32(ICTXQEC);
++	er32(ICTXQMTC);
++	er32(ICRXDMTC);
+ }
+ 
+ static struct e1000_mac_operations es2_mac_ops = {
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index f8ee0f2..2c1d08e 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -3402,24 +3402,23 @@ static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
+  **/
+ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
+ {
+-	u32 temp;
+ 	u16 phy_data;
+ 
+ 	e1000e_clear_hw_cntrs_base(hw);
+ 
+-	temp = er32(ALGNERRC);
+-	temp = er32(RXERRC);
+-	temp = er32(TNCRS);
+-	temp = er32(CEXTERR);
+-	temp = er32(TSCTC);
+-	temp = er32(TSCTFC);
++	er32(ALGNERRC);
++	er32(RXERRC);
++	er32(TNCRS);
++	er32(CEXTERR);
++	er32(TSCTC);
++	er32(TSCTFC);
+ 
+-	temp = er32(MGTPRC);
+-	temp = er32(MGTPDC);
+-	temp = er32(MGTPTC);
++	er32(MGTPRC);
++	er32(MGTPDC);
++	er32(MGTPTC);
+ 
+-	temp = er32(IAC);
+-	temp = er32(ICRXOC);
++	er32(IAC);
++	er32(ICRXOC);
+ 
+ 	/* Clear PHY statistics registers */
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index d173bf8..f690a10 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -295,45 +295,43 @@ void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
+  **/
+ void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw)
+ {
+-	u32 temp;
+-
+-	temp = er32(CRCERRS);
+-	temp = er32(SYMERRS);
+-	temp = er32(MPC);
+-	temp = er32(SCC);
+-	temp = er32(ECOL);
+-	temp = er32(MCC);
+-	temp = er32(LATECOL);
+-	temp = er32(COLC);
+-	temp = er32(DC);
+-	temp = er32(SEC);
+-	temp = er32(RLEC);
+-	temp = er32(XONRXC);
+-	temp = er32(XONTXC);
+-	temp = er32(XOFFRXC);
+-	temp = er32(XOFFTXC);
+-	temp = er32(FCRUC);
+-	temp = er32(GPRC);
+-	temp = er32(BPRC);
+-	temp = er32(MPRC);
+-	temp = er32(GPTC);
+-	temp = er32(GORCL);
+-	temp = er32(GORCH);
+-	temp = er32(GOTCL);
+-	temp = er32(GOTCH);
+-	temp = er32(RNBC);
+-	temp = er32(RUC);
+-	temp = er32(RFC);
+-	temp = er32(ROC);
+-	temp = er32(RJC);
+-	temp = er32(TORL);
+-	temp = er32(TORH);
+-	temp = er32(TOTL);
+-	temp = er32(TOTH);
+-	temp = er32(TPR);
+-	temp = er32(TPT);
+-	temp = er32(MPTC);
+-	temp = er32(BPTC);
++	er32(CRCERRS);
++	er32(SYMERRS);
++	er32(MPC);
++	er32(SCC);
++	er32(ECOL);
++	er32(MCC);
++	er32(LATECOL);
++	er32(COLC);
++	er32(DC);
++	er32(SEC);
++	er32(RLEC);
++	er32(XONRXC);
++	er32(XONTXC);
++	er32(XOFFRXC);
++	er32(XOFFTXC);
++	er32(FCRUC);
++	er32(GPRC);
++	er32(BPRC);
++	er32(MPRC);
++	er32(GPTC);
++	er32(GORCL);
++	er32(GORCH);
++	er32(GOTCL);
++	er32(GOTCH);
++	er32(RNBC);
++	er32(RUC);
++	er32(RFC);
++	er32(ROC);
++	er32(RJC);
++	er32(TORL);
++	er32(TORH);
++	er32(TOTL);
++	er32(TOTH);
++	er32(TPR);
++	er32(TPT);
++	er32(MPTC);
++	er32(BPTC);
+ }
+ 
+ /**
 
