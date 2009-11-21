@@ -1,49 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 1/1] rps: core implementation
-Date: Sat, 21 Nov 2009 10:31:31 +0100
-Message-ID: <4B07B373.1090801@gmail.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <4B079FDF.9040809@gmail.com> <65634d660911210103k2a55e324o8c07ca87eae16faa@mail.gmail.com>
+From: Felix Radensky <felix@embedded-sol.com>
+Subject: Re: tg3: link is permanently down after ifdown and ifup
+Date: Sat, 21 Nov 2009 13:03:39 +0200
+Message-ID: <4B07C90B.5060708@embedded-sol.com>
+References: <4B056158.5060104@embedded-sol.com>	<4B056D85.5010904@embedded-sol.com>
+	<1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34035 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807AbZKUJbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:31:35 -0500
-In-Reply-To: <65634d660911210103k2a55e324o8c07ca87eae16faa@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, mcarlson@broadcom.com,
+	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
->>        percpu_add(netdev_rx_stat.total, 1);
->>        spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
+Hi,
+
+Michael Chan wrote:
+> On Thu, 2009-11-19 at 08:08 -0800, Felix Radensky wrote:
+>   
+>> Hi,
 >>
-> Would it make sense to percpu_add into dev.c just for this when other
-> parts in dev.c would still use __get_cpu_var(stat)++?  Also, I think
-> this results in more instructions...
+>> The problem goes away if I remove the call to
+>>
+>> tg3_set_power_state(tp, PCI_D3hot);
+>>
+>> from tg3_close().
+>>     
+>
+> Added Matt to CC.  He is on vacation and may not be able to look into
+> this right away.  Thanks.
+>
+>   
+Thanks, Michael. After digging some more into it, I've found that the
+problem is in tg3_power_down_phy() routine. Apparently 57780 PHY
+is not handled properly. If tg3_power_down_phy() is not invoked from
+tg3_set_power_state(), the problem is not reproducible anymore. I don't
+have enough information about  NIC internals to dig further.
 
-Dont worry, this is out of RPS scope anyway, but percpu_add() is
-better on x86 at least.
-
-	__get_cpu_var(netdev_rx_stat).total++;
-->
-	mov    $0xc17aa6b8,%eax  // per_cpu__netdev_rx_stat
-	mov    %fs:0xc17a77c0,%edx // per_cpu__this_cpu_off
-	incl   (%edx,%eax,1)
-
-While
-
-	percpu_add(netdev_rx_stat.total, 1);
-->
-	addl   $0x1,%fs:0xc17aa6b8 // per_cpu__netdev_rx_stat
-
-
-Later can be done in any context, and use no register, so :
-
-1) we reduce window with disabled interrupts.
-2) allow compiler to not scratch two registers.
-
+Felix.
