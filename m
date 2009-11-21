@@ -1,118 +1,56 @@
-From: Amit Kumar Salecha <amit@netxen.com>
-Subject: [net-2.6 PATCH 3/3] netxen : fix BOND_MODE_TLB/ALB mode.
-Date: Sat, 21 Nov 2009 00:08:57 -0800
-Message-ID: <1258790937-19100-1-git-send-email-amit@netxen.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: davem@davemloft.net
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [RFC-PATCH] libiscsi dhcp handler
+Date: Sat, 21 Nov 2009 10:13:01 +0200
+Message-ID: <20091121081301.GA17766@bicker>
+References: <4B014F95.8000906@chelsio.com> <20091116.051835.125328285.davem@davemloft.net> <4B01577E.2020003@chelsio.com> <b263e5900911200529n1c002097q48a625d1bcda4db6@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rakesh Ranjan <rakesh@chelsio.com>,
+	David Miller <davem@davemloft.net>, michaelc@cs.wisc.edu,
+	open-iscsi@googlegroups.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, James.Bottomley@suse.de,
+	kxie@chelsio.com
+To: Dan Carpenter <error27.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:3777 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751311AbZKUIIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Nov 2009 03:08:51 -0500
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:54966 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478AbZKUINO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 03:13:14 -0500
+Content-Disposition: inline
+In-Reply-To: <b263e5900911200529n1c002097q48a625d1bcda4db6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Narender Kumar <narender.kumar@qlogic.com>
+On Fri, Nov 20, 2009 at 03:29:24PM +0200, Dan Carpenter wrote:
+> On 11/16/09, Rakesh Ranjan <rakesh@chelsio.com> wrote:
+> > David Miller wrote:
+> >> From: Rakesh Ranjan <rakesh@chelsio.com>
+> >> Date: Mon, 16 Nov 2009 18:41:49 +0530
+> >>
+> >>> Herein attached patches to support dhcp based provisioning for iSCSI
+> >>> offload capable cards. I have made dhcp code as generic as possible,
+> >>> please go through the code. Based on the feedback I will submit final
+> >>> version of these patches.
+> >>
+> >> You can't really add objects to the build before the patch that
+> >> adds the source for that object.
+> >>
+> >
+> > Hi david,
+> >
+> > Fixed patch attached.
 
-o Along with netdev->perm_addr, mac address will be
-  maintained in device private structure.
++       spin_unlock(&rcv_lock);                                                                                              
++                                                                                                                            
++drop:                                                                                                                       
++       kfree(pskb);                                                                                                         
 
-o Device limitation: We need to set mac address when ever
-  interface comes up.
+This should be kfree_skb(pskb)
 
-In ALB/TAL mode, bonding driver calls set_mac for all slave with bond mac address.
-But bonding driver set netdev->dev_addr field to its original value,
-after enslaving interfaces.
++out:                                                                                                                        
++       return rc;                                                                                                           
++}                                                                                                                           
++EXPORT_SYMBOL(libiscsi_ipconfig_recv);                                                                                      
 
-When ever active slave changes, it swap dev_addr of inactive slave with active.
-Yet it doesn't notify driver about change in netdev->dev_addr.
-
-As netxen driver need to set mac addr when ever interface comes up,
-it can't rely on netdev->dev_addr field. Specially in case of bonding mode ALB/TLB.
-
-Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h      |    2 ++
- drivers/net/netxen/netxen_nic_hw.c   |    6 +++---
- drivers/net/netxen/netxen_nic_main.c |    4 +++-
- 3 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 7384f59..e1237b8 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1163,6 +1163,8 @@ struct netxen_adapter {
- 	u32 int_vec_bit;
- 	u32 heartbit;
- 
-+	u8 mac_addr[ETH_ALEN];
-+
- 	struct netxen_adapter_stats stats;
- 
- 	struct netxen_recv_context recv_ctx;
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index e2c4a01..52a3798 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -463,7 +463,7 @@ netxen_nic_enable_mcast_filter(struct netxen_adapter *adapter)
- {
- 	u32	val = 0;
- 	u16 port = adapter->physical_port;
--	u8 *addr = adapter->netdev->dev_addr;
-+	u8 *addr = adapter->mac_addr;
- 
- 	if (adapter->mc_enabled)
- 		return 0;
-@@ -492,7 +492,7 @@ netxen_nic_disable_mcast_filter(struct netxen_adapter *adapter)
- {
- 	u32	val = 0;
- 	u16 port = adapter->physical_port;
--	u8 *addr = adapter->netdev->dev_addr;
-+	u8 *addr = adapter->mac_addr;
- 
- 	if (!adapter->mc_enabled)
- 		return 0;
-@@ -687,7 +687,7 @@ void netxen_p3_nic_set_multi(struct net_device *netdev)
- 
- 	list_splice_tail_init(&adapter->mac_list, &del_list);
- 
--	nx_p3_nic_add_mac(adapter, netdev->dev_addr, &del_list);
-+	nx_p3_nic_add_mac(adapter, adapter->mac_addr, &del_list);
- 	nx_p3_nic_add_mac(adapter, bcast_addr, &del_list);
- 
- 	if (netdev->flags & IFF_PROMISC) {
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 0b4a56a..3bf78db 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -437,6 +437,7 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
- 		netdev->dev_addr[i] = *(p + 5 - i);
- 
- 	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
-+	memcpy(adapter->mac_addr, netdev->dev_addr, netdev->addr_len);
- 
- 	/* set station address */
- 
-@@ -459,6 +460,7 @@ int netxen_nic_set_mac(struct net_device *netdev, void *p)
- 		netxen_napi_disable(adapter);
- 	}
- 
-+	memcpy(adapter->mac_addr, addr->sa_data, netdev->addr_len);
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 	adapter->macaddr_set(adapter, addr->sa_data);
- 
-@@ -956,7 +958,7 @@ netxen_nic_up(struct netxen_adapter *adapter, struct net_device *netdev)
- 		return err;
- 	}
- 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
--		adapter->macaddr_set(adapter, netdev->dev_addr);
-+		adapter->macaddr_set(adapter, adapter->mac_addr);
- 
- 	adapter->set_multi(netdev);
- 	adapter->set_mtu(adapter, netdev->mtu);
--- 
-1.5.6.1
-
+regards,
+dan carpenter
