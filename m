@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 06/23] e1000e: link reporting problems
-Date: Sat, 21 Nov 2009 01:23:34 -0800
-Message-ID: <20091121092333.5715.81064.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 07/23] e1000e: improper return code signage
+Date: Sat, 21 Nov 2009 01:23:53 -0800
+Message-ID: <20091121092352.5715.40083.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,52 +11,37 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:37074 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752349AbZKUJXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:23:44 -0500
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:50375
+	"EHLO QMTA14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752508AbZKUJYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:24:04 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Copper links with WoL or management enabled (any condition which prevents
-the phy from being powered down when the interface is taken down) were
-always reporting link-up when the interface had been taken down. This
-is because when the interface is taken down (ifconfig ethx down),
-interrupts are disabled. With no interrupts, there is no LSC interrupt,
-which is normally required to set "get_link_status", which instructs the
-driver to query the device for link state. The fix is to force
-get_link_status to true if the interface is not up.
+The e1000_get_cable_length_82577() should return a negative value upon
+error.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ethtool.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/phy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 3d73f20..67e06fd 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -190,6 +190,17 @@ static int e1000_get_settings(struct net_device *netdev,
- static u32 e1000_get_link(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_mac_info *mac = &adapter->hw.mac;
-+
-+	/*
-+	 * If the link is not reported up to netdev, interrupts are disabled,
-+	 * and so the physical link state may have changed since we last
-+	 * looked. Set get_link_status to make sure that the true link
-+	 * state is interrogated, rather than pulling a cached and possibly
-+	 * stale link state from the driver.
-+	 */
-+	if (!netif_carrier_ok(netdev))
-+		mac->get_link_status = 1;
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 03175b3..95a8196 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -3137,7 +3137,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw)
+ 	         I82577_DSTATUS_CABLE_LENGTH_SHIFT;
  
- 	return e1000_has_link(adapter);
- }
+ 	if (length == E1000_CABLE_LENGTH_UNDEFINED)
+-		ret_val = E1000_ERR_PHY;
++		ret_val = -E1000_ERR_PHY;
+ 
+ 	phy->cable_length = length;
+ 
 
