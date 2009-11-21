@@ -1,23 +1,73 @@
-From: Amit Kumar Salecha <amit@netxen.com>
-Subject: [net-2.6 PATCH 0/3] critical fixes
-Date: Fri, 20 Nov 2009 17:09:31 -0800
-Message-ID: <1258765774-27068-1-git-send-email-amit@netxen.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:27773 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752851AbZKUBJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Nov 2009 20:09:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: A generic kernel compatibilty code
+Date: Fri, 20 Nov 2009 18:12:27 -0800
+Message-ID: <43e72e890911201812r6551422bk276bbcaf3179d5cc@mail.gmail.com>
+References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
+	<43e72e890911201251t6210ee19n177eaf003a4fffc@mail.gmail.com>
+	<43e72e890911201253obc466c8k2102e04457c48c92@mail.gmail.com>
+	<20091120211837.GA22815@tuxdriver.com> <43e72e890911201338w4c403d51q651afc3638d1739c@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <43e72e890911201338w4c403d51q651afc3638d1739c-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Nov 20, 2009 at 1:38 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
+rote:
+> On Fri, Nov 20, 2009 at 1:18 PM, John W. Linville
+> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+>> On Fri, Nov 20, 2009 at 12:53:51PM -0800, Luis R. Rodriguez wrote:
+>>> On Fri, Nov 20, 2009 at 12:51 PM, Luis R. Rodriguez <mcgrof@gmail.c=
+om> wrote:
+>>> > On Fri, Nov 20, 2009 at 12:45 PM, Luis R. Rodriguez <mcgrof@gmail=
+=2Ecom> wrote:
+>>> >> Everyone and their mother reinvents the wheel when it comes to
+>>> >> backporting kernel modules. It a painful job and it seems to me =
+an
+>>> >> alternative is possible. If we can write generic compatibilty co=
+de for
+>>> >> a new routine introduced on the next kernel how about just mergi=
+ng it
+>>> >> to the kernel under some generic compat module. This would be
+>>> >> completey ignored by everyone using the stable kernel but can be
+>>> >> copied by anyone doing backport work.
+>>> >>
+>>> >> So I'm thinking something as simple as a generic compat/comat.ko=
+ with
+>>> >> compat-2.6.32.[ch] files.
+>>> >
+>>> > FWIW, I meant a compat-2.6.32.[ch] and compat-2.6.31.[ch] and so =
+on.
+>>> > All these would link to the compat.ko
+>>>
+>>> I supose this could juse be a separate tree with some generic
+>>> compat.ko module. That might work better.
+>>
+>> This is what I would suggest for pursuing this idea. =C2=A0Perhaps y=
+ou
+>> could split-off from compat-wireless, then make that tree depend on
+>> the new tree (compat-core?)...
+>
+> OK thanks, will try that for the next kernel.
 
-Hi
-   I am sending three patches, to fix some critical issues.
+I've packaged a compat.ko here:
 
-   1) Skip memory initialization during driver load. Device may not come up, if memory is reset.
-   2) Fix promisc mode, kernel crashes with this bug. Drain rx queue before changing mode. 
-   3) Fix bonding mode TLB/ALB, correct mac address need to communicate to device.
+git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/compat.git
 
--Amit Salecha
+This should be up as soon as the kernel.org synchs. The missing piece
+would just be to define a common place to put the headers for
+distributions who want to use external modules which want to use this
+thing.
+
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
