@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 18/23] e1000e: cleanup functions that clear
-	hardware statistics
-Date: Sat, 21 Nov 2009 01:27:21 -0800
-Message-ID: <20091121092720.5715.50914.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 19/23] e1000e: set pm_qos DMA latency requirement
+	per interface when needed
+Date: Sat, 21 Nov 2009 01:27:40 -0800
+Message-ID: <20091121092739.5715.56854.stgit@localhost.localdomain>
 References: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,321 +12,114 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:47894 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751684AbZKUJ1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:27:32 -0500
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:46261
+	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751990AbZKUJ1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:27:51 -0500
 In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The e1000_clear_hw_cntrs_*() functions read the registers to clear them.
-There is no reason to save the register contents so the temp variable can
-be removed.
+It was pointed out a pm_qos DMA latency requirement set when the driver is
+loaded when parts that support early receive of jumbo frames are probed
+could have that requirement overidden if another part supported by the
+driver (one that does not support early receive of jumbo frames) is probed
+later.  Change the DMA latency requirement to be per-interface if needed
+instead of per driver.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   70 +++++++++++++++++++--------------------
- drivers/net/e1000e/es2lan.c  |   70 +++++++++++++++++++--------------------
- drivers/net/e1000e/ich8lan.c |   23 ++++++-------
- drivers/net/e1000e/lib.c     |   76 ++++++++++++++++++++----------------------
- 4 files changed, 116 insertions(+), 123 deletions(-)
+ drivers/net/e1000e/netdev.c |   47 ++++++++++++++++++++++++++-----------------
+ 1 files changed, 28 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 468dd7d..c5dc1b3 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1613,44 +1613,42 @@ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw)
-  **/
- static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw)
- {
--	u32 temp;
--
- 	e1000e_clear_hw_cntrs_base(hw);
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 25b0ef8..39f01d9 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2472,21 +2472,23 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	 * packet size is equal or larger than the specified value (in 8 byte
+ 	 * units), e.g. using jumbo frames when setting to E1000_ERT_2048
+ 	 */
+-	if ((adapter->flags & FLAG_HAS_ERT) &&
+-	    (adapter->netdev->mtu > ETH_DATA_LEN)) {
+-		u32 rxdctl = er32(RXDCTL(0));
+-		ew32(RXDCTL(0), rxdctl | 0x3);
+-		ew32(ERT, E1000_ERT_2048 | (1 << 13));
+-		/*
+-		 * With jumbo frames and early-receive enabled, excessive
+-		 * C4->C2 latencies result in dropped transactions.
+-		 */
+-		pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
+-					  e1000e_driver_name, 55);
+-	} else {
+-		pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
+-					  e1000e_driver_name,
+-					  PM_QOS_DEFAULT_VALUE);
++	if (adapter->flags & FLAG_HAS_ERT) {
++		if (adapter->netdev->mtu > ETH_DATA_LEN) {
++			u32 rxdctl = er32(RXDCTL(0));
++			ew32(RXDCTL(0), rxdctl | 0x3);
++			ew32(ERT, E1000_ERT_2048 | (1 << 13));
++			/*
++			 * With jumbo frames and early-receive enabled,
++			 * excessive C-state transition latencies result in
++			 * dropped transactions.
++			 */
++			pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
++						  adapter->netdev->name, 55);
++		} else {
++			pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
++						  adapter->netdev->name,
++						  PM_QOS_DEFAULT_VALUE);
++		}
+ 	}
  
--	temp = er32(PRC64);
--	temp = er32(PRC127);
--	temp = er32(PRC255);
--	temp = er32(PRC511);
--	temp = er32(PRC1023);
--	temp = er32(PRC1522);
--	temp = er32(PTC64);
--	temp = er32(PTC127);
--	temp = er32(PTC255);
--	temp = er32(PTC511);
--	temp = er32(PTC1023);
--	temp = er32(PTC1522);
--
--	temp = er32(ALGNERRC);
--	temp = er32(RXERRC);
--	temp = er32(TNCRS);
--	temp = er32(CEXTERR);
--	temp = er32(TSCTC);
--	temp = er32(TSCTFC);
--
--	temp = er32(MGTPRC);
--	temp = er32(MGTPDC);
--	temp = er32(MGTPTC);
--
--	temp = er32(IAC);
--	temp = er32(ICRXOC);
--
--	temp = er32(ICRXPTC);
--	temp = er32(ICRXATC);
--	temp = er32(ICTXPTC);
--	temp = er32(ICTXATC);
--	temp = er32(ICTXQEC);
--	temp = er32(ICTXQMTC);
--	temp = er32(ICRXDMTC);
-+	er32(PRC64);
-+	er32(PRC127);
-+	er32(PRC255);
-+	er32(PRC511);
-+	er32(PRC1023);
-+	er32(PRC1522);
-+	er32(PTC64);
-+	er32(PTC127);
-+	er32(PTC255);
-+	er32(PTC511);
-+	er32(PTC1023);
-+	er32(PTC1522);
+ 	/* Enable Receives */
+@@ -2804,6 +2806,12 @@ int e1000e_up(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
++	/* DMA latency requirement to workaround early-receive/jumbo issue */
++	if (adapter->flags & FLAG_HAS_ERT)
++		pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY,
++		                       adapter->netdev->name,
++				       PM_QOS_DEFAULT_VALUE);
 +
-+	er32(ALGNERRC);
-+	er32(RXERRC);
-+	er32(TNCRS);
-+	er32(CEXTERR);
-+	er32(TSCTC);
-+	er32(TSCTFC);
+ 	/* hardware has been reset, we need to reload some things */
+ 	e1000_configure(adapter);
+ 
+@@ -2864,6 +2872,10 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	e1000_clean_tx_ring(adapter);
+ 	e1000_clean_rx_ring(adapter);
+ 
++	if (adapter->flags & FLAG_HAS_ERT)
++		pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY,
++		                          adapter->netdev->name);
 +
-+	er32(MGTPRC);
-+	er32(MGTPDC);
-+	er32(MGTPTC);
+ 	/*
+ 	 * TODO: for power management, we could drop the link and
+ 	 * pci_disable_device here.
+@@ -5363,9 +5375,7 @@ static int __init e1000_init_module(void)
+ 	printk(KERN_INFO "%s: Copyright (c) 1999 - 2009 Intel Corporation.\n",
+ 	       e1000e_driver_name);
+ 	ret = pci_register_driver(&e1000_driver);
+-	pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY, e1000e_driver_name,
+-			       PM_QOS_DEFAULT_VALUE);
+-				
 +
-+	er32(IAC);
-+	er32(ICRXOC);
-+
-+	er32(ICRXPTC);
-+	er32(ICRXATC);
-+	er32(ICTXPTC);
-+	er32(ICTXATC);
-+	er32(ICTXQEC);
-+	er32(ICTXQMTC);
-+	er32(ICRXDMTC);
+ 	return ret;
  }
- 
- static struct e1000_mac_operations e82571_mac_ops = {
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 795d433..8a08956 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -1304,44 +1304,42 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
-  **/
- static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw)
+ module_init(e1000_init_module);
+@@ -5379,7 +5389,6 @@ module_init(e1000_init_module);
+ static void __exit e1000_exit_module(void)
  {
--	u32 temp;
--
- 	e1000e_clear_hw_cntrs_base(hw);
- 
--	temp = er32(PRC64);
--	temp = er32(PRC127);
--	temp = er32(PRC255);
--	temp = er32(PRC511);
--	temp = er32(PRC1023);
--	temp = er32(PRC1522);
--	temp = er32(PTC64);
--	temp = er32(PTC127);
--	temp = er32(PTC255);
--	temp = er32(PTC511);
--	temp = er32(PTC1023);
--	temp = er32(PTC1522);
--
--	temp = er32(ALGNERRC);
--	temp = er32(RXERRC);
--	temp = er32(TNCRS);
--	temp = er32(CEXTERR);
--	temp = er32(TSCTC);
--	temp = er32(TSCTFC);
--
--	temp = er32(MGTPRC);
--	temp = er32(MGTPDC);
--	temp = er32(MGTPTC);
--
--	temp = er32(IAC);
--	temp = er32(ICRXOC);
--
--	temp = er32(ICRXPTC);
--	temp = er32(ICRXATC);
--	temp = er32(ICTXPTC);
--	temp = er32(ICTXATC);
--	temp = er32(ICTXQEC);
--	temp = er32(ICTXQMTC);
--	temp = er32(ICRXDMTC);
-+	er32(PRC64);
-+	er32(PRC127);
-+	er32(PRC255);
-+	er32(PRC511);
-+	er32(PRC1023);
-+	er32(PRC1522);
-+	er32(PTC64);
-+	er32(PTC127);
-+	er32(PTC255);
-+	er32(PTC511);
-+	er32(PTC1023);
-+	er32(PTC1522);
-+
-+	er32(ALGNERRC);
-+	er32(RXERRC);
-+	er32(TNCRS);
-+	er32(CEXTERR);
-+	er32(TSCTC);
-+	er32(TSCTFC);
-+
-+	er32(MGTPRC);
-+	er32(MGTPDC);
-+	er32(MGTPTC);
-+
-+	er32(IAC);
-+	er32(ICRXOC);
-+
-+	er32(ICRXPTC);
-+	er32(ICRXATC);
-+	er32(ICTXPTC);
-+	er32(ICTXATC);
-+	er32(ICTXQEC);
-+	er32(ICTXQMTC);
-+	er32(ICRXDMTC);
+ 	pci_unregister_driver(&e1000_driver);
+-	pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY, e1000e_driver_name);
  }
+ module_exit(e1000_exit_module);
  
- static struct e1000_mac_operations es2_mac_ops = {
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index f8ee0f2..2c1d08e 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -3402,24 +3402,23 @@ static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
-  **/
- static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
- {
--	u32 temp;
- 	u16 phy_data;
- 
- 	e1000e_clear_hw_cntrs_base(hw);
- 
--	temp = er32(ALGNERRC);
--	temp = er32(RXERRC);
--	temp = er32(TNCRS);
--	temp = er32(CEXTERR);
--	temp = er32(TSCTC);
--	temp = er32(TSCTFC);
-+	er32(ALGNERRC);
-+	er32(RXERRC);
-+	er32(TNCRS);
-+	er32(CEXTERR);
-+	er32(TSCTC);
-+	er32(TSCTFC);
- 
--	temp = er32(MGTPRC);
--	temp = er32(MGTPDC);
--	temp = er32(MGTPTC);
-+	er32(MGTPRC);
-+	er32(MGTPDC);
-+	er32(MGTPTC);
- 
--	temp = er32(IAC);
--	temp = er32(ICRXOC);
-+	er32(IAC);
-+	er32(ICRXOC);
- 
- 	/* Clear PHY statistics registers */
- 	if ((hw->phy.type == e1000_phy_82578) ||
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index d173bf8..f690a10 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -295,45 +295,43 @@ void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
-  **/
- void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw)
- {
--	u32 temp;
--
--	temp = er32(CRCERRS);
--	temp = er32(SYMERRS);
--	temp = er32(MPC);
--	temp = er32(SCC);
--	temp = er32(ECOL);
--	temp = er32(MCC);
--	temp = er32(LATECOL);
--	temp = er32(COLC);
--	temp = er32(DC);
--	temp = er32(SEC);
--	temp = er32(RLEC);
--	temp = er32(XONRXC);
--	temp = er32(XONTXC);
--	temp = er32(XOFFRXC);
--	temp = er32(XOFFTXC);
--	temp = er32(FCRUC);
--	temp = er32(GPRC);
--	temp = er32(BPRC);
--	temp = er32(MPRC);
--	temp = er32(GPTC);
--	temp = er32(GORCL);
--	temp = er32(GORCH);
--	temp = er32(GOTCL);
--	temp = er32(GOTCH);
--	temp = er32(RNBC);
--	temp = er32(RUC);
--	temp = er32(RFC);
--	temp = er32(ROC);
--	temp = er32(RJC);
--	temp = er32(TORL);
--	temp = er32(TORH);
--	temp = er32(TOTL);
--	temp = er32(TOTH);
--	temp = er32(TPR);
--	temp = er32(TPT);
--	temp = er32(MPTC);
--	temp = er32(BPTC);
-+	er32(CRCERRS);
-+	er32(SYMERRS);
-+	er32(MPC);
-+	er32(SCC);
-+	er32(ECOL);
-+	er32(MCC);
-+	er32(LATECOL);
-+	er32(COLC);
-+	er32(DC);
-+	er32(SEC);
-+	er32(RLEC);
-+	er32(XONRXC);
-+	er32(XONTXC);
-+	er32(XOFFRXC);
-+	er32(XOFFTXC);
-+	er32(FCRUC);
-+	er32(GPRC);
-+	er32(BPRC);
-+	er32(MPRC);
-+	er32(GPTC);
-+	er32(GORCL);
-+	er32(GORCH);
-+	er32(GOTCL);
-+	er32(GOTCH);
-+	er32(RNBC);
-+	er32(RUC);
-+	er32(RFC);
-+	er32(ROC);
-+	er32(RJC);
-+	er32(TORL);
-+	er32(TORH);
-+	er32(TOTL);
-+	er32(TOTH);
-+	er32(TPR);
-+	er32(TPT);
-+	er32(MPTC);
-+	er32(BPTC);
- }
- 
- /**
 
