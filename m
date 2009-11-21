@@ -1,157 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 23/23] e1000e: update Tx Unit hang detection
-	message
-Date: Sat, 21 Nov 2009 01:28:56 -0800
-Message-ID: <20091121092855.5715.11832.stgit@localhost.localdomain>
-References: <20091121092126.5715.41618.stgit@localhost.localdomain>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 17/11]Optimize the upload speed for PPP connection.
+Date: Sat, 21 Nov 2009 10:29:33 +0100
+Message-ID: <20091121092933.GB1932@ucw.cz>
+References: <faf197be196ee.196eefaf197be@huawei.com> <20091117.012248.86306050.davem@davemloft.net> <4B0278D9.6030806@gmail.com> <20091117.034959.159359822.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: william.allen.simpson@gmail.com, huananhu@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:34630
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752762AbZKUJ3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:29:08 -0500
-In-Reply-To: <20091121092126.5715.41618.stgit@localhost.localdomain>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:33743 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813AbZKUJ3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 04:29:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20091117.034959.159359822.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Tue 2009-11-17 03:49:59, David Miller wrote:
+> From: William Allen Simpson <william.allen.simpson@gmail.com>
+> Date: Tue, 17 Nov 2009 05:20:09 -0500
+> 
+> > What David may have meant, had he followed
+> > Documentation/ManagementStyle or had any project management skills
+> > what-so-ever, is that you need to follow
+> > Documentation/SubmittingPatches more carefully.
+> 
+> Are personal attacks on me really necessary?
+> 
+> Do you want me to look closely at your patches with a high priority
+> when you submit them for inclusion?  If so, then you may want to
+> think twice about saying things like this.
 
-The Tx unit hang detection code in e1000e detects other hangs caused by
-hardware components (e.g. Rx, DMA units), but it is not possible to detect
-exactly which component is hung so it has always assumed a Tx unit hang.
-When dumping a message to the system log because of a hang, this patch adds
-more data to help narrow the cause of the issue and makes the message
-non-Tx-specific.  Because this new code reads PHY registers which can
-sleep, move it off to a workqueue.  This and all previously existing work
-tasks in the driver are now cancelled when the driver is removed.
+Was this kind of threats really neccessary?
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+									Pavel
 
- drivers/net/e1000e/e1000.h  |    1 +
- drivers/net/e1000e/netdev.c |   46 ++++++++++++++++++++++++++++++++++++-------
- 2 files changed, 39 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 5ac8675..c9fcef7 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -364,6 +364,7 @@ struct e1000_adapter {
- 	struct work_struct downshift_task;
- 	struct work_struct update_phy_task;
- 	struct work_struct led_blink_task;
-+	struct work_struct print_hang_task;
- };
- 
- struct e1000_info {
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 39f01d9..11a5274 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -544,15 +544,27 @@ static void e1000_put_txbuf(struct e1000_adapter *adapter,
- 	buffer_info->time_stamp = 0;
- }
- 
--static void e1000_print_tx_hang(struct e1000_adapter *adapter)
-+static void e1000_print_hw_hang(struct work_struct *work)
- {
-+	struct e1000_adapter *adapter = container_of(work,
-+	                                             struct e1000_adapter,
-+	                                             print_hang_task);
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	unsigned int i = tx_ring->next_to_clean;
- 	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
- 	struct e1000_tx_desc *eop_desc = E1000_TX_DESC(*tx_ring, eop);
-+	struct e1000_hw *hw = &adapter->hw;
-+	u16 phy_status, phy_1000t_status, phy_ext_status;
-+	u16 pci_status;
-+
-+	e1e_rphy(hw, PHY_STATUS, &phy_status);
-+	e1e_rphy(hw, PHY_1000T_STATUS, &phy_1000t_status);
-+	e1e_rphy(hw, PHY_EXT_STATUS, &phy_ext_status);
- 
--	/* detected Tx unit hang */
--	e_err("Detected Tx Unit Hang:\n"
-+	pci_read_config_word(adapter->pdev, PCI_STATUS, &pci_status);
-+
-+	/* detected Hardware unit hang */
-+	e_err("Detected Hardware Unit Hang:\n"
- 	      "  TDH                  <%x>\n"
- 	      "  TDT                  <%x>\n"
- 	      "  next_to_use          <%x>\n"
-@@ -561,7 +573,12 @@ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
- 	      "  time_stamp           <%lx>\n"
- 	      "  next_to_watch        <%x>\n"
- 	      "  jiffies              <%lx>\n"
--	      "  next_to_watch.status <%x>\n",
-+	      "  next_to_watch.status <%x>\n"
-+	      "MAC Status             <%x>\n"
-+	      "PHY Status             <%x>\n"
-+	      "PHY 1000BASE-T Status  <%x>\n"
-+	      "PHY Extended Status    <%x>\n"
-+	      "PCI Status             <%x>\n",
- 	      readl(adapter->hw.hw_addr + tx_ring->head),
- 	      readl(adapter->hw.hw_addr + tx_ring->tail),
- 	      tx_ring->next_to_use,
-@@ -569,7 +586,12 @@ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
- 	      tx_ring->buffer_info[eop].time_stamp,
- 	      eop,
- 	      jiffies,
--	      eop_desc->upper.fields.status);
-+	      eop_desc->upper.fields.status,
-+	      er32(STATUS),
-+	      phy_status,
-+	      phy_1000t_status,
-+	      phy_ext_status,
-+	      pci_status);
- }
- 
- /**
-@@ -643,14 +665,16 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 	}
- 
- 	if (adapter->detect_tx_hung) {
--		/* Detect a transmit hang in hardware, this serializes the
--		 * check with the clearing of time_stamp and movement of i */
-+		/*
-+		 * Detect a transmit hang in hardware, this serializes the
-+		 * check with the clearing of time_stamp and movement of i
-+		 */
- 		adapter->detect_tx_hung = 0;
- 		if (tx_ring->buffer_info[i].time_stamp &&
- 		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp
- 			       + (adapter->tx_timeout_factor * HZ))
- 		    && !(er32(STATUS) & E1000_STATUS_TXOFF)) {
--			e1000_print_tx_hang(adapter);
-+			schedule_work(&adapter->print_hang_task);
- 			netif_stop_queue(netdev);
- 		}
- 	}
-@@ -5118,6 +5142,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
- 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
- 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
-+	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
- 
- 	/* Initialize link parameters. User can change them with ethtool */
- 	adapter->hw.mac.autoneg = 1;
-@@ -5241,6 +5266,11 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
- 
-+	cancel_work_sync(&adapter->reset_task);
-+	cancel_work_sync(&adapter->watchdog_task);
-+	cancel_work_sync(&adapter->downshift_task);
-+	cancel_work_sync(&adapter->update_phy_task);
-+	cancel_work_sync(&adapter->print_hang_task);
- 	flush_scheduled_work();
- 
- 	/*
-
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
