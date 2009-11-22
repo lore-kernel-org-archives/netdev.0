@@ -1,57 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Bridge + Conntrack + SKB Recycle: Fragment Reassembly Errors
-Date: Sun, 22 Nov 2009 01:29:52 +0100
-Message-ID: <4B088600.8090209@trash.net>
-References: <767BAF49E93AFB4B815B11325788A8ED45F0BA@L01SLCXDB03.calltower.com>	<4AF999DE.9060206@trash.net> <20091121.110832.213888237.davem@davemloft.net> <4B0883FD.2090806@trash.net>
+From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: Re: [Resend][PATCH] Wireless / ath5k: Simplify suspend and resume
+	callbacks
+Date: Sat, 21 Nov 2009 22:18:46 -0500
+Message-ID: <20091122031846.GA6215@hash.localnet>
+References: <200911212344.24170.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070006080406090204090807"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: ben@bigfootnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36731 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838AbZKVA3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 19:29:48 -0500
-In-Reply-To: <4B0883FD.2090806@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	pm list <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200911212344.24170.rjw-KKrjLPT3xs0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070006080406090204090807
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Sat, Nov 21, 2009 at 11:44:24PM +0100, Rafael J. Wysocki wrote:
+> From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+> Subject: Wireless / ath5k: Simplify suspend and resume callbacks
+> 
+> Simplify the suspend and resume callbacks of ath5k by converting the
+> driver to struct dev_pm_ops and allowing the PCI PM core to do the
+> PCI-specific suspend/resume handling.
+> 
+> Tested with Atheros Communications Inc. AR2413 802.11bg NIC (rev 01)
+> D-Link CardBus.adapter.
+> 
+> Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
 
-Patrick McHardy wrote:
-> So it seems we need to adjust skb->truesize in ip_fragment() since
-> skb_recycle_check() assumes the skb is linear (and therefore
-> skb->truesize reflects the linear size). Ben's suggestions of adding
-> an upper limit based on the requested size to skb_recycle_check()
-> makes sense to me as well to avoid this problem when recycling large
-> linear skbs.
+Acked-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
 
-Ben, please give this patch a try.
+Thanks for the resend, sorry it got lost in the shuffle.
 
---------------070006080406090204090807
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+-- 
+Bob Copeland %% www.bobcopeland.com
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 322b408..031989d 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -501,8 +501,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 			if (skb->sk) {
- 				frag->sk = skb->sk;
- 				frag->destructor = sock_wfree;
--				truesizes += frag->truesize;
- 			}
-+			truesizes += frag->truesize;
- 		}
- 
- 		/* Everything is OK. Generate! */
-
---------------070006080406090204090807--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
