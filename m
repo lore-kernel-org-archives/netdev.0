@@ -1,62 +1,49 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [2.6.32-rc8] set_all_monitor_traces() sleeping bug.
-Date: Sun, 22 Nov 2009 22:49:14 +0900
-Message-ID: <200911222249.EEG95313.OSLJQVFFOHFtOM@I-love.SAKURA.ne.jp>
-References: <200911022100.EAC21893.OMFFJVOSOQHLtF@I-love.SAKURA.ne.jp>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Sun, 22 Nov 2009 14:35:10 -0500
+Message-ID: <81bfc67a0911221135y300841f2i8e78417600528cd5@mail.gmail.com>
+References: <81bfc67a0911111448q2e7938fcq18adf2454d6bc8f1@mail.gmail.com>
+	 <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+	 <4AFC5C58.9030207@gmail.com>
+	 <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
+	 <20091113211640.GA2540@ami.dom.local>
+	 <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
+	 <20091118135136.GA9224@ff.dom.local>
+	 <81bfc67a0911181021n1b969565y4a39b181360b5e92@mail.gmail.com>
+	 <20091118201034.GA3060@ami.dom.local>
+	 <20091118223851.GA5191@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755036AbZKVNtL@vger.kernel.org>
-In-Reply-To: <200911022100.EAC21893.OMFFJVOSOQHLtF@I-love.SAKURA.ne.jp>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753909AbZKVTfH@vger.kernel.org>
+In-Reply-To: <20091118223851.GA5191@ami.dom.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit: 4ea7e38696c7e798c47ebbecadfd392f23f814f9
+haven't had time to do a test yet. but would it be of any use for you
+all for me to throw another nic (it'd be a different driver for sure)
+in this box and test that on a problematic kernel? I have some but not
+with me.
 
-set_all_monitor_traces() calls tracepoint_synchronize_unregister()
-with a spinlock held, but tracepoint_synchronize_unregister() may sleep.
+On Wed, Nov 18, 2009 at 5:38 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> On Wed, Nov 18, 2009 at 09:10:34PM +0100, Jarek Poplawski wrote:
+>> On Wed, Nov 18, 2009 at 01:21:19PM -0500, Caleb Cushing wrote:
+>> > yeah testing it under my known working config first. I'll get back w/ you later.
+>>
+>> Btw, since dropping at hardware (NIC) level seems more likely to me,
+>> could you send 'ethtool eth0', and 'ethtool -S eth0' after such tests
+>> (both sides).
+>
+> Hmm... and 'netstat -s' before and after the test (both sides).
+>
+> Jarek P.
+>
 
-static int set_all_monitor_traces(int state)
-{
-	int rc = 0;
-	struct dm_hw_stat_delta *new_stat = NULL;
-	struct dm_hw_stat_delta *temp;
 
-	spin_lock(&trace_state_lock);
 
-	switch (state) {
-	case TRACE_ON:
-		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
-		rc |= register_trace_napi_poll(trace_napi_poll_hit);
-		break;
-	case TRACE_OFF:
-		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
-		rc |= unregister_trace_napi_poll(trace_napi_poll_hit);
+-- 
+Caleb Cushing
 
-		tracepoint_synchronize_unregister();
-
-		/*
-		 * Clean the device list
-		 */
-		list_for_each_entry_safe(new_stat, temp, &hw_stats_list, list) {
-			if (new_stat->dev == NULL) {
-				list_del_rcu(&new_stat->list);
-				call_rcu(&new_stat->rcu, free_dm_hw_stat);
-			}
-		}
-		break;
-	default:
-		rc = 1;
-		break;
-	}
-
-	if (!rc)
-		trace_state = state;
-
-	spin_unlock(&trace_state_lock);
-
-	if (rc)
-		return -EINPROGRESS;
-	return rc;
-}
+http://xenoterracide.blogspot.com
