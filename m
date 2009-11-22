@@ -1,47 +1,58 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v7 4/7 RFC] TCPCT part 1d: define TCP cookie
- option, extend existing struct's
-Date: Sat, 21 Nov 2009 23:53:26 -0500
-Message-ID: <4B08C3C6.8010601@gmail.com>
-References: <4B06A1FF.8000202@gmail.com>	<4B06A9D4.8070007@gmail.com> <20091120.092515.126988512.davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v7 5/7 RFC] TCPCT part 1e: implement socket
+ option TCP_COOKIE_TRANSACTIONS
+Date: Sun, 22 Nov 2009 01:25:43 -0500
+Message-ID: <4B08D967.80003@gmail.com>
+References: <4B06A1FF.8000202@gmail.com>	<4B06AC2C.3070102@gmail.com> <20091120.092651.254794724.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:58019 "EHLO
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:37419 "EHLO
 	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754376AbZKVExX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 23:53:23 -0500
-Received: by yxe17 with SMTP id 17so3943217yxe.33
-        for <netdev@vger.kernel.org>; Sat, 21 Nov 2009 20:53:29 -0800 (PST)
-In-Reply-To: <20091120.092515.126988512.davem@davemloft.net>
+	with ESMTP id S1750979AbZKVGbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2009 01:31:35 -0500
+Received: by yxe17 with SMTP id 17so3970090yxe.33
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2009 22:31:41 -0800 (PST)
+In-Reply-To: <20091120.092651.254794724.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 David Miller wrote:
 > From: William Allen Simpson <william.allen.simpson@gmail.com>
-> Date: Fri, 20 Nov 2009 09:38:12 -0500
+> Date: Fri, 20 Nov 2009 09:48:12 -0500
+>> +		if (ctd.tcpct_used > 0
+>> +		 || (tp->cookie_values == NULL
+>> +		  && (sysctl_tcp_cookie_size > 0
+>> +		   || ctd.tcpct_cookie_desired > 0
+>> +		   || ctd.tcpct_s_data_desired > 0))) {
 > 
->>  static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
->>  {
->> -	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
->> +	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
->> +	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
->> +	rx_opt->cookie_plus = 0;
->>  }
->>  
+> Please fix the conditional coding style, and the alignment of
+> the lines, it's not right here.
 > 
-> Why not get the coding style correct wrt. long lines in patch #3 where
-> you initially added this function, rather than fixing it here as you
-> add the new ->cookie_plus assignment?
-> 
-Documentation/SubmittingPatches at 619:
+Eliding the repeated assertions, and focusing on this example.
+This is not addressed (nor forbidden) in CodingStyle.
 
-One significant exception is when moving code from one file to
-another -- in this case you should not modify the moved code at all in
-the same patch which moves it.  This clearly delineates the act of
-moving the code and your changes.  This greatly aids review of the
-actual differences and allows tools to better track the history of
-the code itself.
+As Joe noted earlier with '?' and ':', there are ample examples
+throughout the code base of this style, including here and there
+among the tcp*.c files.  Obviously, this is very easy to read!
+
+     Coding style is all about readability and maintainability
+     using commonly available tools.
+
+However, grep shows that the "||" or "&&" is elsewhere most often
+indented 4 for each level (although there is some inconsistency).
+Either 1, 2, or 4 distinguishes <condition> indentation from
+<statements> indented by tab (8).
+
+In my experience, I've found 1 best, as that lines up variables
+and parentheses levels, and it's easy to type.  But it certainly
+would be easy enough to indent by 2 or 4 instead.
+
+BTW, the 'indent' program turns this into incomprehensible and
+unmaintainable garbage.  Of course, there are ample examples of
+garbage in these tcp*.c files, too.... :-(
+
+Therefore, David, would indentation of 2 or 4 be preferable here?
