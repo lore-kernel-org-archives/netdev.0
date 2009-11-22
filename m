@@ -1,64 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
-Date: Sun, 22 Nov 2009 12:35:11 +0200
-Message-ID: <20091122103511.GB13644@redhat.com>
-References: <cover.1257786516.git.mst@redhat.com> <20091109172230.GD4724@redhat.com> <C85CEDA13AB1CF4D9D597824A86D2B901925446AB4@PDSMSX501.ccr.corp.intel.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [2.6.32-rc8] set_all_monitor_traces() sleeping bug.
+Date: Sun, 22 Nov 2009 22:49:14 +0900
+Message-ID: <200911222249.EEG95313.OSLJQVFFOHFtOM@I-love.SAKURA.ne.jp>
+References: <200911022100.EAC21893.OMFFJVOSOQHLtF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org" <virtualization@lists.linux-foundation.org>,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "mingo@elte.hu" <mingo@elte.hu>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "hpa@zytor.com" <hpa@zytor.com>,
-        "gregory.haskins@gmail.com" <gregory.haskins@gmail.com>,
-        Rusty Russell <rusty@rustcorp.com.au>,
-        "s.hetze@linux-ag.com" <s.hetze@linux-ag.com>,
-        Daniel Walker <dwalker@fifo99.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>, mashirle@us.ibm.com
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <C85CEDA13AB1CF4D9D597824A86D2B901925446AB4@PDSMSX501.ccr.corp.intel.com>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nhorman@tuxdriver.com, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755036AbZKVNtL@vger.kernel.org>
+In-Reply-To: <200911022100.EAC21893.OMFFJVOSOQHLtF@I-love.SAKURA.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 18, 2009 at 01:42:43PM +0800, Xin, Xiaohui wrote:
-> Michael,
-> >From the http://www.linux-kvm.org/page/VhostNet, we can see netperf with TCP_STREAM can get more than 4GMb/s for the receive side, and more than 5GMb/s for the send side.
-> Is it the result from the raw socket or through tap?
-> I want to duplicate such performance with vhost on my side. I can only get more than 1GMb/s with following conditions:
-> 1) disabled the GRO feature in the host 10G NIC driver
-> 2) vi->big_packet in guest is false
-> 3) MTU is 1500.
-> 4) raw socket, not the tap
-> 5) using your vhost git tree
-> 
-> Is that the reasonable result with such conditions or maybe I have made some silly mistakes somewhere I don't know yet?
-> May you kindly describe your test environment/conditions in detail to have much better performance in your website (I really need the performance)?
-> 
-> Thanks
-> Xiaohui
+Commit: 4ea7e38696c7e798c47ebbecadfd392f23f814f9
 
-These results where sent by Shirley Ma (Cc'd).
-I think they were with tap, host-to-guest/guest-to-host
+set_all_monitor_traces() calls tracepoint_synchronize_unregister()
+with a spinlock held, but tracepoint_synchronize_unregister() may sleep.
 
-> And I have tested the tun support with vhost now, and may you share your /home/mst/ifup script here?
-> 
+static int set_all_monitor_traces(int state)
+{
+	int rc = 0;
+	struct dm_hw_stat_delta *new_stat = NULL;
+	struct dm_hw_stat_delta *temp;
 
-These are usually pretty simple, mine looks like this:
+	spin_lock(&trace_state_lock);
 
-#!/bin/sh -x
-/sbin/ifconfig tap0 0.0.0.0 up
-brctl addif br0 tap0
+	switch (state) {
+	case TRACE_ON:
+		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
+		rc |= register_trace_napi_poll(trace_napi_poll_hit);
+		break;
+	case TRACE_OFF:
+		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
+		rc |= unregister_trace_napi_poll(trace_napi_poll_hit);
 
--- 
-MST
+		tracepoint_synchronize_unregister();
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+		/*
+		 * Clean the device list
+		 */
+		list_for_each_entry_safe(new_stat, temp, &hw_stats_list, list) {
+			if (new_stat->dev == NULL) {
+				list_del_rcu(&new_stat->list);
+				call_rcu(&new_stat->rcu, free_dm_hw_stat);
+			}
+		}
+		break;
+	default:
+		rc = 1;
+		break;
+	}
+
+	if (!rc)
+		trace_state = state;
+
+	spin_unlock(&trace_state_lock);
+
+	if (rc)
+		return -EINPROGRESS;
+	return rc;
+}
