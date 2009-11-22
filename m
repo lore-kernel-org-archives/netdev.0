@@ -1,55 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 PATCH v7 5/7 RFC] TCPCT part 1e: implement
- socket option TCP_COOKIE_TRANSACTIONS
-Date: Sat, 21 Nov 2009 23:10:48 -0800
-Message-ID: <1258873848.16503.12.camel@Joe-Laptop.home>
-References: <4B06A1FF.8000202@gmail.com>	<4B06AC2C.3070102@gmail.com>
-	 <20091120.092651.254794724.davem@davemloft.net>  <4B08D967.80003@gmail.com>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: [PATCH] net: Fix missing kernel-doc notation
+Date: Sun, 22 Nov 2009 13:49:06 +0530
+Message-ID: <1258877946.4495.52.camel@ht.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1077 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751101AbZKVHKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Nov 2009 02:10:43 -0500
-In-Reply-To: <4B08D967.80003@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754273AbZKVIUh@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2009-11-22 at 01:25 -0500, William Allen Simpson wrote:
-> David Miller wrote:
-> > From: William Allen Simpson <william.allen.simpson@gmail.com>
-> > Date: Fri, 20 Nov 2009 09:48:12 -0500
-> >> +		if (ctd.tcpct_used > 0
-> >> +		 || (tp->cookie_values == NULL
-> >> +		  && (sysctl_tcp_cookie_size > 0
-> >> +		   || ctd.tcpct_cookie_desired > 0
-> >> +		   || ctd.tcpct_s_data_desired > 0))) {
-> > Please fix the conditional coding style, and the alignment of
-> > the lines, it's not right here.
-> David, would indentation of 2 or 4 be preferable here?
 
-Hi William.
+Fix the following htmldocs warning:
 
-I think the rather significantly majority style, especially
-for net/... is to use || and && at the end of the line rather
-than the start and it should be used.
+  Warning(net/core/dev.c:5378): bad line:
 
-Treewide:
+Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-$ grep -rP --include=*.[ch] "(\|\||\&\&)\s*$" * | wc -l
-34180
-
-$ grep -rP --include=*.[ch] "^\s*(\|\||\&\&)" * | wc -l
-7855
-
-net: 3859 to 382 (more than 10:1, so it's the one to follow)
-drivers/net: 4610 to 666
-
-Besides, it's the one David wants...
-
-cheers, Joe
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9977288..bd32d7a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5375,7 +5375,7 @@ EXPORT_SYMBOL(synchronize_net);
+  *	unregister_netdevice_queue - remove device from the kernel
+  *	@dev: device
+  *	@head: list
+-
++ *
+  *	This function shuts down a device interface and removes it
+  *	from the kernel tables.
+  *	If head not NULL, device is queued to be unregistered later.
+-- 
+1.6.5.3
