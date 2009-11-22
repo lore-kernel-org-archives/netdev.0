@@ -1,45 +1,50 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: [Resend][PATCH] Wireless / ath5k: Simplify suspend and resume
-	callbacks
-Date: Sat, 21 Nov 2009 22:18:46 -0500
-Message-ID: <20091122031846.GA6215@hash.localnet>
-References: <200911212344.24170.rjw@sisk.pl>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v7 3/7 RFC] TCPCT part 1c: sysctl_tcp_cookie_size,
+ socket option TCP_COOKIE_TRANSACTIONS
+Date: Sat, 21 Nov 2009 23:40:08 -0500
+Message-ID: <4B08C0A8.6070302@gmail.com>
+References: <4B06A8CF.3000303@gmail.com>	<20091120.092408.208010931.davem@davemloft.net>	<4B081A81.5000602@gmail.com> <20091121.111844.54272535.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	pm list <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200911212344.24170.rjw-KKrjLPT3xs0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:63932 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754525AbZKVEkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Nov 2009 23:40:07 -0500
+Received: by yxe17 with SMTP id 17so3939513yxe.33
+        for <netdev@vger.kernel.org>; Sat, 21 Nov 2009 20:40:12 -0800 (PST)
+In-Reply-To: <20091121.111844.54272535.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 21, 2009 at 11:44:24PM +0100, Rafael J. Wysocki wrote:
-> From: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-> Subject: Wireless / ath5k: Simplify suspend and resume callbacks
+David Miller wrote:
+> From: William Allen Simpson <william.allen.simpson@gmail.com>
+> Date: Sat, 21 Nov 2009 11:51:13 -0500
 > 
-> Simplify the suspend and resume callbacks of ath5k by converting the
-> driver to struct dev_pm_ops and allowing the PCI PM core to do the
-> PCI-specific suspend/resume handling.
+>> This code was based on net/ipv4/tcp_minisocks.c for syncookies.
+>> Apparently, default for syncookies has been controversial.
 > 
-> Tested with Atheros Communications Inc. AR2413 802.11bg NIC (rev 01)
-> D-Link CardBus.adapter.
+> I'll have to change that, it doesn't make any sense.  Thanks
+> for pointing it out.
 > 
-> Signed-off-by: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+Once again, for the umpteenth time, I learn that existing code
+proves to be a bad example to follow....
 
-Acked-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
 
-Thanks for the resend, sorry it got lost in the shuffle.
+>> Would you accept always default to TCP_COOKIE_MAX?
+> 
+> Sure, let's see what breaks.
+> 
+Unlikely to break anything, according to studies of the subject:
 
--- 
-Bob Copeland %% www.bobcopeland.com
+         Medina, A., Allman, M., and Floyd, S., "Measuring Interactions
+         Between Transport Protocols and Middleboxes", Proceedings 4th
+         ACM SIGCOMM/USENIX Conference on Internet Measurement, October
+         2004.  http://www.icsi.berkeley.edu/pubs/networking/tbit-
+         Aug2004.pdf
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+TCPCT part 2 is much more likely to break things....
+
