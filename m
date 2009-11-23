@@ -1,33 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe question
-Date: Mon, 23 Nov 2009 13:28:23 -0800 (PST)
-Message-ID: <20091123.132823.162855593.davem@davemloft.net>
-References: <19210.54486.353397.804028@gargle.gargle.HOWL>
-	<4B0ABF6D.9000103@gmail.com>
-	<19210.63123.814368.292600@gargle.gargle.HOWL>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: icmp redirects problem
+Date: Mon, 23 Nov 2009 22:58:38 +0100
+Message-ID: <4B0B058E.3050906@gmail.com>
+References: <20091123043124.GA14795@samad.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, hawk@diku.dk,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
-To: robert@herjulf.net
+Cc: netdev@vger.kernel.org
+To: Alex Samad <alex@samad.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43644
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755098AbZKWV2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 16:28:05 -0500
-In-Reply-To: <19210.63123.814368.292600@gargle.gargle.HOWL>
+Received: from mail-bw0-f223.google.com ([209.85.218.223]:59012 "EHLO
+	mail-bw0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755213AbZKWV7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 16:59:08 -0500
+Received: by bwz23 with SMTP id 23so5753781bwz.29
+        for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 13:59:12 -0800 (PST)
+In-Reply-To: <20091123043124.GA14795@samad.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: robert@herjulf.net
-Date: Mon, 23 Nov 2009 21:54:43 +0100
+Alex Samad wrote, On 11/23/2009 05:31 AM:
 
->  Something mysterious or very obvious...
+> Hi
 
-It seem very obvious to me that, for whatever reason, the MSI-X vectors
-are only being sent to cpu 1 on Eric's system.
+Hi
 
-I also suspect, as a result, that it has nothing to do with the IXGBE
-driver but rather is some IRQ controller programming or some bug or
-limitation in the IRQ affinity mask handling in the kernel.
+> 
+> 
+> I seem to be having problems with icmp redirects
+> I have 
+
+...
+
+> 
+> net.ipv4.conf.all.accept_redirects = 0                                                                                                                                          
+> net.ipv4.conf.all.secure_redirects = 1                                                                                                                                          
+> (presume all the interface ones are 1)
+> 
+> as my default, the documentation seems to suggest that I don't need the
+> former for the later to work ie I can have either one.
+
+...
+
+> 
+> But for me to get this to work I had to set 
+> 
+> net.ipv4.conf.all.accept_redirects = 1
+> net.ipv4.conf.all.secure_redirects = 1
+> 
+> to get it to work properly.
+> 
+> My understanding is secure_redirects means that the kernel should listen
+> to icmp redirect if the redirect comes from the default gateway as per
+> the route table.
+> 
+> laptop gets its ip from dchp server that make 192.168.11.1 the default
+> gateway and its 192.168.11.1 that sends out the icmp redirect.
+
+Btw, it seems you should fix your routing (by adding sydrt01's eth0
+the second ip or advertising 192.168.11.10 more) to avoid those
+redirects.
+
+> 
+> I had a quick look at the kernel tree for 2.6.31 (which is what I am
+> using).
+
+...
+
+> Line 680
+>  secure_redirects - BOOLEAN
+>  681         Accept ICMP redirect messages only for gateways,
+>  682         listed in default gateway list.
+>  683         secure_redirects for the interface will be enabled if at
+>  least one of
+>  684         conf/{all,interface}/secure_redirects is set to TRUE,
+>  685         it will be disabled otherwise
+>  686         default TRUE
+
+Very helpful links. So, as you wrote "the documentation seems to suggest"
+something, and IMHO even if it doesn't, it's needlessly too concise
+considering your "lost time", and I'd suggest you sending a patch to fix
+this. (It seems it could "touch" shared_media, as well.)
+
+Thanks,
+Jarek P.
