@@ -1,93 +1,149 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: Strange CPU load when flushing route cache (kernel 2.6.31.6)
-Date: Mon, 23 Nov 2009 13:28:40 +0100
-Message-ID: <1258979320.29747.270.camel@jdb-workstation>
-References: <1258970332.29747.262.camel@jdb-workstation>
-	 <4B0A63FA.5000804@gmail.com>
+From: robert@herjulf.net
+Subject: [PATCH] pktgen: Fix device name compares
+Date: Mon, 23 Nov 2009 15:44:47 +0100
+Message-ID: <19210.40927.13011.176740@gargle.gargle.HOWL>
+References: <4B0A75A5.8000106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Robert Olsson <robert@herjulf.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Robert Olsson <robert.olsson@its.uu.se>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:42284 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756950AbZKWM1O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 07:27:14 -0500
-In-Reply-To: <4B0A63FA.5000804@gmail.com>
+Received: from klais.its.uu.se ([130.238.7.59]:40918 "EHLO klais.its.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756924AbZKWMlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 07:41:01 -0500
+In-Reply-To: <4B0A75A5.8000106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-23 at 11:29 +0100, Eric Dumazet wrote:
-> Jesper Dangaard Brouer a =C3=A9crit :
-> > Hi Eric and netdev,
-> >=20
-> > I have observed a strange route cache behaviour when I upgraded som=
-e
-> > of my production Linux routers (1Gbit/s tg3) to kernel 2.6.31.6 (fr=
-om
-> > kernel 2.6.25.7).
-> >=20
-> > Every time the route cache is flushed I get a CPU spike (in softirq=
-)
-> > with a tail.  I have attached some graphs that illustrate the issue
-> > (hope vger.kernel.org will allow these attachments...)
-> >=20
-> >=20
-> > I have done some tuning of the route cache:
-> >=20
-> >  # From /etc/sysctl.conf
-> >  #
-> >  # Adjusting the route cache flush interval
-> >  net/ipv4/route/secret_interval =3D 1200
-> >=20
-> >  # Limiting the route cache size
-> >  # ip_dst_cache slab objects is 256 bytes.
-> >  # 2000000 * 256 bytes =3D 512 MB
-> >  net/ipv4/route/max_size =3D 2000000
-> >=20
-> > Boot parameters: "rhash_entries=3D262143 vmalloc=3D256M"
-> >=20
-> > The rhash_entries is for the route cache hash size.  The vmalloc is
-> > needed because I have _very_ large iptables rulesets (and is runnin=
-g
-> > on a 32-bit kernel, due to old hardware).
-> >=20
-> > Any thoughs on how to avoid these CPU spikes?
-> > Or where the issue occurs in the code?
-> >=20
->=20
-> Sure, after a flush, we have to rebuild the cache, so extra work is e=
-xpected.
 
-But the old 2.6.25.7 do NOT show this behavior... That is the real
-issue...
+Eric Dumazet writes:
+ > Commit e6fce5b916cd7f7f7 (pktgen: multiqueue etc.) tried to relax
+ > the pktgen restriction of one device per kernel thread, adding a '@'
+ > tag to device names.
+ > 
+ > Problem is we dont perform check on full pktgen device name.
+ > This allows adding many time same 'device' to pktgen thread
+ > 
+ >  pgset "add_device eth0@0"
+ > 
+ > one session later :
+ > 
+ >  pgset "add_device eth0@0"
+ > 
+ > (This doesnt find previous device)
 
-> (We receive a packet, notice the cached entry is obsolete, free it, a=
-llocate a new one
-> and inert it into cache)
->=20
-> If you dont want these spikes, just dont flush cache :)
+ 
 
-I did the cache flushing due to some historical issues, that I think yo=
-u
-did a fix for... Guess I can drop the flushing and see if the garbage
-collection can keep up...
+ > Solution to this problem is to use a odevname field (includes @ tag and suffix),
+ > instead of using netdevice name.
 
-> Do you run a 2G/2G User/Kernel split kernel ?
 
-Not sure, how do I check?
+ Ok. So the duplicate test got wrong when the multiqueue stuff was 
+ added. 
 
-I do use a 32-bit kernel (due to the production machines runs an old
-32-bit Slackware OS install and some of the machines cannot run 64-bit)=
-=2E
+ Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
---=20
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+ Cheers
+					--ro
+
+
+
+ > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ > ---
+ >  net/core/pktgen.c |   18 ++++++++++--------
+ >  1 file changed, 10 insertions(+), 8 deletions(-)
+ > 
+ > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+ > index d38470a..1813f08 100644
+ > --- a/net/core/pktgen.c
+ > +++ b/net/core/pktgen.c
+ > @@ -364,6 +364,7 @@ struct pktgen_dev {
+ >  				  * device name (not when the inject is
+ >  				  * started as it used to do.)
+ >  				  */
+ > +	char odevname[32];
+ >  	struct flow_state *flows;
+ >  	unsigned cflows;	/* Concurrent flows (config) */
+ >  	unsigned lflow;		/* Flow length  (config) */
+ > @@ -529,7 +530,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ >  	seq_printf(seq,
+ >  		   "     frags: %d  delay: %llu  clone_skb: %d  ifname: %s\n",
+ >  		   pkt_dev->nfrags, (unsigned long long) pkt_dev->delay,
+ > -		   pkt_dev->clone_skb, pkt_dev->odev->name);
+ > +		   pkt_dev->clone_skb, pkt_dev->odevname);
+ >  
+ >  	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
+ >  		   pkt_dev->lflow);
+ > @@ -1689,13 +1690,13 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
+ >  	if_lock(t);
+ >  	list_for_each_entry(pkt_dev, &t->if_list, list)
+ >  		if (pkt_dev->running)
+ > -			seq_printf(seq, "%s ", pkt_dev->odev->name);
+ > +			seq_printf(seq, "%s ", pkt_dev->odevname);
+ >  
+ >  	seq_printf(seq, "\nStopped: ");
+ >  
+ >  	list_for_each_entry(pkt_dev, &t->if_list, list)
+ >  		if (!pkt_dev->running)
+ > -			seq_printf(seq, "%s ", pkt_dev->odev->name);
+ > +			seq_printf(seq, "%s ", pkt_dev->odevname);
+ >  
+ >  	if (t->result[0])
+ >  		seq_printf(seq, "\nResult: %s\n", t->result);
+ > @@ -1995,7 +1996,7 @@ static void pktgen_setup_inject(struct pktgen_dev *pkt_dev)
+ >  		       "queue_map_min (zero-based) (%d) exceeds valid range "
+ >  		       "[0 - %d] for (%d) queues on %s, resetting\n",
+ >  		       pkt_dev->queue_map_min, (ntxq ?: 1) - 1, ntxq,
+ > -		       pkt_dev->odev->name);
+ > +		       pkt_dev->odevname);
+ >  		pkt_dev->queue_map_min = ntxq - 1;
+ >  	}
+ >  	if (pkt_dev->queue_map_max >= ntxq) {
+ > @@ -2003,7 +2004,7 @@ static void pktgen_setup_inject(struct pktgen_dev *pkt_dev)
+ >  		       "queue_map_max (zero-based) (%d) exceeds valid range "
+ >  		       "[0 - %d] for (%d) queues on %s, resetting\n",
+ >  		       pkt_dev->queue_map_max, (ntxq ?: 1) - 1, ntxq,
+ > -		       pkt_dev->odev->name);
+ > +		       pkt_dev->odevname);
+ >  		pkt_dev->queue_map_max = ntxq - 1;
+ >  	}
+ >  
+ > @@ -3263,7 +3264,7 @@ static int pktgen_stop_device(struct pktgen_dev *pkt_dev)
+ >  
+ >  	if (!pkt_dev->running) {
+ >  		printk(KERN_WARNING "pktgen: interface: %s is already "
+ > -		       "stopped\n", pkt_dev->odev->name);
+ > +		       "stopped\n", pkt_dev->odevname);
+ >  		return -EINVAL;
+ >  	}
+ >  
+ > @@ -3467,7 +3468,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ >  	default: /* Drivers are not supposed to return other values! */
+ >  		if (net_ratelimit())
+ >  			pr_info("pktgen: %s xmit error: %d\n",
+ > -				odev->name, ret);
+ > +				pkt_dev->odevname, ret);
+ >  		pkt_dev->errors++;
+ >  		/* fallthru */
+ >  	case NETDEV_TX_LOCKED:
+ > @@ -3576,7 +3577,7 @@ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
+ >  	if_lock(t);
+ >  
+ >  	list_for_each_entry(p, &t->if_list, list)
+ > -		if (strncmp(p->odev->name, ifname, IFNAMSIZ) == 0) {
+ > +		if (strncmp(p->odevname, ifname, IFNAMSIZ) == 0) {
+ >  			pkt_dev = p;
+ >  			break;
+ >  		}
+ > @@ -3632,6 +3633,7 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ >  	if (!pkt_dev)
+ >  		return -ENOMEM;
+ >  
+ > +	strcpy(pkt_dev->odevname, ifname);
+ >  	pkt_dev->flows = vmalloc(MAX_CFLOWS * sizeof(struct flow_state));
+ >  	if (pkt_dev->flows == NULL) {
+ >  		kfree(pkt_dev);
