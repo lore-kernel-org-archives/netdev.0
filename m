@@ -1,65 +1,59 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Mon, 23 Nov 2009 12:09:10 -0600
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80CFE956C25@MNEXMB2.qlogic.org>
-References: <20091123120043.24cf5c12.sfr@canb.auug.org.au>
+From: "J.A. =?UTF-8?B?TWFnYWxsw7Nu?=" <jamagallon@ono.com>
+Subject: Performance of bonding driver with e1000
+Date: Mon, 23 Nov 2009 19:06:44 +0100
+Message-ID: <20091123190644.574e806c@werewolf.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091123120043.24cf5c12.sfr@canb.auug.org.au>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp12.ono.com ([62.42.230.20]:54512 "EHLO resmaa12.ono.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754633AbZKWSLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 13:11:45 -0500
+Received: from werewolf.home (83.138.217.78) by resmaa12.ono.com (8.5.113) (authenticated as jamagallon)
+        id 4AFAB2F70018125B for netdev@vger.kernel.org; Mon, 23 Nov 2009 18:57:40 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen
+Hi...
 
- This merge looks ok and I have tested it. 
+I have two boxes which I linked together via 2x gigabit interfaces and a
+3Com switch. Each interface is:
 
-Thanks
-Amit Salecha
+02:0a.0 Ethernet controller: Intel Corporation 82541EI Gigabit Ethernet Controller
+02:0b.0 Ethernet controller: Intel Corporation 82541EI Gigabit Ethernet Controller
 
------Original Message-----
-From: Stephen Rothwell [mailto:sfr@canb.auug.org.au] 
-Sent: Sunday, November 22, 2009 5:01 PM
-To: David Miller; netdev@vger.kernel.org
-Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Amit Salecha
-Subject: linux-next: manual merge of the net tree with the net-current tree
+I use the e1000 driver.
+The switch is private for them, so there is no more taffic.
+Boxes are P4-HT@2.8, 3Gb of RAM.
 
-Hi all,
+Both interfaces alone work pretty well (performance measured with iperf):
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/netxen/netxen_nic_init.c between commit
-5d521fd36de4e61ab16a358df54c5babe153396c ("netxen: fix memory
-initialization") from the net-current tree and commit
-0be367bd5d10634c0836f57a684432fee935d929 ("netxen: reset sequence
-changes") from the net tree.
+[  5] local 192.168.1.2 port 5001 connected with 192.168.1.1 port 41252
+[ ID] Interval       Transfer     Bandwidth
+[  5]  0.0-10.0 sec  1.00 GBytes    860 Mbits/sec
 
-Just context changes. I fixed it up (see below) and can carry the fix as
-necessary.
+[  4] local 192.168.2.2 port 5001 connected with 192.168.2.1 port 39275
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-10.0 sec  1024 MBytes    858 Mbits/sec
+
+I loaded bonding driver with no parameters, and using iperf I get:
+
+[  4] local 192.168.1.2 port 5001 connected with 192.168.1.1 port 41254
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-10.0 sec    741 MBytes    621 Mbits/sec
+
+In the node which receives, two instances of iftop on slave interfaces
+show that load is balanced, but none flies higher than about 300 Mb/s.
+
+Any ideas ?
+If you guess something and need more info, I will provide it.
+
+TIA
+
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/netxen/netxen_nic_init.c
-index 8a09043,6ee27a6..0000000
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@@ -544,9 -528,8 +528,10 @@@ int netxen_pinit_from_rom(struct netxen
-  				continue;
-  			if (off == (ROMUSB_GLB + 0x1c)) /* MS clock */
-  				continue;
- +			if ((off & 0x0ff00000) == NETXEN_CRB_DDR_NET)
- +				continue;
-- 			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18))
-+ 			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18) &&
-+ 				!NX_IS_REVISION_P3P(adapter->ahw.revision_id))
-  				buf[i].data = 0x1020;
-  			/* skip the function enable register */
-  			if (off == NETXEN_PCIE_REG(PCIE_SETUP_FUNCTION))
+J.A. Magallon <jamagallon()ono!com>     \               Software is like sex:
+                                         \         It's better when it's free
+Mandriva Linux release 2010.0 (Cooker) for x86_64
+Linux 2.6.29.3-desktop-1mnb (gcc 4.3.2 (GCC) #1 Wed May
