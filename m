@@ -1,76 +1,206 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] ixgbe: Only set/clear VFE in
-	ixgbe_set_rx_mode
-Date: Mon, 23 Nov 2009 08:32:57 -0800
-Message-ID: <20091123163256.19706.37773.stgit@localhost.localdomain>
-References: <20091123163145.19706.37720.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ixgbe question
+Date: Mon, 23 Nov 2009 17:59:25 +0100
+Message-ID: <4B0ABF6D.9000103@gmail.com>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>	<2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>	<1258968980.2697.9.camel@ppwaskie-mobl2>	<4B0A6218.9040303@gmail.com>	<Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>	<4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	Linux Netdev List <netdev@vger.kernel.org>
+To: robert@herjulf.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:59615
-	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756028AbZKWQdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 11:33:10 -0500
-In-Reply-To: <20091123163145.19706.37720.stgit@localhost.localdomain>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58520 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbZKWQ7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 11:59:25 -0500
+In-Reply-To: <19210.54486.353397.804028@gargle.gargle.HOWL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+robert@herjulf.net a =E9crit :
+> Eric Dumazet writes:
+>=20
+>  > Jesper Dangaard Brouer a =E9crit :
+>  >=20
+>  > > How is your smp_affinity mask's set?
+>  > >=20
+>  > > grep . /proc/irq/*/fiber1-*/../smp_affinity
+>  >=20
+>=20
+>  Weird... set clone_skb to 1 to be sure and vary dst or something so=20
+>  the HW classifier selects different queues and with proper RX affint=
+y.=20
+> =20
+>  You should see in /proc/net/softnet_stat something like:
+>=20
+> 012a7bb9 00000000 000000ae 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 01288d4c 00000000 00000049 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 0128fe28 00000000 00000043 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 01295387 00000000 00000047 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 0129a722 00000000 0000004a 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 0128c5e4 00000000 00000046 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 0128f718 00000000 00000043 00000000 00000000 00000000 00000000 000000=
+00 00000000
+> 012993e3 00000000 0000004a 00000000 00000000 00000000 00000000 000000=
+00 00000000
+>=20
 
-There appears to be a stray setting of the VFE bit when registering vlans.
-This should not be done as vlan filtering should be enabled any time the
-interface is not in promiscous mode
+slone_skb set to 1, this changes nothing but slows down pktgen (obvious=
+ly)
 
-Signed-off-by:  Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Result: OK: 117614452(c117608705+d5746) nsec, 100000000 (60byte,0frags)
+  850235pps 408Mb/sec (408112800bps) errors: 0
 
- drivers/net/ixgbe/ixgbe_main.c |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
+All RX processing of 16 RX queues done by CPU 1 only.
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a3a2a9a..5182b28 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2336,23 +2336,25 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
- 	 * not in DCB mode.
- 	 */
- 	ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
-+
-+	/* Disable CFI check */
-+	ctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+
-+	/* enable VLAN tag stripping */
- 	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
--		ctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
--		ctrl &= ~IXGBE_VLNCTRL_CFIEN;
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
-+		ctrl |= IXGBE_VLNCTRL_VME;
- 	} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
--		ctrl |= IXGBE_VLNCTRL_VFE;
--		/* enable VLAN tag insert/strip */
--		ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
--		ctrl &= ~IXGBE_VLNCTRL_CFIEN;
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			u32 ctrl;
- 			j = adapter->rx_ring[i].reg_idx;
- 			ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXDCTL(j));
- 			ctrl |= IXGBE_RXDCTL_VME;
- 			IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXDCTL(j), ctrl);
- 		}
- 	}
-+
-+	IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
-+
- 	ixgbe_vlan_rx_add_vid(netdev, 0);
- 
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+
+# cat  /proc/net/softnet_stat  ; sleep 2 ; echo "--------------";cat  /=
+proc/net/softnet_stat
+0039f331 00000000 00002e10 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+03f2ed19 00000000 00037ca2 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000024 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000041 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000028 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000000b 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+000000c5 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000010d 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000250 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000498 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000616 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000012c 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+000000d2 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000025d 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000003c 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000127 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+--------------
+0039f331 00000000 00002e10 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+03f66737 00000000 00038015 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000024 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000041 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000028 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000000b 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+000000c5 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000110 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000250 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000499 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000616 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000012c 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+000000d2 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000263 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+0000003c 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+00000129 00000000 00000000 00000000 00000000 00000000 00000000 00000000=
+ 00000000
+
+ethtool -S fiber1  (to show how my trafic is equally distributed to 16 =
+RX queues)
+
+     rx_queue_0_packets: 4867706
+     rx_queue_0_bytes: 292062360
+     rx_queue_1_packets: 4862472
+     rx_queue_1_bytes: 291748320
+     rx_queue_2_packets: 4867111
+     rx_queue_2_bytes: 292026660
+     rx_queue_3_packets: 4859897
+     rx_queue_3_bytes: 291593820
+     rx_queue_4_packets: 4862267
+     rx_queue_4_bytes: 291740814
+     rx_queue_5_packets: 4861517
+     rx_queue_5_bytes: 291691020
+     rx_queue_6_packets: 4862699
+     rx_queue_6_bytes: 291761940
+     rx_queue_7_packets: 4860523
+     rx_queue_7_bytes: 291631380
+     rx_queue_8_packets: 4856891
+     rx_queue_8_bytes: 291413460
+     rx_queue_9_packets: 4868794
+     rx_queue_9_bytes: 292127640
+     rx_queue_10_packets: 4859099
+     rx_queue_10_bytes: 291545940
+     rx_queue_11_packets: 4867599
+     rx_queue_11_bytes: 292055940
+     rx_queue_12_packets: 4861868
+     rx_queue_12_bytes: 291713374
+     rx_queue_13_packets: 4862655
+     rx_queue_13_bytes: 291759300
+     rx_queue_14_packets: 4860798
+     rx_queue_14_bytes: 291647880
+     rx_queue_15_packets: 4860951
+     rx_queue_15_bytes: 291657060
+
+
+perf top -C 1 -E 25
+-----------------------------------------------------------------------=
+-------
+   PerfTop:   24419 irqs/sec  kernel:100.0% [100000 cycles],  (all, cpu=
+: 1)
+-----------------------------------------------------------------------=
+-------
+
+             samples    pcnt   kernel function
+             _______   _____   _______________
+
+            46234.00 - 24.3% : ixgbe_clean_tx_irq	[ixgbe]
+            21134.00 - 11.1% : __slab_free
+            17838.00 -  9.4% : _raw_spin_lock
+            17086.00 -  9.0% : skb_release_head_state
+             9410.00 -  5.0% : ixgbe_clean_rx_irq	[ixgbe]
+             8639.00 -  4.5% : kmem_cache_free
+             6910.00 -  3.6% : kfree
+             5743.00 -  3.0% : __ip_route_output_key
+             5321.00 -  2.8% : ip_route_input
+             3138.00 -  1.7% : ip_rcv
+             2179.00 -  1.1% : kmem_cache_alloc_node
+             2002.00 -  1.1% : __kmalloc_node_track_caller
+             1907.00 -  1.0% : skb_put
+             1807.00 -  1.0% : __xfrm_lookup
+             1742.00 -  0.9% : get_partial_node
+             1727.00 -  0.9% : csum_partial_copy_generic
+             1541.00 -  0.8% : add_partial
+             1516.00 -  0.8% : __kfree_skb
+             1465.00 -  0.8% : __netdev_alloc_skb
+             1420.00 -  0.7% : icmp_send
+             1222.00 -  0.6% : dev_gro_receive
+             1159.00 -  0.6% : fib_table_lookup
+             1155.00 -  0.6% : __phys_addr
+             1050.00 -  0.6% : skb_release_data
+              982.00 -  0.5% : _raw_spin_unlock
 
