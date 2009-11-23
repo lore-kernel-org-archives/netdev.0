@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [-next PATCH 4/4] vbus: fix pcibridge busmaster support
-Date: Mon, 23 Nov 2009 14:54:49 -0500
-Message-ID: <20091123195449.8184.18927.stgit@dev.haskins.net>
+Subject: [-next PATCH 1/4] vbus: make library code properly declared as GPL
+Date: Mon, 23 Nov 2009 14:54:34 -0500
+Message-ID: <20091123195434.8184.70297.stgit@dev.haskins.net>
 References: <20091123195136.8184.68042.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,30 +9,48 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	alacrityvm-devel@lists.sourceforge.net
 To: linux-next@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756691AbZKWTyv@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
 In-Reply-To: <20091123195136.8184.68042.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We should technically enable the busmaster bit, even though its not
-actually used on the host side
+This facilitates building the shm-signal and ioq libraries as kernel
+modules.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- drivers/vbus/pci-bridge.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ lib/ioq.c        |    4 ++++
+ lib/shm_signal.c |    4 ++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/vbus/pci-bridge.c b/drivers/vbus/pci-bridge.c
-index ddc3f39..962ef58 100644
---- a/drivers/vbus/pci-bridge.c
-+++ b/drivers/vbus/pci-bridge.c
-@@ -932,6 +932,8 @@ vbus_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (ret < 0)
- 		return ret;
+diff --git a/lib/ioq.c b/lib/ioq.c
+index a6c8664..d5e57be 100644
+--- a/lib/ioq.c
++++ b/lib/ioq.c
+@@ -25,6 +25,10 @@
+ #include <linux/bitops.h>
+ #include <linux/module.h>
  
-+	pci_set_master(pdev);
++MODULE_AUTHOR("Gregory Haskins");
++MODULE_LICENSE("GPL");
++MODULE_VERSION("1");
 +
- 	ret = pci_request_regions(pdev, VBUS_PCI_NAME);
- 	if (ret < 0) {
- 		printk(KERN_ERR "VBUS_PCI: Could not init BARs: %d\n", ret);
+ #ifndef NULL
+ #define NULL 0
+ #endif
+diff --git a/lib/shm_signal.c b/lib/shm_signal.c
+index fbba74f..8d3e9b4 100644
+--- a/lib/shm_signal.c
++++ b/lib/shm_signal.c
+@@ -24,6 +24,10 @@
+ #include <linux/interrupt.h>
+ #include <linux/shm_signal.h>
+ 
++MODULE_AUTHOR("Gregory Haskins");
++MODULE_LICENSE("GPL");
++MODULE_VERSION("1");
++
+ int shm_signal_enable(struct shm_signal *s, int flags)
+ {
+ 	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
