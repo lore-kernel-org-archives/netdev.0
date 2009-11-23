@@ -1,49 +1,39 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
- irqbalance hints
-Date: Mon, 23 Nov 2009 18:05:23 +0100
-Message-ID: <1258995923.4531.715.camel@laptop>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
-	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
-	 <1258968980.2697.9.camel@ppwaskie-mobl2>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next-2.6 PATCH v7 5/7 RFC] TCPCT part 1e: implement
+ socket option TCP_COOKIE_TRANSACTIONS
+Date: Mon, 23 Nov 2009 09:25:29 -0800
+Message-ID: <1258997129.16503.71.camel@Joe-Laptop.home>
+References: <4B06A1FF.8000202@gmail.com>	<4B06AC2C.3070102@gmail.com>
+	 <20091120.092651.254794724.davem@davemloft.net> <4B08D967.80003@gmail.com>
+	 <1258873848.16503.12.camel@Joe-Laptop.home>  <4B0A6EF3.8040302@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yong Zhang <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:58090 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbZKWRFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 12:05:21 -0500
-In-Reply-To: <1258968980.2697.9.camel@ppwaskie-mobl2>
+Received: from mail.perches.com ([173.55.12.10]:1081 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752593AbZKWRZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 12:25:24 -0500
+In-Reply-To: <4B0A6EF3.8040302@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-23 at 01:36 -0800, Peter P Waskiewicz Jr wrote:
+On Mon, 2009-11-23 at 06:16 -0500, William Allen Simpson wrote:
+> Therefore, it's plain as can be that this is just more jumping through
+> arbitrary and capricious hoops that others are not required to follow.
+> At *thousands* of examples, including in the tcp*.c files themselves, it
+> really becomes obvious that that may be a personal preference of David,
+> but is *not* a tree-wide or even a net-wide coding style.
 
-> This mechanism isn't going to be used by any internal kernel mechanism
-> for determining interrupt placement or operation.  It's purely something
-> that either a driver can modify, or external script (through /proc),
-> that irqbalance will make use of.  If irqbalance isn't running, or the
-> current version of irqbalance doesn't support reading node_affinity,
-> then it won't affect the system's operation.
-> 
-> If irqbalance does support it, it'll read whatever the supplied mask is,
-> and then will try and balance interrupts within that mask.  It will bail
-> if the mask is invalid, or won't apply to the running system, just like
-> how putting a bogus mask into smp_affinity is ignored.
-> 
-> If there's something I'm missing beyond this with the two suggestions
-> you've made (I looked into those two parameters and tried to draw
-> conclusions), please let me know.
+It seems similar kernel source uses are mostly historic.
 
-I don't see the point in adding it, if the driver wants to set a node
-cpu mask it can already do that using the regular smp affinity settings.
+Relatively little new code is added with leading || or &&.
+There is some in staging/, but it normally gets removed.
 
-Same for userspace.
+> So, I'll try again now, with the assurance that this is the final hoop.
+
+Once more into the breach or men of few words are the best men?
+I'll stop typing now...
 
