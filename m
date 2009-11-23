@@ -1,51 +1,103 @@
-From: robert@herjulf.net
-Subject: Strange CPU load when flushing route cache (kernel 2.6.31.6)
-Date: Mon, 23 Nov 2009 16:07:10 +0100
-Message-ID: <19210.42270.233337.986217@gargle.gargle.HOWL>
-References: <1258970332.29747.262.camel@jdb-workstation>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+	hardware queue MAC and VLAN filters
+Date: Mon, 23 Nov 2009 13:22:50 +0000
+Message-ID: <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
+References: <20091117214923.15119.98918.stgit@localhost.localdomain>
+	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
+	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
+	 <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
+	 <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Robert Olsson <robert@herjulf.net>
-To: Jesper Dangaard Brouer <jdb@comx.dk>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from klais.its.uu.se ([130.238.7.59]:56939 "EHLO klais.its.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756968AbZKWMz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 07:55:58 -0500
-In-Reply-To: <1258970332.29747.262.camel@jdb-workstation>
+Received: from mail.solarflare.com ([216.237.3.220]:55930 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751992AbZKWNWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 08:22:51 -0500
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2009-11-19 at 12:34 -0700, Williams, Mitch A wrote:
+> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> >Sent: Thursday, November 19, 2009 10:59 AM
+> 
+> >> Please explain specifically what you perceive to be the difference
+> >between:
+> >>
+> >> $ ip link set eth1 queue 1 mac <blah>
+> >> $ ip link set eth1 queue 1 vlan <foo>
+> >>
+> >> and
+> >>
+> >> $ ip link set eth1 queue 1 mac <blah> vlan <foo>
+> >>
+> >> The two filter types are, in my mind, completely orthogonal.  You can
+> >> have one, or the other, or both, or neither. What do we gain by
+> >> glomming both options on one command line?  And is this worth the
+> >> tradeoff of more complex code?
+> >
+> >I think you need to state clearly what semantics you are now proposing
+> >before I can make any judgement on them.
+> >
+> 
+> OK, now I'm really confused, Ben. It seems that we are both asking
+> each other the same question.
+> 
+> What I'm proposing is really the same as we have now for single-queue
+> devices:
+> 
+> - A MAC filter is enabled by default. If you want to change the MAC
+> address, you use a tool (ip or ifconfig) to change it.
+> 
+> - A VLAN filter is not enabled by default. If you want to filter on
+> VLANs, then you load the 8021q module, and enable a filter.
 
-Jesper Dangaard Brouer writes:
+This doesn't seem quite the same to me, but I'll not argue this.
 
- > I have observed a strange route cache behaviour when I upgraded some
- > of my production Linux routers (1Gbit/s tg3) to kernel 2.6.31.6 (from
- > kernel 2.6.25.7).
- > 
- > Every time the route cache is flushed I get a CPU spike (in softirq)
- > with a tail.  I have attached some graphs that illustrate the issue
- > (hope vger.kernel.org will allow these attachments...)
+> The MAC filter is configured completely separately from the VLAN
+> filter. Either one can be changed without affecting the other one and,
+> in fact, you use two different tools to do these operations.
+> 
+> For SR-IOV VF devices, my proposed changes implement exactly the same
+> thing.  You use one command to change the MAC address.  You use
+> another command to change the VLAN filter. Changing one does not
+> affect the other.
+> 
+> In this case, we use the same tool for both operations, but they're
+> still separate operations.
 
+This makes some sense, and I accept that it's rather different from
+filtering for delivery to the host.
 
- Nice plots. Yes had the same problem long time. Packets were dropped on
- even moderately loaded machines and the network managers were complaining.
+> N.B.
+> The major difference in VLAN filtering is that this implementation
+> allows the VF to participate in only one VLAN, and the filter is
+> applied independently of the VF driver. So you can put a specific VM
+> on a VLAN without its knowledge. If you want the VM to have more
+> intelligent VLAN filtering, you don't use this filter, and you load
+> 8021q in the VM and set your filters there.
 
- Also the are some router benchmarks (RFC??) that estimates the forwarding 
- performance to the level when the first packet drop occurs. One can of course 
- discuss such test but it's there...
+How does this interact with use of multiple queues within a single
+function?  Are the specified queue numbers really interpreted as RX
+queue indices or as function numbers?
 
- IMO is best to have he GC "inlined" with the creation of new flows and avoid 
- periodic tasks in this aspect. 
+Ben.
 
- Also I tried with something I called "active" garbage collection. The idea 
- was to get hints from TCP-FIN etc when to remove stale entries to take a 
- more pro-active approach. I think this was mentioned in the TRASH-paper. 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
- If you only do routing you might try to disable the route cache.
-
- Cheers
-					--ro
