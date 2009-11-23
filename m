@@ -1,33 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 PATCH] net/ipv4: Move && and || to end of
- previous line
-Date: Mon, 23 Nov 2009 10:38:24 -0800
-Message-ID: <1259001504.16503.79.camel@Joe-Laptop.home>
-References: <4B08D967.80003@gmail.com>
-	 <20091122.163112.80105623.davem@davemloft.net>
-	 <1259000895.16503.77.camel@Joe-Laptop.home>
-	 <20091123.103158.32535206.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pktgen: Fix device name compares
+Date: Mon, 23 Nov 2009 10:39:05 -0800 (PST)
+Message-ID: <20091123.103905.176285358.davem@davemloft.net>
+References: <4B0A75A5.8000106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: william.allen.simpson@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, robert.olsson@its.uu.se
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1088 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751833AbZKWSiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 13:38:19 -0500
-In-Reply-To: <20091123.103158.32535206.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755134AbZKWSis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 13:38:48 -0500
+In-Reply-To: <4B0A75A5.8000106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-23 at 10:31 -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> > Compiled tested only:
-> Joe, please provide a signoff so I can apply this.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Nov 2009 12:44:37 +0100
 
-Sorry, forgot.
+> Commit e6fce5b916cd7f7f7 (pktgen: multiqueue etc.) tried to relax
+> the pktgen restriction of one device per kernel thread, adding a '@'
+> tag to device names.
+> 
+> Problem is we dont perform check on full pktgen device name.
+ ...
+> Solution to this problem is to use a odevname field (includes @ tag and suffix),
+> instead of using netdevice name.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: Joe Perches <joe@perches.com>
-
-
+Applied, thanks Eric.
