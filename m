@@ -1,46 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: macvlan: fix gso_max_size setting
-Date: Mon, 23 Nov 2009 14:22:07 -0800 (PST)
-Message-ID: <20091123.142207.14190542.davem@davemloft.net>
-References: <4B0A64E2.8090203@trash.net>
-	<20091123.101013.40629093.davem@davemloft.net>
-	<4B0B087B.3020000@trash.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers and big packets in virtio_net
+Date: Tue, 24 Nov 2009 08:54:23 +1030
+Message-ID: <200911240854.24054.rusty@rustcorp.com.au>
+References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Hollis Blanchard <hollisb@us.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49391
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757006AbZKWWVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:21:50 -0500
-In-Reply-To: <4B0B087B.3020000@trash.net>
+Received: from ozlabs.org ([203.10.76.45]:41453 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757006AbZKWWYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 17:24:22 -0500
+In-Reply-To: <1258992421.5022.19.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 23 Nov 2009 23:11:07 +0100
-
-> David Miller wrote:
->> From: Patrick McHardy <kaber@trash.net>
->> Date: Mon, 23 Nov 2009 11:33:06 +0100
->>
->>   
->>> Fix macvlan gso_max_size setting. Based on net-next-2.6.git.
->>
->> Pretty serious defect, maybe net-2.6 material?
+On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
+> > > +             skb = (struct sk_buff *)buf;
+> > This cast is unnecessary, but a comment would be nice:
 > 
-> Sure, please take it in net-2.6.
+> Without this cast there is a compile warning. 
 
-Done, thanks.
+Hi Shirley,
 
->>
->> If someone hits this, it's going to trigger something awful.
+   Looks like buf is a void *, so no cast should be necessary.  But I could
+be reading the patch wrong.
+
+> > However, I question whether making it 16 byte is the right thing: the
+> > ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
 > 
-> Don't drivers simply drop the packet? Otherwise I think you
-> should be able to trigger the same problem using the TC mirred
-> action.
+> Because in QEMU it requires 10 bytes header in a separately, so one page
+> is used to share between virtio_net_hdr header which is 10 bytes head
+> and rest of data. So I put 6 bytes offset here between two buffers. I
+> didn't look at the reason why a seperate buf is used for virtio_net_hdr
+> in QEMU.
 
-I see nothing in the IXGBE driver's transmit code paths which guard
-against this.
+It's a qemu bug.  It insists the header be an element in the scatterlist by
+itself.  Unfortunately we have to accommodate it.
+
+However, there's no reason for the merged rxbuf and big packet layout to be
+the same: for the big packet case you should layout as follows:
+
+#define BIG_PACKET_PAD (NET_SKB_PAD - sizeof(struct virtio_net_hdr) + NET_IP_ALIGN)
+struct big_packet_page {
+	struct virtio_net_hdr hdr;
+	char pad[BIG_PACKET_PAD];
+	/* Actual packet data starts here */
+	unsigned char data[PAGE_SIZE - BIG_PACKET_PAD - sizeof(struct virtio_net_hdr)];
+};
+
+Then use this type as the template for registering the sg list for the
+big packet case.
+
+> > I think you can move the memcpy outside the if, like so:
+> > 
+> >         memcpy(&hdr, p, hdr_len);
+> 
+> I didn't move it out, because num_buf = hdr->mhdr.num_buffers;
+
+Yes, that has to stay inside, but the memcpy can move out.  It's just a bit
+neater to have more common code.
+
+Thanks,
+Rusty.
