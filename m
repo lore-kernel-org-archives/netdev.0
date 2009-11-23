@@ -1,159 +1,65 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 2/2] stmmac: do not fail when the timer cannot be used.
-Date: Mon, 23 Nov 2009 09:59:56 +0100
-Message-ID: <1258966796-6602-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
+ irqbalance hints
+Date: Mon, 23 Nov 2009 01:36:19 -0800
+Message-ID: <1258968980.2697.9.camel@ppwaskie-mobl2>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yong Zhang <yong.zhang0@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:46465 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756029AbZKWJAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 04:00:03 -0500
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 8241A172
-	for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 09:00:05 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4B23E985
-	for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 09:00:05 +0000 (GMT)
+Received: from mga01.intel.com ([192.55.52.88]:31992 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756145AbZKWJgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 04:36:09 -0500
+In-Reply-To: <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the external timer cannot be used the driver
-will continue to work without mitigation.
+On Sun, 2009-11-22 at 23:32 -0800, Yong Zhang wrote:
+> On Mon, Nov 23, 2009 at 2:46 PM, Peter P Waskiewicz Jr
+> <peter.p.waskiewicz.jr@intel.com> wrote:
+> > This patchset adds a new CPU mask for SMP systems to the irq_desc
+> > struct.  It also exposes an API for underlying device drivers to
+> > assist irqbalance in making smarter decisions when balancing, especially
+> > in a NUMA environment.  For example, an ethernet driver with MSI-X may
+> > wish to limit the CPUs that an interrupt can be balanced within to
+> > stay on a single NUMA node.  Current irqbalance operation can move the
+> > interrupt off the node, resulting in cross-node memory accesses and
+> > locks.
+> >
+> > The API is a get/set API within the kernel, along with a /proc entry
+> > for the interrupt.
+> >
+> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > ---
+> 
+> 1) I think you should consider CONFIG_CPUMASK_OFFSTACK which will affect
+>    node_affinity.
+> 2) It seems like this patch can't work with SPARSE_IRQ.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/stmmac_main.c  |   50 ++++++++++++++++++++----------------
- drivers/net/stmmac/stmmac_timer.h |    1 +
- 2 files changed, 29 insertions(+), 22 deletions(-)
+This mechanism isn't going to be used by any internal kernel mechanism
+for determining interrupt placement or operation.  It's purely something
+that either a driver can modify, or external script (through /proc),
+that irqbalance will make use of.  If irqbalance isn't running, or the
+current version of irqbalance doesn't support reading node_affinity,
+then it won't affect the system's operation.
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index c2f14dc..9542995 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -416,13 +416,8 @@ static void init_dma_desc_rings(struct net_device *dev)
- 	unsigned int txsize = priv->dma_tx_size;
- 	unsigned int rxsize = priv->dma_rx_size;
- 	unsigned int bfsize = priv->dma_buf_sz;
--	int buff2_needed = 0;
--	int dis_ic = 0;
-+	int buff2_needed = 0, dis_ic = 0;
- 
--#ifdef CONFIG_STMMAC_TIMER
--	/* Using Timers disable interrupts on completion for the reception */
--	dis_ic = 1;
--#endif
- 	/* Set the Buffer size according to the MTU;
- 	 * indeed, in case of jumbo we need to bump-up the buffer sizes.
- 	 */
-@@ -437,6 +432,11 @@ static void init_dma_desc_rings(struct net_device *dev)
- 	else
- 		bfsize = DMA_BUFFER_SIZE;
- 
-+#ifdef CONFIG_STMMAC_TIMER
-+	/* Disable interrupts on completion for the reception if timer is on */
-+	if (likely(priv->tm->enable))
-+		dis_ic = 1;
-+#endif
- 	/* If the MTU exceeds 8k so use the second buffer in the chain */
- 	if (bfsize >= BUF_SIZE_8KiB)
- 		buff2_needed = 1;
-@@ -809,20 +809,22 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 
- static inline void stmmac_enable_irq(struct stmmac_priv *priv)
- {
--#ifndef CONFIG_STMMAC_TIMER
--	writel(DMA_INTR_DEFAULT_MASK, priv->dev->base_addr + DMA_INTR_ENA);
--#else
--	priv->tm->timer_start(tmrate);
-+#ifdef CONFIG_STMMAC_TIMER
-+	if (likely(priv->tm->enable))
-+		priv->tm->timer_start(tmrate);
-+	else
- #endif
-+	writel(DMA_INTR_DEFAULT_MASK, priv->dev->base_addr + DMA_INTR_ENA);
- }
- 
- static inline void stmmac_disable_irq(struct stmmac_priv *priv)
- {
--#ifndef CONFIG_STMMAC_TIMER
--	writel(0, priv->dev->base_addr + DMA_INTR_ENA);
--#else
--	priv->tm->timer_stop();
-+#ifdef CONFIG_STMMAC_TIMER
-+	if (likely(priv->tm->enable))
-+		priv->tm->timer_stop();
-+	else
- #endif
-+	writel(0, priv->dev->base_addr + DMA_INTR_ENA);
- }
- 
- static int stmmac_has_work(struct stmmac_priv *priv)
-@@ -1031,22 +1033,23 @@ static int stmmac_open(struct net_device *dev)
- 	}
- 
- #ifdef CONFIG_STMMAC_TIMER
--	priv->tm = kmalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
-+	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
- 	if (unlikely(priv->tm == NULL)) {
- 		pr_err("%s: ERROR: timer memory alloc failed \n", __func__);
- 		return -ENOMEM;
- 	}
- 	priv->tm->freq = tmrate;
- 
--	/* Test if the HW timer can be actually used.
--	 * In case of failure continue with no timer. */
-+	/* Test if the external timer can be actually used.
-+	 * In case of failure continue without timer. */
- 	if (unlikely((stmmac_open_ext_timer(dev, priv->tm)) < 0)) {
--		pr_warning("stmmaceth: cannot attach the HW timer\n");
-+		pr_warning("stmmaceth: cannot attach the external timer.\n");
- 		tmrate = 0;
- 		priv->tm->freq = 0;
- 		priv->tm->timer_start = stmmac_no_timer_started;
- 		priv->tm->timer_stop = stmmac_no_timer_stopped;
--	}
-+	} else
-+		priv->tm->enable = 1;
- #endif
- 
- 	/* Create and initialize the TX/RX descriptors chains. */
-@@ -1322,9 +1325,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Interrupt on completition only for the latest segment */
- 	priv->mac_type->ops->close_tx_desc(desc);
-+
- #ifdef CONFIG_STMMAC_TIMER
--	/* Clean IC while using timers */
--	priv->mac_type->ops->clear_tx_ic(desc);
-+	/* Clean IC while using timer */
-+	if (likely(priv->tm->enable))
-+		priv->mac_type->ops->clear_tx_ic(desc);
- #endif
- 	/* To avoid raise condition */
- 	priv->mac_type->ops->set_tx_owner(first);
-@@ -2028,7 +2033,8 @@ static int stmmac_suspend(struct platform_device *pdev, pm_message_t state)
- 
- #ifdef CONFIG_STMMAC_TIMER
- 		priv->tm->timer_stop();
--		dis_ic = 1;
-+		if (likely(priv->tm->enable))
-+			dis_ic = 1;
- #endif
- 		napi_disable(&priv->napi);
- 
-diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/stmmac/stmmac_timer.h
-index f795cae..6863590 100644
---- a/drivers/net/stmmac/stmmac_timer.h
-+++ b/drivers/net/stmmac/stmmac_timer.h
-@@ -26,6 +26,7 @@ struct stmmac_timer {
- 	void (*timer_start) (unsigned int new_freq);
- 	void (*timer_stop) (void);
- 	unsigned int freq;
-+	unsigned int enable;
- };
- 
- /* Open the HW timer device and return 0 in case of success */
--- 
-1.6.0.4
+If irqbalance does support it, it'll read whatever the supplied mask is,
+and then will try and balance interrupts within that mask.  It will bail
+if the mask is invalid, or won't apply to the running system, just like
+how putting a bogus mask into smp_affinity is ignored.
+
+If there's something I'm missing beyond this with the two suggestions
+you've made (I looked into those two parameters and tried to draw
+conclusions), please let me know.
+
+Cheers,
+-PJ Waskiewicz
 
