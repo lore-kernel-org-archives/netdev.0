@@ -1,7 +1,8 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH v2 3/7] via-velocity: Implement NAPI support
-Date: Mon, 23 Nov 2009 15:31:22 +0100
-Message-ID: <20091123153122.21ca8abc@marrow.netinsight.se>
+Subject: [PATCH v2 5/7] via-velocity: Re-enable transmit scatter-gather
+ support
+Date: Mon, 23 Nov 2009 15:31:33 +0100
+Message-ID: <20091123153133.2237b04c@marrow.netinsight.se>
 References: <20091120160633.77b7aee0@marrow.netinsight.se>
 	<20091123152724.2871cf4d@marrow.netinsight.se>
 Mime-Version: 1.0
@@ -11,209 +12,193 @@ Cc: davem@davemloft.net, davej@redhat.com, shemminger@vyatta.com,
 	romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:29364 "HELO
+Received: from ernst.netinsight.se ([194.16.221.21]:61124 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753313AbZKWObU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 09:31:20 -0500
+	with SMTP id S1754403AbZKWObd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 09:31:33 -0500
 In-Reply-To: <20091123152724.2871cf4d@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds NAPI support for VIA velocity. The new velocity_poll
-function also pairs tx/rx handling twice which improves perforamance on
-some workloads (e.g., netperf UDP_STREAM) significantly (that part is
-from the VIA driver).
+The velocity hardware can handle up to 7 memory segments. This can be
+turned on and off via ethtool.
 
 Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
 ---
- drivers/net/via-velocity.c |   81 +++++++++++++++++++++++++-------------------
- drivers/net/via-velocity.h |    3 ++
- 2 files changed, 49 insertions(+), 35 deletions(-)
+ drivers/net/via-velocity.c |   88 +++++++++++++++++++++++++++++---------------
+ 1 files changed, 58 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 85ee898..668cdf6 100644
+index 06a6d80..92b41fc 100644
 --- a/drivers/net/via-velocity.c
 +++ b/drivers/net/via-velocity.c
-@@ -354,12 +354,6 @@ VELOCITY_PARAM(ValPktLen, "Receiving or Drop invalid 802.3 frame");
- */
- VELOCITY_PARAM(wol_opts, "Wake On Lan options");
- 
--#define INT_WORKS_DEF   20
--#define INT_WORKS_MIN   10
--#define INT_WORKS_MAX   64
--
--VELOCITY_PARAM(int_works, "Number of packets per interrupt services");
--
- static int rx_copybreak = 200;
- module_param(rx_copybreak, int, 0644);
- MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
-@@ -516,7 +510,6 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
- 	velocity_set_bool_opt(&opts->flags, ValPktLen[index], VAL_PKT_LEN_DEF, VELOCITY_FLAGS_VAL_PKT_LEN, "ValPktLen", devname);
- 	velocity_set_int_opt((int *) &opts->spd_dpx, speed_duplex[index], MED_LNK_MIN, MED_LNK_MAX, MED_LNK_DEF, "Media link mode", devname);
- 	velocity_set_int_opt((int *) &opts->wol_opts, wol_opts[index], WOL_OPT_MIN, WOL_OPT_MAX, WOL_OPT_DEF, "Wake On Lan options", devname);
--	velocity_set_int_opt((int *) &opts->int_works, int_works[index], INT_WORKS_MIN, INT_WORKS_MAX, INT_WORKS_DEF, "Interrupt service works", devname);
- 	opts->numrx = (opts->numrx & ~3);
- }
- 
-@@ -2123,13 +2116,14 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
-  *	any received packets from the receive queue. Hand the ring
-  *	slots back to the adapter for reuse.
+@@ -9,7 +9,6 @@
+  *
+  * TODO
+  *	rx_copybreak/alignment
+- *	Scatter gather
+  *	More testing
+  *
+  * The changes are (c) Copyright 2004, Red Hat Inc. <alan@lxorguk.ukuu.org.uk>
+@@ -1656,12 +1655,10 @@ out:
   */
--static int velocity_rx_srv(struct velocity_info *vptr, int status)
-+static int velocity_rx_srv(struct velocity_info *vptr, int status,
-+		int budget_left)
+ static int velocity_init_td_ring(struct velocity_info *vptr)
  {
- 	struct net_device_stats *stats = &vptr->dev->stats;
- 	int rd_curr = vptr->rx.curr;
- 	int works = 0;
+-	dma_addr_t curr;
+ 	int j;
  
--	do {
-+	while (works < budget_left) {
- 		struct rx_desc *rd = vptr->rx.ring + rd_curr;
+ 	/* Init the TD ring entries */
+ 	for (j = 0; j < vptr->tx.numq; j++) {
+-		curr = vptr->tx.pool_dma[j];
  
- 		if (!vptr->rx.info[rd_curr].skb)
-@@ -2160,7 +2154,8 @@ static int velocity_rx_srv(struct velocity_info *vptr, int status)
- 		rd_curr++;
- 		if (rd_curr >= vptr->options.numrx)
- 			rd_curr = 0;
--	} while (++works <= 15);
-+		works++;
-+	}
+ 		vptr->tx.infos[j] = kcalloc(vptr->options.numtx,
+ 					    sizeof(struct velocity_td_info),
+@@ -1727,21 +1724,27 @@ err_free_dma_rings_0:
+  *	Release an transmit buffer. If the buffer was preallocated then
+  *	recycle it, if not then unmap the buffer.
+  */
+-static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *tdinfo)
++static void velocity_free_tx_buf(struct velocity_info *vptr,
++		struct velocity_td_info *tdinfo, struct tx_desc *td)
+ {
+ 	struct sk_buff *skb = tdinfo->skb;
+-	int i;
+-	int pktlen;
  
- 	vptr->rx.curr = rd_curr;
+ 	/*
+ 	 *	Don't unmap the pre-allocated tx_bufs
+ 	 */
+ 	if (tdinfo->skb_dma) {
++		int i;
  
-@@ -2171,6 +2166,40 @@ static int velocity_rx_srv(struct velocity_info *vptr, int status)
- 	return works;
- }
- 
-+static int velocity_poll(struct napi_struct *napi, int budget)
-+{
-+	struct velocity_info *vptr = container_of(napi,
-+			struct velocity_info, napi);
-+	unsigned int rx_done;
-+	u32 isr_status;
+-		pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 		for (i = 0; i < tdinfo->nskb_dma; i++) {
+-			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i], pktlen, PCI_DMA_TODEVICE);
+-			tdinfo->skb_dma[i] = 0;
++			size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
 +
-+	spin_lock(&vptr->lock);
-+	isr_status = mac_read_isr(vptr->mac_regs);
++			/* For scatter-gather */
++			if (skb_shinfo(skb)->nr_frags > 0)
++				pktlen = max_t(size_t, pktlen,
++						td->td_buf[i].size & ~TD_QUEUE);
 +
-+	/* Ack the interrupt */
-+	mac_write_isr(vptr->mac_regs, isr_status);
-+	if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
-+		velocity_error(vptr, isr_status);
-+
-+	/*
-+	 * Do rx and tx twice for performance (taken from the VIA
-+	 * out-of-tree driver).
-+	 */
-+	rx_done = velocity_rx_srv(vptr, isr_status, budget / 2);
-+	velocity_tx_srv(vptr, isr_status);
-+	rx_done += velocity_rx_srv(vptr, isr_status, budget - rx_done);
-+	velocity_tx_srv(vptr, isr_status);
-+
-+	spin_unlock(&vptr->lock);
-+
-+	/* If budget not fully consumed, exit the polling mode */
-+	if (rx_done < budget) {
-+		napi_complete(napi);
-+		mac_enable_int(vptr->mac_regs);
-+	}
-+
-+	return rx_done;
-+}
- 
- /**
-  *	velocity_intr		-	interrupt callback
-@@ -2187,8 +2216,6 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
- 	struct net_device *dev = dev_instance;
- 	struct velocity_info *vptr = netdev_priv(dev);
- 	u32 isr_status;
--	int max_count = 0;
--
- 
- 	spin_lock(&vptr->lock);
- 	isr_status = mac_read_isr(vptr->mac_regs);
-@@ -2199,32 +2226,13 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
- 		return IRQ_NONE;
++			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
++					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
+ 		}
  	}
+ 	dev_kfree_skb_irq(skb);
+@@ -1943,7 +1946,7 @@ static int velocity_tx_srv(struct velocity_info *vptr, u32 status)
+ 				stats->tx_packets++;
+ 				stats->tx_bytes += tdinfo->skb->len;
+ 			}
+-			velocity_free_tx_buf(vptr, tdinfo);
++			velocity_free_tx_buf(vptr, tdinfo, td);
+ 			vptr->tx.used[qnum]--;
+ 		}
+ 		vptr->tx.tail[qnum] = idx;
+@@ -2543,14 +2546,27 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 	struct velocity_td_info *tdinfo;
+ 	unsigned long flags;
+ 	int pktlen;
+-	__le16 len;
+-	int index;
++	int index, prev;
++	int i = 0;
  
--	mac_disable_int(vptr->mac_regs);
--
--	/*
--	 *	Keep processing the ISR until we have completed
--	 *	processing and the isr_status becomes zero
--	 */
--
--	while (isr_status != 0) {
--		mac_write_isr(vptr->mac_regs, isr_status);
--		if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
--			velocity_error(vptr, isr_status);
--		if (isr_status & (ISR_PRXI | ISR_PPRXI))
--			max_count += velocity_rx_srv(vptr, isr_status);
--		if (isr_status & (ISR_PTXI | ISR_PPTXI))
--			max_count += velocity_tx_srv(vptr, isr_status);
--		isr_status = mac_read_isr(vptr->mac_regs);
--		if (max_count > vptr->options.int_works) {
--			printk(KERN_WARNING "%s: excessive work at interrupt.\n",
--				dev->name);
--			max_count = 0;
--		}
-+	if (likely(napi_schedule_prep(&vptr->napi))) {
-+		mac_disable_int(vptr->mac_regs);
-+		__napi_schedule(&vptr->napi);
+ 	if (skb_padto(skb, ETH_ZLEN))
+ 		goto out;
+-	pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
+ 
+-	len = cpu_to_le16(pktlen);
++	/* The hardware can handle at most 7 memory segments, so merge
++	 * the skb if there are more */
++	if (skb_shinfo(skb)->nr_frags > 6 && __skb_linearize(skb)) {
++		kfree_skb(skb);
++		return 0;
++	}
++	/* If it's still above 6 we can't do anything */
++	if (skb_shinfo(skb)->nr_frags > 6) {
++		dev_err(&vptr->pdev->dev,
++				"via-velocity: more than 6 frags, can't send.\n");
++		return 0;
++	}
++	pktlen = skb_shinfo(skb)->nr_frags == 0 ?
++			max_t(unsigned int, skb->len, ETH_ZLEN) :
++				skb_headlen(skb);
+ 
+ 	spin_lock_irqsave(&vptr->lock, flags);
+ 
+@@ -2567,11 +2583,24 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 	 */
+ 	tdinfo->skb = skb;
+ 	tdinfo->skb_dma[0] = pci_map_single(vptr->pdev, skb->data, pktlen, PCI_DMA_TODEVICE);
+-	td_ptr->tdesc0.len = len;
++	td_ptr->tdesc0.len = cpu_to_le16(pktlen);
+ 	td_ptr->td_buf[0].pa_low = cpu_to_le32(tdinfo->skb_dma[0]);
+ 	td_ptr->td_buf[0].pa_high = 0;
+-	td_ptr->td_buf[0].size = len;
+-	tdinfo->nskb_dma = 1;
++	td_ptr->td_buf[0].size = cpu_to_le16(pktlen);
++
++	/* Handle fragments */
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++		tdinfo->skb_dma[i + 1] = pci_map_page(vptr->pdev, frag->page,
++				frag->page_offset, frag->size,
++				PCI_DMA_TODEVICE);
++
++		td_ptr->td_buf[i + 1].pa_low = cpu_to_le32(tdinfo->skb_dma[i + 1]);
++		td_ptr->td_buf[i + 1].pa_high = 0;
++		td_ptr->td_buf[i + 1].size = cpu_to_le16(frag->size);
++	}
++	tdinfo->nskb_dma = i + 1;
+ 
+ 	td_ptr->tdesc1.cmd = TCPLS_NORMAL + (tdinfo->nskb_dma + 1) * 16;
+ 
+@@ -2592,23 +2621,21 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 			td_ptr->tdesc1.TCR |= (TCR0_UDPCK);
+ 		td_ptr->tdesc1.TCR |= TCR0_IPCK;
  	}
- 	spin_unlock(&vptr->lock);
--	mac_enable_int(vptr->mac_regs);
--	return IRQ_HANDLED;
+-	{
  
-+	return IRQ_HANDLED;
- }
+-		int prev = index - 1;
++	prev = index - 1;
++	if (prev < 0)
++		prev = vptr->options.numtx - 1;
++	td_ptr->tdesc0.len |= OWNED_BY_NIC;
++	vptr->tx.used[qnum]++;
++	vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
  
- /**
-@@ -2264,6 +2272,7 @@ static int velocity_open(struct net_device *dev)
+-		if (prev < 0)
+-			prev = vptr->options.numtx - 1;
+-		td_ptr->tdesc0.len |= OWNED_BY_NIC;
+-		vptr->tx.used[qnum]++;
+-		vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
++	if (AVAIL_TD(vptr, qnum) < 1)
++		netif_stop_queue(dev);
  
- 	mac_enable_int(vptr->mac_regs);
- 	netif_start_queue(dev);
-+	napi_enable(&vptr->napi);
- 	vptr->flags |= VELOCITY_FLAGS_OPENED;
+-		if (AVAIL_TD(vptr, qnum) < 1)
+-			netif_stop_queue(dev);
++	td_ptr = &(vptr->tx.rings[qnum][prev]);
++	td_ptr->td_buf[0].size |= TD_QUEUE;
++	mac_tx_queue_wake(vptr->mac_regs, qnum);
+ 
+-		td_ptr = &(vptr->tx.rings[qnum][prev]);
+-		td_ptr->td_buf[0].size |= TD_QUEUE;
+-		mac_tx_queue_wake(vptr->mac_regs, qnum);
+-	}
+ 	dev->trans_start = jiffies;
+ 	spin_unlock_irqrestore(&vptr->lock, flags);
  out:
- 	return ret;
-@@ -2499,6 +2508,7 @@ static int velocity_close(struct net_device *dev)
- {
- 	struct velocity_info *vptr = netdev_priv(dev);
- 
-+	napi_disable(&vptr->napi);
- 	netif_stop_queue(dev);
- 	velocity_shutdown(vptr);
- 
-@@ -2818,6 +2828,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
- 	dev->irq = pdev->irq;
- 	dev->netdev_ops = &velocity_netdev_ops;
- 	dev->ethtool_ops = &velocity_ethtool_ops;
-+	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
- 
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
- 		NETIF_F_HW_VLAN_RX;
-diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
-index 6091946..22bfea4 100644
---- a/drivers/net/via-velocity.h
-+++ b/drivers/net/via-velocity.h
-@@ -32,6 +32,7 @@
- #define VELOCITY_VERSION       "1.14"
- 
- #define VELOCITY_IO_SIZE	256
-+#define VELOCITY_NAPI_WEIGHT	64
- 
- #define PKT_BUF_SZ          1540
- 
-@@ -1564,6 +1565,8 @@ struct velocity_info {
- 	u32 ticks;
- 
- 	u8 rev_id;
-+
-+	struct napi_struct napi;
- };
- 
- /**
+@@ -3398,6 +3425,7 @@ static const struct ethtool_ops velocity_ethtool_ops = {
+ 	.set_wol	=	velocity_ethtool_set_wol,
+ 	.get_msglevel	=	velocity_get_msglevel,
+ 	.set_msglevel	=	velocity_set_msglevel,
++	.set_sg 	=	ethtool_op_set_sg,
+ 	.get_link	=	velocity_get_link,
+ 	.get_coalesce	=	velocity_get_coalesce,
+ 	.set_coalesce	=	velocity_set_coalesce,
 -- 
 1.6.0.4
 
