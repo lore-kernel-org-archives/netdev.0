@@ -1,61 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: A generic kernel compatibilty code
-Date: Mon, 23 Nov 2009 13:26:33 +0000
-Message-ID: <1258982793.2845.13.camel@achroite.uk.solarflarecom.com>
-References: <43e72e890911201245r4de5b039hb2dd5011dabf2399@mail.gmail.com>
-	 <1258750858.2877.58.camel@achroite.uk.solarflarecom.com>
-	 <43e72e890911201307g2a1f280aie223ed4fd270aad@mail.gmail.com>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: Re: [PATCH 0/7] via-velocity performance fixes
+Date: Mon, 23 Nov 2009 14:39:22 +0100
+Message-ID: <20091123143922.273d13f9@marrow.netinsight.se>
+References: <20091120160633.77b7aee0@marrow.netinsight.se>
+	<20091120090348.1e51e29e@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753978AbZKWN0b@vger.kernel.org>
-In-Reply-To: <43e72e890911201307g2a1f280aie223ed4fd270aad@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
+	romieu@fr.zoreil.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:47257 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751365AbZKWNjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 08:39:22 -0500
+In-Reply-To: <20091120090348.1e51e29e@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-11-20 at 13:07 -0800, Luis R. Rodriguez wrote:
-> On Fri, Nov 20, 2009 at 1:00 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Fri, 2009-11-20 at 12:45 -0800, Luis R. Rodriguez wrote:
-> >> Everyone and their mother reinvents the wheel when it comes to
-> >> backporting kernel modules. It a painful job and it seems to me an
-> >> alternative is possible. If we can write generic compatibilty code for
-> >> a new routine introduced on the next kernel how about just merging it
-> >> to the kernel under some generic compat module. This would be
-> >> completey ignored by everyone using the stable kernel but can be
-> >> copied by anyone doing backport work.
-> >>
-> >> So I'm thinking something as simple as a generic compat/comat.ko with
-> >> compat-2.6.32.[ch] files.
-> >>
-> >> We've already backported everything needed for wireless drivers under
-> >> compat-wireless under this format down to even 2.6.25.
-> > [...]
-> >
-> > If you think 2.6.25 is old then I don't think you understand the scale
-> > of the problem.
-> >
-> > OEMs still expect us to support RHEL 4 (2.6.9) and SLES 9 (2.6.5) though
-> > the latter will probably be dropped soon.  Some other vendors apparently
-> > still need to support even 2.4 kernels!
+Hi Stephen and David!
+
+Thanks for the comments, I'll address these in the next version.
+
+On Fri, 20 Nov 2009 09:03:48 -0800
+Stephen Hemminger <shemminger@vyatta.com> wrote:
+ 
+> > 1. Correct setting of skipped checksums (unsure about this). The
+> >    mainline driver sets CHECKSUM_UNNECESSARY if this is an IP packet
+> >    except if the TCP checksum is NOT ok.
+> > 
+> >    The VIA driver sets CHECKSUM_UNNECESSARY if this is an UDP/TCP
+> >    packet except if the TCP checksum is not OK. The patch selects the
+> >    VIA behavior.
+>
+> The mainline driver is already doing the correct thing. 
+> The VIA driver would send packet
+> with known bad checksum up the stack with CHECKSUM_UNNECESSARY.
+> What is supposed to happen is:
 > 
-> Heh understood. Well shouldn't this help with that then? Sure I'd love
-> to see the Enteprise Linux releases on 2.6.31 but that's not going to
-> happen right? Shouldn't this help then?
+> Checksum good:  set CHECKSUM_UNNECESSARY
+>           bad:  leave CHECKSUM_NONE
 
-You'd really have to ask the 'enterprise' vendors whether they'd be
-interested in working on some sort of shared forward-compat library.  If
-the library is to include a module rather than being statically linked
-into each module that needs it then there can only be one instance in
-the system.
+Yes, I see now that mainline is correct and I'll remove the patch from
+the upcoming version 2 of the series. However, I don't think the driver
+would send bad packets upwards - it would rather be more conservative.
+What the current driver does is
 
-Ben.
+	ip_summed = CHECKSUM_NONE;
+	if (hardware sees that this is an IP packet):
+		if (hw IP checksum is OK):
+			if (hw sees that this is a TCP/UDP packet):
+				if (hw TCP/UDP checksum is NOT OK):
+					return  # Returning CHECKSUM_NONE
+			ip_summed = CHECKSUM_UNNECESSARY
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+while the VIA driver does
+
+	ip_summed = CHECKSUM_NONE;
+	if (hardware sees that this is an IP packet):
+		if (hw IP checksum is OK):
+			if (hw sees that this is a TCP/UDP packet):
+				if (hw TCP/UDP checksum is NOT OK):
+					return  # Returning CHECKSUM_NONE
+				ip_summed = CHECKSUM_UNNECESSARY
+
+i.e., it will return CHECKSUM_NONE also for non-TCP/UDP IP packets.
+
+// Simon
