@@ -1,64 +1,40 @@
-From: robert@herjulf.net
-Subject: Re: ixgbe question
-Date: Mon, 23 Nov 2009 19:30:46 +0100
-Message-ID: <19210.54486.353397.804028@gargle.gargle.HOWL>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
-	<2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
-	<1258968980.2697.9.camel@ppwaskie-mobl2>
-	<4B0A6218.9040303@gmail.com>
-	<Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>
-	<4B0A9E4E.9010804@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/7] via-velocity performance fixes
+Date: Mon, 23 Nov 2009 08:27:08 -0800
+Message-ID: <20091123082708.737854f1@nehalam>
+References: <20091120160633.77b7aee0@marrow.netinsight.se>
+	<20091120090348.1e51e29e@nehalam>
+	<20091123143922.273d13f9@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
+	romieu@fr.zoreil.com
+To: Simon Kagstrom <simon.kagstrom@netinsight.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atthis.its.uu.se ([130.238.7.58]:43489 "EHLO atthis.its.uu.se"
+Received: from mail.vyatta.com ([76.74.103.46]:56625 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752455AbZKWQUp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 11:20:45 -0500
-In-Reply-To: <4B0A9E4E.9010804@gmail.com>
+	id S1754009AbZKWQ1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 11:27:13 -0500
+In-Reply-To: <20091123143922.273d13f9@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 23 Nov 2009 14:39:22 +0100
+Simon Kagstrom <simon.kagstrom@netinsight.net> wrote:
 
-Eric Dumazet writes:
+> while the VIA driver does
+> 
+> 	ip_summed = CHECKSUM_NONE;
+> 	if (hardware sees that this is an IP packet):
+> 		if (hw IP checksum is OK):
+> 			if (hw sees that this is a TCP/UDP packet):
+> 				if (hw TCP/UDP checksum is NOT OK):
+> 					return  # Returning CHECKSUM_NONE
+> 				ip_summed = CHECKSUM_UNNECESSARY
+> 
+> i.e., it will return CHECKSUM_NONE also for non-TCP/UDP IP packets.
 
- > Jesper Dangaard Brouer a =E9crit :
- >=20
- > > How is your smp_affinity mask's set?
- > >=20
- > > grep . /proc/irq/*/fiber1-*/../smp_affinity
- >=20
+That is correct assuming hardware can only checksum TCP/UDP.
 
- Weird... set clone_skb to 1 to be sure and vary dst or something so=20
- the HW classifier selects different queues and with proper RX affinty.=
-=20
-=20
- You should see in /proc/net/softnet_stat something like:
-
-012a7bb9 00000000 000000ae 00000000 00000000 00000000 00000000 00000000=
- 00000000
-01288d4c 00000000 00000049 00000000 00000000 00000000 00000000 00000000=
- 00000000
-0128fe28 00000000 00000043 00000000 00000000 00000000 00000000 00000000=
- 00000000
-01295387 00000000 00000047 00000000 00000000 00000000 00000000 00000000=
- 00000000
-0129a722 00000000 0000004a 00000000 00000000 00000000 00000000 00000000=
- 00000000
-0128c5e4 00000000 00000046 00000000 00000000 00000000 00000000 00000000=
- 00000000
-0128f718 00000000 00000043 00000000 00000000 00000000 00000000 00000000=
- 00000000
-012993e3 00000000 0000004a 00000000 00000000 00000000 00000000 00000000=
- 00000000
-
-Or something is...
-=20
-Cheers
-
-					--ro
+-- 
