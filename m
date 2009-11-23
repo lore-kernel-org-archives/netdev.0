@@ -1,165 +1,161 @@
-From: Alex Samad <alex@samad.com.au>
-Subject: icmp redirects problem
-Date: Mon, 23 Nov 2009 15:31:24 +1100
-Message-ID: <20091123043124.GA14795@samad.com.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: Doubt in implementations of mean loss interval at sender side
+Date: Mon, 23 Nov 2009 07:35:00 +0100
+Message-ID: <20091123063500.GA4767@gerrit.erg.abdn.ac.uk>
+References: <425e6efa0910210524l56e0d8e9n22ed61aa45a4cf03@mail.gmail.com> <cb00fa210910210618g5f079096sfb75bee99f595f01@mail.gmail.com> <20091028153358.GA3456@gerrit.erg.abdn.ac.uk> <425e6efa0911051101l2d86050ep1172a0e8abd915c3@mail.gmail.com> <425e6efa0911051543t7a57963bi589f736c49763a6@mail.gmail.com> <cb00fa210911051603w6fb8de32qd7ebf37ce78408f7@mail.gmail.com> <20091109060906.GA5126@gerrit.erg.abdn.ac.uk> <425e6efa0911161125q236b13afx2a675b4c3edc97c5@mail.gmail.com> <cb00fa210911161207n5f255a16w1b750701c1bd177c@mail.gmail.com> <cb00fa210911161209v384f883chd1b821ca40dde06a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jRHKVT23PllUwdXP"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp <dccp@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail15.tpgi.com.au ([203.12.160.61]:52651 "EHLO
-	mail15.tpgi.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756343AbZKWEo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2009 23:44:59 -0500
-Received: from sydrt01.samad.com.au (adsl.samad.com.au [60.241.248.86])
-	by mail15.tpgi.com.au (envelope-from alex@samad.com.au) (8.14.3/8.14.3) with ESMTP id nAN4VO8a027258
-	(version=TLSv1/SSLv3 cipher=AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 15:31:27 +1100
-Received: from alex by smtp.samad.com.au with local  (Exim 4.69 #1 (Debian))
-	id 1NCQaC-0003xy-RE
-	for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 15:31:24 +1100
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:41285 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752086AbZKWGfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 01:35:19 -0500
 Content-Disposition: inline
+In-Reply-To: <cb00fa210911161209v384f883chd1b821ca40dde06a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| > To clarify, I was asking whether it would be possible for the sender to
+| > perform step (2) of RFC 5348, 6.2; to compensate for the fact that the
+| > receiver does not have a reliable RTT estimate.
+|
+| I understand now the issue, thanks. Isn't better to just send the RTT estimate
+| to the sender, as the RFC says?
+|
+This is confusing me: do you mean sending RTT estimates according to
+ * RFC 4342 (coarse-grained window counter approximating RTT/4) or
+ * RFC 5348 (using a genuine, not counter-based, timestamp)?
 
---jRHKVT23PllUwdXP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi
-
-
-I seem to be having problems with icmp redirects
-
-My network setup, I have
-
-sydrt01=20
-  eth0 192.168.11.1/24=20
-  eth1 192.168.10.1/24
-  ppp0 attached to eth2 internet
-
-max
-  eth0 192.168.11.10/24 DGW 192.168.11.1
-
-because sydrt01 only have 10/100 ports I moved 192.168.10.1/24 (my
-wireless to max), which had a spare 1g port. so I ended up with=20
+I personally think that the second option is more precise/robust.  With regard
+to the  Todo list of issues below, I suggest for the moment to keep this as a
+"known problem" -- if something related to X_recv is not functioning well, the
+RTT measurement would be likely source (testing can be done by looking at the
+dccp_probe plots). If it turns out that the receiver RTT measurement degrades
+performance, I am willing to work on it.
 
 
-sydrt01=20
-  eth0 192.168.11.1/24=20
-  ppp0 attached to eth2 internet
+| >> Accordingly to ecn nonce echo sum algorithm, if a receiver is found to be
+| >> lying about loss or to be bad implemented, the sender adjusts the send rate
+| >> as if loss were perceived.
+| >> Can we do the same in this situation? If so, can we skip checking options
+| >> between them and only check ecn nonce sum?
+| > This is difficult since Ack Vectors and Loss Intervals use different
+| > definitions of ECN Nonce sum (last paragraph in RFC 4342, 9.1), i.e. we have
+| >  6) separate algorithms to compute Ack Vector/Loss Intervals ECN Nonce sum.
+| >
+| > With regard to (5) above, your suggestion gives
+| >  7) validate options, on mismatch other than (5) only validate ECN nonce.
+| >
+| >> If some option is wrong it show more loss (or any worse situation for the
+| >> receiver) or conceals loss. In the first case, I don't believe we need to care,
+| >> and in the second, the ecn nonce sum can reveal the bad acting of the receiver.
+| > Yes you are right, we need not worry if a receiver reports a higher loss rate
+| > than the verification done by the sender (which recomputes the data that the
+| > receiver already has computed) calculates.
+| >
+| > But for the second case, there is no guarantee to catch a misbehaving
+| > receiver, only a 50% chance at the end of many computations.
+|
+| Isn't it 50% chance at each ecn verified? So, at the end we'll end up with
+| 100%?
+|
+I wished it were as simple as that, but the probabilities can not simply be added.
+They are combined according to a statistical law, so that in the end the answer
+to the question "did the receiver lie" is neither "yes" nor "no", but rather 
+something like "0.187524".
 
-max
-  eth0 192.168.11.10/24
-  eth1 192.168.10.1/24
-
-I add a ip r r 192.168.10.0/24 via 192.168.11.10 to sydrt01 and I see
-that sydrt01 sends out the icmp redirects.
-
-
-But in this situation when I have
-
-laptop connected to 192.168.11.0/24 (192.168.11.200) and I have
-alex-mini connected to 192.168.10.0/24 (192.168.10.201), I can ssh from
-alex-mini to laptop, pings seem to work but ssh has a problem.
-
-When I investigated this, tcpdump -pni eth0 hostname alex-mini or icmp
-on laptop, I can see that the return packets (syn-ack) goes to sydrt01
-(DGW) and a icmp comes back to redirect - which laptop fails to act
-upon.  I tried ping -c 6 alex-mini from laptop and after each icmp ping
-advised that there was a icmp redirect, but again the kernel did not
-take the information in.
-
-I have=20
-
-net.ipv4.conf.all.accept_redirects =3D 0                                   =
-                                                                           =
-                           =20
-net.ipv4.conf.all.secure_redirects =3D 1                                   =
-                                                                           =
-                           =20
-(presume all the interface ones are 1)
-
-as my default, the documentation seems to suggest that I don't need the
-former for the later to work ie I can have either one.
-
-But for me to get this to work I had to set=20
-
-net.ipv4.conf.all.accept_redirects =3D 1
-net.ipv4.conf.all.secure_redirects =3D 1
-
-to get it to work properly.
-
-My understanding is secure_redirects means that the kernel should listen
-to icmp redirect if the redirect comes from the default gateway as per
-the route table.
-
-laptop gets its ip from dchp server that make 192.168.11.1 the default
-gateway and its 192.168.11.1 that sends out the icmp redirect.
-
-I had a quick look at the kernel tree for 2.6.31 (which is what I am
-using).
-
-I am no expert of the kernel source.  but from what I found
-http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.31.y.git;a=3Db=
-lob;f=3Dnet/ipv4/icmp.c;h=3D97c410e8438895664a9abdbbf5670b26af01dffa;hb=3DH=
-EAD
-line 774 which handles the icmp redirects uses ip_rt_redirect
-
-http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.31.y.git;a=3Db=
-lob;f=3Dnet/ipv4/route.c;h=3D278f46f5011beb2ab85747543f84dfd3ce7c6d1c;hb=3D=
-HEAD
-line 1334 has ip_rt_redirect
-
-This is where I loose it a bit
-
-my guess is line 1349 which seems to check to see if redirects are allow
-does a IN_DEV_RX_REDIRECTS and this macro
-(http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.31.y.git;a=3D=
-blob;f=3Dinclude/linux/inetdevice.h;h=3Dad27c7da87986da346da3d62f29e88bec95=
-7280a;hb=3DHEAD)
+In my view, ECN Nonce is also something that can be left for the second stage,
+the justification being that the ECN verification serves as protection for
+something which is (supposed) to work well on its own. The 'bare' protocol
+behaviour can be tested with a known receiver, calibrated to the spec. behaviour.
 
 
-and I think it fails the test here and thus get bounced out. Which sort
-of corrosponds to what i have seen - but  doesn't match up with the
-documentation
-http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.31.y.git;a=3Db=
-lob;f=3DDocumentation/networking/ip-sysctl.txt;h=3D8be76235fe6724c43e0c2b39=
-778f3f741e53b619;hb=3DHEAD
-
-Line 680
- secure_redirects - BOOLEAN
- 681         Accept ICMP redirect messages only for gateways,
- 682         listed in default gateway list.
- 683         secure_redirects for the interface will be enabled if at
- least one of
- 684         conf/{all,interface}/secure_redirects is set to TRUE,
- 685         it will be disabled otherwise
- 686         default TRUE
-
-
-I had conf/interface/secure_redirect =3D 1 and conf/all/secure_redirect=3D1
+| > To conclude, I still think that the simpler, receiver-based implementation
+| > gives a better start. A 'perfect' receiver implementation is also a good
+| > reference point to start protocol evaluation: if the performance is bad
+| > despite getting things right at the receiver, then other parts of the
+| > protocol need investigation/improvement.
+|
+| I agree. It's a risk to work on the sender at the moment, implementing these
+| features, algorithms and ending with a CCID that doesn't match the expected
+| performance.
+|
+| Can you list the pending tasks in both code and tests to be done?
+|
+This is a very good point, thank you. Below is my sketchy list of points so
+far. There is certainly room for discussion and I am open to suggestions: it
+would be great to update the 'old' DCCP-ToDo on
+http://www.linuxfoundation.org/collaborate/workgroups/networking/todo#DCCP
+with the outcome.
 
 
-Thanks
-Alex
-PS I am not subscribed please cc me on replies thanks
+I) General tasks to do (affect CCID-4 indirectly)
+-------------------------------------------------
 
-I sent this to linux-net, but realises that might not be the right list
+ 1) Audit the TFRC code with regard to RFC 5348
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    There are still many references to 'rfc3448bis' in the (test-tree) code, which
+    was the draft series that preceded RFC 5348. The code is lagging behind the RFC
+    still, since during the draft series there were many changes, which now have
+    finalised.
+    This step is complicated, since it touches the entire TFRC/CCID-3 subsystem
+    and will need careful testing to not introduce new bugs or deteriorate the
+    performance (meaning that the current state is good to some extent already).
+    Have been plannig to do this for a long while, will probably not be before
+    December.
 
---jRHKVT23PllUwdXP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+ 2) Revision of the packet-sending algorithm
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Luca de Cicco is working on this, there is a new algorithm for scheduling
+    packets in order to achieve the desired X_Bps sending rate. It will be very
+    interesting to see whether/how this improves the sender side (i.e. for now
+    it is still experimental).		    
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEARECAAYFAksKEBwACgkQkZz88chpJ2P4lgCeLTnkj+DX8JlJOorG4WNedx5A
-gLcAoMmf4dOHd2Hw4YwdQp5CBRVyi474
-=o+Gc
------END PGP SIGNATURE-----
+II) Tests
+---------
 
---jRHKVT23PllUwdXP--
+ 3) Regression / test automation
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    It would be good to have some kind of regression test to be run for defining
+    "acceptable performance", so that we have a base case to look at when adding
+    more features or changes. Can you check to what extent the CCID-3 tests on
+    http://www.linuxfoundation.org/collaborate/workgroups/networking/dccp_testing#Regression_testing
+    help with CCID-4? My level of CCID-4 testing so far has been along these lines,
+    but it is a bit restricted (the throughput always stops at 1.15 Mbps). 
+
+    A second helpful kind of test is visualisation via dccp_probe, checking
+    each of the input parameters and their influence on the protocol machinery.
+
+ 4) Internet experiments
+ ~~~~~~~~~~~~~~~~~~~~~~~
+    This may be the biggest area lacking work but is really essential. Many 
+    simulations seem to say that DCCP is wonderful. But the practice is also
+    full of wonders, so that it may be a different kind of wonderful.
+
+    Main issues to tackle are
+     * NAT traversal (there exists already work for a NAT-traversal handshake,
+       both in form of an IETF spec and in code) and/or
+     * UDP tunnelling (yes it is ugly, but has worked initially for IPv6 also).
+
+
+II) CCID-4 tasks
+----------------
+These are only the issues summarized from this mailing thread. Likely you will
+have comments or other/additional ideas - this is not set in stone.
+
+ 5) Finish a "pure" receiver-based implementation, to test the CCID-4 congestion
+    control on its own. As far as I can see this involves modifying the loss
+    intervals computation done at the receiver, where you already have done a lot
+    of work.
+
+ 6) Add more features (sender-side support, verification of incoming options at
+    at the sender, ECN verification ...) as needed, using the regression tests
+    defined in (2) to check the performance. When doing this we can use the
+    past mailing thread as input, since several good points already resulted 
+    from this. In particular, it is now clear that when sending loss interval
+    options from the receiver to the sender, we need not send 28 loss intervals
+    (RFC 4342, 8.6), nor 84 loss intervals accompanied by Dropped Packet options
+    (RFC 5622, 8.7), but rather the 9 used by TFRC (RFC 5348, 5.4) as basis.
