@@ -1,19 +1,15 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Subject: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance hints
-Date: Sun, 22 Nov 2009 22:46:30 -0800
-Message-ID: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+Date: Sun, 22 Nov 2009 23:12:50 -0800
+Message-ID: <20091123071250.7626.17713.stgit@ppwaskie-hc2.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, arjan@linux.jf.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29493 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938AbZKWHHe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 02:07:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753892AbZKWHHs@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patchset adds a new CPU mask for SMP systems to the irq_desc
 struct.  It also exposes an API for underlying device drivers to
@@ -219,4 +215,3 @@ index 0832145..192e3fb 100644
  #endif
  
  	proc_create_data("spurious", 0444, desc->dir,
-
