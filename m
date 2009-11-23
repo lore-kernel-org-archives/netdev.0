@@ -1,43 +1,52 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Resend][PATCH] Wireless / ath5k: Simplify suspend and resume callbacks
-Date: Mon, 23 Nov 2009 23:12:18 +0100
-Message-ID: <200911232312.18344.rjw@sisk.pl>
-References: <200911212344.24170.rjw@sisk.pl> <20091123213353.GA9045@tuxdriver.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next-2.6 PATCH] net/ipv4: Move && and || to end of
+ previous line
+Date: Mon, 23 Nov 2009 14:14:06 -0800
+Message-ID: <1259014446.16503.116.camel@Joe-Laptop.home>
+References: <4B06AC2C.3070102@gmail.com>
+	 <20091120.092651.254794724.davem@davemloft.net> <4B08D967.80003@gmail.com>
+	 <20091122.163112.80105623.davem@davemloft.net>
+	 <1259000895.16503.77.camel@Joe-Laptop.home>
+	 <alpine.DEB.2.00.0911240004530.19211@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: ath5k-devel@lists.ath5k.org, linux-wireless@vger.kernel.org,
-	Bob Copeland <me@bobcopeland.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	netdev@vger.kernel.org, "Luis R. Rodriguez" <mcgrof@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	william.allen.simpson@gmail.com, Netdev <netdev@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:39702 "EHLO ogre.sisk.pl"
+Received: from mail.perches.com ([173.55.12.10]:1100 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756202AbZKWWLv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 17:11:51 -0500
-In-Reply-To: <20091123213353.GA9045@tuxdriver.com>
+	id S1757110AbZKWWOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 17:14:02 -0500
+In-Reply-To: <alpine.DEB.2.00.0911240004530.19211@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 23 November 2009, John W. Linville wrote:
-> On Sat, Nov 21, 2009 at 11:44:24PM +0100, Rafael J. Wysocki wrote:
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> > Subject: Wireless / ath5k: Simplify suspend and resume callbacks
-> > 
-> > Simplify the suspend and resume callbacks of ath5k by converting the
-> > driver to struct dev_pm_ops and allowing the PCI PM core to do the
-> > PCI-specific suspend/resume handling.
-> > 
-> > Tested with Atheros Communications Inc. AR2413 802.11bg NIC (rev 01)
-> > D-Link CardBus.adapter.
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> 
-> This is already queued for -next.
+On Tue, 2009-11-24 at 00:08 +0200, Ilpo J=C3=A4rvinen wrote:
+> Certainly better in general already but there is still some work to b=
+e=20
+> done here as now you have an && only line. I guess it mostly has to d=
+o=20
+> with comments but #if... blahblahs could be another type of failure (=
+in=20
+> automation like this).
 
-Thanks!
+The current form is
 
-Rafael
+	if (foo=20
+#ifdef BAR
+	    && bar
+#endif
+	   )
+
+Another option could be:
+
+#ifdef BAR
+	if (foo && bar)
+#else
+	if (foo)
+#endif
+
+In any case, it won't be pretty.
+
