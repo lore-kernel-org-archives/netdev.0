@@ -1,57 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 5/7] via-velocity: Re-enable transmit scatter-gather
- support
-Date: Mon, 23 Nov 2009 10:52:21 -0800 (PST)
-Message-ID: <20091123.105221.101883437.davem@davemloft.net>
-References: <20091120160633.77b7aee0@marrow.netinsight.se>
-	<20091123152724.2871cf4d@marrow.netinsight.se>
-	<20091123153133.2237b04c@marrow.netinsight.se>
+Subject: Re: [patch for 2.6.32? 2/2] hso: fix soft-lockup
+Date: Mon, 23 Nov 2009 10:54:55 -0800 (PST)
+Message-ID: <20091123.105455.153011323.davem@davemloft.net>
+References: <200911172250.nAHMoW1k013162@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, shemminger@vyatta.com,
-	romieu@fr.zoreil.com
-To: simon.kagstrom@netinsight.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, antti.kaijanmaki@nomovok.com,
+	greg@kroah.com, randy.dunlap@oracle.com, stable@kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58953
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41469
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752196AbZKWSwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 13:52:03 -0500
-In-Reply-To: <20091123153133.2237b04c@marrow.netinsight.se>
+	by vger.kernel.org with ESMTP id S1752649AbZKWSyh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 13:54:37 -0500
+In-Reply-To: <200911172250.nAHMoW1k013162@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Date: Mon, 23 Nov 2009 15:31:33 +0100
+=46rom: akpm@linux-foundation.org
+Date: Tue, 17 Nov 2009 14:50:32 -0800
 
-> @@ -2543,14 +2546,27 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
->  	struct velocity_td_info *tdinfo;
->  	unsigned long flags;
->  	int pktlen;
-> -	__le16 len;
-> -	int index;
-> +	int index, prev;
-> +	int i = 0;
->  
->  	if (skb_padto(skb, ETH_ZLEN))
->  		goto out;
-> -	pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
->  
-> -	len = cpu_to_le16(pktlen);
-> +	/* The hardware can handle at most 7 memory segments, so merge
-> +	 * the skb if there are more */
-> +	if (skb_shinfo(skb)->nr_frags > 6 && __skb_linearize(skb)) {
-> +		kfree_skb(skb);
-> +		return 0;
-> +	}
+> From: Antti Kaijanm=E4ki <antti.kaijanmaki@nomovok.com>
+>=20
+> Fix soft-lockup in hso.c which is triggered on SMP machine when
+> modem is removed while file descriptor(s) under /dev are still open:
+>=20
+>   old version called kref_put() too early which resulted in destroyin=
+g
+>   hso_serial and hso_device objects which were still used later on.
+>=20
+> Signed-off-by: Antti Kaijanm=E4ki <antti.kaijanmaki@nomovok.com>
+> Cc: Greg KH <greg@kroah.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Randy Dunlap <randy.dunlap@oracle.com>
+> Cc: <stable@kernel.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Zero is not a valid return value for this function.  It returns
-a "netdev_tx_t" defined as follows in linux/netdevice.h:
-
-enum netdev_tx {
-	__NETDEV_TX_MIN	 = INT_MIN,	/* make sure enum is signed */
-	NETDEV_TX_OK	 = 0x00,	/* driver took care of packet */
-	NETDEV_TX_BUSY	 = 0x10,	/* driver tx path was busy*/
-	NETDEV_TX_LOCKED = 0x20,	/* driver tx lock was already taken */
-};
-typedef enum netdev_tx netdev_tx_t;
+Applied to net-2.6
