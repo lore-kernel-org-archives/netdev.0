@@ -1,28 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Sun, 22 Nov 2009 18:11:17 -0800 (PST)
-Message-ID: <20091122.181117.255128252.davem@davemloft.net>
-References: <20091123120052.dd388203.sfr@canb.auug.org.au>
-	<20091122.171932.74107512.davem@davemloft.net>
-	<20091123130441.b450278d.sfr@canb.auug.org.au>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] RDMA/addr: Use appropriate locking with for_each_netdev()
+Date: Sun, 22 Nov 2009 20:18:04 -0800
+Message-ID: <adafx856fib.fsf@roland-alpha.cisco.com>
+References: <4AF8EBA4.2070102@gmail.com>
+	<D5E1FB213939498DBFFEB5A3B83C08AD@amr.corp.intel.com>
+	<adaocn8x6j7.fsf@roland-alpha.cisco.com>
+	<8C10E584257A46DB9A0AD193520CF4A7@amr.corp.intel.com>
+	<4B0628E0.6000404@gmail.com> <adak4xl669z.fsf@roland-alpha.cisco.com>
+	<4B063C78.1070502@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091123130441.b450278d.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sean Hefty <sean.hefty@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Roland Dreier <rolandd@cisco.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma <linux-rdma@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:16156 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756233AbZKWER7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Nov 2009 23:17:59 -0500
+In-Reply-To: <4B063C78.1070502@gmail.com> (Eric Dumazet's message of "Fri, 20
+	Nov 2009 07:51:36 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 23 Nov 2009 13:04:41 +1100
 
-> Did you push them out?  master was down for a while yesterday ...
+ > Its possible to get infinite loops or crashes.
 
-That's what happened, I couldn't push out yesterday because
-master wasn't responding.  Let me push it out right now :-)
+ > I am not a RDMA user, so I personally dont care :)
+
+I think given that it's not a regression, and I've never heard of anyone
+hitting it in practice, we can wait until the merge window.
 
 Thanks!
