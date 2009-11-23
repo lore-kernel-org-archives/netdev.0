@@ -1,60 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter: xt_limit: fix invalid return code in limit_mt_check()
-Date: Mon, 23 Nov 2009 13:43:57 +0100
-Message-ID: <4B0A838D.3020907@trash.net>
+From: robert@herjulf.net
+Subject: Strange CPU load when flushing route cache (kernel 2.6.31.6)
+Date: Mon, 23 Nov 2009 16:07:10 +0100
+Message-ID: <19210.42270.233337.986217@gargle.gargle.HOWL>
+References: <1258970332.29747.262.camel@jdb-workstation>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080903000200030509070600"
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------080903000200030509070600
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Robert Olsson <robert@herjulf.net>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from klais.its.uu.se ([130.238.7.59]:56939 "EHLO klais.its.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756968AbZKWMz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 07:55:58 -0500
+In-Reply-To: <1258970332.29747.262.camel@jdb-workstation>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes an invalid return value in the limit match.
-Please apply or pull from:
 
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+Jesper Dangaard Brouer writes:
 
-Thanks!
+ > I have observed a strange route cache behaviour when I upgraded some
+ > of my production Linux routers (1Gbit/s tg3) to kernel 2.6.31.6 (from
+ > kernel 2.6.25.7).
+ > 
+ > Every time the route cache is flushed I get a CPU spike (in softirq)
+ > with a tail.  I have attached some graphs that illustrate the issue
+ > (hope vger.kernel.org will allow these attachments...)
 
---------------080903000200030509070600
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
 
-commit 8fa539bd911e8a7faa7cd77b5192229c9666d9b8
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Nov 23 13:37:23 2009 +0100
+ Nice plots. Yes had the same problem long time. Packets were dropped on
+ even moderately loaded machines and the network managers were complaining.
 
-    netfilter: xt_limit: fix invalid return code in limit_mt_check()
-    
-    Commit acc738fe (netfilter: xtables: avoid pointer to self) introduced
-    an invalid return value in limit_mt_check().
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+ Also the are some router benchmarks (RFC??) that estimates the forwarding 
+ performance to the level when the first packet drop occurs. One can of course 
+ discuss such test but it's there...
 
-diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index 2e8089e..2773be6 100644
---- a/net/netfilter/xt_limit.c
-+++ b/net/netfilter/xt_limit.c
-@@ -112,7 +112,7 @@ static bool limit_mt_check(const struct xt_mtchk_param *par)
- 
- 	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
- 	if (priv == NULL)
--		return -ENOMEM;
-+		return false;
- 
- 	/* For SMP, we only want to use one set of state. */
- 	r->master = priv;
+ IMO is best to have he GC "inlined" with the creation of new flows and avoid 
+ periodic tasks in this aspect. 
 
---------------080903000200030509070600--
+ Also I tried with something I called "active" garbage collection. The idea 
+ was to get hints from TCP-FIN etc when to remove stale entries to take a 
+ more pro-active approach. I think this was mentioned in the TRASH-paper. 
+
+ If you only do routing you might try to disable the route cache.
+
+ Cheers
+					--ro
