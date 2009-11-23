@@ -1,52 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 PATCH] net/ipv4: Move && and || to end of
- previous line
-Date: Mon, 23 Nov 2009 14:14:06 -0800
-Message-ID: <1259014446.16503.116.camel@Joe-Laptop.home>
-References: <4B06AC2C.3070102@gmail.com>
-	 <20091120.092651.254794724.davem@davemloft.net> <4B08D967.80003@gmail.com>
-	 <20091122.163112.80105623.davem@davemloft.net>
-	 <1259000895.16503.77.camel@Joe-Laptop.home>
-	 <alpine.DEB.2.00.0911240004530.19211@melkinpaasi.cs.helsinki.fi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next-2.6 PATCH] net/ipv[46]/netfilter: Move && and || to
+ end of previous line
+Date: Mon, 23 Nov 2009 23:20:15 +0100
+Message-ID: <4B0B0A9F.30500@trash.net>
+References: <4B06AC2C.3070102@gmail.com>	 <20091120.092651.254794724.davem@davemloft.net> <4B08D967.80003@gmail.com>	 <20091122.163112.80105623.davem@davemloft.net> <1259005771.16503.90.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	william.allen.simpson@gmail.com, Netdev <netdev@vger.kernel.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1100 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757110AbZKWWOC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 17:14:02 -0500
-In-Reply-To: <alpine.DEB.2.00.0911240004530.19211@melkinpaasi.cs.helsinki.fi>
+Received: from stinky.trash.net ([213.144.137.162]:52608 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755213AbZKWWUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:20:12 -0500
+In-Reply-To: <1259005771.16503.90.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-24 at 00:08 +0200, Ilpo J=C3=A4rvinen wrote:
-> Certainly better in general already but there is still some work to b=
-e=20
-> done here as now you have an && only line. I guess it mostly has to d=
-o=20
-> with comments but #if... blahblahs could be another type of failure (=
-in=20
-> automation like this).
+Joe Perches wrote:
+> On Sun, 2009-11-22 at 16:31 -0800, David Miller wrote:
+>   
+>> It should be of the form:
+>> 	if (x &&
+>> 	    y)
+>>
+>> or:
+>> 	if (x && y)
+>>
+>> Fix patches, rather than complaints, for existing cases where things
+>> do not follow this pattern are certainly welcome.
+>>     
+>
+> Compile tested only.
+>   
 
-The current form is
-
-	if (foo=20
-#ifdef BAR
-	    && bar
-#endif
-	   )
-
-Another option could be:
-
-#ifdef BAR
-	if (foo && bar)
-#else
-	if (foo)
-#endif
-
-In any case, it won't be pretty.
+Applied, thanks for cleaning this up.
 
