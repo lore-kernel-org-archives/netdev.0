@@ -1,75 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
 Subject: Re: ixgbe question
-Date: Mon, 23 Nov 2009 15:05:30 +0100
-Message-ID: <4B0A96AA.8030104@gmail.com>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>  <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com> <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com> <Pine.WNT.4.64.0911230225140.6352@ppwaskie-MOBL2.amr.corp.intel.com> <4B0A65E0.7060403@gmail.com>
+Date: Mon, 23 Nov 2009 15:10:24 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+ <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+ <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37191 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753080AbZKWOF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 09:05:27 -0500
-In-Reply-To: <4B0A65E0.7060403@gmail.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:54534 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754760AbZKWOKV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Nov 2009 09:10:21 -0500
+In-Reply-To: <4B0A6218.9040303@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Waskiewicz Jr, Peter P a =E9crit :
->> On Mon, 23 Nov 2009, Eric Dumazet wrote:
->>
->>> Hi Peter
->>>
->>> I tried a pktgen stress on 82599EB card and could not split RX load=
- on multiple cpus.
->>>
->>> Setup is :
->>>
->>> One 82599 card with fiber0 looped to fiber1, 10Gb link mode.
->>> machine is a HPDL380 G6 with dual quadcore E5530 @2.4GHz (16 logica=
-l cpus)
->> Can you specify kernel version and driver version?
->=20
->=20
-> Well, I forgot to mention I am only working with net-next-2.6 tree.
->=20
-> Ubuntu 9.10 kernel (Fedora Core 12 installer was not able to recogniz=
-e disks on this machine :( )
->=20
-> ixgbe: Intel(R) 10 Gigabit PCI Express Network Driver - version 2.0.4=
-4-k2
->=20
->=20
 
-I tried with several pktgen threads, no success so far.
+On Mon, 23 Nov 2009, Eric Dumazet wrote:
 
-Only one cpu handles all interrupts and ksoftirq enters
-a mode with no escape to splitted mode.
+> I tried a pktgen stress on 82599EB card and could not split RX load on multiple cpus.
+>
+> Setup is :
+>
+> One 82599 card with fiber0 looped to fiber1, 10Gb link mode.
+> machine is a HPDL380 G6 with dual quadcore E5530 @2.4GHz (16 logical cpus)
+>
+> I use one pktgen thread sending to fiber0 one many dst IP, and checked that fiber1
+> was using many RX queues :
 
-To get real multi queue and uncontended handling, I had to force :
+How is your smp_affinity mask's set?
 
-echo 1 >`echo /proc/irq/*/fiber1-TxRx-0/../smp_affinity`=20
-echo 2 >`echo /proc/irq/*/fiber1-TxRx-1/../smp_affinity`
-echo 4 >`echo /proc/irq/*/fiber1-TxRx-2/../smp_affinity`
-echo 8 >`echo /proc/irq/*/fiber1-TxRx-3/../smp_affinity`
-echo 10 >`echo /proc/irq/*/fiber1-TxRx-4/../smp_affinity`
-echo 20 >`echo /proc/irq/*/fiber1-TxRx-5/../smp_affinity`
-echo 40 >`echo /proc/irq/*/fiber1-TxRx-6/../smp_affinity`
-echo 80 >`echo /proc/irq/*/fiber1-TxRx-7/../smp_affinity`
-echo 100 >`echo /proc/irq/*/fiber1-TxRx-8/../smp_affinity`
-echo 200 >`echo /proc/irq/*/fiber1-TxRx-9/../smp_affinity`
-echo 400 >`echo /proc/irq/*/fiber1-TxRx-10/../smp_affinity`
-echo 800 >`echo /proc/irq/*/fiber1-TxRx-11/../smp_affinity`
-echo 1000 >`echo /proc/irq/*/fiber1-TxRx-12/../smp_affinity`
-echo 2000 >`echo /proc/irq/*/fiber1-TxRx-13/../smp_affinity`
-echo 4000 >`echo /proc/irq/*/fiber1-TxRx-14/../smp_affinity`
-echo 8000 >`echo /proc/irq/*/fiber1-TxRx-15/../smp_affinity`
+grep . /proc/irq/*/fiber1-*/../smp_affinity
 
 
-Probably problem comes from fact that when ksoftirqd runs and
-RX queues are not depleted, no hardware interrupts is sent,
-and NAPI contexts stay sticked on one cpu forever ?
+> But only one CPU (CPU1) had a softirq running, 100%, and many frames were dropped
 
+Just a hint, I use 'ethtool -S fiber1' to see how the packets gets 
+distributed across the rx and tx queues.
+
+
+
+> CLONE_SKB="clone_skb 15"
+
+Be careful with to high clone, as my experience is it will send a burst of 
+clone_skb packets before the packet gets randomized again.
+
+
+> pgset "dst_min 192.168.0.2"
+> pgset "dst_max 192.168.0.250"
+> pgset "src_min 192.168.0.1"
+> pgset "src_max 192.168.0.1"
+> pgset "dst_mac  00:1b:21:4a:fe:55"
+
+To get a packets randomized across RX queues, I used:
+
+     echo "- Random UDP source port min:$min - max:$max"
+     pgset "flag UDPSRC_RND"
+     pgset "udp_src_min $min"
+     pgset "udp_src_max $max"
+
+Ahh.. I think you are missing:
+
+  pgset "flag IPDST_RND"
+
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
