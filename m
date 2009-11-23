@@ -1,418 +1,223 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: [patch]USB autosuspend for cdc-ether
-Date: Mon, 23 Nov 2009 16:21:04 +0100
-Message-ID: <200911231621.04499.oliver@neukum.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] pktgen: Fix device name compares
+Date: Mon, 23 Nov 2009 16:22:49 +0100
+Message-ID: <4B0AA8C9.8060206@gmail.com>
+References: <4B0A75A5.8000106@gmail.com> <19210.40927.13011.176740@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Torgny Johansson" <torgny
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Robert Olsson <robert.olsson@its.uu.se>
+To: robert@herjulf.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55236 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954AbZKWPW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 10:22:56 -0500
+In-Reply-To: <19210.40927.13011.176740@gargle.gargle.HOWL>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+robert@herjulf.net a =E9crit :
 
-here's a new, tested version of autosuspend for cdc-ether with
-a few glitches fixed. I think it addresses everything you mentioned.
-Could you provide some feedback about what's wrong with it or
-an acknowledgement?
+>  Ok. So the duplicate test got wrong when the multiqueue stuff was=20
+>  added.=20
+>=20
+>  Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+>=20
+>  Cheers
 
-	Regards
-		Oliver
+Thanks Robert
 
-Signed-off-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Here is an updated version because the netdev unregister event also nee=
+ded some changes.
 
-commit cb0634eee6f96fb24044c961d7dffefed7b6457e
-Author: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date:   Mon Nov 23 16:04:45 2009 +0100
 
-    usb:cdc-ether:implement power management for online devices
-    
-    This implements USB autosuspend for cdc-ether devices that
-    support remote wakeup while they are online. For reception
-    remote wakeup and the last busy functionality of usbcore
-    is used.
-    Transmission is done with an anchor for deferred transmission
-    and the async pm methods of usbcore.
-    For devices that don't do remote wakeup power management while
-    offline is provided for.
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 21e1ba1..ed55024 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -411,6 +411,12 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 	return 0;
- }
- 
-+static int cdc_manage_power(struct usbnet *dev, int on)
-+{
-+	dev->intf->needs_remote_wakeup = on;
-+	return 0;
-+}
-+
- static const struct driver_info	cdc_info = {
- 	.description =	"CDC Ethernet Device",
- 	.flags =	FLAG_ETHER,
-@@ -418,6 +424,7 @@ static const struct driver_info	cdc_info = {
- 	.bind =		cdc_bind,
- 	.unbind =	usbnet_cdc_unbind,
- 	.status =	cdc_status,
-+	.manage_power =	cdc_manage_power,
- };
- 
- /*-------------------------------------------------------------------------*/
-@@ -610,6 +617,7 @@ static struct usb_driver cdc_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.supports_autosuspend = 1,
- };
- 
- 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index ca5ca5a..4c2d902 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -353,7 +353,8 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
- 
- 	if (netif_running (dev->net)
- 			&& netif_device_present (dev->net)
--			&& !test_bit (EVENT_RX_HALT, &dev->flags)) {
-+			&& !test_bit (EVENT_RX_HALT, &dev->flags)
-+			&& !test_bit (EVENT_DEV_ASLEEP, &dev->flags)) {
- 		switch (retval = usb_submit_urb (urb, GFP_ATOMIC)) {
- 		case -EPIPE:
- 			usbnet_defer_kevent (dev, EVENT_RX_HALT);
-@@ -611,15 +612,39 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
- /*-------------------------------------------------------------------------*/
- 
- // precondition: never called in_interrupt
-+static void usbnet_terminate_urbs(struct usbnet *dev)
-+{
-+	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
-+	DECLARE_WAITQUEUE (wait, current);
-+	int temp;
-+
-+	/* ensure there are no more active urbs */
-+	add_wait_queue(&unlink_wakeup, &wait);
-+	set_current_state(TASK_UNINTERRUPTIBLE);
-+	dev->wait = &unlink_wakeup;
-+	temp = unlink_urbs(dev, &dev->txq) +
-+		unlink_urbs(dev, &dev->rxq);
-+
-+	/* maybe wait for deletions to finish. */
-+	while (!skb_queue_empty(&dev->rxq)
-+		&& !skb_queue_empty(&dev->txq)
-+		&& !skb_queue_empty(&dev->done)) {
-+			schedule_timeout(UNLINK_TIMEOUT_MS);
-+			set_current_state(TASK_UNINTERRUPTIBLE);
-+			if (netif_msg_ifdown(dev))
-+				devdbg(dev, "waited for %d urb completions",
-+					temp);
-+	}
-+	set_current_state(TASK_RUNNING);
-+	dev->wait = NULL;
-+	remove_wait_queue(&unlink_wakeup, &wait);
-+}
- 
- int usbnet_stop (struct net_device *net)
+[PATCH] pktgen: Fix device name compares
+
+Commit e6fce5b916cd7f7f7 (pktgen: multiqueue etc.) tried to relax
+the pktgen restriction of one device per kernel thread, adding a '@'
+tag to device names.
+
+Problem is we dont perform check on full pktgen device name.
+This allows adding many time same 'device' to pktgen thread
+
+ pgset "add_device eth0@0"
+
+one session later :
+
+ pgset "add_device eth0@0"
+
+(This doesnt find previous device)
+
+This consumes ~1.5 MBytes of vmalloc memory per round and also triggers
+this warning :
+
+[  673.186380] proc_dir_entry 'pktgen/eth0@0' already registered
+[  673.186383] Modules linked in: pktgen ixgbe ehci_hcd psmouse mdio mo=
+usedev evdev [last unloaded: pktgen]
+[  673.186406] Pid: 6219, comm: bash Tainted: G        W  2.6.32-rc7-03=
+302-g41cec6f-dirty #16
+[  673.186410] Call Trace:
+[  673.186417]  [<ffffffff8104a29b>] warn_slowpath_common+0x7b/0xc0
+[  673.186422]  [<ffffffff8104a341>] warn_slowpath_fmt+0x41/0x50
+[  673.186426]  [<ffffffff8114e789>] proc_register+0x109/0x210
+[  673.186433]  [<ffffffff8100bf2e>] ? apic_timer_interrupt+0xe/0x20
+[  673.186438]  [<ffffffff8114e905>] proc_create_data+0x75/0xd0
+[  673.186444]  [<ffffffffa006ad38>] pktgen_thread_write+0x568/0x640 [p=
+ktgen]
+[  673.186449]  [<ffffffffa006a7d0>] ? pktgen_thread_write+0x0/0x640 [p=
+ktgen]
+[  673.186453]  [<ffffffff81149144>] proc_reg_write+0x84/0xc0
+[  673.186458]  [<ffffffff810f5a58>] vfs_write+0xb8/0x180
+[  673.186463]  [<ffffffff810f5c11>] sys_write+0x51/0x90
+[  673.186468]  [<ffffffff8100b51b>] system_call_fastpath+0x16/0x1b
+[  673.186470] ---[ end trace ccbb991b0a8d994d ]---
+
+Solution to this problem is to use a odevname field (includes @ tag and=
+ suffix),
+instead of using netdevice name.
+
+This also permits clean unloading of NIC drivers.=20
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/pktgen.c |   30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index d38470a..e23f494 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -364,6 +364,7 @@ struct pktgen_dev {
+ 				  * device name (not when the inject is
+ 				  * started as it used to do.)
+ 				  */
++	char odevname[32];
+ 	struct flow_state *flows;
+ 	unsigned cflows;	/* Concurrent flows (config) */
+ 	unsigned lflow;		/* Flow length  (config) */
+@@ -427,7 +428,7 @@ static const char version[] =3D
+ static int pktgen_remove_device(struct pktgen_thread *t, struct pktgen=
+_dev *i);
+ static int pktgen_add_device(struct pktgen_thread *t, const char *ifna=
+me);
+ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
+-					  const char *ifname);
++					  const char *ifname, bool exact);
+ static int pktgen_device_event(struct notifier_block *, unsigned long,=
+ void *);
+ static void pktgen_run_all_threads(void);
+ static void pktgen_reset_all_threads(void);
+@@ -529,7 +530,7 @@ static int pktgen_if_show(struct seq_file *seq, voi=
+d *v)
+ 	seq_printf(seq,
+ 		   "     frags: %d  delay: %llu  clone_skb: %d  ifname: %s\n",
+ 		   pkt_dev->nfrags, (unsigned long long) pkt_dev->delay,
+-		   pkt_dev->clone_skb, pkt_dev->odev->name);
++		   pkt_dev->clone_skb, pkt_dev->odevname);
+=20
+ 	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
+ 		   pkt_dev->lflow);
+@@ -1689,13 +1690,13 @@ static int pktgen_thread_show(struct seq_file *=
+seq, void *v)
+ 	if_lock(t);
+ 	list_for_each_entry(pkt_dev, &t->if_list, list)
+ 		if (pkt_dev->running)
+-			seq_printf(seq, "%s ", pkt_dev->odev->name);
++			seq_printf(seq, "%s ", pkt_dev->odevname);
+=20
+ 	seq_printf(seq, "\nStopped: ");
+=20
+ 	list_for_each_entry(pkt_dev, &t->if_list, list)
+ 		if (!pkt_dev->running)
+-			seq_printf(seq, "%s ", pkt_dev->odev->name);
++			seq_printf(seq, "%s ", pkt_dev->odevname);
+=20
+ 	if (t->result[0])
+ 		seq_printf(seq, "\nResult: %s\n", t->result);
+@@ -1818,9 +1819,10 @@ static struct pktgen_dev *__pktgen_NN_threads(co=
+nst char *ifname, int remove)
  {
- 	struct usbnet		*dev = netdev_priv(net);
- 	struct driver_info	*info = dev->driver_info;
--	int			temp;
- 	int			retval;
--	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
--	DECLARE_WAITQUEUE (wait, current);
- 
- 	netif_stop_queue (net);
- 
-@@ -641,25 +666,8 @@ int usbnet_stop (struct net_device *net)
- 				info->description);
+ 	struct pktgen_thread *t;
+ 	struct pktgen_dev *pkt_dev =3D NULL;
++	bool exact =3D (remove =3D=3D FIND);
+=20
+ 	list_for_each_entry(t, &pktgen_threads, th_list) {
+-		pkt_dev =3D pktgen_find_dev(t, ifname);
++		pkt_dev =3D pktgen_find_dev(t, ifname, exact);
+ 		if (pkt_dev) {
+ 			if (remove) {
+ 				if_lock(t);
+@@ -1995,7 +1997,7 @@ static void pktgen_setup_inject(struct pktgen_dev=
+ *pkt_dev)
+ 		       "queue_map_min (zero-based) (%d) exceeds valid range "
+ 		       "[0 - %d] for (%d) queues on %s, resetting\n",
+ 		       pkt_dev->queue_map_min, (ntxq ?: 1) - 1, ntxq,
+-		       pkt_dev->odev->name);
++		       pkt_dev->odevname);
+ 		pkt_dev->queue_map_min =3D ntxq - 1;
  	}
- 
--	if (!(info->flags & FLAG_AVOID_UNLINK_URBS)) {
--		/* ensure there are no more active urbs */
--		add_wait_queue(&unlink_wakeup, &wait);
--		dev->wait = &unlink_wakeup;
--		temp = unlink_urbs(dev, &dev->txq) +
--			unlink_urbs(dev, &dev->rxq);
--
--		/* maybe wait for deletions to finish. */
--		while (!skb_queue_empty(&dev->rxq)
--				&& !skb_queue_empty(&dev->txq)
--				&& !skb_queue_empty(&dev->done)) {
--			msleep(UNLINK_TIMEOUT_MS);
--			if (netif_msg_ifdown(dev))
--				devdbg(dev, "waited for %d urb completions",
--					temp);
--		}
--		dev->wait = NULL;
--		remove_wait_queue(&unlink_wakeup, &wait);
--	}
-+	if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
-+		usbnet_terminate_urbs(dev);
- 
- 	usb_kill_urb(dev->interrupt);
- 
-@@ -672,7 +680,10 @@ int usbnet_stop (struct net_device *net)
- 	dev->flags = 0;
- 	del_timer_sync (&dev->delay);
- 	tasklet_kill (&dev->bh);
--	usb_autopm_put_interface(dev->intf);
-+	if (info->manage_power)
-+		info->manage_power(dev, 0);
-+	else
-+		usb_autopm_put_interface(dev->intf);
- 
- 	return 0;
+ 	if (pkt_dev->queue_map_max >=3D ntxq) {
+@@ -2003,7 +2005,7 @@ static void pktgen_setup_inject(struct pktgen_dev=
+ *pkt_dev)
+ 		       "queue_map_max (zero-based) (%d) exceeds valid range "
+ 		       "[0 - %d] for (%d) queues on %s, resetting\n",
+ 		       pkt_dev->queue_map_max, (ntxq ?: 1) - 1, ntxq,
+-		       pkt_dev->odev->name);
++		       pkt_dev->odevname);
+ 		pkt_dev->queue_map_max =3D ntxq - 1;
+ 	}
+=20
+@@ -3263,7 +3265,7 @@ static int pktgen_stop_device(struct pktgen_dev *=
+pkt_dev)
+=20
+ 	if (!pkt_dev->running) {
+ 		printk(KERN_WARNING "pktgen: interface: %s is already "
+-		       "stopped\n", pkt_dev->odev->name);
++		       "stopped\n", pkt_dev->odevname);
+ 		return -EINVAL;
+ 	}
+=20
+@@ -3467,7 +3469,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_de=
+v)
+ 	default: /* Drivers are not supposed to return other values! */
+ 		if (net_ratelimit())
+ 			pr_info("pktgen: %s xmit error: %d\n",
+-				odev->name, ret);
++				pkt_dev->odevname, ret);
+ 		pkt_dev->errors++;
+ 		/* fallthru */
+ 	case NETDEV_TX_LOCKED:
+@@ -3570,13 +3572,18 @@ static int pktgen_thread_worker(void *arg)
  }
-@@ -753,6 +764,12 @@ int usbnet_open (struct net_device *net)
- 
- 	// delay posting reads until we're fully open
- 	tasklet_schedule (&dev->bh);
-+	if (info->manage_power) {
-+		retval = info->manage_power(dev, 1);
-+		if (retval < 0)
-+			goto done;
-+		usb_autopm_put_interface(dev->intf);
-+	}
- 	return retval;
- done:
- 	usb_autopm_put_interface(dev->intf);
-@@ -881,11 +898,16 @@ kevent (struct work_struct *work)
- 	/* usb_clear_halt() needs a thread context */
- 	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
- 		unlink_urbs (dev, &dev->txq);
-+		status = usb_autopm_get_interface(dev->intf);
-+		if (status < 0)
-+			goto fail_pipe;
- 		status = usb_clear_halt (dev->udev, dev->out);
-+		usb_autopm_put_interface(dev->intf);
- 		if (status < 0
- 				&& status != -EPIPE
- 				&& status != -ESHUTDOWN) {
- 			if (netif_msg_tx_err (dev))
-+fail_pipe:
- 				deverr (dev, "can't clear tx halt, status %d",
- 					status);
- 		} else {
-@@ -896,11 +918,16 @@ kevent (struct work_struct *work)
- 	}
- 	if (test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		unlink_urbs (dev, &dev->rxq);
-+		status = usb_autopm_get_interface(dev->intf);
-+		if (status < 0)
-+			goto fail_halt;
- 		status = usb_clear_halt (dev->udev, dev->in);
-+		usb_autopm_put_interface(dev->intf);
- 		if (status < 0
- 				&& status != -EPIPE
- 				&& status != -ESHUTDOWN) {
- 			if (netif_msg_rx_err (dev))
-+fail_halt:
- 				deverr (dev, "can't clear rx halt, status %d",
- 					status);
- 		} else {
-@@ -919,7 +946,12 @@ kevent (struct work_struct *work)
- 			clear_bit (EVENT_RX_MEMORY, &dev->flags);
- 		if (urb != NULL) {
- 			clear_bit (EVENT_RX_MEMORY, &dev->flags);
-+			status = usb_autopm_get_interface(dev->intf);
-+			if (status < 0)
-+				goto fail_lowmem;
- 			rx_submit (dev, urb, GFP_KERNEL);
-+			usb_autopm_put_interface(dev->intf);
-+fail_lowmem:
- 			tasklet_schedule (&dev->bh);
- 		}
- 	}
-@@ -929,7 +961,11 @@ kevent (struct work_struct *work)
- 		int			retval = 0;
- 
- 		clear_bit (EVENT_LINK_RESET, &dev->flags);
-+		status = usb_autopm_get_interface(dev->intf);
-+		if (status < 0)
-+			goto skip_reset;
- 		if(info->link_reset && (retval = info->link_reset(dev)) < 0) {
-+skip_reset:
- 			devinfo(dev, "link reset failed (%d) usbnet usb-%s-%s, %s",
- 				retval,
- 				dev->udev->bus->bus_name, dev->udev->devpath,
-@@ -958,7 +994,7 @@ static void tx_complete (struct urb *urb)
- 
- 		switch (urb->status) {
- 		case -EPIPE:
--			usbnet_defer_kevent (dev, EVENT_TX_HALT);
-+			usbnet_defer_kevent (dev, EVENT_TX_HALT);		
- 			break;
- 
- 		/* software-driven interface shutdown */
-@@ -971,6 +1007,7 @@ static void tx_complete (struct urb *urb)
- 		case -EPROTO:
- 		case -ETIME:
- 		case -EILSEQ:
-+			usb_mark_last_busy(dev->udev);
- 			if (!timer_pending (&dev->delay)) {
- 				mod_timer (&dev->delay,
- 					jiffies + THROTTLE_JIFFIES);
-@@ -987,6 +1024,7 @@ static void tx_complete (struct urb *urb)
- 		}
- 	}
- 
-+	usb_autopm_put_interface_async(dev->intf);
- 	urb->dev = NULL;
- 	entry->state = tx_done;
- 	defer_bh(dev, skb, &dev->txq);
-@@ -1058,13 +1096,33 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	}
- 
- 	spin_lock_irqsave (&dev->txq.lock, flags);
-+	retval = usb_autopm_get_interface_async(dev->intf);
-+	if (retval < 0) {
-+		spin_unlock_irqrestore (&dev->txq.lock, flags);
-+		goto drop;
-+	}
-+
-+#ifdef CONFIG_PM
-+	/* if this triggers the device is still a sleep */
-+	if (test_bit(EVENT_DEV_ASLEEP, &dev->flags)) {
-+		/* transmission will be done in resume */
-+		usb_anchor_urb(urb, &dev->deferred);
-+		/* no use to process more packets */
-+		netif_stop_queue(net);
-+		spin_unlock_irqrestore(&dev->txq.lock, flags);
-+		devdbg(dev, "Delaying transmission for resumption");
-+		goto deferred;
-+	}
-+#endif
- 
- 	switch ((retval = usb_submit_urb (urb, GFP_ATOMIC))) {
- 	case -EPIPE:
- 		netif_stop_queue (net);
- 		usbnet_defer_kevent (dev, EVENT_TX_HALT);
-+		usb_autopm_put_interface_async(dev->intf);
- 		break;
- 	default:
-+		usb_autopm_put_interface_async(dev->intf);
- 		if (netif_msg_tx_err (dev))
- 			devdbg (dev, "tx: submit urb err %d", retval);
- 		break;
-@@ -1088,6 +1146,7 @@ drop:
- 		devdbg (dev, "> tx, len %d, type 0x%x",
- 			length, skb->protocol);
- 	}
-+deferred:
- 	return NETDEV_TX_OK;
- }
- EXPORT_SYMBOL_GPL(usbnet_start_xmit);
-@@ -1255,6 +1314,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	dev->bh.func = usbnet_bh;
- 	dev->bh.data = (unsigned long) dev;
- 	INIT_WORK (&dev->kevent, kevent);
-+	init_usb_anchor(&dev->deferred);
- 	dev->delay.function = usbnet_bh;
- 	dev->delay.data = (unsigned long) dev;
- 	init_timer (&dev->delay);
-@@ -1363,13 +1423,23 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
- 	struct usbnet		*dev = usb_get_intfdata(intf);
- 
- 	if (!dev->suspend_count++) {
-+		spin_lock_irq(&dev->txq.lock);
-+		/* don't autosuspend while transmitting */
-+		if (dev->txq.qlen && (message.event & PM_EVENT_AUTO)) {
-+			spin_unlock_irq(&dev->txq.lock);
-+			return -EBUSY;
-+		} else {
-+			set_bit(EVENT_DEV_ASLEEP, &dev->flags);
-+			spin_unlock_irq(&dev->txq.lock);
-+		}
- 		/*
- 		 * accelerate emptying of the rx and queues, to avoid
- 		 * having everything error out.
- 		 */
- 		netif_device_detach (dev->net);
--		(void) unlink_urbs (dev, &dev->rxq);
--		(void) unlink_urbs (dev, &dev->txq);
-+		usbnet_terminate_urbs(dev);
-+		usb_kill_urb(dev->interrupt);
-+		
- 		/*
- 		 * reattach so runtime management can use and
- 		 * wake the device
-@@ -1383,10 +1453,34 @@ EXPORT_SYMBOL_GPL(usbnet_suspend);
- int usbnet_resume (struct usb_interface *intf)
+=20
+ static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
+-					  const char *ifname)
++					  const char *ifname, bool exact)
  {
- 	struct usbnet		*dev = usb_get_intfdata(intf);
-+	struct sk_buff          *skb;
-+	struct urb              *res;
-+	int                     retval;
-+	
-+	if (!--dev->suspend_count) {
-+		spin_lock_irq(&dev->txq.lock);
-+		while ((res = usb_get_from_anchor(&dev->deferred))) {
-+
-+			printk(KERN_INFO"Called %s with delayed data\n", __func__);
-+			skb = (struct sk_buff *)res->context;
-+			retval = usb_submit_urb(res, GFP_ATOMIC);
-+			if (retval < 0) {
-+				dev_kfree_skb_any(skb);
-+				usb_free_urb(res);
-+				usb_autopm_put_interface_async(dev->intf);
-+			} else {
-+				dev->net->trans_start = jiffies;
-+				__skb_queue_tail (&dev->txq, skb);
+ 	struct pktgen_dev *p, *pkt_dev =3D NULL;
++	size_t len =3D strlen(ifname);
+ 	if_lock(t);
+=20
+ 	list_for_each_entry(p, &t->if_list, list)
+-		if (strncmp(p->odev->name, ifname, IFNAMSIZ) =3D=3D 0) {
++		if (strncmp(p->odevname, ifname, len) =3D=3D 0) {
++			if (p->odevname[len]) {
++				if (exact || p->odevname[len] !=3D '@')
++					continue;
 +			}
-+		}
- 
--	if (!--dev->suspend_count)
-+		smp_mb();
-+		clear_bit(EVENT_DEV_ASLEEP, &dev->flags);
-+		spin_unlock_irq(&dev->txq.lock);
-+		if (!(dev->txq.qlen >= TX_QLEN(dev)))
-+			netif_start_queue(dev->net);
- 		tasklet_schedule (&dev->bh);
--
-+	}
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(usbnet_resume);
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index f814730..e75ba0e 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -55,6 +55,7 @@ struct usbnet {
- 	struct sk_buff_head	done;
- 	struct sk_buff_head	rxq_pause;
- 	struct urb		*interrupt;
-+	struct usb_anchor	deferred;
- 	struct tasklet_struct	bh;
- 
- 	struct work_struct	kevent;
-@@ -65,6 +66,8 @@ struct usbnet {
- #		define EVENT_STS_SPLIT	3
- #		define EVENT_LINK_RESET	4
- #		define EVENT_RX_PAUSED	5
-+#             define EVENT_DEV_WAKING 6 
-+#             define EVENT_DEV_ASLEEP 7 
- };
- 
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
-@@ -107,6 +110,9 @@ struct driver_info {
- 	/* see if peer is connected ... can sleep */
- 	int	(*check_connect)(struct usbnet *);
- 
-+	/* (dis)activate runtime power management */
-+	int	(*manage_power)(struct usbnet *, int);
-+
- 	/* for status polling */
- 	void	(*status)(struct usbnet *, struct urb *);
- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 			pkt_dev =3D p;
+ 			break;
+ 		}
+@@ -3632,6 +3639,7 @@ static int pktgen_add_device(struct pktgen_thread=
+ *t, const char *ifname)
+ 	if (!pkt_dev)
+ 		return -ENOMEM;
+=20
++	strcpy(pkt_dev->odevname, ifname);
+ 	pkt_dev->flows =3D vmalloc(MAX_CFLOWS * sizeof(struct flow_state));
+ 	if (pkt_dev->flows =3D=3D NULL) {
+ 		kfree(pkt_dev);
