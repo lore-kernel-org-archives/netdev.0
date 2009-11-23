@@ -1,133 +1,66 @@
-From: Robert Olsson <robert@herjulf.net>
-Subject: Diagnostic Monitoring Interface Monitoring (DOM) PATCH 2/5 for net-next-2.6
-Date: Mon, 23 Nov 2009 23:51:44 +0100
-Message-ID: <19211.4608.525880.115370@gargle.gargle.HOWL>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
+ and big packets in virtio_net
+Date: Mon, 23 Nov 2009 15:27:15 -0800
+Message-ID: <1259018835.5022.64.camel@localhost.localdomain>
+References: <1258697745.7416.20.camel@localhost.localdomain>
+	 <200911231138.30755.rusty@rustcorp.com.au>
+	 <1258992421.5022.19.camel@localhost.localdomain>
+	 <200911240854.24054.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.net>
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Hollis Blanchard <hollisb@us.ibm.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from av11-2-sn2.hy.skanova.net ([81.228.8.184]:51287 "EHLO
-	av11-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809AbZKWXTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 18:19:13 -0500
+Received: from e31.co.us.ibm.com ([32.97.110.149]:60738 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756371AbZKWX1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 18:27:13 -0500
+In-Reply-To: <200911240854.24054.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2009-11-24 at 08:54 +1030, Rusty Russell wrote:
+> #define BIG_PACKET_PAD (NET_SKB_PAD - sizeof(struct virtio_net_hdr) +
+> NET_IP_ALIGN)
+> struct big_packet_page {
+>         struct virtio_net_hdr hdr;
+>         char pad[BIG_PACKET_PAD];
+>         /* Actual packet data starts here */
+>         unsigned char data[PAGE_SIZE - BIG_PACKET_PAD - sizeof(struct
+> virtio_net_hdr)];
+> };
 
+The padding was used for qemu userspace buffer copy, skb data is copied
+from the page for size of GOOD_COPY_LEN, and skb data is reserved
+NET_IP_ALIGN.
 
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+If we add paddings as above, userspace copy will starts NET_SKB_PAD +
+NET_IP_ALIGN? I am little bit confused here.
 
+> Then use this type as the template for registering the sg list for the
+> big packet case.
+> 
+> > > I think you can move the memcpy outside the if, like so:
+> > > 
+> > >         memcpy(&hdr, p, hdr_len);
+> > 
+> > I didn't move it out, because num_buf = hdr->mhdr.num_buffers;
+> 
+> Yes, that has to stay inside, but the memcpy can move out.  It's just
+> a bit
+> neater to have more common code.
 
+num_buf is assigned after memcpy so we couldn't move memcpy out.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index edd03b7..d2a729b 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -272,6 +272,53 @@ struct ethtool_stats {
- 	__u64	data[0];
- };
- 
-+/* Diagmostic Monitoring Interface Data -- DOM */
-+struct ethtool_phy_diag {
-+	__u32 cmd;
-+	/* A0 page */
-+	__u16 type;
-+	__u16 wavelength;
-+	/* A2 page */
-+	__u16 alarm; 
-+	__u16 warning; 
-+	__s16 temp;
-+	__u16 temp_slope;
-+	__s16 temp_offset;
-+	__u16 vcc;
-+	__u16 vcc_slope;
-+	__s16 vcc_offset;
-+	__u16 tx_bias;
-+	__u16 tx_bias_slope;
-+	__s16 tx_bias_offset;
-+	__u16 tx_pwr;
-+	__u16 tx_pwr_slope;
-+	__s16 tx_pwr_offset;
-+	__u16 rx_pwr;
-+	__u32 rx_pwr_cal[5];
-+
-+	/* Thresholds */
-+  	__s16 temp_alt;
-+  	__s16 temp_aht;
-+  	__s16 temp_wlt;
-+  	__s16 temp_wht;
-+  	__u16 vcc_alt;
-+  	__u16 vcc_aht;
-+  	__u16 vcc_wlt;
-+  	__u16 vcc_wht;
-+  	__u16 tx_bias_alt;
-+  	__u16 tx_bias_aht;
-+  	__u16 tx_bias_wlt;
-+  	__u16 tx_bias_wht;
-+  	__u16 tx_pwr_alt;
-+  	__u16 tx_pwr_aht;
-+  	__u16 tx_pwr_wlt;
-+  	__u16 tx_pwr_wht;
-+  	__u16 rx_pwr_alt;
-+  	__u16 rx_pwr_aht;
-+  	__u16 rx_pwr_wlt;
-+  	__u16 rx_pwr_wht;
-+};
-+
- struct ethtool_perm_addr {
- 	__u32	cmd;		/* ETHTOOL_GPERMADDR */
- 	__u32	size;
-@@ -499,6 +546,7 @@ struct ethtool_ops {
- 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
- 	int     (*flash_device)(struct net_device *, struct ethtool_flash *);
- 	int	(*reset)(struct net_device *, u32 *);
-+	int     (*get_phy_diag)(struct net_device *, struct ethtool_phy_diag*);
- };
- #endif /* __KERNEL__ */
- 
-@@ -557,6 +605,7 @@ struct ethtool_ops {
- #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
- #define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- #define	ETHTOOL_RESET		0x00000034 /* Reset hardware */
-+#define ETHTOOL_GPHYDIAG        0x00000035 /* Get PHY diagnostics */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index d8aee58..f4a1eae 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -893,6 +893,21 @@ static int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
- 	return dev->ethtool_ops->flash_device(dev, &efl);
- }
- 
-+static int ethtool_phy_diag(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_phy_diag pd;
-+
-+	if (!dev->ethtool_ops->get_phy_diag)
-+		return -EOPNOTSUPP;
-+
-+	dev->ethtool_ops->get_phy_diag(dev, &pd); /* FIXME */
-+	
-+	if (copy_to_user(useraddr, &pd, sizeof(pd)))
-+		 return -EFAULT;
-+
-+	return 0;
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1112,6 +1127,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_RESET:
- 		rc = ethtool_reset(dev, useraddr);
- 		break;
-+	case ETHTOOL_GPHYDIAG:
-+		rc = ethtool_phy_diag(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+Anyway I separated mergeable buffers and big packets in the new patch to
+make it clear and it will be easy to modify when we drop big packets
+support in the future.
+
+Thanks
+Shirley
+
