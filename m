@@ -1,75 +1,39 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next-2.6 PATCH] net/ipv4: Move && and || to end of previous
- line
-Date: Tue, 24 Nov 2009 00:32:54 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911240027280.19211@melkinpaasi.cs.helsinki.fi>
-References: <4B06AC2C.3070102@gmail.com>  <20091120.092651.254794724.davem@davemloft.net> <4B08D967.80003@gmail.com>  <20091122.163112.80105623.davem@davemloft.net>  <1259000895.16503.77.camel@Joe-Laptop.home>  <alpine.DEB.2.00.0911240004530.19211@melkinpaasi.cs.helsinki.fi>
- <1259014446.16503.116.camel@Joe-Laptop.home>
+From: Robert Olsson <robert@herjulf.net>
+Subject: Re: ixgbe question
+Date: Mon, 23 Nov 2009 23:14:52 +0100
+Message-ID: <19211.2396.896428.734183@gargle.gargle.HOWL>
+References: <19210.54486.353397.804028@gargle.gargle.HOWL>
+	<4B0ABF6D.9000103@gmail.com>
+	<19210.63123.814368.292600@gargle.gargle.HOWL>
+	<20091123.132823.162855593.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696230645-1557981511-1259015450=:19211"
-Cc: David Miller <davem@davemloft.net>,
-	william.allen.simpson@gmail.com, Netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robert@herjulf.net, eric.dumazet@gmail.com, hawk@diku.dk,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35023 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349AbZKWWcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:32:53 -0500
-In-Reply-To: <1259014446.16503.116.camel@Joe-Laptop.home>
-Content-ID: <alpine.DEB.2.00.0911240031240.19211@melkinpaasi.cs.helsinki.fi>
+Received: from av9-2-sn3.vrr.skanova.net ([81.228.9.186]:33425 "EHLO
+	av9-2-sn3.vrr.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499AbZKWWfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:35:52 -0500
+In-Reply-To: <20091123.132823.162855593.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696230645-1557981511-1259015450=:19211
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.0911240031241.19211@melkinpaasi.cs.helsinki.fi>
+David Miller writes:
+ > It seem very obvious to me that, for whatever reason, the MSI-X vectors
+ > are only being sent to cpu 1 on Eric's system.
+ > 
+ > I also suspect, as a result, that it has nothing to do with the IXGBE
+ > driver but rather is some IRQ controller programming or some bug or
+ > limitation in the IRQ affinity mask handling in the kernel.
 
-On Mon, 23 Nov 2009, Joe Perches wrote:
+ Probably so yes. I'll guess Eric will dig into this.
+ 
+ Cheers
 
-> On Tue, 2009-11-24 at 00:08 +0200, Ilpo Järvinen wrote:
-> > Certainly better in general already but there is still some work to be 
-> > done here as now you have an && only line. I guess it mostly has to do 
-> > with comments but #if... blahblahs could be another type of failure (in 
-> > automation like this).
-> 
-> The current form is
-> 
-> 	if (foo 
-> #ifdef BAR
-> 	    && bar
-> #endif
-> 	   )
-> 
-> Another option could be:
-> 
-> #ifdef BAR
-> 	if (foo && bar)
-> #else
-> 	if (foo)
-> #endif
-> 
-> In any case, it won't be pretty.
-
-But wouldn't your automation produce:
-
-#ifdef BAR
-	if (foo
-#endif
-	    &&
-	    bar
-
-? Like it did for the case where there was a comment between.
-
-As I didn't go through the whole patch I don't know if there were in fact 
-any #if things that got made into that kind of construct or not (just 
-mentioned it that such places might also be affected incorrectly by your 
-automation). I only noticed one of such after comment (ie., && on 
-otherwise empty line) and hit reply.
-
--- 
- i.
----696230645-1557981511-1259015450=:19211--
+					--ro
+ 
+ 
