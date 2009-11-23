@@ -1,66 +1,89 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14677] New: multicast client application does
- not receive packets
-Date: Mon, 23 Nov 2009 14:31:55 -0800
-Message-ID: <20091123143155.412576d4.akpm@linux-foundation.org>
-References: <bug-14677-10286@http.bugzilla.kernel.org/>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: macvlan: fix gso_max_size setting
+Date: Mon, 23 Nov 2009 23:33:05 +0100
+Message-ID: <4B0B0DA1.7010403@trash.net>
+References: <4B0A64E2.8090203@trash.net>	<20091123.101013.40629093.davem@davemloft.net>	<4B0B087B.3020000@trash.net> <20091123.142207.14190542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, berndp@optonline.net
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030602040803050207040902"
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48343 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754286AbZKWWbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:31:53 -0500
-In-Reply-To: <bug-14677-10286@http.bugzilla.kernel.org/>
+Received: from stinky.trash.net ([213.144.137.162]:52855 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754706AbZKWWdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:33:02 -0500
+In-Reply-To: <20091123.142207.14190542.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------030602040803050207040902
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 23 Nov 2009 23:11:07 +0100
+>
+>   
+>> David Miller wrote:
+>>     
+>>> From: Patrick McHardy <kaber@trash.net>
+>>> Date: Mon, 23 Nov 2009 11:33:06 +0100
+>>>
+>>>   
+>>>       
+>>>> Fix macvlan gso_max_size setting. Based on net-next-2.6.git.
+>>>>         
+>>> Pretty serious defect, maybe net-2.6 material?
+>>>       
+>> Sure, please take it in net-2.6.
+>>     
+>
+> Done, thanks.
+>
+>   
+>>> If someone hits this, it's going to trigger something awful.
+>>>       
+>> Don't drivers simply drop the packet? Otherwise I think you
+>> should be able to trigger the same problem using the TC mirred
+>> action.
+>>     
+>
+> I see nothing in the IXGBE driver's transmit code paths which guard
+> against this.
+>   
 
-On Mon, 23 Nov 2009 22:00:45 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14677
-> 
->            Summary: multicast client application does not receive packets
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.31.4-2.6.32-rc8
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: berndp@optonline.net
->         Regression: Yes
-> 
-> 
-> When upgrading the kernel from 2.6.29.1 to 2.6.31.4, we discovered that packets
-> no longer get delivered to an application that is subscribing to the multicast
-> data.
-> 
-> We verified that multicast support was compiled into the kernel
-> (CONFIG_IP_MULTICAST). A dump on the interface with tcpdump shows the multicast
-> packets arriving on the network interface. However, they do not get delivered
-> to the application.
-> 
-> /proc/net/igmp clearly showed that we were subscribed to the relevant multicast
-> groups, and netstat showed that the application was listening.
-> 
-> Upgrading to 2.6.32-rc8 did not fix the problem, but downgrading to 2.6.29.1
-> did.
-> 
-> This problem was seen on two different supermicro systems: one with a single
-> (4-core) i7 940 Intel CPU, and another one with dual X5570 Xeon CPUS. In both
-> cases the interface was on a quad-port NIC card 82571EB gigabit ethernet
-> controller, rev 06.
+Perhaps we should simply fall back to software in that case.
+Compile tested only.
 
+
+
+--------------030602040803050207040902
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+net: fall back to software segmentation if skb length exceeds dev->gso_max_size
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ffc3106..edd1e2b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1943,7 +1943,8 @@ static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	return skb_is_gso(skb) &&
+ 	       (!skb_gso_ok(skb, dev->features) ||
+-		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
++		unlikely(skb->ip_summed != CHECKSUM_PARTIAL) ||
++		unlikely(skb->len > dev->gso_max_size));
+ }
+ 
+ static inline void netif_set_gso_max_size(struct net_device *dev,
+
+--------------030602040803050207040902--
