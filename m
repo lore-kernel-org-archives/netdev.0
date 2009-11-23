@@ -1,223 +1,201 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] pktgen: Fix device name compares
-Date: Mon, 23 Nov 2009 16:22:49 +0100
-Message-ID: <4B0AA8C9.8060206@gmail.com>
-References: <4B0A75A5.8000106@gmail.com> <19210.40927.13011.176740@gargle.gargle.HOWL>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
+ and big packets in virtio_net
+Date: Mon, 23 Nov 2009 08:07:01 -0800
+Message-ID: <1258992421.5022.19.camel@localhost.localdomain>
+References: <1258697745.7416.20.camel@localhost.localdomain>
+	 <4B063509.10006@gmail.com> <1258734101.11049.1.camel@localhost.localdomain>
+	 <200911231138.30755.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Robert Olsson <robert.olsson@its.uu.se>
-To: robert@herjulf.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55236 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753954AbZKWPW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 10:22:56 -0500
-In-Reply-To: <19210.40927.13011.176740@gargle.gargle.HOWL>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:44896 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753351AbZKWQHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 11:07:05 -0500
+In-Reply-To: <200911231138.30755.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-robert@herjulf.net a =E9crit :
+On Mon, 2009-11-23 at 11:38 +1030, Rusty Russell wrote:
+> How about:
+>         struct page *end;
+> 
+>         /* Find end of list, sew whole thing into vi->pages. */
+>         for (end = page; end->private; end = (struct page
+> *)end->private);
+>         end->private = (unsigned long)vi->pages;
+>         vi->pages = page;
 
->  Ok. So the duplicate test got wrong when the multiqueue stuff was=20
->  added.=20
->=20
->  Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
->=20
->  Cheers
+Yes, this looks nicer.
 
-Thanks Robert
+> > +void virtio_free_pages(void *buf)
+> 
+> This is a terrible name; it's specific to virtio_net, plus it should
+> be
+> static.  Just "free_pages" should be sufficient here I think.
 
-Here is an updated version because the netdev unregister event also nee=
-ded some changes.
+> 
+> This smells a lot like a for loop to me?
+> 
+>         struct page *i, *next;
+> 
+>         for (i = buf; next; i = next) {
+>                 next = (struct page *)i->private;
+>                 __free_pages(i, 0);
+>         }
+Agree, will change it.
+
+> > +static int set_skb_frags(struct sk_buff *skb, struct page *page,
+> > +                             int offset, int len)
+> 
+> A better name might be "skb_add_frag()"?
+OK.
+
+> > +             skb = (struct sk_buff *)buf;
+> This cast is unnecessary, but a comment would be nice:
+>         /* Simple case: the pointer is the 1514-byte skb */
+> 
+> > +     } else {
+
+Without this cast there is a compile warning. 
+
+> And a matching comment here:
+> 
+>         /* The pointer is a chain of pages. */
+> 
+OK.
+
+> > +             if (unlikely(!skb)) {
+> > +                     dev->stats.rx_dropped++;
+> 
+> Does this mean we leak all those pages?  Shouldn't we give_pages()
+> here?
+
+Yes, it should call give_pages here.
 
 
+> > +                     offset = hdr_len + 6;
+> 
+> Really?  I can't see where the current driver does this 6 byte offset.
+> There
+> should be a header, then the packet...
+> Ah, I see below that you set things up this way.  The better way to do
+> this
+> is to create a new structure to use in various places.
+> 
+>         struct padded_vnet_hdr {
+>                 struct virtio_net_hdr hdr;
+>                 /* This padding makes our packet 16 byte aligned */
+>                 char padding[6];
+>         };
+> 
+> However, I question whether making it 16 byte is the right thing: the
+> ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
 
-[PATCH] pktgen: Fix device name compares
+Because in QEMU it requires 10 bytes header in a separately, so one page
+is used to share between virtio_net_hdr header which is 10 bytes head
+and rest of data. So I put 6 bytes offset here between two buffers. I
+didn't look at the reason why a seperate buf is used for virtio_net_hdr
+in QEMU.
 
-Commit e6fce5b916cd7f7f7 (pktgen: multiqueue etc.) tried to relax
-the pktgen restriction of one device per kernel thread, adding a '@'
-tag to device names.
+> > +             }
+> 
+> I think you can move the memcpy outside the if, like so:
+> 
+>         memcpy(&hdr, p, hdr_len);
 
-Problem is we dont perform check on full pktgen device name.
-This allows adding many time same 'device' to pktgen thread
+I didn't move it out, because num_buf = hdr->mhdr.num_buffers;
 
- pgset "add_device eth0@0"
+> > +             if (!len)
+> > +                     give_pages(vi, page);
+> > +             else {
+> > +                     len = set_skb_frags(skb, page, copy + offset,
+> len);
+> > +                     /* process big packets */
+> > +                     while (len > 0) {
+> > +                             page = (struct page *)page->private;
+> > +                             if (!page)
+> > +                                     break;
+> > +                             len = set_skb_frags(skb, page, 0,
+> len);
+> > +                     }
+> > +                     if (page && page->private)
+> > +                             give_pages(vi, (struct page
+> *)page->private);
+> >               }
+> 
+> I can't help but think this statement should be one loop somehow.
+> Something
+> like:
+> 
+>         offset += copy;
+> 
+>         while (len) {
+>                 len = skb_add_frag(skb, page, offset, len);
+>                 page = (struct page *)page->private;
+>                 offset = 0;
+>         }
+>         if (page)
+>                 give_pages(vi, page);
 
-one session later :
+I was little bit worried about qemu messed up len (i saw code in
+mergeable buffer checking len > PAGE_SIZE), so I put page checking
+inside. I will change it outside if checking len is enough.
 
- pgset "add_device eth0@0"
+> > -static bool try_fill_recv_maxbufs(struct virtnet_info *vi, gfp_t
+> gfp)
+> > +/* Returns false if we couldn't fill entirely (OOM). */
+> > +static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+> 
+> The result of trying to merge all the cases here is messy.  I'd split
+> it
+> inside the loop into: add_recvbuf_small(vi, gfp), add_recvbuf_big(vi,
+> gfp)
+> and add_recvbuf_mergeable(vi, gfp).
+> 
+> It'll also be easier for me to review each case then, as well as
+> getting
+> rid of the big packets if we decide to do that later.  You could even
+> do
+> that split as a separate patch, before this one.
 
-(This doesnt find previous device)
+Ok, will separate it.
 
-This consumes ~1.5 MBytes of vmalloc memory per round and also triggers
-this warning :
+> destroy_buf should really be called destroy_bufs().  And I don't think
+> you
+> use the vi->recv skb list in this case at all, so the loop which
+> purges those
+> should be under an "else {" of this branch.
 
-[  673.186380] proc_dir_entry 'pktgen/eth0@0' already registered
-[  673.186383] Modules linked in: pktgen ixgbe ehci_hcd psmouse mdio mo=
-usedev evdev [last unloaded: pktgen]
-[  673.186406] Pid: 6219, comm: bash Tainted: G        W  2.6.32-rc7-03=
-302-g41cec6f-dirty #16
-[  673.186410] Call Trace:
-[  673.186417]  [<ffffffff8104a29b>] warn_slowpath_common+0x7b/0xc0
-[  673.186422]  [<ffffffff8104a341>] warn_slowpath_fmt+0x41/0x50
-[  673.186426]  [<ffffffff8114e789>] proc_register+0x109/0x210
-[  673.186433]  [<ffffffff8100bf2e>] ? apic_timer_interrupt+0xe/0x20
-[  673.186438]  [<ffffffff8114e905>] proc_create_data+0x75/0xd0
-[  673.186444]  [<ffffffffa006ad38>] pktgen_thread_write+0x568/0x640 [p=
-ktgen]
-[  673.186449]  [<ffffffffa006a7d0>] ? pktgen_thread_write+0x0/0x640 [p=
-ktgen]
-[  673.186453]  [<ffffffff81149144>] proc_reg_write+0x84/0xc0
-[  673.186458]  [<ffffffff810f5a58>] vfs_write+0xb8/0x180
-[  673.186463]  [<ffffffff810f5c11>] sys_write+0x51/0x90
-[  673.186468]  [<ffffffff8100b51b>] system_call_fastpath+0x16/0x1b
-[  673.186470] ---[ end trace ccbb991b0a8d994d ]---
+Yes.
 
-Solution to this problem is to use a odevname field (includes @ tag and=
- suffix),
-instead of using netdevice name.
+> This new parameter should be introduced as a separate patch.  It
+> should also be
+> called destroy_bufs.  It also returns an unsigned int.  I would call
+> the callback
+> something a little more informative, such as "destroy"; here and in
+> the header.
 
-This also permits clean unloading of NIC drivers.=20
+Ok.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/pktgen.c |   30 +++++++++++++++++++-----------
- 1 file changed, 19 insertions(+), 11 deletions(-)
+> ret is a bad name for this; how about buf?
+Sure.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index d38470a..e23f494 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -364,6 +364,7 @@ struct pktgen_dev {
- 				  * device name (not when the inject is
- 				  * started as it used to do.)
- 				  */
-+	char odevname[32];
- 	struct flow_state *flows;
- 	unsigned cflows;	/* Concurrent flows (config) */
- 	unsigned lflow;		/* Flow length  (config) */
-@@ -427,7 +428,7 @@ static const char version[] =3D
- static int pktgen_remove_device(struct pktgen_thread *t, struct pktgen=
-_dev *i);
- static int pktgen_add_device(struct pktgen_thread *t, const char *ifna=
-me);
- static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
--					  const char *ifname);
-+					  const char *ifname, bool exact);
- static int pktgen_device_event(struct notifier_block *, unsigned long,=
- void *);
- static void pktgen_run_all_threads(void);
- static void pktgen_reset_all_threads(void);
-@@ -529,7 +530,7 @@ static int pktgen_if_show(struct seq_file *seq, voi=
-d *v)
- 	seq_printf(seq,
- 		   "     frags: %d  delay: %llu  clone_skb: %d  ifname: %s\n",
- 		   pkt_dev->nfrags, (unsigned long long) pkt_dev->delay,
--		   pkt_dev->clone_skb, pkt_dev->odev->name);
-+		   pkt_dev->clone_skb, pkt_dev->odevname);
-=20
- 	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
- 		   pkt_dev->lflow);
-@@ -1689,13 +1690,13 @@ static int pktgen_thread_show(struct seq_file *=
-seq, void *v)
- 	if_lock(t);
- 	list_for_each_entry(pkt_dev, &t->if_list, list)
- 		if (pkt_dev->running)
--			seq_printf(seq, "%s ", pkt_dev->odev->name);
-+			seq_printf(seq, "%s ", pkt_dev->odevname);
-=20
- 	seq_printf(seq, "\nStopped: ");
-=20
- 	list_for_each_entry(pkt_dev, &t->if_list, list)
- 		if (!pkt_dev->running)
--			seq_printf(seq, "%s ", pkt_dev->odev->name);
-+			seq_printf(seq, "%s ", pkt_dev->odevname);
-=20
- 	if (t->result[0])
- 		seq_printf(seq, "\nResult: %s\n", t->result);
-@@ -1818,9 +1819,10 @@ static struct pktgen_dev *__pktgen_NN_threads(co=
-nst char *ifname, int remove)
- {
- 	struct pktgen_thread *t;
- 	struct pktgen_dev *pkt_dev =3D NULL;
-+	bool exact =3D (remove =3D=3D FIND);
-=20
- 	list_for_each_entry(t, &pktgen_threads, th_list) {
--		pkt_dev =3D pktgen_find_dev(t, ifname);
-+		pkt_dev =3D pktgen_find_dev(t, ifname, exact);
- 		if (pkt_dev) {
- 			if (remove) {
- 				if_lock(t);
-@@ -1995,7 +1997,7 @@ static void pktgen_setup_inject(struct pktgen_dev=
- *pkt_dev)
- 		       "queue_map_min (zero-based) (%d) exceeds valid range "
- 		       "[0 - %d] for (%d) queues on %s, resetting\n",
- 		       pkt_dev->queue_map_min, (ntxq ?: 1) - 1, ntxq,
--		       pkt_dev->odev->name);
-+		       pkt_dev->odevname);
- 		pkt_dev->queue_map_min =3D ntxq - 1;
- 	}
- 	if (pkt_dev->queue_map_max >=3D ntxq) {
-@@ -2003,7 +2005,7 @@ static void pktgen_setup_inject(struct pktgen_dev=
- *pkt_dev)
- 		       "queue_map_max (zero-based) (%d) exceeds valid range "
- 		       "[0 - %d] for (%d) queues on %s, resetting\n",
- 		       pkt_dev->queue_map_max, (ntxq ?: 1) - 1, ntxq,
--		       pkt_dev->odev->name);
-+		       pkt_dev->odevname);
- 		pkt_dev->queue_map_max =3D ntxq - 1;
- 	}
-=20
-@@ -3263,7 +3265,7 @@ static int pktgen_stop_device(struct pktgen_dev *=
-pkt_dev)
-=20
- 	if (!pkt_dev->running) {
- 		printk(KERN_WARNING "pktgen: interface: %s is already "
--		       "stopped\n", pkt_dev->odev->name);
-+		       "stopped\n", pkt_dev->odevname);
- 		return -EINVAL;
- 	}
-=20
-@@ -3467,7 +3469,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_de=
-v)
- 	default: /* Drivers are not supposed to return other values! */
- 		if (net_ratelimit())
- 			pr_info("pktgen: %s xmit error: %d\n",
--				odev->name, ret);
-+				pkt_dev->odevname, ret);
- 		pkt_dev->errors++;
- 		/* fallthru */
- 	case NETDEV_TX_LOCKED:
-@@ -3570,13 +3572,18 @@ static int pktgen_thread_worker(void *arg)
- }
-=20
- static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
--					  const char *ifname)
-+					  const char *ifname, bool exact)
- {
- 	struct pktgen_dev *p, *pkt_dev =3D NULL;
-+	size_t len =3D strlen(ifname);
- 	if_lock(t);
-=20
- 	list_for_each_entry(p, &t->if_list, list)
--		if (strncmp(p->odev->name, ifname, IFNAMSIZ) =3D=3D 0) {
-+		if (strncmp(p->odevname, ifname, len) =3D=3D 0) {
-+			if (p->odevname[len]) {
-+				if (exact || p->odevname[len] !=3D '@')
-+					continue;
-+			}
- 			pkt_dev =3D p;
- 			break;
- 		}
-@@ -3632,6 +3639,7 @@ static int pktgen_add_device(struct pktgen_thread=
- *t, const char *ifname)
- 	if (!pkt_dev)
- 		return -ENOMEM;
-=20
-+	strcpy(pkt_dev->odevname, ifname);
- 	pkt_dev->flows =3D vmalloc(MAX_CFLOWS * sizeof(struct flow_state));
- 	if (pkt_dev->flows =3D=3D NULL) {
- 		kfree(pkt_dev);
+> Overall, the patch looks good.  But it would have been nicer if it
+> were
+> split into several parts: cleanups, new infrastructure, then the
+> actual
+> allocation change.
+
+I will try to separate this patch.
+
+Thanks
+Shirley
+
