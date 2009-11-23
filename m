@@ -1,8 +1,8 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH v2 5/7] via-velocity: Re-enable transmit scatter-gather
- support
-Date: Mon, 23 Nov 2009 15:31:33 +0100
-Message-ID: <20091123153133.2237b04c@marrow.netinsight.se>
+Subject: [PATCH v2 6/7] via-velocity: Set tx checksum from ethtool instead
+ of module parameter
+Date: Mon, 23 Nov 2009 15:31:39 +0100
+Message-ID: <20091123153139.402fc748@marrow.netinsight.se>
 References: <20091120160633.77b7aee0@marrow.netinsight.se>
 	<20091123152724.2871cf4d@marrow.netinsight.se>
 Mime-Version: 1.0
@@ -12,193 +12,91 @@ Cc: davem@davemloft.net, davej@redhat.com, shemminger@vyatta.com,
 	romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:61124 "HELO
+Received: from ernst.netinsight.se ([194.16.221.21]:36165 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754403AbZKWObd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 09:31:33 -0500
+	with SMTP id S1755004AbZKWObl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 09:31:41 -0500
 In-Reply-To: <20091123152724.2871cf4d@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The velocity hardware can handle up to 7 memory segments. This can be
-turned on and off via ethtool.
+Defaults to on (as before).
 
 Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
 ---
- drivers/net/via-velocity.c |   88 +++++++++++++++++++++++++++++---------------
- 1 files changed, 58 insertions(+), 30 deletions(-)
+ drivers/net/via-velocity.c |   18 ++++--------------
+ drivers/net/via-velocity.h |    1 -
+ 2 files changed, 4 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 06a6d80..92b41fc 100644
+index 92b41fc..4af16ba 100644
 --- a/drivers/net/via-velocity.c
 +++ b/drivers/net/via-velocity.c
-@@ -9,7 +9,6 @@
-  *
-  * TODO
-  *	rx_copybreak/alignment
-- *	Scatter gather
-  *	More testing
-  *
-  * The changes are (c) Copyright 2004, Red Hat Inc. <alan@lxorguk.ukuu.org.uk>
-@@ -1656,12 +1655,10 @@ out:
-  */
- static int velocity_init_td_ring(struct velocity_info *vptr)
- {
--	dma_addr_t curr;
- 	int j;
+@@ -297,14 +297,6 @@ VELOCITY_PARAM(DMA_length, "DMA length");
+ */
+ VELOCITY_PARAM(IP_byte_align, "Enable IP header dword aligned");
  
- 	/* Init the TD ring entries */
- 	for (j = 0; j < vptr->tx.numq; j++) {
--		curr = vptr->tx.pool_dma[j];
+-#define TX_CSUM_DEF     1
+-/* txcsum_offload[] is used for setting the checksum offload ability of NIC.
+-   (We only support RX checksum offload now)
+-   0: disable csum_offload[checksum offload
+-   1: enable checksum offload. (Default)
+-*/
+-VELOCITY_PARAM(txcsum_offload, "Enable transmit packet checksum offload");
+-
+ #define FLOW_CNTL_DEF   1
+ #define FLOW_CNTL_MIN   1
+ #define FLOW_CNTL_MAX   5
+@@ -503,7 +495,6 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
+ 	velocity_set_int_opt(&opts->numrx, RxDescriptors[index], RX_DESC_MIN, RX_DESC_MAX, RX_DESC_DEF, "RxDescriptors", devname);
+ 	velocity_set_int_opt(&opts->numtx, TxDescriptors[index], TX_DESC_MIN, TX_DESC_MAX, TX_DESC_DEF, "TxDescriptors", devname);
  
- 		vptr->tx.infos[j] = kcalloc(vptr->options.numtx,
- 					    sizeof(struct velocity_td_info),
-@@ -1727,21 +1724,27 @@ err_free_dma_rings_0:
-  *	Release an transmit buffer. If the buffer was preallocated then
-  *	recycle it, if not then unmap the buffer.
-  */
--static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *tdinfo)
-+static void velocity_free_tx_buf(struct velocity_info *vptr,
-+		struct velocity_td_info *tdinfo, struct tx_desc *td)
- {
- 	struct sk_buff *skb = tdinfo->skb;
--	int i;
--	int pktlen;
- 
+-	velocity_set_bool_opt(&opts->flags, txcsum_offload[index], TX_CSUM_DEF, VELOCITY_FLAGS_TX_CSUM, "txcsum_offload", devname);
+ 	velocity_set_int_opt(&opts->flow_cntl, flow_control[index], FLOW_CNTL_MIN, FLOW_CNTL_MAX, FLOW_CNTL_DEF, "flow_control", devname);
+ 	velocity_set_bool_opt(&opts->flags, IP_byte_align[index], IP_ALIG_DEF, VELOCITY_FLAGS_IP_ALIGN, "IP_byte_align", devname);
+ 	velocity_set_bool_opt(&opts->flags, ValPktLen[index], VAL_PKT_LEN_DEF, VELOCITY_FLAGS_VAL_PKT_LEN, "ValPktLen", devname);
+@@ -2612,7 +2603,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
  	/*
- 	 *	Don't unmap the pre-allocated tx_bufs
+ 	 *	Handle hardware checksum
  	 */
- 	if (tdinfo->skb_dma) {
-+		int i;
+-	if ((vptr->flags & VELOCITY_FLAGS_TX_CSUM)
++	if ( (dev->features & NETIF_F_IP_CSUM)
+ 				 && (skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		const struct iphdr *ip = ip_hdr(skb);
+ 		if (ip->protocol == IPPROTO_TCP)
+@@ -2858,10 +2849,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+ 	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
  
--		pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
- 		for (i = 0; i < tdinfo->nskb_dma; i++) {
--			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i], pktlen, PCI_DMA_TODEVICE);
--			tdinfo->skb_dma[i] = 0;
-+			size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
-+
-+			/* For scatter-gather */
-+			if (skb_shinfo(skb)->nr_frags > 0)
-+				pktlen = max_t(size_t, pktlen,
-+						td->td_buf[i].size & ~TD_QUEUE);
-+
-+			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
-+					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
- 		}
- 	}
- 	dev_kfree_skb_irq(skb);
-@@ -1943,7 +1946,7 @@ static int velocity_tx_srv(struct velocity_info *vptr, u32 status)
- 				stats->tx_packets++;
- 				stats->tx_bytes += tdinfo->skb->len;
- 			}
--			velocity_free_tx_buf(vptr, tdinfo);
-+			velocity_free_tx_buf(vptr, tdinfo, td);
- 			vptr->tx.used[qnum]--;
- 		}
- 		vptr->tx.tail[qnum] = idx;
-@@ -2543,14 +2546,27 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	struct velocity_td_info *tdinfo;
- 	unsigned long flags;
- 	int pktlen;
--	__le16 len;
--	int index;
-+	int index, prev;
-+	int i = 0;
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
+-		NETIF_F_HW_VLAN_RX;
+-
+-	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM)
+-		dev->features |= NETIF_F_IP_CSUM;
++		NETIF_F_HW_VLAN_RX | NETIF_F_IP_CSUM;
  
- 	if (skb_padto(skb, ETH_ZLEN))
- 		goto out;
--	pktlen = max_t(unsigned int, skb->len, ETH_ZLEN);
- 
--	len = cpu_to_le16(pktlen);
-+	/* The hardware can handle at most 7 memory segments, so merge
-+	 * the skb if there are more */
-+	if (skb_shinfo(skb)->nr_frags > 6 && __skb_linearize(skb)) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+	/* If it's still above 6 we can't do anything */
-+	if (skb_shinfo(skb)->nr_frags > 6) {
-+		dev_err(&vptr->pdev->dev,
-+				"via-velocity: more than 6 frags, can't send.\n");
-+		return 0;
-+	}
-+	pktlen = skb_shinfo(skb)->nr_frags == 0 ?
-+			max_t(unsigned int, skb->len, ETH_ZLEN) :
-+				skb_headlen(skb);
- 
- 	spin_lock_irqsave(&vptr->lock, flags);
- 
-@@ -2567,11 +2583,24 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	 */
- 	tdinfo->skb = skb;
- 	tdinfo->skb_dma[0] = pci_map_single(vptr->pdev, skb->data, pktlen, PCI_DMA_TODEVICE);
--	td_ptr->tdesc0.len = len;
-+	td_ptr->tdesc0.len = cpu_to_le16(pktlen);
- 	td_ptr->td_buf[0].pa_low = cpu_to_le32(tdinfo->skb_dma[0]);
- 	td_ptr->td_buf[0].pa_high = 0;
--	td_ptr->td_buf[0].size = len;
--	tdinfo->nskb_dma = 1;
-+	td_ptr->td_buf[0].size = cpu_to_le16(pktlen);
-+
-+	/* Handle fragments */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+
-+		tdinfo->skb_dma[i + 1] = pci_map_page(vptr->pdev, frag->page,
-+				frag->page_offset, frag->size,
-+				PCI_DMA_TODEVICE);
-+
-+		td_ptr->td_buf[i + 1].pa_low = cpu_to_le32(tdinfo->skb_dma[i + 1]);
-+		td_ptr->td_buf[i + 1].pa_high = 0;
-+		td_ptr->td_buf[i + 1].size = cpu_to_le16(frag->size);
-+	}
-+	tdinfo->nskb_dma = i + 1;
- 
- 	td_ptr->tdesc1.cmd = TCPLS_NORMAL + (tdinfo->nskb_dma + 1) * 16;
- 
-@@ -2592,23 +2621,21 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 			td_ptr->tdesc1.TCR |= (TCR0_UDPCK);
- 		td_ptr->tdesc1.TCR |= TCR0_IPCK;
- 	}
--	{
- 
--		int prev = index - 1;
-+	prev = index - 1;
-+	if (prev < 0)
-+		prev = vptr->options.numtx - 1;
-+	td_ptr->tdesc0.len |= OWNED_BY_NIC;
-+	vptr->tx.used[qnum]++;
-+	vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
- 
--		if (prev < 0)
--			prev = vptr->options.numtx - 1;
--		td_ptr->tdesc0.len |= OWNED_BY_NIC;
--		vptr->tx.used[qnum]++;
--		vptr->tx.curr[qnum] = (index + 1) % vptr->options.numtx;
-+	if (AVAIL_TD(vptr, qnum) < 1)
-+		netif_stop_queue(dev);
- 
--		if (AVAIL_TD(vptr, qnum) < 1)
--			netif_stop_queue(dev);
-+	td_ptr = &(vptr->tx.rings[qnum][prev]);
-+	td_ptr->td_buf[0].size |= TD_QUEUE;
-+	mac_tx_queue_wake(vptr->mac_regs, qnum);
- 
--		td_ptr = &(vptr->tx.rings[qnum][prev]);
--		td_ptr->td_buf[0].size |= TD_QUEUE;
--		mac_tx_queue_wake(vptr->mac_regs, qnum);
--	}
- 	dev->trans_start = jiffies;
- 	spin_unlock_irqrestore(&vptr->lock, flags);
- out:
-@@ -3398,6 +3425,7 @@ static const struct ethtool_ops velocity_ethtool_ops = {
+ 	ret = register_netdev(dev);
+ 	if (ret < 0)
+@@ -3421,6 +3409,8 @@ static const struct ethtool_ops velocity_ethtool_ops = {
+ 	.get_settings	=	velocity_get_settings,
+ 	.set_settings	=	velocity_set_settings,
+ 	.get_drvinfo	=	velocity_get_drvinfo,
++	.set_tx_csum	=	ethtool_op_set_tx_csum,
++	.get_tx_csum	=	ethtool_op_get_tx_csum,
+ 	.get_wol	=	velocity_ethtool_get_wol,
  	.set_wol	=	velocity_ethtool_set_wol,
  	.get_msglevel	=	velocity_get_msglevel,
- 	.set_msglevel	=	velocity_set_msglevel,
-+	.set_sg 	=	ethtool_op_set_sg,
- 	.get_link	=	velocity_get_link,
- 	.get_coalesce	=	velocity_get_coalesce,
- 	.set_coalesce	=	velocity_set_coalesce,
+diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
+index 22bfea4..cf10801 100644
+--- a/drivers/net/via-velocity.h
++++ b/drivers/net/via-velocity.h
+@@ -1423,7 +1423,6 @@ enum velocity_msg_level {
+  */
+ 
+ #define     VELOCITY_FLAGS_TAGGING         0x00000001UL
+-#define     VELOCITY_FLAGS_TX_CSUM         0x00000002UL
+ #define     VELOCITY_FLAGS_RX_CSUM         0x00000004UL
+ #define     VELOCITY_FLAGS_IP_ALIGN        0x00000008UL
+ #define     VELOCITY_FLAGS_VAL_PKT_LEN     0x00000010UL
 -- 
 1.6.0.4
 
