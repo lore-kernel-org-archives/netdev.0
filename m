@@ -1,33 +1,58 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 0/1] Defer skb allocation for both mergeable buffers
- and big packets in virtio_net
-Date: Mon, 23 Nov 2009 08:51:50 +0000
-Message-ID: <1258966310.14708.11.camel@blaa>
-References: <1258697359.7416.14.camel@localhost.localdomain>
-	 <200911231123.18898.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac patches...
+Date: Mon, 23 Nov 2009 09:57:53 +0100
+Message-ID: <4B0A4E91.3050509@st.com>
+References: <20091119.121821.51205410.davem@davemloft.net>	<4B0642F2.7060308@st.com> <20091120.094019.163421376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <200911231123.18898.rusty@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:55431 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752804AbZKWI57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 03:57:59 -0500
+In-Reply-To: <20091120.094019.163421376.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-23 at 11:23 +1030, Rusty Russell wrote:
-> I'd like to drop big packet support from our driver, but I don't know
-> how many kvm hosts will not offer mergable rx bufs yet.  Anthony?
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Mergeable rx bufs were first added in kvm-80 and qemu-0.10.0
+Hi David,
+David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Fri, 20 Nov 2009 08:19:14 +0100
+> 
+>>> Please fix this up and resubmit both of your patches.
+>> I've just resent the second patch:
+>>  [PATCH (RESENT)] stmmac: do not fail when the timer cannot be used.
+>> Let me know if I have to review something in my first patch as well.
+> 
+> I explicitly asked you to resubmit both patches, so that I would have
+> them in a group together to apply to my tree.
 
-So e.g., it's in Fedora since Fedora 11 and RHEL since 5.4
+I'm sending them at once.
 
-Cheers,
-Mark.
+> When changes are requested in some patches within a group, I mark
+> the entire group in patchwork with state 'changed requested' and
+> that's why I ask for the whole series to be resubmitted.
+> 
+> This means you should have resent the first patch even though I did
+> not ask you to make any changes to it.
 
+Thanks David for this. I know that it's not easy to manage an huge
+amount of patches (especially when these have some defects ;-) ). My
+personal goal is to sent patches clean and well done too.
+
+Regards,
+Peppe
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAksKTpEACgkQ2Xo3j31MSSI3XACfVFcY9yj2fzFOplC8A1oma9lp
+6QYAmgNdMKvJt+MyUAZHsIqjqDpDAwdD
+=Z6CD
+-----END PGP SIGNATURE-----
