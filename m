@@ -1,71 +1,66 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers and big packets in virtio_net
-Date: Tue, 24 Nov 2009 08:54:23 +1030
-Message-ID: <200911240854.24054.rusty@rustcorp.com.au>
-References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14677] New: multicast client application does
+ not receive packets
+Date: Mon, 23 Nov 2009 14:31:55 -0800
+Message-ID: <20091123143155.412576d4.akpm@linux-foundation.org>
+References: <bug-14677-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Hollis Blanchard <hollisb@us.ibm.com>
-To: Shirley Ma <mashirle@us.ibm.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berndp@optonline.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41453 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757006AbZKWWYW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 17:24:22 -0500
-In-Reply-To: <1258992421.5022.19.camel@localhost.localdomain>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48343 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754286AbZKWWbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 17:31:53 -0500
+In-Reply-To: <bug-14677-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
-> > > +             skb = (struct sk_buff *)buf;
-> > This cast is unnecessary, but a comment would be nice:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Mon, 23 Nov 2009 22:00:45 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=14677
 > 
-> Without this cast there is a compile warning. 
-
-Hi Shirley,
-
-   Looks like buf is a void *, so no cast should be necessary.  But I could
-be reading the patch wrong.
-
-> > However, I question whether making it 16 byte is the right thing: the
-> > ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
+>            Summary: multicast client application does not receive packets
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.31.4-2.6.32-rc8
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: berndp@optonline.net
+>         Regression: Yes
 > 
-> Because in QEMU it requires 10 bytes header in a separately, so one page
-> is used to share between virtio_net_hdr header which is 10 bytes head
-> and rest of data. So I put 6 bytes offset here between two buffers. I
-> didn't look at the reason why a seperate buf is used for virtio_net_hdr
-> in QEMU.
-
-It's a qemu bug.  It insists the header be an element in the scatterlist by
-itself.  Unfortunately we have to accommodate it.
-
-However, there's no reason for the merged rxbuf and big packet layout to be
-the same: for the big packet case you should layout as follows:
-
-#define BIG_PACKET_PAD (NET_SKB_PAD - sizeof(struct virtio_net_hdr) + NET_IP_ALIGN)
-struct big_packet_page {
-	struct virtio_net_hdr hdr;
-	char pad[BIG_PACKET_PAD];
-	/* Actual packet data starts here */
-	unsigned char data[PAGE_SIZE - BIG_PACKET_PAD - sizeof(struct virtio_net_hdr)];
-};
-
-Then use this type as the template for registering the sg list for the
-big packet case.
-
-> > I think you can move the memcpy outside the if, like so:
-> > 
-> >         memcpy(&hdr, p, hdr_len);
 > 
-> I didn't move it out, because num_buf = hdr->mhdr.num_buffers;
+> When upgrading the kernel from 2.6.29.1 to 2.6.31.4, we discovered that packets
+> no longer get delivered to an application that is subscribing to the multicast
+> data.
+> 
+> We verified that multicast support was compiled into the kernel
+> (CONFIG_IP_MULTICAST). A dump on the interface with tcpdump shows the multicast
+> packets arriving on the network interface. However, they do not get delivered
+> to the application.
+> 
+> /proc/net/igmp clearly showed that we were subscribed to the relevant multicast
+> groups, and netstat showed that the application was listening.
+> 
+> Upgrading to 2.6.32-rc8 did not fix the problem, but downgrading to 2.6.29.1
+> did.
+> 
+> This problem was seen on two different supermicro systems: one with a single
+> (4-core) i7 940 Intel CPU, and another one with dual X5570 Xeon CPUS. In both
+> cases the interface was on a quad-port NIC card 82571EB gigabit ethernet
+> controller, rev 06.
 
-Yes, that has to stay inside, but the memcpy can move out.  It's just a bit
-neater to have more common code.
-
-Thanks,
-Rusty.
