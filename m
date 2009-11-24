@@ -1,76 +1,105 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Tue, 24 Nov 2009 11:19:46 +0000
-Message-ID: <20091124111946.GA7883@ff.dom.local>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ixgbe: Fix TX stats accounting
+Date: Tue, 24 Nov 2009 12:37:17 +0100
+Message-ID: <4B0BC56D.1000909@gmail.com>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>	 <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>	 <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>	 <4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>	 <4B0ABF6D.9000103@gmail.com>	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>	 <4B0B8F52.3010005@gmail.com> <1259053673.2631.30.camel@ppwaskie-mobl2>	 <4B0BADA6.7080602@gmail.com> <1259057164.2631.36.camel@ppwaskie-mobl2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+Cc: "robert@herjulf.net" <robert@herjulf.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33136 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932686AbZKXLhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 06:37:18 -0500
+In-Reply-To: <1259057164.2631.36.camel@ppwaskie-mobl2>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2009 at 01:17:09AM -0500, Caleb Cushing wrote:
-> > Btw, currently I don't consider this dropping means there has to be
-> > a bug. It could be otherwise - a feature... e.g. when a new kernel
-> > can transmit faster (then dropping in some other, slower place can
-> > happen).
-> 
-> um... where would it be dropping that we wouldn't have a bug? I mean
-> sure faster is great... but if it makes my network not work right...
+Several cpus can update netdev->stats.tx_bytes & netdev->stats.tx_packets
+in parallel. In this case, TX stats are under estimated and false sharing
+takes place.
 
-E.g. if it were dropped because of a queue overflow (but it doesn't
-seem to be the case, at least at your box) or because of memory
-problems while handling a lot of traffic.
+After a pktgen session sending exactly 200000000 packets :
+# ifconfig fiber0 | grep TX
+          TX packets:198501982 errors:0 dropped:0 overruns:0 carrier:0
 
-> 
-> I've added all (I think) information you've asked for to the bug
-> http://bugzilla.kernel.org/show_bug.cgi?id=13835 except for ethtool
-> and netstat on the router side. ethtool complains about not having
-> driver or capability (maybe because it's a 2.4 kernel?) and the
-> version of netstat doesn't support -s. I disabled everything that I
-> can think of that would send/receive packets before doing the test
-> client side, except dhcp/dns windows box's were probably sending some
-> broadcasts too. but the traffic should be pretty low. I did remember
-> to set the txqueuelen didn't seem to make a difference
 
-Alas it's not all information I asked. E.g. "netstat -s before faulty
-kernel" and "netstat -s after faulty kernel" seem to be the same file:
-netstat_after.slave4.log.gz. Anyway, since there are problems with
-getting stats from the router we still can't compare them, or check
-for the dropped stats. (Btw, could you check for /proc/net/softnet_stat
-yet?)
+Multi queue devices should instead use txq->tx_bytes & txq->tx_packets
+in their xmit() method (appropriate txq lock already held by caller, no
+cache line miss), or use appropriate locking.
 
-So, it might be the kernel problem you reported, but there is not
-enough data to prove it. Then my proposal is to try to repeat this
-problem in more "testing friendly" conditions - preferably against
-some other, more up-to-date linux box, if possible?
+After patch, same pktgen session gives :
 
-> only error in dmesg I see is
-> 
-> e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
+# ifconfig fiber0 | grep TX
+          TX packets:200000000 errors:0 dropped:0 overruns:0 carrier:0
 
-I added e1000e maintainers to CC to have a look at this warning.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |   20 ++++----------------
+ 1 file changed, 4 insertions(+), 16 deletions(-)
 
-Jarek P.
-
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index ebcec30..1cea120 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -425,8 +425,6 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 	tx_ring->total_packets += total_packets;
+ 	tx_ring->stats.packets += total_packets;
+ 	tx_ring->stats.bytes += total_bytes;
+-	netdev->stats.tx_bytes += total_bytes;
+-	netdev->stats.tx_packets += total_packets;
+ 	return (count < tx_ring->work_limit);
+ }
+ 
+@@ -5249,6 +5247,7 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
++	struct netdev_queue *txq;
+ 	unsigned int first;
+ 	unsigned int tx_flags = 0;
+ 	u8 hdr_len = 0;
+@@ -5345,6 +5344,9 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ 				tx_ring->atr_count = 0;
+ 			}
+ 		}
++		txq = netdev_get_tx_queue(netdev, r_idx);
++		txq->tx_bytes += skb->len;
++		txq->tx_packets++;
+ 		ixgbe_tx_queue(adapter, tx_ring, tx_flags, count, skb->len,
+ 		               hdr_len);
+ 		ixgbe_maybe_stop_tx(netdev, tx_ring, DESC_NEEDED);
+@@ -5359,19 +5361,6 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ }
+ 
+ /**
+- * ixgbe_get_stats - Get System Network Statistics
+- * @netdev: network interface device structure
+- *
+- * Returns the address of the device statistics structure.
+- * The statistics are actually updated from the timer callback.
+- **/
+-static struct net_device_stats *ixgbe_get_stats(struct net_device *netdev)
+-{
+-	/* only return the current stats */
+-	return &netdev->stats;
+-}
+-
+-/**
+  * ixgbe_set_mac - Change the Ethernet Address of the NIC
+  * @netdev: network interface device structure
+  * @p: pointer to an address structure
+@@ -5501,7 +5490,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_stop		= ixgbe_close,
+ 	.ndo_start_xmit		= ixgbe_xmit_frame,
+ 	.ndo_select_queue	= ixgbe_select_queue,
+-	.ndo_get_stats		= ixgbe_get_stats,
+ 	.ndo_set_rx_mode        = ixgbe_set_rx_mode,
+ 	.ndo_set_multicast_list	= ixgbe_set_rx_mode,
+ 	.ndo_validate_addr	= eth_validate_addr,
