@@ -1,250 +1,218 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 16/17] sfc: Combine high-level header files
-Date: Tue, 24 Nov 2009 02:07:30 +0000
-Message-ID: <1259028451.14645.35.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 17/17] sfc: Log interrupt and reset type names, not numbers
+Date: Tue, 24 Nov 2009 02:08:17 +0000
+Message-ID: <1259028497.14645.37.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:34909 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:34966 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757798AbZKXCH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 21:07:27 -0500
+	with ESMTP id S932127AbZKXCIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 21:08:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All files that include ethtool.h, rx.h or tx.h are also including
-efx.h, and there is no good reason to separate out the few
-declarations they contain.  Therefore fold them into efx.h.
+Define name tables for these enumerations in a similar way as for
+loopback.  Move the loopback name table together with them.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c      |    3 ---
- drivers/net/sfc/efx.h      |   27 +++++++++++++++++++++++++--
- drivers/net/sfc/ethtool.c  |    1 -
- drivers/net/sfc/ethtool.h  |   27 ---------------------------
- drivers/net/sfc/rx.c       |    1 -
- drivers/net/sfc/rx.h       |   26 --------------------------
- drivers/net/sfc/selftest.c |    1 -
- drivers/net/sfc/tx.c       |    1 -
- drivers/net/sfc/tx.h       |   25 -------------------------
- 9 files changed, 25 insertions(+), 87 deletions(-)
- delete mode 100644 drivers/net/sfc/ethtool.h
- delete mode 100644 drivers/net/sfc/rx.h
- delete mode 100644 drivers/net/sfc/tx.h
+ drivers/net/sfc/efx.c        |   51 +++++++++++++++++++++++++++++++++++++++--
+ drivers/net/sfc/enum.h       |    6 -----
+ drivers/net/sfc/ethtool.c    |   15 +-----------
+ drivers/net/sfc/falcon.c     |    2 +-
+ drivers/net/sfc/net_driver.h |   19 ++++++++++++++-
+ drivers/net/sfc/selftest.c   |    4 +-
+ 6 files changed, 69 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index ea31141..cb78995 100644
+index cb78995..4787faa 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -21,9 +21,6 @@
- #include <linux/ethtool.h>
- #include <linux/topology.h>
- #include "net_driver.h"
--#include "ethtool.h"
--#include "tx.h"
--#include "rx.h"
- #include "efx.h"
+@@ -25,6 +25,50 @@
  #include "mdio_10g.h"
  #include "falcon.h"
-diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
-index 9d83322..3497b03 100644
---- a/drivers/net/sfc/efx.h
-+++ b/drivers/net/sfc/efx.h
-@@ -23,8 +23,15 @@
- #define EFX_MEM_BAR 2
  
- /* TX */
--extern netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue,
--				   struct sk_buff *skb);
-+extern int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
-+extern void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
-+extern void efx_init_tx_queue(struct efx_tx_queue *tx_queue);
-+extern void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
-+extern void efx_release_tx_buffers(struct efx_tx_queue *tx_queue);
-+extern netdev_tx_t
-+efx_hard_start_xmit(struct sk_buff *skb, struct net_device *net_dev);
-+extern netdev_tx_t
-+efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
- extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
- extern void efx_stop_queue(struct efx_nic *efx);
- extern void efx_wake_queue(struct efx_nic *efx);
-@@ -32,6 +39,15 @@ extern void efx_wake_queue(struct efx_nic *efx);
- #define EFX_TXQ_MASK (EFX_TXQ_SIZE - 1)
- 
- /* RX */
-+extern int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
-+extern void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
-+extern void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
-+extern void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
-+extern void efx_rx_strategy(struct efx_channel *channel);
-+extern void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
-+extern void efx_rx_work(struct work_struct *data);
-+extern void __efx_rx_packet(struct efx_channel *channel,
-+			    struct efx_rx_buffer *rx_buf, bool checksummed);
- extern void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 			  unsigned int len, bool checksummed, bool discard);
- extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue, int delay);
-@@ -50,6 +66,13 @@ extern void efx_stats_enable(struct efx_nic *efx);
- extern void efx_reconfigure_port(struct efx_nic *efx);
- extern void __efx_reconfigure_port(struct efx_nic *efx);
- 
-+/* Ethtool support */
-+extern int efx_ethtool_get_settings(struct net_device *net_dev,
-+				    struct ethtool_cmd *ecmd);
-+extern int efx_ethtool_set_settings(struct net_device *net_dev,
-+				    struct ethtool_cmd *ecmd);
-+extern const struct ethtool_ops efx_ethtool_ops;
++/**************************************************************************
++ *
++ * Type name strings
++ *
++ **************************************************************************
++ */
 +
- /* Reset handling */
- extern void efx_reset_down(struct efx_nic *efx, enum reset_type method,
- 			   struct ethtool_cmd *ecmd);
++/* Loopback mode names (see LOOPBACK_MODE()) */
++const unsigned int efx_loopback_mode_max = LOOPBACK_MAX;
++const char *efx_loopback_mode_names[] = {
++	[LOOPBACK_NONE]		= "NONE",
++	[LOOPBACK_GMAC]		= "GMAC",
++	[LOOPBACK_XGMII]	= "XGMII",
++	[LOOPBACK_XGXS]		= "XGXS",
++	[LOOPBACK_XAUI]  	= "XAUI",
++	[LOOPBACK_GPHY]		= "GPHY",
++	[LOOPBACK_PHYXS]	= "PHYXS",
++	[LOOPBACK_PCS]	 	= "PCS",
++	[LOOPBACK_PMAPMD] 	= "PMA/PMD",
++	[LOOPBACK_NETWORK]	= "NETWORK",
++};
++
++/* Interrupt mode names (see INT_MODE())) */
++const unsigned int efx_interrupt_mode_max = EFX_INT_MODE_MAX;
++const char *efx_interrupt_mode_names[] = {
++	[EFX_INT_MODE_MSIX]   = "MSI-X",
++	[EFX_INT_MODE_MSI]    = "MSI",
++	[EFX_INT_MODE_LEGACY] = "legacy",
++};
++
++const unsigned int efx_reset_type_max = RESET_TYPE_MAX;
++const char *efx_reset_type_names[] = {
++	[RESET_TYPE_INVISIBLE]     = "INVISIBLE",
++	[RESET_TYPE_ALL]           = "ALL",
++	[RESET_TYPE_WORLD]         = "WORLD",
++	[RESET_TYPE_DISABLE]       = "DISABLE",
++	[RESET_TYPE_TX_WATCHDOG]   = "TX_WATCHDOG",
++	[RESET_TYPE_INT_ERROR]     = "INT_ERROR",
++	[RESET_TYPE_RX_RECOVERY]   = "RX_RECOVERY",
++	[RESET_TYPE_RX_DESC_FETCH] = "RX_DESC_FETCH",
++	[RESET_TYPE_TX_DESC_FETCH] = "TX_DESC_FETCH",
++	[RESET_TYPE_TX_SKIP]       = "TX_SKIP",
++};
++
+ #define EFX_MAX_MTU (9 * 1024)
+ 
+ /* RX slow fill workqueue. If memory allocation fails in the fast path,
+@@ -1772,7 +1816,7 @@ static int efx_reset(struct efx_nic *efx)
+ 		goto out_unlock;
+ 	}
+ 
+-	EFX_INFO(efx, "resetting (%d)\n", method);
++	EFX_INFO(efx, "resetting (%s)\n", RESET_TYPE(method));
+ 
+ 	efx_reset_down(efx, method, &ecmd);
+ 
+@@ -1851,9 +1895,10 @@ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
+ 	}
+ 
+ 	if (method != type)
+-		EFX_LOG(efx, "scheduling reset (%d:%d)\n", type, method);
++		EFX_LOG(efx, "scheduling %s reset for %s\n",
++			RESET_TYPE(method), RESET_TYPE(type));
+ 	else
+-		EFX_LOG(efx, "scheduling reset (%d)\n", method);
++		EFX_LOG(efx, "scheduling %s reset\n", RESET_TYPE(method));
+ 
+ 	efx->reset_pending = method;
+ 
+diff --git a/drivers/net/sfc/enum.h b/drivers/net/sfc/enum.h
+index 60cbc6e..fcd14b7 100644
+--- a/drivers/net/sfc/enum.h
++++ b/drivers/net/sfc/enum.h
+@@ -40,12 +40,6 @@ enum efx_loopback_mode {
+ 
+ #define LOOPBACK_TEST_MAX LOOPBACK_PMAPMD
+ 
+-extern const char *efx_loopback_mode_names[];
+-#define LOOPBACK_MODE_NAME(mode)			\
+-	STRING_TABLE_LOOKUP(mode, efx_loopback_mode)
+-#define LOOPBACK_MODE(efx)				\
+-	LOOPBACK_MODE_NAME(efx->loopback_mode)
+-
+ /* These loopbacks occur within the controller */
+ #define LOOPBACKS_INTERNAL ((1 << LOOPBACK_GMAC) |     \
+ 			    (1 << LOOPBACK_XGMII)|     \
 diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index eb12f20..e8afd78 100644
+index e8afd78..d8915b9 100644
 --- a/drivers/net/sfc/ethtool.c
 +++ b/drivers/net/sfc/ethtool.c
-@@ -16,7 +16,6 @@
- #include "workarounds.h"
- #include "selftest.h"
- #include "efx.h"
--#include "ethtool.h"
- #include "falcon.h"
+@@ -20,19 +20,6 @@
  #include "spi.h"
  #include "mdio_10g.h"
-diff --git a/drivers/net/sfc/ethtool.h b/drivers/net/sfc/ethtool.h
-deleted file mode 100644
-index 295ead4..0000000
---- a/drivers/net/sfc/ethtool.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--/****************************************************************************
-- * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2005 Fen Systems Ltd.
-- * Copyright 2006 Solarflare Communications Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License version 2 as published
-- * by the Free Software Foundation, incorporated herein by reference.
-- */
+ 
+-const char *efx_loopback_mode_names[] = {
+-	[LOOPBACK_NONE]		= "NONE",
+-	[LOOPBACK_GMAC]		= "GMAC",
+-	[LOOPBACK_XGMII]	= "XGMII",
+-	[LOOPBACK_XGXS]		= "XGXS",
+-	[LOOPBACK_XAUI] 	= "XAUI",
+-	[LOOPBACK_GPHY]		= "GPHY",
+-	[LOOPBACK_PHYXS]	= "PHYXS",
+-	[LOOPBACK_PCS]	 	= "PCS",
+-	[LOOPBACK_PMAPMD]	= "PMA/PMD",
+-	[LOOPBACK_NETWORK]	= "NETWORK",
+-};
 -
--#ifndef EFX_ETHTOOL_H
--#define EFX_ETHTOOL_H
--
--#include "net_driver.h"
--
--/*
-- * Ethtool support
-- */
--
--extern int efx_ethtool_get_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd);
--extern int efx_ethtool_set_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd);
--
--extern const struct ethtool_ops efx_ethtool_ops;
--
--#endif /* EFX_ETHTOOL_H */
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index 9f22d15..accf055 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -16,7 +16,6 @@
- #include <net/ip.h>
- #include <net/checksum.h>
- #include "net_driver.h"
--#include "rx.h"
- #include "efx.h"
- #include "falcon.h"
- #include "selftest.h"
-diff --git a/drivers/net/sfc/rx.h b/drivers/net/sfc/rx.h
-deleted file mode 100644
-index 42ee755..0000000
---- a/drivers/net/sfc/rx.h
-+++ /dev/null
-@@ -1,26 +0,0 @@
--/****************************************************************************
-- * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2006 Solarflare Communications Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License version 2 as published
-- * by the Free Software Foundation, incorporated herein by reference.
-- */
--
--#ifndef EFX_RX_H
--#define EFX_RX_H
--
--#include "net_driver.h"
--
--int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
--void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
--void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
--void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
--
--void efx_rx_strategy(struct efx_channel *channel);
--void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
--void efx_rx_work(struct work_struct *data);
--void __efx_rx_packet(struct efx_channel *channel,
--		     struct efx_rx_buffer *rx_buf, bool checksummed);
--
--#endif /* EFX_RX_H */
+ struct ethtool_string {
+ 	char name[ETH_GSTRING_LEN];
+ };
+@@ -290,7 +277,7 @@ static void efx_fill_test(unsigned int test_index,
+ #define EFX_TX_QUEUE_NAME(_tx_queue) "txq%d", _tx_queue->queue
+ #define EFX_RX_QUEUE_NAME(_rx_queue) "rxq%d", _rx_queue->queue
+ #define EFX_LOOPBACK_NAME(_mode, _counter)			\
+-	"loopback.%s." _counter, LOOPBACK_MODE_NAME(mode)
++	"loopback.%s." _counter, STRING_TABLE_LOOKUP(_mode, efx_loopback_mode)
+ 
+ /**
+  * efx_fill_loopback_test - fill in a block of loopback self-test entries
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 6eee4b7..41a321b 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -2485,7 +2485,7 @@ int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 	efx_oword_t glb_ctl_reg_ker;
+ 	int rc;
+ 
+-	EFX_LOG(efx, "performing hardware reset (%d)\n", method);
++	EFX_LOG(efx, "performing %s hardware reset\n", RESET_TYPE(method));
+ 
+ 	/* Initiate device reset */
+ 	if (method == RESET_TYPE_WORLD) {
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index f2df324..ac808d5 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -394,8 +394,23 @@ enum efx_led_mode {
+ 	EFX_LED_DEFAULT	= 2
+ };
+ 
+-#define STRING_TABLE_LOOKUP(val, member)	\
+-	member ## _names[val]
++#define STRING_TABLE_LOOKUP(val, member) \
++	((val) < member ## _max) ? member ## _names[val] : "(invalid)"
++
++extern const char *efx_loopback_mode_names[];
++extern const unsigned int efx_loopback_mode_max;
++#define LOOPBACK_MODE(efx) \
++	STRING_TABLE_LOOKUP((efx)->loopback_mode, efx_loopback_mode)
++
++extern const char *efx_interrupt_mode_names[];
++extern const unsigned int efx_interrupt_mode_max;
++#define INT_MODE(efx) \
++	STRING_TABLE_LOOKUP(efx->interrupt_mode, efx_interrupt_mode)
++
++extern const char *efx_reset_type_names[];
++extern const unsigned int efx_reset_type_max;
++#define RESET_TYPE(type) \
++	STRING_TABLE_LOOKUP(type, efx_reset_type)
+ 
+ enum efx_int_mode {
+ 	/* Be careful if altering to correct macro below */
 diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index eab8c2e..afac1cc 100644
+index afac1cc..63ff295 100644
 --- a/drivers/net/sfc/selftest.c
 +++ b/drivers/net/sfc/selftest.c
-@@ -20,7 +20,6 @@
- #include <linux/rtnetlink.h>
- #include <asm/io.h>
- #include "net_driver.h"
--#include "ethtool.h"
- #include "efx.h"
- #include "falcon.h"
- #include "selftest.h"
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index a5e541d..c54fa30 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -15,7 +15,6 @@
- #include <linux/if_ether.h>
- #include <linux/highmem.h>
- #include "net_driver.h"
--#include "tx.h"
- #include "efx.h"
- #include "falcon.h"
- #include "workarounds.h"
-diff --git a/drivers/net/sfc/tx.h b/drivers/net/sfc/tx.h
-deleted file mode 100644
-index e367896..0000000
---- a/drivers/net/sfc/tx.h
-+++ /dev/null
-@@ -1,25 +0,0 @@
--/****************************************************************************
-- * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2006 Fen Systems Ltd.
-- * Copyright 2006-2008 Solarflare Communications Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License version 2 as published
-- * by the Free Software Foundation, incorporated herein by reference.
-- */
--
--#ifndef EFX_TX_H
--#define EFX_TX_H
--
--#include "net_driver.h"
--
--int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
--void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
--void efx_init_tx_queue(struct efx_tx_queue *tx_queue);
--void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
--
--netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
--				      struct net_device *net_dev);
--void efx_release_tx_buffers(struct efx_tx_queue *tx_queue);
--
--#endif /* EFX_TX_H */
+@@ -175,8 +175,8 @@ static int efx_test_interrupts(struct efx_nic *efx,
+ 	return -ETIMEDOUT;
+ 
+  success:
+-	EFX_LOG(efx, "test interrupt (mode %d) seen on CPU%d\n",
+-		efx->interrupt_mode, efx->last_irq_cpu);
++	EFX_LOG(efx, "%s test interrupt seen on CPU%d\n", INT_MODE(efx),
++		efx->last_irq_cpu);
+ 	tests->interrupt = 1;
+ 	return 0;
+ }
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
