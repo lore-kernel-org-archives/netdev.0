@@ -1,105 +1,98 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe question
-Date: Tue, 24 Nov 2009 02:06:04 -0800
-Message-ID: <1259057164.2631.36.camel@ppwaskie-mobl2>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
-	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
-	 <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>
-	 <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>
-	 <4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>
-	 <4B0ABF6D.9000103@gmail.com>
-	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>
-	 <4B0B8F52.3010005@gmail.com> <1259053673.2631.30.camel@ppwaskie-mobl2>
-	 <4B0BADA6.7080602@gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
+ hints
+Date: Tue, 24 Nov 2009 11:07:23 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.0911241027140.24119@localhost.localdomain>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>  <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>  <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>  <Pine.WNT.4.64.0911231529240.10056@ppwaskie-MOBL2.amr.corp.intel.com>
+  <1259051902.4531.1053.camel@laptop> <1259053156.2631.21.camel@ppwaskie-mobl2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "robert@herjulf.net" <robert@herjulf.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Yong Zhang <yong.zhang0@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7223 "EHLO mga02.intel.com"
+Received: from www.tglx.de ([62.245.132.106]:54709 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932594AbZKXKGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 05:06:06 -0500
-In-Reply-To: <4B0BADA6.7080602@gmail.com>
+	id S932528AbZKXKHl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 05:07:41 -0500
+In-Reply-To: <1259053156.2631.21.camel@ppwaskie-mobl2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-24 at 02:55 -0700, Eric Dumazet wrote:
-> Peter P Waskiewicz Jr a =C3=A9crit :
->=20
-> > You might have this elsewhere, but it sounds like you're connecting=
- back
-> > to back with another 82599 NIC.  Our optics in that NIC are dual-ra=
-te,
-> > and the software mechanism that tries to "autoneg" link speed gets =
-out
-> > of sync easily in back-to-back setups.
-> >=20
-> > If it's really annoying, and you're willing to run with a local pat=
-ch to
-> > disable the autotry mechanism, try this:
-> >=20
-> > diff --git a/drivers/net/ixgbe/ixgbe_main.c
-> > b/drivers/net/ixgbe/ixgbe_main.c
-> > index a5036f7..62c0915 100644
-> > --- a/drivers/net/ixgbe/ixgbe_main.c
-> > +++ b/drivers/net/ixgbe/ixgbe_main.c
-> > @@ -4670,6 +4670,10 @@ static void ixgbe_multispeed_fiber_task(stru=
-ct
-> > work_struct *work)
-> >         autoneg =3D hw->phy.autoneg_advertised;
-> >         if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
-> >                 hw->mac.ops.get_link_capabilities(hw, &autoneg,
-> > &negotiation);
-> > +
-> > +       /* force 10G only */
-> > +       autoneg =3D IXGBE_LINK_SPEED_10GB_FULL;
-> > +
-> >         if (hw->mac.ops.setup_link)
-> >                 hw->mac.ops.setup_link(hw, autoneg, negotiation, tr=
-ue);
-> >         adapter->flags |=3D IXGBE_FLAG_NEED_LINK_UPDATE;
->=20
-> Thanks ! This did the trick :)
->=20
-> If I am not mistaken, number of TX queues should be capped by number =
-of possible cpus ?
->=20
-> Its currently a fixed 128 value, allocating 128*128 =3D 16384 bytes,
-> and polluting "tc -s -d class show dev fiber0" output.
->=20
+On Tue, 24 Nov 2009, Peter P Waskiewicz Jr wrote:
+> On Tue, 2009-11-24 at 01:38 -0700, Peter Zijlstra wrote:
+> > On Mon, 2009-11-23 at 15:32 -0800, Waskiewicz Jr, Peter P wrote:
+> > 
+> > > Unfortunately, a driver can't.  The irq_set_affinity() function isn't 
+> > > exported.  I proposed a patch on netdev to export it, and then to tie down 
+> > > an interrupt using IRQF_NOBALANCING, so irqbalance won't touch it.  That 
+> > > was rejected, since the driver is enforcing policy of the interrupt 
+> > > balancing, not irqbalance.
+> > 
+> > Why would a patch touching the irq subsystem go to netdev?
+> 
+> The only change to the IRQ subsystem was:
+> 
+> EXPORT_SYMBOL(irq_set_affinity);
 
-Yes, this is a stupid issue we haven't gotten around to fixing yet.
-This looks fine to me.  Thanks for putting it together.
+Which is still touching the generic irq subsystem and needs the ack of
+the relevant maintainer. If there is a need to expose such an
+interface to drivers then the maintainer wants to know exactly why and
+needs to be part of the discussion of alternative solutions. Otherwise
+you waste time on implementing stuff like the current patch which is
+definitely not going anywhere near the irq subsystem.
 
-> [PATCH net-next-2.6] ixgbe: Do not allocate too many netdev txqueues
->=20
-> Instead of allocating 128 struct netdev_queue per device, use the min=
-imum
-> value between 128 and number of possible cpus, to reduce ram usage an=
-d
-> "tc -s -d class show dev ..." output
->=20
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index ebcec30..ec2508d 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -5582,7 +5583,10 @@ static int __devinit ixgbe_probe(struct pci_de=
-v *pdev,
->  	pci_set_master(pdev);
->  	pci_save_state(pdev);
-> =20
-> -	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_Q=
-UEUES);
-> +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter),
-> +				   min_t(unsigned int,
-> +					 MAX_TX_QUEUES,
-> +					 num_possible_cpus()));
->  	if (!netdev) {
->  		err =3D -ENOMEM;
->  		goto err_alloc_etherdev;
+> > If all you want is to expose policy to userspace then you don't need any
+> > of this, simply expose the NICs home node through a sysfs device thingy
+> > (I was under the impression its already there somewhere, but I can't
+> > ever find anything in /sys).
+> > 
+> > No need what so ever to poke at the IRQ subsystem.
+> 
+> The point is we need something common that the kernel side (whether a
+> driver or /proc can modify) that irqbalance can use.
+
+/sys/class/net/ethX/device/numa_node 
+
+perhaps ?
+ 
+> > > Also, if you use the /proc interface to change smp_affinity on an 
+> > > interrupt without any of these changes, irqbalance will override it on its 
+> > > next poll interval.  This also is not desirable.
+> > 
+> > This all sounds backwards.. we've got a perfectly functional interface
+> > for affinity -- which people object to being used for some reason. So
+> > you add another interface on top, and that is ok?
+> > 
+> 
+> But it's not functional.  If I set the affinity in smp_affinity, then
+> irqbalance will override it 10 seconds later.
+
+And to work around the brain wreckage of irqbalanced you want to
+fiddle in the irq code instead of teaching irqbalanced to handle node
+affinities ?
+
+The only thing which is worth to investigate is whether the irq core
+code should honour the dev->numa_node setting and restrict the
+possible irq affinity settings to that node. If a device is tied to a
+node it makes a certain amount of sense to do that.
+
+But such a change would not need a new interface in the irq core and
+definitely not a new cpumask_t member in the irq_desc structure to
+store a node affinity which can be expressed with a simple
+integer.
+
+But this needs more thoughts and I want to know more about the
+background and the reasoning for such a change.
+
+Thanks,
+
+	tglx
+
+
 
