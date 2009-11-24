@@ -1,145 +1,235 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/4] macvlan: cleanup rx statistics
-Date: Tue, 24 Nov 2009 09:28:43 +0000
-Message-ID: <200911240928.43901.arnd@arndb.de>
-References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <4B0B9639.4070607@gmail.com> <200911240845.14454.arnd@arndb.de>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH v2] irq: Add node_affinity CPU masks for smarter irqbalance
+	hints
+Date: Tue, 24 Nov 2009 01:35:18 -0800
+Message-ID: <20091124093518.3909.16435.stgit@ppwaskie-hc2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	David Miller <davem@davemloft.net>
-To: virtualization@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:55665 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932357AbZKXJ3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 04:29:19 -0500
-In-Reply-To: <200911240845.14454.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, tglx@linutronix.de, yong.zhang0@gmail.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, arjan@linux.jf.intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932488AbZKXJaQ@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 24 November 2009 08:45:14 Arnd Bergmann wrote:
-> On Tuesday 24 November 2009 08:15:53 Eric Dumazet wrote:
-> > Arnd Bergmann a =E9crit :
-> > I find following more readable, it probably generates more branches=
-,
-> > but avoid dirtying rx_errors if it is in another cache line.
-> >=20
-> > if (likely(success)) {
-> > 	rx_stats->rx_packets++;
-> > 	rx_stats->rx_bytes +=3D length;
-> > 	if (multicast)
-> > 		rx_stats->multicast++;
-> > } else {
-> > 	rx_stats->rx_errors++;
-> > }
->=20
-> Given that the structure only has four members and alloc_percpu reque=
-sts
-> cache aligned data, it is rather likely to be in the same cache line.
->=20
-> I'll have a look at what gcc generates on x86-64 for both versions
-> and use the version you suggested unless it looks significantly more
-> expensive.
+This patchset adds a new CPU mask for SMP systems to the irq_desc
+struct.  It also exposes an API for underlying device drivers to
+assist irqbalance in making smarter decisions when balancing, especially
+in a NUMA environment.  For example, an ethernet driver with MSI-X may
+wish to limit the CPUs that an interrupt can be balanced within to
+stay on a single NUMA node.  Current irqbalance operation can move the
+interrupt off the node, resulting in cross-node memory accesses and
+locks.
 
-Ok, that's what I got for trying to be clever. My version did not avoid
-any branches, just created more code. I'll fold this update into my
-patches then:
+The API is a get/set API within the kernel, along with a /proc entry
+for the interrupt.
+
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
-macvlan: cleanups
 
-Use bool instead of int for flags, don't misoptimize rx counters,
-avoid accessing a NULL skb.
+ include/linux/interrupt.h |    8 ++++++
+ include/linux/irq.h       |    8 ++++++
+ kernel/irq/manage.c       |   32 +++++++++++++++++++++++++
+ kernel/irq/proc.c         |   57 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 105 insertions(+), 0 deletions(-)
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 3db96b9..ff5f0b0 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -119,19 +119,23 @@ static int macvlan_addr_busy(const struct macvlan=
-_port *port,
- }
-=20
- static inline void macvlan_count_rx(const struct macvlan_dev *vlan, in=
-t length,
--			     int success, int multicast)
-+			     bool success, bool multicast)
- {
- 	struct macvlan_rx_stats *rx_stats;
-=20
- 	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
--	rx_stats->rx_packets +=3D success !=3D 0;
--	rx_stats->rx_bytes   +=3D success ? length : 0;
--	rx_stats->multicast  +=3D success && multicast;
--	rx_stats->rx_errors  +=3D !success;
-+	if (likely(success)) {
-+		rx_stats->rx_packets++;;
-+		rx_stats->rx_bytes +=3D length;
-+		if (multicast)
-+			rx_stats->multicast++;
-+	} else {
-+		rx_stats->rx_errors++;
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index 75f3f00..9fd08aa 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -208,6 +208,8 @@ extern cpumask_var_t irq_default_affinity;
+ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
+ extern int irq_can_set_affinity(unsigned int irq);
+ extern int irq_select_affinity(unsigned int irq);
++extern int irq_set_node_affinity(unsigned int irq,
++                                 const struct cpumask *cpumask);
+ 
+ #else /* CONFIG_SMP */
+ 
+@@ -223,6 +225,12 @@ static inline int irq_can_set_affinity(unsigned int irq)
+ 
+ static inline int irq_select_affinity(unsigned int irq)  { return 0; }
+ 
++static inline int irq_set_node_affinity(unsigned int irq,
++                                        const struct cpumask *m)
++{
++	return -EINVAL;
++}
++
+ #endif /* CONFIG_SMP && CONFIG_GENERIC_HARDIRQS */
+ 
+ #ifdef CONFIG_GENERIC_HARDIRQS
+diff --git a/include/linux/irq.h b/include/linux/irq.h
+index ae9653d..819cda0 100644
+--- a/include/linux/irq.h
++++ b/include/linux/irq.h
+@@ -166,6 +166,7 @@ struct irq_2_iommu;
+  * @lock:		locking for SMP
+  * @affinity:		IRQ affinity on SMP
+  * @node:		node index useful for balancing
++ * @node_affinity:	irq mask hints for irqbalance
+  * @pending_mask:	pending rebalanced interrupts
+  * @threads_active:	number of irqaction threads currently running
+  * @wait_for_threads:	wait queue for sync_irq to wait for threaded handlers
+@@ -196,6 +197,7 @@ struct irq_desc {
+ #ifdef CONFIG_SMP
+ 	cpumask_var_t		affinity;
+ 	unsigned int		node;
++	cpumask_var_t		node_affinity;
+ #ifdef CONFIG_GENERIC_PENDING_IRQ
+ 	cpumask_var_t		pending_mask;
+ #endif
+@@ -445,9 +447,15 @@ static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
+ 	if (!alloc_cpumask_var_node(&desc->affinity, gfp, node))
+ 		return false;
+ 
++	if (!alloc_cpumask_var_node(&desc->node_affinity, gfp, node)) {
++		free_cpumask_var(desc->affinity);
++		return false;
 +	}
++
+ #ifdef CONFIG_GENERIC_PENDING_IRQ
+ 	if (!alloc_cpumask_var_node(&desc->pending_mask, gfp, node)) {
+ 		free_cpumask_var(desc->affinity);
++		free_cpumask_var(desc->node_affinity);
+ 		return false;
+ 	}
+ #endif
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index 7305b29..9e80783 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -138,6 +138,38 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
+ 	return 0;
  }
-=20
- static int macvlan_broadcast_one(struct sk_buff *skb, struct net_devic=
-e *dev,
--				 const struct ethhdr *eth, int local)
-+				 const struct ethhdr *eth, bool local)
+ 
++/**
++ *	irq_set_node_affinity - Set the CPU mask this interrupt can run on
++ *	@irq:		Interrupt to modify
++ *	@cpumask:	CPU mask to assign to the interrupt
++ *
++ */
++int irq_set_node_affinity(unsigned int irq, const struct cpumask *cpumask)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++	unsigned long flags;
++
++	spin_lock_irqsave(&desc->lock, flags);
++	cpumask_copy(desc->node_affinity, cpumask);
++	spin_unlock_irqrestore(&desc->lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL(irq_set_node_affinity);
++
++/**
++ *	irq_get_node_affinity - Get the CPU mask this interrupt can run on
++ *	@irq:		Interrupt to get information
++ *
++ */
++struct cpumask *irq_get_node_affinity(unsigned int irq)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++
++	return desc->node_affinity;
++}
++EXPORT_SYMBOL(irq_get_node_affinity);
++
+ #ifndef CONFIG_AUTO_IRQ_AFFINITY
+ /*
+  * Generic version of the affinity autoselector.
+diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
+index 0832145..192e3fb 100644
+--- a/kernel/irq/proc.c
++++ b/kernel/irq/proc.c
+@@ -31,6 +31,16 @@ static int irq_affinity_proc_show(struct seq_file *m, void *v)
+ 	return 0;
+ }
+ 
++static int irq_node_affinity_proc_show(struct seq_file *m, void *v)
++{
++	struct irq_desc *desc = irq_to_desc((long)m->private);
++	const struct cpumask *mask = desc->node_affinity;
++
++	seq_cpumask(m, mask);
++	seq_putc(m, '\n');
++	return 0;
++}
++
+ #ifndef is_affinity_mask_valid
+ #define is_affinity_mask_valid(val) 1
+ #endif
+@@ -78,11 +88,46 @@ free_cpumask:
+ 	return err;
+ }
+ 
++static ssize_t irq_node_affinity_proc_write(struct file *file,
++		const char __user *buffer, size_t count, loff_t *pos)
++{
++	unsigned int irq = (int)(long)PDE(file->f_path.dentry->d_inode)->data;
++	cpumask_var_t new_value;
++	int err;
++
++	if (no_irq_affinity || irq_balancing_disabled(irq))
++		return -EIO;
++
++	if (!alloc_cpumask_var(&new_value, GFP_KERNEL))
++		return -ENOMEM;
++
++	err = cpumask_parse_user(buffer, count, new_value);
++	if (err)
++		goto free_cpumask;
++
++	if (!is_affinity_mask_valid(new_value)) {
++		err = -EINVAL;
++		goto free_cpumask;
++	}
++
++	irq_set_node_affinity(irq, new_value);
++	err = count;
++
++free_cpumask:
++	free_cpumask_var(new_value);
++	return err;
++}
++
+ static int irq_affinity_proc_open(struct inode *inode, struct file *file)
  {
- 	if (!skb)
- 		return NET_RX_DROP;
-@@ -173,7 +177,7 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 			err =3D macvlan_broadcast_one(nskb, vlan->dev, eth,
- 					 mode =3D=3D MACVLAN_MODE_BRIDGE);
- 			macvlan_count_rx(vlan, skb->len + ETH_HLEN,
--					 likely(err =3D=3D NET_RX_SUCCESS), 1);
-+					 err =3D=3D NET_RX_SUCCESS, 1);
- 		}
- 	}
+ 	return single_open(file, irq_affinity_proc_show, PDE(inode)->data);
  }
-@@ -186,6 +190,7 @@ static struct sk_buff *macvlan_handle_frame(struct =
-sk_buff *skb)
- 	const struct macvlan_dev *vlan;
- 	const struct macvlan_dev *src;
- 	struct net_device *dev;
-+	int len;
-=20
- 	port =3D rcu_dereference(skb->dev->macvlan_port);
- 	if (port =3D=3D NULL)
-@@ -218,8 +223,11 @@ static struct sk_buff *macvlan_handle_frame(struct=
- sk_buff *skb)
- 		kfree_skb(skb);
- 		return NULL;
- 	}
-+	len =3D skb->len + ETH_HLEN;
- 	skb =3D skb_share_check(skb, GFP_ATOMIC);
--	macvlan_count_rx(vlan, skb->len + ETH_HLEN, likely(skb !=3D NULL), 0)=
-;
-+	macvlan_count_rx(vlan, len, skb !=3D NULL, 0);
-+	if (!skb)
-+		return NULL;
-=20
- 	skb->dev =3D dev;
- 	skb->pkt_type =3D PACKET_HOST;
-@@ -248,7 +256,7 @@ static int macvlan_queue_xmit(struct sk_buff *skb, =
-struct net_device *dev)
- 			int length =3D skb->len + ETH_HLEN;
- 			int ret =3D dev_forward_skb(dest->dev, skb);
- 			macvlan_count_rx(dest, length,
--					 likely(ret =3D=3D NET_RX_SUCCESS), 0);
-+					 ret =3D=3D NET_RX_SUCCESS, 0);
-=20
- 			return NET_XMIT_SUCCESS;
- 		}
+ 
++static int irq_node_affinity_proc_open(struct inode *inode, struct file *f)
++{
++	return single_open(f, irq_node_affinity_proc_show, PDE(inode)->data);
++}
++
+ static const struct file_operations irq_affinity_proc_fops = {
+ 	.open		= irq_affinity_proc_open,
+ 	.read		= seq_read,
+@@ -91,6 +136,14 @@ static const struct file_operations irq_affinity_proc_fops = {
+ 	.write		= irq_affinity_proc_write,
+ };
+ 
++static const struct file_operations irq_node_affinity_proc_fops = {
++	.open		= irq_node_affinity_proc_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++	.write		= irq_node_affinity_proc_write,
++};
++
+ static int default_affinity_show(struct seq_file *m, void *v)
+ {
+ 	seq_cpumask(m, irq_default_affinity);
+@@ -230,6 +283,10 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
+ 	/* create /proc/irq/<irq>/smp_affinity */
+ 	proc_create_data("smp_affinity", 0600, desc->dir,
+ 			 &irq_affinity_proc_fops, (void *)(long)irq);
++
++	/* create /proc/irq/<irq>/node_affinity */
++	proc_create_data("node_affinity", 0600, desc->dir,
++	                 &irq_node_affinity_proc_fops, (void *)(long)irq);
+ #endif
+ 
+ 	proc_create_data("spurious", 0444, desc->dir,
