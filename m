@@ -1,75 +1,87 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [PATCH] igb: fix misinterpreted return value of pci_enable_msix
-Date: Tue, 24 Nov 2009 11:51:24 +0100
-Message-ID: <4B0BBAAC.8050606@redhat.com>
-References: <4B0BB5FE.2000907@redhat.com> <20091124104049.GB21600@Chamillionaire.breakpoint.cc>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 4/4] macvlan: export macvlan mode through netlink
+Date: Tue, 24 Nov 2009 11:53:34 +0100
+Message-ID: <4B0BBB2E.8020502@trash.net>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-5-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <gospo@redhat.com>,
-	alexander.h.duyck@intel.com, davem@davemloft.net
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5748 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932204AbZKXKvh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 05:51:37 -0500
-In-Reply-To: <20091124104049.GB21600@Chamillionaire.breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	Anna Fischer <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org,
+	virtualization@lists.linux-foundation.org,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932782AbZKXKxc@vger.kernel.org>
+In-Reply-To: <1259024166-28158-5-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24.11.2009 11:40, Florian Westphal wrote:
-> Stefan Assmann <sassmann@redhat.com> wrote:
->> From: Stefan Assmann <sassmann@redhat.com>
->>
->> In the igb driver a return value of 0 of function pci_enable_msix is
->> interpreted as an error case. The correct behaviour is to check < 0 for error
->> values.
->>
->> Signed-off-by: Stefan Assmann <sassmann@redhat.com>
->> ---
->>  drivers/net/igb/igb_main.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
->> index bb1a6ee..745481d 100644
->> --- a/drivers/net/igb/igb_main.c
->> +++ b/drivers/net/igb/igb_main.c
->> @@ -694,7 +694,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter)
->>  	err = pci_enable_msix(adapter->pdev,
->>  			      adapter->msix_entries,
->>  			      numvecs);
->> -	if (err == 0)
->> +	if (err < 0)
->>  		goto out;
->>
-> 
-> The existing code looks correct to me:
-> 
->       if (err == 0)
->             goto out;
-> 
->       igb_reset_interrupt_capability(adapter);
-> 
->       /* If we can't do MSI-X, try MSI * */
-> msi_only:
-> 
-> 
-> so the "goto out" appears to be the "success" case.
+Arnd Bergmann wrote:
+> @@ -600,6 +594,18 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+>  		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
+>  			return -EADDRNOTAVAIL;
+>  	}
+> +
+> +	if (data && data[IFLA_MACVLAN_MODE]) {
+> +		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
+> +		switch (mode) {
+> +		case MACVLAN_MODE_PRIVATE:
+> +		case MACVLAN_MODE_VEPA:
+> +		case MACVLAN_MODE_BRIDGE:
+> +			break;
+> +		default:
+> +			return -EINVAL;
 
-Hi Florian,
+EINVAL is quite unspecific. In this case I think EOPNOTSUPP would
+be fine and provide more information.
 
-thanks for pointing this out. I've jumped to conclusions too fast.
-There's a problem with igb MSI-X in RHEL5 in the kdump case and this
-fixed it for me. But you're right, it's not the proper solution. I'll
-report back when I have more information.
+> +		}
+> +	}
+>  	return 0;
+>  }
+> @@ -664,6 +670,13 @@ static int macvlan_newlink(struct net *src_net, struct net_device *dev,
+>  	vlan->dev      = dev;
+>  	vlan->port     = port;
+>  
+> +	vlan->mode     = MACVLAN_MODE_VEPA;
+> +	if (data && data[IFLA_MACVLAN_MODE]) {
+> +		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
+> +
+> +		vlan->mode     = mode;
 
-  Stefan
+This looks a bit strange, like cut-and-paste without reformatting :)
+I'd suggest to simply use "vlan->mode = nla_get_u32(...)".
 
---
-Stefan Assmann         | Red Hat GmbH
-Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
-                       | HR: Amtsgericht Muenchen HRB 153243
-                       | GF: Brendan Lane, Charlie Peters,
-sassmann at redhat.com |     Michael Cunningham, Charles Cachera
+> +	}
+> +
+>  	err = register_netdevice(dev);
+>  	if (err < 0)
+>  		return err;
+> @@ -685,6 +698,39 @@ static void macvlan_dellink(struct net_device *dev, struct list_head *head)
+>  		macvlan_port_destroy(port->dev);
+>  }
+>  
+> +static int macvlan_changelink(struct net_device *dev,
+> +		struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +	struct macvlan_dev *vlan = netdev_priv(dev);
+> +	if (data && data[IFLA_MACVLAN_MODE]) {
+> +		u32 mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
+> +		vlan->mode     = mode;
+
+Same here.
+
+> +	}
+> +
+> +	return 0;
+> +}
