@@ -1,46 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
- hints
-Date: Tue, 24 Nov 2009 19:26:15 +0100
-Message-ID: <4B0C2547.8030408@gmail.com>
-References: <1258995923.4531.715.camel@laptop>	 <4B0B782A.4030901@linux.intel.com>	<1259051986.4531.1057.camel@laptop>	 <20091124.093956.247147202.davem@davemloft.net> <1259085412.2631.48.camel@ppwaskie-mobl2>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Tue, 24 Nov 2009 19:27:25 +0100
+Message-ID: <20091124182725.GA2635@ami.dom.local>
+References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
+	<20091124111946.GA7883@ff.dom.local>
+	<8DD2590731AB5D4C9DBF71A877482A903E2AA445@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"yong.zhang0@gmail.com" <yong.zhang0@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Frans Pop <elendil@planet.nl>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58086 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933743AbZKXS02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 13:26:28 -0500
-In-Reply-To: <1259085412.2631.48.camel@ppwaskie-mobl2>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Caleb Cushing <xenoterracide@gmail.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A903E2AA445@orsmsx509.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Peter P Waskiewicz Jr a =E9crit :
- That's the kind of thing PJ is trying to make available.
->=20
-> Yes, that's exactly what I'm trying to do.  Even further, we want to
-> allocate the ring SW struct itself and descriptor structures on other
-> NUMA nodes, and make sure the interrupt lines up with those allocatio=
-ns.
->=20
+On Tue, Nov 24, 2009 at 07:57:41AM -0800, Allan, Bruce W wrote:
+> The "pci_enable_pcie_error_reporting failed" message is a non-fatal warning that has recently been removed.
+> 
 
-Say you allocate ring buffers on NUMA node of the CPU handling interrup=
-t
-on a particular queue.
+Thanks for the explanation,
+Jarek P.
 
-If irqbalance or an admin changes /proc/irq/{number}/smp_affinities,
-do you want to realloc ring buffer to another NUMA node ?
-
-It seems complex to me, maybe optimal thing would be to use a NUMA poli=
-cy to
-spread vmalloc() allocations to all nodes to get a good bandwidth...
-
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
