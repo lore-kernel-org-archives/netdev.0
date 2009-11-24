@@ -1,34 +1,36 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: how expensive are mallocs?
-Date: Tue, 24 Nov 2009 09:57:34 -0800
-Message-ID: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NUMA and multiQ interation
+Date: Tue, 24 Nov 2009 10:06:13 -0800 (PST)
+Message-ID: <20091124.100613.240222762.davem@davemloft.net>
+References: <65634d660911240904y294ea6fj4cf2e4ac757e619b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:54384 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932245AbZKXR52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 12:57:28 -0500
-Received: by pzk1 with SMTP id 1so4965189pzk.33
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 09:57:34 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34362
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758156AbZKXSFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 13:05:55 -0500
+In-Reply-To: <65634d660911240904y294ea6fj4cf2e4ac757e619b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-How much effort generally makes sense to avoid mallocs? For example,
-rds has a function that does a kmalloc for an array of scatterlist
-entries, which is freed at the bottom of the function. We couldn't
-allocate off the stack in all cases (too big), but we could allocate
-an array of say 8 scatterlists, and use it if that's big enough,
-falling back to kmalloc if it's not.
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 24 Nov 2009 09:04:41 -0800
 
-Is this a good idea?
+> What is the expected interaction here, and would these results be
+> typical?  If so, would this warrant the need to associate each RX
+> queue to a numa node, instead of just the device?
 
-Also, RDS has its own per-cpu page remainder allocator (see
-net/rds/page.c) for kernel send buffers. Would cutting this code and
-just using kmalloc be recommended? Doesn't SL?B already do per-cpu
-pools?
+Yes we are fully aware of this and discussed it at netconf this year, see
+in particular:
 
-Does this stuff even matter enough to rise above the noise in benchmarks?
+http://vger.kernel.org/netconf2009_slides/netconf2009_numa_discussion.odp
 
-Thanks -- Regards -- Andy
+PJ is also currently trying to pass upstream some changes such that these
+NUMA allocation bits can be exported to userspace and thus irqbalanced
+can pick IRQ targetting more intelligently when a driver allocates per-queue
+memory resources on different NUMA nodes.  The thread discussing this has
+been going active for the past few days, maybe you missed it.
