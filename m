@@ -1,48 +1,55 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
- hints
-Date: Mon, 23 Nov 2009 22:07:38 -0800
-Message-ID: <4B0B782A.4030901@linux.intel.com>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>	 <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Tue, 24 Nov 2009 01:17:09 -0500
+Message-ID: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
+References: <81bfc67a0911120546g26627ac5q5860d85f446b29bb@mail.gmail.com>
+	 <81bfc67a0911130825o6d9b93b2he70677157ad889f2@mail.gmail.com>
+	 <20091113211640.GA2540@ami.dom.local>
+	 <81bfc67a0911180159g45a45675k44ce3f251c6bddea@mail.gmail.com>
+	 <20091118135136.GA9224@ff.dom.local>
+	 <81bfc67a0911181021n1b969565y4a39b181360b5e92@mail.gmail.com>
+	 <20091118201034.GA3060@ami.dom.local>
+	 <20091118223851.GA5191@ami.dom.local>
+	 <81bfc67a0911221135y300841f2i8e78417600528cd5@mail.gmail.com>
+	 <20091122205054.GA7361@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Yong Zhang <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757474AbZKXGHe@vger.kernel.org>
-In-Reply-To: <1258995923.4531.715.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:62526 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753920AbZKXGRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 01:17:04 -0500
+In-Reply-To: <20091122205054.GA7361@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Peter Zijlstra wrote:
-> On Mon, 2009-11-23 at 01:36 -0800, Peter P Waskiewicz Jr wrote:
-> 
->> This mechanism isn't going to be used by any internal kernel mechanism
->> for determining interrupt placement or operation.  It's purely something
->> that either a driver can modify, or external script (through /proc),
->> that irqbalance will make use of.  If irqbalance isn't running, or the
->> current version of irqbalance doesn't support reading node_affinity,
->> then it won't affect the system's operation.
->>
->> If irqbalance does support it, it'll read whatever the supplied mask is,
->> and then will try and balance interrupts within that mask.  It will bail
->> if the mask is invalid, or won't apply to the running system, just like
->> how putting a bogus mask into smp_affinity is ignored.
->>
->> If there's something I'm missing beyond this with the two suggestions
->> you've made (I looked into those two parameters and tried to draw
->> conclusions), please let me know.
-> 
-> I don't see the point in adding it, if the driver wants to set a node
-> cpu mask it can already do that using the regular smp affinity settings.
-> 
-> Same for userspace.
+> Btw, currently I don't consider this dropping means there has to be
+> a bug. It could be otherwise - a feature... e.g. when a new kernel
+> can transmit faster (then dropping in some other, slower place can
+> happen).
 
-the problem is that there is no way currently that the driver can communicate
-"I allocated all my metadata on THIS numa node". irqbalance and sysadmins need
-that to not make really stupid decisions.....
+um... where would it be dropping that we wouldn't have a bug? I mean
+sure faster is great... but if it makes my network not work right...
+
+I've added all (I think) information you've asked for to the bug
+http://bugzilla.kernel.org/show_bug.cgi?id=13835 except for ethtool
+and netstat on the router side. ethtool complains about not having
+driver or capability (maybe because it's a 2.4 kernel?) and the
+version of netstat doesn't support -s. I disabled everything that I
+can think of that would send/receive packets before doing the test
+client side, except dhcp/dns windows box's were probably sending some
+broadcasts too. but the traffic should be pretty low. I did remember
+to set the txqueuelen didn't seem to make a difference
+
+only error in dmesg I see is
+
+e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
+
+but it's in working versions too.
+-- 
+Caleb Cushing
+
+http://xenoterracide.blogspot.com
