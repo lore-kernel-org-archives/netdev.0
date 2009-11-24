@@ -1,47 +1,63 @@
-From: robert@herjulf.net
-Subject: Re: Diagnostic Monitoring Interface Monitoring (DOM) PATCH 4/5 for
- net-next-2.6
-Date: Tue, 24 Nov 2009 19:12:38 +0100
-Message-ID: <19212.8726.367568.937773@gargle.gargle.HOWL>
-References: <19211.4849.284727.703717@gargle.gargle.HOWL>
-	<1259017659.16503.138.camel@Joe-Laptop.home>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
+	and big packets in virtio_net
+Date: Tue, 24 Nov 2009 18:04:00 +0200
+Message-ID: <20091124160359.GA6737@redhat.com>
+References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain> <200911240854.24054.rusty@rustcorp.com.au> <20091124113754.GB2405@redhat.com> <4B0BEF70.5070104@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <robert@herjulf.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atthis.its.uu.se ([130.238.7.58]:34921 "EHLO atthis.its.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933350AbZKXQCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 11:02:38 -0500
-In-Reply-To: <1259017659.16503.138.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Shirley Ma <mashirle@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hollis Blanchard <hollisb@us.ibm.com>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933451AbZKXQGk@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B0BEF70.5070104@codemonkey.ws>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 24, 2009 at 08:36:32AM -0600, Anthony Liguori wrote:
+> Michael S. Tsirkin wrote:
+>> On Tue, Nov 24, 2009 at 08:54:23AM +1030, Rusty Russell wrote:
+>>   
+>>> On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
+>>>     
+>>>>>> +             skb = (struct sk_buff *)buf;
+>>>>>>           
+>>>>> This cast is unnecessary, but a comment would be nice:
+>>>>>         
+>>>> Without this cast there is a compile warning.       
+>>> Hi Shirley,
+>>>
+>>>    Looks like buf is a void *, so no cast should be necessary.  But I could
+>>> be reading the patch wrong.
+>>>
+>>>     
+>>>>> However, I question whether making it 16 byte is the right thing: the
+>>>>> ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
+>>>>>         
+>>>> Because in QEMU it requires 10 bytes header in a separately, so one page
+>>>> is used to share between virtio_net_hdr header which is 10 bytes head
+>>>> and rest of data. So I put 6 bytes offset here between two buffers. I
+>>>> didn't look at the reason why a seperate buf is used for virtio_net_hdr
+>>>> in QEMU.
+>>>>       
+>>> It's a qemu bug.  It insists the header be an element in the scatterlist by
+>>> itself.  Unfortunately we have to accommodate it.
+>>>     
+>>
+>> We do?  Let's just fix this?
+>>   
+>
+> So does lguest.  It's been that way since the beginning.  Fixing this  
+> would result in breaking older guests.
 
-Joe Perches writes:
- 
- > Can you run ./scripts/checkpatch.pl on your patches please?
+The patch you are replying to fixes this in a way that does not break older guests.
 
- Yes there were many objections... but my linux quantum is for over for now
- 
- > > +	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_SLOPE, &pd->temp_slope)))
- > > +		goto out;
- > [etc...]
- > > +	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_OFFSET, &pd->tx_bias_offset)))
- > > +		goto out;
- > 
- > perhaps this is clearer as:
- > 
- > 	if (read_phy_diag(hw, 0x1, reg, loc) ||
- > 	    read_phy_diag(hw, 0x1, reg2, loc2) ||
- > 	...
- > 	    read_phy_diag(hw, 0x1, regN, locN))
- > 		goto out;
+> We really need to introduce a feature bit if we want to change this.
 
- Feel free to attack it...
- 
- Cheers
-					--ro
+-- 
+MST
