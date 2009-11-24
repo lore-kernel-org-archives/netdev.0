@@ -1,66 +1,105 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/4] veth: move loopback logic to common location
-Date: Tue, 24 Nov 2009 10:02:20 +0000
-Message-ID: <200911241002.20904.arnd@arndb.de>
-References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-2-git-send-email-arnd@arndb.de> <4B0BAC97.6010000@trash.net>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: ixgbe question
+Date: Tue, 24 Nov 2009 02:06:04 -0800
+Message-ID: <1259057164.2631.36.camel@ppwaskie-mobl2>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+	 <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>
+	 <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>
+	 <4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>
+	 <4B0ABF6D.9000103@gmail.com>
+	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>
+	 <4B0B8F52.3010005@gmail.com> <1259053673.2631.30.camel@ppwaskie-mobl2>
+	 <4B0BADA6.7080602@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	Anna Fischer <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@lists.linux-foundation.org,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932556AbZKXKDu@vger.kernel.org>
-In-Reply-To: <4B0BAC97.6010000@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "robert@herjulf.net" <robert@herjulf.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:7223 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932594AbZKXKGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 05:06:06 -0500
+In-Reply-To: <4B0BADA6.7080602@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 24 November 2009 09:51:19 Patrick McHardy wrote:
-> > +     skb_dst_drop(skb);
-> > +     skb->tstamp.tv64 = 0;
-> > +     skb->pkt_type = PACKET_HOST;
-> > +     skb->protocol = eth_type_trans(skb, dev);
-> > +     skb->mark = 0;
-> 
-> skb->mark clearing should stay private to veth since its usually
-> supposed to stay intact. The only exception is packets crossing
-> namespaces, where they should appear like a freshly received skbs.
+On Tue, 2009-11-24 at 02:55 -0700, Eric Dumazet wrote:
+> Peter P Waskiewicz Jr a =C3=A9crit :
+>=20
+> > You might have this elsewhere, but it sounds like you're connecting=
+ back
+> > to back with another 82599 NIC.  Our optics in that NIC are dual-ra=
+te,
+> > and the software mechanism that tries to "autoneg" link speed gets =
+out
+> > of sync easily in back-to-back setups.
+> >=20
+> > If it's really annoying, and you're willing to run with a local pat=
+ch to
+> > disable the autotry mechanism, try this:
+> >=20
+> > diff --git a/drivers/net/ixgbe/ixgbe_main.c
+> > b/drivers/net/ixgbe/ixgbe_main.c
+> > index a5036f7..62c0915 100644
+> > --- a/drivers/net/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ixgbe/ixgbe_main.c
+> > @@ -4670,6 +4670,10 @@ static void ixgbe_multispeed_fiber_task(stru=
+ct
+> > work_struct *work)
+> >         autoneg =3D hw->phy.autoneg_advertised;
+> >         if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
+> >                 hw->mac.ops.get_link_capabilities(hw, &autoneg,
+> > &negotiation);
+> > +
+> > +       /* force 10G only */
+> > +       autoneg =3D IXGBE_LINK_SPEED_10GB_FULL;
+> > +
+> >         if (hw->mac.ops.setup_link)
+> >                 hw->mac.ops.setup_link(hw, autoneg, negotiation, tr=
+ue);
+> >         adapter->flags |=3D IXGBE_FLAG_NEED_LINK_UPDATE;
+>=20
+> Thanks ! This did the trick :)
+>=20
+> If I am not mistaken, number of TX queues should be capped by number =
+of possible cpus ?
+>=20
+> Its currently a fixed 128 value, allocating 128*128 =3D 16384 bytes,
+> and polluting "tc -s -d class show dev fiber0" output.
+>=20
 
-But isn't that what we want in macvlan as well when we're
-forwarding from one downstream interface to another?
+Yes, this is a stupid issue we haven't gotten around to fixing yet.
+This looks fine to me.  Thanks for putting it together.
 
-I did all my testing with macvlan interfaces in separate namespaces
-communicating with each other, so I'd assume that we should always
-clear skb->mark and skb->dst in this function. Maybe I should make
-the documentation clearer?
+> [PATCH net-next-2.6] ixgbe: Do not allocate too many netdev txqueues
+>=20
+> Instead of allocating 128 struct netdev_queue per device, use the min=
+imum
+> value between 128 and number of possible cpus, to reduce ram usage an=
+d
+> "tc -s -d class show dev ..." output
+>=20
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
+_main.c
+> index ebcec30..ec2508d 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -5582,7 +5583,10 @@ static int __devinit ixgbe_probe(struct pci_de=
+v *pdev,
+>  	pci_set_master(pdev);
+>  	pci_save_state(pdev);
+> =20
+> -	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_Q=
+UEUES);
+> +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter),
+> +				   min_t(unsigned int,
+> +					 MAX_TX_QUEUES,
+> +					 num_possible_cpus()));
+>  	if (!netdev) {
+>  		err =3D -ENOMEM;
+>  		goto err_alloc_etherdev;
 
----
-net: clarify documentation of dev_forward_skb
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1433,6 +1433,10 @@ static inline void net_timestamp(struct sk_buff *skb)
-  * dev_forward_skb can be used for injecting an skb from the
-  * start_xmit function of one device into the receive queue
-  * of another device.
-+ *
-+ * The receiving device may be in another namespace, so
-+ * we have to clear all information in the skb that could
-+ * impact namespace isolation.
-  */
- int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- {
