@@ -1,61 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
- hints
-Date: Tue, 24 Nov 2009 20:01:25 +0100
-Message-ID: <4B0C2D85.7020200@gmail.com>
-References: <1258995923.4531.715.camel@laptop>	 <4B0B782A.4030901@linux.intel.com>	<1259051986.4531.1057.camel@laptop>	 <20091124.093956.247147202.davem@davemloft.net>	 <1259085412.2631.48.camel@ppwaskie-mobl2>  <4B0C2547.8030408@gmail.com> <1259087601.2631.56.camel@ppwaskie-mobl2>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: NUMA and multiQ interation
+Date: Tue, 24 Nov 2009 11:51:39 -0800
+Message-ID: <65634d660911241151q4d7522c0nf9c2e4667c333185@mail.gmail.com>
+References: <65634d660911240904y294ea6fj4cf2e4ac757e619b@mail.gmail.com>
+	 <20091124.100613.240222762.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"yong.zhang0@gmail.com" <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933973AbZKXTBh@vger.kernel.org>
-In-Reply-To: <1259087601.2631.56.camel@ppwaskie-mobl2>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.33.17]:51308 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758101AbZKXTvi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 14:51:38 -0500
+Received: from zps37.corp.google.com (zps37.corp.google.com [172.25.146.37])
+	by smtp-out.google.com with ESMTP id nAOJpgRi028248
+	for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 19:51:43 GMT
+Received: from pxi41 (pxi41.prod.google.com [10.243.27.41])
+	by zps37.corp.google.com with ESMTP id nAOJnnUx005531
+	for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 11:51:39 -0800
+Received: by pxi41 with SMTP id 41so4121771pxi.19
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 11:51:39 -0800 (PST)
+In-Reply-To: <20091124.100613.240222762.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Peter P Waskiewicz Jr a =C3=A9crit :
-
-> That's exactly what we're doing in our 10GbE driver right now (isn't
-> pushed upstream yet, still finalizing our testing).  We spread to all
-> NUMA nodes in a semi-intelligent fashion when allocating our rings an=
+On Tue, Nov 24, 2009 at 10:06 AM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Tue, 24 Nov 2009 09:04:41 -0800
+>
+>> What is the expected interaction here, and would these results be
+>> typical? =A0If so, would this warrant the need to associate each RX
+>> queue to a numa node, instead of just the device?
+>
+> Yes we are fully aware of this and discussed it at netconf this year,=
+ see
+> in particular:
+>
+> http://vger.kernel.org/netconf2009_slides/netconf2009_numa_discussion=
+=2Eodp
+>
+> PJ is also currently trying to pass upstream some changes such that t=
+hese
+> NUMA allocation bits can be exported to userspace and thus irqbalance=
 d
-> buffers.  The last piece is ensuring the interrupts tied to the vario=
-us
-> queues all route to the NUMA nodes those CPUs belong to.  irqbalance
-> needs some kind of hint to make sure it does the right thing, which
-> today it does not.
+> can pick IRQ targetting more intelligently when a driver allocates pe=
+r-queue
+> memory resources on different NUMA nodes. =A0The thread discussing th=
+is has
+> been going active for the past few days, maybe you missed it.
+>
 
-sk_buff allocations should be done on the node of the cpu handling rx i=
-nterrupts.
+I saw that thread, and it looks compelling.  But we have applications
+that are network bound such that we want to use multiple queues across
+multiple nodes for scaling-- and trying keep all queues on the same
+node does not scale very well.  Maybe ignoring NUMA allocation could
+be a fall-back mode in a dynamic allocation with heavy load?
 
-=46or rings, I am ok for irqbalance and driver cooperation, in case adm=
-in
- doesnt want to change the defaults.
-
->=20
-> I don't see how this is complex though.  Driver loads, allocates acro=
-ss
-> the NUMA nodes for optimal throughput, then writes CPU masks for the
-> NUMA nodes each interrupt belongs to.  irqbalance comes along and loo=
-ks
-> at the new mask "hint," and then balances that interrupt within that
-> hinted mask.
-
-So NUMA policy is given by the driver at load time ?
-
-An admin might chose to direct all NIC trafic to a given node, because
-its machine has mixed workload. 3 nodes out of 4 for database workload,
-one node for network IO...
-
-So if an admin changes smp_affinity, is your driver able to reconfigure=
- itself
-and re-allocate all its rings to be on NUMA node chosen by admin ? This=
- is
-what I qualify as complex.
+Tom
