@@ -1,35 +1,86 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Subject: [PATCH 3/6] bna: Brocade 10Gb Ethernet device driver
-Date: Mon, 23 Nov 2009 20:58:04 -0800
-Message-ID: <1259038684.16503.202.camel@Joe-Laptop.home>
-References: <200911240351.nAO3p1bG025630@blc-10-10.brocade.com>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
+	hints
+Date: Tue, 24 Nov 2009 13:17:50 +0800
+Message-ID: <2674af740911232117l275e933yaca3f1b8c1207bce@mail.gmail.com>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+	 <1258968980.2697.9.camel@ppwaskie-mobl2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: Rasesh Mody <rmody@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1113 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752241AbZKXE56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Nov 2009 23:57:58 -0500
-In-Reply-To: <200911240351.nAO3p1bG025630@blc-10-10.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752248AbZKXFRq@vger.kernel.org>
+In-Reply-To: <1258968980.2697.9.camel@ppwaskie-mobl2>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+[snip]
+>>
+>> 1) I think you should consider CONFIG_CPUMASK_OFFSTACK which will af=
+fect
+>> =C2=A0 =C2=A0node_affinity.
+>> 2) It seems like this patch can't work with SPARSE_IRQ.
+>
+> This mechanism isn't going to be used by any internal kernel mechanis=
+m
+> for determining interrupt placement or operation. =C2=A0It's purely s=
+omething
+> that either a driver can modify, or external script (through /proc),
+> that irqbalance will make use of. =C2=A0If irqbalance isn't running, =
+or the
+> current version of irqbalance doesn't support reading node_affinity,
+> then it won't affect the system's operation.
+>
+> If irqbalance does support it, it'll read whatever the supplied mask =
+is,
+> and then will try and balance interrupts within that mask. =C2=A0It w=
+ill bail
+> if the mask is invalid, or won't apply to the running system, just li=
+ke
+> how putting a bogus mask into smp_affinity is ignored.
+>
+> If there's something I'm missing beyond this with the two suggestions
+> you've made (I looked into those two parameters and tried to draw
+> conclusions), please let me know.
 
-> +#ifndef dev_err
-> +#define dev_err(dev, format, arg...)	\
-> +	printk(KERN_ERR "bna: " format, ## arg)
-> +#endif
-> +#ifndef dev_info
-> +#define dev_info(dev, format, arg...)	\
-> +	printk(KERN_INFO "bna: " format, ## arg)
-> +#endif
-> +#ifndef dev_warn
-> +#define dev_warn(dev, format, arg...)	\
-> +	printk(KERN_WARNING "bna: " format, ## arg)
-> +#endif
+My two suggestions are both about your adding node_affinity. Before you=
+ can
+use this element, you must initialise it firstly. You can refer how
+irq_desc::affinity
+is used in function alloc_desc_masks().
+include/linux/irq.h:
+static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
+							bool boot)
+{
+	gfp_t gfp =3D GFP_ATOMIC;
 
-Don't do this.  Just include device.h
+	if (boot)
+		gfp =3D GFP_NOWAIT;
 
+#ifdef CONFIG_CPUMASK_OFFSTACK
+	if (!alloc_cpumask_var_node(&desc->affinity, gfp, node))
+		return false;
+
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+	if (!alloc_cpumask_var_node(&desc->pending_mask, gfp, node)) {
+		free_cpumask_var(desc->affinity);
+		return false;
+	}
+#endif
+#endif
+	return true;
+}
+
+Thanks,
+Yong
+
+>
+> Cheers,
+> -PJ Waskiewicz
+>
+>
