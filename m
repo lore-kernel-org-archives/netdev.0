@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: Fix device name compares
-Date: Tue, 24 Nov 2009 14:51:04 -0800 (PST)
-Message-ID: <20091124.145104.76461749.davem@davemloft.net>
-References: <4B0AA8C9.8060206@gmail.com>
-	<20091124.122135.43806243.davem@davemloft.net>
-	<4B0C4CF3.3050307@gmail.com>
+Subject: Re: [net-next-2.6 PATCH] net/ipv6: Move && and || to end of
+ previous line
+Date: Tue, 24 Nov 2009 14:53:00 -0800 (PST)
+Message-ID: <20091124.145300.262254274.davem@davemloft.net>
+References: <4B08D967.80003@gmail.com>
+	<20091122.163112.80105623.davem@davemloft.net>
+	<1259002724.16503.83.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert@herjulf.net, netdev@vger.kernel.org, robert.olsson@its.uu.se
-To: eric.dumazet@gmail.com
+Cc: william.allen.simpson@gmail.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52196
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55210
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934154AbZKXWuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 17:50:46 -0500
-In-Reply-To: <4B0C4CF3.3050307@gmail.com>
+	by vger.kernel.org with ESMTP id S934298AbZKXWwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 17:52:42 -0500
+In-Reply-To: <1259002724.16503.83.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 Nov 2009 22:15:31 +0100
+From: Joe Perches <joe@perches.com>
+Date: Mon, 23 Nov 2009 10:58:44 -0800
 
-> [PATCH] pktgen: Fix netdevice unregister
-> 
-> When multi queue compatable names are used by pktgen (eg eth0@0),
-> we currently cannot unload a NIC driver if one of its device
-> is currently in use.
-> 
-> Allow pktgen_find_dev() to find pktgen devices by their suffix (netdev name)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks Eric.
+Applied, thanks Joe.
