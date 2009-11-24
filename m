@@ -1,59 +1,39 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 02/17] sfc: Remove redundant gotos from __efx_rx_packet()
-Date: Tue, 24 Nov 2009 02:01:44 +0000
-Message-ID: <1259028104.14645.7.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 03/17] sfc: Remove ridiculously paranoid assertions
+Date: Tue, 24 Nov 2009 02:01:55 +0000
+Message-ID: <1259028115.14645.9.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:34531 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:34541 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757457AbZKXCBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 21:01:40 -0500
+	with ESMTP id S1757556AbZKXCBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Nov 2009 21:01:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function no longer has any common cleanup code.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/rx.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/sfc/rx.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index a60c718..32cfe40 100644
+index 32cfe40..c407352 100644
 --- a/drivers/net/sfc/rx.c
 +++ b/drivers/net/sfc/rx.c
-@@ -564,7 +564,7 @@ void __efx_rx_packet(struct efx_channel *channel,
- 	if (unlikely(efx->loopback_selftest)) {
- 		efx_loopback_rx_packet(efx, rx_buf->data, rx_buf->len);
- 		efx_free_rx_buffer(efx, rx_buf);
--		goto done;
-+		return;
- 	}
- 
- 	if (rx_buf->skb) {
-@@ -580,7 +580,7 @@ void __efx_rx_packet(struct efx_channel *channel,
- 
- 	if (likely(checksummed || rx_buf->page)) {
- 		efx_rx_packet_lro(channel, rx_buf, checksummed);
--		goto done;
-+		return;
- 	}
- 
+@@ -586,9 +586,6 @@ void __efx_rx_packet(struct efx_channel *channel,
  	/* We now own the SKB */
-@@ -601,9 +601,6 @@ void __efx_rx_packet(struct efx_channel *channel,
- 
- 	/* Update allocation strategy method */
- 	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
+ 	skb = rx_buf->skb;
+ 	rx_buf->skb = NULL;
 -
--done:
--	;
- }
+-	EFX_BUG_ON_PARANOID(rx_buf->page);
+-	EFX_BUG_ON_PARANOID(rx_buf->skb);
+ 	EFX_BUG_ON_PARANOID(!skb);
  
- void efx_rx_strategy(struct efx_channel *channel)
+ 	/* Set the SKB flags */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
