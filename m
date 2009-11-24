@@ -1,89 +1,129 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
- irqbalance hints
-Date: Tue, 24 Nov 2009 00:59:16 -0800
-Message-ID: <1259053156.2631.21.camel@ppwaskie-mobl2>
+Subject: Re: ixgbe question
+Date: Tue, 24 Nov 2009 01:07:53 -0800
+Message-ID: <1259053673.2631.30.camel@ppwaskie-mobl2>
 References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
 	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
-	 <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>
-	 <Pine.WNT.4.64.0911231529240.10056@ppwaskie-MOBL2.amr.corp.intel.com>
-	 <1259051902.4531.1053.camel@laptop>
+	 <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>
+	 <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>
+	 <4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>
+	 <4B0ABF6D.9000103@gmail.com>
+	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>
+	 <4B0B8F52.3010005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Yong Zhang <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932375AbZKXI7J@vger.kernel.org>
-In-Reply-To: <1259051902.4531.1053.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "robert@herjulf.net" <robert@herjulf.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:26850 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751674AbZKXJIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 04:08:04 -0500
+In-Reply-To: <4B0B8F52.3010005@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-24 at 01:38 -0700, Peter Zijlstra wrote:
-> On Mon, 2009-11-23 at 15:32 -0800, Waskiewicz Jr, Peter P wrote:
-> 
-> > Unfortunately, a driver can't.  The irq_set_affinity() function isn't 
-> > exported.  I proposed a patch on netdev to export it, and then to tie down 
-> > an interrupt using IRQF_NOBALANCING, so irqbalance won't touch it.  That 
-> > was rejected, since the driver is enforcing policy of the interrupt 
-> > balancing, not irqbalance.
-> 
-> Why would a patch touching the irq subsystem go to netdev?
+On Tue, 2009-11-24 at 00:46 -0700, Eric Dumazet wrote:
+> Waskiewicz Jr, Peter P a =C3=A9crit :
+> > Ok, I was confused earlier.  I thought you were saying that all pac=
+kets=20
+> > were headed into a single Rx queue.  This is different.
+> >=20
+> > Do you know what version of irqbalance you're running, or if it's r=
+unning=20
+> > at all?  We've seen issues with irqbalance where it won't recognize=
+ the=20
+> > ethernet device if the driver has been reloaded.  In that case, it =
+won't=20
+> > balance the interrupts at all.  If the default affinity was set to =
+one=20
+> > CPU, then well, you're screwed.
+> >=20
+> > My suggestion in this case is after you reload ixgbe and start your=
+ tests,=20
+> > see if it all goes to one CPU.  If it does, then restart irqbalance=
+=20
+> > (service irqbalance restart - or just kill it and restart by hand).=
+  Then=20
+> > start running your test, and in 10 seconds you should see the inter=
+rupts=20
+> > move and spread out.
+> >=20
+> > Let me know if this helps,
+>=20
+> Sure it helps !
+>=20
+> I tried without irqbalance and with irqbalance (Ubuntu 9.10 ships irq=
+balance 0.55-4)
+> I can see irqbalance setting smp_affinities to 5555 or AAAA with no d=
+irect effect.
+>=20
+> I do receive 16 different irqs, but all serviced on one cpu.
+>=20
+> Only way to have irqs on different cpus is to manualy force irq affin=
+ities to be exclusive
+> (one bit set in the mask, not several ones), and that is not optimal =
+for moderate loads.
+>=20
+> echo 1 >`echo /proc/irq/*/fiber1-TxRx-0/../smp_affinity`
+> echo 1 >`echo /proc/irq/*/fiber1-TxRx-1/../smp_affinity`
+> echo 4 >`echo /proc/irq/*/fiber1-TxRx-2/../smp_affinity`
+> echo 4 >`echo /proc/irq/*/fiber1-TxRx-3/../smp_affinity`
+> echo 10 >`echo /proc/irq/*/fiber1-TxRx-4/../smp_affinity`
+> echo 10 >`echo /proc/irq/*/fiber1-TxRx-5/../smp_affinity`
+> echo 40 >`echo /proc/irq/*/fiber1-TxRx-6/../smp_affinity`
+> echo 40 >`echo /proc/irq/*/fiber1-TxRx-7/../smp_affinity`
+> echo 100 >`echo /proc/irq/*/fiber1-TxRx-8/../smp_affinity`
+> echo 100 >`echo /proc/irq/*/fiber1-TxRx-9/../smp_affinity`
+> echo 400 >`echo /proc/irq/*/fiber1-TxRx-10/../smp_affinity`
+> echo 400 >`echo /proc/irq/*/fiber1-TxRx-11/../smp_affinity`
+> echo 1000 >`echo /proc/irq/*/fiber1-TxRx-12/../smp_affinity`
+> echo 1000 >`echo /proc/irq/*/fiber1-TxRx-13/../smp_affinity`
+> echo 4000 >`echo /proc/irq/*/fiber1-TxRx-14/../smp_affinity`
+> echo 4000 >`echo /proc/irq/*/fiber1-TxRx-15/../smp_affinity`
+>=20
+>=20
+> One other problem is that after reload of ixgbe driver, link is 95% o=
+f the time
+> at 1 Gbps speed, and I could not find an easy way to force it being 1=
+0 Gbps
+>=20
 
-The only change to the IRQ subsystem was:
+You might have this elsewhere, but it sounds like you're connecting bac=
+k
+to back with another 82599 NIC.  Our optics in that NIC are dual-rate,
+and the software mechanism that tries to "autoneg" link speed gets out
+of sync easily in back-to-back setups.
 
-EXPORT_SYMBOL(irq_set_affinity);
+If it's really annoying, and you're willing to run with a local patch t=
+o
+disable the autotry mechanism, try this:
 
-The majority of the changeset was for the ixgbe driver.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c
+b/drivers/net/ixgbe/ixgbe_main.c
+index a5036f7..62c0915 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4670,6 +4670,10 @@ static void ixgbe_multispeed_fiber_task(struct
+work_struct *work)
+        autoneg =3D hw->phy.autoneg_advertised;
+        if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
+                hw->mac.ops.get_link_capabilities(hw, &autoneg,
+&negotiation);
++
++       /* force 10G only */
++       autoneg =3D IXGBE_LINK_SPEED_10GB_FULL;
++
+        if (hw->mac.ops.setup_link)
+                hw->mac.ops.setup_link(hw, autoneg, negotiation, true);
+        adapter->flags |=3D IXGBE_FLAG_NEED_LINK_UPDATE;
 
-> What is wrong with exporting irq_set_affinity(), and wtf do you need
-> IRQF_NOBALANCING for?
-> 
 
-Again, the pushback I received was with allowing anything other than
-irqbalance to dictate interrupt affinity policy.
 
-And if I set interrupt affinity from the driver or from /proc,
-irqbalance will happily rebalance the interrupt elsewhere.  The
-IRQF_NOBALANCING flag will prevent irqbalance from being able to move
-the interrupt.
-
-> > I and Jesse Brandeburg had a meeting with Arjan about this.  What we came 
-> > up with was this interface, so drivers can set what they'd like to see, if 
-> > irqbalance decides to honor it.  That way interrupt affinity policies are 
-> > set only by irqbalance, but this interface gives us a mechanism to hint to 
-> > irqbalance what we'd like it to do.
-> 
-> If all you want is to expose policy to userspace then you don't need any
-> of this, simply expose the NICs home node through a sysfs device thingy
-> (I was under the impression its already there somewhere, but I can't
-> ever find anything in /sys).
-> 
-> No need what so ever to poke at the IRQ subsystem.
-
-The point is we need something common that the kernel side (whether a
-driver or /proc can modify) that irqbalance can use.
-
-> > Also, if you use the /proc interface to change smp_affinity on an 
-> > interrupt without any of these changes, irqbalance will override it on its 
-> > next poll interval.  This also is not desirable.
-> 
-> This all sounds backwards.. we've got a perfectly functional interface
-> for affinity -- which people object to being used for some reason. So
-> you add another interface on top, and that is ok?
-> 
-
-But it's not functional.  If I set the affinity in smp_affinity, then
-irqbalance will override it 10 seconds later.
-
-> All the while not CC'ing the IRQ folks,.. brilliant approach.
-
-If I knew who I should CC, I'd be happy to add them.  Can you provide
-email addresses please?
 
 Cheers,
--PJ Waskiewicz
+-PJ
+
