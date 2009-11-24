@@ -1,66 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
-	hardware queue MAC and VLAN filters
-Date: Tue, 24 Nov 2009 14:18:12 +0000
-Message-ID: <1259072292.2940.16.camel@achroite.uk.solarflarecom.com>
-References: <20091117214923.15119.98918.stgit@localhost.localdomain>
-	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
-	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
-	 <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
-	 <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
-	 <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers and
+ big packets in virtio_net
+Date: Tue, 24 Nov 2009 08:36:32 -0600
+Message-ID: <4B0BEF70.5070104@codemonkey.ws>
+References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain> <200911240854.24054.rusty@rustcorp.com.au> <20091124113754.GB2405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Shirley Ma <mashirle@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hollis Blanchard <hollisb@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:53736 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933060AbZKXOSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 09:18:14 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
+Received: from mail-yw0-f182.google.com ([209.85.211.182]:63616 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933005AbZKXOg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 09:36:29 -0500
+In-Reply-To: <20091124113754.GB2405@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-23 at 12:52 -0700, Williams, Mitch A wrote:
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Monday, November 23, 2009 5:23 AM
-> [snip]
-> 
-> >
-> >How does this interact with use of multiple queues within a single
-> >function?  Are the specified queue numbers really interpreted as RX
-> >queue indices or as function numbers?
-> >
-> >Ben.
-> 
-> Yeah, that is ambiguous.  Would it be better if we changed the name of the parameter to 'vf' instead of 'queue' to make it explicit?
-> 
-> This would give us:
-> $ ip link set eth1 vf 1 mac <blah>
-> 
-> The issue of which VF goes with which PF device can be deduced in userspace via sysfs.
-> 
-> If we want to make this apply to non SR-IOV queues, then we'll add a new parameter later.
-> 
-> Works for you?
+Michael S. Tsirkin wrote:
+> On Tue, Nov 24, 2009 at 08:54:23AM +1030, Rusty Russell wrote:
+>   
+>> On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
+>>     
+>>>>> +             skb = (struct sk_buff *)buf;
+>>>>>           
+>>>> This cast is unnecessary, but a comment would be nice:
+>>>>         
+>>> Without this cast there is a compile warning. 
+>>>       
+>> Hi Shirley,
+>>
+>>    Looks like buf is a void *, so no cast should be necessary.  But I could
+>> be reading the patch wrong.
+>>
+>>     
+>>>> However, I question whether making it 16 byte is the right thing: the
+>>>> ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
+>>>>         
+>>> Because in QEMU it requires 10 bytes header in a separately, so one page
+>>> is used to share between virtio_net_hdr header which is 10 bytes head
+>>> and rest of data. So I put 6 bytes offset here between two buffers. I
+>>> didn't look at the reason why a seperate buf is used for virtio_net_hdr
+>>> in QEMU.
+>>>       
+>> It's a qemu bug.  It insists the header be an element in the scatterlist by
+>> itself.  Unfortunately we have to accommodate it.
+>>     
+>
+> We do?  Let's just fix this?
+>   
 
-OK, this sounds reasonable.
+So does lguest.  It's been that way since the beginning.  Fixing this 
+would result in breaking older guests.
 
-Ben.
+We really need to introduce a feature bit if we want to change this.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
 
+Anthony Liguori
