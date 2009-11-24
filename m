@@ -1,54 +1,96 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
- irqbalance hints
-Date: Tue, 24 Nov 2009 09:39:46 +0100
-Message-ID: <1259051986.4531.1057.camel@laptop>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
-	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
-	 <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>
-	  <4B0B782A.4030901@linux.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/4] macvlan: cleanup rx statistics
+Date: Tue, 24 Nov 2009 08:45:14 +0000
+Message-ID: <200911240845.14454.arnd@arndb.de>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-3-git-send-email-arnd@arndb.de> <4B0B9639.4070607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Yong Zhang <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932276AbZKXIjq@vger.kernel.org>
-In-Reply-To: <4B0B782A.4030901@linux.intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	David Miller <davem@davemloft.net>
+To: virtualization@lists.linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932297AbZKXIpa@vger.kernel.org>
+In-Reply-To: <4B0B9639.4070607@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-11-23 at 22:07 -0800, Arjan van de Ven wrote:
-> Peter Zijlstra wrote:
-> > On Mon, 2009-11-23 at 01:36 -0800, Peter P Waskiewicz Jr wrote:
-> > 
-> >> This mechanism isn't going to be used by any internal kernel mechanism
-> >> for determining interrupt placement or operation.  It's purely something
-> >> that either a driver can modify, or external script (through /proc),
-> >> that irqbalance will make use of.  If irqbalance isn't running, or the
-> >> current version of irqbalance doesn't support reading node_affinity,
-> >> then it won't affect the system's operation.
-> >>
-> >> If irqbalance does support it, it'll read whatever the supplied mask is,
-> >> and then will try and balance interrupts within that mask.  It will bail
-> >> if the mask is invalid, or won't apply to the running system, just like
-> >> how putting a bogus mask into smp_affinity is ignored.
-> >>
-> >> If there's something I'm missing beyond this with the two suggestions
-> >> you've made (I looked into those two parameters and tried to draw
-> >> conclusions), please let me know.
-> > 
-> > I don't see the point in adding it, if the driver wants to set a node
-> > cpu mask it can already do that using the regular smp affinity settings.
-> > 
-> > Same for userspace.
-> 
-> the problem is that there is no way currently that the driver can communicate
-> "I allocated all my metadata on THIS numa node". irqbalance and sysadmins need
-> that to not make really stupid decisions.....
+On Tuesday 24 November 2009 08:15:53 Eric Dumazet wrote:
+> Arnd Bergmann a =E9crit :
+> > =20
+> > +static inline void macvlan_count_rx(const struct macvlan_dev *vlan=
+, int length,
+> > +			     int success, int multicast)
+>=20
+> success and multicast should be declared as bool
 
-And what exactly is struct device::numa_node good for then?
+ok
+
+> > +{
+> > +	struct macvlan_rx_stats *rx_stats;
+> > +
+> > +	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+> > +	rx_stats->rx_packets +=3D success !=3D 0;
+> > +	rx_stats->rx_bytes   +=3D success ? length : 0;
+> > +	rx_stats->multicast  +=3D success && multicast;
+> > +	rx_stats->rx_errors  +=3D !success;
+> > +}
+> > +
+>=20
+> I find following more readable, it probably generates more branches,
+> but avoid dirtying rx_errors if it is in another cache line.
+>=20
+> if (likely(success)) {
+> 	rx_stats->rx_packets++;
+> 	rx_stats->rx_bytes +=3D length;
+> 	if (multicast)
+> 		rx_stats->multicast++;
+> } else {
+> 	rx_stats->rx_errors++;
+> }
+
+Given that the structure only has four members and alloc_percpu request=
+s
+cache aligned data, it is rather likely to be in the same cache line.
+
+I'll have a look at what gcc generates on x86-64 for both versions
+and use the version you suggested unless it looks significantly more
+expensive.
+
+Since we're into micro-optimization territory, do you think it should
+be marked inline or not?
+=20
+> > -	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+> >  	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> > -	if (skb =3D=3D NULL) {
+> > -		rx_stats->rx_errors++;
+> > -		return NULL;
+> > -	}
+> > -
+> > -	rx_stats->rx_bytes +=3D skb->len + ETH_HLEN;
+> > -	rx_stats->rx_packets++;
+> > +	macvlan_count_rx(vlan, skb->len + ETH_HLEN, likely(skb !=3D NULL)=
+, 0);
+>=20
+> its not _likely_ that skb !=3D NULL, its a fact :)
+>=20
+> -> macvlan_count_rx(vlan, skb->len + ETH_HLEN, true, false);
+
+I don't understand. Note how I removed the check for NULL above and
+the skb pointer may be the result of a failing skb_clone().
+
+Looking at this again, I actually introduced a bug by calling netif_rx
+on a possibly NULL skb, I'll fix that.
+
+Thanks!
+
+	Arnd <><
