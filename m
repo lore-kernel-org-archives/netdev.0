@@ -1,73 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
-	and big packets in virtio_net
-Date: Tue, 24 Nov 2009 18:04:39 +0200
-Message-ID: <20091124160439.GC6737@redhat.com>
-References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain> <200911240854.24054.rusty@rustcorp.com.au> <20091124113754.GB2405@redhat.com> <4B0BEF70.5070104@codemonkey.ws>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+	hardware queue MAC and VLAN filters
+Date: Tue, 24 Nov 2009 09:14:10 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6B4DC98@rrsmsx501.amr.corp.intel.com>
+References: <20091117214923.15119.98918.stgit@localhost.localdomain>
+	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
+	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
+	 <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
+	 <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
+	 <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
+	 <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
+ <1259072292.2940.16.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Shirley Ma <mashirle@us.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hollis Blanchard <hollisb@us.ibm.com>
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B0BEF70.5070104@codemonkey.ws>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:50766 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933194AbZKXQOT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 11:14:19 -0500
+In-Reply-To: <1259072292.2940.16.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2009 at 08:36:32AM -0600, Anthony Liguori wrote:
-> Michael S. Tsirkin wrote:
->> On Tue, Nov 24, 2009 at 08:54:23AM +1030, Rusty Russell wrote:
->>   
->>> On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
->>>     
->>>>>> +             skb = (struct sk_buff *)buf;
->>>>>>           
->>>>> This cast is unnecessary, but a comment would be nice:
->>>>>         
->>>> Without this cast there is a compile warning.       
->>> Hi Shirley,
->>>
->>>    Looks like buf is a void *, so no cast should be necessary.  But I could
->>> be reading the patch wrong.
->>>
->>>     
->>>>> However, I question whether making it 16 byte is the right thing: the
->>>>> ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
->>>>>         
->>>> Because in QEMU it requires 10 bytes header in a separately, so one page
->>>> is used to share between virtio_net_hdr header which is 10 bytes head
->>>> and rest of data. So I put 6 bytes offset here between two buffers. I
->>>> didn't look at the reason why a seperate buf is used for virtio_net_hdr
->>>> in QEMU.
->>>>       
->>> It's a qemu bug.  It insists the header be an element in the scatterlist by
->>> itself.  Unfortunately we have to accommodate it.
->>>     
+>From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+>Sent: Tuesday, November 24, 2009 6:18 AM
+
+
+>> [snip]
 >>
->> We do?  Let's just fix this?
->>   
+>> >
+>> >How does this interact with use of multiple queues within a single
+>> >function?  Are the specified queue numbers really interpreted as RX
+>> >queue indices or as function numbers?
+>> >
+>> >Ben.
+>>
+>> Yeah, that is ambiguous.  Would it be better if we changed the name of
+>the parameter to 'vf' instead of 'queue' to make it explicit?
+>>
+>> This would give us:
+>> $ ip link set eth1 vf 1 mac <blah>
+>>
+>> The issue of which VF goes with which PF device can be deduced in
+>userspace via sysfs.
+>>
+>> If we want to make this apply to non SR-IOV queues, then we'll add a new
+>parameter later.
+>>
+>> Works for you?
 >
-> So does lguest.
+>OK, this sounds reasonable.
+>
+>Ben.
+>
 
-It does? All I see it doing is writev/readv,
-and this passes things to tap which handles
-this correctly.
+Thanks for looking at this stuff, Ben. I appreciate it. I'll rework the patches and send them out in a few days.
 
-
->  It's been that way since the beginning.  Fixing this  
-> would result in breaking older guests.
-
-If you look at my patch, it handles old guests just fine :).
-
-> We really need to introduce a feature bit if we want to change this.
-
-I am not sure I agree: we can't add feature bits
-for all bugs, can we?
-
--- 
-MST
+-Mitch
