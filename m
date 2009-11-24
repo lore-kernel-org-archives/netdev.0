@@ -1,71 +1,62 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
-	hardware queue MAC and VLAN filters
-Date: Tue, 24 Nov 2009 09:14:10 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6B4DC98@rrsmsx501.amr.corp.intel.com>
-References: <20091117214923.15119.98918.stgit@localhost.localdomain>
-	 <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
-	 <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
-	 <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
-	 <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
-	 <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
- <1259072292.2940.16.camel@achroite.uk.solarflarecom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/4] veth: move loopback logic to common location
+Date: Tue, 24 Nov 2009 08:42:34 -0800
+Message-ID: <m1aaybc1s5.fsf@fess.ebiederm.org>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de>
+	<200911241002.20904.arnd@arndb.de> <4B0BB2A7.5040707@trash.net>
+	<200911241034.43961.arnd@arndb.de> <4B0BB818.6090509@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50766 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933194AbZKXQOT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 11:14:19 -0500
-In-Reply-To: <1259072292.2940.16.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	virtualization@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933549AbZKXQmv@vger.kernel.org>
+In-Reply-To: <4B0BB818.6090509@trash.net> (Patrick McHardy's message of "Tue\, 24 Nov 2009 11\:40\:24 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From: Ben Hutchings [mailto:bhutchings@solarflare.com]
->Sent: Tuesday, November 24, 2009 6:18 AM
+Patrick McHardy <kaber@trash.net> writes:
 
-
->> [snip]
->>
->> >
->> >How does this interact with use of multiple queues within a single
->> >function?  Are the specified queue numbers really interpreted as RX
->> >queue indices or as function numbers?
->> >
->> >Ben.
->>
->> Yeah, that is ambiguous.  Would it be better if we changed the name of
->the parameter to 'vf' instead of 'queue' to make it explicit?
->>
->> This would give us:
->> $ ip link set eth1 vf 1 mac <blah>
->>
->> The issue of which VF goes with which PF device can be deduced in
->userspace via sysfs.
->>
->> If we want to make this apply to non SR-IOV queues, then we'll add a new
->parameter later.
->>
->> Works for you?
+>>>> I did all my testing with macvlan interfaces in separate namespaces
+>>>> communicating with each other, so I'd assume that we should always
+>>>> clear skb->mark and skb->dst in this function.
+>>> Good point, in that case we probably should clear it as well. But
+>>> in the non-namespace case the TC classification currently works and
+>>> this is consistent with any other virtual device driver, so it
+>>> should continue to work.
+>> 
+>> Do you think we should be able to use TC to direct traffic between
+>> macvlans on the same underlying device in bridge mode? It does sound
+>> useful, but I'm not sure how to implement that or if you'd expect
+>> it to work with the current code. If we support that, it should probably
+>> also work with namespaces, by consuming the mark in the macvlan
+>> and veth drivers.
 >
->OK, this sounds reasonable.
->
->Ben.
->
+> I don't think its necessary, we bypass outgoing queuing anyways.
+> But if you'd want to add it, just keeping the skb->mark clearing
+> in veth should work from what I can tell.
 
-Thanks for looking at this stuff, Ben. I appreciate it. I'll rework the patches and send them out in a few days.
+veth doesn't have an outgoing queue.  The reason we clear skb->mark
+in veth is because when reentering the networking stack the packet
+needs to be reclassified.  At the point of loopback we are talking
+a packet that has at least logically gone out of the machine on a
+wire and come back into the machine on another physical interface.
 
--Mitch
+So it seems to me we should have consistent handling for macvlans,
+veth, for the cases where we are looping packets back around.  In
+practice I expect all of those cases are going to be cross namespace
+as otherwise we would have intercepted the packet before going
+out a physical interface.
+
+Eric
