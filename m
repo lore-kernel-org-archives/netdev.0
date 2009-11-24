@@ -1,96 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/4] macvlan: cleanup rx statistics
-Date: Tue, 24 Nov 2009 09:15:53 +0100
-Message-ID: <4B0B9639.4070607@gmail.com>
-References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-3-git-send-email-arnd@arndb.de>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
+ irqbalance hints
+Date: Tue, 24 Nov 2009 09:38:22 +0100
+Message-ID: <1259051902.4531.1053.camel@laptop>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+	 <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>
+	 <Pine.WNT.4.64.0911231529240.10056@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Edge Virtual Bridging <evb@yahoogroups.com>,
-	Anna Fischer <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@lists.linux-foundation.org,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757920AbZKXIQl@vger.kernel.org>
-In-Reply-To: <1259024166-28158-3-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yong Zhang <yong.zhang0@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:54103 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750883AbZKXIiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 03:38:25 -0500
+In-Reply-To: <Pine.WNT.4.64.0911231529240.10056@ppwaskie-MOBL2.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann a =E9crit :
-> We have very similar code for rx statistics in
-> two places in the macvlan driver, with a third
-> one being added in the next patch.
->=20
-> Consolidate them into one function to improve
-> overall readability of the driver.
->=20
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/net/macvlan.c |   63 +++++++++++++++++++++++++--------------=
----------
->  1 files changed, 33 insertions(+), 30 deletions(-)
->=20
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index ae2b5c7..a0dea23 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -116,42 +116,53 @@ static int macvlan_addr_busy(const struct macvl=
-an_port *port,
->  	return 0;
->  }
-> =20
-> +static inline void macvlan_count_rx(const struct macvlan_dev *vlan, =
-int length,
-> +			     int success, int multicast)
+On Mon, 2009-11-23 at 15:32 -0800, Waskiewicz Jr, Peter P wrote:
 
-success and multicast should be declared as bool
+> Unfortunately, a driver can't.  The irq_set_affinity() function isn't 
+> exported.  I proposed a patch on netdev to export it, and then to tie down 
+> an interrupt using IRQF_NOBALANCING, so irqbalance won't touch it.  That 
+> was rejected, since the driver is enforcing policy of the interrupt 
+> balancing, not irqbalance.
 
-> +{
-> +	struct macvlan_rx_stats *rx_stats;
-> +
-> +	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
-> +	rx_stats->rx_packets +=3D success !=3D 0;
-> +	rx_stats->rx_bytes   +=3D success ? length : 0;
-> +	rx_stats->multicast  +=3D success && multicast;
-> +	rx_stats->rx_errors  +=3D !success;
-> +}
-> +
+Why would a patch touching the irq subsystem go to netdev?
 
-I find following more readable, it probably generates more branches,
-but avoid dirtying rx_errors if it is in another cache line.
+What is wrong with exporting irq_set_affinity(), and wtf do you need
+IRQF_NOBALANCING for?
 
-if (likely(success)) {
-	rx_stats->rx_packets++;
-	rx_stats->rx_bytes +=3D length;
-	if (multicast)
-		rx_stats->multicast++;
-} else {
-	rx_stats->rx_errors++;
-}
+> I and Jesse Brandeburg had a meeting with Arjan about this.  What we came 
+> up with was this interface, so drivers can set what they'd like to see, if 
+> irqbalance decides to honor it.  That way interrupt affinity policies are 
+> set only by irqbalance, but this interface gives us a mechanism to hint to 
+> irqbalance what we'd like it to do.
 
+If all you want is to expose policy to userspace then you don't need any
+of this, simply expose the NICs home node through a sysfs device thingy
+(I was under the impression its already there somewhere, but I can't
+ever find anything in /sys).
 
-> -	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
->  	skb =3D skb_share_check(skb, GFP_ATOMIC);
-> -	if (skb =3D=3D NULL) {
-> -		rx_stats->rx_errors++;
-> -		return NULL;
-> -	}
-> -
-> -	rx_stats->rx_bytes +=3D skb->len + ETH_HLEN;
-> -	rx_stats->rx_packets++;
-> +	macvlan_count_rx(vlan, skb->len + ETH_HLEN, likely(skb !=3D NULL), =
-0);
+No need what so ever to poke at the IRQ subsystem.
 
-its not _likely_ that skb !=3D NULL, its a fact :)
+> Also, if you use the /proc interface to change smp_affinity on an 
+> interrupt without any of these changes, irqbalance will override it on its 
+> next poll interval.  This also is not desirable.
 
--> macvlan_count_rx(vlan, skb->len + ETH_HLEN, true, false);
+This all sounds backwards.. we've got a perfectly functional interface
+for affinity -- which people object to being used for some reason. So
+you add another interface on top, and that is ok?
+
+All the while not CC'ing the IRQ folks,.. brilliant approach.
+
