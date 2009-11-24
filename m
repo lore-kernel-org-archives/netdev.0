@@ -1,134 +1,41 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: ixgbe question
-Date: Tue, 24 Nov 2009 13:14:12 +0000
-Message-ID: <4B0BDC24.1060401@intel.com>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>	 <1258968980.2697.9.camel@ppwaskie-mobl2> <4B0A6218.9040303@gmail.com>	 <Pine.LNX.4.64.0911231500060.24347@ask.diku.dk>	 <4B0A9E4E.9010804@gmail.com> <19210.54486.353397.804028@gargle.gargle.HOWL>	 <4B0ABF6D.9000103@gmail.com>	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>	 <4B0B8F52.3010005@gmail.com> <1259053673.2631.30.camel@ppwaskie-mobl2>	 <4B0BADA6.7080602@gmail.com> <1259057164.2631.36.camel@ppwaskie-mobl2>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance
+ hints
+Date: Tue, 24 Nov 2009 21:46:28 +0100
+Message-ID: <4B0C4624.9080607@gmail.com>
+References: <20091124.093956.247147202.davem@davemloft.net>	<1259085412.2631.48.camel@ppwaskie-mobl2> <4B0C2547.8030408@gmail.com>	<20091124.105442.06273019.davem@davemloft.net>	<4B0C2CCA.6030006@gmail.com> <87iqczwtia.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"robert@herjulf.net" <robert@herjulf.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Cc: David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, peterz@infradead.org,
+	arjan@linux.intel.com, yong.zhang0@gmail.com,
+	linux-kernel@vger.kernel.org, arjan@linux.jf.intel.com,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41293 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932746AbZKXUqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 15:46:10 -0500
-In-Reply-To: <1259057164.2631.36.camel@ppwaskie-mobl2>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53924 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933280AbZKXUqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 15:46:42 -0500
+In-Reply-To: <87iqczwtia.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter P Waskiewicz Jr wrote:
-> On Tue, 2009-11-24 at 02:55 -0700, Eric Dumazet wrote:
->  =20
->> Peter P Waskiewicz Jr a =C3=A9crit :
->>
->>    =20
->>> You might have this elsewhere, but it sounds like you're connecting=
- back
->>> to back with another 82599 NIC.  Our optics in that NIC are dual-ra=
-te,
->>> and the software mechanism that tries to "autoneg" link speed gets =
-out
->>> of sync easily in back-to-back setups.
->>>
->>> If it's really annoying, and you're willing to run with a local pat=
-ch to
->>> disable the autotry mechanism, try this:
->>>
->>> diff --git a/drivers/net/ixgbe/ixgbe_main.c
->>> b/drivers/net/ixgbe/ixgbe_main.c
->>> index a5036f7..62c0915 100644
->>> --- a/drivers/net/ixgbe/ixgbe_main.c
->>> +++ b/drivers/net/ixgbe/ixgbe_main.c
->>> @@ -4670,6 +4670,10 @@ static void ixgbe_multispeed_fiber_task(stru=
-ct
->>> work_struct *work)
->>>         autoneg =3D hw->phy.autoneg_advertised;
->>>         if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
->>>                 hw->mac.ops.get_link_capabilities(hw, &autoneg,
->>> &negotiation);
->>> +
->>> +       /* force 10G only */
->>> +       autoneg =3D IXGBE_LINK_SPEED_10GB_FULL;
->>> +
->>>         if (hw->mac.ops.setup_link)
->>>                 hw->mac.ops.setup_link(hw, autoneg, negotiation, tr=
-ue);
->>>         adapter->flags |=3D IXGBE_FLAG_NEED_LINK_UPDATE;
->>>      =20
->> Thanks ! This did the trick :)
->>
->> If I am not mistaken, number of TX queues should be capped by number=
- of possible cpus ?
->>
->> Its currently a fixed 128 value, allocating 128*128 =3D 16384 bytes,
->> and polluting "tc -s -d class show dev fiber0" output.
->>
->>    =20
->
-> Yes, this is a stupid issue we haven't gotten around to fixing yet.
-> This looks fine to me.  Thanks for putting it together.
->
->  =20
-Believe the below patch will break DCB and FCoE though, both features=20
-have the potential to set real_num_tx_queues to greater then the number=
-=20
-of CPUs.  This could result in real_num_tx_queues > num_tx_queues.=20
+Andi Kleen a =E9crit :
+> They are typically allocated with dma_alloc_coherent(), which does
+> allocate a continuous area.  In theory you could do interleaving
+> with IOMMus, but just putting it on the same node as the device
+> is probably better.
 
-The current solution isn't that great though, maybe we should set to th=
-e=20
-minimum of MAX_TX_QUEUES and num_possible_cpus() * 2 + 8.
+There are two parts, biggest one allocated with vmalloc()
+(to hold struct ixgbe_rx_buffer array, 32 bytes or more per entry),
+only used by driver (not adapter)
 
-That should cover the maximum possible queues for DCB, FCoE and their=20
-combinations.=20
+and one allocated with pci_alloc_consistent()=20
+(to hold ixgbe_adv_tx_desc array, 16 bytes per entry)
 
-general multiq =3D num_possible_cpus()
-DCB =3D 8 tx queue's
-=46CoE =3D 2*num_possible_cpus()
-=46CoE + DCB =3D 8 tx queues + num_possible_cpus
-
-thanks,
-john.
-
-
-
->> [PATCH net-next-2.6] ixgbe: Do not allocate too many netdev txqueues
->>
->> Instead of allocating 128 struct netdev_queue per device, use the mi=
-nimum
->> value between 128 and number of possible cpus, to reduce ram usage a=
-nd
->> "tc -s -d class show dev ..." output
->>
->> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgb=
-e_main.c
->> index ebcec30..ec2508d 100644
->> --- a/drivers/net/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ixgbe/ixgbe_main.c
->> @@ -5582,7 +5583,10 @@ static int __devinit ixgbe_probe(struct pci_d=
-ev *pdev,
->>  	pci_set_master(pdev);
->>  	pci_save_state(pdev);
->> =20
->> -	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_=
-QUEUES);
->> +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter),
->> +				   min_t(unsigned int,
->> +					 MAX_TX_QUEUES,
->> +					 num_possible_cpus()));
->>  	if (!netdev) {
->>  		err =3D -ENOMEM;
->>  		goto err_alloc_etherdev;
->>    =20
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->  =20
+vmalloc() one could be spreaded on many nodes.
+I am not speaking about the pci_alloc_consistent() one :)
 
 
