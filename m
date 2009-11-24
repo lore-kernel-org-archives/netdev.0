@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] irq: Add node_affinity CPU masks for smarter
- irqbalance hints
-Date: Tue, 24 Nov 2009 09:57:03 -0800 (PST)
-Message-ID: <20091124.095703.107687163.davem@davemloft.net>
-References: <20091124093518.3909.16435.stgit@ppwaskie-hc2.jf.intel.com>
-	<alpine.LFD.2.00.0911241151360.24119@localhost.localdomain>
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: how expensive are mallocs?
+Date: Tue, 24 Nov 2009 09:57:34 -0800
+Message-ID: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, linux-kernel@vger.kernel.org,
-	arjan@linux.jf.intel.com, mingo@elte.hu, yong.zhang0@gmail.com,
-	netdev@vger.kernel.org
-To: tglx@linutronix.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933757AbZKXR4s@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0911241151360.24119@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:54384 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932245AbZKXR52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 12:57:28 -0500
+Received: by pzk1 with SMTP id 1so4965189pzk.33
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 09:57:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 24 Nov 2009 12:07:35 +0100 (CET)
+How much effort generally makes sense to avoid mallocs? For example,
+rds has a function that does a kmalloc for an array of scatterlist
+entries, which is freed at the bottom of the function. We couldn't
+allocate off the stack in all cases (too big), but we could allocate
+an array of say 8 scatterlists, and use it if that's big enough,
+falling back to kmalloc if it's not.
 
-> And what does the kernel do with this information and why are we not
-> using the existing device/numa_node information ?
+Is this a good idea?
 
-It's a different problem space Thomas.
+Also, RDS has its own per-cpu page remainder allocator (see
+net/rds/page.c) for kernel send buffers. Would cutting this code and
+just using kmalloc be recommended? Doesn't SL?B already do per-cpu
+pools?
 
-If the device lives on NUMA node X, we still end up wanting to
-allocate memory resources (RX ring buffers) on other NUMA nodes on a
-per-queue basis.
+Does this stuff even matter enough to rise above the noise in benchmarks?
 
-Otherwise a network card's forwarding performance is limited by the
-memory bandwidth of a single NUMA node, and on a multiqueue cards we
-therefore fare much better by allocating each device RX queue's memory
-resources on a different NUMA node.
-
-It is this NUMA usage that PJ is trying to export somehow to userspace
-so that irqbalanced and friends can choose the IRQ cpu masks more
-intelligently.
+Thanks -- Regards -- Andy
