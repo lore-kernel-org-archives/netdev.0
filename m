@@ -1,74 +1,55 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
- irqbalance hints
-Date: Tue, 24 Nov 2009 10:33:21 -0800
-Message-ID: <1259087601.2631.56.camel@ppwaskie-mobl2>
-References: <1258995923.4531.715.camel@laptop>
-	 <4B0B782A.4030901@linux.intel.com>	<1259051986.4531.1057.camel@laptop>
-	 <20091124.093956.247147202.davem@davemloft.net>
-	 <1259085412.2631.48.camel@ppwaskie-mobl2>  <4B0C2547.8030408@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/4] veth: move loopback logic to common location
+Date: Tue, 24 Nov 2009 19:38:28 +0100
+Message-ID: <4B0C2824.5010502@trash.net>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de>	<200911241002.20904.arnd@arndb.de> <4B0BB2A7.5040707@trash.net>	<200911241034.43961.arnd@arndb.de> <4B0BB818.6090509@trash.net>	<m1aaybc1s5.fsf@fess.ebiederm.org> <4B0C1031.4050803@trash.net> <m1aayb6bfg.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"yong.zhang0@gmail.com" <yong.zhang0@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	virtualization@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41191 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933901AbZKXSdP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 13:33:15 -0500
-In-Reply-To: <4B0C2547.8030408@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:42158 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933799AbZKXSiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 13:38:24 -0500
+In-Reply-To: <m1aayb6bfg.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-24 at 10:26 -0800, Eric Dumazet wrote:
-> Peter P Waskiewicz Jr a =C3=A9crit :
->  That's the kind of thing PJ is trying to make available.
-> >=20
-> > Yes, that's exactly what I'm trying to do.  Even further, we want t=
-o
-> > allocate the ring SW struct itself and descriptor structures on oth=
-er
-> > NUMA nodes, and make sure the interrupt lines up with those allocat=
-ions.
-> >=20
->=20
-> Say you allocate ring buffers on NUMA node of the CPU handling interr=
-upt
-> on a particular queue.
->=20
-> If irqbalance or an admin changes /proc/irq/{number}/smp_affinities,
-> do you want to realloc ring buffer to another NUMA node ?
->=20
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
+> 
+>> In the layered case (macvlan -> eth0) its common behaviour to
+>> keep the mark however. But in case of different namespaces,
+>> I think macvlan should also clear the mark on the dev_queue_xmit()
+>> path since this is just a shortcut to looping the packets
+>> through veth. In fact probably both of them should also clear
+>> skb->priority so other namespaces don't accidentally misclassify
+>> packets.
+> 
+> That is why I pushed for what is becoming dev_forward_skb.  So that
+> we have one place where we can make all of those tweaks.  It seems
+> like in every review we find another field that should be cleared/handled
+> specially.
+> 
+> I don't quite follow what you intend with dev_queue_xmit when the macvlan
+> is in one namespace and the real physical device is in another.  Are
+> you mentioning that the packet classifier runs in the namespace where
+> the primary device lives with packets from a different namespace?
 
-That's why I'm trying to add the node_affinity mechanism that irqbalanc=
-e
-can use to prevent the interrupt being moved to another node.
-
-> It seems complex to me, maybe optimal thing would be to use a NUMA po=
-licy to
-> spread vmalloc() allocations to all nodes to get a good bandwidth...
-
-That's exactly what we're doing in our 10GbE driver right now (isn't
-pushed upstream yet, still finalizing our testing).  We spread to all
-NUMA nodes in a semi-intelligent fashion when allocating our rings and
-buffers.  The last piece is ensuring the interrupts tied to the various
-queues all route to the NUMA nodes those CPUs belong to.  irqbalance
-needs some kind of hint to make sure it does the right thing, which
-today it does not.
-
-I don't see how this is complex though.  Driver loads, allocates across
-the NUMA nodes for optimal throughput, then writes CPU masks for the
-NUMA nodes each interrupt belongs to.  irqbalance comes along and looks
-at the new mask "hint," and then balances that interrupt within that
-hinted mask.
-
-Cheers,
--PJ
-
+Exactly. And I think we should make sure that the namespace of
+the macvlan device can't (deliberately or accidentally) cause
+misclassification.
