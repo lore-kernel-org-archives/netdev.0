@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
 	and big packets in virtio_net
-Date: Tue, 24 Nov 2009 18:04:00 +0200
-Message-ID: <20091124160359.GA6737@redhat.com>
+Date: Tue, 24 Nov 2009 18:04:39 +0200
+Message-ID: <20091124160439.GC6737@redhat.com>
 References: <1258697745.7416.20.camel@localhost.localdomain> <200911231138.30755.rusty@rustcorp.com.au> <1258992421.5022.19.camel@localhost.localdomain> <200911240854.24054.rusty@rustcorp.com.au> <20091124113754.GB2405@redhat.com> <4B0BEF70.5070104@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,10 +13,10 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Hollis Blanchard <hollisb@us.ibm.com>
 To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933451AbZKXQGk@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <4B0BEF70.5070104@codemonkey.ws>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, Nov 24, 2009 at 08:36:32AM -0600, Anthony Liguori wrote:
@@ -52,12 +52,22 @@ On Tue, Nov 24, 2009 at 08:36:32AM -0600, Anthony Liguori wrote:
 >> We do?  Let's just fix this?
 >>   
 >
-> So does lguest.  It's been that way since the beginning.  Fixing this  
+> So does lguest.
+
+It does? All I see it doing is writev/readv,
+and this passes things to tap which handles
+this correctly.
+
+
+>  It's been that way since the beginning.  Fixing this  
 > would result in breaking older guests.
 
-The patch you are replying to fixes this in a way that does not break older guests.
+If you look at my patch, it handles old guests just fine :).
 
 > We really need to introduce a feature bit if we want to change this.
+
+I am not sure I agree: we can't add feature bits
+for all bugs, can we?
 
 -- 
 MST
