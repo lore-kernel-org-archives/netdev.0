@@ -1,81 +1,96 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: icmp redirects problem
-Date: Tue, 24 Nov 2009 07:58:52 +0000
-Message-ID: <20091124075852.GA6170@ff.dom.local>
-References: <20091123043124.GA14795@samad.com.au> <4B0B058E.3050906@gmail.com> <20091124001230.GC14245@samad.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/4] macvlan: cleanup rx statistics
+Date: Tue, 24 Nov 2009 09:15:53 +0100
+Message-ID: <4B0B9639.4070607@gmail.com>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-3-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Alex Samad <alex@samad.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:49262 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757848AbZKXH6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 02:58:52 -0500
-Received: by fg-out-1718.google.com with SMTP id d23so2545041fga.1
-        for <netdev@vger.kernel.org>; Mon, 23 Nov 2009 23:58:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20091124001230.GC14245@samad.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	Anna Fischer <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org,
+	virtualization@lists.linux-foundation.org,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757920AbZKXIQl@vger.kernel.org>
+In-Reply-To: <1259024166-28158-3-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 24, 2009 at 11:12:30AM +1100, Alex Samad wrote:
-> On Mon, Nov 23, 2009 at 10:58:38PM +0100, Jarek Poplawski wrote:
-> > Alex Samad wrote, On 11/23/2009 05:31 AM:
-> > 
-> 
-> [snip]
-> 
-> > > 
-> > > laptop gets its ip from dchp server that make 192.168.11.1 the default
-> > > gateway and its 192.168.11.1 that sends out the icmp redirect.
-> > 
-> > Btw, it seems you should fix your routing (by adding sydrt01's eth0
-> > the second ip or advertising 192.168.11.10 more) to avoid those
-> > redirects.
-> 
-> sorry I am lost on this statement, I can't add 192.168.11.10 to sydrt01
-> as it is not physically connected to the 192.168.10.0/24 any more, which
-> is why I had added the route on sydrt01 and which is why it send
-> icmp_rediercts.
-> 
-> I have updated the route table on each static machine, but the problem
-> is on the machines that get their ip via dhcp - I haven't looked at
-> pushing out route information via dhcp - I am not sure that it would
-> work in a mixed windows / linux environment.
-> 
-> what do you mean by advertising 192.168.11.10 more ?
+Arnd Bergmann a =E9crit :
+> We have very similar code for rx statistics in
+> two places in the macvlan driver, with a third
+> one being added in the next patch.
+>=20
+> Consolidate them into one function to improve
+> overall readability of the driver.
+>=20
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/net/macvlan.c |   63 +++++++++++++++++++++++++--------------=
+---------
+>  1 files changed, 33 insertions(+), 30 deletions(-)
+>=20
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index ae2b5c7..a0dea23 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -116,42 +116,53 @@ static int macvlan_addr_busy(const struct macvl=
+an_port *port,
+>  	return 0;
+>  }
+> =20
+> +static inline void macvlan_count_rx(const struct macvlan_dev *vlan, =
+int length,
+> +			     int success, int multicast)
 
-I meant just what you've described, but wasn't sure of your config.
+success and multicast should be declared as bool
 
-> 
-> > 
-> > > 
-> > > I had a quick look at the kernel tree for 2.6.31 (which is what I am
-> > > using).
-> > 
-> > ...
-> > 
-> > > Line 680
-> > >  secure_redirects - BOOLEAN
-> > >  681         Accept ICMP redirect messages only for gateways,
-> > >  682         listed in default gateway list.
-> > >  683         secure_redirects for the interface will be enabled if at
-> > >  least one of
-> > >  684         conf/{all,interface}/secure_redirects is set to TRUE,
-> > >  685         it will be disabled otherwise
-> > >  686         default TRUE
-> > 
-> > Very helpful links. So, as you wrote "the documentation seems to suggest"
-> > something, and IMHO even if it doesn't, it's needlessly too concise
-> > considering your "lost time", and I'd suggest you sending a patch to fix
-> > this. (It seems it could "touch" shared_media, as well.)
-> 
-> Which is wrong the code or the documentation and which part the test or
-> the reliance on the shared_media or on the redirects flags
+> +{
+> +	struct macvlan_rx_stats *rx_stats;
+> +
+> +	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+> +	rx_stats->rx_packets +=3D success !=3D 0;
+> +	rx_stats->rx_bytes   +=3D success ? length : 0;
+> +	rx_stats->multicast  +=3D success && multicast;
+> +	rx_stats->rx_errors  +=3D !success;
+> +}
+> +
 
-The code looks consistent to me. The documentation isn't wrong either,
-until it only "seems to suggest", but it might be better, if it
-metioned just what you tested: both things depend on accept_redirects.
+I find following more readable, it probably generates more branches,
+but avoid dirtying rx_errors if it is in another cache line.
 
-Jarek P.
+if (likely(success)) {
+	rx_stats->rx_packets++;
+	rx_stats->rx_bytes +=3D length;
+	if (multicast)
+		rx_stats->multicast++;
+} else {
+	rx_stats->rx_errors++;
+}
+
+
+> -	rx_stats =3D per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+>  	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> -	if (skb =3D=3D NULL) {
+> -		rx_stats->rx_errors++;
+> -		return NULL;
+> -	}
+> -
+> -	rx_stats->rx_bytes +=3D skb->len + ETH_HLEN;
+> -	rx_stats->rx_packets++;
+> +	macvlan_count_rx(vlan, skb->len + ETH_HLEN, likely(skb !=3D NULL), =
+0);
+
+its not _likely_ that skb !=3D NULL, its a fact :)
+
+-> macvlan_count_rx(vlan, skb->len + ETH_HLEN, true, false);
