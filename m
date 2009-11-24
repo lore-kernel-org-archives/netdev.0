@@ -1,58 +1,77 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] igb: fix misinterpreted return value of pci_enable_msix
-Date: Tue, 24 Nov 2009 11:40:49 +0100
-Message-ID: <20091124104049.GB21600@Chamillionaire.breakpoint.cc>
-References: <4B0BB5FE.2000907@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/4] macvlan: cleanup rx statistics
+Date: Tue, 24 Nov 2009 11:41:38 +0100
+Message-ID: <4B0BB862.6070101@trash.net>
+References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <1259024166-28158-3-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <gospo@redhat.com>,
-	alexander.h.duyck@intel.com, davem@davemloft.net
-To: Stefan Assmann <sassmann@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:33950 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932687AbZKXKko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 05:40:44 -0500
-Content-Disposition: inline
-In-Reply-To: <4B0BB5FE.2000907@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick Mullaney <pmullaney@novell.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
+	Anna Fischer <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org,
+	virtualization@lists.linux-foundation.org,
+	Jens Osterkamp <jens@linux.vnet.ibm.com>,
+	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Mark Smith <lk-netdev@lk-netdev.nosense.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932723AbZKXKlg@vger.kernel.org>
+In-Reply-To: <1259024166-28158-3-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stefan Assmann <sassmann@redhat.com> wrote:
-> From: Stefan Assmann <sassmann@redhat.com>
-> 
-> In the igb driver a return value of 0 of function pci_enable_msix is
-> interpreted as an error case. The correct behaviour is to check < 0 for error
-> values.
-> 
-> Signed-off-by: Stefan Assmann <sassmann@redhat.com>
-> ---
->  drivers/net/igb/igb_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-> index bb1a6ee..745481d 100644
-> --- a/drivers/net/igb/igb_main.c
-> +++ b/drivers/net/igb/igb_main.c
-> @@ -694,7 +694,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter)
->  	err = pci_enable_msix(adapter->pdev,
->  			      adapter->msix_entries,
->  			      numvecs);
-> -	if (err == 0)
-> +	if (err < 0)
->  		goto out;
->
+Arnd Bergmann wrote:
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index ae2b5c7..a0dea23 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -116,42 +116,53 @@ static int macvlan_addr_busy(const struct macvlan_port *port,
+>  	return 0;
+>  }
+>  
+> +static inline void macvlan_count_rx(const struct macvlan_dev *vlan, int length,
 
-The existing code looks correct to me:
+Please use unsigned int for length values.
 
-      if (err == 0)
-            goto out;
+Regarding Eric's comments, I also think it would be more readable to use
+if (success) {
+	...
+} else {
+	...
+}
 
-      igb_reset_interrupt_capability(adapter);
+> +			     int success, int multicast)
+> +{
+> +	struct macvlan_rx_stats *rx_stats;
+> +
+> +	rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
+> +	rx_stats->rx_packets += success != 0;
+> +	rx_stats->rx_bytes   += success ? length : 0;
+> +	rx_stats->multicast  += success && multicast;
+> +	rx_stats->rx_errors  += !success;
+> +}
+> +
+> +static int macvlan_broadcast_one(struct sk_buff *skb, struct net_device *dev,
+> +				 const struct ethhdr *eth)
+> +{
+> +	if (!skb)
+> +		return NET_RX_DROP;
+> +
+> +	skb->dev = dev;
+> +	if (!compare_ether_addr_64bits(eth->h_dest,
+> +				       dev->broadcast))
 
-      /* If we can't do MSI-X, try MSI * */
-msi_only:
+This would fit on one line without reducing readability.
 
-
-so the "goto out" appears to be the "success" case.
+> +		skb->pkt_type = PACKET_BROADCAST;
+> +	else
+> +		skb->pkt_type = PACKET_MULTICAST;
+> +
+> +	return netif_rx(skb);
+> +}
