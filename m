@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH 04/10] ixgbe: remove skb_dma_map/unmap calls from driver
-Date: Tue, 24 Nov 2009 17:20:33 -0800
-Message-ID: <20091125012033.32704.89085.stgit@gitlad.jf.intel.com>
+Subject: [RFC PATCH 06/10] igbvf: remove skb_dma_map/unmap call from drivers
+Date: Tue, 24 Nov 2009 17:20:43 -0800
+Message-ID: <20091125012043.32704.15951.stgit@gitlad.jf.intel.com>
 References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,77 +11,72 @@ To: mcarlson@broadcom.com, mchan@broadcom.com,
 	sathyap@serverengines.com, subbus@serverengines.com,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54991 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1588 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934108AbZKYBUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 20:20:32 -0500
+	id S934156AbZKYBUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 20:20:50 -0500
 In-Reply-To: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes skb_dma_map/unmap calls from the ixgbe driver due to the
-fact that the calls don't work with HW IOMMU enabled systems.  The problem
-is that multiple mappings will give different results when HW IOMMU is
-enabled and the skb_dma_map/unmap calls only have one location to store
-mappings.
+This patch removes the skb_dma_map/unmap calls from the igbvf driver due to
+the fact that it does not play well with HW IOMMU when combined with
+transmitting cloned skbs.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe.h      |    1 +
- drivers/net/ixgbe/ixgbe_main.c |   63 +++++++++++++++++++++++++++++++---------
- 2 files changed, 50 insertions(+), 14 deletions(-)
+ drivers/net/igbvf/igbvf.h  |    1 +
+ drivers/net/igbvf/netdev.c |   65 +++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 52 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 6ebcc2c..4e7d1fc 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -123,6 +123,7 @@ struct ixgbe_tx_buffer {
- 	unsigned long time_stamp;
- 	u16 length;
- 	u16 next_to_watch;
-+	u16 mapped_as_page;
- };
- 
- struct ixgbe_rx_buffer {
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 9335352..d274d64 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -262,10 +262,20 @@ static void ixgbe_unmap_and_free_tx_resource(struct ixgbe_adapter *adapter,
-                                              struct ixgbe_tx_buffer
-                                              *tx_buffer_info)
+diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
+index 8e9b67e..3d1ee7a 100644
+--- a/drivers/net/igbvf/igbvf.h
++++ b/drivers/net/igbvf/igbvf.h
+@@ -117,6 +117,7 @@ struct igbvf_buffer {
+ 			unsigned long time_stamp;
+ 			u16 length;
+ 			u16 next_to_watch;
++			u16 mapped_as_page;
+ 		};
+ 		/* Rx */
+ 		struct {
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index e01f445..cf26f92 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -366,10 +366,20 @@ next_desc:
+ static void igbvf_put_txbuf(struct igbvf_adapter *adapter,
+                             struct igbvf_buffer *buffer_info)
  {
--	tx_buffer_info->dma = 0;
-+	if (tx_buffer_info->dma) {
-+		if (tx_buffer_info->mapped_as_page)
+-	buffer_info->dma = 0;
++	if (buffer_info->dma) {
++		if (buffer_info->mapped_as_page)
 +			pci_unmap_page(adapter->pdev,
-+				       tx_buffer_info->dma,
-+				       tx_buffer_info->length,
++				       buffer_info->dma,
++				       buffer_info->length,
 +				       PCI_DMA_TODEVICE);
 +		else
 +			pci_unmap_single(adapter->pdev,
-+					 tx_buffer_info->dma,
-+					 tx_buffer_info->length,
++					 buffer_info->dma,
++					 buffer_info->length,
 +					 PCI_DMA_TODEVICE);
-+		tx_buffer_info->dma = 0;
++		buffer_info->dma = 0;
 +	}
- 	if (tx_buffer_info->skb) {
--		skb_dma_unmap(&adapter->pdev->dev, tx_buffer_info->skb,
+ 	if (buffer_info->skb) {
+-		skb_dma_unmap(&adapter->pdev->dev, buffer_info->skb,
 -		              DMA_TO_DEVICE);
- 		dev_kfree_skb_any(tx_buffer_info->skb);
- 		tx_buffer_info->skb = NULL;
+ 		dev_kfree_skb_any(buffer_info->skb);
+ 		buffer_info->skb = NULL;
  	}
-@@ -5210,23 +5220,16 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
-                         struct sk_buff *skb, u32 tx_flags,
-                         unsigned int first)
+@@ -2088,27 +2098,24 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+                                    unsigned int first)
  {
+ 	struct igbvf_buffer *buffer_info;
 +	struct pci_dev *pdev = adapter->pdev;
- 	struct ixgbe_tx_buffer *tx_buffer_info;
- 	unsigned int len;
- 	unsigned int total = skb->len;
- 	unsigned int offset = 0, size, count = 0, i;
- 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	unsigned int len = skb_headlen(skb);
+ 	unsigned int count = 0, i;
  	unsigned int f;
 -	dma_addr_t *map;
  
@@ -94,59 +89,52 @@ index 9335352..d274d64 100644
 -
 -	map = skb_shinfo(skb)->dma_maps;
 -
- 	if (tx_flags & IXGBE_TX_FLAGS_FCOE)
- 		/* excluding fcoe_crc_eof for FCoE */
- 		total -= sizeof(struct fcoe_crc_eof);
-@@ -5237,7 +5240,12 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 		size = min(len, (uint)IXGBE_MAX_DATA_PER_TXD);
+ 	buffer_info = &tx_ring->buffer_info[i];
+ 	BUG_ON(len >= IGBVF_MAX_DATA_PER_TXD);
+ 	buffer_info->length = len;
+ 	/* set time_stamp *before* dma to help avoid a possible race */
+ 	buffer_info->time_stamp = jiffies;
+ 	buffer_info->next_to_watch = i;
+-	buffer_info->dma = skb_shinfo(skb)->dma_head;
++	buffer_info->dma = pci_map_single(pdev, skb->data, len,
++					  PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(pdev, buffer_info->dma))
++		goto dma_error;
++
  
- 		tx_buffer_info->length = size;
--		tx_buffer_info->dma = skb_shinfo(skb)->dma_head + offset;
-+		tx_buffer_info->mapped_as_page = false;
-+		tx_buffer_info->dma = pci_map_single(pdev,
-+						     skb->data + offset,
-+						     size, PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++) {
+ 		struct skb_frag_struct *frag;
+@@ -2125,14 +2132,44 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 		buffer_info->length = len;
+ 		buffer_info->time_stamp = jiffies;
+ 		buffer_info->next_to_watch = i;
+-		buffer_info->dma = map[count];
++		buffer_info->mapped_as_page = true;
++		buffer_info->dma = pci_map_page(pdev,
++						frag->page,
++						frag->page_offset,
++						len,
++						PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(pdev, buffer_info->dma))
 +			goto dma_error;
- 		tx_buffer_info->time_stamp = jiffies;
- 		tx_buffer_info->next_to_watch = i;
+ 		count++;
+ 	}
  
-@@ -5258,7 +5266,7 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
+ 	tx_ring->buffer_info[i].skb = skb;
+ 	tx_ring->buffer_info[first].next_to_watch = i;
  
- 		frag = &skb_shinfo(skb)->frags[f];
- 		len = min((unsigned int)frag->size, total);
--		offset = 0;
-+		offset = frag->page_offset;
- 
- 		while (len) {
- 			i++;
-@@ -5269,7 +5277,13 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 			size = min(len, (uint)IXGBE_MAX_DATA_PER_TXD);
- 
- 			tx_buffer_info->length = size;
--			tx_buffer_info->dma = map[f] + offset;
-+			tx_buffer_info->dma = pci_map_page(adapter->pdev,
-+							   frag->page,
-+							   offset, size,
-+							   PCI_DMA_TODEVICE);
-+			tx_buffer_info->mapped_as_page = true;
-+			if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
-+				goto dma_error;
- 			tx_buffer_info->time_stamp = jiffies;
- 			tx_buffer_info->next_to_watch = i;
- 
-@@ -5286,6 +5300,27 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 	tx_ring->tx_buffer_info[first].next_to_watch = i;
- 
- 	return count;
+-	return count + 1;
++	return ++count;
 +
 +dma_error:
 +	dev_err(&pdev->dev, "TX DMA map failed\n");
 +
-+	/* clear timestamp and dma mappings for failed tx_buffer_info map */
-+	tx_buffer_info->dma = 0;
-+	tx_buffer_info->time_stamp = 0;
-+	tx_buffer_info->next_to_watch = 0;
++	/* clear timestamp and dma mappings for failed buffer_info mapping */
++	buffer_info->dma = 0;
++	buffer_info->time_stamp = 0;
++	buffer_info->length = 0;
++	buffer_info->next_to_watch = 0;
++	buffer_info->mapped_as_page = false;
 +	count--;
 +
 +	/* clear timestamp and dma mappings for remaining portion of packet */
@@ -155,12 +143,12 @@ index 9335352..d274d64 100644
 +		i--;
 +		if (i < 0)
 +			i += tx_ring->count;
-+		tx_buffer_info = &tx_ring->tx_buffer_info[i];
-+		ixgbe_unmap_and_free_tx_resource(adapter, tx_buffer_info);
++		buffer_info = &tx_ring->buffer_info[i];
++		igbvf_put_txbuf(adapter, buffer_info);
 +	}
 +
-+	return count;
++	return 0;
  }
  
- static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+ static inline void igbvf_tx_queue_adv(struct igbvf_adapter *adapter,
 
