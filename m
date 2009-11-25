@@ -1,129 +1,66 @@
-From: Grant Grundler <grundler@google.com>
-Subject: Re: dmfe/tulip device id overlap
-Date: Wed, 25 Nov 2009 09:24:54 -0800
-Message-ID: <da824cf30911250924i31f77033r7f60027ed74b2cd@mail.gmail.com>
-References: <20091125043603.GK14043@jenkins.home.ifup.org>
-	 <20091125044944.GL14043@jenkins.home.ifup.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [RFC PATCH 00/10] Remove skb_dma_map/unmap calls
+Date: Wed, 25 Nov 2009 09:25:33 -0800
+Message-ID: <4B0D688D.4020904@intel.com>
+References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com> <20091125113050.GA19837@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tobias Ringstrom <tobias@ringis.se>,
-	Kyle McMartin <kyle@mcmartin.ca>, davem@davemloft.net,
-	netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>
-To: Brandon Philips <brandon@ifup.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "mcarlson@broadcom.com" <mcarlson@broadcom.com>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"sathyap@serverengines.com" <sathyap@serverengines.com>,
+	"subbus@serverengines.com" <subbus@serverengines.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ajit Khaparde <ajitk@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:35170 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759441AbZKYRZC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 12:25:02 -0500
-Received: from spaceape10.eur.corp.google.com (spaceape10.eur.corp.google.com [172.28.16.144])
-	by smtp-out.google.com with ESMTP id nAPHOx7u013991
-	for <netdev@vger.kernel.org>; Wed, 25 Nov 2009 09:25:01 -0800
-Received: from ey-out-2122.google.com (eye22.prod.google.com [10.208.5.22])
-	by spaceape10.eur.corp.google.com with ESMTP id nAPHOslt004334
-	for <netdev@vger.kernel.org>; Wed, 25 Nov 2009 09:24:55 -0800
-Received: by ey-out-2122.google.com with SMTP id 22so732348eye.15
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2009 09:24:54 -0800 (PST)
-In-Reply-To: <20091125044944.GL14043@jenkins.home.ifup.org>
+Received: from mga09.intel.com ([134.134.136.24]:58404 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759284AbZKYRZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2009 12:25:28 -0500
+In-Reply-To: <20091125113050.GA19837@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 24, 2009 at 8:49 PM, Brandon Philips <brandon@ifup.org> wro=
-te:
-> Adding Tobias and Grant under (hopefully) working email addresses.
->
-> Can you please submit patches to update MAINTAINERS with your
-> preferred email?
+Ajit Khaparde wrote:
+> On 24/11/09 17:20 -0800, Alexander Duyck wrote:
+>> This patch series removes the skb_dma_map and skb_dma_unmap function calls.
+>> The reason for this change is because the use of skb_dma_map/unmap can lead
+>> to serious issues when HW IOMMU is enabled.  This is because each mapping
+>> of the skb with a HW IOMMU enabled results in a new set of DMA mappings.
+>> This in turn leads to issues when skbs are cloned for uses such as
+>> bridging or pktgen because each transmitting device will update the skb
+>> shared info structure resulting in some mappings being overwritten, and others
+>> being freed multiple times.
+> 
+> If this is the case can the members related to the dma mapping stuff
+> (skb_shinfo(skb)->dma_maps) be moved out of this shared info structure and
+> we retain this "good" abstraction provided by this skb_dma_map/unmap api?
 
-grundler@parisc-linux.org is my preferred email for tulip driver
-issues. Is that bouncing? :(
+I had submitted a patch on November 5th that tried to move the maps out 
+of the shared info structure and into the sk_buff itself.  That was 
+rejected and it was suggested to go back to what was there before since 
+not enough drivers were using the skb_dma_map/unmap calls to justify 
+increasing the size of an sk_buff.
 
+The biggest issue is that you end up needing to retain a copy of the DMA 
+mapping output each time it is called and so the easiest place to retain 
+the information is within the transmit buffer driver specific data 
+structure.
 
-> On 20:36 Tue 24 Nov 2009, Brandon Philips wrote:
->> Hello All-
+>> I am looking for input specifically on the tg3, be2net, and bnx2 driver
+>> patches as I am not very familiar with them and I am not certain if
+>> additional changes are required.
+> 
+>>       be2net: remove use of skb_dma_map/unmap
 >>
->> dmfe and tulip have an overlap of device IDs and it has been discuss=
-ed
->> before without resolution[1][2].
->>
->> The device ID in particular is:
->>
->> =C2=A0 =C2=A0 =C2=A0 { 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- DM910X },
->> =C2=A0 =C2=A0 =C2=A0 { 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- DM910X },
->>
->> Users of Fedora[3] and openSUSE[4] are feeling pain from this but
->> Ubuntu users are avoiding the issue do to the patch below.
->>
->> This patch comes almost directly from the discussion on the
->> linux-sparc thread[2]. So, can we merge that patch? Or can one of th=
-e
->> maintainers come up with a less hacky solution (e.g. fix tulip)?
+>>  drivers/net/benet/be_main.c    |   37 ++++++---
+> 
+> We have pulled the be2net specific patch for testing and review.
+> We will send an update once done with it.
+> 
+> -Ajit
 
-I'm totally ok with "clipping" the DMFE ids so tulip and dmfe drivers
-have no overlap. I just can't test it since I don't have those cards.
-It sounds like people know which driver works on sparc.
+Thanks for taking a look at this.
 
-
->>
->> Cheers,
->>
->> =C2=A0 =C2=A0 =C2=A0 Brandon
->>
->> [1] http://www.mail-archive.com/debian-sparc@lists.debian.org/msg216=
-47.html
->> [2] http://marc.info/?l=3Dlinux-sparc&m=3D123698905214250&w=3D2
->> [3] https://bugzilla.redhat.com/show_bug.cgi?id=3D277731
->> [4] https://bugzilla.novell.com/show_bug.cgi?id=3D537016
->>
->> From: Ben Collins <bcollins@ubuntu.com>
->> Date: Wed, 18 Jul 2007 17:48:25 +0000 (-0400)
->> Subject: UBUNTU: SAUCE: tulip: Let dmfe handle davicom on non-sparc
->> X-Git-Tag: Ubuntu-2.6.31-10.31~680
->> X-Git-Url: http://kernel.ubuntu.com/git?p=3Dubuntu%2Fubuntu-karmic.g=
-it;a=3Dcommitdiff_plain;h=3D886595ab493b5c5fcf23b55b3ebf46bfe219a5d0
->>
->> UBUNTU: SAUCE: tulip: Let dmfe handle davicom on non-sparc
->>
->> Signed-off-by: Ben Collins <ben.collins@canonical.com>
-
-I'm ok with this patch except the mention of Ubuntu in the comment is
-superfluous. All the distro's will share this problem. I trust davem
-to rewrite the comment and plase add my:
-    Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-
-cheers,
-grant
-
->> ---
->>
->> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tuli=
-p_core.c
->> index 4cf9a65..b75f65c 100644
->> --- a/drivers/net/tulip/tulip_core.c
->> +++ b/drivers/net/tulip/tulip_core.c
->> @@ -228,8 +228,12 @@ static struct pci_device_id tulip_pci_tbl[] =3D=
- {
->> =C2=A0 =C2=A0 =C2=A0 { 0x1259, 0xa120, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- COMET },
->> =C2=A0 =C2=A0 =C2=A0 { 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- COMPEX9881 },
->> =C2=A0 =C2=A0 =C2=A0 { 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- I21145 },
->> + =C2=A0 =C2=A0 /* Ubuntu: On non-sparc, this seems to be handled be=
-tter by the
->> + =C2=A0 =C2=A0 =C2=A0* dmfe driver. */
->> +#ifdef __sparc__
->> =C2=A0 =C2=A0 =C2=A0 { 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- DM910X },
->> =C2=A0 =C2=A0 =C2=A0 { 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- DM910X },
->> +#endif
->> =C2=A0 =C2=A0 =C2=A0 { 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- COMET },
->> =C2=A0 =C2=A0 =C2=A0 { 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- MX98715 },
->> =C2=A0 =C2=A0 =C2=A0 { 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0,=
- COMET },
->
+Alex
