@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH 00/10] Remove skb_dma_map/unmap calls
-Date: Tue, 24 Nov 2009 17:20:12 -0800
-Message-ID: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
+Subject: [RFC PATCH 02/10] e1000: remove use of skb_dma_map from e1000 driver
+Date: Tue, 24 Nov 2009 17:20:23 -0800
+Message-ID: <20091125012023.32704.43402.stgit@gitlad.jf.intel.com>
+References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,65 +11,143 @@ To: mcarlson@broadcom.com, mchan@broadcom.com,
 	sathyap@serverengines.com, subbus@serverengines.com,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:1232 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:62053 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933738AbZKYBUH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 20:20:07 -0500
+	id S933891AbZKYBUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 20:20:17 -0500
+In-Reply-To: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series removes the skb_dma_map and skb_dma_unmap function calls.
-The reason for this change is because the use of skb_dma_map/unmap can lead
-to serious issues when HW IOMMU is enabled.  This is because each mapping
-of the skb with a HW IOMMU enabled results in a new set of DMA mappings.
-This in turn leads to issues when skbs are cloned for uses such as
-bridging or pktgen because each transmitting device will update the skb
-shared info structure resulting in some mappings being overwritten, and others
-being freed multiple times.
+Remove the use of skb_dma_map from the e1000 driver in order to avoid
+issues when HW iommu are in use.
 
-I am looking for input specifically on the tg3, be2net, and bnx2 driver
-patches as I am not very familiar with them and I am not certain if
-additional changes are required.
-
-I have included the changes for the Intel wired Ethernet drivers as a
-reference.
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
-Alexander Duyck (10):
-      skbuff: remove skb_dma_map/unmap
-      tg3: remove use of skb_dma_map/unmap
-      be2net: remove use of skb_dma_map/unmap
-      bnx2: remove skb_dma_map/unmap calls from driver
-      igbvf: remove skb_dma_map/unmap call from drivers
-      igb: remove use of skb_dma_map from driver
-      ixgbe: remove skb_dma_map/unmap calls from driver
-      ixgb: remove use of skb_dma_map from ixgb
-      e1000: remove use of skb_dma_map from e1000 driver
-      e1000e: remove use of skb_dma_map from e1000e driver
+ drivers/net/e1000/e1000.h      |    1 +
+ drivers/net/e1000/e1000_main.c |   56 +++++++++++++++++++++++++++++-----------
+ 2 files changed, 41 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index a566528..2a567df 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -167,6 +167,7 @@ struct e1000_buffer {
+ 	unsigned long time_stamp;
+ 	u16 length;
+ 	u16 next_to_watch;
++	u16 mapped_as_page;
+ };
+ 
+ struct e1000_tx_ring {
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index c938114..b9d86f8 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1839,10 +1839,17 @@ void e1000_free_all_tx_resources(struct e1000_adapter *adapter)
+ static void e1000_unmap_and_free_tx_resource(struct e1000_adapter *adapter,
+ 					     struct e1000_buffer *buffer_info)
+ {
+-	buffer_info->dma = 0;
++	if (buffer_info->dma) {
++		if (buffer_info->mapped_as_page)
++			pci_unmap_page(adapter->pdev, buffer_info->dma,
++				       buffer_info->length, PCI_DMA_TODEVICE);
++		else
++			pci_unmap_single(adapter->pdev,	buffer_info->dma,
++					 buffer_info->length,
++					 PCI_DMA_TODEVICE);
++		buffer_info->dma = 0;
++	}
+ 	if (buffer_info->skb) {
+-		skb_dma_unmap(&adapter->pdev->dev, buffer_info->skb,
+-		              DMA_TO_DEVICE);
+ 		dev_kfree_skb_any(buffer_info->skb);
+ 		buffer_info->skb = NULL;
+ 	}
+@@ -2683,22 +2690,14 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 			unsigned int mss)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
+ 	struct e1000_buffer *buffer_info;
+ 	unsigned int len = skb_headlen(skb);
+-	unsigned int offset, size, count = 0, i;
++	unsigned int offset = 0, size, count = 0, i;
+ 	unsigned int f;
+-	dma_addr_t *map;
+ 
+ 	i = tx_ring->next_to_use;
+ 
+-	if (skb_dma_map(&adapter->pdev->dev, skb, DMA_TO_DEVICE)) {
+-		dev_err(&adapter->pdev->dev, "TX DMA map failed\n");
+-		return 0;
+-	}
+-
+-	map = skb_shinfo(skb)->dma_maps;
+-	offset = 0;
+-
+ 	while (len) {
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		size = min(len, max_per_txd);
+@@ -2735,7 +2734,11 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 		buffer_info->length = size;
+ 		/* set time_stamp *before* dma to help avoid a possible race */
+ 		buffer_info->time_stamp = jiffies;
+-		buffer_info->dma = skb_shinfo(skb)->dma_head + offset;
++		buffer_info->mapped_as_page = false;
++		buffer_info->dma = pci_map_single(pdev,	skb->data + offset,
++						  size,	PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(pdev, buffer_info->dma))
++			goto dma_error;
+ 		buffer_info->next_to_watch = i;
+ 
+ 		len -= size;
+@@ -2753,7 +2756,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = frag->size;
+-		offset = 0;
++		offset = frag->page_offset;
+ 
+ 		while (len) {
+ 			i++;
+@@ -2777,7 +2780,12 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 
+ 			buffer_info->length = size;
+ 			buffer_info->time_stamp = jiffies;
+-			buffer_info->dma = map[f] + offset;
++			buffer_info->mapped_as_page = true;
++			buffer_info->dma = pci_map_page(pdev, frag->page,
++							offset,	size,
++							PCI_DMA_TODEVICE);
++			if (pci_dma_mapping_error(pdev, buffer_info->dma))
++				goto dma_error;
+ 			buffer_info->next_to_watch = i;
+ 
+ 			len -= size;
+@@ -2790,6 +2798,22 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 	tx_ring->buffer_info[first].next_to_watch = i;
+ 
+ 	return count;
++
++dma_error:
++	dev_err(&pdev->dev, "TX DMA map failed\n");
++	buffer_info->dma = 0;
++	count--;
++
++	while (count >= 0) {
++		count--;
++		i--;
++		if (i < 0)
++			i += tx_ring->count;
++		buffer_info = &tx_ring->buffer_info[i];
++		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
++	}
++
++	return 0;
+ }
+ 
+ static void e1000_tx_queue(struct e1000_adapter *adapter,
 
- drivers/net/benet/be_main.c    |   37 ++++++---
- drivers/net/bnx2.c             |   74 ++++++++++++++---
- drivers/net/bnx2.h             |    1 
- drivers/net/e1000/e1000.h      |    1 
- drivers/net/e1000/e1000_main.c |   56 +++++++++----
- drivers/net/e1000e/e1000.h     |    9 +-
- drivers/net/e1000e/netdev.c    |   59 +++++++++-----
- drivers/net/igb/igb.h          |    5 +
- drivers/net/igb/igb_main.c     |   69 ++++++++++++----
- drivers/net/igbvf/igbvf.h      |    1 
- drivers/net/igbvf/netdev.c     |   65 ++++++++++++---
- drivers/net/ixgb/ixgb.h        |    1 
- drivers/net/ixgb/ixgb_main.c   |   60 +++++++++-----
- drivers/net/ixgbe/ixgbe.h      |    1 
- drivers/net/ixgbe/ixgbe_main.c |   63 +++++++++++----
- drivers/net/tg3.c              |  173 ++++++++++++++++++++++++++++++----------
- drivers/net/tg3.h              |    6 -
- include/linux/skbuff.h         |    8 --
- net/core/Makefile              |    1 
- net/core/skb_dma_map.c         |   65 ---------------
- 20 files changed, 508 insertions(+), 247 deletions(-)
- delete mode 100644 net/core/skb_dma_map.c
-
--- 
