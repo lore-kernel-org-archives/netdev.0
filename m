@@ -1,42 +1,46 @@
-From: Franco Fichtner <franco@lastsummer.de>
-Subject: Re: [PATCH 10/38] don't wrap mlx4_remove_one in __devexit_p
-Date: Wed, 25 Nov 2009 10:19:01 +0100
-Message-ID: <4B0CF685.6060208@lastsummer.de>
-References: <1259096853-18909-1-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-2-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-3-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-4-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-5-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-6-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-7-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-8-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-9-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-10-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] ethtool: Add Direct Attach support to
+	connector port reporting
+Date: Wed, 25 Nov 2009 02:11:30 -0800
+Message-ID: <20091125101128.24430.89112.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Roland Dreier <rolandd@cisco.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Yang Hongyang <yanghy@cn.fujitsu.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Eli Cohen <eli@mellanox.co.il>, netdev@vger.kernel.org
-To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-	<u.kleine-koenig@pengutronix.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758555AbZKYJvx@vger.kernel.org>
-In-Reply-To: <1259096853-18909-10-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net, jeff@garzik.org, shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:43349
+	"EHLO QMTA14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758492AbZKYKLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 05:11:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Uwe Kleine-K=C3=B6nig wrote:
-> diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-> index 291a505..a581860 100644
-> --- a/drivers/net/mlx4/main.c
-> +++ b/drivers/net/mlx4/main.c
-> @@ -1293,7 +1293,7 @@ static struct pci_driver mlx4_driver =3D {
->  	.name		=3D DRV_NAME,
->  	.id_table	=3D mlx4_pci_table,
->  	.probe		=3D mlx4_init_one,
-> -	.remove		=3D __devexit_p(mlx4_remove_one)
-> +	.remove		=3D mlx4_remove_one
->  =20
-You may want to add the trailing comma while you're at it...
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
->  };
-> =20
->  static int __init mlx4_verify_params(void)
->  =20
+This patch allows a base driver to specify Direct Attach as the
+type of port through the ethtool interface.
 
-f
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ include/linux/ethtool.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index edd03b7..bcaa0e0 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -631,6 +631,8 @@ struct ethtool_ops {
+ #define PORT_MII		0x02
+ #define PORT_FIBRE		0x03
+ #define PORT_BNC		0x04
++#define PORT_DA			0x05
++#define PORT_NONE		0xef
+ #define PORT_OTHER		0xff
+ 
+ /* Which transceiver to use. */
+
