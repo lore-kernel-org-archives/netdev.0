@@ -1,36 +1,57 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: Re: [PATCH v2 0/7] via-velocity performance fixes
-Date: Wed, 25 Nov 2009 08:39:43 +0100
-Message-ID: <20091125083943.2ec05b70@marrow.netinsight.se>
-References: <20091120160633.77b7aee0@marrow.netinsight.se>
-	<20091123152724.2871cf4d@marrow.netinsight.se>
-	<20091124.121339.226248026.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [rfc 1/3 v2] [E1000-devel] [rfc 1/4] igb: Add igb_cleanup_vf()
+Date: Tue, 24 Nov 2009 23:40:36 -0800
+Message-ID: <9929d2390911242340t2e639719kc5ed80725f74a31d@mail.gmail.com>
+References: <20091125063213.203372240@vergenet.net>
+	 <20091125063530.796967189@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, shemminger@vyatta.com,
-	romieu@fr.zoreil.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Arnd Bergmann <arndbergmann@googlemail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:38232 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1758423AbZKYHjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 02:39:40 -0500
-In-Reply-To: <20091124.121339.226248026.davem@davemloft.net>
+Received: from mail-px0-f180.google.com ([209.85.216.180]:60682 "EHLO
+	mail-px0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448AbZKYHk3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 02:40:29 -0500
+Received: by pxi10 with SMTP id 10so5559433pxi.33
+        for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 23:40:36 -0800 (PST)
+In-Reply-To: <20091125063530.796967189@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Nov 2009 12:13:39 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Tue, Nov 24, 2009 at 22:32, Simon Horman <horms@verge.net.au> wrote:
+> Move virtual finction cleanup code into igb_cleanup_vf() and for the =
+sake
+> of symmetry rename igb_probe_vfs() as igb_init_vf().
+>
+> Although these functions aren't entirely symmetrical it should aid
+> maintenance by making the relationship between initialisation and cle=
+anup
+> more obvious.
+>
+> Note that there appears to be no way for adapter->vfs_allocated_count=
+ to be
+> non-zero for the case where CONFIG_PCI_IOV is not set, so reseting th=
+is
+> value was moved to inside the relvant #ifdef.
+>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+>
+> ---
+> Thu, 05 Nov 2009 11:58:48 +1100
+> * Initial post
+>
+> Wed, 25 Nov 2009 15:43:45 +1100
+> * Actually remove adapter->vfs_allocated_count =3D 0 from outside of
+> =C2=A0igb_cleanup_vf()
+> * Up-port to current net-next
 
-> Simon I'm still waiting for you to fix the transmit function return
-> value problems I pointed out in patch #5.
-> 
-> Please get to this so I can apply your patches.
+Thanks Simon and congrats on the new addition!  I have added this
+three patch series to my tree for review and testing.
 
-Sorry, I missed that comment. I only subscribed to netdev after having
-sent out the patches, so I didn't get that reply. I've looked it up now
-(and I'm subscribed now!), so I'll send out a new version.
-
-Thanks,
-// Simon
+--=20
+Cheers,
+Jeff
