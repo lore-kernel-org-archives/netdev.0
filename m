@@ -1,75 +1,67 @@
-From: Brandon Philips <brandon@ifup.org>
-Subject: dmfe/tulip device id overlap
-Date: Tue, 24 Nov 2009 20:36:03 -0800
-Message-ID: <20091125043603.GK14043@jenkins.home.ifup.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/4] ixgbe: handle parameters for tx and rx EITR,
+	no div0
+Date: Tue, 24 Nov 2009 20:51:06 -0800
+Message-ID: <20091125045059.23932.10997.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tobias Ringstrom <tori@unhappy.mine.nu>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	Kyle McMartin <kyle@mcmartin.ca>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:58982 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932739AbZKYEgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 23:36:01 -0500
-Received: by pzk1 with SMTP id 1so5325921pzk.33
-        for <netdev@vger.kernel.org>; Tue, 24 Nov 2009 20:36:08 -0800 (PST)
-Content-Disposition: inline
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:58702
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934503AbZKYEvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Nov 2009 23:51:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello All-
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-dmfe and tulip have an overlap of device IDs and it has been discussed
-before without resolution[1][2].
+The driver was doing a divide by zero when adjusting tx-usecs.
+This patch removes the divide by zero code and changes the logic slightly
+to ignore tx-usecs in the case of shared TxRx vectors.
 
-The device ID in particular is:
-
-	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-
-Users of Fedora[3] and openSUSE[4] are feeling pain from this but
-Ubuntu users are avoiding the issue do to the patch below.
-
-This patch comes almost directly from the discussion on the
-linux-sparc thread[2]. So, can we merge that patch? Or can one of the
-maintainers come up with a less hacky solution (e.g. fix tulip)?
-
-Cheers,
-
-	Brandon
-
-[1] http://www.mail-archive.com/debian-sparc@lists.debian.org/msg21647.html
-[2] http://marc.info/?l=linux-sparc&m=123698905214250&w=2
-[3] https://bugzilla.redhat.com/show_bug.cgi?id=277731
-[4] https://bugzilla.novell.com/show_bug.cgi?id=537016
-
-From: Ben Collins <bcollins@ubuntu.com>
-Date: Wed, 18 Jul 2007 17:48:25 +0000 (-0400)
-Subject: UBUNTU: SAUCE: tulip: Let dmfe handle davicom on non-sparc
-X-Git-Tag: Ubuntu-2.6.31-10.31~680
-X-Git-Url: http://kernel.ubuntu.com/git?p=ubuntu%2Fubuntu-karmic.git;a=commitdiff_plain;h=886595ab493b5c5fcf23b55b3ebf46bfe219a5d0
-
-UBUNTU: SAUCE: tulip: Let dmfe handle davicom on non-sparc
-
-Signed-off-by: Ben Collins <ben.collins@canonical.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index 4cf9a65..b75f65c 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -228,8 +228,12 @@ static struct pci_device_id tulip_pci_tbl[] = {
- 	{ 0x1259, 0xa120, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
- 	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
-+	/* Ubuntu: On non-sparc, this seems to be handled better by the
-+	 * dmfe driver. */
-+#ifdef __sparc__
- 	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
- 	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-+#endif
- 	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
- 	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+ drivers/net/ixgbe/ixgbe_ethtool.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 84ab4db..a5ca289 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -1972,6 +1972,10 @@ static int ixgbe_get_coalesce(struct net_device *netdev,
+ 		break;
+ 	}
+ 
++	/* if in mixed tx/rx queues per vector mode, report only rx settings */
++	if (adapter->q_vector[0]->txr_count && adapter->q_vector[0]->rxr_count)
++		return 0;
++
+ 	/* only valid if in constant ITR mode */
+ 	switch (adapter->tx_itr_setting) {
+ 	case 0:
+@@ -1997,12 +2001,9 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 	struct ixgbe_q_vector *q_vector;
+ 	int i;
+ 
+-	/*
+-	 * don't accept tx specific changes if we've got mixed RxTx vectors
+-	 * test and jump out here if needed before changing the rx numbers
+-	 */
+-	if ((1000000/ec->tx_coalesce_usecs) != adapter->tx_eitr_param &&
+-	    adapter->q_vector[0]->txr_count && adapter->q_vector[0]->rxr_count)
++	/* don't accept tx specific changes if we've got mixed RxTx vectors */
++	if (adapter->q_vector[0]->txr_count && adapter->q_vector[0]->rxr_count
++	   && ec->tx_coalesce_usecs)
+ 		return -EINVAL;
+ 
+ 	if (ec->tx_max_coalesced_frames_irq)
+
