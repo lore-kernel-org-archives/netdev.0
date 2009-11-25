@@ -1,50 +1,36 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter irqbalance hints
-Date: Wed, 25 Nov 2009 12:50:19 +0100
-Message-ID: <20091125115019.GG29096@one.firstfloor.org>
-References: <20091124.093956.247147202.davem@davemloft.net> <1259085412.2631.48.camel@ppwaskie-mobl2> <4B0C2547.8030408@gmail.com> <20091124.105442.06273019.davem@davemloft.net> <4B0C2CCA.6030006@gmail.com> <87iqczwtia.fsf@basil.nowhere.org> <4B0C4624.9080607@gmail.com> <4B0D0742.2050301@gmail.com> <20091125103713.GF29096@one.firstfloor.org> <4B0D1667.8050506@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] xfrm: Custom truncation lengths for authentication
+	algorithms
+Date: Wed, 25 Nov 2009 20:10:39 +0800
+Message-ID: <20091125121038.GA28385@gondor.apana.org.au>
+References: <cover.1259142145.git.martin@strongswan.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, peterz@infradead.org,
-	arjan@linux.intel.com, yong.zhang0@gmail.com,
-	linux-kernel@vger.kernel.org, arjan@linux.jf.intel.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934521AbZKYLuS@vger.kernel.org>
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Martin Willi <martin@strongswan.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4B0D1667.8050506@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <cover.1259142145.git.martin@strongswan.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 25, 2009 at 12:35:03PM +0100, Eric Dumazet wrote:
-> > You seem to only have 8 CPUs (one socket) Normally a dual socket nehalem
-> > should have 16 with HyperThreading enabled.
-> > 
-> > For some reason the BIOS is not reporting the other CPU.
-> > 
-> > You could double check with acpidmp / iasl -d if that's
-> > what the BIOS really reports, but normally it should work.
-> > 
+On Wed, Nov 25, 2009 at 11:29:50AM +0100, Martin Willi wrote:
+> The following patchset adds support for defining truncation lengths
+> for authentication algorithms in userspace. The main purpose for this
+> is to support SHA256 in IPsec using the standardized 128 bit
+> instead of the currently used 96 bit truncation.
 > 
-> Good Lord, I had a CONFIG_NR_CPUS=16 in my .config.
+> Martin Willi (3):
+>   xfrm: Define new XFRM netlink auth attribute with specified
+>     truncation bits
+>   xfrm: Store aalg in xfrm_state with a user specified truncation
+>     length
+>   xfrm: Use the user specified truncation length in ESP and AH
 
-That should be enough for a two socket (2S x 4C x 2T) today,
-but of course that will eventually change too.
-
-> Changing to to 32 or 64 seems better :)
-
-That looks weird. It should have worked with CONFIG_NR_CPUS==16 too,
-because you only have 16 CPUs and the NR_CPUS should affect APIC
-ranges etc.
-
-Something still fishy. I would properly report it.
-
-BTW kernel should give some error message in any case when
-there are not enough CPUs I guess. 
-
--Andi
-
+Looks great to me.  Thanks Martin!
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
