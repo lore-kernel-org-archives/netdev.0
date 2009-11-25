@@ -1,50 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: how expensive are mallocs?
-Date: Wed, 25 Nov 2009 15:18:46 -0800 (PST)
-Message-ID: <20091125.151846.106903149.davem@davemloft.net>
-References: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 1/3 v2] [E1000-devel] [rfc 1/4] igb: Add igb_cleanup_vf()
+Date: Thu, 26 Nov 2009 10:26:16 +1100
+Message-ID: <20091125232615.GM4794@verge.net.au>
+References: <20091125063213.203372240@vergenet.net>
+ <20091125063530.796967189@vergenet.net>
+ <4B0DAF55.4060400@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andy.grover@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Arnd Bergmann <arndbergmann@googlemail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49494
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934752AbZKYXS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 18:18:28 -0500
-In-Reply-To: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:53284 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759042AbZKYX0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 18:26:10 -0500
+Content-Disposition: inline
+In-Reply-To: <4B0DAF55.4060400@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Grover <andy.grover@gmail.com>
-Date: Tue, 24 Nov 2009 09:57:34 -0800
-
-> How much effort generally makes sense to avoid mallocs? For example,
-> rds has a function that does a kmalloc for an array of scatterlist
-> entries, which is freed at the bottom of the function. We couldn't
-> allocate off the stack in all cases (too big), but we could allocate
-> an array of say 8 scatterlists, and use it if that's big enough,
-> falling back to kmalloc if it's not.
+On Wed, Nov 25, 2009 at 02:27:33PM -0800, Alexander Duyck wrote:
+> Simon Horman wrote:
+> >Move virtual finction cleanup code into igb_cleanup_vf() and for the sake
+> >of symmetry rename igb_probe_vfs() as igb_init_vf().
+> >
+> >Although these functions aren't entirely symmetrical it should aid
+> >maintenance by making the relationship between initialisation and cleanup
+> >more obvious.
+> >
+> >Note that there appears to be no way for adapter->vfs_allocated_count to be
+> >non-zero for the case where CONFIG_PCI_IOV is not set, so reseting this
+> >value was moved to inside the relvant #ifdef.
+> >
+> >Signed-off-by: Simon Horman <horms@verge.net.au>
 > 
-> Is this a good idea?
+> The one thing I noticed with this patch is that it didn't remove the
+> vf cleanup from igb_remove.  You may want to go back and also add
+> the replacement of that function with igb_cleanup_vf to this patch.
 
-This is a poor idea, especially if this function executes frequently.
-
-Better to have a per-socket or per-cpu (softirq protected, if
-necessary) work area to do such things if you really can't fit it on
-the stack.
-
-> Also, RDS has its own per-cpu page remainder allocator (see
-> net/rds/page.c) for kernel send buffers. Would cutting this code and
-> just using kmalloc be recommended? Doesn't SL?B already do per-cpu
-> pools?
-> 
-> Does this stuff even matter enough to rise above the noise in benchmarks?
-
-We already have a per-socket page allocation scheme for sendmsg handling.
-
-In general adding more and more specialized allocators is heavily
-discouraged.  If the generic kernel facilities don't fit the bill,
-fix them.
+Ooops, yes that would be a good idea.
+I'll send a revised patch after testing it.
 
