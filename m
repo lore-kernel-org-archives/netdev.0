@@ -1,50 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next-2.6] ixgbe: Fix TX stats accounting
-Date: Wed, 25 Nov 2009 01:38:19 -0800
-Message-ID: <9929d2390911250138n4855aebas151776df92388aea@mail.gmail.com>
-References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
-	 <Pine.WNT.4.64.0911231525180.10056@ppwaskie-MOBL2.amr.corp.intel.com>
-	 <4B0B8F52.3010005@gmail.com> <1259053673.2631.30.camel@ppwaskie-mobl2>
-	 <4B0BADA6.7080602@gmail.com> <1259057164.2631.36.camel@ppwaskie-mobl2>
-	 <4B0BC56D.1000909@gmail.com> <4B0BDE3E.2020406@gmail.com>
-	 <9929d2390911242338m6c4b322dod7a8af4c3c386d56@mail.gmail.com>
-	 <4B0CF974.2070702@gmail.com>
+From: Franco Fichtner <franco@lastsummer.de>
+Subject: Re: [PATCH 10/38] don't wrap mlx4_remove_one in __devexit_p
+Date: Wed, 25 Nov 2009 10:19:01 +0100
+Message-ID: <4B0CF685.6060208@lastsummer.de>
+References: <1259096853-18909-1-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-2-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-3-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-4-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-5-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-6-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-7-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-8-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-9-git-send-email-u.kleine-koenig@pengutronix.de> <1259096853-18909-10-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	"robert@herjulf.net" <robert@herjulf.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:39440 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758508AbZKYJiN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 04:38:13 -0500
-Received: by pzk1 with SMTP id 1so5483502pzk.33
-        for <netdev@vger.kernel.org>; Wed, 25 Nov 2009 01:38:19 -0800 (PST)
-In-Reply-To: <4B0CF974.2070702@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	Roland Dreier <rolandd@cisco.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	Yang Hongyang <yanghy@cn.fujitsu.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Eli Cohen <eli@mellanox.co.il>, netdev@vger.kernel.org
+To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758555AbZKYJvx@vger.kernel.org>
+In-Reply-To: <1259096853-18909-10-git-send-email-u.kleine-koenig@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 25, 2009 at 01:31, Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
-> Jeff Kirsher a =C3=A9crit :
->>
->> Thanks Eric. =C2=A0I have added the patch to my tree for testing and=
- review.
->>
->
-> Thanks Jeff, a similar problem on RX stats should also be addressed.
->
-> Is your tree public ?
->
+Uwe Kleine-K=C3=B6nig wrote:
+> diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+> index 291a505..a581860 100644
+> --- a/drivers/net/mlx4/main.c
+> +++ b/drivers/net/mlx4/main.c
+> @@ -1293,7 +1293,7 @@ static struct pci_driver mlx4_driver =3D {
+>  	.name		=3D DRV_NAME,
+>  	.id_table	=3D mlx4_pci_table,
+>  	.probe		=3D mlx4_init_one,
+> -	.remove		=3D __devexit_p(mlx4_remove_one)
+> +	.remove		=3D mlx4_remove_one
+>  =20
+You may want to add the trailing comma while you're at it...
 
-Unfortunately we do not have a public tree at this time.  I do welcome
-any patches you want to submit.
+>  };
+> =20
+>  static int __init mlx4_verify_params(void)
+>  =20
 
---=20
-Cheers,
-Jeff
+f
