@@ -1,65 +1,33 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [ethtool PATCH] ethtool: Add Direct Attach to the available connector
-	ports
-Date: Wed, 25 Nov 2009 02:13:15 -0800
-Message-ID: <20091125101315.24481.11759.stgit@localhost.localdomain>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers and big packets in virtio_net
+Date: Wed, 25 Nov 2009 20:50:21 +1030
+Message-ID: <200911252050.21907.rusty@rustcorp.com.au>
+References: <1258697745.7416.20.camel@localhost.localdomain> <200911251042.06368.rusty@rustcorp.com.au> <20091125091530.GA6357@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jeff@garzik.org, davem@davemloft.net, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:60101
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751387AbZKYKNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 05:13:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hollis Blanchard <hollisb@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758584AbZKYKUU@vger.kernel.org>
+In-Reply-To: <20091125091530.GA6357@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+On Wed, 25 Nov 2009 07:45:30 pm Michael S. Tsirkin wrote:
+> Hmm, is it really worth it to save a header copy if it's linear?  We are
+> going to access it anyway, and it fits into one cacheline nicely.  On
+> the other hand we have more code making life harder for compiler and
+> processor.
 
-This adds Direct Attach SFP+ types to the connector ports
-for the GSET mode.
+Not sure: I think there would be many places where it would be useful.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+We do a similar thing in the kernel to inspect non-linear packets, and
+it's served us well.
 
- ethtool-copy.h |    3 +++
- ethtool.c      |    6 ++++++
- 2 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 3ca4e2c..7ea5a1b 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -402,6 +402,9 @@ struct ethtool_rxnfc {
- #define PORT_MII		0x02
- #define PORT_FIBRE		0x03
- #define PORT_BNC		0x04
-+#define PORT_DA			0x05
-+#define PORT_NONE		0xef
-+#define PORT_OTHER		0xff
- 
- /* Which transceiver to use. */
- #define XCVR_INTERNAL		0x00
-diff --git a/ethtool.c b/ethtool.c
-index 0110682..5b77614 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -942,6 +942,12 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 	case PORT_FIBRE:
- 		fprintf(stdout, "FIBRE\n");
- 		break;
-+	case PORT_DA:
-+		fprintf(stdout, "Direct Attach Copper\n");
-+		break;
-+	case PORT_NONE:
-+		fprintf(stdout, "None\n");
-+		break;
- 	default:
- 		fprintf(stdout, "Unknown! (%i)\n", ep->port);
- 		break;
-
+Cheers,
+Rusty.
