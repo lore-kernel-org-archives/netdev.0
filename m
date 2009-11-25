@@ -1,59 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Wed, 25 Nov 2009 20:11:05 +0100
-Message-ID: <20091125191105.GA3167@ami.dom.local>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
-	<20091124111946.GA7883@ff.dom.local>
-	<81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/7] via-velocity performance fixes
+Date: Wed, 25 Nov 2009 12:18:09 -0800 (PST)
+Message-ID: <20091125.121809.152111722.davem@davemloft.net>
+References: <20091123152724.2871cf4d@marrow.netinsight.se>
+	<20091124.121339.226248026.davem@davemloft.net>
+	<20091125083943.2ec05b70@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davej@redhat.com, shemminger@vyatta.com,
+	romieu@fr.zoreil.com
+To: simon.kagstrom@netinsight.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52565
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932338AbZKYURv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 15:17:51 -0500
+In-Reply-To: <20091125083943.2ec05b70@marrow.netinsight.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 25, 2009 at 09:06:30AM -0500, Caleb Cushing wrote:
-> > Anyway, since there are problems with
-> > getting stats from the router we still can't compare them, or check
-> > for the dropped stats. (Btw, could you check for /proc/net/softnet_stat
-> > yet?)
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Date: Wed, 25 Nov 2009 08:39:43 +0100
+
+> On Tue, 24 Nov 2009 12:13:39 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> router? good kernel? bad kernel?
-
-router.
-
+>> Simon I'm still waiting for you to fix the transmit function return
+>> value problems I pointed out in patch #5.
+>> 
+>> Please get to this so I can apply your patches.
 > 
-> > So, it might be the kernel problem you reported, but there is not
-> > enough data to prove it. Then my proposal is to try to repeat this
-> > problem in more "testing friendly" conditions - preferably against
-> > some other, more up-to-date linux box, if possible?
-> 
-> yeah 2.6.31.6 works on my laptop fine I'll just have to see about
-> getting a direct connection to it. probably do that after I bring the
-> other NIC back from home, on thanksgiving.
+> Sorry, I missed that comment. I only subscribed to netdev after having
+> sent out the patches, so I didn't get that reply. I've looked it up now
+> (and I'm subscribed now!), so I'll send out a new version.
 
-This other NIC is a really good idea, so let's wait and see.
+Your email address was the To: field in the reply, there is no reason
+you should not have received the email, here are the email headers:
 
-Happy Thanksgiving!
-Jarek P.
+--------------------
+Subject: Re: [PATCH v2 5/7] via-velocity: Re-enable transmit scatter-gather support
+From: David Miller <davem@davemloft.net>
+To: simon.kagstrom@netinsight.net
+Cc: netdev@vger.kernel.org, davej@redhat.com, shemminger@vyatta.com,
+ romieu@fr.zoreil.com
+Date: Mon, 23 Nov 2009 10:52:21 -0800 (PST)
+X-Mailer: Mew version 6.2.51 on Emacs 22.1 / Mule 5.0 (SAKAKI)
+--------------------
 
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+So being subscribed to netdev has nothing to do with it, you simply
+didn't get a direct email I sent to you for one reason or another.
