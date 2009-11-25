@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH 06/10] igbvf: remove skb_dma_map/unmap call from drivers
-Date: Tue, 24 Nov 2009 17:20:43 -0800
-Message-ID: <20091125012043.32704.15951.stgit@gitlad.jf.intel.com>
+Subject: [RFC PATCH 07/10] bnx2: remove skb_dma_map/unmap calls from driver
+Date: Tue, 24 Nov 2009 17:20:49 -0800
+Message-ID: <20091125012048.32704.84356.stgit@gitlad.jf.intel.com>
 References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,144 +11,193 @@ To: mcarlson@broadcom.com, mchan@broadcom.com,
 	sathyap@serverengines.com, subbus@serverengines.com,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1588 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:63419 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934156AbZKYBUu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 20:20:50 -0500
+	id S934103AbZKYBUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 20:20:42 -0500
 In-Reply-To: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the skb_dma_map/unmap calls from the igbvf driver due to
-the fact that it does not play well with HW IOMMU when combined with
-transmitting cloned skbs.
+Due to the fact that skb_dma_map/unmap do not work correctly when a HW
+IOMMU is enabled it has been recommended to go about removing the calls
+from the network device drivers.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
- drivers/net/igbvf/igbvf.h  |    1 +
- drivers/net/igbvf/netdev.c |   65 +++++++++++++++++++++++++++++++++++---------
- 2 files changed, 52 insertions(+), 14 deletions(-)
+ drivers/net/bnx2.c |   74 +++++++++++++++++++++++++++++++++++++++++++---------
+ drivers/net/bnx2.h |    1 +
+ 2 files changed, 62 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
-index 8e9b67e..3d1ee7a 100644
---- a/drivers/net/igbvf/igbvf.h
-+++ b/drivers/net/igbvf/igbvf.h
-@@ -117,6 +117,7 @@ struct igbvf_buffer {
- 			unsigned long time_stamp;
- 			u16 length;
- 			u16 next_to_watch;
-+			u16 mapped_as_page;
- 		};
- 		/* Rx */
- 		struct {
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index e01f445..cf26f92 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -366,10 +366,20 @@ next_desc:
- static void igbvf_put_txbuf(struct igbvf_adapter *adapter,
-                             struct igbvf_buffer *buffer_info)
- {
--	buffer_info->dma = 0;
-+	if (buffer_info->dma) {
-+		if (buffer_info->mapped_as_page)
-+			pci_unmap_page(adapter->pdev,
-+				       buffer_info->dma,
-+				       buffer_info->length,
-+				       PCI_DMA_TODEVICE);
-+		else
-+			pci_unmap_single(adapter->pdev,
-+					 buffer_info->dma,
-+					 buffer_info->length,
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 539d23b..6daddb5 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2815,13 +2815,21 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 			}
+ 		}
+ 
+-		skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
++		pci_unmap_single(bp->pdev, pci_unmap_addr(tx_buf, mapping),
++			skb_headlen(skb), PCI_DMA_TODEVICE);
+ 
+ 		tx_buf->skb = NULL;
+ 		last = tx_buf->nr_frags;
+ 
+ 		for (i = 0; i < last; i++) {
+ 			sw_cons = NEXT_TX_BD(sw_cons);
++
++			pci_unmap_page(bp->pdev,
++				pci_unmap_addr(
++					&txr->tx_buf_ring[TX_RING_IDX(sw_cons)],
++					mapping),
++				skb_shinfo(skb)->frags[i].size,
++				PCI_DMA_TODEVICE);
+ 		}
+ 
+ 		sw_cons = NEXT_TX_BD(sw_cons);
+@@ -5295,18 +5303,30 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
+ 		for (j = 0; j < TX_DESC_CNT; ) {
+ 			struct sw_tx_bd *tx_buf = &txr->tx_buf_ring[j];
+ 			struct sk_buff *skb = tx_buf->skb;
++			int k, last;
+ 
+ 			if (skb == NULL) {
+ 				j++;
+ 				continue;
+ 			}
+ 
+-			skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
++			pci_unmap_single(bp->pdev,
++					 pci_unmap_addr(tx_buf, mapping),
++					 skb_headlen(skb),
 +					 PCI_DMA_TODEVICE);
-+		buffer_info->dma = 0;
-+	}
- 	if (buffer_info->skb) {
--		skb_dma_unmap(&adapter->pdev->dev, buffer_info->skb,
--		              DMA_TO_DEVICE);
- 		dev_kfree_skb_any(buffer_info->skb);
- 		buffer_info->skb = NULL;
+ 
+ 			tx_buf->skb = NULL;
+ 
+-			j += skb_shinfo(skb)->nr_frags + 1;
++			last = skb_shinfo(skb)->nr_frags;
++			for (k = 0; k < last; k++) {
++				tx_buf = &txr->tx_buf_ring[j + k + 1];
++				pci_unmap_page(bp->pdev,
++					pci_unmap_addr(tx_buf, mapping),
++					skb_shinfo(skb)->frags[j].size,
++					PCI_DMA_TODEVICE);
++			}
+ 			dev_kfree_skb(skb);
++			j += k + 1;
+ 		}
  	}
-@@ -2088,27 +2098,24 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
-                                    unsigned int first)
- {
- 	struct igbvf_buffer *buffer_info;
-+	struct pci_dev *pdev = adapter->pdev;
- 	unsigned int len = skb_headlen(skb);
- 	unsigned int count = 0, i;
- 	unsigned int f;
--	dma_addr_t *map;
+ }
+@@ -5684,11 +5704,12 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
+ 	for (i = 14; i < pkt_size; i++)
+ 		packet[i] = (unsigned char) (i & 0xff);
  
- 	i = tx_ring->next_to_use;
+-	if (skb_dma_map(&bp->pdev->dev, skb, DMA_TO_DEVICE)) {
++	map = pci_map_single(bp->pdev, skb->data, pkt_size,
++		PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(bp->pdev, map)) {
+ 		dev_kfree_skb(skb);
+ 		return -EIO;
+ 	}
+-	map = skb_shinfo(skb)->dma_head;
  
--	if (skb_dma_map(&adapter->pdev->dev, skb, DMA_TO_DEVICE)) {
--		dev_err(&adapter->pdev->dev, "TX DMA map failed\n");
--		return 0;
--	}
+ 	REG_WR(bp, BNX2_HC_COMMAND,
+ 	       bp->hc_cmd | BNX2_HC_COMMAND_COAL_NOW_WO_INT);
+@@ -5723,7 +5744,7 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
+ 
+ 	udelay(5);
+ 
+-	skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
++	pci_unmap_single(bp->pdev, map, pkt_size, PCI_DMA_TODEVICE);
+ 	dev_kfree_skb(skb);
+ 
+ 	if (bnx2_get_hw_tx_cons(tx_napi) != txr->tx_prod)
+@@ -6302,7 +6323,6 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct bnx2_napi *bnapi;
+ 	struct bnx2_tx_ring_info *txr;
+ 	struct netdev_queue *txq;
+-	struct skb_shared_info *sp;
+ 
+ 	/*  Determine which tx ring we will be placed on */
+ 	i = skb_get_queue_mapping(skb);
+@@ -6367,16 +6387,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	} else
+ 		mss = 0;
+ 
+-	if (skb_dma_map(&bp->pdev->dev, skb, DMA_TO_DEVICE)) {
++	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(bp->pdev, mapping)) {
+ 		dev_kfree_skb(skb);
+-		return NETDEV_TX_OK;
++		return -EIO;
+ 	}
+ 
+-	sp = skb_shinfo(skb);
+-	mapping = sp->dma_head;
 -
--	map = skb_shinfo(skb)->dma_maps;
--
- 	buffer_info = &tx_ring->buffer_info[i];
- 	BUG_ON(len >= IGBVF_MAX_DATA_PER_TXD);
- 	buffer_info->length = len;
- 	/* set time_stamp *before* dma to help avoid a possible race */
- 	buffer_info->time_stamp = jiffies;
- 	buffer_info->next_to_watch = i;
--	buffer_info->dma = skb_shinfo(skb)->dma_head;
-+	buffer_info->dma = pci_map_single(pdev, skb->data, len,
-+					  PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(pdev, buffer_info->dma))
-+		goto dma_error;
-+
+ 	tx_buf = &txr->tx_buf_ring[ring_prod];
+ 	tx_buf->skb = skb;
++	pci_unmap_addr_set(tx_buf, mapping, mapping);
  
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++) {
- 		struct skb_frag_struct *frag;
-@@ -2125,14 +2132,44 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
- 		buffer_info->length = len;
- 		buffer_info->time_stamp = jiffies;
- 		buffer_info->next_to_watch = i;
--		buffer_info->dma = map[count];
-+		buffer_info->mapped_as_page = true;
-+		buffer_info->dma = pci_map_page(pdev,
-+						frag->page,
-+						frag->page_offset,
-+						len,
-+						PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(pdev, buffer_info->dma))
+ 	txbd = &txr->tx_desc_ring[ring_prod];
+ 
+@@ -6397,7 +6416,12 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		txbd = &txr->tx_desc_ring[ring_prod];
+ 
+ 		len = frag->size;
+-		mapping = sp->dma_maps[i];
++		mapping = pci_map_page(bp->pdev, frag->page, frag->page_offset,
++			len, PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(bp->pdev, mapping))
 +			goto dma_error;
- 		count++;
++		pci_unmap_addr_set(&txr->tx_buf_ring[ring_prod], mapping,
++				   mapping);
+ 
+ 		txbd->tx_bd_haddr_hi = (u64) mapping >> 32;
+ 		txbd->tx_bd_haddr_lo = (u64) mapping & 0xffffffff;
+@@ -6424,6 +6448,30 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
  
- 	tx_ring->buffer_info[i].skb = skb;
- 	tx_ring->buffer_info[first].next_to_watch = i;
- 
--	return count + 1;
-+	return ++count;
-+
+ 	return NETDEV_TX_OK;
 +dma_error:
-+	dev_err(&pdev->dev, "TX DMA map failed\n");
++	/* save value of frag that failed */
++	last_frag = i;
 +
-+	/* clear timestamp and dma mappings for failed buffer_info mapping */
-+	buffer_info->dma = 0;
-+	buffer_info->time_stamp = 0;
-+	buffer_info->length = 0;
-+	buffer_info->next_to_watch = 0;
-+	buffer_info->mapped_as_page = false;
-+	count--;
++	/* start back at beginning and unmap skb */
++	prod = txr->tx_prod;
++	ring_prod = TX_RING_IDX(prod);
++	tx_buf = &txr->tx_buf_ring[ring_prod];
++	tx_buf->skb = NULL;
++	pci_unmap_single(bp->pdev, pci_unmap_addr(tx_buf, mapping),
++			 skb_headlen(skb), PCI_DMA_TODEVICE);
 +
-+	/* clear timestamp and dma mappings for remaining portion of packet */
-+	while (count >= 0) {
-+		count--;
-+		i--;
-+		if (i < 0)
-+			i += tx_ring->count;
-+		buffer_info = &tx_ring->buffer_info[i];
-+		igbvf_put_txbuf(adapter, buffer_info);
++	/* unmap remaining mapped pages */
++	for (i = 0; i < last_frag; i++) {
++		prod = NEXT_TX_BD(prod);
++		ring_prod = TX_RING_IDX(prod);
++		tx_buf = &txr->tx_buf_ring[ring_prod];
++		pci_unmap_page(bp->pdev, pci_unmap_addr(tx_buf, mapping),
++			       skb_shinfo(skb)->frags[i].size,
++			       PCI_DMA_TODEVICE);
 +	}
 +
-+	return 0;
++	dev_kfree_skb(skb);
++	return -EIO;
  }
  
- static inline void igbvf_tx_queue_adv(struct igbvf_adapter *adapter,
+ /* Called with rtnl_lock */
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index a4d8340..4908b9f 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6559,6 +6559,7 @@ struct sw_pg {
+ 
+ struct sw_tx_bd {
+ 	struct sk_buff		*skb;
++	DECLARE_PCI_UNMAP_ADDR(mapping)
+ 	unsigned short		is_gso;
+ 	unsigned short		nr_frags;
+ };
 
