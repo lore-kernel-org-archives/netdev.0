@@ -1,66 +1,38 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH] xfrm: Add SHA384 and SHA512 HMAC authentication algorithms to XFRM
-Date: Wed, 25 Nov 2009 11:58:39 +0100
-Message-ID: <1259146719-16359-1-git-send-email-martin@strongswan.org>
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] irq: Add node_affinity CPU masks for smarter
+ irqbalance hints
+Date: Wed, 25 Nov 2009 12:18:52 +0100
+Message-ID: <1259147932.4027.327.camel@laptop>
+References: <20091123064630.7385.30498.stgit@ppwaskie-hc2.jf.intel.com>
+	 <2674af740911222332i65c0d066h79bf2c1ca1d5e4f0@mail.gmail.com>
+	 <1258968980.2697.9.camel@ppwaskie-mobl2> <1258995923.4531.715.camel@laptop>
+	 <Pine.WNT.4.64.0911231529240.10056@ppwaskie-MOBL2.amr.corp.intel.com>
+	 <1259051902.4531.1053.camel@laptop>
+	 <1259053156.2631.21.camel@ppwaskie-mobl2>
+	 <alpine.LFD.2.00.0911241027140.24119@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Yong Zhang <yong.zhang0@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:45927 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371AbZKYLSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 06:18:52 -0500
+In-Reply-To: <alpine.LFD.2.00.0911241027140.24119@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These algorithms use a truncation of 192/256 bits, as specified
-in RFC4868.
 
-Signed-off-by: Martin Willi <martin@strongswan.org>
----
- net/xfrm/xfrm_algo.c |   34 ++++++++++++++++++++++++++++++++++
- 1 files changed, 34 insertions(+), 0 deletions(-)
+While we're dicking about with irq affinities, maybe we ought to
+consider cpuset integration as well. There's various folks who want to
+use exclusive cpusets to isolate workloads.
 
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index faf54c6..480afda 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -200,6 +200,40 @@ static struct xfrm_algo_desc aalg_list[] = {
- 	}
- },
- {
-+	.name = "hmac(sha384)",
-+
-+	.uinfo = {
-+		.auth = {
-+			.icv_truncbits = 192,
-+			.icv_fullbits = 384,
-+		}
-+	},
-+
-+	.desc = {
-+		.sadb_alg_id = SADB_X_AALG_SHA2_384HMAC,
-+		.sadb_alg_ivlen = 0,
-+		.sadb_alg_minbits = 384,
-+		.sadb_alg_maxbits = 384
-+	}
-+},
-+{
-+	.name = "hmac(sha512)",
-+
-+	.uinfo = {
-+		.auth = {
-+			.icv_truncbits = 256,
-+			.icv_fullbits = 512,
-+		}
-+	},
-+
-+	.desc = {
-+		.sadb_alg_id = SADB_X_AALG_SHA2_512HMAC,
-+		.sadb_alg_ivlen = 0,
-+		.sadb_alg_minbits = 512,
-+		.sadb_alg_maxbits = 512
-+	}
-+},
-+{
- 	.name = "hmac(rmd160)",
- 	.compat = "rmd160",
- 
--- 
-1.6.3.3
 
