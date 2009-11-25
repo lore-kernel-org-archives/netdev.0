@@ -1,59 +1,94 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [tproxy] [HELP] Tproxy server Can't receive any client packet
-Date: Wed, 25 Nov 2009 09:30:40 +0100
-Message-ID: <1259137840.9191.7.camel@nienna.balabit>
-References: <d5cf4b4f0911222251u1589c66ar78810d5b9d87cb5e@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/1] Defer skb allocation for both mergeable buffers
+	and big packets in virtio_net
+Date: Wed, 25 Nov 2009 11:15:30 +0200
+Message-ID: <20091125091530.GA6357@redhat.com>
+References: <1258697745.7416.20.camel@localhost.localdomain> <200911240854.24054.rusty@rustcorp.com.au> <20091124113754.GB2405@redhat.com> <200911251042.06368.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tproxy@lists.balabit.hu, netfilter-announce@lists.netfilter.org,
-	netfilter@lists.netfilter.org, netdev@vger.kernel.org,
-	rnd@elim.net, dylee@elim.net
-To: =?UTF-8?Q?=EB=B0=95=EC=A0=9C=ED=98=B8?= <linuxpark@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hollis Blanchard <hollisb@us.ibm.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:42990 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933602AbZKYIzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Nov 2009 03:55:04 -0500
-Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id 7D64F13A1B4
-	for <netdev@vger.kernel.org>; Wed, 25 Nov 2009 09:30:41 +0100 (CET)
-In-Reply-To: <d5cf4b4f0911222251u1589c66ar78810d5b9d87cb5e@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754061AbZKYJSS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Nov 2009 04:18:18 -0500
+Content-Disposition: inline
+In-Reply-To: <200911251042.06368.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Nov 25, 2009 at 10:42:06AM +1030, Rusty Russell wrote:
+> On Tue, 24 Nov 2009 10:07:54 pm Michael S. Tsirkin wrote:
+> > On Tue, Nov 24, 2009 at 08:54:23AM +1030, Rusty Russell wrote:
+> > > On Tue, 24 Nov 2009 02:37:01 am Shirley Ma wrote:
+> > > > > > +             skb = (struct sk_buff *)buf;
+> > > > > This cast is unnecessary, but a comment would be nice:
+> > > > 
+> > > > Without this cast there is a compile warning. 
+> > > 
+> > > Hi Shirley,
+> > > 
+> > >    Looks like buf is a void *, so no cast should be necessary.  But I could
+> > > be reading the patch wrong.
+> > > 
+> > > > > However, I question whether making it 16 byte is the right thing: the
+> > > > > ethernet header is 14 bytes long, so don't we want 8 bytes of padding?
+> > > > 
+> > > > Because in QEMU it requires 10 bytes header in a separately, so one page
+> > > > is used to share between virtio_net_hdr header which is 10 bytes head
+> > > > and rest of data. So I put 6 bytes offset here between two buffers. I
+> > > > didn't look at the reason why a seperate buf is used for virtio_net_hdr
+> > > > in QEMU.
+> > > 
+> > > It's a qemu bug.  It insists the header be an element in the scatterlist by
+> > > itself.  Unfortunately we have to accommodate it.
+> > 
+> > We do?  Let's just fix this?
+> > All we have to do is replace memcpy with proper iovec walk, correct?
+> > Something like the followng (untested) patch?  It's probably not too
+> > late to put this in the next qemu release...
+> 
+> You might want to implement a more generic helper which does:
+> 
+> 	/* Return pointer into iovec if we can, otherwise copy into buf */
+> 	void *pull_iovec(struct iovec *iov, int iovcnt, void *buf, size_t len)
+> 	{
+> 		unsigned int i;
+> 		void *p;
+> 
+> 		if (likely(iov_cnt && iov[0].iov_len >= len)) {
+> 			/* Nice contiguous chunk. */
+> 			void *p = iov[0].iov_base;
+> 			iov[i].iov_base += len;
+> 			iov[i].iov_len -= len;
+> 			return p;
+> 		}
+> 
+> 		p = buf;
+> 		for (i = 0; i < iov_cnt; i++) {
+> 			size_t this_len = min(len, iov[i].iov_len);
+> 			memcpy(p, iov[i].iov_base, this_len);
+> 			len -= this_len;
+> 			iov[i].iov_base += len;
+> 			iov[i].iov_len -= len;
+> 			if (len == 0)
+> 				return buf;
+> 		}
+> 		/* BTW, we screwed your iovec. */
+> 		return NULL;
+> 	}
+> 
+> Then use it in all the virtio drivers...
 
-On Mon, 2009-11-23 at 15:51 +0900, =EB=B0=95=EC=A0=9C=ED=98=B8 wrote:
-> i have a problem in my transparent proxy test,
-> i recently made up the testbed as below to run the tproxy patched
-> apache proxy [mod_proxy],
-> and i applied all iptables and routing rules with referencing the
-> readme file [http://www.balabit.com/downloads/files/tproxy/README.txt=
-,
-> http://www.mjmwired.net/kernel/Documentation/networking/tproxy.txt]
-> the proxy server listening the port 3128 and i checked there were no =
-problem.
-> but  when the client tried to connect the web server,
-> the packets reached to the box and i found the usage counts of filter
-> rules in the mangle table incresed
-> but my tproxy server could not receive any corresponding packet from =
-the socket
->=20
-> I want to know why my proxy server can't receive any packet through t=
-he socket,
-> Do i need some more DNAT rules ?
+Hmm, is it really worth it to save a header copy if it's linear?  We are
+going to access it anyway, and it fits into one cacheline nicely.  On
+the other hand we have more code making life harder for compiler and
+processor.
 
-Would you mind testing the setup with an unpatched upstream kernel, tha=
-t
-has tproxy built-in? (2.6.31, for example)
-
-Also, please download the latest iptables from netfilter.org and try
-using that. (No need for patching, tproxy support is in upstream.)
-
-That would help a lot in identifying the source of the issue. Thanks in
-advance.
-
-Cheers,
-Krisztian
-
+> Thanks!
+> Rusty.
