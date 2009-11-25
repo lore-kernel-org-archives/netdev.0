@@ -1,728 +1,306 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next-2.6] igb and ixgbe: DOM support cleanups
-Date: Tue, 24 Nov 2009 19:57:34 -0800
-Message-ID: <1259121454.29779.17.camel@Joe-Laptop.home>
-References: <19211.4849.284727.703717@gargle.gargle.HOWL>
-	 <1259017659.16503.138.camel@Joe-Laptop.home>
-	 <19212.8726.367568.937773@gargle.gargle.HOWL>
+From: Asdo <asdo@shiftmail.org>
+Subject: TCP sockets stalling - help! (long)
+Date: Wed, 25 Nov 2009 05:25:28 +0100
+Message-ID: <4B0CB1B8.8030402@shiftmail.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: robert@herjulf.net
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1166 "EHLO mail.perches.com"
+Received: from mx2.isti.cnr.it ([194.119.192.4]:2439 "EHLO mx2.isti.cnr.it"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933840AbZKYD53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Nov 2009 22:57:29 -0500
-In-Reply-To: <19212.8726.367568.937773@gargle.gargle.HOWL>
+	id S934427AbZKYE0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Nov 2009 23:26:16 -0500
+Received: from conversionlocal.isti.cnr.it by mx.isti.cnr.it (PMDF V6.4 #31773)
+ id <01NGHY18H3Y89OGFPH@mx.isti.cnr.it> for netdev@vger.kernel.org; Wed,
+ 25 Nov 2009 05:25:18 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-11-24 at 19:12 +0100, robert@herjulf.net wrote:
-> Joe Perches writes: 
->  > Can you run ./scripts/checkpatch.pl on your patches please?
->  Yes there were many objections... but my linux quantum is for over for now
->  > > +	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_SLOPE, &pd->temp_slope)))
->  > > +		goto out;
->  > [etc...]
->  > > +	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_OFFSET, &pd->tx_bias_offset)))
->  > > +		goto out;
->  > 
->  > perhaps this is clearer as:
->  > 
->  > 	if (read_phy_diag(hw, 0x1, reg, loc) ||
->  > 	    read_phy_diag(hw, 0x1, reg2, loc2) ||
->  > 	...
->  > 	    read_phy_diag(hw, 0x1, regN, locN))
->  > 		goto out;
->  Feel free to attack it...
+Hi netdev and e1000 people,
 
-Checkpatch cleanup and make code smaller after
-git apply --whitespace=fix <your original patches 1-4>
+I have a weird problem here.
 
-was:
-$ size drivers/net/igb/igb_ethtool.o drivers/net/ixgbe/ixgbe_ethtool.o
-   text	   data	    bss	    dec	    hex	filename
-  26466	   1544	   8584	  36594	   8ef2	drivers/net/igb/igb_ethtool.o
-  31726	   2980	   9128	  43834	   ab3a	drivers/net/ixgbe/ixgbe_ethtool.o
+We have a Linux "Storage" server acting as a Samba, SCP and SFTP 
+fileserver. All clients are Windows: XP and Vista, 32 and 64 bits. The 
+building has gigabit network. We transfer up to many TB at a time.
 
-is:
-$ size drivers/net/igb/igb_ethtool.o drivers/net/ixgbe/ixgbe_ethtool.o
-   text	   data	    bss	    dec	    hex	filename
-  24606	   1544	   8000	  34150	   8566	drivers/net/igb/igb_ethtool.o
-  29886	   2980	   8552	  41418	   a1ca	drivers/net/ixgbe/ixgbe_ethtool.o
+I have tried from many clients to the same Server and there is always 
+the same problem: after hours that a transfer is running the TCP socket 
+suddenly stalls: 0 bytes/sec. It doesn't slow down, it stalls suddenly. 
+It never disconnects though.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+ From that moment onward, the TCP socket stays in a stalling condition 
+forever (I saw myself at least 10 hours) and both sides see it 
+Established forever. This is in case of no other networking activity on 
+the same network card.
+In case of other networking activity someone told me that he did see the 
+transfer restart (=continue) by itself (it was an SFTP that time). I 
+think I saw this phenomenon myself once during the tcpdump at the bottom 
+of this email.
 
- drivers/net/igb/igb_ethtool.c     |  264 +++++++++++++++--------------------
- drivers/net/ixgbe/ixgbe_ethtool.c |  280 ++++++++++++++++---------------------
- include/linux/ethtool.h           |    4 +-
- 3 files changed, 238 insertions(+), 310 deletions(-)
+This problem happens on every protocol (Samba, SCP, SFTP) and apparently 
+any client (for sure I tested on at least 1 Vista 64bit and 1 XP 32bit).
 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 8fa7b98..b96661a 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -2080,8 +2080,9 @@ static s32 read_phy_diag(struct e1000_hw *hw, u8 page, u8 offset,
- 	 * PHY to retrieve the desired data.
- 	 */
- 
--	i2ccmd = (E1000_I2CCMD_OPCODE_READ) | (page << E1000_I2CCMD_PHY_ADDR_SHIFT) |
--	  ( offset <<  E1000_I2CCMD_REG_ADDR_SHIFT);
-+	i2ccmd = (E1000_I2CCMD_OPCODE_READ) |
-+		 (page << E1000_I2CCMD_PHY_ADDR_SHIFT) |
-+		 (offset <<  E1000_I2CCMD_REG_ADDR_SHIFT);
- 
- 	wr32(E1000_I2CCMD, i2ccmd);
- 
-@@ -2107,186 +2108,147 @@ static s32 read_phy_diag(struct e1000_hw *hw, u8 page, u8 offset,
- 	return 0;
- }
- 
-+static s32 read_phy_diag_u32(struct e1000_hw *hw, u8 page, u8 offset, u32 *data)
-+{
-+	u16 p1;
-+	u16 p2;
-+	u32 res;
-+
-+	res = read_phy_diag(hw, page, offset, &p1);
-+	if (res)
-+		goto out;
-+
-+	res = read_phy_diag(hw, page, offset + 2, &p2);
-+	if (res)
-+		goto out;
-+
-+	*data = ((u32)p1) << 16 | p2;
-+
-+out:
-+	return res;
-+}
-+
-+struct reg_offset {
-+	int reg;
-+	size_t offset;
-+};
-+
-+#define REG_OFFSET(a, b) \
-+	{ .reg = a, .offset = offsetof(struct ethtool_phy_diag, b) }
-+
- int igb_get_phy_diag(struct net_device *netdev, struct ethtool_phy_diag *pd)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u16  p1, p2;
- 	int res;
- 	u8 type, eo;
-+	int i;
- 
--	if((res = read_phy_diag(hw, 0x0, DOM_A0_DOM_TYPE, &pd->type)))
-+	static const struct reg_offset basic[] = {
-+		REG_OFFSET(DOM_A2_TEMP, temp),
-+		REG_OFFSET(DOM_A2_TEMP_SLOPE, temp_slope),
-+		REG_OFFSET(DOM_A2_TEMP_OFFSET, temp_offset),
-+		REG_OFFSET(DOM_A2_VCC, vcc),
-+		REG_OFFSET(DOM_A2_VCC_SLOPE, vcc_slope),
-+		REG_OFFSET(DOM_A2_VCC_OFFSET, vcc_offset),
-+		REG_OFFSET(DOM_A2_TX_BIAS, tx_bias),
-+		REG_OFFSET(DOM_A2_TX_I_SLOPE, tx_bias_slope),
-+		REG_OFFSET(DOM_A2_TX_I_OFFSET, tx_bias_offset),
-+		REG_OFFSET(DOM_A2_TX_PWR, tx_pwr),
-+		REG_OFFSET(DOM_A2_TX_PWR_SLOPE, tx_pwr_slope),
-+		REG_OFFSET(DOM_A2_TX_PWR_OFFSET, tx_pwr_offset),
-+		REG_OFFSET(DOM_A2_RX_PWR, rx_pwr),
-+	};
-+
-+	static const struct reg_offset power[] = {
-+		REG_OFFSET(DOM_A2_RX_PWR_0, rx_pwr_cal[0]),
-+		REG_OFFSET(DOM_A2_RX_PWR_1, rx_pwr_cal[1]),
-+		REG_OFFSET(DOM_A2_RX_PWR_2, rx_pwr_cal[2]),
-+		REG_OFFSET(DOM_A2_RX_PWR_3, rx_pwr_cal[3]),
-+		REG_OFFSET(DOM_A2_RX_PWR_4, rx_pwr_cal[4]),
-+	};
-+
-+	static const struct reg_offset aw[] = {
-+		REG_OFFSET(DOM_A2_TEMP_AHT, temp_aht),
-+		REG_OFFSET(DOM_A2_TEMP_ALT, temp_alt),
-+		REG_OFFSET(DOM_A2_TEMP_WHT, temp_wht),
-+		REG_OFFSET(DOM_A2_TEMP_WLT, temp_wlt),
-+		REG_OFFSET(DOM_A2_VCC_AHT, vcc_aht),
-+		REG_OFFSET(DOM_A2_VCC_ALT, vcc_alt),
-+		REG_OFFSET(DOM_A2_VCC_WHT, vcc_wht),
-+		REG_OFFSET(DOM_A2_VCC_WLT, vcc_wlt),
-+		REG_OFFSET(DOM_A2_TX_BIAS_AHT, tx_bias_aht),
-+		REG_OFFSET(DOM_A2_TX_BIAS_ALT, tx_bias_alt),
-+		REG_OFFSET(DOM_A2_TX_BIAS_WHT, tx_bias_wht),
-+		REG_OFFSET(DOM_A2_TX_BIAS_WLT, tx_bias_wlt),
-+		REG_OFFSET(DOM_A2_TX_PWR_AHT, tx_pwr_aht),
-+		REG_OFFSET(DOM_A2_TX_PWR_ALT, tx_pwr_alt),
-+		REG_OFFSET(DOM_A2_TX_PWR_WHT, tx_pwr_wht),
-+		REG_OFFSET(DOM_A2_TX_PWR_WLT, tx_pwr_wlt),
-+		REG_OFFSET(DOM_A2_RX_PWR_AHT, rx_pwr_aht),
-+		REG_OFFSET(DOM_A2_RX_PWR_ALT, rx_pwr_alt),
-+		REG_OFFSET(DOM_A2_RX_PWR_WHT, rx_pwr_wht),
-+		REG_OFFSET(DOM_A2_RX_PWR_WLT, rx_pwr_wlt),
-+	};
-+
-+	res = read_phy_diag(hw, 0x0, DOM_A0_DOM_TYPE, &pd->type);
-+	if (res)
- 		goto out;
- 
--	type =  pd->type >> 8;
-+	type = pd->type >> 8;
- 
--	if( ~(type) & DOM_TYPE_DOM || type & DOM_TYPE_LEGAGY_DOM)
-+	if ((~(type) & DOM_TYPE_DOM) || (type & DOM_TYPE_LEGAGY_DOM))
- 		goto out;
- 
--	if( type& DOM_TYPE_DOM & DOM_TYPE_ADDR_CHNGE)  {
-+	if (type & DOM_TYPE_DOM & DOM_TYPE_ADDR_CHNGE) {
- 		hw_dbg("DOM module not supported (Address change)\n");
- 		goto out;
- 	}
- 
- 	eo = pd->type & 0xFF;
--	if((res = read_phy_diag(hw, 0x0, DOM_A0_WAVELENGTH, &pd->wavelength)))
-+
-+	res = read_phy_diag(hw, 0x0, DOM_A0_WAVELENGTH, &pd->wavelength);
-+	if (res)
- 		goto out;
- 
- 	/* If supported. Read alarms and Warnings first*/
--	if( eo &  DOM_EO_AW) {
--
--		if((res = read_phy_diag(hw, 0x1, DOM_A2_ALARM, &pd->alarm)))
-+	if (eo & DOM_EO_AW) {
-+		res = read_phy_diag(hw, 0x1, DOM_A2_ALARM, &pd->alarm);
-+		if (res)
- 			goto out;
--
--		if((res = read_phy_diag(hw, 0x1, DOM_A2_WARNING, &pd->warning)))
-+		res = read_phy_diag(hw, 0x1, DOM_A2_WARNING, &pd->warning);
-+		if (res)
- 			goto out;
- 	}
- 
- 	/* Basic diag */
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP, &pd->temp)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_SLOPE, &pd->temp_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_OFFSET, &pd->temp_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC, &pd->vcc)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_SLOPE, &pd->vcc_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_OFFSET, &pd->vcc_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS, &pd->tx_bias)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_SLOPE, &pd->tx_bias_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_OFFSET, &pd->tx_bias_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR, &pd->tx_pwr)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_SLOPE, &pd->tx_pwr_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_OFFSET, &pd->tx_pwr_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR, &pd->rx_pwr)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_0, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_0+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[0] = (p1<<16) + p2;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_1, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_1+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[1] = (p1<<16) + p2;
--
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_2, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_2+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[2] = (p1<<16) + p2;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_3, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_3+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[3] = (p1<<16) + p2;
- 
-+	for (i = 0; i < ARRAY_SIZE(basic); i++) {
-+		res = read_phy_diag(hw, 0x1, basic[i].reg,
-+				    (u16 *)((char *)pd + basic[i].offset));
-+		if (res)
-+			goto out;
-+	}
- 
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_4, &p1)))
--		goto out;
-+	/* Power */
- 
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_4+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[4] = (p1<<16) + p2;
-+	for (i = 0; i < ARRAY_SIZE(power); i++) {
-+		res = read_phy_diag_u32(hw, 0x1, power[i].reg,
-+					(u32 *)((char *)pd + power[i].offset));
-+		if (res)
-+			goto out;
-+	}
- 
- 	/* Thresholds for Alarms and Warnings */
--	if( !(eo &  DOM_EO_AW))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_AHT, &pd->temp_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_ALT, &pd->temp_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_WHT, &pd->temp_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_WLT, &pd->temp_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_AHT, &pd->vcc_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_ALT, &pd->vcc_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_WHT, &pd->vcc_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_WLT, &pd->vcc_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_AHT, &pd->tx_bias_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_ALT, &pd->tx_bias_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_WHT, &pd->tx_bias_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_WLT, &pd->tx_bias_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_AHT, &pd->tx_pwr_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_ALT, &pd->tx_pwr_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_WHT, &pd->tx_pwr_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_WLT, &pd->tx_pwr_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_AHT, &pd->rx_pwr_aht)))
--		goto out;
- 
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_ALT, &pd->rx_pwr_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_WHT, &pd->rx_pwr_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_WLT, &pd->rx_pwr_wlt)))
--		goto out;
-+	if (eo & DOM_EO_AW) {
-+		for (i = 0; i < ARRAY_SIZE(basic); i++) {
-+			res = read_phy_diag(hw, 0x1, aw[i].reg,
-+					    (u16 *)((char *)pd + aw[i].offset));
-+			if (res)
-+				goto out;
-+		}
-+	}
- 
- out:
- 	return res;
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 6276e17..322b613 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2108,201 +2108,167 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
- 
- }
- 
--static s32 read_phy_diag(struct ixgbe_hw *hw, u8 page, u8 offset,
--					  u16 *data)
-+static s32 read_phy_diag(struct ixgbe_hw *hw, u8 page, u8 offset, u16 *data)
- {
--	s32 status = 0;
--	u8 tmp [2];
-+	s32 status;
-+	u8 hi, lo;
- 
--	status = ixgbe_read_i2c_byte_generic(hw, page, offset, &tmp[0]);
--	if(status != 0)
--		goto err;
-+	status = ixgbe_read_i2c_byte_generic(hw, page, offset, &hi);
-+	if (status)
-+		goto out;
-+
-+	status = ixgbe_read_i2c_byte_generic(hw, page, offset, &lo);
-+	if (status)
-+		goto out;
-+
-+	*data = (((u16)hi) << 8) | lo;
- 
--	status = ixgbe_read_i2c_byte_generic(hw, page, offset, &tmp[1]);
--	*data = (tmp[0]<<8) | tmp[1];
--err:
-+out:
- 	return status;
- }
- 
-+static s32 read_phy_diag_u32(struct ixgbe_hw *hw, u8 page, u8 offset, u32 *data)
-+{
-+	u16 p1;
-+	u16 p2;
-+	u32 res;
-+
-+	res = read_phy_diag(hw, page, offset, &p1);
-+	if (res)
-+		goto out;
-+
-+	res = read_phy_diag(hw, page, offset + 2, &p2);
-+	if (res)
-+		goto out;
-+
-+	*data = ((u32)p1) << 16 | p2;
-+
-+out:
-+	return res;
-+}
-+
-+struct reg_offset {
-+	int reg;
-+	size_t offset;
-+};
-+
-+#define REG_OFFSET(a, b) \
-+	{ .reg = a, .offset = offsetof(struct ethtool_phy_diag, b) }
-+
- int ixgb_get_phy_diag(struct net_device *netdev, struct ethtool_phy_diag *pd)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u16  p1, p2;
- 	int res;
- 	u8 type, eo;
-+	int i;
- 
--	if((res = read_phy_diag(hw, 0x0, DOM_A0_DOM_TYPE, &pd->type)))
-+	static const struct reg_offset basic[] = {
-+		REG_OFFSET(DOM_A2_TEMP, temp),
-+		REG_OFFSET(DOM_A2_TEMP_SLOPE, temp_slope),
-+		REG_OFFSET(DOM_A2_TEMP_OFFSET, temp_offset),
-+		REG_OFFSET(DOM_A2_VCC, vcc),
-+		REG_OFFSET(DOM_A2_VCC_SLOPE, vcc_slope),
-+		REG_OFFSET(DOM_A2_VCC_OFFSET, vcc_offset),
-+		REG_OFFSET(DOM_A2_TX_BIAS, tx_bias),
-+		REG_OFFSET(DOM_A2_TX_I_SLOPE, tx_bias_slope),
-+		REG_OFFSET(DOM_A2_TX_I_OFFSET, tx_bias_offset),
-+		REG_OFFSET(DOM_A2_TX_PWR, tx_pwr),
-+		REG_OFFSET(DOM_A2_TX_PWR_SLOPE, tx_pwr_slope),
-+		REG_OFFSET(DOM_A2_TX_PWR_OFFSET, tx_pwr_offset),
-+		REG_OFFSET(DOM_A2_RX_PWR, rx_pwr),
-+	};
-+
-+	static const struct reg_offset power[] = {
-+		REG_OFFSET(DOM_A2_RX_PWR_0, rx_pwr_cal[0]),
-+		REG_OFFSET(DOM_A2_RX_PWR_1, rx_pwr_cal[1]),
-+		REG_OFFSET(DOM_A2_RX_PWR_2, rx_pwr_cal[2]),
-+		REG_OFFSET(DOM_A2_RX_PWR_3, rx_pwr_cal[3]),
-+		REG_OFFSET(DOM_A2_RX_PWR_4, rx_pwr_cal[4]),
-+	};
-+
-+	static const struct reg_offset aw[] = {
-+		REG_OFFSET(DOM_A2_TEMP_AHT, temp_aht),
-+		REG_OFFSET(DOM_A2_TEMP_ALT, temp_alt),
-+		REG_OFFSET(DOM_A2_TEMP_WHT, temp_wht),
-+		REG_OFFSET(DOM_A2_TEMP_WLT, temp_wlt),
-+		REG_OFFSET(DOM_A2_VCC_AHT, vcc_aht),
-+		REG_OFFSET(DOM_A2_VCC_ALT, vcc_alt),
-+		REG_OFFSET(DOM_A2_VCC_WHT, vcc_wht),
-+		REG_OFFSET(DOM_A2_VCC_WLT, vcc_wlt),
-+		REG_OFFSET(DOM_A2_TX_BIAS_AHT, tx_bias_aht),
-+		REG_OFFSET(DOM_A2_TX_BIAS_ALT, tx_bias_alt),
-+		REG_OFFSET(DOM_A2_TX_BIAS_WHT, tx_bias_wht),
-+		REG_OFFSET(DOM_A2_TX_BIAS_WLT, tx_bias_wlt),
-+		REG_OFFSET(DOM_A2_TX_PWR_AHT, tx_pwr_aht),
-+		REG_OFFSET(DOM_A2_TX_PWR_ALT, tx_pwr_alt),
-+		REG_OFFSET(DOM_A2_TX_PWR_WHT, tx_pwr_wht),
-+		REG_OFFSET(DOM_A2_TX_PWR_WLT, tx_pwr_wlt),
-+		REG_OFFSET(DOM_A2_RX_PWR_AHT, rx_pwr_aht),
-+		REG_OFFSET(DOM_A2_RX_PWR_ALT, rx_pwr_alt),
-+		REG_OFFSET(DOM_A2_RX_PWR_WHT, rx_pwr_wht),
-+		REG_OFFSET(DOM_A2_RX_PWR_WLT, rx_pwr_wlt),
-+	};
-+
-+	res = read_phy_diag(hw, 0x0, DOM_A0_DOM_TYPE, &pd->type);
-+	if (res)
- 		goto out;
- 
--	type =  pd->type >> 8;
-+	type = pd->type >> 8;
- 
--	if( ~(type) & DOM_TYPE_DOM || type & DOM_TYPE_LEGAGY_DOM)
-+	if ((~(type) & DOM_TYPE_DOM) || (type & DOM_TYPE_LEGAGY_DOM))
- 		goto out;
- 
--	if( type& DOM_TYPE_DOM & DOM_TYPE_ADDR_CHNGE)  {
-+	if (type & DOM_TYPE_DOM & DOM_TYPE_ADDR_CHNGE)  {
- 		hw_dbg(hw, "DOM module not supported (Address change)\n");
- 		goto out;
- 	}
- 
- 	eo = pd->type & 0xFF;
--	if((res = read_phy_diag(hw, 0x0, DOM_A0_WAVELENGTH, &pd->wavelength)))
-+
-+	res = read_phy_diag(hw, 0x0, DOM_A0_WAVELENGTH, &pd->wavelength);
-+	if (res)
- 		goto out;
- 
- 	/* If supported. Read alarms and Warnings first*/
--	if( eo &  DOM_EO_AW) {
--
--		if((res = read_phy_diag(hw, 0x1, DOM_A2_ALARM, &pd->alarm)))
-+	if (eo & DOM_EO_AW) {
-+		res = read_phy_diag(hw, 0x1, DOM_A2_ALARM, &pd->alarm);
-+		if (res)
- 			goto out;
- 
--		if((res = read_phy_diag(hw, 0x1, DOM_A2_WARNING, &pd->warning)))
-+		res = read_phy_diag(hw, 0x1, DOM_A2_WARNING, &pd->warning);
-+		if (res)
- 			goto out;
- 	}
- 
- 	/* Basic diag */
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP, &pd->temp)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_SLOPE, &pd->temp_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_OFFSET, &pd->temp_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC, &pd->vcc)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_SLOPE, &pd->vcc_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_OFFSET, &pd->vcc_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS, &pd->tx_bias)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_SLOPE, &pd->tx_bias_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_I_OFFSET, &pd->tx_bias_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR, &pd->tx_pwr)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_SLOPE, &pd->tx_pwr_slope)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_OFFSET, &pd->tx_pwr_offset)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR, &pd->rx_pwr)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_0, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_0+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[0] = (p1<<16) + p2;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_1, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_1+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[1] = (p1<<16) + p2;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_2, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_2+2, &p2)))
--		goto out;
--
--	pd->rx_pwr_cal[2] = (p1<<16) + p2;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_3, &p1)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_3+2, &p2)))
--		goto out;
- 
--	pd->rx_pwr_cal[3] = (p1<<16) + p2;
--
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_4, &p1)))
--		goto out;
-+	for (i = 0; i < ARRAY_SIZE(basic); i++) {
-+		res = read_phy_diag(hw, 0x1, basic[i].reg,
-+				    (u16 *)((char *)pd + basic[i].offset));
-+		if (res)
-+			goto out;
-+	}
- 
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_4+2, &p2)))
--		goto out;
-+	/* Power */
- 
--	pd->rx_pwr_cal[4] = (p1<<16) + p2;
-+	for (i = 0; i < ARRAY_SIZE(power); i++) {
-+		res = read_phy_diag_u32(hw, 0x1, power[i].reg,
-+					(u32 *)((char *)pd + power[i].offset));
-+		if (res)
-+			goto out;
-+	}
- 
- 	/* Thresholds for Alarms and Warnings */
--	if( !(eo &  DOM_EO_AW))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_AHT, &pd->temp_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_ALT, &pd->temp_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_WHT, &pd->temp_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TEMP_WLT, &pd->temp_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_AHT, &pd->vcc_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_ALT, &pd->vcc_alt)))
--		goto out;
- 
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_WHT, &pd->vcc_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_VCC_WLT, &pd->vcc_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_AHT, &pd->tx_bias_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_ALT, &pd->tx_bias_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_WHT, &pd->tx_bias_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_BIAS_WLT, &pd->tx_bias_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_AHT, &pd->tx_pwr_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_ALT, &pd->tx_pwr_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_WHT, &pd->tx_pwr_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_TX_PWR_WLT, &pd->tx_pwr_wlt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_AHT, &pd->rx_pwr_aht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_ALT, &pd->rx_pwr_alt)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_WHT, &pd->rx_pwr_wht)))
--		goto out;
--
--	if((res = read_phy_diag(hw, 0x1, DOM_A2_RX_PWR_WLT, &pd->rx_pwr_wlt)))
--		goto out;
-+	if (eo & DOM_EO_AW) {
-+		for (i = 0; i < ARRAY_SIZE(basic); i++) {
-+			res = read_phy_diag(hw, 0x1, aw[i].reg,
-+					    (u16 *)((char *)pd + aw[i].offset));
-+			if (res)
-+				goto out;
-+		}
-+	}
- 
- out:
- 	return res;
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 9c2f06a..4e45a94 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -546,7 +546,7 @@ struct ethtool_ops {
- 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
- 	int     (*flash_device)(struct net_device *, struct ethtool_flash *);
- 	int	(*reset)(struct net_device *, u32 *);
--	int     (*get_phy_diag)(struct net_device *, struct ethtool_phy_diag*);
-+	int     (*get_phy_diag)(struct net_device *, struct ethtool_phy_diag *);
- };
- #endif /* __KERNEL__ */
- 
-@@ -605,7 +605,7 @@ struct ethtool_ops {
- #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
- #define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- #define	ETHTOOL_RESET		0x00000034 /* Reset hardware */
--#define ETHTOOL_GPHYDIAG        0x00000035 /* Get PHY diagnostics */
-+#define	ETHTOOL_GPHYDIAG	0x00000035 /* Get PHY diagnostics */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
+Also happens in the middle of transferring one file, so not necessarily 
+at file change. The files are being pushed from the clients to the linux 
+Server.
+
+The gigabit switch between the machines was changed 2 times (the brands 
+also were different) without results.
+
+I was able to obtain apparently reliable nonstop transfer if I performed 
+6 simultaneous transfers with Samba from the same client to the same 
+server. OTOH with just 1 - 3 simultaneous transfers only all of them 
+will eventually stall. Note that with 2 transfers the speed of each one 
+is already smaller than the speed of a single transfer (approx 
+40+40MB/sec vs 60MB/sec) however with 6 transfers it's obviously much 
+smaller (approx 6x12MB/sec). The bug looks like some kind of a race 
+condition to me.
+
+On Samba another strange fact is that if there are multiple transfers 
+(i.e. 2) from the same client to the same server (please note that in 
+this case with Samba all transfers pass through the same TCP socket) the 
+two transfers stall *independently* one to the other. First after a 
+random time you see one stalling, and eventually after another random 
+time also the other one stalls. This tells that the socket actually 
+kinda works... I can even stop one stalled transfer from the client (the 
+stop operation *works* and gets a reply from the Samba server: I see 
+messages sniffing the Ethernet), and start it again and it would run, 
+and the TCP socket is always the same when I restart the transfer.
+
+I obtained apparently reliable transfers with Samba if I introduced rate 
+limiting on our SMC 8024L2 gigabit switch . Even if the rate limiting 
+was set so high (930Mbps) that the transfer speed was actually not 
+influenced, the Samba transfer (1 single transfer, not multiple) 
+apparently worked reliably. Maybe this helps with the race condition by 
+separating packets better. The SFTP protocol hanged anyway though, even 
+on rate limiting, however consider that SFTP from windows goes very slow 
+at 15Mbps due to a problem of encryption performance of WinSCP, so that 
+one is really way lower than the rate limit and its packets might not 
+get separated.
+
+The server is a linux Ubuntu 9.10 with kernel ubuntu 2.6.31-14-server . 
+The ethernets are two integrated Intels (I tested both ethernet ports):
+Ethernet controller: Intel Corporation 80003ES2LAN Gigabit Ethernet 
+Controller (Copper) (rev 01)
+the driver is kernel's e1000
+
+This is the stack trace of server processes (Server side) during an SFTP 
+stall:
+
+root       327  [CUT] \_ sshd: myuser [priv]
+1011       380  [CUT]     \_ sshd: myuser
+1011       382  [CUT]         \_ /usr/lib/openssh/sftp-server
+
+root@mystorage:/proc# cat /proc/327/stack   (this is sshd)
+[<ffffffff814b428a>] unix_stream_data_wait+0xaa/0x110
+[<ffffffff814b50cd>] unix_stream_recvmsg+0x36d/0x570
+[<ffffffff81426399>] sock_aio_read+0x149/0x150
+[<ffffffff8111e232>] do_sync_read+0xf2/0x130
+[<ffffffff8111e8e1>] vfs_read+0x181/0x1a0
+[<ffffffff8111edec>] sys_read+0x4c/0x80
+[<ffffffff81011fc2>] system_call_fastpath+0x16/0x1b
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+root@mystorage:/proc# cat /proc/380/stack   (this is the second sshd)
+[<ffffffff8112e644>] poll_schedule_timeout+0x34/0x50
+[<ffffffff8112ef4f>] do_select+0x58f/0x6b0
+[<ffffffff8112f8b5>] core_sys_select+0x185/0x2b0
+[<ffffffff8112fc32>] sys_select+0x42/0x110
+[<ffffffff81011fc2>] system_call_fastpath+0x16/0x1b
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+root@mystorage:/proc# cat /proc/382/stack (this is sftp-server)
+[<ffffffff8112e644>] poll_schedule_timeout+0x34/0x50
+[<ffffffff8112ef4f>] do_select+0x58f/0x6b0
+[<ffffffff8112f8b5>] core_sys_select+0x185/0x2b0
+[<ffffffff8112fc32>] sys_select+0x42/0x110
+[<ffffffff81011fc2>] system_call_fastpath+0x16/0x1b
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+so everything seems normal, it just seems the socket is waiting for data...
+
+I am really puzzled because... I don't know how the Samba protocol 
+works, but for SFTP which I believe is a simple protocol, I believe the 
+client is just pushing raw bytes onto a simple TCP socket so it should 
+keep doing that while it receives Acks. OTOH if it does not receive Acks 
+the socket would disconnect. However in my case during a stall the 
+socket stays Established (I checked at BOTH sides!) but the client stops 
+pushing bytes to the server. (That's for a stall in the middle of a file 
+on SFTP protocol, which *does* happen) How on earth can that be??  
+(update: see tcpdump below, it might explain)
+
+I am also thinking at a hardware problem. The server is running on a 
+Tyan mainboard S5396WA2NRF and we had another problem with this computer 
+(mobo?), apparently hardware related, with 3ware disk controllers, same 
+problem as this guy also running another Tyan:
+http://www.webhostingtalk.com/archive/index.php/t-449670.html
+which I thought might be reconducible to a lost interrupt. Even on a 
+lost interrupt I can't understand how to solve the Ack puzzle... this is 
+not a TOE network card!
+
+This is what I did try up to now (and didn't help):
+   
+Changed some Samba parameters trying various values (clearly not useful 
+for SFTP btw). I ended up with a pretty common configuration, which 
+anyway didn't help:
+    socket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=8192 
+SO_SNDBUF=8192
+    read raw = yes
+    write raw = yes
+    kernel oplocks = yes
+    max xmit = 2048
+    getwd cache = yes
 
 
+Changed the following parameters in /proc/sys/net:
+    1 -> 0 > ipv6/bindv6only (for Samba but it was bound already and I 
+couldn't reboot. SFTP tests were done in IPv4 though)
+    1 -> 0 > tcp_sack
+    1 -> 0 > tcp_dsack
+    0 -> 1 > tcp_low_latency
+    2 -> 0 > tcp_frto
+    cubic -> reno > tcp_congestion_control
+    3 -> 6 > tcp_retries1
+    3 -> 10 > tcp_tso_win_divisor
+    1 -> 0 > tcp_slow_start_after_idle
+
+
+Then I disabled the following offloads using ethtool:
+    rx-checksumming on --> off
+    tx-checksumming on --> off
+    scatter-gather on --> off
+    tcp-segmentation-offload: on --> off
+    generic-segmentation-offload: on --> off
+
+Nothing helped.
+
+
+This is the SFTP socket when it's running (Server side):
+# cat /proc/net/tcp
+   2: 0F12A8C0:0016 2612A8C0:C0C6 01 00000000:00000000 02:000AB698 
+00000000     0        0 267816 4 ffff88084b1e6180 24 4 1 11 -1
+
+Later on, when it has been stuck for a while:
+# cat /proc/net/tcp
+   2: 0F12A8C0:0016 2612A8C0:C0C6 01 00000000:00000000 02:0002AC6B 
+00000000     0        0 267816 2 ffff88084b1e6180 27 4 1 21 -1
+(numbers reference: 
+http://www.mjmwired.net/kernel/Documentation/networking/proc_net_tcp.txt )
+
+as you can see from the last values, the timeout and window have 
+enlarged a bit, but nothing dramatic. Apparently they are very similar.
+
+This is another SFTP stall after I disabled the offloading via ethtool: 
+(different transfer, different socket from above)
+  2: 0F12A8C0:0016 2512A8C0:09BC 01 00000000:00000000 02:000602F4 
+00000000     0        0 5301100 2 ffff88084ac02080 28 4 0 13 -1
+so the values are similar again, apart the ack.pingpong which has become 
+0   (something to do with offloading?)
+
+
+This night I decided to actually tcpdump some traffic at the server 
+side. This dump has a chance of being incorrect/misleading because the 
+client I could use was already transferring other stuff to the server 
+via Samba. I used SFTP protocol for this test but due to the 
+simultaneous Samba transfer I could not obtain a long SFTP hangup. The 
+longest hangup I obtained is 1 minute. I hope this is really a 
+manifestation of the bug in question, and not a simple temporary 
+starvation at server side.
+
+Here is the relevant excerpt:
+00:54:36.303031 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 12309129:12309229, ack 997119732, win 65535, length 100
+00:54:36.303216 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 997119732:997120040, ack 12309229, win 64871, length 308
+00:54:36.303450 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 12309229:12309297, ack 997120040, win 65535, length 68
+00:54:36.303566 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 997120040:997120228, ack 12309297, win 64803, length 188
+00:54:36.303645 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 12309297:12309365, ack 997120228, win 65535, length 68
+00:54:36.304414 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 997120228:997120432, ack 12309365, win 64735, length 204
+00:54:36.345583 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+997120432, win 65535, length 0       *** PROBLEM IS HERE ***
+00:55:27.171687 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 12309365:12309425, ack 997120432, win 65535, length 60
+00:55:27.342682 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 997120432:997120944, ack 12309425, win 64675, length 512
+00:55:27.342726 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+997120944, win 65535, length 0
+00:55:27.342775 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [.], seq 
+997120944:997122404, ack 12309425, win 64675, length 1460
+00:55:27.342787 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+997122404, win 65535, length 0
+00:55:27.342792 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 997122404:997122612, ack 12309425, win 64675, length 208
+00:55:27.342795 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+997122612, win 65535, length 0
+
+It seems to me the TCP stack at the Server returns an ack to the client 
+but waits 1 minutes before being able to give the further 60 bytes to 
+the client (these are application-generated bytes, right?) which are 
+probably needed at client-side for the functioning of the SFTP protocol.
+I suspect the SFTP-server application receives the last client data just 
+at the end of the minute of delay (at 00:55:27.1something)
+Probably if the dump was made without concomitant Samba activity, the 
+sftp-server application would have never received such last client bytes 
+and that's why the hangup lasts forever.
+However the TCP socket remains established because the TCP stack works 
+and acks are sent properly
+Could this be a good interpretation of the bug?
+
+I don't know what are those 60 bytes though, can you confirm is it a 
+part of the SFTP or SSH protocol?
+
+I observed other similar micro-hangups:
+...
+00:50:59.210115 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+3346661444, win 65535, length 0
+00:51:14.137978 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 7757313:7757457, ack 3346661444, win 65535, length 144
+...
+00:52:02.495785 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 8612969:8613037, ack 3711382248, win 65535, length 68
+00:52:02.507752 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 3711382248:3711382452, ack 8613037, win 65399, length 204
+00:52:02.545585 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+3711382452, win 65535, length 0
+00:52:14.568489 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 8613037:8613097, ack 3711382452, win 65535, length 60
+00:52:14.572162 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [P.], 
+seq 3711382452:3711382964, ack 8613097, win 65339, length 512
+00:52:14.572184 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+3711382964, win 65535, length 0
+00:52:14.572312 IP 192.168.18.37.3418 > 192.168.18.15.22: Flags [.], seq 
+3711382964:3711384424, ack 8613097, win 65339, length 1460
+...
+00:55:30.464957 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+1040635920, win 65535, length 0
+00:55:32.230205 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 12410749:12410809, ack 1040635920, win 65535, length 60
+...
+00:55:54.404027 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+1362376840, win 65535, length 0
+00:56:08.349224 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 13157437:13157497, ack 1362376840, win 65535, length 60
+...
+00:56:28.494333 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [.], ack 
+1424904580, win 65535, length 0
+00:56:31.450352 IP 192.168.18.15.22 > 192.168.18.37.3418: Flags [P.], 
+seq 13307333:13307393, ack 1424904580, win 65535, length 60
+
+Update: actually I just found a disk performance problem at Server side 
+so that the disks couldn't go faster than 70MB/sec (stripe_cache_size 
+was too low and readahead was too low), and I'm thinking if this could 
+be the reason for indeed triggering the bug: if there was a starvation 
+of the TCP/IP stack or network card driver at the wrong time (because 
+i.e. the CPUs are doing something else like accessing the disks), could 
+that prevent the 60-bytes packet from ever being transmitted...? (in 
+case of no other incoming ethernet packets which can give the TCPIP or 
+e1000 driver a second chance to run)
+
+Thanks for your help
+Asdo
