@@ -1,52 +1,84 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: how expensive are mallocs?
-Date: Thu, 26 Nov 2009 23:25:27 +0100
-Message-ID: <877htc6i08.fsf@basil.nowhere.org>
-References: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: TCP sockets stalling - help! (long)
+Date: Thu, 26 Nov 2009 23:33:02 +0100
+Message-ID: <20091126233302.42be8780@houba>
+References: <4B0CB1B8.8030402@shiftmail.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andrew Grover <andy.grover@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Asdo <asdo@shiftmail.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:33713 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbZKZWZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 17:25:23 -0500
-In-Reply-To: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com> (Andrew Grover's message of "Tue, 24 Nov 2009 09:57:34 -0800")
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:43556 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752928AbZKZWkY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 17:40:24 -0500
+In-Reply-To: <4B0CB1B8.8030402@shiftmail.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Grover <andy.grover@gmail.com> writes:
+Le Wed, 25 Nov 2009 05:25:28 +0100,
+Asdo <asdo@shiftmail.org> a =C3=A9crit :
 
-> How much effort generally makes sense to avoid mallocs? For example,
+> Hi netdev and e1000 people,
+>=20
+> I have a weird problem here.
+> [...]
 
-The slab allocators are very optimized, with a fast path for
-allocation and freeing that's essentially "disable interrupts ; 
-unlink object from a list ; reenable". That's not expensive
-(unless you're running on a CPU where disabling interrupts is)
+I have the same kind of problem at home. I can't copy big files over
+ssh unless I limit the rate ( ssh -l 8000 ... )
+After reading your mail, I make some quick tests ( see below).
 
-The main costs in them come when you free objects on a different CPU
-(or worse node) than where you allocate them. In that case you can end
-up with some bounced cache lines, which are slow. If you can avoid
-that you're good. If you can't even then you would need to make major
-effort to do better.
+Results in short :
+- netcat always work.
+- ssh stalls, nearly immediately.
 
-> Also, RDS has its own per-cpu page remainder allocator (see
-> net/rds/page.c) for kernel send buffers. Would cutting this code and
-> just using kmalloc be recommended? Doesn't SL?B already do per-cpu
-> pools?
+I thought fault cames from a kernel update or my wifi card update.
+Apparently, I was wrong for the hardware.
 
-Slab is all per cpu in the fast path, but see above.
+Here are the test I just made :=20
 
-> Does this stuff even matter enough to rise above the noise in benchmarks?
+network:
+SG ----- eth_100_Mbps ----- ISV_BOX )))   wifi_~1.5Mb   ((( HOUBA
 
-Yes it does in some circumstances, but it's hard to do better.
+host HOUBA:
+----
+gentoo - updated frequently (once a week)
+kernel vanilla : Linux houba 2.6.32-rc6-fredo4-04866-g47caac1 #5
+PREEMPT Fri Nov 6 14:20:20 CET 2009 i686 Intel(R) Pentium(R) M
+processor 1400MHz GenuineIntel GNU/Linux
 
-One example of doing better for special circumstances would be Eric's
-rps work, but doing these things is not easy and only worth it
-for really critical cases.
+host SG:=20
+----
+debian stable - not updated recently
+kernel vanilla : Linux sg 2.6.32-rc5-fredo3 #2 Mon Oct 19 02:25:29 CEST
+2009 i586 GNU/Linux=20
+/dev/sda is a USB disk mounted on media/big
 
--Andi
+TESTS
+-----
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+HOUBA command for tests :
+netcat -l -p 2000 | pv > /dev/null
+
+TEST1 - OK : ~5min
+fredo@sg:~/remote_wake$ cat /dev/null | netcat houba 2000
+
+TEST2 - OK : ~5min
+fredo@sg:~/remote_wake$ cat /dev/sda | netcat houba 2000
+
+TEST3 - OK :
+fredo@sg:~/remote_wake$
+cat /media/big/home/fredo/cdanslair/cdanslair_20091125.wmv | netcat -q
+0 houba 2000
+
+result : 291MO 0:03:32 [1,37MO/s]
+
+TEST4 - FAILED
+fredo@sg:~/remote_wake$
+scp /media/big/home/fredo/cdanslair/cdanslair_20091125.wmv houba:
+Stalled within seconds (5216Kb transferred) :
+cdanslair_20091125.wmv          1% 5216KB   0.0KB/s - stalled -
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
