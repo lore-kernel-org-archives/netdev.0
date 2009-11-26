@@ -1,8 +1,7 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH v4 2/7] via-velocity: Add ethtool interrupt coalescing
- support
-Date: Thu, 26 Nov 2009 09:10:12 +0100
-Message-ID: <20091126091012.67646c42@marrow.netinsight.se>
+Subject: [PATCH v4 3/7] via-velocity: Implement NAPI support
+Date: Thu, 26 Nov 2009 09:10:26 +0100
+Message-ID: <20091126091026.411482a1@marrow.netinsight.se>
 References: <20091120160633.77b7aee0@marrow.netinsight.se>
 	<20091123152724.2871cf4d@marrow.netinsight.se>
 	<20091126090429.39cb37ac@marrow.netinsight.se>
@@ -13,248 +12,209 @@ Cc: davem@davemloft.net, davej@redhat.com, shemminger@vyatta.com,
 	romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:62612 "HELO
+Received: from ernst.netinsight.se ([194.16.221.21]:50898 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1759392AbZKZIKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 03:10:10 -0500
+	with SMTP id S1759453AbZKZIKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 03:10:23 -0500
 In-Reply-To: <20091126090429.39cb37ac@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Partially from the upstream VIA driver). Tweaking the number of
-frames-per-interrupt and timer-until-interrupt can reduce the amount of
-CPU work quite a lot.
+This patch adds NAPI support for VIA velocity. The new velocity_poll
+function also pairs tx/rx handling twice which improves perforamance on
+some workloads (e.g., netperf UDP_STREAM) significantly (that part is
+from the VIA driver).
 
 Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
 ---
- drivers/net/via-velocity.c |  160 +++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/via-velocity.h |    7 ++-
- 2 files changed, 165 insertions(+), 2 deletions(-)
+ drivers/net/via-velocity.c |   81 +++++++++++++++++++++++++-------------------
+ drivers/net/via-velocity.h |    3 ++
+ 2 files changed, 49 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index b6cf3b5..85ee898 100644
+index 85ee898..668cdf6 100644
 --- a/drivers/net/via-velocity.c
 +++ b/drivers/net/via-velocity.c
-@@ -1259,6 +1259,66 @@ static void mii_init(struct velocity_info *vptr, u32 mii_status)
- 	}
+@@ -354,12 +354,6 @@ VELOCITY_PARAM(ValPktLen, "Receiving or Drop invalid 802.3 frame");
+ */
+ VELOCITY_PARAM(wol_opts, "Wake On Lan options");
+ 
+-#define INT_WORKS_DEF   20
+-#define INT_WORKS_MIN   10
+-#define INT_WORKS_MAX   64
+-
+-VELOCITY_PARAM(int_works, "Number of packets per interrupt services");
+-
+ static int rx_copybreak = 200;
+ module_param(rx_copybreak, int, 0644);
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+@@ -516,7 +510,6 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
+ 	velocity_set_bool_opt(&opts->flags, ValPktLen[index], VAL_PKT_LEN_DEF, VELOCITY_FLAGS_VAL_PKT_LEN, "ValPktLen", devname);
+ 	velocity_set_int_opt((int *) &opts->spd_dpx, speed_duplex[index], MED_LNK_MIN, MED_LNK_MAX, MED_LNK_DEF, "Media link mode", devname);
+ 	velocity_set_int_opt((int *) &opts->wol_opts, wol_opts[index], WOL_OPT_MIN, WOL_OPT_MAX, WOL_OPT_DEF, "Wake On Lan options", devname);
+-	velocity_set_int_opt((int *) &opts->int_works, int_works[index], INT_WORKS_MIN, INT_WORKS_MAX, INT_WORKS_DEF, "Interrupt service works", devname);
+ 	opts->numrx = (opts->numrx & ~3);
  }
  
-+/**
-+ * setup_queue_timers	-	Setup interrupt timers
-+ *
-+ * Setup interrupt frequency during suppression (timeout if the frame
-+ * count isn't filled).
-+ */
-+static void setup_queue_timers(struct velocity_info *vptr)
-+{
-+	/* Only for newer revisions */
-+	if (vptr->rev_id >= REV_ID_VT3216_A0) {
-+		u8 txqueue_timer = 0;
-+		u8 rxqueue_timer = 0;
-+
-+		if (vptr->mii_status & (VELOCITY_SPEED_1000 |
-+				VELOCITY_SPEED_100)) {
-+			txqueue_timer = vptr->options.txqueue_timer;
-+			rxqueue_timer = vptr->options.rxqueue_timer;
-+		}
-+
-+		writeb(txqueue_timer, &vptr->mac_regs->TQETMR);
-+		writeb(rxqueue_timer, &vptr->mac_regs->RQETMR);
+@@ -2123,13 +2116,14 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+  *	any received packets from the receive queue. Hand the ring
+  *	slots back to the adapter for reuse.
+  */
+-static int velocity_rx_srv(struct velocity_info *vptr, int status)
++static int velocity_rx_srv(struct velocity_info *vptr, int status,
++		int budget_left)
+ {
+ 	struct net_device_stats *stats = &vptr->dev->stats;
+ 	int rd_curr = vptr->rx.curr;
+ 	int works = 0;
+ 
+-	do {
++	while (works < budget_left) {
+ 		struct rx_desc *rd = vptr->rx.ring + rd_curr;
+ 
+ 		if (!vptr->rx.info[rd_curr].skb)
+@@ -2160,7 +2154,8 @@ static int velocity_rx_srv(struct velocity_info *vptr, int status)
+ 		rd_curr++;
+ 		if (rd_curr >= vptr->options.numrx)
+ 			rd_curr = 0;
+-	} while (++works <= 15);
++		works++;
 +	}
-+}
-+/**
-+ * setup_adaptive_interrupts  -  Setup interrupt suppression
-+ *
-+ * @vptr velocity adapter
-+ *
-+ * The velocity is able to suppress interrupt during high interrupt load.
-+ * This function turns on that feature.
-+ */
-+static void setup_adaptive_interrupts(struct velocity_info *vptr)
+ 
+ 	vptr->rx.curr = rd_curr;
+ 
+@@ -2171,6 +2166,40 @@ static int velocity_rx_srv(struct velocity_info *vptr, int status)
+ 	return works;
+ }
+ 
++static int velocity_poll(struct napi_struct *napi, int budget)
 +{
-+	struct mac_regs __iomem *regs = vptr->mac_regs;
-+	u16 tx_intsup = vptr->options.tx_intsup;
-+	u16 rx_intsup = vptr->options.rx_intsup;
++	struct velocity_info *vptr = container_of(napi,
++			struct velocity_info, napi);
++	unsigned int rx_done;
++	u32 isr_status;
 +
-+	/* Setup default interrupt mask (will be changed below) */
-+	vptr->int_mask = INT_MASK_DEF;
++	spin_lock(&vptr->lock);
++	isr_status = mac_read_isr(vptr->mac_regs);
 +
-+	/* Set Tx Interrupt Suppression Threshold */
-+	writeb(CAMCR_PS0, &regs->CAMCR);
-+	if (tx_intsup != 0) {
-+		vptr->int_mask &= ~(ISR_PTXI | ISR_PTX0I | ISR_PTX1I |
-+				ISR_PTX2I | ISR_PTX3I);
-+		writew(tx_intsup, &regs->ISRCTL);
-+	} else
-+		writew(ISRCTL_TSUPDIS, &regs->ISRCTL);
++	/* Ack the interrupt */
++	mac_write_isr(vptr->mac_regs, isr_status);
++	if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
++		velocity_error(vptr, isr_status);
 +
-+	/* Set Rx Interrupt Suppression Threshold */
-+	writeb(CAMCR_PS1, &regs->CAMCR);
-+	if (rx_intsup != 0) {
-+		vptr->int_mask &= ~ISR_PRXI;
-+		writew(rx_intsup, &regs->ISRCTL);
-+	} else
-+		writew(ISRCTL_RSUPDIS, &regs->ISRCTL);
++	/*
++	 * Do rx and tx twice for performance (taken from the VIA
++	 * out-of-tree driver).
++	 */
++	rx_done = velocity_rx_srv(vptr, isr_status, budget / 2);
++	velocity_tx_srv(vptr, isr_status);
++	rx_done += velocity_rx_srv(vptr, isr_status, budget - rx_done);
++	velocity_tx_srv(vptr, isr_status);
 +
-+	/* Select page to interrupt hold timer */
-+	writeb(0, &regs->CAMCR);
++	spin_unlock(&vptr->lock);
++
++	/* If budget not fully consumed, exit the polling mode */
++	if (rx_done < budget) {
++		napi_complete(napi);
++		mac_enable_int(vptr->mac_regs);
++	}
++
++	return rx_done;
 +}
  
  /**
-  *	velocity_init_registers	-	initialise MAC registers
-@@ -1345,7 +1405,7 @@ static void velocity_init_registers(struct velocity_info *vptr,
- 		 */
- 		enable_mii_autopoll(regs);
+  *	velocity_intr		-	interrupt callback
+@@ -2187,8 +2216,6 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
+ 	struct net_device *dev = dev_instance;
+ 	struct velocity_info *vptr = netdev_priv(dev);
+ 	u32 isr_status;
+-	int max_count = 0;
+-
  
--		vptr->int_mask = INT_MASK_DEF;
-+		setup_adaptive_interrupts(vptr);
+ 	spin_lock(&vptr->lock);
+ 	isr_status = mac_read_isr(vptr->mac_regs);
+@@ -2199,32 +2226,13 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
+ 		return IRQ_NONE;
+ 	}
  
- 		writel(vptr->rx.pool_dma, &regs->RDBaseLo);
- 		writew(vptr->options.numrx - 1, &regs->RDCSize);
-@@ -1802,6 +1862,8 @@ static void velocity_error(struct velocity_info *vptr, int status)
- 				BYTE_REG_BITS_OFF(TESTCFG_HBDIS, &regs->TESTCFG);
- 			else
- 				BYTE_REG_BITS_ON(TESTCFG_HBDIS, &regs->TESTCFG);
-+
-+			setup_queue_timers(vptr);
- 		}
- 		/*
- 		 *	Get link status from PHYSR0
-@@ -3223,6 +3285,100 @@ static void velocity_set_msglevel(struct net_device *dev, u32 value)
- 	 msglevel = value;
+-	mac_disable_int(vptr->mac_regs);
+-
+-	/*
+-	 *	Keep processing the ISR until we have completed
+-	 *	processing and the isr_status becomes zero
+-	 */
+-
+-	while (isr_status != 0) {
+-		mac_write_isr(vptr->mac_regs, isr_status);
+-		if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
+-			velocity_error(vptr, isr_status);
+-		if (isr_status & (ISR_PRXI | ISR_PPRXI))
+-			max_count += velocity_rx_srv(vptr, isr_status);
+-		if (isr_status & (ISR_PTXI | ISR_PPTXI))
+-			max_count += velocity_tx_srv(vptr, isr_status);
+-		isr_status = mac_read_isr(vptr->mac_regs);
+-		if (max_count > vptr->options.int_works) {
+-			printk(KERN_WARNING "%s: excessive work at interrupt.\n",
+-				dev->name);
+-			max_count = 0;
+-		}
++	if (likely(napi_schedule_prep(&vptr->napi))) {
++		mac_disable_int(vptr->mac_regs);
++		__napi_schedule(&vptr->napi);
+ 	}
+ 	spin_unlock(&vptr->lock);
+-	mac_enable_int(vptr->mac_regs);
+-	return IRQ_HANDLED;
+ 
++	return IRQ_HANDLED;
  }
  
-+static int get_pending_timer_val(int val)
-+{
-+	int mult_bits = val >> 6;
-+	int mult = 1;
-+
-+	switch (mult_bits)
-+	{
-+	case 1:
-+		mult = 4; break;
-+	case 2:
-+		mult = 16; break;
-+	case 3:
-+		mult = 64; break;
-+	case 0:
-+	default:
-+		break;
-+	}
-+
-+	return (val & 0x3f) * mult;
-+}
-+
-+static void set_pending_timer_val(int *val, u32 us)
-+{
-+	u8 mult = 0;
-+	u8 shift = 0;
-+
-+	if (us >= 0x3f) {
-+		mult = 1; /* mult with 4 */
-+		shift = 2;
-+	}
-+	if (us >= 0x3f * 4) {
-+		mult = 2; /* mult with 16 */
-+		shift = 4;
-+	}
-+	if (us >= 0x3f * 16) {
-+		mult = 3; /* mult with 64 */
-+		shift = 6;
-+	}
-+
-+	*val = (mult << 6) | ((us >> shift) & 0x3f);
-+}
-+
-+
-+static int velocity_get_coalesce(struct net_device *dev,
-+		struct ethtool_coalesce *ecmd)
-+{
-+	struct velocity_info *vptr = netdev_priv(dev);
-+
-+	ecmd->tx_max_coalesced_frames = vptr->options.tx_intsup;
-+	ecmd->rx_max_coalesced_frames = vptr->options.rx_intsup;
-+
-+	ecmd->rx_coalesce_usecs = get_pending_timer_val(vptr->options.rxqueue_timer);
-+	ecmd->tx_coalesce_usecs = get_pending_timer_val(vptr->options.txqueue_timer);
-+
-+	return 0;
-+}
-+
-+static int velocity_set_coalesce(struct net_device *dev,
-+		struct ethtool_coalesce *ecmd)
-+{
-+	struct velocity_info *vptr = netdev_priv(dev);
-+	int max_us = 0x3f * 64;
-+
-+	/* 6 bits of  */
-+	if (ecmd->tx_coalesce_usecs > max_us)
-+		return -EINVAL;
-+	if (ecmd->rx_coalesce_usecs > max_us)
-+		return -EINVAL;
-+
-+	if (ecmd->tx_max_coalesced_frames > 0xff)
-+		return -EINVAL;
-+	if (ecmd->rx_max_coalesced_frames > 0xff)
-+		return -EINVAL;
-+
-+	vptr->options.rx_intsup = ecmd->rx_max_coalesced_frames;
-+	vptr->options.tx_intsup = ecmd->tx_max_coalesced_frames;
-+
-+	set_pending_timer_val(&vptr->options.rxqueue_timer,
-+			ecmd->rx_coalesce_usecs);
-+	set_pending_timer_val(&vptr->options.txqueue_timer,
-+			ecmd->tx_coalesce_usecs);
-+
-+	/* Setup the interrupt suppression and queue timers */
-+	mac_disable_int(vptr->mac_regs);
-+	setup_adaptive_interrupts(vptr);
-+	setup_queue_timers(vptr);
-+
-+	mac_write_int_mask(vptr->int_mask, vptr->mac_regs);
-+	mac_clear_isr(vptr->mac_regs);
-+	mac_enable_int(vptr->mac_regs);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops velocity_ethtool_ops = {
- 	.get_settings	=	velocity_get_settings,
- 	.set_settings	=	velocity_set_settings,
-@@ -3232,6 +3388,8 @@ static const struct ethtool_ops velocity_ethtool_ops = {
- 	.get_msglevel	=	velocity_get_msglevel,
- 	.set_msglevel	=	velocity_set_msglevel,
- 	.get_link	=	velocity_get_link,
-+	.get_coalesce	=	velocity_get_coalesce,
-+	.set_coalesce	=	velocity_set_coalesce,
- 	.begin		=	velocity_ethtool_up,
- 	.complete	=	velocity_ethtool_down
- };
+ /**
+@@ -2264,6 +2272,7 @@ static int velocity_open(struct net_device *dev)
+ 
+ 	mac_enable_int(vptr->mac_regs);
+ 	netif_start_queue(dev);
++	napi_enable(&vptr->napi);
+ 	vptr->flags |= VELOCITY_FLAGS_OPENED;
+ out:
+ 	return ret;
+@@ -2499,6 +2508,7 @@ static int velocity_close(struct net_device *dev)
+ {
+ 	struct velocity_info *vptr = netdev_priv(dev);
+ 
++	napi_disable(&vptr->napi);
+ 	netif_stop_queue(dev);
+ 	velocity_shutdown(vptr);
+ 
+@@ -2818,6 +2828,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+ 	dev->irq = pdev->irq;
+ 	dev->netdev_ops = &velocity_netdev_ops;
+ 	dev->ethtool_ops = &velocity_ethtool_ops;
++	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
+ 
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
+ 		NETIF_F_HW_VLAN_RX;
 diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
-index 2f00c13..6091946 100644
+index 6091946..22bfea4 100644
 --- a/drivers/net/via-velocity.h
 +++ b/drivers/net/via-velocity.h
-@@ -1005,7 +1005,8 @@ struct mac_regs {
+@@ -32,6 +32,7 @@
+ #define VELOCITY_VERSION       "1.14"
  
- 	volatile __le32 RDBaseLo;	/* 0x38 */
- 	volatile __le16 RDIdx;		/* 0x3C */
--	volatile __le16 reserved_3E;
-+	volatile u8 TQETMR;		/* 0x3E, VT3216 and above only */
-+	volatile u8 RQETMR;		/* 0x3F, VT3216 and above only */
+ #define VELOCITY_IO_SIZE	256
++#define VELOCITY_NAPI_WEIGHT	64
  
- 	volatile __le32 TDBaseLo[4];	/* 0x40 */
+ #define PKT_BUF_SZ          1540
  
-@@ -1491,6 +1492,10 @@ struct velocity_opt {
- 	int rx_bandwidth_hi;
- 	int rx_bandwidth_lo;
- 	int rx_bandwidth_en;
-+	int rxqueue_timer;
-+	int txqueue_timer;
-+	int tx_intsup;
-+	int rx_intsup;
- 	u32 flags;
+@@ -1564,6 +1565,8 @@ struct velocity_info {
+ 	u32 ticks;
+ 
+ 	u8 rev_id;
++
++	struct napi_struct napi;
  };
  
+ /**
 -- 
 1.6.0.4
 
