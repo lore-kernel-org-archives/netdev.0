@@ -1,57 +1,81 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/4] veth: move loopback logic to common location
-Date: Thu, 26 Nov 2009 16:33:36 +0100
-Message-ID: <4B0E9FD0.4040107@trash.net>
-References: <1259024166-28158-1-git-send-email-arnd@arndb.de> <m1aayb6bfg.fsf@fess.ebiederm.org> <4B0C2824.5010502@trash.net> <200911261621.28298.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	virtualization@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCHv3 0/4] macvlan: add vepa and bridge mode
+Date: Thu, 26 Nov 2009 17:07:07 +0100
+Message-ID: <1259251631-11617-1-git-send-email-arnd@arndb.de>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
+	Anna Fischer <anna.fischer@hp.com>,
 	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
 	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
 	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Jens Osterkamp <jens@linux.vnet.ibm.com>,
 	Patrick Mullaney <pmullaney@novell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756207AbZKZPdg@vger.kernel.org>
-In-Reply-To: <200911261621.28298.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:54392 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755902AbZKZQHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 11:07:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann wrote:
-> On Tuesday 24 November 2009, Patrick McHardy wrote:
->> Eric W. Biederman wrote:
->>> I don't quite follow what you intend with dev_queue_xmit when the macvlan
->>> is in one namespace and the real physical device is in another.  Are
->>> you mentioning that the packet classifier runs in the namespace where
->>> the primary device lives with packets from a different namespace?
->> Exactly. And I think we should make sure that the namespace of
->> the macvlan device can't (deliberately or accidentally) cause
->> misclassification.
-> 
-> This is independent of my series and a preexisting problem, right?
+Not many changes this time, just integrated a bug fix
+and all the coding style feedback from Eric Dumazet
+and Patrick McHardy.
 
-Correct.
+I'll keep the patch for network namespaces on the tx
+path out of this series for now, because the discussion
+is still ongoing and it addresses an unrelated issue.
 
-> Which fields do you think need to be reset to maintain namespace
-> isolation for the outbound path in macvlan?
+---
 
-In addition to those already handled, I'd say
+Version 2 description:
+The patch to iproute2 has not changed, so I'm not including
+it this time. Patch 4/4 (the netlink interface) is basically
+unchanged as well but included for completeness.
 
-- priority: affects qdisc classification, may refer to classes of the
-  old namespace
-- ipvs_property: might cause packets to incorrectly skip netfilter hooks
-- nf_trace: might trigger packet tracing
-- nf_bridge: contains references to network devices in the old NS,
-  also indicates packet was bridged
-- iif: index is only valid in the originating namespace
-- tc_index: classification result, should only be set in the namespace
-  of the classifier
-- tc_verd: RTTL etc. should begin at zero again
-- probably secmark.
+The other changes have moved forward a bit, to the point where
+I find them a lot cleaner and am more confident in the code
+being ready for inclusion. The implementation hardly resembles
+Erics original patch now, so I've dropped his signed-off-by.
+
+Please take a look and ack if you are happy so we can get it
+into 2.6.33.
+
+---
+
+Version 1 description:
+This is based on an earlier patch from Eric Biederman adding
+forwarding between macvlans. I extended his approach to
+allow the administrator to choose the mode for each macvlan,
+and to implement a functional VEPA between macvlan.
+
+Still missing from this is support for communication between
+the lower device that the macvlans are based on. This would
+be extremely useful but as others have found out before me
+requires significant changes not only to macvlan but also
+to the common transmit path.
+
+I've tested VEPA operation with the hairpin support
+added to the bridge driver by Anna Fischer.
+
+---
+Arnd Bergmann (4):
+  veth: move loopback logic to common location
+  macvlan: cleanup rx statistics
+  macvlan: implement bridge, VEPA and private mode
+  macvlan: export macvlan mode through netlink
+
+ drivers/net/macvlan.c     |  188 +++++++++++++++++++++++++++++++++++++--------
+ drivers/net/veth.c        |   17 +----
+ include/linux/if_link.h   |   15 ++++
+ include/linux/netdevice.h |    2 +
+ net/core/dev.c            |   40 ++++++++++
+ 5 files changed, 214 insertions(+), 48 deletions(-)
+
