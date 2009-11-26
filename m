@@ -1,9 +1,11 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH v4 0/7] via-velocity performance fixes
-Date: Thu, 26 Nov 2009 09:04:29 +0100
-Message-ID: <20091126090429.39cb37ac@marrow.netinsight.se>
+Subject: [PATCH v4 1/7] via-velocity: Correct 64-byte alignment for rx
+ buffers
+Date: Thu, 26 Nov 2009 09:09:53 +0100
+Message-ID: <20091126090953.2d783d06@marrow.netinsight.se>
 References: <20091120160633.77b7aee0@marrow.netinsight.se>
 	<20091123152724.2871cf4d@marrow.netinsight.se>
+	<20091126090429.39cb37ac@marrow.netinsight.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,46 +13,49 @@ Cc: davem@davemloft.net, davej@redhat.com, shemminger@vyatta.com,
 	romieu@fr.zoreil.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:26146 "HELO
+Received: from ernst.netinsight.se ([194.16.221.21]:9932 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1759368AbZKZIE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 03:04:29 -0500
-In-Reply-To: <20091123152724.2871cf4d@marrow.netinsight.se>
+	with SMTP id S1759377AbZKZIJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 03:09:52 -0500
+In-Reply-To: <20091126090429.39cb37ac@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi again!
+(From the VIA driver). The current code does not guarantee 64-byte
+alignment since it simply does
 
-This is version four of the series posted here:
+        int add = skb->data & 63;
 
-   http://marc.info/?l=linux-netdev&m=125873023117769&w=2
+        skb->data += add;
 
-The new version integrates Davids comments. There are 7 patches:
+(via skb_reserve). So for example, if the skb->data address would be
+0x10, this would result in 32-byte alignment (0x10 + 0x10).
 
-1. See to it that data is 64-byte aligned (same as before)
+Correct by adding
 
-2. Add ethtool interrupt coalescing support. (same as before)
+        64 - (skb->data & 63)
 
-3. NAPI support for via-velocity (same as before)
+instead.
 
-4. Change DMA length default (same as before)
+Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
+---
+ drivers/net/via-velocity.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-5. Re-enable scatter-gather support. (removed the double-check of
-   nr_frags according to Davids comment)
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index e04e5be..b6cf3b5 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1483,7 +1483,8 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
+ 	 *	Do the gymnastics to get the buffer head for data at
+ 	 *	64byte alignment.
+ 	 */
+-	skb_reserve(rd_info->skb, (unsigned long) rd_info->skb->data & 63);
++	skb_reserve(rd_info->skb,
++			64 - ((unsigned long) rd_info->skb->data & 63));
+ 	rd_info->skb_dma = pci_map_single(vptr->pdev, rd_info->skb->data,
+ 					vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
+ 
+-- 
+1.6.0.4
 
-6. Set tx checksum from ethtool instead of a module parameter (rebased)
-
-7. Bump the version.
-
-
-To get the same performance results (or better!) as with the VIA
-driver, you now need to setup interrupt supression with
-
-   ethtool -C ethX rx-usecs 20 tx-usecs 100 tx-frames 31 rx-frames 31
-
-(which are the defaults from the VIA driver). Scatter-gather support is
-enabled with
-
-   ethtool -K ethX sg on
-
-// Simon
