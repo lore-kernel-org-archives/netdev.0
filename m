@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/7] via-velocity performance fixes
-Date: Thu, 26 Nov 2009 15:52:11 -0800 (PST)
-Message-ID: <20091126.155211.130791887.davem@davemloft.net>
-References: <20091120160633.77b7aee0@marrow.netinsight.se>
-	<20091123152724.2871cf4d@marrow.netinsight.se>
-	<20091126090429.39cb37ac@marrow.netinsight.se>
+Subject: Re: [PATCHv3 0/4] macvlan: add vepa and bridge mode
+Date: Thu, 26 Nov 2009 15:53:14 -0800 (PST)
+Message-ID: <20091126.155314.201869723.davem@davemloft.net>
+References: <1259251631-11617-1-git-send-email-arnd@arndb.de>
+	<4B0EAC29.60601@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, shemminger@vyatta.com,
-	romieu@fr.zoreil.com
-To: simon.kagstrom@netinsight.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46660
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751141AbZKZXvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 18:51:53 -0500
-In-Reply-To: <20091126090429.39cb37ac@marrow.netinsight.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	eric.dumazet@gmail.com, anna.fischer@hp.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	lk-netdev@lk-netdev.nosense.org, gerhard.stenzel@de.ibm.com,
+	ebiederm@xmission.com, jens@linux.vnet.ibm.com,
+	pmullaney@novell.com, shemminger@vyatta.com
+To: kaber@trash.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752498AbZKZXw5@vger.kernel.org>
+In-Reply-To: <4B0EAC29.60601@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Date: Thu, 26 Nov 2009 09:04:29 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 26 Nov 2009 17:26:17 +0100
 
-> Hi again!
+> Arnd Bergmann wrote:
+>> Version 2 description:
+>> The patch to iproute2 has not changed, so I'm not including
+>> it this time. Patch 4/4 (the netlink interface) is basically
+>> unchanged as well but included for completeness.
+>> 
+>> The other changes have moved forward a bit, to the point where
+>> I find them a lot cleaner and am more confident in the code
+>> being ready for inclusion. The implementation hardly resembles
+>> Erics original patch now, so I've dropped his signed-off-by.
+>> 
+>> Please take a look and ack if you are happy so we can get it
+>> into 2.6.33.
 > 
-> This is version four of the series posted here:
+> Looks good to me, nice work.
 > 
->    http://marc.info/?l=linux-netdev&m=125873023117769&w=2
+> Acked-by: Patrick McHardy <kaber@trash.net>
 > 
-> The new version integrates Davids comments. There are 7 patches:
+> for the entire series.
 
-All applied to net-next-2.6, thanks!
+All applied to net-next-2.6, thanks everyone!
