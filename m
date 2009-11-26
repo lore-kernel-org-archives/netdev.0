@@ -1,351 +1,264 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 06/16] sfc: Clean up struct falcon_board and struct
-	falcon_board_data
-Date: Thu, 26 Nov 2009 02:09:41 +0000
-Message-ID: <1259201381.2806.15.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 07/16] sfc: Fix bugs in RX queue flushing
+Date: Thu, 26 Nov 2009 02:09:55 +0000
+Message-ID: <1259201395.2806.17.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:31172 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:31191 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbZKZCJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 21:09:37 -0500
+	with ESMTP id S1751742AbZKZCJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Nov 2009 21:09:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Put all static information in struct falcon_board_type and replace it
-with a pointer in struct falcon_board.  Simplify probing aocordingly.
+Avoid overrunning the hardware limit of 4 concurrent RX queue flushes.
+Expand the queue flush state to support this.  Make similar changes to
+TX flushing to keep the code symmetric.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c           |    2 +-
- drivers/net/sfc/ethtool.c       |    6 +-
- drivers/net/sfc/falcon.c        |    4 +-
- drivers/net/sfc/falcon.h        |   34 ++++++++----
- drivers/net/sfc/falcon_boards.c |  115 ++++++++++++++++++---------------------
- drivers/net/sfc/qt202x_phy.c    |    2 +-
- drivers/net/sfc/tenxpress.c     |    2 +-
- 7 files changed, 85 insertions(+), 80 deletions(-)
+ drivers/net/sfc/falcon.c     |  103 ++++++++++++++++++++++++++----------------
+ drivers/net/sfc/net_driver.h |   11 ++++-
+ 2 files changed, 73 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 9f3ef38..dc85efa 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1309,7 +1309,7 @@ static void efx_monitor(struct work_struct *data)
- 		goto out_requeue;
- 	if (!efx->port_enabled)
- 		goto out_unlock;
--	rc = falcon_board(efx)->monitor(efx);
-+	rc = falcon_board(efx)->type->monitor(efx);
- 	if (rc) {
- 		EFX_ERR(efx, "Board sensor %s; shutting down PHY\n",
- 			(rc == -ERANGE) ? "reported fault" : "failed");
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index d8915b9..bb9abf2 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -174,14 +174,14 @@ static int efx_ethtool_phys_id(struct net_device *net_dev, u32 count)
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 
- 	do {
--		falcon_board(efx)->set_id_led(efx, EFX_LED_ON);
-+		falcon_board(efx)->type->set_id_led(efx, EFX_LED_ON);
- 		schedule_timeout_interruptible(HZ / 2);
- 
--		falcon_board(efx)->set_id_led(efx, EFX_LED_OFF);
-+		falcon_board(efx)->type->set_id_led(efx, EFX_LED_OFF);
- 		schedule_timeout_interruptible(HZ / 2);
- 	} while (!signal_pending(current) && --count != 0);
- 
--	falcon_board(efx)->set_id_led(efx, EFX_LED_DEFAULT);
-+	falcon_board(efx)->type->set_id_led(efx, EFX_LED_DEFAULT);
- 	return 0;
- }
- 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 2c0be6c..2f1f1fc 100644
+index 2f1f1fc..e1b9ce3 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -2864,7 +2864,7 @@ int falcon_probe_nic(struct efx_nic *efx)
- 	if (rc)
- 		goto fail5;
+@@ -109,6 +109,9 @@ MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
+ /* Size and alignment of special buffers (4KB) */
+ #define FALCON_BUF_SIZE 4096
  
--	rc = falcon_board(efx)->init(efx);
-+	rc = falcon_board(efx)->type->init(efx);
- 	if (rc) {
- 		EFX_ERR(efx, "failed to initialise board\n");
- 		goto fail6;
-@@ -3067,7 +3067,7 @@ void falcon_remove_nic(struct efx_nic *efx)
- 	struct falcon_board *board = falcon_board(efx);
- 	int rc;
++/* Depth of RX flush request fifo */
++#define FALCON_RX_FLUSH_COUNT 4
++
+ #define FALCON_IS_DUAL_FUNC(efx)		\
+ 	(falcon_rev(efx) < FALCON_REV_B0)
  
--	falcon_board(efx)->fini(efx);
-+	board->type->fini(efx);
+@@ -426,7 +429,7 @@ void falcon_init_tx(struct efx_tx_queue *tx_queue)
+ 	efx_oword_t tx_desc_ptr;
+ 	struct efx_nic *efx = tx_queue->efx;
  
- 	/* Remove I2C adapter and clear it in preparation for a retry */
- 	rc = i2c_del_adapter(&board->i2c_adap);
-diff --git a/drivers/net/sfc/falcon.h b/drivers/net/sfc/falcon.h
-index ea6ac06..b331889 100644
---- a/drivers/net/sfc/falcon.h
-+++ b/drivers/net/sfc/falcon.h
-@@ -31,29 +31,41 @@ static inline int falcon_rev(struct efx_nic *efx)
+-	tx_queue->flushed = false;
++	tx_queue->flushed = FLUSH_NONE;
+ 
+ 	/* Pin TX descriptor ring */
+ 	falcon_init_special_buffer(efx, &tx_queue->txd);
+@@ -476,6 +479,8 @@ static void falcon_flush_tx_queue(struct efx_tx_queue *tx_queue)
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	efx_oword_t tx_flush_descq;
+ 
++	tx_queue->flushed = FLUSH_PENDING;
++
+ 	/* Post a flush command */
+ 	EFX_POPULATE_OWORD_2(tx_flush_descq,
+ 			     FRF_AZ_TX_FLUSH_DESCQ_CMD, 1,
+@@ -489,7 +494,7 @@ void falcon_fini_tx(struct efx_tx_queue *tx_queue)
+ 	efx_oword_t tx_desc_ptr;
+ 
+ 	/* The queue should have been flushed */
+-	WARN_ON(!tx_queue->flushed);
++	WARN_ON(tx_queue->flushed != FLUSH_DONE);
+ 
+ 	/* Remove TX descriptor ring from card */
+ 	EFX_ZERO_OWORD(tx_desc_ptr);
+@@ -578,7 +583,7 @@ void falcon_init_rx(struct efx_rx_queue *rx_queue)
+ 		rx_queue->queue, rx_queue->rxd.index,
+ 		rx_queue->rxd.index + rx_queue->rxd.entries - 1);
+ 
+-	rx_queue->flushed = false;
++	rx_queue->flushed = FLUSH_NONE;
+ 
+ 	/* Pin RX descriptor ring */
+ 	falcon_init_special_buffer(efx, &rx_queue->rxd);
+@@ -607,6 +612,8 @@ static void falcon_flush_rx_queue(struct efx_rx_queue *rx_queue)
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	efx_oword_t rx_flush_descq;
+ 
++	rx_queue->flushed = FLUSH_PENDING;
++
+ 	/* Post a flush command */
+ 	EFX_POPULATE_OWORD_2(rx_flush_descq,
+ 			     FRF_AZ_RX_FLUSH_DESCQ_CMD, 1,
+@@ -620,7 +627,7 @@ void falcon_fini_rx(struct efx_rx_queue *rx_queue)
+ 	struct efx_nic *efx = rx_queue->efx;
+ 
+ 	/* The queue should already have been flushed */
+-	WARN_ON(!rx_queue->flushed);
++	WARN_ON(rx_queue->flushed != FLUSH_DONE);
+ 
+ 	/* Remove RX descriptor ring from card */
+ 	EFX_ZERO_OWORD(rx_desc_ptr);
+@@ -1181,7 +1188,7 @@ static void falcon_poll_flush_events(struct efx_nic *efx)
+ 						   FSF_AZ_DRIVER_EV_SUBDATA);
+ 			if (ev_queue < EFX_TX_QUEUE_COUNT) {
+ 				tx_queue = efx->tx_queue + ev_queue;
+-				tx_queue->flushed = true;
++				tx_queue->flushed = FLUSH_DONE;
+ 			}
+ 		} else if (ev_code == FSE_AZ_EV_CODE_DRIVER_EV &&
+ 			   ev_sub_code == FSE_AZ_RX_DESCQ_FLS_DONE_EV) {
+@@ -1191,17 +1198,29 @@ static void falcon_poll_flush_events(struct efx_nic *efx)
+ 				*event, FSF_AZ_DRIVER_EV_RX_FLUSH_FAIL);
+ 			if (ev_queue < efx->n_rx_queues) {
+ 				rx_queue = efx->rx_queue + ev_queue;
+-
+-				/* retry the rx flush */
+-				if (ev_failed)
+-					falcon_flush_rx_queue(rx_queue);
+-				else
+-					rx_queue->flushed = true;
++				rx_queue->flushed =
++					ev_failed ? FLUSH_FAILED : FLUSH_DONE;
+ 			}
+ 		}
+ 
++		/* We're about to destroy the queue anyway, so
++		 * it's ok to throw away every non-flush event */
++		EFX_SET_QWORD(*event);
++
+ 		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
+ 	} while (read_ptr != end_ptr);
++
++	channel->eventq_read_ptr = read_ptr;
++}
++
++static void falcon_prepare_flush(struct efx_nic *efx)
++{
++	falcon_deconfigure_mac_wrapper(efx);
++
++	/* Wait for the tx and rx fifo's to get to the next packet boundary
++	 * (~1ms without back-pressure), then to drain the remainder of the
++	 * fifo's at data path speeds (negligible), with a healthy margin. */
++	msleep(10);
  }
  
- /**
-- * struct falcon_board - board information
-- * @type: Board model type
-- * @major: Major rev. ('A', 'B' ...)
-- * @minor: Minor rev. (0, 1, ...)
-+ * struct falcon_board_type - board operations and type information
-+ * @id: Board type id, as found in NVRAM
-+ * @ref_model: Model number of Solarflare reference design
-+ * @gen_type: Generic board type description
-  * @init: Allocate resources and initialise peripheral hardware
-  * @init_phy: Do board-specific PHY initialisation
-+ * @fini: Shut down hardware and free resources
-  * @set_id_led: Set state of identifying LED or revert to automatic function
-  * @monitor: Board-specific health check function
-- * @fini: Shut down hardware and free resources
-+ */
-+struct falcon_board_type {
-+	u8 id;
-+	const char *ref_model;
-+	const char *gen_type;
-+	int (*init) (struct efx_nic *nic);
-+	void (*init_phy) (struct efx_nic *efx);
-+	void (*fini) (struct efx_nic *nic);
-+	void (*set_id_led) (struct efx_nic *efx, enum efx_led_mode mode);
-+	int (*monitor) (struct efx_nic *nic);
+ /* Handle tx and rx flushes at the same time, since they run in
+@@ -1211,50 +1230,56 @@ int falcon_flush_queues(struct efx_nic *efx)
+ {
+ 	struct efx_rx_queue *rx_queue;
+ 	struct efx_tx_queue *tx_queue;
+-	int i;
+-	bool outstanding;
++	int i, tx_pending, rx_pending;
+ 
+-	/* Issue flush requests */
+-	efx_for_each_tx_queue(tx_queue, efx) {
+-		tx_queue->flushed = false;
++	falcon_prepare_flush(efx);
++
++	/* Flush all tx queues in parallel */
++	efx_for_each_tx_queue(tx_queue, efx)
+ 		falcon_flush_tx_queue(tx_queue);
+-	}
+-	efx_for_each_rx_queue(rx_queue, efx) {
+-		rx_queue->flushed = false;
+-		falcon_flush_rx_queue(rx_queue);
+-	}
+ 
+-	/* Poll the evq looking for flush completions. Since we're not pushing
+-	 * any more rx or tx descriptors at this point, we're in no danger of
+-	 * overflowing the evq whilst we wait */
++	/* The hardware supports four concurrent rx flushes, each of which may
++	 * need to be retried if there is an outstanding descriptor fetch */
+ 	for (i = 0; i < FALCON_FLUSH_POLL_COUNT; ++i) {
+-		msleep(FALCON_FLUSH_INTERVAL);
+-		falcon_poll_flush_events(efx);
++		rx_pending = tx_pending = 0;
++		efx_for_each_rx_queue(rx_queue, efx) {
++			if (rx_queue->flushed == FLUSH_PENDING)
++				++rx_pending;
++		}
++		efx_for_each_rx_queue(rx_queue, efx) {
++			if (rx_pending == FALCON_RX_FLUSH_COUNT)
++				break;
++			if (rx_queue->flushed == FLUSH_FAILED ||
++			    rx_queue->flushed == FLUSH_NONE) {
++				falcon_flush_rx_queue(rx_queue);
++				++rx_pending;
++			}
++		}
++		efx_for_each_tx_queue(tx_queue, efx) {
++			if (tx_queue->flushed != FLUSH_DONE)
++				++tx_pending;
++		}
+ 
+-		/* Check if every queue has been succesfully flushed */
+-		outstanding = false;
+-		efx_for_each_tx_queue(tx_queue, efx)
+-			outstanding |= !tx_queue->flushed;
+-		efx_for_each_rx_queue(rx_queue, efx)
+-			outstanding |= !rx_queue->flushed;
+-		if (!outstanding)
++		if (rx_pending == 0 && tx_pending == 0)
+ 			return 0;
++
++		msleep(FALCON_FLUSH_INTERVAL);
++		falcon_poll_flush_events(efx);
+ 	}
+ 
+ 	/* Mark the queues as all flushed. We're going to return failure
+-	 * leading to a reset, or fake up success anyway. "flushed" now
+-	 * indicates that we tried to flush. */
++	 * leading to a reset, or fake up success anyway */
+ 	efx_for_each_tx_queue(tx_queue, efx) {
+-		if (!tx_queue->flushed)
++		if (tx_queue->flushed != FLUSH_DONE)
+ 			EFX_ERR(efx, "tx queue %d flush command timed out\n",
+ 				tx_queue->queue);
+-		tx_queue->flushed = true;
++		tx_queue->flushed = FLUSH_DONE;
+ 	}
+ 	efx_for_each_rx_queue(rx_queue, efx) {
+-		if (!rx_queue->flushed)
++		if (rx_queue->flushed != FLUSH_DONE)
+ 			EFX_ERR(efx, "rx queue %d flush command timed out\n",
+ 				rx_queue->queue);
+-		rx_queue->flushed = true;
++		rx_queue->flushed = FLUSH_DONE;
+ 	}
+ 
+ 	if (EFX_WORKAROUND_7803(efx))
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index ac808d5..d0755ab 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -113,6 +113,13 @@ struct efx_special_buffer {
+ 	int entries;
+ };
+ 
++enum efx_flush_state {
++	FLUSH_NONE,
++	FLUSH_PENDING,
++	FLUSH_FAILED,
++	FLUSH_DONE,
 +};
 +
-+/**
-+ * struct falcon_board - board information
-+ * @type: Type of board
-+ * @major: Major rev. ('A', 'B' ...)
-+ * @minor: Minor rev. (0, 1, ...)
-  * @i2c_adap: I2C adapter for on-board peripherals
-  * @i2c_data: Data for bit-banging algorithm
-  * @hwmon_client: I2C client for hardware monitor
-  * @ioexp_client: I2C client for power/port control
-  */
- struct falcon_board {
--	int type;
-+	const struct falcon_board_type *type;
- 	int major;
- 	int minor;
--	int (*init) (struct efx_nic *nic);
--	void (*init_phy) (struct efx_nic *efx);
--	void (*set_id_led) (struct efx_nic *efx, enum efx_led_mode mode);
--	int (*monitor) (struct efx_nic *nic);
--	void (*fini) (struct efx_nic *nic);
- 	struct i2c_adapter i2c_adap;
- 	struct i2c_algo_bit_data i2c_data;
- 	struct i2c_client *hwmon_client, *ioexp_client;
-diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
-index f05c9d3..ac1258e 100644
---- a/drivers/net/sfc/falcon_boards.c
-+++ b/drivers/net/sfc/falcon_boards.c
-@@ -348,7 +348,7 @@ static ssize_t set_phy_flash_cfg(struct device *dev,
- 		efx->phy_mode = new_mode;
- 		if (new_mode & PHY_MODE_SPECIAL)
- 			efx_stats_disable(efx);
--		if (falcon_board(efx)->type == FALCON_BOARD_SFE4001)
-+		if (falcon_board(efx)->type->id == FALCON_BOARD_SFE4001)
- 			err = sfe4001_poweron(efx);
- 		else
- 			err = sfn4111t_reset(efx);
-@@ -438,13 +438,6 @@ static int sfe4001_init(struct efx_nic *efx)
- 		goto fail_hwmon;
- 	}
+ /**
+  * struct efx_tx_buffer - An Efx TX buffer
+  * @skb: The associated socket buffer.
+@@ -189,7 +196,7 @@ struct efx_tx_queue {
+ 	struct efx_nic *nic;
+ 	struct efx_tx_buffer *buffer;
+ 	struct efx_special_buffer txd;
+-	bool flushed;
++	enum efx_flush_state flushed;
  
--	/* 10Xpress has fixed-function LED pins, so there is no board-specific
--	 * blink code. */
--	board->set_id_led = tenxpress_set_id_led;
--
--	board->monitor = sfe4001_check_hw;
--	board->fini = sfe4001_fini;
--
- 	if (efx->phy_mode & PHY_MODE_SPECIAL) {
- 		/* PHY won't generate a 156.25 MHz clock and MAC stats fetch
- 		 * will fail. */
-@@ -531,11 +524,6 @@ static int sfn4111t_init(struct efx_nic *efx)
- 	if (!board->hwmon_client)
- 		return -EIO;
- 
--	board->init_phy = sfn4111t_init_phy;
--	board->set_id_led = tenxpress_set_id_led;
--	board->monitor = sfn4111t_check_hw;
--	board->fini = sfn4111t_fini;
--
- 	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_phy_flash_cfg);
- 	if (rc)
- 		goto fail_hwmon;
-@@ -620,15 +608,7 @@ static int sfe4002_check_hw(struct efx_nic *efx)
- 
- static int sfe4002_init(struct efx_nic *efx)
- {
--	struct falcon_board *board = falcon_board(efx);
--	int rc = efx_init_lm87(efx, &sfe4002_hwmon_info, sfe4002_lm87_regs);
--	if (rc)
--		return rc;
--	board->monitor = sfe4002_check_hw;
--	board->init_phy = sfe4002_init_phy;
--	board->set_id_led = sfe4002_set_id_led;
--	board->fini = efx_fini_lm87;
--	return 0;
-+	return efx_init_lm87(efx, &sfe4002_hwmon_info, sfe4002_lm87_regs);
- }
- 
- /*****************************************************************************
-@@ -692,67 +672,80 @@ static int sfn4112f_check_hw(struct efx_nic *efx)
- 
- static int sfn4112f_init(struct efx_nic *efx)
- {
--	struct falcon_board *board = falcon_board(efx);
--
--	int rc = efx_init_lm87(efx, &sfn4112f_hwmon_info, sfn4112f_lm87_regs);
--	if (rc)
--		return rc;
--	board->monitor = sfn4112f_check_hw;
--	board->init_phy = sfn4112f_init_phy;
--	board->set_id_led = sfn4112f_set_id_led;
--	board->fini = efx_fini_lm87;
--	return 0;
-+	return efx_init_lm87(efx, &sfn4112f_hwmon_info, sfn4112f_lm87_regs);
- }
- 
--/* This will get expanded as board-specific details get moved out of the
-- * PHY drivers. */
--struct falcon_board_data {
--	u8 type;
--	const char *ref_model;
--	const char *gen_type;
--	int (*init) (struct efx_nic *nic);
--};
--
--
--static struct falcon_board_data board_data[] = {
--	{ FALCON_BOARD_SFE4001, "SFE4001", "10GBASE-T adapter", sfe4001_init },
--	{ FALCON_BOARD_SFE4002, "SFE4002", "XFP adapter", sfe4002_init },
--	{ FALCON_BOARD_SFN4111T, "SFN4111T", "100/1000/10GBASE-T adapter",
--	  sfn4111t_init },
--	{ FALCON_BOARD_SFN4112F, "SFN4112F", "SFP+ adapter",
--	  sfn4112f_init },
-+static const struct falcon_board_type board_types[] = {
-+	{
-+		.id		= FALCON_BOARD_SFE4001,
-+		.ref_model	= "SFE4001",
-+		.gen_type	= "10GBASE-T adapter",
-+		.init		= sfe4001_init,
-+		.init_phy	= efx_port_dummy_op_void,
-+		.fini		= sfe4001_fini,
-+		.set_id_led	= tenxpress_set_id_led,
-+		.monitor	= sfe4001_check_hw,
-+	},
-+	{
-+		.id		= FALCON_BOARD_SFE4002,
-+		.ref_model	= "SFE4002",
-+		.gen_type	= "XFP adapter",
-+		.init		= sfe4002_init,
-+		.init_phy	= sfe4002_init_phy,
-+		.fini		= efx_fini_lm87,
-+		.set_id_led	= sfe4002_set_id_led,
-+		.monitor	= sfe4002_check_hw,
-+	},
-+	{
-+		.id		= FALCON_BOARD_SFN4111T,
-+		.ref_model	= "SFN4111T",
-+		.gen_type	= "100/1000/10GBASE-T adapter",
-+		.init		= sfn4111t_init,
-+		.init_phy	= sfn4111t_init_phy,
-+		.fini		= sfn4111t_fini,
-+		.set_id_led	= tenxpress_set_id_led,
-+		.monitor	= sfn4111t_check_hw,
-+	},
-+	{
-+		.id		= FALCON_BOARD_SFN4112F,
-+		.ref_model	= "SFN4112F",
-+		.gen_type	= "SFP+ adapter",
-+		.init		= sfn4112f_init,
-+		.init_phy	= sfn4112f_init_phy,
-+		.fini		= efx_fini_lm87,
-+		.set_id_led	= sfn4112f_set_id_led,
-+		.monitor	= sfn4112f_check_hw,
-+	},
+ 	/* Members used mainly on the completion path */
+ 	unsigned int read_count ____cacheline_aligned_in_smp;
+@@ -284,7 +291,7 @@ struct efx_rx_queue {
+ 	struct page *buf_page;
+ 	dma_addr_t buf_dma_addr;
+ 	char *buf_data;
+-	bool flushed;
++	enum efx_flush_state flushed;
  };
  
--static struct falcon_board falcon_dummy_board = {
-+static const struct falcon_board_type falcon_dummy_board = {
- 	.init		= efx_port_dummy_op_int,
- 	.init_phy	= efx_port_dummy_op_void,
-+	.fini		= efx_port_dummy_op_void,
- 	.set_id_led	= efx_port_dummy_op_set_id_led,
- 	.monitor	= efx_port_dummy_op_int,
--	.fini		= efx_port_dummy_op_void,
- };
- 
- void falcon_probe_board(struct efx_nic *efx, u16 revision_info)
- {
- 	struct falcon_board *board = falcon_board(efx);
--	struct falcon_board_data *data = NULL;
-+	u8 type_id = FALCON_BOARD_TYPE(revision_info);
- 	int i;
- 
--	*board = falcon_dummy_board;
--	board->type = FALCON_BOARD_TYPE(revision_info);
- 	board->major = FALCON_BOARD_MAJOR(revision_info);
- 	board->minor = FALCON_BOARD_MINOR(revision_info);
- 
--	for (i = 0; i < ARRAY_SIZE(board_data); i++)
--		if (board_data[i].type == board->type)
--			data = &board_data[i];
-+	for (i = 0; i < ARRAY_SIZE(board_types); i++)
-+		if (board_types[i].id == type_id)
-+			board->type = &board_types[i];
- 
--	if (data) {
-+	if (board->type) {
- 		EFX_INFO(efx, "board is %s rev %c%d\n",
- 			 (efx->pci_dev->subsystem_vendor == EFX_VENDID_SFC)
--			 ? data->ref_model : data->gen_type,
-+			 ? board->type->ref_model : board->type->gen_type,
- 			 'A' + board->major, board->minor);
--		board->init = data->init;
- 	} else {
--		EFX_ERR(efx, "unknown board type %d\n", board->type);
-+		EFX_ERR(efx, "unknown board type %d\n", type_id);
-+		board->type = &falcon_dummy_board;
- 	}
- }
-diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index 8208ac0..f9c354e 100644
---- a/drivers/net/sfc/qt202x_phy.c
-+++ b/drivers/net/sfc/qt202x_phy.c
-@@ -126,7 +126,7 @@ static int qt202x_reset_phy(struct efx_nic *efx)
- 	if (rc < 0)
- 		goto fail;
- 
--	falcon_board(efx)->init_phy(efx);
-+	falcon_board(efx)->type->init_phy(efx);
- 
- 	return rc;
- 
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index b001f38..a95402d 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -303,7 +303,7 @@ static int tenxpress_phy_init(struct efx_nic *efx)
- 	u16 old_adv, adv;
- 	int rc = 0;
- 
--	falcon_board(efx)->init_phy(efx);
-+	falcon_board(efx)->type->init_phy(efx);
- 
- 	phy_data = kzalloc(sizeof(*phy_data), GFP_KERNEL);
- 	if (!phy_data)
+ /**
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
