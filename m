@@ -1,63 +1,87 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: linux-next: manual merge of the net tree with the
- wireless-current tree
-Date: Thu, 26 Nov 2009 10:33:09 +0100
-Message-ID: <1259227989.32372.32.camel@johannes.local>
-References: <20091126141055.d8c67798.sfr@canb.auug.org.au>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: Strange CPU load when flushing route cache (kernel 2.6.31.6)
+Date: Thu, 26 Nov 2009 11:51:56 +0100
+Message-ID: <1259232716.30983.101.camel@jdb-workstation>
+References: <1258970332.29747.262.camel@jdb-workstation>
+	 <4B0A63FA.5000804@gmail.com> <1258979320.29747.270.camel@jdb-workstation>
+	 <4B0A8D41.6010608@gmail.com>
+	 <Pine.LNX.4.64.0911231437020.24347@ask.diku.dk>
+	 <4B0A9631.2030705@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-VjD91kvNcXdG13szySEv"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758752AbZKZJdt@vger.kernel.org>
-In-Reply-To: <20091126141055.d8c67798.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-VjD91kvNcXdG13szySEv
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8BIT
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Robert Olsson <robert@herjulf.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:54211 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760322AbZKZKuU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 05:50:20 -0500
+In-Reply-To: <4B0A9631.2030705@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-11-26 at 14:10 +1100, Stephen Rothwell wrote:
-> Hi all,
->=20
-> Today's linux-next merge of the net tree got a conflict in
-> net/wireless/wext.c between commit
-> 9fed059667d35fca9288460106e92dbb8ba35ea1 ("WE: Fix set events not
-> propagated") from the  tree and commit
-> 3d23e349d807177eaf519d444677cee86b1a04cf ("wext: refactor") from the net
-> tree.
->=20
-> The latter deleted the file that the former modified.  I just ignored the
-> wireless-current change and removed the file (which seems to have been
-> done in the latter change anyway).
+On Mon, 2009-11-23 at 15:03 +0100, Eric Dumazet wrote:
+> > grep LowTotal /proc/meminfo
+> > LowTotal:         747080 kB
+> > 
+> > What does that mean?  Is it bad? What should I run on a 32-bit
+> > system/kernel?
+> 
+> If you have more than 1GB of physical ram, and use your machine as a router, you might
+> compile a 2GB/2GB User/Kernel kernel, to get twice available RAM for kernel
+> and more IP route entries (if needed)
 
-The fix should probably have gone to wext-core.c instead?
+Can I still use this option if the machine "only" have 2G of physical
+RAM?  Most of my production machines have 2G RAM.
 
-johannes
+Just to verify: This is not an issue on 64-bit kernels right?
 
---=-VjD91kvNcXdG13szySEv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+> make menuconfig
+> --> Processor type and features
+>   --> Memory split
+>     --> 2G/2G
 
------BEGIN PGP SIGNATURE-----
+For completeness sake, Memory split depends on "if EMBEDDED"
 
-iQIcBAABAgAGBQJLDktSAAoJEODzc/N7+QmaqaAP/1io+IIIl1t6jXWPEldK8GbH
-T/AVLIHGqyDfX3HAGzC3hYcr+Ge12jTVB9B54OGq43Drvu0wE9JhIgcXhgVEEb+H
-KRN8LF/ECBy5k7xET6lDQXVQKViFbCQ4Y1Tbifc3H8oDm9pptAC5bOrIhDrNyyec
-rC2XJR3OSAz4fY6FkRWlNGLaciJs+o68/gAfGwlk6m70B+mXSPM4oKnmOYG5pHfL
-nYgbPEesJ4MfCowPEVPKTOAaoOYmAXrjQXdZNIFLXttpsusMt3R9tMJ2t+TZoMMz
-GN3cJUFSVV74WczhmSOX+Bfilqa446h+fzkoCMHrduFo2y3TBKsFp0Y+RxJDfwKF
-PXnhJnj2VFluBnOvewQyj5twSyrELX+RuBu14md15eObiGVejSsm7oT1E18aZJUc
-KX23r7wl/SyD1B5ZiZ8ABoU4ro5CTpsHATrc3K1OR11s349zEgcGWyoRh1eXy76u
-6LMs4Fm1c379tnLzI098i4rgS8vZJMRL+FE/c4zgt4iZgdmP4ngQq/r/zXXjUPR8
-FmJGFZH/ShdITys7SoszwIfq6PrJaJGp7/Ks63XZdTAucdlo9T1kGHJXqcdA2jJ4
-JfHrNzm+9RbKBe/ul9xBI+nEdH0M5a5pLdWVKGSTOLmYMImlfnl2bVY9U5C6Jknj
-O84Z733cwki11ozCty+1
-=aiyu
------END PGP SIGNATURE-----
+So I also needed to enable:
 
---=-VjD91kvNcXdG13szySEv--
+ make menuconfig
+  --> General setup
+     --> Configure standard kernel features (for small systems) 
+
+
+> > Can you recommend any other /proc/sys/ tuning options?
+> 
+> Really hard to say without exact context of use :)
+
+The machines does Internet traffic routing, but with a VERY large
+iptables rulesets, e.g. on one production machine I have 18409 chains
+and 62916 iptables rules. (I did most of the scalability patches to
+iptables userspace to make this work...). And the machines also uses a
+very large HTB tree.  Basically I do, per customer, Access Control,
+Bandwidth limiting and Personal firewall.
+
+Also note that I'm reserving extra vmalloc memory as iptables uses
+vmalloc'ed memory...
+
+> > Does my kernel boot option rhash_entries=262143 make sense anymore?
+> > Or do we adjust the hash bucket size dynamically these days?
+> > 
+> 
+> Its not dynamic yet.
+
+Okay I'll keep boot parameter then... or is it possible to resize the
+hash runtime?
+
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
