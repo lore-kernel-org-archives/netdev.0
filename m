@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCHv3 4/4] macvlan: export macvlan mode through netlink
-Date: Thu, 26 Nov 2009 17:07:11 +0100
-Message-ID: <1259251631-11617-5-git-send-email-arnd@arndb.de>
+Subject: [PATCHv3 1/4] veth: move loopback logic to common location
+Date: Thu, 26 Nov 2009 17:07:08 +0100
+Message-ID: <1259251631-11617-2-git-send-email-arnd@arndb.de>
 References: <1259251631-11617-1-git-send-email-arnd@arndb.de>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -18,143 +18,142 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760739AbZKZQIJ@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760753AbZKZQIU@vger.kernel.org>
 In-Reply-To: <1259251631-11617-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to support all three modes of macvlan at
-runtime, extend the existing netlink protocol
-to allow choosing the mode per macvlan slave
-interface.
+The veth driver contains code to forward an skb
+from the start_xmit function of one network
+device into the receive path of another device.
 
-This depends on a matching patch to iproute2
-in order to become accessible in user land.
+Moving that code into a common location lets us
+reuse the code for direct forwarding of data
+between macvlan ports, and possibly in other
+drivers.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/macvlan.c   |   56 +++++++++++++++++++++++++++++++++++++++++-----
- include/linux/if_link.h |   15 ++++++++++++
- 2 files changed, 65 insertions(+), 6 deletions(-)
+ drivers/net/veth.c        |   17 +++--------------
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |   40 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index d6bd843..322112c 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -33,12 +33,6 @@
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 2d657f2..6c4b5a2 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -155,8 +155,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct veth_net_stats *stats, *rcv_stats;
+ 	int length, cpu;
  
- #define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
- 
--enum macvlan_mode {
--	MACVLAN_MODE_PRIVATE	= 1,
--	MACVLAN_MODE_VEPA	= 2,
--	MACVLAN_MODE_BRIDGE	= 4,
--};
+-	skb_orphan(skb);
 -
- struct macvlan_port {
- 	struct net_device	*dev;
- 	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
-@@ -614,6 +608,17 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
- 	}
-+
-+	if (data && data[IFLA_MACVLAN_MODE]) {
-+		switch (nla_get_u32(data[IFLA_MACVLAN_MODE])) {
-+		case MACVLAN_MODE_PRIVATE:
-+		case MACVLAN_MODE_VEPA:
-+		case MACVLAN_MODE_BRIDGE:
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+	}
- 	return 0;
+ 	priv = netdev_priv(dev);
+ 	rcv = priv->peer;
+ 	rcv_priv = netdev_priv(rcv);
+@@ -168,20 +166,12 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!(rcv->flags & IFF_UP))
+ 		goto tx_drop;
+ 
+-	if (skb->len > (rcv->mtu + MTU_PAD))
+-		goto rx_drop;
+-
+-        skb->tstamp.tv64 = 0;
+-	skb->pkt_type = PACKET_HOST;
+-	skb->protocol = eth_type_trans(skb, rcv);
+ 	if (dev->features & NETIF_F_NO_CSUM)
+ 		skb->ip_summed = rcv_priv->ip_summed;
+ 
+-	skb->mark = 0;
+-	secpath_reset(skb);
+-	nf_reset(skb);
+-
+-	length = skb->len;
++	length = skb->len + ETH_HLEN;
++	if (dev_forward_skb(rcv, skb) != NET_RX_SUCCESS)
++		goto rx_drop;
+ 
+ 	stats->tx_bytes += length;
+ 	stats->tx_packets++;
+@@ -189,7 +179,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	rcv_stats->rx_bytes += length;
+ 	rcv_stats->rx_packets++;
+ 
+-	netif_rx(skb);
+ 	return NETDEV_TX_OK;
+ 
+ tx_drop:
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 97873e3..9428793 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1562,6 +1562,8 @@ extern int		dev_set_mac_address(struct net_device *,
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev,
+ 					    struct netdev_queue *txq);
++extern int		dev_forward_skb(struct net_device *dev,
++					struct sk_buff *skb);
+ 
+ extern int		netdev_budget;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ccefa24..f8baa15 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -105,6 +105,7 @@
+ #include <net/dst.h>
+ #include <net/pkt_sched.h>
+ #include <net/checksum.h>
++#include <net/xfrm.h>
+ #include <linux/highmem.h>
+ #include <linux/init.h>
+ #include <linux/kmod.h>
+@@ -1419,6 +1420,45 @@ static inline void net_timestamp(struct sk_buff *skb)
+ 		skb->tstamp.tv64 = 0;
  }
  
-@@ -678,6 +683,10 @@ static int macvlan_newlink(struct net *src_net, struct net_device *dev,
- 	vlan->dev      = dev;
- 	vlan->port     = port;
- 
-+	vlan->mode     = MACVLAN_MODE_VEPA;
-+	if (data && data[IFLA_MACVLAN_MODE])
-+		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		return err;
-@@ -699,6 +708,36 @@ static void macvlan_dellink(struct net_device *dev, struct list_head *head)
- 		macvlan_port_destroy(port->dev);
- }
- 
-+static int macvlan_changelink(struct net_device *dev,
-+		struct nlattr *tb[], struct nlattr *data[])
++/**
++ * dev_forward_skb - loopback an skb to another netif
++ *
++ * @dev: destination network device
++ * @skb: buffer to forward
++ *
++ * return values:
++ *	NET_RX_SUCCESS	(no congestion)
++ *	NET_RX_DROP     (packet was dropped)
++ *
++ * dev_forward_skb can be used for injecting an skb from the
++ * start_xmit function of one device into the receive queue
++ * of another device.
++ *
++ * The receiving device may be in another namespace, so
++ * we have to clear all information in the skb that could
++ * impact namespace isolation.
++ */
++int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
 +{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	if (data && data[IFLA_MACVLAN_MODE])
-+		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-+	return 0;
++	skb_orphan(skb);
++
++	if (!(dev->flags & IFF_UP))
++		return NET_RX_DROP;
++
++	if (skb->len > (dev->mtu + dev->hard_header_len))
++		return NET_RX_DROP;
++
++	skb_dst_drop(skb);
++	skb->tstamp.tv64 = 0;
++	skb->pkt_type = PACKET_HOST;
++	skb->protocol = eth_type_trans(skb, dev);
++	skb->mark = 0;
++	secpath_reset(skb);
++	nf_reset(skb);
++	return netif_rx(skb);
 +}
++EXPORT_SYMBOL_GPL(dev_forward_skb);
 +
-+static size_t macvlan_get_size(const struct net_device *dev)
-+{
-+	return nla_total_size(4);
-+}
-+
-+static int macvlan_fill_info(struct sk_buff *skb,
-+				const struct net_device *dev)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
-+	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
-+};
-+
- static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
- 	.kind		= "macvlan",
- 	.priv_size	= sizeof(struct macvlan_dev),
-@@ -707,6 +746,11 @@ static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
- 	.validate	= macvlan_validate,
- 	.newlink	= macvlan_newlink,
- 	.dellink	= macvlan_dellink,
-+	.maxtype	= IFLA_MACVLAN_MAX,
-+	.policy		= macvlan_policy,
-+	.changelink	= macvlan_changelink,
-+	.get_size	= macvlan_get_size,
-+	.fill_info	= macvlan_fill_info,
- };
- 
- static int macvlan_device_event(struct notifier_block *unused,
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 1d3b242..6674791 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -181,4 +181,19 @@ struct ifla_vlan_qos_mapping {
- 	__u32 to;
- };
- 
-+/* MACVLAN section */
-+enum {
-+	IFLA_MACVLAN_UNSPEC,
-+	IFLA_MACVLAN_MODE,
-+	__IFLA_MACVLAN_MAX,
-+};
-+
-+#define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
-+
-+enum macvlan_mode {
-+	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
-+	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
-+	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
-+};
-+
- #endif /* _LINUX_IF_LINK_H */
+ /*
+  *	Support routine. Sends outgoing frames to any network
+  *	taps currently in use.
 -- 
 1.6.3.3
