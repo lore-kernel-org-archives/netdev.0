@@ -1,30 +1,30 @@
 From: Debashis Dutt <ddutt@brocade.com>
-Subject: Subject: [PATCH 5/6] bna: Brocade 10Gb Ethernet device driver
+Subject: Subject: [PATCH 4/6] bna: Brocade 10Gb Ethernet device driver
 Date: Thu, 26 Nov 2009 01:28:32 -0800
-Message-ID: <200911260928.nAQ9SW3P003965@blc-10-10.brocade.com>
+Message-ID: <200911260928.nAQ9SW03003961@blc-10-10.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from hq-exedge.brocade.com ([66.243.153.83]:18730 "EHLO
 	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760217AbZKZJ2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 04:28:47 -0500
+	with ESMTP id S1760222AbZKZJ2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 04:28:51 -0500
 Received: from blc-10-10.brocade.com (blc-10-10.brocade.com [10.2.2.245])	by
- discus.brocade.com (Postfix) with ESMTP id E3D5123836F	for
+ scooby.brocade.com (Postfix) with ESMTP id D1C84258005	for
  <netdev@vger.kernel.org>; Thu, 26 Nov 2009 01:28:32 -0800 (PST)
 Received: from blc-10-10.brocade.com (localhost.localdomain [127.0.0.1])	by
- blc-10-10.brocade.com (8.13.1/8.13.1) with ESMTP id nAQ9SWtF003975	for
+ blc-10-10.brocade.com (8.13.1/8.13.1) with ESMTP id nAQ9SWGn003973	for
  <netdev@vger.kernel.org>; Thu, 26 Nov 2009 01:28:32 -0800
 Received: (from ddutt@localhost)	by blc-10-10.brocade.com
- (8.13.1/8.13.1/Submit) id nAQ9SW3P003965	for netdev@vger.kernel.org; Thu, 26
+ (8.13.1/8.13.1/Submit) id nAQ9SW03003961	for netdev@vger.kernel.org; Thu, 26
  Nov 2009 01:28:32 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Debashis Dutt <ddutt@brocade.com>
 
-This is patch 5/6 which contains linux driver source for
+This is patch 4/6 which contains linux driver source for
 Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
 Source is based against net-next-2.6.
 
@@ -32,34 +32,17 @@ We wish this patch to be considered for inclusion in net-next-2.6
 
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 ---
- bfa_fwimg_priv.h                  |   32 +
- include/bfi/bfi.h                 |  174 ++++++++++
- include/bfi/bfi_boot.h            |   35 ++
- include/bfi/bfi_cee.h             |  107 ++++++
- include/bfi/bfi_ctreg.h           |  631 ++++++++++++++++++++++++++++++++++++++
- include/bfi/bfi_ioc.h             |  202 ++++++++++++
- include/bfi/bfi_ll.h              |  422 +++++++++++++++++++++++++
- include/cee/bfa_cee.h             |   77 ++++
- include/cna/pstats/ethport_defs.h |   35 ++
- include/cna/pstats/phyport_defs.h |  196 +++++++++++
- include/cs/bfa_debug.h            |   45 ++
- include/cs/bfa_q.h                |   82 ++++
- include/cs/bfa_sm.h               |   79 ++++
- include/cs/bfa_trc.h              |  167 ++++++++++
- include/defs/bfa_defs_adapter.h   |   83 ++++
- include/defs/bfa_defs_cee.h       |  146 ++++++++
- include/defs/bfa_defs_ioc.h       |  151 +++++++++
- include/defs/bfa_defs_mfg.h       |  141 ++++++++
- include/defs/bfa_defs_pci.h       |   42 ++
- include/defs/bfa_defs_status.h    |  265 +++++++++++++++
- include/defs/bfa_defs_version.h   |   23 +
- include/protocol/types.h          |   39 ++
- 22 files changed, 3174 insertions(+)
+ bfa_ioc.h   |  305 ++++++++
+ bfa_timer.h |   54 +
+ bna.h       | 2267 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ bna_hwreg.h |  915 ++++++++++++++++++++++++
+ bna_intr.h  |   87 ++
+ 5 files changed, 3628 insertions(+)
 
-diff -ruP net-next-2.6-orig/drivers/net/bna/bfa_fwimg_priv.h net-next-2.6-mod/drivers/net/bna/bfa_fwimg_priv.h
---- net-next-2.6-orig/drivers/net/bna/bfa_fwimg_priv.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/bfa_fwimg_priv.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,32 @@
+diff -ruP net-next-2.6-orig/drivers/net/bna/bfa_ioc.h net-next-2.6-mod/drivers/net/bna/bfa_ioc.h
+--- net-next-2.6-orig/drivers/net/bna/bfa_ioc.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/bfa_ioc.h	2009-11-26 00:07:08.000000000 -0800
+@@ -0,0 +1,305 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -78,1700 +61,297 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/bfa_fwimg_priv.h net-next-2.6-mod/dr
 + * www.brocade.com
 + */
 +
-+#ifndef __BFA_FWIMG_PRIV_H__
-+#define __BFA_FWIMG_PRIV_H__
++#ifndef __BFA_IOC_H__
++#define __BFA_IOC_H__
 +
-+#define	BFI_FLASH_CHUNK_SZ		256	/*  Flash chunk size */
-+#define	BFI_FLASH_CHUNK_SZ_WORDS	(BFI_FLASH_CHUNK_SZ/sizeof(u32))
-+
-+extern u32 *bfi_image_ct_get_chunk(u32 off);
-+extern u32 bfi_image_ct_size;
-+extern u32 *bfi_image_cb_get_chunk(u32 off);
-+extern u32 bfi_image_cb_size;
-+extern u32 *bfi_image_cb;
-+extern u32 *bfi_image_ct;
-+
-+#endif /* __BFA_FWIMG_PRIV_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_boot.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_boot.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_boot.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_boot.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,35 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+/*
-+ * bfi_boot.h
-+ */
-+
-+#ifndef __BFI_BOOT_H__
-+#define __BFI_BOOT_H__
-+
-+#define BFI_BOOT_TYPE_OFF		8
-+#define BFI_BOOT_PARAM_OFF		12
-+
-+#define BFI_BOOT_TYPE_NORMAL 		0	/* param is device id */
-+#define	BFI_BOOT_TYPE_FLASH		1
-+#define	BFI_BOOT_TYPE_MEMTEST		2
-+
-+#define BFI_BOOT_MEMTEST_RES_ADDR   0x900
-+#define BFI_BOOT_MEMTEST_RES_SIG    0xA0A1A2A3
-+
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_cee.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_cee.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_cee.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_cee.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,107 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/**
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ *
-+ *  bfi_dcbx.h BFI Interface (Mailbox commands and related structures)
-+ * between host driver and DCBX/LLDP firmware module.
-+ *
-+**/
-+
-+#ifndef __BFI_CEE_H__
-+#define __BFI_CEE_H__
-+
-+#include "bfi/bfi.h"
-+
-+#pragma pack(1)
-+
-+enum bfi_cee_h2i_msgs {
-+	BFI_CEE_H2I_GET_CFG_REQ = 1,
-+	BFI_CEE_H2I_RESET_STATS = 2,
-+	BFI_CEE_H2I_GET_STATS_REQ = 3,
-+};
-+
-+enum bfi_cee_i2h_msgs {
-+	BFI_CEE_I2H_GET_CFG_RSP = BFA_I2HM(1),
-+	BFI_CEE_I2H_RESET_STATS_RSP = BFA_I2HM(2),
-+	BFI_CEE_I2H_GET_STATS_RSP = BFA_I2HM(3),
-+};
-+
-+/* Data structures */
-+
-+/*
-+ * BFI_CEE_H2I_RESET_STATS
-+ */
-+struct bfi_lldp_reset_stats {
-+	struct bfi_mhdr mh;
-+};
-+
-+/*
-+ * BFI_CEE_H2I_RESET_STATS
-+ */
-+struct bfi_cee_reset_stats {
-+	struct bfi_mhdr mh;
-+};
-+
-+/*
-+ * BFI_CEE_H2I_GET_CFG_REQ
-+ */
-+struct bfi_cee_get_req {
-+	struct bfi_mhdr mh;
-+	union bfi_addr_u   dma_addr;
-+};
-+
-+/*
-+ * BFI_CEE_I2H_GET_CFG_RSP
-+ */
-+struct bfi_cee_get_rsp {
-+	struct bfi_mhdr mh;
-+	u8            cmd_status;
-+	u8            rsvd[3];
-+};
-+
-+/*
-+ * BFI_CEE_H2I_GET_STATS_REQ
-+ */
-+struct bfi_cee_stats_req {
-+	struct bfi_mhdr mh;
-+	union bfi_addr_u   dma_addr;
-+};
-+
-+/*
-+ * BFI_CEE_I2H_GET_STATS_RSP
-+ */
-+struct bfi_cee_stats_rsp {
-+	struct bfi_mhdr mh;
-+	u8 		   cmd_status;
-+	u8 		   rsvd[3];
-+};
-+
-+union bfi_cee_h2i_msg_u {
-+	struct bfi_mhdr mh;
-+	struct bfi_cee_get_req get_req;
-+	struct bfi_cee_stats_req stats_req;
-+};
-+
-+union bfi_cee_i2h_msg_u {
-+	struct bfi_mhdr mh;
-+	struct bfi_cee_get_rsp get_rsp;
-+	struct bfi_cee_stats_rsp stats_rsp;
-+};
-+
-+#pragma pack()
-+
-+#endif /* __BFI_CEE_H__ */
-+
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ctreg.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ctreg.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ctreg.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ctreg.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,631 @@
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+
-+/*
-+ * bfi_ctreg.h catapult host block register definitions
-+ *
-+ * !!! Do not edit. Auto generated. !!!
-+ */
-+
-+#ifndef __BFI_CTREG_H__
-+#define __BFI_CTREG_H__
-+
-+#define HOSTFN0_LPU_MBOX0_0              0x00019200
-+#define HOSTFN1_LPU_MBOX0_8              0x00019260
-+#define LPU_HOSTFN0_MBOX0_0              0x00019280
-+#define LPU_HOSTFN1_MBOX0_8              0x000192e0
-+#define HOSTFN2_LPU_MBOX0_0              0x00019400
-+#define HOSTFN3_LPU_MBOX0_8              0x00019460
-+#define LPU_HOSTFN2_MBOX0_0              0x00019480
-+#define LPU_HOSTFN3_MBOX0_8              0x000194e0
-+#define HOSTFN0_INT_STATUS               0x00014000
-+#define __HOSTFN0_HALT_OCCURRED          0x01000000
-+#define __HOSTFN0_INT_STATUS_LVL_MK      0x00f00000
-+#define __HOSTFN0_INT_STATUS_LVL_SH      20
-+#define __HOSTFN0_INT_STATUS_LVL(_v)     ((_v) << __HOSTFN0_INT_STATUS_LVL_SH)
-+#define __HOSTFN0_INT_STATUS_P_MK        0x000f0000
-+#define __HOSTFN0_INT_STATUS_P_SH        16
-+#define __HOSTFN0_INT_STATUS_P(_v)       ((_v) << __HOSTFN0_INT_STATUS_P_SH)
-+#define __HOSTFN0_INT_STATUS_F           0x0000ffff
-+#define HOSTFN0_INT_MSK                  0x00014004
-+#define HOST_PAGE_NUM_FN0                0x00014008
-+#define __HOST_PAGE_NUM_FN               0x000001ff
-+#define HOST_MSIX_ERR_INDEX_FN0          0x0001400c
-+#define __MSIX_ERR_INDEX_FN              0x000001ff
-+#define HOSTFN1_INT_STATUS               0x00014100
-+#define __HOSTFN1_HALT_OCCURRED          0x01000000
-+#define __HOSTFN1_INT_STATUS_LVL_MK      0x00f00000
-+#define __HOSTFN1_INT_STATUS_LVL_SH      20
-+#define __HOSTFN1_INT_STATUS_LVL(_v)     ((_v) << __HOSTFN1_INT_STATUS_LVL_SH)
-+#define __HOSTFN1_INT_STATUS_P_MK        0x000f0000
-+#define __HOSTFN1_INT_STATUS_P_SH        16
-+#define __HOSTFN1_INT_STATUS_P(_v)       ((_v) << __HOSTFN1_INT_STATUS_P_SH)
-+#define __HOSTFN1_INT_STATUS_F           0x0000ffff
-+#define HOSTFN1_INT_MSK                  0x00014104
-+#define HOST_PAGE_NUM_FN1                0x00014108
-+#define HOST_MSIX_ERR_INDEX_FN1          0x0001410c
-+#define APP_PLL_425_CTL_REG              0x00014204
-+#define __P_425_PLL_LOCK                 0x80000000
-+#define __APP_PLL_425_SRAM_USE_100MHZ    0x00100000
-+#define __APP_PLL_425_RESET_TIMER_MK     0x000e0000
-+#define __APP_PLL_425_RESET_TIMER_SH     17
-+#define __APP_PLL_425_RESET_TIMER(_v)    ((_v) << __APP_PLL_425_RESET_TIMER_SH)
-+#define __APP_PLL_425_LOGIC_SOFT_RESET   0x00010000
-+#define __APP_PLL_425_CNTLMT0_1_MK       0x0000c000
-+#define __APP_PLL_425_CNTLMT0_1_SH       14
-+#define __APP_PLL_425_CNTLMT0_1(_v)      ((_v) << __APP_PLL_425_CNTLMT0_1_SH)
-+#define __APP_PLL_425_JITLMT0_1_MK       0x00003000
-+#define __APP_PLL_425_JITLMT0_1_SH       12
-+#define __APP_PLL_425_JITLMT0_1(_v)      ((_v) << __APP_PLL_425_JITLMT0_1_SH)
-+#define __APP_PLL_425_HREF               0x00000800
-+#define __APP_PLL_425_HDIV               0x00000400
-+#define __APP_PLL_425_P0_1_MK            0x00000300
-+#define __APP_PLL_425_P0_1_SH            8
-+#define __APP_PLL_425_P0_1(_v)           ((_v) << __APP_PLL_425_P0_1_SH)
-+#define __APP_PLL_425_Z0_2_MK            0x000000e0
-+#define __APP_PLL_425_Z0_2_SH            5
-+#define __APP_PLL_425_Z0_2(_v)           ((_v) << __APP_PLL_425_Z0_2_SH)
-+#define __APP_PLL_425_RSEL200500         0x00000010
-+#define __APP_PLL_425_ENARST             0x00000008
-+#define __APP_PLL_425_BYPASS             0x00000004
-+#define __APP_PLL_425_LRESETN            0x00000002
-+#define __APP_PLL_425_ENABLE             0x00000001
-+#define APP_PLL_312_CTL_REG              0x00014208
-+#define __P_312_PLL_LOCK                 0x80000000
-+#define __ENABLE_MAC_AHB_1               0x00800000
-+#define __ENABLE_MAC_AHB_0               0x00400000
-+#define __ENABLE_MAC_1                   0x00200000
-+#define __ENABLE_MAC_0                   0x00100000
-+#define __APP_PLL_312_RESET_TIMER_MK     0x000e0000
-+#define __APP_PLL_312_RESET_TIMER_SH     17
-+#define __APP_PLL_312_RESET_TIMER(_v)    ((_v) << __APP_PLL_312_RESET_TIMER_SH)
-+#define __APP_PLL_312_LOGIC_SOFT_RESET   0x00010000
-+#define __APP_PLL_312_CNTLMT0_1_MK       0x0000c000
-+#define __APP_PLL_312_CNTLMT0_1_SH       14
-+#define __APP_PLL_312_CNTLMT0_1(_v)      ((_v) << __APP_PLL_312_CNTLMT0_1_SH)
-+#define __APP_PLL_312_JITLMT0_1_MK       0x00003000
-+#define __APP_PLL_312_JITLMT0_1_SH       12
-+#define __APP_PLL_312_JITLMT0_1(_v)      ((_v) << __APP_PLL_312_JITLMT0_1_SH)
-+#define __APP_PLL_312_HREF               0x00000800
-+#define __APP_PLL_312_HDIV               0x00000400
-+#define __APP_PLL_312_P0_1_MK            0x00000300
-+#define __APP_PLL_312_P0_1_SH            8
-+#define __APP_PLL_312_P0_1(_v)           ((_v) << __APP_PLL_312_P0_1_SH)
-+#define __APP_PLL_312_Z0_2_MK            0x000000e0
-+#define __APP_PLL_312_Z0_2_SH            5
-+#define __APP_PLL_312_Z0_2(_v)           ((_v) << __APP_PLL_312_Z0_2_SH)
-+#define __APP_PLL_312_RSEL200500         0x00000010
-+#define __APP_PLL_312_ENARST             0x00000008
-+#define __APP_PLL_312_BYPASS             0x00000004
-+#define __APP_PLL_312_LRESETN            0x00000002
-+#define __APP_PLL_312_ENABLE             0x00000001
-+#define MBIST_CTL_REG                    0x00014220
-+#define __EDRAM_BISTR_START              0x00000004
-+#define __MBIST_RESET                    0x00000002
-+#define __MBIST_START                    0x00000001
-+#define MBIST_STAT_REG                   0x00014224
-+#define __EDRAM_BISTR_STATUS             0x00000008
-+#define __EDRAM_BISTR_DONE               0x00000004
-+#define __MEM_BIT_STATUS                 0x00000002
-+#define __MBIST_DONE                     0x00000001
-+#define HOST_SEM0_REG                    0x00014230
-+#define __HOST_SEMAPHORE                 0x00000001
-+#define HOST_SEM1_REG                    0x00014234
-+#define HOST_SEM2_REG                    0x00014238
-+#define HOST_SEM3_REG                    0x0001423c
-+#define HOST_SEM0_INFO_REG               0x00014240
-+#define HOST_SEM1_INFO_REG               0x00014244
-+#define HOST_SEM2_INFO_REG               0x00014248
-+#define HOST_SEM3_INFO_REG               0x0001424c
-+#define ETH_MAC_SER_REG                  0x00014288
-+#define __APP_EMS_CKBUFAMPIN             0x00000020
-+#define __APP_EMS_REFCLKSEL              0x00000010
-+#define __APP_EMS_CMLCKSEL               0x00000008
-+#define __APP_EMS_REFCKBUFEN2            0x00000004
-+#define __APP_EMS_REFCKBUFEN1            0x00000002
-+#define __APP_EMS_CHANNEL_SEL            0x00000001
-+#define HOSTFN2_INT_STATUS               0x00014300
-+#define __HOSTFN2_HALT_OCCURRED          0x01000000
-+#define __HOSTFN2_INT_STATUS_LVL_MK      0x00f00000
-+#define __HOSTFN2_INT_STATUS_LVL_SH      20
-+#define __HOSTFN2_INT_STATUS_LVL(_v)     ((_v) << __HOSTFN2_INT_STATUS_LVL_SH)
-+#define __HOSTFN2_INT_STATUS_P_MK        0x000f0000
-+#define __HOSTFN2_INT_STATUS_P_SH        16
-+#define __HOSTFN2_INT_STATUS_P(_v)       ((_v) << __HOSTFN2_INT_STATUS_P_SH)
-+#define __HOSTFN2_INT_STATUS_F           0x0000ffff
-+#define HOSTFN2_INT_MSK                  0x00014304
-+#define HOST_PAGE_NUM_FN2                0x00014308
-+#define HOST_MSIX_ERR_INDEX_FN2          0x0001430c
-+#define HOSTFN3_INT_STATUS               0x00014400
-+#define __HALT_OCCURRED                  0x01000000
-+#define __HOSTFN3_INT_STATUS_LVL_MK      0x00f00000
-+#define __HOSTFN3_INT_STATUS_LVL_SH      20
-+#define __HOSTFN3_INT_STATUS_LVL(_v)     ((_v) << __HOSTFN3_INT_STATUS_LVL_SH)
-+#define __HOSTFN3_INT_STATUS_P_MK        0x000f0000
-+#define __HOSTFN3_INT_STATUS_P_SH        16
-+#define __HOSTFN3_INT_STATUS_P(_v)       ((_v) << __HOSTFN3_INT_STATUS_P_SH)
-+#define __HOSTFN3_INT_STATUS_F           0x0000ffff
-+#define HOSTFN3_INT_MSK                  0x00014404
-+#define HOST_PAGE_NUM_FN3                0x00014408
-+#define HOST_MSIX_ERR_INDEX_FN3          0x0001440c
-+#define FNC_ID_REG                       0x00014600
-+#define __FUNCTION_NUMBER                0x00000007
-+#define FNC_PERS_REG                     0x00014604
-+#define __F3_FUNCTION_ACTIVE             0x80000000
-+#define __F3_FUNCTION_MODE               0x40000000
-+#define __F3_PORT_MAP_MK                 0x30000000
-+#define __F3_PORT_MAP_SH                 28
-+#define __F3_PORT_MAP(_v)                ((_v) << __F3_PORT_MAP_SH)
-+#define __F3_VM_MODE                     0x08000000
-+#define __F3_INTX_STATUS_MK              0x07000000
-+#define __F3_INTX_STATUS_SH              24
-+#define __F3_INTX_STATUS(_v)             ((_v) << __F3_INTX_STATUS_SH)
-+#define __F2_FUNCTION_ACTIVE             0x00800000
-+#define __F2_FUNCTION_MODE               0x00400000
-+#define __F2_PORT_MAP_MK                 0x00300000
-+#define __F2_PORT_MAP_SH                 20
-+#define __F2_PORT_MAP(_v)                ((_v) << __F2_PORT_MAP_SH)
-+#define __F2_VM_MODE                     0x00080000
-+#define __F2_INTX_STATUS_MK              0x00070000
-+#define __F2_INTX_STATUS_SH              16
-+#define __F2_INTX_STATUS(_v)             ((_v) << __F2_INTX_STATUS_SH)
-+#define __F1_FUNCTION_ACTIVE             0x00008000
-+#define __F1_FUNCTION_MODE               0x00004000
-+#define __F1_PORT_MAP_MK                 0x00003000
-+#define __F1_PORT_MAP_SH                 12
-+#define __F1_PORT_MAP(_v)                ((_v) << __F1_PORT_MAP_SH)
-+#define __F1_VM_MODE                     0x00000800
-+#define __F1_INTX_STATUS_MK              0x00000700
-+#define __F1_INTX_STATUS_SH              8
-+#define __F1_INTX_STATUS(_v)             ((_v) << __F1_INTX_STATUS_SH)
-+#define __F0_FUNCTION_ACTIVE             0x00000080
-+#define __F0_FUNCTION_MODE               0x00000040
-+#define __F0_PORT_MAP_MK                 0x00000030
-+#define __F0_PORT_MAP_SH                 4
-+#define __F0_PORT_MAP(_v)                ((_v) << __F0_PORT_MAP_SH)
-+#define __F0_VM_MODE                     0x00000008
-+#define __F0_INTX_STATUS                 0x00000007
-+enum {
-+    __F0_INTX_STATUS_MSIX            = 0x0,
-+    __F0_INTX_STATUS_INTA            = 0x1,
-+    __F0_INTX_STATUS_INTB            = 0x2,
-+    __F0_INTX_STATUS_INTC            = 0x3,
-+    __F0_INTX_STATUS_INTD            = 0x4,
-+};
-+#define OP_MODE                          0x0001460c
-+#define __APP_ETH_CLK_LOWSPEED           0x00000004
-+#define __GLOBAL_CORECLK_HALFSPEED       0x00000002
-+#define __GLOBAL_FCOE_MODE               0x00000001
-+#define HOST_SEM4_REG                    0x00014610
-+#define HOST_SEM5_REG                    0x00014614
-+#define HOST_SEM6_REG                    0x00014618
-+#define HOST_SEM7_REG                    0x0001461c
-+#define HOST_SEM4_INFO_REG               0x00014620
-+#define HOST_SEM5_INFO_REG               0x00014624
-+#define HOST_SEM6_INFO_REG               0x00014628
-+#define HOST_SEM7_INFO_REG               0x0001462c
-+#define HOSTFN0_LPU0_MBOX0_CMD_STAT      0x00019000
-+#define __HOSTFN0_LPU0_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN0_LPU0_MBOX0_INFO_SH     1
-+#define __HOSTFN0_LPU0_MBOX0_INFO(_v)    ((_v) << __HOSTFN0_LPU0_MBOX0_INFO_SH)
-+#define __HOSTFN0_LPU0_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN0_LPU1_MBOX0_CMD_STAT      0x00019004
-+#define __HOSTFN0_LPU1_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN0_LPU1_MBOX0_INFO_SH     1
-+#define __HOSTFN0_LPU1_MBOX0_INFO(_v)    ((_v) << __HOSTFN0_LPU1_MBOX0_INFO_SH)
-+#define __HOSTFN0_LPU1_MBOX0_CMD_STATUS  0x00000001
-+#define LPU0_HOSTFN0_MBOX0_CMD_STAT      0x00019008
-+#define __LPU0_HOSTFN0_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU0_HOSTFN0_MBOX0_INFO_SH     1
-+#define __LPU0_HOSTFN0_MBOX0_INFO(_v)    ((_v) << __LPU0_HOSTFN0_MBOX0_INFO_SH)
-+#define __LPU0_HOSTFN0_MBOX0_CMD_STATUS  0x00000001
-+#define LPU1_HOSTFN0_MBOX0_CMD_STAT      0x0001900c
-+#define __LPU1_HOSTFN0_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU1_HOSTFN0_MBOX0_INFO_SH     1
-+#define __LPU1_HOSTFN0_MBOX0_INFO(_v)    ((_v) << __LPU1_HOSTFN0_MBOX0_INFO_SH)
-+#define __LPU1_HOSTFN0_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN1_LPU0_MBOX0_CMD_STAT      0x00019010
-+#define __HOSTFN1_LPU0_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN1_LPU0_MBOX0_INFO_SH     1
-+#define __HOSTFN1_LPU0_MBOX0_INFO(_v)    ((_v) << __HOSTFN1_LPU0_MBOX0_INFO_SH)
-+#define __HOSTFN1_LPU0_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN1_LPU1_MBOX0_CMD_STAT      0x00019014
-+#define __HOSTFN1_LPU1_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN1_LPU1_MBOX0_INFO_SH     1
-+#define __HOSTFN1_LPU1_MBOX0_INFO(_v)    ((_v) << __HOSTFN1_LPU1_MBOX0_INFO_SH)
-+#define __HOSTFN1_LPU1_MBOX0_CMD_STATUS  0x00000001
-+#define LPU0_HOSTFN1_MBOX0_CMD_STAT      0x00019018
-+#define __LPU0_HOSTFN1_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU0_HOSTFN1_MBOX0_INFO_SH     1
-+#define __LPU0_HOSTFN1_MBOX0_INFO(_v)    ((_v) << __LPU0_HOSTFN1_MBOX0_INFO_SH)
-+#define __LPU0_HOSTFN1_MBOX0_CMD_STATUS  0x00000001
-+#define LPU1_HOSTFN1_MBOX0_CMD_STAT      0x0001901c
-+#define __LPU1_HOSTFN1_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU1_HOSTFN1_MBOX0_INFO_SH     1
-+#define __LPU1_HOSTFN1_MBOX0_INFO(_v)    ((_v) << __LPU1_HOSTFN1_MBOX0_INFO_SH)
-+#define __LPU1_HOSTFN1_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN2_LPU0_MBOX0_CMD_STAT      0x00019150
-+#define __HOSTFN2_LPU0_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN2_LPU0_MBOX0_INFO_SH     1
-+#define __HOSTFN2_LPU0_MBOX0_INFO(_v)    ((_v) << __HOSTFN2_LPU0_MBOX0_INFO_SH)
-+#define __HOSTFN2_LPU0_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN2_LPU1_MBOX0_CMD_STAT      0x00019154
-+#define __HOSTFN2_LPU1_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN2_LPU1_MBOX0_INFO_SH     1
-+#define __HOSTFN2_LPU1_MBOX0_INFO(_v)    ((_v) << __HOSTFN2_LPU1_MBOX0_INFO_SH)
-+#define __HOSTFN2_LPU1_MBOX0BOX0_CMD_STATUS 0x00000001
-+#define LPU0_HOSTFN2_MBOX0_CMD_STAT      0x00019158
-+#define __LPU0_HOSTFN2_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU0_HOSTFN2_MBOX0_INFO_SH     1
-+#define __LPU0_HOSTFN2_MBOX0_INFO(_v)    ((_v) << __LPU0_HOSTFN2_MBOX0_INFO_SH)
-+#define __LPU0_HOSTFN2_MBOX0_CMD_STATUS  0x00000001
-+#define LPU1_HOSTFN2_MBOX0_CMD_STAT      0x0001915c
-+#define __LPU1_HOSTFN2_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU1_HOSTFN2_MBOX0_INFO_SH     1
-+#define __LPU1_HOSTFN2_MBOX0_INFO(_v)    ((_v) << __LPU1_HOSTFN2_MBOX0_INFO_SH)
-+#define __LPU1_HOSTFN2_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN3_LPU0_MBOX0_CMD_STAT      0x00019160
-+#define __HOSTFN3_LPU0_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN3_LPU0_MBOX0_INFO_SH     1
-+#define __HOSTFN3_LPU0_MBOX0_INFO(_v)    ((_v) << __HOSTFN3_LPU0_MBOX0_INFO_SH)
-+#define __HOSTFN3_LPU0_MBOX0_CMD_STATUS  0x00000001
-+#define HOSTFN3_LPU1_MBOX0_CMD_STAT      0x00019164
-+#define __HOSTFN3_LPU1_MBOX0_INFO_MK     0xfffffffe
-+#define __HOSTFN3_LPU1_MBOX0_INFO_SH     1
-+#define __HOSTFN3_LPU1_MBOX0_INFO(_v)    ((_v) << __HOSTFN3_LPU1_MBOX0_INFO_SH)
-+#define __HOSTFN3_LPU1_MBOX0_CMD_STATUS  0x00000001
-+#define LPU0_HOSTFN3_MBOX0_CMD_STAT      0x00019168
-+#define __LPU0_HOSTFN3_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU0_HOSTFN3_MBOX0_INFO_SH     1
-+#define __LPU0_HOSTFN3_MBOX0_INFO(_v)    ((_v) << __LPU0_HOSTFN3_MBOX0_INFO_SH)
-+#define __LPU0_HOSTFN3_MBOX0_CMD_STATUS  0x00000001
-+#define LPU1_HOSTFN3_MBOX0_CMD_STAT      0x0001916c
-+#define __LPU1_HOSTFN3_MBOX0_INFO_MK     0xfffffffe
-+#define __LPU1_HOSTFN3_MBOX0_INFO_SH     1
-+#define __LPU1_HOSTFN3_MBOX0_INFO(_v)    ((_v) << __LPU1_HOSTFN3_MBOX0_INFO_SH)
-+#define __LPU1_HOSTFN3_MBOX0_CMD_STATUS  0x00000001
-+#define FW_INIT_HALT_P0                  0x000191ac
-+#define __FW_INIT_HALT_P                 0x00000001
-+#define FW_INIT_HALT_P1                  0x000191bc
-+#define CPE_PI_PTR_Q0                    0x00038000
-+#define __CPE_PI_UNUSED_MK               0xffff0000
-+#define __CPE_PI_UNUSED_SH               16
-+#define __CPE_PI_UNUSED(_v)              ((_v) << __CPE_PI_UNUSED_SH)
-+#define __CPE_PI_PTR                     0x0000ffff
-+#define CPE_PI_PTR_Q1                    0x00038040
-+#define CPE_CI_PTR_Q0                    0x00038004
-+#define __CPE_CI_UNUSED_MK               0xffff0000
-+#define __CPE_CI_UNUSED_SH               16
-+#define __CPE_CI_UNUSED(_v)              ((_v) << __CPE_CI_UNUSED_SH)
-+#define __CPE_CI_PTR                     0x0000ffff
-+#define CPE_CI_PTR_Q1                    0x00038044
-+#define CPE_DEPTH_Q0                     0x00038008
-+#define __CPE_DEPTH_UNUSED_MK            0xf8000000
-+#define __CPE_DEPTH_UNUSED_SH            27
-+#define __CPE_DEPTH_UNUSED(_v)           ((_v) << __CPE_DEPTH_UNUSED_SH)
-+#define __CPE_MSIX_VEC_INDEX_MK          0x07ff0000
-+#define __CPE_MSIX_VEC_INDEX_SH          16
-+#define __CPE_MSIX_VEC_INDEX(_v)         ((_v) << __CPE_MSIX_VEC_INDEX_SH)
-+#define __CPE_DEPTH                      0x0000ffff
-+#define CPE_DEPTH_Q1                     0x00038048
-+#define CPE_QCTRL_Q0                     0x0003800c
-+#define __CPE_CTRL_UNUSED30_MK           0xfc000000
-+#define __CPE_CTRL_UNUSED30_SH           26
-+#define __CPE_CTRL_UNUSED30(_v)          ((_v) << __CPE_CTRL_UNUSED30_SH)
-+#define __CPE_FUNC_INT_CTRL_MK           0x03000000
-+#define __CPE_FUNC_INT_CTRL_SH           24
-+#define __CPE_FUNC_INT_CTRL(_v)          ((_v) << __CPE_FUNC_INT_CTRL_SH)
-+enum {
-+    __CPE_FUNC_INT_CTRL_DISABLE      = 0x0,
-+    __CPE_FUNC_INT_CTRL_F2NF         = 0x1,
-+    __CPE_FUNC_INT_CTRL_3QUART       = 0x2,
-+    __CPE_FUNC_INT_CTRL_HALF         = 0x3,
-+};
-+#define __CPE_CTRL_UNUSED20_MK           0x00f00000
-+#define __CPE_CTRL_UNUSED20_SH           20
-+#define __CPE_CTRL_UNUSED20(_v)          ((_v) << __CPE_CTRL_UNUSED20_SH)
-+#define __CPE_SCI_TH_MK                  0x000f0000
-+#define __CPE_SCI_TH_SH                  16
-+#define __CPE_SCI_TH(_v)                 ((_v) << __CPE_SCI_TH_SH)
-+#define __CPE_CTRL_UNUSED10_MK           0x0000c000
-+#define __CPE_CTRL_UNUSED10_SH           14
-+#define __CPE_CTRL_UNUSED10(_v)          ((_v) << __CPE_CTRL_UNUSED10_SH)
-+#define __CPE_ACK_PENDING                0x00002000
-+#define __CPE_CTRL_UNUSED40_MK           0x00001c00
-+#define __CPE_CTRL_UNUSED40_SH           10
-+#define __CPE_CTRL_UNUSED40(_v)          ((_v) << __CPE_CTRL_UNUSED40_SH)
-+#define __CPE_PCIEID_MK                  0x00000300
-+#define __CPE_PCIEID_SH                  8
-+#define __CPE_PCIEID(_v)                 ((_v) << __CPE_PCIEID_SH)
-+#define __CPE_CTRL_UNUSED00_MK           0x000000fe
-+#define __CPE_CTRL_UNUSED00_SH           1
-+#define __CPE_CTRL_UNUSED00(_v)          ((_v) << __CPE_CTRL_UNUSED00_SH)
-+#define __CPE_ESIZE                      0x00000001
-+#define CPE_QCTRL_Q1                     0x0003804c
-+#define __CPE_CTRL_UNUSED31_MK           0xfc000000
-+#define __CPE_CTRL_UNUSED31_SH           26
-+#define __CPE_CTRL_UNUSED31(_v)          ((_v) << __CPE_CTRL_UNUSED31_SH)
-+#define __CPE_CTRL_UNUSED21_MK           0x00f00000
-+#define __CPE_CTRL_UNUSED21_SH           20
-+#define __CPE_CTRL_UNUSED21(_v)          ((_v) << __CPE_CTRL_UNUSED21_SH)
-+#define __CPE_CTRL_UNUSED11_MK           0x0000c000
-+#define __CPE_CTRL_UNUSED11_SH           14
-+#define __CPE_CTRL_UNUSED11(_v)          ((_v) << __CPE_CTRL_UNUSED11_SH)
-+#define __CPE_CTRL_UNUSED41_MK           0x00001c00
-+#define __CPE_CTRL_UNUSED41_SH           10
-+#define __CPE_CTRL_UNUSED41(_v)          ((_v) << __CPE_CTRL_UNUSED41_SH)
-+#define __CPE_CTRL_UNUSED01_MK           0x000000fe
-+#define __CPE_CTRL_UNUSED01_SH           1
-+#define __CPE_CTRL_UNUSED01(_v)          ((_v) << __CPE_CTRL_UNUSED01_SH)
-+#define RME_PI_PTR_Q0                    0x00038020
-+#define __LATENCY_TIME_STAMP_MK          0xffff0000
-+#define __LATENCY_TIME_STAMP_SH          16
-+#define __LATENCY_TIME_STAMP(_v)         ((_v) << __LATENCY_TIME_STAMP_SH)
-+#define __RME_PI_PTR                     0x0000ffff
-+#define RME_PI_PTR_Q1                    0x00038060
-+#define RME_CI_PTR_Q0                    0x00038024
-+#define __DELAY_TIME_STAMP_MK            0xffff0000
-+#define __DELAY_TIME_STAMP_SH            16
-+#define __DELAY_TIME_STAMP(_v)           ((_v) << __DELAY_TIME_STAMP_SH)
-+#define __RME_CI_PTR                     0x0000ffff
-+#define RME_CI_PTR_Q1                    0x00038064
-+#define RME_DEPTH_Q0                     0x00038028
-+#define __RME_DEPTH_UNUSED_MK            0xf8000000
-+#define __RME_DEPTH_UNUSED_SH            27
-+#define __RME_DEPTH_UNUSED(_v)           ((_v) << __RME_DEPTH_UNUSED_SH)
-+#define __RME_MSIX_VEC_INDEX_MK          0x07ff0000
-+#define __RME_MSIX_VEC_INDEX_SH          16
-+#define __RME_MSIX_VEC_INDEX(_v)         ((_v) << __RME_MSIX_VEC_INDEX_SH)
-+#define __RME_DEPTH                      0x0000ffff
-+#define RME_DEPTH_Q1                     0x00038068
-+#define RME_QCTRL_Q0                     0x0003802c
-+#define __RME_INT_LATENCY_TIMER_MK       0xff000000
-+#define __RME_INT_LATENCY_TIMER_SH       24
-+#define __RME_INT_LATENCY_TIMER(_v)      ((_v) << __RME_INT_LATENCY_TIMER_SH)
-+#define __RME_INT_DELAY_TIMER_MK         0x00ff0000
-+#define __RME_INT_DELAY_TIMER_SH         16
-+#define __RME_INT_DELAY_TIMER(_v)        ((_v) << __RME_INT_DELAY_TIMER_SH)
-+#define __RME_INT_DELAY_DISABLE          0x00008000
-+#define __RME_DLY_DELAY_DISABLE          0x00004000
-+#define __RME_ACK_PENDING                0x00002000
-+#define __RME_FULL_INTERRUPT_DISABLE     0x00001000
-+#define __RME_CTRL_UNUSED10_MK           0x00000c00
-+#define __RME_CTRL_UNUSED10_SH           10
-+#define __RME_CTRL_UNUSED10(_v)          ((_v) << __RME_CTRL_UNUSED10_SH)
-+#define __RME_PCIEID_MK                  0x00000300
-+#define __RME_PCIEID_SH                  8
-+#define __RME_PCIEID(_v)                 ((_v) << __RME_PCIEID_SH)
-+#define __RME_CTRL_UNUSED00_MK           0x000000fe
-+#define __RME_CTRL_UNUSED00_SH           1
-+#define __RME_CTRL_UNUSED00(_v)          ((_v) << __RME_CTRL_UNUSED00_SH)
-+#define __RME_ESIZE                      0x00000001
-+#define RME_QCTRL_Q1                     0x0003806c
-+#define __RME_CTRL_UNUSED11_MK           0x00000c00
-+#define __RME_CTRL_UNUSED11_SH           10
-+#define __RME_CTRL_UNUSED11(_v)          ((_v) << __RME_CTRL_UNUSED11_SH)
-+#define __RME_CTRL_UNUSED01_MK           0x000000fe
-+#define __RME_CTRL_UNUSED01_SH           1
-+#define __RME_CTRL_UNUSED01(_v)          ((_v) << __RME_CTRL_UNUSED01_SH)
-+#define PSS_CTL_REG                      0x00018800
-+#define __PSS_I2C_CLK_DIV_MK             0x007f0000
-+#define __PSS_I2C_CLK_DIV_SH             16
-+#define __PSS_I2C_CLK_DIV(_v)            ((_v) << __PSS_I2C_CLK_DIV_SH)
-+#define __PSS_LMEM_INIT_DONE             0x00001000
-+#define __PSS_LMEM_RESET                 0x00000200
-+#define __PSS_LMEM_INIT_EN               0x00000100
-+#define __PSS_LPU1_RESET                 0x00000002
-+#define __PSS_LPU0_RESET                 0x00000001
-+#define PSS_ERR_STATUS_REG               0x00018810
-+#define __PSS_LPU1_TCM_READ_ERR          0x00200000
-+#define __PSS_LPU0_TCM_READ_ERR          0x00100000
-+#define __PSS_LMEM5_CORR_ERR             0x00080000
-+#define __PSS_LMEM4_CORR_ERR             0x00040000
-+#define __PSS_LMEM3_CORR_ERR             0x00020000
-+#define __PSS_LMEM2_CORR_ERR             0x00010000
-+#define __PSS_LMEM1_CORR_ERR             0x00008000
-+#define __PSS_LMEM0_CORR_ERR             0x00004000
-+#define __PSS_LMEM5_UNCORR_ERR           0x00002000
-+#define __PSS_LMEM4_UNCORR_ERR           0x00001000
-+#define __PSS_LMEM3_UNCORR_ERR           0x00000800
-+#define __PSS_LMEM2_UNCORR_ERR           0x00000400
-+#define __PSS_LMEM1_UNCORR_ERR           0x00000200
-+#define __PSS_LMEM0_UNCORR_ERR           0x00000100
-+#define __PSS_BAL_PERR                   0x00000080
-+#define __PSS_DIP_IF_ERR                 0x00000040
-+#define __PSS_IOH_IF_ERR                 0x00000020
-+#define __PSS_TDS_IF_ERR                 0x00000010
-+#define __PSS_RDS_IF_ERR                 0x00000008
-+#define __PSS_SGM_IF_ERR                 0x00000004
-+#define __PSS_LPU1_RAM_ERR               0x00000002
-+#define __PSS_LPU0_RAM_ERR               0x00000001
-+#define ERR_SET_REG                      0x00018818
-+#define __PSS_ERR_STATUS_SET             0x003fffff
-+#define HQM_QSET0_RXQ_DRBL_P0            0x00038000
-+#define __RXQ0_ADD_VECTORS_P             0x80000000
-+#define __RXQ0_STOP_P                    0x40000000
-+#define __RXQ0_PRD_PTR_P                 0x0000ffff
-+#define HQM_QSET1_RXQ_DRBL_P0            0x00038080
-+#define __RXQ1_ADD_VECTORS_P             0x80000000
-+#define __RXQ1_STOP_P                    0x40000000
-+#define __RXQ1_PRD_PTR_P                 0x0000ffff
-+#define HQM_QSET0_RXQ_DRBL_P1            0x0003c000
-+#define HQM_QSET1_RXQ_DRBL_P1            0x0003c080
-+#define HQM_QSET0_TXQ_DRBL_P0            0x00038020
-+#define __TXQ0_ADD_VECTORS_P             0x80000000
-+#define __TXQ0_STOP_P                    0x40000000
-+#define __TXQ0_PRD_PTR_P                 0x0000ffff
-+#define HQM_QSET1_TXQ_DRBL_P0            0x000380a0
-+#define __TXQ1_ADD_VECTORS_P             0x80000000
-+#define __TXQ1_STOP_P                    0x40000000
-+#define __TXQ1_PRD_PTR_P                 0x0000ffff
-+#define HQM_QSET0_TXQ_DRBL_P1            0x0003c020
-+#define HQM_QSET1_TXQ_DRBL_P1            0x0003c0a0
-+#define HQM_QSET0_IB_DRBL_1_P0           0x00038040
-+#define __IB1_0_ACK_P                    0x80000000
-+#define __IB1_0_DISABLE_P                0x40000000
-+#define __IB1_0_NUM_OF_ACKED_EVENTS_P    0x0000ffff
-+#define HQM_QSET1_IB_DRBL_1_P0           0x000380c0
-+#define __IB1_1_ACK_P                    0x80000000
-+#define __IB1_1_DISABLE_P                0x40000000
-+#define __IB1_1_NUM_OF_ACKED_EVENTS_P    0x0000ffff
-+#define HQM_QSET0_IB_DRBL_1_P1           0x0003c040
-+#define HQM_QSET1_IB_DRBL_1_P1           0x0003c0c0
-+#define HQM_QSET0_IB_DRBL_2_P0           0x00038060
-+#define __IB2_0_ACK_P                    0x80000000
-+#define __IB2_0_DISABLE_P                0x40000000
-+#define __IB2_0_NUM_OF_ACKED_EVENTS_P    0x0000ffff
-+#define HQM_QSET1_IB_DRBL_2_P0           0x000380e0
-+#define __IB2_1_ACK_P                    0x80000000
-+#define __IB2_1_DISABLE_P                0x40000000
-+#define __IB2_1_NUM_OF_ACKED_EVENTS_P    0x0000ffff
-+#define HQM_QSET0_IB_DRBL_2_P1           0x0003c060
-+#define HQM_QSET1_IB_DRBL_2_P1           0x0003c0e0
-+
-+/*
-+ * These definitions are either in error/missing in spec. Its auto-generated
-+ * from hard coded values in regparse.pl.
-+ */
-+#define __EMPHPOST_AT_4G_MK_FIX          0x0000001c
-+#define __EMPHPOST_AT_4G_SH_FIX          0x00000002
-+#define __EMPHPRE_AT_4G_FIX              0x00000003
-+#define __SFP_TXRATE_EN_FIX              0x00000100
-+#define __SFP_RXRATE_EN_FIX              0x00000080
-+
-+/*
-+ * These register definitions are auto-generated from hard coded values
-+ * in regparse.pl.
-+ */
-+
-+/*
-+ * These register mapping definitions are auto-generated from mapping tables
-+ * in regparse.pl.
-+ */
-+#define BFA_IOC0_HBEAT_REG               HOST_SEM0_INFO_REG
-+#define BFA_IOC0_STATE_REG               HOST_SEM1_INFO_REG
-+#define BFA_IOC1_HBEAT_REG               HOST_SEM2_INFO_REG
-+#define BFA_IOC1_STATE_REG               HOST_SEM3_INFO_REG
-+#define BFA_FW_USE_COUNT                 HOST_SEM4_INFO_REG
-+
-+#define CPE_DEPTH_Q(__n) \
-+	(CPE_DEPTH_Q0 + (__n) * (CPE_DEPTH_Q1 - CPE_DEPTH_Q0))
-+#define CPE_QCTRL_Q(__n) \
-+	(CPE_QCTRL_Q0 + (__n) * (CPE_QCTRL_Q1 - CPE_QCTRL_Q0))
-+#define CPE_PI_PTR_Q(__n) \
-+	(CPE_PI_PTR_Q0 + (__n) * (CPE_PI_PTR_Q1 - CPE_PI_PTR_Q0))
-+#define CPE_CI_PTR_Q(__n) \
-+	(CPE_CI_PTR_Q0 + (__n) * (CPE_CI_PTR_Q1 - CPE_CI_PTR_Q0))
-+#define RME_DEPTH_Q(__n) \
-+	(RME_DEPTH_Q0 + (__n) * (RME_DEPTH_Q1 - RME_DEPTH_Q0))
-+#define RME_QCTRL_Q(__n) \
-+	(RME_QCTRL_Q0 + (__n) * (RME_QCTRL_Q1 - RME_QCTRL_Q0))
-+#define RME_PI_PTR_Q(__n) \
-+	(RME_PI_PTR_Q0 + (__n) * (RME_PI_PTR_Q1 - RME_PI_PTR_Q0))
-+#define RME_CI_PTR_Q(__n) \
-+	(RME_CI_PTR_Q0 + (__n) * (RME_CI_PTR_Q1 - RME_CI_PTR_Q0))
-+#define HQM_QSET_RXQ_DRBL_P0(__n) \
-+	(HQM_QSET0_RXQ_DRBL_P0 +  \
-+		(__n) * (HQM_QSET1_RXQ_DRBL_P0 - HQM_QSET0_RXQ_DRBL_P0))
-+#define HQM_QSET_TXQ_DRBL_P0(__n) \
-+	(HQM_QSET0_TXQ_DRBL_P0 +  \
-+		(__n) * (HQM_QSET1_TXQ_DRBL_P0 - HQM_QSET0_TXQ_DRBL_P0))
-+#define HQM_QSET_IB_DRBL_1_P0(__n) \
-+	(HQM_QSET0_IB_DRBL_1_P0 +  \
-+		(__n) * (HQM_QSET1_IB_DRBL_1_P0 - HQM_QSET0_IB_DRBL_1_P0))
-+#define HQM_QSET_IB_DRBL_2_P0(__n) \
-+	(HQM_QSET0_IB_DRBL_2_P0 +  \
-+		(__n) * (HQM_QSET1_IB_DRBL_2_P0 - HQM_QSET0_IB_DRBL_2_P0))
-+#define HQM_QSET_RXQ_DRBL_P1(__n) \
-+	(HQM_QSET0_RXQ_DRBL_P1 +  \
-+		(__n) * (HQM_QSET1_RXQ_DRBL_P1 - HQM_QSET0_RXQ_DRBL_P1))
-+#define HQM_QSET_TXQ_DRBL_P1(__n) \
-+	(HQM_QSET0_TXQ_DRBL_P1 +  \
-+		(__n) * (HQM_QSET1_TXQ_DRBL_P1 - HQM_QSET0_TXQ_DRBL_P1))
-+#define HQM_QSET_IB_DRBL_1_P1(__n) \
-+	(HQM_QSET0_IB_DRBL_1_P1 +  \
-+		(__n) * (HQM_QSET1_IB_DRBL_1_P1 - HQM_QSET0_IB_DRBL_1_P1))
-+#define HQM_QSET_IB_DRBL_2_P1(__n) \
-+	(HQM_QSET0_IB_DRBL_2_P1 +  \
-+		(__n) * (HQM_QSET1_IB_DRBL_2_P1 - HQM_QSET0_IB_DRBL_2_P1))
-+
-+#define CPE_Q_NUM(__fn, __q)  (((__fn) << 2) + (__q))
-+#define RME_Q_NUM(__fn, __q)  (((__fn) << 2) + (__q))
-+#define CPE_Q_MASK(__q)  ((__q) & 0x3)
-+#define RME_Q_MASK(__q)  ((__q) & 0x3)
-+
-+/*
-+ * PCI MSI-X vector defines
-+ */
-+enum {
-+    BFA_MSIX_CPE_Q0 = 0,
-+    BFA_MSIX_CPE_Q1 = 1,
-+    BFA_MSIX_CPE_Q2 = 2,
-+    BFA_MSIX_CPE_Q3 = 3,
-+    BFA_MSIX_RME_Q0 = 4,
-+    BFA_MSIX_RME_Q1 = 5,
-+    BFA_MSIX_RME_Q2 = 6,
-+    BFA_MSIX_RME_Q3 = 7,
-+    BFA_MSIX_LPU_ERR = 8,
-+    BFA_MSIX_CT_MAX = 9,
-+};
-+
-+/*
-+ * And corresponding host interrupt status bit field defines
-+ */
-+#define __HFN_INT_CPE_Q0                   0x00000001U
-+#define __HFN_INT_CPE_Q1                   0x00000002U
-+#define __HFN_INT_CPE_Q2                   0x00000004U
-+#define __HFN_INT_CPE_Q3                   0x00000008U
-+#define __HFN_INT_CPE_Q4                   0x00000010U
-+#define __HFN_INT_CPE_Q5                   0x00000020U
-+#define __HFN_INT_CPE_Q6                   0x00000040U
-+#define __HFN_INT_CPE_Q7                   0x00000080U
-+#define __HFN_INT_RME_Q0                   0x00000100U
-+#define __HFN_INT_RME_Q1                   0x00000200U
-+#define __HFN_INT_RME_Q2                   0x00000400U
-+#define __HFN_INT_RME_Q3                   0x00000800U
-+#define __HFN_INT_RME_Q4                   0x00001000U
-+#define __HFN_INT_RME_Q5                   0x00002000U
-+#define __HFN_INT_RME_Q6                   0x00004000U
-+#define __HFN_INT_RME_Q7                   0x00008000U
-+#define __HFN_INT_ERR_EMC                  0x00010000U
-+#define __HFN_INT_ERR_LPU0                 0x00020000U
-+#define __HFN_INT_ERR_LPU1                 0x00040000U
-+#define __HFN_INT_ERR_PSS                  0x00080000U
-+#define __HFN_INT_MBOX_LPU0                0x00100000U
-+#define __HFN_INT_MBOX_LPU1                0x00200000U
-+#define __HFN_INT_MBOX1_LPU0               0x00400000U
-+#define __HFN_INT_MBOX1_LPU1               0x00800000U
-+#define __HFN_INT_LL_HALT                  0x01000000U
-+#define __HFN_INT_CPE_MASK                 0x000000ffU
-+#define __HFN_INT_RME_MASK                 0x0000ff00U
-+
-+/*
-+ * catapult memory map.
-+ */
-+#define LL_PGN_HQM0                      0x0096
-+#define LL_PGN_HQM1                      0x0097
-+#define PSS_SMEM_PAGE_START	0x8000
-+#define PSS_SMEM_PGNUM(_pg0, _ma)	((_pg0) + ((_ma) >> 15))
-+#define PSS_SMEM_PGOFF(_ma)	((_ma) & 0x7fff)
-+
-+/*
-+ * End of catapult memory map
-+ */
-+
-+#endif /* __BFI_CTREG_H__ */
-+
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,174 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+
-+#ifndef __BFI_H__
-+#define __BFI_H__
-+
-+#include "cna.h"
-+#include "defs/bfa_defs_status.h"
-+
-+#pragma pack(1)
-+
-+/**
-+ * Msg header common to all msgs
-+ */
-+struct bfi_mhdr {
-+	u8		msg_class;	/*  @ref bfi_mclass_t		    */
-+	u8		msg_id;		/*  msg opcode with in the class   */
-+	union {
-+		struct {
-+			u8	rsvd;
-+			u8	lpu_id;	/*  msg destination		    */
-+		} h2i;
-+		u16	i2htok;	/*  token in msgs to host	    */
-+	} mtag;
-+};
-+
-+#define bfi_h2i_set(_mh, _mc, _op, _lpuid) do {		\
-+	(_mh).msg_class 		= (_mc);      \
-+	(_mh).msg_id			= (_op);      \
-+	(_mh).mtag.h2i.lpu_id	= (_lpuid);      \
-+} while (0)
-+
-+#define bfi_i2h_set(_mh, _mc, _op, _i2htok) do {		\
-+	(_mh).msg_class 		= (_mc);      \
-+	(_mh).msg_id			= (_op);      \
-+	(_mh).mtag.i2htok		= (_i2htok);      \
-+} while (0)
-+
-+/*
-+ * Message opcodes: 0-127 to firmware, 128-255 to host
-+ */
-+#define BFI_I2H_OPCODE_BASE	128
-+#define BFA_I2HM(_x) 			((_x) + BFI_I2H_OPCODE_BASE)
-+
-+/**
-+ ****************************************************************************
-+ *
-+ * Scatter Gather Element and Page definition
-+ *
-+ ****************************************************************************
-+ */
-+
-+#define BFI_SGE_INLINE	1
-+#define BFI_SGE_INLINE_MAX	(BFI_SGE_INLINE + 1)
-+
-+/**
-+ * SG Flags
-+ */
-+enum {
-+	BFI_SGE_DATA		= 0,	/*  data address, not last	     */
-+	BFI_SGE_DATA_CPL	= 1,	/*  data addr, last in current page */
-+	BFI_SGE_DATA_LAST	= 3,	/*  data address, last		     */
-+	BFI_SGE_LINK		= 2,	/*  link address		     */
-+	BFI_SGE_PGDLEN		= 2,	/*  cumulative data length for page */
-+};
-+
-+/**
-+ * DMA addresses
-+ */
-+union bfi_addr_u {
-+	struct {
-+		u32	addr_lo;
-+		u32	addr_hi;
-+	} a32;
-+};
-+
-+/**
-+ * Scatter Gather Element
-+ */
-+struct bfi_sge {
-+#ifdef __BIGENDIAN
-+	u32	flags:2,
-+			rsvd:2,
-+			sg_len:28;
-+#else
-+	u32	sg_len:28,
-+			rsvd:2,
-+			flags:2;
-+#endif
-+	union bfi_addr_u sga;
-+};
-+
-+/**
-+ * Scatter Gather Page
-+ */
-+#define BFI_SGPG_DATA_SGES		7
-+#define BFI_SGPG_SGES_MAX		(BFI_SGPG_DATA_SGES + 1)
-+#define BFI_SGPG_RSVD_WD_LEN	8
-+struct bfi_sgpg {
-+	struct bfi_sge sges[BFI_SGPG_SGES_MAX];
-+	u32	rsvd[BFI_SGPG_RSVD_WD_LEN];
-+};
-+
-+/*
-+ * Large Message structure - 128 Bytes size Msgs
-+ */
-+#define BFI_LMSG_SZ		128
-+#define BFI_LMSG_PL_WSZ	\
-+			((BFI_LMSG_SZ - sizeof(struct bfi_mhdr)) / 4)
-+
-+struct bfi_msg {
-+	struct bfi_mhdr mhdr;
-+	u32	pl[BFI_LMSG_PL_WSZ];
-+};
-+
-+/**
-+ * Mailbox message structure
-+ */
-+#define BFI_MBMSG_SZ		7
-+struct bfi_mbmsg {
-+	struct bfi_mhdr mh;
-+	u32		pl[BFI_MBMSG_SZ];
-+};
-+
-+/**
-+ * Message Classes
-+ */
-+enum bfi_mclass {
-+	BFI_MC_IOC		= 1,	/*  IO Controller (IOC)	    */
-+	BFI_MC_DIAG		= 2,	/*  Diagnostic Msgs		    */
-+	BFI_MC_FLASH		= 3,	/*  Flash message class	    */
-+	BFI_MC_CEE		= 4,	/*  CEE			    */
-+	BFI_MC_FCPORT		= 5,	/*  FC port			    */
-+	BFI_MC_IOCFC		= 6,	/*  FC - IO Controller (IOC)	    */
-+	BFI_MC_LL		= 7,	/*  Link Layer			    */
-+	BFI_MC_UF		= 8,	/*  Unsolicited frame receive	    */
-+	BFI_MC_FCXP		= 9,	/*  FC Transport		    */
-+	BFI_MC_LPS		= 10,	/*  lport fc login services	    */
-+	BFI_MC_RPORT		= 11,	/*  Remote port		    */
-+	BFI_MC_ITNIM		= 12,	/*  I-T nexus (Initiator mode)	    */
-+	BFI_MC_IOIM_READ	= 13,	/*  read IO (Initiator mode)	    */
-+	BFI_MC_IOIM_WRITE	= 14,	/*  write IO (Initiator mode)	    */
-+	BFI_MC_IOIM_IO		= 15,	/*  IO (Initiator mode)	    */
-+	BFI_MC_IOIM		= 16,	/*  IO (Initiator mode)	    */
-+	BFI_MC_IOIM_IOCOM	= 17,	/*  good IO completion		    */
-+	BFI_MC_TSKIM		= 18,	/*  Initiator Task management	    */
-+	BFI_MC_SBOOT		= 19,	/*  SAN boot services		    */
-+	BFI_MC_IPFC		= 20,	/*  IP over FC Msgs		    */
-+	BFI_MC_PORT		= 21,	/*  Physical port		    */
-+	BFI_MC_MAX		= 32
-+};
-+
-+#define BFI_IOC_MAX_CQS		4
-+#define BFI_IOC_MAX_CQS_ASIC	8
-+#define BFI_IOC_MSGLEN_MAX	32	/* 32 bytes */
-+
-+#pragma pack()
-+
-+#endif /* __BFI_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ioc.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ioc.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ioc.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ioc.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,202 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+
-+#ifndef __BFI_IOC_H__
-+#define __BFI_IOC_H__
-+
-+#include "bfi.h"
-+#include "defs/bfa_defs_ioc.h"
-+
-+#pragma pack(1)
-+
-+enum bfi_ioc_h2i_msgs {
-+	BFI_IOC_H2I_ENABLE_REQ		= 1,
-+	BFI_IOC_H2I_DISABLE_REQ		= 2,
-+	BFI_IOC_H2I_GETATTR_REQ		= 3,
-+	BFI_IOC_H2I_DBG_SYNC		= 4,
-+	BFI_IOC_H2I_DBG_DUMP		= 5,
-+};
-+
-+enum bfi_ioc_i2h_msgs {
-+	BFI_IOC_I2H_ENABLE_REPLY	= BFA_I2HM(1),
-+	BFI_IOC_I2H_DISABLE_REPLY 	= BFA_I2HM(2),
-+	BFI_IOC_I2H_GETATTR_REPLY 	= BFA_I2HM(3),
-+	BFI_IOC_I2H_READY_EVENT 	= BFA_I2HM(4),
-+	BFI_IOC_I2H_HBEAT		= BFA_I2HM(5),
-+};
-+
-+/**
-+ * BFI_IOC_H2I_GETATTR_REQ message
-+ */
-+struct bfi_ioc_getattr_req {
-+	struct bfi_mhdr mh;
-+	union bfi_addr_u	attr_addr;
-+};
-+
-+struct bfi_ioc_attr {
-+	wwn_t		mfg_wwn;
-+	struct mac mfg_mac;
-+	u16	rsvd_a;
-+	char		brcd_serialnum[STRSZ(BFA_MFG_SERIALNUM_SIZE)];
-+	u8		pcie_gen;
-+	u8		pcie_lanes_orig;
-+	u8		pcie_lanes;
-+	u8		rx_bbcredit;	/*  receive buffer credits */
-+	u32	adapter_prop;	/*  adapter properties     */
-+	u16	maxfrsize;	/*  max receive frame size */
-+	char		asic_rev;
-+	u8		rsvd_b;
-+	char		fw_version[BFA_VERSION_LEN];
-+	char		optrom_version[BFA_VERSION_LEN];
-+	struct bfa_mfg_vpd vpd;
-+};
-+
-+/**
-+ * BFI_IOC_I2H_GETATTR_REPLY message
-+ */
-+struct bfi_ioc_getattr_reply {
-+	struct bfi_mhdr mh;	/*  Common msg header		*/
-+	u8			status;	/*  cfg reply status		*/
-+	u8			rsvd[3];
-+};
-+
-+/**
-+ * Firmware memory page offsets
-+ */
-+#define BFI_IOC_SMEM_PG0_CB	(0x40)
-+#define BFI_IOC_SMEM_PG0_CT	(0x180)
-+
-+/**
-+ * Firmware trace offset
-+ */
-+#define BFI_IOC_TRC_OFF		(0x4b00)
-+#define BFI_IOC_TRC_ENTS	256
-+
-+#define BFI_IOC_FW_SIGNATURE	(0xbfadbfad)
-+#define BFI_IOC_MD5SUM_SZ	4
-+struct bfi_ioc_image_hdr {
-+	u32	signature;	/*  constant signature */
-+	u32	rsvd_a;
-+	u32	exec;		/*  exec vector	*/
-+	u32	param;		/*  parameters		*/
-+	u32	rsvd_b[4];
-+	u32	md5sum[BFI_IOC_MD5SUM_SZ];
-+};
-+
-+/**
-+ *  BFI_IOC_I2H_READY_EVENT message
-+ */
-+struct bfi_ioc_rdy_event {
-+	struct bfi_mhdr mh;		/*  common msg header */
-+	u8			init_status;	/*  init event status */
-+	u8			rsvd[3];
-+};
-+
-+struct bfi_ioc_hbeat {
-+	struct bfi_mhdr mh;		/*  common msg header		*/
-+	u32	   hb_count;	/*  current heart beat count	*/
-+};
-+
-+/**
-+ * IOC hardware/firmware state
-+ */
-+enum bfi_ioc_state {
-+	BFI_IOC_UNINIT		= 0,	/*  not initialized		     */
-+	BFI_IOC_INITING		= 1,	/*  h/w is being initialized	     */
-+	BFI_IOC_HWINIT		= 2,	/*  h/w is initialized		     */
-+	BFI_IOC_CFG		= 3,	/*  IOC configuration in progress   */
-+	BFI_IOC_OP		= 4,	/*  IOC is operational		     */
-+	BFI_IOC_DISABLING	= 5,	/*  IOC is being disabled	     */
-+	BFI_IOC_DISABLED	= 6,	/*  IOC is disabled		     */
-+	BFI_IOC_CFG_DISABLED	= 7,	/*  IOC is being disabled;transient */
-+	BFI_IOC_FAIL		= 8,	/*  IOC heart-beat failure	     */
-+	BFI_IOC_MEMTEST		= 9,	/*  IOC is doing memtest	     */
-+};
-+
-+#define BFI_IOC_ENDIAN_SIG  0x12345678
-+
-+enum {
-+	BFI_ADAPTER_TYPE_FC	= 0x01,		/*  FC adapters	   */
-+	BFI_ADAPTER_TYPE_MK	= 0x0f0000,	/*  adapter type mask     */
-+	BFI_ADAPTER_TYPE_SH	= 16,	        /*  adapter type shift    */
-+	BFI_ADAPTER_NPORTS_MK	= 0xff00,	/*  number of ports mask  */
-+	BFI_ADAPTER_NPORTS_SH	= 8,	        /*  number of ports shift */
-+	BFI_ADAPTER_SPEED_MK	= 0xff,		/*  adapter speed mask    */
-+	BFI_ADAPTER_SPEED_SH	= 0,	        /*  adapter speed shift   */
-+	BFI_ADAPTER_PROTO	= 0x100000,	/*  prototype adapaters   */
-+	BFI_ADAPTER_TTV		= 0x200000,	/*  TTV debug capable     */
-+	BFI_ADAPTER_UNSUPP	= 0x400000,	/*  unknown adapter type  */
-+};
-+
-+#define BFI_ADAPTER_GETP(__prop, __adap_prop)			\
-+	(((__adap_prop) & BFI_ADAPTER_ ## __prop ## _MK) >>	\
-+		BFI_ADAPTER_ ## __prop ## _SH)
-+#define BFI_ADAPTER_SETP(__prop, __val)				\
-+	((__val) << BFI_ADAPTER_ ## __prop ## _SH)
-+#define BFI_ADAPTER_IS_PROTO(__adap_type)			\
-+	((__adap_type) & BFI_ADAPTER_PROTO)
-+#define BFI_ADAPTER_IS_TTV(__adap_type)				\
-+	((__adap_type) & BFI_ADAPTER_TTV)
-+#define BFI_ADAPTER_IS_UNSUPP(__adap_type)			\
-+	((__adap_type) & BFI_ADAPTER_UNSUPP)
-+#define BFI_ADAPTER_IS_SPECIAL(__adap_type)			\
-+	((__adap_type) & (BFI_ADAPTER_TTV | BFI_ADAPTER_PROTO |	\
-+			BFI_ADAPTER_UNSUPP))
-+
-+/**
-+ * BFI_IOC_H2I_ENABLE_REQ & BFI_IOC_H2I_DISABLE_REQ messages
-+ */
-+struct bfi_ioc_ctrl_req {
-+	struct bfi_mhdr mh;
-+	u8			ioc_class;
-+	u8			rsvd[3];
-+};
-+
-+/**
-+ * BFI_IOC_I2H_ENABLE_REPLY & BFI_IOC_I2H_DISABLE_REPLY messages
-+ */
-+struct bfi_ioc_ctrl_reply {
-+	struct bfi_mhdr mh;		/*  Common msg header     */
-+	u8			status;		/*  enable/disable status */
-+	u8			rsvd[3];
-+};
-+
-+#define BFI_IOC_MSGSZ   8
-+/**
-+ * H2I Messages
-+ */
-+union bfi_ioc_h2i_msg_u {
-+	struct bfi_mhdr mh;
-+	struct bfi_ioc_ctrl_req enable_req;
-+	struct bfi_ioc_ctrl_req disable_req;
-+	struct bfi_ioc_getattr_req getattr_req;
-+	u32			mboxmsg[BFI_IOC_MSGSZ];
-+};
-+
-+/**
-+ * I2H Messages
-+ */
-+union bfi_ioc_i2h_msg_u {
-+	struct bfi_mhdr mh;
-+	struct bfi_ioc_rdy_event rdy_event;
-+	u32			mboxmsg[BFI_IOC_MSGSZ];
-+};
-+
-+#pragma pack()
-+
-+#endif /* __BFI_IOC_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ll.h net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ll.h
---- net-next-2.6-orig/drivers/net/bna/include/bfi/bfi_ll.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/bfi/bfi_ll.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,422 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ *
-+ *	file bfi_if.h BNA Hardware and Firmware Interface
-+ */
-+#ifndef __BFI_LL_H__
-+#define __BFI_LL_H__
-+
-+#include "bfi/bfi.h"
-+#include "defs/bfa_defs_ioc.h"
-+
-+#pragma pack(1)
-+
-+/**
-+ *	"enums" for all LL mailbox messages other than IOC
-+ */
-+enum {
-+	BFI_LL_H2I_MAC_UCAST_SET_REQ = 1,
-+	BFI_LL_H2I_MAC_UCAST_ADD_REQ = 2,
-+	BFI_LL_H2I_MAC_UCAST_DEL_REQ = 3,
-+
-+	BFI_LL_H2I_MAC_MCAST_ADD_REQ = 4,
-+	BFI_LL_H2I_MAC_MCAST_DEL_REQ = 5,
-+	BFI_LL_H2I_MAC_MCAST_FILTER_REQ = 6,
-+	BFI_LL_H2I_MAC_MCAST_DEL_ALL_REQ = 7,
-+
-+	BFI_LL_H2I_PORT_ADMIN_REQ = 8,
-+	BFI_LL_H2I_STATS_GET_REQ = 9,
-+	BFI_LL_H2I_STATS_CLEAR_REQ = 10,
-+
-+	BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ = 11,
-+	BFI_LL_H2I_RXF_DEFAULT_SET_REQ = 12,
-+
-+	BFI_LL_H2I_TXQ_STOP_REQ = 13,
-+	BFI_LL_H2I_RXQ_STOP_REQ = 14,
-+
-+	BFI_LL_H2I_DIAG_LOOPBACK_REQ = 15,
-+
-+	BFI_LL_H2I_SET_PAUSE_REQ = 16,
-+	BFI_LL_H2I_MTU_INFO_REQ = 17,
-+
-+	BFI_LL_H2I_RX_REQ = 18,
-+};
-+
-+enum {
-+	BFI_LL_I2H_MAC_UCAST_SET_RSP = BFA_I2HM(1),
-+	BFI_LL_I2H_MAC_UCAST_ADD_RSP = BFA_I2HM(2),
-+	BFI_LL_I2H_MAC_UCAST_DEL_RSP = BFA_I2HM(3),
-+
-+	BFI_LL_I2H_MAC_MCAST_ADD_RSP = BFA_I2HM(4),
-+	BFI_LL_I2H_MAC_MCAST_DEL_RSP = BFA_I2HM(5),
-+	BFI_LL_I2H_MAC_MCAST_FILTER_RSP = BFA_I2HM(6),
-+	BFI_LL_I2H_MAC_MCAST_DEL_ALL_RSP = BFA_I2HM(7),
-+
-+	BFI_LL_I2H_PORT_ADMIN_RSP = BFA_I2HM(8),
-+	BFI_LL_I2H_STATS_GET_RSP = BFA_I2HM(9),
-+	BFI_LL_I2H_STATS_CLEAR_RSP = BFA_I2HM(10),
-+
-+	BFI_LL_I2H_RXF_PROMISCUOUS_SET_RSP = BFA_I2HM(11),
-+	BFI_LL_I2H_RXF_DEFAULT_SET_RSP = BFA_I2HM(12),
-+
-+	BFI_LL_I2H_TXQ_STOP_RSP = BFA_I2HM(13),
-+	BFI_LL_I2H_RXQ_STOP_RSP = BFA_I2HM(14),
-+
-+	BFI_LL_I2H_DIAG_LOOPBACK_RSP = BFA_I2HM(15),
-+
-+	BFI_LL_I2H_SET_PAUSE_RSP = BFA_I2HM(16),
-+
-+	BFI_LL_I2H_MTU_INFO_RSP = BFA_I2HM(17),
-+	BFI_LL_I2H_RX_RSP = BFA_I2HM(18),
-+
-+	BFI_LL_I2H_LINK_DOWN_AEN = BFA_I2HM(19),
-+	BFI_LL_I2H_LINK_UP_AEN = BFA_I2HM(20),
-+};
-+
-+/**
-+ *        BFI_LL_H2I_MAC_UCAST_SET_REQ
-+ *        BFI_LL_H2I_MAC_UCAST_ADD_REQ
-+ *        BFI_LL_H2I_MAC_UCAST_DEL_REQ
-+ *        BFI_LL_H2I_MAC_MCAST_ADD_REQ
-+ *        BFI_LL_H2I_MAC_MCAST_DEL_REQ
-+ */
-+struct bfi_ll_mac_addr_req {
-+	struct bfi_mhdr mh;         /*  common msg header */
-+	u8		rxf_id;
-+	u8		rsvd1[3];
-+	struct mac mac_addr;
-+	u8		rsvd2[2];
-+};
-+
-+/**
-+ *	  BFI_LL_H2I_MAC_MCAST_FILTER_REQ
-+ */
-+struct bfi_ll_mcast_filter_req {
-+	struct bfi_mhdr mh;         /*  common msg header */
-+	u8		rxf_id;
-+	u8		enable;
-+	u8		rsvd[2];
-+};
-+
-+/**
-+ *	  BFI_LL_H2I_MAC_MCAST_DEL_ALL_REQ
-+ */
-+struct bfi_ll_mcast_del_all_req {
-+	struct bfi_mhdr mh;         /*  common msg header */
-+	u8		   rxf_id;
-+	u8		   rsvd[3];
-+};
-+
-+/**
-+ *	BFI_LL_H2I_TXQ_STOP_REQ
-+ *	BFI_LL_H2I_RXQ_STOP_REQ
-+ */
-+struct bfi_ll_q_stop_req {
-+	struct bfi_mhdr mh;		/*  common msg header */
-+	u32	q_id_mask[2];	/*  bit-mask for queue ids */
-+};
-+
-+/**
-+ *    BFI_LL_I2H_STATS_GET_REQ
-+ *    BFI_LL_I2H_STATS_CLEAR_REQ
-+ */
-+struct bfi_ll_stats_req {
-+	struct bfi_mhdr mh;		/*  common msg header */
-+/*  bit-mask for non-function statistics */
-+	u16	stats_mask;
-+	u8		rsvd[2];
-+	u32	rxf_id_mask[2];	/*  bit-mask for RxF Statistics */
-+	u32	txf_id_mask[2];	/*  bit-mask for TxF Statistics */
-+	union bfi_addr_u  host_buffer;	/*  where statistics are returned */
-+};
-+
-+#define BFI_LL_STATS_MAC	(1 << 0)	/*  MAC Statistics */
-+#define BFI_LL_STATS_BPC	(1 << 1)	/*  Pause Stats from BPC */
-+#define BFI_LL_STATS_RAD	(1 << 2)	/*  Rx Admission Statistics */
-+#define BFI_LL_STATS_RX_FC	(1 << 3)	/*  Rx FC Stats from RxA */
-+#define BFI_LL_STATS_TX_FC	(1 << 4)	/*  Tx FC Stats from TxA */
-+#define BFI_LL_STATS_ALL	0x1f
-+
-+struct bfi_ll_port_admin_req {
-+	struct bfi_mhdr mh;         		/*  common msg header */
-+	u8		 up;
-+	u8		 rsvd[3];
-+};
-+
-+/**
-+ *      BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ
-+ *      BFI_LL_H2I_RXF_DEFAULT_SET_REQ
-+ */
-+struct bfi_ll_rxf_req {
-+	struct bfi_mhdr mh;         /*  common msg header */
-+	u8		rxf_id;
-+	u8		enable;
-+	u8		rsvd[2];
-+};
-+
-+/**
-+ *      BFI_LL_H2I_RX_REQ
-+ */
-+struct bfi_ll_rxf_multi_req {
-+	struct bfi_mhdr mh;		/*  common msg header */
-+	u32	rxf_id_mask[2];
-+	u8		enable;
-+	u8		rsvd[3];
-+};
-+
-+/**
-+ *      BFI_LL_H2I_DIAG_LOOPBACK
-+ */
-+struct bfi_ll_diag_lb_req{
-+struct bfi_mhdr mh;     /* 4 bytes */
-+u8	enable;			/* =1 : enable, =0 : disable */
-+u8	mode;			/* cable or Serdes */
-+u8	rsvd[2];
-+};
-+
-+enum {
-+	BFI_LL_DIAG_LB_OPMODE_EXT = 0,
-+	BFI_LL_DIAG_LB_OPMODE_CBL = 1,
-+};
-+
-+/**
-+ *	BFI_LL_H2I_SET_PAUSE_REQ
-+ */
-+struct bfi_ll_set_pause_req {
-+	struct bfi_mhdr mh;
-+	u8		tx_pause; /* 1 = enable, 0 =  disable */
-+	u8		rx_pause; /* 1 = enable, 0 =  disable */
-+	u8		rsvd[2];
-+};
-+
-+/**
-+ *	BFI_LL_H2I_MTU_INFO_REQ
-+ */
-+struct bfi_ll_mtu_info_req {
-+	struct bfi_mhdr mh;
-+	u16	mtu;
-+	u8		rsvd[2];
-+};
-+
-+/**
-+ *	  Response header format used by all responses
-+ *	  For both responses and asynchronous notifications
-+ */
-+struct bfi_ll_rsp {
-+	struct bfi_mhdr mh;         		/*  common msg header */
-+	u8 	 error;
-+	u8		 rsvd[3];
-+};
-+
-+/**
-+ *	BFI_LL_I2H_LINK_DOWN_AEN
-+ *	BFI_LL_I2H_LINK_UP_AEN
-+ */
-+struct bfi_ll_aen {
-+	struct bfi_mhdr mh;          /*  common msg header */
-+	u32           reason;
-+	u8            cee_linkup;
-+	u8            prio_map;    /*  LL priority bit-map */
-+	u8            rsvd[2];
-+};
-+
-+/**
-+ * 	The following error codes can be returned
-+ *	by the mbox commands
-+ */
-+enum {
-+	BFI_LL_CMD_OK 		= 0,
-+	BFI_LL_CMD_FAIL 	= 1,
-+	BFI_LL_CMD_DUP_ENTRY	= 2,	/*  Duplicate entry in CAM */
-+	BFI_LL_CMD_CAM_FULL	= 3,	/*  CAM is full */
-+	BFI_LL_CMD_NOT_OWNER	= 4,   	/*  Not permitted, b'cos not owner */
-+	BFI_LL_CMD_NOT_EXEC	= 5,   	/*  Was not sent to f/w at all */
-+};
-+
-+/* Statistics */
-+#define BFI_LL_TXF_ID_MAX  	64
-+#define BFI_LL_RXF_ID_MAX  	64
-+
-+/* TxF Frame Statistics */
-+struct bfi_ll_stats_txf {
-+	u64 ucast_octets;
-+	u64 ucast;
-+	u64 ucast_vlan;
-+
-+	u64 mcast_octets;
-+	u64 mcast;
-+	u64 mcast_vlan;
-+
-+	u64 bcast_octets;
-+	u64 bcast;
-+	u64 bcast_vlan;
-+
-+	u64 errors;
-+	u64 filter_vlan;      /* frames filtered due to VLAN */
-+	u64 filter_mac_sa;    /* frames filtered due to SA check */
-+};
-+
-+/* RxF Frame Statistics */
-+struct bfi_ll_stats_rxf {
-+	u64 ucast_octets;
-+	u64 ucast;
-+	u64 ucast_vlan;
-+
-+	u64 mcast_octets;
-+	u64 mcast;
-+	u64 mcast_vlan;
-+
-+	u64 bcast_octets;
-+	u64 bcast;
-+	u64 bcast_vlan;
-+	u64 frame_drops;
-+};
-+
-+/* FC Tx Frame Statistics */
-+struct bfi_ll_stats_fc_tx {
-+	u64 txf_ucast_octets;
-+	u64 txf_ucast;
-+	u64 txf_ucast_vlan;
-+
-+	u64 txf_mcast_octets;
-+	u64 txf_mcast;
-+	u64 txf_mcast_vlan;
-+
-+	u64 txf_bcast_octets;
-+	u64 txf_bcast;
-+	u64 txf_bcast_vlan;
-+
-+	u64 txf_parity_errors;
-+	u64 txf_timeout;
-+	u64 txf_fid_parity_errors;
-+};
-+
-+/* FC Rx Frame Statistics */
-+struct bfi_ll_stats_fc_rx {
-+	u64 rxf_ucast_octets;
-+	u64 rxf_ucast;
-+	u64 rxf_ucast_vlan;
-+
-+	u64 rxf_mcast_octets;
-+	u64 rxf_mcast;
-+	u64 rxf_mcast_vlan;
-+
-+	u64 rxf_bcast_octets;
-+	u64 rxf_bcast;
-+	u64 rxf_bcast_vlan;
-+};
-+
-+/* RAD Frame Statistics */
-+struct bfi_ll_stats_rad {
-+	u64 rx_frames;
-+	u64 rx_octets;
-+	u64 rx_vlan_frames;
-+
-+	u64 rx_ucast;
-+	u64 rx_ucast_octets;
-+	u64 rx_ucast_vlan;
-+
-+	u64 rx_mcast;
-+	u64 rx_mcast_octets;
-+	u64 rx_mcast_vlan;
-+
-+	u64 rx_bcast;
-+	u64 rx_bcast_octets;
-+	u64 rx_bcast_vlan;
-+
-+	u64 rx_drops;
-+};
-+
-+/* BPC Tx Registers */
-+struct bfi_ll_stats_bpc {
-+    /* transmit stats */
-+	u64 tx_pause[8];
-+	u64 tx_zero_pause[8]; /*  Pause cancellation */
-+	u64 tx_first_pause[8];/*  Pause initiation rather than retention*/
-+
-+	/* receive stats */
-+	u64 rx_pause[8];
-+	u64 rx_zero_pause[8]; /*  Pause cancellation */
-+	u64 rx_first_pause[8];/*  Pause initiation rather than retention*/
-+};
-+
-+/* MAC Rx Statistics */
-+struct bfi_ll_stats_mac {
-+	u64 frame_64;          /* both rx and tx counter */
-+	u64 frame_65_127;      /* both rx and tx counter */
-+	u64 frame_128_255;     /* both rx and tx counter */
-+	u64 frame_256_511;     /* both rx and tx counter */
-+	u64 frame_512_1023;    /* both rx and tx counter */
-+	u64 frame_1024_1518;   /* both rx and tx counter */
-+	u64 frame_1519_1522;   /* both rx and tx counter */
-+
-+	/* receive stats */
-+	u64 rx_bytes;
-+	u64 rx_packets;
-+	u64 rx_fcs_error;
-+	u64 rx_multicast;
-+	u64 rx_broadcast;
-+	u64 rx_control_frames;
-+	u64 rx_pause;
-+	u64 rx_unknown_opcode;
-+	u64 rx_alignment_error;
-+	u64 rx_frame_length_error;
-+	u64 rx_code_error;
-+	u64 rx_carrier_sense_error;
-+	u64 rx_undersize;
-+	u64 rx_oversize;
-+	u64 rx_fragments;
-+	u64 rx_jabber;
-+	u64 rx_drop;
-+
-+	/* transmit stats */
-+	u64 tx_bytes;
-+	u64 tx_packets;
-+	u64 tx_multicast;
-+	u64 tx_broadcast;
-+	u64 tx_pause;
-+	u64 tx_deferral;
-+	u64 tx_excessive_deferral;
-+	u64 tx_single_collision;
-+	u64 tx_muliple_collision;
-+	u64 tx_late_collision;
-+	u64 tx_excessive_collision;
-+	u64 tx_total_collision;
-+	u64 tx_pause_honored;
-+	u64 tx_drop;
-+	u64 tx_jabber;
-+	u64 tx_fcs_error;
-+	u64 tx_control_frame;
-+	u64 tx_oversize;
-+	u64 tx_undersize;
-+	u64 tx_fragments;
-+};
-+
-+/* Complete statistics */
-+struct bfi_ll_stats {
-+	struct bfi_ll_stats_mac		mac_stats;
-+	struct bfi_ll_stats_bpc		bpc_stats;
-+	struct bfi_ll_stats_rad		rad_stats;
-+	struct bfi_ll_stats_fc_rx	fc_rx_stats;
-+	struct bfi_ll_stats_fc_tx	fc_tx_stats;
-+	struct bfi_ll_stats_rxf	rxf_stats[BFI_LL_RXF_ID_MAX];
-+	struct bfi_ll_stats_txf	txf_stats[BFI_LL_TXF_ID_MAX];
-+};
-+
-+#pragma pack()
-+
-+#endif  /* __BFI_LL_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cee/bfa_cee.h net-next-2.6-mod/drivers/net/bna/include/cee/bfa_cee.h
---- net-next-2.6-orig/drivers/net/bna/include/cee/bfa_cee.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cee/bfa_cee.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,77 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ *
-+ *      @file bfa_cee.h CEE common module header file.
-+ */
-+
-+#ifndef __BFA_CEE_H__
-+#define __BFA_CEE_H__
-+
-+#include "defs/bfa_defs_cee.h"
-+#include "bfa_ioc.h"
++#include "cs/bfa_sm.h"
 +#include "cs/bfa_trc.h"
++#include "bfi/bfi.h"
++#include "bfi/bfi_ioc.h"
++#include "bfi/bfi_boot.h"
++#include "bfa_timer.h"
 +
-+typedef void (*bfa_cee_get_attr_cbfn_t) (void *dev, bfa_status_t status);
-+typedef void (*bfa_cee_get_stats_cbfn_t) (void *dev, bfa_status_t status);
-+typedef void (*bfa_cee_reset_stats_cbfn_t) (void *dev, bfa_status_t status);
-+typedef void (*bfa_cee_hbfail_cbfn_t) (void *dev, bfa_status_t status);
-+
-+struct bfa_cee_cbfn {
-+	bfa_cee_get_attr_cbfn_t    get_attr_cbfn;
-+	void *get_attr_cbarg;
-+	bfa_cee_get_stats_cbfn_t   get_stats_cbfn;
-+	void *get_stats_cbarg;
-+	bfa_cee_reset_stats_cbfn_t reset_stats_cbfn;
-+	void *reset_stats_cbarg;
++/**
++ * PCI device information required by IOC
++ */
++struct bfa_pcidev {
++	int		pci_slot;
++	u8		pci_func;
++	u16	device_id;
++	bfa_addr_t   pci_bar_kva;
 +};
 +
-+struct bfa_cee {
-+	void *dev;
-+	bool get_attr_pending;
-+	bool get_stats_pending;
-+	bool reset_stats_pending;
-+	bfa_status_t get_attr_status;
-+	bfa_status_t get_stats_status;
-+	bfa_status_t reset_stats_status;
-+	struct bfa_cee_cbfn cbfn;
-+	struct bfa_ioc_hbfail_notify hbfail;
++/**
++ * Structure used to remember the DMA-able memory block's KVA and Physical
++ * Address
++ */
++struct bfa_dma {
++	void		*kva;	/* ! Kernel virtual address	*/
++	u64	pa;	/* ! Physical address		*/
++};
++
++#define BFA_DMA_ALIGN_SZ	256
++
++#define bfa_dma_addr_set(dma_addr, pa)	\
++		__bfa_dma_addr_set(&dma_addr, (u64)pa)
++
++static inline void
++__bfa_dma_addr_set(union bfi_addr_u *dma_addr, u64 pa)
++{
++	dma_addr->a32.addr_lo = (u32) pa;
++	dma_addr->a32.addr_hi = (u32) (bfa_u32(pa));
++}
++
++#define bfa_dma_be_addr_set(dma_addr, pa)	\
++		__bfa_dma_be_addr_set(&dma_addr, (u64)pa)
++static inline void
++__bfa_dma_be_addr_set(union bfi_addr_u *dma_addr, u64 pa)
++{
++	dma_addr->a32.addr_lo = (u32) htonl(pa);
++	dma_addr->a32.addr_hi = (u32) htonl(bfa_u32(pa));
++}
++
++struct bfa_ioc_regs {
++	bfa_addr_t   hfn_mbox_cmd;
++	bfa_addr_t   hfn_mbox;
++	bfa_addr_t   lpu_mbox_cmd;
++	bfa_addr_t   lpu_mbox;
++	bfa_addr_t   pss_ctl_reg;
++	bfa_addr_t   pss_err_status_reg;
++	bfa_addr_t   app_pll_fast_ctl_reg;
++	bfa_addr_t   app_pll_slow_ctl_reg;
++	bfa_addr_t   ioc_sem_reg;
++	bfa_addr_t   ioc_usage_sem_reg;
++	bfa_addr_t   ioc_init_sem_reg;
++	bfa_addr_t   ioc_usage_reg;
++	bfa_addr_t   host_page_num_fn;
++	bfa_addr_t   heartbeat;
++	bfa_addr_t   ioc_fwstate;
++	bfa_addr_t   ll_halt;
++	bfa_addr_t   err_set;
++	bfa_addr_t   shirq_isr_next;
++	bfa_addr_t   shirq_msk_next;
++	bfa_addr_t   smem_page_start;
++	u32	smem_pg0;
++};
++
++/**
++ * IOC Mailbox structures
++ */
++struct bfa_mbox_cmd {
++	struct list_head	qe;
++	u32	msg[BFI_IOC_MSGSZ];
++};
++
++/**
++ * IOC mailbox module
++ */
++typedef void (*bfa_ioc_mbox_mcfunc_t)(void *cbarg, struct bfi_mbmsg *m);
++struct bfa_ioc_mbox_mod {
++	struct list_head		cmd_q;	/*  pending mbox queue	*/
++	int			nmclass;	/*  number of handlers */
++	struct {
++		bfa_ioc_mbox_mcfunc_t	cbfn;	/*  message handlers	*/
++		void			*cbarg;
++	} mbhdlr[BFI_MC_MAX];
++};
++
++/**
++ * IOC callback function interfaces
++ */
++typedef void (*bfa_ioc_enable_cbfn_t)(void *bfa, enum bfa_status status);
++typedef void (*bfa_ioc_disable_cbfn_t)(void *bfa);
++typedef void (*bfa_ioc_hbfail_cbfn_t)(void *bfa);
++typedef void (*bfa_ioc_reset_cbfn_t)(void *bfa);
++struct bfa_ioc_cbfn {
++	bfa_ioc_enable_cbfn_t	enable_cbfn;
++	bfa_ioc_disable_cbfn_t	disable_cbfn;
++	bfa_ioc_hbfail_cbfn_t	hbfail_cbfn;
++	bfa_ioc_reset_cbfn_t	reset_cbfn;
++};
++
++/**
++ * Heartbeat failure notification queue element.
++ */
++struct bfa_ioc_hbfail_notify {
++	struct list_head		qe;
++	bfa_ioc_hbfail_cbfn_t	cbfn;
++	void			*cbarg;
++};
++
++/**
++ * Initialize a heartbeat failure notification structure
++ */
++#define bfa_ioc_hbfail_init(__notify, __cbfn, __cbarg) do {	\
++	(__notify)->cbfn = (__cbfn);      \
++	(__notify)->cbarg = (__cbarg);      \
++} while (0)
++
++struct bfa_ioc {
++	bfa_fsm_t		fsm;
++	struct bfa *bfa;
++	struct bfa_pcidev pcidev;
++	struct bfa_timer_mod *timer_mod;
++	struct bfa_timer ioc_timer;
++	struct bfa_timer sem_timer;
++	u32		hb_count;
++	u32		retry_count;
++	struct list_head		hb_notify_q;
++	void			*dbg_fwsave;
++	int			dbg_fwsave_len;
++	bool		dbg_fwsave_once;
++	enum bfi_mclass		ioc_mc;
++	struct bfa_ioc_regs ioc_regs;
 +	struct bfa_trc_mod *trcmod;
-+	struct bfa_log_mod *logmod;
-+	struct bfa_cee_attr *attr;
-+	struct bfa_cee_stats *stats;
++	struct bfa_aen *aen;
++	struct bfa_log_mod *logm;
++	struct bfa_ioc_drv_stats stats;
++	bool		auto_recover;
++	bool		fcmode;
++	bool		ctdev;
++	bool		cna;
++	bool		pllinit;
++	u8			port_id;
++
 +	struct bfa_dma attr_dma;
-+	struct bfa_dma stats_dma;
-+	struct bfa_ioc *ioc;
-+	struct bfa_mbox_cmd get_cfg_mb;
-+	struct bfa_mbox_cmd get_stats_mb;
-+	struct bfa_mbox_cmd reset_stats_mb;
++	struct bfi_ioc_attr *attr;
++	struct bfa_ioc_cbfn *cbfn;
++	struct bfa_ioc_mbox_mod mbox_mod;
++	struct bfa_ioc_hwif *ioc_hwif;
 +};
 +
-+u32 bfa_cee_meminfo(void);
-+void bfa_cee_mem_claim(struct bfa_cee *cee, u8 *dma_kva,
-+    u64 dma_pa);
-+void bfa_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc, void *dev,
-+    struct bfa_trc_mod *trcmod, struct bfa_log_mod *logmod);
-+void bfa_cee_detach(struct bfa_cee *cee);
-+bfa_status_t bfa_cee_get_attr(struct bfa_cee *cee,
-+    struct bfa_cee_attr *attr, bfa_cee_get_attr_cbfn_t cbfn, void *cbarg);
-+bfa_status_t bfa_cee_get_stats(struct bfa_cee *cee,
-+    struct bfa_cee_stats *stats, bfa_cee_get_stats_cbfn_t cbfn, void *cbarg);
-+bfa_status_t bfa_cee_reset_stats(struct bfa_cee *cee,
-+    bfa_cee_reset_stats_cbfn_t cbfn, void *cbarg);
++struct bfa_ioc_hwif {
++	bfa_status_t	(*ioc_pll_init)	(struct bfa_ioc *ioc);
++	bool	(*ioc_firmware_lock)	(struct bfa_ioc *ioc);
++	void		(*ioc_firmware_unlock)	(struct bfa_ioc *ioc);
++	u32 *	(*ioc_fwimg_get_chunk)	(struct bfa_ioc *ioc,
++						u32 off);
++	u32	(*ioc_fwimg_get_size)	(struct bfa_ioc *ioc);
++	void		(*ioc_reg_init)	(struct bfa_ioc *ioc);
++	void		(*ioc_map_port)	(struct bfa_ioc *ioc);
++	void		(*ioc_isr_mode_set)	(struct bfa_ioc *ioc,
++					bool msix);
++	void		(*ioc_notify_hbfail)	(struct bfa_ioc *ioc);
++	void		(*ioc_ownership_reset)	(struct bfa_ioc *ioc);
++};
 +
-+#endif /* __BFA_CEE_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/ethport_defs.h net-next-2.6-mod/drivers/net/bna/include/cna/pstats/ethport_defs.h
---- net-next-2.6-orig/drivers/net/bna/include/cna/pstats/ethport_defs.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cna/pstats/ethport_defs.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,35 @@
++#define bfa_ioc_pcifn(__ioc)		((__ioc)->pcidev.pci_func)
++#define bfa_ioc_devid(__ioc)		((__ioc)->pcidev.device_id)
++#define bfa_ioc_bar0(__ioc)		((__ioc)->pcidev.pci_bar_kva)
++#define bfa_ioc_portid(__ioc)		((__ioc)->port_id)
++#define bfa_ioc_fetch_stats(__ioc, __stats) \
++		(((__stats)->drv_stats) = (__ioc)->stats)
++#define bfa_ioc_clr_stats(__ioc)	\
++		memset(&(__ioc)->stats, 0, sizeof((__ioc)->stats))
++#define bfa_ioc_maxfrsize(__ioc)	((__ioc)->attr->maxfrsize)
++#define bfa_ioc_rx_bbcredit(__ioc)	((__ioc)->attr->rx_bbcredit)
++#define bfa_ioc_speed_sup(__ioc)	\
++	BFI_ADAPTER_GETP(SPEED, (__ioc)->attr->adapter_prop)
++#define bfa_ioc_get_nports(__ioc)	\
++	BFI_ADAPTER_GETP(NPORTS, (__ioc)->attr->adapter_prop)
++
++#define bfa_ioc_stats(_ioc, _stats)	((_ioc)->stats._stats++)
++#define BFA_IOC_FWIMG_MINSZ	(16 * 1024)
++
++#define BFA_IOC_FLASH_CHUNK_NO(off)		(off / BFI_FLASH_CHUNK_SZ_WORDS)
++#define BFA_IOC_FLASH_OFFSET_IN_CHUNK(off)	(off % BFI_FLASH_CHUNK_SZ_WORDS)
++#define BFA_IOC_FLASH_CHUNK_ADDR(chunkno)  (chunkno * BFI_FLASH_CHUNK_SZ_WORDS)
++
++/**
++ * IOC mailbox interface
++ */
++void bfa_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd);
++void bfa_ioc_mbox_register(struct bfa_ioc *ioc,
++		bfa_ioc_mbox_mcfunc_t *mcfuncs);
++void bfa_ioc_mbox_isr(struct bfa_ioc *ioc);
++void bfa_ioc_mbox_send(struct bfa_ioc *ioc, void *ioc_msg, int len);
++void bfa_ioc_msgget(struct bfa_ioc *ioc, void *mbmsg);
++void bfa_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
++		bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg);
++
++/**
++ * IOC interfaces
++ */
++
++#define bfa_ioc_pll_init(__ioc) ((__ioc)->ioc_hwif->ioc_pll_init(__ioc))
++#define	bfa_ioc_isr_mode_set(__ioc, __msix)			\
++			((__ioc)->ioc_hwif->ioc_isr_mode_set(__ioc, __msix))
++#define	bfa_ioc_ownership_reset(__ioc)				\
++			((__ioc)->ioc_hwif->ioc_ownership_reset(__ioc))
++
++void bfa_ioc_set_ct_hwif(struct bfa_ioc *ioc);
++void bfa_ioc_set_cb_hwif(struct bfa_ioc *ioc);
++
++void bfa_ioc_attach(struct bfa_ioc *ioc, void *bfa,
++		struct bfa_ioc_cbfn *cbfn, struct bfa_timer_mod *timer_mod,
++		struct bfa_trc_mod *trcmod,
++		struct bfa_aen *aen, struct bfa_log_mod *logm);
++void bfa_ioc_detach(struct bfa_ioc *ioc);
++void bfa_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
++		enum bfi_mclass mc);
++u32 bfa_ioc_meminfo(void);
++void bfa_ioc_mem_claim(struct bfa_ioc *ioc,  u8 *dm_kva, u64 dm_pa);
++void bfa_ioc_enable(struct bfa_ioc *ioc);
++void bfa_ioc_disable(struct bfa_ioc *ioc);
++bool bfa_ioc_intx_claim(struct bfa_ioc *ioc);
++
++void bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type,
++		u32 boot_param);
++void bfa_ioc_isr(struct bfa_ioc *ioc, struct bfi_mbmsg *msg);
++void bfa_ioc_error_isr(struct bfa_ioc *ioc);
++bool bfa_ioc_is_operational(struct bfa_ioc *ioc);
++bool bfa_ioc_is_disabled(struct bfa_ioc *ioc);
++bool bfa_ioc_fw_mismatch(struct bfa_ioc *ioc);
++bool bfa_ioc_adapter_is_disabled(struct bfa_ioc *ioc);
++void bfa_ioc_cfg_complete(struct bfa_ioc *ioc);
++enum bfa_ioc_type bfa_ioc_get_type(struct bfa_ioc *ioc);
++void bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num);
++void bfa_ioc_get_adapter_fw_ver(struct bfa_ioc *ioc, char *fw_ver);
++void bfa_ioc_get_adapter_optrom_ver(struct bfa_ioc *ioc, char *optrom_ver);
++void bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model);
++void bfa_ioc_get_adapter_manufacturer(struct bfa_ioc *ioc,
++		char *manufacturer);
++void bfa_ioc_get_pci_chip_rev(struct bfa_ioc *ioc, char *chip_rev);
++enum bfa_ioc_state bfa_ioc_get_state(struct bfa_ioc *ioc);
++
++void bfa_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr);
++void bfa_ioc_get_adapter_attr(struct bfa_ioc *ioc,
++		struct bfa_adapter_attr *ad_attr);
++int bfa_ioc_debug_trcsz(bool auto_recover);
++void bfa_ioc_debug_memclaim(struct bfa_ioc *ioc, void *dbg_fwsave);
++bfa_status_t bfa_ioc_debug_fwsave(struct bfa_ioc *ioc, void *trcdata,
++		int *trclen);
++void bfa_ioc_debug_fwsave_clear(struct bfa_ioc *ioc);
++bfa_status_t bfa_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata,
++				 int *trclen);
++u32 bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr);
++u32 bfa_ioc_smem_pgoff(struct bfa_ioc *ioc, u32 fmaddr);
++void bfa_ioc_set_fcmode(struct bfa_ioc *ioc);
++bool bfa_ioc_get_fcmode(struct bfa_ioc *ioc);
++void bfa_ioc_hbfail_register(struct bfa_ioc *ioc,
++	struct bfa_ioc_hbfail_notify *notify);
++bool bfa_ioc_sem_get(bfa_addr_t sem_reg);
++void bfa_ioc_sem_release(bfa_addr_t sem_reg);
++void bfa_ioc_hw_sem_release(struct bfa_ioc *ioc);
++void bfa_ioc_fwver_get(struct bfa_ioc *ioc,
++			struct bfi_ioc_image_hdr *fwhdr);
++bool bfa_ioc_fwver_cmp(struct bfa_ioc *ioc,
++			struct bfi_ioc_image_hdr *fwhdr);
++
++/*
++ * bfa mfg wwn API functions
++ */
++wwn_t bfa_ioc_get_pwwn(struct bfa_ioc *ioc);
++wwn_t bfa_ioc_get_nwwn(struct bfa_ioc *ioc);
++wwn_t bfa_ioc_get_wwn_naa5(struct bfa_ioc *ioc, u16 inst);
++struct mac bfa_ioc_get_mac(struct bfa_ioc *ioc);
++u64 bfa_ioc_get_adid(struct bfa_ioc *ioc);
++
++#endif /* __BFA_IOC_H__ */
+diff -ruP net-next-2.6-orig/drivers/net/bna/bfa_timer.h net-next-2.6-mod/drivers/net/bna/bfa_timer.h
+--- net-next-2.6-orig/drivers/net/bna/bfa_timer.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/bfa_timer.h	2009-11-26 00:07:08.000000000 -0800
+@@ -0,0 +1,54 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -1789,28 +369,47 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/ethport_defs.h ne
 + * All rights reserved
 + * www.brocade.com
 + */
++#ifndef __BFA_TIMER_H__
++#define __BFA_TIMER_H__
 +
-+#ifndef __ETHPORT_DEFS_H__
-+#define __ETHPORT_DEFS_H__
++#include "cna.h"
++#include "cs/bfa_q.h"
 +
-+struct bnad_drv_stats {
-+	u64 netif_queue_stop;
-+	u64 netif_queue_wakeup;
-+	u64 tso4;
-+	u64 tso6;
-+	u64 tso_err;
-+	u64 tcpcsum_offload;
-+	u64 udpcsum_offload;
-+	u64 csum_help;
-+	u64 csum_help_err;
-+	u64 hw_stats_updates;
-+	u64 napi_complete;
++struct bfa;
++
++typedef void (*bfa_timer_cbfn_t)(void *);
++
++/**
++ * BFA timer data structure
++ */
++struct bfa_timer {
++	struct list_head	qe;
++	bfa_timer_cbfn_t timercb;
++	void		*arg;
++	int		timeout;	/**< in millisecs. */
 +};
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/phyport_defs.h net-next-2.6-mod/drivers/net/bna/include/cna/pstats/phyport_defs.h
---- net-next-2.6-orig/drivers/net/bna/include/cna/pstats/phyport_defs.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cna/pstats/phyport_defs.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,196 @@
++
++/**
++ * Timer module structure
++ */
++struct bfa_timer_mod {
++	struct list_head timer_q;
++};
++
++#define BFA_TIMER_FREQ 200 /**< specified in millisecs */
++
++void bfa_timer_beat(struct bfa_timer_mod *mod);
++void bfa_timer_init(struct bfa_timer_mod *mod);
++void bfa_timer_begin(struct bfa_timer_mod *mod, struct bfa_timer *timer,
++			bfa_timer_cbfn_t timercb, void *arg,
++			unsigned int timeout);
++void bfa_timer_stop(struct bfa_timer *timer);
++
++#endif /* __BFA_TIMER_H__ */
+diff -ruP net-next-2.6-orig/drivers/net/bna/bna.h net-next-2.6-mod/drivers/net/bna/bna.h
+--- net-next-2.6-orig/drivers/net/bna/bna.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/bna.h	2009-11-26 00:07:08.000000000 -0800
+@@ -0,0 +1,2267 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -1827,129 +426,419 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/phyport_defs.h ne
 + * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
 + * All rights reserved
 + * www.brocade.com
++ *
++ *    @file bna.h
++ *    BNA Exported Definitions & Prototypes
 + */
 +
-+#ifndef __PHYPORT_DEFS_H__
-+#define __PHYPORT_DEFS_H__
++#ifndef __BNA_H__
++#define __BNA_H__
 +
-+#define BNA_TXF_ID_MAX  	64
-+#define BNA_RXF_ID_MAX  	64
++#include "bfa_timer.h"
++#include "bfa_ioc.h"
++#include "cna.h"
++#include "cna/pstats/phyport_defs.h"
++#include "cna/pstats/ethport_defs.h"
++#include "cee/bfa_cee.h"
 +
-+/* Statistics */
++#define BNA_VLAN_ID_MAX 	4095
 +
-+/* TxF Frame Statistics */
-+struct bna_stats_txf {
-+	u64 ucast_octets;
-+	u64 ucast;
-+	u64 ucast_vlan;
++#define BNA_TXQ_ID_MAX  	64
++#define BNA_RXQ_ID_MAX  	64
++#define BNA_CQ_ID_MAX   	64
 +
-+	u64 mcast_octets;
-+	u64 mcast;
-+	u64 mcast_vlan;
++#define BNA_IB_ID_MAX   	128
++#define BNA_RIT_SIZE		256
++#define BNA_RIT_ID_MAX  	64
 +
-+	u64 bcast_octets;
-+	u64 bcast;
-+	u64 bcast_vlan;
++#define BNA_UCAST_TABLE_SIZE	256
++#define BNA_MCAST_TABLE_SIZE	256
 +
-+	u64 errors;
-+	u64 filter_vlan;      /* frames filtered due to VLAN */
-+	u64 filter_mac_sa;    /* frames filtered due to SA check */
++#define BNA_HW_STATS_SIZE   	16384
++#define BNA_DEFAULT_RXF_ID  	0
++#define BNA_DEFAULT_TXF_ID  	0
++
++#define BNA_RXF_ID_NONE		255
++
++#define BNA_MESSAGE_SIZE		256
++
++struct bna_dma_addr {
++	u32 msb;
++	u32 lsb;
 +};
 +
-+/* RxF Frame Statistics */
-+struct bna_stats_rxf {
-+	u64 ucast_octets;
-+	u64 ucast;
-+	u64 ucast_vlan;
-+
-+	u64 mcast_octets;
-+	u64 mcast;
-+	u64 mcast_vlan;
-+
-+	u64 bcast_octets;
-+	u64 bcast;
-+	u64 bcast_vlan;
-+	u64 frame_drops;
++struct bna_dma_addr_le {
++	u32 le_lsb;
++	u32 le_msb;
 +};
 +
-+/* FC Tx Frame Statistics */
-+struct bna_stats_fc_tx {
-+	u64 txf_ucast_octets;
-+	u64 txf_ucast;
-+	u64 txf_ucast_vlan;
 +
-+	u64 txf_mcast_octets;
-+	u64 txf_mcast;
-+	u64 txf_mcast_vlan;
++#define BNA_MAC_IS_MULTICAST(_mac_ms_octet)	\
++					((_mac_ms_octet) & 0x01)
++#define BNA_MAC_IS_UNICAST(_mac_ms_octet)	\
++			(!BNA_MAC_IS_MULTICAST((_mac_ms_octet)))
 +
-+	u64 txf_bcast_octets;
-+	u64 txf_bcast;
-+	u64 txf_bcast_vlan;
++extern const struct mac bna_bcast_addr;
++extern const struct mac bna_zero_addr;
 +
-+	u64 txf_parity_errors;
-+	u64 txf_timeout;
-+	u64 txf_fid_parity_errors;
++#define BNA_MAC_IS_EQUAL(_mac1, _mac2)	\
++	(!memcmp((_mac1), (_mac2), sizeof(struct mac)))
++
++#define BNA_POWER_OF_2(x) (((x) & ((x) - 1)) == 0)
++#define BNA_TO_POWER_OF_2(x)		\
++do {					\
++	int _shift = 0;			\
++	while ((x) && (x) != 1) {      \
++		(x) >>= 1;		\
++		_shift++;		\
++	}				\
++	(x) <<= _shift;			\
++} while (0)
++
++#define BNA_TO_POWER_OF_2_HIGH(x)       \
++do {                                    \
++	int n = 1;                      \
++	while (n < (x))			\
++		n <<= 1;                \
++	(x) = n;                        \
++} while (0)
++
++/**
++ * BNA_SET_DMA_ADDR()
++ *
++ *  Converts a dma address _addr from the host
++ *  endian format to the bna_dma_addr_t format.
++ *
++ * @param[in] _addr 	- DMA'able address in host endian format
++ * @param[in] _bna_dma_addr - Pointer to bna_dma_addr_t where address
++ *  			- will be stored.
++ */
++#define BNA_SET_DMA_ADDR(_addr, _bna_dma_addr)  			\
++do {									\
++	u64 tmp_addr = 						\
++	bna_dma_addr64((u64)(_addr));      \
++	(_bna_dma_addr)->msb = ((struct bna_dma_addr *)&tmp_addr)->msb;	\
++	(_bna_dma_addr)->lsb = ((struct bna_dma_addr *)&tmp_addr)->lsb;	\
++} while (0)
++
++/**
++ * BNA_GET_DMA_ADDR()
++ *
++ *  Converts a dma address _addr from the host
++ *  endian format to the bna_dma_addr_t format.
++ *
++ * @parma[in] _bna_dma_addr	- Pointer to bna_dma_addr_t where address will
++ * 				be stored.
++ * @param[in] _addr 		- DMA'able address in host endian format
++ */
++#define BNA_GET_DMA_ADDR(_bna_dma_addr, _addr)  			\
++do {									\
++	(_addr) = ((u64)(ntohl((_bna_dma_addr)->msb)) << 32)\
++		| ((ntohl((_bna_dma_addr)->lsb) & 0xffffffff));      \
++} while (0)
++
++enum bna_enable { BNA_DISABLE = 0, BNA_ENABLE = 1 };
++
++enum bna_status {
++	BNA_OK = 0,
++	BNA_FAIL = 1,
++	BNA_DUPLICATE = 2,
++	BNA_BUSY = 3,
++	BNA_AGAIN = 4
 +};
 +
-+/* FC Rx Frame Statistics */
-+struct bna_stats_fc_rx {
-+	u64 rxf_ucast_octets;
-+	u64 rxf_ucast;
-+	u64 rxf_ucast_vlan;
-+
-+	u64 rxf_mcast_octets;
-+	u64 rxf_mcast;
-+	u64 rxf_mcast_vlan;
-+
-+	u64 rxf_bcast_octets;
-+	u64 rxf_bcast;
-+	u64 rxf_bcast_vlan;
++enum bna_bool {
++	BNA_FALSE = 0,
++	BNA_TRUE = 1
 +};
 +
-+/* RAD Frame Statistics */
-+struct cna_stats_rad {
-+	u64 rx_frames;
-+	u64 rx_octets;
-+	u64 rx_vlan_frames;
++#define BNA_LARGE_PKT_SIZE 1000
++/**
++ * This structure is for dynamic interrupt moderation
++ * Should be part of the driver private structure.
++ */
++struct bna_pkt_rate {
++	u32 small_pkt_cnt;
++	u32 large_pkt_cnt;
++};
++#define BNA_UPDATE_PKT_CNT(_pkt, _len)		\
++do {						\
++	if ((_len) > BNA_LARGE_PKT_SIZE) {      \
++		(_pkt)->large_pkt_cnt++;	\
++	} else {				\
++		(_pkt)->small_pkt_cnt++;	\
++	}					\
++} while (0)
 +
-+	u64 rx_ucast;
-+	u64 rx_ucast_octets;
-+	u64 rx_ucast_vlan;
++/**
++ *  BNA callback function prototype The driver registers this
++ *  callback with BNA. This is called from the mailbox/error
++ *  handler routine of BNA, for further driver processing.
++ *
++ * @param[in] cbarg - Opaque cookie used by the driver to identify the callback.
++ * @param[in] status - Status as returned by the f/w
++ *
++ * @return    void
++ */
 +
-+	u64 rx_mcast;
-+	u64 rx_mcast_octets;
-+	u64 rx_mcast_vlan;
++typedef void (*bna_cbfn_t) (void *cbarg, u8 status);
++typedef void (*bna_diag_cbfn_t) (void *cbarg, void *data, u8 status);
 +
-+	u64 rx_bcast;
-+	u64 rx_bcast_octets;
-+	u64 rx_bcast_vlan;
++/**
++ *	Structure of callbacks implemented by the driver
++ */
++struct bna_mbox_cbfn {
++	bna_cbfn_t ucast_set_cb;
++	bna_cbfn_t ucast_add_cb;
++	bna_cbfn_t ucast_del_cb;
 +
++	bna_cbfn_t mcast_add_cb;
++	bna_cbfn_t mcast_del_cb;
++	bna_cbfn_t mcast_filter_cb;
++	bna_cbfn_t mcast_del_all_cb;
++
++	bna_cbfn_t set_promisc_cb;
++	bna_cbfn_t set_default_cb;
++
++	bna_cbfn_t txq_stop_cb;
++	bna_cbfn_t rxq_stop_cb;
++
++	bna_cbfn_t port_admin_cb;
++	bna_cbfn_t link_up_cb;
++	bna_cbfn_t link_down_cb;
++
++	bna_cbfn_t stats_get_cb;
++	bna_cbfn_t stats_clr_cb;
++
++	bna_cbfn_t hw_error_cb;
++
++	bna_cbfn_t lldp_get_cfg_cb;
++	bna_cbfn_t cee_get_stats_cb;
++
++	bna_cbfn_t set_diag_lb_cb;	/* Diagnostics */
++
++	bna_cbfn_t set_pause_cb;
++
++	bna_cbfn_t mtu_info_cb;
++
++	bna_cbfn_t rxf_cb;
++};
++
++struct bna_chip_regs_offset {
++	u32 page_addr;
++	u32 fn_int_status;
++	u32 fn_int_mask;
++	u32 msix_idx;
++};
++/**
++ * Memory mapped addresses of often used chip registers
++ */
++struct bna_chip_regs {
++	u8 *page_addr;
++	u8 *fn_int_status;
++	u8 *fn_int_mask;
++};
++
++#define BNA_MAX_MBOX_CMD_QUEUE  256
++#define BNA_MAX_MBOX_CMD_LEN	(BFI_IOC_MSGSZ * 4)	/* 32 bytes */
++
++struct bna_mbox_cmd_qe {
++	struct bfa_mbox_cmd cmd;
++	u32 cmd_len;	/*  Length of the message in bytes */
++	void *cbarg;		/* non-default callback argument */
++};
++
++struct bna_mbox_q {
++	u32 producer_index;
++	u32 consumer_index;
++	void *posted;		/* Pointer to the posted element */
++	struct bna_mbox_cmd_qe mb_qe[BNA_MAX_MBOX_CMD_QUEUE];
++};
++
++/**
++ * BNA device structure
++ */
++struct bna_dev {
++	u8 *bar0;
++
++	u8 pci_fn;
++	u8 port;
++
++	u8 rxf_promiscuous_id;
++	u8 rxf_default_id;
++	u8 rit_size[BNA_RIT_ID_MAX];
++	u32 vlan_table[BNA_RXF_ID_MAX][(BNA_VLAN_ID_MAX + 1) / 32];
++	enum bna_enable vlan_filter_enable[BNA_RXF_ID_MAX];
++	u64 rxf_active;
++	u64 txf_active;
++	u64 rxf_active_last;
++	u64 txf_active_last;
++
++	struct bfi_ll_stats *hw_stats;
++	struct bna_dma_addr hw_stats_dma;
++
++	struct bna_stats stats;
++
++	struct mac mcast_addr[BNA_MCAST_TABLE_SIZE];
++
++	u32 rxa_arb_pri;	/* RxA Arbitration Priority */
++
++	struct bna_chip_regs regs;	/* Pointer to oft used registers */
++
++	struct bna_mbox_q mbox_q;
++	struct bna_mbox_cbfn mb_cbfns;
++	void *cbarg;		/* Argument to callback function */
++	struct bfi_mbmsg mb_msg;	/* Mailbox msg from f/w to host */
++
++	/* IOC integration */
++	struct bfa_ioc ioc;
++	struct bfa_timer_mod timer_mod;
++	struct bfa_trc_mod *trcmod;
++	u8 ioc_disable_pending;
++
++	u16 msg_ctr;	/* Counter for mailbox messages posted */
++	struct bfa_cee *cee;
++	struct bfa_log_mod *logmod;
++};
++
++#define bna_get_handle_size() (sizeof(struct bna_dev))
++
++u8 bna_calc_coalescing_timer(struct bna_dev *dev,
++	struct bna_pkt_rate *pkt);
++
++/**
++ * bna_reg_read()
++ *
++ *	Function to read the value of a register.
++ *	Returns value in little-endian format.
++ *
++ * @param[in] _raddr	- Absolute address of the register to read
++ *
++ * @return    u32	- Value of the register read
++ */
++#define bna_reg_read(_raddr)	readl(_raddr)
++
++/**
++ * bna_reg_write()
++ *
++ *	Function to write the value to a register.
++ *	Writes in little-endian format.
++ *
++ * @param[in] _raddr	- Absolute address of the register to write.
++ * @param[in] _val	- Value to be written.
++ *
++ * @return    void
++ */
++#define bna_reg_write(_raddr, _val) writel(_val, _raddr)
++
++/**
++ * bna_mem_readw()
++ *
++ *	Function to read the value of a memory location word by word.
++ *	Returns value in big-endian format.
++ *
++ * @param[in] _raddr	- Absolute address of the memory location to read.
++ *
++ * @return    u32	- Value (word) of the memory location read.
++ */
++#define bna_mem_readw(_raddr)	  readl(_raddr)
++
++/**
++ * bna_mem_writew()
++ *
++ *	Function to write a value to a given memory location.
++ *	Writes in big-endian format.
++ *
++ * @param[in] _raddr	- Absolute address of the memory location to write.
++ * @param[in] _val	- Value to be written.
++ *
++ * @return    void
++ */
++#define bna_mem_writew(_raddr, _val)	writel(_val, _raddr)
++
++/**
++ *	Holds DMA physical and virtual memory addresses
++ *	and length. This is used for making IOC calls.
++ */
++struct bna_meminfo {
++	u8 *kva;		/* Kernel virtual address */
++	u64 dma;		/* Actual physical address */
++	u32 len;		/* Memory size in bytes */
++};
++
++enum bna_dma_mem_type {
++	BNA_DMA_MEM_T_DIAG = 0,
++	BNA_DMA_MEM_T_FLASH = 1,
++	BNA_DMA_MEM_T_ATTR = 2,
++	BNA_KVA_MEM_T_FWTRC = 3,
++	BNA_MEM_T_MAX,
++};
++
++/**
++ * bna_register_callback()
++ *
++ *  Function called by the driver to register a callback with
++ *  the BNA
++ *
++ * @param[in] dev    - Opaque handle to BNA private device.
++ * @param[in] cbfns  - Structure of callbacks from drivers.
++ * @param[in] cbarg  - Argument to use with the callback.
++ *
++ * @return void
++ */
++void bna_register_callback(struct bna_dev *dev, struct bna_mbox_cbfn *cbfns,
++			   void *cbarg);
++
++/**
++ * Ethernet / Ethernet & VLAN header used by diag loopback
++ */
++struct bna_ether_hdr {
++	struct mac dst;		/* destination mac address      */
++	struct mac src;		/* source mac address		*/
++	u16 proto;		/* ethernet protocol		*/
++};
++
++struct bna_ether_vlan_hdr {
++	struct mac dst;		/* destination mac address      */
++	struct mac src;		/* source mac address		*/
++	u16 vlan_proto;	/* vlan ethernet protocol	*/
++	u16 vlan_tci;	/* vlan tag/priority		*/
++	u16 proto;		/* ethernet protocol		*/
++};
++
++/**
++ * Structure used to create loopback packet
++ */
++struct bna_lb_pkt_info {
++	u8 *buf;		/* allocated by driver */
++	u32 buflen;	/* buffer length */
++	u32 pattern;	/* pattern to be filled in */
++	u32 vlan_tag;	/* 0 for no tag */
++	struct mac mac;		/* SA & DA to be used for lb pkt */
++};
++
++struct bna_diag_lb_pkt_stats {
++	u64 pkts_to_send;
++	u64 pkts_sent;
++	volatile u64 pkts_rcvd;
++	u64 tx_drops;
 +	u64 rx_drops;
 +};
 +
-+/* BPC Tx Registers */
-+struct cna_stats_bpc_tx {
-+	u64 tx_pause[8];
-+	u64 tx_zero_pause[8]; /*  Pause cancellation */
-+	u64 tx_first_pause[8];/*  Pause initiation rather than retention*/
-+};
++/**
++ * API called to create a loopback packet */
++enum bna_status bna_create_lb_pkt(void *dev, struct bna_lb_pkt_info *pktinfo);
 +
-+/* BPC Rx Registers */
-+struct cna_stats_bpc_rx {
-+	u64 rx_pause[8];
-+	u64 rx_zero_pause[8]; /*  Pause cancellation */
-+	u64 rx_first_pause[8];/*  Pause initiation rather than retention*/
-+};
++/* Port Management */
 +
-+/* MAC Rx Statistics */
-+struct cna_stats_mac_rx {
-+	u64 frame_64;		/* both rx and tx counter */
-+	u64 frame_65_127;		/* both rx and tx counter */
-+	u64 frame_128_255;		/* both rx and tx counter */
-+	u64 frame_256_511;		/* both rx and tx counter */
-+	u64 frame_512_1023;	/* both rx and tx counter */
-+	u64 frame_1024_1518;	/* both rx and tx counter */
-+	u64 frame_1518_1522;	/* both rx and tx counter */
++struct bna_port_stats {
++	u64 rx_frame_64;
++	u64 rx_frame_65_127;
++	u64 rx_frame_128_255;
++	u64 rx_frame_256_511;
++	u64 rx_frame_512_1023;
++	u64 rx_frame_1024_1518;
++	u64 rx_frame_1518_1522;
 +	u64 rx_bytes;
 +	u64 rx_packets;
 +	u64 rx_fcs_error;
@@ -1967,10 +856,7 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/phyport_defs.h ne
 +	u64 rx_fragments;
 +	u64 rx_jabber;
 +	u64 rx_drop;
-+};
 +
-+/* MAC Tx Statistics */
-+struct cna_stats_mac_tx {
 +	u64 tx_bytes;
 +	u64 tx_packets;
 +	u64 tx_multicast;
@@ -1993,413 +879,1808 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/cna/pstats/phyport_defs.h ne
 +	u64 tx_fragments;
 +};
 +
-+/* Complete statistics */
-+struct bna_stats {
-+	struct cna_stats_mac_rx	mac_rx_stats;
-+	struct cna_stats_bpc_rx	bpc_rx_stats;
-+	struct cna_stats_rad	rad_stats;
-+	struct bna_stats_fc_rx	fc_rx_stats;
-+	struct cna_stats_mac_tx	mac_tx_stats;
-+	struct cna_stats_bpc_tx	bpc_tx_stats;
-+	struct bna_stats_fc_tx	fc_tx_stats;
-+	struct bna_stats_rxf	rxf_stats[BNA_TXF_ID_MAX];
-+	struct bna_stats_txf	txf_stats[BNA_RXF_ID_MAX];
++#define BNA_LINK_SPEED_10Gbps	10000
++struct bna_port_param {
++	u32 supported;	/* Speeds and Flow Control supported */
++	u32 advertising;	/* speeds and Flow-Control advertised */
++	u32 speed;
++	u32 duplex;
++	u32 autoneg;
++	u32 port;
 +};
 +
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cs/bfa_debug.h net-next-2.6-mod/drivers/net/bna/include/cs/bfa_debug.h
---- net-next-2.6-orig/drivers/net/bna/include/cs/bfa_debug.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cs/bfa_debug.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,45 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
++/**
++ * bna_port_param_get()
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
++ *   Get the port parameters.
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * @param[in]   dev		- pointer to BNA device structure
++ * @param[out]  param_ptr	- pointer to where the parameters will be
++ *				  returned.
++ * @return void
 + */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
++void bna_port_param_get(struct bna_dev *dev,
++	struct bna_port_param *param_ptr);
 +
 +/**
-+ *  bfa_debug.h BFA debug interfaces
-+ */
-+
-+#ifndef __BFA_DEBUG_H__
-+#define __BFA_DEBUG_H__
-+
-+#define bfa_assert(__cond)	do {					\
-+	if (!(__cond)) 							\
-+		bfa_panic(__LINE__, __FILE__, #__cond);      \
-+} while (0)
-+
-+#define bfa_sm_fault(__mod, __event)	do {				\
-+	bfa_sm_panic((__mod)->logm, __LINE__, __FILE__, __event);      \
-+} while (0)
-+
-+#ifndef BFA_PERF_BUILD
-+#define bfa_assert_fp(__cond)	bfa_assert(__cond)
-+#else
-+#define bfa_assert_fp(__cond)
-+#endif
-+
-+struct bfa_log_mod;
-+void bfa_panic(int line, char *file, char *panicstr);
-+void bfa_sm_panic(struct bfa_log_mod *logm, int line, char *file, int event);
-+
-+#endif /* __BFA_DEBUG_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cs/bfa_q.h net-next-2.6-mod/drivers/net/bna/include/cs/bfa_q.h
---- net-next-2.6-orig/drivers/net/bna/include/cs/bfa_q.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cs/bfa_q.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,82 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
++ * bna_port_mac_get()
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
++ *   Get the Burnt-in or permanent MAC address.  This function does not return
++ *   the MAC set thru bna_rxf_ucast_mac_set() but the one that is assigned to
++ *   the port upon reset.
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[out] mac_ptr - Burnt-in or permanent MAC address.
++ *
++ * @return void
 + */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
++void bna_port_mac_get(struct bna_dev *dev, struct mac *mac_ptr);
 +
 +/**
-+ *  bfa_q.h Circular queue definitions.
-+ */
-+
-+#ifndef __BFA_Q_H__
-+#define __BFA_Q_H__
-+
-+#define bfa_q_first(_q) ((void *)(((struct list_head *) (_q))->next))
-+#define bfa_q_next(_qe)	(((struct list_head *) (_qe))->next)
-+#define bfa_q_prev(_qe) (((struct list_head *) (_qe))->prev)
-+
-+/*
-+ * bfa_q_qe_init - to initialize a queue element
-+ */
-+#define bfa_q_qe_init(_qe) {						\
-+	bfa_q_next(_qe) = (struct list_head *) NULL;			\
-+	bfa_q_prev(_qe) = (struct list_head *) NULL;			\
-+}
-+
-+/*
-+ * bfa_q_deq - dequeue an element from head of the queue
-+ */
-+#define bfa_q_deq(_q, _qe) {						\
-+	if (!list_empty(_q)) {					\
-+		(*((struct list_head **) (_qe))) = bfa_q_next(_q);	\
-+		bfa_q_prev(bfa_q_next(*((struct list_head **) _qe))) =	\
-+						(struct list_head *) (_q); \
-+		bfa_q_next(_q) = bfa_q_next(*((struct list_head **) _qe)); \
-+		BFA_Q_DBG_INIT(*((struct list_head **) _qe));		\
-+	} else {							\
-+		*((struct list_head **) (_qe)) = (struct list_head *) NULL; \
-+	}								\
-+}
-+
-+/*
-+ * bfa_q_deq_tail - dequeue an element from tail of the queue
-+ */
-+#define bfa_q_deq_tail(_q, _qe) {					    \
-+	if (!list_empty(_q)) {					            \
-+		*((struct list_head **) (_qe)) = bfa_q_prev(_q);	    \
-+		bfa_q_next(bfa_q_prev(*((struct list_head **) _qe))) = 	    \
-+						(struct list_head *) (_q);  \
-+		bfa_q_prev(_q) = bfa_q_prev(*(struct list_head **) _qe);    \
-+		BFA_Q_DBG_INIT(*((struct list_head **) _qe));		    \
-+	} else {							    \
-+		*((struct list_head **) (_qe)) = (struct list_head *) NULL; \
-+	}								    \
-+}
-+
-+/*
-+ * #ifdef BFA_DEBUG (Using bfa_assert to check for debug_build is not
-+ * consistent across modules)
-+ */
-+#ifndef BFA_PERF_BUILD
-+#define BFA_Q_DBG_INIT(_qe)	bfa_q_qe_init(_qe)
-+#else
-+#define BFA_Q_DBG_INIT(_qe)
-+#endif
-+
-+#define bfa_q_is_on_q(_q, _qe)		\
-+	bfa_q_is_on_q_func(_q, (struct list_head *)(_qe))
-+extern int bfa_q_is_on_q_func(struct list_head *q, struct list_head *qe);
-+
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cs/bfa_sm.h net-next-2.6-mod/drivers/net/bna/include/cs/bfa_sm.h
---- net-next-2.6-orig/drivers/net/bna/include/cs/bfa_sm.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cs/bfa_sm.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,79 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
++ * bna_port_admin()
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
++ *   Enable (up) or disable (down) the interface administratively.
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  enable - enable/disable the interface.
++ *
++ * @return void
 + */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
++enum bna_status bna_port_admin(struct bna_dev *dev,
++	enum bna_enable enable);
 +
 +/**
-+ *  bfasm.h State machine defines
++ * bna_port_stats_get()
++ *
++ *   Get the port statistics.
++ *
++ * @param[in]   dev	  - pointer to BNA device structure
++ * @param[out]  stats_ptr - pointer to where the statistics will be returned.
++ *
++ * @return void
 + */
-+
-+#ifndef __BFA_SM_H__
-+#define __BFA_SM_H__
-+
-+typedef void (*bfa_sm_t)(void *sm, int event);
++void bna_port_stats_get(void *dev, struct bna_port_stats *stats_ptr);
 +
 +/**
-+ * oc - object class eg. bfa_ioc
-+ * st - state, eg. reset
-+ * otype - object type, eg. struct bfa_ioc
-+ * etype - object type, eg. enum ioc_event
++ * Ethernet 802.3X PAUSE confiiguration
 + */
-+#define bfa_sm_state_decl(oc, st, otype, etype)		\
-+	static void oc ## _sm_ ## st(otype * fsm, etype event)
-+
-+#define bfa_sm_set_state(_sm, _state)	((_sm)->sm = (bfa_sm_t)(_state))
-+#define bfa_sm_send_event(_sm, _event)	((_sm)->sm((_sm), (_event)))
-+#define bfa_sm_get_state(_sm)		((_sm)->sm)
-+#define bfa_sm_cmp_state(_sm, _state)	((_sm)->sm == (bfa_sm_t)(_state))
-+
-+/**
-+ * For converting from state machine function to state encoding.
-+ */
-+struct bfa_sm_table {
-+	bfa_sm_t	sm;	/*  state machine function	*/
-+	int		state;	/*  state machine encoding	*/
-+	char		*name;	/*  state name for display	*/
++struct bna_pause_config {
++	u8 tx_pause;
++	u8 rx_pause;
 +};
-+#define BFA_SM(_sm)	((bfa_sm_t)(_sm))
-+
-+int bfa_sm_to_state(struct bfa_sm_table *smt, bfa_sm_t sm);
 +
 +/**
-+ * State machine with entry actions.
++ * bna_set_pause_config()
++ *
++ *   Enable/disable Tx/Rx pause through F/W
++ *
++ * @param[in]   dev	  - pointer to BNA device structure
++ * @param[in]   pause	  - pointer to struct bna_pause_config
++ * @param[in]   cbarg	  - argument for the callback function
++ *
++ * @return BNA_OK in case of success BNA_FAIL otherwise.
 + */
-+typedef void (*bfa_fsm_t)(void *fsm, int event);
++enum bna_status bna_set_pause_config(struct bna_dev *dev,
++				  struct bna_pause_config *pause, void *cbarg);
 +
 +/**
-+ * oc - object class eg. bfa_ioc
-+ * st - state, eg. reset
-+ * otype - object type, eg. struct bfa_ioc
-+ * etype - object type, eg. enum ioc_event
++ * bna_mtu_info()
++ *
++ *   Send MTU information to F/W.
++ *   This is required to do PAUSE efficiently.
++ *
++ * @param[in]   dev	  - pointer to BNA device structure
++ * @param[in]   mtu	  - current mtu size
++ * @param[in]   cbarg	  - argument for the callback function
++ *
++ * @return BNA_OK in case of success BNA_FAIL otherwise.
 + */
-+#define bfa_fsm_state_decl(oc, st, otype, etype)		\
-+	static void oc ## _sm_ ## st(otype * fsm, etype event);      \
-+	static void oc ## _sm_ ## st ## _entry(otype * fsm)
++enum bna_status bna_mtu_info(struct bna_dev *dev,
++	u16 mtu, void *cbarg);
 +
-+#define bfa_fsm_set_state(_fsm, _state) do {	\
-+	(_fsm)->fsm = (bfa_fsm_t)(_state);      \
-+	_state ## _entry(_fsm);      \
++/*
++ *
++ *
++ *   D O O R B E L L   D E F I N E S
++ *
++ *
++ */
++
++/**
++ * These macros build the data portion of the TxQ/RxQ doorbell.
++ */
++#define BNA_DOORBELL_Q_PRD_IDX(_producer_index) (0x80000000 | (_producer_index))
++#define BNA_DOORBELL_Q_STOP			(0x40000000)
++
++/* These macros build the data portion of the IB doorbell. */
++#define BNA_DOORBELL_IB_INT_ACK(_timeout, _events) \
++				(0x80000000 | ((_timeout) << 16) | (_events))
++#define BNA_DOORBELL_IB_INT_DISABLE 		(0x40000000)
++
++/*
++ *
++ *
++ *   I N T E R R U P T   B L O C K   D E F I N E S
++ *
++ *
++ */
++
++/* IB Structure */
++struct bna_ib {
++	void __iomem *doorbell_addr;	/* PCI address for IB doorbell */
++	u32 doorbell_ack;		/* ack data format except for */
++					/*  of events */
++};
++
++/* IB Control Flags in IB Configuration */
++typedef u8 bna_ib_cf_t;
++
++#define BNA_IB_CF_RESERVED1 		(1 << 7)
++#define BNA_IB_CF_ACK_PENDING		(1 << 6)	/* Read Only */
++#define BNA_IB_CF_INTER_PKT_DMA		(1 << 5)	/* DMA segment w/o */
++							/* issuing interrupt */
++#define BNA_IB_CF_INT_ENABLE		(1 << 4)	/* Interrupt enable */
++#define BNA_IB_CF_INTER_PKT_ENABLE	(1 << 3)	/* Inter Packet */
++							/* Mechanism enable */
++#define BNA_IB_CF_COALESCING_MODE	(1 << 2)	/* 1 = Continuous; */
++							/* 0 = One-shot */
++#define BNA_IB_CF_MSIX_MODE		(1 << 1)	/* 1 = MSIX mode; */
++							/* 0 = INTx mode */
++#define BNA_IB_CF_MASTER_ENABLE		(1 << 0)	/* Master Enable */
++
++/* IB Configuration Structure */
++struct bna_ib_config {
++	struct bna_dma_addr ib_seg_addr;	/* Host Address of IB Segment */
++	u8 coalescing_timer;
++	bna_ib_cf_t control_flags;
++	u8 msix_vector;
++	u8 interpkt_count;
++	u8 interpkt_timer;
++	u8 seg_size;	/* No. of entries */
++	u8 index_table_offset;
++};
++
++/*
++ * bna_ib_idx_reset()
++ *
++ *   For the specified IB, it clears the IB index
++ *
++ * @param[in] cfg_ptr - pointer to IB Configuration Structure.
++ *
++ * @return void
++ */
++void bna_ib_idx_reset(struct bna_dev *dev,
++	const struct bna_ib_config *cfg_ptr);
++
++/**
++ * bna_ib_config_set()
++ *
++ *   For IB "ib_id", it configures the Interrupt Block specified by "cfg_ptr".
++ *
++ * @param[in] ib_ptr  - pointer to IB Data Structure.
++ * @param[in] ib_id   - interrupt-block ID
++ * @param[in] cfg_ptr - pointer to IB Configuration Structure.
++ *
++ * @return void
++ */
++void bna_ib_config_set(struct bna_dev *bna_dev, struct bna_ib *ib_ptr,
++	unsigned int ib_id, const struct bna_ib_config *cfg_ptr);
++
++/**
++ * bna_ib_ack()
++ *
++ *   Acknowledges the number of events triggered by the current interrupt.
++ *
++ * @param[in] bna_dev   - Opaque handle to bna device.
++ * @param[in] ib_ptr	- pointer to IB Data Structure.
++ * @param[in] events	- number of events to acknowledge.
++ *
++ * @return void
++ */
++static inline void bna_ib_ack(struct bna_dev *bna_dev,
++	const struct bna_ib *ib_ptr, u16 events)
++{
++	/*
++	 * bna_reg_write is defined in a header
++	 * included later
++	 */
++	bna_reg_write(ib_ptr->doorbell_addr,
++			 (ib_ptr->doorbell_ack | events));
++}
++
++/**
++ * bna_ib_coalescing_timer_set()
++ *
++ *   Sets the timeout value in the coalescing timer
++ *
++ * @param[in] ib_ptr  - pointer to IB Data Structure.
++ * @param[in] timeout - coalescing timer value.
++ *
++ * @return void
++ */
++static inline void bna_ib_coalescing_timer_set(struct bna_dev *dev,
++	struct bna_ib *ib_ptr, u8 cls_timer)
++{
++	ib_ptr->doorbell_ack = BNA_DOORBELL_IB_INT_ACK(cls_timer, 0);
++}
++
++/**
++ * bna_ib_disable()
++ *
++ *   Disables the Interrupt Block "ib_id".
++ *
++ * @param[in] bna_dev - pointer to BNA private handle.
++ * @param[in] ib_ptr  - pointer to IB Data Structure.
++ *
++ * @return void
++ */
++void bna_ib_disable(struct bna_dev *bna_dev, const struct bna_ib *ib_ptr);
++
++/**
++ * Interrupt status register, mailbox status bits
++ */
++#define __LPU02HOST_MBOX0_STATUS_BITS 0x00100000
++#define __LPU12HOST_MBOX0_STATUS_BITS 0x00200000
++#define __LPU02HOST_MBOX1_STATUS_BITS 0x00400000
++#define __LPU12HOST_MBOX1_STATUS_BITS 0x00800000
++
++#define __LPU02HOST_MBOX0_MASK_BITS	0x00100000
++#define __LPU12HOST_MBOX0_MASK_BITS	0x00200000
++#define __LPU02HOST_MBOX1_MASK_BITS	0x00400000
++#define __LPU12HOST_MBOX1_MASK_BITS	0x00800000
++
++#define __LPU2HOST_MBOX_MASK_BITS			 \
++	(__LPU02HOST_MBOX0_MASK_BITS | __LPU02HOST_MBOX1_MASK_BITS |	\
++	  __LPU12HOST_MBOX0_MASK_BITS | __LPU12HOST_MBOX1_MASK_BITS)
++
++#define __LPU2HOST_IB_STATUS_BITS	0x0000ffff
++
++#define BNA_IS_LPU0_MBOX_INTR(_intr_status) \
++	((_intr_status) & (__LPU02HOST_MBOX0_STATUS_BITS | \
++			__LPU02HOST_MBOX1_STATUS_BITS))
++
++#define BNA_IS_LPU1_MBOX_INTR(_intr_status) \
++	((_intr_status) & (__LPU12HOST_MBOX0_STATUS_BITS | \
++		__LPU12HOST_MBOX1_STATUS_BITS))
++
++/**
++ * BNA_IS_MBOX_INTR()
++ *
++ *  Checks if the mailbox interrupt status bits
++ *  are set
++ *
++ * @param[in] _intr_status - Interrupt Status Register
++ */
++#define BNA_IS_MBOX_INTR(_intr_status)		\
++	((_intr_status) &  			\
++	(__LPU02HOST_MBOX0_STATUS_BITS |	\
++	 __LPU02HOST_MBOX1_STATUS_BITS |	\
++	 __LPU12HOST_MBOX0_STATUS_BITS |	\
++	 __LPU12HOST_MBOX1_STATUS_BITS))
++
++#define __EMC_ERROR_STATUS_BITS		0x00010000
++#define __LPU0_ERROR_STATUS_BITS	0x00020000
++#define __LPU1_ERROR_STATUS_BITS	0x00040000
++#define __PSS_ERROR_STATUS_BITS		0x00080000
++
++#define __HALT_STATUS_BITS		0x01000000
++
++#define __EMC_ERROR_MASK_BITS		0x00010000
++#define __LPU0_ERROR_MASK_BITS		0x00020000
++#define __LPU1_ERROR_MASK_BITS		0x00040000
++#define __PSS_ERROR_MASK_BITS		0x00080000
++
++#define __HALT_MASK_BITS		0x01000000
++
++#define __ERROR_MASK_BITS		\
++	(__EMC_ERROR_MASK_BITS | __LPU0_ERROR_MASK_BITS | \
++	  __LPU1_ERROR_MASK_BITS | __PSS_ERROR_MASK_BITS | \
++	  __HALT_MASK_BITS)
++
++/**
++ * BNA_IS_ERR_INTR()
++ *
++ *  Checks if the error interrupt status bits
++ *  are set
++ *
++ * @param[in] _intr_status - Interrupt Status Register
++ */
++#define BNA_IS_ERR_INTR(_intr_status)	\
++	((_intr_status) &  		\
++	(__EMC_ERROR_STATUS_BITS |  	\
++	 __LPU0_ERROR_STATUS_BITS | 	\
++	 __LPU1_ERROR_STATUS_BITS | 	\
++	 __PSS_ERROR_STATUS_BITS  | 	\
++	 __HALT_STATUS_BITS))
++
++/**
++ * BNA_IS_MBOX_ERR_INTR()
++ *
++ *  Checks if the mailbox and error interrupt status bits
++ *  are set
++ *
++ * @param[in] _intr_status - Interrupt Status Register
++ */
++#define BNA_IS_MBOX_ERR_INTR(_intr_status)	\
++	(BNA_IS_MBOX_INTR((_intr_status)) |	\
++	 BNA_IS_ERR_INTR((_intr_status)))
++
++/**
++ * BNA_IS_INTX_DATA_INTR()
++ *
++ *  Checks if the data bits (low 16 bits)
++ *  are set in case of INTx
++ *
++ * @param[in] _intr_status - Interrupt Status Register
++ */
++#define BNA_IS_INTX_DATA_INTR(_intr_status)	\
++	((_intr_status) & __LPU2HOST_IB_STATUS_BITS)
++
++/**
++ * BNA_INTR_STATUS_MBOX_CLR()
++ *
++ *  Clears the mailbox bits in _intr_status
++ *  Does not write to hardware
++ *
++ * @param[in] _intr_status - Interrupt Status Register
++ */
++#define BNA_INTR_STATUS_MBOX_CLR(_intr_status)			\
++do {								\
++	(_intr_status) &= ~(__LPU02HOST_MBOX0_STATUS_BITS |	\
++			__LPU02HOST_MBOX1_STATUS_BITS | 	\
++			__LPU12HOST_MBOX0_STATUS_BITS | 	\
++			__LPU12HOST_MBOX1_STATUS_BITS);      \
 +} while (0)
 +
-+#define bfa_fsm_send_event(_fsm, _event)	\
-+	((_fsm)->fsm((_fsm), (_event)))
-+#define bfa_fsm_cmp_state(_fsm, _state)		\
-+	((_fsm)->fsm == (bfa_fsm_t)(_state))
-+
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/cs/bfa_trc.h net-next-2.6-mod/drivers/net/bna/include/cs/bfa_trc.h
---- net-next-2.6-orig/drivers/net/bna/include/cs/bfa_trc.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/cs/bfa_trc.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,167 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
++/**
++ * BNA_INTR_STATUS_ERR_CLR()
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
++ *  Clears the error bits in _intr_status
++ *  Does not write to hardware
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * @param[in] _intr_status - Interrupt Status Register
 + */
++#define BNA_INTR_STATUS_ERR_CLR(_intr_status)		\
++do {							\
++	(_intr_status) &= ~(__EMC_ERROR_STATUS_BITS |	\
++		__LPU0_ERROR_STATUS_BITS |		\
++		__LPU1_ERROR_STATUS_BITS |		\
++		__PSS_ERROR_STATUS_BITS  |		\
++		__HALT_STATUS_BITS);      \
++} while (0)
++
++/**
++ * bna_mbox_err_handler()
++ *
++ *    The driver calls this API back after processing the
++ *    mailbox/error interrupt for MSIX and INTx types.
++ *    Should be called with a lock held.
++ *    This will do the following for mbox interrupt :
++ *  1) Read the contents of the mbox
++ *  	2) Call a function registered by the OS driver to handle
++ *     the mailbox command.
++ *  3) Queue the next mbox command
++ *    This will do the following for error interrupt :
++ *  1) Interpret the type of error & call the
++ *     right BNA handler.
++ *  2) Call the driver defined callback.
++ *
++ * @param[in] bna_dev   - Pointer to BNA private handle.
++ * @param[in] status	- Interrupt status register.
++ *
++ * @return void
++ */
++void bna_mbox_err_handler(struct bna_dev *bna_dev, u32 status);
++
++/**
++ * bna_mbox_send()
++ *
++ *    The driver calls this API to send a command to the
++ *    firmware
++ *
++ * @param[in] bna_dev   - Pointer to BNA private handle.
++ * @param[in] cmd   	- pointer to the command structur
++ * @param[in] cmd_len   - length of the command structure
++ *
++ * @return BNA_OK or BNA_FAIL
++ */
++enum bna_status bna_mbox_send(struct bna_dev *bna_dev, void *cmd,
++	u32 cmd_len, void *cbarg);
++
 +/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
++ *
++ *
++ *   Q U E U E   D E F I N E S
++ *
++ *
 + */
-+#ifndef __BFA_TRC_H__
-+#define __BFA_TRC_H__
++#define BNA_TXQ_ENTRY_SIZE	64	/* bytes */
++#define BNA_RXQ_ENTRY_SIZE	8	/* bytes */
++#define BNA_CQ_ENTRY_SIZE	16	/* bytes */
++/**
++ *  Queue Page Table (QPT)
++ */
++struct bna_qpt {		/* Queue Page Table */
++	struct bna_dma_addr hw_qpt_ptr;	/* Pointer to QPT used by HW */
++	void *kv_qpt_ptr;	/* Kernel virtual pointer to */
++					/* hw QPT */
++	void **qpt_ptr;		/* Pointer to S/W QPT for page */
++				/*  segmented Q's */
++	u16 page_count;	/* Size of QPT (i.e., number of */
++				/*  pages) */
++	u16 page_size;	/* Size of each page */
++};
 +
-+#include "cna.h"
++#define BNA_QPT_SIZE(_queue_size, _page_size)	\
++			(((_queue_size) + (_page_size) - 1)/(_page_size))
 +
-+#ifndef BFA_TRC_MAX
-+#define BFA_TRC_MAX	(4 * 1024)
-+#endif
++struct bna_q {
++	u16 producer_index;
++	u16 consumer_index;
++	u32 q_depth;	/* Depth of the q */
++	void **qpt_ptr;		/* pointer to SW QPT for Page-segmented */
++				/* queue */
++};
 +
-+#ifndef BFA_TRC_TS
-+#define BFA_TRC_TS(_trcm)	((_trcm)->ticks++)
-+#endif
++/**
++ * BNA_TXQ_QPGE_PTR_GET()
++ *
++ *   Gets the pointer corresponding to an queue-entry index for a
++ *   page-segmented queue.
++ *
++ *   NOTE:  _q_depth, sizeof(_cast) and BNA_PAGE_SIZE must be power of two.
++ *  		_q_depth * sizeof(_cast) must be multiple of a BNA_PAGE_SIZE.
++ *
++ * @param[in]  _qe_idx		- producer/consumer queue entry index
++ * @param[in]  _q_ptr		- pointer to page-segmented queue structure
++ * @param[out] _qe_ptr		- producer/consumer queue-entry pointer
++ * @param[out] _qe_ptr_range	- number of entries addressable by
++ *				  queue-entry pointer (warns going beyond the
++ *				  page-size)
++ */
 +
-+struct bfa_trc {
-+#ifdef __BIGENDIAN
-+	u16	fileno;
-+	u16	line;
-+#else
-+	u16	line;
-+	u16	fileno;
-+#endif
-+	u32	timestamp;
++/* TxQ element is 64 bytes */
++#define BNA_TXQ_PAGE_INDEX_MAX (BNA_PAGE_SIZE >> 6)
++#define BNA_TXQ_PAGE_INDEX_MAX_SHIFT (BNA_PAGE_SHIFT - 6)
++
++#define BNA_TXQ_QPGE_PTR_GET(_qe_idx, _q_ptr, _qe_ptr, _qe_ptr_range) \
++{ \
++	unsigned int page_index;	/* index within a page */ \
++	void *page_addr; \
++	\
++	page_index = (_qe_idx) & (BNA_TXQ_PAGE_INDEX_MAX - 1);      \
++	(_qe_ptr_range) = (BNA_TXQ_PAGE_INDEX_MAX - page_index);      \
++	page_addr = (_q_ptr)->qpt_ptr[((_qe_idx) >> \
++				    BNA_TXQ_PAGE_INDEX_MAX_SHIFT)]; \
++	(_qe_ptr) = &((struct bna_txq_entry *)(page_addr))[page_index]; \
++}
++
++/**
++ * BNA_RXQ_QPGE_PTR_GET()
++ *
++ *   Gets the pointer corresponding to an queue-entry index for a
++ *   page-segmented queue.
++ *
++ *   NOTE:  _q_depth, sizeof(_cast) and BNA_PAGE_SIZE must be power of two.
++ *  		_q_depth * sizeof(_cast) must be multiple of a BNA_PAGE_SIZE.
++ *
++ * @param[in]  _qe_idx		- producer/consumer queue entry index
++ * @param[in]  _q_ptr		- pointer to page-segmented queue structure
++ * @param[out] _qe_ptr		- producer/consumer queue-entry pointer
++ * @param[out] _qe_ptr_range	- number of entries addressable by
++ *                                 queue-entry pointer (warns going beyond the
++ *                                 page-size)
++ */
++/* RxQ element is 8 bytes */
++#define BNA_RXQ_PAGE_INDEX_MAX (BNA_PAGE_SIZE >> 3)
++#define BNA_RXQ_PAGE_INDEX_MAX_SHIFT (BNA_PAGE_SHIFT - 3)
++
++#define BNA_RXQ_QPGE_PTR_GET(_qe_idx, _q_ptr, _qe_ptr, _qe_ptr_range) \
++{ \
++	unsigned int page_index;	/* index within a page */ \
++	void *page_addr; \
++	\
++	page_index = (_qe_idx) & (BNA_RXQ_PAGE_INDEX_MAX - 1);      \
++	(_qe_ptr_range) = (BNA_RXQ_PAGE_INDEX_MAX - page_index);      \
++	page_addr = (_q_ptr)->qpt_ptr[((_qe_idx) >> \
++				BNA_RXQ_PAGE_INDEX_MAX_SHIFT)]; \
++	(_qe_ptr) = &((struct bna_rxq_entry *)(page_addr))[page_index]; \
++}
++
++/**
++ * BNA_CQ_QPGE_PTR_GET()
++ *
++ *   Gets the pointer corresponding to an queue-entry index for a
++ *   page-segmented queue.
++ *
++ *   NOTE:  _q_depth, sizeof(_cast) and BNA_PAGE_SIZE must be power of two.
++ *  		_q_depth * sizeof(_cast) must be multiple of a BNA_PAGE_SIZE.
++ *
++ * @param[in]  _qe_idx		- producer/consumer queue entry index
++ * @param[in]  _q_ptr		- pointer to page-segmented queue structure
++ * @param[out] _qe_ptr		- producer/consumer queue-entry pointer
++ * @param[out] _qe_ptr_range	- number of entries addressable by
++ *				   queue-entry pointer (warns going beyond the
++ *				   page-size)
++ */
++
++/* CQ element is 16 bytes */
++#define BNA_CQ_PAGE_INDEX_MAX (BNA_PAGE_SIZE >> 4)
++#define BNA_CQ_PAGE_INDEX_MAX_SHIFT (BNA_PAGE_SHIFT - 4)
++
++#define BNA_CQ_QPGE_PTR_GET(_qe_idx, _q_ptr, _qe_ptr, _qe_ptr_range) \
++{ \
++	unsigned int page_index;	  /* index within a page */ \
++	void *page_addr; \
++	\
++	page_index = (_qe_idx) & (BNA_CQ_PAGE_INDEX_MAX - 1);      \
++	(_qe_ptr_range) = (BNA_CQ_PAGE_INDEX_MAX - page_index);      \
++	page_addr = (_q_ptr)->qpt_ptr[((_qe_idx) >> \
++				    BNA_CQ_PAGE_INDEX_MAX_SHIFT)]; \
++	(_qe_ptr) = &((struct bna_cq_entry *)(page_addr))[page_index]; \
++}
++
++/**
++ * BNA_QE_INDX_2_PTR()
++ *
++ *	Gets the pointer corresponding to an queue-entry index for a virtually-
++ *	contiguous queue.
++ *
++ *   NOTE:  _q_depth must be power of two.
++ *
++ * @param[in]  _cast		- type cast of the entry.
++ * @param[in]  _qe_idx		- producer/consumer queue entry index
++ * @param[in]  _q_base		- queue base address
++ */
++#define BNA_QE_INDX_2_PTR(_cast, _qe_idx, _q_base) \
++	(&((_cast *)(_q_base))[(_qe_idx)])
++
++/**
++ * BNA_QE_INDX_RANGE()
++ *
++ *   Returns number of entries that can be consecutively addressed for the
++ *   specified queue.  This function indicates when BNA_QE_INDX_2_PTR() must
++ *   be called again get a new pointer due to the effect of wrapping around
++ *   the queue.
++ *
++ *   NOTE:  _q_depth must be power of two.
++ *
++ * @param[in]  _qe_idx		- producer/consumer queue entry index
++ * @param[in]  _q_depth		- queue size in number of entries
++ */
++#define BNA_QE_INDX_RANGE(_qe_idx, _q_depth) \
++	((_q_depth) - (_qe_idx))
++
++/**
++ * BNA_QE_INDX_ADD()
++ *
++ *   Adds to a producer or consumer queue-entry index for either
++ *   virtually-contiguous or page-segmented queue.
++ *
++ *   NOTE:  _q_depth must power of two.
++ *
++ * @param[in]  _qe_idx  - producer/consumer queue entry index
++ * @param[out] _qe_idx  - updated producer/consumer queue entry index
++ * @param[in]  _q_depth - queue size in number of entries
++ */
++#define BNA_QE_INDX_ADD(_qe_idx, _qe_num, _q_depth) \
++	((_qe_idx) = ((_qe_idx) + (_qe_num)) & ((_q_depth) - 1))
++
++/**
++ * BNA_QE_FREE_CNT
++ *
++ *   Returns the number of entries that can be added into the queue.
++ *
++ *   NOTE:  Must reserved one entry to distinguish between an empty
++ *  		and a full queue.
++ *
++ * @param[in]  _q_ptr   - pointer to queue structure
++ * @param[in]  _q_depth - queue size in number of entries
++ */
++#define BNA_QE_FREE_CNT(_q_ptr, _q_depth) \
++	(((_q_ptr)->consumer_index - (_q_ptr)->producer_index - 1) & \
++	 ((_q_depth) - 1))
++
++/**
++ * BNA_QE_IN_USE_CNT
++ *
++ *    Returns the number of entries in the queue.
++ *
++ * @param[in]  _q_ptr   - pointer to queue structure
++ * @param[in]  _q_depth - queue size in number of entries
++ */
++#define BNA_QE_IN_USE_CNT(_q_ptr, _q_depth) \
++	((((_q_ptr)->producer_index - (_q_ptr)->consumer_index)) & \
++	 (_q_depth - 1))
++
++/**
++ * BNA_Q_GET_CI
++ *
++ *    Returns the current consumer index for that queue.
++ *
++ * @param[in]  _q_ptr   - pointer to queue (Tx/Rx/C) structure
++ */
++#define BNA_Q_GET_CI(_q_ptr)   \
++	((_q_ptr)->q.consumer_index)
++
++/**
++ * BNA_Q_GET_PI
++ *
++ *    Returns the current producer index for that queue.
++ *
++ * @param[in]  _q_ptr   - pointer to queue (Tx/Rx/C) structure
++ */
++#define BNA_Q_GET_PI(_q_ptr)   \
++	((_q_ptr)->q.producer_index)
++
++/**
++ * BNA_Q_PI_ADD
++ *
++ *   Increments the producer index of the queue by a certain number
++ *
++ * @param[in]  _q_ptr   - pointer to queue (Tx/Rx/C) structure
++ * @param[in]  _num 	- the number by which CI needs to be incremented
++ */
++#define BNA_Q_PI_ADD(_q_ptr, _num) 		\
++	(_q_ptr)->q.producer_index =			\
++		(((_q_ptr)->q.producer_index + (_num))  \
++		& ((_q_ptr)->q.q_depth - 1))
++
++/**
++ * BNA_Q_CI_ADD
++ *
++ *   Increments the consumer index of the queue by a certain number
++ *
++ * @param[in]  _q_ptr   - pointer to queue (Tx/Rx/C) structure
++ * @param[in]  _num 	- the number by which CI needs to be incremented
++ */
++#define BNA_Q_CI_ADD(_q_ptr, _num) 		\
++	(_q_ptr)->q.consumer_index =			\
++		(((_q_ptr)->q.consumer_index + (_num))  \
++		& ((_q_ptr)->q.q_depth - 1))
++
++/**
++ * BNA_Q_FREE_COUNT()
++ *
++ *  Returns the number of free entries for TxQ/RxQ/CQ
++ *
++ * @param[in] _q_ptr	- pointer to TxQ/RxQ/CQ
++ */
++#define BNA_Q_FREE_COUNT(_q_ptr)			\
++	(BNA_QE_FREE_CNT(&((_q_ptr)->q), (_q_ptr)->q.q_depth))
++
++/**
++ * BNA_Q_FREE_COUNT()
++ *
++ *  Returns the number of entries in use for the queue.
++ *
++ * @param[in] _q_ptr	- pointer to TxQ/RxQ/CQ
++ */
++#define BNA_Q_IN_USE_COUNT(_q_ptr)  		\
++	(BNA_QE_IN_USE_CNT(&(_q_ptr)->q, (_q_ptr)->q.q_depth))
++/*
++ *
++ *
++ *   T X   Q U E U E   D E F I N E S
++ *
++ *
++ */
++/* TxQ Vector (a.k.a. Tx-Buffer Descriptor) */
++struct bna_txq_wi_vector {	/* Tx Buffer Descriptor */
++	u16 reserved;
++	u16 length;	/* Only 14 LSB are valid */
++	struct bna_dma_addr host_addr;	/* Tx-Buffer DMA address */
++};
++
++/* TxQ Entry Opcodes */
++#define BNA_TXQ_WI_SEND 		(0x402)	/* Single Frame Transmission */
++#define BNA_TXQ_WI_SEND_LSO 		(0x403)	/* Multi-Frame Transmission */
++#define BNA_TXQ_WI_EXTENSION		(0x104)	/* Extension WI */
++typedef u16 bna_txq_wi_opcode_t;
++
++/* TxQ Entry Control Flags */
++#define BNA_TXQ_WI_CF_FCOE_CRC  	(1 << 8)
++#define BNA_TXQ_WI_CF_IPID_MODE 	(1 << 5)
++#define BNA_TXQ_WI_CF_INS_PRIO  	(1 << 4)
++#define BNA_TXQ_WI_CF_INS_VLAN  	(1 << 3)
++#define BNA_TXQ_WI_CF_UDP_CKSUM 	(1 << 2)
++#define BNA_TXQ_WI_CF_TCP_CKSUM 	(1 << 1)
++#define BNA_TXQ_WI_CF_IP_CKSUM  	(1 << 0)
++typedef u16 bna_txq_wi_ctrl_flag_t;
++
++/**
++ *  TxQ Entry Structure
++ *
++ */
++struct bna_txq_entry {
 +	union {
 +		struct {
-+			u32	rsvd;
-+			u32	u32;
-+		} u32;
-+		u64	u64;
-+	} data;
++			u8 reserved;
++			u8 num_vectors;	/* number of vectors present */
++			bna_txq_wi_opcode_t opcode; /* Either */
++						    /* BNA_TXQ_WI_SEND or */
++						    /* BNA_TXQ_WI_SEND_LSO */
++			bna_txq_wi_ctrl_flag_t flags; /* OR of all the flags */
++			u16 l4_hdr_size_n_offset;
++			u16 vlan_tag;
++			u16 lso_mss;	/* Only 14 LSB are valid */
++			u32 frame_length;	/* Only 24 LSB are valid */
++		} wi;
++
++		struct {
++			u16 reserved;
++			bna_txq_wi_opcode_t opcode; /* Must be */
++						    /* BNA_TXQ_WI_EXTENSION */
++			u32 reserved2[3];	/* Place holder for */
++						/* removed vector (12 bytes) */
++		} wi_ext;
++	} hdr;
++	struct bna_txq_wi_vector vector[4];
++};
++#define wi_hdr  	hdr.wi
++#define wi_ext_hdr  hdr.wi_ext
++
++#define BNA_TXQ_WI_L4_HDR_N_OFFSET(_hdr_size, _offset) \
++		(((_hdr_size) << 10) | ((_offset) & 0x3FF))
++
++/* TxQ Structure */
++struct bna_txq {
++	u32 *doorbell;
++	struct bna_q q;
 +};
 +
-+struct bfa_trc_mod {
-+	u32	head;
-+	u32	tail;
-+	u32	ntrc;
-+	u32	stopped;
-+	u32	ticks;
-+	u32	rsvd[3];
-+	struct bfa_trc trc[BFA_TRC_MAX];
++/* TxQ Configuration */
++struct bna_txq_config {
++	struct bna_qpt qpt;
++	u16 ib_id;
++	u8 ib_seg_index;	/* index into IB segment */
++	u8 txf_id;		/* Tx-Function ID */
++	u8 priority;
++	u16 wrr_quota;	/* Weighted Round-Robin Quota */
 +};
-+
-+enum {
-+	BFA_TRC_FW   = 1,	/*  firmware modules */
-+	BFA_TRC_HAL  = 2,	/*  BFA modules */
-+	BFA_TRC_FCS  = 3,	/*  BFA FCS modules */
-+	BFA_TRC_LDRV = 4,	/*  Linux driver modules */
-+	BFA_TRC_SDRV = 5,	/*  Solaris driver modules */
-+	BFA_TRC_VDRV = 6,	/*  vmware driver modules */
-+	BFA_TRC_WDRV = 7,	/*  windows driver modules */
-+	BFA_TRC_AEN  = 8,	/*  AEN module */
-+	BFA_TRC_BIOS = 9,	/*  bios driver modules */
-+	BFA_TRC_EFI  = 10,	/*  EFI driver modules */
-+	BNA_TRC_WDRV = 11,	/*  BNA windows driver modules */
-+	BNA_TRC_VDRV = 12,	/*  BNA vmware driver modules */
-+	BNA_TRC_SDRV = 13,	/*  BNA Solaris driver modules */
-+	BNA_TRC_LDRV = 14,	/*  BNA Linux driver modules */
-+	BNA_TRC_HAL  = 15,	/*  BNA modules */
-+	BFA_TRC_CNA  = 16,	/*  Common modules */
-+	BNA_TRC_IMDRV = 17	/*  BNA windows intermediate driver modules */
-+};
-+#define BFA_TRC_MOD_SH	10
-+#define BFA_TRC_MOD(__mod)	((BFA_TRC_ ## __mod) << BFA_TRC_MOD_SH)
 +
 +/**
-+ * Define a new tracing file (module). Module should match one defined above.
++ * bna_txq_config()
++ *
++ * For TxQ "txq_id", it configures the Tx-Queue as specified by "cfg_ptr".
 + */
-+#define BFA_TRC_FILE(__mod, __submod)					\
-+	static int __trc_fileno = ((BFA_TRC_ ## __mod ## _ ## __submod) | \
-+						 BFA_TRC_MOD(__mod))
++void bna_txq_config(struct bna_dev *dev, struct bna_txq *q_ptr,
++	unsigned int txq_id, const struct bna_txq_config *cfg_ptr);
 +
-+#define bfa_trc32(_trcp, _data)	\
-+	__bfa_trc((_trcp)->trcmod, __trc_fileno, __LINE__, (u32)_data)
-+
-+#ifndef BFA_BOOT_BUILD
-+#define bfa_trc(_trcp, _data)	\
-+	__bfa_trc((_trcp)->trcmod, __trc_fileno, __LINE__, (u64)_data)
-+#else
-+void bfa_boot_trc(struct bfa_trc_mod *trcmod, u16 fileno,
-+			u16 line, u32 data);
-+#define bfa_trc(_trcp, _data)	\
-+	bfa_boot_trc((_trcp)->trcmod, __trc_fileno, __LINE__, (u32)_data)
-+#endif
-+
-+static inline void bfa_trc_init(struct bfa_trc_mod *trcm)
++/**
++ * bna_txq_pg_prod_ptr()
++ *
++ * Returns the producer pointer and its range for the specified page-segmented
++ * queue.
++ */
++static inline struct bna_txq_entry *bna_txq_pg_prod_ptr(
++	const struct bna_txq *q_ptr, unsigned int *ptr_range)
 +{
-+	trcm->head = trcm->tail = trcm->stopped = 0;
-+	trcm->ntrc = BFA_TRC_MAX;
++	struct bna_txq_entry *qe_ptr;
++
++	BNA_TXQ_QPGE_PTR_GET(q_ptr->q.producer_index, &q_ptr->q, qe_ptr,
++			     *ptr_range);
++	return qe_ptr;
 +}
 +
-+static inline void bfa_trc_stop(struct bfa_trc_mod *trcm)
++/**
++ * bna_txq_prod_indx_doorbell()
++ *
++ * Informs Catapult ASIC about queued entries.
++ */
++static inline void bna_txq_prod_indx_doorbell(const struct bna_txq *q_ptr)
 +{
-+	trcm->stopped = 1;
++	bna_reg_write(q_ptr->doorbell,
++			 BNA_DOORBELL_Q_PRD_IDX(q_ptr->q.producer_index));
 +}
 +
-+#ifdef FWTRC
-+extern void dc_flush(void *data);
-+#else
-+#define dc_flush(data)
-+#endif
-+
-+static inline void __bfa_trc(struct bfa_trc_mod *trcm, int fileno, int line,
-+	u64 data)
++/**
++ * bna_txq_pg_cons_ptr()
++ *
++ * Returns the consumer pointer and its range for the specified
++ * page-segmented
++ * queue.
++ */
++static inline struct bna_txq_entry *bna_txq_pg_cons_ptr(
++	const struct bna_txq *q_ptr, unsigned int *ptr_range)
 +{
-+	int		tail = trcm->tail;
-+	struct bfa_trc *trc = &trcm->trc[tail];
++	struct bna_txq_entry *qe_ptr;
 +
-+	if (trcm->stopped)
-+		return;
-+
-+	trc->fileno = (u16) fileno;
-+	trc->line = (u16) line;
-+	trc->data.u64 = data;
-+	trc->timestamp = BFA_TRC_TS(trcm);
-+	dc_flush(trc);
-+
-+	trcm->tail = (trcm->tail + 1) & (BFA_TRC_MAX - 1);
-+	if (trcm->tail == trcm->head)
-+		trcm->head = (trcm->head + 1) & (BFA_TRC_MAX - 1);
-+	dc_flush(trcm);
++	BNA_TXQ_QPGE_PTR_GET(q_ptr->q.consumer_index, &q_ptr->q, qe_ptr,
++			     *ptr_range);
++	return qe_ptr;
 +}
 +
-+static inline void __bfa_trc32(struct bfa_trc_mod *trcm, int fileno,
-+	int line, u32 data)
++/**
++ * bna_txq_stop()
++ *
++ * 	Stops the RxQ identified by the RxQ Id.
++ *  	Should be called with a lock held
++ *	The driver should wait for the response to
++ *	know if the Q stop is successful or not.
++ *
++ * @param[in] q_id	- Id of the TxQ
++ *
++ * @return    BNA_OK in case of success, else BNA_FAIL
++ */
++enum bna_status bna_txq_stop(struct bna_dev *bna_dev, u32 txq_id);
++
++/*
++ *
++ *
++ *   R X   Q U E U E   D E F I N E S
++ *
++ *
++ */
++/* RxQ Entry (Rx-Vector, Rx-Buffer Address) */
++struct bna_rxq_entry {		/* Rx-Buffer */
++	struct bna_dma_addr host_addr;	/* Rx-Buffer DMA address */
++};
++
++/* RxQ Structure */
++struct bna_rxq {
++	u32 *doorbell;
++	struct bna_q q;
++};
++
++/* RxQ Configuration */
++struct bna_rxq_config {
++	struct bna_qpt qpt;
++	u8 cq_id;		/* Completion Queue ID */
++	u16 buffer_size;	/* Rx-Buffer Length */
++};
++
++/**
++ *  bna_rxq_config()
++ *
++ *  For RxQ "rxq_id", it configures the Rx-Queue as specified by "cfg_ptr".
++ */
++void bna_rxq_config(struct bna_dev *dev, struct bna_rxq *q_ptr,
++	unsigned int rxq_id, const struct bna_rxq_config *cfg_ptr);
++
++/**
++ * bna_rxq_pg_prod_ptr()
++ *
++ * Returns the producer pointer and its range for the specified
++ * page-segmented
++ * queue.
++ */
++static inline struct bna_rxq_entry *bna_rxq_pg_prod_ptr(
++	const struct bna_rxq *q_ptr, unsigned int *ptr_range)
 +{
-+	int		tail = trcm->tail;
-+	struct bfa_trc *trc = &trcm->trc[tail];
++	struct bna_rxq_entry *qe_ptr;
 +
-+	if (trcm->stopped)
-+		return;
-+
-+	trc->fileno = (u16) fileno;
-+	trc->line = (u16) line;
-+	trc->data.u32.u32 = data;
-+	trc->timestamp = BFA_TRC_TS(trcm);
-+	dc_flush(trc);
-+
-+	trcm->tail = (trcm->tail + 1) & (BFA_TRC_MAX - 1);
-+	if (trcm->tail == trcm->head)
-+		trcm->head = (trcm->head + 1) & (BFA_TRC_MAX - 1);
-+	dc_flush(trcm);
++	BNA_RXQ_QPGE_PTR_GET(q_ptr->q.producer_index, &q_ptr->q, qe_ptr,
++			     *ptr_range);
++	return qe_ptr;
 +}
 +
-+#ifndef BFA_PERF_BUILD
-+#define bfa_trc_fp(_trcp, _data)	bfa_trc(_trcp, _data)
-+#else
-+#define bfa_trc_fp(_trcp, _data)
-+#endif
++/**
++ * bna_rxq_pg_cons_ptr()
++ *
++ * Returns the consumer pointer and its range for the specified
++ * page-segmented
++ * queue.
++ */
++static inline struct bna_rxq_entry *bna_rxq_pg_cons_ptr(
++	const struct bna_rxq *q_ptr, unsigned int *ptr_range)
++{
++	struct bna_rxq_entry *qe_ptr;
 +
-+#endif /* __BFA_TRC_H__ */
++	BNA_RXQ_QPGE_PTR_GET(q_ptr->q.consumer_index, &q_ptr->q, qe_ptr,
++			     *ptr_range);
++	return qe_ptr;
++}
 +
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_adapter.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_adapter.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_adapter.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_adapter.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,83 @@
++/**
++ * bna_rxq_prod_indx_doorbell()
++ *
++ * Informs Catapult ASIC about queued entries.
++ */
++static inline void bna_rxq_prod_indx_doorbell(const struct bna_rxq *q_ptr)
++{
++	bna_reg_write(q_ptr->doorbell,
++			 BNA_DOORBELL_Q_PRD_IDX(q_ptr->q.producer_index));
++}
++
++/**
++ * bna_rxq_stop()
++ *
++ * 	Stops the RxQ identified by the RxQ Id.
++ *	Should be called with a lock held
++ *	The driver should wait for the response to
++ *	know if the Q stop is successful or not.
++ *
++ * @param[in] q_id	- Id of the RxQ
++ *
++ * @return    BNA_OK in case of success, else BNA_FAIL
++ */
++enum bna_status bna_rxq_stop(struct bna_dev *bna_dev, u32 rxq_id);
++
++/**
++ * bna_multi_rxq_stop()
++ *
++ * 	Stops the set of RxQs identified by rxq_id_mask
++ *	Should be called with a lock held
++ *	The driver should wait for the response to
++ *	know if the Q stop is successful or not.
++ *
++ * @param[in] q_id	- Id of the RxQ
++ *
++ * @return    BNA_OK in case of success, else BNA_FAIL
++ */
++enum bna_status bna_multi_rxq_stop(struct bna_dev *dev,
++	u64 rxq_id_mask);
++/*
++ *
++ *
++ *   R X   C O M P L E T I O N   Q U E U E   D E F I N E S
++ *
++ *
++ */
++/* CQ Entry Flags */
++#define	BNA_CQ_EF_MAC_ERROR 	(1 <<  0)
++#define	BNA_CQ_EF_FCS_ERROR 	(1 <<  1)
++#define	BNA_CQ_EF_TOO_LONG  	(1 <<  2)
++#define	BNA_CQ_EF_FC_CRC_OK 	(1 <<  3)
++
++#define	BNA_CQ_EF_RSVD1 	(1 <<  4)
++#define	BNA_CQ_EF_L4_CKSUM_OK	(1 <<  5)
++#define	BNA_CQ_EF_L3_CKSUM_OK	(1 <<  6)
++#define	BNA_CQ_EF_HDS_HEADER	(1 <<  7)
++
++#define	BNA_CQ_EF_UDP   	(1 <<  8)
++#define	BNA_CQ_EF_TCP   	(1 <<  9)
++#define	BNA_CQ_EF_IP_OPTIONS	(1 << 10)
++#define	BNA_CQ_EF_IPV6  	(1 << 11)
++
++#define	BNA_CQ_EF_IPV4  	(1 << 12)
++#define	BNA_CQ_EF_VLAN  	(1 << 13)
++#define	BNA_CQ_EF_RSS   	(1 << 14)
++#define	BNA_CQ_EF_RSVD2 	(1 << 15)
++
++#define	BNA_CQ_EF_MCAST_MATCH   (1 << 16)
++#define	BNA_CQ_EF_MCAST 	(1 << 17)
++#define BNA_CQ_EF_BCAST 	(1 << 18)
++#define	BNA_CQ_EF_REMOTE 	(1 << 19)
++
++#define	BNA_CQ_EF_LOCAL		(1 << 20)
++typedef u32 bna_cq_e_flag_t;
++
++/* CQ Entry Structure */
++struct bna_cq_entry {
++	bna_cq_e_flag_t flags;
++	u16 vlan_tag;
++	u16 length;
++	u32 rss_hash;
++	u8 valid;
++	u8 reserved1;
++	u8 reserved2;
++	u8 rxq_id;
++};
++
++/* CQ Structure */
++struct bna_cq {
++	struct bna_q q;
++};
++
++/* CQ Configuration */
++struct bna_cq_config {
++	struct bna_qpt qpt;
++	u16 ib_id;
++	u8 ib_seg_index;	/* index into IB segment */
++};
++
++/**
++ *  bna_cq_config()
++ *
++ *  For CQ "cq_id", it configures the Rx-Completion Queue as specified by
++ *  "cfg_ptr".
++ */
++void bna_cq_config(struct bna_dev *dev, struct bna_cq *q_ptr,
++	unsigned int cq_id, const struct bna_cq_config *cfg_ptr);
++
++/**
++ * bna_cq_pg_prod_ptr()
++ *
++ * Returns the producer pointer and its range for the specified
++ * page-segmented
++ * queue.
++ */
++static inline struct bna_cq_entry *bna_cq_pg_prod_ptr(
++	const struct bna_cq *q_ptr, unsigned int *ptr_range)
++{
++	struct bna_cq_entry *qe_ptr;
++
++	BNA_CQ_QPGE_PTR_GET(q_ptr->q.producer_index, &q_ptr->q, qe_ptr,
++			    *ptr_range);
++	return qe_ptr;
++}
++
++/**
++ * bna_cq_pg_cons_ptr()
++ *
++ * Returns the consumer pointer and its range for the specified
++ * page-segmented
++ * queue.
++ */
++static inline struct bna_cq_entry *bna_cq_pg_cons_ptr(
++	const struct bna_cq *q_ptr, unsigned int *ptr_range)
++{
++	struct bna_cq_entry *qe_ptr;
++
++	BNA_CQ_QPGE_PTR_GET(q_ptr->q.consumer_index, &q_ptr->q, qe_ptr,
++			    *ptr_range);
++	return qe_ptr;
++}
++
++/*
++ *
++ *
++ *   T X   F U N C T I O N   D E F I N E S
++ *
++ *
++ */
++
++/**
++ * TxF Control Flags
++ *
++ * BNA_TXF_CF_VLAN_INSERT & BNA_TXF_CF_VLAN_ADMIT are only applicable when
++ * BNA_TXF_CF_VLAN_WI_BASED == 0 (i.e., VLAN MODE = By Tx-Function).
++ */
++#define	BNA_TXF_CF_VSWITCH_UCAST	(1 << 15)
++#define	BNA_TXF_CF_VSWITCH_MCAST	(1 << 14)
++#define	BNA_TXF_CF_VLAN_WI_BASED	(1 << 13) /* else Tx-Function Based */
++#define	BNA_TXF_CF_MAC_SA_CHECK 	(1 << 12)
++#define	BNA_TXF_CF_RSVD1		(1 << 11)
++#define	BNA_TXF_CF_VLAN_INSERT  (1 << 10)	/* Insert fn's VLAN ID */
++#define	BNA_TXF_CF_VLAN_ADMIT   (1 <<  9)	/* process VLAN frames */
++						/* from Host */
++#define	BNA_TXF_CF_VLAN_FILTER  (1 <<  8)	/* check against Rx */
++						/* VLAN Table */
++#define	BNA_TXF_CF_RSVD2		(0x7F << 1)
++#define	BNA_TXF_CF_ENABLE   		(1 <<  0)
++typedef u16 bna_txf_ctrl_flag_t;
++
++/* TxF Configuration */
++struct bna_txf_config {
++	bna_txf_ctrl_flag_t flags;	/* OR of bna_txf_ctrl_flag_t */
++	u16 vlan;		/* valid when BNA_TXF_CF_VLAN_WI_BASED == 0 */
++	u8 rxf_id;		/* validate BNA_TXF_CF_VSWITCH_UCAST */
++};
++
++/**
++ * bna_txf_config_set()
++ *
++ *   For TxF "txf_id", it configures the TxF specified by "cfg_ptr" and
++ *   indicates to the statistics collector to collect statistics for this
++ *   Tx-Function.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  txf_id  - tx-function ID.
++ * @param[in]  cfg_ptr - pointer to tx-function configuration.
++ *
++ * @return void
++ */
++void bna_txf_config_set(struct bna_dev *dev, unsigned int txf_id,
++			const struct bna_txf_config *cfg_ptr);
++
++/**
++ * bna_txf_config_clear()
++ *
++ *   For TxF "txf_id", it clears its configuration and indicates to the
++ *   statistics collector to stop collecting statistics for this
++ *   Tx-Function.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  txf_id  - tx-function ID.
++ *
++ * @return void
++ */
++void bna_txf_config_clear(struct bna_dev *dev, unsigned int txf_id);
++
++/**
++ * bna_txf_disable()
++ *
++ *  Disables the Tx Function without clearing the configuration
++ *  Also disables collection of statistics.
++ *
++ * @param[in] bna_dev   - Pointer to BNA BNA device handle
++ * @param[in] txf_id	- Id of the Tx Function to be disabled
++ *
++ * @return void
++ */
++void bna_txf_disable(struct bna_dev *bna_dev, unsigned int txf_id);
++
++/**
++ * bna_txf_enable()
++ *
++ *  Enables the Tx Function
++ *
++ * @param[in] bna_dev   - Pointer to BNA BNA device handle
++ * @param[in] txf_id	- Id of the Tx Function to be disabled
++ *
++ * @return void
++ */
++void bna_txf_enable(struct bna_dev *bna_dev, unsigned int txf_id);
++
++/*
++ *
++ *
++ *   R X   I N D I R E C T I O N   T A B L E   D E F I N E S
++ *
++ *
++ */
++/**
++ *  Receive-Function RIT (Receive Indirection Table)
++ *
++ *  RIT is required by RSS.  However, in Catapult-LL, RIT must still be
++ *  present for non-RSS.  For non-RSS it just defines the unicast RxQs
++ *  associated to a function.
++ *
++ *  Each entry in the RIT holds two RxQs which are either Small and Large
++ *  Buffer RxQs or Header and Data Buffer RxQs.  "large_rxq_id" is used when
++ *  neither Small/Large or Header-Data Split is configured.
++ */
++struct bna_rit_entry {
++	u8 large_rxq_id;	/* used for either large or data buffers */
++	u8 small_rxq_id;	/* used for either small or header buffers */
++};
++
++/**
++ * bna_rit_config_set()
++ *
++ *   Loads RIT entries "rit" into RIT starting from RIT index "rit_offset".
++ *   Care must be taken not to overlap regions within the RIT.
++ *
++ * @param[in]  dev	  - pointer to BNA device structure
++ * @param[in]  rit_offset - receive-indirection-table index.
++ * @param[in]  rit[]	  - receive-indirection-table segment.
++ * @param[in]  rit_size	  - size of receive-indirection-table segment.
++ *
++ * @return void
++ */
++void bna_rit_config_set(struct bna_dev *dev, unsigned int rit_offset,
++			const struct bna_rit_entry rit[],
++			unsigned int rit_size);
++
++/*
++ *******************************************************************************
++ *
++ *   R X   F U N C T I O N   D E F I N E S
++ *
++ *******************************************************************************
++ */
++
++/* RxF RSS (Receive Side Scaling) */
++#define	BNA_RSS_V4_TCP  	(1 << 11)
++#define	BNA_RSS_V4_IP   	(1 << 10)
++#define	BNA_RSS_V6_TCP  	(1 <<  9)
++#define	BNA_RSS_V6_IP   	(1 <<  8)
++typedef u16 bna_rxf_rss_type_t;
++
++#define BNA_RSS_HASH_KEY_LEN 10	/* in words */
++
++struct bna_rxf_rss {
++	bna_rxf_rss_type_t type;
++	u8 hash_mask;
++	u32 toeplitz_hash_key[BNA_RSS_HASH_KEY_LEN];
++};
++
++/* RxF HDS (Header Data Split) */
++#define	BNA_HDS_V4_TCP  	(1 << 11)
++#define	BNA_HDS_V4_UDP  	(1 << 10)
++#define	BNA_HDS_V6_TCP  	(1 <<  9)
++#define	BNA_HDS_V6_UDP  	(1 <<  8)
++#define	BNA_HDS_FORCED  	(1 <<  7)
++typedef u16 bna_rxf_hds_type_t;
++
++#define BNA_HDS_FORCE_OFFSET_MIN	24	/* bytes */
++#define BNA_HDS_FORCE_OFFSET_MAX	60	/* bytes */
++
++struct bna_rxf_hds {
++	bna_rxf_hds_type_t type;	/* OR of bna_rxf_hds_type_t */
++	u8 header_size;	/* max header size for split */
++	u8 forced_offset;	/* HDS at a force offset */
++};
++
++/* RxF Control Flags */
++#define	BNA_RXF_CF_SM_LG_RXQ			(1 << 15)
++#define	BNA_RXF_CF_DEFAULT_VLAN 		(1 << 14)
++#define	BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE	(1 << 13)
++#define	BNA_RXF_CF_VLAN_STRIP   		(1 << 12)
++#define	BNA_RXF_CF_RSS_ENABLE   		(1 <<  8)
++typedef u16 bna_rxf_ctrl_flag_t;
++
++/* RxF Configuration Structure */
++struct bna_rxf_config {
++	u8 rit_offset;	/* offset into RIT */
++	u8 mcast_rxq_id;	/* multicast RxQ ID */
++	u16 default_vlan;	/* default VLAN for untagged frames */
++	bna_rxf_ctrl_flag_t flags;	/* OR of bna_rxf_ctrl_flag_t */
++	struct bna_rxf_hds hds;	/* valid when BNA_RXF_SM_LG_RXQ == 0 */
++	struct bna_rxf_rss rss;	/* valid when BNA_RXF_RSS_ENABLE == 1 */
++};
++
++/**
++ * bna_rxf_config_set()
++ *
++ *   For RxF "rxf_id", it configures RxF based on "cfg_ptr", and indicates
++ *   to the statistics collector to collect statistics for this Rx-Function.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  cfg_ptr - pointer to rx-function configuration.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_config_set(struct bna_dev *dev, unsigned int rxf_id,
++				const struct bna_rxf_config *cfg_ptr);
++
++/**
++ * bna_rxf_config_clear()
++ *
++ *   For RxF "rxf_id", it clear its configuration and indicates to the
++ *   statistics collector to stop collecting statistics for this
++ *   Rx-Function.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ *
++ * @return  void
++ */
++void bna_rxf_config_clear(struct bna_dev *dev, unsigned int rxf_id);
++
++/**
++ * bna_multi_rxf_active()
++ *
++ *  Disables/Enables the Rx Function without clearing the configuration
++ *  Also disables/enables collection of statistics.
++ *
++ * @param[in] bna_dev   - Pointer to BNA BNA device handle
++ * @param[in] rxf_id	- Id of the Rx Function to be disabled
++ * @param[in] enable	- 1 = enable, 0 = disable
++ *
++ * @return BNA_OK if mbox command succeeded else BNA_FAIL
++ */
++enum bna_status bna_multi_rxf_active(struct bna_dev *dev,
++	u64 rxf_id_mask, u8 enable);
++/**
++ * bna_rxf_disable()
++ *
++ *  Disables the Rx Function without clearing the configuration
++ *  Also disables collection of statistics.
++ *
++ * @param[in] bna_dev   - Pointer to BNA BNA device handle
++ * @param[in] rxf_id	- Id of the Rx Function to be disabled
++ *
++ * @return BNA_OK if mbox command succeeded else BNA_FAIL
++ */
++enum bna_status bna_rxf_disable(struct bna_dev *bna_dev,
++	unsigned int rxf_id);
++
++/**
++ * bna_multi_rxf_disable()
++ *
++ *  Disables multiple Rx Functions as per the mask
++ *  Also disables collection of statistics.
++ *
++ * @param[in] dev 		- Pointer to BNA device handle
++ * @param[in] rxf_id_mask    	- Mask of the functions to be
++				  disabled
++ *
++ * @return    BNA_OK if mbox command succeeded, else BNA_FAIL
++ */
++#define bna_multi_rxf_disable(dev, rxf_id_mask)	\
++		bna_multi_rxf_active((dev), (rxf_id_mask), 0)
++
++/**
++ * bna_rxf_enable()
++ *
++ *  Enables the Rx Function
++ *
++ * @param[in] bna_dev   - Pointer to BNA BNA device handle
++ * @param[in] rxf_id	- Id of the Rx Function to be disabled
++ *
++ * @return BNA_OK if mbox command succeeded else BNA_FAIL
++ */
++enum bna_status bna_rxf_enable(struct bna_dev *bna_dev,
++	unsigned int rxf_id);
++
++/**
++ * bna_multi_rxf_enable()
++ *
++ *  Enables multiple Rx Functions as per the mask
++ *  Also enables collection of statistics.
++ *
++ * @param[in] dev               - Pointer to BNA device handle
++ * @param[in] rxf_id_mask       - Mask of the functions to be
++ *				  enabled
++ *
++ * @return    BNA_OK if mbox command succeeded, else BNA_FAIL
++ */
++#define bna_multi_rxf_enable(dev, rxf_id_mask)	\
++	bna_multi_rxf_active((dev), (rxf_id_mask), 1)
++
++void bna_rxf_disable_old(struct bna_dev *dev, unsigned int rxf_id);
++
++/**
++ * bna_rxf_ucast_mac_get()
++ *
++ *  For RxF "rxf_id", it overwrites the burnt-in unicast MAC with
++ *  the one specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID
++ * @param[in]  entry   - offset into UCAM to read
++ * @param[in]  mac_addr_ptr - pointer to mac adddress to set
++ *
++ * @return void
++ */
++void bna_rxf_ucast_mac_get(struct bna_dev *bna_dev,
++	unsigned int *rxf_id, unsigned int entry,
++	const struct mac *mac_addr_ptr);
++
++/**
++ * bna_rxf_ucast_mac_set()
++ *
++ *   For RxF "rxf_id", it overwrites the burnt-in unicast MAC with
++ *   the one specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_ptr - pointer to unicast MAC address.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_ucast_mac_set(struct bna_dev *dev,
++	unsigned int rxf_id, const struct mac *mac_ptr);
++
++/**
++ * bna_rxf_ucast_mac_add()
++ *
++ *   For RxF "rxf_id", it adds the unicast MAC specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_ptr - pointer to unicast MAC address.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_ucast_mac_add(struct bna_dev *dev,
++	unsigned int rxf_id, const struct mac *mac_ptr);
++
++/**
++ * bna_rxf_ucast_mac_del()
++ *
++ *   For RxF "rxf_id", it deletes the unicast MAC specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_ptr - pointer to unicast MAC address.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_ucast_mac_del(struct bna_dev *dev,
++	unsigned int rxf_id, const struct mac *mac_ptr);
++
++/**
++ * bna_rxf_mcast_mac_add()
++ *
++ *   For RxF "rxf_id", it adds the multicast MAC specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_ptr - pointer to multicast MAC address.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_mcast_mac_add(struct bna_dev *dev,
++	unsigned int rxf_id, const struct mac *mac_ptr);
++
++/**
++ * bna_rxf_mcast_mac_del()
++ *
++ *   For RxF "rxf_id", it deletes the multicast MAC specified by "mac_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_ptr - pointer to multicast MAC address.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_mcast_mac_del(struct bna_dev *dev,
++	unsigned int rxf_id, const struct mac *mac_ptr);
++
++/**
++ *  bna_rxf_broadcast()
++ *
++ *  For RxF "rxf_id", it enables/disables the broadcast address.
++ *
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ * @param[in]  enable - enable/disable broadcast address
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_broadcast(struct bna_dev *bna_dev,
++	unsigned int rxf_id, enum bna_enable enable);
++
++/**
++ * bna_rxf_mcast_mac_set_list()
++ *
++ *  For RxF "rxf_id", it sets the multicast MAC addresses
++ *  specified by "mac_addr_ptr". The function first deletes the
++ *  MAC addresses in the existing list that is not found in the
++ *  new list. It then adds the new addresses that ar ein the new
++ *  list but not in the old list. It then replaces the old list
++ *  with the new list in the bna_dev structure.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  mac_addr_ptr - pointer to the list of mac
++ *			      adddresses to set
++ * @param[in]  mac_addr_num - number of mac addresses in the
++ *			      list
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_mcast_mac_set_list(struct bna_dev *bna_dev,
++					unsigned int rxf_id,
++					const struct mac *mac_addr_ptr,
++					unsigned int mac_addr_num);
++
++/**
++ * bna_mcast_mac_reset_list()
++ *
++ *  Resets the multicast MAC address list kept by driver.
++ *  Called when the hw gets reset.
++ *
++ * @param[in]  dev  - pointer to BNA device structure
++ *
++ * @return void
++ */
++void bna_mcast_mac_reset_list(struct bna_dev *bna_dev);
++
++/**
++ * bna_rxf_mcast_filter()
++ *
++ *   For RxF "rxf_id", it enables/disables the Multicast Filter.
++ *   Disabling the Multicast Filter allows reception of any multicast frame.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ * @param[in]  enable - enable/disable Multicast Filtering.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_mcast_filter(struct bna_dev *dev,
++	unsigned int rxf_id, enum bna_enable enable);
++
++/**
++ * bna_rxf_mcast_del_all()
++ *
++ *   For RxF "rxf_id", it clears the MCAST cam and MVT.
++ *   This functionality is required by some of the drivers.
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_mcast_del_all(struct bna_dev *dev,
++	unsigned int rxf_id);
++
++/**
++ * bna_rxf_vlan_add()
++ *
++ *   For RxF "rxf_id", it adds this function as a member of the
++ *   specified "vlan_id".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  vlan_id - VLAN ID.
++ *
++ * @return void
++ */
++void bna_rxf_vlan_add(struct bna_dev *dev, unsigned int rxf_id,
++		      unsigned int vlan_id);
++
++/**
++ * bna_rxf_vlan_del()
++ *
++ *   For RxF "rxf_id", it removes this function as a member of the
++ *   specified "vlan_id".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  rxf_id  - rx-function ID.
++ * @param[in]  vlan_id - VLAN ID.
++ *
++ * @return void
++ */
++void bna_rxf_vlan_del(struct bna_dev *dev, unsigned int rxf_id,
++		      unsigned int vlan_id);
++
++/**
++ * bna_rxf_vlan_filter()
++ *
++ *   For RxF "rxf_id", it enables/disables the VLAN filter.
++ *   Disabling the VLAN Filter allows reception of any VLAN-tagged frame.
++ *
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ * @param[in]  enable - enable/disable VLAN Filtering.
++ *
++ * @return void
++ */
++void bna_rxf_vlan_filter(struct bna_dev *dev, unsigned int rxf_id,
++			 enum bna_enable enable);
++
++/**
++ * bna_rxf_vlan_del_all()
++ *
++ *   For RxF "rxf_id", it clears all the VLANs.
++ *
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++
++ *
++ * @return void
++ */
++void bna_rxf_vlan_del_all(struct bna_dev *bna_dev, unsigned int rxf_id);
++
++/**
++ * bna_rxf_promiscuous_mode()
++ *
++ *   For RxF "rxf_id", it enables/disables promiscuous-mode.
++ *   Only one RxF is allowed to be in promiscuous-mode, and will only disable
++ *   the promiscuous-mode if the RxF ID is the one in promiscuous-mode.
++ *   Must be called after the RxF has been configured.
++ *
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ * @param[in]  enable - enable/disable promiscuous-mode..
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_promiscuous(struct bna_dev *dev,
++	unsigned int rxf_id, enum bna_enable enable);
++
++/**
++ * bna_rxf_default_mode()
++ *
++ *   For RxF "rxf_id", it enables/disables default mode.
++ *   Only one RxF is allowed to be in default-mode, and will only disable
++ *   the default-mode if the RxF ID is the one in default-mode.
++ *   Must be called after the RxF has been configured.
++ *   Must remove all unicast MAC associated to this RxF.
++ *
++ * @param[in]  dev    - pointer to BNA device structure
++ * @param[in]  rxf_id - rx-function ID.
++ * @param[in]  enable - enable/disable default mode..
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_default_mode(struct bna_dev *dev,
++	unsigned int rxf_id, enum bna_enable enable);
++
++/**
++ * bna_rxf_frame_stats_get()
++ *
++ *   For RxF "rxf_id", it loads frame statistics into "stats_ptr".
++ *
++ * @param[in]  dev		- pointer to BNA device structure
++ * @param[in]  rxf_id		- rx-function ID.
++ * @param[out] stats_ptr 	- pointer to rx-function statistics structure
++ *
++ * @return void
++ */
++void bna_rxf_frame_stats_get(struct bna_dev *dev, unsigned int rxf_id,
++			     struct bna_stats_rxf **stats_ptr);
++
++/**
++ * bna_txf_frame_stats_get()
++ *
++ *   For TxF "txf_id", it loads frame statistics into "stats_ptr".
++ *
++ * @param[in]  dev     - pointer to BNA device structure
++ * @param[in]  txf_id    - tx-function ID.
++ * @param[out] stats_ptr - pointer to tx-function statistics structure
++ *
++ * @return void
++ */
++void bna_txf_frame_stats_get(struct bna_dev *dev, unsigned int txf_id,
++			     struct bna_stats_txf **stats_ptr);
++
++/**
++ *  bna_mac_rx_stats_get()
++ *
++ *  Loads MAC Rx statistics into "stats_ptr".
++ *
++ * @param[in]  dev	 - pointer to BNA device structure
++
++ * @param[out]  stats_ptr - pointer to stats structure
++ *
++ * @return void
++ */
++void bna_mac_rx_stats_get(struct bna_dev *bna_dev,
++			  struct cna_stats_mac_rx **stats_ptr);
++
++/**
++ *  bna_mac_tx_stats_get()
++ *
++ *  Loads MAC Tx statistics into "stats_ptr".
++ *
++ * @param[in]  dev	 - pointer to BNA device structure
++
++ * @param[out]  stats_ptr - pointer to stats structure
++ *
++ * @return void
++ */
++void bna_mac_tx_stats_get(struct bna_dev *bna_dev,
++			  struct cna_stats_mac_tx **stats_ptr);
++
++/**
++ *  bna_all_stats_get()
++ *
++ *  Loads all statistics into "stats_ptr".
++ *
++ * @param[in]  dev	 - pointer to BNA device structure
++
++ * @param[out]  stats_ptr - pointer to stats structure
++ *
++ * @return void
++ */
++void bna_all_stats_get(struct bna_dev *bna_dev, struct bna_stats **stats_ptr);
++/**
++ * bna_stats_get()
++ *
++ *   Get the statistics from the device. This function needs to
++ *   be scheduled every second to get periodic update of the
++ *   statistics data from hardware.
++ *
++ * @param[in]   dev	- pointer to BNA device structure.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_stats_get(struct bna_dev *dev);
++
++/**
++ * bna_stats_clear()
++ *
++ *   Clear the statistics in the device.
++ *
++ * @param[in]   dev	- pointer to BNA device structure.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_stats_clear(struct bna_dev *bna_dev,
++	u64 txf_id_mask, u64 rxf_id_mask);
++
++/**
++ * bna_rxf_stats_clear()
++ *
++ *   Clear the statistics for specified txf.
++ *
++ * @param[in]   dev	- pointer to BNA device structure.
++ * @param[in]  rxf_id	- rx-function ID.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_rxf_stats_clear(struct bna_dev *dev,
++	unsigned int rxf_id);
++
++/**
++ * bna_lldp_stats_clear()
++ *
++ *   Clear the lldp-dcbcx statistics in the device.
++ *
++ * @param[in]   dev	- pointer to BNA device structure.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_lldp_stats_clear(struct bna_dev *bna_dev);
++
++/**
++ * bna_get_cfg_req()
++ *
++ *   Gets the LLDP-DCBCXP Config from the f/w.
++ *
++ * @param[in]   dev		- pointer to BNA device structure.
++ * @param[in]   dma_addr_bna	- dma address to return the config.
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_get_cfg_req(struct bna_dev *bna_dev,
++			     struct bna_dma_addr *dma_addr_bna);
++
++/**
++
++* bna_get_cee_stats_req()
++*
++*   Gets the LLDP-DCBCXP stats from the f/w.
++*
++* @param[in]   dev           - pointer to BNA device structure.
++* @param[in]   dma_addr_bna  - dma address to return the config.
++*
++* @return BNA_OK   - successful
++* @return BNA_FAIL - failed on sanity checks.
++*/
++enum bna_status bna_get_cee_stats_req(struct bna_dev *bna_dev,
++				   struct bna_dma_addr *dma_addr_bna);
++
++/**
++ * bna_stats_process()
++ *
++ *   Process the statistics data DMAed from the device. This
++ *   function needs to be scheduled upon getting an asynchronous
++ *   notification from the firmware.
++ *
++ * @param[in]   dev	- pointer to BNA device structure.
++ *
++ * @return void
++ */
++void bna_stats_process(struct bna_dev *bna_dev);
++
++/**
++ * bna_init()
++ *
++ *   Called by the driver during initialization. The driver is
++ *   expected to allocate struct bna_dev structure for the BNA layer.
++ *   Should be called with the lock held.
++ *
++ * @param[in]  bna_handle  - pointer to BNA device structure
++ *			     allocated by the calling driver
++ * @param[in]  bar0	   - BAR0 value
++ * @param[in]  stats	   - pointer to stats host buffer
++ * @param[in]  stats_dma   - pointer to DMA value for stats
++ * @param[in]  trcmod      - pointer to struct bfa_trc_mod
++ *			     (for Interrupt Moderation)
++ *
++ * @return void
++ */
++void bna_init(struct bna_dev *bna_handle, void *bar0, void *stats,
++	      struct bna_dma_addr stats_dma, struct bfa_trc_mod *trcmod,
++	      struct bfa_log_mod *logmod);
++
++/**
++ * bna_cleanup()
++ *
++ *   Called by the driver from the hb_fail callback to
++ *   to let bna do the cleanup.
++ *   This should be called before driver frees memory.
++ *   Should be called with the lock held.
++ *
++ * @param[in]  bna_handle  - pointer to BNA device structure
++ *			     allocated by the calling driver
++ *
++ * @return BNA_OK   - successful
++ * @return BNA_FAIL - failed on sanity checks.
++ */
++enum bna_status bna_cleanup(void *bna_handle);
++
++#endif /* __BNA_H__ */
+diff -ruP net-next-2.6-orig/drivers/net/bna/bna_hwreg.h net-next-2.6-mod/drivers/net/bna/bna_hwreg.h
+--- net-next-2.6-orig/drivers/net/bna/bna_hwreg.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/bna_hwreg.h	2009-11-26 00:07:08.000000000 -0800
+@@ -0,0 +1,915 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -2416,77 +2697,909 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_adapter.h net-
 + * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
 + * All rights reserved
 + * www.brocade.com
++ *
++ * See <license_file> for copyright and licensing details.
 + */
-+#ifndef __BFA_DEFS_ADAPTER_H__
-+#define __BFA_DEFS_ADAPTER_H__
 +
-+#include "protocol/types.h"
-+#include "defs/bfa_defs_version.h"
-+#include "defs/bfa_defs_mfg.h"
++/*
++ *  bna_hwreg.h Catapult host block register definitions
++ *
++ */
++
++#ifndef __BNA_HWREG_H__
++#define __BNA_HWREG_H__
++
++#include "bfi/bfi_ctreg.h"
 +
 +/**
-+ * BFA adapter level attributes.
++ * DMA Block Register Host Window Start Address
 + */
-+enum {
-+	BFA_ADAPTER_SERIAL_NUM_LEN = STRSZ(BFA_MFG_SERIALNUM_SIZE),
-+					/*
-+					 *!< adapter serial num length
-+					 */
-+	BFA_ADAPTER_MODEL_NAME_LEN  = 16,  /*  model name length */
-+	BFA_ADAPTER_MODEL_DESCR_LEN = 128, /*  model description length */
-+	BFA_ADAPTER_MFG_NAME_LEN    = 8,   /*  manufacturer name length */
-+	BFA_ADAPTER_SYM_NAME_LEN    = 64,  /*  adapter symbolic name length */
-+	BFA_ADAPTER_OS_TYPE_LEN	    = 64,  /*  adapter os type length */
-+};
-+
-+struct bfa_adapter_attr {
-+	char            manufacturer[BFA_ADAPTER_MFG_NAME_LEN];
-+	char            serial_num[BFA_ADAPTER_SERIAL_NUM_LEN];
-+	u32	rsvd1;
-+	char            model[BFA_ADAPTER_MODEL_NAME_LEN];
-+	char            model_descr[BFA_ADAPTER_MODEL_DESCR_LEN];
-+	wwn_t           pwwn;
-+	char            node_symname[FC_SYMNAME_MAX];
-+	char            hw_ver[BFA_VERSION_LEN];
-+	char            fw_ver[BFA_VERSION_LEN];
-+	char            optrom_ver[BFA_VERSION_LEN];
-+	char            os_type[BFA_ADAPTER_OS_TYPE_LEN];
-+	struct bfa_mfg_vpd vpd;
-+	struct mac mac;
-+
-+	u8		nports;
-+	u8		max_speed;
-+	u8		prototype;
-+	char	        asic_rev;
-+
-+	u8         pcie_gen;
-+	u8         pcie_lanes_orig;
-+	u8         pcie_lanes;
-+	u8	        cna_capable;
-+};
++#define DMA_BLK_REG_ADDR		0x00013000
++/**
++ * DMA Block Internal Registers
++ */
++#define DMA_CTRL_REG0			(DMA_BLK_REG_ADDR + 0x000)
++#define DMA_CTRL_REG1			(DMA_BLK_REG_ADDR + 0x004)
++#define DMA_ERR_INT_STATUS		(DMA_BLK_REG_ADDR + 0x008)
++#define DMA_ERR_INT_ENABLE		(DMA_BLK_REG_ADDR + 0x00c)
++#define DMA_ERR_INT_STATUS_SET		(DMA_BLK_REG_ADDR + 0x010)
 +
 +/**
-+ * BFA adapter level events
-+ * Arguments below are in BFAL context from Mgmt
-+ * BFA_PORT_AEN_ADD:        [in]: None     [out]: serial_num, pwwn, nports
-+ * BFA_PORT_AEN_REMOVE:     [in]: pwwn     [out]: serial_num, pwwn, nports
++ * APP Block Register Address Offset from BAR0
 + */
-+enum bfa_adapter_aen_event {
-+	BFA_ADAPTER_AEN_ADD 	= 1,	/*  New Adapter found event */
-+	BFA_ADAPTER_AEN_REMOVE 	= 2,	/*  Adapter removed event */
-+};
++#define APP_BLK_REG_ADDR		0x00014000
 +
-+struct bfa_adapter_aen_data {
-+	char            serial_num[BFA_ADAPTER_SERIAL_NUM_LEN];
-+	u32        nports;	/*  Number of NPorts */
-+	wwn_t           pwwn;	/*  WWN of one of its physical port */
-+};
++/**
++ * Host Function Interrupt Mask Registers
++ */
++#define HOSTFN0_INT_MASK		(APP_BLK_REG_ADDR + 0x004)
++#define HOSTFN1_INT_MASK		(APP_BLK_REG_ADDR + 0x104)
++#define HOSTFN2_INT_MASK		(APP_BLK_REG_ADDR + 0x304)
++#define HOSTFN3_INT_MASK		(APP_BLK_REG_ADDR + 0x404)
 +
-+#endif /* __BFA_DEFS_ADAPTER_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_cee.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_cee.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_cee.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_cee.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,146 @@
++/**
++ * Host Function PCIe Error Registers
++ * Duplicates "Correctable" & "Uncorrectable"
++ * registers in PCIe Config space.
++ */
++#define FN0_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x014)
++#define FN1_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x114)
++#define FN2_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x314)
++#define FN3_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x414)
++
++/**
++ * Host Function Error Type Status Registers
++ */
++#define FN0_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x018)
++#define FN1_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x118)
++#define FN2_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x318)
++#define FN3_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x418)
++/**
++ * Host Function Error Type Mask Registers
++ */
++#define FN0_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x01c)
++#define FN1_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x11c)
++#define FN2_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x31c)
++#define FN3_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x41c)
++
++/**
++ * Catapult Host Semaphore Status Registers (App block)
++ */
++#define HOST_SEM_STS0_REG		(APP_BLK_REG_ADDR + 0x630)
++#define HOST_SEM_STS1_REG		(APP_BLK_REG_ADDR + 0x634)
++#define HOST_SEM_STS2_REG		(APP_BLK_REG_ADDR + 0x638)
++#define HOST_SEM_STS3_REG		(APP_BLK_REG_ADDR + 0x63c)
++#define HOST_SEM_STS4_REG		(APP_BLK_REG_ADDR + 0x640)
++#define HOST_SEM_STS5_REG		(APP_BLK_REG_ADDR + 0x644)
++#define HOST_SEM_STS6_REG		(APP_BLK_REG_ADDR + 0x648)
++#define HOST_SEM_STS7_REG		(APP_BLK_REG_ADDR + 0x64c)
++
++/**
++ * PCIe Misc Register
++ * Check catapult_spec.pdf for details
++ */
++#define PCIE_MISC_REG			(APP_BLK_REG_ADDR + 0x200)
++/**
++ * Temp Sensor Control Registers
++ */
++#define TEMPSENSE_CNTL_REG		(APP_BLK_REG_ADDR + 0x250)
++#define TEMPSENSE_STAT_REG		(APP_BLK_REG_ADDR + 0x254)
++
++/**
++ * APP Block local error registers
++ */
++#define APP_LOCAL_ERR_STAT		(APP_BLK_REG_ADDR + 0x258)
++#define APP_LOCAL_ERR_MSK		(APP_BLK_REG_ADDR + 0x25c)
++
++/**
++ * PCIe Link Error registers
++ */
++#define PCIE_LNK_ERR_STAT		(APP_BLK_REG_ADDR + 0x260)
++#define PCIE_LNK_ERR_MSK		(APP_BLK_REG_ADDR + 0x264)
++
++/**
++ * FCoE/FIP Ethertype Register
++ * 31:16 -- Chip wide value for FIP type
++ * 15:0  -- Chip wide value for FCoE type
++ */
++#define FCOE_FIP_ETH_TYPE		(APP_BLK_REG_ADDR + 0x280)
++
++/**
++ * Reserved Ethertype Register
++ * 31:16 -- Reserved
++ * 15:0  -- Other ethertype
++ */
++#define RESV_ETH_TYPE			(APP_BLK_REG_ADDR + 0x284)
++
++/**
++ * Host Command Status Registers
++ * Each set consists of 3 registers :
++ * clear, set, cmd
++ * 16 such register sets in all
++ * See catapult_spec.pdf for detailed functionality
++ * Put each type in a single macro accessed by _num ?
++ */
++#define HOST_CMDSTS0_CLR_REG		(APP_BLK_REG_ADDR + 0x500)
++#define HOST_CMDSTS0_SET_REG		(APP_BLK_REG_ADDR + 0x504)
++#define HOST_CMDSTS0_REG		(APP_BLK_REG_ADDR + 0x508)
++#define HOST_CMDSTS1_CLR_REG		(APP_BLK_REG_ADDR + 0x510)
++#define HOST_CMDSTS1_SET_REG		(APP_BLK_REG_ADDR + 0x514)
++#define HOST_CMDSTS1_REG		(APP_BLK_REG_ADDR + 0x518)
++#define HOST_CMDSTS2_CLR_REG		(APP_BLK_REG_ADDR + 0x520)
++#define HOST_CMDSTS2_SET_REG		(APP_BLK_REG_ADDR + 0x524)
++#define HOST_CMDSTS2_REG		(APP_BLK_REG_ADDR + 0x528)
++#define HOST_CMDSTS3_CLR_REG		(APP_BLK_REG_ADDR + 0x530)
++#define HOST_CMDSTS3_SET_REG		(APP_BLK_REG_ADDR + 0x534)
++#define HOST_CMDSTS3_REG		(APP_BLK_REG_ADDR + 0x538)
++#define HOST_CMDSTS4_CLR_REG		(APP_BLK_REG_ADDR + 0x540)
++#define HOST_CMDSTS4_SET_REG		(APP_BLK_REG_ADDR + 0x544)
++#define HOST_CMDSTS4_REG		(APP_BLK_REG_ADDR + 0x548)
++#define HOST_CMDSTS5_CLR_REG		(APP_BLK_REG_ADDR + 0x550)
++#define HOST_CMDSTS5_SET_REG		(APP_BLK_REG_ADDR + 0x554)
++#define HOST_CMDSTS5_REG		(APP_BLK_REG_ADDR + 0x558)
++#define HOST_CMDSTS6_CLR_REG		(APP_BLK_REG_ADDR + 0x560)
++#define HOST_CMDSTS6_SET_REG		(APP_BLK_REG_ADDR + 0x564)
++#define HOST_CMDSTS6_REG		(APP_BLK_REG_ADDR + 0x568)
++#define HOST_CMDSTS7_CLR_REG		(APP_BLK_REG_ADDR + 0x570)
++#define HOST_CMDSTS7_SET_REG		(APP_BLK_REG_ADDR + 0x574)
++#define HOST_CMDSTS7_REG		(APP_BLK_REG_ADDR + 0x578)
++#define HOST_CMDSTS8_CLR_REG		(APP_BLK_REG_ADDR + 0x580)
++#define HOST_CMDSTS8_SET_REG		(APP_BLK_REG_ADDR + 0x584)
++#define HOST_CMDSTS8_REG		(APP_BLK_REG_ADDR + 0x588)
++#define HOST_CMDSTS9_CLR_REG		(APP_BLK_REG_ADDR + 0x590)
++#define HOST_CMDSTS9_SET_REG		(APP_BLK_REG_ADDR + 0x594)
++#define HOST_CMDSTS9_REG		(APP_BLK_REG_ADDR + 0x598)
++#define HOST_CMDSTS10_CLR_REG		(APP_BLK_REG_ADDR + 0x5A0)
++#define HOST_CMDSTS10_SET_REG		(APP_BLK_REG_ADDR + 0x5A4)
++#define HOST_CMDSTS10_REG		(APP_BLK_REG_ADDR + 0x5A8)
++#define HOST_CMDSTS11_CLR_REG		(APP_BLK_REG_ADDR + 0x5B0)
++#define HOST_CMDSTS11_SET_REG		(APP_BLK_REG_ADDR + 0x5B4)
++#define HOST_CMDSTS11_REG		(APP_BLK_REG_ADDR + 0x5B8)
++#define HOST_CMDSTS12_CLR_REG		(APP_BLK_REG_ADDR + 0x5C0)
++#define HOST_CMDSTS12_SET_REG		(APP_BLK_REG_ADDR + 0x5C4)
++#define HOST_CMDSTS12_REG		(APP_BLK_REG_ADDR + 0x5C8)
++#define HOST_CMDSTS13_CLR_REG		(APP_BLK_REG_ADDR + 0x5D0)
++#define HOST_CMDSTS13_SET_REG		(APP_BLK_REG_ADDR + 0x5D4)
++#define HOST_CMDSTS13_REG		(APP_BLK_REG_ADDR + 0x5D8)
++#define HOST_CMDSTS14_CLR_REG		(APP_BLK_REG_ADDR + 0x5E0)
++#define HOST_CMDSTS14_SET_REG		(APP_BLK_REG_ADDR + 0x5E4)
++#define HOST_CMDSTS14_REG		(APP_BLK_REG_ADDR + 0x5E8)
++#define HOST_CMDSTS15_CLR_REG		(APP_BLK_REG_ADDR + 0x5F0)
++#define HOST_CMDSTS15_SET_REG		(APP_BLK_REG_ADDR + 0x5F4)
++#define HOST_CMDSTS15_REG		(APP_BLK_REG_ADDR + 0x5F8)
++
++/**
++ * LPU0 Block Register Address Offset from BAR0
++ * Range 0x18000 - 0x18033
++ */
++#define LPU0_BLK_REG_ADDR		0x00018000
++
++/**
++ * LPU0 Registers
++ * Should they be directly used from host,
++ * except for diagnostics ?
++ * CTL_REG : Control register
++ * CMD_REG : Triggers exec. of cmd. in
++ *           Mailbox memory
++ */
++#define LPU0_MBOX_CTL_REG		(LPU0_BLK_REG_ADDR + 0x000)
++#define LPU0_MBOX_CMD_REG		(LPU0_BLK_REG_ADDR + 0x004)
++#define LPU0_MBOX_LINK_0REG		(LPU0_BLK_REG_ADDR + 0x008)
++#define LPU1_MBOX_LINK_0REG		(LPU0_BLK_REG_ADDR + 0x00c)
++#define LPU0_MBOX_STATUS_0REG		(LPU0_BLK_REG_ADDR + 0x010)
++#define LPU1_MBOX_STATUS_0REG		(LPU0_BLK_REG_ADDR + 0x014)
++#define LPU0_ERR_STATUS_REG		(LPU0_BLK_REG_ADDR + 0x018)
++#define LPU0_ERR_SET_REG		(LPU0_BLK_REG_ADDR + 0x020)
++
++/**
++ * LPU1 Block Register Address Offset from BAR0
++ * Range 0x18400 - 0x18433
++ */
++#define LPU1_BLK_REG_ADDR		0x00018400
++
++/**
++ * LPU1 Registers
++ * Same as LPU0 registers above
++ */
++#define LPU1_MBOX_CTL_REG		(LPU1_BLK_REG_ADDR + 0x000)
++#define LPU1_MBOX_CMD_REG		(LPU1_BLK_REG_ADDR + 0x004)
++#define LPU0_MBOX_LINK_1REG		(LPU1_BLK_REG_ADDR + 0x008)
++#define LPU1_MBOX_LINK_1REG		(LPU1_BLK_REG_ADDR + 0x00c)
++#define LPU0_MBOX_STATUS_1REG		(LPU1_BLK_REG_ADDR + 0x010)
++#define LPU1_MBOX_STATUS_1REG		(LPU1_BLK_REG_ADDR + 0x014)
++#define LPU1_ERR_STATUS_REG		(LPU1_BLK_REG_ADDR + 0x018)
++#define LPU1_ERR_SET_REG		(LPU1_BLK_REG_ADDR + 0x020)
++
++/**
++ * PSS Block Register Address Offset from BAR0
++ * Range 0x18800 - 0x188DB
++ */
++#define PSS_BLK_REG_ADDR		0x00018800
++
++/**
++ * PSS Registers
++ * For details, see catapult_spec.pdf
++ * ERR_STATUS_REG : Indicates error in PSS module
++ * RAM_ERR_STATUS_REG : Indicates RAM module that detected error
++ */
++#define ERR_STATUS_SET			(PSS_BLK_REG_ADDR + 0x018)
++#define PSS_RAM_ERR_STATUS_REG		(PSS_BLK_REG_ADDR + 0x01C)
++
++/**
++ * PSS Semaphore Lock Registers, total 16
++ * First read when unlocked returns 0,
++ * and is set to 1, atomically.
++ * Subsequent reads returns 1.
++ * To clear set the value to 0.
++ * Range : 0x20 to 0x5c
++ */
++#define PSS_SEM_LOCK_REG(_num) 		\
++	(PSS_BLK_REG_ADDR + 0x020 + ((_num) << 2))
++
++/**
++ * PSS Semaphore Status Registers,
++ * corresponding to the lock registers above
++ */
++#define PSS_SEM_STATUS_REG(_num) 		\
++	(PSS_BLK_REG_ADDR + 0x060 + ((_num) << 2))
++
++/**
++ * Catapult CPQ Registers
++ * Defines for Mailbox Registers
++ * Used to send mailbox commands to firmware from
++ * host. The data part is written to the MBox
++ * memory, registers are used to indicate that
++ * a commnad is resident in memory.
++ *
++ * Note : LPU0<->LPU1 mailboxes are not listed here
++ */
++#define CPQ_BLK_REG_ADDR		0x00019000
++
++#define HOSTFN0_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x130)
++#define HOSTFN0_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x134)
++#define LPU0_HOSTFN0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x138)
++#define LPU1_HOSTFN0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x13C)
++
++#define HOSTFN1_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x140)
++#define HOSTFN1_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x144)
++#define LPU0_HOSTFN1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x148)
++#define LPU1_HOSTFN1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x14C)
++
++#define HOSTFN2_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x170)
++#define HOSTFN2_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x174)
++#define LPU0_HOSTFN2_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x178)
++#define LPU1_HOSTFN2_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x17C)
++
++#define HOSTFN3_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x180)
++#define HOSTFN3_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x184)
++#define LPU0_HOSTFN3_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x188)
++#define LPU1_HOSTFN3_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x18C)
++
++/**
++ * Host Function Force Parity Error Registers
++ */
++#define HOSTFN0_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x120)
++#define HOSTFN1_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x124)
++#define HOSTFN2_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x128)
++#define HOSTFN3_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x12C)
++
++/**
++ * LL Port[0|1] Halt Mask Registers
++ */
++#define LL_HALT_MSK_P0			(CPQ_BLK_REG_ADDR + 0x1A0)
++#define LL_HALT_MSK_P1			(CPQ_BLK_REG_ADDR + 0x1B0)
++
++/**
++ * LL Port[0|1] Error Mask Registers
++ */
++#define LL_ERR_MSK_P0			(CPQ_BLK_REG_ADDR + 0x1D0)
++#define LL_ERR_MSK_P1			(CPQ_BLK_REG_ADDR + 0x1D4)
++
++/**
++ * EMC FLI (Flash Controller) Block Register Address Offset from BAR0
++ */
++#define FLI_BLK_REG_ADDR		0x0001D000
++
++/**
++ * EMC FLI Registers
++ */
++#define FLI_CMD_REG			(FLI_BLK_REG_ADDR + 0x000)
++#define FLI_ADDR_REG			(FLI_BLK_REG_ADDR + 0x004)
++#define FLI_CTL_REG			(FLI_BLK_REG_ADDR + 0x008)
++#define FLI_WRDATA_REG			(FLI_BLK_REG_ADDR + 0x00C)
++#define FLI_RDDATA_REG			(FLI_BLK_REG_ADDR + 0x010)
++#define FLI_DEV_STATUS_REG		(FLI_BLK_REG_ADDR + 0x014)
++#define FLI_SIG_WD_REG			(FLI_BLK_REG_ADDR + 0x018)
++/*
++ * H/W document lists the following vendor ID register as
++ * FLI_ERR_VENDOR_REG -- typo ?
++ * RO register
++ * 31:16 -- Vendor Id
++ * 15:0  -- Device Id
++ */
++#define FLI_DEV_VENDOR_REG		(FLI_BLK_REG_ADDR + 0x01C)
++#define FLI_ERR_STATUS_REG		(FLI_BLK_REG_ADDR + 0x020)
++
++/**
++ * RAD (RxAdm) Block Register Address Offset from BAR0
++ * RAD0 Range : 0x20000 - 0x203FF
++ * RAD1 Range : 0x20400 - 0x207FF
++ */
++#define RAD0_BLK_REG_ADDR		0x00020000
++#define RAD1_BLK_REG_ADDR		0x00020400
++
++/**
++ * RAD0 Registers
++ */
++#define RAD0_CTL_REG			(RAD0_BLK_REG_ADDR + 0x000)
++#define RAD0_PE_PARM_REG		(RAD0_BLK_REG_ADDR + 0x004)
++#define RAD0_BCN_REG			(RAD0_BLK_REG_ADDR + 0x008)
++/*
++ * Default function ID register
++ */
++#define RAD0_DEFAULT_REG		(RAD0_BLK_REG_ADDR + 0x00C)
++/*
++ * Default promiscuous ID register
++ */
++#define RAD0_PROMISC_REG		(RAD0_BLK_REG_ADDR + 0x010)
++
++#define RAD0_BCNQ_REG			(RAD0_BLK_REG_ADDR + 0x014)
++/*
++ * This register selects 1 of 8 PM Q's using
++ * VLAN pri, for non-BCN packets without a VLAN tag
++ */
++#define RAD0_DEFAULTQ_REG		(RAD0_BLK_REG_ADDR + 0x018)
++
++#define RAD0_ERR_STS			(RAD0_BLK_REG_ADDR + 0x01C)
++#define RAD0_SET_ERR_STS		(RAD0_BLK_REG_ADDR + 0x020)
++#define RAD0_ERR_INT_EN			(RAD0_BLK_REG_ADDR + 0x024)
++#define RAD0_FIRST_ERR			(RAD0_BLK_REG_ADDR + 0x028)
++#define RAD0_FORCE_ERR			(RAD0_BLK_REG_ADDR + 0x02C)
++
++#define RAD0_IF_RCVD			(RAD0_BLK_REG_ADDR + 0x030)
++#define RAD0_IF_RCVD_OCTETS_HIGH	(RAD0_BLK_REG_ADDR + 0x034)
++#define RAD0_IF_RCVD_OCTETS_LOW		(RAD0_BLK_REG_ADDR + 0x038)
++#define RAD0_IF_RCVD_VLAN		(RAD0_BLK_REG_ADDR + 0x03C)
++#define RAD0_IF_RCVD_UCAST		(RAD0_BLK_REG_ADDR + 0x040)
++#define RAD0_IF_RCVD_UCAST_OCTETS_HIGH	(RAD0_BLK_REG_ADDR + 0x044)
++#define RAD0_IF_RCVD_UCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x048)
++#define RAD0_IF_RCVD_UCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x04C)
++#define RAD0_IF_RCVD_MCAST		(RAD0_BLK_REG_ADDR + 0x050)
++#define RAD0_IF_RCVD_MCAST_OCTETS_HIGH  (RAD0_BLK_REG_ADDR + 0x054)
++#define RAD0_IF_RCVD_MCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x058)
++#define RAD0_IF_RCVD_MCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x05C)
++#define RAD0_IF_RCVD_BCAST		(RAD0_BLK_REG_ADDR + 0x060)
++#define RAD0_IF_RCVD_BCAST_OCTETS_HIGH  (RAD0_BLK_REG_ADDR + 0x064)
++#define RAD0_IF_RCVD_BCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x068)
++#define RAD0_IF_RCVD_BCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x06C)
++#define RAD0_DROPPED_FRAMES		(RAD0_BLK_REG_ADDR + 0x070)
++
++#define RAD0_MAC_MAN_1H			(RAD0_BLK_REG_ADDR + 0x080)
++#define RAD0_MAC_MAN_1L			(RAD0_BLK_REG_ADDR + 0x084)
++#define RAD0_MAC_MAN_2H			(RAD0_BLK_REG_ADDR + 0x088)
++#define RAD0_MAC_MAN_2L			(RAD0_BLK_REG_ADDR + 0x08C)
++#define RAD0_MAC_MAN_3H			(RAD0_BLK_REG_ADDR + 0x090)
++#define RAD0_MAC_MAN_3L			(RAD0_BLK_REG_ADDR + 0x094)
++#define RAD0_MAC_MAN_4H			(RAD0_BLK_REG_ADDR + 0x098)
++#define RAD0_MAC_MAN_4L			(RAD0_BLK_REG_ADDR + 0x09C)
++
++#define RAD0_LAST4_IP			(RAD0_BLK_REG_ADDR + 0x100)
++
++/**
++ * RAD1 Registers
++ */
++#define RAD1_CTL_REG			(RAD1_BLK_REG_ADDR + 0x000)
++#define RAD1_PE_PARM_REG		(RAD1_BLK_REG_ADDR + 0x004)
++#define RAD1_BCN_REG			(RAD1_BLK_REG_ADDR + 0x008)
++/*
++ * Default function ID register
++ */
++#define RAD1_DEFAULT_REG		(RAD1_BLK_REG_ADDR + 0x00C)
++/*
++ * Promiscuous function ID register
++ */
++#define RAD1_PROMISC_REG		(RAD1_BLK_REG_ADDR + 0x010)
++
++#define RAD1_BCNQ_REG			(RAD1_BLK_REG_ADDR + 0x014)
++/*
++ * This register selects 1 of 8 PM Q's using
++ * VLAN pri, for non-BCN packets without a VLAN tag
++ */
++#define RAD1_DEFAULTQ_REG		(RAD1_BLK_REG_ADDR + 0x018)
++
++#define RAD1_ERR_STS			(RAD1_BLK_REG_ADDR + 0x01C)
++#define RAD1_SET_ERR_STS		(RAD1_BLK_REG_ADDR + 0x020)
++#define RAD1_ERR_INT_EN			(RAD1_BLK_REG_ADDR + 0x024)
++
++/**
++ * TXA Block Register Address Offset from BAR0
++ * TXA0 Range : 0x21000 - 0x213FF
++ * TXA1 Range : 0x21400 - 0x217FF
++ */
++#define TXA0_BLK_REG_ADDR		0x00021000
++#define TXA1_BLK_REG_ADDR		0x00021400
++
++/**
++ * TXA Registers
++ */
++#define TXA0_CTRL_REG			(TXA0_BLK_REG_ADDR + 0x000)
++#define TXA1_CTRL_REG			(TXA1_BLK_REG_ADDR + 0x000)
++
++/**
++ * TSO Sequence # Registers (RO)
++ * Total 8 (for 8 queues)
++ * Holds the last seq.# for TSO frames
++ * See catapult_spec.pdf for more details
++ */
++#define TXA0_TSO_TCP_SEQ_REG(_num)		\
++	(TXA0_BLK_REG_ADDR + 0x020 + ((_num) << 2))
++
++#define TXA1_TSO_TCP_SEQ_REG(_num)		\
++	(TXA1_BLK_REG_ADDR + 0x020 + ((_num) << 2))
++
++/**
++ * TSO IP ID # Registers (RO)
++ * Total 8 (for 8 queues)
++ * Holds the last IP ID for TSO frames
++ * See catapult_spec.pdf for more details
++ */
++#define TXA0_TSO_IP_INFO_REG(_num)		\
++	(TXA0_BLK_REG_ADDR + 0x040 + ((_num) << 2))
++
++#define TXA1_TSO_IP_INFO_REG(_num)		\
++	(TXA1_BLK_REG_ADDR + 0x040 + ((_num) << 2))
++
++/**
++ * RXA Block Register Address Offset from BAR0
++ * RXA0 Range : 0x21800 - 0x21BFF
++ * RXA1 Range : 0x21C00 - 0x21FFF
++ */
++#define RXA0_BLK_REG_ADDR		0x00021800
++#define RXA1_BLK_REG_ADDR		0x00021C00
++
++/**
++ * RXA Registers
++ */
++#define RXA0_CTL_REG			(RXA0_BLK_REG_ADDR + 0x040)
++#define RXA1_CTL_REG			(RXA1_BLK_REG_ADDR + 0x040)
++
++/**
++ * PPLB Block Register Address Offset from BAR0
++ * PPLB0 Range : 0x22000 - 0x223FF
++ * PPLB1 Range : 0x22400 - 0x227FF
++ */
++#define PLB0_BLK_REG_ADDR		0x00022000
++#define PLB1_BLK_REG_ADDR		0x00022400
++
++/**
++ * PLB Registers
++ */
++/**
++ * Holds RL timer used time stamps in RLT tagged frames
++ */
++#define PLB0_ECM_TIMER_REG		(PLB0_BLK_REG_ADDR + 0x05C)
++#define PLB1_ECM_TIMER_REG		(PLB1_BLK_REG_ADDR + 0x05C)
++/**
++ * Controls the rate-limiter on each of the priority class
++ */
++#define PLB0_RL_CTL			(PLB0_BLK_REG_ADDR + 0x060)
++#define PLB1_RL_CTL			(PLB1_BLK_REG_ADDR + 0x060)
++/**
++ * Max byte register, total 8, 0-7
++ * see catapult_spec.pdf for details
++ */
++#define PLB0_RL_MAX_BC(_num)			\
++	(PLB0_BLK_REG_ADDR + 0x064 + ((_num) << 2))
++#define PLB1_RL_MAX_BC(_num)			\
++	(PLB1_BLK_REG_ADDR + 0x064 + ((_num) << 2))
++/**
++ * RL Time Unit Register for priority 0-7
++ * 4 bits per priority
++ * (2^rl_unit)*1us is the actual time period
++ */
++#define PLB0_RL_TU_PRIO			(PLB0_BLK_REG_ADDR + 0x084)
++#define PLB1_RL_TU_PRIO			(PLB1_BLK_REG_ADDR + 0x084)
++/**
++ * RL byte count register,
++ * bytes transmitted in (rl_unit*1)us time period
++ * 1 per priority, 8 in all, 0-7.
++ */
++#define PLB0_RL_BYTE_CNT(_num)			\
++	(PLB0_BLK_REG_ADDR + 0x088 + ((_num) << 2))
++#define PLB1_RL_BYTE_CNT(_num)			\
++	(PLB1_BLK_REG_ADDR + 0x088 + ((_num) << 2))
++/**
++ * RL Min factor register
++ * 2 bits per priority,
++ * 4 factors possible: 1, 0.5, 0.25, 0
++ * 2'b00 - 0; 2'b01 - 0.25; 2'b10 - 0.5; 2'b11 - 1
++ */
++#define PLB0_RL_MIN_REG			(PLB0_BLK_REG_ADDR + 0x0A8)
++#define PLB1_RL_MIN_REG			(PLB1_BLK_REG_ADDR + 0x0A8)
++/**
++ * RL Max factor register
++ * 2 bits per priority,
++ * 4 factors possible: 1, 0.5, 0.25, 0
++ * 2'b00 - 0; 2'b01 - 0.25; 2'b10 - 0.5; 2'b11 - 1
++ */
++#define PLB0_RL_MAX_REG			(PLB0_BLK_REG_ADDR + 0x0AC)
++#define PLB1_RL_MAX_REG			(PLB1_BLK_REG_ADDR + 0x0AC)
++
++/**
++ * MAC SERDES Address Paging register
++ */
++#define PLB0_EMS_ADD_REG		(PLB0_BLK_REG_ADDR + 0xD0)
++#define PLB1_EMS_ADD_REG		(PLB1_BLK_REG_ADDR + 0xD0)
++
++/**
++ * LL EMS Registers
++ */
++#define LL_EMS0_BLK_REG_ADDR		0x00026800
++#define LL_EMS1_BLK_REG_ADDR		0x00026C00
++
++/**
++ * BPC Block Register Address Offset from BAR0
++ * BPC0 Range : 0x23000 - 0x233FF
++ * BPC1 Range : 0x23400 - 0x237FF
++ */
++#define BPC0_BLK_REG_ADDR		0x00023000
++#define BPC1_BLK_REG_ADDR		0x00023400
++
++/**
++ * BPC Registers
++ */
++/**
++ * PMM Block Register Address Offset from BAR0
++ * PMM0 Range : 0x23800 - 0x23BFF
++ * PMM1 Range : 0x23C00 - 0x23FFF
++ */
++#define PMM0_BLK_REG_ADDR		0x00023800
++#define PMM1_BLK_REG_ADDR		0x00023C00
++/**
++ * PMM Registers
++ */
++
++/**
++ * HQM Block Register Address Offset from BAR0
++ * HQM0 Range : 0x24000 - 0x243FF
++ * HQM1 Range : 0x24400 - 0x247FF
++ */
++#define HQM0_BLK_REG_ADDR		0x00024000
++#define HQM1_BLK_REG_ADDR		0x00024400
++/**
++ * HQM Control Register
++ * Controls some aspects of IB
++ * See catapult_spec.pdf for details
++ */
++#define HQM0_CTL_REG			(HQM0_BLK_REG_ADDR + 0x000)
++#define HQM1_CTL_REG			(HQM1_BLK_REG_ADDR + 0x000)
++/**
++ * HQM Stop Q Semaphore Registers.
++ * Only one Queue resource can be stopped at
++ * any given time. This register controls access
++ * to the single stop Q resource.
++ * See catapult_spec.pdf for details
++ */
++#define HQM0_RXQ_STOP_SEM		(HQM0_BLK_REG_ADDR + 0x028)
++#define HQM0_TXQ_STOP_SEM		(HQM0_BLK_REG_ADDR + 0x02C)
++#define HQM1_RXQ_STOP_SEM		(HQM1_BLK_REG_ADDR + 0x028)
++#define HQM1_TXQ_STOP_SEM		(HQM1_BLK_REG_ADDR + 0x02C)
++
++/**
++ * LUT Block Register Address Offset from BAR0
++ * LUT0 Range : 0x25800 - 0x25BFF
++ * LUT1 Range : 0x25C00 - 0x25FFF
++ */
++#define LUT0_BLK_REG_ADDR		0x00025800
++#define LUT1_BLK_REG_ADDR		0x00025C00
++/**
++ * LUT Registers
++ * See catapult_spec.pdf for details
++ */
++#define LUT0_ERR_STS			(LUT0_BLK_REG_ADDR + 0x000)
++#define LUT1_ERR_STS			(LUT1_BLK_REG_ADDR + 0x000)
++#define LUT0_SET_ERR_STS		(LUT0_BLK_REG_ADDR + 0x004)
++#define LUT1_SET_ERR_STS		(LUT1_BLK_REG_ADDR + 0x004)
++
++/**
++ * TRC (Debug/Trace) Register Offset from BAR0
++ * Range : 0x26000 -- 0x263FFF
++ */
++#define TRC_BLK_REG_ADDR		0x00026000
++/**
++ * TRC Registers
++ * See catapult_spec.pdf for details of each
++ */
++#define TRC_CTL_REG			(TRC_BLK_REG_ADDR + 0x000)
++#define TRC_MODS_REG			(TRC_BLK_REG_ADDR + 0x004)
++#define TRC_TRGC_REG			(TRC_BLK_REG_ADDR + 0x008)
++#define TRC_CNT1_REG			(TRC_BLK_REG_ADDR + 0x010)
++#define TRC_CNT2_REG			(TRC_BLK_REG_ADDR + 0x014)
++#define TRC_NXTS_REG			(TRC_BLK_REG_ADDR + 0x018)
++#define TRC_DIRR_REG			(TRC_BLK_REG_ADDR + 0x01C)
++/**
++ * TRC Trigger match filters, total 10
++ * Determines the trigger condition
++ */
++#define TRC_TRGM_REG(_num)		\
++	(TRC_BLK_REG_ADDR + 0x040 + ((_num) << 2))
++/**
++ * TRC Next State filters, total 10
++ * Determines the next state conditions
++ */
++#define TRC_NXTM_REG(_num)		\
++	(TRC_BLK_REG_ADDR + 0x080 + ((_num) << 2))
++/**
++ * TRC Store Match filters, total 10
++ * Determines the store conditions
++ */
++#define TRC_STRM_REG(_num)		\
++	(TRC_BLK_REG_ADDR + 0x0C0 + ((_num) << 2))
++
++/*
++ *		DOORBELLS ACCESS
++ */
++
++/**
++ * Catapult doorbells
++ * Each doorbell-queue set has
++ * 1 RxQ, 1 TxQ, 2 IBs in that order
++ * Size of each entry in 32 bytes, even though only 1 word
++ * is used. For Non-VM case each doorbell-q set is
++ * separated by 128 bytes, for VM case it is separated
++ * by 4K bytes
++ * Non VM case Range : 0x38000 - 0x39FFF
++ * VM case Range     : 0x100000 - 0x11FFFF
++ * The range applies to both HQMs
++ */
++#define HQM_DOORBELL_BLK_BASE_ADDR	0x00038000
++#define HQM_DOORBELL_VM_BLK_BASE_ADDR	0x00100000
++
++/*
++ *               MEMORY ACCESS
++ */
++
++/**
++ * Catapult H/W Block Memory Access Address
++ * To the host a memory space of 32K (page) is visible
++ * at a time. The address range is from 0x08000 to 0x0FFFF
++ */
++#define HW_BLK_HOST_MEM_ADDR		0x08000
++
++/**
++ * Catapult LUT Memory Access Page Numbers
++ * Range : LUT0 0xa0-0xa1
++ *         LUT1 0xa2-0xa3
++ */
++#define LUT0_MEM_BLK_BASE_PG_NUM	0x000000A0
++#define LUT1_MEM_BLK_BASE_PG_NUM	0x000000A2
++
++/**
++ * Catapult RxFn Database Memory Block Base Offset
++ *
++ * The Rx function database exists in LUT block.
++ * In PCIe space this is accessible as a 256x32
++ * bit block. Each entry in this database is 4
++ * (4 byte) words. Max. entries is 64.
++ * Address of an entry corresponding to a function
++ * = base_addr + (function_no. * 16)
++ */
++#define RX_FNDB_RAM_BASE_OFFSET		0x0000B400
++
++/**
++ * Catapult TxFn Database Memory Block Base Offset Address
++ *
++ * The Tx function database exists in LUT block.
++ * In PCIe space this is accessible as a 64x32
++ * bit block. Each entry in this database is 1
++ * (4 byte) word. Max. entries is 64.
++ * Address of an entry corresponding to a function
++ * = base_addr + (function_no. * 4)
++ */
++#define TX_FNDB_RAM_BASE_OFFSET		0x0000B800
++
++/**
++ * Catapult Unicast CAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Shared by both the LL & FCoE driver.
++ * Size is 256x48 bits; mapped to PCIe space
++ * 512x32 bit blocks. For each address, bits
++ * are written in the order : [47:32] and then
++ * [31:0].
++ */
++#define UCAST_CAM_BASE_OFFSET		0x0000A800
++
++/**
++ * Catapult Unicast RAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Shared by both the LL & FCoE driver.
++ * Size is 256x9 bits.
++ */
++#define UCAST_RAM_BASE_OFFSET		0x0000B000
++
++/**
++ * Catapult Mulicast CAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Shared by both the LL & FCoE driver.
++ * Size is 256x48 bits; mapped to PCIe space
++ * 512x32 bit blocks. For each address, bits
++ * are written in the order : [47:32] and then
++ * [31:0].
++ */
++#define MCAST_CAM_BASE_OFFSET		0x0000A000
++
++/**
++ * Catapult VLAN RAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Size is 4096x66 bits; mapped to PCIe space as
++ * 8192x32 bit blocks.
++ * All the 4K entries are within the address range
++ * 0x0000 to 0x8000, so in the first LUT page.
++ */
++#define VLAN_RAM_BASE_OFFSET		0x00000000
++
++/**
++ * Catapult Tx Stats RAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Size is 1024x33 bits;
++ * Each Tx function has 64 bytes of space
++ */
++#define TX_STATS_RAM_BASE_OFFSET	0x00009000
++
++/**
++ * Catapult Rx Stats RAM Base Offset Address
++ *
++ * Exists in LUT memory space.
++ * Size is 1024x33 bits;
++ * Each Rx function has 64 bytes of space
++ */
++#define RX_STATS_RAM_BASE_OFFSET	0x00008000
++/**
++ * Catapult RXA Memory Access Page Numbers
++ */
++#define RXA0_MEM_BLK_BASE_PG_NUM	0x0000008C
++#define RXA1_MEM_BLK_BASE_PG_NUM	0x0000008D
++
++/**
++ * Catapult Multicast Vector Table Base Offset Address
++ *
++ * Exists in RxA memory space.
++ * Organized as 512x65 bit block.
++ * However for each entry 16 bytes allocated (power of 2)
++ * Total size 512*16 bytes.
++ * There are two logical divisions, 256 entries each :
++ * a) Entries 0x00 to 0xff (256) -- Approx. MVT
++ *    Offset 0x000 to 0xFFF
++ * b) Entries 0x100 to 0x1ff (256) -- Exact MVT
++ *    Offsets 0x1000 to 0x1FFF
++ */
++#define MCAST_APPROX_MVT_BASE_OFFSET	0x00000000
++#define MCAST_EXACT_MVT_BASE_OFFSET	0x00001000
++/**
++ * Catapult RxQ Translate Table (RIT) Base Offset Address
++ *
++ * Exists in RxA memory space
++ * Total no. of entries 64
++ * Each entry is 1 (4 byte) word.
++ * 31:12 -- Reserved
++ * 11:0  -- Two 6 bit RxQ Ids
++ */
++#define FUNCTION_TO_RXQ_TRANSLATE	0x00002000
++
++/**
++ * Catapult RxAdm (RAD) Memory Access Page Numbers
++ */
++#define RAD0_MEM_BLK_BASE_PG_NUM	0x00000086
++#define RAD1_MEM_BLK_BASE_PG_NUM	0x00000087
++
++/**
++ * Catapult RSS Table Base Offset Address
++ *
++ * Exists in RAD memory space.
++ * Each entry is 352 bits, but alligned on
++ * 64 byte (512 bit) boundary. Accessed
++ * 4 byte words, the whole entry can be
++ * broken into 11 word accesses.
++ */
++#define RSS_TABLE_BASE_OFFSET		0x00000800
++
++/**
++ * Catapult CPQ Block Page Number
++ * This value is written to the page number registers
++ * to access the memory associated with the mailboxes.
++ */
++#define CPQ_BLK_PG_NUM			0x00000005
++
++/**
++ * Catapult HostFn0/HostFn1 to LPU0/LPU1 Mbox memory
++ * Per catapult_spec.pdf, the offset of the mbox
++ * memory is in the register space at an offset of 0x200
++ */
++#define CPQ_BLK_REG_MBOX_ADDR		(CPQ_BLK_REG_ADDR + 0x200)
++
++#define HOSTFN_LPU_MBOX			(CPQ_BLK_REG_MBOX_ADDR + 0x000)
++/**
++ * Catapult LPU0/LPU1 to HostFn0/HostFn1 Mbox memory
++ */
++#define LPU_HOSTFN_MBOX			(CPQ_BLK_REG_MBOX_ADDR + 0x080)
++
++/**
++ * Catapult HQM Block Page Number
++ * This is written to the page number register for
++ * the appropriate function to access the memory
++ * associated with HQM
++ */
++#define HQM0_BLK_PG_NUM			0x00000096
++#define HQM1_BLK_PG_NUM			0x00000097
++
++/**
++ * Note that TxQ and RxQ entries are interlaced
++ * the HQM memory, i.e RXQ0, TXQ0, RXQ1, TXQ1.. etc.
++ */
++
++#define HQM_RXTX_Q_RAM_BASE_OFFSET	0x00004000
++
++/**
++ * CQ Memory
++ * Exists in HQM Memory space
++ * Each entry is 16 (4 byte) words of which
++ * only 12 words are used for configuration
++ * Total 64 entries per HQM memory space
++ */
++#define HQM_CQ_RAM_BASE_OFFSET		0x00006000
++
++/**
++ * Interrupt Block (IB) Memory
++ * Exists in HQM Memory space
++ * Each entry is 8 (4 byte) words of which
++ * only 5 words are used for configuration
++ * Total 128 entries per HQM memory space
++ */
++#define HQM_IB_RAM_BASE_OFFSET		0x00001000
++
++/**
++ * Index Table (IT) Memory
++ * Exists in HQM Memory space
++ * Each entry is 1 (4 byte) word which
++ * is used for configuration
++ * Total 128 entries per HQM memory space
++ */
++#define HQM_INDX_TBL_RAM_BASE_OFFSET	0x00002000
++
++/**
++ * PSS Block Memory Page Number
++ * This is written to the appropriate page number
++ * register to access the CPU memory.
++ * Also known as the PSS secondary memory (SMEM).
++ * Range : 0x180 to 0x1CF
++ * See catapult_spec.pdf for details
++ */
++#define PSS_BLK_PG_NUM			0x00000180
++
++/**
++ * Offsets of different instances of PSS SMEM
++ * 2.5M of continuous 1T memory space : 2 blocks
++ * of 1M each (32 pages each, page=32KB) and 4 smaller
++ * blocks of 128K each (4 pages each, page=32KB)
++ * PSS_LMEM_INST0 is used for firmware download
++ */
++#define PSS_LMEM_INST0			0x00000000
++#define PSS_LMEM_INST1			0x00100000
++#define PSS_LMEM_INST2			0x00200000
++#define PSS_LMEM_INST3			0x00220000
++#define PSS_LMEM_INST4			0x00240000
++#define PSS_LMEM_INST5			0x00260000
++
++#endif /* __BNA_HWREG_H__ */
+diff -ruP net-next-2.6-orig/drivers/net/bna/bna_intr.h net-next-2.6-mod/drivers/net/bna/bna_intr.h
+--- net-next-2.6-orig/drivers/net/bna/bna_intr.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6-mod/drivers/net/bna/bna_intr.h	2009-11-26 00:07:08.000000000 -0800
+@@ -0,0 +1,87 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -2504,817 +3617,73 @@ diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_cee.h net-next
 + * All rights reserved
 + * www.brocade.com
 + *
-+ *  bfa_defs_cee.h Interface declarations between host based
-+ *	BFAL and DCBX/LLDP module in Firmware
-+ */
-+#ifndef __BFA_DEFS_CEE_H__
-+#define __BFA_DEFS_CEE_H__
-+
-+#include "protocol/types.h"
-+
-+#pragma pack(1)
-+
-+#define BFA_CEE_LLDP_MAX_STRING_LEN (128)
-+
-+#define BFA_CEE_LLDP_SYS_CAP_OTHER       0x0001
-+#define BFA_CEE_LLDP_SYS_CAP_REPEATER    0x0002
-+#define BFA_CEE_LLDP_SYS_CAP_MAC_BRIDGE  0x0004
-+#define BFA_CEE_LLDP_SYS_CAP_WLAN_AP     0x0008
-+#define BFA_CEE_LLDP_SYS_CAP_ROUTER      0x0010
-+#define BFA_CEE_LLDP_SYS_CAP_TELEPHONE 	 0x0020
-+#define BFA_CEE_LLDP_SYS_CAP_DOCSIS_CD   0x0040
-+#define BFA_CEE_LLDP_SYS_CAP_STATION     0x0080
-+#define BFA_CEE_LLDP_SYS_CAP_CVLAN	 0x0100
-+#define BFA_CEE_LLDP_SYS_CAP_SVLAN	 0x0200
-+#define BFA_CEE_LLDP_SYS_CAP_TPMR	 0x0400
-+
-+/* LLDP string type */
-+struct bfa_cee_lldp_str {
-+	u8 sub_type;
-+	u8 len;
-+	u8 rsvd[2];
-+	u8 value[BFA_CEE_LLDP_MAX_STRING_LEN];
-+};
-+
-+/* LLDP paramters */
-+struct bfa_cee_lldp_cfg {
-+	struct bfa_cee_lldp_str chassis_id;
-+	struct bfa_cee_lldp_str port_id;
-+	struct bfa_cee_lldp_str port_desc;
-+	struct bfa_cee_lldp_str sys_name;
-+	struct bfa_cee_lldp_str sys_desc;
-+	struct bfa_cee_lldp_str mgmt_addr;
-+	u16    time_to_interval;
-+	u16    enabled_system_cap;
-+};
-+
-+enum bfa_cee_dcbx_version {
-+	DCBX_PROTOCOL_PRECEE = 1,
-+	DCBX_PROTOCOL_CEE    = 2,
-+};
-+
-+enum bfa_cee_lls {
-+	CEE_LLS_DOWN_NO_TLV = 0, /* LLS is down bcoz TLV not sent by the peer */
-+	CEE_LLS_DOWN        = 1, /* LLS is down as advertised by the peer */
-+	CEE_LLS_UP          = 2,
-+};
-+
-+/* CEE/DCBX parameters */
-+struct bfa_cee_dcbx_cfg {
-+	u8 pgid[8];
-+	u8 pg_percentage[8];
-+	u8 pfc_enabled;          /* bitmap of priorties with PFC enabled */
-+	u8 fcoe_user_priority;  /* bitmap of priorities for FcoE traffic */
-+	u8 dcbx_version;		  /* operating version:CEE or preCEE */
-+	u8 lls_fcoe;			  /* FCoE Logical Link Status */
-+	u8 lls_lan;			  /* LAN Logical Link Status */
-+	u8 rsvd[3];
-+};
-+
-+/* CEE status */
-+/* Making this to tri-state for the benefit of port list command */
-+enum bfa_cee_status {
-+    CEE_UP = 0,
-+    CEE_PHY_UP = 1,
-+	CEE_LOOPBACK = 2,
-+    CEE_PHY_DOWN = 3,
-+};
-+
-+/* CEE Query */
-+struct bfa_cee_attr {
-+	u8                   cee_status;
-+	u8                   error_reason;
-+	struct bfa_cee_lldp_cfg lldp_remote;
-+	struct bfa_cee_dcbx_cfg dcbx_remote;
-+	struct mac src_mac;
-+	u8 link_speed;
-+	u8 nw_priority;
-+	u8 filler[2];
-+};
-+
-+/* LLDP/DCBX/CEE Statistics */
-+
-+struct bfa_cee_lldp_stats {
-+	u32 frames_transmitted;
-+	u32 frames_aged_out;
-+	u32 frames_discarded;
-+	u32 frames_in_error;
-+	u32 frames_rcvd;
-+	u32 tlvs_discarded;
-+	u32 tlvs_unrecognized;
-+};
-+
-+struct bfa_cee_dcbx_stats {
-+	u32 subtlvs_unrecognized;
-+	u32 negotiation_failed;
-+	u32 remote_cfg_changed;
-+	u32 tlvs_received;
-+	u32 tlvs_invalid;
-+	u32 seqno;
-+	u32 ackno;
-+	u32 recvd_seqno;
-+	u32 recvd_ackno;
-+};
-+
-+struct bfa_cee_cfg_stats {
-+	u32 cee_status_down;
-+	u32 cee_status_up;
-+	u32 cee_hw_cfg_changed;
-+	u32 recvd_invalid_cfg;
-+};
-+
-+struct bfa_cee_stats {
-+	struct bfa_cee_lldp_stats lldp_stats;
-+	struct bfa_cee_dcbx_stats dcbx_stats;
-+	struct bfa_cee_cfg_stats cfg_stats;
-+};
-+
-+#pragma pack()
-+
-+#endif	/* __BFA_DEFS_CEE_H__ */
-+
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_ioc.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_ioc.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_ioc.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_ioc.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,151 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
++ * File for interrupt macros and functions
 + */
 +
-+#ifndef __BFA_DEFS_IOC_H__
-+#define __BFA_DEFS_IOC_H__
++#ifndef __BNA_INTR_H__
++#define __BNA_INTR_H__
 +
-+#include "protocol/types.h"
-+#include "defs/bfa_defs_version.h"
-+#include "defs/bfa_defs_adapter.h"
++static inline void bna_intx_disable(struct bna_dev *dev,
++	u32 *cur_mask)
++{
++	/* Store the original mask */
++	*cur_mask = bna_reg_read(dev->regs.fn_int_mask);
++	bna_reg_write(dev->regs.fn_int_mask, 0xffffffff);
++}
 +
-+enum {
-+	BFA_IOC_DRIVER_LEN	= 16,
-+	BFA_IOC_CHIP_REV_LEN 	= 8,
-+};
++#define bna_intx_enable(dev, new_mask) 			\
++	bna_reg_write((dev)->regs.fn_int_mask, (new_mask))
 +
-+/**
-+ * Driver and firmware versions.
-+ */
-+struct bfa_ioc_driver_attr {
-+	char            driver[BFA_IOC_DRIVER_LEN];	/*  driver name */
-+	char            driver_ver[BFA_VERSION_LEN];	/*  driver version */
-+	char            fw_ver[BFA_VERSION_LEN];	/*  firmware version*/
-+	char            bios_ver[BFA_VERSION_LEN];	/*  bios version */
-+	char            efi_ver[BFA_VERSION_LEN];	/*  EFI version */
-+	char            ob_ver[BFA_VERSION_LEN];	/*  openboot version*/
-+};
++#define bna_mbox_intr_disable(dev)		\
++	bna_reg_write((dev)->regs.fn_int_mask, 	\
++	     (bna_reg_read((dev)->regs.fn_int_mask) | \
++	     (__LPU2HOST_MBOX_MASK_BITS | __ERROR_MASK_BITS)))
 +
-+/**
-+ * IOC PCI device attributes
-+ */
-+struct bfa_ioc_pci_attr {
-+	u16        vendor_id;	/*  PCI vendor ID */
-+	u16        device_id;	/*  PCI device ID */
-+	u16        ssid;		/*  subsystem ID */
-+	u16        ssvid;		/*  subsystem vendor ID */
-+	u32        pcifn;		/*  PCI device function */
-+	u32        rsvd;		/* padding */
-+	u8         chip_rev[BFA_IOC_CHIP_REV_LEN];	 /*  chip revision */
-+};
++#define bna_mbox_intr_enable(dev)		\
++	bna_reg_write((dev)->regs.fn_int_mask, 	\
++	     (bna_reg_read((dev)->regs.fn_int_mask) & \
++	     ~(__LPU2HOST_MBOX_MASK_BITS | __ERROR_MASK_BITS)))
 +
-+/**
-+ * IOC states
-+ */
-+enum bfa_ioc_state {
-+	BFA_IOC_RESET       = 1,  /*  IOC is in reset state */
-+	BFA_IOC_SEMWAIT     = 2,  /*  Waiting for IOC hardware semaphore */
-+	BFA_IOC_HWINIT 	    = 3,  /*  IOC hardware is being initialized */
-+	BFA_IOC_GETATTR     = 4,  /*  IOC is being configured */
-+	BFA_IOC_OPERATIONAL = 5,  /*  IOC is operational */
-+	BFA_IOC_INITFAIL    = 6,  /*  IOC hardware failure */
-+	BFA_IOC_HBFAIL      = 7,  /*  IOC heart-beat failure */
-+	BFA_IOC_DISABLING   = 8,  /*  IOC is being disabled */
-+	BFA_IOC_DISABLED    = 9,  /*  IOC is disabled */
-+	BFA_IOC_FWMISMATCH  = 10, /*  IOC firmware different from drivers */
-+};
++static inline void bna_intr_status_get(struct bna_dev *dev,
++	u32 *status)
++{
++	*status = bna_reg_read(dev->regs.fn_int_status);
++	/*
++	 * Clear the status bits before returning
++	 * But do not touch the mailbox bits as yet
++	 */
++	/* Write a '1' to clear the required bits */
++	if (*status) {
++		bna_reg_write(dev->regs.fn_int_status,
++			      *status & ~(__LPU02HOST_MBOX0_STATUS_BITS |
++					  __LPU02HOST_MBOX1_STATUS_BITS |
++					  __LPU12HOST_MBOX0_STATUS_BITS |
++					  __LPU12HOST_MBOX1_STATUS_BITS));
++	}
++}
 +
-+/**
-+ * IOC firmware stats
-+ */
-+struct bfa_fw_ioc_stats {
-+	u32        hb_count;
-+	u32        cfg_reqs;
-+	u32        enable_reqs;
-+	u32        disable_reqs;
-+	u32        stats_reqs;
-+	u32        clrstats_reqs;
-+	u32        unknown_reqs;
-+	u32        ic_reqs;		/*  interrupt coalesce reqs */
-+};
++#define bna_intr_status_get_no_clr(dev, status)		\
++	(*(status) = bna_reg_read((dev)->regs.fn_int_status))
 +
-+/**
-+ * IOC driver stats
-+ */
-+struct bfa_ioc_drv_stats {
-+	u32	ioc_isrs;
-+	u32	ioc_enables;
-+	u32	ioc_disables;
-+	u32	ioc_hbfails;
-+	u32	ioc_boots;
-+	u32	stats_tmos;
-+	u32        hb_count;
-+	u32        disable_reqs;
-+	u32        enable_reqs;
-+	u32        disable_replies;
-+	u32        enable_replies;
-+};
++#define bna_intr_mask_get(dev, mask)		\
++	(*mask) = bna_reg_read((dev)->regs.fn_int_mask)
 +
-+/**
-+ * IOC statistics
-+ */
-+struct bfa_ioc_stats {
-+	struct bfa_ioc_drv_stats drv_stats; /*  driver IOC stats */
-+	struct bfa_fw_ioc_stats fw_stats;  /*  firmware IOC stats */
-+};
++#define bna_intr_ack(dev, intr_bmap)		\
++	bna_reg_write((dev)->regs.fn_int_status, (intr_bmap))
 +
-+enum bfa_ioc_type {
-+	BFA_IOC_TYPE_FC	  = 1,
-+	BFA_IOC_TYPE_FCoE = 2,
-+	BFA_IOC_TYPE_LL	  = 3,
-+};
++#define bna_ib_intx_disable(dev, ib_id)		\
++	bna_reg_write((dev)->regs.fn_int_mask, 	\
++	    bna_reg_read((dev)->regs.fn_int_mask) | \
++	    (1 << (ib_id)))
 +
-+/**
-+ * IOC attributes returned in queries
-+ */
-+struct bfa_ioc_attr {
-+	enum bfa_ioc_type ioc_type;
-+	enum bfa_ioc_state 		state;		/*  IOC state      */
-+	struct bfa_adapter_attr adapter_attr;	/*  HBA attributes */
-+	struct bfa_ioc_driver_attr driver_attr;	/*  driver attr    */
-+	struct bfa_ioc_pci_attr pci_attr;
-+	u8				port_id;	/*  port number    */
-+	u8				rsvd[7];	/*  64bit align    */
-+};
++#define bna_ib_intx_enable(dev, ib_id)		\
++	bna_reg_write((dev)->regs.fn_int_mask, 	\
++	    bna_reg_read((dev)->regs.fn_int_mask) & \
++	    ~(1 << (ib_id)))
 +
-+/**
-+ * BFA IOC level events
-+ */
-+enum bfa_ioc_aen_event {
-+	BFA_IOC_AEN_HBGOOD	= 1,	/*  Heart Beat restore event	*/
-+	BFA_IOC_AEN_HBFAIL	= 2,	/*  Heart Beat failure event	*/
-+	BFA_IOC_AEN_ENABLE	= 3,	/*  IOC enabled event		*/
-+	BFA_IOC_AEN_DISABLE	= 4,	/*  IOC disabled event		*/
-+	BFA_IOC_AEN_FWMISMATCH	= 5,	/*  IOC firmware mismatch	*/
-+};
++extern const struct bna_chip_regs_offset reg_offset[];
++#define bna_mbox_msix_idx_set(dev, msix_vector)		\
++	bna_reg_write((dev)->bar0 + reg_offset[(dev)->pci_fn].msix_idx, \
++	    ((msix_vector) & 0x000001ff))
 +
-+/**
-+ * BFA IOC level event data, now just a place holder
-+ */
-+struct bfa_ioc_aen_data {
-+	wwn_t	pwwn;
-+	s16 ioc_type;
-+	struct mac mac;
-+};
-+
-+#endif /* __BFA_DEFS_IOC_H__ */
-+
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_mfg.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_mfg.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_mfg.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_mfg.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,141 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+#ifndef __BFA_DEFS_MFG_H__
-+#define __BFA_DEFS_MFG_H__
-+
-+#include "cna.h"
-+
-+/**
-+ * Manufacturing block version
-+ */
-+#define BFA_MFG_VERSION				2
-+
-+/**
-+ * Manufacturing block encrypted version
-+ */
-+#define BFA_MFG_ENC_VER				2
-+
-+/**
-+ * Manufacturing block version 1 length
-+ */
-+#define BFA_MFG_VER1_LEN			128
-+
-+/**
-+ * Manufacturing block header length
-+ */
-+#define BFA_MFG_HDR_LEN				4
-+
-+/**
-+ * Checksum size
-+ */
-+#define BFA_MFG_CHKSUM_SIZE			16
-+
-+/**
-+ * Manufacturing block encrypted version
-+ */
-+#define BFA_MFG_ENC_VER				2
-+
-+/**
-+ * Manufacturing block version 1 length
-+ */
-+#define BFA_MFG_VER1_LEN			128
-+
-+/**
-+ * Manufacturing block header length
-+ */
-+#define BFA_MFG_HDR_LEN				4
-+
-+/**
-+ * Checksum size
-+ */
-+#define BFA_MFG_CHKSUM_SIZE			16
-+
-+/**
-+ * Manufacturing block format
-+ */
-+#define BFA_MFG_SERIALNUM_SIZE			11
-+#define BFA_MFG_PARTNUM_SIZE			14
-+#define BFA_MFG_SUPPLIER_ID_SIZE		10
-+#define BFA_MFG_SUPPLIER_PARTNUM_SIZE		20
-+#define BFA_MFG_SUPPLIER_SERIALNUM_SIZE		20
-+#define BFA_MFG_SUPPLIER_REVISION_SIZE		4
-+#define STRSZ(_n)	(((_n) + 4) & ~3)
-+
-+/**
-+ * Manufacturing card type
-+ */
-+enum {
-+	BFA_MFG_TYPE_CB_MAX  = 825,      /*  Crossbow card type max	*/
-+	BFA_MFG_TYPE_FC8P2   = 825,      /*  8G 2port FC card		*/
-+	BFA_MFG_TYPE_FC8P1   = 815,      /*  8G 1port FC card		*/
-+	BFA_MFG_TYPE_FC4P2   = 425,      /*  4G 2port FC card		*/
-+	BFA_MFG_TYPE_FC4P1   = 415,      /*  4G 1port FC card		*/
-+	BFA_MFG_TYPE_CNA10P2 = 1020,     /*  10G 2port CNA card	*/
-+	BFA_MFG_TYPE_CNA10P1 = 1010,     /*  10G 1port CNA card	*/
-+};
-+
-+#pragma pack(1)
-+
-+/**
-+ * Card type to port number conversion
-+ */
-+#define bfa_mfg_type2port_num(card_type) (((card_type) / 10) % 10)
-+
-+/**
-+ * All numerical fields are in big-endian format.
-+ */
-+struct bfa_mfg_block {
-+};
-+
-+/**
-+ * VPD data length
-+ */
-+#define BFA_MFG_VPD_LEN		512
-+
-+#define BFA_MFG_VPD_PCI_HDR_OFF		137
-+#define BFA_MFG_VPD_PCI_VER_MASK	0x07	/*  version mask 3 bits */
-+#define BFA_MFG_VPD_PCI_VDR_MASK	0xf8	/*  vendor mask 5 bits */
-+
-+/**
-+ * VPD vendor tag
-+ */
-+enum {
-+	BFA_MFG_VPD_UNKNOWN	= 0,     /*  vendor unknown 		*/
-+	BFA_MFG_VPD_IBM 	= 1,     /*  vendor IBM 		*/
-+	BFA_MFG_VPD_HP  	= 2,     /*  vendor HP  		*/
-+	BFA_MFG_VPD_PCI_IBM 	= 0x08,  /*  PCI VPD IBM     		*/
-+	BFA_MFG_VPD_PCI_HP  	= 0x10,  /*  PCI VPD HP		*/
-+	BFA_MFG_VPD_PCI_BRCD 	= 0xf8,  /*  PCI VPD Brocade 		*/
-+};
-+
-+/**
-+ * All numerical fields are in big-endian format.
-+ */
-+struct bfa_mfg_vpd {
-+	u8		version;	/*  vpd data version */
-+	u8		vpd_sig[3];	/*  characters 'V', 'P', 'D' */
-+	u8		chksum;		/*  u8 checksum */
-+	u8		vendor;		/*  vendor */
-+	u8 	len;		/*  vpd data length excluding header */
-+	u8 	rsv;
-+	u8		data[BFA_MFG_VPD_LEN];	/*  vpd data */
-+};
-+
-+#pragma pack()
-+
-+#endif /* __BFA_DEFS_MFG_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_pci.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_pci.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_pci.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_pci.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,42 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+
-+#ifndef __BFA_DEFS_PCI_H__
-+#define __BFA_DEFS_PCI_H__
-+
-+/**
-+ * PCI device and vendor ID information
-+ */
-+enum {
-+	BFA_PCI_VENDOR_ID_BROCADE	= 0x1657,
-+	BFA_PCI_DEVICE_ID_FC_8G2P	= 0x13,
-+	BFA_PCI_DEVICE_ID_FC_8G1P	= 0x17,
-+	BFA_PCI_DEVICE_ID_CT		= 0x14,
-+};
-+
-+/**
-+ * PCI sub-system device and vendor ID information
-+ */
-+enum {
-+	BFA_PCI_FCOE_SSDEVICE_ID	= 0x14,
-+};
-+
-+#define BFA_PCI_ACCESS_RANGES 1	/* Maximum number of device address ranges
-+				 * mapped through different BAR(s). */
-+
-+#endif /* __BFA_DEFS_PCI_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_status.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_status.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_status.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_status.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,265 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+#ifndef __BFA_DEFS_STATUS_H__
-+#define __BFA_DEFS_STATUS_H__
-+
-+/**
-+ * API status return values
-+ *
-+ * NOTE: The error msgs are auto generated from the comments. Only singe line
-+ * comments are supported
-+ */
-+enum bfa_status {
-+	BFA_STATUS_OK 		= 0,	/*  Success */
-+	BFA_STATUS_FAILED 	= 1,	/*  Operation failed */
-+	BFA_STATUS_EINVAL 	= 2,	/*  Invalid params Check input
-+					 * parameters */
-+	BFA_STATUS_ENOMEM 	= 3,	/*  Out of resources */
-+	BFA_STATUS_ENOSYS 	= 4,	/*  Function not implemented */
-+	BFA_STATUS_ETIMER 	= 5,	/*  Timer expired - Retry, if
-+					 * persists, contact support */
-+	BFA_STATUS_EPROTOCOL 	= 6,	/*  Protocol error */
-+	BFA_STATUS_ENOFCPORTS 	= 7,	/*  No FC ports resources */
-+	BFA_STATUS_NOFLASH 	= 8,	/*  Flash not present */
-+	BFA_STATUS_BADFLASH 	= 9,	/*  Flash is corrupted or bad */
-+	BFA_STATUS_SFP_UNSUPP 	= 10,	/*  Unsupported SFP - Replace SFP */
-+	BFA_STATUS_UNKNOWN_VFID = 11,	/*  VF_ID not found */
-+	BFA_STATUS_DATACORRUPTED = 12,	/*  Diag returned data corrupted
-+					 * contact support */
-+	BFA_STATUS_DEVBUSY 	= 13,	/*  Device busy - Retry operation */
-+	BFA_STATUS_ABORTED 	= 14,	/*  Operation aborted */
-+	BFA_STATUS_NODEV 	= 15,	/*  Dev is not present */
-+	BFA_STATUS_HDMA_FAILED 	= 16,	/*  Host dma failed contact support */
-+	BFA_STATUS_FLASH_BAD_LEN = 17,	/*  Flash bad length */
-+	BFA_STATUS_UNKNOWN_LWWN = 18,	/*  LPORT PWWN not found */
-+	BFA_STATUS_UNKNOWN_RWWN = 19,	/*  RPORT PWWN not found */
-+	BFA_STATUS_FCPT_LS_RJT 	= 20,	/*  Got LS_RJT for FC Pass
-+					 * through Req */
-+	BFA_STATUS_VPORT_EXISTS = 21,	/*  VPORT already exists */
-+	BFA_STATUS_VPORT_MAX 	= 22,	/*  Reached max VPORT supported
-+					 * limit */
-+	BFA_STATUS_UNSUPP_SPEED = 23,	/*  Invalid Speed Check speed
-+					 * setting */
-+	BFA_STATUS_INVLD_DFSZ 	= 24,	/*  Invalid Max data field size */
-+	BFA_STATUS_CNFG_FAILED 	= 25,	/*  Setting can not be persisted */
-+	BFA_STATUS_CMD_NOTSUPP 	= 26,	/*  Command/API not supported */
-+	BFA_STATUS_NO_ADAPTER 	= 27,	/*  No Brocade Adapter Found */
-+	BFA_STATUS_LINKDOWN 	= 28,	/*  Link is down - Check or replace
-+					 * SFP/cable */
-+	BFA_STATUS_FABRIC_RJT 	= 29,	/*  Reject from attached fabric */
-+	BFA_STATUS_UNKNOWN_VWWN = 30,	/*  VPORT PWWN not found */
-+	BFA_STATUS_NSLOGIN_FAILED = 31,	/*  Nameserver login failed */
-+	BFA_STATUS_NO_RPORTS 	= 32,	/*  No remote ports found */
-+	BFA_STATUS_NSQUERY_FAILED = 33,	/*  Nameserver query failed */
-+	BFA_STATUS_PORT_OFFLINE = 34,	/*  Port is not online */
-+	BFA_STATUS_RPORT_OFFLINE = 35,	/*  RPORT is not online */
-+	BFA_STATUS_TGTOPEN_FAILED = 36,	/*  Remote SCSI target open failed */
-+	BFA_STATUS_BAD_LUNS 	= 37,	/*  No valid LUNs found */
-+	BFA_STATUS_IO_FAILURE 	= 38,	/*  SCSI target IO failure */
-+	BFA_STATUS_NO_FABRIC 	= 39,	/*  No switched fabric present */
-+	BFA_STATUS_EBADF 	= 40,	/*  Bad file descriptor */
-+	BFA_STATUS_EINTR 	= 41,	/*  A signal was caught during ioctl */
-+	BFA_STATUS_EIO 		= 42,	/*  I/O error */
-+	BFA_STATUS_ENOTTY 	= 43,	/*  Inappropriate I/O control
-+					 * operation */
-+	BFA_STATUS_ENXIO 	= 44,	/*  No such device or address */
-+	BFA_STATUS_EFOPEN 	= 45,	/*  Failed to open file */
-+	BFA_STATUS_VPORT_WWN_BP = 46,	/*  WWN is same as base port's WWN */
-+	BFA_STATUS_PORT_NOT_DISABLED = 47, /*  Port not disabled disable port
-+					    * first */
-+	BFA_STATUS_BADFRMHDR 	= 48,	/*  Bad frame header */
-+	BFA_STATUS_BADFRMSZ 	= 49,	/*  Bad frame size check and replace
-+					 * SFP/cable */
-+	BFA_STATUS_MISSINGFRM 	= 50,	/*  Missing frame check and replace
-+					 * SFP/cable */
-+	BFA_STATUS_LINKTIMEOUT 	= 51,	/*  Link timeout check and replace
-+					 * SFP/cable */
-+	BFA_STATUS_NO_FCPIM_NEXUS = 52,	/*  No FCP Nexus exists with the
-+					 * rport */
-+	BFA_STATUS_CHECKSUM_FAIL = 53,	/*  checksum failure */
-+	BFA_STATUS_GZME_FAILED 	= 54,	/*  Get zone member query failed */
-+	BFA_STATUS_SCSISTART_REQD = 55,	/*  SCSI disk require START command */
-+	BFA_STATUS_IOC_FAILURE 	= 56,	/*  IOC failure - Retry, if persists
-+					 * contact support */
-+	BFA_STATUS_INVALID_WWN 	= 57,	/*  Invalid WWN */
-+	BFA_STATUS_MISMATCH 	= 58,	/*  Version mismatch */
-+	BFA_STATUS_IOC_ENABLED 	= 59,	/*  IOC is already enabled */
-+	BFA_STATUS_ADAPTER_ENABLED = 60, /*  Adapter is not disabled disable
-+					  * adapter first */
-+	BFA_STATUS_IOC_NON_OP 	= 61,	/*  IOC is not operational. Enable IOC
-+					 * and if it still fails,
-+					 * contact support */
-+	BFA_STATUS_ADDR_MAP_FAILURE = 62, /*  PCI base address not mapped
-+					   * in OS */
-+	BFA_STATUS_SAME_NAME 	= 63,	/*  Name exists! use a different
-+					 * name */
-+	BFA_STATUS_PENDING      = 64,   /*  API completes asynchronously */
-+	BFA_STATUS_8G_SPD	= 65,	/*  Speed setting not valid for
-+					 * 8G HBA */
-+	BFA_STATUS_4G_SPD	= 66,	/*  Speed setting not valid for
-+					 * 4G HBA */
-+	BFA_STATUS_AD_IS_ENABLE = 67,	/*  Adapter is already enabled */
-+	BFA_STATUS_EINVAL_TOV 	= 68,	/*  Invalid path failover TOV */
-+	BFA_STATUS_EINVAL_QDEPTH = 69,	/*  Invalid queue depth value */
-+	BFA_STATUS_VERSION_FAIL = 70,	/*  Application/Driver version
-+					 * mismatch */
-+	BFA_STATUS_DIAG_BUSY    = 71,	/*  diag busy */
-+	BFA_STATUS_BEACON_ON	= 72,	/*  Port Beacon already on */
-+	BFA_STATUS_BEACON_OFF	= 73,	/*  Port Beacon already off */
-+	BFA_STATUS_LBEACON_ON   = 74,	/*  Link End-to-End Beacon already
-+					 * on */
-+	BFA_STATUS_LBEACON_OFF	= 75,	/*  Link End-to-End Beacon already
-+					 * off */
-+	BFA_STATUS_PORT_NOT_INITED = 76, /*  Port not initialized */
-+	BFA_STATUS_RPSC_ENABLED = 77, /*  Target has a valid speed */
-+	BFA_STATUS_ENOFSAVE = 78,	/*  No saved firmware trace */
-+	BFA_STATUS_BAD_FILE = 79,	/*  Not a valid Brocade Boot Code
-+					 * file */
-+	BFA_STATUS_RLIM_EN = 80,	/*  Target rate limiting is already
-+					 * enabled */
-+	BFA_STATUS_RLIM_DIS = 81,  /*  Target rate limiting is already
-+				    * disabled */
-+	BFA_STATUS_IOC_DISABLED = 82,   /*  IOC is already disabled */
-+	BFA_STATUS_ADAPTER_DISABLED = 83,   /*  Adapter is already disabled */
-+	BFA_STATUS_BIOS_DISABLED = 84,   /*  Bios is already disabled */
-+	BFA_STATUS_AUTH_ENABLED = 85,   /*  Authentication is already
-+					 * enabled */
-+	BFA_STATUS_AUTH_DISABLED = 86,   /*  Authentication is already
-+					 * disabled */
-+	BFA_STATUS_ERROR_TRL_ENABLED = 87,   /*  Target rate limiting is
-+					      * enabled */
-+	BFA_STATUS_ERROR_QOS_ENABLED = 88,   /*  QoS is enabled */
-+	BFA_STATUS_NO_SFP_DEV = 89, /*  No SFP device check or replace SFP */
-+	BFA_STATUS_MEMTEST_FAILED = 90,	/*  Memory test failed contact
-+					 * support */
-+	BFA_STATUS_INVALID_DEVID = 91,	/*  Invalid device id provided */
-+	BFA_STATUS_QOS_ENABLED = 92, /*  QOS is already enabled */
-+	BFA_STATUS_QOS_DISABLED = 93, /*  QOS is already disabled */
-+	BFA_STATUS_INCORRECT_DRV_CONFIG = 94, /*  Check configuration
-+					       * key/value pair */
-+	BFA_STATUS_REG_FAIL = 95, /*  Can't read windows registry */
-+	BFA_STATUS_IM_INV_CODE = 96, /*  Invalid IOCTL code */
-+	BFA_STATUS_IM_INV_VLAN = 97, /*  Invalid VLAN ID */
-+	BFA_STATUS_IM_INV_ADAPT_NAME = 98, /*  Invalid adapter name */
-+	BFA_STATUS_IM_LOW_RESOURCES = 99, /*  Memory allocation failure in
-+					   * driver */
-+	BFA_STATUS_IM_VLANID_IS_PVID = 100, /*  Given VLAN id same as PVID */
-+	BFA_STATUS_IM_VLANID_EXISTS = 101, /*  Given VLAN id already exists */
-+	BFA_STATUS_IM_FW_UPDATE_FAIL = 102, /*  Updating firmware with new
-+					     * VLAN ID failed */
-+	BFA_STATUS_PORTLOG_ENABLED = 103, /*  Port Log is already enabled */
-+	BFA_STATUS_PORTLOG_DISABLED = 104, /*  Port Log is already disabled */
-+	BFA_STATUS_FILE_NOT_FOUND = 105, /*  Specified file could not be
-+					  * found */
-+	BFA_STATUS_QOS_FC_ONLY = 106, /*  QOS can be enabled for FC mode
-+				       * only */
-+	BFA_STATUS_RLIM_FC_ONLY = 107, /*  RATELIM can be enabled for FC mode
-+					* only */
-+	BFA_STATUS_CT_SPD = 108, /*  Invalid speed selection for Catapult. */
-+	BFA_STATUS_LEDTEST_OP = 109, /*  LED test is operating */
-+	BFA_STATUS_CEE_NOT_DN = 110, /*  eth port is not at down state, please
-+				      * bring down first */
-+	BFA_STATUS_10G_SPD = 111, /*  Speed setting not valid for 10G HBA */
-+	BFA_STATUS_IM_INV_TEAM_NAME = 112, /*  Invalid team name */
-+	BFA_STATUS_IM_DUP_TEAM_NAME = 113, /*  Given team name already
-+					    * exists */
-+	BFA_STATUS_IM_ADAPT_ALREADY_IN_TEAM = 114, /*  Given adapter is part
-+						    * of another team or VLANS
-+						    * exist */
-+	BFA_STATUS_IM_ADAPT_HAS_VLANS = 115, /*  Adapter has VLANs configured.
-+					      * Delete all VLANs to become part
-+					      * of team */
-+	BFA_STATUS_IM_PVID_MISMATCH = 116, /*  Mismatching PVIDs configured
-+					    * for adapters */
-+	BFA_STATUS_IM_LINK_SPEED_MISMATCH = 117, /*  Mismatching link speeds
-+						  * configured for adapters */
-+	BFA_STATUS_IM_MTU_MISMATCH = 118, /*  Mismatching MTUs configured for
-+					   * adapters */
-+	BFA_STATUS_IM_RSS_MISMATCH = 119, /*  Mismatching RSS parameters
-+					   * configured for adapters */
-+	BFA_STATUS_IM_HDS_MISMATCH = 120, /*  Mismatching HDS parameters
-+					   * configured for adapters */
-+	BFA_STATUS_IM_OFFLOAD_MISMATCH = 121, /*  Mismatching offload
-+					       * parameters configured for
-+					       * adapters */
-+	BFA_STATUS_IM_PORT_PARAMS = 122, /*  Error setting port parameters */
-+	BFA_STATUS_IM_PORT_NOT_IN_TEAM = 123, /*  Port is not part of team */
-+	BFA_STATUS_IM_CANNOT_REM_PRI = 124, /*  Primary adapter cannot be
-+					     * removed. Change primary before
-+					     * removing */
-+	BFA_STATUS_IM_MAX_PORTS_REACHED = 125, /*  Exceeding maximum ports
-+						* per team */
-+	BFA_STATUS_IM_LAST_PORT_DELETE = 126, /*  Last port in team being
-+					       * deleted */
-+	BFA_STATUS_IM_NO_DRIVER = 127, /*  IM driver is not installed */
-+	BFA_STATUS_IM_MAX_VLANS_REACHED = 128, /*  Exceeding maximum VLANs
-+						* per port */
-+	BFA_STATUS_TOMCAT_SPD_NOT_ALLOWED = 129, /* Bios speed config not
-+						  * allowed for CNA */
-+	BFA_STATUS_NO_MINPORT_DRIVER = 130, /*  Miniport driver is not
-+					     * loaded */
-+	BFA_STATUS_CARD_TYPE_MISMATCH = 131, /*  Card type mismatch */
-+	BFA_STATUS_BAD_ASICBLK = 132, /*  Bad ASIC block */
-+	BFA_STATUS_NO_DRIVER = 133, /*  Brocade adapter/driver not installed
-+				     * or loaded */
-+	BFA_STATUS_INVALID_MAC = 134, /*  Invalid mac address */
-+	BFA_STATUS_IM_NO_VLAN = 135, /*  No VLANs configured on the adapter */
-+	BFA_STATUS_IM_ETH_LB_FAILED = 136, /*  Ethernet loopback test failed */
-+	BFA_STATUS_IM_PVID_REMOVE = 137, /*  Cannot remove port vlan (PVID) */
-+	BFA_STATUS_IM_PVID_EDIT = 138, /*  Cannot edit port vlan (PVID) */
-+	BFA_STATUS_CNA_NO_BOOT = 139, /*  Boot upload not allowed for CNA */
-+	BFA_STATUS_IM_PVID_NON_ZERO = 140, /*  Port VLAN ID (PVID) is Set to
-+					    * Non-Zero Value */
-+	BFA_STATUS_IM_INETCFG_LOCK_FAILED = 141, /*  Acquiring Network
-+						  * Subsytem Lock Failed.Please
-+						  * try after some time */
-+	BFA_STATUS_IM_GET_INETCFG_FAILED = 142, /*  Acquiring Network Subsytem
-+						 * handle Failed. Please try
-+						 * after some time */
-+	BFA_STATUS_IM_NOT_BOUND = 143, /*  IM driver is not active */
-+	BFA_STATUS_INSUFFICIENT_PERMS = 144, /*  User doesn't have sufficient
-+					      * permissions to execute the BCU
-+					      * application */
-+	BFA_STATUS_IM_INV_VLAN_NAME = 145, /*  Invalid/Reserved Vlan name
-+					    * string. The name is not allowed
-+					    * for the normal Vlans */
-+	BFA_STATUS_CMD_NOTSUPP_CNA = 146, /*  Command not supported for CNA */
-+	BFA_STATUS_IM_PASSTHRU_EDIT = 147, /*  Can not edit passthru vlan id */
-+	BFA_STATUS_IM_BIND_FAILED = 148, /*! < IM Driver bind operation
-+					  * failed */
-+	BFA_STATUS_IM_UNBIND_FAILED = 149, /* ! < IM Driver unbind operation
-+					    * failed */
-+	BFA_STATUS_IM_PORT_IN_TEAM = 150, /*  Port is already part of the
-+					   * team */
-+	BFA_STATUS_IM_VLAN_NOT_FOUND = 151, /*  VLAN ID doesn't exists */
-+	BFA_STATUS_IM_TEAM_NOT_FOUND = 152, /*  Teaming configuration doesn't
-+					     * exists */
-+	BFA_STATUS_IM_TEAM_CFG_NOT_ALLOWED = 153, /*  Given settings are not
-+						   * allowed for the current
-+						   * Teaming mode */
-+	BFA_STATUS_MAX_VAL		/*  Unknown error code */
-+};
-+#define bfa_status_t enum bfa_status
-+
-+enum bfa_eproto_status {
-+	BFA_EPROTO_BAD_ACCEPT = 0,
-+	BFA_EPROTO_UNKNOWN_RSP = 1
-+};
-+#define bfa_eproto_status_t enum bfa_eproto_status
-+
-+#endif /* __BFA_DEFS_STATUS_H__ */
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_version.h net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_version.h
---- net-next-2.6-orig/drivers/net/bna/include/defs/bfa_defs_version.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/defs/bfa_defs_version.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,23 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+#ifndef __BFA_DEFS_VERSION_H__
-+#define __BFA_DEFS_VERSION_H__
-+
-+#define BFA_VERSION_LEN		64
-+
-+#endif
-diff -ruP net-next-2.6-orig/drivers/net/bna/include/protocol/types.h net-next-2.6-mod/drivers/net/bna/include/protocol/types.h
---- net-next-2.6-orig/drivers/net/bna/include/protocol/types.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6-mod/drivers/net/bna/include/protocol/types.h	2009-11-26 00:07:08.000000000 -0800
-@@ -0,0 +1,39 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+
-+/**
-+ *  types.h Protocol defined base types
-+ */
-+
-+#ifndef __TYPES_H__
-+#define __TYPES_H__
-+
-+#include "cna.h"
-+
-+#define wwn_t u64
-+
-+#define FC_SYMNAME_MAX	256	/*  max name server symbolic name size */
-+#define FC_ALPA_MAX	128
-+
-+#pragma pack(1)
-+
-+struct mac { u8 mac[ETH_ALEN]; };
-+
-+#pragma pack()
-+
-+#endif
++#endif /* __BNA_INTR_H__ */
