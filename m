@@ -1,88 +1,52 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [Bug 14470] New: freez in TCP stack
-Date: Thu, 26 Nov 2009 23:54:53 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
-References: <20091028151313.ba4a4d23.akpm@linux-foundation.org> <4AE9298C.1000204@gmail.com> <4AE92F4D.6070101@gmail.com> <20091029.010009.175904855.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: how expensive are mallocs?
+Date: Thu, 26 Nov 2009 23:25:27 +0100
+Message-ID: <877htc6i08.fsf@basil.nowhere.org>
+References: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-504701655-1259272493=:24189"
-Cc: eric.dumazet@gmail.com, Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>, kolo@albatani.cz,
-	bugzilla-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andrew Grover <andy.grover@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48859 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016AbZKZVys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 16:54:48 -0500
-In-Reply-To: <20091029.010009.175904855.davem@davemloft.net>
+Received: from one.firstfloor.org ([213.235.205.2]:33713 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbZKZWZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 17:25:23 -0500
+In-Reply-To: <c0a09e5c0911240957x45abfb26k1611e53f435e5179@mail.gmail.com> (Andrew Grover's message of "Tue, 24 Nov 2009 09:57:34 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Andrew Grover <andy.grover@gmail.com> writes:
 
----696230645-504701655-1259272493=:24189
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+> How much effort generally makes sense to avoid mallocs? For example,
 
-On Thu, 29 Oct 2009, David Miller wrote:
+The slab allocators are very optimized, with a fast path for
+allocation and freeing that's essentially "disable interrupts ; 
+unlink object from a list ; reenable". That's not expensive
+(unless you're running on a CPU where disabling interrupts is)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 29 Oct 2009 06:59:41 +0100
-> 
-> > [PATCH] tcp: clear retrans hints in tcp_send_synack()
-> > 
-> > There is a small possibility the skb we unlink from write queue 
-> > is still referenced by retrans hints.
-> > 
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> So, this would only be true if we were dealing with a data
-> packet here.  We're not, this is a SYN+ACK which happens to
-> be cloned in the write queue.
-> 
-> The hint SKBs pointers can only point to real data packets.
-> 
-> And we're only dealing with data packets once we enter established
-> state, and when we enter established by definition we have unlinked
-> and freed up any SYN and SYN+ACK SKBs in the write queue.
+The main costs in them come when you free objects on a different CPU
+(or worse node) than where you allocate them. In that case you can end
+up with some bounced cache lines, which are slow. If you can avoid
+that you're good. If you can't even then you would need to make major
+effort to do better.
 
-How about this then... Does the original reporter have NFS in use?
+> Also, RDS has its own per-cpu page remainder allocator (see
+> net/rds/page.c) for kernel send buffers. Would cutting this code and
+> just using kmalloc be recommended? Doesn't SL?B already do per-cpu
+> pools?
 
-[PATCH] tcp: clear hints to avoid a stale one (nfs only affected?)
+Slab is all per cpu in the fast path, but see above.
 
-Eric Dumazet mentioned in a context of another problem:
+> Does this stuff even matter enough to rise above the noise in benchmarks?
 
-"Well, it seems NFS reuses its socket, so maybe we miss some
-cleaning as spotted in this old patch"
+Yes it does in some circumstances, but it's hard to do better.
 
-I've not check under which conditions that actually happens but
-if true, we need to make sure we don't accidently leave stale
-hints behind when the write queue had to be purged (whether reusing
-with NFS can actually happen if purging took place is something I'm
-not sure of).
+One example of doing better for special circumstances would be Eric's
+rps work, but doing these things is not easy and only worth it
+for really critical cases.
 
-...At least it compiles.
+-Andi
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/tcp.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 03a49c7..6b13faa 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1228,6 +1228,7 @@ static inline void tcp_write_queue_purge(struct sock *sk)
- 	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL)
- 		sk_wmem_free_skb(sk, skb);
- 	sk_mem_reclaim(sk);
-+	tcp_clear_all_retrans_hints(tcp_sk(sk));
- }
- 
- static inline struct sk_buff *tcp_write_queue_head(struct sock *sk)
 -- 
-1.5.6.5
-
----696230645-504701655-1259272493=:24189--
+ak@linux.intel.com -- Speaking for myself only.
