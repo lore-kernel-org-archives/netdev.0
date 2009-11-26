@@ -1,64 +1,66 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/4] veth: move loopback logic to common location
-Date: Thu, 26 Nov 2009 08:38:53 -0800
-Message-ID: <m1r5rlz1eq.fsf@fess.ebiederm.org>
-References: <1259024166-28158-1-git-send-email-arnd@arndb.de>
-	<m1aayb6bfg.fsf@fess.ebiederm.org> <4B0C2824.5010502@trash.net>
-	<200911261621.28298.arnd@arndb.de> <4B0E9FD0.4040107@trash.net>
+From: Andreas Schultz <aschultz@warp10.net>
+Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
+Date: Thu, 26 Nov 2009 18:19:24 +0100
+Message-ID: <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
+References: <db81a9a20911230443h443b3c2l8fab5aef7b09cfa@mail.gmail.com>
+	 <1259137434.9191.3.camel@nienna.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Anna Fischer <anna.fischer@hp.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758898AbZKZQjC@vger.kernel.org>
-In-Reply-To: <4B0E9FD0.4040107@trash.net> (Patrick McHardy's message of "Thu\, 26 Nov 2009 16\:33\:36 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: tproxy@lists.balabit.hu, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>
+To: KOVACS Krisztian <hidden@balabit.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.27]:20804 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760448AbZKZRTT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Nov 2009 12:19:19 -0500
+Received: by ey-out-2122.google.com with SMTP id 4so251532eyf.19
+        for <netdev@vger.kernel.org>; Thu, 26 Nov 2009 09:19:24 -0800 (PST)
+In-Reply-To: <1259137434.9191.3.camel@nienna.balabit>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
+Hi,
 
-> Arnd Bergmann wrote:
->> On Tuesday 24 November 2009, Patrick McHardy wrote:
->>> Eric W. Biederman wrote:
->>>> I don't quite follow what you intend with dev_queue_xmit when the macvlan
->>>> is in one namespace and the real physical device is in another.  Are
->>>> you mentioning that the packet classifier runs in the namespace where
->>>> the primary device lives with packets from a different namespace?
->>> Exactly. And I think we should make sure that the namespace of
->>> the macvlan device can't (deliberately or accidentally) cause
->>> misclassification.
->> 
->> This is independent of my series and a preexisting problem, right?
->
-> Correct.
->
->> Which fields do you think need to be reset to maintain namespace
->> isolation for the outbound path in macvlan?
->
-> In addition to those already handled, I'd say
->
-> - priority: affects qdisc classification, may refer to classes of the
->   old namespace
-> - ipvs_property: might cause packets to incorrectly skip netfilter hooks
-> - nf_trace: might trigger packet tracing
-> - nf_bridge: contains references to network devices in the old NS,
->   also indicates packet was bridged
-> - iif: index is only valid in the originating namespace
-> - tc_index: classification result, should only be set in the namespace
->   of the classifier
-> - tc_verd: RTTL etc. should begin at zero again
-> - probably secmark.
+git bisect shows that TPROXY has been broken by commit
+f7c6fd2465d8e6f4f89c5d1262da10b4a6d499d0, [PATCH] net: Fix RPF to work
+with policy routing
 
-Wow.  I thought we were trying to reduce skbuff, where did all of those
-fields come from?  Regarless that sounds like a good list to get stomped.
+I had a look at the patch, and it seems logical that this would break TPROXY.
 
-Eric
+Andreas
+
+On Wed, Nov 25, 2009 at 9:23 AM, KOVACS Krisztian <hidden@balabit.hu> wrote:
+> Hi,
+>
+> On Mon, 2009-11-23 at 13:43 +0100, Andreas Schultz wrote:
+>> I was trying to replace a setup based on a 2.6.27.14 kernel with a
+>> 2.6.32-rc8 kernel and found that TPROXY is no longer working.
+>>
+>> The 2.6.27.14 kernel had the last stable tproxy patch plus some
+>> additional fixes (TIME_WAIT, inet_sk_flowi_flags).
+>> Since 2.6.32 is supposed to have working tproxy support, i dropped all patches.
+>>
+>> Now, connections to the local tproxy port no longer arrive at that port.
+>> From the kernel log:
+>>
+>> Nov 23 12:32:31 scg01-wiwob user.debug kernel: tproxy socket lookup:
+>> proto 6 ac19c4df:49175 -> c0a80208:80, lookup type: 2, sock (null)
+>> Nov 23 12:32:31 scg01-wiwob user.debug kernel: tproxy socket lookup:
+>> proto 6 ac19c4df:49175 -> c0a80208:3128, lookup type: 1, sock debae040
+>> Nov 23 12:32:31 scg01-wiwob user.debug kernel: redirecting: proto 6
+>> c0a80208:80 -> 00000000:3128, mark: 880400a0
+>>
+>>
+>> The redirecting message is the last indication of the packet. tcpdump
+>> shows that no answer for the initial packet goes out and the listening
+>> socket it not notified either.
+>
+> I'll have a look at this. In the meantime, could you please post your
+> kernel config, along with a summary of the iptables & ip rules you're
+> using?
+>
+> Cheers,
+> Krisztian
+>
+>
