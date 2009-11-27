@@ -1,52 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Fri, 27 Nov 2009 22:36:40 +0100
-Message-ID: <20091127213640.GA2611@ami.dom.local>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
-	<20091124111946.GA7883@ff.dom.local>
-	<81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
-	<20091125191105.GA3167@ami.dom.local>
-	<81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: scp stalls mysteriously
+Date: Sat, 28 Nov 2009 00:12:23 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi>
+References: <20091127223545.2a752429@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
+To: Frederic Leroy <fredo@starox.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57078 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751517AbZK0WMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:12:18 -0500
+In-Reply-To: <20091127223545.2a752429@houba>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 27, 2009 at 01:07:53PM -0500, Caleb Cushing wrote:
-> 2.6.32-rc8 seemed to be affected (guess. because my net didn't come up
-> on reboot. further testing will likely verify) also during reboots I
-> found out that the version I've been thinking is good is afflicted. I
-> supposed maybe I should try bisecting again? starting with that point.
-> not sure it'll do us much good if that version was able to slip by for
-> so long. I really hate intermittent bugs.
+On Fri, 27 Nov 2009, Frederic Leroy wrote:
 
-I doubt bisecting is a good idea with so unpredictable bug. First, you
-should make sure it's not a hardware problem, so go back to the kernel
-you trust most, and give it a really long try with a few recompilations
-after slightly changing the config. Btw, I wonder if you tried e1000e
-module parameters like IntMode=0 or 1.
+> Ilpo,
+> 
+> I put traces of stall here : 
+> http://www.starox.org/pub/scp_stall/
+> 
+> openssh versions : 
+> 
+> houba tmp # equery l openssh
+> [ Searching for package 'openssh' in all categories among: ]
+>  * installed packages
+> [I--] [  ] net-misc/openssh-5.2_p1-r3 (0)
+> 
+> fredo@sg:~$ dpkg -l | grep ssh
+> ii  libssh2-1                         0.18-1                    SSH2 client-side library
+> ii  openssh-blacklist                 0.4.1                     list of default blacklisted OpenSSH RSA and 
+> ii  openssh-client                    1:5.1p1-5                 secure shell client, an rlogin/rsh/rcp repla
+> ii  openssh-server                    1:5.1p1-5                 secure shell server, an rshd replacement
+> ii  ssh                               1:5.1p1-5                 secure shell client and server (metapackage)
+> 
+> I will downgrade gentoo ssh and give another try ...
 
-Jarek P.
+...I think we can drop ssh from suspect lists for now.
 
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+Your proc/net/tcp capture on houba was perhaps made too late? ...The 
+connection is missing already.
+
+But anyway, at least the problem is visible... It seems that 3998:4046 
+gets never retransmitted, not even by RTO which seems very very strange
+to me... And after this: 23:21:56.154269 IP 192.168.1.19.50028 > 
+192.168.1.15.22: . ack 3998 win 379 ... sack 3 
+{4238:4286}{4142:4190}{4046:4094}> also fast retransmit should have 
+already triggered. ...I'll look more into this if I can figure it out 
+from the current traces but it'll take a while.
+
+
+-- 
+ i.
