@@ -1,43 +1,58 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] macvlan: allow in-kernel modules to create and manage macvlan devices
-Date: Fri, 27 Nov 2009 23:19:53 +0100
-Message-ID: <200911272319.53825.arnd@arndb.de>
-References: <20091113195201.11184.25766.stgit@mimic.site> <20091113195529.11184.19011.stgit@mimic.site>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: scp stalls mysteriously
+Date: Fri, 27 Nov 2009 23:22:57 +0100
+Message-ID: <20091127232257.1c13ccde@houba>
+References: <20091127223545.2a752429@houba>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Patrick Mullaney <pmullaney@novell.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	"Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>,
+	Asdo <asdo@shiftmail.org>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:61770 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbZK0WTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:19:52 -0500
-In-Reply-To: <20091113195529.11184.19011.stgit@mimic.site>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:41534 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751012AbZK0WXP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:23:15 -0500
+In-Reply-To: <20091127223545.2a752429@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 13 November 2009, Patrick Mullaney wrote:
-> @@ -318,7 +318,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
->  #define MACVLAN_FEATURES \
->         (NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
->          NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
-> -        NETIF_F_TSO_ECN | NETIF_F_TSO6)
-> +        NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
->  
->  #define MACVLAN_STATE_MASK \
->         ((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
+Le Fri, 27 Nov 2009 22:35:45 +0100,
+=46rederic Leroy <fredo@starox.org> a =C3=A9crit :
+> openssh versions :=20
+>=20
+> houba tmp # equery l openssh
+> [ Searching for package 'openssh' in all categories among: ]
+>  * installed packages
+> [I--] [  ] net-misc/openssh-5.2_p1-r3 (0)
+>=20
+> fredo@sg:~$ dpkg -l | grep ssh
+> ii  libssh2-1                         0.18-1                    SSH2
+> client-side library ii  openssh-blacklist
+> 0.4.1                     list of default blacklisted OpenSSH RSA and
+> ii  openssh-client                    1:5.1p1-5
+> secure shell client, an rlogin/rsh/rcp repla ii
+> openssh-server                    1:5.1p1-5                 secure
+> shell server, an rshd replacement ii
+> ssh                               1:5.1p1-5                 secure
+> shell client and server (metapackage)
+>=20
+> I will downgrade gentoo ssh and give another try ...
 
-This hunk looks like it should be a separate patch, because we will
-want to have this independently of the rest. I have taken it into
-a series I'm preparing for a new posting of macvtap based on the
-current net-next tree with my bridge mode changes. I also have
-your patch 1 (the fixed version) and 2 in there. It's currently
-work in progress, but if you are interested, take a look at [1].
+Argh !!!=20
 
-	Arnd <><
+I emerged openssh-5.1_p1-r2 on houba.
+Restarted ssh server (/etc/init.d/sshd restart)
+Log on sg and make a scp as usual.=20
+It worked fine.
+Make a second copy, and It worked fine also.
 
-[1] http://git.kernel.org/?p=linux/kernel/git/arnd/playground.git;a=shortlog;h=refs/heads/macvlan
+Then, I emerged openssh-5.2_p1-r3 on houba, restarted sshd, make three
+big copies ... and finally it worked fine.=20
+
+The bug mysteriously escaped from the dungeon !
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
