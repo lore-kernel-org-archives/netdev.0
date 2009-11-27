@@ -1,17 +1,17 @@
 From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: scp stalls mysteriously
-Date: Sat, 28 Nov 2009 00:28:55 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911280026230.11977@melkinpaasi.cs.helsinki.fi>
+Date: Sat, 28 Nov 2009 00:30:16 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911280029040.11977@melkinpaasi.cs.helsinki.fi>
 References: <20091127223545.2a752429@houba> <20091127232257.1c13ccde@houba>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-592353618-1259360935=:11977"
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-1007352497-1259361016=:11977"
 Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
 To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33521 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54128 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbZK0W2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:28:49 -0500
+	with ESMTP id S1753119AbZK0WaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:30:10 -0500
 In-Reply-To: <20091127232257.1c13ccde@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,7 +19,7 @@ List-ID: <netdev.vger.kernel.org>
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----696230645-592353618-1259360935=:11977
+---696230645-1007352497-1259361016=:11977
 Content-Type: TEXT/PLAIN; charset=utf-8
 Content-Transfer-Encoding: 8BIT
 
@@ -60,10 +60,9 @@ On Fri, 27 Nov 2009, Frederic Leroy wrote:
 > 
 > The bug mysteriously escaped from the dungeon !
 
-...You probably just lacked the losses which are crucial so it certainly 
-hasn't escaped anywhere (I guess that due to some random factor you didn't 
-get the losses this time and all of course will then work).
+...Anyway, I'll probably try to reproduce tomorrow myself based on the 
+patterns I see in your logs.
 
 -- 
  i.
----696230645-592353618-1259360935=:11977--
+---696230645-1007352497-1259361016=:11977--
