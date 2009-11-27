@@ -1,46 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/3] netdevice: provide common routine for macvlan and vlan operstate management
-Date: Fri, 27 Nov 2009 14:09:28 +0100
-Message-ID: <200911271409.28810.arnd@arndb.de>
-References: <20091113195201.11184.25766.stgit@mimic.site> <20091113195513.11184.63631.stgit@mimic.site>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: ucc_geth doesn't work properly with vlans enabled.
+Date: Fri, 27 Nov 2009 10:08:26 -0500
+Message-ID: <20091127150826.GA13458@caffeine.csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Patrick Mullaney <pmullaney@novell.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Len Sorensen <lsorense@csclub.uwaterloo.ca>
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:65004 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbZK0NJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 08:09:41 -0500
-In-Reply-To: <20091113195513.11184.63631.stgit@mimic.site>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:38074 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753126AbZK0PGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 10:06:51 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 13 November 2009, Patrick Mullaney wrote:
-> @@ -551,7 +532,7 @@ static int macvlan_newlink(struct net_device *dev,
->                 return err;
->  
->         list_add_tail(&vlan->list, &port->vlans);
-> -       macvlan_transfer_operstate(dev);
-> +       netif_stacked_transfer_operstate(dev, lowerdev);
->         return 0;
->  }
->  
-> @@ -591,7 +572,8 @@ static int macvlan_device_event(struct notifier_block *unused,
->         switch (event) {
->         case NETDEV_CHANGE:
->                 list_for_each_entry(vlan, &port->vlans, list)
-> -                       macvlan_transfer_operstate(vlan->dev);
-> +                       netif_stacked_transfer_operstate(vlan->dev,
-> +                                                        vlan->lowerdev);
->                 break;
->         case NETDEV_FEAT_CHANGE:
->                 list_for_each_entry(vlan, &port->vlans, list) {
+We just started using vlans on our powerpc platform, and we noticed that
+we were getting dropped packets when using the vlan interfaces.
+After a bit of debuging it turned out that dropping the MUT on the
+client machine to 1496 made the problem go away, which was of course
+also very suspicious.
 
-These have the arguments reversed, lowerdev should come first.
+So looking through the driver I found the max packet length is set to 1518
+which of course is the right size for a 1500byte packet as long as it is
+not vlan tagged.  The UCC happens to have support for recognizing vlan
+tagged packets and dynamically increasing the allowed size in the vlan
+tagged case by 4 bytes which is great if it works.  Well it turns out,
+that feature works, but isn't actually enabled in the driver.  The code
+to handle activating it is there, but there is no code anywhere to ever
+set that parameter.
 
-	Arnd <><
+Specifically:
+
+        if (ug_info->dynamicMaxFrameLength)
+                remoder |= REMODER_DYNAMIC_MAX_FRAME_LENGTH;
+
+This code works fine, but ug_info->dynamicMaxFrameLength is never touched
+anywhere other than being memset to 0 initially as part of the struct.
+
+So a simple hack of:
+
+        if (ug_info->dynamicMaxFrameLength || 1)
+                remoder |= REMODER_DYNAMIC_MAX_FRAME_LENGTH;
+
+makes it work perfectly with vlans, but is obviously not the right way
+to solve this.
+
+What would be the right way to solve this?  What was the intent here I
+wonder when it was written?  Certainly the current behaviour means vlans
+can't be used on this driver.
+
+-- 
+Len Sorensen
