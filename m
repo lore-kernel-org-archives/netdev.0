@@ -1,37 +1,54 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [RFC PATCH 08/10] be2net: remove use of skb_dma_map/unmap
-Date: Fri, 27 Nov 2009 14:28:07 +0530
-Message-ID: <20091127085805.GA8808@serverengines.com>
-References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
- <20091125012054.32704.71183.stgit@gitlad.jf.intel.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP sockets stalling - help! (long)
+Date: Fri, 27 Nov 2009 11:10:51 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911271103590.2459@melkinpaasi.cs.helsinki.fi>
+References: <4B0CB1B8.8030402@shiftmail.org> <20091126233302.42be8780@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mcarlson@broadcom.com, mchan@broadcom.com,
-	sathyap@serverengines.com, subbus@serverengines.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: MULTIPART/MIXED; boundary="-696230645-749890138-1259312965=:2459"
+Cc: Asdo <asdo@shiftmail.org>, Netdev <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:34759 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751505AbZK0I6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 03:58:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20091125012054.32704.71183.stgit@gitlad.jf.intel.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35519 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbZK0JKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:10:45 -0500
+In-Reply-To: <20091126233302.42be8780@houba>
+Content-ID: <alpine.DEB.2.00.0911271109400.2459@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/11/09 17:20 -0800, Alexander Duyck wrote:
-> Due to the fact that skb_dma_map/unmap do not work correctly when a HW
-> IOMMU is enabled it has been recommended to go about removing the calls
-> from the network device drivers.
->     
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
->  drivers/net/benet/be_main.c |   37 ++++++++++++++++++++++++++-----------
->  1 files changed, 26 insertions(+), 11 deletions(-)
-> 
-Thanks for the changes. They are good to go.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Acked-by: Ajit Khaparde <ajitk@serverengines.com>
+---696230645-749890138-1259312965=:2459
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0911271109401.2459@melkinpaasi.cs.helsinki.fi>
+
+On Thu, 26 Nov 2009, Frederic Leroy wrote:
+
+> Le Wed, 25 Nov 2009 05:25:28 +0100,
+> Asdo <asdo@shiftmail.org> a écrit :
+> 
+> > Hi netdev and e1000 people,
+> > 
+> > I have a weird problem here.
+> > [...]
+> 
+> I have the same kind of problem at home. I can't copy big files over
+> ssh unless I limit the rate ( ssh -l 8000 ... )
+> After reading your mail, I make some quick tests ( see below).
+> 
+> Results in short :
+> - netcat always work.
+> - ssh stalls, nearly immediately.
+
+One important result is missing though... could you perhaps get a tcpdump 
+from the stall and get also the info available in /proc/net/tcp for the 
+connection (during the stall), that would help some in figuring out what 
+is going on... ...Preferably in new/renamed thread, don't forget to cc me.
+
+-- 
+ i.
+---696230645-749890138-1259312965=:2459--
