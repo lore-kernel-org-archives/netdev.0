@@ -1,66 +1,47 @@
-From: Narendra K <Narendra_K@dell.com>
-Subject: [PROPOSAL]: Support Alternate Network Device Naming Schemes
-Date: Fri, 27 Nov 2009 03:11:01 -0600
-Message-ID: <20091127091100.GA23760@mock.linuxdev.us.dell.com>
+From: Andreas Schultz <aschultz@warp10.net>
+Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
+Date: Fri, 27 Nov 2009 10:11:47 +0100
+Message-ID: <db81a9a20911270111j2ddaf967od3d7467e0295ba36@mail.gmail.com>
+References: <db81a9a20911230443h443b3c2l8fab5aef7b09cfa@mail.gmail.com>
+	 <1259137434.9191.3.camel@nienna.balabit>
+	 <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
+	 <1259310417.3809.5.camel@nienna.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, matt_domsch@dell.com,
-	charles_rose@dell.com, sandeep_k_shandilya@dell.com,
-	jordan_hargrave@dell.com, shyam_iyer@dell.com
-To: anaconda-devel-list@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: tproxy@lists.balabit.hu, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>
+To: KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:40353 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752800AbZK0JKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:10:55 -0500
-Content-Disposition: inline
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:34292 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442AbZK0JLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:11:42 -0500
+Received: by ewy19 with SMTP id 19so1204171ewy.21
+        for <netdev@vger.kernel.org>; Fri, 27 Nov 2009 01:11:47 -0800 (PST)
+In-Reply-To: <1259310417.3809.5.camel@nienna.balabit>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-We have been having discussions in the netdev list about creating multiple names for the network interfaces to bring determinism into the way network interfaces are named in the OSes. In specific, "eth0 in the OS does not always map to the integrated NIC Gb1 as labelled on the chassis".  
+On Fri, Nov 27, 2009 at 9:26 AM, KOVACS Krisztian <hidden@balabit.hu> wrote:
+> Hi,
+>
+> On Thu, 2009-11-26 at 18:19 +0100, Andreas Schultz wrote:
+>> Hi,
+>>
+>> git bisect shows that TPROXY has been broken by commit
+>> f7c6fd2465d8e6f4f89c5d1262da10b4a6d499d0, [PATCH] net: Fix RPF to work
+>> with policy routing
+>>
+>> I had a look at the patch, and it seems logical that this would break TPROXY.
+>
+> Indeed, that's a good catch. If this is indeed the problem you should be
+> able to work it around by disabling rpfilter on the ingress interface.
+> Does it work that way?
 
-http://marc.info/?l=linux-netdev&m=125510301513312&w=2 - (Re: PATCH: Network Device Naming mechanism and policy)
-http://marc.info/?l=linux-netdev&m=125619338904322&w=2 - ([PATCH] udev: create empty regular files to represent net)
+That was my first guess also. I disabled rp_filter on all interfaces
+and it had no impact. So far, only reverting that patch has solved the
+problem.
 
-As a result of those discussions, we propose an installer based solution.
-
-Installers as of now allow the discovered network interfaces to be configured. This solution proposes to provide an option for the users to either retain the default naming convention that the kernel now has, i.e ethN names or rename the network interfaces based on the chassis label, MAC addresses, Driver name and any other naming convention. Here is how the modified network configuration wizard would look during the os installation process - 
-
-
----------- Network Configuration ------------------------
-
-Default [ ] |  SMBIOS Names [x]     |  Driver Names []  | MAC Names []
------------------------------------------------------------------------
- eth0       | Addin_NIC_1           | ice0              |
------------------------------------------------------------------------
- eth1       | Embedded_NIC_1        | bce0              |       
------------------------------------------------------------------------
- eth2       | Embedded_NIC_2        | bce1              |       
------------------------------------------------------------------------
- eth3       | Embedded_NIC_3        | bce2              |            
------------------------------------------------------------------------
- eth4       | Embedded_NIC_4        | bce3              |  
------------------------------------------------------------------------
-
-                                                        ------------
-                                                        | Next     |
-                                                        ------------
-
-[ ice0 - Intel Controller 0, bce0 - Broadcom Controller 0 ] 
-
-1. In addition to the default ethN names the user can check against the available naming conventions and the wizard would show the names the interfaces will be renamed to.
-2. The moment the user hits the Next button all interfaces are renamed as per the Naming convention they have selected.
-3. Any further network communication would  be using the new names.
-4. Ifconfig would show names like "Embedded_NIC_1" and not eth0 etc.
-
-This way the OS names of network interfaces would have a co-relation to the chassis names. Irrespective of what the OS names the integrated port one, i.e eth0 or eth1, Embedded_NIC_1 will always refer to the integrated port 1, bringing in determinism.
-
-Additional Reference:
-http://marc.info/?l=linux-hotplug&m=125692284431543&w=2
-http://marc.info/?l=linux-netdev&m=125683519310462&w=2
-http://marc.info/?l=linux-netdev&m=125754944814387&w=2
-http://marc.info/?l=linux-hotplug&m=125536996902867&w=2
-
-With regards,
-Narendra K
+Andreas
