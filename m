@@ -1,36 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2] netdevice: provide common routine for macvlan and
- vlan	operstate management
-Date: Fri, 27 Nov 2009 23:30:41 +0100
-Message-ID: <4B105311.1020005@trash.net>
-References: <20091127220717.14078.6058.stgit@mimic.site>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] X25: Move SYSCTL ifdefs into header
+Date: Fri, 27 Nov 2009 14:34:44 -0800
+Message-ID: <m1fx7ztx4r.fsf@fess.ebiederm.org>
+References: <d45a3acc0911241715jcb41224y7871ea0878b9df9e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net
-To: Patrick Mullaney <pmullaney@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55844 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbZK0Wah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:30:37 -0500
-In-Reply-To: <20091127220717.14078.6058.stgit@mimic.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-x25@vger.kernel.org
+To: andrew hendry <andrew.hendry@gmail.com>
+Return-path: <linux-x25-owner@vger.kernel.org>
+In-Reply-To: <d45a3acc0911241715jcb41224y7871ea0878b9df9e@mail.gmail.com> (andrew hendry's message of "Wed\, 25 Nov 2009 12\:15\:26 +1100")
+Sender: linux-x25-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick Mullaney wrote:
-> Applies to net-2.6.git/master:0135ae0b9)
-> 
-> Provide common routine for the transition of operational state for a leaf
-> device during a root device transition. This updates a previous patch in
-> my venet macvlan series and fixes the problems that Arnd pointed out.
-> 
-> Is submitting this applied to net-next a more better approach?
+andrew hendry <andrew.hendry@gmail.com> writes:
 
-Yes, please base this patch on net-next.
+> Moves the CONFIG_SYSCTL ifdefs in x25_init into header.
 
-> Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
+This looks like a reasonable change and it doesn't conflict
+with my pending changes in the sysctl tree.
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+>
+> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+>
+> diff -uprN -X a/Documentation/dontdiff a/include/net/x25.h b/include/net/x25.h
+> --- a/include/net/x25.h	2009-11-10 11:32:31.000000000 +1100
+> +++ b/include/net/x25.h	2009-11-25 09:05:21.000000000 +1100
+> @@ -287,8 +287,14 @@ extern unsigned long x25_display_timer(s
+>  extern void x25_check_rbuf(struct sock *);
+>
+>  /* sysctl_net_x25.c */
+> +#ifdef CONFIG_SYSCTL
+>  extern void x25_register_sysctl(void);
+>  extern void x25_unregister_sysctl(void);
+> +#else
+> +static inline void x25_register_sysctl(void) {};
+> +static inline void x25_unregister_sysctl(void) {};
+> +#endif /* CONFIG_SYSCTL */
+> +
+>  struct x25_skb_cb {
+>  	unsigned flags;
+>  };
+> diff -uprN -X a/Documentation/dontdiff a/net/x25/af_x25.c b/net/x25/af_x25.c
+> --- a/net/x25/af_x25.c	2009-11-17 10:30:18.000000000 +1100
+> +++ b/net/x25/af_x25.c	2009-11-25 09:04:25.000000000 +1100
+> @@ -1667,9 +1667,7 @@ static int __init x25_init(void)
+>
+>  	printk(KERN_INFO "X.25 for Linux Version 0.2\n");
+>
+> -#ifdef CONFIG_SYSCTL
+>  	x25_register_sysctl();
+> -#endif
+>  	x25_proc_init();
+>  out:
+>  	return rc;
+> @@ -1682,9 +1680,7 @@ static void __exit x25_exit(void)
+>  	x25_link_free();
+>  	x25_route_free();
+>
+> -#ifdef CONFIG_SYSCTL
+>  	x25_unregister_sysctl();
+> -#endif
+>
+>  	unregister_netdevice_notifier(&x25_dev_notifier);
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
