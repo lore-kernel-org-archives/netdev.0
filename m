@@ -1,73 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/3] X25: Move SYSCTL ifdefs into header
-Date: Fri, 27 Nov 2009 14:34:44 -0800
-Message-ID: <m1fx7ztx4r.fsf@fess.ebiederm.org>
-References: <d45a3acc0911241715jcb41224y7871ea0878b9df9e@mail.gmail.com>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Fri, 27 Nov 2009 17:35:34 -0500
+Message-ID: <81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
+References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
+	<20091124111946.GA7883@ff.dom.local>
+	<81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
+	<20091125191105.GA3167@ami.dom.local>
+	<81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
+	<20091127213640.GA2611@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-x25@vger.kernel.org
-To: andrew hendry <andrew.hendry@gmail.com>
-Return-path: <linux-x25-owner@vger.kernel.org>
-In-Reply-To: <d45a3acc0911241715jcb41224y7871ea0878b9df9e@mail.gmail.com> (andrew hendry's message of "Wed\, 25 Nov 2009 12\:15\:26 +1100")
-Sender: linux-x25-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Frans Pop <elendil@planet.nl>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091127213640.GA2611@ami.dom.local>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-andrew hendry <andrew.hendry@gmail.com> writes:
+> I doubt bisecting is a good idea with so unpredictable bug. First, you
+> should make sure it's not a hardware problem, so go back to the kernel
+> you trust most, and give it a really long try with a few recompilations
+> after slightly changing the config. Btw, I wonder if you tried e1000e
+> module parameters like IntMode=0 or 1.
 
-> Moves the CONFIG_SYSCTL ifdefs in x25_init into header.
+no, how do I set those?
 
-This looks like a reasonable change and it doesn't conflict
-with my pending changes in the sysctl tree.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+-- 
+Caleb Cushing
 
->
-> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
->
-> diff -uprN -X a/Documentation/dontdiff a/include/net/x25.h b/include/net/x25.h
-> --- a/include/net/x25.h	2009-11-10 11:32:31.000000000 +1100
-> +++ b/include/net/x25.h	2009-11-25 09:05:21.000000000 +1100
-> @@ -287,8 +287,14 @@ extern unsigned long x25_display_timer(s
->  extern void x25_check_rbuf(struct sock *);
->
->  /* sysctl_net_x25.c */
-> +#ifdef CONFIG_SYSCTL
->  extern void x25_register_sysctl(void);
->  extern void x25_unregister_sysctl(void);
-> +#else
-> +static inline void x25_register_sysctl(void) {};
-> +static inline void x25_unregister_sysctl(void) {};
-> +#endif /* CONFIG_SYSCTL */
-> +
->  struct x25_skb_cb {
->  	unsigned flags;
->  };
-> diff -uprN -X a/Documentation/dontdiff a/net/x25/af_x25.c b/net/x25/af_x25.c
-> --- a/net/x25/af_x25.c	2009-11-17 10:30:18.000000000 +1100
-> +++ b/net/x25/af_x25.c	2009-11-25 09:04:25.000000000 +1100
-> @@ -1667,9 +1667,7 @@ static int __init x25_init(void)
->
->  	printk(KERN_INFO "X.25 for Linux Version 0.2\n");
->
-> -#ifdef CONFIG_SYSCTL
->  	x25_register_sysctl();
-> -#endif
->  	x25_proc_init();
->  out:
->  	return rc;
-> @@ -1682,9 +1680,7 @@ static void __exit x25_exit(void)
->  	x25_link_free();
->  	x25_route_free();
->
-> -#ifdef CONFIG_SYSCTL
->  	x25_unregister_sysctl();
-> -#endif
->
->  	unregister_netdevice_notifier(&x25_dev_notifier);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+http://xenoterracide.blogspot.com
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
