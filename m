@@ -1,54 +1,66 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP sockets stalling - help! (long)
-Date: Fri, 27 Nov 2009 11:10:51 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0911271103590.2459@melkinpaasi.cs.helsinki.fi>
-References: <4B0CB1B8.8030402@shiftmail.org> <20091126233302.42be8780@houba>
+From: Narendra K <Narendra_K@dell.com>
+Subject: [PROPOSAL]: Support Alternate Network Device Naming Schemes
+Date: Fri, 27 Nov 2009 03:11:01 -0600
+Message-ID: <20091127091100.GA23760@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696230645-749890138-1259312965=:2459"
-Cc: Asdo <asdo@shiftmail.org>, Netdev <netdev@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-To: Frederic Leroy <fredo@starox.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, matt_domsch@dell.com,
+	charles_rose@dell.com, sandeep_k_shandilya@dell.com,
+	jordan_hargrave@dell.com, shyam_iyer@dell.com
+To: anaconda-devel-list@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35519 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbZK0JKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:10:45 -0500
-In-Reply-To: <20091126233302.42be8780@houba>
-Content-ID: <alpine.DEB.2.00.0911271109400.2459@melkinpaasi.cs.helsinki.fi>
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:40353 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbZK0JKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:10:55 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696230645-749890138-1259312965=:2459
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.0911271109401.2459@melkinpaasi.cs.helsinki.fi>
+We have been having discussions in the netdev list about creating multiple names for the network interfaces to bring determinism into the way network interfaces are named in the OSes. In specific, "eth0 in the OS does not always map to the integrated NIC Gb1 as labelled on the chassis".  
 
-On Thu, 26 Nov 2009, Frederic Leroy wrote:
+http://marc.info/?l=linux-netdev&m=125510301513312&w=2 - (Re: PATCH: Network Device Naming mechanism and policy)
+http://marc.info/?l=linux-netdev&m=125619338904322&w=2 - ([PATCH] udev: create empty regular files to represent net)
 
-> Le Wed, 25 Nov 2009 05:25:28 +0100,
-> Asdo <asdo@shiftmail.org> a écrit :
-> 
-> > Hi netdev and e1000 people,
-> > 
-> > I have a weird problem here.
-> > [...]
-> 
-> I have the same kind of problem at home. I can't copy big files over
-> ssh unless I limit the rate ( ssh -l 8000 ... )
-> After reading your mail, I make some quick tests ( see below).
-> 
-> Results in short :
-> - netcat always work.
-> - ssh stalls, nearly immediately.
+As a result of those discussions, we propose an installer based solution.
 
-One important result is missing though... could you perhaps get a tcpdump 
-from the stall and get also the info available in /proc/net/tcp for the 
-connection (during the stall), that would help some in figuring out what 
-is going on... ...Preferably in new/renamed thread, don't forget to cc me.
+Installers as of now allow the discovered network interfaces to be configured. This solution proposes to provide an option for the users to either retain the default naming convention that the kernel now has, i.e ethN names or rename the network interfaces based on the chassis label, MAC addresses, Driver name and any other naming convention. Here is how the modified network configuration wizard would look during the os installation process - 
 
--- 
- i.
----696230645-749890138-1259312965=:2459--
+
+---------- Network Configuration ------------------------
+
+Default [ ] |  SMBIOS Names [x]     |  Driver Names []  | MAC Names []
+-----------------------------------------------------------------------
+ eth0       | Addin_NIC_1           | ice0              |
+-----------------------------------------------------------------------
+ eth1       | Embedded_NIC_1        | bce0              |       
+-----------------------------------------------------------------------
+ eth2       | Embedded_NIC_2        | bce1              |       
+-----------------------------------------------------------------------
+ eth3       | Embedded_NIC_3        | bce2              |            
+-----------------------------------------------------------------------
+ eth4       | Embedded_NIC_4        | bce3              |  
+-----------------------------------------------------------------------
+
+                                                        ------------
+                                                        | Next     |
+                                                        ------------
+
+[ ice0 - Intel Controller 0, bce0 - Broadcom Controller 0 ] 
+
+1. In addition to the default ethN names the user can check against the available naming conventions and the wizard would show the names the interfaces will be renamed to.
+2. The moment the user hits the Next button all interfaces are renamed as per the Naming convention they have selected.
+3. Any further network communication would  be using the new names.
+4. Ifconfig would show names like "Embedded_NIC_1" and not eth0 etc.
+
+This way the OS names of network interfaces would have a co-relation to the chassis names. Irrespective of what the OS names the integrated port one, i.e eth0 or eth1, Embedded_NIC_1 will always refer to the integrated port 1, bringing in determinism.
+
+Additional Reference:
+http://marc.info/?l=linux-hotplug&m=125692284431543&w=2
+http://marc.info/?l=linux-netdev&m=125683519310462&w=2
+http://marc.info/?l=linux-netdev&m=125754944814387&w=2
+http://marc.info/?l=linux-hotplug&m=125536996902867&w=2
+
+With regards,
+Narendra K
