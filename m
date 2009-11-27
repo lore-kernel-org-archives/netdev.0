@@ -1,66 +1,216 @@
-From: Narendra K <Narendra_K@dell.com>
-Subject: [PROPOSAL]: Support Alternate Network Device Naming Schemes
-Date: Fri, 27 Nov 2009 03:42:58 -0600
-Message-ID: <20091127094257.GA24624@mock.linuxdev.us.dell.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH,
+	resend] iproute2/iplink: add macvlan options for bridge mode
+Date: Fri, 27 Nov 2009 10:57:25 +0000
+Message-ID: <200911271157.25748.linux-kernel-owner@vger.kernel.org>
+References: <1258497551-25959-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, matt_domsch@dell.com,
-	charles_rose@dell.com, sandeep_k_shandilya@dell.com,
-	jordan_hargrave@dell.com, shyam_iyer@dell.com
-To: anaconda-devel-list@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:64067 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbZK0Jmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 04:42:52 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@linux-foundation.com,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Arnd Bergmann <arnd@arndb.de>, Anna Fischer <anna.fischer@hp.com>,
+        netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Jens Osterkamp <jens@linux.vnet.ibm.com>,
+        Patrick Mullaney <pmullaney@novell.com>,
+        Stephen Hemminger <shemminger@vyatta.com>,
+        Edge Virtual Bridging <evb@yahoogroups.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1258497551-25959-1-git-send-email-arnd@arndb.de>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+Resending, the kernel patches have gone into net-next,
+so a version of this should go into iproute2.
 
-We have been having discussions in the netdev list about creating multiple names for the network interfaces to bring determinism into the way network interfaces are named in the OSes. In specific, "eth0 in the OS does not always map to the integrated NIC Gb1 as labelled on the chassis".  
+---
+Macvlan can now optionally support forwarding between its
+ports, if they are in "bridge" mode. This adds support
+for this option to "ip link add", "ip link set" and "ip
+-d link show".
 
-http://marc.info/?l=linux-netdev&m=125510301513312&w=2 - (Re: PATCH: Network Device Naming mechanism and policy)
-http://marc.info/?l=linux-netdev&m=125619338904322&w=2 - ([PATCH] udev: create empty regular files to represent net)
+The default mode in the kernel is now "vepa" mode, meaning
+"virtual ethernet port aggregator". This mode is used
+together with the "hairpin" mode of an ethernet bridge
+that the parent of the macvlan device is connected to.
+All frames still get sent out to the external interface,
+but the adjacent bridge is able to send them back on
+the same wire in hairpin mode, so the macvlan ports
+are able to see each other, which the bridge can be
+configured to monitor and control traffic between
+all macvlan instances. Multicast traffic coming in
+from the external interface is checked for the source
+MAC address and only delivered to ports that have not
+yet seen it.
 
-As a result of those discussions, we propose an installer based solution.
+In bridge mode, macvlan will send all multicast traffic
+to other interfaces that are also in bridge mode but
+not to those in vepa mode, which get them on the way
+back from the hairpin.
 
-Installers as of now allow the discovered network interfaces to be configured. This solution proposes to provide an option for the users to either retain the default naming convention that the kernel now has, i.e ethN names or rename the network interfaces based on the chassis label, MAC addresses, Driver name and any other naming convention. Here is how the modified network configuration wizard would look during the os installation process - 
+The third supported mode is "private", which prevents
+communication between macvlans even if the adjacent
+bridge is in hairpin mode. This behavior is closer to
+the original implementation of macvlan but stricly
+maintains isolation.
 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ include/linux/if_link.h |   15 ++++++++
+ ip/Makefile             |    3 +-
+ ip/iplink_macvlan.c     |   93 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 110 insertions(+), 1 deletions(-)
+ create mode 100644 ip/iplink_macvlan.c
 
----------- Network Configuration ------------------------
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index b0b9e8a..425c489 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -188,4 +188,19 @@ struct ifla_vlan_qos_mapping
+ 	__u32 to;
+ };
+ 
++/* MACVLAN section */
++enum {
++	IFLA_MACVLAN_UNSPEC,
++	IFLA_MACVLAN_MODE,
++	__IFLA_MACVLAN_MAX,
++};
++
++enum ifla_macvlan_mode {
++	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
++	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
++	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
++};
++
++#define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
++
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/ip/Makefile b/ip/Makefile
+index 51914e8..46a9836 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -2,7 +2,8 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o \
+     rtm_map.o iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o \
+     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o \
+     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
+-    iplink_vlan.o link_veth.o link_gre.o iplink_can.o
++    iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
++    iplink_macvlan.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
+new file mode 100644
+index 0000000..307f559
+--- /dev/null
++++ b/ip/iplink_macvlan.c
+@@ -0,0 +1,93 @@
++/*
++ * iplink_vlan.c	VLAN device support
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Patrick McHardy <kaber@trash.net>
++ *		Arnd Bergmann <arnd@arndb.de>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <linux/if_link.h>
++
++#include "rt_names.h"
++#include "utils.h"
++#include "ip_common.h"
++
++static void explain(void)
++{
++	fprintf(stderr,
++		"Usage: ... macvlan mode { private | vepa | bridge }\n"
++	);
++}
++
++static int mode_arg(void)
++{
++        fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
++		"\"vepa\" or \"bridge\"\n");
++        return -1;
++}
++
++static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
++			  struct nlmsghdr *n)
++{
++	while (argc > 0) {
++		if (matches(*argv, "mode") == 0) {
++			__u32 mode = 0;
++			NEXT_ARG();
++
++			if (strcmp(*argv, "private") == 0)
++				mode = MACVLAN_MODE_PRIVATE;
++			else if (strcmp(*argv, "vepa") == 0)
++				mode = MACVLAN_MODE_VEPA;
++			else if (strcmp(*argv, "bridge") == 0)
++				mode = MACVLAN_MODE_BRIDGE;
++			else 
++				return mode_arg();
++
++			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "macvlan: what is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--, argv++;
++	}
++
++	return 0;
++}
++
++static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	__u32 mode;
++
++	if (!tb)
++		return;
++
++	if (!tb[IFLA_MACVLAN_MODE] ||
++	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MODE]) < sizeof(__u32))
++		return;
++
++	mode = *(__u32 *)RTA_DATA(tb[IFLA_VLAN_ID]);
++	fprintf(f, " mode %s ",
++		  mode == MACVLAN_MODE_PRIVATE ? "private"
++		: mode == MACVLAN_MODE_VEPA    ? "vepa"
++		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
++		:				 "unknown");
++}
++
++struct link_util macvlan_link_util = {
++	.id		= "macvlan",
++	.maxattr	= IFLA_MACVLAN_MAX,
++	.parse_opt	= macvlan_parse_opt,
++	.print_opt	= macvlan_print_opt,
++};
+-- 
+1.6.3.3
 
-Default [ ] |  SMBIOS Names [x]     |  Driver Names []  | MAC Names []
------------------------------------------------------------------------
- eth0       | Addin_NIC_1           | ice0              |            
------------------------------------------------------------------------
- eth1       | Embedded_NIC_1        | bce0              |             
------------------------------------------------------------------------
- eth2       | Embedded_NIC_2        | bce1              |             
------------------------------------------------------------------------
- eth3       | Embedded_NIC_3        | bce2              |            
------------------------------------------------------------------------
- eth4       | Embedded_NIC_4        | bce3              |            
------------------------------------------------------------------------
-
-                                                        ------------
-                                                        | Next     |
-                                                        ------------
-
-[ ice0 - Intel Controller 0, bce0 - Broadcom Controller 0 ] 
-
-1. In addition to the default ethN names the user can check against the available naming conventions and the wizard would show the names the interfaces will be renamed to.
-2. The moment the user hits the Next button all interfaces are renamed as per the Naming convention they have selected.
-3. Any further network communication would  be using the new names.
-4. Ifconfig would show names like "Embedded_NIC_1" and not eth0 etc.
-
-This way the OS names of network interfaces would have a co-relation to the chassis names. Irrespective of what the OS names the integrated port one, i.e eth0 or eth1, Embedded_NIC_1 will always refer to the integrated port 1, bringing in determinism.
-
-Additional Reference:
-http://marc.info/?l=linux-hotplug&m=125692284431543&w=2
-http://marc.info/?l=linux-netdev&m=125683519310462&w=2
-http://marc.info/?l=linux-netdev&m=125754944814387&w=2
-http://marc.info/?l=linux-hotplug&m=125536996902867&w=2
-
-With regards,
-Narendra K
