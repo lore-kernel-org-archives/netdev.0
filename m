@@ -1,38 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Fri, 27 Nov 2009 23:42:06 +0100
-Message-ID: <20091127224206.GA3350@ami.dom.local>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
- <20091124111946.GA7883@ff.dom.local>
- <81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
- <20091125191105.GA3167@ami.dom.local>
- <81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
- <20091127213640.GA2611@ami.dom.local>
- <81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/3] macvlan: support for guest vm direct rx/tx
+Date: Sat, 28 Nov 2009 00:43:58 +0100
+Message-ID: <200911280043.58784.arnd@arndb.de>
+References: <4AFAD86A.9070506@trash.net> <20091113195201.11184.25766.stgit@mimic.site> <20091113132728.0f1db7c5@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753701AbZK0Wme@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick Mullaney <pmullaney@novell.com>, kaber@trash.net,
+	netdev@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.171]:49523 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbZK0Xn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 18:43:58 -0500
+In-Reply-To: <20091113132728.0f1db7c5@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 27, 2009 at 05:35:34PM -0500, Caleb Cushing wrote:
-> > I doubt bisecting is a good idea with so unpredictable bug. First, you
-> > should make sure it's not a hardware problem, so go back to the kernel
-> > you trust most, and give it a really long try with a few recompilations
-> > after slightly changing the config. Btw, I wonder if you tried e1000e
-> > module parameters like IntMode=0 or 1.
-> 
-> no, how do I set those?
+On Friday 13 November 2009, Stephen Hemminger wrote:
+> Also, macvlan should really being calling netif_receive_skb()
+> not going through another queue/softirq cycle.
 
-modprobe -r e1000e
-modprobe e1000e IntMode=0
+I've added a patch for this in my experimental queue now.
+When I last tried this, I saw a kernel stack overflow
+but it seems fine now.
 
-Jarek P.
+I wonder if we can also return from the macvlan hook with
+skb->dev changed to netif_receive_skb rather than calling it
+recursively.
+
+	Arnd <><
