@@ -1,113 +1,46 @@
-From: Asdo <asdo@shiftmail.org>
-Subject: Re: TCP sockets stalling - help! (long)
-Date: Fri, 27 Nov 2009 13:56:13 +0100
-Message-ID: <4B0FCC6D.3050003@shiftmail.org>
-References: <4B0CB1B8.8030402@shiftmail.org> <20091126233302.42be8780@houba>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/3] netdevice: provide common routine for macvlan and vlan operstate management
+Date: Fri, 27 Nov 2009 14:09:28 +0100
+Message-ID: <200911271409.28810.arnd@arndb.de>
+References: <20091113195201.11184.25766.stgit@mimic.site> <20091113195513.11184.63631.stgit@mimic.site>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3949664984720259570=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
-To: Frederic Leroy <fredo@starox.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-reply-to: <20091126233302.42be8780@houba>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
-
---===============3949664984720259570==
-Content-type: multipart/alternative;
-	boundary="Boundary_(ID_vr+HEWKTlefyZYpQJ5V+mA)"
-
-This is a multi-part message in MIME format.
-
---Boundary_(ID_vr+HEWKTlefyZYpQJ5V+mA)
-Content-type: text/plain; format=flowed; charset=UTF-8
-Content-transfer-encoding: QUOTED-PRINTABLE
-
-Frederic Leroy wrote:
-> Le Wed, 25 Nov 2009 05:25:28 +0100,
-> Asdo <asdo@shiftmail.org> a =C3=A9crit :
->
->  =20
->> Hi netdev and e1000 people,
->>
->> I have a weird problem here.
->> [...]
->>    =20
->
-> I have the same kind of problem at home. I can't copy big files ove=
-r
-> ssh unless I limit the rate ( ssh -l 8000 ... )
-> After reading your mail, I make some quick tests ( see below).
->
-> Results in short :
-> - netcat always work.
-> - ssh stalls, nearly immediately.
->  =20
-Good God it's true then!
-
-I think I have an idea for why Netcat works while scp doesn't:
-probably SCP pushing data requires replies from the application layer=
-=20
-(the 60 bytes I was telling about for SFTP) while netcat doesnt, it j=
-ust=20
-needs the Acks to keep pushing data.
-
-Still if I am right, with Netcat you might end up with a corrupted fi=
-le=20
-on the other side (shorter). Or maybe not, depending on how exactly t=
-he=20
-bug is made. Could you check this? Filesize and md5sum.
-
-I think I just reproduced the bug on another machine, different hardw=
-are=20
-(Supermicro mainboard), same Ubuntu, same kernel, same integrated Int=
-el=20
-network card. It just takes 5 hours or so for me to trigger.
-
-Do you have Intel network card, with e1000e driver on SG? (see lsmod)=
-=20
-(sorry I was wrong before, it's e1000e in my case not e1000) Otherwis=
-e=20
-it's probably the TCP layer...
-
-Would you paste here your lspci and lsmod?
-
-Thank you
-
-
-
---Boundary_(ID_vr+HEWKTlefyZYpQJ5V+mA)--
-
-
---===============3949664984720259570==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Patrick Mullaney <pmullaney@novell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:65004 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbZK0NJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 08:09:41 -0500
+In-Reply-To: <20091113195513.11184.63631.stgit@mimic.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
---===============3949664984720259570==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Friday 13 November 2009, Patrick Mullaney wrote:
+> @@ -551,7 +532,7 @@ static int macvlan_newlink(struct net_device *dev,
+>                 return err;
+>  
+>         list_add_tail(&vlan->list, &port->vlans);
+> -       macvlan_transfer_operstate(dev);
+> +       netif_stacked_transfer_operstate(dev, lowerdev);
+>         return 0;
+>  }
+>  
+> @@ -591,7 +572,8 @@ static int macvlan_device_event(struct notifier_block *unused,
+>         switch (event) {
+>         case NETDEV_CHANGE:
+>                 list_for_each_entry(vlan, &port->vlans, list)
+> -                       macvlan_transfer_operstate(vlan->dev);
+> +                       netif_stacked_transfer_operstate(vlan->dev,
+> +                                                        vlan->lowerdev);
+>                 break;
+>         case NETDEV_FEAT_CHANGE:
+>                 list_for_each_entry(vlan, &port->vlans, list) {
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
+These have the arguments reversed, lowerdev should come first.
 
---===============3949664984720259570==--
+	Arnd <><
