@@ -1,58 +1,69 @@
-From: Frederic Leroy <fredo@starox.org>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: scp stalls mysteriously
-Date: Fri, 27 Nov 2009 23:22:57 +0100
-Message-ID: <20091127232257.1c13ccde@houba>
-References: <20091127223545.2a752429@houba>
+Date: Sat, 28 Nov 2009 00:28:55 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911280026230.11977@melkinpaasi.cs.helsinki.fi>
+References: <20091127223545.2a752429@houba> <20091127232257.1c13ccde@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	"Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>,
-	Asdo <asdo@shiftmail.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-592353618-1259360935=:11977"
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
 To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:41534 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbZK0WXP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:23:15 -0500
-In-Reply-To: <20091127223545.2a752429@houba>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33521 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751012AbZK0W2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 17:28:49 -0500
+In-Reply-To: <20091127232257.1c13ccde@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Fri, 27 Nov 2009 22:35:45 +0100,
-=46rederic Leroy <fredo@starox.org> a =C3=A9crit :
-> openssh versions :=20
->=20
-> houba tmp # equery l openssh
-> [ Searching for package 'openssh' in all categories among: ]
->  * installed packages
-> [I--] [  ] net-misc/openssh-5.2_p1-r3 (0)
->=20
-> fredo@sg:~$ dpkg -l | grep ssh
-> ii  libssh2-1                         0.18-1                    SSH2
-> client-side library ii  openssh-blacklist
-> 0.4.1                     list of default blacklisted OpenSSH RSA and
-> ii  openssh-client                    1:5.1p1-5
-> secure shell client, an rlogin/rsh/rcp repla ii
-> openssh-server                    1:5.1p1-5                 secure
-> shell server, an rshd replacement ii
-> ssh                               1:5.1p1-5                 secure
-> shell client and server (metapackage)
->=20
-> I will downgrade gentoo ssh and give another try ...
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Argh !!!=20
+---696230645-592353618-1259360935=:11977
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-I emerged openssh-5.1_p1-r2 on houba.
-Restarted ssh server (/etc/init.d/sshd restart)
-Log on sg and make a scp as usual.=20
-It worked fine.
-Make a second copy, and It worked fine also.
+On Fri, 27 Nov 2009, Frederic Leroy wrote:
 
-Then, I emerged openssh-5.2_p1-r3 on houba, restarted sshd, make three
-big copies ... and finally it worked fine.=20
+> Le Fri, 27 Nov 2009 22:35:45 +0100,
+> Frederic Leroy <fredo@starox.org> a écrit :
+> > openssh versions : 
+> > 
+> > houba tmp # equery l openssh
+> > [ Searching for package 'openssh' in all categories among: ]
+> >  * installed packages
+> > [I--] [  ] net-misc/openssh-5.2_p1-r3 (0)
+> > 
+> > fredo@sg:~$ dpkg -l | grep ssh
+> > ii  libssh2-1                         0.18-1                    SSH2
+> > client-side library ii  openssh-blacklist
+> > 0.4.1                     list of default blacklisted OpenSSH RSA and
+> > ii  openssh-client                    1:5.1p1-5
+> > secure shell client, an rlogin/rsh/rcp repla ii
+> > openssh-server                    1:5.1p1-5                 secure
+> > shell server, an rshd replacement ii
+> > ssh                               1:5.1p1-5                 secure
+> > shell client and server (metapackage)
+> > 
+> > I will downgrade gentoo ssh and give another try ...
+> 
+> Argh !!! 
+> 
+> I emerged openssh-5.1_p1-r2 on houba.
+> Restarted ssh server (/etc/init.d/sshd restart)
+> Log on sg and make a scp as usual. 
+> It worked fine.
+> Make a second copy, and It worked fine also.
+> 
+> Then, I emerged openssh-5.2_p1-r3 on houba, restarted sshd, make three
+> big copies ... and finally it worked fine. 
+> 
+> The bug mysteriously escaped from the dungeon !
 
-The bug mysteriously escaped from the dungeon !
+...You probably just lacked the losses which are crucial so it certainly 
+hasn't escaped anywhere (I guess that due to some random factor you didn't 
+get the losses this time and all of course will then work).
 
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+-- 
+ i.
+---696230645-592353618-1259360935=:11977--
