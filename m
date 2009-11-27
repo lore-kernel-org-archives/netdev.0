@@ -1,216 +1,92 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH,
-	resend] iproute2/iplink: add macvlan options for bridge mode
-Date: Fri, 27 Nov 2009 10:57:25 +0000
-Message-ID: <200911271157.25748.linux-kernel-owner@vger.kernel.org>
-References: <1258497551-25959-1-git-send-email-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Problem with tcp (2.6.31) as first, http://bugzilla.kernel.org/show_bug.cgi?id=14580
+Date: Fri, 27 Nov 2009 12:48:05 +0100
+Message-ID: <4B0FBC75.5060000@gmail.com>
+References: <alpine.LNX.1.10.0911251626500.13662@bizon.gios.gov.pl> <4B0D83E8.3000009@gmail.com> <4B0D86BD.4010902@ans.pl> <4B0D8EC6.9050204@gmail.com> <4B0D8FB2.1060606@ans.pl> <4B0E1D1C.30000@gmail.com> <4B0E6D50.1020906@ans.pl> <4B0EAC4F.3080202@gmail.com> <alpine.LNX.1.10.0911261749100.16993@bizon.gios.gov.pl> <4B0EE958.7090607@gmail.com> <4B0EECE5.5050406@ans.pl> <4B0EEF76.1070803@gmail.com> <4B0EF273.4030003@gmail.com> <alpine.DEB.2.00.0911262327130.24189@melkinpaasi.cs.helsinki.fi> <4B0F0466.8080006@gmail.com> <alpine.LNX.1.10.0911271013330.24080@bizon.gios.gov.pl> <alpine.DEB.2.00.0911271246030.2459@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@linux-foundation.com,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Arnd Bergmann <arnd@arndb.de>, Anna Fischer <anna.fischer@hp.com>,
-        netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-        David Miller <davem@davemloft.net>,
-        Gerhard Stenzel <gerhard.stenzel@de.ibm.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        Jens Osterkamp <jens@linux.vnet.ibm.com>,
-        Patrick Mullaney <pmullaney@novell.com>,
-        Stephen Hemminger <shemminger@vyatta.com>,
-        Edge Virtual Bridging <evb@yahoogroups.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1258497551-25959-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Krzysztof Oledzki <ole@ans.pl>, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36864 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbZK0LsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 06:48:17 -0500
+In-Reply-To: <alpine.DEB.2.00.0911271246030.2459@melkinpaasi.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resending, the kernel patches have gone into net-next,
-so a version of this should go into iproute2.
+Ilpo J=E4rvinen a =E9crit :
 
----
-Macvlan can now optionally support forwarding between its
-ports, if they are in "bridge" mode. This adds support
-for this option to "ip link add", "ip link set" and "ip
--d link show".
+> What would you expect to happen? If out-of-window stuff arrives we se=
+nd=20
+> dupacks. If we would send resets, that would introduce blind rst atta=
+cks.
+> In theory we might be able to quench the loop by using pingpong thing=
+ but=20
+> that needs very careful thought in order to not introduce other probl=
+ems,
+> and even then your connections will not be re-usable until either end=
+=20
+> times out so the gain is rather limited. We simply cannot rst the=20
+> connection, that's not an option.
+>=20
+> I find this problem simply stem from the introduced loss of end-to-en=
+d=20
+> connectivity. Would you really "lose" that server so that its TCP sta=
+te is=20
+> not maintained, you'd get resets etc (crash, scheduled reboot or=20
+> whatever). Only real solution would be a kill switch for TCP connecti=
+on=20
+> when you break e-2-e connectivity (ie., switch servers so that the sa=
+me IP=20
+> is reacquired by somebody else). In theory you can "simulate" the kil=
+l=20
+> switch by setting tcp_retries sysctls to small values to make the=20
+> connections to timeout much faster, but still that might not be enoug=
+h for=20
+> you (and has other implications you might not like).=20
+>
 
-The default mode in the kernel is now "vepa" mode, meaning
-"virtual ethernet port aggregator". This mode is used
-together with the "hairpin" mode of an ethernet bridge
-that the parent of the macvlan device is connected to.
-All frames still get sent out to the external interface,
-but the adjacent bridge is able to send them back on
-the same wire in hairpin mode, so the macvlan ports
-are able to see each other, which the bridge can be
-configured to monitor and control traffic between
-all macvlan instances. Multicast traffic coming in
-from the external interface is checked for the source
-MAC address and only delivered to ports that have not
-yet seen it.
+RST is not an option, sure, but ACK storms are unlikely good things too=
+=2E
 
-In bridge mode, macvlan will send all multicast traffic
-to other interfaces that are also in bridge mode but
-not to those in vepa mode, which get them on the way
-back from the hairpin.
 
-The third supported mode is "private", which prevents
-communication between macvlans even if the adjacent
-bridge is in hairpin mode. This behavior is closer to
-the original implementation of macvlan but stricly
-maintains isolation.
+Could'nt we do something smart in presence of tcp timestamps ?
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- include/linux/if_link.h |   15 ++++++++
- ip/Makefile             |    3 +-
- ip/iplink_macvlan.c     |   93 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 110 insertions(+), 1 deletions(-)
- create mode 100644 ip/iplink_macvlan.c
+11:23:27.669910 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
+11:23:27.669991 IP 192.168.200.200.333 > 192.168.20.110.3434: . ack 116=
+87 win 91 <nop,nop,timestamp 1704614538 42406583>
+11:23:27.670000 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
+11:23:27.670093 IP 192.168.200.200.333 > 192.168.20.110.3434: . ack 116=
+87 win 91 <nop,nop,timestamp 1704614538 42406583>
+11:23:27.670099 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
+11:23:27.670175 IP 192.168.200.200.333 > 192.168.20.110.3434: . ack 116=
+87 win 91 <nop,nop,timestamp 1704614538 42406583>
+11:23:27.670183 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
+11:23:27.670268 IP 192.168.200.200.333 > 192.168.20.110.3434: . ack 116=
+87 win 91 <nop,nop,timestamp 1704614538 42406583>
+11:23:27.670276 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
+11:23:27.670359 IP 192.168.200.200.333 > 192.168.20.110.3434: . ack 116=
+87 win 91 <nop,nop,timestamp 1704614538 42406583>
+11:23:27.670368 IP 192.168.20.110.3434 > 192.168.200.200.333: . ack 245=
+7299512 win 92 <nop,nop,timestamp 42408589 1506086404>
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index b0b9e8a..425c489 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -188,4 +188,19 @@ struct ifla_vlan_qos_mapping
- 	__u32 to;
- };
- 
-+/* MACVLAN section */
-+enum {
-+	IFLA_MACVLAN_UNSPEC,
-+	IFLA_MACVLAN_MODE,
-+	__IFLA_MACVLAN_MAX,
-+};
-+
-+enum ifla_macvlan_mode {
-+	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
-+	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
-+	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
-+};
-+
-+#define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/ip/Makefile b/ip/Makefile
-index 51914e8..46a9836 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -2,7 +2,8 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o \
-     rtm_map.o iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o \
-     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
--    iplink_vlan.o link_veth.o link_gre.o iplink_can.o
-+    iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
-+    iplink_macvlan.o
- 
- RTMONOBJ=rtmon.o
- 
-diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
-new file mode 100644
-index 0000000..307f559
---- /dev/null
-+++ b/ip/iplink_macvlan.c
-@@ -0,0 +1,93 @@
-+/*
-+ * iplink_vlan.c	VLAN device support
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Patrick McHardy <kaber@trash.net>
-+ *		Arnd Bergmann <arnd@arndb.de>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>
-+#include <linux/if_link.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr,
-+		"Usage: ... macvlan mode { private | vepa | bridge }\n"
-+	);
-+}
-+
-+static int mode_arg(void)
-+{
-+        fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
-+		"\"vepa\" or \"bridge\"\n");
-+        return -1;
-+}
-+
-+static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
-+			  struct nlmsghdr *n)
-+{
-+	while (argc > 0) {
-+		if (matches(*argv, "mode") == 0) {
-+			__u32 mode = 0;
-+			NEXT_ARG();
-+
-+			if (strcmp(*argv, "private") == 0)
-+				mode = MACVLAN_MODE_PRIVATE;
-+			else if (strcmp(*argv, "vepa") == 0)
-+				mode = MACVLAN_MODE_VEPA;
-+			else if (strcmp(*argv, "bridge") == 0)
-+				mode = MACVLAN_MODE_BRIDGE;
-+			else 
-+				return mode_arg();
-+
-+			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "macvlan: what is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-+{
-+	__u32 mode;
-+
-+	if (!tb)
-+		return;
-+
-+	if (!tb[IFLA_MACVLAN_MODE] ||
-+	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MODE]) < sizeof(__u32))
-+		return;
-+
-+	mode = *(__u32 *)RTA_DATA(tb[IFLA_VLAN_ID]);
-+	fprintf(f, " mode %s ",
-+		  mode == MACVLAN_MODE_PRIVATE ? "private"
-+		: mode == MACVLAN_MODE_VEPA    ? "vepa"
-+		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
-+		:				 "unknown");
-+}
-+
-+struct link_util macvlan_link_util = {
-+	.id		= "macvlan",
-+	.maxattr	= IFLA_MACVLAN_MAX,
-+	.parse_opt	= macvlan_parse_opt,
-+	.print_opt	= macvlan_print_opt,
-+};
--- 
-1.6.3.3
 
+Or we could=20
+
+Count number N of strange/bad acks we received from peer.
+
+- At first one, send our ACK immediately
+
+- For following, delay our ACK answer by N*100 ms, to reduce the flood.
+(or if we have data in flight, only rely on retransmit timer and not se=
+nding acks)
