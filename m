@@ -1,29 +1,43 @@
-From: aaa bbb <ilana90@013net.net>
-Subject: Hello
-Date: Fri, 27 Nov 2009 23:39:44 +0000 (GMT)
-Message-ID: <fc88cc9910a2.4b106340@netvision.net.il>
-Reply-To: missojita@rediffmail.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/3] macvlan: support for guest vm direct rx/tx
+Date: Fri, 27 Nov 2009 21:38:24 -0800
+Message-ID: <20091127213824.53c5a23a@nehalam>
+References: <20091113195201.11184.25766.stgit@mimic.site>
+	<20091113132728.0f1db7c5@s6510>
+	<200911280043.58784.arnd@arndb.de>
+	<20091127.161957.243886653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxout5.netvision.net.il ([194.90.9.29]:27763 "EHLO
-	mxout5.netvision.net.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbZK1FCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 00:02:17 -0500
-Received: from netvision.net.il ([192.168.11.22]) by mxout5.netvision.net.il
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- with ESMTP id <0KTS00CXTKE8IL10@mxout5.netvision.net.il> for
- netdev@vger.kernel.org; Sat, 28 Nov 2009 01:39:48 +0200 (IST)
-Content-language: en
-Content-disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, pmullaney@novell.com, kaber@trash.net,
+	netdev@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751182AbZK1Fid@vger.kernel.org>
+In-Reply-To: <20091127.161957.243886653.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 27 Nov 2009 16:19:57 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Sat, 28 Nov 2009 00:43:58 +0100
+> 
+> > On Friday 13 November 2009, Stephen Hemminger wrote:
+> >> Also, macvlan should really being calling netif_receive_skb()
+> >> not going through another queue/softirq cycle.
+> > 
+> > I've added a patch for this in my experimental queue now.
+> > When I last tried this, I saw a kernel stack overflow
+> > but it seems fine now.
+> 
+> I think it is unwise for any virtual device layer to use netif_receive_skb().
+> Just like tunnels they should always use netif_rx().
+> 
+> Otherwise stack overflow is a very real concern.
 
-Hello
-How are you today? I hope you are fine.If so thank be to God almighty.My name is Miss Ojita,26 years, single girl looking for honest and nice person. whom i can partner with. i have the sum of $7,000,000.00(Seven Million US Dollars) which i intend to use for business purpose.I would like to know you more,most especially what you like and what you dislike, I don't care about your colour or ethnicity, I'm sending you this beautiful mail, with a wish for much happiness.I am looking forward to hear from you,
-Love from,
-Ojita
+Maybe we should figure out a way for protocols to return new skb in netif_receive_skb
+to avoid extra softirq, but avoid stack overflow?
+
+-- 
