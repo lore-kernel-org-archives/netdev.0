@@ -1,39 +1,39 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 07/32] sfc: Remove another unused workaround macro
-Date: Sat, 28 Nov 2009 03:46:08 +0000
-Message-ID: <1259379968.2811.19.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 08/32] sfc: Remove some redundant whitespace
+Date: Sat, 28 Nov 2009 03:46:15 +0000
+Message-ID: <1259379975.2811.21.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42459 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:42469 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753906AbZK1DqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:46:04 -0500
+	with ESMTP id S1753920AbZK1DqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:46:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/workarounds.h |    2 --
+ drivers/net/sfc/net_driver.h |    2 --
  1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
-index bad0932..209ee1e 100644
---- a/drivers/net/sfc/workarounds.h
-+++ b/drivers/net/sfc/workarounds.h
-@@ -33,8 +33,6 @@
- #define EFX_WORKAROUND_10727 EFX_WORKAROUND_ALWAYS
- /* Transmit flow control may get disabled */
- #define EFX_WORKAROUND_11482 EFX_WORKAROUND_FALCON_AB
--/* Flush events can take a very long time to appear */
--#define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
- /* Truncated IPv4 packets can confuse the TX packet parser */
- #define EFX_WORKAROUND_15592 EFX_WORKAROUND_FALCON_AB
- 
-
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 57f8614..ca7dff2 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -866,9 +866,7 @@ struct efx_nic_type {
+ 	unsigned int buf_tbl_base;
+ 	unsigned int evq_ptr_tbl_base;
+ 	unsigned int evq_rptr_tbl_base;
+-
+ 	u64 max_dma_mask;
+-
+ 	unsigned int rx_buffer_padding;
+ 	unsigned int max_interrupt_mode;
+ 	unsigned int phys_addr_channels;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
