@@ -1,72 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
-Date: Sat, 28 Nov 2009 16:46:57 +0100
-Message-ID: <4B1145F1.3090704@trash.net>
-References: <db81a9a20911230443h443b3c2l8fab5aef7b09cfa@mail.gmail.com> <1259137434.9191.3.camel@nienna.balabit> <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com> <1259310417.3809.5.camel@nienna.balabit> <1259337932.3299.3.camel@bigi> <20091128151515.GA20476@sch.bme.hu>
+Date: Sat, 28 Nov 2009 11:04:38 -0500
+Message-ID: <1259424278.3864.16.camel@bigi>
+References: <db81a9a20911230443h443b3c2l8fab5aef7b09cfa@mail.gmail.com>
+	 <1259137434.9191.3.camel@nienna.balabit>
+	 <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
+	 <1259310417.3809.5.camel@nienna.balabit> <1259337932.3299.3.camel@bigi>
+	 <20091128151515.GA20476@sch.bme.hu>  <4B1145F1.3090704@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, KOVACS Krisztian <hidden@balabit.hu>,
+Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
+	KOVACS Krisztian <hidden@balabit.hu>,
 	Andreas Schultz <aschultz@warp10.net>, tproxy@lists.balabit.hu,
 	netdev@vger.kernel.org
-To: KOVACS Krisztian <hidden@sch.bme.hu>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38936 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbZK1Pqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 10:46:54 -0500
-In-Reply-To: <20091128151515.GA20476@sch.bme.hu>
+Received: from mail-qy0-f194.google.com ([209.85.221.194]:58962 "EHLO
+	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbZK1QEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 11:04:36 -0500
+Received: by qyk32 with SMTP id 32so948753qyk.4
+        for <netdev@vger.kernel.org>; Sat, 28 Nov 2009 08:04:41 -0800 (PST)
+In-Reply-To: <4B1145F1.3090704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-KOVACS Krisztian wrote:
-> Hi,
-> 
-> On p, nov 27, 2009 at 11:05:32 -0500, jamal wrote:
->> On Fri, 2009-11-27 at 09:26 +0100, KOVACS Krisztian wrote:
->>> Hi,
->>>
->>> On Thu, 2009-11-26 at 18:19 +0100, Andreas Schultz wrote:
->>>> Hi,
->>>>
->>>> git bisect shows that TPROXY has been broken by commit
->>>> f7c6fd2465d8e6f4f89c5d1262da10b4a6d499d0, [PATCH] net: Fix RPF to work
->>>> with policy routing
->>>>
->>>> I had a look at the patch, and it seems logical that this would break TPROXY.
->>> Indeed, that's a good catch. If this is indeed the problem you should be
->>> able to work it around by disabling rpfilter on the ingress interface.
->>> Does it work that way?
->> Not familiar with tproxy, but I suspect the system doesnt see the mark
->> before policy routing happens. So probably the wrong route cache gets
->> created. Easy to validate by dumping the route cache.
->> If thats so, you have to set the mark in pre-route hook if it uses
->> iptables.
-> 
-> It's already on prerouting, so that's not the problem.
-> 
-> The problem is that for tproxy to work we've used to have a rule like
-> this:
-> 
-> # ip rule add fwmark 1 lookup 100
-> 
-> plus a few iptables rules setting mark values.
-> 
-> The issue is that previously fib_validate_source ignored the mark set on
-> the skb, and thus when fib_validate_source() did a FIB lookup, it all went
-> fine, because it found a result of type RTN_UNICAST. However, with your
-> change, and because of the ip rule above not being specific enough now
-> it's returning with type RTN_LOCAL, and that's considered invalid and thus
-> the skb is dropped.
-> 
-> The workaround is using more specific ip rules that include the ingress
-> interface name:
-> 
-> # ip rule add dev eth0 fwmark 1 lookup 100
+On Sat, 2009-11-28 at 16:46 +0100, Patrick McHardy wrote:
 
-The root cause seems to be an invalid assumption, marks are often not
-used in a symetric fashion as required by RPF.
+> 
+> The root cause seems to be an invalid assumption, marks are often not
+> used in a symetric fashion as required by RPF.
 
-Since this patch has already proven to break existing setups, I think
-it should be reverted or the behaviour made optional with a default to
-off.
+The only assumption is: if you set set up a mark on incoming, you are
+asking the reverse validation that is to be used to consider that mark.
+
+This has nothing to do with RPF really;-> RPF is off. There is a legit
+bug in the old setup that has a table programmed with a route that is
+not unicast. 
+
+> Since this patch has already proven to break existing setups, I think
+> it should be reverted or the behaviour made optional with a default to
+> off.
+
+I disagree. What other setup is broken? ;->
+
+cheers,
+jamal
+
