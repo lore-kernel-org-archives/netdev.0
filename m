@@ -1,122 +1,118 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 12/12] sfc: Clean up RX event handling
-Date: Sat, 28 Nov 2009 15:36:29 +0000
-Message-ID: <1259422589.3709.13.camel@localhost>
+Subject: [PATCH 11/12] sfc: Allow for additional checksum offload features
+Date: Sat, 28 Nov 2009 15:36:19 +0000
+Message-ID: <1259422579.3709.12.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:59195 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:59185 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752499AbZK1Pg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 10:36:26 -0500
+	with ESMTP id S1752473AbZK1PgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 10:36:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add 'likely' hint to test of rx_checksum_enabled.
-Don't count IP fragments; the IP stack can do that.
-Do count non-matching multicast packets.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/ethtool.c    |    1 +
- drivers/net/sfc/falcon.c     |   11 +++++------
- drivers/net/sfc/net_driver.h |    4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/sfc/efx.c        |    2 +-
+ drivers/net/sfc/ethtool.c    |   16 +++++++++++++++-
+ drivers/net/sfc/falcon.c     |    2 ++
+ drivers/net/sfc/net_driver.h |    3 +++
+ 4 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index f5e8111..f4eba45 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -2117,7 +2117,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 	net_dev = alloc_etherdev(sizeof(*efx));
+ 	if (!net_dev)
+ 		return -ENOMEM;
+-	net_dev->features |= (NETIF_F_IP_CSUM | NETIF_F_SG |
++	net_dev->features |= (type->offload_features | NETIF_F_SG |
+ 			      NETIF_F_HIGHDMA | NETIF_F_TSO |
+ 			      NETIF_F_GRO);
+ 	/* Mask for features that also apply to VLAN devices */
 diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index b3d0485..8b91cd2 100644
+index 5d2e186..b3d0485 100644
 --- a/drivers/net/sfc/ethtool.c
 +++ b/drivers/net/sfc/ethtool.c
-@@ -153,6 +153,7 @@ static struct efx_ethtool_stat efx_ethtool_stats[] = {
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tobe_disc),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_ip_hdr_chksum_err),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tcp_udp_chksum_err),
-+	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_mcast_mismatch),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_frm_trunc),
- };
+@@ -451,6 +451,19 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
+ 	}
+ }
  
++static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	unsigned long features = efx->type->offload_features & NETIF_F_ALL_CSUM;
++
++	if (enable)
++		net_dev->features |= features;
++	else
++		net_dev->features &= ~features;
++
++	return 0;
++}
++
+ static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+@@ -733,7 +746,8 @@ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_rx_csum		= efx_ethtool_get_rx_csum,
+ 	.set_rx_csum		= efx_ethtool_set_rx_csum,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
+-	.set_tx_csum		= ethtool_op_set_tx_csum,
++	/* Need to enable/disable IPv6 too */
++	.set_tx_csum		= efx_ethtool_set_tx_csum,
+ 	.get_sg			= ethtool_op_get_sg,
+ 	.set_sg			= ethtool_op_set_sg,
+ 	.get_tso		= ethtool_op_get_tso,
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 2096753..b2509fc 100644
+index 539d022..2096753 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -734,7 +734,7 @@ static void falcon_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 	bool rx_ev_tcp_udp_chksum_err, rx_ev_eth_crc_err;
- 	bool rx_ev_frm_trunc, rx_ev_drib_nib, rx_ev_tobe_disc;
- 	bool rx_ev_other_err, rx_ev_pause_frm;
--	bool rx_ev_ip_frag_err, rx_ev_hdr_type, rx_ev_mcast_pkt;
-+	bool rx_ev_hdr_type, rx_ev_mcast_pkt;
- 	unsigned rx_ev_pkt_type;
+@@ -3250,6 +3250,7 @@ struct efx_nic_type falcon_a1_nic_type = {
+ 	.phys_addr_channels = 4,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.offload_features = NETIF_F_IP_CSUM,
+ };
  
- 	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
-@@ -743,7 +743,6 @@ static void falcon_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 	rx_ev_pkt_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_TYPE);
- 	rx_ev_buf_owner_id_err = EFX_QWORD_FIELD(*event,
- 						 FSF_AZ_RX_EV_BUF_OWNER_ID_ERR);
--	rx_ev_ip_frag_err = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_IP_FRAG_ERR);
- 	rx_ev_ip_hdr_chksum_err = EFX_QWORD_FIELD(*event,
- 						  FSF_AZ_RX_EV_IP_HDR_CHKSUM_ERR);
- 	rx_ev_tcp_udp_chksum_err = EFX_QWORD_FIELD(*event,
-@@ -771,8 +770,6 @@ static void falcon_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 		else if (rx_ev_tcp_udp_chksum_err)
- 			++rx_queue->channel->n_rx_tcp_udp_chksum_err;
- 	}
--	if (rx_ev_ip_frag_err)
--		++rx_queue->channel->n_rx_ip_frag_err;
+ struct efx_nic_type falcon_b0_nic_type = {
+@@ -3275,5 +3276,6 @@ struct efx_nic_type falcon_b0_nic_type = {
+ 				   * channels */
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.offload_features = NETIF_F_IP_CSUM,
+ };
  
- 	/* The frame must be discarded if any of these are true. */
- 	*discard = (rx_ev_eth_crc_err | rx_ev_frm_trunc | rx_ev_drib_nib |
-@@ -855,7 +852,7 @@ static void falcon_handle_rx_event(struct efx_channel *channel,
- 		 * UDP/IPv4, then we can rely on the hardware checksum.
- 		 */
- 		checksummed =
--			efx->rx_checksum_enabled &&
-+			likely(efx->rx_checksum_enabled) &&
- 			(rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_TCP ||
- 			 rx_ev_hdr_type == FSE_AB_RX_EV_HDR_TYPE_IPV4_UDP);
- 	} else {
-@@ -870,8 +867,10 @@ static void falcon_handle_rx_event(struct efx_channel *channel,
- 		unsigned int rx_ev_mcast_hash_match =
- 			EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_HASH_MATCH);
- 
--		if (unlikely(!rx_ev_mcast_hash_match))
-+		if (unlikely(!rx_ev_mcast_hash_match)) {
-+			++channel->n_rx_mcast_mismatch;
- 			discard = true;
-+		}
- 	}
- 
- 	channel->irq_mod_score += 2;
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 90f6a2a..320ae7d 100644
+index 30fb21e..90f6a2a 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -350,9 +350,9 @@ enum efx_rx_alloc_method {
-  * @rx_alloc_push_pages: RX allocation method currently in use for pushing
+@@ -859,6 +859,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
   *	descriptors
-  * @n_rx_tobe_disc: Count of RX_TOBE_DISC errors
-- * @n_rx_ip_frag_err: Count of RX IP fragment errors
-  * @n_rx_ip_hdr_chksum_err: Count of RX IP header checksum errors
-  * @n_rx_tcp_udp_chksum_err: Count of RX TCP and UDP checksum errors
-+ * @n_rx_mcast_mismatch: Count of unmatched multicast frames
-  * @n_rx_frm_trunc: Count of RX_FRM_TRUNC errors
-  * @n_rx_overlength: Count of RX_OVERLENGTH errors
-  * @n_skbuff_leaks: Count of skbuffs leaked due to RX overrun
-@@ -380,9 +380,9 @@ struct efx_channel {
- 	int rx_alloc_push_pages;
+  * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
+  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
++ * @offload_features: net_device feature flags for protocol offload
++ *	features implemented in hardware
+  */
+ struct efx_nic_type {
+ 	struct efx_mac_operations *default_mac_ops;
+@@ -876,6 +878,7 @@ struct efx_nic_type {
+ 	unsigned int phys_addr_channels;
+ 	unsigned int tx_dc_base;
+ 	unsigned int rx_dc_base;
++	unsigned long offload_features;
+ };
  
- 	unsigned n_rx_tobe_disc;
--	unsigned n_rx_ip_frag_err;
- 	unsigned n_rx_ip_hdr_chksum_err;
- 	unsigned n_rx_tcp_udp_chksum_err;
-+	unsigned n_rx_mcast_mismatch;
- 	unsigned n_rx_frm_trunc;
- 	unsigned n_rx_overlength;
- 	unsigned n_skbuff_leaks;
+ /**************************************************************************
 -- 
 1.6.5.3
+
 
 
 
