@@ -1,218 +1,361 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 31/32] sfc: Implement TSO for TCP/IPv6
-Date: Sat, 28 Nov 2009 03:59:02 +0000
-Message-ID: <1259380742.2811.76.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 32/32] sfc: Update version, copyright dates, authors
+Date: Sat, 28 Nov 2009 03:59:12 +0000
+Message-ID: <1259380752.2811.78.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:42973 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:42989 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753696AbZK1D66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:58:58 -0500
+	with ESMTP id S1754160AbZK1D7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:59:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This driver has been mostly rewritten since Michael Brown's initial
+work, so swap the order of the authors.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c     |    2 +
- drivers/net/sfc/ethtool.c |   20 ++++++++++++++++-
- drivers/net/sfc/tx.c      |   52 +++++++++++++++++++++++++++++++++-----------
- 3 files changed, 60 insertions(+), 14 deletions(-)
+ drivers/net/sfc/bitfield.h      |    2 +-
+ drivers/net/sfc/efx.c           |    6 +++---
+ drivers/net/sfc/efx.h           |    2 +-
+ drivers/net/sfc/enum.h          |    2 +-
+ drivers/net/sfc/ethtool.c       |    2 +-
+ drivers/net/sfc/falcon.c        |    2 +-
+ drivers/net/sfc/falcon_boards.c |    2 +-
+ drivers/net/sfc/falcon_gmac.c   |    2 +-
+ drivers/net/sfc/falcon_xmac.c   |    2 +-
+ drivers/net/sfc/mac.h           |    2 +-
+ drivers/net/sfc/mdio_10g.c      |    2 +-
+ drivers/net/sfc/mdio_10g.h      |    2 +-
+ drivers/net/sfc/mtd.c           |    2 +-
+ drivers/net/sfc/net_driver.h    |    4 ++--
+ drivers/net/sfc/nic.c           |    2 +-
+ drivers/net/sfc/nic.h           |    2 +-
+ drivers/net/sfc/phy.h           |    2 +-
+ drivers/net/sfc/qt202x_phy.c    |    2 +-
+ drivers/net/sfc/rx.c            |    2 +-
+ drivers/net/sfc/selftest.c      |    2 +-
+ drivers/net/sfc/tenxpress.c     |    2 +-
+ drivers/net/sfc/tx.c            |    2 +-
+ drivers/net/sfc/workarounds.h   |    2 +-
+ 23 files changed, 26 insertions(+), 26 deletions(-)
 
+diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/sfc/bitfield.h
+index bb5de4f..098ac2a 100644
+--- a/drivers/net/sfc/bitfield.h
++++ b/drivers/net/sfc/bitfield.h
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 4b5c786..3c0d6be 100644
+index 3c0d6be..f983e3b 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -2208,6 +2208,8 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 	net_dev->features |= (type->offload_features | NETIF_F_SG |
- 			      NETIF_F_HIGHDMA | NETIF_F_TSO |
- 			      NETIF_F_GRO);
-+	if (type->offload_features & NETIF_F_V6_CSUM)
-+		net_dev->features |= NETIF_F_TSO6;
- 	/* Mask for features that also apply to VLAN devices */
- 	net_dev->vlan_features |= (NETIF_F_ALL_CSUM | NETIF_F_SG |
- 				   NETIF_F_HIGHDMA | NETIF_F_TSO);
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2005-2008 Solarflare Communications Inc.
++ * Copyright 2005-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+@@ -2453,8 +2453,8 @@ static void __exit efx_exit_module(void)
+ module_init(efx_init_module);
+ module_exit(efx_exit_module);
+ 
+-MODULE_AUTHOR("Michael Brown <mbrown@fensystems.co.uk> and "
+-	      "Solarflare Communications");
++MODULE_AUTHOR("Solarflare Communications and "
++	      "Michael Brown <mbrown@fensystems.co.uk>");
+ MODULE_DESCRIPTION("Solarflare Communications network driver");
+ MODULE_LICENSE("GPL");
+ MODULE_DEVICE_TABLE(pci, efx_pci_table);
+diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
+index b4470da..a615ac0 100644
+--- a/drivers/net/sfc/efx.h
++++ b/drivers/net/sfc/efx.h
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/enum.h b/drivers/net/sfc/enum.h
+index b1f7a40..384cfe3 100644
+--- a/drivers/net/sfc/enum.h
++++ b/drivers/net/sfc/enum.h
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007-2008 Solarflare Communications Inc.
++ * Copyright 2007-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
 diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index 5492b63..f698121 100644
+index f698121..6c0bbed 100644
 --- a/drivers/net/sfc/ethtool.c
 +++ b/drivers/net/sfc/ethtool.c
-@@ -471,6 +471,23 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
- 	}
- }
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 48d28d8..17afcd2 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
+index fa4d4c7..bf0b96a 100644
+--- a/drivers/net/sfc/falcon_boards.c
++++ b/drivers/net/sfc/falcon_boards.c
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007-2008 Solarflare Communications Inc.
++ * Copyright 2007-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/falcon_gmac.c b/drivers/net/sfc/falcon_gmac.c
+index aa9b689..7dadfcb 100644
+--- a/drivers/net/sfc/falcon_gmac.c
++++ b/drivers/net/sfc/falcon_gmac.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
+index cd63f24..3da933f 100644
+--- a/drivers/net/sfc/falcon_xmac.c
++++ b/drivers/net/sfc/falcon_xmac.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/mac.h b/drivers/net/sfc/mac.h
+index c733863..f1aa5f3 100644
+--- a/drivers/net/sfc/mac.h
++++ b/drivers/net/sfc/mac.h
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index 19496da..1574e52 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
+index dbc8e7d..f6ac950 100644
+--- a/drivers/net/sfc/mdio_10g.h
++++ b/drivers/net/sfc/mdio_10g.h
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
+index ef561f8..3a46452 100644
+--- a/drivers/net/sfc/mtd.c
++++ b/drivers/net/sfc/mtd.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index ec13203..34c381f 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2005-2008 Solarflare Communications Inc.
++ * Copyright 2005-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+@@ -38,7 +38,7 @@
+ #ifndef EFX_DRIVER_NAME
+ #define EFX_DRIVER_NAME	"sfc"
+ #endif
+-#define EFX_DRIVER_VERSION	"2.3"
++#define EFX_DRIVER_VERSION	"3.0"
  
-+static int efx_ethtool_set_tso(struct net_device *net_dev, u32 enable)
-+{
-+	struct efx_nic *efx __attribute__ ((unused)) = netdev_priv(net_dev);
-+	unsigned long features;
-+
-+	features = NETIF_F_TSO;
-+	if (efx->type->offload_features & NETIF_F_V6_CSUM)
-+		features |= NETIF_F_TSO6;
-+
-+	if (enable)
-+		net_dev->features |= features;
-+	else
-+		net_dev->features &= ~features;
-+
-+	return 0;
-+}
-+
- static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
-@@ -834,7 +851,8 @@ const struct ethtool_ops efx_ethtool_ops = {
- 	.get_sg			= ethtool_op_get_sg,
- 	.set_sg			= ethtool_op_set_sg,
- 	.get_tso		= ethtool_op_get_tso,
--	.set_tso		= ethtool_op_set_tso,
-+	/* Need to enable/disable TSO-IPv6 too */
-+	.set_tso		= efx_ethtool_set_tso,
- 	.get_flags		= ethtool_op_get_flags,
- 	.set_flags		= ethtool_op_set_flags,
- 	.get_sset_count		= efx_ethtool_get_sset_count,
+ #ifdef EFX_ENABLE_DEBUG
+ #define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+index 5ac4b1a..a577be2 100644
+--- a/drivers/net/sfc/nic.c
++++ b/drivers/net/sfc/nic.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
+index 57c510d..9351c03 100644
+--- a/drivers/net/sfc/nic.h
++++ b/drivers/net/sfc/nic.h
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/phy.h b/drivers/net/sfc/phy.h
+index 64dff2d..5bc2613 100644
+--- a/drivers/net/sfc/phy.h
++++ b/drivers/net/sfc/phy.h
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007-2008 Solarflare Communications Inc.
++ * Copyright 2007-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
+index 957e534..3800fc7 100644
+--- a/drivers/net/sfc/qt202x_phy.c
++++ b/drivers/net/sfc/qt202x_phy.c
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index 03eace3..a97c923 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2005-2008 Solarflare Communications Inc.
++ * Copyright 2005-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
+index 1635f57..14949bb 100644
+--- a/drivers/net/sfc/selftest.c
++++ b/drivers/net/sfc/selftest.c
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
+index ff97133..ca11572 100644
+--- a/drivers/net/sfc/tenxpress.c
++++ b/drivers/net/sfc/tenxpress.c
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007-2008 Solarflare Communications Inc.
++ * Copyright 2007-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
 diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index 389ede4..582fc75 100644
+index 582fc75..e669f94 100644
 --- a/drivers/net/sfc/tx.c
 +++ b/drivers/net/sfc/tx.c
-@@ -12,6 +12,8 @@
- #include <linux/tcp.h>
- #include <linux/ip.h>
- #include <linux/in.h>
-+#include <linux/ipv6.h>
-+#include <net/ipv6.h>
- #include <linux/if_ether.h>
- #include <linux/highmem.h>
- #include "net_driver.h"
-@@ -531,6 +533,7 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
- #define ETH_HDR_LEN(skb)  (skb_network_header(skb) - (skb)->data)
- #define SKB_TCP_OFF(skb)  PTR_DIFF(tcp_hdr(skb), (skb)->data)
- #define SKB_IPV4_OFF(skb) PTR_DIFF(ip_hdr(skb), (skb)->data)
-+#define SKB_IPV6_OFF(skb) PTR_DIFF(ipv6_hdr(skb), (skb)->data)
- 
- /**
-  * struct tso_state - TSO state for an SKB
-@@ -543,6 +546,7 @@ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue)
-  * @unmap_len: Length of SKB fragment
-  * @unmap_addr: DMA address of SKB fragment
-  * @unmap_single: DMA single vs page mapping flag
-+ * @protocol: Network protocol (after any VLAN header)
-  * @header_len: Number of bytes of header
-  * @full_packet_size: Number of bytes to put in each outgoing segment
+@@ -1,7 +1,7 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+  * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2005-2008 Solarflare Communications Inc.
++ * Copyright 2005-2009 Solarflare Communications Inc.
   *
-@@ -563,6 +567,7 @@ struct tso_state {
- 	dma_addr_t unmap_addr;
- 	bool unmap_single;
- 
-+	__be16 protocol;
- 	unsigned header_len;
- 	int full_packet_size;
- };
-@@ -570,9 +575,9 @@ struct tso_state {
- 
- /*
-  * Verify that our various assumptions about sk_buffs and the conditions
-- * under which TSO will be attempted hold true.
-+ * under which TSO will be attempted hold true.  Return the protocol number.
-  */
--static void efx_tso_check_safe(struct sk_buff *skb)
-+static __be16 efx_tso_check_protocol(struct sk_buff *skb)
- {
- 	__be16 protocol = skb->protocol;
- 
-@@ -587,13 +592,22 @@ static void efx_tso_check_safe(struct sk_buff *skb)
- 		if (protocol == htons(ETH_P_IP))
- 			skb_set_transport_header(skb, sizeof(*veh) +
- 						 4 * ip_hdr(skb)->ihl);
-+		else if (protocol == htons(ETH_P_IPV6))
-+			skb_set_transport_header(skb, sizeof(*veh) +
-+						 sizeof(struct ipv6hdr));
- 	}
- 
--	EFX_BUG_ON_PARANOID(protocol != htons(ETH_P_IP));
--	EFX_BUG_ON_PARANOID(ip_hdr(skb)->protocol != IPPROTO_TCP);
-+	if (protocol == htons(ETH_P_IP)) {
-+		EFX_BUG_ON_PARANOID(ip_hdr(skb)->protocol != IPPROTO_TCP);
-+	} else {
-+		EFX_BUG_ON_PARANOID(protocol != htons(ETH_P_IPV6));
-+		EFX_BUG_ON_PARANOID(ipv6_hdr(skb)->nexthdr != NEXTHDR_TCP);
-+	}
- 	EFX_BUG_ON_PARANOID((PTR_DIFF(tcp_hdr(skb), skb->data)
- 			     + (tcp_hdr(skb)->doff << 2u)) >
- 			    skb_headlen(skb));
-+
-+	return protocol;
- }
- 
-
-@@ -836,7 +850,10 @@ static void tso_start(struct tso_state *st, const struct sk_buff *skb)
- 			  + PTR_DIFF(tcp_hdr(skb), skb->data));
- 	st->full_packet_size = st->header_len + skb_shinfo(skb)->gso_size;
- 
--	st->ipv4_id = ntohs(ip_hdr(skb)->id);
-+	if (st->protocol == htons(ETH_P_IP))
-+		st->ipv4_id = ntohs(ip_hdr(skb)->id);
-+	else
-+		st->ipv4_id = 0;
- 	st->seqnum = ntohl(tcp_hdr(skb)->seq);
- 
- 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->urg);
-@@ -951,7 +968,6 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 				struct tso_state *st)
- {
- 	struct efx_tso_header *tsoh;
--	struct iphdr *tsoh_iph;
- 	struct tcphdr *tsoh_th;
- 	unsigned ip_length;
- 	u8 *header;
-@@ -975,7 +991,6 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 
- 	header = TSOH_BUFFER(tsoh);
- 	tsoh_th = (struct tcphdr *)(header + SKB_TCP_OFF(skb));
--	tsoh_iph = (struct iphdr *)(header + SKB_IPV4_OFF(skb));
- 
- 	/* Copy and update the headers. */
- 	memcpy(header, skb->data, st->header_len);
-@@ -993,11 +1008,22 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 		tsoh_th->fin = tcp_hdr(skb)->fin;
- 		tsoh_th->psh = tcp_hdr(skb)->psh;
- 	}
--	tsoh_iph->tot_len = htons(ip_length);
- 
--	/* Linux leaves suitable gaps in the IP ID space for us to fill. */
--	tsoh_iph->id = htons(st->ipv4_id);
--	st->ipv4_id++;
-+	if (st->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *tsoh_iph =
-+			(struct iphdr *)(header + SKB_IPV4_OFF(skb));
-+
-+		tsoh_iph->tot_len = htons(ip_length);
-+
-+		/* Linux leaves suitable gaps in the IP ID space for us to fill. */
-+		tsoh_iph->id = htons(st->ipv4_id);
-+		st->ipv4_id++;
-+	} else {
-+		struct ipv6hdr *tsoh_iph =
-+			(struct ipv6hdr *)(header + SKB_IPV6_OFF(skb));
-+
-+		tsoh_iph->payload_len = htons(ip_length - sizeof(*tsoh_iph));
-+	}
- 
- 	st->packet_space = skb_shinfo(skb)->gso_size;
- 	++tx_queue->tso_packets;
-@@ -1027,8 +1053,8 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 	int frag_i, rc, rc2 = NETDEV_TX_OK;
- 	struct tso_state state;
- 
--	/* Verify TSO is safe - these checks should never fail. */
--	efx_tso_check_safe(skb);
-+	/* Find the packet protocol and sanity-check it */
-+	state.protocol = efx_tso_check_protocol(skb);
- 
- 	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
- 
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index ecee8f5..acd9c73 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2006-2009 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
