@@ -1,133 +1,65 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 04/32] sfc: Always start Falcon using the XMAC
-Date: Sat, 28 Nov 2009 03:44:57 +0000
-Message-ID: <1259379897.2811.13.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 05/32] sfc: Limit some hardware workarounds to Falcon
+Date: Sat, 28 Nov 2009 03:45:14 +0000
+Message-ID: <1259379914.2811.15.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42399 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:42417 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841AbZK1Dox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:44:53 -0500
+	with ESMTP id S1753864AbZK1DpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:45:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
-
-The strap bits are only important on Falcon A and all production
-boards using it have fixed-speed 10G PHYs.
-
-Replace dummy MAC operations with default MAC operations.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |    6 +-----
- drivers/net/sfc/falcon.c     |   15 ++++++++++++---
- drivers/net/sfc/net_driver.h |    3 +++
- 3 files changed, 16 insertions(+), 8 deletions(-)
+ drivers/net/sfc/ethtool.c     |    2 +-
+ drivers/net/sfc/workarounds.h |    5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 6338ad8..bed45a5 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1891,10 +1891,6 @@ bool efx_port_dummy_op_poll(struct efx_nic *efx)
- 	return false;
- }
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index bb9abf2..6515b8a 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -683,7 +683,7 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ 	 * and fix it be cycling transmit flow control on this end. */
+ 	reset = (wanted_fc & EFX_FC_TX) && !(efx->wanted_fc & EFX_FC_TX);
+ 	if (EFX_WORKAROUND_11482(efx) && reset) {
+-		if (falcon_rev(efx) >= FALCON_REV_B0) {
++		if (falcon_rev(efx) == FALCON_REV_B0) {
+ 			/* Recover by resetting the EM block */
+ 			if (efx->link_state.up)
+ 				falcon_drain_tx_fifo(efx);
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index 3250299..84e579e 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -17,6 +17,7 @@
  
--static struct efx_mac_operations efx_dummy_mac_operations = {
--	.reconfigure	= efx_port_dummy_op_void,
--};
--
- static struct efx_phy_operations efx_dummy_phy_operations = {
- 	.init		 = efx_port_dummy_op_int,
- 	.reconfigure	 = efx_port_dummy_op_void,
-@@ -1936,7 +1932,7 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
- 	spin_lock_init(&efx->netif_stop_lock);
- 	spin_lock_init(&efx->stats_lock);
- 	mutex_init(&efx->mac_lock);
--	efx->mac_op = &efx_dummy_mac_operations;
-+	efx->mac_op = type->default_mac_ops;
- 	efx->phy_op = &efx_dummy_phy_operations;
- 	efx->mdio.dev = net_dev;
- 	INIT_WORK(&efx->mac_work, efx_mac_work);
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 372dbbc..9c4f898 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -2291,6 +2291,10 @@ int falcon_probe_port(struct efx_nic *efx)
- 	efx->mdio.mdio_read = falcon_mdio_read;
- 	efx->mdio.mdio_write = falcon_mdio_write;
+ #define EFX_WORKAROUND_ALWAYS(efx) 1
+ #define EFX_WORKAROUND_FALCON_A(efx) (falcon_rev(efx) <= FALCON_REV_A1)
++#define EFX_WORKAROUND_FALCON_AB(efx) (falcon_rev(efx) <= FALCON_REV_B0)
+ #define EFX_WORKAROUND_10G(efx) EFX_IS10G(efx)
+ #define EFX_WORKAROUND_SFT9001(efx) ((efx)->phy_type == PHY_TYPE_SFT9001A || \
+ 				     (efx)->phy_type == PHY_TYPE_SFT9001B)
+@@ -33,11 +34,11 @@
+  * or a PCIe error (bug 11028) */
+ #define EFX_WORKAROUND_10727 EFX_WORKAROUND_ALWAYS
+ /* Transmit flow control may get disabled */
+-#define EFX_WORKAROUND_11482 EFX_WORKAROUND_ALWAYS
++#define EFX_WORKAROUND_11482 EFX_WORKAROUND_FALCON_AB
+ /* Flush events can take a very long time to appear */
+ #define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
+ /* Truncated IPv4 packets can confuse the TX packet parser */
+-#define EFX_WORKAROUND_15592 EFX_WORKAROUND_ALWAYS
++#define EFX_WORKAROUND_15592 EFX_WORKAROUND_FALCON_AB
  
-+	/* Initial assumption */
-+	efx->link_state.speed = 10000;
-+	efx->link_state.fd = true;
-+
- 	/* Hardware flow ctrl. FalconA RX FIFO too small for pause generation */
- 	if (falcon_rev(efx) >= FALCON_REV_B0)
- 		efx->wanted_fc = EFX_FC_RX | EFX_FC_TX;
-@@ -2809,6 +2813,10 @@ static int falcon_probe_nic_variant(struct efx_nic *efx)
- 		return -ENODEV;
- 
- 	case FALCON_REV_A1:
-+		if (EFX_OWORD_FIELD(nic_stat, FRF_AB_STRAP_10G) == 0) {
-+			EFX_ERR(efx, "Falcon rev A1 1G not supported\n");
-+			return -ENODEV;
-+		}
- 		if (EFX_OWORD_FIELD(nic_stat, FRF_AA_STRAP_PCIE) == 0) {
- 			EFX_ERR(efx, "Falcon rev A1 PCI-X not supported\n");
- 			return -ENODEV;
-@@ -2823,9 +2831,6 @@ static int falcon_probe_nic_variant(struct efx_nic *efx)
- 		return -ENODEV;
- 	}
- 
--	/* Initial assumed speed */
--	efx->link_state.speed = EFX_OWORD_FIELD(nic_stat, FRF_AB_STRAP_10G) ? 10000 : 1000;
--
- 	return 0;
- }
- 
-@@ -3238,6 +3243,8 @@ void falcon_stop_nic_stats(struct efx_nic *efx)
-  */
- 
- struct efx_nic_type falcon_a_nic_type = {
-+	.default_mac_ops = &falcon_xmac_operations,
-+
- 	.mem_map_size = 0x20000,
- 	.txd_ptr_tbl_base = FR_AA_TX_DESC_PTR_TBL_KER,
- 	.rxd_ptr_tbl_base = FR_AA_RX_DESC_PTR_TBL_KER,
-@@ -3251,6 +3258,8 @@ struct efx_nic_type falcon_a_nic_type = {
- };
- 
- struct efx_nic_type falcon_b_nic_type = {
-+	.default_mac_ops = &falcon_xmac_operations,
-+
- 	/* Map everything up to and including the RSS indirection
- 	 * table.  Don't map MSI-X table, MSI-X PBA since Linux
- 	 * requires that they not be mapped.  */
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 0aeaeda..57f8614 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -843,6 +843,7 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
- 
- /**
-  * struct efx_nic_type - Efx device type definition
-+ * @default_mac_ops: efx_mac_operations to set at startup
-  * @mem_map_size: Memory BAR mapped size
-  * @txd_ptr_tbl_base: TX descriptor ring base address
-  * @rxd_ptr_tbl_base: RX descriptor ring base address
-@@ -857,6 +858,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  *	descriptors
-  */
- struct efx_nic_type {
-+	struct efx_mac_operations *default_mac_ops;
-+
- 	unsigned int mem_map_size;
- 	unsigned int txd_ptr_tbl_base;
- 	unsigned int rxd_ptr_tbl_base;
+ /* Spurious parity errors in TSORT buffers */
+ #define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
