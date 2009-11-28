@@ -1,36 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
-Date: Sat, 28 Nov 2009 13:22:54 -0800 (PST)
-Message-ID: <20091128.132254.240607445.davem@davemloft.net>
-References: <1259337932.3299.3.camel@bigi>
-	<20091128151515.GA20476@sch.bme.hu>
-	<4B1145F1.3090704@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [ tc ] RTNETLINK answers: Invalid argument
+Date: Sat, 28 Nov 2009 23:14:28 +0100
+Message-ID: <4B11A0C4.2040608@gmail.com>
+References: <f4f837ab0911240312x329043b9y7e4694f046121237@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hidden@sch.bme.hu, hadi@cyberus.ca, hidden@balabit.hu,
-	aschultz@warp10.net, tproxy@lists.balabit.hu,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: thomas yang <lampsu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46544
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754046AbZK1VWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 16:22:48 -0500
-In-Reply-To: <4B1145F1.3090704@trash.net>
+Received: from fg-out-1718.google.com ([72.14.220.157]:1216 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709AbZK1WO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 17:14:59 -0500
+Received: by fg-out-1718.google.com with SMTP id e12so966925fga.1
+        for <netdev@vger.kernel.org>; Sat, 28 Nov 2009 14:15:04 -0800 (PST)
+In-Reply-To: <f4f837ab0911240312x329043b9y7e4694f046121237@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 28 Nov 2009 16:46:57 +0100
+thomas yang wrote, On 11/24/2009 12:12 PM:
 
-> Since this patch has already proven to break existing setups, I think
-> it should be reverted or the behaviour made optional with a default to
-> off.
+> # tc filter add dev eth1 parent 1: protocol ip prio 10 u32 match ip
+> src 192.168.1.0/24 flowid 1:16 action mirred egress mirror dev wlan0
+> Action 3 device wlan0 ifindex 4
+> RTNETLINK answers: Invalid argument
+> We have an error talking to the kernel
+> 
+> 
+> # uname -a
+> Linux localhost.localdomain 2.6.30.8-64.fc11.i586 #1 SMP Fri Sep 25
+> 04:30:19 EDT 2009 i686 i686 i386 GNU/Linux
+> 
+> OS :  Fedora 11
 
-Absolutely, and fully, agreed.  That is the only criteria for
-deciding what to do here, it worked for an enormously long
-time and it stopped doing so with the change in question.
+# tc filter add dev eth0 parent 1: protocol ip prio 10 u32 match ip
+src 192.168.1.0/24 flowid 1:16 action mirred egress mirror dev wlan0
+Action 3 device wlan0 ifindex 3
+# uname -a
+Linux ami 2.6.32-rc8g #72 PREEMPT Sat Nov 21 14:41:09 CET 2009 i686 GNU/Linux
 
-"that configuration doesn't make sense" and other such talk
-is completely irrelevant.
+I checked 2.6.31 too. So, generally it should work with current kernels,
+at least x86_32.
+
+Jarek P.
