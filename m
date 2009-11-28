@@ -1,93 +1,112 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 10/32] sfc: Move descriptor cache base addresses to struct
-	efx_nic_type
-Date: Sat, 28 Nov 2009 03:46:39 +0000
-Message-ID: <1259379999.2811.25.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 11/32] sfc: Allow for additional checksum offload features
+Date: Sat, 28 Nov 2009 03:46:48 +0000
+Message-ID: <1259380008.2811.27.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42488 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:42503 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753421AbZK1Dqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:46:35 -0500
+	with ESMTP id S1753945AbZK1Dqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:46:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c     |   12 ++++++++----
- drivers/net/sfc/net_driver.h |    4 ++++
- 2 files changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/sfc/efx.c        |    2 +-
+ drivers/net/sfc/ethtool.c    |   16 +++++++++++++++-
+ drivers/net/sfc/falcon.c     |    2 ++
+ drivers/net/sfc/net_driver.h |    3 +++
+ 4 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index f5e8111..f4eba45 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -2117,7 +2117,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 	net_dev = alloc_etherdev(sizeof(*efx));
+ 	if (!net_dev)
+ 		return -ENOMEM;
+-	net_dev->features |= (NETIF_F_IP_CSUM | NETIF_F_SG |
++	net_dev->features |= (type->offload_features | NETIF_F_SG |
+ 			      NETIF_F_HIGHDMA | NETIF_F_TSO |
+ 			      NETIF_F_GRO);
+ 	/* Mask for features that also apply to VLAN devices */
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 5d2e186..b3d0485 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -451,6 +451,19 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
+ 	}
+ }
+ 
++static int efx_ethtool_set_tx_csum(struct net_device *net_dev, u32 enable)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	unsigned long features = efx->type->offload_features & NETIF_F_ALL_CSUM;
++
++	if (enable)
++		net_dev->features |= features;
++	else
++		net_dev->features &= ~features;
++
++	return 0;
++}
++
+ static int efx_ethtool_set_rx_csum(struct net_device *net_dev, u32 enable)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+@@ -733,7 +746,8 @@ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_rx_csum		= efx_ethtool_get_rx_csum,
+ 	.set_rx_csum		= efx_ethtool_set_rx_csum,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
+-	.set_tx_csum		= ethtool_op_set_tx_csum,
++	/* Need to enable/disable IPv6 too */
++	.set_tx_csum		= efx_ethtool_set_tx_csum,
+ 	.get_sg			= ethtool_op_get_sg,
+ 	.set_sg			= ethtool_op_set_sg,
+ 	.get_tso		= ethtool_op_get_tso,
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 7c9c9c9..539d022 100644
+index 539d022..2096753 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -45,11 +45,9 @@
-  */
- #define TX_DC_ENTRIES 16
- #define TX_DC_ENTRIES_ORDER 1
--#define TX_DC_BASE 0x130000
- 
- #define RX_DC_ENTRIES 64
- #define RX_DC_ENTRIES_ORDER 3
--#define RX_DC_BASE 0x100000
- 
- static const unsigned int
- /* "Large" EEPROM device: Atmel AT25640 or similar
-@@ -3043,9 +3041,11 @@ int falcon_init_nic(struct efx_nic *efx)
- 		return rc;
- 
- 	/* Set positions of descriptor caches in SRAM. */
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_TX_DC_BASE_ADR, TX_DC_BASE / 8);
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_TX_DC_BASE_ADR,
-+			     efx->type->tx_dc_base / 8);
- 	efx_writeo(efx, &temp, FR_AZ_SRM_TX_DC_CFG);
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_RX_DC_BASE_ADR, RX_DC_BASE / 8);
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_RX_DC_BASE_ADR,
-+			     efx->type->rx_dc_base / 8);
- 	efx_writeo(efx, &temp, FR_AZ_SRM_RX_DC_CFG);
- 
- 	/* Set TX descriptor cache size. */
-@@ -3248,6 +3248,8 @@ struct efx_nic_type falcon_a1_nic_type = {
- 	.rx_buffer_padding = 0x24,
- 	.max_interrupt_mode = EFX_INT_MODE_MSI,
+@@ -3250,6 +3250,7 @@ struct efx_nic_type falcon_a1_nic_type = {
  	.phys_addr_channels = 4,
-+	.tx_dc_base = 0x130000,
-+	.rx_dc_base = 0x100000,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.offload_features = NETIF_F_IP_CSUM,
  };
  
  struct efx_nic_type falcon_b0_nic_type = {
-@@ -3271,5 +3273,7 @@ struct efx_nic_type falcon_b0_nic_type = {
- 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
- 				   * interrupt handler only supports 32
+@@ -3275,5 +3276,6 @@ struct efx_nic_type falcon_b0_nic_type = {
  				   * channels */
-+	.tx_dc_base = 0x130000,
-+	.rx_dc_base = 0x100000,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.offload_features = NETIF_F_IP_CSUM,
  };
  
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index a42a051..30fb21e 100644
+index 30fb21e..90f6a2a 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -857,6 +857,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  *	from &enum efx_init_mode.
-  * @phys_addr_channels: Number of channels with physically addressed
+@@ -859,6 +859,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
   *	descriptors
-+ * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
-+ * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
+  * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
+  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
++ * @offload_features: net_device feature flags for protocol offload
++ *	features implemented in hardware
   */
  struct efx_nic_type {
  	struct efx_mac_operations *default_mac_ops;
-@@ -872,6 +874,8 @@ struct efx_nic_type {
- 	unsigned int rx_buffer_padding;
- 	unsigned int max_interrupt_mode;
+@@ -876,6 +878,7 @@ struct efx_nic_type {
  	unsigned int phys_addr_channels;
-+	unsigned int tx_dc_base;
-+	unsigned int rx_dc_base;
+ 	unsigned int tx_dc_base;
+ 	unsigned int rx_dc_base;
++	unsigned long offload_features;
  };
  
  /**************************************************************************
