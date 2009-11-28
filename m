@@ -1,78 +1,110 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 02/12] sfc: QT202x: Reset before reading PHY id
-Date: Sat, 28 Nov 2009 15:34:29 +0000
-Message-ID: <1259422469.3709.3.camel@localhost>
+Subject: [PATCH 03/12] sfc: Replace MDIO spinlock with mutex
+Date: Sat, 28 Nov 2009 15:34:44 +0000
+Message-ID: <1259422484.3709.4.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:59068 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:59083 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762AbZK1Pe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 10:34:26 -0500
+	with ESMTP id S1752161AbZK1Pel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 10:34:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Hodgson <shodgson@solarflare.com>
 
-Reading standard registers on the QT2025C before its firmware has
-booted may cause the boot process to fail.  Therefore, follow the
-recommended reset sequence before reading its id registers.  Either
-order works for the QT2022C2, so don't differentiate.
+We never use MDIO in atomic context, so we don't need to spin.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/qt202x_phy.c |   22 ++++++++--------------
- 1 files changed, 8 insertions(+), 14 deletions(-)
+ drivers/net/sfc/efx.c        |    2 +-
+ drivers/net/sfc/falcon.c     |   12 ++++++------
+ drivers/net/sfc/net_driver.h |    4 ++--
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index 1b174c3..3d7370e 100644
---- a/drivers/net/sfc/qt202x_phy.c
-+++ b/drivers/net/sfc/qt202x_phy.c
-@@ -138,33 +138,27 @@ static int qt202x_reset_phy(struct efx_nic *efx)
- static int qt202x_phy_init(struct efx_nic *efx)
- {
- 	struct qt202x_phy_data *phy_data;
--	u32 devid = efx_mdio_read_id(efx, MDIO_MMD_PHYXS);
-+	u32 devid;
- 	int rc;
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index b5a7e91..6338ad8 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1922,7 +1922,7 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	/* Initialise common structures */
+ 	memset(efx, 0, sizeof(*efx));
+ 	spin_lock_init(&efx->biu_lock);
+-	spin_lock_init(&efx->phy_lock);
++	mutex_init(&efx->mdio_lock);
+ 	mutex_init(&efx->spi_lock);
+ 	INIT_WORK(&efx->reset_work, efx_reset_work);
+ 	INIT_DELAYED_WORK(&efx->monitor_work, efx_monitor);
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index e16faad..372dbbc 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -2110,7 +2110,7 @@ static int falcon_mdio_write(struct net_device *net_dev,
+ 	EFX_REGDUMP(efx, "writing MDIO %d register %d.%d with 0x%04x\n",
+ 		    prtad, devad, addr, value);
  
-+	rc = qt202x_reset_phy(efx);
-+	if (rc) {
-+		EFX_ERR(efx, "PHY init failed\n");
-+		return rc;
-+	}
-+
- 	phy_data = kzalloc(sizeof(struct qt202x_phy_data), GFP_KERNEL);
- 	if (!phy_data)
- 		return -ENOMEM;
- 	efx->phy_data = phy_data;
+-	spin_lock_bh(&efx->phy_lock);
++	mutex_lock(&efx->mdio_lock);
  
-+	devid = efx_mdio_read_id(efx, MDIO_MMD_PHYXS);
- 	EFX_INFO(efx, "PHY ID reg %x (OUI %06x model %02x revision %x)\n",
- 		 devid, efx_mdio_id_oui(devid), efx_mdio_id_model(devid),
- 		 efx_mdio_id_rev(devid));
+ 	/* Check MDIO not currently being accessed */
+ 	rc = falcon_gmii_wait(efx);
+@@ -2145,8 +2145,8 @@ static int falcon_mdio_write(struct net_device *net_dev,
+ 		udelay(10);
+ 	}
  
- 	phy_data->phy_mode = efx->phy_mode;
--
--	rc = qt202x_reset_phy(efx);
--
--	EFX_INFO(efx, "PHY init %s.\n",
--		 rc ? "failed" : "successful");
--	if (rc < 0)
--		goto fail;
--
- 	return 0;
--
-- fail:
--	kfree(efx->phy_data);
--	efx->phy_data = NULL;
--	return rc;
+- out:
+-	spin_unlock_bh(&efx->phy_lock);
++out:
++	mutex_unlock(&efx->mdio_lock);
+ 	return rc;
  }
  
- static int qt202x_link_ok(struct efx_nic *efx)
+@@ -2158,7 +2158,7 @@ static int falcon_mdio_read(struct net_device *net_dev,
+ 	efx_oword_t reg;
+ 	int rc;
+ 
+-	spin_lock_bh(&efx->phy_lock);
++	mutex_lock(&efx->mdio_lock);
+ 
+ 	/* Check MDIO not currently being accessed */
+ 	rc = falcon_gmii_wait(efx);
+@@ -2194,8 +2194,8 @@ static int falcon_mdio_read(struct net_device *net_dev,
+ 			prtad, devad, addr, rc);
+ 	}
+ 
+- out:
+-	spin_unlock_bh(&efx->phy_lock);
++out:
++	mutex_unlock(&efx->mdio_lock);
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index fb9327c..0aeaeda 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -724,7 +724,7 @@ union efx_multicast_hash {
+  * @mac_op: MAC interface
+  * @mac_address: Permanent MAC address
+  * @phy_type: PHY type
+- * @phy_lock: PHY access lock
++ * @mdio_lock: MDIO lock
+  * @phy_op: PHY interface
+  * @phy_data: PHY private data (including PHY-specific stats)
+  * @mdio: PHY MDIO interface
+@@ -806,7 +806,7 @@ struct efx_nic {
+ 	unsigned char mac_address[ETH_ALEN];
+ 
+ 	enum phy_type phy_type;
+-	spinlock_t phy_lock;
++	struct mutex mdio_lock;
+ 	struct efx_phy_operations *phy_op;
+ 	void *phy_data;
+ 	struct mdio_if_info mdio;
 -- 
 1.6.5.3
 
