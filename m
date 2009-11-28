@@ -1,252 +1,284 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 19/32] sfc: Add power-management and wake-on-LAN support
-Date: Sat, 28 Nov 2009 03:50:10 +0000
-Message-ID: <1259380210.2811.44.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 20/32] sfc: Implement ethtool reset operation
+Date: Sat, 28 Nov 2009 03:50:23 +0000
+Message-ID: <1259380223.2811.46.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42676 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:42684 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753920AbZK1DuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:50:06 -0500
+	with ESMTP id S1754021AbZK1DuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Nov 2009 22:50:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wake-on-LAN is a stub for Falcon, but will be implemented fully for
-new NICs.
+Refactor efx_reset_down() and efx_reset_up() accordingly.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   96 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/sfc/ethtool.c    |   17 +++++++
- drivers/net/sfc/falcon.c     |   27 ++++++++++++
- drivers/net/sfc/net_driver.h |    6 +++
- 4 files changed, 146 insertions(+), 0 deletions(-)
+ drivers/net/sfc/efx.c        |   98 ++++++++++++++++++++---------------------
+ drivers/net/sfc/efx.h        |    1 +
+ drivers/net/sfc/ethtool.c    |   30 +++++++++++++
+ drivers/net/sfc/falcon.c     |    2 +
+ drivers/net/sfc/net_driver.h |    3 +
+ 5 files changed, 84 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index d94ec07..75a2ce3 100644
+index 75a2ce3..265033b 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -2243,11 +2243,107 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 	return rc;
- }
+@@ -1754,58 +1754,49 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 	rc = efx->type->init(efx);
+ 	if (rc) {
+ 		EFX_ERR(efx, "failed to initialise NIC\n");
+-		ok = false;
++		goto fail;
+ 	}
  
-+static int efx_pm_freeze(struct device *dev)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
++	if (!ok)
++		goto fail;
 +
-+	efx->state = STATE_FINI;
-+
-+	netif_device_detach(efx->net_dev);
-+
-+	efx_stop_all(efx);
-+	efx_fini_channels(efx);
-+
-+	return 0;
-+}
-+
-+static int efx_pm_thaw(struct device *dev)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+
-+	efx->state = STATE_INIT;
-+
+ 	if (efx->port_initialized && method != RESET_TYPE_INVISIBLE) {
+-		if (ok) {
+-			rc = efx->phy_op->init(efx);
+-			if (rc)
+-				ok = false;
+-			if (efx->phy_op->reconfigure(efx))
+-				EFX_ERR(efx, "could not restore PHY settings\n");
+-		}
+-		if (!ok)
+-			efx->port_initialized = false;
++		rc = efx->phy_op->init(efx);
++		if (rc)
++			goto fail;
++		if (efx->phy_op->reconfigure(efx))
++			EFX_ERR(efx, "could not restore PHY settings\n");
+ 	}
+ 
+-	if (ok) {
+-		efx->mac_op->reconfigure(efx);
++	efx->mac_op->reconfigure(efx);
+ 
+-		efx_init_channels(efx);
+-	}
 +	efx_init_channels(efx);
 +
-+	mutex_lock(&efx->mac_lock);
-+	efx->phy_op->reconfigure(efx);
++	mutex_unlock(&efx->spi_lock);
 +	mutex_unlock(&efx->mac_lock);
 +
 +	efx_start_all(efx);
 +
-+	netif_device_attach(efx->net_dev);
-+
-+	efx->state = STATE_RUNNING;
-+
-+	efx->type->resume_wol(efx);
-+
 +	return 0;
-+}
 +
-+static int efx_pm_poweroff(struct device *dev)
-+{
-+	struct pci_dev *pci_dev = to_pci_dev(dev);
-+	struct efx_nic *efx = pci_get_drvdata(pci_dev);
-+
-+	efx->type->fini(efx);
-+
-+	efx->reset_pending = RESET_TYPE_NONE;
-+
-+	pci_save_state(pci_dev);
-+	return pci_set_power_state(pci_dev, PCI_D3hot);
-+}
-+
-+/* Used for both resume and restore */
-+static int efx_pm_resume(struct device *dev)
-+{
-+	struct pci_dev *pci_dev = to_pci_dev(dev);
-+	struct efx_nic *efx = pci_get_drvdata(pci_dev);
-+	int rc;
-+
-+	rc = pci_set_power_state(pci_dev, PCI_D0);
-+	if (rc)
-+		return rc;
-+	pci_restore_state(pci_dev);
-+	rc = pci_enable_device(pci_dev);
-+	if (rc)
-+		return rc;
-+	pci_set_master(efx->pci_dev);
-+	rc = efx->type->reset(efx, RESET_TYPE_ALL);
-+	if (rc)
-+		return rc;
-+	rc = efx->type->init(efx);
-+	if (rc)
-+		return rc;
-+	efx_pm_thaw(dev);
-+	return 0;
-+}
-+
-+static int efx_pm_suspend(struct device *dev)
-+{
-+	int rc;
-+
-+	efx_pm_freeze(dev);
-+	rc = efx_pm_poweroff(dev);
-+	if (rc)
-+		efx_pm_resume(dev);
-+	return rc;
-+}
-+
-+static struct dev_pm_ops efx_pm_ops = {
-+	.suspend	= efx_pm_suspend,
-+	.resume		= efx_pm_resume,
-+	.freeze		= efx_pm_freeze,
-+	.thaw		= efx_pm_thaw,
-+	.poweroff	= efx_pm_poweroff,
-+	.restore	= efx_pm_resume,
-+};
-+
- static struct pci_driver efx_pci_driver = {
- 	.name		= EFX_DRIVER_NAME,
- 	.id_table	= efx_pci_table,
- 	.probe		= efx_pci_probe,
- 	.remove		= efx_pci_remove,
-+	.driver.pm	= &efx_pm_ops,
- };
++fail:
++	efx->port_initialized = false;
  
- /**************************************************************************
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index 92c5d8d..901bad3 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -752,6 +752,21 @@ static void efx_ethtool_get_pauseparam(struct net_device *net_dev,
+ 	mutex_unlock(&efx->spi_lock);
+ 	mutex_unlock(&efx->mac_lock);
+ 
+-	if (ok)
+-		efx_start_all(efx);
+ 	return rc;
  }
  
-
-+static void efx_ethtool_get_wol(struct net_device *net_dev,
-+				struct ethtool_wolinfo *wol)
+-/* Reset the NIC as transparently as possible. Do not reset the PHY
+- * Note that the reset may fail, in which case the card will be left
+- * in a most-probably-unusable state.
+- *
+- * This function will sleep.  You cannot reset from within an atomic
+- * state; use efx_schedule_reset() instead.
++/* Reset the NIC using the specified method.  Note that the reset may
++ * fail, in which case the card will be left in an unusable state.
+  *
+- * Grabs the rtnl_lock.
++ * Caller must hold the rtnl_lock.
+  */
+-static int efx_reset(struct efx_nic *efx)
++int efx_reset(struct efx_nic *efx, enum reset_type method)
+ {
+-	enum reset_type method = efx->reset_pending;
+-	int rc = 0;
+-
+-	/* Serialise with kernel interfaces */
+-	rtnl_lock();
+-
+-	/* If we're not RUNNING then don't reset. Leave the reset_pending
+-	 * flag set so that efx_pci_probe_main will be retried */
+-	if (efx->state != STATE_RUNNING) {
+-		EFX_INFO(efx, "scheduled reset quenched. NIC not RUNNING\n");
+-		goto out_unlock;
+-	}
++	int rc, rc2;
++	bool disabled;
+ 
+ 	EFX_INFO(efx, "resetting (%s)\n", RESET_TYPE(method));
+ 
+@@ -1814,7 +1805,7 @@ static int efx_reset(struct efx_nic *efx)
+ 	rc = efx->type->reset(efx, method);
+ 	if (rc) {
+ 		EFX_ERR(efx, "failed to reset hardware\n");
+-		goto out_disable;
++		goto out;
+ 	}
+ 
+ 	/* Allow resets to be rescheduled. */
+@@ -1826,25 +1817,22 @@ static int efx_reset(struct efx_nic *efx)
+ 	 * can respond to requests. */
+ 	pci_set_master(efx->pci_dev);
+ 
++out:
+ 	/* Leave device stopped if necessary */
+-	if (method == RESET_TYPE_DISABLE) {
+-		efx_reset_up(efx, method, false);
+-		rc = -EIO;
+-	} else {
+-		rc = efx_reset_up(efx, method, true);
++	disabled = rc || method == RESET_TYPE_DISABLE;
++	rc2 = efx_reset_up(efx, method, !disabled);
++	if (rc2) {
++		disabled = true;
++		if (!rc)
++			rc = rc2;
+ 	}
+ 
+-out_disable:
+-	if (rc) {
++	if (disabled) {
+ 		EFX_ERR(efx, "has been disabled\n");
+ 		efx->state = STATE_DISABLED;
+-		dev_close(efx->net_dev);
+ 	} else {
+ 		EFX_LOG(efx, "reset complete\n");
+ 	}
+-
+-out_unlock:
+-	rtnl_unlock();
+ 	return rc;
+ }
+ 
+@@ -1853,9 +1841,19 @@ out_unlock:
+  */
+ static void efx_reset_work(struct work_struct *data)
+ {
+-	struct efx_nic *nic = container_of(data, struct efx_nic, reset_work);
++	struct efx_nic *efx = container_of(data, struct efx_nic, reset_work);
+ 
+-	efx_reset(nic);
++	/* If we're not RUNNING then don't reset. Leave the reset_pending
++	 * flag set so that efx_pci_probe_main will be retried */
++	if (efx->state != STATE_RUNNING) {
++		EFX_INFO(efx, "scheduled reset quenched. NIC not RUNNING\n");
++		return;
++	}
++
++	rtnl_lock();
++	if (efx_reset(efx, efx->reset_pending))
++		dev_close(efx->net_dev);
++	rtnl_unlock();
+ }
+ 
+ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
+diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
+index c785003..fa40c7b 100644
+--- a/drivers/net/sfc/efx.h
++++ b/drivers/net/sfc/efx.h
+@@ -71,6 +71,7 @@ extern int efx_ethtool_set_settings(struct net_device *net_dev,
+ extern const struct ethtool_ops efx_ethtool_ops;
+ 
+ /* Reset handling */
++extern int efx_reset(struct efx_nic *efx, enum reset_type method);
+ extern void efx_reset_down(struct efx_nic *efx, enum reset_type method);
+ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
+ 
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 901bad3..0a2b6a4 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -767,6 +767,35 @@ static int efx_ethtool_set_wol(struct net_device *net_dev,
+ 	return efx->type->set_wol(efx, wol->wolopts);
+ }
+ 
++extern int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
 +{
 +	struct efx_nic *efx = netdev_priv(net_dev);
-+	return efx->type->get_wol(efx, wol);
-+}
++	enum reset_type method;
++	enum {
++		ETH_RESET_EFX_INVISIBLE = (ETH_RESET_DMA | ETH_RESET_FILTER |
++					   ETH_RESET_OFFLOAD | ETH_RESET_MAC)
++	};
 +
++	/* Check for minimal reset flags */
++	if ((*flags & ETH_RESET_EFX_INVISIBLE) != ETH_RESET_EFX_INVISIBLE)
++		return -EINVAL;
++	*flags ^= ETH_RESET_EFX_INVISIBLE;
++	method = RESET_TYPE_INVISIBLE;
 +
-+static int efx_ethtool_set_wol(struct net_device *net_dev,
-+			       struct ethtool_wolinfo *wol)
-+{
-+	struct efx_nic *efx = netdev_priv(net_dev);
-+	return efx->type->set_wol(efx, wol->wolopts);
++	if (*flags & ETH_RESET_PHY) {
++		*flags ^= ETH_RESET_PHY;
++		method = RESET_TYPE_ALL;
++	}
++
++	if ((*flags & efx->type->reset_world_flags) ==
++	    efx->type->reset_world_flags) {
++		*flags ^= efx->type->reset_world_flags;
++		method = RESET_TYPE_WORLD;
++	}
++
++	return efx_reset(efx, method);
 +}
 +
  const struct ethtool_ops efx_ethtool_ops = {
  	.get_settings		= efx_ethtool_get_settings,
  	.set_settings		= efx_ethtool_set_settings,
-@@ -781,4 +796,6 @@ const struct ethtool_ops efx_ethtool_ops = {
- 	.get_strings		= efx_ethtool_get_strings,
- 	.phys_id		= efx_ethtool_phys_id,
+@@ -798,4 +827,5 @@ const struct ethtool_ops efx_ethtool_ops = {
  	.get_ethtool_stats	= efx_ethtool_get_stats,
-+	.get_wol                = efx_ethtool_get_wol,
-+	.set_wol                = efx_ethtool_set_wol,
+ 	.get_wol                = efx_ethtool_get_wol,
+ 	.set_wol                = efx_ethtool_set_wol,
++	.reset			= efx_ethtool_reset,
  };
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 85233c8..6b89607 100644
+index 6b89607..67ad54d 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -3245,6 +3245,27 @@ void falcon_stop_nic_stats(struct efx_nic *efx)
+@@ -3306,6 +3306,7 @@ struct efx_nic_type falcon_a1_nic_type = {
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
+ 	.offload_features = NETIF_F_IP_CSUM,
++	.reset_world_flags = ETH_RESET_IRQ,
+ };
  
- /**************************************************************************
-  *
-+ * Wake on LAN
-+ *
-+ **************************************************************************
-+ */
-+
-+static void falcon_get_wol(struct efx_nic *efx, struct ethtool_wolinfo *wol)
-+{
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+	memset(&wol->sopass, 0, sizeof(wol->sopass));
-+}
-+
-+static int falcon_set_wol(struct efx_nic *efx, u32 type)
-+{
-+	if (type != 0)
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+/**************************************************************************
-+ *
-  * Revision-dependent attributes used by efx.c
-  *
-  **************************************************************************
-@@ -3266,6 +3287,9 @@ struct efx_nic_type falcon_a1_nic_type = {
- 	.push_irq_moderation = falcon_push_irq_moderation,
- 	.push_multicast_hash = falcon_push_multicast_hash,
- 	.reconfigure_port = falcon_reconfigure_port,
-+	.get_wol = falcon_get_wol,
-+	.set_wol = falcon_set_wol,
-+	.resume_wol = efx_port_dummy_op_void,
- 	.default_mac_ops = &falcon_xmac_operations,
+ struct efx_nic_type falcon_b0_nic_type = {
+@@ -3350,5 +3351,6 @@ struct efx_nic_type falcon_b0_nic_type = {
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
+ 	.offload_features = NETIF_F_IP_CSUM,
++	.reset_world_flags = ETH_RESET_IRQ,
+ };
  
- 	.revision = EFX_REV_FALCON_A1,
-@@ -3300,6 +3324,9 @@ struct efx_nic_type falcon_b0_nic_type = {
- 	.push_irq_moderation = falcon_push_irq_moderation,
- 	.push_multicast_hash = falcon_push_multicast_hash,
- 	.reconfigure_port = falcon_reconfigure_port,
-+	.get_wol = falcon_get_wol,
-+	.set_wol = falcon_set_wol,
-+	.resume_wol = efx_port_dummy_op_void,
- 	.default_mac_ops = &falcon_xmac_operations,
- 
- 	.revision = EFX_REV_FALCON_B0,
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index ecb24b9..9ce5a28 100644
+index 9ce5a28..ee2b445 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -861,6 +861,9 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  * @push_irq_moderation: Apply interrupt moderation value
-  * @push_multicast_hash: Apply multicast hash table
-  * @reconfigure_port: Push loopback/power/txdis changes to the MAC and PHY
-+ * @get_wol: Get WoL configuration from driver state
-+ * @set_wol: Push WoL configuration to the NIC
-+ * @resume_wol: Synchronise WoL state between driver and MC (e.g. after resume)
-  * @default_mac_ops: efx_mac_operations to set at startup
-  * @revision: Hardware architecture revision
-  * @mem_map_size: Memory BAR mapped size
-@@ -896,6 +899,9 @@ struct efx_nic_type {
- 	void (*push_irq_moderation)(struct efx_channel *channel);
- 	void (*push_multicast_hash)(struct efx_nic *efx);
- 	int (*reconfigure_port)(struct efx_nic *efx);
-+	void (*get_wol)(struct efx_nic *efx, struct ethtool_wolinfo *wol);
-+	int (*set_wol)(struct efx_nic *efx, u32 type);
-+	void (*resume_wol)(struct efx_nic *efx);
- 	struct efx_mac_operations *default_mac_ops;
+@@ -882,6 +882,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
+  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
+  * @offload_features: net_device feature flags for protocol offload
+  *	features implemented in hardware
++ * @reset_world_flags: Flags for additional components covered by
++ *	reset method RESET_TYPE_WORLD
+  */
+ struct efx_nic_type {
+ 	int (*probe)(struct efx_nic *efx);
+@@ -918,6 +920,7 @@ struct efx_nic_type {
+ 	unsigned int tx_dc_base;
+ 	unsigned int rx_dc_base;
+ 	unsigned long offload_features;
++	u32 reset_world_flags;
+ };
  
- 	int revision;
+ /**************************************************************************
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
