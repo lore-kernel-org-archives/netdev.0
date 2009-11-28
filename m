@@ -1,48 +1,82 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: [PATCH] NET: smc91x: Fix irq flags
-Date: Sat, 28 Nov 2009 10:13:23 +0000
-Message-ID: <20091128101323.GA25671@n2100.arm.linux.org.uk>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: scp stalls mysteriously
+Date: Sat, 28 Nov 2009 13:31:14 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi>
+References: <20091127223545.2a752429@houba> <alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi> <20091128010156.1219012a@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Nicolas Pitre <nico@fluxnic.net>,
-	eric miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="-696230645-317597291-1259405851=:25587"
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:60166 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751517AbZK1KN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 05:13:27 -0500
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46136 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753107AbZK1LbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 06:31:09 -0500
+In-Reply-To: <20091128010156.1219012a@houba>
+Content-ID: <alpine.DEB.2.00.0911281257390.25587@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-smc91x.h defines SMC_IRQ_FLAGS to be -1 when it wants the interrupt
-flags to be taken from the resource structure.  However, d280ead
-changed this to checking for non-zero resource flags.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Unfortunately, this means that on some platforms, we end up passing
-'-1' to request_irq rather than the desired result.  Combine the two
-conditions into one so that the IRQ flags are taken from the resource
-if either SMC_IRQ_FLAGS is -1 or the resource flags specify an
-interrupt trigger.
+---696230645-317597291-1259405851=:25587
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0911281257391.25587@melkinpaasi.cs.helsinki.fi>
 
-This restores network on at least the Versatile platform.
+I restored Ccs. Please keep them.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+On Sat, 28 Nov 2009, Frederic Leroy wrote:
 
---
- drivers/net/smc91x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Le Sat, 28 Nov 2009 00:12:23 +0200 (EET),
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> a écrit :
+> 
+> > On Fri, 27 Nov 2009, Frederic Leroy wrote:
+> > 
+> > > I put traces of stall here : 
+> > > http://www.starox.org/pub/scp_stall/
+> >
+> > Your proc/net/tcp capture on houba was perhaps made too late? ...The 
+> > connection is missing already.
+> 
+> It could be ! I had a doubt while using my 2 keyboards ... 
+> 
+> For information for the pcaps, I filtered and used "tcpdump ... ether
+> host xx:xx:xx:xx:xx"
+> I waited a bit after the stall and kill the scp with ctrl-c.
+> 
+> > But anyway, at least the problem is visible...
+> 
+> Great!
+> 
+> > It seems that
+> > 3998:4046 gets never retransmitted, not even by RTO which seems very
+> > very strange to me... And after this: 23:21:56.154269 IP
+> > 192.168.1.19.50028 > 192.168.1.15.22: . ack 3998 win 379 ... sack 3 
+> > {4238:4286}{4142:4190}{4046:4094}> also fast retransmit should have 
+> > already triggered. ...I'll look more into this if I can figure it out 
+> > from the current traces but it'll take a while.
+> 
+> Can it help you, if I make other traces ?
+> 
+> I won't be available until monday.
 
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index 05c91ee..a7af1f5 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -2283,7 +2283,7 @@ static int __devinit smc_drv_probe(struct platform_device *pdev)
- 
- 	ndev->irq = ires->start;
- 
--	if (ires->flags & IRQF_TRIGGER_MASK)
-+	if (irq_flags == -1 || ires->flags & IRQF_TRIGGER_MASK)
- 		irq_flags = ires->flags & IRQF_TRIGGER_MASK;
- 
- 	ret = smc_request_attrib(pdev, ndev);
+Perhaps having the /proc/net/tcp would at least tell what state the timer 
+is (if I cannot reproduce right away). ...It is rather strange that two 
+independent mechanisms for loss recovery seem both to fail to get 
+triggered here, no traces of retransmission whatsoever. I think it is for 
+now enough to concentrate on what happens on 192.168.1.15 (=houba?) and 
+get tcpdump and proc/net/tcp from there, the other end/direction has very 
+little significance here (except for the fact that bidirectionality might 
+be needed to actually trigger it). You could even think of getting 
+proc/net/tcp a bit more often, right from the start:
+
+while [ : ]; do grep ":0016" /proc/net/tcp; sleep 0.1; done | tee scp_stall-houba.x.proc_net_tcp
+
+...Please wait at least 2 minutes before hitting ctrl-c or otherwise 
+artificially intervening.
+
+-- 
+ i.
+---696230645-317597291-1259405851=:25587--
