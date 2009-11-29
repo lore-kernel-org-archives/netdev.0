@@ -1,43 +1,31 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: tulip : kernel BUG in tulip_up/tulip_resume
-Date: Sun, 29 Nov 2009 12:36:59 +0100
-Message-ID: <20091129113659.GA2971@ami.dom.local>
-References: <20091108223305.GA21072@frolo.macqel>
- <20091129001710.GA4055@ami.dom.local>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH v2] ep93xx-eth: check for zero MAC address on probe, not on device open
+Date: Sun, 29 Nov 2009 13:11:58 +0100
+Message-ID: <20091129121158.GV20214@mail.wantstofly.org>
+References: <200911290057.02109.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: grundler@parisc-linux.org, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe De Muyter <phdm@macqel.be>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754300AbZK2LhU@vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:52187 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750738AbZK2Ml0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 07:41:26 -0500
 Content-Disposition: inline
-In-Reply-To: <20091129001710.GA4055@ami.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200911290057.02109.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 29, 2009 at 01:17:10AM +0100, Jarek Poplawski wrote:
-> Philippe De Muyter wrote, On 11/08/2009 11:33 PM:
-> > Does someone know what could be wrong and have a fix or should I look myself ?
+On Sun, Nov 29, 2009 at 12:57:00AM +0100, Florian Fainelli wrote:
+
+> If we happen to have registered the driver without passing
+> a MAC address, we will print a zero MAC address and register
+> the interface with this invalid address, this is confusin. This
+> patch moves the checking of a valid ethernet address and the
+> generation of a random one down from the open function to
+> the probe function.
 > 
-> Don't know, guess only...
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-...And maybe a second guess btw. (to try together or separate).
-
-Jarek P.
----
-
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index 6b2330e..fd32601 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -1749,9 +1749,9 @@ static int tulip_suspend (struct pci_dev *pdev, pm_message_t state)
- 	if (!netif_running(dev))
- 		goto save_state;
- 
-+	netif_device_detach(dev);
- 	tulip_down(dev);
- 
--	netif_device_detach(dev);
- 	free_irq(dev->irq, dev);
- 
- save_state:
+Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
