@@ -1,70 +1,36 @@
-From: Rudy Matela <rudy.matela@gmail.com>
-Subject: [PATCH] net: Coding style corrections on Sealevel Systems 4021
- driver.
-Date: Sat, 28 Nov 2009 23:49:44 -0300
-Message-ID: <20091129024944.GB20636@oblivion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/12] sfc: Simplify PHY polling
+Date: Sat, 28 Nov 2009 23:59:02 -0800 (PST)
+Message-ID: <20091128.235902.02281632.davem@davemloft.net>
+References: <1259422445.3709.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: trivial@kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.211.182]:43881 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752847AbZK2Cs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 21:48:27 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42910
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751017AbZK2H65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 02:58:57 -0500
+In-Reply-To: <1259422445.3709.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changed braces position on some statements.
-Inserted a space between an "if" keyword and a parenthesis.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Sat, 28 Nov 2009 15:34:05 +0000
 
-Signed-off-by: Rudy Matela <rudy.matela@gmail.com>
----
+> From: Steve Hodgson <shodgson@solarflare.com>
+> 
+> Falcon can generate events for LASI interrupts from the PHY, but in
+> practice we have never implemented this in reference designs.  Instead
+> we have polled, inserted the appropriate events, and then handled the
+> events later.  This is a waste of time and code.
+> 
+> Instead, make PHY poll functions update the link state synchronously
+> and report whether it changed.  We can still make use of the LASI
+> registers as a shortcut on the SFT9001.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
- drivers/net/wan/sealevel.c |   11 ++++-------
- 1 files changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
-index 0c525e2..6b03704 100644
---- a/drivers/net/wan/sealevel.c
-+++ b/drivers/net/wan/sealevel.c
-@@ -84,8 +84,7 @@ static int sealevel_open(struct net_device *d)
- 	 *	Link layer up.
- 	 */
- 
--	switch (unit)
--	{
-+	switch (unit) {
- 		case 0:
- 			err = z8530_sync_dma_open(d, slvl->chan);
- 			break;
-@@ -133,8 +132,7 @@ static int sealevel_close(struct net_device *d)
- 	hdlc_close(d);
- 	netif_stop_queue(d);
- 
--	switch (unit)
--	{
-+	switch (unit) {
- 		case 0:
- 			z8530_sync_dma_close(d, slvl->chan);
- 			break;
-@@ -342,8 +340,7 @@ static void __exit slvl_shutdown(struct slvl_board *b)
- 
- 	z8530_shutdown(&b->board);
- 
--	for (u = 0; u < 2; u++)
--	{
-+	for (u = 0; u < 2; u++) {
- 		struct net_device *d = b->dev[u].chan->netdevice;
- 		unregister_hdlc_device(d);
- 		free_netdev(d);
-@@ -391,7 +388,7 @@ static int __init slvl_init_module(void)
- 
- static void __exit slvl_cleanup_module(void)
- {
--	if(slvl_unit)
-+	if (slvl_unit)
- 		slvl_shutdown(slvl_unit);
- }
- 
+Applied.
