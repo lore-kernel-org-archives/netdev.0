@@ -1,60 +1,69 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH v2] ep93xx-eth: check for zero MAC address on probe, not on device open
-Date: Sun, 29 Nov 2009 00:57:00 +0100
-Message-ID: <200911290057.02109.florian@openwrt.org>
-Reply-To: Florian Fainelli <florian@openwrt.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tulip : kernel BUG in tulip_up/tulip_resume
+Date: Sun, 29 Nov 2009 01:17:10 +0100
+Message-ID: <20091129001710.GA4055@ami.dom.local>
+References: <20091108223305.GA21072@frolo.macqel>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, buytenh@wantstofly.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: grundler@parisc-linux.org, kyle@mcmartin.ca,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe De Muyter <phdm@macqel.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f215.google.com ([209.85.219.215]:52573 "EHLO
-	mail-ew0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753101AbZK1X47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 18:56:59 -0500
-Received: by ewy7 with SMTP id 7so3083459ewy.28
-        for <netdev@vger.kernel.org>; Sat, 28 Nov 2009 15:57:04 -0800 (PST)
+Received: from fg-out-1718.google.com ([72.14.220.155]:41044 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752674AbZK2ARN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Nov 2009 19:17:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20091108223305.GA21072@frolo.macqel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we happen to have registered the driver without passing
-a MAC address, we will print a zero MAC address and register
-the interface with this invalid address, this is confusin. This
-patch moves the checking of a valid ethernet address and the
-generation of a random one down from the open function to
-the probe function.
+Philippe De Muyter wrote, On 11/08/2009 11:33 PM:
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Hello,
+> 
+> I have just installed 2.6.31 (from opensuse 11.2) one a tulip-equipped
+> computer and I get the following error message from the kernel :
+> 
+> [ 2495.526390] ------------[ cut here ]------------
+> [ 2495.526390] kernel BUG at /usr/src/packages/BUILD/kernel-default-2.6.31.5/linux-2.6.31/include/linux/netdevice.h:439!
+> [ 2495.526390] invalid opcode: 0000 [#1] SMP 
+...
+> This comes from a BUG_ON in napi_enable in netdevice.h.
+> 
+> napi_enable itself is called by tulip_up as such :
+> 
+> #ifdef CONFIG_TULIP_NAPI
+> 	napi_enable(&tp->napi);
+> #endif
+> 
+> At first reading, a matching napi_disable is called in tulip_down.
+> 
+> Does someone know what could be wrong and have a fix or should I look myself ?
+
+Don't know, guess only...
+
+Jarek P.
 ---
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 2be49c8..87601ca 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -628,15 +628,6 @@ static int ep93xx_open(struct net_device *dev)
- 	if (ep93xx_alloc_buffers(ep))
- 		return -ENOMEM;
+
+ drivers/net/tulip/tulip_core.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+index 0df983b..6b1456c 100644
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -1787,11 +1787,11 @@ static int tulip_resume(struct pci_dev *pdev)
+ 		return retval;
+ 	}
  
--	if (is_zero_ether_addr(dev->dev_addr)) {
--		random_ether_addr(dev->dev_addr);
--		printk(KERN_INFO "%s: generated random MAC address "
--			"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
--			dev->dev_addr[0], dev->dev_addr[1],
--			dev->dev_addr[2], dev->dev_addr[3],
--			dev->dev_addr[4], dev->dev_addr[5]);
--	}
+-	netif_device_attach(dev);
 -
- 	napi_enable(&ep->napi);
+ 	if (netif_running(dev))
+ 		tulip_up(dev);
  
- 	if (ep93xx_start_hw(dev)) {
-@@ -876,6 +867,9 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
- 	ep->mii.mdio_read = ep93xx_mdio_read;
- 	ep->mii.mdio_write = ep93xx_mdio_write;
- 	ep->mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
-+	
-+	if (is_zero_ether_addr(dev->dev_addr))
-+		random_ether_addr(dev->dev_addr);
++	netif_device_attach(dev);
++
+ 	return 0;
+ }
  
- 	err = register_netdev(dev);
- 	if (err) {
