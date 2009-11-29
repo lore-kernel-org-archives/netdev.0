@@ -1,86 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] NET: smc91x: convert to dev_pm_ops
-Date: Sun, 29 Nov 2009 16:19:11 +0100
-Message-ID: <200911291619.11808.rjw@sisk.pl>
-References: <1259103467-31016-1-git-send-email-khilman@deeprootsystems.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] ethtool: Remove duplicate type definitions
+Date: Sun, 29 Nov 2009 15:40:42 +0000
+Message-ID: <1259509242.3709.69.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kevin Hilman <khilman@deeprootsystems.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753818AbZK2PSv@vger.kernel.org>
-In-Reply-To: <1259103467-31016-1-git-send-email-khilman@deeprootsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: =?ISO-8859-1?Q?An=EDbal?= Monsalve Salazar <anibal@debian.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59948 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751430AbZK2Pkm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2009 10:40:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 24 November 2009, Kevin Hilman wrote:
-> Convert smc91x driver from legacy PM hooks over to using dev_pm_ops.
-> 
-> Tested on OMAP3 platform.
+<linux/ethtool.h> and ethtool-copy.h now include <linux/types.h>, which
+provides these type definitions.
 
-It seems to be missing the hibernation hooks, at least .freeze() and .restore(),
-but I guess .thaw() as well.
+The duplicate type definitions in ethtool-util.h conflict with those in
+<asm/types.h> on Alpha, as reported in <http://bugs.debian.org/545850>.
 
-> Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -5,11 +5,7 @@
+ 
+ #include <sys/types.h>
+ 
+-/* hack, so we may include kernel's ethtool.h */
+-typedef unsigned long long __u64;
+-typedef __uint32_t __u32;         /* ditto */
+-typedef __uint16_t __u16;         /* ditto */
+-typedef __uint8_t __u8;           /* ditto */
++#include "ethtool-copy.h"
+ 
+ /* historical: we used to use kernel-like types; remove these once cleaned */
+ typedef unsigned long long u64;
+@@ -17,8 +13,6 @@
+ typedef __uint16_t u16;         /* ditto */
+ typedef __uint8_t u8;           /* ditto */
+ 
+-#include "ethtool-copy.h"
+-
+ /* National Semiconductor DP83815, DP83816 */
+ int natsemi_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ int natsemi_dump_eeprom(struct ethtool_drvinfo *info,
 
-Thanks (and sorry for the late response),
-Rafael
 
+-- 
+Ben Hutchings
+Quantity is no substitute for quality, but it's the only one we've got.
 
-> ---
->  drivers/net/smc91x.c |   18 ++++++++++++------
->  1 files changed, 12 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-> index 05c91ee..8e4c455 100644
-> --- a/drivers/net/smc91x.c
-> +++ b/drivers/net/smc91x.c
-> @@ -2365,9 +2365,10 @@ static int __devexit smc_drv_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> -static int smc_drv_suspend(struct platform_device *dev, pm_message_t state)
-> +static int smc_drv_suspend(struct device *dev)
->  {
-> -	struct net_device *ndev = platform_get_drvdata(dev);
-> +	struct platform_device *pdev = to_platform_device(dev);
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
->  
->  	if (ndev) {
->  		if (netif_running(ndev)) {
-> @@ -2379,9 +2380,10 @@ static int smc_drv_suspend(struct platform_device *dev, pm_message_t state)
->  	return 0;
->  }
->  
-> -static int smc_drv_resume(struct platform_device *dev)
-> +static int smc_drv_resume(struct device *dev)
->  {
-> -	struct net_device *ndev = platform_get_drvdata(dev);
-> +	struct platform_device *pdev = to_platform_device(dev);
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
->  
->  	if (ndev) {
->  		struct smc_local *lp = netdev_priv(ndev);
-> @@ -2397,14 +2399,18 @@ static int smc_drv_resume(struct platform_device *dev)
->  	return 0;
->  }
->  
-> +static struct dev_pm_ops smc_drv_pm_ops = {
-> +	.suspend	= smc_drv_suspend,
-> +	.resume		= smc_drv_resume,
-> +};
-> +
->  static struct platform_driver smc_driver = {
->  	.probe		= smc_drv_probe,
->  	.remove		= __devexit_p(smc_drv_remove),
-> -	.suspend	= smc_drv_suspend,
-> -	.resume		= smc_drv_resume,
->  	.driver		= {
->  		.name	= CARDNAME,
->  		.owner	= THIS_MODULE,
-> +		.pm	= &smc_drv_pm_ops,
->  	},
->  };
