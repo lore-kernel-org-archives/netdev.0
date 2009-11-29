@@ -1,66 +1,92 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 01/12] sfc: Remove redundant writes to INT_ADR_KER
-Date: Sun, 29 Nov 2009 13:42:03 +0000
-Message-ID: <1259502123.3709.40.camel@localhost>
+Subject: [PATCH 03/12] sfc: Turn pause frame generation on and off at the
+ MAC, not the RX FIFO
+Date: Sun, 29 Nov 2009 13:42:18 +0000
+Message-ID: <1259502138.3709.42.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29067 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:29093 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbZK2NmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:42:06 -0500
+	with ESMTP id S1752179AbZK2NmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:42:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This register only needs to be written after reset, not each time we
-enable interrupts.
+Pause frame generation is gated by both RX_XOFF_MAC_EN and an enable
+bit in each MAC.  RX_XOFF_MAC_EN bit always reads back as 0 so we need
+to set it correctly every time we modify RX_CFG_REG.  Simplify this by
+always setting it to 1 and only changing the enable bits in the MACs.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/sfc/falcon.c      |   13 ++++++-------
+ drivers/net/sfc/falcon_xmac.c |    3 ++-
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 2f219ce..b7e9238 100644
+index 08f540f..040f553 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -1290,19 +1290,11 @@ static inline void falcon_interrupts(struct efx_nic *efx, int enabled,
+@@ -1939,7 +1939,6 @@ void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
+ 	struct efx_link_state *link_state = &efx->link_state;
+ 	efx_oword_t reg;
+ 	int link_speed;
+-	bool tx_fc;
  
- void falcon_enable_interrupts(struct efx_nic *efx)
- {
--	efx_oword_t int_adr_reg_ker;
- 	struct efx_channel *channel;
+ 	switch (link_state->speed) {
+ 	case 10000: link_speed = 3; break;
+@@ -1969,13 +1968,10 @@ void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
+ 	/* Restore the multicast hash registers. */
+ 	falcon_push_multicast_hash(efx);
  
- 	EFX_ZERO_OWORD(*((efx_oword_t *) efx->irq_status.addr));
- 	wmb(); /* Ensure interrupt vector is clear before interrupts enabled */
- 
--	/* Program address */
--	EFX_POPULATE_OWORD_2(int_adr_reg_ker,
--			     FRF_AZ_NORM_INT_VEC_DIS_KER,
--			     EFX_INT_MODE_USE_MSI(efx),
--			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
--	efx_writeo(efx, &int_adr_reg_ker, FR_AZ_INT_ADR_KER);
+-	/* Transmission of pause frames when RX crosses the threshold is
+-	 * covered by RX_XOFF_MAC_EN and XM_TX_CFG_REG:XM_FCNTL.
+-	 * Action on receipt of pause frames is controller by XM_DIS_FCNTL */
+-	tx_fc = !!(efx->link_state.fc & EFX_FC_TX);
+ 	efx_reado(efx, &reg, FR_AZ_RX_CFG);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AZ_RX_XOFF_MAC_EN, tx_fc);
 -
- 	/* Enable interrupts */
- 	falcon_interrupts(efx, 1, 0);
++	/* Enable XOFF signal from RX FIFO (we enabled it during NIC
++	 * initialisation but it may read back as 0) */
++	EFX_SET_OWORD_FIELD(reg, FRF_AZ_RX_XOFF_MAC_EN, 1);
+ 	/* Unisolate the MAC -> RX */
+ 	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_INGR_EN, 1);
+@@ -3000,6 +2996,9 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XOFF_TX_TH, ctrl_xoff_thr);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_INGR_EN, 1);
+ 	}
++	/* Always enable XOFF signal from RX FIFO.  We enable
++	 * or disable transmission of pause frames at the MAC. */
++	EFX_SET_OWORD_FIELD(reg, FRF_AZ_RX_XOFF_MAC_EN, 1);
+ 	efx_writeo(efx, &reg, FR_AZ_RX_CFG);
+ }
  
-@@ -3061,6 +3053,13 @@ int falcon_init_nic(struct efx_nic *efx)
- 	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_PF_LWM, RX_DC_ENTRIES - 8);
- 	efx_writeo(efx, &temp, FR_AZ_RX_DC_PF_WM);
+diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
+index 1523efd..60dc097 100644
+--- a/drivers/net/sfc/falcon_xmac.c
++++ b/drivers/net/sfc/falcon_xmac.c
+@@ -148,6 +148,7 @@ static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
+ 	unsigned int max_frame_len;
+ 	efx_oword_t reg;
+ 	bool rx_fc = !!(efx->link_state.fc & EFX_FC_RX);
++	bool tx_fc = !!(efx->link_state.fc & EFX_FC_TX);
  
-+	/* Program INT_KER address */
-+	EFX_POPULATE_OWORD_2(temp,
-+			     FRF_AZ_NORM_INT_VEC_DIS_KER,
-+			     EFX_INT_MODE_USE_MSI(efx),
-+			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
-+	efx_writeo(efx, &temp, FR_AZ_INT_ADR_KER);
-+
- 	/* Clear the parity enables on the TX data fifos as
- 	 * they produce false parity errors because of timing issues
- 	 */
+ 	/* Configure MAC  - cut-thru mode is hard wired on */
+ 	EFX_POPULATE_OWORD_3(reg,
+@@ -162,7 +163,7 @@ static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
+ 			     FRF_AB_XM_TX_PRMBL, 1,
+ 			     FRF_AB_XM_AUTO_PAD, 1,
+ 			     FRF_AB_XM_TXCRC, 1,
+-			     FRF_AB_XM_FCNTL, 1,
++			     FRF_AB_XM_FCNTL, tx_fc,
+ 			     FRF_AB_XM_IPG, 0x3);
+ 	efx_writeo(efx, &reg, FR_AB_XM_TX_CFG);
+ 
 -- 
 1.6.5.3
 
