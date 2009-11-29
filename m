@@ -1,177 +1,284 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 06/12] sfc: Generalise link state monitoring
-Date: Sun, 29 Nov 2009 13:43:00 +0000
-Message-ID: <1259502180.3709.45.camel@localhost>
+Subject: [PATCH 08/12] sfc: Implement ethtool reset operation
+Date: Sun, 29 Nov 2009 13:43:15 +0000
+Message-ID: <1259502195.3709.47.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29140 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:29159 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752469AbZK2Nm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:42:57 -0500
+	with ESMTP id S1752499AbZK2NnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:43:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
-
-Use the efx_nic_type::monitor operation or event handling as
-appropriate.
+Refactor efx_reset_down() and efx_reset_up() accordingly.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c      |   16 ++++++++-
- drivers/net/sfc/selftest.c |   79 ++++++++++++++++++++++++++------------------
- 2 files changed, 61 insertions(+), 34 deletions(-)
+ drivers/net/sfc/efx.c        |   98 ++++++++++++++++++++---------------------
+ drivers/net/sfc/efx.h        |    1 +
+ drivers/net/sfc/ethtool.c    |   30 +++++++++++++
+ drivers/net/sfc/falcon.c     |    2 +
+ drivers/net/sfc/net_driver.h |    3 +
+ 5 files changed, 84 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 4210121..14ef27f 100644
+index b016719..4b7168f 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -1174,10 +1174,18 @@ static void efx_start_all(struct efx_nic *efx)
+@@ -1754,58 +1754,49 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 	rc = efx->type->init(efx);
+ 	if (rc) {
+ 		EFX_ERR(efx, "failed to initialise NIC\n");
+-		ok = false;
++		goto fail;
+ 	}
  
- 	falcon_enable_interrupts(efx);
- 
--	/* Start the hardware monitor (if there is one) if we're in RUNNING */
--	if (efx->state == STATE_RUNNING && efx->type->monitor != NULL)
-+	/* Start the hardware monitor if there is one. Otherwise (we're link
-+	 * event driven), we have to poll the PHY because after an event queue
-+	 * flush, we could have a missed a link state change */
-+	if (efx->type->monitor != NULL) {
- 		queue_delayed_work(efx->workqueue, &efx->monitor_work,
- 				   efx_monitor_interval);
-+	} else {
-+		mutex_lock(&efx->mac_lock);
-+		if (efx->phy_op->poll(efx))
-+			efx_link_status_changed(efx);
-+		mutex_unlock(&efx->mac_lock);
-+	}
- 
- 	efx->type->start_stats(efx);
- }
-@@ -1421,6 +1429,10 @@ static int efx_net_open(struct net_device *net_dev)
- 	if (efx->phy_mode & PHY_MODE_SPECIAL)
- 		return -EBUSY;
- 
-+	/* Notify the kernel of the link state polled during driver load,
-+	 * before the monitor starts running */
-+	efx_link_status_changed(efx);
++	if (!ok)
++		goto fail;
 +
- 	efx_start_all(efx);
- 	return 0;
- }
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index dddeb9d..f45bf74 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -563,14 +563,49 @@ efx_test_loopback(struct efx_tx_queue *tx_queue,
- 	return 0;
+ 	if (efx->port_initialized && method != RESET_TYPE_INVISIBLE) {
+-		if (ok) {
+-			rc = efx->phy_op->init(efx);
+-			if (rc)
+-				ok = false;
+-			if (efx->phy_op->reconfigure(efx))
+-				EFX_ERR(efx, "could not restore PHY settings\n");
+-		}
+-		if (!ok)
+-			efx->port_initialized = false;
++		rc = efx->phy_op->init(efx);
++		if (rc)
++			goto fail;
++		if (efx->phy_op->reconfigure(efx))
++			EFX_ERR(efx, "could not restore PHY settings\n");
+ 	}
+ 
+-	if (ok) {
+-		efx->mac_op->reconfigure(efx);
++	efx->mac_op->reconfigure(efx);
+ 
+-		efx_init_channels(efx);
+-	}
++	efx_init_channels(efx);
++
++	mutex_unlock(&efx->spi_lock);
++	mutex_unlock(&efx->mac_lock);
++
++	efx_start_all(efx);
++
++	return 0;
++
++fail:
++	efx->port_initialized = false;
+ 
+ 	mutex_unlock(&efx->spi_lock);
+ 	mutex_unlock(&efx->mac_lock);
+ 
+-	if (ok)
+-		efx_start_all(efx);
+ 	return rc;
  }
  
-+/* Wait for link up. On Falcon, we would prefer to rely on efx_monitor, but
-+ * any contention on the mac lock (via e.g. efx_mac_mcast_work) causes it
-+ * to delay and retry. Therefore, it's safer to just poll directly. Wait
-+ * for link up and any faults to dissipate. */
-+static int efx_wait_for_link(struct efx_nic *efx)
+-/* Reset the NIC as transparently as possible. Do not reset the PHY
+- * Note that the reset may fail, in which case the card will be left
+- * in a most-probably-unusable state.
+- *
+- * This function will sleep.  You cannot reset from within an atomic
+- * state; use efx_schedule_reset() instead.
++/* Reset the NIC using the specified method.  Note that the reset may
++ * fail, in which case the card will be left in an unusable state.
+  *
+- * Grabs the rtnl_lock.
++ * Caller must hold the rtnl_lock.
+  */
+-static int efx_reset(struct efx_nic *efx)
++int efx_reset(struct efx_nic *efx, enum reset_type method)
+ {
+-	enum reset_type method = efx->reset_pending;
+-	int rc = 0;
+-
+-	/* Serialise with kernel interfaces */
+-	rtnl_lock();
+-
+-	/* If we're not RUNNING then don't reset. Leave the reset_pending
+-	 * flag set so that efx_pci_probe_main will be retried */
+-	if (efx->state != STATE_RUNNING) {
+-		EFX_INFO(efx, "scheduled reset quenched. NIC not RUNNING\n");
+-		goto out_unlock;
+-	}
++	int rc, rc2;
++	bool disabled;
+ 
+ 	EFX_INFO(efx, "resetting (%s)\n", RESET_TYPE(method));
+ 
+@@ -1814,7 +1805,7 @@ static int efx_reset(struct efx_nic *efx)
+ 	rc = efx->type->reset(efx, method);
+ 	if (rc) {
+ 		EFX_ERR(efx, "failed to reset hardware\n");
+-		goto out_disable;
++		goto out;
+ 	}
+ 
+ 	/* Allow resets to be rescheduled. */
+@@ -1826,25 +1817,22 @@ static int efx_reset(struct efx_nic *efx)
+ 	 * can respond to requests. */
+ 	pci_set_master(efx->pci_dev);
+ 
++out:
+ 	/* Leave device stopped if necessary */
+-	if (method == RESET_TYPE_DISABLE) {
+-		efx_reset_up(efx, method, false);
+-		rc = -EIO;
+-	} else {
+-		rc = efx_reset_up(efx, method, true);
++	disabled = rc || method == RESET_TYPE_DISABLE;
++	rc2 = efx_reset_up(efx, method, !disabled);
++	if (rc2) {
++		disabled = true;
++		if (!rc)
++			rc = rc2;
+ 	}
+ 
+-out_disable:
+-	if (rc) {
++	if (disabled) {
+ 		EFX_ERR(efx, "has been disabled\n");
+ 		efx->state = STATE_DISABLED;
+-		dev_close(efx->net_dev);
+ 	} else {
+ 		EFX_LOG(efx, "reset complete\n");
+ 	}
+-
+-out_unlock:
+-	rtnl_unlock();
+ 	return rc;
+ }
+ 
+@@ -1853,9 +1841,19 @@ out_unlock:
+  */
+ static void efx_reset_work(struct work_struct *data)
+ {
+-	struct efx_nic *nic = container_of(data, struct efx_nic, reset_work);
++	struct efx_nic *efx = container_of(data, struct efx_nic, reset_work);
+ 
+-	efx_reset(nic);
++	/* If we're not RUNNING then don't reset. Leave the reset_pending
++	 * flag set so that efx_pci_probe_main will be retried */
++	if (efx->state != STATE_RUNNING) {
++		EFX_INFO(efx, "scheduled reset quenched. NIC not RUNNING\n");
++		return;
++	}
++
++	rtnl_lock();
++	if (efx_reset(efx, efx->reset_pending))
++		dev_close(efx->net_dev);
++	rtnl_unlock();
+ }
+ 
+ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
+diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
+index c785003..fa40c7b 100644
+--- a/drivers/net/sfc/efx.h
++++ b/drivers/net/sfc/efx.h
+@@ -71,6 +71,7 @@ extern int efx_ethtool_set_settings(struct net_device *net_dev,
+ extern const struct ethtool_ops efx_ethtool_ops;
+ 
+ /* Reset handling */
++extern int efx_reset(struct efx_nic *efx, enum reset_type method);
+ extern void efx_reset_down(struct efx_nic *efx, enum reset_type method);
+ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
+ 
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index b4c6ea1..29aa83c 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -754,6 +754,35 @@ static int efx_ethtool_set_wol(struct net_device *net_dev,
+ 	return efx->type->set_wol(efx, wol->wolopts);
+ }
+ 
++extern int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
 +{
-+	struct efx_link_state *link_state = &efx->link_state;
-+	int count;
-+	bool link_up;
++	struct efx_nic *efx = netdev_priv(net_dev);
++	enum reset_type method;
++	enum {
++		ETH_RESET_EFX_INVISIBLE = (ETH_RESET_DMA | ETH_RESET_FILTER |
++					   ETH_RESET_OFFLOAD | ETH_RESET_MAC)
++	};
 +
-+	for (count = 0; count < 40; count++) {
-+		schedule_timeout_uninterruptible(HZ / 10);
++	/* Check for minimal reset flags */
++	if ((*flags & ETH_RESET_EFX_INVISIBLE) != ETH_RESET_EFX_INVISIBLE)
++		return -EINVAL;
++	*flags ^= ETH_RESET_EFX_INVISIBLE;
++	method = RESET_TYPE_INVISIBLE;
 +
-+		if (efx->type->monitor != NULL) {
-+			mutex_lock(&efx->mac_lock);
-+			efx->type->monitor(efx);
-+			mutex_unlock(&efx->mac_lock);
-+		} else {
-+			struct efx_channel *channel = &efx->channel[0];
-+			if (channel->work_pending)
-+				efx_process_channel_now(channel);
-+		}
-+
-+		mutex_lock(&efx->mac_lock);
-+		link_up = link_state->up;
-+		if (link_up)
-+			link_up = !efx->mac_op->check_fault(efx);
-+		mutex_unlock(&efx->mac_lock);
-+
-+		if (link_up)
-+			return 0;
++	if (*flags & ETH_RESET_PHY) {
++		*flags ^= ETH_RESET_PHY;
++		method = RESET_TYPE_ALL;
 +	}
 +
-+	return -ETIMEDOUT;
++	if ((*flags & efx->type->reset_world_flags) ==
++	    efx->type->reset_world_flags) {
++		*flags ^= efx->type->reset_world_flags;
++		method = RESET_TYPE_WORLD;
++	}
++
++	return efx_reset(efx, method);
 +}
 +
- static int efx_test_loopbacks(struct efx_nic *efx, struct efx_self_tests *tests,
- 			      unsigned int loopback_modes)
- {
- 	enum efx_loopback_mode mode;
- 	struct efx_loopback_state *state;
- 	struct efx_tx_queue *tx_queue;
--	bool link_up;
--	int count, rc = 0;
-+	int rc = 0;
+ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_settings		= efx_ethtool_get_settings,
+ 	.set_settings		= efx_ethtool_set_settings,
+@@ -784,4 +813,5 @@ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_ethtool_stats	= efx_ethtool_get_stats,
+ 	.get_wol                = efx_ethtool_get_wol,
+ 	.set_wol                = efx_ethtool_set_wol,
++	.reset			= efx_ethtool_reset,
+ };
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 8f2c583..6a96c69 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -3305,6 +3305,7 @@ struct efx_nic_type falcon_a1_nic_type = {
+ 	.phys_addr_channels = 4,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.reset_world_flags = ETH_RESET_IRQ,
+ };
  
- 	/* Set the port loopback_selftest member. From this point on
- 	 * all received packets will be dropped. Mark the state as
-@@ -589,43 +624,23 @@ static int efx_test_loopbacks(struct efx_nic *efx, struct efx_self_tests *tests,
+ struct efx_nic_type falcon_b0_nic_type = {
+@@ -3348,5 +3349,6 @@ struct efx_nic_type falcon_b0_nic_type = {
+ 				   * channels */
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
++	.reset_world_flags = ETH_RESET_IRQ,
+ };
  
- 		/* Move the port into the specified loopback mode. */
- 		state->flush = true;
-+		mutex_lock(&efx->mac_lock);
- 		efx->loopback_mode = mode;
--		efx_reconfigure_port(efx);
--
--		/* Wait for the PHY to signal the link is up. Interrupts
--		 * are enabled for PHY's using LASI, otherwise we poll()
--		 * quickly */
--		count = 0;
--		do {
--			struct efx_channel *channel = &efx->channel[0];
--
--			efx->phy_op->poll(efx);
--			schedule_timeout_uninterruptible(HZ / 10);
--			if (channel->work_pending)
--				efx_process_channel_now(channel);
--			/* Wait for PHY events to be processed */
--			flush_workqueue(efx->workqueue);
--			rmb();
--
--			/* We need both the PHY and MAC-PHY links to be OK */
--			link_up = efx->link_state.up;
--			if (link_up)
--				link_up = !efx->mac_op->check_fault(efx);
--
--		} while ((++count < 20) && !link_up);
-+		rc = __efx_reconfigure_port(efx);
-+		mutex_unlock(&efx->mac_lock);
-+		if (rc) {
-+			EFX_ERR(efx, "unable to move into %s loopback\n",
-+				LOOPBACK_MODE(efx));
-+			goto out;
-+		}
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index a9fde82..58bf761 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -880,6 +880,8 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
+  *	descriptors
+  * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
+  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
++ * @reset_world_flags: Flags for additional components covered by
++ *	reset method RESET_TYPE_WORLD
+  */
+ struct efx_nic_type {
+ 	int (*probe)(struct efx_nic *efx);
+@@ -915,6 +917,7 @@ struct efx_nic_type {
+ 	unsigned int phys_addr_channels;
+ 	unsigned int tx_dc_base;
+ 	unsigned int rx_dc_base;
++	u32 reset_world_flags;
+ };
  
--		/* The link should now be up. If it isn't, there is no point
--		 * in attempting a loopback test */
--		if (!link_up) {
-+		rc = efx_wait_for_link(efx);
-+		if (rc) {
- 			EFX_ERR(efx, "loopback %s never came up\n",
- 				LOOPBACK_MODE(efx));
--			rc = -EIO;
- 			goto out;
- 		}
- 
--		EFX_LOG(efx, "link came up in %s loopback in %d iterations\n",
--			LOOPBACK_MODE(efx), count);
--
- 		/* Test every TX queue */
- 		efx_for_each_tx_queue(tx_queue, efx) {
- 			state->offload_csum = (tx_queue->queue ==
+ /**************************************************************************
 -- 
 1.6.5.3
 
