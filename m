@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: dmfe/tulip device id overlap
-Date: Sun, 29 Nov 2009 00:30:24 -0800 (PST)
-Message-ID: <20091129.003024.245104886.davem@davemloft.net>
-References: <20091125043603.GK14043@jenkins.home.ifup.org>
-	<20091125044944.GL14043@jenkins.home.ifup.org>
-	<da824cf30911250924i31f77033r7f60027ed74b2cd@mail.gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/4] ixgbe: handle parameters for tx and
+ rx EITR, no div0
+Date: Sun, 29 Nov 2009 00:34:41 -0800 (PST)
+Message-ID: <20091129.003441.228793411.davem@davemloft.net>
+References: <20091125045059.23932.10997.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brandon@ifup.org, tobias@ringis.se, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, grundler@parisc-linux.org
-To: grundler@google.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48822
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37178
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751017AbZK2IaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 03:30:20 -0500
-In-Reply-To: <da824cf30911250924i31f77033r7f60027ed74b2cd@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752618AbZK2Ieg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 03:34:36 -0500
+In-Reply-To: <20091125045059.23932.10997.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grundler@google.com>
-Date: Wed, 25 Nov 2009 09:24:54 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 24 Nov 2009 20:51:06 -0800
 
-> I'm ok with this patch except the mention of Ubuntu in the comment is
-> superfluous. All the distro's will share this problem. I trust davem
-> to rewrite the comment and plase add my:
->     Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+> From: Shannon Nelson <shannon.nelson@intel.com>
+> 
+> The driver was doing a divide by zero when adjusting tx-usecs.
+> This patch removes the divide by zero code and changes the logic slightly
+> to ignore tx-usecs in the case of shared TxRx vectors.
+> 
+> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Please remove the comment and the __sparc__ ifdef.
-
-If tulip doesn't work on some sparc systems we simply need to fix it.
-
-Thanks.
+Applied.
