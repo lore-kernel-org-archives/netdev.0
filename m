@@ -1,31 +1,74 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH v2] ep93xx-eth: check for zero MAC address on probe, not on device open
-Date: Sun, 29 Nov 2009 13:11:58 +0100
-Message-ID: <20091129121158.GV20214@mail.wantstofly.org>
-References: <200911290057.02109.florian@openwrt.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 01/12] sfc: Remove redundant writes to INT_ADR_KER
+Date: Sun, 29 Nov 2009 13:42:03 +0000
+Message-ID: <1259502123.3709.40.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:52187 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbZK2Ml0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 07:41:26 -0500
-Content-Disposition: inline
-In-Reply-To: <200911290057.02109.florian@openwrt.org>
+Received: from mail.solarflare.com ([216.237.3.220]:29067 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577AbZK2NmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:42:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 29, 2009 at 12:57:00AM +0100, Florian Fainelli wrote:
+This register only needs to be written after reset, not each time we
+enable interrupts.
 
-> If we happen to have registered the driver without passing
-> a MAC address, we will print a zero MAC address and register
-> the interface with this invalid address, this is confusin. This
-> patch moves the checking of a valid ethernet address and the
-> generation of a random one down from the open function to
-> the probe function.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
 
-Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 2f219ce..b7e9238 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1290,19 +1290,11 @@ static inline void falcon_interrupts(struct efx_nic *efx, int enabled,
+ 
+ void falcon_enable_interrupts(struct efx_nic *efx)
+ {
+-	efx_oword_t int_adr_reg_ker;
+ 	struct efx_channel *channel;
+ 
+ 	EFX_ZERO_OWORD(*((efx_oword_t *) efx->irq_status.addr));
+ 	wmb(); /* Ensure interrupt vector is clear before interrupts enabled */
+ 
+-	/* Program address */
+-	EFX_POPULATE_OWORD_2(int_adr_reg_ker,
+-			     FRF_AZ_NORM_INT_VEC_DIS_KER,
+-			     EFX_INT_MODE_USE_MSI(efx),
+-			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
+-	efx_writeo(efx, &int_adr_reg_ker, FR_AZ_INT_ADR_KER);
+-
+ 	/* Enable interrupts */
+ 	falcon_interrupts(efx, 1, 0);
+ 
+@@ -3061,6 +3053,13 @@ int falcon_init_nic(struct efx_nic *efx)
+ 	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_PF_LWM, RX_DC_ENTRIES - 8);
+ 	efx_writeo(efx, &temp, FR_AZ_RX_DC_PF_WM);
+ 
++	/* Program INT_KER address */
++	EFX_POPULATE_OWORD_2(temp,
++			     FRF_AZ_NORM_INT_VEC_DIS_KER,
++			     EFX_INT_MODE_USE_MSI(efx),
++			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
++	efx_writeo(efx, &temp, FR_AZ_INT_ADR_KER);
++
+ 	/* Clear the parity enables on the TX data fifos as
+ 	 * they produce false parity errors because of timing issues
+ 	 */
+-- 
+1.6.5.3
+
+
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
