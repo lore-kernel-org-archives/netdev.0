@@ -1,125 +1,102 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 10/12] sfc: Add efx_nic_type operation for NVRAM self-test
-Date: Sun, 29 Nov 2009 13:43:33 +0000
-Message-ID: <1259502213.3709.49.camel@localhost>
+Subject: [PATCH 11/12] sfc: Add efx_nic_type operation for identity LED
+ control
+Date: Sun, 29 Nov 2009 13:43:43 +0000
+Message-ID: <1259502223.3709.50.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29181 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:29197 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbZK2Nna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:43:30 -0500
+	with ESMTP id S1752861AbZK2Nnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:43:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c     |   10 +++++++++-
- drivers/net/sfc/falcon.h     |    3 ---
+ drivers/net/sfc/ethtool.c    |    6 +++---
+ drivers/net/sfc/falcon.c     |    7 +++++++
  drivers/net/sfc/net_driver.h |    2 ++
- drivers/net/sfc/selftest.c   |    9 ++++++---
- 4 files changed, 17 insertions(+), 7 deletions(-)
+ 3 files changed, 12 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 29aa83c..5063975 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -174,14 +174,14 @@ static int efx_ethtool_phys_id(struct net_device *net_dev, u32 count)
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+ 	do {
+-		falcon_board(efx)->type->set_id_led(efx, EFX_LED_ON);
++		efx->type->set_id_led(efx, EFX_LED_ON);
+ 		schedule_timeout_interruptible(HZ / 2);
+ 
+-		falcon_board(efx)->type->set_id_led(efx, EFX_LED_OFF);
++		efx->type->set_id_led(efx, EFX_LED_OFF);
+ 		schedule_timeout_interruptible(HZ / 2);
+ 	} while (!signal_pending(current) && --count != 0);
+ 
+-	falcon_board(efx)->type->set_id_led(efx, EFX_LED_DEFAULT);
++	efx->type->set_id_led(efx, EFX_LED_DEFAULT);
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index bcdc545..d4d13c1 100644
+index d4d13c1..61cc994 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -2345,7 +2345,8 @@ static void falcon_remove_port(struct efx_nic *efx)
-  *
-  **************************************************************************/
- 
--int falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
-+static int
-+falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
- {
- 	struct falcon_nvconfig *nvconfig;
- 	struct efx_spi_device *spi;
-@@ -2408,6 +2409,11 @@ int falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
- 	return rc;
+@@ -3249,6 +3249,11 @@ void falcon_stop_nic_stats(struct efx_nic *efx)
+ 	spin_unlock_bh(&efx->stats_lock);
  }
  
-+static int falcon_test_nvram(struct efx_nic *efx)
++static void falcon_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
 +{
-+	return falcon_read_nvram(efx, NULL);
++	falcon_board(efx)->type->set_id_led(efx, mode);
 +}
 +
- /* Registers tested in the falcon register test */
- static struct {
- 	unsigned address;
-@@ -3290,6 +3296,7 @@ struct efx_nic_type falcon_a1_nic_type = {
- 	.get_wol = falcon_get_wol,
- 	.set_wol = falcon_set_wol,
- 	.resume_wol = efx_port_dummy_op_void,
-+	.test_nvram = falcon_test_nvram,
- 	.default_mac_ops = &falcon_xmac_operations,
- 
- 	.revision = EFX_REV_FALCON_A1,
-@@ -3328,6 +3335,7 @@ struct efx_nic_type falcon_b0_nic_type = {
- 	.set_wol = falcon_set_wol,
- 	.resume_wol = efx_port_dummy_op_void,
- 	.test_registers = falcon_b0_test_registers,
-+	.test_nvram = falcon_test_nvram,
- 	.default_mac_ops = &falcon_xmac_operations,
- 
- 	.revision = EFX_REV_FALCON_B0,
-diff --git a/drivers/net/sfc/falcon.h b/drivers/net/sfc/falcon.h
-index cfcc2a3..464c274 100644
---- a/drivers/net/sfc/falcon.h
-+++ b/drivers/net/sfc/falcon.h
-@@ -151,9 +151,6 @@ extern void falcon_stop_nic_stats(struct efx_nic *efx);
- extern int falcon_reset_xaui(struct efx_nic *efx);
- 
- /* Tests */
--struct falcon_nvconfig;
--extern int falcon_read_nvram(struct efx_nic *efx,
--			     struct falcon_nvconfig *nvconfig);
- 
  /**************************************************************************
   *
+  * Wake on LAN
+@@ -3290,6 +3295,7 @@ struct efx_nic_type falcon_a1_nic_type = {
+ 	.update_stats = falcon_update_nic_stats,
+ 	.start_stats = falcon_start_nic_stats,
+ 	.stop_stats = falcon_stop_nic_stats,
++	.set_id_led = falcon_set_id_led,
+ 	.push_irq_moderation = falcon_push_irq_moderation,
+ 	.push_multicast_hash = falcon_push_multicast_hash,
+ 	.reconfigure_port = falcon_reconfigure_port,
+@@ -3328,6 +3334,7 @@ struct efx_nic_type falcon_b0_nic_type = {
+ 	.update_stats = falcon_update_nic_stats,
+ 	.start_stats = falcon_start_nic_stats,
+ 	.stop_stats = falcon_stop_nic_stats,
++	.set_id_led = falcon_set_id_led,
+ 	.push_irq_moderation = falcon_push_irq_moderation,
+ 	.push_multicast_hash = falcon_push_multicast_hash,
+ 	.reconfigure_port = falcon_reconfigure_port,
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 9d353d9..de7cf17 100644
+index de7cf17..62b2089 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -865,6 +865,7 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  * @set_wol: Push WoL configuration to the NIC
-  * @resume_wol: Synchronise WoL state between driver and MC (e.g. after resume)
-  * @test_registers: Test read/write functionality of control registers
-+ * @test_nvram: Test validity of NVRAM contents
-  * @default_mac_ops: efx_mac_operations to set at startup
-  * @revision: Hardware architecture revision
-  * @mem_map_size: Memory BAR mapped size
-@@ -904,6 +905,7 @@ struct efx_nic_type {
- 	int (*set_wol)(struct efx_nic *efx, u32 type);
- 	void (*resume_wol)(struct efx_nic *efx);
- 	int (*test_registers)(struct efx_nic *efx);
-+	int (*test_nvram)(struct efx_nic *efx);
- 	struct efx_mac_operations *default_mac_ops;
- 
- 	int revision;
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index f303552..fa56e2e 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -113,10 +113,13 @@ out:
- 
- static int efx_test_nvram(struct efx_nic *efx, struct efx_self_tests *tests)
- {
--	int rc;
-+	int rc = 0;
-+
-+	if (efx->type->test_nvram) {
-+		rc = efx->type->test_nvram(efx);
-+		tests->nvram = rc ? -1 : 1;
-+	}
- 
--	rc = falcon_read_nvram(efx, NULL);
--	tests->nvram = rc ? -1 : 1;
- 	return rc;
- }
- 
+@@ -858,6 +858,7 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
+  * @update_stats: Update statistics not provided by event handling
+  * @start_stats: Start the regular fetching of statistics
+  * @stop_stats: Stop the regular fetching of statistics
++ * @set_id_led: Set state of identifying LED or revert to automatic function
+  * @push_irq_moderation: Apply interrupt moderation value
+  * @push_multicast_hash: Apply multicast hash table
+  * @reconfigure_port: Push loopback/power/txdis changes to the MAC and PHY
+@@ -898,6 +899,7 @@ struct efx_nic_type {
+ 	void (*update_stats)(struct efx_nic *efx);
+ 	void (*start_stats)(struct efx_nic *efx);
+ 	void (*stop_stats)(struct efx_nic *efx);
++	void (*set_id_led)(struct efx_nic *efx, enum efx_led_mode mode);
+ 	void (*push_irq_moderation)(struct efx_channel *channel);
+ 	void (*push_multicast_hash)(struct efx_nic *efx);
+ 	int (*reconfigure_port)(struct efx_nic *efx);
 -- 
 1.6.5.3
 
