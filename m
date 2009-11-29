@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: smc91x: convert to dev_pm_ops
-Date: Sun, 29 Nov 2009 00:21:42 -0800 (PST)
-Message-ID: <20091129.002142.230416671.davem@davemloft.net>
-References: <1259103467-31016-1-git-send-email-khilman@deeprootsystems.com>
-	<alpine.LFD.2.00.0911242012500.2059@xanadu.home>
+Subject: Re: [PATCH] r8169: restore mac addr in rtl8169_remove_one and
+ rtl_shutdown
+Date: Sun, 29 Nov 2009 00:21:57 -0800 (PST)
+Message-ID: <20091129.002157.14823135.davem@davemloft.net>
+References: <1259087166-14558-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khilman@deeprootsystems.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nico@fluxnic.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754116AbZK2IVi@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0911242012500.2059@xanadu.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38019
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754135AbZK2IVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 03:21:51 -0500
+In-Reply-To: <1259087166-14558-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Pitre <nico@fluxnic.net>
-Date: Tue, 24 Nov 2009 20:13:15 -0500 (EST)
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Tue, 24 Nov 2009 19:26:06 +0100
 
-> On Tue, 24 Nov 2009, Kevin Hilman wrote:
+> The newer chipsets (all PCI-E) are known that they need full power cycle
+> (AC or battery removal) to reset MAC address to a  hardwired one. Previous
+> patch to address this problem loads the original MAC address from EEPROM.
+> But it brought other problem for which it is necessary to introduce a new
+> module parameter.
+> However, it might suffice to restore the initial MAC address before
+> shutdown/reboot/kexec and when removing the module.
 > 
->> Convert smc91x driver from legacy PM hooks over to using dev_pm_ops.
->> 
->> Tested on OMAP3 platform.
->> 
->> Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
-> 
-> Acked-by: Nicolas Pitre <nico@fluxnic.net>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Applied to net-next-2.6, thanks.
+Francois, any comments?
