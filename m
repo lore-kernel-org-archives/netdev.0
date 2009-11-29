@@ -1,252 +1,107 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 07/12] sfc: Add power-management and wake-on-LAN support
-Date: Sun, 29 Nov 2009 13:43:07 +0000
-Message-ID: <1259502187.3709.46.camel@localhost>
+Subject: [PATCH 09/12] sfc: Add efx_nic_type operation for register
+ self-test
+Date: Sun, 29 Nov 2009 13:43:23 +0000
+Message-ID: <1259502203.3709.48.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29151 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:29169 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453AbZK2NnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:43:06 -0500
+	with ESMTP id S1752668AbZK2NnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 08:43:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wake-on-LAN is a stub for Falcon, but will be implemented fully for
-new NICs.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   96 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/sfc/ethtool.c    |   17 +++++++
- drivers/net/sfc/falcon.c     |   27 ++++++++++++
- drivers/net/sfc/net_driver.h |    6 +++
- 4 files changed, 146 insertions(+), 0 deletions(-)
+ drivers/net/sfc/falcon.c     |    3 ++-
+ drivers/net/sfc/falcon.h     |    1 -
+ drivers/net/sfc/net_driver.h |    2 ++
+ drivers/net/sfc/selftest.c   |   12 ++++++------
+ 4 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 14ef27f..b016719 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -2243,11 +2243,107 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 	return rc;
- }
- 
-+static int efx_pm_freeze(struct device *dev)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+
-+	efx->state = STATE_FINI;
-+
-+	netif_device_detach(efx->net_dev);
-+
-+	efx_stop_all(efx);
-+	efx_fini_channels(efx);
-+
-+	return 0;
-+}
-+
-+static int efx_pm_thaw(struct device *dev)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+
-+	efx->state = STATE_INIT;
-+
-+	efx_init_channels(efx);
-+
-+	mutex_lock(&efx->mac_lock);
-+	efx->phy_op->reconfigure(efx);
-+	mutex_unlock(&efx->mac_lock);
-+
-+	efx_start_all(efx);
-+
-+	netif_device_attach(efx->net_dev);
-+
-+	efx->state = STATE_RUNNING;
-+
-+	efx->type->resume_wol(efx);
-+
-+	return 0;
-+}
-+
-+static int efx_pm_poweroff(struct device *dev)
-+{
-+	struct pci_dev *pci_dev = to_pci_dev(dev);
-+	struct efx_nic *efx = pci_get_drvdata(pci_dev);
-+
-+	efx->type->fini(efx);
-+
-+	efx->reset_pending = RESET_TYPE_NONE;
-+
-+	pci_save_state(pci_dev);
-+	return pci_set_power_state(pci_dev, PCI_D3hot);
-+}
-+
-+/* Used for both resume and restore */
-+static int efx_pm_resume(struct device *dev)
-+{
-+	struct pci_dev *pci_dev = to_pci_dev(dev);
-+	struct efx_nic *efx = pci_get_drvdata(pci_dev);
-+	int rc;
-+
-+	rc = pci_set_power_state(pci_dev, PCI_D0);
-+	if (rc)
-+		return rc;
-+	pci_restore_state(pci_dev);
-+	rc = pci_enable_device(pci_dev);
-+	if (rc)
-+		return rc;
-+	pci_set_master(efx->pci_dev);
-+	rc = efx->type->reset(efx, RESET_TYPE_ALL);
-+	if (rc)
-+		return rc;
-+	rc = efx->type->init(efx);
-+	if (rc)
-+		return rc;
-+	efx_pm_thaw(dev);
-+	return 0;
-+}
-+
-+static int efx_pm_suspend(struct device *dev)
-+{
-+	int rc;
-+
-+	efx_pm_freeze(dev);
-+	rc = efx_pm_poweroff(dev);
-+	if (rc)
-+		efx_pm_resume(dev);
-+	return rc;
-+}
-+
-+static struct dev_pm_ops efx_pm_ops = {
-+	.suspend	= efx_pm_suspend,
-+	.resume		= efx_pm_resume,
-+	.freeze		= efx_pm_freeze,
-+	.thaw		= efx_pm_thaw,
-+	.poweroff	= efx_pm_poweroff,
-+	.restore	= efx_pm_resume,
-+};
-+
- static struct pci_driver efx_pci_driver = {
- 	.name		= EFX_DRIVER_NAME,
- 	.id_table	= efx_pci_table,
- 	.probe		= efx_pci_probe,
- 	.remove		= efx_pci_remove,
-+	.driver.pm	= &efx_pm_ops,
- };
- 
- /**************************************************************************
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index d95d0fa..b4c6ea1 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -739,6 +739,21 @@ static void efx_ethtool_get_pauseparam(struct net_device *net_dev,
- }
- 
-
-+static void efx_ethtool_get_wol(struct net_device *net_dev,
-+				struct ethtool_wolinfo *wol)
-+{
-+	struct efx_nic *efx = netdev_priv(net_dev);
-+	return efx->type->get_wol(efx, wol);
-+}
-+
-+
-+static int efx_ethtool_set_wol(struct net_device *net_dev,
-+			       struct ethtool_wolinfo *wol)
-+{
-+	struct efx_nic *efx = netdev_priv(net_dev);
-+	return efx->type->set_wol(efx, wol->wolopts);
-+}
-+
- const struct ethtool_ops efx_ethtool_ops = {
- 	.get_settings		= efx_ethtool_get_settings,
- 	.set_settings		= efx_ethtool_set_settings,
-@@ -767,4 +782,6 @@ const struct ethtool_ops efx_ethtool_ops = {
- 	.get_strings		= efx_ethtool_get_strings,
- 	.phys_id		= efx_ethtool_phys_id,
- 	.get_ethtool_stats	= efx_ethtool_get_stats,
-+	.get_wol                = efx_ethtool_get_wol,
-+	.set_wol                = efx_ethtool_set_wol,
- };
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 3466616..8f2c583 100644
+index 6a96c69..bcdc545 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -3245,6 +3245,27 @@ void falcon_stop_nic_stats(struct efx_nic *efx)
+@@ -2458,7 +2458,7 @@ static bool efx_masked_compare_oword(const efx_oword_t *a, const efx_oword_t *b,
+ 		((a->u64[1] ^ b->u64[1]) & mask->u64[1]);
+ }
  
- /**************************************************************************
-  *
-+ * Wake on LAN
-+ *
-+ **************************************************************************
-+ */
-+
-+static void falcon_get_wol(struct efx_nic *efx, struct ethtool_wolinfo *wol)
-+{
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+	memset(&wol->sopass, 0, sizeof(wol->sopass));
-+}
-+
-+static int falcon_set_wol(struct efx_nic *efx, u32 type)
-+{
-+	if (type != 0)
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+/**************************************************************************
-+ *
-  * Revision-dependent attributes used by efx.c
-  *
-  **************************************************************************
-@@ -3266,6 +3287,9 @@ struct efx_nic_type falcon_a1_nic_type = {
- 	.push_irq_moderation = falcon_push_irq_moderation,
- 	.push_multicast_hash = falcon_push_multicast_hash,
- 	.reconfigure_port = falcon_reconfigure_port,
-+	.get_wol = falcon_get_wol,
-+	.set_wol = falcon_set_wol,
-+	.resume_wol = efx_port_dummy_op_void,
- 	.default_mac_ops = &falcon_xmac_operations,
- 
- 	.revision = EFX_REV_FALCON_A1,
-@@ -3299,6 +3323,9 @@ struct efx_nic_type falcon_b0_nic_type = {
- 	.push_irq_moderation = falcon_push_irq_moderation,
- 	.push_multicast_hash = falcon_push_multicast_hash,
- 	.reconfigure_port = falcon_reconfigure_port,
-+	.get_wol = falcon_get_wol,
-+	.set_wol = falcon_set_wol,
-+	.resume_wol = efx_port_dummy_op_void,
+-int falcon_test_registers(struct efx_nic *efx)
++static int falcon_b0_test_registers(struct efx_nic *efx)
+ {
+ 	unsigned address = 0, i, j;
+ 	efx_oword_t mask, imask, original, reg, buf;
+@@ -3327,6 +3327,7 @@ struct efx_nic_type falcon_b0_nic_type = {
+ 	.get_wol = falcon_get_wol,
+ 	.set_wol = falcon_set_wol,
+ 	.resume_wol = efx_port_dummy_op_void,
++	.test_registers = falcon_b0_test_registers,
  	.default_mac_ops = &falcon_xmac_operations,
  
  	.revision = EFX_REV_FALCON_B0,
+diff --git a/drivers/net/sfc/falcon.h b/drivers/net/sfc/falcon.h
+index 560a3f9..cfcc2a3 100644
+--- a/drivers/net/sfc/falcon.h
++++ b/drivers/net/sfc/falcon.h
+@@ -154,7 +154,6 @@ extern int falcon_reset_xaui(struct efx_nic *efx);
+ struct falcon_nvconfig;
+ extern int falcon_read_nvram(struct efx_nic *efx,
+ 			     struct falcon_nvconfig *nvconfig);
+-extern int falcon_test_registers(struct efx_nic *efx);
+ 
+ /**************************************************************************
+  *
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index f63a05c..a9fde82 100644
+index 58bf761..9d353d9 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -861,6 +861,9 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
-  * @push_irq_moderation: Apply interrupt moderation value
-  * @push_multicast_hash: Apply multicast hash table
-  * @reconfigure_port: Push loopback/power/txdis changes to the MAC and PHY
-+ * @get_wol: Get WoL configuration from driver state
-+ * @set_wol: Push WoL configuration to the NIC
-+ * @resume_wol: Synchronise WoL state between driver and MC (e.g. after resume)
+@@ -864,6 +864,7 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
+  * @get_wol: Get WoL configuration from driver state
+  * @set_wol: Push WoL configuration to the NIC
+  * @resume_wol: Synchronise WoL state between driver and MC (e.g. after resume)
++ * @test_registers: Test read/write functionality of control registers
   * @default_mac_ops: efx_mac_operations to set at startup
   * @revision: Hardware architecture revision
   * @mem_map_size: Memory BAR mapped size
-@@ -894,6 +897,9 @@ struct efx_nic_type {
- 	void (*push_irq_moderation)(struct efx_channel *channel);
- 	void (*push_multicast_hash)(struct efx_nic *efx);
- 	int (*reconfigure_port)(struct efx_nic *efx);
-+	void (*get_wol)(struct efx_nic *efx, struct ethtool_wolinfo *wol);
-+	int (*set_wol)(struct efx_nic *efx, u32 type);
-+	void (*resume_wol)(struct efx_nic *efx);
+@@ -902,6 +903,7 @@ struct efx_nic_type {
+ 	void (*get_wol)(struct efx_nic *efx, struct ethtool_wolinfo *wol);
+ 	int (*set_wol)(struct efx_nic *efx, u32 type);
+ 	void (*resume_wol)(struct efx_nic *efx);
++	int (*test_registers)(struct efx_nic *efx);
  	struct efx_mac_operations *default_mac_ops;
  
  	int revision;
+diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
+index f45bf74..f303552 100644
+--- a/drivers/net/sfc/selftest.c
++++ b/drivers/net/sfc/selftest.c
+@@ -122,14 +122,14 @@ static int efx_test_nvram(struct efx_nic *efx, struct efx_self_tests *tests)
+ 
+ static int efx_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
+ {
+-	int rc;
++	int rc = 0;
+ 
+-	/* Not supported on A-series silicon */
+-	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
+-		return 0;
++	/* Test register access */
++	if (efx->type->test_registers) {
++		rc = efx->type->test_registers(efx);
++		tests->registers = rc ? -1 : 1;
++	}
+ 
+-	rc = falcon_test_registers(efx);
+-	tests->registers = rc ? -1 : 1;
+ 	return rc;
+ }
+ 
 -- 
 1.6.5.3
 
