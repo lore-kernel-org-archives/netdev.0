@@ -1,52 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: warning: massive change to conditional coding style in net?
-Date: Mon, 30 Nov 2009 09:56:38 -0800
-Message-ID: <1259603798.29779.293.camel@Joe-Laptop.home>
-References: <4B13A025.7000103@gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high
+ number of RX dropped in bnx2
+Date: Mon, 30 Nov 2009 09:44:53 -0800
+Message-ID: <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
+References: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com>
+ <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753280AbZK3R4d@vger.kernel.org>
-In-Reply-To: <4B13A025.7000103@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugzilla-daemon@bugzilla.kernel.org"
+	<bugzilla-daemon@bugzilla.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: "Krzysztof Oledzki" <ole@ans.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1127 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753284AbZK3R4i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2009 12:56:38 -0500
+In-Reply-To: <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-11-30 at 05:36 -0500, William Allen Simpson wrote:
-> Over the past several days, David Miller (with help from Joe Perches)
-> made sweeping changes to the format of conditional statements in the
-> net tree -- the equivalent of mass patches that change spaces.
-> This makes writing patches for multiple versions of the tree very
-> difficult, and will make future pullups problematic.
 
-If it makes getting tcp cookies accepted difficult,
-a reversion is simple.  That style isn't as important.
+On Mon, 2009-11-30 at 07:33 -0800, Krzysztof Oledzki wrote:
+> # ethtool -S eth0|egrep "(rx_bcast_packets|rx_mcast_packets|
+> rx_fw_discards)"
+>       rx_mcast_packets: 2806
+>       rx_bcast_packets: 790016
+>       rx_fw_discards: 790016
 
-I think writing a single set of patches for multiple
-versions of linux is not feasible.  Feature changes
-occur in kernel source daily.
+This tells me that all the dropped packets are occurring in the iSCSI
+ring.
 
-> 	if (condition
-> 	    && condition
-> 	    && (condition
-> 	        || condition
-> 	        || condition)) {
+We have recently enabled iSCSI in the kernel and you probably don't have
+the userspace components to handle the iSCSI ring.  All broadcast
+packets are also received in the iSCSI ring and they are all dropped in
+this case without the userspace components.  Networking is not affected.
+If you rmmod the bnx2i and cnic drivers, the drop counter should stop
+counting.
 
-The above is my personally preferred style.
+We have newer firmware that will not include dropped iSCSI packets in
+the networking counters.  It should appear in the 2.6.33 kernel
+time-frame.
 
-> 	if (condition &&
->              condition && (condition || condition ||
-> 	    condition)) {
+Thanks.
 
-Except for the odd spacing, this is the significant
-majority of net/ style.
 
-The leading style was < 10%.  It's less now.
-
-> Miller (with Perches) changed hundreds (thousands?) of these to
-> trailing form.  This results in a number of hilarious examples --
-> lines with both leading and trailing, lines with only &&, etc.
-
-Nearly all existing.
