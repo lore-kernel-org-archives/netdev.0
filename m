@@ -1,32 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool: Remove duplicate type definitions
-Date: Mon, 30 Nov 2009 08:30:35 -0500
-Message-ID: <4B13C8FB.1060002@garzik.org>
-References: <1259509242.3709.69.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2: avoid flushing statistics when doing a MTU change
+Date: Mon, 30 Nov 2009 14:32:55 +0100
+Message-ID: <4B13C987.3090409@gmail.com>
+References: <C27F8246C663564A84BB7AB34397724218065B9851@IRVEXCHCCR01.corp.ad.broadcom.com> <4B13C5FE.7060403@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?QW7DrWJhbCBNb25zYWx2ZSBTYWxhemFy?= <anibal@debian.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50303 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752294AbZK3Nag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2009 08:30:36 -0500
-In-Reply-To: <1259509242.3709.69.camel@localhost>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35610 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049AbZK3Ncy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 08:32:54 -0500
+In-Reply-To: <4B13C5FE.7060403@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2009 10:40 AM, Ben Hutchings wrote:
-> <linux/ethtool.h>  and ethtool-copy.h now include<linux/types.h>, which
-> provides these type definitions.
->
-> The duplicate type definitions in ethtool-util.h conflict with those in
-> <asm/types.h>  on Alpha, as reported in<http://bugs.debian.org/545850>.
->
-> Signed-off-by: Ben Hutchings<ben@decadent.org.uk>
+Breno Leitao a =C3=A9crit :
+  	if (netif_running(bp->dev)) {
+>  		bnx2_netif_stop(bp);
+> +
+> +		/* Save statistics that is going to be reseted */
+> +		REG_WR(bp, BNX2_HC_COMMAND, bp->hc_cmd |
+> +				BNX2_HC_COMMAND_STATS_NOW);
+> +		REG_RD(bp, BNX2_HC_COMMAND);
+> +		udelay(5);
 
-applied
+I see nothing in the driver/patch that will consolidate bp->dev->stats=20
+before your memcpy(). DMA transfert doesnt touch bp->dev->stats.
 
+Please take a look at bnx2_get_stats()
 
+> +		memcpy(&bp->stats_extra, &bp->dev->stats,
+> +			sizeof(struct net_device_stats));
+> +
+>  		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
