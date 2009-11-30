@@ -1,49 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: dmfe/tulip device id overlap
-Date: Mon, 30 Nov 2009 14:29:25 -0800 (PST)
-Message-ID: <20091130.142925.23220838.davem@davemloft.net>
-References: <da824cf30911300914p2d08b87cr4625e9bc30ec7e5b@mail.gmail.com>
-	<20091130.122642.113956563.davem@davemloft.net>
-	<20091130222219.GA8073@jenkins.domain_not_set.invalid>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net 03/05: fib_rules: add oif classification
+Date: Mon, 30 Nov 2009 23:31:57 +0100
+Message-ID: <4B1447DD.1070904@gmail.com>
+References: <20091130175529.7555.10132.sendpatchset@x2.localnet> <20091130175533.7555.35189.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: grundler@google.com, tobias@ringis.se, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, grundler@parisc-linux.org
-To: brandon@ifup.org
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54184
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750828AbZK3W3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:29:19 -0500
-In-Reply-To: <20091130222219.GA8073@jenkins.domain_not_set.invalid>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:64862 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752993AbZK3Wb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:31:57 -0500
+Received: by bwz27 with SMTP id 27so2999647bwz.21
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 14:32:02 -0800 (PST)
+In-Reply-To: <20091130175533.7555.35189.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brandon Philips <brandon@ifup.org>
-Date: Mon, 30 Nov 2009 14:22:20 -0800
+Patrick McHardy wrote, On 11/30/2009 06:55 PM:
 
-> On 12:26 Mon 30 Nov 2009, David Miller wrote:
->> From: Grant Grundler <grundler@google.com>
->> Date: Mon, 30 Nov 2009 09:14:01 -0800
->> > Has anyone posted "lspci -v" output for the "Netra X1 and Sunfire
->> > V100" motherboards?
->> > 
->> > I'm asking because I'm hoping it's possible to disambiguate the add-on
->> > cards from
->> > LAN-on-Motherboard cases by looking at subsystem vendor and device IDs as well.
->> 
->>             subsystem-id:  0000434e
->>             subsystem-vendor-id:  00004554
->>
->> Hmmm, what vendor is '0x4554'? :-)
+> commit b3fe9e6465a572e97dc1bb6222c1ec4224285817
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Mon Nov 30 16:00:51 2009 +0100
 > 
-> Whoever it is it is the same as the expansion card on non-sparc
-> boards: SubVendor: pci 0x4554 [1]
-> 
-> Hrm, dead end I guess.
+>     net: fib_rules: add oif classification
 
-We still have the OF properties.  So we can simply look for
-merely the existence of a 'compatible' OF property on the
-device and from that we'll know that it's a Sparc onboard
-instance of this thing.
+...
+
+> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+> index 62bebcb..d4e875a 100644
+> --- a/include/net/fib_rules.h
+> +++ b/include/net/fib_rules.h
+> @@ -11,6 +11,7 @@ struct fib_rule {
+>  	struct list_head	list;
+>  	atomic_t		refcnt;
+>  	int			iifindex;
+> +	int			oifindex;
+
+Doesn't it "break" the cacheline fix from 01/05?
+
+Jarek P.
+
+>  	u32			mark;
+>  	u32			mark_mask;
+>  	u32			pref;
+> @@ -20,6 +21,7 @@ struct fib_rule {
+>  	u32			target;
+>  	struct fib_rule *	ctarget;
+>  	char			iifname[IFNAMSIZ];
+> +	char			oifname[IFNAMSIZ];
+>  	struct rcu_head		rcu;
+>  	struct net *		fr_net;
+>  };
+
