@@ -1,38 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high
- number of RX dropped in bnx2
-Date: Mon, 30 Nov 2009 03:33:15 -0800
-Message-ID: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20091125124713.f7ac10e4.akpm@linux-foundation.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 01/20] net: NETDEV_UNREGISTER_PERNET -> NETDEV_UNREGISTER_BATCH
+Date: Mon, 30 Nov 2009 14:08:33 +0200
+Message-ID: <200911301408.33297.opurdila@ixiacom.com>
+References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"olel@ans.pl" <olel@ans.pl>
-To: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2715 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750797AbZK3LdT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 06:33:19 -0500
-In-Reply-To: <20091125124713.f7ac10e4.akpm@linux-foundation.org>
-Content-Language: en-US
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26468 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751277AbZK3MLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 07:11:39 -0500
+In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
+On Monday 30 November 2009 03:45:58 you wrote:
 
-> > # uptime ; ifconfig eth0|grep "RX p"; ethtool -S eth0|grep disc
-> >  01:07:31 up 6 min,  1 user,  load average: 0.00, 0.07, 0.04
-> >           RX packets:2234 errors:0 dropped:527 overruns:0 frame:0
-> >      rx_discards: 0
-> >      rx_fw_discards: 527
-> >
+> +       /* Process any work delayed until the end of the batch */
+> +       dev = list_entry(head->next, struct net_device, unreg_list);
+> +       call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+>  
+> -       list_for_each_entry_safe(dev, aux, head, unreg_list) {
+> -               int new_net = 1;
+> -               list_for_each_entry(fdev, &pernet_list, unreg_list) {
+> -                       if (net_eq(dev_net(dev), dev_net(fdev))) {
+> -                               new_net = 0;
+> -                               dev_put(dev);
+> -                               break;
+> -                       }
+> -               }
+> -               if (new_net)
+> -                       list_move(&dev->unreg_list, &pernet_list);
+> -       }
+> 
 
-Please report rx_bcast_packets and rx_mcast_packets together with
-rx_fw_discards.  Thanks.
+This implies that the devices we want to batch unregister needs to be part of 
+the same namespace. It might be worth mentioning that in the 
+unregister_netdevice_many() function comments.
+
+And, fortunately, it seems that all of the current batch unregister users 
+comply with this requirement.
 
