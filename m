@@ -1,192 +1,54 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 03/20] net: Batch network namespace destruction.
-Date: Mon, 30 Nov 2009 00:25:27 -0800
-Message-ID: <1259569530-30609-2-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 05/20] net: Simplify loopback and improve batching.
+Date: Mon, 30 Nov 2009 00:25:29 -0800
+Message-ID: <1259569530-30609-4-git-send-email-ebiederm@xmission.com>
 References: <m1ljhodbtw.fsf@fess.ebiederm.org>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
 	Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <eric@conroxe.ebiederm.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36904 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:36910 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563AbZK3IZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:25:33 -0500
+	with ESMTP id S1753416AbZK3IZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:25:34 -0500
 In-Reply-To: <m1ljhodbtw.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric W. Biederman <eric@conroxe.ebiederm.org>
+From: Eric W. Biederman <ebiederm@xmission.com>
 
-It is fairly common to kill several network namespaces at once.  Either
-because they are nested one inside the other or because they are cooperating
-in multiple machine networking experiments.  As the network stack control logic
-does not parallelize easily batch up multiple network namespaces existing
-together.
-
-To get the full benefit of batching the virtual network devices to be
-removed must be all removed in one batch.  For that purpose I have added
-a loop after the last network device operations have run that batches
-up all remaining network devices and deletes them.
-
-An extra benefit is that the reorganization slightly shrinks the size
-of the per network namespace data structures replaceing a work_struct
-with a list_head.
-
-In a trivial test with 4K namespaces this change reduced the cost of
-a destroying 4K namespaces from 7+ minutes (at 12% cpu) to 44 seconds
-(at 60% cpu).  The bulk of that 44s was spent in inet_twsk_purge.
+Defer calling unregister_netdevice_queue to cleanup_net.  It's simpler
+and it allows the loopback device to land in the same batch as other
+network devices.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/net/net_namespace.h |    2 +-
- net/core/net_namespace.c    |   66 +++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 59 insertions(+), 9 deletions(-)
+ drivers/net/loopback.c |    8 --------
+ 1 files changed, 0 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 0addd45..d69b479 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -42,7 +42,7 @@ struct net {
- 						 */
- #endif
- 	struct list_head	list;		/* list of network namespaces */
--	struct work_struct	work;		/* work struct for freeing */
-+	struct list_head	cleanup_list;	/* namespaces on death row */
- 
- 	struct proc_dir_entry 	*proc_net;
- 	struct proc_dir_entry 	*proc_net_stat;
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 86ed7f4..a42caa2 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -8,8 +8,10 @@
- #include <linux/idr.h>
- #include <linux/rculist.h>
- #include <linux/nsproxy.h>
-+#include <linux/netdevice.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <net/rtnetlink.h>
- 
- /*
-  *	Our network namespace constructor/destructor lists
-@@ -27,6 +29,20 @@ EXPORT_SYMBOL(init_net);
- 
- #define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
- 
-+static void unregister_netdevices(struct net *net, struct list_head *list)
-+{
-+	struct net_device *dev;
-+	/* At exit all network devices most be removed from a network
-+	 * namespace.  Do this in the reverse order of registeration.
-+	 */
-+	for_each_netdev_reverse(net, dev) {
-+		if (dev->rtnl_link_ops)
-+			dev->rtnl_link_ops->dellink(dev, list);
-+		else
-+			unregister_netdevice_queue(dev, list);
-+	}
-+}
-+
- /*
-  * setup_net runs the initializers for the network namespace object.
-  */
-@@ -59,6 +75,13 @@ out_undo:
- 	list_for_each_entry_continue_reverse(ops, &pernet_list, list) {
- 		if (ops->exit)
- 			ops->exit(net);
-+		if (&ops->list == first_device) {
-+			LIST_HEAD(dev_kill_list);
-+			rtnl_lock();
-+			unregister_netdevices(net, &dev_kill_list);
-+			unregister_netdevice_many(&dev_kill_list);
-+			rtnl_unlock();
-+		}
- 	}
- 
- 	rcu_barrier();
-@@ -147,18 +170,26 @@ struct net *copy_net_ns(unsigned long flags, struct net *old_net)
- 	return net_create();
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index c9f6557..eae4ad7 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -212,15 +212,7 @@ out:
+ 	return err;
  }
  
-+static DEFINE_SPINLOCK(cleanup_list_lock);
-+static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
-+
- static void cleanup_net(struct work_struct *work)
- {
- 	struct pernet_operations *ops;
--	struct net *net;
-+	struct net *net, *tmp;
-+	LIST_HEAD(net_kill_list);
- 
--	net = container_of(work, struct net, work);
-+	/* Atomically snapshot the list of namespaces to cleanup */
-+	spin_lock_irq(&cleanup_list_lock);
-+	list_replace_init(&cleanup_list, &net_kill_list);
-+	spin_unlock_irq(&cleanup_list_lock);
- 
- 	mutex_lock(&net_mutex);
- 
- 	/* Don't let anyone else find us. */
- 	rtnl_lock();
--	list_del_rcu(&net->list);
-+	list_for_each_entry(net, &net_kill_list, cleanup_list)
-+		list_del_rcu(&net->list);
- 	rtnl_unlock();
- 
- 	/*
-@@ -170,8 +201,18 @@ static void cleanup_net(struct work_struct *work)
- 
- 	/* Run all of the network namespace exit methods */
- 	list_for_each_entry_reverse(ops, &pernet_list, list) {
--		if (ops->exit)
--			ops->exit(net);
-+		if (ops->exit) {
-+			list_for_each_entry(net, &net_kill_list, cleanup_list)
-+				ops->exit(net);
-+		}
-+		if (&ops->list == first_device) {
-+			LIST_HEAD(dev_kill_list);
-+			rtnl_lock();
-+			list_for_each_entry(net, &net_kill_list, cleanup_list)
-+				unregister_netdevices(net, &dev_kill_list);
-+			unregister_netdevice_many(&dev_kill_list);
-+			rtnl_unlock();
-+		}
- 	}
- 
- 	mutex_unlock(&net_mutex);
-@@ -182,14 +223,23 @@ static void cleanup_net(struct work_struct *work)
- 	rcu_barrier();
- 
- 	/* Finally it is safe to free my network namespace structure */
--	net_free(net);
-+	list_for_each_entry_safe(net, tmp, &net_kill_list, cleanup_list) {
-+		list_del_init(&net->cleanup_list);
-+		net_free(net);
-+	}
- }
-+static DECLARE_WORK(net_cleanup_work, cleanup_net);
- 
- void __put_net(struct net *net)
- {
- 	/* Cleanup the network namespace in process context */
--	INIT_WORK(&net->work, cleanup_net);
--	queue_work(netns_wq, &net->work);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&cleanup_list_lock, flags);
-+	list_add(&net->cleanup_list, &cleanup_list);
-+	spin_unlock_irqrestore(&cleanup_list_lock, flags);
-+
-+	queue_work(netns_wq, &net_cleanup_work);
- }
- EXPORT_SYMBOL_GPL(__put_net);
- 
+-static __net_exit void loopback_net_exit(struct net *net)
+-{
+-	struct net_device *dev = net->loopback_dev;
+-
+-	unregister_netdev(dev);
+-}
+-
+ /* Registered in net/core/dev.c */
+ struct pernet_operations __net_initdata loopback_net_ops = {
+        .init = loopback_net_init,
+-       .exit = loopback_net_exit,
+ };
 -- 
 1.6.5.2.143.g8cc62
 
