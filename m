@@ -1,35 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] drop chan->wsem on error path
-Date: Mon, 30 Nov 2009 00:07:04 -0800 (PST)
-Message-ID: <20091130.000704.11881105.davem@davemloft.net>
-References: <20091129160255.GN10640@bicker>
-	<20091130074418.GC25334@fi.muni.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/20] Batch network namespace cleanup
+Date: Mon, 30 Nov 2009 09:07:39 +0100
+Message-ID: <4B137D4B.8050803@gmail.com>
+References: <m1ljhodbtw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, netdev@vger.kernel.org
-To: kas@fi.muni.cz
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37031
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751943AbZK3IG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:06:58 -0500
-In-Reply-To: <20091130074418.GC25334@fi.muni.cz>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53939 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbZK3IHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:07:43 -0500
+In-Reply-To: <m1ljhodbtw.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Kasprzak <kas@fi.muni.cz>
-Date: Mon, 30 Nov 2009 08:44:18 +0100
+Eric W. Biederman a =E9crit :
 
-> Dan Carpenter wrote:
-> : The other paths all drop chan->wsem.  This was found by a static
-> : checker (smatch).
-> 
-> 	You are right, thanks!
-> 
-> : 
-> : Signed-off-by: Dan Carpenter <error27@gmail.com>
-> 
-> Acked-by: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
+> Eric W. Biederman (20):
+>       net: NETDEV_UNREGISTER_PERNET -> NETDEV_UNREGISTER_BATCH
+>       net: Implement for_each_netdev_reverse.
+>       net: Batch network namespace destruction.
+>       net: Automatically allocate per namespace data.
+>       net: Simplify loopback and improve batching.
+>       net: Simplfy default_device_exit and improve batching.
+>       net: Simplify the bond drivers pernet operations.
+>       net: Simplify vlan pernet operations.
+>       net: Simplify af_key pernet operations.
+>       net: Simplify conntrack_proto_dccp pernet operations.
+>       net: Simplify conntrack_proto_gre pernet operations.
+>       net: Simplify ppp_generic pernet operations.
+>       net: Simplify pppoe pernet operations.
+>       net: Simplify pppol2tp pernet operations.
+>       net: Simplify phonet pernet operations.
+>       net: Simplify ip_gre pernet operations.
+>       net: Simplify ipip pernet operations.
+>       net: Simplify ip6_tunnel pernet operations.
+>       net: Simplify ipip6 aka sit pernet operations.
+>       net: remove [un]register_pernet_gen_... and update the docs.
+>=20
 
-Patch applied, thanks everyone.
+It seems list received part of your patches Eric
+
+01, 07-20 are OK,   02-06 are missing
+
+Thanks
