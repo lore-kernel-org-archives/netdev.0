@@ -1,39 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bnx2: avoid flushing statistics when doing a MTU change
-Date: Mon, 30 Nov 2009 14:32:55 +0100
-Message-ID: <4B13C987.3090409@gmail.com>
-References: <C27F8246C663564A84BB7AB34397724218065B9851@IRVEXCHCCR01.corp.ad.broadcom.com> <4B13C5FE.7060403@linux.vnet.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: warning: massive change to conditional coding style in net?
+Date: Mon, 30 Nov 2009 13:44:14 +0000
+Message-ID: <20091130134414.GB7114@ff.dom.local>
+References: <4B13A025.7000103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Breno Leitao <leitao@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35610 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753049AbZK3Ncy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 08:32:54 -0500
-In-Reply-To: <4B13C5FE.7060403@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753480AbZK3NoO@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B13A025.7000103@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Breno Leitao a =C3=A9crit :
-  	if (netif_running(bp->dev)) {
->  		bnx2_netif_stop(bp);
-> +
-> +		/* Save statistics that is going to be reseted */
-> +		REG_WR(bp, BNX2_HC_COMMAND, bp->hc_cmd |
-> +				BNX2_HC_COMMAND_STATS_NOW);
-> +		REG_RD(bp, BNX2_HC_COMMAND);
-> +		udelay(5);
+On 30-11-2009 11:36, William Allen Simpson wrote:
+> Over the past several days, David Miller (with help from Joe Perches)
+> made sweeping changes to the format of conditional statements in the
+> net tree -- the equivalent of mass patches that change spaces.
+> 
+> This makes writing patches for multiple versions of the tree very
+> difficult, and will make future pullups problematic.  It's enough to
+> make a grown man cry....  Patching conflicts everywhere!
+> 
+> CodingStyle is mute on this issue.  Does Linus have a preference?
+> 
+> My personal practice (based on decades of open source projects) has
+> been to use a form already used in the same file or section of code,
+> matching the existing practice.
+> 
+> If this is to be done everywhere, CodingStyle (and SubmittingPatches)
+> should be updated.
+> 
+> Currently, roughly 19% (7855 lines) of the -2.6 tree uses leading form:
+> 
+> 	if (condition
+> 	    && condition
+> 	    && (condition
+> 	        || condition
+> 	        || condition)) {
+> 
+> Single spaced is also fairly common:
+> 
+> 	if (condition
+> 	 && condition
+> 	 && (condition
+> 	  || condition
+> 	  || condition)) {
+> 
+> The advantage of the leading form is *readability* due to indentation,
+> ease of patching and reading patches (changes affect only 1 line,
+> instead of previous and following lines), and especially conditionals
+> within #if sections.  Also, shorter lines (by 3 characters).
+> 
+> The other 81% uses trailing form, often with odd random line breaks:
+> 
+> 	if (condition &&
+>              condition && (condition || condition ||
+> 	    condition)) {
+> 
+> Miller (with Perches) changed hundreds (thousands?) of these to
+> trailing form.  This results in a number of hilarious examples --
+> lines with both leading and trailing, lines with only &&, etc.  A
+> small sample for illustration:
 
-I see nothing in the driver/patch that will consolidate bp->dev->stats=20
-before your memcpy(). DMA transfert doesnt touch bp->dev->stats.
+Yes, it's even enough to make a grown man laugh....
 
-Please take a look at bnx2_get_stats()
-
-> +		memcpy(&bp->stats_extra, &bp->dev->stats,
-> +			sizeof(struct net_device_stats));
-> +
->  		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+Jarek P.
