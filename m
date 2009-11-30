@@ -1,61 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: dmfe/tulip device id overlap
-Date: Mon, 30 Nov 2009 12:26:42 -0800 (PST)
-Message-ID: <20091130.122642.113956563.davem@davemloft.net>
-References: <20091129.003024.245104886.davem@davemloft.net>
-	<20091130065512.GA2792@jenkins.domain_not_set.invalid>
-	<da824cf30911300914p2d08b87cr4625e9bc30ec7e5b@mail.gmail.com>
+Subject: Re: warning: massive change to conditional coding style in net?
+Date: Mon, 30 Nov 2009 12:36:44 -0800 (PST)
+Message-ID: <20091130.123644.203668577.davem@davemloft.net>
+References: <4B13A025.7000103@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brandon@ifup.org, tobias@ringis.se, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, grundler@parisc-linux.org
-To: grundler@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53734
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751712AbZK3U0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 15:26:37 -0500
-In-Reply-To: <da824cf30911300914p2d08b87cr4625e9bc30ec7e5b@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753128AbZK3Ugj@vger.kernel.org>
+In-Reply-To: <4B13A025.7000103@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@google.com>
-Date: Mon, 30 Nov 2009 09:14:01 -0800
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Mon, 30 Nov 2009 05:36:21 -0500
 
-> Has anyone posted "lspci -v" output for the "Netra X1 and Sunfire
-> V100" motherboards?
+> Over the past several days, David Miller (with help from Joe Perches)
+> made sweeping changes to the format of conditional statements in the
+> net tree -- the equivalent of mass patches that change spaces.
 > 
-> I'm asking because I'm hoping it's possible to disambiguate the add-on
-> cards from
-> LAN-on-Motherboard cases by looking at subsystem vendor and device IDs as well.
+> This makes writing patches for multiple versions of the tree very
+> difficult, and will make future pullups problematic.  It's enough to
+> make a grown man cry....  Patching conflicts everywhere!
 
-I think more likely OF properties will help here.
+William, you're unreasonable.
 
-Have a look at:
+We asked you to follow a certain style, and then you immediately
+complain that the style isn't followed consistently in the tree, and
+therefore as a consequence you shouldn't be required to follow it.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/prtconfs.git
+Then Joe comes and submits patches making the tree follow the style
+more consistently.  See, instead of merely complaining like you did,
+he proactively did something positive.
 
-In particular 'v100' which has a network device OF node with properties:
+Now you're complaining because this makes your patches harder to
+maintain.
 
-        Node 0xf007fae8
-            .node:  f007fae8
-            local-mac-address:  0003ba11.b371
-            assigned-addresses:  81006010.00000000.00010000.00000000.00000100.82006014.00000000.00000000.00000000.00002000.82006030.00000000.00040000.00000000.00040000
-            version: '1.0'
-            compatible:  70636934.3535342c.34333465.00706369.31323868.2c393130.32007063.69313238.322c3931.30320070.6369636c.6173732c.30323030.303000
-            device_type: 'network'
-            subsystem-id:  0000434e
-            subsystem-vendor-id:  00004554
-            reg:  00006000.00000000.00000000.00000000.00000000.01006010.00000000.00000000.00000000.00000100.02006014.00000000.00000000.00000000.00000100
-            name: 'ethernet'
-            devsel-speed:  00000001
-            class-code:  00020000
-            interrupts:  00000001
-            max-latency:  00000028
-            min-grant:  00000014
-            revision-id:  00000031
-            device-id:  00009102
-            vendor-id:  00001282
+You're being difficult about this from every possible angle.  I can
+only conclude that for whatever reason you don't want to have any
+requirements made upon you for your submission.  You've handled this
+negatively in every way possible, and every step of the way.  No
+matter how hard other people have been to try and help you, you've
+continued to do this.
 
-Hmmm, what vendor is '0x4554'? :-)
+Whereas if you had merely fixed up the coding style as I and others
+have asked you, your code would be in my tree weeks ago.
+
+Why is it such a huge deal to follow the coding style that the
+maintainer (and other prominent developers of that subsystem) are
+asking you to follow?
