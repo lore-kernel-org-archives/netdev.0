@@ -1,50 +1,49 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH 01/20] net: NETDEV_UNREGISTER_PERNET -> NETDEV_UNREGISTER_BATCH
-Date: Mon, 30 Nov 2009 14:08:33 +0200
-Message-ID: <200911301408.33297.opurdila@ixiacom.com>
-References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
+Date: Mon, 30 Nov 2009 07:15:59 -0500
+Message-ID: <1259583359.873.17.camel@bigi>
+References: <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
+	 <1259310417.3809.5.camel@nienna.balabit> <1259337932.3299.3.camel@bigi>
+	 <20091128151515.GA20476@sch.bme.hu> <4B1145F1.3090704@trash.net>
+	 <1259424278.3864.16.camel@bigi> <4B1158CE.90803@trash.net>
+	 <1259429774.3864.41.camel@bigi> <20091128190500.GB12264@sch.bme.hu>
+	 <1259437442.3864.61.camel@bigi>  <20091129203508.GB18259@sch.bme.hu>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	KOVACS Krisztian <hidden@balabit.hu>,
+	Andreas Schultz <aschultz@warp10.net>, tproxy@lists.balabit.hu,
+	netdev@vger.kernel.org
+To: KOVACS Krisztian <hidden@sch.bme.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26468 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751277AbZK3MLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 07:11:39 -0500
-In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
+Received: from mail-qy0-f194.google.com ([209.85.221.194]:63046 "EHLO
+	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbZK3MP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 07:15:57 -0500
+Received: by qyk32 with SMTP id 32so1492797qyk.4
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 04:16:03 -0800 (PST)
+In-Reply-To: <20091129203508.GB18259@sch.bme.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 30 November 2009 03:45:58 you wrote:
+On Sun, 2009-11-29 at 21:35 +0100, KOVACS Krisztian wrote:
 
-> +       /* Process any work delayed until the end of the batch */
-> +       dev = list_entry(head->next, struct net_device, unreg_list);
-> +       call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
->  
-> -       list_for_each_entry_safe(dev, aux, head, unreg_list) {
-> -               int new_net = 1;
-> -               list_for_each_entry(fdev, &pernet_list, unreg_list) {
-> -                       if (net_eq(dev_net(dev), dev_net(fdev))) {
-> -                               new_net = 0;
-> -                               dev_put(dev);
-> -                               break;
-> -                       }
-> -               }
-> -               if (new_net)
-> -                       list_move(&dev->unreg_list, &pernet_list);
-> -       }
-> 
+> The story is that we really do want to deliver these packets locally, as
+> if the destination IP address was locally configured on the host. The only
+> way I know of to get the packet to ip_local_deliver() is by using a local
+> route.
 
-This implies that the devices we want to batch unregister needs to be part of 
-the same namespace. It might be worth mentioning that in the 
-unregister_netdevice_many() function comments.
+Aha, now i understand where both you and Patrick are coming from. So
+you literally have to hit the main(or default) table in the reverse
+source validation. How does the workaround (that you suggested) work
+then? i.e you are going to fail the RTN_UNICAST test no matter what.
 
-And, fortunately, it seems that all of the current batch unregister users 
-comply with this requirement.
+Dave, give me some short time to mull this over. I am not sure i like
+the sysctl approach - we may have to just revert the whole thing
+instead.
+
+cheers,
+jamal
 
