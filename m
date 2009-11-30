@@ -1,55 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SIP proxying: siproxd vs. Netfilter SIP nat
-Date: Mon, 30 Nov 2009 18:21:09 +0100
-Message-ID: <4B13FF05.5060005@trash.net>
-References: <alpine.DEB.2.00.0911301104520.16713@router.home>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH v2] irq: Add node_affinity CPU masks for smarter
+ irqbalance hints
+Date: Mon, 30 Nov 2009 09:24:02 -0800
+Message-ID: <1259601842.2172.4.camel@localhost>
+References: <20091124093518.3909.16435.stgit@ppwaskie-hc2.jf.intel.com>
+	 <alpine.LFD.2.00.0911241151360.24119@localhost.localdomain>
+	 <20091124.095703.107687163.davem@davemloft.net>
+	 <alpine.LFD.2.00.0911242252190.24119@localhost.localdomain>
+	 <1259100343.2631.78.camel@ppwaskie-mobl2>
+	 <alpine.LFD.2.00.0911242317280.24119@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Christian Hentschel <chentschel@arnet.com.ar>,
-	netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55744 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbZK3RVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:21:04 -0500
-In-Reply-To: <alpine.DEB.2.00.0911301104520.16713@router.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"yong.zhang0@gmail.com" <yong.zhang0@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752742AbZK3RX6@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.0911242317280.24119@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter wrote:
-> It seems that the current sip nat module in the kernel has only limited
-> functionality. According to
+On Tue, 2009-11-24 at 14:23 -0800, Thomas Gleixner wrote:
+> On Tue, 24 Nov 2009, Peter P Waskiewicz Jr wrote:
+> > On Tue, 2009-11-24 at 13:56 -0800, Thomas Gleixner wrote:
+> > > On Tue, 24 Nov 2009, David Miller wrote:
+> > > 
+> > > > From: Thomas Gleixner <tglx@linutronix.de>
+> > > > Date: Tue, 24 Nov 2009 12:07:35 +0100 (CET)
+> > > > 
+> > > > > And what does the kernel do with this information and why are we not
+> > > > > using the existing device/numa_node information ?
+> > > > 
+> > > > It's a different problem space Thomas.
+> > > > 
+> > > > If the device lives on NUMA node X, we still end up wanting to
+> > > > allocate memory resources (RX ring buffers) on other NUMA nodes on a
+> > > > per-queue basis.
+> > > > 
+> > > > Otherwise a network card's forwarding performance is limited by the
+> > > > memory bandwidth of a single NUMA node, and on a multiqueue cards we
+> > > > therefore fare much better by allocating each device RX queue's memory
+> > > > resources on a different NUMA node.
+> > > > 
+> > > > It is this NUMA usage that PJ is trying to export somehow to userspace
+> > > > so that irqbalanced and friends can choose the IRQ cpu masks more
+> > > > intelligently.
+> > > 
+> > > So you need a preferred irq mask information on a per IRQ basis and
+> > > that mask is not restricted to the CPUs of a single NUMA node, right ?
+> > > 
+> > Just to clarify, I need a preferred CPU mask on a per IRQ basis.  And
+> > yes, that mask may not be restricted to the CPUs of a single NUMA node.
+> > But in the normal case, the mask will be restricted to CPUs of a single
+> > node.
 > 
-> http://people.netfilter.org/chentschel/docs/sip-conntrack-nat.html
+> Right, but the normal case does not help much if we need to consider
+> the special case of multiple nodes affected which requires another
+> cpumask in irq_desc. That's what I really want to avoid.
 > 
-> one has to point the firewall at the target host for the SIP proxying to
-> work. Therefore the kernel will only support a single inside phone
-> connecting via SIP to the outside. For a network that has a series of
-> phones inside the NAT zones this means that the firewall sip nat is not
-> useful.
-
-That documentation is horribly outdated.
-
-> siproxd http://siproxd.sourceforge.net/ seems to be able to handle
-> multiple outgoing SIP connections but one needs to specify an outbound
-> proxy for each inside SIP phone.
+> I at least understand the exact problem you guys want to solve. Will
+> think more about it.
 > 
-> Isnt there a way to make the kernel module work in the same way siproxd
-> works and able to support multiple phones? Right now configuring SIP
-> connectivity is a messy thing that is not easily setup. Can we fix this?
 
-It should work fine with multiple phones, it even recognizes calls
-between two internal phones and makes the media stream go between
-them directly. Depending on how your registrar/proxy works, you might
-have to set one or both of these module options:
+Just a friendly ping Thomas.  Any progress on your thinking about this
+proposal?
 
-sip_direct_signalling: when set to zero, allows incoming signalling
- connections from other hosts than the registrar. Usually not needed.
-
-sip_direct_media: when set to zero, allows incoming media streams
- from other hosts than the registrar. This one is often required,
- some providers use server farms for handling the media streams,
- some set up media streams to go directly between the endpoints.
-
+Cheers,
+-PJ
