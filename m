@@ -1,175 +1,82 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net 02/05: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
-Date: Mon, 30 Nov 2009 18:55:32 +0100 (MET)
-Message-ID: <20091130175532.7555.11857.sendpatchset@x2.localnet>
-References: <20091130175529.7555.10132.sendpatchset@x2.localnet>
+Subject: RFC: net 00/05: routing based send-to-self implementation
+Date: Mon, 30 Nov 2009 18:55:30 +0100 (MET)
+Message-ID: <20091130175529.7555.10132.sendpatchset@x2.localnet>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56503 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56502 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbZK3Rz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:55:27 -0500
-In-Reply-To: <20091130175529.7555.10132.sendpatchset@x2.localnet>
+	with ESMTP id S1752866AbZK3Rza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:55:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit dc4427ae3647195508b4df883050a9f0ef111165
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Nov 30 15:54:05 2009 +0100
+These patches are yet another attempt at adding "send-to-self" functionality,
+allowing to send packets between two local interfaces over the wire. Unlike
+the approaches I've seen so far, this one is purely routing based.
+Especially the oif classification should also be useful for different setups.
 
-    net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
-    
-    The next patch will add oif classification, rename interface related members
-    and attributes to reflect that they're used for iif classification.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+The patchset consists of three parts:
 
-diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
-index c7e5b70..e3c91af 100644
---- a/include/linux/fib_rules.h
-+++ b/include/linux/fib_rules.h
-@@ -8,7 +8,8 @@
- #define FIB_RULE_PERMANENT	0x00000001
- #define FIB_RULE_INVERT		0x00000002
- #define FIB_RULE_UNRESOLVED	0x00000004
--#define FIB_RULE_DEV_DETACHED	0x00000008
-+#define FIB_RULE_IIF_DETACHED	0x00000008
-+#define FIB_RULE_DEV_DETACHED	FIB_RULE_DEV_DETACHED
- 
- /* try to find source address in routing lookups */
- #define FIB_RULE_FIND_SADDR	0x00010000
-@@ -31,7 +32,8 @@ enum {
- 	FRA_UNSPEC,
- 	FRA_DST,	/* destination address */
- 	FRA_SRC,	/* source address */
--	FRA_IFNAME,	/* interface name */
-+	FRA_IIFNAME,	/* interface name */
-+#define FRA_IFNAME	FRA_IIFNAME
- 	FRA_GOTO,	/* target to jump to (FR_ACT_GOTO) */
- 	FRA_UNUSED2,
- 	FRA_PRIORITY,	/* priority/preference */
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 22fb323..62bebcb 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -10,7 +10,7 @@
- struct fib_rule {
- 	struct list_head	list;
- 	atomic_t		refcnt;
--	int			ifindex;
-+	int			iifindex;
- 	u32			mark;
- 	u32			mark_mask;
- 	u32			pref;
-@@ -19,7 +19,7 @@ struct fib_rule {
- 	u8			action;
- 	u32			target;
- 	struct fib_rule *	ctarget;
--	char			ifname[IFNAMSIZ];
-+	char			iifname[IFNAMSIZ];
- 	struct rcu_head		rcu;
- 	struct net *		fr_net;
- };
-@@ -67,7 +67,7 @@ struct fib_rules_ops {
- };
- 
- #define FRA_GENERIC_POLICY \
--	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
-+	[FRA_IIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
- 	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
- 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
- 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index bd30938..8e8028c 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -135,7 +135,7 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
- {
- 	int ret = 0;
- 
--	if (rule->ifindex && (rule->ifindex != fl->iif))
-+	if (rule->iifindex && (rule->iifindex != fl->iif))
- 		goto out;
- 
- 	if ((rule->mark ^ fl->mark) & rule->mark_mask)
-@@ -248,14 +248,14 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	if (tb[FRA_PRIORITY])
- 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
- 
--	if (tb[FRA_IFNAME]) {
-+	if (tb[FRA_IIFNAME]) {
- 		struct net_device *dev;
- 
--		rule->ifindex = -1;
--		nla_strlcpy(rule->ifname, tb[FRA_IFNAME], IFNAMSIZ);
--		dev = __dev_get_by_name(net, rule->ifname);
-+		rule->iifindex = -1;
-+		nla_strlcpy(rule->iifname, tb[FRA_IIFNAME], IFNAMSIZ);
-+		dev = __dev_get_by_name(net, rule->iifname);
- 		if (dev)
--			rule->ifindex = dev->ifindex;
-+			rule->iifindex = dev->ifindex;
- 	}
- 
- 	if (tb[FRA_FWMARK]) {
-@@ -388,8 +388,8 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 		    (rule->pref != nla_get_u32(tb[FRA_PRIORITY])))
- 			continue;
- 
--		if (tb[FRA_IFNAME] &&
--		    nla_strcmp(tb[FRA_IFNAME], rule->ifname))
-+		if (tb[FRA_IIFNAME] &&
-+		    nla_strcmp(tb[FRA_IIFNAME], rule->iifname))
- 			continue;
- 
- 		if (tb[FRA_FWMARK] &&
-@@ -447,7 +447,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 					 struct fib_rule *rule)
- {
- 	size_t payload = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
--			 + nla_total_size(IFNAMSIZ) /* FRA_IFNAME */
-+			 + nla_total_size(IFNAMSIZ) /* FRA_IIFNAME */
- 			 + nla_total_size(4) /* FRA_PRIORITY */
- 			 + nla_total_size(4) /* FRA_TABLE */
- 			 + nla_total_size(4) /* FRA_FWMARK */
-@@ -481,11 +481,11 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	if (rule->action == FR_ACT_GOTO && rule->ctarget == NULL)
- 		frh->flags |= FIB_RULE_UNRESOLVED;
- 
--	if (rule->ifname[0]) {
--		NLA_PUT_STRING(skb, FRA_IFNAME, rule->ifname);
-+	if (rule->iifname[0]) {
-+		NLA_PUT_STRING(skb, FRA_IIFNAME, rule->iifname);
- 
--		if (rule->ifindex == -1)
--			frh->flags |= FIB_RULE_DEV_DETACHED;
-+		if (rule->iifindex == -1)
-+			frh->flags |= FIB_RULE_IIF_DETACHED;
- 	}
- 
- 	if (rule->pref)
-@@ -600,9 +600,9 @@ static void attach_rules(struct list_head *rules, struct net_device *dev)
- 	struct fib_rule *rule;
- 
- 	list_for_each_entry(rule, rules, list) {
--		if (rule->ifindex == -1 &&
--		    strcmp(dev->name, rule->ifname) == 0)
--			rule->ifindex = dev->ifindex;
-+		if (rule->iifindex == -1 &&
-+		    strcmp(dev->name, rule->iifname) == 0)
-+			rule->iifindex = dev->ifindex;
- 	}
- }
- 
-@@ -611,8 +611,8 @@ static void detach_rules(struct list_head *rules, struct net_device *dev)
- 	struct fib_rule *rule;
- 
- 	list_for_each_entry(rule, rules, list)
--		if (rule->ifindex == dev->ifindex)
--			rule->ifindex = -1;
-+		if (rule->iifindex == dev->ifindex)
-+			rule->iifindex = -1;
- }
- 
- 
+- the first three patches add oif classification to fib_rules. This can be
+  used create special routing tables for sockets bound to an interface.
+
+- the fourth patch changes IPv4 and IPv6 to allow to delete the local rule
+  with priority 0. This allows to re-create it using a lower priority and
+  insert new rules below it to force packets with a local destination out
+  on the wire.
+
+- the fifth patch adds a devinet sysctl to accept packets with local source
+  addresses in fib_validate_source(). This one unfortunately seems to be
+  necessary, I couldn't come up with a method based purely on adding more
+  routes to fool fib_validate_source() into accepting those packets.
+
+Usage example:
+
+# move local routing rule to lower priority
+ip rule add pref 1000 lookup local
+ip rule del pref 0
+
+# only reply to ARP requests for addresses configured on the device
+echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
+
+# configure device and force packets of bound sockets out on eth1
+ip address add dev eth1 10.0.0.1/24
+echo 1 > /proc/sys/net/ipv4/conf/eth1/accept_local
+ip link set eth1 up
+ip rule add pref 500 oif eth1 lookup 500
+ip route add default dev eth1 table 500
+
+# configure device and force packets of bound sockets out on eth2
+ip address add dev eth2 10.0.0.2/24
+echo 1 > /proc/sys/net/ipv4/conf/eth2/accept_local
+ip link set eth2 up
+ip rule add pref 501 oif eth2 lookup 501
+ip route add default dev eth2 table 501
+
+At this point both packets between sockets bound to eth1/eth2 will
+go over the wire.
+
+Comments welcome.
+
+
+ Documentation/networking/ip-sysctl.txt |    6 +++
+ include/linux/fib_rules.h              |    8 +++-
+ include/linux/inetdevice.h             |    1 +
+ include/linux/sysctl.h                 |    1 +
+ include/net/fib_rules.h                |    9 +++-
+ kernel/sysctl_check.c                  |    1 +
+ net/core/fib_rules.c                   |   71 +++++++++++++++++++++++---------
+ net/ipv4/devinet.c                     |    1 +
+ net/ipv4/fib_frontend.c                |   11 +++--
+ net/ipv4/fib_rules.c                   |    2 +-
+ net/ipv6/fib6_rules.c                  |    2 +-
+ 11 files changed, 82 insertions(+), 31 deletions(-)
+
+Patrick McHardy (5):
+      net: fib_rules: rearrange struct fib_rule
+      net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
+      net: fib_rules: add oif classification
+      net: fib_rules: allow to delete local rule
+      ipv4: add sysctl to accept packets with local source addresses
