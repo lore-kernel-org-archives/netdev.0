@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 15/20] net: Simplify phonet pernet operations.
-Date: Sun, 29 Nov 2009 17:46:12 -0800
-Message-ID: <1259545577-7466-15-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 20/20] net: remove [un]register_pernet_gen_... and update the docs.
+Date: Sun, 29 Nov 2009 17:46:17 -0800
+Message-ID: <1259545577-7466-20-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,81 +10,80 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42743 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206AbZK3Bqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:31 -0500
+Received: from out02.mta.xmission.com ([166.70.13.232]:46479 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753319AbZK3Bqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:34 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-Take advantage of the new pernet automatic storage management,
-and stop using compatibility network namespace functions.
+No that all of the callers have been updated to set fields in
+struct pernet_operations, and simplified to let the network
+namespace core handle the allocation and freeing of the storage
+for them, remove the surpurpflous methods and update the docs
+to the new style.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/phonet/pn_dev.c |   16 ++++++----------
- 1 files changed, 6 insertions(+), 10 deletions(-)
+ include/net/net_namespace.h |   22 ----------------------
+ include/net/netns/generic.h |    8 +++++---
+ 2 files changed, 5 insertions(+), 25 deletions(-)
 
-diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index d87388c..bc4a33b 100644
---- a/net/phonet/pn_dev.c
-+++ b/net/phonet/pn_dev.c
-@@ -313,19 +313,14 @@ static struct notifier_block phonet_device_notifier = {
- /* Per-namespace Phonet devices handling */
- static int phonet_init_net(struct net *net)
- {
--	struct phonet_net *pnn = kzalloc(sizeof(*pnn), GFP_KERNEL);
--	if (!pnn)
--		return -ENOMEM;
-+	struct phonet_net *pnn = net_generic(net, phonet_net_id);
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 080774b..24a8c55 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -264,28 +264,6 @@ extern void unregister_pernet_subsys(struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
  
--	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops)) {
--		kfree(pnn);
-+	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops))
- 		return -ENOMEM;
--	}
- 
- 	INIT_LIST_HEAD(&pnn->pndevs.list);
- 	mutex_init(&pnn->pndevs.lock);
- 	mutex_init(&pnn->routes.lock);
--	net_assign_generic(net, phonet_net_id, pnn);
- 	return 0;
- }
- 
-@@ -349,18 +344,19 @@ static void phonet_exit_net(struct net *net)
- 	rtnl_unlock();
- 
- 	proc_net_remove(net, "phonet");
--	kfree(pnn);
- }
- 
- static struct pernet_operations phonet_net_ops = {
- 	.init = phonet_init_net,
- 	.exit = phonet_exit_net,
-+	.id   = &phonet_net_id,
-+	.size = sizeof(struct phonet_net),
- };
- 
- /* Initialize Phonet devices list */
- int __init phonet_device_init(void)
- {
--	int err = register_pernet_gen_device(&phonet_net_id, &phonet_net_ops);
-+	int err = register_pernet_device(&phonet_net_ops);
- 	if (err)
- 		return err;
- 
-@@ -375,7 +371,7 @@ void phonet_device_exit(void)
- {
- 	rtnl_unregister_all(PF_PHONET);
- 	unregister_netdevice_notifier(&phonet_device_notifier);
--	unregister_pernet_gen_device(phonet_net_id, &phonet_net_ops);
-+	unregister_pernet_device(&phonet_net_ops);
- }
- 
- int phonet_route_add(struct net_device *dev, u8 daddr)
+-static inline int register_pernet_gen_subsys(int *id, struct pernet_operations *ops)
+-{
+-	ops->id = id;
+-	return register_pernet_subsys(ops);
+-}
+-
+-static inline void unregister_pernet_gen_subsys(int id, struct pernet_operations *ops)
+-{
+-	return unregister_pernet_subsys(ops);
+-}
+-
+-static inline int register_pernet_gen_device(int *id, struct pernet_operations *ops)
+-{
+-	ops->id = id;
+-	return register_pernet_device(ops);
+-}
+-
+-static inline void unregister_pernet_gen_device(int id, struct pernet_operations *ops)
+-{
+-	return unregister_pernet_device(ops);
+-}
+-
+ struct ctl_path;
+ struct ctl_table;
+ struct ctl_table_header;
+diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
+index 0c04fd2..ff4982a 100644
+--- a/include/net/netns/generic.h
++++ b/include/net/netns/generic.h
+@@ -12,9 +12,11 @@
+  * stuff on the struct net without explicit struct net modification
+  *
+  * The rules are simple:
+- * 1. register the ops with register_pernet_gen_device to get the id
+- *    of your private pointer;
+- * 2. call net_assign_generic() to put the private data on the struct
++ * 1. set pernet_operations->id.  After register_pernet_device you
++ *    will have the id of your private pointer.
++ * 2. Either set pernet_operations->size (to have the code allocate and
++ *    free a private structure pointed to from struct net ) or 
++ *    call net_assign_generic() to put the private data on the struct
+  *    net (most preferably this should be done in the ->init callback
+  *    of the ops registered);
+  * 3. do not change this pointer while the net is alive;
 -- 
 1.6.5.2.143.g8cc62
 
