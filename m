@@ -1,61 +1,76 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
-Date: Mon, 30 Nov 2009 13:45:29 +0100
-Message-ID: <1259585129.3992.13.camel@nienna.balabit>
-References: <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
-	 <1259310417.3809.5.camel@nienna.balabit> <1259337932.3299.3.camel@bigi>
-	 <20091128151515.GA20476@sch.bme.hu> <4B1145F1.3090704@trash.net>
-	 <1259424278.3864.16.camel@bigi> <4B1158CE.90803@trash.net>
-	 <1259429774.3864.41.camel@bigi> <20091128190500.GB12264@sch.bme.hu>
-	 <1259437442.3864.61.camel@bigi>  <20091129203508.GB18259@sch.bme.hu>
-	 <1259583359.873.17.camel@bigi>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: dmfe/tulip device id overlap
+Date: Mon, 30 Nov 2009 12:46:25 +0000
+Message-ID: <1259585185.3709.181.camel@localhost>
+References: <da824cf30911250924i31f77033r7f60027ed74b2cd@mail.gmail.com>
+	 <20091129.003024.245104886.davem@davemloft.net>
+	 <20091130065512.GA2792@jenkins.domain_not_set.invalid>
+	 <20091129.230703.206229796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	Andreas Schultz <aschultz@warp10.net>, tproxy@lists.balabit.hu,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-9U9u19Xg8pGJihmx4FFC"
+Cc: brandon@ifup.org, grundler@google.com, tobias@ringis.se,
+	kyle@mcmartin.ca, netdev@vger.kernel.org, grundler@parisc-linux.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:58827 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751709AbZK3Mp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2009 07:45:26 -0500
-Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id D439211E1EB
-	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 13:45:31 +0100 (CET)
-In-Reply-To: <1259583359.873.17.camel@bigi>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60043 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753389AbZK3Mqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 07:46:31 -0500
+In-Reply-To: <20091129.230703.206229796.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Mon, 2009-11-30 at 07:15 -0500, jamal wrote:
-> On Sun, 2009-11-29 at 21:35 +0100, KOVACS Krisztian wrote:
-> 
-> > The story is that we really do want to deliver these packets locally, as
-> > if the destination IP address was locally configured on the host. The only
-> > way I know of to get the packet to ip_local_deliver() is by using a local
-> > route.
-> 
-> Aha, now i understand where both you and Patrick are coming from. So
-> you literally have to hit the main(or default) table in the reverse
-> source validation. How does the workaround (that you suggested) work
-> then? i.e you are going to fail the RTN_UNICAST test no matter what.
+--=-9U9u19Xg8pGJihmx4FFC
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-No, because by narrowing the rule to specific ingress interfaces the
-lookup done in fib_validate_source() won't match the rule(s) (because
-the flow used will have iif set to the loopback device), and thus it
-will look up the main table and select a unicast route.
+On Sun, 2009-11-29 at 23:07 -0800, David Miller wrote:
+> From: Brandon Philips <brandon@ifup.org>
+> Date: Sun, 29 Nov 2009 22:55:12 -0800
+>=20
+> > Thus, the patch only lets tulip handle 0x9100 and 0x9102 if __sparc__.
+> >=20
+> > Perhaps someone knows if there is a way to tell the PCI card from the
+> > sparc builtin machine?
+>=20
+> We should get both cases working in one of the two drivers,
+> preferrably Tulip.
+>=20
+> That's the outcome I'm trying to say is the only legitimate one.
 
-> Dave, give me some short time to mull this over. I am not sure i like
-> the sysctl approach - we may have to just revert the whole thing
-> instead.
+If the problem is that the drivers are not portable, then this makes
+sense.  However, as I understand it, the problem is that the same device
+ids have been assigned to significantly different controllers/boards.
+In this case it may be better for both of the drivers to claim the
+device ids and to distinguish them at probe time.
 
-I don't think it would be unreasonable to add a sysctl but disable the
-feature by default. It's up to you, of course.
+Ben.
 
-Cheers,
-Krisztian
+--=20
+Ben Hutchings
+Quantity is no substitute for quality, but it's the only one we've got.
 
+--=-9U9u19Xg8pGJihmx4FFC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASxO+nOe/yOyVhhEJAQKPrRAAqnEyoQzTyhuUD+ScFCMluj4f8aZNgoHF
+QitcXk18m+4wIZJkK5JHngtEE/A7QJxW/v6YWWQJi6kVphIB4BK5aAxjTS021SK3
+s3DzZFvNUZ3SsPlkVKSa4L+QDT7YN6nVaH++EuSK0IsoSDYdVD21rHIzsAICcWCI
+DFNXRPvvyWZz7q5YZu7pzoZqRPttzBbulce/t/ckiKYO+FwvxqrcpXkWI4QedFOo
+VcHyK/lCnMKwCeoO451WgI0O67JXevbev0IgiuZYBgX45oCWJVfA4QUT21ykxrzb
+GjBybPYobuSME8Z+SkMqCMr9Rj9w02M5BrLsxgwxuIHuhx90Uj7CgmW6eu2POdE3
+Y5t7xyiHpxY1L4ENwi8DIzIalD2tUzwBuG3FgxetWsDfUMfIlN0oZ/yhGEDDQC4l
+znGq+ebsMsa67w9DEdBRBIzDB4UcfTVuUh6pawbXZB0/e3p/8kbRqG59bCOd25jP
+bkRRUi/DpAkHWX1TdWB9oEkhvdtqiLrziQg5W5aXEt6NCFp1nUaKnivWAfz/juMM
+EtsA7J8cyC0uNGPZXMW2Vye5daLD8Fmdgd3rc/ECJJxAoQBURKRkIiBXVhqtUrrL
+CDyhlqnyO+VNmke+sDakyWwdRaisqZwz1no5M2J842tbH42Hqy2C9oXMZ99BKPuZ
+yKBwlf4xi6g=
+=Va2e
+-----END PGP SIGNATURE-----
+
+--=-9U9u19Xg8pGJihmx4FFC--
