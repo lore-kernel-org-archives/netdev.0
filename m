@@ -1,36 +1,404 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/20] Batch network namespace cleanup
-Date: Mon, 30 Nov 2009 00:17:59 -0800
-Message-ID: <m1ljhoa0js.fsf@fess.ebiederm.org>
-References: <m1ljhodbtw.fsf@fess.ebiederm.org> <4B137D4B.8050803@gmail.com>
-	<20091130.000918.212899174.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
-	dlezcano@fr.ibm.com, adobriyan@gmail.com, kaber@trash.net
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH 04/20] net: Automatically allocate per namespace data.
+Date: Mon, 30 Nov 2009 00:25:28 -0800
+Message-ID: <1259569530-30609-3-git-send-email-ebiederm@xmission.com>
+References: <m1ljhodbtw.fsf@fess.ebiederm.org>
+Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40417 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753176AbZK3ISB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:18:01 -0500
-In-Reply-To: <20091130.000918.212899174.davem@davemloft.net> (David Miller's message of "Mon\, 30 Nov 2009 00\:09\:18 -0800 \(PST\)")
+Received: from out02.mta.xmission.com ([166.70.13.232]:53823 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753905AbZK3IZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:25:35 -0500
+In-Reply-To: <m1ljhodbtw.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Eric W. Biederman <ebiederm@xmission.com>
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 30 Nov 2009 09:07:39 +0100
->
->> It seems list received part of your patches Eric
->> 
->> 01, 07-20 are OK,   02-06 are missing
->
-> Not just the list, I didn't get copies of the missing patches through
-> direct email even though I was on the CC: list.
+To get the full benefit of batched network namespace cleanup netowrk
+device deletion needs to be performed by the generic code.  When
+using register_pernet_gen_device and freeing the data in exit_net
+it is impossible to delay allocation until after exit_net has called
+as the device uninit methods are no longer safe.
 
-Thanks.  Weird.  I will take a look and resend.
+To correct this, and to simplify working with per network namespace data
+I have moved allocation and deletion of per network namespace data into
+the network namespace core.  The core now frees the data only after
+all of the network namespace exit routines have run.
 
-Eric
+Now it is only required to set the new fields .id and .size
+in the pernet_operations structure if you want network namespace
+data to be managed for you automatically.
+
+This makes the current register_pernet_gen_device and
+register_pernet_gen_subsys routines unnecessary.  For the moment
+I have left them as compatibility wrappers in net_namespace.h
+They will be removed once all of the users have been updated.
+
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/net/net_namespace.h |   28 ++++++-
+ net/core/net_namespace.c    |  188 +++++++++++++++++++++++--------------------
+ 2 files changed, 126 insertions(+), 90 deletions(-)
+
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index d69b479..080774b 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -236,6 +236,8 @@ struct pernet_operations {
+ 	struct list_head list;
+ 	int (*init)(struct net *net);
+ 	void (*exit)(struct net *net);
++	int *id;
++	size_t size;
+ };
+ 
+ /*
+@@ -259,12 +261,30 @@ struct pernet_operations {
+  */
+ extern int register_pernet_subsys(struct pernet_operations *);
+ extern void unregister_pernet_subsys(struct pernet_operations *);
+-extern int register_pernet_gen_subsys(int *id, struct pernet_operations *);
+-extern void unregister_pernet_gen_subsys(int id, struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
+-extern int register_pernet_gen_device(int *id, struct pernet_operations *);
+-extern void unregister_pernet_gen_device(int id, struct pernet_operations *);
++
++static inline int register_pernet_gen_subsys(int *id, struct pernet_operations *ops)
++{
++	ops->id = id;
++	return register_pernet_subsys(ops);
++}
++
++static inline void unregister_pernet_gen_subsys(int id, struct pernet_operations *ops)
++{
++	return unregister_pernet_subsys(ops);
++}
++
++static inline int register_pernet_gen_device(int *id, struct pernet_operations *ops)
++{
++	ops->id = id;
++	return register_pernet_device(ops);
++}
++
++static inline void unregister_pernet_gen_device(int id, struct pernet_operations *ops)
++{
++	return unregister_pernet_device(ops);
++}
+ 
+ struct ctl_path;
+ struct ctl_table;
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index a42caa2..9679ad2 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -43,13 +43,40 @@ static void unregister_netdevices(struct net *net, struct list_head *list)
+ 	}
+ }
+ 
++static int ops_init(const struct pernet_operations *ops, struct net *net)
++{
++	int err;
++	if (ops->id && ops->size) {
++		void *data = kzalloc(ops->size, GFP_KERNEL);
++		if (!data)
++			return -ENOMEM;
++
++		err = net_assign_generic(net, *ops->id, data);
++		if (err) {
++			kfree(data);
++			return err;
++		}
++	}
++	if (ops->init)
++		return ops->init(net);
++	return 0;
++}
++
++static void ops_free(const struct pernet_operations *ops, struct net *net)
++{
++	if (ops->id && ops->size) {
++		int id = *ops->id;
++		kfree(net_generic(net, id));
++	}
++}
++
+ /*
+  * setup_net runs the initializers for the network namespace object.
+  */
+ static __net_init int setup_net(struct net *net)
+ {
+ 	/* Must be called with net_mutex held */
+-	struct pernet_operations *ops;
++	const struct pernet_operations *ops, *saved_ops;
+ 	int error = 0;
+ 
+ 	atomic_set(&net->count, 1);
+@@ -59,11 +86,9 @@ static __net_init int setup_net(struct net *net)
+ #endif
+ 
+ 	list_for_each_entry(ops, &pernet_list, list) {
+-		if (ops->init) {
+-			error = ops->init(net);
+-			if (error < 0)
+-				goto out_undo;
+-		}
++		error = ops_init(ops, net);
++		if (error < 0)
++			goto out_undo;
+ 	}
+ out:
+ 	return error;
+@@ -72,6 +97,7 @@ out_undo:
+ 	/* Walk through the list backwards calling the exit functions
+ 	 * for the pernet modules whose init functions did not fail.
+ 	 */
++	saved_ops = ops;
+ 	list_for_each_entry_continue_reverse(ops, &pernet_list, list) {
+ 		if (ops->exit)
+ 			ops->exit(net);
+@@ -83,6 +109,9 @@ out_undo:
+ 			rtnl_unlock();
+ 		}
+ 	}
++	ops = saved_ops;
++	list_for_each_entry_continue_reverse(ops, &pernet_list, list)
++		ops_free(ops, net);
+ 
+ 	rcu_barrier();
+ 	goto out;
+@@ -175,7 +204,7 @@ static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
+ 
+ static void cleanup_net(struct work_struct *work)
+ {
+-	struct pernet_operations *ops;
++	const struct pernet_operations *ops;
+ 	struct net *net, *tmp;
+ 	LIST_HEAD(net_kill_list);
+ 
+@@ -214,6 +243,13 @@ static void cleanup_net(struct work_struct *work)
+ 			rtnl_unlock();
+ 		}
+ 	}
++	/* Free the net generic variables */
++	list_for_each_entry_reverse(ops, &pernet_list, list) {
++		if (ops->size && ops->id) {
++			list_for_each_entry(net, &net_kill_list, cleanup_list)
++				ops_free(ops, net);
++		}
++	}
+ 
+ 	mutex_unlock(&net_mutex);
+ 
+@@ -309,16 +345,16 @@ static int __init net_ns_init(void)
+ pure_initcall(net_ns_init);
+ 
+ #ifdef CONFIG_NET_NS
+-static int register_pernet_operations(struct list_head *list,
+-				      struct pernet_operations *ops)
++static int __register_pernet_operations(struct list_head *list,
++					struct pernet_operations *ops)
+ {
+ 	struct net *net, *undo_net;
+ 	int error;
+ 
+ 	list_add_tail(&ops->list, list);
+-	if (ops->init) {
++	if (ops->init || (ops->id && ops->size)) {
+ 		for_each_net(net) {
+-			error = ops->init(net);
++			error = ops_init(ops, net);
+ 			if (error)
+ 				goto out_undo;
+ 		}
+@@ -336,10 +372,18 @@ out_undo:
+ 		}
+ 	}
+ undone:
++	if (ops->size && ops->id) {
++		for_each_net(undo_net) {
++			if (net_eq(undo_net, net))
++				goto freed;
++			ops_free(ops, undo_net);
++		}
++	}
++freed:
+ 	return error;
+ }
+ 
+-static void unregister_pernet_operations(struct pernet_operations *ops)
++static void __unregister_pernet_operations(struct pernet_operations *ops)
+ {
+ 	struct net *net;
+ 
+@@ -347,27 +391,66 @@ static void unregister_pernet_operations(struct pernet_operations *ops)
+ 	if (ops->exit)
+ 		for_each_net(net)
+ 			ops->exit(net);
++	if (ops->id && ops->size)
++		for_each_net(net)
++			ops_free(ops, net);
+ }
+ 
+ #else
+ 
+-static int register_pernet_operations(struct list_head *list,
+-				      struct pernet_operations *ops)
++static int __register_pernet_operations(struct list_head *list,
++					struct pernet_operations *ops)
+ {
+-	if (ops->init == NULL)
+-		return 0;
+-	return ops->init(&init_net);
++	int err = 0;
++	err = ops_init(ops, &init_net);
++	if (err)
++		ops_free(ops, &init_net);
++	return err;
++	
+ }
+ 
+-static void unregister_pernet_operations(struct pernet_operations *ops)
++static void __unregister_pernet_operations(struct pernet_operations *ops)
+ {
+ 	if (ops->exit)
+ 		ops->exit(&init_net);
++	ops_free(ops, &init_net);
+ }
+-#endif
++
++#endif /* CONFIG_NET_NS */
+ 
+ static DEFINE_IDA(net_generic_ids);
+ 
++static int register_pernet_operations(struct list_head *list,
++				      struct pernet_operations *ops)
++{
++	int error;
++
++	if (ops->id) {
++again:
++		error = ida_get_new_above(&net_generic_ids, 1, ops->id);
++		if (error < 0) {
++			if (error == -EAGAIN) {
++				ida_pre_get(&net_generic_ids, GFP_KERNEL);
++				goto again;
++			}
++			return error;
++		}
++	}
++	error = __register_pernet_operations(list, ops);
++	if (error && ops->id)
++		ida_remove(&net_generic_ids, *ops->id);
++
++	return error;
++}
++
++static void unregister_pernet_operations(struct pernet_operations *ops)
++{
++	
++	__unregister_pernet_operations(ops);
++	if (ops->id)
++		ida_remove(&net_generic_ids, *ops->id);
++}
++
+ /**
+  *      register_pernet_subsys - register a network namespace subsystem
+  *	@ops:  pernet operations structure for the subsystem
+@@ -414,38 +497,6 @@ void unregister_pernet_subsys(struct pernet_operations *module)
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
+ 
+-int register_pernet_gen_subsys(int *id, struct pernet_operations *ops)
+-{
+-	int rv;
+-
+-	mutex_lock(&net_mutex);
+-again:
+-	rv = ida_get_new_above(&net_generic_ids, 1, id);
+-	if (rv < 0) {
+-		if (rv == -EAGAIN) {
+-			ida_pre_get(&net_generic_ids, GFP_KERNEL);
+-			goto again;
+-		}
+-		goto out;
+-	}
+-	rv = register_pernet_operations(first_device, ops);
+-	if (rv < 0)
+-		ida_remove(&net_generic_ids, *id);
+-out:
+-	mutex_unlock(&net_mutex);
+-	return rv;
+-}
+-EXPORT_SYMBOL_GPL(register_pernet_gen_subsys);
+-
+-void unregister_pernet_gen_subsys(int id, struct pernet_operations *ops)
+-{
+-	mutex_lock(&net_mutex);
+-	unregister_pernet_operations(ops);
+-	ida_remove(&net_generic_ids, id);
+-	mutex_unlock(&net_mutex);
+-}
+-EXPORT_SYMBOL_GPL(unregister_pernet_gen_subsys);
+-
+ /**
+  *      register_pernet_device - register a network namespace device
+  *	@ops:  pernet operations structure for the subsystem
+@@ -477,30 +528,6 @@ int register_pernet_device(struct pernet_operations *ops)
+ }
+ EXPORT_SYMBOL_GPL(register_pernet_device);
+ 
+-int register_pernet_gen_device(int *id, struct pernet_operations *ops)
+-{
+-	int error;
+-	mutex_lock(&net_mutex);
+-again:
+-	error = ida_get_new_above(&net_generic_ids, 1, id);
+-	if (error) {
+-		if (error == -EAGAIN) {
+-			ida_pre_get(&net_generic_ids, GFP_KERNEL);
+-			goto again;
+-		}
+-		goto out;
+-	}
+-	error = register_pernet_operations(&pernet_list, ops);
+-	if (error)
+-		ida_remove(&net_generic_ids, *id);
+-	else if (first_device == &pernet_list)
+-		first_device = &ops->list;
+-out:
+-	mutex_unlock(&net_mutex);
+-	return error;
+-}
+-EXPORT_SYMBOL_GPL(register_pernet_gen_device);
+-
+ /**
+  *      unregister_pernet_device - unregister a network namespace netdevice
+  *	@ops: pernet operations structure to manipulate
+@@ -520,17 +547,6 @@ void unregister_pernet_device(struct pernet_operations *ops)
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_device);
+ 
+-void unregister_pernet_gen_device(int id, struct pernet_operations *ops)
+-{
+-	mutex_lock(&net_mutex);
+-	if (&ops->list == first_device)
+-		first_device = first_device->next;
+-	unregister_pernet_operations(ops);
+-	ida_remove(&net_generic_ids, id);
+-	mutex_unlock(&net_mutex);
+-}
+-EXPORT_SYMBOL_GPL(unregister_pernet_gen_device);
+-
+ static void net_generic_release(struct rcu_head *rcu)
+ {
+ 	struct net_generic *ng;
+-- 
+1.6.5.2.143.g8cc62
 
