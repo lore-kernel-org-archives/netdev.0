@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ep93xx-eth: check for zero MAC address on probe,
- not on device open
-Date: Sun, 29 Nov 2009 23:50:43 -0800 (PST)
-Message-ID: <20091129.235043.101670708.davem@davemloft.net>
-References: <200911290057.02109.florian@openwrt.org>
-	<20091129121158.GV20214@mail.wantstofly.org>
+From: Jan Kasprzak <kas@fi.muni.cz>
+Subject: Re: [patch] drop chan->wsem on error path
+Date: Mon, 30 Nov 2009 08:44:18 +0100
+Message-ID: <20091130074418.GC25334@fi.muni.cz>
+References: <20091129160255.GN10640@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: florian@openwrt.org, netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39060
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750956AbZK3Hui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 02:50:38 -0500
-In-Reply-To: <20091129121158.GV20214@mail.wantstofly.org>
+Received: from minas.ics.muni.cz ([147.251.4.40]:45194 "EHLO minas.ics.muni.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750920AbZK3Hwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2009 02:52:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20091129160255.GN10640@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Sun, 29 Nov 2009 13:11:58 +0100
+Dan Carpenter wrote:
+: The other paths all drop chan->wsem.  This was found by a static
+: checker (smatch).
 
-> On Sun, Nov 29, 2009 at 12:57:00AM +0100, Florian Fainelli wrote:
-> 
->> If we happen to have registered the driver without passing
->> a MAC address, we will print a zero MAC address and register
->> the interface with this invalid address, this is confusin. This
->> patch moves the checking of a valid ethernet address and the
->> generation of a random one down from the open function to
->> the probe function.
->> 
->> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> 
-> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+	You are right, thanks!
 
-Applied, thanks.
+: 
+: Signed-off-by: Dan Carpenter <error27@gmail.com>
+
+Acked-by: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
+
+: --- orig/drivers/net/wan/cosa.c	2009-11-29 16:38:42.000000000 +0200
+: +++ devel/drivers/net/wan/cosa.c	2009-11-29 16:43:39.000000000 +0200
+: @@ -907,6 +907,7 @@ static ssize_t cosa_write(struct file *f
+:  			current->state = TASK_RUNNING;
+:  			chan->tx_status = 1;
+:  			spin_unlock_irqrestore(&cosa->lock, flags);
+: +			up(&chan->wsem);
+:  			return -ERESTARTSYS;
+:  		}
+:  	}
+
+-- 
+| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - private}> |
+| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18A5E |
+| http://www.fi.muni.cz/~kas/    Journal: http://www.fi.muni.cz/~kas/blog/ |
+Please don't top post and in particular don't attach entire digests to your
+mail or we'll all soon be using bittorrent to read the list.     --Alan Cox
