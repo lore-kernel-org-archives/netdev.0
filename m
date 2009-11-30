@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 07/20] net: Simplify the bond drivers pernet operations.
-Date: Sun, 29 Nov 2009 17:46:04 -0800
-Message-ID: <1259545577-7466-7-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 15/20] net: Simplify phonet pernet operations.
+Date: Sun, 29 Nov 2009 17:46:12 -0800
+Message-ID: <1259545577-7466-15-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,10 +10,10 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42719 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:42743 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbZK3Bq0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:26 -0500
+	with ESMTP id S1753206AbZK3Bqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:31 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,89 +25,66 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/bonding/bond_main.c |   32 +++++++++-----------------------
- 1 files changed, 9 insertions(+), 23 deletions(-)
+ net/phonet/pn_dev.c |   16 ++++++----------
+ 1 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 726bd75..ac3fe20 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5103,42 +5103,28 @@ out_netdev:
- 
- static int bond_net_init(struct net *net)
+diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+index d87388c..bc4a33b 100644
+--- a/net/phonet/pn_dev.c
++++ b/net/phonet/pn_dev.c
+@@ -313,19 +313,14 @@ static struct notifier_block phonet_device_notifier = {
+ /* Per-namespace Phonet devices handling */
+ static int phonet_init_net(struct net *net)
  {
--	struct bond_net *bn;
--	int err;
--
--	err = -ENOMEM;
--	bn = kzalloc(sizeof(struct bond_net), GFP_KERNEL);
--	if (bn == NULL)
--		goto out;
-+	struct bond_net *bn = net_generic(net, bond_net_id);
+-	struct phonet_net *pnn = kzalloc(sizeof(*pnn), GFP_KERNEL);
+-	if (!pnn)
+-		return -ENOMEM;
++	struct phonet_net *pnn = net_generic(net, phonet_net_id);
  
- 	bn->net = net;
- 	INIT_LIST_HEAD(&bn->dev_list);
+-	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops)) {
+-		kfree(pnn);
++	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops))
+ 		return -ENOMEM;
+-	}
  
--	err = net_assign_generic(net, bond_net_id, bn);
--	if (err)
--		goto out_free;
--
- 	bond_create_proc_dir(bn);
--out:
--	return err;
--out_free:
--	kfree(bn);
--	goto out;
-+	
-+	return 0;
+ 	INIT_LIST_HEAD(&pnn->pndevs.list);
+ 	mutex_init(&pnn->pndevs.lock);
+ 	mutex_init(&pnn->routes.lock);
+-	net_assign_generic(net, phonet_net_id, pnn);
+ 	return 0;
  }
  
- static void bond_net_exit(struct net *net)
- {
--	struct bond_net *bn;
--
--	bn = net_generic(net, bond_net_id);
-+	struct bond_net *bn = net_generic(net, bond_net_id);
+@@ -349,18 +344,19 @@ static void phonet_exit_net(struct net *net)
+ 	rtnl_unlock();
  
- 	bond_destroy_proc_dir(bn);
--	kfree(bn);
+ 	proc_net_remove(net, "phonet");
+-	kfree(pnn);
  }
  
- static struct pernet_operations bond_net_ops = {
- 	.init = bond_net_init,
- 	.exit = bond_net_exit,
-+	.id   = &bond_net_id,
-+	.size = sizeof(struct bond_net),
+ static struct pernet_operations phonet_net_ops = {
+ 	.init = phonet_init_net,
+ 	.exit = phonet_exit_net,
++	.id   = &phonet_net_id,
++	.size = sizeof(struct phonet_net),
  };
  
- static int __init bonding_init(void)
-@@ -5152,7 +5138,7 @@ static int __init bonding_init(void)
- 	if (res)
- 		goto out;
+ /* Initialize Phonet devices list */
+ int __init phonet_device_init(void)
+ {
+-	int err = register_pernet_gen_device(&phonet_net_id, &phonet_net_ops);
++	int err = register_pernet_device(&phonet_net_ops);
+ 	if (err)
+ 		return err;
  
--	res = register_pernet_gen_subsys(&bond_net_id, &bond_net_ops);
-+	res = register_pernet_subsys(&bond_net_ops);
- 	if (res)
- 		goto out;
- 
-@@ -5178,7 +5164,7 @@ out:
- err:
- 	rtnl_link_unregister(&bond_link_ops);
- err_link:
--	unregister_pernet_gen_subsys(bond_net_id, &bond_net_ops);
-+	unregister_pernet_subsys(&bond_net_ops);
- 	goto out;
- 
- }
-@@ -5192,7 +5178,7 @@ static void __exit bonding_exit(void)
- 	bond_destroy_sysfs();
- 
- 	rtnl_link_unregister(&bond_link_ops);
--	unregister_pernet_gen_subsys(bond_net_id, &bond_net_ops);
-+	unregister_pernet_subsys(&bond_net_ops);
+@@ -375,7 +371,7 @@ void phonet_device_exit(void)
+ {
+ 	rtnl_unregister_all(PF_PHONET);
+ 	unregister_netdevice_notifier(&phonet_device_notifier);
+-	unregister_pernet_gen_device(phonet_net_id, &phonet_net_ops);
++	unregister_pernet_device(&phonet_net_ops);
  }
  
- module_init(bonding_init);
+ int phonet_route_add(struct net_device *dev, u8 daddr)
 -- 
 1.6.5.2.143.g8cc62
 
