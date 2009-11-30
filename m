@@ -1,34 +1,1319 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 08/12] sfc: Add firmware protocol definitions (MCDI)
-Date: Mon, 30 Nov 2009 01:15:07 +0000
-Message-ID: <1259543707.3709.94.camel@localhost>
+Subject: [PATCH 09/12] sfc: Add support for SFC9000 family (1)
+Date: Mon, 30 Nov 2009 01:15:25 +0000
+Message-ID: <1259543729.3709.95.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46793 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:46814 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbZK3BPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:15:05 -0500
+	with ESMTP id S1753080AbZK3BP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:15:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+This adds support for the SFC9000 family of 10G Ethernet controllers
+and LAN-on-motherboard chips, starting with the SFL9021 'Siena' and
+SFC9020 'Bethpage'.
+
+The SFC9000 family is based on the SFC4000 'Falcon' architecture, but
+with some significant changes:
+
+- Two ports are associated with two independent PCI functions
+  (except SFC9010)
+- Integrated 10GBASE-T PHY(s) (SFL9021/9022)
+- MAC, PHY and board peripherals are managed by firmware
+  - Driver does not require board-specific code
+  - Firmware supports wake-on-LAN and lights-out management through NC-SI
+- IPv6 checksum offload and RSS
+- Filtering by MAC address and VLAN (not included in this code)
+- PCI SR-IOV (not included in this code)
+
+Credit for this code is largely due to my colleagues at Solarflare:
+
+   Guido Barzini
+   Steve Hodgson
+   Kieran Mansley
+   Matthew Slattery
+   Neil Turton
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/mcdi_pcol.h | 1578 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1578 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/sfc/mcdi_pcol.h
+ drivers/net/sfc/mcdi.c     | 1112 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/mcdi.h     |  130 +++++
+ drivers/net/sfc/mcdi_mac.c |  152 ++++++
+ drivers/net/sfc/mcdi_phy.c |  597 ++++++++++++++++++++++++
+ drivers/net/sfc/siena.c    |  604 ++++++++++++++++++++++++
+ 5 files changed, 2595 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/sfc/mcdi.c
+ create mode 100644 drivers/net/sfc/mcdi.h
+ create mode 100644 drivers/net/sfc/mcdi_mac.c
+ create mode 100644 drivers/net/sfc/mcdi_phy.c
+ create mode 100644 drivers/net/sfc/siena.c
 
-diff --git a/drivers/net/sfc/mcdi_pcol.h b/drivers/net/sfc/mcdi_pcol.h
+diff --git a/drivers/net/sfc/mcdi.c b/drivers/net/sfc/mcdi.c
 new file mode 100644
-index 0000000..2a85360
+index 0000000..683353b
 --- /dev/null
-+++ b/drivers/net/sfc/mcdi_pcol.h
-@@ -0,0 +1,1578 @@
++++ b/drivers/net/sfc/mcdi.c
+@@ -0,0 +1,1112 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2008-2009 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#include <linux/delay.h>
++#include "net_driver.h"
++#include "nic.h"
++#include "io.h"
++#include "regs.h"
++#include "mcdi_pcol.h"
++#include "phy.h"
++
++/**************************************************************************
++ *
++ * Management-Controller-to-Driver Interface
++ *
++ **************************************************************************
++ */
++
++/* Software-defined structure to the shared-memory */
++#define CMD_NOTIFY_PORT0 0
++#define CMD_NOTIFY_PORT1 4
++#define CMD_PDU_PORT0    0x008
++#define CMD_PDU_PORT1    0x108
++#define REBOOT_FLAG_PORT0 0x3f8
++#define REBOOT_FLAG_PORT1 0x3fc
++
++#define MCDI_RPC_TIMEOUT       10 /*seconds */
++
++#define MCDI_PDU(efx)							\
++	(efx_port_num(efx) ? CMD_PDU_PORT1 : CMD_PDU_PORT0)
++#define MCDI_DOORBELL(efx)						\
++	(efx_port_num(efx) ? CMD_NOTIFY_PORT1 : CMD_NOTIFY_PORT0)
++#define MCDI_REBOOT_FLAG(efx)						\
++	(efx_port_num(efx) ? REBOOT_FLAG_PORT1 : REBOOT_FLAG_PORT0)
++
++#define SEQ_MASK							\
++	EFX_MASK32(EFX_WIDTH(MCDI_HEADER_SEQ))
++
++static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
++{
++	struct siena_nic_data *nic_data;
++	EFX_BUG_ON_PARANOID(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
++	nic_data = efx->nic_data;
++	return &nic_data->mcdi;
++}
++
++void efx_mcdi_init(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi;
++
++	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
++		return;
++
++	mcdi = efx_mcdi(efx);
++	init_waitqueue_head(&mcdi->wq);
++	spin_lock_init(&mcdi->iface_lock);
++	atomic_set(&mcdi->state, MCDI_STATE_QUIESCENT);
++	mcdi->mode = MCDI_MODE_POLL;
++
++	(void) efx_mcdi_poll_reboot(efx);
++}
++
++static void efx_mcdi_copyin(struct efx_nic *efx, unsigned cmd,
++			    const u8 *inbuf, size_t inlen)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++	unsigned pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned doorbell = FR_CZ_MC_TREG_SMEM + MCDI_DOORBELL(efx);
++	unsigned int i;
++	efx_dword_t hdr;
++	u32 xflags, seqno;
++
++	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
++	BUG_ON(inlen & 3 || inlen >= 0x100);
++
++	seqno = mcdi->seqno & SEQ_MASK;
++	xflags = 0;
++	if (mcdi->mode == MCDI_MODE_EVENTS)
++		xflags |= MCDI_HEADER_XFLAGS_EVREQ;
++
++	EFX_POPULATE_DWORD_6(hdr,
++			     MCDI_HEADER_RESPONSE, 0,
++			     MCDI_HEADER_RESYNC, 1,
++			     MCDI_HEADER_CODE, cmd,
++			     MCDI_HEADER_DATALEN, inlen,
++			     MCDI_HEADER_SEQ, seqno,
++			     MCDI_HEADER_XFLAGS, xflags);
++
++	efx_writed(efx, &hdr, pdu);
++
++	for (i = 0; i < inlen; i += 4)
++		_efx_writed(efx, *((__le32 *)(inbuf + i)), pdu + 4 + i);
++
++	/* Ensure the payload is written out before the header */
++	wmb();
++
++	/* ring the doorbell with a distinctive value */
++	_efx_writed(efx, (__force __le32) 0x45789abc, doorbell);
++}
++
++static void efx_mcdi_copyout(struct efx_nic *efx, u8 *outbuf, size_t outlen)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	int i;
++
++	BUG_ON(atomic_read(&mcdi->state) == MCDI_STATE_QUIESCENT);
++	BUG_ON(outlen & 3 || outlen >= 0x100);
++
++	for (i = 0; i < outlen; i += 4)
++		*((__le32 *)(outbuf + i)) = _efx_readd(efx, pdu + 4 + i);
++}
++
++static int efx_mcdi_poll(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++	unsigned int time, finish;
++	unsigned int respseq, respcmd, error;
++	unsigned int pdu = FR_CZ_MC_TREG_SMEM + MCDI_PDU(efx);
++	unsigned int rc, spins;
++	efx_dword_t reg;
++
++	/* Check for a reboot atomically with respect to efx_mcdi_copyout() */
++	rc = efx_mcdi_poll_reboot(efx);
++	if (rc)
++		goto out;
++
++	/* Poll for completion. Poll quickly (once a us) for the 1st jiffy,
++	 * because generally mcdi responses are fast. After that, back off
++	 * and poll once a jiffy (approximately)
++	 */
++	spins = TICK_USEC;
++	finish = get_seconds() + MCDI_RPC_TIMEOUT;
++
++	while (1) {
++		if (spins != 0) {
++			--spins;
++			udelay(1);
++		} else
++			schedule();
++
++		time = get_seconds();
++
++		rmb();
++		efx_readd(efx, &reg, pdu);
++
++		/* All 1's indicates that shared memory is in reset (and is
++		 * not a valid header). Wait for it to come out reset before
++		 * completing the command */
++		if (EFX_DWORD_FIELD(reg, EFX_DWORD_0) != 0xffffffff &&
++		    EFX_DWORD_FIELD(reg, MCDI_HEADER_RESPONSE))
++			break;
++
++		if (time >= finish)
++			return -ETIMEDOUT;
++	}
++
++	mcdi->resplen = EFX_DWORD_FIELD(reg, MCDI_HEADER_DATALEN);
++	respseq = EFX_DWORD_FIELD(reg, MCDI_HEADER_SEQ);
++	respcmd = EFX_DWORD_FIELD(reg, MCDI_HEADER_CODE);
++	error = EFX_DWORD_FIELD(reg, MCDI_HEADER_ERROR);
++
++	if (error && mcdi->resplen == 0) {
++		EFX_ERR(efx, "MC rebooted\n");
++		rc = EIO;
++	} else if ((respseq ^ mcdi->seqno) & SEQ_MASK) {
++		EFX_ERR(efx, "MC response mismatch tx seq 0x%x rx seq 0x%x\n",
++			respseq, mcdi->seqno);
++		rc = EIO;
++	} else if (error) {
++		efx_readd(efx, &reg, pdu + 4);
++		switch (EFX_DWORD_FIELD(reg, EFX_DWORD_0)) {
++#define TRANSLATE_ERROR(name)					\
++		case MC_CMD_ERR_ ## name:			\
++			rc = name;				\
++			break
++			TRANSLATE_ERROR(ENOENT);
++			TRANSLATE_ERROR(EINTR);
++			TRANSLATE_ERROR(EACCES);
++			TRANSLATE_ERROR(EBUSY);
++			TRANSLATE_ERROR(EINVAL);
++			TRANSLATE_ERROR(EDEADLK);
++			TRANSLATE_ERROR(ENOSYS);
++			TRANSLATE_ERROR(ETIME);
++#undef TRANSLATE_ERROR
++		default:
++			rc = EIO;
++			break;
++		}
++	} else
++		rc = 0;
++
++out:
++	mcdi->resprc = rc;
++	if (rc)
++		mcdi->resplen = 0;
++
++	/* Return rc=0 like wait_event_timeout() */
++	return 0;
++}
++
++/* Test and clear MC-rebooted flag for this port/function */
++int efx_mcdi_poll_reboot(struct efx_nic *efx)
++{
++	unsigned int addr = FR_CZ_MC_TREG_SMEM + MCDI_REBOOT_FLAG(efx);
++	efx_dword_t reg;
++	uint32_t value;
++
++	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
++		return false;
++
++	efx_readd(efx, &reg, addr);
++	value = EFX_DWORD_FIELD(reg, EFX_DWORD_0);
++
++	if (value == 0)
++		return 0;
++
++	EFX_ZERO_DWORD(reg);
++	efx_writed(efx, &reg, addr);
++
++	if (value == MC_STATUS_DWORD_ASSERT)
++		return -EINTR;
++	else
++		return -EIO;
++}
++
++static void efx_mcdi_acquire(struct efx_mcdi_iface *mcdi)
++{
++	/* Wait until the interface becomes QUIESCENT and we win the race
++	 * to mark it RUNNING. */
++	wait_event(mcdi->wq,
++		   atomic_cmpxchg(&mcdi->state,
++				  MCDI_STATE_QUIESCENT,
++				  MCDI_STATE_RUNNING)
++		   == MCDI_STATE_QUIESCENT);
++}
++
++static int efx_mcdi_await_completion(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++
++	if (wait_event_timeout(
++		    mcdi->wq,
++		    atomic_read(&mcdi->state) == MCDI_STATE_COMPLETED,
++		    msecs_to_jiffies(MCDI_RPC_TIMEOUT * 1000)) == 0)
++		return -ETIMEDOUT;
++
++	/* Check if efx_mcdi_set_mode() switched us back to polled completions.
++	 * In which case, poll for completions directly. If efx_mcdi_ev_cpl()
++	 * completed the request first, then we'll just end up completing the
++	 * request again, which is safe.
++	 *
++	 * We need an smp_rmb() to synchronise with efx_mcdi_mode_poll(), which
++	 * wait_event_timeout() implicitly provides.
++	 */
++	if (mcdi->mode == MCDI_MODE_POLL)
++		return efx_mcdi_poll(efx);
++
++	return 0;
++}
++
++static bool efx_mcdi_complete(struct efx_mcdi_iface *mcdi)
++{
++	/* If the interface is RUNNING, then move to COMPLETED and wake any
++	 * waiters. If the interface isn't in RUNNING then we've received a
++	 * duplicate completion after we've already transitioned back to
++	 * QUIESCENT. [A subsequent invocation would increment seqno, so would
++	 * have failed the seqno check].
++	 */
++	if (atomic_cmpxchg(&mcdi->state,
++			   MCDI_STATE_RUNNING,
++			   MCDI_STATE_COMPLETED) == MCDI_STATE_RUNNING) {
++		wake_up(&mcdi->wq);
++		return true;
++	}
++
++	return false;
++}
++
++static void efx_mcdi_release(struct efx_mcdi_iface *mcdi)
++{
++	atomic_set(&mcdi->state, MCDI_STATE_QUIESCENT);
++	wake_up(&mcdi->wq);
++}
++
++static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
++			    unsigned int datalen, unsigned int errno)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++	bool wake = false;
++
++	spin_lock(&mcdi->iface_lock);
++
++	if ((seqno ^ mcdi->seqno) & SEQ_MASK) {
++		if (mcdi->credits)
++			/* The request has been cancelled */
++			--mcdi->credits;
++		else
++			EFX_ERR(efx, "MC response mismatch tx seq 0x%x rx "
++				"seq 0x%x\n", seqno, mcdi->seqno);
++	} else {
++		mcdi->resprc = errno;
++		mcdi->resplen = datalen;
++
++		wake = true;
++	}
++
++	spin_unlock(&mcdi->iface_lock);
++
++	if (wake)
++		efx_mcdi_complete(mcdi);
++}
++
++/* Issue the given command by writing the data into the shared memory PDU,
++ * ring the doorbell and wait for completion. Copyout the result. */
++int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
++		 const u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen,
++		 size_t *outlen_actual)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++	int rc;
++	BUG_ON(efx_nic_rev(efx) < EFX_REV_SIENA_A0);
++
++	efx_mcdi_acquire(mcdi);
++
++	/* Serialise with efx_mcdi_ev_cpl() and efx_mcdi_ev_death() */
++	spin_lock_bh(&mcdi->iface_lock);
++	++mcdi->seqno;
++	spin_unlock_bh(&mcdi->iface_lock);
++
++	efx_mcdi_copyin(efx, cmd, inbuf, inlen);
++
++	if (mcdi->mode == MCDI_MODE_POLL)
++		rc = efx_mcdi_poll(efx);
++	else
++		rc = efx_mcdi_await_completion(efx);
++
++	if (rc != 0) {
++		/* Close the race with efx_mcdi_ev_cpl() executing just too late
++		 * and completing a request we've just cancelled, by ensuring
++		 * that the seqno check therein fails.
++		 */
++		spin_lock_bh(&mcdi->iface_lock);
++		++mcdi->seqno;
++		++mcdi->credits;
++		spin_unlock_bh(&mcdi->iface_lock);
++
++		EFX_ERR(efx, "MC command 0x%x inlen %d mode %d timed out\n",
++			cmd, (int)inlen, mcdi->mode);
++	} else {
++		size_t resplen;
++
++		/* At the very least we need a memory barrier here to ensure
++		 * we pick up changes from efx_mcdi_ev_cpl(). Protect against
++		 * a spurious efx_mcdi_ev_cpl() running concurrently by
++		 * acquiring the iface_lock. */
++		spin_lock_bh(&mcdi->iface_lock);
++		rc = -mcdi->resprc;
++		resplen = mcdi->resplen;
++		spin_unlock_bh(&mcdi->iface_lock);
++
++		if (rc == 0) {
++			efx_mcdi_copyout(efx, outbuf,
++					 min(outlen, mcdi->resplen + 3) & ~0x3);
++			if (outlen_actual != NULL)
++				*outlen_actual = resplen;
++		} else if (cmd == MC_CMD_REBOOT && rc == -EIO)
++			; /* Don't reset if MC_CMD_REBOOT returns EIO */
++		else if (rc == -EIO || rc == -EINTR) {
++			EFX_ERR(efx, "MC fatal error %d\n", -rc);
++			efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
++		} else
++			EFX_ERR(efx, "MC command 0x%x inlen %d failed rc=%d\n",
++				cmd, (int)inlen, -rc);
++	}
++
++	efx_mcdi_release(mcdi);
++	return rc;
++}
++
++void efx_mcdi_mode_poll(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi;
++
++	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
++		return;
++
++	mcdi = efx_mcdi(efx);
++	if (mcdi->mode == MCDI_MODE_POLL)
++		return;
++
++	/* We can switch from event completion to polled completion, because
++	 * mcdi requests are always completed in shared memory. We do this by
++	 * switching the mode to POLL'd then completing the request.
++	 * efx_mcdi_await_completion() will then call efx_mcdi_poll().
++	 *
++	 * We need an smp_wmb() to synchronise with efx_mcdi_await_completion(),
++	 * which efx_mcdi_complete() provides for us.
++	 */
++	mcdi->mode = MCDI_MODE_POLL;
++
++	efx_mcdi_complete(mcdi);
++}
++
++void efx_mcdi_mode_event(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi;
++
++	if (efx_nic_rev(efx) < EFX_REV_SIENA_A0)
++		return;
++
++	mcdi = efx_mcdi(efx);
++
++	if (mcdi->mode == MCDI_MODE_EVENTS)
++		return;
++
++	/* We can't switch from polled to event completion in the middle of a
++	 * request, because the completion method is specified in the request.
++	 * So acquire the interface to serialise the requestors. We don't need
++	 * to acquire the iface_lock to change the mode here, but we do need a
++	 * write memory barrier ensure that efx_mcdi_rpc() sees it, which
++	 * efx_mcdi_acquire() provides.
++	 */
++	efx_mcdi_acquire(mcdi);
++	mcdi->mode = MCDI_MODE_EVENTS;
++	efx_mcdi_release(mcdi);
++}
++
++static void efx_mcdi_ev_death(struct efx_nic *efx, int rc)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++
++	/* If there is an outstanding MCDI request, it has been terminated
++	 * either by a BADASSERT or REBOOT event. If the mcdi interface is
++	 * in polled mode, then do nothing because the MC reboot handler will
++	 * set the header correctly. However, if the mcdi interface is waiting
++	 * for a CMDDONE event it won't receive it [and since all MCDI events
++	 * are sent to the same queue, we can't be racing with
++	 * efx_mcdi_ev_cpl()]
++	 *
++	 * There's a race here with efx_mcdi_rpc(), because we might receive
++	 * a REBOOT event *before* the request has been copied out. In polled
++	 * mode (during startup) this is irrelevent, because efx_mcdi_complete()
++	 * is ignored. In event mode, this condition is just an edge-case of
++	 * receiving a REBOOT event after posting the MCDI request. Did the mc
++	 * reboot before or after the copyout? The best we can do always is
++	 * just return failure.
++	 */
++	spin_lock(&mcdi->iface_lock);
++	if (efx_mcdi_complete(mcdi)) {
++		if (mcdi->mode == MCDI_MODE_EVENTS) {
++			mcdi->resprc = rc;
++			mcdi->resplen = 0;
++		}
++	} else
++		/* Nobody was waiting for an MCDI request, so trigger a reset */
++		efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
++
++	spin_unlock(&mcdi->iface_lock);
++}
++
++static unsigned int efx_mcdi_event_link_speed[] = {
++	[MCDI_EVENT_LINKCHANGE_SPEED_100M] = 100,
++	[MCDI_EVENT_LINKCHANGE_SPEED_1G] = 1000,
++	[MCDI_EVENT_LINKCHANGE_SPEED_10G] = 10000,
++};
++
++
++static void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev)
++{
++	u32 flags, fcntl, speed, lpa;
++
++	speed = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_SPEED);
++	EFX_BUG_ON_PARANOID(speed >= ARRAY_SIZE(efx_mcdi_event_link_speed));
++	speed = efx_mcdi_event_link_speed[speed];
++
++	flags = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_LINK_FLAGS);
++	fcntl = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_FCNTL);
++	lpa = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_LP_CAP);
++
++	/* efx->link_state is only modified by efx_mcdi_phy_get_link(),
++	 * which is only run after flushing the event queues. Therefore, it
++	 * is safe to modify the link state outside of the mac_lock here.
++	 */
++	efx_mcdi_phy_decode_link(efx, &efx->link_state, speed, flags, fcntl);
++
++	efx_mcdi_phy_check_fcntl(efx, lpa);
++
++	efx_link_status_changed(efx);
++}
++
++static const char *sensor_names[] = {
++	[MC_CMD_SENSOR_CONTROLLER_TEMP] = "Controller temp. sensor",
++	[MC_CMD_SENSOR_PHY_COMMON_TEMP] = "PHY shared temp. sensor",
++	[MC_CMD_SENSOR_CONTROLLER_COOLING] = "Controller cooling",
++	[MC_CMD_SENSOR_PHY0_TEMP] = "PHY 0 temp. sensor",
++	[MC_CMD_SENSOR_PHY0_COOLING] = "PHY 0 cooling",
++	[MC_CMD_SENSOR_PHY1_TEMP] = "PHY 1 temp. sensor",
++	[MC_CMD_SENSOR_PHY1_COOLING] = "PHY 1 cooling",
++	[MC_CMD_SENSOR_IN_1V0] = "1.0V supply sensor",
++	[MC_CMD_SENSOR_IN_1V2] = "1.2V supply sensor",
++	[MC_CMD_SENSOR_IN_1V8] = "1.8V supply sensor",
++	[MC_CMD_SENSOR_IN_2V5] = "2.5V supply sensor",
++	[MC_CMD_SENSOR_IN_3V3] = "3.3V supply sensor",
++	[MC_CMD_SENSOR_IN_12V0] = "12V supply sensor"
++};
++
++static const char *sensor_status_names[] = {
++	[MC_CMD_SENSOR_STATE_OK] = "OK",
++	[MC_CMD_SENSOR_STATE_WARNING] = "Warning",
++	[MC_CMD_SENSOR_STATE_FATAL] = "Fatal",
++	[MC_CMD_SENSOR_STATE_BROKEN] = "Device failure",
++};
++
++static void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev)
++{
++	unsigned int monitor, state, value;
++	const char *name, *state_txt;
++	monitor = EFX_QWORD_FIELD(*ev, MCDI_EVENT_SENSOREVT_MONITOR);
++	state = EFX_QWORD_FIELD(*ev, MCDI_EVENT_SENSOREVT_STATE);
++	value = EFX_QWORD_FIELD(*ev, MCDI_EVENT_SENSOREVT_VALUE);
++	/* Deal gracefully with the board having more drivers than we
++	 * know about, but do not expect new sensor states. */
++	name = (monitor >= ARRAY_SIZE(sensor_names))
++				    ? "No sensor name available" :
++				    sensor_names[monitor];
++	EFX_BUG_ON_PARANOID(state >= ARRAY_SIZE(sensor_status_names));
++	state_txt = sensor_status_names[state];
++
++	EFX_ERR(efx, "Sensor %d (%s) reports condition '%s' for raw value %d\n",
++		monitor, name, state_txt, value);
++}
++
++/* Called from  falcon_process_eventq for MCDI events */
++void efx_mcdi_process_event(struct efx_channel *channel,
++			    efx_qword_t *event)
++{
++	struct efx_nic *efx = channel->efx;
++	int code = EFX_QWORD_FIELD(*event, MCDI_EVENT_CODE);
++	u32 data = EFX_QWORD_FIELD(*event, MCDI_EVENT_DATA);
++
++	switch (code) {
++	case MCDI_EVENT_CODE_BADSSERT:
++		EFX_ERR(efx, "MC watchdog or assertion failure at 0x%x\n", data);
++		efx_mcdi_ev_death(efx, EINTR);
++		break;
++
++	case MCDI_EVENT_CODE_PMNOTICE:
++		EFX_INFO(efx, "MCDI PM event.\n");
++		break;
++
++	case MCDI_EVENT_CODE_CMDDONE:
++		efx_mcdi_ev_cpl(efx,
++				MCDI_EVENT_FIELD(*event, CMDDONE_SEQ),
++				MCDI_EVENT_FIELD(*event, CMDDONE_DATALEN),
++				MCDI_EVENT_FIELD(*event, CMDDONE_ERRNO));
++		break;
++
++	case MCDI_EVENT_CODE_LINKCHANGE:
++		efx_mcdi_process_link_change(efx, event);
++		break;
++	case MCDI_EVENT_CODE_SENSOREVT:
++		efx_mcdi_sensor_event(efx, event);
++		break;
++	case MCDI_EVENT_CODE_SCHEDERR:
++		EFX_INFO(efx, "MC Scheduler error address=0x%x\n", data);
++		break;
++	case MCDI_EVENT_CODE_REBOOT:
++		EFX_INFO(efx, "MC Reboot\n");
++		efx_mcdi_ev_death(efx, EIO);
++		break;
++	case MCDI_EVENT_CODE_MAC_STATS_DMA:
++		/* MAC stats are gather lazily.  We can ignore this. */
++		break;
++
++	default:
++		EFX_ERR(efx, "Unknown MCDI event 0x%x\n", code);
++	}
++}
++
++/**************************************************************************
++ *
++ * Specific request functions
++ *
++ **************************************************************************
++ */
++
++int efx_mcdi_fwver(struct efx_nic *efx, u64 *version, u32 *build)
++{
++	u8 outbuf[ALIGN(MC_CMD_GET_VERSION_V1_OUT_LEN, 4)];
++	size_t outlength;
++	const __le16 *ver_words;
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_GET_VERSION_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_VERSION, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlength);
++	if (rc)
++		goto fail;
++
++	if (outlength == MC_CMD_GET_VERSION_V0_OUT_LEN) {
++		*version = 0;
++		*build = MCDI_DWORD(outbuf, GET_VERSION_OUT_FIRMWARE);
++		return 0;
++	}
++
++	if (outlength < MC_CMD_GET_VERSION_V1_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	ver_words = (__le16 *)MCDI_PTR(outbuf, GET_VERSION_OUT_VERSION);
++	*version = (((u64)le16_to_cpu(ver_words[0]) << 48) |
++		    ((u64)le16_to_cpu(ver_words[1]) << 32) |
++		    ((u64)le16_to_cpu(ver_words[2]) << 16) |
++		    le16_to_cpu(ver_words[3]));
++	*build = MCDI_DWORD(outbuf, GET_VERSION_OUT_FIRMWARE);
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
++			bool *was_attached)
++{
++	u8 inbuf[MC_CMD_DRV_ATTACH_IN_LEN];
++	u8 outbuf[MC_CMD_DRV_ATTACH_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, DRV_ATTACH_IN_NEW_STATE,
++		       driver_operating ? 1 : 0);
++	MCDI_SET_DWORD(inbuf, DRV_ATTACH_IN_UPDATE, 1);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_DRV_ATTACH, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++	if (outlen < MC_CMD_DRV_ATTACH_OUT_LEN)
++		goto fail;
++
++	if (was_attached != NULL)
++		*was_attached = MCDI_DWORD(outbuf, DRV_ATTACH_OUT_OLD_STATE);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
++			   u16 *fw_subtype_list)
++{
++	uint8_t outbuf[MC_CMD_GET_BOARD_CFG_OUT_LEN];
++	size_t outlen;
++	int port_num = efx_port_num(efx);
++	int offset;
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_GET_BOARD_CFG_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_BOARD_CFG, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	if (outlen < MC_CMD_GET_BOARD_CFG_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	offset = (port_num)
++		? MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_OFST
++		: MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_OFST;
++	if (mac_address)
++		memcpy(mac_address, outbuf + offset, ETH_ALEN);
++	if (fw_subtype_list)
++		memcpy(fw_subtype_list,
++		       outbuf + MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST,
++		       MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_LEN);
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d len=%d\n", __func__, rc, (int)outlen);
++
++	return rc;
++}
++
++int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart, u32 dest_evq)
++{
++	u8 inbuf[MC_CMD_LOG_CTRL_IN_LEN];
++	u32 dest = 0;
++	int rc;
++
++	if (uart)
++		dest |= MC_CMD_LOG_CTRL_IN_LOG_DEST_UART;
++	if (evq)
++		dest |= MC_CMD_LOG_CTRL_IN_LOG_DEST_EVQ;
++
++	MCDI_SET_DWORD(inbuf, LOG_CTRL_IN_LOG_DEST, dest);
++	MCDI_SET_DWORD(inbuf, LOG_CTRL_IN_LOG_DEST_EVQ, dest_evq);
++
++	BUILD_BUG_ON(MC_CMD_LOG_CTRL_OUT_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_LOG_CTRL, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out)
++{
++	u8 outbuf[MC_CMD_NVRAM_TYPES_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_NVRAM_TYPES_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_TYPES, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++	if (outlen < MC_CMD_NVRAM_TYPES_OUT_LEN)
++		goto fail;
++
++	*nvram_types_out = MCDI_DWORD(outbuf, NVRAM_TYPES_OUT_TYPES);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n",
++		__func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
++			size_t *size_out, size_t *erase_size_out,
++			bool *protected_out)
++{
++	u8 inbuf[MC_CMD_NVRAM_INFO_IN_LEN];
++	u8 outbuf[MC_CMD_NVRAM_INFO_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_INFO_IN_TYPE, type);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_INFO, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++	if (outlen < MC_CMD_NVRAM_INFO_OUT_LEN)
++		goto fail;
++
++	*size_out = MCDI_DWORD(outbuf, NVRAM_INFO_OUT_SIZE);
++	*erase_size_out = MCDI_DWORD(outbuf, NVRAM_INFO_OUT_ERASESIZE);
++	*protected_out = !!(MCDI_DWORD(outbuf, NVRAM_INFO_OUT_FLAGS) &
++				(1 << MC_CMD_NVRAM_PROTECTED_LBN));
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_update_start(struct efx_nic *efx, unsigned int type)
++{
++	u8 inbuf[MC_CMD_NVRAM_UPDATE_START_IN_LEN];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_UPDATE_START_IN_TYPE, type);
++
++	BUILD_BUG_ON(MC_CMD_NVRAM_UPDATE_START_OUT_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_UPDATE_START, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_read(struct efx_nic *efx, unsigned int type,
++			loff_t offset, u8 *buffer, size_t length)
++{
++	u8 inbuf[MC_CMD_NVRAM_READ_IN_LEN];
++	u8 outbuf[MC_CMD_NVRAM_READ_OUT_LEN(length)];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_READ_IN_TYPE, type);
++	MCDI_SET_DWORD(inbuf, NVRAM_READ_IN_OFFSET, offset);
++	MCDI_SET_DWORD(inbuf, NVRAM_READ_IN_LENGTH, length);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_READ, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	memcpy(buffer, MCDI_PTR(outbuf, NVRAM_READ_OUT_READ_BUFFER), length);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_write(struct efx_nic *efx, unsigned int type,
++			   loff_t offset, const u8 *buffer, size_t length)
++{
++	u8 inbuf[MC_CMD_NVRAM_WRITE_IN_LEN(length)];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_WRITE_IN_TYPE, type);
++	MCDI_SET_DWORD(inbuf, NVRAM_WRITE_IN_OFFSET, offset);
++	MCDI_SET_DWORD(inbuf, NVRAM_WRITE_IN_LENGTH, length);
++	memcpy(MCDI_PTR(inbuf, NVRAM_WRITE_IN_WRITE_BUFFER), buffer, length);
++
++	BUILD_BUG_ON(MC_CMD_NVRAM_WRITE_OUT_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_WRITE, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_erase(struct efx_nic *efx, unsigned int type,
++			 loff_t offset, size_t length)
++{
++	u8 inbuf[MC_CMD_NVRAM_ERASE_IN_LEN];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_ERASE_IN_TYPE, type);
++	MCDI_SET_DWORD(inbuf, NVRAM_ERASE_IN_OFFSET, offset);
++	MCDI_SET_DWORD(inbuf, NVRAM_ERASE_IN_LENGTH, length);
++
++	BUILD_BUG_ON(MC_CMD_NVRAM_ERASE_OUT_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_ERASE, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_nvram_update_finish(struct efx_nic *efx, unsigned int type)
++{
++	u8 inbuf[MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, NVRAM_UPDATE_FINISH_IN_TYPE, type);
++
++	BUILD_BUG_ON(MC_CMD_NVRAM_UPDATE_FINISH_OUT_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_NVRAM_UPDATE_FINISH, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_handle_assertion(struct efx_nic *efx)
++{
++	union {
++		u8 asserts[MC_CMD_GET_ASSERTS_IN_LEN];
++		u8 reboot[MC_CMD_REBOOT_IN_LEN];
++	} inbuf;
++	u8 assertion[MC_CMD_GET_ASSERTS_OUT_LEN];
++	unsigned int flags, index, ofst;
++	const char *reason;
++	size_t outlen;
++	int retry;
++	int rc;
++
++	/* Check if the MC is in the assertion handler, retrying twice. Once
++	 * because a boot-time assertion might cause this command to fail
++	 * with EINTR. And once again because GET_ASSERTS can race with
++	 * MC_CMD_REBOOT running on the other port. */
++	retry = 2;
++	do {
++		MCDI_SET_DWORD(inbuf.asserts, GET_ASSERTS_IN_CLEAR, 0);
++		rc = efx_mcdi_rpc(efx, MC_CMD_GET_ASSERTS,
++				  inbuf.asserts, MC_CMD_GET_ASSERTS_IN_LEN,
++				  assertion, sizeof(assertion), &outlen);
++	} while ((rc == -EINTR || rc == -EIO) && retry-- > 0);
++
++	if (rc)
++		return rc;
++	if (outlen < MC_CMD_GET_ASSERTS_OUT_LEN)
++		return -EINVAL;
++
++	flags = MCDI_DWORD(assertion, GET_ASSERTS_OUT_GLOBAL_FLAGS);
++	if (flags == MC_CMD_GET_ASSERTS_FLAGS_NO_FAILS)
++		return 0;
++
++	/* Reset the hardware atomically such that only one port with succeed.
++	 * This command will succeed if a reboot is no longer required (because
++	 * the other port did it first), but fail with EIO if it succeeds.
++	 */
++	BUILD_BUG_ON(MC_CMD_REBOOT_OUT_LEN != 0);
++	MCDI_SET_DWORD(inbuf.reboot, REBOOT_IN_FLAGS,
++		       MC_CMD_REBOOT_FLAGS_AFTER_ASSERTION);
++	efx_mcdi_rpc(efx, MC_CMD_REBOOT, inbuf.reboot, MC_CMD_REBOOT_IN_LEN,
++		     NULL, 0, NULL);
++
++	/* Print out the assertion */
++	reason = (flags == MC_CMD_GET_ASSERTS_FLAGS_SYS_FAIL)
++		? "system-level assertion"
++		: (flags == MC_CMD_GET_ASSERTS_FLAGS_THR_FAIL)
++		? "thread-level assertion"
++		: (flags == MC_CMD_GET_ASSERTS_FLAGS_WDOG_FIRED)
++		? "watchdog reset"
++		: "unknown assertion";
++	EFX_ERR(efx, "MCPU %s at PC = 0x%.8x in thread 0x%.8x\n", reason,
++		MCDI_DWORD(assertion, GET_ASSERTS_OUT_SAVED_PC_OFFS),
++		MCDI_DWORD(assertion, GET_ASSERTS_OUT_THREAD_OFFS));
++
++	/* Print out the registers */
++	ofst = MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_OFST;
++	for (index = 1; index < 32; index++) {
++		EFX_ERR(efx, "R%.2d (?): 0x%.8x\n", index,
++			MCDI_DWORD2(assertion, ofst));
++		ofst += sizeof(efx_dword_t);
++	}
++
++	return 0;
++}
++
++void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
++{
++	u8 inbuf[MC_CMD_SET_ID_LED_IN_LEN];
++	int rc;
++
++	BUILD_BUG_ON(EFX_LED_OFF != MC_CMD_LED_OFF);
++	BUILD_BUG_ON(EFX_LED_ON != MC_CMD_LED_ON);
++	BUILD_BUG_ON(EFX_LED_DEFAULT != MC_CMD_LED_DEFAULT);
++
++	BUILD_BUG_ON(MC_CMD_SET_ID_LED_OUT_LEN != 0);
++
++	MCDI_SET_DWORD(inbuf, SET_ID_LED_IN_STATE, mode);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_SET_ID_LED, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++}
++
++int efx_mcdi_reset_port(struct efx_nic *efx)
++{
++	int rc = efx_mcdi_rpc(efx, MC_CMD_PORT_RESET, NULL, 0, NULL, 0, NULL);
++	if (rc)
++		EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_reset_mc(struct efx_nic *efx)
++{
++	u8 inbuf[MC_CMD_REBOOT_IN_LEN];
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_REBOOT_OUT_LEN != 0);
++	MCDI_SET_DWORD(inbuf, REBOOT_IN_FLAGS, 0);
++	rc = efx_mcdi_rpc(efx, MC_CMD_REBOOT, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	/* White is black, and up is down */
++	if (rc == -EIO)
++		return 0;
++	if (rc == 0)
++		rc = -EIO;
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
++			    const u8 *mac, int *id_out)
++{
++	u8 inbuf[MC_CMD_WOL_FILTER_SET_IN_LEN];
++	u8 outbuf[MC_CMD_WOL_FILTER_SET_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, WOL_FILTER_SET_IN_WOL_TYPE, type);
++	MCDI_SET_DWORD(inbuf, WOL_FILTER_SET_IN_FILTER_MODE,
++		       MC_CMD_FILTER_MODE_SIMPLE);
++	memcpy(MCDI_PTR(inbuf, WOL_FILTER_SET_IN_MAGIC_MAC), mac, ETH_ALEN);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_WOL_FILTER_SET, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	if (outlen < MC_CMD_WOL_FILTER_SET_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	*id_out = (int)MCDI_DWORD(outbuf, WOL_FILTER_SET_OUT_FILTER_ID);
++
++	return 0;
++
++fail:
++	*id_out = -1;
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++
++}
++
++
++int
++efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,  const u8 *mac, int *id_out)
++{
++	return efx_mcdi_wol_filter_set(efx, MC_CMD_WOL_TYPE_MAGIC, mac, id_out);
++}
++
++
++int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out)
++{
++	u8 outbuf[MC_CMD_WOL_FILTER_GET_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_WOL_FILTER_GET, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	if (outlen < MC_CMD_WOL_FILTER_GET_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	*id_out = (int)MCDI_DWORD(outbuf, WOL_FILTER_GET_OUT_FILTER_ID);
++
++	return 0;
++
++fail:
++	*id_out = -1;
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++
++int efx_mcdi_wol_filter_remove(struct efx_nic *efx, int id)
++{
++	u8 inbuf[MC_CMD_WOL_FILTER_REMOVE_IN_LEN];
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, WOL_FILTER_REMOVE_IN_FILTER_ID, (u32)id);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_WOL_FILTER_REMOVE, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++
++int efx_mcdi_wol_filter_reset(struct efx_nic *efx)
++{
++	int rc;
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_WOL_FILTER_RESET, NULL, 0, NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
+diff --git a/drivers/net/sfc/mcdi.h b/drivers/net/sfc/mcdi.h
+new file mode 100644
+index 0000000..de91672
+--- /dev/null
++++ b/drivers/net/sfc/mcdi.h
+@@ -0,0 +1,130 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2008-2009 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_MCDI_H
++#define EFX_MCDI_H
++
++/**
++ * enum efx_mcdi_state
++ * @MCDI_STATE_QUIESCENT: No pending MCDI requests. If the caller holds the
++ *	mcdi_lock then they are able to move to MCDI_STATE_RUNNING
++ * @MCDI_STATE_RUNNING: There is an MCDI request pending. Only the thread that
++ *	moved into this state is allowed to move out of it.
++ * @MCDI_STATE_COMPLETED: An MCDI request has completed, but the owning thread
++ *	has not yet consumed the result. For all other threads, equivalent to
++ *	MCDI_STATE_RUNNING.
++ */
++enum efx_mcdi_state {
++	MCDI_STATE_QUIESCENT,
++	MCDI_STATE_RUNNING,
++	MCDI_STATE_COMPLETED,
++};
++
++enum efx_mcdi_mode {
++	MCDI_MODE_POLL,
++	MCDI_MODE_EVENTS,
++};
++
++/**
++ * struct efx_mcdi_iface
++ * @state: Interface state. Waited for by mcdi_wq.
++ * @wq: Wait queue for threads waiting for state != STATE_RUNNING
++ * @iface_lock: Protects @credits, @seqno, @resprc, @resplen
++ * @mode: Poll for mcdi completion, or wait for an mcdi_event.
++ *	Serialised by @lock
++ * @seqno: The next sequence number to use for mcdi requests.
++ *	Serialised by @lock
++ * @credits: Number of spurious MCDI completion events allowed before we
++ *	trigger a fatal error. Protected by @lock
++ * @resprc: Returned MCDI completion
++ * @resplen: Returned payload length
++ */
++struct efx_mcdi_iface {
++	atomic_t state;
++	wait_queue_head_t wq;
++	spinlock_t iface_lock;
++	enum efx_mcdi_mode mode;
++	unsigned int credits;
++	unsigned int seqno;
++	unsigned int resprc;
++	size_t resplen;
++};
++
++extern void efx_mcdi_init(struct efx_nic *efx);
++
++extern int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd, const u8 *inbuf,
++			size_t inlen, u8 *outbuf, size_t outlen,
++			size_t *outlen_actual);
++
++extern int efx_mcdi_poll_reboot(struct efx_nic *efx);
++extern void efx_mcdi_mode_poll(struct efx_nic *efx);
++extern void efx_mcdi_mode_event(struct efx_nic *efx);
++
++extern void efx_mcdi_process_event(struct efx_channel *channel,
++				   efx_qword_t *event);
++
++#define MCDI_PTR2(_buf, _ofst)						\
++	(((u8 *)_buf) + _ofst)
++#define MCDI_SET_DWORD2(_buf, _ofst, _value)				\
++	EFX_POPULATE_DWORD_1(*((efx_dword_t *)MCDI_PTR2(_buf, _ofst)),	\
++			     EFX_DWORD_0, _value)
++#define MCDI_DWORD2(_buf, _ofst)					\
++	EFX_DWORD_FIELD(*((efx_dword_t *)MCDI_PTR2(_buf, _ofst)),	\
++			EFX_DWORD_0)
++#define MCDI_QWORD2(_buf, _ofst)					\
++	EFX_QWORD_FIELD64(*((efx_qword_t *)MCDI_PTR2(_buf, _ofst)),	\
++			  EFX_QWORD_0)
++
++#define MCDI_PTR(_buf, _ofst)						\
++	MCDI_PTR2(_buf, MC_CMD_ ## _ofst ## _OFST)
++#define MCDI_SET_DWORD(_buf, _ofst, _value)				\
++	MCDI_SET_DWORD2(_buf, MC_CMD_ ## _ofst ## _OFST, _value)
++#define MCDI_DWORD(_buf, _ofst)						\
++	MCDI_DWORD2(_buf, MC_CMD_ ## _ofst ## _OFST)
++#define MCDI_QWORD(_buf, _ofst)						\
++	MCDI_QWORD2(_buf, MC_CMD_ ## _ofst ## _OFST)
++
++#define MCDI_EVENT_FIELD(_ev, _field)			\
++	EFX_QWORD_FIELD(_ev, MCDI_EVENT_ ## _field)
++
++extern int efx_mcdi_fwver(struct efx_nic *efx, u64 *version, u32 *build);
++extern int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
++			       bool *was_attached_out);
++extern int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
++				  u16 *fw_subtype_list);
++extern int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart,
++			     u32 dest_evq);
++extern int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out);
++extern int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
++			       size_t *size_out, size_t *erase_size_out,
++			       bool *protected_out);
++extern int efx_mcdi_nvram_update_start(struct efx_nic *efx,
++				       unsigned int type);
++extern int efx_mcdi_nvram_read(struct efx_nic *efx, unsigned int type,
++			       loff_t offset, u8 *buffer, size_t length);
++extern int efx_mcdi_nvram_write(struct efx_nic *efx, unsigned int type,
++				loff_t offset, const u8 *buffer,
++				size_t length);
++extern int efx_mcdi_nvram_erase(struct efx_nic *efx, unsigned int type,
++				loff_t offset, size_t length);
++extern int efx_mcdi_nvram_update_finish(struct efx_nic *efx,
++					unsigned int type);
++extern int efx_mcdi_handle_assertion(struct efx_nic *efx);
++extern void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
++extern int efx_mcdi_reset_port(struct efx_nic *efx);
++extern int efx_mcdi_reset_mc(struct efx_nic *efx);
++extern int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
++				   const u8 *mac, int *id_out);
++extern int efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,
++					 const u8 *mac, int *id_out);
++extern int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out);
++extern int efx_mcdi_wol_filter_remove(struct efx_nic *efx, int id);
++extern int efx_mcdi_wol_filter_reset(struct efx_nic *efx);
++
++#endif /* EFX_MCDI_H */
+diff --git a/drivers/net/sfc/mcdi_mac.c b/drivers/net/sfc/mcdi_mac.c
+new file mode 100644
+index 0000000..06d24a1
+--- /dev/null
++++ b/drivers/net/sfc/mcdi_mac.c
+@@ -0,0 +1,152 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
 + * Copyright 2009 Solarflare Communications Inc.
@@ -38,1575 +1323,1362 @@ index 0000000..2a85360
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+
-+#ifndef MCDI_PCOL_H
-+#define MCDI_PCOL_H
-+
-+/* Values to be written into FMCR_CZ_RESET_STATE_REG to control boot. */
-+/* Power-on reset state */
-+#define MC_FW_STATE_POR (1)
-+/* If this is set in MC_RESET_STATE_REG then it should be
-+ * possible to jump into IMEM without loading code from flash. */
-+#define MC_FW_WARM_BOOT_OK (2)
-+/* The MC main image has started to boot. */
-+#define MC_FW_STATE_BOOTING (4)
-+/* The Scheduler has started. */
-+#define MC_FW_STATE_SCHED (8)
-+
-+/* Values to be written to the per-port status dword in shared
-+ * memory on reboot and assert */
-+#define MC_STATUS_DWORD_REBOOT (0xb007b007)
-+#define MC_STATUS_DWORD_ASSERT (0xdeaddead)
-+
-+/* The current version of the MCDI protocol.
-+ *
-+ * Note that the ROM burnt into the card only talks V0, so at the very
-+ * least every driver must support version 0 and MCDI_PCOL_VERSION
-+ */
-+#define MCDI_PCOL_VERSION 1
-+
-+/**
-+ * MCDI version 1
-+ *
-+ * Each MCDI request starts with an MCDI_HEADER, which is a 32byte
-+ * structure, filled in by the client.
-+ *
-+ *       0       7  8     16    20     22  23  24    31
-+ *      | CODE | R | LEN | SEQ | Rsvd | E | R | XFLAGS |
-+ *               |                      |   |
-+ *               |                      |   \--- Response
-+ *               |                      \------- Error
-+ *               \------------------------------ Resync (always set)
-+ *
-+ * The client writes it's request into MC shared memory, and rings the
-+ * doorbell. Each request is completed by either by the MC writting
-+ * back into shared memory, or by writting out an event.
-+ *
-+ * All MCDI commands support completion by shared memory response. Each
-+ * request may also contain additional data (accounted for by HEADER.LEN),
-+ * and some response's may also contain additional data (again, accounted
-+ * for by HEADER.LEN).
-+ *
-+ * Some MCDI commands support completion by event, in which any associated
-+ * response data is included in the event.
-+ *
-+ * The protocol requires one response to be delivered for every request, a
-+ * request should not be sent unless the response for the previous request
-+ * has been received (either by polling shared memory, or by receiving
-+ * an event).
-+ */
-+
-+/** Request/Response structure */
-+#define MCDI_HEADER_OFST 0
-+#define MCDI_HEADER_CODE_LBN 0
-+#define MCDI_HEADER_CODE_WIDTH 7
-+#define MCDI_HEADER_RESYNC_LBN 7
-+#define MCDI_HEADER_RESYNC_WIDTH 1
-+#define MCDI_HEADER_DATALEN_LBN 8
-+#define MCDI_HEADER_DATALEN_WIDTH 8
-+#define MCDI_HEADER_SEQ_LBN 16
-+#define MCDI_HEADER_RSVD_LBN 20
-+#define MCDI_HEADER_RSVD_WIDTH 2
-+#define MCDI_HEADER_SEQ_WIDTH 4
-+#define MCDI_HEADER_ERROR_LBN 22
-+#define MCDI_HEADER_ERROR_WIDTH 1
-+#define MCDI_HEADER_RESPONSE_LBN 23
-+#define MCDI_HEADER_RESPONSE_WIDTH 1
-+#define MCDI_HEADER_XFLAGS_LBN 24
-+#define MCDI_HEADER_XFLAGS_WIDTH 8
-+/* Request response using event */
-+#define MCDI_HEADER_XFLAGS_EVREQ 0x01
-+
-+/* Maximum number of payload bytes */
-+#define MCDI_CTL_SDU_LEN_MAX 0xfc
-+
-+/* The MC can generate events for two reasons:
-+ *   - To complete a shared memory request if XFLAGS_EVREQ was set
-+ *   - As a notification (link state, i2c event), controlled
-+ *     via MC_CMD_LOG_CTRL
-+ *
-+ * Both events share a common structure:
-+ *
-+ *  0      32     33      36    44     52     60
-+ * | Data | Cont | Level | Src | Code | Rsvd |
-+ *           |
-+ *           \ There is another event pending in this notification
-+ *
-+ * If Code==CMDDONE, then the fields are further interpreted as:
-+ *
-+ *   - LEVEL==INFO    Command succeded
-+ *   - LEVEL==ERR     Command failed
-+ *
-+ *    0     8         16      24     32
-+ *   | Seq | Datalen | Errno | Rsvd |
-+ *
-+ *   These fields are taken directly out of the standard MCDI header, i.e.,
-+ *   LEVEL==ERR, Datalen == 0 => Reboot
-+ *
-+ * Events can be squirted out of the UART (using LOG_CTRL) without a
-+ * MCDI header.  An event can be distinguished from a MCDI response by
-+ * examining the first byte which is 0xc0.  This corresponds to the
-+ * non-existent MCDI command MC_CMD_DEBUG_LOG.
-+ *
-+ *      0         7        8
-+ *     | command | Resync |     = 0xc0
-+ *
-+ * Since the event is written in big-endian byte order, this works
-+ * providing bits 56-63 of the event are 0xc0.
-+ *
-+ *      56     60  63
-+ *     | Rsvd | Code |    = 0xc0
-+ *
-+ * Which means for convenience the event code is 0xc for all MC
-+ * generated events.
-+ */
-+#define FSE_AZ_EV_CODE_MCDI_EVRESPONSE 0xc
-+
-+#define MCDI_EVENT_DATA_LBN 0
-+#define MCDI_EVENT_DATA_WIDTH 32
-+#define MCDI_EVENT_CONT_LBN 32
-+#define MCDI_EVENT_CONT_WIDTH 1
-+#define MCDI_EVENT_LEVEL_LBN 33
-+#define MCDI_EVENT_LEVEL_WIDTH 3
-+#define MCDI_EVENT_LEVEL_INFO (0)
-+#define MCDI_EVENT_LEVEL_WARN (1)
-+#define MCDI_EVENT_LEVEL_ERR (2)
-+#define MCDI_EVENT_LEVEL_FATAL (3)
-+#define MCDI_EVENT_SRC_LBN 36
-+#define MCDI_EVENT_SRC_WIDTH 8
-+#define MCDI_EVENT_CODE_LBN 44
-+#define MCDI_EVENT_CODE_WIDTH 8
-+#define MCDI_EVENT_CODE_BADSSERT (1)
-+#define MCDI_EVENT_CODE_PMNOTICE (2)
-+#define MCDI_EVENT_CODE_CMDDONE (3)
-+#define  MCDI_EVENT_CMDDONE_SEQ_LBN 0
-+#define  MCDI_EVENT_CMDDONE_SEQ_WIDTH 8
-+#define  MCDI_EVENT_CMDDONE_DATALEN_LBN 8
-+#define  MCDI_EVENT_CMDDONE_DATALEN_WIDTH 8
-+#define  MCDI_EVENT_CMDDONE_ERRNO_LBN 16
-+#define  MCDI_EVENT_CMDDONE_ERRNO_WIDTH 8
-+#define MCDI_EVENT_CODE_LINKCHANGE (4)
-+#define  MCDI_EVENT_LINKCHANGE_LP_CAP_LBN 0
-+#define  MCDI_EVENT_LINKCHANGE_LP_CAP_WIDTH 16
-+#define  MCDI_EVENT_LINKCHANGE_SPEED_LBN 16
-+#define  MCDI_EVENT_LINKCHANGE_SPEED_WIDTH 4
-+#define  MCDI_EVENT_LINKCHANGE_SPEED_100M 1
-+#define  MCDI_EVENT_LINKCHANGE_SPEED_1G 2
-+#define  MCDI_EVENT_LINKCHANGE_SPEED_10G 3
-+#define  MCDI_EVENT_LINKCHANGE_FCNTL_LBN 20
-+#define  MCDI_EVENT_LINKCHANGE_FCNTL_WIDTH 4
-+#define  MCDI_EVENT_LINKCHANGE_LINK_FLAGS_LBN 24
-+#define  MCDI_EVENT_LINKCHANGE_LINK_FLAGS_WIDTH 8
-+#define MCDI_EVENT_CODE_SENSOREVT (5)
-+#define  MCDI_EVENT_SENSOREVT_MONITOR_LBN 0
-+#define  MCDI_EVENT_SENSOREVT_MONITOR_WIDTH 8
-+#define  MCDI_EVENT_SENSOREVT_STATE_LBN 8
-+#define  MCDI_EVENT_SENSOREVT_STATE_WIDTH 8
-+#define  MCDI_EVENT_SENSOREVT_VALUE_LBN 16
-+#define  MCDI_EVENT_SENSOREVT_VALUE_WIDTH 16
-+#define MCDI_EVENT_CODE_SCHEDERR (6)
-+#define MCDI_EVENT_CODE_REBOOT (7)
-+#define MCDI_EVENT_CODE_MAC_STATS_DMA (8)
-+#define  MCDI_EVENT_MAC_STATS_DMA_GENERATION_LBN 0
-+#define  MCDI_EVENT_MAC_STATS_DMA_GENERATION_WIDTH 32
-+
-+/* Non-existent command target */
-+#define MC_CMD_ERR_ENOENT 2
-+/* assert() has killed the MC */
-+#define MC_CMD_ERR_EINTR 4
-+/* Caller does not hold required locks */
-+#define MC_CMD_ERR_EACCES 13
-+/* Resource is currently unavailable (e.g. lock contention) */
-+#define MC_CMD_ERR_EBUSY 16
-+/* Invalid argument to target */
-+#define MC_CMD_ERR_EINVAL 22
-+/* Non-recursive resource is already acquired */
-+#define MC_CMD_ERR_EDEADLK 35
-+/* Operation not implemented */
-+#define MC_CMD_ERR_ENOSYS 38
-+/* Operation timed out */
-+#define MC_CMD_ERR_ETIME 62
-+
-+#define MC_CMD_ERR_CODE_OFST 0
-+
-+
-+/* MC_CMD_READ32: (debug, variadic out)
-+ * Read multiple 32byte words from MC memory
-+ */
-+#define MC_CMD_READ32 0x01
-+#define MC_CMD_READ32_IN_LEN 8
-+#define MC_CMD_READ32_IN_ADDR_OFST 0
-+#define MC_CMD_READ32_IN_NUMWORDS_OFST 4
-+#define MC_CMD_READ32_OUT_LEN(_numwords) \
-+	(4 * (_numwords))
-+#define MC_CMD_READ32_OUT_BUFFER_OFST 0
-+
-+/* MC_CMD_WRITE32: (debug, variadic in)
-+ * Write multiple 32byte words to MC memory
-+ */
-+#define MC_CMD_WRITE32 0x02
-+#define MC_CMD_WRITE32_IN_LEN(_numwords) (((_numwords) * 4) + 4)
-+#define MC_CMD_WRITE32_IN_ADDR_OFST 0
-+#define MC_CMD_WRITE32_IN_BUFFER_OFST 4
-+#define MC_CMD_WRITE32_OUT_LEN 0
-+
-+/* MC_CMD_COPYCODE: (debug)
-+ * Copy MC code between two locations and jump
-+ */
-+#define MC_CMD_COPYCODE 0x03
-+#define MC_CMD_COPYCODE_IN_LEN 16
-+#define MC_CMD_COPYCODE_IN_SRC_ADDR_OFST 0
-+#define MC_CMD_COPYCODE_IN_DEST_ADDR_OFST 4
-+#define MC_CMD_COPYCODE_IN_NUMWORDS_OFST 8
-+#define MC_CMD_COPYCODE_IN_JUMP_OFST 12
-+/* Control should return to the caller rather than jumping */
-+#define MC_CMD_COPYCODE_JUMP_NONE 1
-+#define MC_CMD_COPYCODE_OUT_LEN 0
-+
-+/* MC_CMD_SET_FUNC: (debug)
-+ * Select function for function-specific commands.
-+ */
-+#define MC_CMD_SET_FUNC 0x04
-+#define MC_CMD_SET_FUNC_IN_LEN 4
-+#define MC_CMD_SET_FUNC_IN_FUNC_OFST 0
-+#define MC_CMD_SET_FUNC_OUT_LEN 0
-+
-+/* MC_CMD_GET_BOOT_STATUS:
-+ * Get the instruction address from which the MC booted.
-+ */
-+#define MC_CMD_GET_BOOT_STATUS 0x05
-+#define MC_CMD_GET_BOOT_STATUS_IN_LEN 0
-+#define MC_CMD_GET_BOOT_STATUS_OUT_LEN 8
-+#define MC_CMD_GET_BOOT_STATUS_OUT_BOOT_OFFSET_OFST 0
-+#define MC_CMD_GET_BOOT_STATUS_OUT_FLAGS_OFST 4
-+/* Reboot caused by watchdog */
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_WATCHDOG_LBN   (0)
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_WATCHDOG_WIDTH (1)
-+/* MC booted from primary flash partition */
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_PRIMARY_LBN    (1)
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_PRIMARY_WIDTH  (1)
-+/* MC booted from backup flash partition */
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_BACKUP_LBN     (2)
-+#define MC_CMD_GET_BOOT_STATUS_FLAGS_BACKUP_WIDTH   (1)
-+
-+/* MC_CMD_GET_ASSERTS: (debug, variadic out)
-+ * Get (and optionally clear) the current assertion status.
-+ *
-+ * Only OUT.GLOBAL_FLAGS is guaranteed to exist in the completion
-+ * payload. The other fields will only be present if
-+ * OUT.GLOBAL_FLAGS != NO_FAILS
-+ */
-+#define MC_CMD_GET_ASSERTS 0x06
-+#define MC_CMD_GET_ASSERTS_IN_LEN 4
-+#define MC_CMD_GET_ASSERTS_IN_CLEAR_OFST 0
-+#define MC_CMD_GET_ASSERTS_OUT_LEN 140
-+/* Assertion status flag */
-+#define MC_CMD_GET_ASSERTS_OUT_GLOBAL_FLAGS_OFST 0
-+/*! No assertions have failed. */
-+#define MC_CMD_GET_ASSERTS_FLAGS_NO_FAILS 1
-+/*! A system-level assertion has failed. */
-+#define MC_CMD_GET_ASSERTS_FLAGS_SYS_FAIL 2
-+/*! A thread-level assertion has failed. */
-+#define MC_CMD_GET_ASSERTS_FLAGS_THR_FAIL 3
-+/*! The system was reset by the watchdog. */
-+#define MC_CMD_GET_ASSERTS_FLAGS_WDOG_FIRED 4
-+/* Failing PC value */
-+#define MC_CMD_GET_ASSERTS_OUT_SAVED_PC_OFFS_OFST 4
-+/* Saved GP regs */
-+#define MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_OFST 8
-+#define MC_CMD_GET_ASSERTS_OUT_GP_REGS_LEN 124
-+/* Failing thread address */
-+#define MC_CMD_GET_ASSERTS_OUT_THREAD_OFFS_OFST 132
-+
-+/* MC_CMD_LOG_CTRL:
-+ * Determine the output stream for various events and messages
-+ */
-+#define MC_CMD_LOG_CTRL 0x07
-+#define MC_CMD_LOG_CTRL_IN_LEN 8
-+#define MC_CMD_LOG_CTRL_IN_LOG_DEST_OFST 0
-+#define MC_CMD_LOG_CTRL_IN_LOG_DEST_UART (1)
-+#define MC_CMD_LOG_CTRL_IN_LOG_DEST_EVQ (2)
-+#define MC_CMD_LOG_CTRL_IN_LOG_DEST_EVQ_OFST 4
-+#define MC_CMD_LOG_CTRL_OUT_LEN 0
-+
-+/* MC_CMD_GET_VERSION:
-+ * Get version information about the MC firmware
-+ */
-+#define MC_CMD_GET_VERSION 0x08
-+#define MC_CMD_GET_VERSION_IN_LEN 0
-+#define MC_CMD_GET_VERSION_V0_OUT_LEN 4
-+#define MC_CMD_GET_VERSION_V1_OUT_LEN 32
-+#define MC_CMD_GET_VERSION_OUT_FIRMWARE_OFST 0
-+/* Reserved version number to indicate "any" version. */
-+#define MC_CMD_GET_VERSION_OUT_FIRMWARE_ANY 0xffffffff
-+/* The version response of a boot ROM awaiting rescue */
-+#define MC_CMD_GET_VERSION_OUT_FIRMWARE_BOOTROM 0xb0070000
-+#define MC_CMD_GET_VERSION_V1_OUT_PCOL_OFST 4
-+/* 128bit mask of functions supported by the current firmware */
-+#define MC_CMD_GET_VERSION_V1_OUT_SUPPORTED_FUNCS_OFST 8
-+/* The command set exported by the boot ROM (MCDI v0) */
-+#define MC_CMD_GET_VERSION_V0_SUPPORTED_FUNCS {		\
-+	(1 << MC_CMD_READ32)	|			\
-+	(1 << MC_CMD_WRITE32)	|			\
-+	(1 << MC_CMD_COPYCODE)	|			\
-+	(1 << MC_CMD_GET_VERSION),			\
-+	0, 0, 0 }
-+#define MC_CMD_GET_VERSION_OUT_VERSION_OFST 24
-+
-+/* Vectors in the boot ROM */
-+/* Point to the copycode entry point. */
-+#define MC_BOOTROM_COPYCODE_VEC (0x7f4)
-+/* Points to the recovery mode entry point. */
-+#define MC_BOOTROM_NOFLASH_VEC (0x7f8)
-+
-+/* Test execution limits */
-+#define MC_TESTEXEC_VARIANT_COUNT 16
-+#define MC_TESTEXEC_RESULT_COUNT 7
-+
-+/* MC_CMD_SET_TESTVARS: (debug, variadic in)
-+ * Write variant words for test.
-+ *
-+ * The user supplies a bitmap of the variants they wish to set.
-+ * They must ensure that IN.LEN >= 4 + 4 * ffs(BITMAP)
-+ */
-+#define MC_CMD_SET_TESTVARS 0x09
-+#define MC_CMD_SET_TESTVARS_IN_LEN(_numwords)	\
-+  (4 + 4*(_numwords))
-+#define MC_CMD_SET_TESTVARS_IN_ARGS_BITMAP_OFST 0
-+/* Up to MC_TESTEXEC_VARIANT_COUNT of 32byte words start here */
-+#define MC_CMD_SET_TESTVARS_IN_ARGS_BUFFER_OFST 4
-+#define MC_CMD_SET_TESTVARS_OUT_LEN 0
-+
-+/* MC_CMD_GET_TESTRCS: (debug, variadic out)
-+ * Return result words from test.
-+ */
-+#define MC_CMD_GET_TESTRCS 0x0a
-+#define MC_CMD_GET_TESTRCS_IN_LEN 4
-+#define MC_CMD_GET_TESTRCS_IN_NUMWORDS_OFST 0
-+#define MC_CMD_GET_TESTRCS_OUT_LEN(_numwords) \
-+	(4 * (_numwords))
-+#define MC_CMD_GET_TESTRCS_OUT_BUFFER_OFST 0
-+
-+/* MC_CMD_RUN_TEST: (debug)
-+ * Run the test exported by this firmware image
-+ */
-+#define MC_CMD_RUN_TEST 0x0b
-+#define MC_CMD_RUN_TEST_IN_LEN 0
-+#define MC_CMD_RUN_TEST_OUT_LEN 0
-+
-+/* MC_CMD_CSR_READ32: (debug, variadic out)
-+ * Read 32bit words from the indirect memory map
-+ */
-+#define MC_CMD_CSR_READ32 0x0c
-+#define MC_CMD_CSR_READ32_IN_LEN 12
-+#define MC_CMD_CSR_READ32_IN_ADDR_OFST 0
-+#define MC_CMD_CSR_READ32_IN_STEP_OFST 4
-+#define MC_CMD_CSR_READ32_IN_NUMWORDS_OFST 8
-+#define MC_CMD_CSR_READ32_OUT_LEN(_numwords)	\
-+	(((_numwords) * 4) + 4)
-+/* IN.NUMWORDS of 32bit words start here */
-+#define MC_CMD_CSR_READ32_OUT_BUFFER_OFST 0
-+#define MC_CMD_CSR_READ32_OUT_IREG_STATUS_OFST(_numwords)	\
-+	((_numwords) * 4)
-+
-+/* MC_CMD_CSR_WRITE32: (debug, variadic in)
-+ * Write 32bit dwords to the indirect memory map
-+ */
-+#define MC_CMD_CSR_WRITE32 0x0d
-+#define MC_CMD_CSR_WRITE32_IN_LEN(_numwords)	\
-+	(((_numwords) * 4) + 8)
-+#define MC_CMD_CSR_WRITE32_IN_ADDR_OFST 0
-+#define MC_CMD_CSR_WRITE32_IN_STEP_OFST 4
-+/* Multiple 32bit words of data to write start here */
-+#define MC_CMD_CSR_WRITE32_IN_BUFFER_OFST 8
-+#define MC_CMD_CSR_WRITE32_OUT_LEN 4
-+#define MC_CMD_CSR_WRITE32_OUT_STATUS_OFST 0
-+
-+/* MC_CMD_JTAG_WORK: (debug, fpga only)
-+ * Process JTAG work buffer for RBF acceleration.
-+ *
-+ *  Host: bit count, (up to) 32 words of data to clock out to JTAG
-+ *   (bits 1,0=TMS,TDO for first bit; bits 3,2=TMS,TDO for second bit, etc.)
-+ *  MC: bit count, (up to) 32 words of data clocked in from JTAG
-+ *   (bit 0=TDI for first bit, bit 1=TDI for second bit, etc.; [31:16] unused)
-+ */
-+#define MC_CMD_JTAG_WORK 0x0e
-+
-+/* MC_CMD_STACKINFO: (debug, variadic out)
-+ * Get stack information
-+ *
-+ * Host: nothing
-+ * MC: (thread ptr, stack size, free space) for each thread in system
-+ */
-+#define MC_CMD_STACKINFO 0x0f
-+
-+/* MC_CMD_MDIO_READ:
-+ * MDIO register read
-+ */
-+#define MC_CMD_MDIO_READ 0x10
-+#define MC_CMD_MDIO_READ_IN_LEN 16
-+#define MC_CMD_MDIO_READ_IN_BUS_OFST 0
-+#define MC_CMD_MDIO_READ_IN_PRTAD_OFST 4
-+#define MC_CMD_MDIO_READ_IN_DEVAD_OFST 8
-+#define MC_CMD_MDIO_READ_IN_ADDR_OFST 12
-+#define MC_CMD_MDIO_READ_OUT_LEN 8
-+#define MC_CMD_MDIO_READ_OUT_VALUE_OFST 0
-+#define MC_CMD_MDIO_READ_OUT_STATUS_OFST 4
-+
-+/* MC_CMD_MDIO_WRITE:
-+ * MDIO register write
-+ */
-+#define MC_CMD_MDIO_WRITE 0x11
-+#define MC_CMD_MDIO_WRITE_IN_LEN 20
-+#define MC_CMD_MDIO_WRITE_IN_BUS_OFST 0
-+#define MC_CMD_MDIO_WRITE_IN_PRTAD_OFST 4
-+#define MC_CMD_MDIO_WRITE_IN_DEVAD_OFST 8
-+#define MC_CMD_MDIO_WRITE_IN_ADDR_OFST 12
-+#define MC_CMD_MDIO_WRITE_IN_VALUE_OFST 16
-+#define MC_CMD_MDIO_WRITE_OUT_LEN 4
-+#define MC_CMD_MDIO_WRITE_OUT_STATUS_OFST 0
-+
-+/* By default all the MCDI MDIO operations perform clause45 mode.
-+ * If you want to use clause22 then set DEVAD = MC_CMD_MDIO_CLAUSE22.
-+ */
-+#define MC_CMD_MDIO_CLAUSE22 32
-+
-+/* There are two MDIO buses: one for the internal PHY, and one for external
-+ * devices.
-+ */
-+#define MC_CMD_MDIO_BUS_INTERNAL 0
-+#define MC_CMD_MDIO_BUS_EXTERNAL 1
-+
-+/* The MDIO commands return the raw status bits from the MDIO block.  A "good"
-+ * transaction should have the DONE bit set and all other bits clear.
-+ */
-+#define MC_CMD_MDIO_STATUS_GOOD 0x08
-+
-+
-+/* MC_CMD_DBI_WRITE: (debug)
-+ * Write DBI register(s)
-+ *
-+ * Host: address, byte-enables (and VF selection, and cs2 flag),
-+ *       value [,address ...]
-+ * MC: nothing
-+ */
-+#define MC_CMD_DBI_WRITE 0x12
-+#define MC_CMD_DBI_WRITE_IN_LEN(_numwords)		\
-+	(12 * (_numwords))
-+#define MC_CMD_DBI_WRITE_IN_ADDRESS_OFST(_word)		\
-+	(((_word) * 12) + 0)
-+#define MC_CMD_DBI_WRITE_IN_BYTE_MASK_OFST(_word)	\
-+	(((_word) * 12) + 4)
-+#define MC_CMD_DBI_WRITE_IN_VALUE_OFST(_word)		\
-+	(((_word) * 12) + 8)
-+#define MC_CMD_DBI_WRITE_OUT_LEN 0
-+
-+/* MC_CMD_DBI_READ: (debug)
-+ * Read DBI register(s)
-+ *
-+ * Host: address, [,address ...]
-+ * MC: value [,value ...]
-+ * (note: this does not support reading from VFs, but is retained for backwards
-+ * compatibility; see MC_CMD_DBI_READX below)
-+ */
-+#define MC_CMD_DBI_READ 0x13
-+#define MC_CMD_DBI_READ_IN_LEN(_numwords)		\
-+	(4 * (_numwords))
-+#define MC_CMD_DBI_READ_OUT_LEN(_numwords)		\
-+	(4 * (_numwords))
-+
-+/* MC_CMD_PORT_READ32: (debug)
-+ * Read a 32-bit register from the indirect port register map.
-+ *
-+ * The port to access is implied by the Shared memory channel used.
-+ */
-+#define MC_CMD_PORT_READ32 0x14
-+#define MC_CMD_PORT_READ32_IN_LEN 4
-+#define MC_CMD_PORT_READ32_IN_ADDR_OFST 0
-+#define MC_CMD_PORT_READ32_OUT_LEN 8
-+#define MC_CMD_PORT_READ32_OUT_VALUE_OFST 0
-+#define MC_CMD_PORT_READ32_OUT_STATUS_OFST 4
-+
-+/* MC_CMD_PORT_WRITE32: (debug)
-+ * Write a 32-bit register to the indirect port register map.
-+ *
-+ * The port to access is implied by the Shared memory channel used.
-+ */
-+#define MC_CMD_PORT_WRITE32 0x15
-+#define MC_CMD_PORT_WRITE32_IN_LEN 8
-+#define MC_CMD_PORT_WRITE32_IN_ADDR_OFST 0
-+#define MC_CMD_PORT_WRITE32_IN_VALUE_OFST 4
-+#define MC_CMD_PORT_WRITE32_OUT_LEN 4
-+#define MC_CMD_PORT_WRITE32_OUT_STATUS_OFST 0
-+
-+/* MC_CMD_PORT_READ128: (debug)
-+ * Read a 128-bit register from indirect port register map
-+ *
-+ * The port to access is implied by the Shared memory channel used.
-+ */
-+#define MC_CMD_PORT_READ128 0x16
-+#define MC_CMD_PORT_READ128_IN_LEN 4
-+#define MC_CMD_PORT_READ128_IN_ADDR_OFST 0
-+#define MC_CMD_PORT_READ128_OUT_LEN 20
-+#define MC_CMD_PORT_READ128_OUT_VALUE_OFST 0
-+#define MC_CMD_PORT_READ128_OUT_STATUS_OFST 16
-+
-+/* MC_CMD_PORT_WRITE128: (debug)
-+ * Write a 128-bit register to indirect port register map.
-+ *
-+ * The port to access is implied by the Shared memory channel used.
-+ */
-+#define MC_CMD_PORT_WRITE128 0x17
-+#define MC_CMD_PORT_WRITE128_IN_LEN 20
-+#define MC_CMD_PORT_WRITE128_IN_ADDR_OFST 0
-+#define MC_CMD_PORT_WRITE128_IN_VALUE_OFST 4
-+#define MC_CMD_PORT_WRITE128_OUT_LEN 4
-+#define MC_CMD_PORT_WRITE128_OUT_STATUS_OFST 0
-+
-+/* MC_CMD_GET_BOARD_CFG:
-+ * Returns the MC firmware configuration structure
-+ *
-+ * The FW_SUBTYPE_LIST contains a 16-bit value for each of the 12 types of
-+ * NVRAM area.  The values are defined in the firmware/mc/platform/<xxx>.c file
-+ * for a specific board type, but otherwise have no meaning to the MC; they
-+ * are used by the driver to manage selection of appropriate firmware updates.
-+ */
-+#define MC_CMD_GET_BOARD_CFG 0x18
-+#define MC_CMD_GET_BOARD_CFG_IN_LEN 0
-+#define MC_CMD_GET_BOARD_CFG_OUT_LEN 96
-+#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_TYPE_OFST 0
-+#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_NAME_OFST 4
-+#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_NAME_LEN 32
-+#define MC_CMD_GET_BOARD_CFG_OUT_CAPABILITIES_PORT0_OFST 36
-+#define MC_CMD_GET_BOARD_CFG_OUT_CAPABILITIES_PORT1_OFST 40
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_OFST 44
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_LEN 6
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_OFST 50
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_LEN 6
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_COUNT_PORT0_OFST 56
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_COUNT_PORT1_OFST 60
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_STRIDE_PORT0_OFST 64
-+#define MC_CMD_GET_BOARD_CFG_OUT_MAC_STRIDE_PORT1_OFST 68
-+#define MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST 72
-+#define MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_LEN 24
-+
-+/* MC_CMD_DBI_READX: (debug)
-+ * Read DBI register(s) -- extended functionality
-+ *
-+ * Host: vf selection, address, [,vf selection ...]
-+ * MC: value [,value ...]
-+ */
-+#define MC_CMD_DBI_READX 0x19
-+#define MC_CMD_DBI_READX_IN_LEN(_numwords)	\
-+  (8*(_numwords))
-+#define MC_CMD_DBI_READX_OUT_LEN(_numwords)	\
-+  (4*(_numwords))
-+
-+/* MC_CMD_SET_RAND_SEED:
-+ * Set the 16byte seed for the MC psuedo-random generator
-+ */
-+#define MC_CMD_SET_RAND_SEED 0x1a
-+#define MC_CMD_SET_RAND_SEED_IN_LEN 16
-+#define MC_CMD_SET_RAND_SEED_IN_SEED_OFST 0
-+#define MC_CMD_SET_RAND_SEED_OUT_LEN 0
-+
-+/* MC_CMD_LTSSM_HIST: (debug)
-+ * Retrieve the history of the LTSSM, if the build supports it.
-+ *
-+ * Host: nothing
-+ * MC: variable number of LTSSM values, as bytes
-+ * The history is read-to-clear.
-+ */
-+#define MC_CMD_LTSSM_HIST 0x1b
-+
-+/* MC_CMD_DRV_ATTACH:
-+ * Inform MCPU that this port is managed on the host (i.e. driver active)
-+ */
-+#define MC_CMD_DRV_ATTACH 0x1c
-+#define MC_CMD_DRV_ATTACH_IN_LEN 8
-+#define MC_CMD_DRV_ATTACH_IN_NEW_STATE_OFST 0
-+#define MC_CMD_DRV_ATTACH_IN_UPDATE_OFST 4
-+#define MC_CMD_DRV_ATTACH_OUT_LEN 4
-+#define MC_CMD_DRV_ATTACH_OUT_OLD_STATE_OFST 0
-+
-+/* MC_CMD_NCSI_PROD: (debug)
-+ * Trigger an NC-SI event (and possibly an AEN in response)
-+ */
-+#define MC_CMD_NCSI_PROD 0x1d
-+#define MC_CMD_NCSI_PROD_IN_LEN 4
-+#define MC_CMD_NCSI_PROD_IN_EVENTS_OFST 0
-+#define MC_CMD_NCSI_PROD_LINKCHANGE_LBN 0
-+#define MC_CMD_NCSI_PROD_LINKCHANGE_WIDTH 1
-+#define MC_CMD_NCSI_PROD_RESET_LBN 1
-+#define MC_CMD_NCSI_PROD_RESET_WIDTH 1
-+#define MC_CMD_NCSI_PROD_DRVATTACH_LBN 2
-+#define MC_CMD_NCSI_PROD_DRVATTACH_WIDTH 1
-+#define MC_CMD_NCSI_PROD_OUT_LEN 0
-+
-+/* Enumeration */
-+#define MC_CMD_NCSI_PROD_LINKCHANGE 0
-+#define MC_CMD_NCSI_PROD_RESET 1
-+#define MC_CMD_NCSI_PROD_DRVATTACH 2
-+
-+/* MC_CMD_DEVEL: (debug)
-+ * Reserved for development
-+ */
-+#define MC_CMD_DEVEL 0x1e
-+
-+/* MC_CMD_SHMUART: (debug)
-+ * Route UART output to circular buffer in shared memory instead.
-+ */
-+#define MC_CMD_SHMUART 0x1f
-+#define MC_CMD_SHMUART_IN_FLAG_OFST 0
-+#define MC_CMD_SHMUART_IN_LEN 4
-+#define MC_CMD_SHMUART_OUT_LEN 0
-+
-+/* MC_CMD_PORT_RESET:
-+ * Generic per-port reset. There is no equivalent for per-board reset.
-+ *
-+ * Locks required: None
-+ * Return code: 0, ETIME
-+ */
-+#define MC_CMD_PORT_RESET 0x20
-+#define MC_CMD_PORT_RESET_IN_LEN 0
-+#define MC_CMD_PORT_RESET_OUT_LEN 0
-+
-+/* MC_CMD_RESOURCE_LOCK:
-+ * Generic resource lock/unlock interface.
-+ *
-+ * Locks required: None
-+ * Return code: 0,
-+ *              EBUSY (if trylock is contended by other port),
-+ *              EDEADLK (if trylock is already acquired by this port)
-+ *              EINVAL (if unlock doesn't own the lock)
-+ */
-+#define MC_CMD_RESOURCE_LOCK 0x21
-+#define MC_CMD_RESOURCE_LOCK_IN_LEN 8
-+#define MC_CMD_RESOURCE_LOCK_IN_ACTION_OFST 0
-+#define MC_CMD_RESOURCE_LOCK_ACTION_TRYLOCK 1
-+#define MC_CMD_RESOURCE_LOCK_ACTION_UNLOCK 0
-+#define MC_CMD_RESOURCE_LOCK_IN_RESOURCE_OFST 4
-+#define MC_CMD_RESOURCE_LOCK_I2C 2
-+#define MC_CMD_RESOURCE_LOCK_PHY 3
-+#define MC_CMD_RESOURCE_LOCK_OUT_LEN 0
-+
-+/* MC_CMD_SPI_COMMAND: (variadic in, variadic out)
-+ * Read/Write to/from the SPI device.
-+ *
-+ * Locks required: SPI_LOCK
-+ * Return code: 0, ETIME, EINVAL, EACCES (if SPI_LOCK is not held)
-+ */
-+#define MC_CMD_SPI_COMMAND 0x22
-+#define MC_CMD_SPI_COMMAND_IN_LEN(_write_bytes)	(12 + (_write_bytes))
-+#define MC_CMD_SPI_COMMAND_IN_ARGS_OFST 0
-+#define MC_CMD_SPI_COMMAND_IN_ARGS_ADDRESS_OFST 0
-+#define MC_CMD_SPI_COMMAND_IN_ARGS_READ_BYTES_OFST 4
-+#define MC_CMD_SPI_COMMAND_IN_ARGS_CHIP_SELECT_OFST 8
-+/* Data to write here */
-+#define MC_CMD_SPI_COMMAND_IN_WRITE_BUFFER_OFST 12
-+#define MC_CMD_SPI_COMMAND_OUT_LEN(_read_bytes) (_read_bytes)
-+/* Data read here */
-+#define MC_CMD_SPI_COMMAND_OUT_READ_BUFFER_OFST 0
-+
-+/* MC_CMD_I2C_READ_WRITE: (variadic in, variadic out)
-+ * Read/Write to/from the I2C bus.
-+ *
-+ * Locks required: I2C_LOCK
-+ * Return code: 0, ETIME, EINVAL, EACCES (if I2C_LOCK is not held)
-+ */
-+#define MC_CMD_I2C_RW 0x23
-+#define MC_CMD_I2C_RW_IN_LEN(_write_bytes) (8 + (_write_bytes))
-+#define MC_CMD_I2C_RW_IN_ARGS_OFST 0
-+#define MC_CMD_I2C_RW_IN_ARGS_ADDR_OFST 0
-+#define MC_CMD_I2C_RW_IN_ARGS_READ_BYTES_OFST 4
-+/* Data to write here */
-+#define MC_CMD_I2C_RW_IN_WRITE_BUFFER_OFSET 8
-+#define MC_CMD_I2C_RW_OUT_LEN(_read_bytes) (_read_bytes)
-+/* Data read here */
-+#define MC_CMD_I2C_RW_OUT_READ_BUFFER_OFST 0
-+
-+/* Generic phy capability bitmask */
-+#define MC_CMD_PHY_CAP_10HDX_LBN 1
-+#define MC_CMD_PHY_CAP_10HDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_10FDX_LBN 2
-+#define MC_CMD_PHY_CAP_10FDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_100HDX_LBN 3
-+#define MC_CMD_PHY_CAP_100HDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_100FDX_LBN 4
-+#define MC_CMD_PHY_CAP_100FDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_1000HDX_LBN 5
-+#define MC_CMD_PHY_CAP_1000HDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_1000FDX_LBN 6
-+#define MC_CMD_PHY_CAP_1000FDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_10000FDX_LBN 7
-+#define MC_CMD_PHY_CAP_10000FDX_WIDTH 1
-+#define MC_CMD_PHY_CAP_PAUSE_LBN 8
-+#define MC_CMD_PHY_CAP_PAUSE_WIDTH 1
-+#define MC_CMD_PHY_CAP_ASYM_LBN 9
-+#define MC_CMD_PHY_CAP_ASYM_WIDTH 1
-+#define MC_CMD_PHY_CAP_AN_LBN 10
-+#define MC_CMD_PHY_CAP_AN_WIDTH 1
-+
-+/* Generic loopback enumeration */
-+#define MC_CMD_LOOPBACK_NONE 0
-+#define MC_CMD_LOOPBACK_DATA 1
-+#define MC_CMD_LOOPBACK_GMAC 2
-+#define MC_CMD_LOOPBACK_XGMII 3
-+#define MC_CMD_LOOPBACK_XGXS 4
-+#define MC_CMD_LOOPBACK_XAUI 5
-+#define MC_CMD_LOOPBACK_GMII 6
-+#define MC_CMD_LOOPBACK_SGMII 7
-+#define MC_CMD_LOOPBACK_XGBR 8
-+#define MC_CMD_LOOPBACK_XFI 9
-+#define MC_CMD_LOOPBACK_XAUI_FAR 10
-+#define MC_CMD_LOOPBACK_GMII_FAR 11
-+#define MC_CMD_LOOPBACK_SGMII_FAR 12
-+#define MC_CMD_LOOPBACK_XFI_FAR 13
-+#define MC_CMD_LOOPBACK_GPHY 14
-+#define MC_CMD_LOOPBACK_PHYXS 15
-+#define MC_CMD_LOOPBACK_PCS 16
-+#define MC_CMD_LOOPBACK_PMAPMD 17
-+#define MC_CMD_LOOPBACK_XPORT 18
-+#define MC_CMD_LOOPBACK_XGMII_WS 19
-+#define MC_CMD_LOOPBACK_XAUI_WS 20
-+#define MC_CMD_LOOPBACK_XAUI_WS_FAR 21
-+#define MC_CMD_LOOPBACK_XAUI_WS_NEAR 22
-+#define MC_CMD_LOOPBACK_GMII_WS 23
-+#define MC_CMD_LOOPBACK_XFI_WS 24
-+#define MC_CMD_LOOPBACK_XFI_WS_FAR 25
-+#define MC_CMD_LOOPBACK_PHYXS_WS 26
-+
-+/* Generic PHY statistics enumeration */
-+#define MC_CMD_OUI 0
-+#define MC_CMD_PMA_PMD_LINK_UP 1
-+#define MC_CMD_PMA_PMD_RX_FAULT 2
-+#define MC_CMD_PMA_PMD_TX_FAULT 3
-+#define MC_CMD_PMA_PMD_SIGNAL 4
-+#define MC_CMD_PMA_PMD_SNR_A 5
-+#define MC_CMD_PMA_PMD_SNR_B 6
-+#define MC_CMD_PMA_PMD_SNR_C 7
-+#define MC_CMD_PMA_PMD_SNR_D 8
-+#define MC_CMD_PCS_LINK_UP 9
-+#define MC_CMD_PCS_RX_FAULT 10
-+#define MC_CMD_PCS_TX_FAULT 11
-+#define MC_CMD_PCS_BER 12
-+#define MC_CMD_PCS_BLOCK_ERRORS 13
-+#define MC_CMD_PHYXS_LINK_UP 14
-+#define MC_CMD_PHYXS_RX_FAULT 15
-+#define MC_CMD_PHYXS_TX_FAULT 16
-+#define MC_CMD_PHYXS_ALIGN 17
-+#define MC_CMD_PHYXS_SYNC 18
-+#define MC_CMD_AN_LINK_UP 19
-+#define MC_CMD_AN_COMPLETE 20
-+#define MC_CMD_AN_10GBT_STATUS 21
-+#define MC_CMD_CL22_LINK_UP 22
-+#define MC_CMD_PHY_NSTATS 23
-+
-+/* MC_CMD_GET_PHY_CFG:
-+ * Report PHY configuration.  This guarantees to succeed even if the PHY is in
-+ * a "zombie" state.
-+ *
-+ * Locks required: None
-+ * Return code: 0
-+ */
-+#define MC_CMD_GET_PHY_CFG 0x24
-+
-+#define MC_CMD_GET_PHY_CFG_IN_LEN 0
-+#define MC_CMD_GET_PHY_CFG_OUT_LEN 72
-+
-+#define MC_CMD_GET_PHY_CFG_OUT_FLAGS_OFST 0
-+#define MC_CMD_GET_PHY_CFG_PRESENT_LBN 0
-+#define MC_CMD_GET_PHY_CFG_PRESENT_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_SHORTBIST_LBN 1
-+#define MC_CMD_GET_PHY_CFG_SHORTBIST_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_LONGBIST_LBN 2
-+#define MC_CMD_GET_PHY_CFG_LONGBIST_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_LOWPOWER_LBN 3
-+#define MC_CMD_GET_PHY_CFG_LOWPOWER_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_POWEROFF_LBN 4
-+#define MC_CMD_GET_PHY_CFG_POWEROFF_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_TXDIS_LBN 5
-+#define MC_CMD_GET_PHY_CFG_TXDIS_WIDTH 1
-+#define MC_CMD_GET_PHY_CFG_OUT_TYPE_OFST 4
-+/* Bitmask of supported capabilities */
-+#define MC_CMD_GET_PHY_CFG_OUT_SUPPORTED_CAP_OFST 8
-+#define MC_CMD_GET_PHY_CFG_OUT_CHANNEL_OFST 12
-+#define MC_CMD_GET_PHY_CFG_OUT_PRT_OFST 16
-+/* PHY statistics bitmap */
-+#define MC_CMD_GET_PHY_CFG_OUT_STATS_MASK_OFST 20
-+/* PHY type/name string */
-+#define MC_CMD_GET_PHY_CFG_OUT_NAME_OFST 24
-+#define MC_CMD_GET_PHY_CFG_OUT_NAME_LEN 20
-+#define MC_CMD_GET_PHY_CFG_OUT_MEDIA_TYPE_OFST 44
-+#define MC_CMD_MEDIA_XAUI 1
-+#define MC_CMD_MEDIA_CX4 2
-+#define MC_CMD_MEDIA_KX4 3
-+#define MC_CMD_MEDIA_XFP 4
-+#define MC_CMD_MEDIA_SFP_PLUS 5
-+#define MC_CMD_MEDIA_BASE_T 6
-+/* MDIO "MMDS" supported */
-+#define MC_CMD_GET_PHY_CFG_OUT_MMD_MASK_OFST 48
-+/* Native clause 22 */
-+#define MC_CMD_MMD_CLAUSE22  0
-+#define MC_CMD_MMD_CLAUSE45_PMAPMD 1
-+#define MC_CMD_MMD_CLAUSE45_WIS 2
-+#define MC_CMD_MMD_CLAUSE45_PCS 3
-+#define MC_CMD_MMD_CLAUSE45_PHYXS 4
-+#define MC_CMD_MMD_CLAUSE45_DTEXS 5
-+#define MC_CMD_MMD_CLAUSE45_TC 6
-+#define MC_CMD_MMD_CLAUSE45_AN 7
-+/* Clause22 proxied over clause45 by PHY */
-+#define MC_CMD_MMD_CLAUSE45_C22EXT 29
-+#define MC_CMD_MMD_CLAUSE45_VEND1 30
-+#define MC_CMD_MMD_CLAUSE45_VEND2 31
-+/* PHY stepping version */
-+#define MC_CMD_GET_PHY_CFG_OUT_REVISION_OFST 52
-+#define MC_CMD_GET_PHY_CFG_OUT_REVISION_LEN 20
-+
-+/* MC_CMD_START_PHY_BIST:
-+ * Start a BIST test on the PHY.
-+ *
-+ * Locks required: PHY_LOCK if doing a  PHY BIST
-+ * Return code: 0, EINVAL, EACCES (if PHY_LOCK is not held)
-+ */
-+#define MC_CMD_START_BIST 0x25
-+#define MC_CMD_START_BIST_IN_LEN 4
-+#define MC_CMD_START_BIST_TYPE_OFST 0
-+
-+/* Run the PHY's short BIST */
-+#define MC_CMD_PHY_BIST_SHORT  1
-+/* Run the PHY's long BIST */
-+#define MC_CMD_PHY_BIST_LONG   2
-+/* Run BIST on the currently selected BPX Serdes (XAUI or XFI) */
-+#define MC_CMD_BPX_SERDES_BIST 3
-+
-+/* MC_CMD_POLL_PHY_BIST: (variadic output)
-+ * Poll for BIST completion
-+ *
-+ * Returns a single status code, and a binary blob of phy-specific
-+ * bist output. If the driver can't succesfully parse the BIST output,
-+ * it should still respect the Pass/Fail in OUT.RESULT.
-+ *
-+ * Locks required: PHY_LOCK  if doing a  PHY BIST
-+ * Return code: 0, EACCES (if PHY_LOCK is not held)
-+ */
-+#define MC_CMD_POLL_BIST 0x26
-+#define MC_CMD_POLL_BIST_IN_LEN 0
-+#define MC_CMD_POLL_BIST_OUT_LEN UNKNOWN
-+#define MC_CMD_POLL_BIST_OUT_RESULT_OFST 0
-+#define MC_CMD_POLL_BIST_RUNNING 1
-+#define MC_CMD_POLL_BIST_PASSED 2
-+#define MC_CMD_POLL_BIST_FAILED 3
-+#define MC_CMD_POLL_BIST_TIMEOUT 4
-+#define MC_CMD_POLL_BIST_OUT_PRIVATE_OFST 4
-+
-+/* MC_CMD_PHY_SPI: (variadic in, variadic out)
-+ * Read/Write/Erase the PHY SPI device
-+ *
-+ * Locks required: PHY_LOCK
-+ * Return code: 0, ETIME, EINVAL, EACCES (if PHY_LOCK is not held)
-+ */
-+#define MC_CMD_PHY_SPI 0x27
-+#define MC_CMD_PHY_SPI_IN_LEN(_write_bytes) (12 + (_write_bytes))
-+#define MC_CMD_PHY_SPI_IN_ARGS_OFST 0
-+#define MC_CMD_PHY_SPI_IN_ARGS_ADDR_OFST 0
-+#define MC_CMD_PHY_SPI_IN_ARGS_READ_BYTES_OFST 4
-+#define MC_CMD_PHY_SPI_IN_ARGS_ERASE_ALL_OFST 8
-+/* Data to write here */
-+#define MC_CMD_PHY_SPI_IN_WRITE_BUFFER_OFSET 12
-+#define MC_CMD_PHY_SPI_OUT_LEN(_read_bytes) (_read_bytes)
-+/* Data read here */
-+#define MC_CMD_PHY_SPI_OUT_READ_BUFFER_OFST 0
-+
-+
-+/* MC_CMD_GET_LOOPBACK_MODES:
-+ * Returns a bitmask of loopback modes evailable at each speed.
-+ *
-+ * Locks required: None
-+ * Return code: 0
-+ */
-+#define MC_CMD_GET_LOOPBACK_MODES 0x28
-+#define MC_CMD_GET_LOOPBACK_MODES_IN_LEN 0
-+#define MC_CMD_GET_LOOPBACK_MODES_OUT_LEN 32
-+#define MC_CMD_GET_LOOPBACK_MODES_100M_OFST 0
-+#define MC_CMD_GET_LOOPBACK_MODES_1G_OFST 8
-+#define MC_CMD_GET_LOOPBACK_MODES_10G_OFST 16
-+#define MC_CMD_GET_LOOPBACK_MODES_SUGGESTED_OFST 24
-+
-+/* Flow control enumeration */
-+#define MC_CMD_FCNTL_OFF 0
-+#define MC_CMD_FCNTL_RESPOND 1
-+#define MC_CMD_FCNTL_BIDIR 2
-+/* Auto - Use what the link has autonegotiated
-+ *      - The driver should modify the advertised capabilities via SET_LINK.CAP
-+ *        to control the negotiated flow control mode.
-+ *      - Can only be set if the PHY supports PAUSE+ASYM capabilities
-+ *      - Never returned by GET_LINK as the value programmed into the MAC
-+ */
-+#define MC_CMD_FCNTL_AUTO 3
-+
-+/* Generic mac fault bitmask */
-+#define MC_CMD_MAC_FAULT_XGMII_LOCAL_LBN 0
-+#define MC_CMD_MAC_FAULT_XGMII_LOCAL_WIDTH 1
-+#define MC_CMD_MAC_FAULT_XGMII_REMOTE_LBN 1
-+#define MC_CMD_MAC_FAULT_XGMII_REMOTE_WIDTH 1
-+#define MC_CMD_MAC_FAULT_SGMII_REMOTE_LBN 2
-+#define MC_CMD_MAC_FAULT_SGMII_REMOTE_WIDTH 1
-+
-+/* MC_CMD_GET_LINK:
-+ * Read the unified MAC/PHY link state
-+ *
-+ * Locks required: None
-+ * Return code: 0, ETIME
-+ */
-+#define MC_CMD_GET_LINK 0x29
-+#define MC_CMD_GET_LINK_IN_LEN 0
-+#define MC_CMD_GET_LINK_OUT_LEN 28
-+/* near-side and link-partner advertised capabilities */
-+#define MC_CMD_GET_LINK_OUT_CAP_OFST 0
-+#define MC_CMD_GET_LINK_OUT_LP_CAP_OFST 4
-+/* Autonegotiated speed in mbit/s. The link may still be down
-+ * even if this reads non-zero */
-+#define MC_CMD_GET_LINK_OUT_LINK_SPEED_OFST 8
-+#define MC_CMD_GET_LINK_OUT_LOOPBACK_MODE_OFST 12
-+#define MC_CMD_GET_LINK_OUT_FLAGS_OFST 16
-+/* Whether we have overall link up */
-+#define MC_CMD_GET_LINK_LINK_UP_LBN 0
-+#define MC_CMD_GET_LINK_LINK_UP_WIDTH 1
-+#define MC_CMD_GET_LINK_FULL_DUPLEX_LBN 1
-+#define MC_CMD_GET_LINK_FULL_DUPLEX_WIDTH 1
-+/* Whether we have link at the layers provided by the BPX */
-+#define MC_CMD_GET_LINK_BPX_LINK_LBN 2
-+#define MC_CMD_GET_LINK_BPX_LINK_WIDTH 1
-+/* Whether the PHY has external link */
-+#define MC_CMD_GET_LINK_PHY_LINK_LBN 3
-+#define MC_CMD_GET_LINK_PHY_LINK_WIDTH 1
-+#define MC_CMD_GET_LINK_OUT_FCNTL_OFST 20
-+#define MC_CMD_GET_LINK_OUT_MAC_FAULT_OFST 24
-+
-+/* MC_CMD_SET_LINK:
-+ * Write the unified MAC/PHY link configuration
-+ *
-+ * A loopback speed of "0" is supported, and means
-+ * (choose any available speed)
-+ *
-+ * Locks required: None
-+ * Return code: 0, EINVAL, ETIME
-+ */
-+#define MC_CMD_SET_LINK 0x2a
-+#define MC_CMD_SET_LINK_IN_LEN 16
-+#define MC_CMD_SET_LINK_IN_CAP_OFST 0
-+#define MC_CMD_SET_LINK_IN_FLAGS_OFST 4
-+#define MC_CMD_SET_LINK_LOWPOWER_LBN 0
-+#define MC_CMD_SET_LINK_LOWPOWER_WIDTH 1
-+#define MC_CMD_SET_LINK_POWEROFF_LBN 1
-+#define MC_CMD_SET_LINK_POWEROFF_WIDTH 1
-+#define MC_CMD_SET_LINK_TXDIS_LBN 2
-+#define MC_CMD_SET_LINK_TXDIS_WIDTH 1
-+#define MC_CMD_SET_LINK_IN_LOOPBACK_MODE_OFST 8
-+#define MC_CMD_SET_LINK_IN_LOOPBACK_SPEED_OFST 12
-+#define MC_CMD_SET_LINK_OUT_LEN 0
-+
-+/* MC_CMD_SET_ID_LED:
-+ * Set indentification LED state
-+ *
-+ * Locks required: None
-+ * Return code: 0, EINVAL
-+ */
-+#define MC_CMD_SET_ID_LED 0x2b
-+#define MC_CMD_SET_ID_LED_IN_LEN 4
-+#define MC_CMD_SET_ID_LED_IN_STATE_OFST 0
-+#define  MC_CMD_LED_OFF 0
-+#define  MC_CMD_LED_ON 1
-+#define  MC_CMD_LED_DEFAULT 2
-+#define MC_CMD_SET_ID_LED_OUT_LEN 0
-+
-+/* MC_CMD_SET_MAC:
-+ * Set MAC configuration
-+ *
-+ * The MTU is the MTU programmed directly into the XMAC/GMAC
-+ * (inclusive of EtherII, VLAN, bug16011 padding)
-+ *
-+ * Locks required: None
-+ * Return code: 0, EINVAL
-+ */
-+#define MC_CMD_SET_MAC 0x2c
-+#define MC_CMD_SET_MAC_IN_LEN 24
-+#define MC_CMD_SET_MAC_IN_MTU_OFST 0
-+#define MC_CMD_SET_MAC_IN_DRAIN_OFST 4
-+#define MC_CMD_SET_MAC_IN_ADDR_OFST 8
-+#define MC_CMD_SET_MAC_IN_REJECT_OFST 16
-+#define MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN 0
-+#define MC_CMD_SET_MAC_IN_REJECT_UNCST_WIDTH 1
-+#define MC_CMD_SET_MAC_IN_REJECT_BRDCST_LBN 1
-+#define MC_CMD_SET_MAC_IN_REJECT_BRDCST_WIDTH 1
-+#define MC_CMD_SET_MAC_IN_FCNTL_OFST 20
-+#define MC_CMD_SET_MAC_OUT_LEN 0
-+
-+/* MC_CMD_PHY_STATS:
-+ * Get generic PHY statistics
-+ *
-+ * This call returns the statistics for a generic PHY, by direct DMA
-+ * into host memory, in a sparse array (indexed by the enumerate).
-+ * Each value is represented by a 32bit number.
-+ *
-+ * Locks required: None
-+ * Returns: 0, ETIME
-+ * Response methods: shared memory, event
-+ */
-+#define MC_CMD_PHY_STATS 0x2d
-+#define MC_CMD_PHY_STATS_IN_LEN 8
-+#define MC_CMD_PHY_STATS_IN_DMA_ADDR_LO_OFST 0
-+#define MC_CMD_PHY_STATS_IN_DMA_ADDR_HI_OFST 4
-+#define MC_CMD_PHY_STATS_OUT_LEN 0
-+
-+/* Unified MAC statistics enumeration */
-+#define MC_CMD_MAC_GENERATION_START 0
-+#define MC_CMD_MAC_TX_PKTS 1
-+#define MC_CMD_MAC_TX_PAUSE_PKTS 2
-+#define MC_CMD_MAC_TX_CONTROL_PKTS 3
-+#define MC_CMD_MAC_TX_UNICAST_PKTS 4
-+#define MC_CMD_MAC_TX_MULTICAST_PKTS 5
-+#define MC_CMD_MAC_TX_BROADCAST_PKTS 6
-+#define MC_CMD_MAC_TX_BYTES 7
-+#define MC_CMD_MAC_TX_BAD_BYTES 8
-+#define MC_CMD_MAC_TX_LT64_PKTS 9
-+#define MC_CMD_MAC_TX_64_PKTS 10
-+#define MC_CMD_MAC_TX_65_TO_127_PKTS 11
-+#define MC_CMD_MAC_TX_128_TO_255_PKTS 12
-+#define MC_CMD_MAC_TX_256_TO_511_PKTS 13
-+#define MC_CMD_MAC_TX_512_TO_1023_PKTS 14
-+#define MC_CMD_MAC_TX_1024_TO_15XX_PKTS 15
-+#define MC_CMD_MAC_TX_15XX_TO_JUMBO_PKTS 16
-+#define MC_CMD_MAC_TX_GTJUMBO_PKTS 17
-+#define MC_CMD_MAC_TX_BAD_FCS_PKTS 18
-+#define MC_CMD_MAC_TX_SINGLE_COLLISION_PKTS 19
-+#define MC_CMD_MAC_TX_MULTIPLE_COLLISION_PKTS 20
-+#define MC_CMD_MAC_TX_EXCESSIVE_COLLISION_PKTS 21
-+#define MC_CMD_MAC_TX_LATE_COLLISION_PKTS 22
-+#define MC_CMD_MAC_TX_DEFERRED_PKTS 23
-+#define MC_CMD_MAC_TX_EXCESSIVE_DEFERRED_PKTS 24
-+#define MC_CMD_MAC_TX_NON_TCPUDP_PKTS 25
-+#define MC_CMD_MAC_TX_MAC_SRC_ERR_PKTS 26
-+#define MC_CMD_MAC_TX_IP_SRC_ERR_PKTS 27
-+#define MC_CMD_MAC_RX_PKTS 28
-+#define MC_CMD_MAC_RX_PAUSE_PKTS 29
-+#define MC_CMD_MAC_RX_GOOD_PKTS 30
-+#define MC_CMD_MAC_RX_CONTROL_PKTS 31
-+#define MC_CMD_MAC_RX_UNICAST_PKTS 32
-+#define MC_CMD_MAC_RX_MULTICAST_PKTS 33
-+#define MC_CMD_MAC_RX_BROADCAST_PKTS 34
-+#define MC_CMD_MAC_RX_BYTES 35
-+#define MC_CMD_MAC_RX_BAD_BYTES 36
-+#define MC_CMD_MAC_RX_64_PKTS 37
-+#define MC_CMD_MAC_RX_65_TO_127_PKTS 38
-+#define MC_CMD_MAC_RX_128_TO_255_PKTS 39
-+#define MC_CMD_MAC_RX_256_TO_511_PKTS 40
-+#define MC_CMD_MAC_RX_512_TO_1023_PKTS 41
-+#define MC_CMD_MAC_RX_1024_TO_15XX_PKTS 42
-+#define MC_CMD_MAC_RX_15XX_TO_JUMBO_PKTS 43
-+#define MC_CMD_MAC_RX_GTJUMBO_PKTS 44
-+#define MC_CMD_MAC_RX_UNDERSIZE_PKTS 45
-+#define MC_CMD_MAC_RX_BAD_FCS_PKTS 46
-+#define MC_CMD_MAC_RX_OVERFLOW_PKTS 47
-+#define MC_CMD_MAC_RX_FALSE_CARRIER_PKTS 48
-+#define MC_CMD_MAC_RX_SYMBOL_ERROR_PKTS 49
-+#define MC_CMD_MAC_RX_ALIGN_ERROR_PKTS 50
-+#define MC_CMD_MAC_RX_LENGTH_ERROR_PKTS 51
-+#define MC_CMD_MAC_RX_INTERNAL_ERROR_PKTS 52
-+#define MC_CMD_MAC_RX_JABBER_PKTS 53
-+#define MC_CMD_MAC_RX_NODESC_DROPS 54
-+#define MC_CMD_MAC_RX_LANES01_CHAR_ERR 55
-+#define MC_CMD_MAC_RX_LANES23_CHAR_ERR 56
-+#define MC_CMD_MAC_RX_LANES01_DISP_ERR 57
-+#define MC_CMD_MAC_RX_LANES23_DISP_ERR 58
-+#define MC_CMD_MAC_RX_MATCH_FAULT 59
-+/* Insert new members here. */
-+#define MC_CMD_MAC_GENERATION_END 60
-+#define MC_CMD_MAC_NSTATS (MC_CMD_MAC_GENERATION_END+1)
-+
-+/* MC_CMD_MAC_STATS:
-+ * Get unified GMAC/XMAC statistics
-+ *
-+ * This call returns unified statistics maintained by the MC as it
-+ * switches between the GMAC and XMAC. The MC will write out all
-+ * supported stats.  The driver should zero initialise the buffer to
-+ * guarantee consistent results.
-+ *
-+ * Locks required: None
-+ * Returns: 0
-+ * Response methods: shared memory, event
-+ */
-+#define MC_CMD_MAC_STATS 0x2e
-+#define MC_CMD_MAC_STATS_IN_LEN 16
-+#define MC_CMD_MAC_STATS_IN_DMA_ADDR_LO_OFST 0
-+#define MC_CMD_MAC_STATS_IN_DMA_ADDR_HI_OFST 4
-+#define MC_CMD_MAC_STATS_IN_CMD_OFST 8
-+#define MC_CMD_MAC_STATS_CMD_DMA_LBN 0
-+#define MC_CMD_MAC_STATS_CMD_DMA_WIDTH 1
-+#define MC_CMD_MAC_STATS_CMD_CLEAR_LBN 1
-+#define MC_CMD_MAC_STATS_CMD_CLEAR_WIDTH 1
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE_LBN 2
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE_WIDTH 1
-+/* Fields only relevent when PERIODIC_CHANGE is set */
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE_LBN 3
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE_WIDTH 1
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR_LBN 4
-+#define MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR_WIDTH 1
-+#define MC_CMD_MAC_STATS_CMD_PERIOD_MS_LBN 16
-+#define MC_CMD_MAC_STATS_CMD_PERIOD_MS_WIDTH 16
-+#define MC_CMD_MAC_STATS_IN_DMA_LEN_OFST 12
-+
-+#define MC_CMD_MAC_STATS_OUT_LEN 0
-+
-+/* Callisto flags */
-+#define MC_CMD_SFT9001_ROBUST_LBN 0
-+#define MC_CMD_SFT9001_ROBUST_WIDTH 1
-+#define MC_CMD_SFT9001_SHORT_REACH_LBN 1
-+#define MC_CMD_SFT9001_SHORT_REACH_WIDTH 1
-+
-+/* MC_CMD_SFT9001_GET:
-+ * Read current callisto specific setting
-+ *
-+ * Locks required: None
-+ * Returns: 0, ETIME
-+ */
-+#define MC_CMD_SFT9001_GET 0x30
-+#define MC_CMD_SFT9001_GET_IN_LEN 0
-+#define MC_CMD_SFT9001_GET_OUT_LEN 4
-+#define MC_CMD_SFT9001_GET_OUT_FLAGS_OFST 0
-+
-+/* MC_CMD_SFT9001_SET:
-+ * Write current callisto specific setting
-+ *
-+ * Locks required: None
-+ * Returns: 0, ETIME, EINVAL
-+ */
-+#define MC_CMD_SFT9001_SET 0x31
-+#define MC_CMD_SFT9001_SET_IN_LEN 4
-+#define MC_CMD_SFT9001_SET_IN_FLAGS_OFST 0
-+#define MC_CMD_SFT9001_SET_OUT_LEN 0
-+
-+
-+/* MC_CMD_WOL_FILTER_SET:
-+ * Set a WoL filter
-+ *
-+ * Locks required: None
-+ * Returns: 0, EBUSY, EINVAL, ENOSYS
-+ */
-+#define MC_CMD_WOL_FILTER_SET 0x32
-+#define MC_CMD_WOL_FILTER_SET_IN_LEN 192 /* 190 rounded up to a word */
-+#define MC_CMD_WOL_FILTER_SET_IN_FILTER_MODE_OFST 0
-+#define MC_CMD_WOL_FILTER_SET_IN_WOL_TYPE_OFST 4
-+
-+/* There is a union at offset 8, following defines overlap due to
-+ * this */
-+#define MC_CMD_WOL_FILTER_SET_IN_DATA_OFST 8
-+
-+#define MC_CMD_WOL_FILTER_SET_IN_MAGIC_MAC_OFST		\
-+	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
-+
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_SRC_IP_OFST   \
-+	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_DST_IP_OFST   \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 4)
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_SRC_PORT_OFST \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 8)
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_DST_PORT_OFST \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 10)
-+
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_SRC_IP_OFST   \
-+	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_DST_IP_OFST   \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 16)
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_SRC_PORT_OFST \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 32)
-+#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_DST_PORT_OFST \
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 34)
-+
-+#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_MASK_OFST	\
-+	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
-+#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_OFST		\
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 48)
-+#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LEN_OFST	\
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 176)
-+#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LAYER3_OFST	\
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 177)
-+#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LAYER4_OFST	\
-+	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 178)
-+
-+#define MC_CMD_WOL_FILTER_SET_OUT_LEN 4
-+#define MC_CMD_WOL_FILTER_SET_OUT_FILTER_ID_OFST 0
-+
-+/* WOL Filter types enumeration */
-+#define MC_CMD_WOL_TYPE_MAGIC      0x0
-+			 /* unused 0x1 */
-+#define MC_CMD_WOL_TYPE_WIN_MAGIC  0x2
-+#define MC_CMD_WOL_TYPE_IPV4_SYN   0x3
-+#define MC_CMD_WOL_TYPE_IPV6_SYN   0x4
-+#define MC_CMD_WOL_TYPE_BITMAP     0x5
-+#define MC_CMD_WOL_TYPE_MAX        0x6
-+
-+#define MC_CMD_FILTER_MODE_SIMPLE     0x0
-+#define MC_CMD_FILTER_MODE_STRUCTURED 0xffffffff
-+
-+/* MC_CMD_WOL_FILTER_REMOVE:
-+ * Remove a WoL filter
-+ *
-+ * Locks required: None
-+ * Returns: 0, EINVAL, ENOSYS
-+ */
-+#define MC_CMD_WOL_FILTER_REMOVE 0x33
-+#define MC_CMD_WOL_FILTER_REMOVE_IN_LEN 4
-+#define MC_CMD_WOL_FILTER_REMOVE_IN_FILTER_ID_OFST 0
-+#define MC_CMD_WOL_FILTER_REMOVE_OUT_LEN 0
-+
-+
-+/* MC_CMD_WOL_FILTER_RESET:
-+ * Reset (i.e. remove all) WoL filters
-+ *
-+ * Locks required: None
-+ * Returns: 0, ENOSYS
-+ */
-+#define MC_CMD_WOL_FILTER_RESET 0x34
-+#define MC_CMD_WOL_FILTER_RESET_IN_LEN 0
-+#define MC_CMD_WOL_FILTER_RESET_OUT_LEN 0
-+
-+/* MC_CMD_SET_MCAST_HASH:
-+ * Set the MCASH hash value without otherwise
-+ * reconfiguring the MAC
-+ */
-+#define MC_CMD_SET_MCAST_HASH 0x35
-+#define MC_CMD_SET_MCAST_HASH_IN_LEN 32
-+#define MC_CMD_SET_MCAST_HASH_IN_HASH0_OFST 0
-+#define MC_CMD_SET_MCAST_HASH_IN_HASH1_OFST 16
-+#define MC_CMD_SET_MCAST_HASH_OUT_LEN 0
-+
-+/* MC_CMD_NVRAM_TYPES:
-+ * Return bitfield indicating available types of virtual NVRAM partitions
-+ *
-+ * Locks required: none
-+ * Returns: 0
-+ */
-+#define MC_CMD_NVRAM_TYPES 0x36
-+#define MC_CMD_NVRAM_TYPES_IN_LEN 0
-+#define MC_CMD_NVRAM_TYPES_OUT_LEN 4
-+#define MC_CMD_NVRAM_TYPES_OUT_TYPES_OFST 0
-+
-+/* Supported NVRAM types */
-+#define MC_CMD_NVRAM_TYPE_DISABLED_CALLISTO 0
-+#define MC_CMD_NVRAM_TYPE_MC_FW 1
-+#define MC_CMD_NVRAM_TYPE_MC_FW_BACKUP 2
-+#define MC_CMD_NVRAM_TYPE_STATIC_CFG_PORT0 3
-+#define MC_CMD_NVRAM_TYPE_STATIC_CFG_PORT1 4
-+#define MC_CMD_NVRAM_TYPE_DYNAMIC_CFG_PORT0 5
-+#define MC_CMD_NVRAM_TYPE_DYNAMIC_CFG_PORT1 6
-+#define MC_CMD_NVRAM_TYPE_EXP_ROM 7
-+#define MC_CMD_NVRAM_TYPE_EXP_ROM_CFG_PORT0 8
-+#define MC_CMD_NVRAM_TYPE_EXP_ROM_CFG_PORT1 9
-+#define MC_CMD_NVRAM_TYPE_PHY_PORT0 10
-+#define MC_CMD_NVRAM_TYPE_PHY_PORT1 11
-+#define MC_CMD_NVRAM_TYPE_LOG 12
-+
-+/* MC_CMD_NVRAM_INFO:
-+ * Read info about a virtual NVRAM partition
-+ *
-+ * Locks required: none
-+ * Returns: 0, EINVAL (bad type)
-+ */
-+#define MC_CMD_NVRAM_INFO 0x37
-+#define MC_CMD_NVRAM_INFO_IN_LEN 4
-+#define MC_CMD_NVRAM_INFO_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_INFO_OUT_LEN 24
-+#define MC_CMD_NVRAM_INFO_OUT_TYPE_OFST 0
-+#define MC_CMD_NVRAM_INFO_OUT_SIZE_OFST 4
-+#define MC_CMD_NVRAM_INFO_OUT_ERASESIZE_OFST 8
-+#define MC_CMD_NVRAM_INFO_OUT_FLAGS_OFST 12
-+#define   MC_CMD_NVRAM_PROTECTED_LBN 0
-+#define   MC_CMD_NVRAM_PROTECTED_WIDTH 1
-+#define MC_CMD_NVRAM_INFO_OUT_PHYSDEV_OFST 16
-+#define MC_CMD_NVRAM_INFO_OUT_PHYSADDR_OFST 20
-+
-+/* MC_CMD_NVRAM_UPDATE_START:
-+ * Start a group of update operations on a virtual NVRAM partition
-+ *
-+ * Locks required: PHY_LOCK if type==*PHY*
-+ * Returns: 0, EINVAL (bad type), EACCES (if PHY_LOCK required and not held)
-+ */
-+#define MC_CMD_NVRAM_UPDATE_START 0x38
-+#define MC_CMD_NVRAM_UPDATE_START_IN_LEN 4
-+#define MC_CMD_NVRAM_UPDATE_START_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_UPDATE_START_OUT_LEN 0
-+
-+/* MC_CMD_NVRAM_READ:
-+ * Read data from a virtual NVRAM partition
-+ *
-+ * Locks required: PHY_LOCK if type==*PHY*
-+ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
-+ */
-+#define MC_CMD_NVRAM_READ 0x39
-+#define MC_CMD_NVRAM_READ_IN_LEN 12
-+#define MC_CMD_NVRAM_READ_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_READ_IN_OFFSET_OFST 4
-+#define MC_CMD_NVRAM_READ_IN_LENGTH_OFST 8
-+#define MC_CMD_NVRAM_READ_OUT_LEN(_read_bytes) (_read_bytes)
-+#define MC_CMD_NVRAM_READ_OUT_READ_BUFFER_OFST 0
-+
-+/* MC_CMD_NVRAM_WRITE:
-+ * Write data to a virtual NVRAM partition
-+ *
-+ * Locks required: PHY_LOCK if type==*PHY*
-+ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
-+ */
-+#define MC_CMD_NVRAM_WRITE 0x3a
-+#define MC_CMD_NVRAM_WRITE_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_WRITE_IN_OFFSET_OFST 4
-+#define MC_CMD_NVRAM_WRITE_IN_LENGTH_OFST 8
-+#define MC_CMD_NVRAM_WRITE_IN_WRITE_BUFFER_OFST 12
-+#define MC_CMD_NVRAM_WRITE_IN_LEN(_write_bytes) (12 + _write_bytes)
-+#define MC_CMD_NVRAM_WRITE_OUT_LEN 0
-+
-+/* MC_CMD_NVRAM_ERASE:
-+ * Erase sector(s) from a virtual NVRAM partition
-+ *
-+ * Locks required: PHY_LOCK if type==*PHY*
-+ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
-+ */
-+#define MC_CMD_NVRAM_ERASE 0x3b
-+#define MC_CMD_NVRAM_ERASE_IN_LEN 12
-+#define MC_CMD_NVRAM_ERASE_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_ERASE_IN_OFFSET_OFST 4
-+#define MC_CMD_NVRAM_ERASE_IN_LENGTH_OFST 8
-+#define MC_CMD_NVRAM_ERASE_OUT_LEN 0
-+
-+/* MC_CMD_NVRAM_UPDATE_FINISH:
-+ * Finish a group of update operations on a virtual NVRAM partition
-+ *
-+ * Locks required: PHY_LOCK if type==*PHY*
-+ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
-+ */
-+#define MC_CMD_NVRAM_UPDATE_FINISH 0x3c
-+#define MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN 4
-+#define MC_CMD_NVRAM_UPDATE_FINISH_IN_TYPE_OFST 0
-+#define MC_CMD_NVRAM_UPDATE_FINISH_OUT_LEN 0
-+
-+/* MC_CMD_REBOOT:
-+ * Reboot the MC. The AFTER_ASSERTION flag is intended to be used
-+ * when the driver notices an assertion failure, to allow two ports to
-+ * both recover (semi-)gracefully.
-+ *
-+ * Locks required: NONE
-+ * Returns: Nothing. You get back a response with ERR=1, DATALEN=0
-+ */
-+#define MC_CMD_REBOOT 0x3d
-+#define MC_CMD_REBOOT_IN_LEN 4
-+#define MC_CMD_REBOOT_IN_FLAGS_OFST 0
-+#define MC_CMD_REBOOT_FLAGS_AFTER_ASSERTION 1
-+#define MC_CMD_REBOOT_OUT_LEN 0
-+
-+/* MC_CMD_SCHEDINFO:
-+ * Request scheduler info. from the MC.
-+ *
-+ * Locks required: NONE
-+ * Returns: An array of (timeslice,maximum overrun), one for each thread,
-+ * in ascending order of thread address.s
-+ */
-+#define MC_CMD_SCHEDINFO 0x3e
-+#define MC_CMD_SCHEDINFO_IN_LEN 0
-+
-+
-+/* MC_CMD_SET_REBOOT_MODE: (debug)
-+ * Set the mode for the next MC reboot.
-+ *
-+ * Locks required: NONE
-+ *
-+ * Sets the reboot mode to the specified value.  Returns the old mode.
-+ */
-+#define MC_CMD_REBOOT_MODE 0x3f
-+#define MC_CMD_REBOOT_MODE_IN_LEN 4
-+#define MC_CMD_REBOOT_MODE_IN_VALUE_OFST 0
-+#define MC_CMD_REBOOT_MODE_OUT_LEN 4
-+#define MC_CMD_REBOOT_MODE_OUT_VALUE_OFST 0
-+#define   MC_CMD_REBOOT_MODE_NORMAL 0
-+#define   MC_CMD_REBOOT_MODE_SNAPPER 3
-+
-+/* MC_CMD_DEBUG_LOG:
-+ * Null request/response command (debug)
-+ * - sequence number is always zero
-+ * - only supported on the UART interface
-+ * (the same set of bytes is delivered as an
-+ * event over PCI)
-+ */
-+#define MC_CMD_DEBUG_LOG 0x40
-+#define MC_CMD_DEBUG_LOG_IN_LEN 0
-+#define MC_CMD_DEBUG_LOG_OUT_LEN 0
-+
-+/* Generic sensor enumeration. Note that a dual port NIC
-+ * will EITHER expose PHY_COMMON_TEMP OR PHY0_TEMP and
-+ * PHY1_TEMP depending on whether there is a single sensor
-+ * in the vicinity of the two port, or one per port.
-+ */
-+#define MC_CMD_SENSOR_CONTROLLER_TEMP 0		/* degC */
-+#define MC_CMD_SENSOR_PHY_COMMON_TEMP 1		/* degC */
-+#define MC_CMD_SENSOR_CONTROLLER_COOLING 2	/* bool */
-+#define MC_CMD_SENSOR_PHY0_TEMP 3		/* degC */
-+#define MC_CMD_SENSOR_PHY0_COOLING 4		/* bool */
-+#define MC_CMD_SENSOR_PHY1_TEMP 5		/* degC */
-+#define MC_CMD_SENSOR_PHY1_COOLING 6		/* bool */
-+#define MC_CMD_SENSOR_IN_1V0 7			/* mV */
-+#define MC_CMD_SENSOR_IN_1V2 8			/* mV */
-+#define MC_CMD_SENSOR_IN_1V8 9			/* mV */
-+#define MC_CMD_SENSOR_IN_2V5 10			/* mV */
-+#define MC_CMD_SENSOR_IN_3V3 11			/* mV */
-+#define MC_CMD_SENSOR_IN_12V0 12		/* mV */
-+
-+
-+/* Sensor state */
-+#define MC_CMD_SENSOR_STATE_OK 0
-+#define MC_CMD_SENSOR_STATE_WARNING 1
-+#define MC_CMD_SENSOR_STATE_FATAL 2
-+#define MC_CMD_SENSOR_STATE_BROKEN 3
-+
-+/* MC_CMD_SENSOR_INFO:
-+ * Returns information about every available sensor.
-+ *
-+ * Each sensor has a single (16bit) value, and a corresponding state.
-+ * The mapping between value and sensor is nominally determined by the
-+ * MC, but in practise is implemented as zero (BROKEN), one (TEMPERATURE),
-+ * or two (VOLTAGE) ranges per sensor per state.
-+ *
-+ * This call returns a mask (32bit) of the sensors that are supported
-+ * by this platform, then an array (indexed by MC_CMD_SENSOR) of byte
-+ * offsets to the per-sensor arrays. Each sensor array has four 16bit
-+ * numbers, min1, max1, min2, max2.
-+ *
-+ * Locks required: None
-+ * Returns: 0
-+ */
-+#define MC_CMD_SENSOR_INFO 0x41
-+#define MC_CMD_SENSOR_INFO_IN_LEN 0
-+#define MC_CMD_SENSOR_INFO_OUT_MASK_OFST 0
-+#define MC_CMD_SENSOR_INFO_OUT_OFFSET_OFST(_x) \
-+	(4 + (_x))
-+#define MC_CMD_SENSOR_INFO_OUT_MIN1_OFST(_ofst) \
-+	((_ofst) + 0)
-+#define MC_CMD_SENSOR_INFO_OUT_MAX1_OFST(_ofst) \
-+	((_ofst) + 2)
-+#define MC_CMD_SENSOR_INFO_OUT_MIN2_OFST(_ofst) \
-+	((_ofst) + 4)
-+#define MC_CMD_SENSOR_INFO_OUT_MAX2_OFST(_ofst) \
-+	((_ofst) + 6)
-+
-+/* MC_CMD_READ_SENSORS
-+ * Returns the current (value, state) for each sensor
-+ *
-+ * Returns the current (value, state) [each 16bit] of each sensor supported by
-+ * this board, by DMA'ing a sparse array (indexed by the sensor type) into host
-+ * memory.
-+ *
-+ * The MC will send a SENSOREVT event every time any sensor changes state. The
-+ * driver is responsible for ensuring that it doesn't miss any events. The board
-+ * will function normally if all sensors are in STATE_OK or state_WARNING.
-+ * Otherwise the board should not be expected to function.
-+ */
-+#define MC_CMD_READ_SENSORS 0x42
-+#define MC_CMD_READ_SENSORS_IN_LEN 8
-+#define MC_CMD_READ_SENSORS_IN_DMA_ADDR_LO_OFST 0
-+#define MC_CMD_READ_SENSORS_IN_DMA_ADDR_HI_OFST 4
-+#define MC_CMD_READ_SENSORS_OUT_LEN 0
-+
-+
-+/* MC_CMD_GET_PHY_STATE:
-+ * Report current state of PHY.  A "zombie" PHY is a PHY that has failed to
-+ * boot (e.g. due to missing or corrupted firmware).
-+ *
-+ * Locks required: None
-+ * Return code: 0
-+ */
-+#define MC_CMD_GET_PHY_STATE 0x43
-+
-+#define MC_CMD_GET_PHY_STATE_IN_LEN 0
-+#define MC_CMD_GET_PHY_STATE_OUT_LEN 4
-+#define MC_CMD_GET_PHY_STATE_STATE_OFST 0
-+/* PHY state enumeration: */
-+#define MC_CMD_PHY_STATE_OK 1
-+#define MC_CMD_PHY_STATE_ZOMBIE 2
-+
-+
-+/* 802.1Qbb control. 8 Tx queues that map to priorities 0 - 7. Use all 1s to
-+ * disable 802.Qbb for a given priority. */
-+#define MC_CMD_SETUP_8021QBB 0x44
-+#define MC_CMD_SETUP_8021QBB_IN_LEN 32
-+#define MC_CMD_SETUP_8021QBB_OUT_LEN 0
-+#define MC_CMD_SETUP_8021QBB_IN_TXQS_OFFST 0
-+
-+
-+/* MC_CMD_WOL_FILTER_GET:
-+ * Retrieve ID of any WoL filters
-+ *
-+ * Locks required: None
-+ * Returns: 0, ENOSYS
-+ */
-+#define MC_CMD_WOL_FILTER_GET 0x45
-+#define MC_CMD_WOL_FILTER_GET_IN_LEN 0
-+#define MC_CMD_WOL_FILTER_GET_OUT_LEN 4
-+#define MC_CMD_WOL_FILTER_GET_OUT_FILTER_ID_OFST 0
-+
-+
-+/* MC_CMD_ADD_LIGHTSOUT_OFFLOAD:
-+ * Offload a protocol to NIC for lights-out state
-+ *
-+ * Locks required: None
-+ * Returns: 0, ENOSYS
-+ */
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD 0x46
-+
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_LEN 16
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_PROTOCOL_OFST 0
-+
-+/* There is a union at offset 4, following defines overlap due to
-+ * this */
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_DATA_OFST 4
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_ARPMAC_OFST 4
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_ARPIP_OFST 10
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSMAC_OFST 4
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSSNIPV6_OFST 10
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSIPV6_OFST 26
-+
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_OUT_LEN 4
-+#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_OUT_FILTER_ID_OFST 0
-+
-+
-+/* MC_CMD_REMOVE_LIGHTSOUT_PROTOCOL_OFFLOAD:
-+ * Offload a protocol to NIC for lights-out state
-+ *
-+ * Locks required: None
-+ * Returns: 0, ENOSYS
-+ */
-+#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD 0x47
-+#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_LEN 8
-+#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_OUT_LEN 0
-+
-+#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_PROTOCOL_OFST 0
-+#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_FILTER_ID_OFST 4
-+
-+/* Lights-out offload protocols enumeration */
-+#define MC_CMD_LIGHTSOUT_OFFLOAD_PROTOCOL_ARP 0x1
-+#define MC_CMD_LIGHTSOUT_OFFLOAD_PROTOCOL_NS  0x2
-+
-+
-+/* MC_CMD_MAC_RESET_RESTORE:
-+ * Restore MAC after block reset
-+ *
-+ * Locks required: None
-+ * Returns: 0
-+ */
-+
-+#define MC_CMD_MAC_RESET_RESTORE 0x48
-+#define MC_CMD_MAC_RESET_RESTORE_IN_LEN 0
-+#define MC_CMD_MAC_RESET_RESTORE_OUT_LEN 0
-+
-+#endif /* MCDI_PCOL_H */
++#include "net_driver.h"
++#include "efx.h"
++#include "mac.h"
++#include "mcdi.h"
++#include "mcdi_pcol.h"
++
++static int efx_mcdi_set_mac(struct efx_nic *efx)
++{
++	u32 reject, fcntl;
++	u8 cmdbytes[MC_CMD_SET_MAC_IN_LEN];
++
++	memcpy(cmdbytes + MC_CMD_SET_MAC_IN_ADDR_OFST,
++	       efx->net_dev->dev_addr, ETH_ALEN);
++
++	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_MTU,
++			EFX_MAX_FRAME_LEN(efx->net_dev->mtu));
++	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_DRAIN, 0);
++
++	/* The MCDI command provides for controlling accept/reject
++	 * of broadcast packets too, but the driver doesn't currently
++	 * expose this. */
++	reject = (efx->promiscuous) ? 0 :
++		(1 << MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN);
++	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_REJECT, reject);
++
++	switch (efx->wanted_fc) {
++	case EFX_FC_RX | EFX_FC_TX:
++		fcntl = MC_CMD_FCNTL_BIDIR;
++		break;
++	case EFX_FC_RX:
++		fcntl = MC_CMD_FCNTL_RESPOND;
++		break;
++	default:
++		fcntl = MC_CMD_FCNTL_OFF;
++		break;
++	}
++	if (efx->wanted_fc & EFX_FC_AUTO)
++		fcntl = MC_CMD_FCNTL_AUTO;
++
++	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_FCNTL, fcntl);
++
++	return efx_mcdi_rpc(efx, MC_CMD_SET_MAC, cmdbytes, sizeof(cmdbytes),
++			    NULL, 0, NULL);
++}
++
++static int efx_mcdi_get_mac_faults(struct efx_nic *efx, u32 *faults)
++{
++	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	size_t outlength;
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_GET_LINK_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_LINK, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlength);
++	if (rc)
++		goto fail;
++
++	*faults = MCDI_DWORD(outbuf, GET_LINK_OUT_MAC_FAULT);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n",
++		__func__, rc);
++	return rc;
++}
++
++int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
++		       u32 dma_len, int enable, int clear)
++{
++	u8 inbuf[MC_CMD_MAC_STATS_IN_LEN];
++	int rc;
++	efx_dword_t *cmd_ptr;
++	int period = 1000;
++	u32 addr_hi;
++	u32 addr_lo;
++
++	BUILD_BUG_ON(MC_CMD_MAC_STATS_OUT_LEN != 0);
++
++	addr_lo = ((u64)dma_addr) >> 0;
++	addr_hi = ((u64)dma_addr) >> 32;
++
++	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_ADDR_LO, addr_lo);
++	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_ADDR_HI, addr_hi);
++	cmd_ptr = (efx_dword_t *)MCDI_PTR(inbuf, MAC_STATS_IN_CMD);
++	if (enable)
++		EFX_POPULATE_DWORD_6(*cmd_ptr,
++				     MC_CMD_MAC_STATS_CMD_DMA, 1,
++				     MC_CMD_MAC_STATS_CMD_CLEAR, clear,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE, 1,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE, 1,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR, 0,
++				     MC_CMD_MAC_STATS_CMD_PERIOD_MS, period);
++	else
++		EFX_POPULATE_DWORD_5(*cmd_ptr,
++				     MC_CMD_MAC_STATS_CMD_DMA, 0,
++				     MC_CMD_MAC_STATS_CMD_CLEAR, clear,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE, 1,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE, 0,
++				     MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR, 0);
++	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: %s failed rc=%d\n",
++		__func__, enable ? "enable" : "disable", rc);
++	return rc;
++}
++
++static int efx_mcdi_mac_reconfigure(struct efx_nic *efx)
++{
++	int rc;
++
++	rc = efx_mcdi_set_mac(efx);
++	if (rc != 0)
++		return rc;
++
++	/* Restore the multicast hash registers. */
++	efx->type->push_multicast_hash(efx);
++
++	return 0;
++}
++
++
++static bool efx_mcdi_mac_check_fault(struct efx_nic *efx)
++{
++	u32 faults;
++	int rc = efx_mcdi_get_mac_faults(efx, &faults);
++	return (rc != 0) || (faults != 0);
++}
++
++
++struct efx_mac_operations efx_mcdi_mac_operations = {
++	.reconfigure	= efx_mcdi_mac_reconfigure,
++	.update_stats	= efx_port_dummy_op_void,
++	.check_fault 	= efx_mcdi_mac_check_fault,
++};
+diff --git a/drivers/net/sfc/mcdi_phy.c b/drivers/net/sfc/mcdi_phy.c
+new file mode 100644
+index 0000000..0e1bcc5
+--- /dev/null
++++ b/drivers/net/sfc/mcdi_phy.c
+@@ -0,0 +1,597 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2009 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++/*
++ * Driver for PHY related operations via MCDI.
++ */
++
++#include "efx.h"
++#include "phy.h"
++#include "mcdi.h"
++#include "mcdi_pcol.h"
++#include "mdio_10g.h"
++
++struct efx_mcdi_phy_cfg {
++	u32 flags;
++	u32 type;
++	u32 supported_cap;
++	u32 channel;
++	u32 port;
++	u32 stats_mask;
++	u8 name[20];
++	u32 media;
++	u32 mmd_mask;
++	u8 revision[20];
++	u32 forced_cap;
++};
++
++static int
++efx_mcdi_get_phy_cfg(struct efx_nic *efx, struct efx_mcdi_phy_cfg *cfg)
++{
++	u8 outbuf[MC_CMD_GET_PHY_CFG_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_GET_PHY_CFG_IN_LEN != 0);
++	BUILD_BUG_ON(MC_CMD_GET_PHY_CFG_OUT_NAME_LEN != sizeof(cfg->name));
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_PHY_CFG, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	if (outlen < MC_CMD_GET_PHY_CFG_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	cfg->flags = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_FLAGS);
++	cfg->type = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_TYPE);
++	cfg->supported_cap =
++		MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_SUPPORTED_CAP);
++	cfg->channel = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_CHANNEL);
++	cfg->port = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_PRT);
++	cfg->stats_mask = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_STATS_MASK);
++	memcpy(cfg->name, MCDI_PTR(outbuf, GET_PHY_CFG_OUT_NAME),
++	       sizeof(cfg->name));
++	cfg->media = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_MEDIA_TYPE);
++	cfg->mmd_mask = MCDI_DWORD(outbuf, GET_PHY_CFG_OUT_MMD_MASK);
++	memcpy(cfg->revision, MCDI_PTR(outbuf, GET_PHY_CFG_OUT_REVISION),
++	       sizeof(cfg->revision));
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++static int efx_mcdi_set_link(struct efx_nic *efx, u32 capabilities,
++			     u32 flags, u32 loopback_mode,
++			     u32 loopback_speed)
++{
++	u8 inbuf[MC_CMD_SET_LINK_IN_LEN];
++	int rc;
++
++	BUILD_BUG_ON(MC_CMD_SET_LINK_OUT_LEN != 0);
++
++	MCDI_SET_DWORD(inbuf, SET_LINK_IN_CAP, capabilities);
++	MCDI_SET_DWORD(inbuf, SET_LINK_IN_FLAGS, flags);
++	MCDI_SET_DWORD(inbuf, SET_LINK_IN_LOOPBACK_MODE, loopback_mode);
++	MCDI_SET_DWORD(inbuf, SET_LINK_IN_LOOPBACK_SPEED, loopback_speed);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_SET_LINK, inbuf, sizeof(inbuf),
++			  NULL, 0, NULL);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++static int efx_mcdi_loopback_modes(struct efx_nic *efx, u64 *loopback_modes)
++{
++	u8 outbuf[MC_CMD_GET_LOOPBACK_MODES_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_LOOPBACK_MODES, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	if (outlen < MC_CMD_GET_LOOPBACK_MODES_OUT_LEN) {
++		rc = -EMSGSIZE;
++		goto fail;
++	}
++
++	*loopback_modes = MCDI_QWORD(outbuf, GET_LOOPBACK_MODES_SUGGESTED);
++
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_mdio_read(struct efx_nic *efx, unsigned int bus,
++			 unsigned int prtad, unsigned int devad, u16 addr,
++			 u16 *value_out, u32 *status_out)
++{
++	u8 inbuf[MC_CMD_MDIO_READ_IN_LEN];
++	u8 outbuf[MC_CMD_MDIO_READ_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, MDIO_READ_IN_BUS, bus);
++	MCDI_SET_DWORD(inbuf, MDIO_READ_IN_PRTAD, prtad);
++	MCDI_SET_DWORD(inbuf, MDIO_READ_IN_DEVAD, devad);
++	MCDI_SET_DWORD(inbuf, MDIO_READ_IN_ADDR, addr);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_MDIO_READ, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	*value_out = (u16)MCDI_DWORD(outbuf, MDIO_READ_OUT_VALUE);
++	*status_out = MCDI_DWORD(outbuf, MDIO_READ_OUT_STATUS);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++int efx_mcdi_mdio_write(struct efx_nic *efx, unsigned int bus,
++			  unsigned int prtad, unsigned int devad, u16 addr,
++			  u16 value, u32 *status_out)
++{
++	u8 inbuf[MC_CMD_MDIO_WRITE_IN_LEN];
++	u8 outbuf[MC_CMD_MDIO_WRITE_OUT_LEN];
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, MDIO_WRITE_IN_BUS, bus);
++	MCDI_SET_DWORD(inbuf, MDIO_WRITE_IN_PRTAD, prtad);
++	MCDI_SET_DWORD(inbuf, MDIO_WRITE_IN_DEVAD, devad);
++	MCDI_SET_DWORD(inbuf, MDIO_WRITE_IN_ADDR, addr);
++	MCDI_SET_DWORD(inbuf, MDIO_WRITE_IN_VALUE, value);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_MDIO_WRITE, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		goto fail;
++
++	*status_out = MCDI_DWORD(outbuf, MDIO_WRITE_OUT_STATUS);
++	return 0;
++
++fail:
++	EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
++}
++
++static u32 mcdi_to_ethtool_cap(u32 media, u32 cap)
++{
++	u32 result = 0;
++
++	switch (media) {
++	case MC_CMD_MEDIA_KX4:
++		result |= SUPPORTED_Backplane;
++		if (cap & (1 << MC_CMD_PHY_CAP_1000FDX_LBN))
++			result |= SUPPORTED_1000baseKX_Full;
++		if (cap & (1 << MC_CMD_PHY_CAP_10000FDX_LBN))
++			result |= SUPPORTED_10000baseKX4_Full;
++		break;
++
++	case MC_CMD_MEDIA_XFP:
++	case MC_CMD_MEDIA_SFP_PLUS:
++		result |= SUPPORTED_FIBRE;
++		break;
++
++	case MC_CMD_MEDIA_BASE_T:
++		result |= SUPPORTED_TP;
++		if (cap & (1 << MC_CMD_PHY_CAP_10HDX_LBN))
++			result |= SUPPORTED_10baseT_Half;
++		if (cap & (1 << MC_CMD_PHY_CAP_10FDX_LBN))
++			result |= SUPPORTED_10baseT_Full;
++		if (cap & (1 << MC_CMD_PHY_CAP_100HDX_LBN))
++			result |= SUPPORTED_100baseT_Half;
++		if (cap & (1 << MC_CMD_PHY_CAP_100FDX_LBN))
++			result |= SUPPORTED_100baseT_Full;
++		if (cap & (1 << MC_CMD_PHY_CAP_1000HDX_LBN))
++			result |= SUPPORTED_1000baseT_Half;
++		if (cap & (1 << MC_CMD_PHY_CAP_1000FDX_LBN))
++			result |= SUPPORTED_1000baseT_Full;
++		if (cap & (1 << MC_CMD_PHY_CAP_10000FDX_LBN))
++			result |= SUPPORTED_10000baseT_Full;
++		break;
++	}
++
++	if (cap & (1 << MC_CMD_PHY_CAP_PAUSE_LBN))
++		result |= SUPPORTED_Pause;
++	if (cap & (1 << MC_CMD_PHY_CAP_ASYM_LBN))
++		result |= SUPPORTED_Asym_Pause;
++	if (cap & (1 << MC_CMD_PHY_CAP_AN_LBN))
++		result |= SUPPORTED_Autoneg;
++
++	return result;
++}
++
++static u32 ethtool_to_mcdi_cap(u32 cap)
++{
++	u32 result = 0;
++
++	if (cap & SUPPORTED_10baseT_Half)
++		result |= (1 << MC_CMD_PHY_CAP_10HDX_LBN);
++	if (cap & SUPPORTED_10baseT_Full)
++		result |= (1 << MC_CMD_PHY_CAP_10FDX_LBN);
++	if (cap & SUPPORTED_100baseT_Half)
++		result |= (1 << MC_CMD_PHY_CAP_100HDX_LBN);
++	if (cap & SUPPORTED_100baseT_Full)
++		result |= (1 << MC_CMD_PHY_CAP_100FDX_LBN);
++	if (cap & SUPPORTED_1000baseT_Half)
++		result |= (1 << MC_CMD_PHY_CAP_1000HDX_LBN);
++	if (cap & (SUPPORTED_1000baseT_Full | SUPPORTED_1000baseKX_Full))
++		result |= (1 << MC_CMD_PHY_CAP_1000FDX_LBN);
++	if (cap & (SUPPORTED_10000baseT_Full | SUPPORTED_10000baseKX4_Full))
++		result |= (1 << MC_CMD_PHY_CAP_10000FDX_LBN);
++	if (cap & SUPPORTED_Pause)
++		result |= (1 << MC_CMD_PHY_CAP_PAUSE_LBN);
++	if (cap & SUPPORTED_Asym_Pause)
++		result |= (1 << MC_CMD_PHY_CAP_ASYM_LBN);
++	if (cap & SUPPORTED_Autoneg)
++		result |= (1 << MC_CMD_PHY_CAP_AN_LBN);
++
++	return result;
++}
++
++static u32 efx_get_mcdi_phy_flags(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg = efx->phy_data;
++	enum efx_phy_mode mode, supported;
++	u32 flags;
++
++	/* TODO: Advertise the capabilities supported by this PHY */
++	supported = 0;
++	if (phy_cfg->flags & (1 << MC_CMD_GET_PHY_CFG_TXDIS_LBN))
++		supported |= PHY_MODE_TX_DISABLED;
++	if (phy_cfg->flags & (1 << MC_CMD_GET_PHY_CFG_LOWPOWER_LBN))
++		supported |= PHY_MODE_LOW_POWER;
++	if (phy_cfg->flags & (1 << MC_CMD_GET_PHY_CFG_POWEROFF_LBN))
++		supported |= PHY_MODE_OFF;
++
++	mode = efx->phy_mode & supported;
++
++	flags = 0;
++	if (mode & PHY_MODE_TX_DISABLED)
++		flags |= (1 << MC_CMD_SET_LINK_TXDIS_LBN);
++	if (mode & PHY_MODE_LOW_POWER)
++		flags |= (1 << MC_CMD_SET_LINK_LOWPOWER_LBN);
++	if (mode & PHY_MODE_OFF)
++		flags |= (1 << MC_CMD_SET_LINK_POWEROFF_LBN);
++
++	return flags;
++}
++
++static u32 mcdi_to_ethtool_media(u32 media)
++{
++	switch (media) {
++	case MC_CMD_MEDIA_XAUI:
++	case MC_CMD_MEDIA_CX4:
++	case MC_CMD_MEDIA_KX4:
++		return PORT_OTHER;
++
++	case MC_CMD_MEDIA_XFP:
++	case MC_CMD_MEDIA_SFP_PLUS:
++		return PORT_FIBRE;
++
++	case MC_CMD_MEDIA_BASE_T:
++		return PORT_TP;
++
++	default:
++		return PORT_OTHER;
++	}
++}
++
++static int efx_mcdi_phy_probe(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg;
++	int rc;
++
++	/* TODO: Move phy_data initialisation to
++	 * phy_op->probe/remove, rather than init/fini */
++	phy_cfg = kzalloc(sizeof(*phy_cfg), GFP_KERNEL);
++	if (phy_cfg == NULL) {
++		rc = -ENOMEM;
++		goto fail_alloc;
++	}
++	rc = efx_mcdi_get_phy_cfg(efx, phy_cfg);
++	if (rc != 0)
++		goto fail;
++
++	efx->phy_type = phy_cfg->type;
++
++	efx->mdio_bus = phy_cfg->channel;
++	efx->mdio.prtad = phy_cfg->port;
++	efx->mdio.mmds = phy_cfg->mmd_mask & ~(1 << MC_CMD_MMD_CLAUSE22);
++	efx->mdio.mode_support = 0;
++	if (phy_cfg->mmd_mask & (1 << MC_CMD_MMD_CLAUSE22))
++		efx->mdio.mode_support |= MDIO_SUPPORTS_C22;
++	if (phy_cfg->mmd_mask & ~(1 << MC_CMD_MMD_CLAUSE22))
++		efx->mdio.mode_support |= MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
++
++	/* Assert that we can map efx -> mcdi loopback modes */
++	BUILD_BUG_ON(LOOPBACK_NONE != MC_CMD_LOOPBACK_NONE);
++	BUILD_BUG_ON(LOOPBACK_DATA != MC_CMD_LOOPBACK_DATA);
++	BUILD_BUG_ON(LOOPBACK_GMAC != MC_CMD_LOOPBACK_GMAC);
++	BUILD_BUG_ON(LOOPBACK_XGMII != MC_CMD_LOOPBACK_XGMII);
++	BUILD_BUG_ON(LOOPBACK_XGXS != MC_CMD_LOOPBACK_XGXS);
++	BUILD_BUG_ON(LOOPBACK_XAUI != MC_CMD_LOOPBACK_XAUI);
++	BUILD_BUG_ON(LOOPBACK_GMII != MC_CMD_LOOPBACK_GMII);
++	BUILD_BUG_ON(LOOPBACK_SGMII != MC_CMD_LOOPBACK_SGMII);
++	BUILD_BUG_ON(LOOPBACK_XGBR != MC_CMD_LOOPBACK_XGBR);
++	BUILD_BUG_ON(LOOPBACK_XFI != MC_CMD_LOOPBACK_XFI);
++	BUILD_BUG_ON(LOOPBACK_XAUI_FAR != MC_CMD_LOOPBACK_XAUI_FAR);
++	BUILD_BUG_ON(LOOPBACK_GMII_FAR != MC_CMD_LOOPBACK_GMII_FAR);
++	BUILD_BUG_ON(LOOPBACK_SGMII_FAR != MC_CMD_LOOPBACK_SGMII_FAR);
++	BUILD_BUG_ON(LOOPBACK_XFI_FAR != MC_CMD_LOOPBACK_XFI_FAR);
++	BUILD_BUG_ON(LOOPBACK_GPHY != MC_CMD_LOOPBACK_GPHY);
++	BUILD_BUG_ON(LOOPBACK_PHYXS != MC_CMD_LOOPBACK_PHYXS);
++	BUILD_BUG_ON(LOOPBACK_PCS != MC_CMD_LOOPBACK_PCS);
++	BUILD_BUG_ON(LOOPBACK_PMAPMD != MC_CMD_LOOPBACK_PMAPMD);
++	BUILD_BUG_ON(LOOPBACK_XPORT != MC_CMD_LOOPBACK_XPORT);
++	BUILD_BUG_ON(LOOPBACK_XGMII_WS != MC_CMD_LOOPBACK_XGMII_WS);
++	BUILD_BUG_ON(LOOPBACK_XAUI_WS != MC_CMD_LOOPBACK_XAUI_WS);
++	BUILD_BUG_ON(LOOPBACK_XAUI_WS_FAR != MC_CMD_LOOPBACK_XAUI_WS_FAR);
++	BUILD_BUG_ON(LOOPBACK_XAUI_WS_NEAR != MC_CMD_LOOPBACK_XAUI_WS_NEAR);
++	BUILD_BUG_ON(LOOPBACK_GMII_WS != MC_CMD_LOOPBACK_GMII_WS);
++	BUILD_BUG_ON(LOOPBACK_XFI_WS != MC_CMD_LOOPBACK_XFI_WS);
++	BUILD_BUG_ON(LOOPBACK_XFI_WS_FAR != MC_CMD_LOOPBACK_XFI_WS_FAR);
++	BUILD_BUG_ON(LOOPBACK_PHYXS_WS != MC_CMD_LOOPBACK_PHYXS_WS);
++
++	rc = efx_mcdi_loopback_modes(efx, &efx->loopback_modes);
++	if (rc != 0)
++		goto fail;
++	/* The MC indicates that LOOPBACK_NONE is a valid loopback mode,
++	 * but by convention we don't */
++	efx->loopback_modes &= ~(1 << LOOPBACK_NONE);
++
++	kfree(phy_cfg);
++
++	return 0;
++
++fail:
++	kfree(phy_cfg);
++fail_alloc:
++	return rc;
++}
++
++static int efx_mcdi_phy_init(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_cfg *phy_data;
++	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	u32 caps;
++	int rc;
++
++	phy_data = kzalloc(sizeof(*phy_data), GFP_KERNEL);
++	if (phy_data == NULL)
++		return -ENOMEM;
++
++	rc = efx_mcdi_get_phy_cfg(efx, phy_data);
++	if (rc != 0)
++		goto fail;
++
++	efx->phy_data = phy_data;
++
++	BUILD_BUG_ON(MC_CMD_GET_LINK_IN_LEN != 0);
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_LINK, NULL, 0,
++			  outbuf, sizeof(outbuf), NULL);
++	if (rc)
++		goto fail;
++
++	caps = MCDI_DWORD(outbuf, GET_LINK_OUT_CAP);
++	if (caps & (1 << MC_CMD_PHY_CAP_AN_LBN))
++		efx->link_advertising =
++			mcdi_to_ethtool_cap(phy_data->media, caps);
++	else
++		phy_data->forced_cap = caps;
++
++	return 0;
++
++fail:
++	kfree(phy_data);
++	return rc;
++}
++
++int efx_mcdi_phy_reconfigure(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg = efx->phy_data;
++	u32 caps = (efx->link_advertising ?
++		    ethtool_to_mcdi_cap(efx->link_advertising) :
++		    phy_cfg->forced_cap);
++
++	return efx_mcdi_set_link(efx, caps, efx_get_mcdi_phy_flags(efx),
++				 efx->loopback_mode, 0);
++}
++
++void efx_mcdi_phy_decode_link(struct efx_nic *efx,
++			      struct efx_link_state *link_state,
++			      u32 speed, u32 flags, u32 fcntl)
++{
++	switch (fcntl) {
++	case MC_CMD_FCNTL_AUTO:
++		WARN_ON(1);	/* This is not a link mode */
++		link_state->fc = EFX_FC_AUTO | EFX_FC_TX | EFX_FC_RX;
++		break;
++	case MC_CMD_FCNTL_BIDIR:
++		link_state->fc = EFX_FC_TX | EFX_FC_RX;
++		break;
++	case MC_CMD_FCNTL_RESPOND:
++		link_state->fc = EFX_FC_RX;
++		break;
++	default:
++		WARN_ON(1);
++	case MC_CMD_FCNTL_OFF:
++		link_state->fc = 0;
++		break;
++	}
++
++	link_state->up = !!(flags & (1 << MC_CMD_GET_LINK_LINK_UP_LBN));
++	link_state->fd = !!(flags & (1 << MC_CMD_GET_LINK_FULL_DUPLEX_LBN));
++	link_state->speed = speed;
++}
++
++/* Verify that the forced flow control settings (!EFX_FC_AUTO) are
++ * supported by the link partner. Warn the user if this isn't the case
++ */
++void efx_mcdi_phy_check_fcntl(struct efx_nic *efx, u32 lpa)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg = efx->phy_data;
++	u32 rmtadv;
++
++	/* The link partner capabilities are only relevent if the
++	 * link supports flow control autonegotiation */
++	if (~phy_cfg->supported_cap & (1 << MC_CMD_PHY_CAP_ASYM_LBN))
++		return;
++
++	/* If flow control autoneg is supported and enabled, then fine */
++	if (efx->wanted_fc & EFX_FC_AUTO)
++		return;
++
++	rmtadv = 0;
++	if (lpa & (1 << MC_CMD_PHY_CAP_PAUSE_LBN))
++		rmtadv |= ADVERTISED_Pause;
++	if (lpa & (1 << MC_CMD_PHY_CAP_ASYM_LBN))
++		rmtadv |=  ADVERTISED_Asym_Pause;
++
++	if ((efx->wanted_fc & EFX_FC_TX) && rmtadv == ADVERTISED_Asym_Pause)
++		EFX_ERR(efx, "warning: link partner doesn't support "
++			"pause frames");
++}
++
++static bool efx_mcdi_phy_poll(struct efx_nic *efx)
++{
++	struct efx_link_state old_state = efx->link_state;
++	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	int rc;
++
++	WARN_ON(!mutex_is_locked(&efx->mac_lock));
++
++	BUILD_BUG_ON(MC_CMD_GET_LINK_IN_LEN != 0);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_LINK, NULL, 0,
++			  outbuf, sizeof(outbuf), NULL);
++	if (rc) {
++		EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++		efx->link_state.up = false;
++	} else {
++		efx_mcdi_phy_decode_link(
++			efx, &efx->link_state,
++			MCDI_DWORD(outbuf, GET_LINK_OUT_LINK_SPEED),
++			MCDI_DWORD(outbuf, GET_LINK_OUT_FLAGS),
++			MCDI_DWORD(outbuf, GET_LINK_OUT_FCNTL));
++	}
++
++	return !efx_link_state_equal(&efx->link_state, &old_state);
++}
++
++static void efx_mcdi_phy_fini(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_data *phy_data = efx->phy_data;
++
++	efx->phy_data = NULL;
++	kfree(phy_data);
++}
++
++static void efx_mcdi_phy_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg = efx->phy_data;
++	u8 outbuf[MC_CMD_GET_LINK_OUT_LEN];
++	int rc;
++
++	ecmd->supported =
++		mcdi_to_ethtool_cap(phy_cfg->media, phy_cfg->supported_cap);
++	ecmd->advertising = efx->link_advertising;
++	ecmd->speed = efx->link_state.speed;
++	ecmd->duplex = efx->link_state.fd;
++	ecmd->port = mcdi_to_ethtool_media(phy_cfg->media);
++	ecmd->phy_address = phy_cfg->port;
++	ecmd->transceiver = XCVR_INTERNAL;
++	ecmd->autoneg = !!(efx->link_advertising & ADVERTISED_Autoneg);
++	ecmd->mdio_support = (efx->mdio.mode_support &
++			      (MDIO_SUPPORTS_C45 | MDIO_SUPPORTS_C22));
++
++	BUILD_BUG_ON(MC_CMD_GET_LINK_IN_LEN != 0);
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_LINK, NULL, 0,
++			  outbuf, sizeof(outbuf), NULL);
++	if (rc) {
++		EFX_ERR(efx, "%s: failed rc=%d\n", __func__, rc);
++		return;
++	}
++	ecmd->lp_advertising =
++		mcdi_to_ethtool_cap(phy_cfg->media,
++				    MCDI_DWORD(outbuf, GET_LINK_OUT_LP_CAP));
++}
++
++static int efx_mcdi_phy_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
++{
++	struct efx_mcdi_phy_cfg *phy_cfg = efx->phy_data;
++	u32 caps;
++	int rc;
++
++	if (ecmd->autoneg) {
++		caps = (ethtool_to_mcdi_cap(ecmd->advertising) |
++			 1 << MC_CMD_PHY_CAP_AN_LBN);
++	} else if (ecmd->duplex) {
++		switch (ecmd->speed) {
++		case 10:    caps = 1 << MC_CMD_PHY_CAP_10FDX_LBN;    break;
++		case 100:   caps = 1 << MC_CMD_PHY_CAP_100FDX_LBN;   break;
++		case 1000:  caps = 1 << MC_CMD_PHY_CAP_1000FDX_LBN;  break;
++		case 10000: caps = 1 << MC_CMD_PHY_CAP_10000FDX_LBN; break;
++		default:    return -EINVAL;
++		}
++	} else {
++		switch (ecmd->speed) {
++		case 10:    caps = 1 << MC_CMD_PHY_CAP_10HDX_LBN;    break;
++		case 100:   caps = 1 << MC_CMD_PHY_CAP_100HDX_LBN;   break;
++		case 1000:  caps = 1 << MC_CMD_PHY_CAP_1000HDX_LBN;  break;
++		default:    return -EINVAL;
++		}
++	}
++
++	rc = efx_mcdi_set_link(efx, caps, efx_get_mcdi_phy_flags(efx),
++			       efx->loopback_mode, 0);
++	if (rc)
++		return rc;
++
++	if (ecmd->autoneg) {
++		efx_link_set_advertising(
++			efx, ecmd->advertising | ADVERTISED_Autoneg);
++		phy_cfg->forced_cap = 0;
++	} else {
++		efx_link_set_advertising(efx, 0);
++		phy_cfg->forced_cap = caps;
++	}
++	return 0;
++}
++
++struct efx_phy_operations efx_mcdi_phy_ops = {
++	.probe		= efx_mcdi_phy_probe,
++	.init 	 	= efx_mcdi_phy_init,
++	.reconfigure	= efx_mcdi_phy_reconfigure,
++	.poll		= efx_mcdi_phy_poll,
++	.fini		= efx_mcdi_phy_fini,
++	.get_settings	= efx_mcdi_phy_get_settings,
++	.set_settings	= efx_mcdi_phy_set_settings,
++	.run_tests	= NULL,
++	.test_name	= NULL,
++};
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+new file mode 100644
+index 0000000..de07a4f
+--- /dev/null
++++ b/drivers/net/sfc/siena.c
+@@ -0,0 +1,604 @@
++/****************************************************************************
++ * Driver for Solarflare Solarstorm network controllers and boards
++ * Copyright 2005-2006 Fen Systems Ltd.
++ * Copyright 2006-2009 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#include <linux/bitops.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/module.h>
++#include "net_driver.h"
++#include "bitfield.h"
++#include "efx.h"
++#include "nic.h"
++#include "mac.h"
++#include "spi.h"
++#include "regs.h"
++#include "io.h"
++#include "phy.h"
++#include "workarounds.h"
++#include "mcdi.h"
++#include "mcdi_pcol.h"
++
++/* Hardware control for SFC9000 family including SFL9021 (aka Siena). */
++
++static void siena_init_wol(struct efx_nic *efx);
++
++
++static void siena_push_irq_moderation(struct efx_channel *channel)
++{
++	efx_dword_t timer_cmd;
++
++	if (channel->irq_moderation)
++		EFX_POPULATE_DWORD_2(timer_cmd,
++				     FRF_CZ_TC_TIMER_MODE,
++				     FFE_CZ_TIMER_MODE_INT_HLDOFF,
++				     FRF_CZ_TC_TIMER_VAL,
++				     channel->irq_moderation - 1);
++	else
++		EFX_POPULATE_DWORD_2(timer_cmd,
++				     FRF_CZ_TC_TIMER_MODE,
++				     FFE_CZ_TIMER_MODE_DIS,
++				     FRF_CZ_TC_TIMER_VAL, 0);
++	efx_writed_page_locked(channel->efx, &timer_cmd, FR_BZ_TIMER_COMMAND_P0,
++			       channel->channel);
++}
++
++static void siena_push_multicast_hash(struct efx_nic *efx)
++{
++	WARN_ON(!mutex_is_locked(&efx->mac_lock));
++
++	efx_mcdi_rpc(efx, MC_CMD_SET_MCAST_HASH,
++		     efx->multicast_hash.byte, sizeof(efx->multicast_hash),
++		     NULL, 0, NULL);
++}
++
++static int siena_mdio_write(struct net_device *net_dev,
++			    int prtad, int devad, u16 addr, u16 value)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	uint32_t status;
++	int rc;
++
++	rc = efx_mcdi_mdio_write(efx, efx->mdio_bus, prtad, devad,
++				 addr, value, &status);
++	if (rc)
++		return rc;
++	if (status != MC_CMD_MDIO_STATUS_GOOD)
++		return -EIO;
++
++	return 0;
++}
++
++static int siena_mdio_read(struct net_device *net_dev,
++			   int prtad, int devad, u16 addr)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	uint16_t value;
++	uint32_t status;
++	int rc;
++
++	rc = efx_mcdi_mdio_read(efx, efx->mdio_bus, prtad, devad,
++				addr, &value, &status);
++	if (rc)
++		return rc;
++	if (status != MC_CMD_MDIO_STATUS_GOOD)
++		return -EIO;
++
++	return (int)value;
++}
++
++/* This call is responsible for hooking in the MAC and PHY operations */
++static int siena_probe_port(struct efx_nic *efx)
++{
++	int rc;
++
++	/* Hook in PHY operations table */
++	efx->phy_op = &efx_mcdi_phy_ops;
++
++	/* Set up MDIO structure for PHY */
++	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
++	efx->mdio.mdio_read = siena_mdio_read;
++	efx->mdio.mdio_write = siena_mdio_write;
++
++	/* Fill out MDIO structure and loopback modes */
++	rc = efx->phy_op->probe(efx);
++	if (rc != 0)
++		return rc;
++
++	/* Initial assumption */
++	efx->link_state.speed = 10000;
++	efx->link_state.fd = true;
++	efx->wanted_fc = EFX_FC_RX | EFX_FC_TX;
++
++	/* Allocate buffer for stats */
++	rc = efx_nic_alloc_buffer(efx, &efx->stats_buffer,
++				  MC_CMD_MAC_NSTATS * sizeof(u64));
++	if (rc)
++		return rc;
++	EFX_LOG(efx, "stats buffer at %llx (virt %p phys %llx)\n",
++		(u64)efx->stats_buffer.dma_addr,
++		efx->stats_buffer.addr,
++		(u64)virt_to_phys(efx->stats_buffer.addr));
++
++	efx_mcdi_mac_stats(efx, efx->stats_buffer.dma_addr, 0, 0, 1);
++
++	return 0;
++}
++
++void siena_remove_port(struct efx_nic *efx)
++{
++	efx_nic_free_buffer(efx, &efx->stats_buffer);
++}
++
++static const struct efx_nic_register_test siena_register_tests[] = {
++	{ FR_AZ_ADR_REGION,
++	  EFX_OWORD32(0x0001FFFF, 0x0001FFFF, 0x0001FFFF, 0x0001FFFF) },
++	{ FR_CZ_USR_EV_CFG,
++	  EFX_OWORD32(0x000103FF, 0x00000000, 0x00000000, 0x00000000) },
++	{ FR_AZ_RX_CFG,
++	  EFX_OWORD32(0xFFFFFFFE, 0xFFFFFFFF, 0x0003FFFF, 0x00000000) },
++	{ FR_AZ_TX_CFG,
++	  EFX_OWORD32(0x7FFF0037, 0xFFFF8000, 0xFFFFFFFF, 0x03FFFFFF) },
++	{ FR_AZ_TX_RESERVED,
++	  EFX_OWORD32(0xFFFEFE80, 0x1FFFFFFF, 0x020000FE, 0x007FFFFF) },
++	{ FR_AZ_SRM_TX_DC_CFG,
++	  EFX_OWORD32(0x001FFFFF, 0x00000000, 0x00000000, 0x00000000) },
++	{ FR_AZ_RX_DC_CFG,
++	  EFX_OWORD32(0x00000003, 0x00000000, 0x00000000, 0x00000000) },
++	{ FR_AZ_RX_DC_PF_WM,
++	  EFX_OWORD32(0x000003FF, 0x00000000, 0x00000000, 0x00000000) },
++	{ FR_BZ_DP_CTRL,
++	  EFX_OWORD32(0x00000FFF, 0x00000000, 0x00000000, 0x00000000) },
++	{ FR_BZ_RX_RSS_TKEY,
++	  EFX_OWORD32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF) },
++	{ FR_CZ_RX_RSS_IPV6_REG1,
++	  EFX_OWORD32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF) },
++	{ FR_CZ_RX_RSS_IPV6_REG2,
++	  EFX_OWORD32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF) },
++	{ FR_CZ_RX_RSS_IPV6_REG3,
++	  EFX_OWORD32(0xFFFFFFFF, 0xFFFFFFFF, 0x00000007, 0x00000000) },
++};
++
++static int siena_test_registers(struct efx_nic *efx)
++{
++	return efx_nic_test_registers(efx, siena_register_tests,
++				      ARRAY_SIZE(siena_register_tests));
++}
++
++/**************************************************************************
++ *
++ * Device reset
++ *
++ **************************************************************************
++ */
++
++static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
++{
++
++	if (method == RESET_TYPE_WORLD)
++		return efx_mcdi_reset_mc(efx);
++	else
++		return efx_mcdi_reset_port(efx);
++}
++
++static int siena_probe_nvconfig(struct efx_nic *efx)
++{
++	int rc;
++
++	rc = efx_mcdi_get_board_cfg(efx, efx->mac_address, NULL);
++	if (rc)
++		return rc;
++
++	return 0;
++}
++
++static int siena_probe_nic(struct efx_nic *efx)
++{
++	struct siena_nic_data *nic_data;
++	bool already_attached = 0;
++	int rc;
++
++	/* Allocate storage for hardware specific data */
++	nic_data = kzalloc(sizeof(struct siena_nic_data), GFP_KERNEL);
++	if (!nic_data)
++		return -ENOMEM;
++	efx->nic_data = nic_data;
++
++	if (efx_nic_fpga_ver(efx) != 0) {
++		EFX_ERR(efx, "Siena FPGA not supported\n");
++		rc = -ENODEV;
++		goto fail1;
++	}
++
++	efx_mcdi_init(efx);
++
++	/* Recover from a failed assertion before probing */
++	rc = efx_mcdi_handle_assertion(efx);
++	if (rc)
++		goto fail1;
++
++	rc = efx_mcdi_fwver(efx, &nic_data->fw_version, &nic_data->fw_build);
++	if (rc) {
++		EFX_ERR(efx, "Failed to read MCPU firmware version - "
++			"rc %d\n", rc);
++		goto fail1; /* MCPU absent? */
++	}
++
++	/* Let the BMC know that the driver is now in charge of link and
++	 * filter settings. We must do this before we reset the NIC */
++	rc = efx_mcdi_drv_attach(efx, true, &already_attached);
++	if (rc) {
++		EFX_ERR(efx, "Unable to register driver with MCPU\n");
++		goto fail2;
++	}
++	if (already_attached)
++		/* Not a fatal error */
++		EFX_ERR(efx, "Host already registered with MCPU\n");
++
++	/* Now we can reset the NIC */
++	rc = siena_reset_hw(efx, RESET_TYPE_ALL);
++	if (rc) {
++		EFX_ERR(efx, "failed to reset NIC\n");
++		goto fail3;
++	}
++
++	siena_init_wol(efx);
++
++	/* Allocate memory for INT_KER */
++	rc = efx_nic_alloc_buffer(efx, &efx->irq_status, sizeof(efx_oword_t));
++	if (rc)
++		goto fail4;
++	BUG_ON(efx->irq_status.dma_addr & 0x0f);
++
++	EFX_LOG(efx, "INT_KER at %llx (virt %p phys %llx)\n",
++		(unsigned long long)efx->irq_status.dma_addr,
++		efx->irq_status.addr,
++		(unsigned long long)virt_to_phys(efx->irq_status.addr));
++
++	/* Read in the non-volatile configuration */
++	rc = siena_probe_nvconfig(efx);
++	if (rc == -EINVAL) {
++		EFX_ERR(efx, "NVRAM is invalid therefore using defaults\n");
++		efx->phy_type = PHY_TYPE_NONE;
++		efx->mdio.prtad = MDIO_PRTAD_NONE;
++	} else if (rc) {
++		goto fail5;
++	}
++
++	return 0;
++
++fail5:
++	efx_nic_free_buffer(efx, &efx->irq_status);
++fail4:
++fail3:
++	efx_mcdi_drv_attach(efx, false, NULL);
++fail2:
++fail1:
++	kfree(efx->nic_data);
++	return rc;
++}
++
++/* This call performs hardware-specific global initialisation, such as
++ * defining the descriptor cache sizes and number of RSS channels.
++ * It does not set up any buffers, descriptor rings or event queues.
++ */
++static int siena_init_nic(struct efx_nic *efx)
++{
++	efx_oword_t temp;
++	int rc;
++
++	/* Recover from a failed assertion post-reset */
++	rc = efx_mcdi_handle_assertion(efx);
++	if (rc)
++		return rc;
++
++	/* Squash TX of packets of 16 bytes or less */
++	efx_reado(efx, &temp, FR_AZ_TX_RESERVED);
++	EFX_SET_OWORD_FIELD(temp, FRF_BZ_TX_FLUSH_MIN_LEN_EN, 1);
++	efx_writeo(efx, &temp, FR_AZ_TX_RESERVED);
++
++	/* Do not enable TX_NO_EOP_DISC_EN, since it limits packets to 16
++	 * descriptors (which is bad).
++	 */
++	efx_reado(efx, &temp, FR_AZ_TX_CFG);
++	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_NO_EOP_DISC_EN, 0);
++	EFX_SET_OWORD_FIELD(temp, FRF_CZ_TX_FILTER_EN_BIT, 1);
++	efx_writeo(efx, &temp, FR_AZ_TX_CFG);
++
++	efx_reado(efx, &temp, FR_AZ_RX_CFG);
++	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_DESC_PUSH_EN, 0);
++	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_INGR_EN, 1);
++	efx_writeo(efx, &temp, FR_AZ_RX_CFG);
++
++	if (efx_nic_rx_xoff_thresh >= 0 || efx_nic_rx_xon_thresh >= 0)
++		/* No MCDI operation has been defined to set thresholds */
++		EFX_ERR(efx, "ignoring RX flow control thresholds\n");
++
++	/* Enable event logging */
++	rc = efx_mcdi_log_ctrl(efx, true, false, 0);
++	if (rc)
++		return rc;
++
++	/* Set destination of both TX and RX Flush events */
++	EFX_POPULATE_OWORD_1(temp, FRF_BZ_FLS_EVQ_ID, 0);
++	efx_writeo(efx, &temp, FR_BZ_DP_CTRL);
++
++	EFX_POPULATE_OWORD_1(temp, FRF_CZ_USREV_DIS, 1);
++	efx_writeo(efx, &temp, FR_CZ_USR_EV_CFG);
++
++	efx_nic_init_common(efx);
++	return 0;
++}
++
++static void siena_remove_nic(struct efx_nic *efx)
++{
++	efx_nic_free_buffer(efx, &efx->irq_status);
++
++	siena_reset_hw(efx, RESET_TYPE_ALL);
++
++	/* Relinquish the device back to the BMC */
++	if (efx_nic_has_mc(efx))
++		efx_mcdi_drv_attach(efx, false, NULL);
++
++	/* Tear down the private nic state */
++	kfree(efx->nic_data);
++	efx->nic_data = NULL;
++}
++
++#define STATS_GENERATION_INVALID ((u64)(-1))
++
++static int siena_try_update_nic_stats(struct efx_nic *efx)
++{
++	u64 *dma_stats;
++	struct efx_mac_stats *mac_stats;
++	u64 generation_start;
++	u64 generation_end;
++
++	mac_stats = &efx->mac_stats;
++	dma_stats = (u64 *)efx->stats_buffer.addr;
++
++	generation_end = dma_stats[MC_CMD_MAC_GENERATION_END];
++	if (generation_end == STATS_GENERATION_INVALID)
++		return 0;
++	rmb();
++
++#define MAC_STAT(M, D) \
++	mac_stats->M = dma_stats[MC_CMD_MAC_ ## D]
++
++	MAC_STAT(tx_bytes, TX_BYTES);
++	MAC_STAT(tx_bad_bytes, TX_BAD_BYTES);
++	mac_stats->tx_good_bytes = (mac_stats->tx_bytes -
++				    mac_stats->tx_bad_bytes);
++	MAC_STAT(tx_packets, TX_PKTS);
++	MAC_STAT(tx_bad, TX_BAD_FCS_PKTS);
++	MAC_STAT(tx_pause, TX_PAUSE_PKTS);
++	MAC_STAT(tx_control, TX_CONTROL_PKTS);
++	MAC_STAT(tx_unicast, TX_UNICAST_PKTS);
++	MAC_STAT(tx_multicast, TX_MULTICAST_PKTS);
++	MAC_STAT(tx_broadcast, TX_BROADCAST_PKTS);
++	MAC_STAT(tx_lt64, TX_LT64_PKTS);
++	MAC_STAT(tx_64, TX_64_PKTS);
++	MAC_STAT(tx_65_to_127, TX_65_TO_127_PKTS);
++	MAC_STAT(tx_128_to_255, TX_128_TO_255_PKTS);
++	MAC_STAT(tx_256_to_511, TX_256_TO_511_PKTS);
++	MAC_STAT(tx_512_to_1023, TX_512_TO_1023_PKTS);
++	MAC_STAT(tx_1024_to_15xx, TX_1024_TO_15XX_PKTS);
++	MAC_STAT(tx_15xx_to_jumbo, TX_15XX_TO_JUMBO_PKTS);
++	MAC_STAT(tx_gtjumbo, TX_GTJUMBO_PKTS);
++	mac_stats->tx_collision = 0;
++	MAC_STAT(tx_single_collision, TX_SINGLE_COLLISION_PKTS);
++	MAC_STAT(tx_multiple_collision, TX_MULTIPLE_COLLISION_PKTS);
++	MAC_STAT(tx_excessive_collision, TX_EXCESSIVE_COLLISION_PKTS);
++	MAC_STAT(tx_deferred, TX_DEFERRED_PKTS);
++	MAC_STAT(tx_late_collision, TX_LATE_COLLISION_PKTS);
++	mac_stats->tx_collision = (mac_stats->tx_single_collision +
++				   mac_stats->tx_multiple_collision +
++				   mac_stats->tx_excessive_collision +
++				   mac_stats->tx_late_collision);
++	MAC_STAT(tx_excessive_deferred, TX_EXCESSIVE_DEFERRED_PKTS);
++	MAC_STAT(tx_non_tcpudp, TX_NON_TCPUDP_PKTS);
++	MAC_STAT(tx_mac_src_error, TX_MAC_SRC_ERR_PKTS);
++	MAC_STAT(tx_ip_src_error, TX_IP_SRC_ERR_PKTS);
++	MAC_STAT(rx_bytes, RX_BYTES);
++	MAC_STAT(rx_bad_bytes, RX_BAD_BYTES);
++	mac_stats->rx_good_bytes = (mac_stats->rx_bytes -
++				    mac_stats->rx_bad_bytes);
++	MAC_STAT(rx_packets, RX_PKTS);
++	MAC_STAT(rx_good, RX_GOOD_PKTS);
++	mac_stats->rx_bad = mac_stats->rx_packets - mac_stats->rx_good;
++	MAC_STAT(rx_pause, RX_PAUSE_PKTS);
++	MAC_STAT(rx_control, RX_CONTROL_PKTS);
++	MAC_STAT(rx_unicast, RX_UNICAST_PKTS);
++	MAC_STAT(rx_multicast, RX_MULTICAST_PKTS);
++	MAC_STAT(rx_broadcast, RX_BROADCAST_PKTS);
++	MAC_STAT(rx_lt64, RX_UNDERSIZE_PKTS);
++	MAC_STAT(rx_64, RX_64_PKTS);
++	MAC_STAT(rx_65_to_127, RX_65_TO_127_PKTS);
++	MAC_STAT(rx_128_to_255, RX_128_TO_255_PKTS);
++	MAC_STAT(rx_256_to_511, RX_256_TO_511_PKTS);
++	MAC_STAT(rx_512_to_1023, RX_512_TO_1023_PKTS);
++	MAC_STAT(rx_1024_to_15xx, RX_1024_TO_15XX_PKTS);
++	MAC_STAT(rx_15xx_to_jumbo, RX_15XX_TO_JUMBO_PKTS);
++	MAC_STAT(rx_gtjumbo, RX_GTJUMBO_PKTS);
++	mac_stats->rx_bad_lt64 = 0;
++	mac_stats->rx_bad_64_to_15xx = 0;
++	mac_stats->rx_bad_15xx_to_jumbo = 0;
++	MAC_STAT(rx_bad_gtjumbo, RX_JABBER_PKTS);
++	MAC_STAT(rx_overflow, RX_OVERFLOW_PKTS);
++	mac_stats->rx_missed = 0;
++	MAC_STAT(rx_false_carrier, RX_FALSE_CARRIER_PKTS);
++	MAC_STAT(rx_symbol_error, RX_SYMBOL_ERROR_PKTS);
++	MAC_STAT(rx_align_error, RX_ALIGN_ERROR_PKTS);
++	MAC_STAT(rx_length_error, RX_LENGTH_ERROR_PKTS);
++	MAC_STAT(rx_internal_error, RX_INTERNAL_ERROR_PKTS);
++	mac_stats->rx_good_lt64 = 0;
++
++	efx->n_rx_nodesc_drop_cnt = dma_stats[MC_CMD_MAC_RX_NODESC_DROPS];
++
++#undef MAC_STAT
++
++	rmb();
++	generation_start = dma_stats[MC_CMD_MAC_GENERATION_START];
++	if (generation_end != generation_start)
++		return -EAGAIN;
++
++	return 0;
++}
++
++static void siena_update_nic_stats(struct efx_nic *efx)
++{
++	while (siena_try_update_nic_stats(efx) == -EAGAIN)
++		cpu_relax();
++}
++
++static void siena_start_nic_stats(struct efx_nic *efx)
++{
++	u64 *dma_stats = (u64 *)efx->stats_buffer.addr;
++
++	dma_stats[MC_CMD_MAC_GENERATION_END] = STATS_GENERATION_INVALID;
++
++	efx_mcdi_mac_stats(efx, efx->stats_buffer.dma_addr,
++			   MC_CMD_MAC_NSTATS * sizeof(u64), 1, 0);
++}
++
++static void siena_stop_nic_stats(struct efx_nic *efx)
++{
++	efx_mcdi_mac_stats(efx, efx->stats_buffer.dma_addr, 0, 0, 0);
++}
++
++void siena_print_fwver(struct efx_nic *efx, char *buf, size_t len)
++{
++	struct siena_nic_data *nic_data = efx->nic_data;
++	snprintf(buf, len, "%u.%u.%u.%u",
++		 (unsigned int)(nic_data->fw_version >> 48),
++		 (unsigned int)(nic_data->fw_version >> 32 & 0xffff),
++		 (unsigned int)(nic_data->fw_version >> 16 & 0xffff),
++		 (unsigned int)(nic_data->fw_version & 0xffff));
++}
++
++/**************************************************************************
++ *
++ * Wake on LAN
++ *
++ **************************************************************************
++ */
++
++static void siena_get_wol(struct efx_nic *efx, struct ethtool_wolinfo *wol)
++{
++	struct siena_nic_data *nic_data = efx->nic_data;
++
++	wol->supported = WAKE_MAGIC;
++	if (nic_data->wol_filter_id != -1)
++		wol->wolopts = WAKE_MAGIC;
++	else
++		wol->wolopts = 0;
++	memset(&wol->sopass, 0, sizeof(wol->sopass));
++}
++
++
++static int siena_set_wol(struct efx_nic *efx, u32 type)
++{
++	struct siena_nic_data *nic_data = efx->nic_data;
++	int rc;
++
++	if (type & ~WAKE_MAGIC)
++		return -EINVAL;
++
++	if (type & WAKE_MAGIC) {
++		if (nic_data->wol_filter_id != -1)
++			efx_mcdi_wol_filter_remove(efx,
++						   nic_data->wol_filter_id);
++		rc = efx_mcdi_wol_filter_set_magic(efx, efx->mac_address,
++						   &nic_data->wol_filter_id);
++		if (rc)
++			goto fail;
++
++		pci_wake_from_d3(efx->pci_dev, true);
++	} else {
++		rc = efx_mcdi_wol_filter_reset(efx);
++		nic_data->wol_filter_id = -1;
++		pci_wake_from_d3(efx->pci_dev, false);
++		if (rc)
++			goto fail;
++	}
++
++	return 0;
++ fail:
++	EFX_ERR(efx, "%s failed: type=%d rc=%d\n", __func__, type, rc);
++	return rc;
++}
++
++
++static void siena_init_wol(struct efx_nic *efx)
++{
++	struct siena_nic_data *nic_data = efx->nic_data;
++	int rc;
++
++	rc = efx_mcdi_wol_filter_get_magic(efx, &nic_data->wol_filter_id);
++
++	if (rc != 0) {
++		/* If it failed, attempt to get into a synchronised
++		 * state with MC by resetting any set WoL filters */
++		efx_mcdi_wol_filter_reset(efx);
++		nic_data->wol_filter_id = -1;
++	} else if (nic_data->wol_filter_id != -1) {
++		pci_wake_from_d3(efx->pci_dev, true);
++	}
++}
++
++
++/**************************************************************************
++ *
++ * Revision-dependent attributes used by efx.c and nic.c
++ *
++ **************************************************************************
++ */
++
++struct efx_nic_type siena_a0_nic_type = {
++	.probe = siena_probe_nic,
++	.remove = siena_remove_nic,
++	.init = siena_init_nic,
++	.fini = efx_port_dummy_op_void,
++	.monitor = NULL,
++	.reset = siena_reset_hw,
++	.probe_port = siena_probe_port,
++	.remove_port = siena_remove_port,
++	.prepare_flush = efx_port_dummy_op_void,
++	.update_stats = siena_update_nic_stats,
++	.start_stats = siena_start_nic_stats,
++	.stop_stats = siena_stop_nic_stats,
++	.set_id_led = efx_mcdi_set_id_led,
++	.push_irq_moderation = siena_push_irq_moderation,
++	.push_multicast_hash = siena_push_multicast_hash,
++	.reconfigure_port = efx_mcdi_phy_reconfigure,
++	.get_wol = siena_get_wol,
++	.set_wol = siena_set_wol,
++	.resume_wol = siena_init_wol,
++	.test_registers = siena_test_registers,
++	.default_mac_ops = &efx_mcdi_mac_operations,
++
++	.revision = EFX_REV_SIENA_A0,
++	.mem_map_size = (FR_CZ_MC_TREG_SMEM +
++			 FR_CZ_MC_TREG_SMEM_STEP * FR_CZ_MC_TREG_SMEM_ROWS),
++	.txd_ptr_tbl_base = FR_BZ_TX_DESC_PTR_TBL,
++	.rxd_ptr_tbl_base = FR_BZ_RX_DESC_PTR_TBL,
++	.buf_tbl_base = FR_BZ_BUF_FULL_TBL,
++	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
++	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
++	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
++	.rx_buffer_padding = 0,
++	.max_interrupt_mode = EFX_INT_MODE_MSIX,
++	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
++				   * interrupt handler only supports 32
++				   * channels */
++	.tx_dc_base = 0x88000,
++	.rx_dc_base = 0x68000,
++	.offload_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM,
++	.reset_world_flags = ETH_RESET_MGMT << ETH_RESET_SHARED_SHIFT,
++};
 -- 
 1.6.5.3
 
