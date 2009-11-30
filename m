@@ -1,30 +1,39 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: Re: [Bugme-new] [Bug 14691] New: Complete NAPI IRQ lockup in b44
-	driver: code fundamentally incompatible with netconsole requirements
-Date: Mon, 30 Nov 2009 20:39:17 +0100
-Message-ID: <20091130193917.GA8267@rhlx01.hs-esslingen.de>
-References: <bug-14691-10286@http.bugzilla.kernel.org/> <20091125131631.46483ce0.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: warning: massive change to conditional coding style in net?
+Date: Mon, 30 Nov 2009 20:39:55 +0100
+Message-ID: <4B141F8B.4040001@gmail.com>
+References: <4B13A025.7000103@gmail.com>	<20091130134414.GB7114@ff.dom.local> <20091130135435.3895a437@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net, Gary Zambrano <zambrano@broadcom.com>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	andi@lisas.de
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:35693 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753058AbZK3TjL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 14:39:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20091125131631.46483ce0.akpm@linux-foundation.org>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:39873 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752722AbZK3TkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 14:40:17 -0500
+In-Reply-To: <20091130135435.3895a437@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Improved patch created by David Miller (thanks!).
->From my POV, this can be considered handled.
-http://lkml.org/lkml/2009/11/30/51
-http://patchwork.kernel.org/patch/63627/
+Alan Cox wrote, On 11/30/2009 02:54 PM:
 
-Andreas Mohr
+>>> Miller (with Perches) changed hundreds (thousands?) of these to
+>>> trailing form.  This results in a number of hilarious examples --
+>>> lines with both leading and trailing, lines with only &&, etc.  A
+>>> small sample for illustration:
+>> Yes, it's even enough to make a grown man laugh....
+> 
+> IMHO for left to right languages dangly bits want to be on the right,
+> because that is where your eyes are when you hit the end of the previous
+> line, so the dangly bit is already in your line of vision and probably
+> even in focus.
+
+Of course this is right. Plus "IMHO" "habit is the second nature", so
+riding the same side of the road helps, even if it's the wrong side. ;-)
+
+Jarek P.
+
