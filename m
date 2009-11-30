@@ -1,131 +1,175 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: ipv4 05/05: add sysctl to accept packets with local source addresses
-Date: Mon, 30 Nov 2009 18:55:36 +0100 (MET)
-Message-ID: <20091130175536.7555.42760.sendpatchset@x2.localnet>
+Subject: net 02/05: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
+Date: Mon, 30 Nov 2009 18:55:32 +0100 (MET)
+Message-ID: <20091130175532.7555.11857.sendpatchset@x2.localnet>
 References: <20091130175529.7555.10132.sendpatchset@x2.localnet>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56508 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56503 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752839AbZK3Rza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:55:30 -0500
+	with ESMTP id S1752150AbZK3Rz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:55:27 -0500
 In-Reply-To: <20091130175529.7555.10132.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 35924708110a98ac8407deaef95194ff9d0375d2
+commit dc4427ae3647195508b4df883050a9f0ef111165
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Nov 30 17:48:03 2009 +0100
+Date:   Mon Nov 30 15:54:05 2009 +0100
 
-    ipv4: add sysctl to accept packets with local source addresses
+    net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
     
-    Change fib_validate_source() to accept packets with a local source address when
-    the "accept_local" sysctl is set for the incoming inet device. Combined with the
-    previous patches, this allows to communicate between multiple local interfaces
-    over the wire.
+    The next patch will add oif classification, rename interface related members
+    and attributes to reflect that they're used for iif classification.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index a0e134d..b319d4f 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -723,6 +723,12 @@ accept_source_route - BOOLEAN
- 	default TRUE (router)
- 		FALSE (host)
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index c7e5b70..e3c91af 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -8,7 +8,8 @@
+ #define FIB_RULE_PERMANENT	0x00000001
+ #define FIB_RULE_INVERT		0x00000002
+ #define FIB_RULE_UNRESOLVED	0x00000004
+-#define FIB_RULE_DEV_DETACHED	0x00000008
++#define FIB_RULE_IIF_DETACHED	0x00000008
++#define FIB_RULE_DEV_DETACHED	FIB_RULE_DEV_DETACHED
  
-+accept_local - BOOLEAN
-+	Accept packets with local source addresses. In combination with
-+	suitable routing, this can be used to direct packets between two
-+	local interfaces over the wire and have them accepted properly.
-+	default FALSE
-+
- rp_filter - INTEGER
- 	0 - No source validation.
- 	1 - Strict mode as defined in RFC3704 Strict Reverse Path
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index eecfa55..699e85c 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -83,6 +83,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
- #define IN_DEV_RPFILTER(in_dev)		IN_DEV_MAXCONF((in_dev), RP_FILTER)
- #define IN_DEV_SOURCE_ROUTE(in_dev)	IN_DEV_ANDCONF((in_dev), \
- 						       ACCEPT_SOURCE_ROUTE)
-+#define IN_DEV_ACCEPT_LOCAL(in_dev)	IN_DEV_ORCONF((in_dev), ACCEPT_LOCAL)
- #define IN_DEV_BOOTP_RELAY(in_dev)	IN_DEV_ANDCONF((in_dev), BOOTP_RELAY)
- 
- #define IN_DEV_LOG_MARTIANS(in_dev)	IN_DEV_ORCONF((in_dev), LOG_MARTIANS)
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 1e4743e..9f047d7 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -490,6 +490,7 @@ enum
- 	NET_IPV4_CONF_PROMOTE_SECONDARIES=20,
- 	NET_IPV4_CONF_ARP_ACCEPT=21,
- 	NET_IPV4_CONF_ARP_NOTIFY=22,
-+	NET_IPV4_CONF_ACCEPT_LOCAL=23,
- 	__NET_IPV4_CONF_MAX
+ /* try to find source address in routing lookups */
+ #define FIB_RULE_FIND_SADDR	0x00010000
+@@ -31,7 +32,8 @@ enum {
+ 	FRA_UNSPEC,
+ 	FRA_DST,	/* destination address */
+ 	FRA_SRC,	/* source address */
+-	FRA_IFNAME,	/* interface name */
++	FRA_IIFNAME,	/* interface name */
++#define FRA_IFNAME	FRA_IIFNAME
+ 	FRA_GOTO,	/* target to jump to (FR_ACT_GOTO) */
+ 	FRA_UNUSED2,
+ 	FRA_PRIORITY,	/* priority/preference */
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 22fb323..62bebcb 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -10,7 +10,7 @@
+ struct fib_rule {
+ 	struct list_head	list;
+ 	atomic_t		refcnt;
+-	int			ifindex;
++	int			iifindex;
+ 	u32			mark;
+ 	u32			mark_mask;
+ 	u32			pref;
+@@ -19,7 +19,7 @@ struct fib_rule {
+ 	u8			action;
+ 	u32			target;
+ 	struct fib_rule *	ctarget;
+-	char			ifname[IFNAMSIZ];
++	char			iifname[IFNAMSIZ];
+ 	struct rcu_head		rcu;
+ 	struct net *		fr_net;
+ };
+@@ -67,7 +67,7 @@ struct fib_rules_ops {
  };
  
-diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
-index b6e7aae..f1d676e 100644
---- a/kernel/sysctl_check.c
-+++ b/kernel/sysctl_check.c
-@@ -220,6 +220,7 @@ static const struct trans_ctl_table trans_net_ipv4_conf_vars_table[] = {
- 	{ NET_IPV4_CONF_PROMOTE_SECONDARIES,	"promote_secondaries" },
- 	{ NET_IPV4_CONF_ARP_ACCEPT,		"arp_accept" },
- 	{ NET_IPV4_CONF_ARP_NOTIFY,		"arp_notify" },
-+	{ NET_IPV4_CONF_ACCEPT_LOCAL,		"accept_local" },
- 	{}
- };
+ #define FRA_GENERIC_POLICY \
+-	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
++	[FRA_IIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
+ 	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
+ 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
+ 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index bd30938..8e8028c 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -135,7 +135,7 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
+ {
+ 	int ret = 0;
  
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index c100709..e312661 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1468,6 +1468,7 @@ static struct devinet_sysctl_table {
- 		DEVINET_SYSCTL_RW_ENTRY(SEND_REDIRECTS, "send_redirects"),
- 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_SOURCE_ROUTE,
- 					"accept_source_route"),
-+		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_LOCAL, "accept_local"),
- 		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP, "proxy_arp"),
- 		DEVINET_SYSCTL_RW_ENTRY(MEDIUM_ID, "medium_id"),
- 		DEVINET_SYSCTL_RW_ENTRY(BOOTP_RELAY, "bootp_relay"),
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 6c1e56a..32ea949 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -241,16 +241,17 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
- 			    .iif = oif };
+-	if (rule->ifindex && (rule->ifindex != fl->iif))
++	if (rule->iifindex && (rule->iifindex != fl->iif))
+ 		goto out;
  
- 	struct fib_result res;
--	int no_addr, rpf;
-+	int no_addr, rpf, accept_local;
- 	int ret;
- 	struct net *net;
+ 	if ((rule->mark ^ fl->mark) & rule->mark_mask)
+@@ -248,14 +248,14 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (tb[FRA_PRIORITY])
+ 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
  
--	no_addr = rpf = 0;
-+	no_addr = rpf = accept_local = 0;
- 	rcu_read_lock();
- 	in_dev = __in_dev_get_rcu(dev);
- 	if (in_dev) {
- 		no_addr = in_dev->ifa_list == NULL;
- 		rpf = IN_DEV_RPFILTER(in_dev);
-+		accept_local = IN_DEV_ACCEPT_LOCAL(in_dev);
+-	if (tb[FRA_IFNAME]) {
++	if (tb[FRA_IIFNAME]) {
+ 		struct net_device *dev;
+ 
+-		rule->ifindex = -1;
+-		nla_strlcpy(rule->ifname, tb[FRA_IFNAME], IFNAMSIZ);
+-		dev = __dev_get_by_name(net, rule->ifname);
++		rule->iifindex = -1;
++		nla_strlcpy(rule->iifname, tb[FRA_IIFNAME], IFNAMSIZ);
++		dev = __dev_get_by_name(net, rule->iifname);
+ 		if (dev)
+-			rule->ifindex = dev->ifindex;
++			rule->iifindex = dev->ifindex;
  	}
- 	rcu_read_unlock();
  
-@@ -260,8 +261,10 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
- 	net = dev_net(dev);
- 	if (fib_lookup(net, &fl, &res))
- 		goto last_resort;
--	if (res.type != RTN_UNICAST)
--		goto e_inval_res;
-+	if (res.type != RTN_UNICAST) {
-+		if (res.type != RTN_LOCAL || !accept_local)
-+			goto e_inval_res;
-+	}
- 	*spec_dst = FIB_RES_PREFSRC(res);
- 	fib_combine_itag(itag, &res);
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	if (tb[FRA_FWMARK]) {
+@@ -388,8 +388,8 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		    (rule->pref != nla_get_u32(tb[FRA_PRIORITY])))
+ 			continue;
+ 
+-		if (tb[FRA_IFNAME] &&
+-		    nla_strcmp(tb[FRA_IFNAME], rule->ifname))
++		if (tb[FRA_IIFNAME] &&
++		    nla_strcmp(tb[FRA_IIFNAME], rule->iifname))
+ 			continue;
+ 
+ 		if (tb[FRA_FWMARK] &&
+@@ -447,7 +447,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 					 struct fib_rule *rule)
+ {
+ 	size_t payload = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
+-			 + nla_total_size(IFNAMSIZ) /* FRA_IFNAME */
++			 + nla_total_size(IFNAMSIZ) /* FRA_IIFNAME */
+ 			 + nla_total_size(4) /* FRA_PRIORITY */
+ 			 + nla_total_size(4) /* FRA_TABLE */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+@@ -481,11 +481,11 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	if (rule->action == FR_ACT_GOTO && rule->ctarget == NULL)
+ 		frh->flags |= FIB_RULE_UNRESOLVED;
+ 
+-	if (rule->ifname[0]) {
+-		NLA_PUT_STRING(skb, FRA_IFNAME, rule->ifname);
++	if (rule->iifname[0]) {
++		NLA_PUT_STRING(skb, FRA_IIFNAME, rule->iifname);
+ 
+-		if (rule->ifindex == -1)
+-			frh->flags |= FIB_RULE_DEV_DETACHED;
++		if (rule->iifindex == -1)
++			frh->flags |= FIB_RULE_IIF_DETACHED;
+ 	}
+ 
+ 	if (rule->pref)
+@@ -600,9 +600,9 @@ static void attach_rules(struct list_head *rules, struct net_device *dev)
+ 	struct fib_rule *rule;
+ 
+ 	list_for_each_entry(rule, rules, list) {
+-		if (rule->ifindex == -1 &&
+-		    strcmp(dev->name, rule->ifname) == 0)
+-			rule->ifindex = dev->ifindex;
++		if (rule->iifindex == -1 &&
++		    strcmp(dev->name, rule->iifname) == 0)
++			rule->iifindex = dev->ifindex;
+ 	}
+ }
+ 
+@@ -611,8 +611,8 @@ static void detach_rules(struct list_head *rules, struct net_device *dev)
+ 	struct fib_rule *rule;
+ 
+ 	list_for_each_entry(rule, rules, list)
+-		if (rule->ifindex == dev->ifindex)
+-			rule->ifindex = -1;
++		if (rule->iifindex == dev->ifindex)
++			rule->iifindex = -1;
+ }
+ 
+ 
