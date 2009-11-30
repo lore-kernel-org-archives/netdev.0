@@ -1,86 +1,191 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [tproxy,regression] tproxy broken in 2.6.32
-Date: Mon, 30 Nov 2009 08:59:37 -0500
-Message-ID: <1259589577.873.30.camel@bigi>
-References: <db81a9a20911260919w1ffded25ref5ae24ee73f8eda@mail.gmail.com>
-	 <1259310417.3809.5.camel@nienna.balabit> <1259337932.3299.3.camel@bigi>
-	 <20091128151515.GA20476@sch.bme.hu> <4B1145F1.3090704@trash.net>
-	 <1259424278.3864.16.camel@bigi> <4B1158CE.90803@trash.net>
-	 <1259429774.3864.41.camel@bigi> <20091128190500.GB12264@sch.bme.hu>
-	 <1259437442.3864.61.camel@bigi>  <20091129203508.GB18259@sch.bme.hu>
-	 <1259583359.873.17.camel@bigi>  <1259585129.3992.13.camel@nienna.balabit>
-Reply-To: hadi@cyberus.ca
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Re: [PATCH] bnx2: avoid flushing statistics when doing a MTU change
+Date: Mon, 30 Nov 2009 12:05:36 -0200
+Message-ID: <4B13D130.8080108@linux.vnet.ibm.com>
+References: <C27F8246C663564A84BB7AB34397724218065B9851@IRVEXCHCCR01.corp.ad.broadcom.com> <4B13C5FE.7060403@linux.vnet.ibm.com> <4B13C987.3090409@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-fcQdbD+C+KCJUt4MsNu6"
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	Andreas Schultz <aschultz@warp10.net>, tproxy@lists.balabit.hu,
-	netdev@vger.kernel.org
-To: KOVACS Krisztian <hidden@balabit.hu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.211.182]:42845 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752929AbZK3N7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 08:59:34 -0500
-Received: by ywh12 with SMTP id 12so3894538ywh.21
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 05:59:41 -0800 (PST)
-In-Reply-To: <1259585129.3992.13.camel@nienna.balabit>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:57437 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbZK3OFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 09:05:39 -0500
+Received: from mailhub3.br.ibm.com (mailhub3.br.ibm.com [9.18.232.110])
+	by e24smtp04.br.ibm.com (8.14.3/8.13.1) with ESMTP id nAUDuxBf005525
+	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 11:56:59 -0200
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nAUE776K1888402
+	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 12:07:07 -0200
+Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nAUE5bRh021999
+	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 12:05:38 -0200
+In-Reply-To: <4B13C987.3090409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet wrote:
+> I see nothing in the driver/patch that will consolidate bp->dev->stats 
+> before your memcpy(). DMA transfert doesnt touch bp->dev->stats.
+You're right, calling bnx2_get_stats() after the DMA should be enough, 
+as the following patch
+---
 
---=-fcQdbD+C+KCJUt4MsNu6
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+[PATCH] bnx2: avoid flushing statistics when doing a MTU change
 
-On Mon, 2009-11-30 at 13:45 +0100, KOVACS Krisztian wrote:
-> Hi,
-> 
+Actually when bnx2 changes the interface's MTU size, it resets
+the chip and consequently flushes the interface statistics.
+This patch saves the statistics in a temporary space in order to
+maintain the statistics correct after the chip reset.
 
-> No, because by narrowing the rule to specific ingress interfaces the
-> lookup done in fib_validate_source() won't match the rule(s) (because
-> the flow used will have iif set to the loopback device), and thus it
-> will look up the main table and select a unicast route.
+Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
+---
+ drivers/net/bnx2.c |   57 ++++++++++++++++++++++++++++++++++++++-------------
+ drivers/net/bnx2.h |    1 +
+ 2 files changed, 43 insertions(+), 15 deletions(-)
 
-ok, nice;->
-
-> I don't think it would be unreasonable to add a sysctl but disable the
-> feature by default. It's up to you, of course.
-
-The problem is it is hard to decide where the proper exception is to be
-made. I can make it only worry about the scenario you are faced with
-something like attached (incomplete, uncompiled, untested) patch. Will
-that do it or can you think of other scenarios where source validation
-is done and this is needed (example forwarding path)? Patrick?
-[I could move the check into fib_validate, but that would punish other
-users with a few extra cycles]. 
-
-cheers,
-jamal
-
---=-fcQdbD+C+KCJUt4MsNu6
-Content-Disposition: attachment; filename="fib-val-sysctl"
-Content-Type: text/x-patch; name="fib-val-sysctl"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 5b1050a..f509f7b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2139,9 +2139,12 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 7fa4048..07c0376 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6221,6 +6221,8 @@ bnx2_open(struct net_device *dev)
+ 	else if (bp->flags & BNX2_FLAG_USING_MSIX)
+ 		printk(KERN_INFO PFX "%s: using MSIX\n", dev->name);
  
- 	if (res.type == RTN_LOCAL) {
- 		int result;
-+		int mark = 0;
-+		if (sysctl_mark_validate_source)
-+			mark = skb->mark;
- 		result = fib_validate_source(saddr, daddr, tos,
- 					     net->loopback_dev->ifindex,
--					     dev, &spec_dst, &itag, skb->mark);
-+					     dev, &spec_dst, &itag, mark);
- 		if (result < 0)
- 			goto martian_source;
- 		if (result)
-
---=-fcQdbD+C+KCJUt4MsNu6--
++	memset(&bp->stats_extra, 0, sizeof(struct net_device_stats));
++
+ 	netif_tx_start_all_queues(dev);
+ 
+ 	return 0;
+@@ -6469,46 +6471,58 @@ bnx2_get_stats(struct net_device *dev)
+ 	net_stats->rx_packets =
+ 		GET_NET_STATS(stats_blk->stat_IfHCInUcastPkts) +
+ 		GET_NET_STATS(stats_blk->stat_IfHCInMulticastPkts) +
+-		GET_NET_STATS(stats_blk->stat_IfHCInBroadcastPkts);
++		GET_NET_STATS(stats_blk->stat_IfHCInBroadcastPkts) + 
++		bp->stats_extra.rx_packets;
+ 
+ 	net_stats->tx_packets =
+ 		GET_NET_STATS(stats_blk->stat_IfHCOutUcastPkts) +
+ 		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts) +
+-		GET_NET_STATS(stats_blk->stat_IfHCOutBroadcastPkts);
++		GET_NET_STATS(stats_blk->stat_IfHCOutBroadcastPkts) +
++		bp->stats_extra.tx_packets;
+ 
+ 	net_stats->rx_bytes =
+-		GET_NET_STATS(stats_blk->stat_IfHCInOctets);
++		GET_NET_STATS(stats_blk->stat_IfHCInOctets) +
++		bp->stats_extra.rx_bytes;
+ 
+ 	net_stats->tx_bytes =
+-		GET_NET_STATS(stats_blk->stat_IfHCOutOctets);
++		GET_NET_STATS(stats_blk->stat_IfHCOutOctets) +
++		bp->stats_extra.tx_bytes;
+ 
+ 	net_stats->multicast =
+-		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts);
++		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts) +
++		bp->stats_extra.multicast;
+ 
+ 	net_stats->collisions =
+-		(unsigned long) stats_blk->stat_EtherStatsCollisions;
++		(unsigned long) stats_blk->stat_EtherStatsCollisions +
++		bp->stats_extra.collisions;
+ 
+ 	net_stats->rx_length_errors =
+ 		(unsigned long) (stats_blk->stat_EtherStatsUndersizePkts +
+-		stats_blk->stat_EtherStatsOverrsizePkts);
++		stats_blk->stat_EtherStatsOverrsizePkts) +
++		bp->stats_extra.rx_length_errors;
+ 
+ 	net_stats->rx_over_errors =
+ 		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
+-		stats_blk->stat_IfInMBUFDiscards);
++		stats_blk->stat_IfInMBUFDiscards) +
++		bp->stats_extra.rx_over_errors;
+ 
+ 	net_stats->rx_frame_errors =
+-		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors;
++		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors +
++		bp->stats_extra.rx_frame_errors;
+ 
+ 	net_stats->rx_crc_errors =
+-		(unsigned long) stats_blk->stat_Dot3StatsFCSErrors;
++		(unsigned long) stats_blk->stat_Dot3StatsFCSErrors +
++		bp->stats_extra.rx_crc_errors;
+ 
+ 	net_stats->rx_errors = net_stats->rx_length_errors +
+ 		net_stats->rx_over_errors + net_stats->rx_frame_errors +
+-		net_stats->rx_crc_errors;
++		net_stats->rx_crc_errors +
++		bp->stats_extra.rx_errors;
+ 
+ 	net_stats->tx_aborted_errors =
+     		(unsigned long) (stats_blk->stat_Dot3StatsExcessiveCollisions +
+-		stats_blk->stat_Dot3StatsLateCollisions);
++		stats_blk->stat_Dot3StatsLateCollisions) +
++		bp->stats_extra.tx_aborted_errors;
+ 
+ 	if ((CHIP_NUM(bp) == CHIP_NUM_5706) ||
+ 	    (CHIP_ID(bp) == CHIP_ID_5708_A0))
+@@ -6516,7 +6530,8 @@ bnx2_get_stats(struct net_device *dev)
+ 	else {
+ 		net_stats->tx_carrier_errors =
+ 			(unsigned long)
+-			stats_blk->stat_Dot3StatsCarrierSenseErrors;
++			stats_blk->stat_Dot3StatsCarrierSenseErrors +
++			bp->stats_extra.tx_carrier_errors;
+ 	}
+ 
+ 	net_stats->tx_errors =
+@@ -6524,11 +6539,13 @@ bnx2_get_stats(struct net_device *dev)
+ 		stats_blk->stat_emac_tx_stat_dot3statsinternalmactransmiterrors
+ 		+
+ 		net_stats->tx_aborted_errors +
+-		net_stats->tx_carrier_errors;
++		net_stats->tx_carrier_errors +
++		bp->stats_extra.tx_errors;
+ 
+ 	net_stats->rx_missed_errors =
+ 		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
+-		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop);
++		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop) +
++		bp->stats_extra.rx_missed_errors;
+ 
+ 	return net_stats;
+ }
+@@ -6989,6 +7006,16 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ {
+ 	if (netif_running(bp->dev)) {
+ 		bnx2_netif_stop(bp);
++
++		/* Save statistics that is going to be reseted */
++		REG_WR(bp, BNX2_HC_COMMAND, bp->hc_cmd |
++				BNX2_HC_COMMAND_STATS_NOW);
++		REG_RD(bp, BNX2_HC_COMMAND);
++		udelay(5);
++		bnx2_get_stats(bp->dev);
++		memcpy(&bp->stats_extra, &bp->dev->stats,
++			sizeof(struct net_device_stats));
++
+ 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+ 		bnx2_free_skbs(bp);
+ 		bnx2_free_mem(bp);
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index a4d8340..1063d1a 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6912,6 +6912,7 @@ struct bnx2 {
+ 
+ 	const struct firmware	*mips_firmware;
+ 	const struct firmware	*rv2p_firmware;
++	struct net_device_stats stats_extra;
+ };
+ 
+ #define REG_RD(bp, offset)					\
+-- 
+1.6.0.2
 
