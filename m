@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b44.c box lockup fix (netconsole): ratelimit NAPI poll
- error message
-Date: Mon, 30 Nov 2009 00:16:50 -0800 (PST)
-Message-ID: <20091130.001650.77346434.davem@davemloft.net>
-References: <20091125213546.GA6168@rhlx01.hs-esslingen.de>
-	<20091130.001541.134590904.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/20] Batch network namespace cleanup
+Date: Mon, 30 Nov 2009 00:17:59 -0800
+Message-ID: <m1ljhoa0js.fsf@fess.ebiederm.org>
+References: <m1ljhodbtw.fsf@fess.ebiederm.org> <4B137D4B.8050803@gmail.com>
+	<20091130.000918.212899174.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, dave@thedillows.org, mb@bu3sch.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andi@lisas.de
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
+	dlezcano@fr.ibm.com, adobriyan@gmail.com, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53295
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752943AbZK3IQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:16:45 -0500
-In-Reply-To: <20091130.001541.134590904.davem@davemloft.net>
+Received: from out01.mta.xmission.com ([166.70.13.231]:40417 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753176AbZK3ISB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:18:01 -0500
+In-Reply-To: <20091130.000918.212899174.davem@davemloft.net> (David Miller's message of "Mon\, 30 Nov 2009 00\:09\:18 -0800 \(PST\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller <davem@davemloft.net> writes:
 
-Could someone email andi@lisas.de privately and let him know
-that he isn't seeing any of my emails:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 30 Nov 2009 09:07:39 +0100
+>
+>> It seems list received part of your patches Eric
+>> 
+>> 01, 07-20 are OK,   02-06 are missing
+>
+> Not just the list, I didn't get copies of the missing patches through
+> direct email even though I was on the CC: list.
 
-<andi@lisas.de>: host rhlx01.hs-esslingen.de[129.143.116.10] said: 550 5.7.1
-    <74-93-104-97-Washington.hfc.comcastbusiness.net[74.93.104.97]>: Client
-    host rejected: connections from dialup hosts not accepted. use your ISPs
-    mail relay. (in reply to RCPT TO command)
+Thanks.  Weird.  I will take a look and resend.
 
-Thanks.
+Eric
+
