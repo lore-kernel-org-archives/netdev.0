@@ -1,50 +1,44 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high
- number of RX dropped in bnx2
-Date: Mon, 30 Nov 2009 09:44:53 -0800
-Message-ID: <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
-References: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com>
- <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6 PATCH] net: Move && and || to end of
+ previous line
+Date: Mon, 30 Nov 2009 09:57:15 -0800
+Message-ID: <1259603835.29779.295.camel@Joe-Laptop.home>
+References: <1259001504.16503.79.camel@Joe-Laptop.home>
+	 <20091123.104130.117837098.davem@davemloft.net>
+	 <1259528449.29779.194.camel@Joe-Laptop.home>
+	 <20091129.165557.84377714.davem@davemloft.net>
+	 <20091130092837.4998f961@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
-To: "Krzysztof Oledzki" <ole@ans.pl>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1127 "EHLO MMS3.broadcom.com"
+Received: from mail.perches.com ([173.55.12.10]:1194 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753284AbZK3R4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2009 12:56:38 -0500
-In-Reply-To: <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl>
+	id S1753005AbZK3R5J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2009 12:57:09 -0500
+In-Reply-To: <20091130092837.4998f961@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2009-11-30 at 09:28 -0800, Stephen Hemminger wrote:
+> Rather than playing with the dangling operator format which seems to be a coding
+> style that only David cares about. Why not go through and fix the really ugly old
+> drivers that need it.
 
-On Mon, 2009-11-30 at 07:33 -0800, Krzysztof Oledzki wrote:
-> # ethtool -S eth0|egrep "(rx_bcast_packets|rx_mcast_packets|
-> rx_fw_discards)"
->       rx_mcast_packets: 2806
->       rx_bcast_packets: 790016
->       rx_fw_discards: 790016
+net/... had the lower percentage of leading uses
+and a maintainer that cared to standardize.
 
-This tells me that all the dropped packets are occurring in the iSCSI
-ring.
+drivers/... has many odd uses of coding styles and
+no single maintainer that cares much about style.
 
-We have recently enabled iSCSI in the kernel and you probably don't have
-the userspace components to handle the iSCSI ring.  All broadcast
-packets are also received in the iSCSI ring and they are all dropped in
-this case without the userspace components.  Networking is not affected.
-If you rmmod the bnx2i and cnic drivers, the drop counter should stop
-counting.
+> For a good horror experience, go look at the floppy driver.
 
-We have newer firmware that will not include dropped iSCSI packets in
-the networking counters.  It should appear in the 2.6.33 kernel
-time-frame.
+I've no desire to be floppy maintainer.  Do you?
 
-Thanks.
+$ ./scripts/get_maintainer --nogit -f driver/block/floppy.c
+linux-kernel@vger.kernel.org
+
 
 
