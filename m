@@ -1,57 +1,32 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
- hardware queue MAC and VLAN filters
-Date: Mon, 30 Nov 2009 11:36:08 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6BFA040@rrsmsx501.amr.corp.intel.com>
-References: <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
- <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
- <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
- <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
- <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
- <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
- <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
- <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
- <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
- <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
- <20091130060323.GA17989@verge.net.au>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [RFC PATCH v3 0/8] CAIF Protocol Stack
+Date: Mon, 30 Nov 2009 19:26:44 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E079030E2758@eseldmw101.eemea.ericsson.se>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <4B13EE0C.7080000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <stefano.babic@babic.homelinux.org>,
+	<randy.dunlap@oracle.com>,
+	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62128 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752749AbZK3SgE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 13:36:04 -0500
-In-Reply-To: <20091130060323.GA17989@verge.net.au>
-Content-Language: en-US
+Received: from mailgw3.ericsson.se ([193.180.251.60]:59523 "EHLO
+	mailgw3.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929AbZK3Sln convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 13:41:43 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <4B13EE0C.7080000@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Simon Horman [mailto:horms@verge.net.au]
->Sent: Sunday, November 29, 2009 10:03 PM
+Patrick McHardy wrote:
+>=20
+> Please add the changelog to the respective patches and give them
+> meaningful subjects. Its impossible to review patches if you don't
+> even know what they're supposed to do. =20
 
->> The issue of which VF goes with which PF device can be deduced in
->> userspace via sysfs.
->
->Does this mean that the configuration of filtering for a VF needs
->to be done where the interface for the VF exists - e.g. in a KVM
->guest/Xen domU?
->
+OK, I'll do so next time.
+Patch 7/8 contains some documentation about CAIF.
 
-No, all of the configuration is done through the PF device.  What I was saying was that, given a specific VF PCI device (which would be passed through to the VM), you can use sysfs to determine which PF owns it, and then run the ip command to tell the PF to configure the VF.
-
->In terms of dealing with interfaces and the way that tools such as ip work
->that makes a lot of sense. But I wonder if it actually makes more sense
->from an administrative point of view to have this configuration go through
->the PF - e.g. the KVM host/Xen domO.
-
->From a policy and security standpoint, you can't allow the VM to handle its own hardware configuration. The host/hypervisor/VM Manager/boss has to handle this or you lose many of the advantages of virtualization (i.e. isolation, security, stability, etc).
-
--Mitch
+BR/Sjur Br=E6ndeland
