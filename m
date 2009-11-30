@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 18/20] net: Simplify ip6_tunnel pernet operations.
-Date: Sun, 29 Nov 2009 17:46:15 -0800
-Message-ID: <1259545577-7466-18-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 11/20] net: Simplify conntrack_proto_gre pernet operations.
+Date: Sun, 29 Nov 2009 17:46:08 -0800
+Message-ID: <1259545577-7466-11-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,10 +10,10 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46472 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:46448 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753294AbZK3Bqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:33 -0500
+	with ESMTP id S1753112AbZK3Bq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:29 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,81 +25,68 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ipv6/ip6_tunnel.c |   25 ++++++-------------------
- 1 files changed, 6 insertions(+), 19 deletions(-)
+ net/netfilter/nf_conntrack_proto_gre.c |   20 ++++++--------------
+ 1 files changed, 6 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index e5c0f6b..d453d07 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1409,17 +1409,8 @@ static void ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 91d0e71..c99cfba 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -300,32 +300,24 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
  
- static int ip6_tnl_init_net(struct net *net)
+ static int proto_gre_net_init(struct net *net)
  {
-+	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 	int err;
--	struct ip6_tnl_net *ip6n;
--
--	err = -ENOMEM;
--	ip6n = kzalloc(sizeof(struct ip6_tnl_net), GFP_KERNEL);
--	if (ip6n == NULL)
--		goto err_alloc;
--
--	err = net_assign_generic(net, ip6_tnl_net_id, ip6n);
--	if (err < 0)
--		goto err_assign;
+-	struct netns_proto_gre *net_gre;
+-	int rv;
++	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
  
- 	ip6n->tnls[0] = ip6n->tnls_wc;
- 	ip6n->tnls[1] = ip6n->tnls_r_l;
-@@ -1442,27 +1433,23 @@ static int ip6_tnl_init_net(struct net *net)
- err_register:
- 	free_netdev(ip6n->fb_tnl_dev);
- err_alloc_dev:
--	/* nothing */
--err_assign:
--	kfree(ip6n);
--err_alloc:
- 	return err;
+-	net_gre = kmalloc(sizeof(struct netns_proto_gre), GFP_KERNEL);
+-	if (!net_gre)
+-		return -ENOMEM;
+ 	rwlock_init(&net_gre->keymap_lock);
+ 	INIT_LIST_HEAD(&net_gre->keymap_list);
+ 
+-	rv = net_assign_generic(net, proto_gre_net_id, net_gre);
+-	if (rv < 0)
+-		kfree(net_gre);
+-	return rv;
++	return 0;
  }
  
- static void ip6_tnl_exit_net(struct net *net)
+ static void proto_gre_net_exit(struct net *net)
  {
--	struct ip6_tnl_net *ip6n;
-+	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 
--	ip6n = net_generic(net, ip6_tnl_net_id);
- 	rtnl_lock();
- 	ip6_tnl_destroy_tunnels(ip6n);
- 	rtnl_unlock();
--	kfree(ip6n);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
+-
+ 	nf_ct_gre_keymap_flush(net);
+-	kfree(net_gre);
  }
  
- static struct pernet_operations ip6_tnl_net_ops = {
- 	.init = ip6_tnl_init_net,
- 	.exit = ip6_tnl_exit_net,
-+	.id   = &ip6_tnl_net_id,
-+	.size = sizeof(struct ip6_tnl_net),
+ static struct pernet_operations proto_gre_net_ops = {
+ 	.init = proto_gre_net_init,
+ 	.exit = proto_gre_net_exit,
++	.id   = &proto_gre_net_id,
++	.size = sizeof(struct netns_proto_gre),
  };
  
- /**
-@@ -1487,7 +1474,7 @@ static int __init ip6_tunnel_init(void)
- 		goto unreg_ip4ip6;
- 	}
- 
--	err = register_pernet_gen_device(&ip6_tnl_net_id, &ip6_tnl_net_ops);
-+	err = register_pernet_device(&ip6_tnl_net_ops);
- 	if (err < 0)
- 		goto err_pernet;
- 	return 0;
-@@ -1511,7 +1498,7 @@ static void __exit ip6_tunnel_cleanup(void)
- 	if (xfrm6_tunnel_deregister(&ip6ip6_handler, AF_INET6))
- 		printk(KERN_INFO "ip6_tunnel close: can't deregister ip6ip6\n");
- 
--	unregister_pernet_gen_device(ip6_tnl_net_id, &ip6_tnl_net_ops);
-+	unregister_pernet_device(&ip6_tnl_net_ops);
+ static int __init nf_ct_proto_gre_init(void)
+@@ -335,7 +327,7 @@ static int __init nf_ct_proto_gre_init(void)
+ 	rv = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_gre4);
+ 	if (rv < 0)
+ 		return rv;
+-	rv = register_pernet_gen_subsys(&proto_gre_net_id, &proto_gre_net_ops);
++	rv = register_pernet_subsys(&proto_gre_net_ops);
+ 	if (rv < 0)
+ 		nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
+ 	return rv;
+@@ -344,7 +336,7 @@ static int __init nf_ct_proto_gre_init(void)
+ static void __exit nf_ct_proto_gre_fini(void)
+ {
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
+-	unregister_pernet_gen_subsys(proto_gre_net_id, &proto_gre_net_ops);
++	unregister_pernet_subsys(&proto_gre_net_ops);
  }
  
- module_init(ip6_tunnel_init);
+ module_init(nf_ct_proto_gre_init);
 -- 
 1.6.5.2.143.g8cc62
 
