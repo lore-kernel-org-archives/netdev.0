@@ -1,415 +1,724 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 03/12] sfc: Remove static PHY data and enumerations
-Date: Mon, 30 Nov 2009 01:08:55 +0000
-Message-ID: <1259543335.3709.86.camel@localhost>
+Subject: [PATCH 04/12] sfc: Extend MTD driver for use with new NICs
+Date: Mon, 30 Nov 2009 01:10:44 +0000
+Message-ID: <1259543444.3709.88.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-mtd@lists.infradead.org,
+	linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46602 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:46675 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752614AbZK3BIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:08:52 -0500
+	with ESMTP id S1753143AbZK3BKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New NICs have firmware managing the PHY, and we will discover the PHY
-capabilities at run-time.  Replace the static data with probe() and
-test_name() operations.
+In new NICs flash is managed by firmware and we will use high-level
+operations on partitions rather than direct SPI commands.  Add support
+for multiple MTD partitions per flash device and remove the direct
+link between MTD and SPI devices.  Maintain a list of MTD partitions
+in struct efx_nic.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/ethtool.c     |   18 ++++++++++++--
- drivers/net/sfc/falcon.c      |   15 +++---------
- drivers/net/sfc/falcon.h      |   20 ++++++++++++++++
- drivers/net/sfc/falcon_xmac.c |    2 +-
- drivers/net/sfc/mdio_10g.c    |    4 +-
- drivers/net/sfc/net_driver.h  |   35 +++++------------------------
- drivers/net/sfc/qt202x_phy.c  |   12 +++++++--
- drivers/net/sfc/selftest.c    |    5 +---
- drivers/net/sfc/tenxpress.c   |   49 +++++++++++++++++++++++++++++++----------
- 9 files changed, 95 insertions(+), 65 deletions(-)
+ drivers/net/sfc/efx.c        |    3 +
+ drivers/net/sfc/ethtool.c    |    6 +-
+ drivers/net/sfc/falcon.c     |   32 ++---
+ drivers/net/sfc/mtd.c        |  312 +++++++++++++++++++++++++++++-------------
+ drivers/net/sfc/net_driver.h |    8 +-
+ drivers/net/sfc/spi.h        |   18 +--
+ 6 files changed, 255 insertions(+), 124 deletions(-)
 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 75dcaae..4fe6d63 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1977,6 +1977,9 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	spin_lock_init(&efx->biu_lock);
+ 	mutex_init(&efx->mdio_lock);
+ 	mutex_init(&efx->spi_lock);
++#ifdef CONFIG_SFC_MTD
++	INIT_LIST_HEAD(&efx->mtd_list);
++#endif
+ 	INIT_WORK(&efx->reset_work, efx_reset_work);
+ 	INIT_DELAYED_WORK(&efx->monitor_work, efx_monitor);
+ 	efx->pci_dev = pci_dev;
 diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index e86cbca..4fe8740 100644
+index 4fe8740..08a9db9 100644
 --- a/drivers/net/sfc/ethtool.c
 +++ b/drivers/net/sfc/ethtool.c
-@@ -365,9 +365,21 @@ static int efx_ethtool_fill_self_tests(struct efx_nic *efx,
- 	efx_fill_test(n++, strings, data, &tests->registers,
- 		      "core", 0, "registers", NULL);
+@@ -567,7 +567,8 @@ static int efx_ethtool_get_eeprom(struct net_device *net_dev,
+ 	rc = mutex_lock_interruptible(&efx->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_read(spi, eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
++	rc = falcon_spi_read(efx, spi,
++			     eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
+ 			     eeprom->len, &len, buf);
+ 	mutex_unlock(&efx->spi_lock);
  
--	for (i = 0; i < efx->phy_op->num_tests; i++)
--		efx_fill_test(n++, strings, data, &tests->phy[i],
--			      "phy", 0, efx->phy_op->test_names[i], NULL);
-+	if (efx->phy_op->run_tests != NULL) {
-+		EFX_BUG_ON_PARANOID(efx->phy_op->test_name == NULL);
-+
-+		for (i = 0; true; ++i) {
-+			const char *name;
-+
-+			EFX_BUG_ON_PARANOID(i >= EFX_MAX_PHY_TESTS);
-+			name = efx->phy_op->test_name(efx, i);
-+			if (name == NULL)
-+				break;
-+
-+			efx_fill_test(n++, strings, data, &tests->phy[i],
-+				      "phy", 0, name, NULL);
-+		}
-+	}
+@@ -590,7 +591,8 @@ static int efx_ethtool_set_eeprom(struct net_device *net_dev,
+ 	rc = mutex_lock_interruptible(&efx->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_write(spi, eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
++	rc = falcon_spi_write(efx, spi,
++			      eeprom->offset + EFX_EEPROM_BOOTCONFIG_START,
+ 			      eeprom->len, &len, buf);
+ 	mutex_unlock(&efx->spi_lock);
  
- 	/* Loopback tests */
- 	for (mode = LOOPBACK_NONE; mode <= LOOPBACK_TEST_MAX; mode++) {
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 63e6734..29d4537 100644
+index 29d4537..950de84 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -2291,19 +2291,12 @@ static int falcon_probe_port(struct efx_nic *efx)
- 		return -ENODEV;
+@@ -1640,11 +1640,10 @@ static int falcon_spi_wait(struct efx_nic *efx)
  	}
- 
--	if (efx->phy_op->macs & EFX_XMAC)
--		efx->loopback_modes |= ((1 << LOOPBACK_XGMII) |
--					(1 << LOOPBACK_XGXS) |
--					(1 << LOOPBACK_XAUI));
--	if (efx->phy_op->macs & EFX_GMAC)
--		efx->loopback_modes |= (1 << LOOPBACK_GMAC);
--	efx->loopback_modes |= efx->phy_op->loopbacks;
--
--	/* Set up MDIO structure for PHY */
--	efx->mdio.mmds = efx->phy_op->mmds;
--	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-+	/* Fill out MDIO structure and loopback modes */
- 	efx->mdio.mdio_read = falcon_mdio_read;
- 	efx->mdio.mdio_write = falcon_mdio_write;
-+	rc = efx->phy_op->probe(efx);
-+	if (rc != 0)
-+		return rc;
- 
- 	/* Initial assumption */
- 	efx->link_state.speed = 10000;
-diff --git a/drivers/net/sfc/falcon.h b/drivers/net/sfc/falcon.h
-index 875b58e..3085ecf 100644
---- a/drivers/net/sfc/falcon.h
-+++ b/drivers/net/sfc/falcon.h
-@@ -38,6 +38,26 @@ static inline bool efx_nic_is_dual_func(struct efx_nic *efx)
- 	return efx_nic_rev(efx) < EFX_REV_FALCON_B0;
  }
  
-+enum {
-+	PHY_TYPE_NONE = 0,
-+	PHY_TYPE_TXC43128 = 1,
-+	PHY_TYPE_88E1111 = 2,
-+	PHY_TYPE_SFX7101 = 3,
-+	PHY_TYPE_QT2022C2 = 4,
-+	PHY_TYPE_PM8358 = 6,
-+	PHY_TYPE_SFT9001A = 8,
-+	PHY_TYPE_QT2025C = 9,
-+	PHY_TYPE_SFT9001B = 10,
-+};
-+
-+#define FALCON_XMAC_LOOPBACKS			\
-+	((1 << LOOPBACK_XGMII) |		\
-+	 (1 << LOOPBACK_XGXS) |			\
-+	 (1 << LOOPBACK_XAUI))
-+
-+#define FALCON_GMAC_LOOPBACKS			\
-+	(1 << LOOPBACK_GMAC)
-+
- /**
-  * struct falcon_board_type - board operations and type information
-  * @id: Board type id, as found in NVRAM
-diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
-index 83da792..643622d 100644
---- a/drivers/net/sfc/falcon_xmac.c
-+++ b/drivers/net/sfc/falcon_xmac.c
-@@ -137,7 +137,7 @@ static bool falcon_xaui_link_ok(struct efx_nic *efx)
- 
- 	/* If the link is up, then check the phy side of the xaui link */
- 	if (efx->link_state.up && link_ok)
--		if (efx->phy_op->mmds & (1 << MDIO_MMD_PHYXS))
-+		if (efx->mdio.mmds & (1 << MDIO_MMD_PHYXS))
- 			link_ok = efx_mdio_phyxgxs_lane_sync(efx);
- 
- 	return link_ok;
-diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index e6ca988..20e6274 100644
---- a/drivers/net/sfc/mdio_10g.c
-+++ b/drivers/net/sfc/mdio_10g.c
-@@ -15,6 +15,7 @@
- #include "net_driver.h"
- #include "mdio_10g.h"
- #include "workarounds.h"
-+#include "falcon.h"
- 
- unsigned efx_mdio_id_oui(u32 id)
+-int falcon_spi_cmd(const struct efx_spi_device *spi,
++int falcon_spi_cmd(struct efx_nic *efx, const struct efx_spi_device *spi,
+ 		   unsigned int command, int address,
+ 		   const void *in, void *out, size_t len)
  {
-@@ -312,8 +313,7 @@ void efx_mdio_an_reconfigure(struct efx_nic *efx)
- 	/* Enable and restart AN */
- 	reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_CTRL1);
- 	reg |= MDIO_AN_CTRL1_ENABLE;
--	if (!(EFX_WORKAROUND_15195(efx) &&
--	      LOOPBACK_MASK(efx) & efx->phy_op->loopbacks))
-+	if (!(EFX_WORKAROUND_15195(efx) && LOOPBACK_EXTERNAL(efx)))
- 		reg |= MDIO_AN_CTRL1_RESTART;
- 	if (xnp)
- 		reg |= MDIO_AN_CTRL1_XNP;
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index cd2debb..452f835 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -428,19 +428,6 @@ enum efx_int_mode {
- };
- #define EFX_INT_MODE_USE_MSI(x) (((x)->interrupt_mode) <= EFX_INT_MODE_MSI)
+-	struct efx_nic *efx = spi->efx;
+ 	bool addressed = (address >= 0);
+ 	bool reading = (out != NULL);
+ 	efx_oword_t reg;
+@@ -1713,15 +1712,15 @@ efx_spi_munge_command(const struct efx_spi_device *spi,
+ }
  
--enum phy_type {
--	PHY_TYPE_NONE = 0,
--	PHY_TYPE_TXC43128 = 1,
--	PHY_TYPE_88E1111 = 2,
--	PHY_TYPE_SFX7101 = 3,
--	PHY_TYPE_QT2022C2 = 4,
--	PHY_TYPE_PM8358 = 6,
--	PHY_TYPE_SFT9001A = 8,
--	PHY_TYPE_QT2025C = 9,
--	PHY_TYPE_SFT9001B = 10,
--	PHY_TYPE_MAX	/* Insert any new items before this */
--};
--
- #define EFX_IS10G(efx) ((efx)->link_state.speed == 10000)
+ /* Wait up to 10 ms for buffered write completion */
+-int falcon_spi_wait_write(const struct efx_spi_device *spi)
++int
++falcon_spi_wait_write(struct efx_nic *efx, const struct efx_spi_device *spi)
+ {
+-	struct efx_nic *efx = spi->efx;
+ 	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 100);
+ 	u8 status;
+ 	int rc;
  
- enum nic_state {
-@@ -483,12 +470,6 @@ enum efx_fc_type {
- 	EFX_FC_AUTO = 4,
- };
+ 	for (;;) {
+-		rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL,
++		rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
+ 				    &status, sizeof(status));
+ 		if (rc)
+ 			return rc;
+@@ -1737,8 +1736,8 @@ int falcon_spi_wait_write(const struct efx_spi_device *spi)
+ 	}
+ }
  
--/* Supported MAC bit-mask */
--enum efx_mac_type {
--	EFX_GMAC = 1,
--	EFX_XMAC = 2,
--};
--
- /**
-  * struct efx_link_state - Current state of the link
-  * @up: Link is up
-@@ -524,6 +505,8 @@ struct efx_mac_operations {
+-int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
+-		    size_t len, size_t *retlen, u8 *buffer)
++int falcon_spi_read(struct efx_nic *efx, const struct efx_spi_device *spi,
++		    loff_t start, size_t len, size_t *retlen, u8 *buffer)
+ {
+ 	size_t block_len, pos = 0;
+ 	unsigned int command;
+@@ -1748,7 +1747,7 @@ int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
+ 		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
  
- /**
-  * struct efx_phy_operations - Efx PHY operations table
-+ * @probe: Probe PHY and initialise efx->mdio.mode_support, efx->mdio.mmds,
-+ *	efx->loopback_modes.
-  * @init: Initialise PHY
-  * @fini: Shut down PHY
-  * @reconfigure: Reconfigure PHY (e.g. for new link parameters)
-@@ -533,15 +516,12 @@ struct efx_mac_operations {
-  * @set_settings: Set ethtool settings. Serialised by the mac_lock.
-  * @set_npage_adv: Set abilities advertised in (Extended) Next Page
-  *	(only needed where AN bit is set in mmds)
-- * @num_tests: Number of PHY-specific tests/results
-- * @test_names: Names of the tests/results
-+ * @test_name: Get the name of a PHY-specific test/result
-  * @run_tests: Run tests and record results as appropriate.
-  *	Flags are the ethtool tests flags.
-- * @mmds: MMD presence mask
-- * @loopbacks: Supported loopback modes mask
-  */
- struct efx_phy_operations {
--	enum efx_mac_type macs;
-+	int (*probe) (struct efx_nic *efx);
- 	int (*init) (struct efx_nic *efx);
- 	void (*fini) (struct efx_nic *efx);
- 	int (*reconfigure) (struct efx_nic *efx);
-@@ -551,11 +531,8 @@ struct efx_phy_operations {
- 	int (*set_settings) (struct efx_nic *efx,
- 			     struct ethtool_cmd *ecmd);
- 	void (*set_npage_adv) (struct efx_nic *efx, u32);
--	u32 num_tests;
--	const char *const *test_names;
-+	const char *(*test_name) (struct efx_nic *efx, unsigned int index);
- 	int (*run_tests) (struct efx_nic *efx, int *results, unsigned flags);
--	int mmds;
--	unsigned loopbacks;
- };
- 
- /**
-@@ -806,7 +783,7 @@ struct efx_nic {
- 	struct efx_mac_operations *mac_op;
- 	unsigned char mac_address[ETH_ALEN];
- 
--	enum phy_type phy_type;
-+	unsigned int phy_type;
- 	struct mutex mdio_lock;
- 	struct efx_phy_operations *phy_op;
- 	void *phy_data;
-diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index 49a5ab5..22b0e89 100644
---- a/drivers/net/sfc/qt202x_phy.c
-+++ b/drivers/net/sfc/qt202x_phy.c
-@@ -135,6 +135,14 @@ static int qt202x_reset_phy(struct efx_nic *efx)
+ 		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
+-		rc = falcon_spi_cmd(spi, command, start + pos, NULL,
++		rc = falcon_spi_cmd(efx, spi, command, start + pos, NULL,
+ 				    buffer + pos, block_len);
+ 		if (rc)
+ 			break;
+@@ -1767,8 +1766,9 @@ int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
  	return rc;
  }
  
-+static int qt202x_phy_probe(struct efx_nic *efx)
-+{
-+	efx->mdio.mmds = QT202X_REQUIRED_DEVS;
-+	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-+	efx->loopback_modes = QT202X_LOOPBACKS | FALCON_XMAC_LOOPBACKS;
-+	return 0;
-+}
-+
- static int qt202x_phy_init(struct efx_nic *efx)
+-int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
+-		     size_t len, size_t *retlen, const u8 *buffer)
++int
++falcon_spi_write(struct efx_nic *efx, const struct efx_spi_device *spi,
++		 loff_t start, size_t len, size_t *retlen, const u8 *buffer)
  {
- 	struct qt202x_phy_data *phy_data;
-@@ -224,13 +232,11 @@ static void qt202x_phy_fini(struct efx_nic *efx)
- }
+ 	u8 verify_buffer[FALCON_SPI_MAX_LEN];
+ 	size_t block_len, pos = 0;
+@@ -1776,24 +1776,24 @@ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
+ 	int rc = 0;
  
- struct efx_phy_operations falcon_qt202x_phy_ops = {
--	.macs		 = EFX_XMAC,
-+	.probe		 = qt202x_phy_probe,
- 	.init		 = qt202x_phy_init,
- 	.reconfigure	 = qt202x_phy_reconfigure,
- 	.poll	     	 = qt202x_phy_poll,
- 	.fini	  	 = qt202x_phy_fini,
- 	.get_settings	 = qt202x_phy_get_settings,
- 	.set_settings	 = efx_mdio_set_settings,
--	.mmds            = QT202X_REQUIRED_DEVS,
--	.loopbacks       = QT202X_LOOPBACKS,
- };
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index 9a24053..16258d8 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -100,7 +100,7 @@ static int efx_test_mdio(struct efx_nic *efx, struct efx_self_tests *tests)
- 	}
- 
- 	if (EFX_IS10G(efx)) {
--		rc = efx_mdio_check_mmds(efx, efx->phy_op->mmds, 0);
-+		rc = efx_mdio_check_mmds(efx, efx->mdio.mmds, 0);
+ 	while (pos < len) {
+-		rc = falcon_spi_cmd(spi, SPI_WREN, -1, NULL, NULL, 0);
++		rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
  		if (rc)
- 			goto out;
- 	}
-@@ -253,9 +253,6 @@ static int efx_test_phy(struct efx_nic *efx, struct efx_self_tests *tests,
- 	if (!efx->phy_op->run_tests)
- 		return 0;
+ 			break;
  
--	EFX_BUG_ON_PARANOID(efx->phy_op->num_tests == 0 ||
--			    efx->phy_op->num_tests > EFX_MAX_PHY_TESTS);
+ 		block_len = min(len - pos,
+ 				falcon_spi_write_limit(spi, start + pos));
+ 		command = efx_spi_munge_command(spi, SPI_WRITE, start + pos);
+-		rc = falcon_spi_cmd(spi, command, start + pos,
++		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+ 				    buffer + pos, NULL, block_len);
+ 		if (rc)
+ 			break;
+ 
+-		rc = falcon_spi_wait_write(spi);
++		rc = falcon_spi_wait_write(efx, spi);
+ 		if (rc)
+ 			break;
+ 
+ 		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
+-		rc = falcon_spi_cmd(spi, command, start + pos,
++		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+ 				    NULL, verify_buffer, block_len);
+ 		if (memcmp(verify_buffer, buffer + pos, block_len)) {
+ 			rc = -EIO;
+@@ -2352,7 +2352,7 @@ falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
+ 	nvconfig = region + FALCON_NVCONFIG_OFFSET;
+ 
+ 	mutex_lock(&efx->spi_lock);
+-	rc = falcon_spi_read(spi, 0, FALCON_NVCONFIG_END, NULL, region);
++	rc = falcon_spi_read(efx, spi, 0, FALCON_NVCONFIG_END, NULL, region);
+ 	mutex_unlock(&efx->spi_lock);
+ 	if (rc) {
+ 		EFX_ERR(efx, "Failed to read %s\n",
+@@ -2710,8 +2710,6 @@ static int falcon_spi_device_init(struct efx_nic *efx,
+ 		spi_device->block_size =
+ 			1 << SPI_DEV_TYPE_FIELD(device_type,
+ 						SPI_DEV_TYPE_BLOCK_SIZE);
 -
- 	mutex_lock(&efx->mac_lock);
- 	rc = efx->phy_op->run_tests(efx, tests->phy, flags);
- 	mutex_unlock(&efx->mac_lock);
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index 0dfb227..8de97a9 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -298,6 +298,23 @@ static int tenxpress_init(struct efx_nic *efx)
- 	return 0;
+-		spi_device->efx = efx;
+ 	} else {
+ 		spi_device = NULL;
+ 	}
+diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
+index 820c233..3121e24 100644
+--- a/drivers/net/sfc/mtd.c
++++ b/drivers/net/sfc/mtd.c
+@@ -11,26 +11,58 @@
+ #include <linux/module.h>
+ #include <linux/mtd/mtd.h>
+ #include <linux/delay.h>
++#include <linux/rtnetlink.h>
+ 
+ #define EFX_DRIVER_NAME "sfc_mtd"
+ #include "net_driver.h"
+ #include "spi.h"
+ #include "efx.h"
++#include "falcon.h"
+ 
+ #define EFX_SPI_VERIFY_BUF_LEN 16
+ 
+-struct efx_mtd {
+-	const struct efx_spi_device *spi;
++struct efx_mtd_partition {
+ 	struct mtd_info mtd;
++	size_t offset;
++	const char *type_name;
+ 	char name[IFNAMSIZ + 20];
+ };
+ 
++struct efx_mtd_ops {
++	int (*read)(struct mtd_info *mtd, loff_t start, size_t len,
++		    size_t *retlen, u8 *buffer);
++	int (*erase)(struct mtd_info *mtd, loff_t start, size_t len);
++	int (*write)(struct mtd_info *mtd, loff_t start, size_t len,
++		     size_t *retlen, const u8 *buffer);
++	int (*sync)(struct mtd_info *mtd);
++};
++
++struct efx_mtd {
++	struct list_head node;
++	struct efx_nic *efx;
++	const struct efx_spi_device *spi;
++	const char *name;
++	const struct efx_mtd_ops *ops;
++	size_t n_parts;
++	struct efx_mtd_partition part[0];
++};
++
++#define efx_for_each_partition(part, efx_mtd)			\
++	for ((part) = &(efx_mtd)->part[0];			\
++	     (part) != &(efx_mtd)->part[(efx_mtd)->n_parts];	\
++	     (part)++)
++
++#define to_efx_mtd_partition(mtd)				\
++	container_of(mtd, struct efx_mtd_partition, mtd)
++
++static int falcon_mtd_probe(struct efx_nic *efx);
++
+ /* SPI utilities */
+ 
+ static int efx_spi_slow_wait(struct efx_mtd *efx_mtd, bool uninterruptible)
+ {
+ 	const struct efx_spi_device *spi = efx_mtd->spi;
+-	struct efx_nic *efx = spi->efx;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	u8 status;
+ 	int rc, i;
+ 
+@@ -39,7 +71,7 @@ static int efx_spi_slow_wait(struct efx_mtd *efx_mtd, bool uninterruptible)
+ 		__set_current_state(uninterruptible ?
+ 				    TASK_UNINTERRUPTIBLE : TASK_INTERRUPTIBLE);
+ 		schedule_timeout(HZ / 10);
+-		rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL,
++		rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
+ 				    &status, sizeof(status));
+ 		if (rc)
+ 			return rc;
+@@ -52,32 +84,35 @@ static int efx_spi_slow_wait(struct efx_mtd *efx_mtd, bool uninterruptible)
+ 	return -ETIMEDOUT;
  }
  
-+static int sfx7101_phy_probe(struct efx_nic *efx)
+-static int efx_spi_unlock(const struct efx_spi_device *spi)
++static int
++efx_spi_unlock(struct efx_nic *efx, const struct efx_spi_device *spi)
+ {
+ 	const u8 unlock_mask = (SPI_STATUS_BP2 | SPI_STATUS_BP1 |
+ 				SPI_STATUS_BP0);
+ 	u8 status;
+ 	int rc;
+ 
+-	rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL, &status, sizeof(status));
++	rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
++			    &status, sizeof(status));
+ 	if (rc)
+ 		return rc;
+ 
+ 	if (!(status & unlock_mask))
+ 		return 0; /* already unlocked */
+ 
+-	rc = falcon_spi_cmd(spi, SPI_WREN, -1, NULL, NULL, 0);
++	rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_cmd(spi, SPI_SST_EWSR, -1, NULL, NULL, 0);
++	rc = falcon_spi_cmd(efx, spi, SPI_SST_EWSR, -1, NULL, NULL, 0);
+ 	if (rc)
+ 		return rc;
+ 
+ 	status &= ~unlock_mask;
+-	rc = falcon_spi_cmd(spi, SPI_WRSR, -1, &status, NULL, sizeof(status));
++	rc = falcon_spi_cmd(efx, spi, SPI_WRSR, -1, &status,
++			    NULL, sizeof(status));
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_wait_write(spi);
++	rc = falcon_spi_wait_write(efx, spi);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -87,6 +122,7 @@ static int efx_spi_unlock(const struct efx_spi_device *spi)
+ static int efx_spi_erase(struct efx_mtd *efx_mtd, loff_t start, size_t len)
+ {
+ 	const struct efx_spi_device *spi = efx_mtd->spi;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	unsigned pos, block_len;
+ 	u8 empty[EFX_SPI_VERIFY_BUF_LEN];
+ 	u8 buffer[EFX_SPI_VERIFY_BUF_LEN];
+@@ -98,13 +134,14 @@ static int efx_spi_erase(struct efx_mtd *efx_mtd, loff_t start, size_t len)
+ 	if (spi->erase_command == 0)
+ 		return -EOPNOTSUPP;
+ 
+-	rc = efx_spi_unlock(spi);
++	rc = efx_spi_unlock(efx, spi);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_cmd(spi, SPI_WREN, -1, NULL, NULL, 0);
++	rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_cmd(spi, spi->erase_command, start, NULL, NULL, 0);
++	rc = falcon_spi_cmd(efx, spi, spi->erase_command, start, NULL,
++			    NULL, 0);
+ 	if (rc)
+ 		return rc;
+ 	rc = efx_spi_slow_wait(efx_mtd, false);
+@@ -113,7 +150,8 @@ static int efx_spi_erase(struct efx_mtd *efx_mtd, loff_t start, size_t len)
+ 	memset(empty, 0xff, sizeof(empty));
+ 	for (pos = 0; pos < len; pos += block_len) {
+ 		block_len = min(len - pos, sizeof(buffer));
+-		rc = falcon_spi_read(spi, start + pos, block_len, NULL, buffer);
++		rc = falcon_spi_read(efx, spi, start + pos, block_len,
++				     NULL, buffer);
+ 		if (rc)
+ 			return rc;
+ 		if (memcmp(empty, buffer, block_len))
+@@ -130,140 +168,228 @@ static int efx_spi_erase(struct efx_mtd *efx_mtd, loff_t start, size_t len)
+ 
+ /* MTD interface */
+ 
+-static int efx_mtd_read(struct mtd_info *mtd, loff_t start, size_t len,
+-			size_t *retlen, u8 *buffer)
++static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
 +{
-+	efx->mdio.mmds = TENXPRESS_REQUIRED_DEVS;
-+	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-+	efx->loopback_modes = SFX7101_LOOPBACKS | FALCON_XMAC_LOOPBACKS;
++	struct efx_mtd *efx_mtd = mtd->priv;
++	int rc;
++
++	rc = efx_mtd->ops->erase(mtd, erase->addr, erase->len);
++	if (rc == 0) {
++		erase->state = MTD_ERASE_DONE;
++	} else {
++		erase->state = MTD_ERASE_FAILED;
++		erase->fail_addr = 0xffffffff;
++	}
++	mtd_erase_callback(erase);
++	return rc;
++}
++
++static void efx_mtd_sync(struct mtd_info *mtd)
++{
++	struct efx_mtd *efx_mtd = mtd->priv;
++	struct efx_nic *efx = efx_mtd->efx;
++	int rc;
++
++	rc = efx_mtd->ops->sync(mtd);
++	if (rc)
++		EFX_ERR(efx, "%s sync failed (%d)\n", efx_mtd->name, rc);
++}
++
++static void efx_mtd_remove_partition(struct efx_mtd_partition *part)
++{
++	int rc;
++
++	for (;;) {
++		rc = del_mtd_device(&part->mtd);
++		if (rc != -EBUSY)
++			break;
++		ssleep(1);
++	}
++	WARN_ON(rc);
++}
++
++static void efx_mtd_remove_device(struct efx_mtd *efx_mtd)
++{
++	struct efx_mtd_partition *part;
++
++	efx_for_each_partition(part, efx_mtd)
++		efx_mtd_remove_partition(part);
++	list_del(&efx_mtd->node);
++	kfree(efx_mtd);
++}
++
++static void efx_mtd_rename_device(struct efx_mtd *efx_mtd)
++{
++	struct efx_mtd_partition *part;
++
++	efx_for_each_partition(part, efx_mtd)
++		snprintf(part->name, sizeof(part->name),
++			 "%s %s", efx_mtd->efx->name,
++			 part->type_name);
++}
++
++static int efx_mtd_probe_device(struct efx_nic *efx, struct efx_mtd *efx_mtd)
++{
++	struct efx_mtd_partition *part;
++
++	efx_mtd->efx = efx;
++
++	efx_mtd_rename_device(efx_mtd);
++
++	efx_for_each_partition(part, efx_mtd) {
++		part->mtd.writesize = 1;
++
++		part->mtd.owner = THIS_MODULE;
++		part->mtd.priv = efx_mtd;
++		part->mtd.name = part->name;
++		part->mtd.erase = efx_mtd_erase;
++		part->mtd.read = efx_mtd->ops->read;
++		part->mtd.write = efx_mtd->ops->write;
++		part->mtd.sync = efx_mtd_sync;
++
++		if (add_mtd_device(&part->mtd))
++			goto fail;
++	}
++
++	list_add(&efx_mtd->node, &efx->mtd_list);
 +	return 0;
++
++fail:
++	while (part != &efx_mtd->part[0]) {
++		--part;
++		efx_mtd_remove_partition(part);
++	}
++	/* add_mtd_device() returns 1 if the MTD table is full */
++	return -ENOMEM;
 +}
 +
-+static int sft9001_phy_probe(struct efx_nic *efx)
-+{
-+	efx->mdio.mmds = TENXPRESS_REQUIRED_DEVS;
-+	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-+	efx->loopback_modes = (SFT9001_LOOPBACKS | FALCON_XMAC_LOOPBACKS |
-+			       FALCON_GMAC_LOOPBACKS);
-+	return 0;
-+}
-+
- static int tenxpress_phy_init(struct efx_nic *efx)
++void efx_mtd_remove(struct efx_nic *efx)
  {
- 	struct tenxpress_phy_data *phy_data;
-@@ -512,7 +529,7 @@ static int tenxpress_phy_reconfigure(struct efx_nic *efx)
- 
- 	phy_mode_change = (efx->phy_mode == PHY_MODE_NORMAL &&
- 			   phy_data->phy_mode != PHY_MODE_NORMAL);
--	loop_reset = (LOOPBACK_OUT_OF(phy_data, efx, efx->phy_op->loopbacks) ||
-+	loop_reset = (LOOPBACK_OUT_OF(phy_data, efx, LOOPBACKS_EXTERNAL(efx)) ||
- 		      LOOPBACK_CHANGED(phy_data, efx, 1 << LOOPBACK_GPHY));
- 
- 	if (loop_reset || phy_mode_change) {
-@@ -627,6 +644,13 @@ static const char *const sfx7101_test_names[] = {
- 	"bist"
- };
- 
-+static const char *sfx7101_test_name(struct efx_nic *efx, unsigned int index)
-+{
-+	if (index < ARRAY_SIZE(sfx7101_test_names))
-+		return sfx7101_test_names[index];
-+	return NULL;
++	struct efx_mtd *efx_mtd, *next;
++
++	WARN_ON(efx_dev_registered(efx));
++
++	list_for_each_entry_safe(efx_mtd, next, &efx->mtd_list, node)
++		efx_mtd_remove_device(efx_mtd);
 +}
 +
- static int
- sfx7101_run_tests(struct efx_nic *efx, int *results, unsigned flags)
- {
-@@ -656,6 +680,13 @@ static const char *const sft9001_test_names[] = {
- 	"cable.pairD.length",
- };
- 
-+static const char *sft9001_test_name(struct efx_nic *efx, unsigned int index)
++void efx_mtd_rename(struct efx_nic *efx)
 +{
-+	if (index < ARRAY_SIZE(sft9001_test_names))
-+		return sft9001_test_names[index];
-+	return NULL;
++	struct efx_mtd *efx_mtd;
++
++	ASSERT_RTNL();
++
++	list_for_each_entry(efx_mtd, &efx->mtd_list, node)
++		efx_mtd_rename_device(efx_mtd);
 +}
 +
- static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
- {
- 	int rc = 0, rc2, i, ctrl_reg, res_reg;
-@@ -758,7 +789,7 @@ tenxpress_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 	 * but doesn't advertise the correct speed. So override it */
- 	if (efx->loopback_mode == LOOPBACK_GPHY)
- 		ecmd->speed = SPEED_1000;
--	else if (LOOPBACK_MASK(efx) & efx->phy_op->loopbacks)
-+	else if (LOOPBACK_EXTERNAL(efx))
- 		ecmd->speed = SPEED_10000;
++int efx_mtd_probe(struct efx_nic *efx)
++{
++	return falcon_mtd_probe(efx);
++}
++
++/* Implementation of MTD operations for Falcon */
++
++static int falcon_mtd_read(struct mtd_info *mtd, loff_t start,
++			   size_t len, size_t *retlen, u8 *buffer)
++{
++	struct efx_mtd_partition *part = to_efx_mtd_partition(mtd);
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+ 	const struct efx_spi_device *spi = efx_mtd->spi;
+-	struct efx_nic *efx = spi->efx;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	int rc;
+ 
+ 	rc = mutex_lock_interruptible(&efx->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_read(spi, FALCON_FLASH_BOOTCODE_START + start,
+-			     len, retlen, buffer);
++	rc = falcon_spi_read(efx, spi, part->offset + start, len,
++			     retlen, buffer);
+ 	mutex_unlock(&efx->spi_lock);
+ 	return rc;
  }
  
-@@ -788,7 +819,7 @@ static void sft9001_set_npage_adv(struct efx_nic *efx, u32 advertising)
+-static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
++static int falcon_mtd_erase(struct mtd_info *mtd, loff_t start, size_t len)
+ {
++	struct efx_mtd_partition *part = to_efx_mtd_partition(mtd);
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+-	struct efx_nic *efx = efx_mtd->spi->efx;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	int rc;
+ 
+ 	rc = mutex_lock_interruptible(&efx->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = efx_spi_erase(efx_mtd, FALCON_FLASH_BOOTCODE_START + erase->addr,
+-			   erase->len);
++	rc = efx_spi_erase(efx_mtd, part->offset + start, len);
+ 	mutex_unlock(&efx->spi_lock);
+-
+-	if (rc == 0) {
+-		erase->state = MTD_ERASE_DONE;
+-	} else {
+-		erase->state = MTD_ERASE_FAILED;
+-		erase->fail_addr = 0xffffffff;
+-	}
+-	mtd_erase_callback(erase);
+ 	return rc;
  }
  
- struct efx_phy_operations falcon_sfx7101_phy_ops = {
--	.macs		  = EFX_XMAC,
-+	.probe		  = sfx7101_phy_probe,
- 	.init             = tenxpress_phy_init,
- 	.reconfigure      = tenxpress_phy_reconfigure,
- 	.poll             = tenxpress_phy_poll,
-@@ -796,15 +827,12 @@ struct efx_phy_operations falcon_sfx7101_phy_ops = {
- 	.get_settings	  = tenxpress_get_settings,
- 	.set_settings	  = tenxpress_set_settings,
- 	.set_npage_adv    = sfx7101_set_npage_adv,
--	.num_tests	  = ARRAY_SIZE(sfx7101_test_names),
--	.test_names	  = sfx7101_test_names,
-+	.test_name	  = sfx7101_test_name,
- 	.run_tests	  = sfx7101_run_tests,
--	.mmds             = TENXPRESS_REQUIRED_DEVS,
--	.loopbacks        = SFX7101_LOOPBACKS,
+-static int efx_mtd_write(struct mtd_info *mtd, loff_t start,
+-			 size_t len, size_t *retlen, const u8 *buffer)
++static int falcon_mtd_write(struct mtd_info *mtd, loff_t start,
++			    size_t len, size_t *retlen, const u8 *buffer)
+ {
++	struct efx_mtd_partition *part = to_efx_mtd_partition(mtd);
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+ 	const struct efx_spi_device *spi = efx_mtd->spi;
+-	struct efx_nic *efx = spi->efx;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	int rc;
+ 
+ 	rc = mutex_lock_interruptible(&efx->spi_lock);
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_write(spi, FALCON_FLASH_BOOTCODE_START + start,
+-			      len, retlen, buffer);
++	rc = falcon_spi_write(efx, spi, part->offset + start, len,
++			      retlen, buffer);
+ 	mutex_unlock(&efx->spi_lock);
+ 	return rc;
+ }
+ 
+-static void efx_mtd_sync(struct mtd_info *mtd)
++static int falcon_mtd_sync(struct mtd_info *mtd)
+ {
+ 	struct efx_mtd *efx_mtd = mtd->priv;
+-	struct efx_nic *efx = efx_mtd->spi->efx;
++	struct efx_nic *efx = efx_mtd->efx;
+ 	int rc;
+ 
+ 	mutex_lock(&efx->spi_lock);
+ 	rc = efx_spi_slow_wait(efx_mtd, true);
+ 	mutex_unlock(&efx->spi_lock);
+-
+-	if (rc)
+-		EFX_ERR(efx, "%s sync failed (%d)\n", efx_mtd->name, rc);
+-	return;
+-}
+-
+-void efx_mtd_remove(struct efx_nic *efx)
+-{
+-	if (efx->spi_flash && efx->spi_flash->mtd) {
+-		struct efx_mtd *efx_mtd = efx->spi_flash->mtd;
+-		int rc;
+-
+-		for (;;) {
+-			rc = del_mtd_device(&efx_mtd->mtd);
+-			if (rc != -EBUSY)
+-				break;
+-			ssleep(1);
+-		}
+-		WARN_ON(rc);
+-		kfree(efx_mtd);
+-	}
++	return rc;
+ }
+ 
+-void efx_mtd_rename(struct efx_nic *efx)
+-{
+-	if (efx->spi_flash && efx->spi_flash->mtd) {
+-		struct efx_mtd *efx_mtd = efx->spi_flash->mtd;
+-		snprintf(efx_mtd->name, sizeof(efx_mtd->name),
+-			 "%s sfc_flash_bootrom", efx->name);
+-	}
+-}
++static struct efx_mtd_ops falcon_mtd_ops = {
++	.read	= falcon_mtd_read,
++	.erase	= falcon_mtd_erase,
++	.write	= falcon_mtd_write,
++	.sync	= falcon_mtd_sync,
++};
+ 
+-int efx_mtd_probe(struct efx_nic *efx)
++static int falcon_mtd_probe(struct efx_nic *efx)
+ {
+ 	struct efx_spi_device *spi = efx->spi_flash;
+ 	struct efx_mtd *efx_mtd;
++	int rc;
++
++	ASSERT_RTNL();
+ 
+ 	if (!spi || spi->size <= FALCON_FLASH_BOOTCODE_START)
+ 		return -ENODEV;
+ 
+-	efx_mtd = kzalloc(sizeof(*efx_mtd), GFP_KERNEL);
++	efx_mtd = kzalloc(sizeof(*efx_mtd) + sizeof(efx_mtd->part[0]),
++			  GFP_KERNEL);
+ 	if (!efx_mtd)
+ 		return -ENOMEM;
+ 
+ 	efx_mtd->spi = spi;
+-	spi->mtd = efx_mtd;
+-
+-	efx_mtd->mtd.type = MTD_NORFLASH;
+-	efx_mtd->mtd.flags = MTD_CAP_NORFLASH;
+-	efx_mtd->mtd.size = spi->size - FALCON_FLASH_BOOTCODE_START;
+-	efx_mtd->mtd.erasesize = spi->erase_size;
+-	efx_mtd->mtd.writesize = 1;
+-	efx_mtd_rename(efx);
+-
+-	efx_mtd->mtd.owner = THIS_MODULE;
+-	efx_mtd->mtd.priv = efx_mtd;
+-	efx_mtd->mtd.name = efx_mtd->name;
+-	efx_mtd->mtd.erase = efx_mtd_erase;
+-	efx_mtd->mtd.read = efx_mtd_read;
+-	efx_mtd->mtd.write = efx_mtd_write;
+-	efx_mtd->mtd.sync = efx_mtd_sync;
+-
+-	if (add_mtd_device(&efx_mtd->mtd)) {
++	efx_mtd->name = "flash";
++	efx_mtd->ops = &falcon_mtd_ops;
++
++	efx_mtd->n_parts = 1;
++	efx_mtd->part[0].mtd.type = MTD_NORFLASH;
++	efx_mtd->part[0].mtd.flags = MTD_CAP_NORFLASH;
++	efx_mtd->part[0].mtd.size = spi->size - FALCON_FLASH_BOOTCODE_START;
++	efx_mtd->part[0].mtd.erasesize = spi->erase_size;
++	efx_mtd->part[0].offset = FALCON_FLASH_BOOTCODE_START;
++	efx_mtd->part[0].type_name = "sfc_flash_bootrom";
++
++	rc = efx_mtd_probe_device(efx, efx_mtd);
++	if (rc)
+ 		kfree(efx_mtd);
+-		spi->mtd = NULL;
+-		/* add_mtd_device() returns 1 if the MTD table is full */
+-		return -ENOMEM;
+-	}
+-
+-	return 0;
++	return rc;
+ }
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 452f835..e1534ba 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -674,10 +674,11 @@ union efx_multicast_hash {
+  *	interrupt is handled.  It is used by falcon_test_interrupt()
+  *	to verify that an interrupt has occurred.
+  * @spi_flash: SPI flash device
+- *	This field will be %NULL if no flash device is present.
++ *	This field will be %NULL if no flash device is present (or for Siena).
+  * @spi_eeprom: SPI EEPROM device
+- *	This field will be %NULL if no EEPROM device is present.
++ *	This field will be %NULL if no EEPROM device is present (or for Siena).
+  * @spi_lock: SPI bus lock
++ * @mtd_list: List of MTDs attached to the NIC
+  * @n_rx_nodesc_drop_cnt: RX no descriptor drop count
+  * @nic_data: Hardware dependant state
+  * @mac_lock: MAC access lock. Protects @port_enabled, @phy_mode,
+@@ -759,6 +760,9 @@ struct efx_nic {
+ 	struct efx_spi_device *spi_flash;
+ 	struct efx_spi_device *spi_eeprom;
+ 	struct mutex spi_lock;
++#ifdef CONFIG_SFC_MTD
++	struct list_head mtd_list;
++#endif
+ 
+ 	unsigned n_rx_nodesc_drop_cnt;
+ 
+diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
+index 1b1ceb4..8bf4fce 100644
+--- a/drivers/net/sfc/spi.h
++++ b/drivers/net/sfc/spi.h
+@@ -36,8 +36,6 @@
+ 
+ /**
+  * struct efx_spi_device - an Efx SPI (Serial Peripheral Interface) device
+- * @efx:		The Efx controller that owns this device
+- * @mtd:		MTD state
+  * @device_id:		Controller's id for the device
+  * @size:		Size (in bytes)
+  * @addr_len:		Number of address bytes in read/write commands
+@@ -54,10 +52,6 @@
+  *	Write commands are limited to blocks with this size and alignment.
+  */
+ struct efx_spi_device {
+-	struct efx_nic *efx;
+-#ifdef CONFIG_SFC_MTD
+-	void *mtd;
+-#endif
+ 	int device_id;
+ 	unsigned int size;
+ 	unsigned int addr_len;
+@@ -67,12 +61,16 @@ struct efx_spi_device {
+ 	unsigned int block_size;
  };
  
- struct efx_phy_operations falcon_sft9001_phy_ops = {
--	.macs		  = EFX_GMAC | EFX_XMAC,
-+	.probe		  = sft9001_phy_probe,
- 	.init             = tenxpress_phy_init,
- 	.reconfigure      = tenxpress_phy_reconfigure,
- 	.poll             = tenxpress_phy_poll,
-@@ -812,9 +840,6 @@ struct efx_phy_operations falcon_sft9001_phy_ops = {
- 	.get_settings	  = tenxpress_get_settings,
- 	.set_settings	  = tenxpress_set_settings,
- 	.set_npage_adv    = sft9001_set_npage_adv,
--	.num_tests	  = ARRAY_SIZE(sft9001_test_names),
--	.test_names	  = sft9001_test_names,
-+	.test_name	  = sft9001_test_name,
- 	.run_tests	  = sft9001_run_tests,
--	.mmds             = TENXPRESS_REQUIRED_DEVS,
--	.loopbacks        = SFT9001_LOOPBACKS,
- };
+-int falcon_spi_cmd(const struct efx_spi_device *spi, unsigned int command,
++int falcon_spi_cmd(struct efx_nic *efx,
++		   const struct efx_spi_device *spi, unsigned int command,
+ 		   int address, const void* in, void *out, size_t len);
+-int falcon_spi_wait_write(const struct efx_spi_device *spi);
+-int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
++int falcon_spi_wait_write(struct efx_nic *efx,
++			  const struct efx_spi_device *spi);
++int falcon_spi_read(struct efx_nic *efx,
++		    const struct efx_spi_device *spi, loff_t start,
+ 		    size_t len, size_t *retlen, u8 *buffer);
+-int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
++int falcon_spi_write(struct efx_nic *efx,
++		     const struct efx_spi_device *spi, loff_t start,
+ 		     size_t len, size_t *retlen, const u8 *buffer);
+ 
+ /*
 -- 
 1.6.5.3
 
