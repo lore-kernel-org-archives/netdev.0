@@ -1,46 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6 PATCH] net: Move && and || to end of
- previous line
-Date: Mon, 30 Nov 2009 09:28:37 -0800
-Message-ID: <20091130092837.4998f961@nehalam>
-References: <1259001504.16503.79.camel@Joe-Laptop.home>
-	<20091123.104130.117837098.davem@davemloft.net>
-	<1259528449.29779.194.camel@Joe-Laptop.home>
-	<20091129.165557.84377714.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: SIP proxying: siproxd vs. Netfilter SIP nat
+Date: Mon, 30 Nov 2009 18:30:17 +0100
+Message-ID: <4B140129.2050907@trash.net>
+References: <alpine.DEB.2.00.0911301104520.16713@router.home> <4B13FF05.5060005@trash.net> <alpine.DEB.2.00.0911301123110.17037@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: Christian Hentschel <chentschel@arnet.com.ar>,
+	netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47386 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752015AbZK3R2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2009 12:28:47 -0500
-In-Reply-To: <20091129.165557.84377714.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:55940 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752015AbZK3RaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 12:30:11 -0500
+In-Reply-To: <alpine.DEB.2.00.0911301123110.17037@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 29 Nov 2009 16:55:57 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Joe Perches <joe@perches.com>
-> Date: Sun, 29 Nov 2009 13:00:49 -0800
+Christoph Lameter wrote:
+> On Mon, 30 Nov 2009, Patrick McHardy wrote:
 > 
-> > Not including net/atm/
-> > 
-> > Compiled tested x86 allyesconfig only
-> > Added a > 80 column line or two, which I ignored.
-> > Existing checkpatch plaints willfully, cheerfully ignored.
-> > 
-> > Signed-off-by: Joe Perches <joe@perches.com>
+>>> http://people.netfilter.org/chentschel/docs/sip-conntrack-nat.html
+>> That documentation is horribly outdated.
 > 
-> Applied, thanks a lot Joe.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Where do I find more recent documentation?
 
-Rather than playing with the dangling operator format which seems to be a coding
-style that only David cares about. Why not go through and fix the really ugly old
-drivers that need it. For a good horror experience, go look at the floppy driver.
+Below :)
+
+>>> Isnt there a way to make the kernel module work in the same way siproxd
+>>> works and able to support multiple phones? Right now configuring SIP
+>>> connectivity is a messy thing that is not easily setup. Can we fix this?
+>> It should work fine with multiple phones, it even recognizes calls
+>> between two internal phones and makes the media stream go between
+>> them directly. Depending on how your registrar/proxy works, you might
+>> have to set one or both of these module options:
+> 
+> Loaded both sip modules without specifying any parameters. Resulted in one
+> way audio problems which is what I also get without the modules.
+> 
+>> sip_direct_signalling: when set to zero, allows incoming signalling
+>>  connections from other hosts than the registrar. Usually not needed.
+>>
+>> sip_direct_media: when set to zero, allows incoming media streams
+>>  from other hosts than the registrar. This one is often required,
+>>  some providers use server farms for handling the media streams,
+>>  some set up media streams to go directly between the endpoints.
+> 
+> Ok will try setting that parameter to zero.
+
+You of course also need to accept the packets marked RELATED by
+the helper. If this is missing it might result in one-way audio.
