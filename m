@@ -1,191 +1,55 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] bnx2: avoid flushing statistics when doing a MTU change
-Date: Mon, 30 Nov 2009 12:05:36 -0200
-Message-ID: <4B13D130.8080108@linux.vnet.ibm.com>
-References: <C27F8246C663564A84BB7AB34397724218065B9851@IRVEXCHCCR01.corp.ad.broadcom.com> <4B13C5FE.7060403@linux.vnet.ibm.com> <4B13C987.3090409@gmail.com>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high number
+ of RX dropped in bnx2
+Date: Mon, 30 Nov 2009 16:33:56 +0100 (CET)
+Message-ID: <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl>
+References: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-851990816-1259595237=:21971"
+Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugzilla-daemon@bugzilla.kernel.org"
+	<bugzilla-daemon@bugzilla.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:57437 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbZK3OFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 09:05:39 -0500
-Received: from mailhub3.br.ibm.com (mailhub3.br.ibm.com [9.18.232.110])
-	by e24smtp04.br.ibm.com (8.14.3/8.13.1) with ESMTP id nAUDuxBf005525
-	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 11:56:59 -0200
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nAUE776K1888402
-	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 12:07:07 -0200
-Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
-	by d24av03.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nAUE5bRh021999
-	for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 12:05:38 -0200
-In-Reply-To: <4B13C987.3090409@gmail.com>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:42897 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752908AbZK3Pee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 10:34:34 -0500
+In-Reply-To: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> I see nothing in the driver/patch that will consolidate bp->dev->stats 
-> before your memcpy(). DMA transfert doesnt touch bp->dev->stats.
-You're right, calling bnx2_get_stats() after the DMA should be enough, 
-as the following patch
----
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-[PATCH] bnx2: avoid flushing statistics when doing a MTU change
+---1144830174-851990816-1259595237=:21971
+Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Actually when bnx2 changes the interface's MTU size, it resets
-the chip and consequently flushes the interface statistics.
-This patch saves the statistics in a temporary space in order to
-maintain the statistics correct after the chip reset.
 
-Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
----
- drivers/net/bnx2.c |   57 ++++++++++++++++++++++++++++++++++++++-------------
- drivers/net/bnx2.h |    1 +
- 2 files changed, 43 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 7fa4048..07c0376 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6221,6 +6221,8 @@ bnx2_open(struct net_device *dev)
- 	else if (bp->flags & BNX2_FLAG_USING_MSIX)
- 		printk(KERN_INFO PFX "%s: using MSIX\n", dev->name);
- 
-+	memset(&bp->stats_extra, 0, sizeof(struct net_device_stats));
-+
- 	netif_tx_start_all_queues(dev);
- 
- 	return 0;
-@@ -6469,46 +6471,58 @@ bnx2_get_stats(struct net_device *dev)
- 	net_stats->rx_packets =
- 		GET_NET_STATS(stats_blk->stat_IfHCInUcastPkts) +
- 		GET_NET_STATS(stats_blk->stat_IfHCInMulticastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCInBroadcastPkts);
-+		GET_NET_STATS(stats_blk->stat_IfHCInBroadcastPkts) + 
-+		bp->stats_extra.rx_packets;
- 
- 	net_stats->tx_packets =
- 		GET_NET_STATS(stats_blk->stat_IfHCOutUcastPkts) +
- 		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCOutBroadcastPkts);
-+		GET_NET_STATS(stats_blk->stat_IfHCOutBroadcastPkts) +
-+		bp->stats_extra.tx_packets;
- 
- 	net_stats->rx_bytes =
--		GET_NET_STATS(stats_blk->stat_IfHCInOctets);
-+		GET_NET_STATS(stats_blk->stat_IfHCInOctets) +
-+		bp->stats_extra.rx_bytes;
- 
- 	net_stats->tx_bytes =
--		GET_NET_STATS(stats_blk->stat_IfHCOutOctets);
-+		GET_NET_STATS(stats_blk->stat_IfHCOutOctets) +
-+		bp->stats_extra.tx_bytes;
- 
- 	net_stats->multicast =
--		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts);
-+		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts) +
-+		bp->stats_extra.multicast;
- 
- 	net_stats->collisions =
--		(unsigned long) stats_blk->stat_EtherStatsCollisions;
-+		(unsigned long) stats_blk->stat_EtherStatsCollisions +
-+		bp->stats_extra.collisions;
- 
- 	net_stats->rx_length_errors =
- 		(unsigned long) (stats_blk->stat_EtherStatsUndersizePkts +
--		stats_blk->stat_EtherStatsOverrsizePkts);
-+		stats_blk->stat_EtherStatsOverrsizePkts) +
-+		bp->stats_extra.rx_length_errors;
- 
- 	net_stats->rx_over_errors =
- 		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
--		stats_blk->stat_IfInMBUFDiscards);
-+		stats_blk->stat_IfInMBUFDiscards) +
-+		bp->stats_extra.rx_over_errors;
- 
- 	net_stats->rx_frame_errors =
--		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors;
-+		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors +
-+		bp->stats_extra.rx_frame_errors;
- 
- 	net_stats->rx_crc_errors =
--		(unsigned long) stats_blk->stat_Dot3StatsFCSErrors;
-+		(unsigned long) stats_blk->stat_Dot3StatsFCSErrors +
-+		bp->stats_extra.rx_crc_errors;
- 
- 	net_stats->rx_errors = net_stats->rx_length_errors +
- 		net_stats->rx_over_errors + net_stats->rx_frame_errors +
--		net_stats->rx_crc_errors;
-+		net_stats->rx_crc_errors +
-+		bp->stats_extra.rx_errors;
- 
- 	net_stats->tx_aborted_errors =
-     		(unsigned long) (stats_blk->stat_Dot3StatsExcessiveCollisions +
--		stats_blk->stat_Dot3StatsLateCollisions);
-+		stats_blk->stat_Dot3StatsLateCollisions) +
-+		bp->stats_extra.tx_aborted_errors;
- 
- 	if ((CHIP_NUM(bp) == CHIP_NUM_5706) ||
- 	    (CHIP_ID(bp) == CHIP_ID_5708_A0))
-@@ -6516,7 +6530,8 @@ bnx2_get_stats(struct net_device *dev)
- 	else {
- 		net_stats->tx_carrier_errors =
- 			(unsigned long)
--			stats_blk->stat_Dot3StatsCarrierSenseErrors;
-+			stats_blk->stat_Dot3StatsCarrierSenseErrors +
-+			bp->stats_extra.tx_carrier_errors;
- 	}
- 
- 	net_stats->tx_errors =
-@@ -6524,11 +6539,13 @@ bnx2_get_stats(struct net_device *dev)
- 		stats_blk->stat_emac_tx_stat_dot3statsinternalmactransmiterrors
- 		+
- 		net_stats->tx_aborted_errors +
--		net_stats->tx_carrier_errors;
-+		net_stats->tx_carrier_errors +
-+		bp->stats_extra.tx_errors;
- 
- 	net_stats->rx_missed_errors =
- 		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
--		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop);
-+		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop) +
-+		bp->stats_extra.rx_missed_errors;
- 
- 	return net_stats;
- }
-@@ -6989,6 +7006,16 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- {
- 	if (netif_running(bp->dev)) {
- 		bnx2_netif_stop(bp);
-+
-+		/* Save statistics that is going to be reseted */
-+		REG_WR(bp, BNX2_HC_COMMAND, bp->hc_cmd |
-+				BNX2_HC_COMMAND_STATS_NOW);
-+		REG_RD(bp, BNX2_HC_COMMAND);
-+		udelay(5);
-+		bnx2_get_stats(bp->dev);
-+		memcpy(&bp->stats_extra, &bp->dev->stats,
-+			sizeof(struct net_device_stats));
-+
- 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
- 		bnx2_free_skbs(bp);
- 		bnx2_free_mem(bp);
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index a4d8340..1063d1a 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6912,6 +6912,7 @@ struct bnx2 {
- 
- 	const struct firmware	*mips_firmware;
- 	const struct firmware	*rv2p_firmware;
-+	struct net_device_stats stats_extra;
- };
- 
- #define REG_RD(bp, offset)					\
--- 
-1.6.0.2
+On Mon, 30 Nov 2009, Michael Chan wrote:
 
+> Andrew Morton wrote:
+>
+>>> # uptime ; ifconfig eth0|grep "RX p"; ethtool -S eth0|grep disc
+>>>  01:07:31 up 6 min,  1 user,  load average: 0.00, 0.07, 0.04
+>>>           RX packets:2234 errors:0 dropped:527 overruns:0 frame:0
+>>>      rx_discards: 0
+>>>      rx_fw_discards: 527
+>>>
+>
+> Please report rx_bcast_packets and rx_mcast_packets together with
+> rx_fw_discards.  Thanks.
+
+# ethtool -S eth0|egrep "(rx_bcast_packets|rx_mcast_packets|rx_fw_discards)"
+      rx_mcast_packets: 2806
+      rx_bcast_packets: 790016
+      rx_fw_discards: 790016
+
+Best regards,
+
+ 				Krzysztof Olêdzki
+---1144830174-851990816-1259595237=:21971--
