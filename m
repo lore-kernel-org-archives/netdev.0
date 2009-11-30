@@ -1,27 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: MERGE check, net-next-2.6...
-Date: Mon, 30 Nov 2009 13:02:59 -0800 (PST)
-Message-ID: <20091130.130259.195994117.davem@davemloft.net>
-References: <20091129.011709.11078985.davem@davemloft.net>
-	<8DD2590731AB5D4C9DBF71A877482A903E332F65@orsmsx509.amr.corp.intel.com>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: scp stalls mysteriously
+Date: Mon, 30 Nov 2009 22:24:17 +0100
+Message-ID: <20091130222417.77ce13a4@houba>
+References: <20091127223545.2a752429@houba>
+	<alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi>
+	<20091128010156.1219012a@houba>
+	<alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi>
+	<20091130195004.38dbc319@houba>
+	<alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	linville@tuxdriver.com, amit@netxen.com
-To: bruce.w.allan@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41046
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752230AbZK3VCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 16:02:53 -0500
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A903E332F65@orsmsx509.amr.corp.intel.com>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:47820 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285AbZK3VYc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 16:24:32 -0500
+In-Reply-To: <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Date: Mon, 30 Nov 2009 12:54:48 -0800
+Le Mon, 30 Nov 2009 22:18:22 +0200 (EET),
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
 
-> Your merge conflict fix-ups for e1000e look good to me.  Thanks!
+> On Mon, 30 Nov 2009, Frederic Leroy wrote:
+>=20
+> > Le Sat, 28 Nov 2009 13:31:14 +0200 (EET),
+> > "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+> point out to yet another problem, however, I'm not sure what I can
+> atm trust in the logs. ...Timestamps would probably help me a bit
+> (I've changed also sleep to do 0.01 granularity):
 
-Thanks a lot for checking Allan.
+I made 2 other traces with 0.01 granularity, but it works normally. I
+suppose there are less interference in the evening.
+
+The .4 is a bad trace where I forgot to put timestamp. And when I
+realized it was copying successfully, I stopped it before it tooks too
+much space.
+
+It can be interesting because the stream had a little "pause".
+
+The .5 is the trace of a successfull copy. I limited packet capture siz=
+e
+to 96 bytes. It has stalled once in the middle.
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
