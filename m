@@ -1,208 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 30 Nov 2009 01:12:00 -0800 (PST)
-Message-ID: <20091130.011200.151941188.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Problem with tcp (2.6.31) as first
+Date: Mon, 30 Nov 2009 10:12:19 +0100
+Message-ID: <4B138C73.8040401@gmail.com>
+References: <4B0EF273.4030003@gmail.com>	<alpine.DEB.2.00.0911262327130.24189@melkinpaasi.cs.helsinki.fi>	<4B0F0466.8080006@gmail.com> <20091129.233447.60856273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753253AbZK3JL5@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, ole@ans.pl, herbert@gondor.apana.org.au,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36020 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752501AbZK3JMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 04:12:50 -0500
+In-Reply-To: <20091129.233447.60856273.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 26 Nov 2009 23:42:46 +0100
+>=20
+>> Following patch solves this problem, but maybe we need a flag
+>> (a la sk->sk_userlocks |=3D SOCK_WINCLAMP_LOCK;)
+>> in case user set window_clamp.
+>> Or just document the clearing after a tcp disconnect ?
+>>
+>> [PATCH] tcp: tcp_disconnect() should clear window_clamp
+>>
+>> Or reuse of socket possibly selects a small window, wscale =3D 0 for=
+ next connection.
+>=20
+> Eric, can you post this with proper signoff to netdev?
+>=20
+> Thanks.
 
-1) EMAC driver build fix, macro issues.  From chaithrika@ti.com
+Sure, here it is.
 
-2) Fix order 5 GFP_ATOMIC allocation on resume in e100, from Roger Oksanen.
-   This fixes a regression list entry.
+Thanks
 
-3) smc91x IRQ number handling broken since 2.6.26 on some platforms.
-   Fix from Russell King.
+[PATCH] tcp: tcp_disconnect() should clear window_clamp
 
-4) Netxen promisc and bonding TLB/ALB mode fix from Narender Kumar.
+NFS can reuse its TCP socket after calling tcp_disconnect().
+We noticed window scaling was not negotiated in SYN packet of next conn=
+ection request.
 
-5) stmmac build fix from Giuseppe CAVALLARO.
+=46ix is to clear tp->window_clamp in tcp_disconnect().
 
-6) ETHOC bad kconfig dependencies, fix from Geert Uytterhoeven.
+Reported-by: Krzysztof Oledzki <ole@ans.pl>
+Tested-by: Krzysztof Oledzki <ole@ans.pl>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
 
-7) ep93xx-eth can register with zero MAC addr, fix from Florian Fainelli.
-
-8) b44 spews log messages on a normal interrupt status condition,
-   making netconsole over it wedge the machine.
-
-9) IP fragmentation handling can OOPS due to misreferenced network
-   namespace pointer.  Fix from David Ford.
-
-10) Missing semaphore release in cosa driver, from Dan Carpenter.
-
-11) Fix build with debug enabled and fix soft lockup, by Antti Kaijanmäki
-    via Andrew Morton.
-
-12) SCTP retransmit fix from Andrei Pelinescu-Onciul.
-
-13) au1x00 does netdevice register before ->netdev_ops is setup
-    properly.  Fix from Alexander Beregalov.
-
-14) Several netfilter fixes via Patrick McHardy, in particular keep
-    nf_log from taking a mutex inside of an RCU section thus triggering
-    might_sleep() warnings.
-
-15) Oops, veth driver accesses statistics in parallal from multiple
-    cpus completely unlocked.  Fix from Eric Dumazet.
-
-16) ieee802154_fake_xmit() claims to handle the SKB but doesn't free
-    it resulting in a leak.  Fix from Eric Dumazet.
-
-17) A few small wireless fixes via John Linville, including hopefully
-    the final fix for addba timers from Johannes Berg.
-
-Please pull, thanks a lot!
-
-The following changes since commit a8a8a669ea13d792296737505adc43ccacf3a648:
-  Linus Torvalds (1):
-        Merge branch 'i2c-pnx-fixes' of git://git.fluff.org/bjdooks/linux
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexander Beregalov (1):
-      Au1x00: fix crash when trying register_netdev()
-
-Amit Kumar Salecha (1):
-      netxen: fix memory initialization
-
-Andrei Pelinescu-Onciul (1):
-      sctp: on T3_RTX retransmit all the in-flight chunks
-
-Antti Kaijanmäki (2):
-      hso: fix debug routines
-      hso: fix soft-lockup
-
-Bruce Allan (7):
-      e1000e: partial revert of 3ec2a2b8 plus FC workraround for 82577/8
-      e1000e: read of PHY register may access wrong page on 82578
-      e1000e: set flow control thresholds properly after enabling/disabling pause
-      e1000e: add Tx timeout factor for 100Mbps
-      e1000e: flow control thresholds not correct when changing mtu
-      e1000e: remove unnecessary 82577 workaround causing link issues
-      e1000e: do not initiate autonegotiation during OEM configuration
-
-Dan Carpenter (1):
-      wan: cosa: drop chan->wsem on error path
-
-David Ford (1):
-      ipv4: additional update of dev_net(dev) to struct *net in ip_fragment.c, NULL ptr OOPS
-
-David J. Choi (1):
-      drivers/net: ks8851_mll ethernet network driver -resubmit
-
-David S. Miller (3):
-      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-      b44: Fix wedge when using netconsole.
-
-Eric Dumazet (4):
-      ieee802154: dont leak skbs in ieee802154_fake_xmit()
-      veth: Fix veth_get_stats()
-      pktgen: Fix device name compares
-      pktgen: Fix netdevice unregister
-
-Florian Fainelli (1):
-      ep93xx-eth: check for zero MAC address on probe, not on device open
-
-Geert Uytterhoeven (1):
-      net: ETHOC should depend on HAS_DMA
-
-Giuseppe CAVALLARO (2):
-      stmmac: fixed a compilation error when use the external timer
-      stmmac: do not fail when the timer cannot be used.
-
-Ivan Vecera (1):
-      r8169: restore mac addr in rtl8169_remove_one and rtl_shutdown
-
-Jaswinder Singh Rajput (1):
-      ixgbe: move tc variable to CONFIG_IXGBE_DCB
-
-Johannes Berg (3):
-      mac80211: fix addba timer (again...)
-      mac80211: fix resume
-      rfkill: fix miscdev ops
-
-John W. Linville (1):
-      ath9k: set ps_default as false
-
-Narender Kumar (2):
-      netxen: fix promisc for NX2031.
-      netxen : fix BOND_MODE_TLB/ALB mode.
-
-Patrick McHardy (4):
-      netfilter: xt_osf: fix xt_osf_remove_callback() return value
-      netfilter: nf_log: fix sleeping function called from invalid context in seq_show()
-      netfilter: xt_limit: fix invalid return code in limit_mt_check()
-      macvlan: fix gso_max_size setting
-
-Roel Kluin (1):
-      netfilter: xt_osf: fix xt_osf_remove_callback() return value
-
-Roger Oksanen (1):
-      e100: Use pci pool to work around GFP_ATOMIC order 5 memory allocation failure
-
-Russell King - ARM Linux (1):
-      NET: smc91x: Fix irq flags
-
-Steve Glendinning (1):
-      smsc9420: prevent BUG() if ethtool is called with interface down
-
-Wu Fengguang (1):
-      netfilter: nf_log: fix sleeping function called from invalid context in seq_show()
-
-chaithrika@ti.com (1):
-      TI DaVinci EMAC: Minor macro related updates
-
- drivers/ieee802154/fakehard.c         |    5 +-
- drivers/net/Kconfig                   |    2 +-
- drivers/net/arm/ep93xx_eth.c          |   12 +--
- drivers/net/au1000_eth.c              |   15 ++--
- drivers/net/b44.c                     |    3 -
- drivers/net/davinci_emac.c            |   26 +++----
- drivers/net/e100.c                    |   17 +++--
- drivers/net/e1000e/e1000.h            |    2 +
- drivers/net/e1000e/ethtool.c          |   12 +++-
- drivers/net/e1000e/ich8lan.c          |    4 +-
- drivers/net/e1000e/netdev.c           |   50 ++++++++----
- drivers/net/e1000e/phy.c              |   56 +++++--------
- drivers/net/ixgbe/ixgbe_main.c        |    2 +-
- drivers/net/ks8851_mll.c              |  142 ++++++++++++++++-----------------
- drivers/net/macvlan.c                 |    2 +
- drivers/net/netxen/netxen_nic.h       |    2 +
- drivers/net/netxen/netxen_nic_hdr.h   |    2 +
- drivers/net/netxen/netxen_nic_hw.c    |   55 ++++++++++---
- drivers/net/netxen/netxen_nic_init.c  |    2 +
- drivers/net/netxen/netxen_nic_main.c  |    4 +-
- drivers/net/r8169.c                   |    7 ++
- drivers/net/smc91x.c                  |    2 +-
- drivers/net/smsc9420.c                |   14 +++
- drivers/net/stmmac/stmmac_main.c      |   50 +++++++-----
- drivers/net/stmmac/stmmac_timer.c     |    4 +-
- drivers/net/stmmac/stmmac_timer.h     |    1 +
- drivers/net/usb/hso.c                 |    8 +-
- drivers/net/veth.c                    |   35 ++++-----
- drivers/net/wan/cosa.c                |    1 +
- drivers/net/wireless/ath/ath9k/main.c |    2 +
- include/net/sctp/structs.h            |    1 -
- net/core/pktgen.c                     |   32 +++++---
- net/ipv4/ip_fragment.c                |    2 +-
- net/mac80211/agg-tx.c                 |   18 ++---
- net/mac80211/ieee80211_i.h            |    8 ++
- net/mac80211/util.c                   |   19 ++---
- net/netfilter/nf_log.c                |   18 +---
- net/netfilter/xt_limit.c              |    2 +-
- net/netfilter/xt_osf.c                |    2 +-
- net/rfkill/core.c                     |    1 +
- net/sctp/outqueue.c                   |   10 ---
- net/sctp/sm_sideeffect.c              |    1 -
- net/sctp/transport.c                  |    5 +-
- 43 files changed, 359 insertions(+), 299 deletions(-)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f1813bc..d7a884c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2059,6 +2059,7 @@ int tcp_disconnect(struct sock *sk, int flags)
+ 	tp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
+ 	tp->snd_cwnd_cnt =3D 0;
+ 	tp->bytes_acked =3D 0;
++	tp->window_clamp =3D 0;
+ 	tcp_set_ca_state(sk, TCP_CA_Open);
+ 	tcp_clear_retrans(tp);
+ 	inet_csk_delack_init(sk)
