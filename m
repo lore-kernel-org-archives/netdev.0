@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 11/20] net: Simplify conntrack_proto_gre pernet operations.
-Date: Sun, 29 Nov 2009 17:46:08 -0800
-Message-ID: <1259545577-7466-11-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 16/20] net: Simplify ip_gre pernet operations.
+Date: Sun, 29 Nov 2009 17:46:13 -0800
+Message-ID: <1259545577-7466-16-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,10 +10,10 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46448 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:46460 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbZK3Bq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:29 -0500
+	with ESMTP id S1753212AbZK3Bqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:32 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,68 +25,85 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/netfilter/nf_conntrack_proto_gre.c |   20 ++++++--------------
- 1 files changed, 6 insertions(+), 14 deletions(-)
+ net/ipv4/ip_gre.c |   24 ++++++------------------
+ 1 files changed, 6 insertions(+), 18 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 91d0e71..c99cfba 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -300,32 +300,24 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index c5f6af5..f36ce15 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1309,17 +1309,8 @@ static void ipgre_destroy_tunnels(struct ipgre_net *ign, struct list_head *head)
  
- static int proto_gre_net_init(struct net *net)
+ static int ipgre_init_net(struct net *net)
  {
--	struct netns_proto_gre *net_gre;
--	int rv;
-+	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
- 
--	net_gre = kmalloc(sizeof(struct netns_proto_gre), GFP_KERNEL);
--	if (!net_gre)
--		return -ENOMEM;
- 	rwlock_init(&net_gre->keymap_lock);
- 	INIT_LIST_HEAD(&net_gre->keymap_list);
- 
--	rv = net_assign_generic(net, proto_gre_net_id, net_gre);
--	if (rv < 0)
--		kfree(net_gre);
--	return rv;
-+	return 0;
- }
- 
- static void proto_gre_net_exit(struct net *net)
- {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
+ 	int err;
+-	struct ipgre_net *ign;
 -
- 	nf_ct_gre_keymap_flush(net);
--	kfree(net_gre);
+-	err = -ENOMEM;
+-	ign = kzalloc(sizeof(struct ipgre_net), GFP_KERNEL);
+-	if (ign == NULL)
+-		goto err_alloc;
+-
+-	err = net_assign_generic(net, ipgre_net_id, ign);
+-	if (err < 0)
+-		goto err_assign;
+ 
+ 	ign->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "gre0",
+ 					   ipgre_tunnel_setup);
+@@ -1340,10 +1331,6 @@ static int ipgre_init_net(struct net *net)
+ err_reg_dev:
+ 	free_netdev(ign->fb_tunnel_dev);
+ err_alloc_dev:
+-	/* nothing */
+-err_assign:
+-	kfree(ign);
+-err_alloc:
+ 	return err;
  }
  
- static struct pernet_operations proto_gre_net_ops = {
- 	.init = proto_gre_net_init,
- 	.exit = proto_gre_net_exit,
-+	.id   = &proto_gre_net_id,
-+	.size = sizeof(struct netns_proto_gre),
+@@ -1357,12 +1344,13 @@ static void ipgre_exit_net(struct net *net)
+ 	ipgre_destroy_tunnels(ign, &list);
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+-	kfree(ign);
+ }
+ 
+ static struct pernet_operations ipgre_net_ops = {
+ 	.init = ipgre_init_net,
+ 	.exit = ipgre_exit_net,
++	.id   = &ipgre_net_id,
++	.size = sizeof(struct ipgre_net),
  };
  
- static int __init nf_ct_proto_gre_init(void)
-@@ -335,7 +327,7 @@ static int __init nf_ct_proto_gre_init(void)
- 	rv = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_gre4);
- 	if (rv < 0)
- 		return rv;
--	rv = register_pernet_gen_subsys(&proto_gre_net_id, &proto_gre_net_ops);
-+	rv = register_pernet_subsys(&proto_gre_net_ops);
- 	if (rv < 0)
- 		nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
- 	return rv;
-@@ -344,7 +336,7 @@ static int __init nf_ct_proto_gre_init(void)
- static void __exit nf_ct_proto_gre_fini(void)
- {
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
--	unregister_pernet_gen_subsys(proto_gre_net_id, &proto_gre_net_ops);
-+	unregister_pernet_subsys(&proto_gre_net_ops);
- }
+ static int ipgre_tunnel_validate(struct nlattr *tb[], struct nlattr *data[])
+@@ -1682,7 +1670,7 @@ static int __init ipgre_init(void)
+ 		return -EAGAIN;
+ 	}
  
- module_init(nf_ct_proto_gre_init);
+-	err = register_pernet_gen_device(&ipgre_net_id, &ipgre_net_ops);
++	err = register_pernet_device(&ipgre_net_ops);
+ 	if (err < 0)
+ 		goto gen_device_failed;
+ 
+@@ -1700,7 +1688,7 @@ out:
+ tap_ops_failed:
+ 	rtnl_link_unregister(&ipgre_link_ops);
+ rtnl_link_failed:
+-	unregister_pernet_gen_device(ipgre_net_id, &ipgre_net_ops);
++	unregister_pernet_device(&ipgre_net_ops);
+ gen_device_failed:
+ 	inet_del_protocol(&ipgre_protocol, IPPROTO_GRE);
+ 	goto out;
+@@ -1710,7 +1698,7 @@ static void __exit ipgre_fini(void)
+ {
+ 	rtnl_link_unregister(&ipgre_tap_ops);
+ 	rtnl_link_unregister(&ipgre_link_ops);
+-	unregister_pernet_gen_device(ipgre_net_id, &ipgre_net_ops);
++	unregister_pernet_device(&ipgre_net_ops);
+ 	if (inet_del_protocol(&ipgre_protocol, IPPROTO_GRE) < 0)
+ 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
+ }
 -- 
 1.6.5.2.143.g8cc62
 
