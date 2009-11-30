@@ -1,58 +1,50 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: scp stalls mysteriously
-Date: Mon, 30 Nov 2009 23:19:39 +0100
-Message-ID: <20091130231939.715491b4@houba>
-References: <20091127223545.2a752429@houba>
-	<alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi>
-	<20091128010156.1219012a@houba>
-	<alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi>
-	<20091130195004.38dbc319@houba>
-	<alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
-	<20091130213727.2f4047d2@houba>
-	<alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+From: Brandon Philips <brandon@ifup.org>
+Subject: Re: dmfe/tulip device id overlap
+Date: Mon, 30 Nov 2009 14:22:20 -0800
+Message-ID: <20091130222219.GA8073@jenkins.domain_not_set.invalid>
+References: <20091129.003024.245104886.davem@davemloft.net>
+ <20091130065512.GA2792@jenkins.domain_not_set.invalid>
+ <da824cf30911300914p2d08b87cr4625e9bc30ec7e5b@mail.gmail.com>
+ <20091130.122642.113956563.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: grundler@google.com, tobias@ringis.se, kyle@mcmartin.ca,
+	netdev@vger.kernel.org, grundler@parisc-linux.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:48404 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753415AbZK3WTz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:19:55 -0500
-In-Reply-To: <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:38141 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbZK3WW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:22:58 -0500
+Received: by yxe17 with SMTP id 17so4066947yxe.33
+        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 14:23:04 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20091130.122642.113956563.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Mon, 30 Nov 2009 23:37:56 +0200 (EET),
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+On 12:26 Mon 30 Nov 2009, David Miller wrote:
+> From: Grant Grundler <grundler@google.com>
+> Date: Mon, 30 Nov 2009 09:14:01 -0800
+> > Has anyone posted "lspci -v" output for the "Netra X1 and Sunfire
+> > V100" motherboards?
+> > 
+> > I'm asking because I'm hoping it's possible to disambiguate the add-on
+> > cards from
+> > LAN-on-Motherboard cases by looking at subsystem vendor and device IDs as well.
+> 
+>             subsystem-id:  0000434e
+>             subsystem-vendor-id:  00004554
+>
+> Hmmm, what vendor is '0x4554'? :-)
 
-> Ok. Just wanted to confirm since it can be that that not all packets
-> are in the tcpdump that TCP was sending. For what reason is unknown
-> at the moment. Any fancy firewall (iptables) rules on houba that
-> could do such a trick here?
+Whoever it is it is the same as the expansion card on non-sparc
+boards: SubVendor: pci 0x4554 [1]
 
-Nothing with netfilter or schedulers on houba, neither on sg ( no log
-because no iproute installed ...)
-http://www.starox.org/pub/scp_stall/houba.netfilter.log
+Hrm, dead end I guess.
 
-> Also, have you changed sysctl settings from the defaults?
+Cheers,
 
-No but I could have change defaults in the linux config file.
+	Brandon
 
-I saved the current content of /proc/sys/net and proc/net :=20
-http://www.starox.org/pub/scp_stall/sg-proc_net-proc_sys_net.tbz2
-http://www.starox.org/pub/scp_stall/houba-proc_net-proc_sys_net.tbz2
-
-I put also linux config files in the directory.
-
-> Could you try btw to disable frto (set tcp_frto sysctl to zero), in
-> theory it could cause zero cwnd if something else is wrong too (I
-> haven't yet read them all through so there might be other places
-> where a zero cwnd can be set). Also I'm interested what happens if
-> you disable timestamps, is the problem still reproducable.
-=20
-Ok, I'll try these tomorrow when it will fault again :)
-
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+[1] https://bugzilla.novell.com/show_bug.cgi?id=537016#c5
