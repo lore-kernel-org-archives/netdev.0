@@ -1,34 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/20] net: NETDEV_UNREGISTER_PERNET ->
- NETDEV_UNREGISTER_BATCH
-Date: Mon, 30 Nov 2009 14:49:17 -0800 (PST)
-Message-ID: <20091130.144917.233710214.davem@davemloft.net>
-References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+ hardware queue MAC and VLAN filters
+Date: Tue, 1 Dec 2009 09:57:51 +1100
+Message-ID: <20091130225751.GI11152@verge.net.au>
+References: <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
+ <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
+ <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
+ <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
+ <20091130060323.GA17989@verge.net.au>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6BFA040@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, dlezcano@fr.ibm.com,
-	adobriyan@gmail.com, kaber@trash.net, opurdila@ixiacom.com
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33272
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752201AbZK3WtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:49:11 -0500
-In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:53560 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062AbZK3W5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:57:45 -0500
+Content-Disposition: inline
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA6BFA040@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Sun, 29 Nov 2009 17:45:58 -0800
+On Mon, Nov 30, 2009 at 11:36:08AM -0700, Williams, Mitch A wrote:
+> >From: Simon Horman [mailto:horms@verge.net.au]
+> >Sent: Sunday, November 29, 2009 10:03 PM
+> 
+> >> The issue of which VF goes with which PF device can be deduced in
+> >> userspace via sysfs.
+> >
+> >Does this mean that the configuration of filtering for a VF needs
+> >to be done where the interface for the VF exists - e.g. in a KVM
+> >guest/Xen domU?
+> >
+> 
+> No, all of the configuration is done through the PF device.  What I was
+> saying was that, given a specific VF PCI device (which would be passed
+> through to the VM), you can use sysfs to determine which PF owns it, and
+> then run the ip command to tell the PF to configure the VF.
 
-> Additionally it appears that we moved the route cache flush after
-> the final synchronize_net, which seems wrong and there was no
-> explanation.  So I have restored the original location of the final
-> synchronize_net.
+Understood, sorry I missed that the first time around.
 
-I think the idea was that it's important for all pending stale
-RCU references to the device to be gone before we send out the
-notifier.  And that's why the synchronize_net() comes first.
+> >In terms of dealing with interfaces and the way that tools such as ip work
+> >that makes a lot of sense. But I wonder if it actually makes more sense
+> >from an administrative point of view to have this configuration go through
+> >the PF - e.g. the KVM host/Xen domO.
+> 
+> >From a policy and security standpoint, you can't allow the VM to handle
+> >its own hardware configuration. The host/hypervisor/VM Manager/boss has
+> >to handle this or you lose many of the advantages of virtualization
+> >(i.e. isolation, security, stability, etc).
 
-This needs more thought.
+Yes, agreed.
