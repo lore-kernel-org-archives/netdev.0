@@ -1,52 +1,39 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: linux-next: manual merge of the net tree with the
-	wireless-current tree
-Date: Mon, 30 Nov 2009 08:48:52 -0800
-Message-ID: <20091130164852.GA1008@bougret.hpl.hp.com>
-References: <20091126141055.d8c67798.sfr@canb.auug.org.au> <1259227989.32372.32.camel@johannes.local> <20091126130153.GA3697@tuxdriver.com>
-Reply-To: jt@hpl.hp.com
+From: Jon Masters <jcm@redhat.com>
+Subject: Re: [PROPOSAL]: Support Alternate Network Device Naming Schemes
+Date: Mon, 30 Nov 2009 12:07:24 -0500
+Message-ID: <1259600844.6978.35.camel@tonnant>
+References: <20091127094257.GA24624@mock.linuxdev.us.dell.com>
+Reply-To: Discussion of Development and Customization of the Red Hat Linux
+	Installer <anaconda-devel-list@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:63332 "EHLO
-	gundega.hpl.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752402AbZK3QtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 11:49:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20091126130153.GA3697@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shyam_iyer@dell.com, matt_domsch@dell.com,
+	jordan_hargrave@dell.com, charles_rose@dell.com
+To: Discussion of Development and Customization of the Red Hat Linux Installer
+	<anaconda-devel-list@redhat.com>
+Return-path: <anaconda-devel-list-bounces@redhat.com>
+In-Reply-To: <20091127094257.GA24624@mock.linuxdev.us.dell.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/anaconda-devel-list>,
+	<mailto:anaconda-devel-list-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/anaconda-devel-list>
+List-Post: <mailto:anaconda-devel-list@redhat.com>
+List-Help: <mailto:anaconda-devel-list-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/anaconda-devel-list>,
+	<mailto:anaconda-devel-list-request@redhat.com?subject=subscribe>
+Sender: anaconda-devel-list-bounces@redhat.com
+Errors-To: anaconda-devel-list-bounces@redhat.com
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 26, 2009 at 08:01:53AM -0500, John W. Linville wrote:
-> On Thu, Nov 26, 2009 at 10:33:09AM +0100, Johannes Berg wrote:
-> > On Thu, 2009-11-26 at 14:10 +1100, Stephen Rothwell wrote:
-> > > Hi all,
-> > > 
-> > > Today's linux-next merge of the net tree got a conflict in
-> > > net/wireless/wext.c between commit
-> > > 9fed059667d35fca9288460106e92dbb8ba35ea1 ("WE: Fix set events not
-> > > propagated") from the  tree and commit
-> > > 3d23e349d807177eaf519d444677cee86b1a04cf ("wext: refactor") from the net
-> > > tree.
-> > > 
-> > > The latter deleted the file that the former modified.  I just ignored the
-> > > wireless-current change and removed the file (which seems to have been
-> > > done in the latter change anyway).
-> > 
-> > The fix should probably have gone to wext-core.c instead?
+On Fri, 2009-11-27 at 03:42 -0600, Narendra K wrote:
+> We have been having discussions in the netdev list about creating multiple names for the network interfaces to bring determinism into the way network interfaces are named in the OSes. In specific, "eth0 in the OS does not always map to the integrated NIC Gb1 as labelled on the chassis".  
 > 
-> Yes.  That's the way I did it in the merge-test branch of wireless-next-2.6.
+> http://marc.info/?l=linux-netdev&m=125510301513312&w=2 - (Re: PATCH: Network Device Naming mechanism and policy)
+> http://marc.info/?l=linux-netdev&m=125619338904322&w=2 - ([PATCH] udev: create empty regular files to represent net)
 > 
-> Thanks,
-> 
-> John
+> As a result of those discussions, we propose an installer based solution.
 
-	Thanks for fixing that while I was busy in vacation ;-)
-	Have fun...
+Very cool. Thanks for your continued hard work on this stuff :) Do you
+have proof of concept Anaconda patches available?
 
-	Jean
+Jon.
