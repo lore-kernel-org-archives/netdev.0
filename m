@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: restore mac addr in rtl8169_remove_one and
- rtl_shutdown
-Date: Sun, 29 Nov 2009 23:13:14 -0800 (PST)
-Message-ID: <20091129.231314.211493103.davem@davemloft.net>
-References: <1259087166-14558-1-git-send-email-ivecera@redhat.com>
-	<20091129.002157.14823135.davem@davemloft.net>
-	<20091129143902.GA17831@zoreil.com>
+Subject: Re: [PATCH] smsc9420: prevent BUG() if ethtool is called with
+ interface down
+Date: Sun, 29 Nov 2009 23:15:13 -0800 (PST)
+Message-ID: <20091129.231513.230862834.davem@davemloft.net>
+References: <1259166116-5036-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, netdev@vger.kernel.org
-To: romieu@zoreil.com
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54403
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54409
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751064AbZK3HNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 02:13:08 -0500
-In-Reply-To: <20091129143902.GA17831@zoreil.com>
+	by vger.kernel.org with ESMTP id S1750869AbZK3HPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 02:15:07 -0500
+In-Reply-To: <1259166116-5036-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: François romieu <romieu@zoreil.com>
-Date: Sun, 29 Nov 2009 15:39:02 +0100
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Wed, 25 Nov 2009 16:21:56 +0000
 
-> The Sun, Nov 29, 2009 at 12:21:57AM -0800, David Miller wrote :
-> [...]
->> Francois, any comments?
+> This patch fixes a null pointer dereference BUG() if ethtool is used on
+> an smsc9420 interface while it is down, because the phy_dev is only
+> allocated while the interface is up.
 > 
-> It is low risk and manageable. Go for it.
+> Please also consider for -stable.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Ok, thanks for the review.
+Applied and queued up for -stable, thanks.
