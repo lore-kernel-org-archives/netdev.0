@@ -1,37 +1,37 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [PATCH net-next-2.6 1/6] be2net: set netdev->vlan_features
- appropriately
-Date: Mon, 30 Nov 2009 09:31:07 +0530
-Message-ID: <20091130040106.GA14176@serverengines.com>
-References: <20091130035444.GA15426@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT] netxen: fix merge 9b963e5d0e01461099a
+Date: Sun, 29 Nov 2009 20:01:15 -0800
+Message-ID: <1259553675-14546-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:29608 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752960AbZK3EA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 23:00:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20091130035444.GA15426@serverengines.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:45225 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753126AbZK3EBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2009 23:01:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/11/09 09:24 +0530, Ajit Khaparde wrote:
-> patch to initialize netdev->vlan_features appropriately.
-> 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-> ---
->  drivers/net/benet/be_main.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
+Patch "fix memory initialization:5d521fd36de4e61" didn't got merge.
 
-Dave,
-I waited for the following patch from Alexander Duyck to be accepted.
-But since I did not see any activity on it, I sent my patch series
-without considering that. Please let me know if you did not like it.
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_init.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-http://patchwork.ozlabs.org/patch/39265/
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 6ee27a6..80a6674 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -528,6 +528,8 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter)
+ 				continue;
+ 			if (off == (ROMUSB_GLB + 0x1c)) /* MS clock */
+ 				continue;
++			if ((off & 0x0ff00000) == NETXEN_CRB_DDR_NET)
++				continue;
+ 			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18) &&
+ 				!NX_IS_REVISION_P3P(adapter->ahw.revision_id))
+ 				buf[i].data = 0x1020;
+-- 
+1.6.0.2
 
--Ajit
