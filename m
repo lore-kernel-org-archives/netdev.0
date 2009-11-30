@@ -1,77 +1,72 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [RFC PATCH 07/10] bnx2: remove skb_dma_map/unmap calls from
- driver
-Date: Mon, 30 Nov 2009 02:26:49 -0800
-Message-ID: <C27F8246C663564A84BB7AB34397724218065B9850@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20091125012048.32704.84356.stgit@gitlad.jf.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2: avoid flushing statistics when doing a MTU change
+Date: Mon, 30 Nov 2009 11:30:42 +0100
+Message-ID: <4B139ED2.2060500@gmail.com>
+References: <1259341163-12775-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Alexander Duyck'" <alexander.h.duyck@intel.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"sathyap@serverengines.com" <sathyap@serverengines.com>,
-	"subbus@serverengines.com" <subb
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4747 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751633AbZK3K0w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 05:26:52 -0500
-In-Reply-To: <20091125012048.32704.84356.stgit@gitlad.jf.intel.com>
-Content-Language: en-US
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38110 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752533AbZK3Kaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 05:30:52 -0500
+In-Reply-To: <1259341163-12775-1-git-send-email-leitao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck wrote:
+leitao@linux.vnet.ibm.com a =E9crit :
+> Actually when bnx2 changes the interface's MTU size, it resets
+> the chip and consequently flushes the interface statistics.
+> This patch saves the statistics in a temporary space in order to
+> maintain the statistics correct after the chip reset.
+>=20
+> Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
 
-> Due to the fact that skb_dma_map/unmap do not work correctly when a HW
-> IOMMU is enabled it has been recommended to go about removing
-> the calls
-> from the network device drivers.
->
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Thanks Alexander.  Sorry for the late response, I just got back
-from vacation.  It looks ok except in bnx2_free_tx_skbs():
-
-> @@ -5295,18 +5303,30 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
->               for (j = 0; j < TX_DESC_CNT; ) {
->                       struct sw_tx_bd *tx_buf = &txr->tx_buf_ring[j];
->                       struct sk_buff *skb = tx_buf->skb;
-> +                     int k, last;
->
->                       if (skb == NULL) {
->                               j++;
->                               continue;
->                       }
->
-> -                     skb_dma_unmap(&bp->pdev->dev, skb,
-> DMA_TO_DEVICE);
-> +                     pci_unmap_single(bp->pdev,
-> +                                      pci_unmap_addr(tx_buf,
-> mapping),
-> +                                      skb_headlen(skb),
-> +                                      PCI_DMA_TODEVICE);
->
->                       tx_buf->skb = NULL;
->
-> -                     j += skb_shinfo(skb)->nr_frags + 1;
-> +                     last = skb_shinfo(skb)->nr_frags;
-> +                     for (k = 0; k < last; k++) {
-> +                             tx_buf = &txr->tx_buf_ring[j + k + 1];
-
-j + k + 1 can go beyond the ring when the ring wraps around.
-I'll send an updated patch tomorrow.
-
-> +                             pci_unmap_page(bp->pdev,
-> +                                     pci_unmap_addr(tx_buf, mapping),
-> +                                     skb_shinfo(skb)->frags[j].size,
-> +                                     PCI_DMA_TODEVICE);
-> +                     }
->                       dev_kfree_skb(skb);
-> +                     j += k + 1;
->               }
->       }
+ =20
+>  	return net_stats;
 >  }
+> @@ -6989,6 +7004,11 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx,=
+ u32 tx)
+>  {
+>  	if (netif_running(bp->dev)) {
+>  		bnx2_netif_stop(bp);
 
+I wonder if you need to renew this stats before copying them ?
+ (eg calling bnx2_get_stats())
+
+
+> +
+> +		/* Save statistics that is going to be reseted */
+> +		memcpy(bp->stats_extra, &bp->dev->stats,
+> +			sizeof(struct net_device_stats));
+> +
+>  		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+>  		bnx2_free_skbs(bp);
+>  		bnx2_free_mem(bp);
+> @@ -7649,6 +7669,7 @@ bnx2_init_board(struct pci_dev *pdev, struct ne=
+t_device *dev)
+> =20
+>  	bp->flags =3D 0;
+>  	bp->phy_flags =3D 0;
+> +	bp->stats_extra =3D kzalloc(sizeof(struct net_device_stats), GFP_KE=
+RNEL);
+
+There is no test of failed allocation.
+
+> =20
+>  	/* enable device (incl. PCI PM wakeup), and bus-mastering */
+>  	rc =3D pci_enable_device(pdev);
+> @@ -8162,6 +8183,7 @@ bnx2_remove_one(struct pci_dev *pdev)
+>  	if (bp->regview)
+>  		iounmap(bp->regview);
+> =20
+> +	kfree(bp->stats_extra);
+>  	free_netdev(dev);
+>  	pci_release_regions(pdev);
+>  	pci_disable_device(pdev);
+
+Structure is small anyway, why not including it in struct bnx2 ?
