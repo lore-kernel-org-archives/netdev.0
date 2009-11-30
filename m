@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 12/20] net: Simplify ppp_generic pernet operations.
-Date: Sun, 29 Nov 2009 17:46:09 -0800
-Message-ID: <1259545577-7466-12-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 08/20] net: Simplify vlan pernet operations.
+Date: Sun, 29 Nov 2009 17:46:05 -0800
+Message-ID: <1259545577-7466-8-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,10 +10,10 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42731 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:42725 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753168AbZK3Bqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:30 -0500
+	with ESMTP id S1753066AbZK3Bq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:27 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,90 +25,92 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/ppp_generic.c |   30 +++++++-----------------------
- 1 files changed, 7 insertions(+), 23 deletions(-)
+ net/8021q/vlan.c |   33 +++++++--------------------------
+ 1 files changed, 7 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 0a56a77..f671bb8 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -864,12 +864,7 @@ static const struct file_operations ppp_device_fops = {
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 225aa2f..91e9073 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -686,47 +686,28 @@ out:
  
- static __net_init int ppp_init_net(struct net *net)
+ static int vlan_init_net(struct net *net)
  {
--	struct ppp_net *pn;
--	int err;
++	struct vlan_net *vn = net_generic(net, vlan_net_id);
+ 	int err;
+-	struct vlan_net *vn;
 -
--	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
--	if (!pn)
--		return -ENOMEM;
-+	struct ppp_net *pn = net_generic(net, ppp_net_id);
- 
- 	idr_init(&pn->units_idr);
- 	mutex_init(&pn->all_ppp_mutex);
-@@ -879,32 +874,21 @@ static __net_init int ppp_init_net(struct net *net)
- 
- 	spin_lock_init(&pn->all_channels_lock);
- 
--	err = net_assign_generic(net, ppp_net_id, pn);
--	if (err) {
--		kfree(pn);
--		return err;
--	}
+-	err = -ENOMEM;
+-	vn = kzalloc(sizeof(struct vlan_net), GFP_KERNEL);
+-	if (vn == NULL)
+-		goto err_alloc;
 -
- 	return 0;
- }
+-	err = net_assign_generic(net, vlan_net_id, vn);
+-	if (err < 0)
+-		goto err_assign;
  
- static __net_exit void ppp_exit_net(struct net *net)
- {
--	struct ppp_net *pn;
-+	struct ppp_net *pn = net_generic(net, ppp_net_id);
+ 	vn->name_type = VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD;
  
--	pn = net_generic(net, ppp_net_id);
- 	idr_destroy(&pn->units_idr);
--	/*
--	 * if someone has cached our net then
--	 * further net_generic call will return NULL
--	 */
--	net_assign_generic(net, ppp_net_id, NULL);
--	kfree(pn);
- }
+ 	err = vlan_proc_init(net);
+-	if (err < 0)
+-		goto err_proc;
  
- static struct pernet_operations ppp_net_ops = {
- 	.init = ppp_init_net,
- 	.exit = ppp_exit_net,
-+	.id   = &ppp_net_id,
-+	.size = sizeof(struct ppp_net),
- };
- 
- #define PPP_MAJOR	108
-@@ -917,7 +901,7 @@ static int __init ppp_init(void)
- 
- 	printk(KERN_INFO "PPP generic driver version " PPP_VERSION "\n");
- 
--	err = register_pernet_gen_device(&ppp_net_id, &ppp_net_ops);
-+	err = register_pernet_device(&ppp_net_ops);
- 	if (err) {
- 		printk(KERN_ERR "failed to register PPP pernet device (%d)\n", err);
- 		goto out;
-@@ -943,7 +927,7 @@ static int __init ppp_init(void)
- out_chrdev:
- 	unregister_chrdev(PPP_MAJOR, "ppp");
- out_net:
--	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
-+	unregister_pernet_device(&ppp_net_ops);
- out:
+-	return 0;
+-
+-err_proc:
+-	/* nothing */
+-err_assign:
+-	kfree(vn);
+-err_alloc:
  	return err;
  }
-@@ -2835,7 +2819,7 @@ static void __exit ppp_cleanup(void)
- 	unregister_chrdev(PPP_MAJOR, "ppp");
- 	device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
- 	class_destroy(ppp_class);
--	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
-+	unregister_pernet_device(&ppp_net_ops);
+ 
+ static void vlan_exit_net(struct net *net)
+ {
+-	struct vlan_net *vn;
+-
+-	vn = net_generic(net, vlan_net_id);
+ 	rtnl_kill_links(net, &vlan_link_ops);
++
+ 	vlan_proc_cleanup(net);
+-	kfree(vn);
  }
  
- /*
+ static struct pernet_operations vlan_net_ops = {
+ 	.init = vlan_init_net,
+ 	.exit = vlan_exit_net,
++	.id   = &vlan_net_id,
++	.size = sizeof(struct vlan_net),
+ };
+ 
+ static int __init vlan_proto_init(void)
+@@ -736,7 +717,7 @@ static int __init vlan_proto_init(void)
+ 	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
+ 	pr_info("All bugs added by %s\n", vlan_buggyright);
+ 
+-	err = register_pernet_gen_device(&vlan_net_id, &vlan_net_ops);
++	err = register_pernet_device(&vlan_net_ops);
+ 	if (err < 0)
+ 		goto err0;
+ 
+@@ -761,7 +742,7 @@ err4:
+ err3:
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
+ err2:
+-	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
++	unregister_pernet_device(&vlan_net_ops);
+ err0:
+ 	return err;
+ }
+@@ -781,7 +762,7 @@ static void __exit vlan_cleanup_module(void)
+ 	for (i = 0; i < VLAN_GRP_HASH_SIZE; i++)
+ 		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
+ 
+-	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
++	unregister_pernet_device(&vlan_net_ops);
+ 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ 
+ 	vlan_gvrp_uninit();
 -- 
 1.6.5.2.143.g8cc62
 
