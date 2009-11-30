@@ -1,50 +1,49 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: scp stalls mysteriously
-Date: Mon, 30 Nov 2009 22:24:17 +0100
-Message-ID: <20091130222417.77ce13a4@houba>
-References: <20091127223545.2a752429@houba>
-	<alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi>
-	<20091128010156.1219012a@houba>
-	<alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi>
-	<20091130195004.38dbc319@houba>
-	<alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: MERGE check, net-next-2.6...
+Date: Mon, 30 Nov 2009 16:20:35 -0500
+Message-ID: <20091130212035.GF21401@tuxdriver.com>
+References: <20091129.011709.11078985.davem@davemloft.net> <8DD2590731AB5D4C9DBF71A877482A903E332F65@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"amit@netxen.com" <amit@netxen.com>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:47820 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285AbZK3VYc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 16:24:32 -0500
-In-Reply-To: <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33412 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784AbZK3V0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 16:26:04 -0500
+Content-Disposition: inline
+In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A903E332F65@orsmsx509.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Mon, 30 Nov 2009 22:18:22 +0200 (EET),
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+On Mon, Nov 30, 2009 at 12:54:48PM -0800, Allan, Bruce W wrote:
+> >-----Original Message-----
+> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> >On Behalf Of David Miller
+> >Sent: Sunday, November 29, 2009 1:17 AM
+> >To: netdev@vger.kernel.org
+> >Cc: Kirsher, Jeffrey T; linville@tuxdriver.com; amit@netxen.com
+> >Subject: MERGE check, net-next-2.6...
+> >
+> >
+> >I just merged net-2.6 into net-next-2.6, there were several
+> >conflicts.
+> >
+> >They happened in e1000e, ath9k, generic ieee80211, and the
+> >netxen driver.
+> >
+> >Please check my work and send any necessary fixes.
+> >
+> >Thanks!
+> 
+> Your merge conflict fix-ups for e1000e look good to me.  Thanks!
 
-> On Mon, 30 Nov 2009, Frederic Leroy wrote:
->=20
-> > Le Sat, 28 Nov 2009 13:31:14 +0200 (EET),
-> > "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
-> point out to yet another problem, however, I'm not sure what I can
-> atm trust in the logs. ...Timestamps would probably help me a bit
-> (I've changed also sleep to do 0.01 granularity):
+The wireless bits seem alright too...
 
-I made 2 other traces with 0.01 granularity, but it works normally. I
-suppose there are less interference in the evening.
-
-The .4 is a bad trace where I forgot to put timestamp. And when I
-realized it was copying successfully, I stopped it before it tooks too
-much space.
-
-It can be interesting because the stream had a little "pause".
-
-The .5 is the trace of a successfull copy. I limited packet capture siz=
-e
-to 96 bytes. It has stalled once in the middle.
-
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
