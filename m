@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e100: Use pci pool to work around GFP_ATOMIC order 5
- memory allocation failure
-Date: Sun, 29 Nov 2009 17:17:49 -0800 (PST)
-Message-ID: <20091129.171749.113308677.davem@davemloft.net>
-References: <200911261649.54785.roger.oksanen@cs.helsinki.fi>
+Subject: Re: [PATCH 01/12] sfc: Fold falcon_probe_nic_variant() into
+ falcon_probe_nic()
+Date: Sun, 29 Nov 2009 17:24:13 -0800 (PST)
+Message-ID: <20091129.172413.195706177.davem@davemloft.net>
+References: <1259543301.3709.84.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, akpm@linux-foundation.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, karol.k.lewandowski@gmail.com
-To: roger.oksanen@cs.helsinki.fi
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53818
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46030
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751622AbZK3BRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:17:43 -0500
-In-Reply-To: <200911261649.54785.roger.oksanen@cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1751017AbZK3BYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:24:08 -0500
+In-Reply-To: <1259543301.3709.84.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-Date: Thu, 26 Nov 2009 16:49:54 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 30 Nov 2009 01:08:21 +0000
 
-> e100: Use pci pool to work around GFP_ATOMIC order 5 memory allocation failure.
+> falcon_probe_nic_variant() does a lot less than it used to, and a
+> lot less than it claims to.  Fold the remainder into its caller.
 > 
-> pci_alloc_consistent uses GFP_ATOMIC allocation that may fail on some systems
-> with limited memory (Bug #14265). pci_pool_alloc allows waiting with
-> GFP_KERNEL.
-> 
-> Tested-by: Karol Lewandowski <karol.k.lewandowski@gmail.com>
-> Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Looks good, thanks.
-
-Applied to net-2.6 and queued up for -stable
+Applied.
