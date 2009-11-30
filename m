@@ -1,50 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net 02/05: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
-Date: Mon, 30 Nov 2009 21:21:21 +0100
-Message-ID: <4B142941.2020302@gmail.com>
-References: <20091130175529.7555.10132.sendpatchset@x2.localnet> <20091130175532.7555.11857.sendpatchset@x2.localnet>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
+ separate vlan from bond device
+Date: Mon, 30 Nov 2009 21:22:33 +0100
+Message-ID: <4B142989.6070207@trash.net>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:55231 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903AbZK3UVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 15:21:32 -0500
-Received: by bwz27 with SMTP id 27so2904094bwz.21
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 12:21:37 -0800 (PST)
-In-Reply-To: <20091130175532.7555.11857.sendpatchset@x2.localnet>
+Received: from stinky.trash.net ([213.144.137.162]:58964 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753061AbZK3UW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 15:22:28 -0500
+In-Reply-To: <20091130201453.GF1639@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote, On 11/30/2009 06:55 PM:
+Andy Gospodarek wrote:
+> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+> index e75a2f3..8d8a778 100644
+> --- a/net/8021q/vlan_core.c
+> +++ b/net/8021q/vlan_core.c
+> @@ -14,6 +14,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+>  	if (skb_bond_should_drop(skb))
+>  		goto drop;
+>  
+> +	skb->skb_iif = skb->dev->ifindex;
+>  	__vlan_hwaccel_put_tag(skb, vlan_tci);
+>  	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+>  
+> @@ -85,6 +86,7 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+>  	if (skb_bond_should_drop(skb))
+>  		goto drop;
+>  
+> +	skb->skb_iif = skb->dev->ifindex;
+>  	__vlan_hwaccel_put_tag(skb, vlan_tci);
+>  	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+>  
 
-> commit dc4427ae3647195508b4df883050a9f0ef111165
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Mon Nov 30 15:54:05 2009 +0100
-> 
->     net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
->     
->     The next patch will add oif classification, rename interface related members
->     and attributes to reflect that they're used for iif classification.
->     
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
-> index c7e5b70..e3c91af 100644
-> --- a/include/linux/fib_rules.h
-> +++ b/include/linux/fib_rules.h
-> @@ -8,7 +8,8 @@
->  #define FIB_RULE_PERMANENT	0x00000001
->  #define FIB_RULE_INVERT		0x00000002
->  #define FIB_RULE_UNRESOLVED	0x00000004
-> -#define FIB_RULE_DEV_DETACHED	0x00000008
-> +#define FIB_RULE_IIF_DETACHED	0x00000008
-> +#define FIB_RULE_DEV_DETACHED	FIB_RULE_DEV_DETACHED
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Is it some trick?
-
-Jarek P.
+How about pulling the skb->iif assignment in netif_receive_skb() up
+before the vlan_hwaccel_do_receive() call instead? I'd actually call
+this a bug fix since hardware accelerated devices should not differ
+from non-accelerated devices in their iif value.
