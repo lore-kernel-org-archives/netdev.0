@@ -1,42 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/20] Batch network namespace cleanup
-Date: Mon, 30 Nov 2009 11:22:38 -0800
-Message-ID: <m1y6ln4y2p.fsf@fess.ebiederm.org>
-References: <m1ljhodbtw.fsf@fess.ebiederm.org> <1259585043.873.21.camel@bigi>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 01/20] net: NETDEV_UNREGISTER_PERNET -> NETDEV_UNREGISTER_BATCH
+Date: Mon, 30 Nov 2009 21:25:42 +0200
+Message-ID: <200911302125.42439.opurdila@ixiacom.com>
+References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com> <200911301408.33297.opurdila@ixiacom.com> <m1hbsb7s86.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
 	Patrick McHardy <kaber@trash.net>
-To: hadi@cyberus.ca
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:34928 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753108AbZK3TWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 14:22:37 -0500
-In-Reply-To: <1259585043.873.21.camel@bigi> (jamal's message of "Mon\, 30 Nov 2009 07\:44\:03 -0500")
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2901 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752430AbZK3T2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 14:28:49 -0500
+In-Reply-To: <m1hbsb7s86.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal <hadi@cyberus.ca> writes:
+On Monday 30 November 2009 21:00:41 you wrote:
+> Octavian Purdila <opurdila@ixiacom.com> writes:
+> > On Monday 30 November 2009 03:45:58 you wrote:
+> >> +       /* Process any work delayed until the end of the batch */
+> >> +       dev = list_entry(head->next, struct net_device, unreg_list);
+> >> +       call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+> >>
+> >> -       list_for_each_entry_safe(dev, aux, head, unreg_list) {
+> >> -               int new_net = 1;
+> >> -               list_for_each_entry(fdev, &pernet_list, unreg_list) {
+> >> -                       if (net_eq(dev_net(dev), dev_net(fdev))) {
+> >> -                               new_net = 0;
+> >> -                               dev_put(dev);
+> >> -                               break;
+> >> -                       }
+> >> -               }
+> >> -               if (new_net)
+> >> -                       list_move(&dev->unreg_list, &pernet_list);
+> >> -       }
+> >
+> > This implies that the devices we want to batch unregister needs to be
+> > part of the same namespace. It might be worth mentioning that in the
+> > unregister_netdevice_many() function comments.
+> 
+> No it does not.  For the route cache flush we have already done the delayed
+> invalidate per namespace.  So we only need to walk the route cache once and
+> simply remove the entries that have been invalidated.
+> 
 
-> On Sun, 2009-11-29 at 17:46 -0800, Eric W. Biederman wrote:
->> 
->> Recently Jamal and Daniel perform some experiments and found that
->> large numbers of network namespace exiting simultaneously is very
->> inefficient.  24+ minutes in some configurations.  The cpu overhead
->> was negligible but it results in long hold times of net_mutex, and
->> memory being consumed a long time after the last user has gone away.
->> 
->> I looked into it and discovered that by batching network namespace
->> cleanups I can reduce the time for 4k network namespaces exiting from
->> 5-7 minutes in my configuration to 44 seconds.
->
-> Excellent work Eric. I have time today so i can test these patches
-> status quo vs.
-> This is against net-next?
+Right ! I thought that we need to do the cache cleaning per namespace, now my 
+patch looks really stupid :) 
 
-Yes.
-
-Eric
