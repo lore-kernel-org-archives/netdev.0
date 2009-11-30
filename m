@@ -1,22 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mv643xx: convert to netdev_tx_t
-Date: Sun, 29 Nov 2009 17:04:41 -0800 (PST)
-Message-ID: <20091129.170441.146356369.davem@davemloft.net>
-References: <20091129162123.GA17782@coldcone>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 01/12] sfc: Fold falcon_probe_nic_variant() into
+ falcon_probe_nic()
+Date: Mon, 30 Nov 2009 01:08:21 +0000
+Message-ID: <1259543301.3709.84.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "kirjanov@gmail.com"@sunset.davemloft.net.davemloft.net,
-	kirjanov@gmail.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33776
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752027AbZK3BEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:04:35 -0500
-In-Reply-To: <20091129162123.GA17782@coldcone>
+Received: from exchange.solarflare.com ([216.237.3.220]:46574 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbZK3BIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:08:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+falcon_probe_nic_variant() does a lot less than it used to, and a
+lot less than it claims to.  Fold the remainder into its caller.
 
-Applied, thank you.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon.c |   64 +++++++++++++++++----------------------------
+ 1 files changed, 24 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 2e4c711..63e6734 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -2806,40 +2806,6 @@ u32 efx_nic_fpga_ver(struct efx_nic *efx)
+ 	return EFX_OWORD_FIELD(altera_build, FRF_AZ_ALTERA_BUILD_VER);
+ }
+ 
+-/* Probe the NIC variant (revision, ASIC vs FPGA, function count, port
+- * count, port speed).  Set workaround and feature flags accordingly.
+- */
+-static int falcon_probe_nic_variant(struct efx_nic *efx)
+-{
+-	efx_oword_t nic_stat;
+-
+-	if (efx_nic_fpga_ver(efx) != 0) {
+-		EFX_ERR(efx, "Falcon FPGA not supported\n");
+-		return -ENODEV;
+-	}
+-
+-	efx_reado(efx, &nic_stat, FR_AB_NIC_STAT);
+-
+-	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1) {
+-		u8 pci_rev = efx->pci_dev->revision;
+-
+-		if ((pci_rev == 0xff) || (pci_rev == 0)) {
+-			EFX_ERR(efx, "Falcon rev A0 not supported\n");
+-			return -ENODEV;
+-		}
+-		if (EFX_OWORD_FIELD(nic_stat, FRF_AB_STRAP_10G) == 0) {
+-			EFX_ERR(efx, "Falcon rev A1 1G not supported\n");
+-			return -ENODEV;
+-		}
+-		if (EFX_OWORD_FIELD(nic_stat, FRF_AA_STRAP_PCIE) == 0) {
+-			EFX_ERR(efx, "Falcon rev A1 PCI-X not supported\n");
+-			return -ENODEV;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+ /* Probe all SPI devices on the NIC */
+ static void falcon_probe_spi_devices(struct efx_nic *efx)
+ {
+@@ -2891,15 +2857,33 @@ static int falcon_probe_nic(struct efx_nic *efx)
+ 		return -ENOMEM;
+ 	efx->nic_data = nic_data;
+ 
+-	/* Determine number of ports etc. */
+-	rc = falcon_probe_nic_variant(efx);
+-	if (rc)
++	rc = -ENODEV;
++
++	if (efx_nic_fpga_ver(efx) != 0) {
++		EFX_ERR(efx, "Falcon FPGA not supported\n");
+ 		goto fail1;
++	}
++
++	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1) {
++		efx_oword_t nic_stat;
++		struct pci_dev *dev;
++		u8 pci_rev = efx->pci_dev->revision;
+ 
+-	/* Probe secondary function if expected */
+-	if (efx_nic_is_dual_func(efx)) {
+-		struct pci_dev *dev = pci_dev_get(efx->pci_dev);
++		if ((pci_rev == 0xff) || (pci_rev == 0)) {
++			EFX_ERR(efx, "Falcon rev A0 not supported\n");
++			goto fail1;
++		}
++		efx_reado(efx, &nic_stat, FR_AB_NIC_STAT);
++		if (EFX_OWORD_FIELD(nic_stat, FRF_AB_STRAP_10G) == 0) {
++			EFX_ERR(efx, "Falcon rev A1 1G not supported\n");
++			goto fail1;
++		}
++		if (EFX_OWORD_FIELD(nic_stat, FRF_AA_STRAP_PCIE) == 0) {
++			EFX_ERR(efx, "Falcon rev A1 PCI-X not supported\n");
++			goto fail1;
++		}
+ 
++		dev = pci_dev_get(efx->pci_dev);
+ 		while ((dev = pci_get_device(EFX_VENDID_SFC, FALCON_A_S_DEVID,
+ 					     dev))) {
+ 			if (dev->bus == efx->pci_dev->bus &&
+-- 
+1.6.5.3
+
+
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
