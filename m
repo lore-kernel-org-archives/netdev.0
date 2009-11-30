@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 17/20] net: Simplify ipip pernet operations.
-Date: Sun, 29 Nov 2009 17:46:14 -0800
-Message-ID: <1259545577-7466-17-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 14/20] net: Simplify pppol2tp pernet operations.
+Date: Sun, 29 Nov 2009 17:46:11 -0800
+Message-ID: <1259545577-7466-14-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,10 +10,10 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46466 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753272AbZK3Bqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:33 -0500
+Received: from out01.mta.xmission.com ([166.70.13.231]:42737 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753253AbZK3Bqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:31 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,83 +25,90 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ipv4/ipip.c |   24 ++++++------------------
- 1 files changed, 6 insertions(+), 18 deletions(-)
+ drivers/net/pppol2tp.c |   36 +++++++-----------------------------
+ 1 files changed, 7 insertions(+), 29 deletions(-)
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 7242ffc..eda04fe 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -775,17 +775,8 @@ static void ipip_destroy_tunnels(struct ipip_net *ipn, struct list_head *head)
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index c58b50f..9fbb2eb 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -2605,53 +2605,31 @@ static struct pppox_proto pppol2tp_proto = {
  
- static int ipip_init_net(struct net *net)
+ static __net_init int pppol2tp_init_net(struct net *net)
  {
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
- 	int err;
--	struct ipip_net *ipn;
+-	struct pppol2tp_net *pn;
++	struct pppol2tp_net *pn = pppol2tp_pernet(net);
+ 	struct proc_dir_entry *pde;
+-	int err;
 -
--	err = -ENOMEM;
--	ipn = kzalloc(sizeof(struct ipip_net), GFP_KERNEL);
--	if (ipn == NULL)
--		goto err_alloc;
--
--	err = net_assign_generic(net, ipip_net_id, ipn);
--	if (err < 0)
--		goto err_assign;
+-	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
+-	if (!pn)
+-		return -ENOMEM;
  
- 	ipn->tunnels[0] = ipn->tunnels_wc;
- 	ipn->tunnels[1] = ipn->tunnels_l;
-@@ -812,29 +803,26 @@ err_reg_dev:
- 	free_netdev(ipn->fb_tunnel_dev);
- err_alloc_dev:
- 	/* nothing */
--err_assign:
--	kfree(ipn);
--err_alloc:
- 	return err;
+ 	INIT_LIST_HEAD(&pn->pppol2tp_tunnel_list);
+ 	rwlock_init(&pn->pppol2tp_tunnel_list_lock);
+ 
+-	err = net_assign_generic(net, pppol2tp_net_id, pn);
+-	if (err)
+-		goto out;
+-
+ 	pde = proc_net_fops_create(net, "pppol2tp", S_IRUGO, &pppol2tp_proc_fops);
+ #ifdef CONFIG_PROC_FS
+-	if (!pde) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
++	if (!pde)
++		return -ENOMEM;
+ #endif
+ 
+ 	return 0;
+-
+-out:
+-	kfree(pn);
+-	return err;
  }
  
- static void ipip_exit_net(struct net *net)
+ static __net_exit void pppol2tp_exit_net(struct net *net)
  {
--	struct ipip_net *ipn;
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
- 	LIST_HEAD(list);
- 
--	ipn = net_generic(net, ipip_net_id);
- 	rtnl_lock();
- 	ipip_destroy_tunnels(ipn, &list);
- 	unregister_netdevice_queue(ipn->fb_tunnel_dev, &list);
- 	unregister_netdevice_many(&list);
- 	rtnl_unlock();
--	kfree(ipn);
+-	struct pppoe_net *pn;
+-
+ 	proc_net_remove(net, "pppol2tp");
+-	pn = net_generic(net, pppol2tp_net_id);
+-	/*
+-	 * if someone has cached our net then
+-	 * further net_generic call will return NULL
+-	 */
+-	net_assign_generic(net, pppol2tp_net_id, NULL);
+-	kfree(pn);
  }
  
- static struct pernet_operations ipip_net_ops = {
- 	.init = ipip_init_net,
- 	.exit = ipip_exit_net,
-+	.id   = &ipip_net_id,
-+	.size = sizeof(struct ipip_net),
+ static struct pernet_operations pppol2tp_net_ops = {
+ 	.init = pppol2tp_init_net,
+ 	.exit = pppol2tp_exit_net,
++	.id   = &pppol2tp_net_id,
++	.size = sizeof(struct pppol2tp_net),
  };
  
- static int __init ipip_init(void)
-@@ -848,7 +836,7 @@ static int __init ipip_init(void)
- 		return -EAGAIN;
- 	}
- 
--	err = register_pernet_gen_device(&ipip_net_id, &ipip_net_ops);
-+	err = register_pernet_device(&ipip_net_ops);
+ static int __init pppol2tp_init(void)
+@@ -2665,7 +2643,7 @@ static int __init pppol2tp_init(void)
  	if (err)
- 		xfrm4_tunnel_deregister(&ipip_handler, AF_INET);
+ 		goto out_unregister_pppol2tp_proto;
  
-@@ -860,7 +848,7 @@ static void __exit ipip_fini(void)
- 	if (xfrm4_tunnel_deregister(&ipip_handler, AF_INET))
- 		printk(KERN_INFO "ipip close: can't deregister tunnel\n");
+-	err = register_pernet_gen_device(&pppol2tp_net_id, &pppol2tp_net_ops);
++	err = register_pernet_device(&pppol2tp_net_ops);
+ 	if (err)
+ 		goto out_unregister_pppox_proto;
  
--	unregister_pernet_gen_device(ipip_net_id, &ipip_net_ops);
-+	unregister_pernet_device(&ipip_net_ops);
+@@ -2684,7 +2662,7 @@ out_unregister_pppol2tp_proto:
+ static void __exit pppol2tp_exit(void)
+ {
+ 	unregister_pppox_proto(PX_PROTO_OL2TP);
+-	unregister_pernet_gen_device(pppol2tp_net_id, &pppol2tp_net_ops);
++	unregister_pernet_device(&pppol2tp_net_ops);
+ 	proto_unregister(&pppol2tp_sk_proto);
  }
  
- module_init(ipip_init);
 -- 
 1.6.5.2.143.g8cc62
 
