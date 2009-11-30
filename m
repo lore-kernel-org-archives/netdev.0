@@ -1,28 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 12/12] sfc: Update version, copyright dates, authors
-Date: Sun, 29 Nov 2009 17:25:22 -0800 (PST)
-Message-ID: <20091129.172522.32075715.davem@davemloft.net>
-References: <1259543779.3709.98.camel@localhost>
+From: David Ford <david@blue-labs.org>
+Subject: Re: [PATCH] additional update of dev_net(dev) to struct *net in ip_fragment.c,
+ NULL ptr OOPS
+Date: Sun, 29 Nov 2009 20:27:37 -0500
+Message-ID: <4B131F89.4010906@blue-labs.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46076
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753351AbZK3BZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:25:16 -0500
-In-Reply-To: <1259543779.3709.98.camel@localhost>
+Received: from blue-labs.org ([72.34.249.230]:45885 "EHLO blue-labs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753027AbZK3B22 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Nov 2009 20:28:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 30 Nov 2009 01:16:19 +0000
+ipv4 ip_frag_reasm(), fully replace 'dev_net(dev)' with 'net', defined
+previously patched into 2.6.29.
 
-> This driver has been mostly rewritten since Michael Brown's initial
-> work, so swap the order of the authors.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+--- linux-2.6.32-rc8/net/ipv4/ip_fragment.c.orig 2009-09-09 18:13:59.000000000 -0400
++++ linux-2.6.32-rc8/net/ipv4/ip_fragment.c      2009-11-26 05:02:43.000000000 -0500
+@@ -563,7 +563,7 @@
+                printk(KERN_INFO "Oversized IP packet from %pI4.\n",
+                        &qp->saddr);
+ out_fail:
+-       IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMFAILS);
++       IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
+        return err;
+ }
 
-Applied.
+Signed-off-by: David Ford <david@blue-labs.org>
+
+
+
+Between 2.6.28.10 and 2.6.29, net/ipv4/ip_fragment.c was patched,
+changing from dev_net(dev) to container_of(...).  Unfortunately the goto
+section (out_fail) on oversized packets inside ip_frag_reasm() didn't
+get touched up as well.  Oversized IP packets cause a NULL pointer
+dereference and immediate hang.
+
+I discovered this running openvasd and my previous email on this is
+titled:  NULL pointer dereference at 2.6.32-rc8:net/ipv4/ip_fragment.c:566
+
+-david
+
+
