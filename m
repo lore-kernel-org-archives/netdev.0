@@ -1,62 +1,57 @@
-From: Bill Nottingham <notting@redhat.com>
-Subject: Re: [PROPOSAL]: Support Alternate Network Device Naming Schemes
-Date: Mon, 30 Nov 2009 13:34:37 -0500
-Message-ID: <20091130183435.GC15213@nostromo.devel.redhat.com>
-References: <20091127094257.GA24624@mock.linuxdev.us.dell.com>
-Reply-To: Discussion of Development and Customization of the Red Hat Linux
-	Installer <anaconda-devel-list@redhat.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [RFC PATCH 1/4] net: Add support to netdev ops for changing
+ hardware queue MAC and VLAN filters
+Date: Mon, 30 Nov 2009 11:36:08 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FA6BFA040@rrsmsx501.amr.corp.intel.com>
+References: <1258573987.2780.20.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA69A3162@rrsmsx501.amr.corp.intel.com>
+ <1258586065.2780.31.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA69A337F@rrsmsx501.amr.corp.intel.com>
+ <1258642493.2837.8.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A1FF82@rrsmsx501.amr.corp.intel.com>
+ <1258657155.2837.10.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A200AD@rrsmsx501.amr.corp.intel.com>
+ <1258982570.2845.8.camel@achroite.uk.solarflarecom.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FA6A9617F@rrsmsx501.amr.corp.intel.com>
+ <20091130060323.GA17989@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shyam_iyer@dell.com, matt_domsch@dell.com,
-	jordan_hargrave@dell.com, charles_rose@dell.com
-To: Discussion of Development and Customization of the Red Hat Linux Installer
-	<anaconda-devel-list@redhat.com>
-Return-path: <anaconda-devel-list-bounces@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20091127094257.GA24624@mock.linuxdev.us.dell.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/anaconda-devel-list>,
-	<mailto:anaconda-devel-list-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/anaconda-devel-list>
-List-Post: <mailto:anaconda-devel-list@redhat.com>
-List-Help: <mailto:anaconda-devel-list-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/anaconda-devel-list>,
-	<mailto:anaconda-devel-list-request@redhat.com?subject=subscribe>
-Sender: anaconda-devel-list-bounces@redhat.com
-Errors-To: anaconda-devel-list-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:62128 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752749AbZK3SgE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 13:36:04 -0500
+In-Reply-To: <20091130060323.GA17989@verge.net.au>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Narendra K (Narendra_K@dell.com) said: 
-> Installers as of now allow the discovered network interfaces to be configured. This solution proposes to provide an option for the users to either retain the default naming convention that the kernel now has, i.e ethN names or rename the network interfaces based on the chassis label, MAC addresses, Driver name and any other naming convention. Here is how the modified network configuration wizard would look during the os installation process - 
-> 
-> 
-> ---------- Network Configuration ------------------------
-> 
-> Default [ ] |  SMBIOS Names [x]     |  Driver Names []  | MAC Names []
-> -----------------------------------------------------------------------
->  eth0       | Addin_NIC_1           | ice0              |            
-> -----------------------------------------------------------------------
->  eth1       | Embedded_NIC_1        | bce0              |             
-> -----------------------------------------------------------------------
->  eth2       | Embedded_NIC_2        | bce1              |             
-> -----------------------------------------------------------------------
->  eth3       | Embedded_NIC_3        | bce2              |            
-> -----------------------------------------------------------------------
->  eth4       | Embedded_NIC_4        | bce3              |            
-> -----------------------------------------------------------------------
-> 
->                                                         ------------
->                                                         | Next     |
->                                                         ------------
-> 
-> [ ice0 - Intel Controller 0, bce0 - Broadcom Controller 0 ] 
-> 
-> 1. In addition to the default ethN names the user can check against the available naming conventions and the wizard would show the names the interfaces will be renamed to.
-> 2. The moment the user hits the Next button all interfaces are renamed as per the Naming convention they have selected.
-> 3. Any further network communication would  be using the new names.
-> 4. Ifconfig would show names like "Embedded_NIC_1" and not eth0 etc.
+>From: Simon Horman [mailto:horms@verge.net.au]
+>Sent: Sunday, November 29, 2009 10:03 PM
 
-That's a horrible interface to show the user when a large portion of
-them do not care at all. (Also, not sure why netdev@vger cares about the
-implementation details of OS installers.)
+>> The issue of which VF goes with which PF device can be deduced in
+>> userspace via sysfs.
+>
+>Does this mean that the configuration of filtering for a VF needs
+>to be done where the interface for the VF exists - e.g. in a KVM
+>guest/Xen domU?
+>
 
-Bill
+No, all of the configuration is done through the PF device.  What I was saying was that, given a specific VF PCI device (which would be passed through to the VM), you can use sysfs to determine which PF owns it, and then run the ip command to tell the PF to configure the VF.
+
+>In terms of dealing with interfaces and the way that tools such as ip work
+>that makes a lot of sense. But I wonder if it actually makes more sense
+>from an administrative point of view to have this configuration go through
+>the PF - e.g. the KVM host/Xen domO.
+
+>From a policy and security standpoint, you can't allow the VM to handle its own hardware configuration. The host/hypervisor/VM Manager/boss has to handle this or you lose many of the advantages of virtualization (i.e. isolation, security, stability, etc).
+
+-Mitch
