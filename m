@@ -1,46 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Problem with tcp (2.6.31) as first
-Date: Mon, 30 Nov 2009 12:56:23 -0800 (PST)
-Message-ID: <20091130.125623.44579269.davem@davemloft.net>
-References: <4B0F0466.8080006@gmail.com>
-	<20091129.233447.60856273.davem@davemloft.net>
-	<4B138C73.8040401@gmail.com>
+Subject: Re: [PATCH net-next-2.6 PATCH] net: Move && and || to end of
+ previous line
+Date: Mon, 30 Nov 2009 13:00:29 -0800 (PST)
+Message-ID: <20091130.130029.267590837.davem@davemloft.net>
+References: <1259528449.29779.194.camel@Joe-Laptop.home>
+	<20091129.165557.84377714.davem@davemloft.net>
+	<20091130092837.4998f961@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, ole@ans.pl, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: joe@perches.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45498
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45505
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752704AbZK3U4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 15:56:18 -0500
-In-Reply-To: <4B138C73.8040401@gmail.com>
+	by vger.kernel.org with ESMTP id S1753156AbZK3VAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 16:00:23 -0500
+In-Reply-To: <20091130092837.4998f961@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 30 Nov 2009 10:12:19 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 30 Nov 2009 09:28:37 -0800
 
-> [PATCH] tcp: tcp_disconnect() should clear window_clamp
-> 
-> NFS can reuse its TCP socket after calling tcp_disconnect().
-> We noticed window scaling was not negotiated in SYN packet of next connection request.
-> 
-> Fix is to clear tp->window_clamp in tcp_disconnect().
-> 
-> Reported-by: Krzysztof Oledzki <ole@ans.pl>
-> Tested-by: Krzysztof Oledzki <ole@ans.pl>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Rather than playing with the dangling operator format which seems to
+> be a coding style that only David cares about.
 
-Applied, thanks Eric.
+I think Joe's work is useful and valuable.
 
-You voiced some concerns about window clamp route and socket settings
-and whatnot.  But I think the route side should be OK.  When a new
-connect() occurs, TCP will reinitialize the window clamp setting based
-upon the route metric and other values.
-
-The TCP_WINDOW_CLAMP socket option case is tedious however.  If we
-want to preserve such settings across disconnect operations we'll need
-to store two pieces of state I believe.
+Please don't discourage him.
