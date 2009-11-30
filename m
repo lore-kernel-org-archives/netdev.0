@@ -1,57 +1,34 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net 03/05: fib_rules: add oif classification
-Date: Mon, 30 Nov 2009 23:31:57 +0100
-Message-ID: <4B1447DD.1070904@gmail.com>
-References: <20091130175529.7555.10132.sendpatchset@x2.localnet> <20091130175533.7555.35189.sendpatchset@x2.localnet>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/20] net: NETDEV_UNREGISTER_PERNET ->
+ NETDEV_UNREGISTER_BATCH
+Date: Mon, 30 Nov 2009 14:49:17 -0800 (PST)
+Message-ID: <20091130.144917.233710214.davem@davemloft.net>
+References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca, dlezcano@fr.ibm.com,
+	adobriyan@gmail.com, kaber@trash.net, opurdila@ixiacom.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:64862 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993AbZK3Wb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:31:57 -0500
-Received: by bwz27 with SMTP id 27so2999647bwz.21
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 14:32:02 -0800 (PST)
-In-Reply-To: <20091130175533.7555.35189.sendpatchset@x2.localnet>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33272
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752201AbZK3WtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 17:49:11 -0500
+In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote, On 11/30/2009 06:55 PM:
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Sun, 29 Nov 2009 17:45:58 -0800
 
-> commit b3fe9e6465a572e97dc1bb6222c1ec4224285817
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Mon Nov 30 16:00:51 2009 +0100
-> 
->     net: fib_rules: add oif classification
+> Additionally it appears that we moved the route cache flush after
+> the final synchronize_net, which seems wrong and there was no
+> explanation.  So I have restored the original location of the final
+> synchronize_net.
 
-...
+I think the idea was that it's important for all pending stale
+RCU references to the device to be gone before we send out the
+notifier.  And that's why the synchronize_net() comes first.
 
-> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-> index 62bebcb..d4e875a 100644
-> --- a/include/net/fib_rules.h
-> +++ b/include/net/fib_rules.h
-> @@ -11,6 +11,7 @@ struct fib_rule {
->  	struct list_head	list;
->  	atomic_t		refcnt;
->  	int			iifindex;
-> +	int			oifindex;
-
-Doesn't it "break" the cacheline fix from 01/05?
-
-Jarek P.
-
->  	u32			mark;
->  	u32			mark_mask;
->  	u32			pref;
-> @@ -20,6 +21,7 @@ struct fib_rule {
->  	u32			target;
->  	struct fib_rule *	ctarget;
->  	char			iifname[IFNAMSIZ];
-> +	char			oifname[IFNAMSIZ];
->  	struct rcu_head		rcu;
->  	struct net *		fr_net;
->  };
-
+This needs more thought.
