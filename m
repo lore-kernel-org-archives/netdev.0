@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: smc91x: Fix irq flags
-Date: Sun, 29 Nov 2009 23:47:58 -0800 (PST)
-Message-ID: <20091129.234758.147268701.davem@davemloft.net>
-References: <20091128101323.GA25671@n2100.arm.linux.org.uk>
-	<f17812d70911280715v50f48298rd5a469e393235a95@mail.gmail.com>
+Subject: Re: [PATCH v2] ep93xx-eth: check for zero MAC address on probe,
+ not on device open
+Date: Sun, 29 Nov 2009 23:50:43 -0800 (PST)
+Message-ID: <20091129.235043.101670708.davem@davemloft.net>
+References: <200911290057.02109.florian@openwrt.org>
+	<20091129121158.GV20214@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, nico@fluxnic.net, netdev@vger.kernel.org
-To: eric.y.miao@gmail.com
+Cc: florian@openwrt.org, netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39054
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39060
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753727AbZK3Hrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 02:47:52 -0500
-In-Reply-To: <f17812d70911280715v50f48298rd5a469e393235a95@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1750956AbZK3Hui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 02:50:38 -0500
+In-Reply-To: <20091129121158.GV20214@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Miao <eric.y.miao@gmail.com>
-Date: Sat, 28 Nov 2009 23:15:13 +0800
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Sun, 29 Nov 2009 13:11:58 +0100
 
-> On Sat, Nov 28, 2009 at 6:13 PM, Russell King - ARM Linux
-> <linux@arm.linux.org.uk> wrote:
->> smc91x.h defines SMC_IRQ_FLAGS to be -1 when it wants the interrupt
->> flags to be taken from the resource structure. ,A (BHowever, d280ead
->> changed this to checking for non-zero resource flags.
->>
->> Unfortunately, this means that on some platforms, we end up passing
->> '-1' to request_irq rather than the desired result. ,A (BCombine the two
->> conditions into one so that the IRQ flags are taken from the resource
->> if either SMC_IRQ_FLAGS is -1 or the resource flags specify an
->> interrupt trigger.
->>
->> This restores network on at least the Versatile platform.
->>
->> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> On Sun, Nov 29, 2009 at 12:57:00AM +0100, Florian Fainelli wrote:
 > 
-> Acked-by: Eric Miao <eric.y.miao@gmail.com>
+>> If we happen to have registered the driver without passing
+>> a MAC address, we will print a zero MAC address and register
+>> the interface with this invalid address, this is confusin. This
+>> patch moves the checking of a valid ethernet address and the
+>> generation of a random one down from the open function to
+>> the probe function.
+>> 
+>> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> 
+> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
