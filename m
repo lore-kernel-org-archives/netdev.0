@@ -1,44 +1,80 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/20] Batch network namespace cleanup
-Date: Mon, 30 Nov 2009 00:48:29 -0800
-Message-ID: <m11vjg9z4y.fsf@fess.ebiederm.org>
-References: <m1ljhodbtw.fsf@fess.ebiederm.org> <4B137D4B.8050803@gmail.com>
-	<20091130.000918.212899174.davem@davemloft.net>
-	<m1ljhoa0js.fsf@fess.ebiederm.org>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 3/5] slab.c: remove branch hint
+Date: Mon, 30 Nov 2009 11:05:06 +0200
+Message-ID: <4B138AC2.7080008@cs.helsinki.fi>
+References: <cover.1259059549.git.tim@klingt.org> <4B0BBBA8.2090604@klingt.org>	 <20091124112058.GA23765@elte.hu> <84144f020911240328l3d36d347o6c91b2b1a0f50f2a@mail.gmail.com> <4B125CC2.7000202@klingt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
-	dlezcano@fr.ibm.com, adobriyan@gmail.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:45896 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071AbZK3Is3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 03:48:29 -0500
-In-Reply-To: <m1ljhoa0js.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Mon\, 30 Nov 2009 00\:17\:59 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Nick Piggin <npiggin@suse.de>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Tim Blechmann <tim@klingt.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752794AbZK3JFD@vger.kernel.org>
+In-Reply-To: <4B125CC2.7000202@klingt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+Tim Blechmann kirjoitti:
+> On 11/24/2009 12:28 PM, Pekka Enberg wrote:
+>> On Tue, Nov 24, 2009 at 1:20 PM, Ingo Molnar <mingo@elte.hu> wrote:
+>>> (Pekka Cc:-ed)
+>>>
+>>> * Tim Blechmann <tim@klingt.org> wrote:
+>>>
+>>>> branch profiling on my nehalem machine showed 99% incorrect branch hints:
+>>>>
+>>>>    28459  7678524  99 __cache_alloc_node             slab.c
+>>>>   3551
+>>>>
+>>>> Signed-off-by: Tim Blechmann <tim@klingt.org>
+>>>> ---
+>>>>  mm/slab.c |    2 +-
+>>>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>>>
+>>>> diff --git a/mm/slab.c b/mm/slab.c
+>>>> index f70b326..4125fcd 100644
+>>>> --- a/mm/slab.c
+>>>> +++ b/mm/slab.c
+>>>> @@ -3548,7 +3548,7 @@ __cache_alloc_node(struct kmem_cache *cachep,
+>>>> gfp_t flags, int nodeid,
+>>>>       slab_irq_save(save_flags, this_cpu);
+>>>>       this_node = cpu_to_node(this_cpu);
+>>>> -     if (unlikely(nodeid == -1))
+>>>> +     if (nodeid == -1)
+>>>>               nodeid = this_node;
+>>>>       if (unlikely(!cachep->nodelists[nodeid])) {
+>> That sounds odd to me. Can you see where the incorrectly predicted
+>> calls are coming from? Calling kmem_cache_alloc_node() with node set
+>> to -1 most of the time could be a real bug somewhere.
+> 
+> when dumping the stack for the incorrectly hinted branches, i get the
+> attached stack traces...
+> 
+> hth, tim
+> 
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -3548,8 +3548,10 @@ __cache_alloc_node(struct kmem_cache *cachep,
+> gfp_t flags, int nodeid,
+>         slab_irq_save(save_flags, this_cpu);
+> 
+>         this_node = cpu_to_node(this_cpu);
+> -       if (nodeid == -1)
+> +       if (nodeid == -1) {
+> +               dump_stack();
+>                 nodeid = this_node;
+> +       }
+> 
+>         if (unlikely(!cachep->nodelists[nodeid])) {
+>                 /* Node not bootstrapped yet */
+> 
+> 
+> 
 
-> David Miller <davem@davemloft.net> writes:
->
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 30 Nov 2009 09:07:39 +0100
->>
->>> It seems list received part of your patches Eric
->>> 
->>> 01, 07-20 are OK,   02-06 are missing
->>
->> Not just the list, I didn't get copies of the missing patches through
->> direct email even though I was on the CC: list.
->
-> Thanks.  Weird.  I will take a look and resend.
+OK, so it's the generic alloc_skb() function that keeps hitting 
+kmem_cache_alloc_node() with "-1". Christoph, are you okay with removing 
+the unlikely() annotation from __cache_alloc_node()?
 
-I have resent the missing patches, I'm not certain what happened
-the first time but clearly those didn't get sent.
-
-02 and 06 have made it to netdev and looped back to me.  I'm not certain
-where 03-05 are, but they should be in transit.
-
-Eric
+			Pekka
