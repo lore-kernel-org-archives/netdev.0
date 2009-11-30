@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 13/20] net: Simplify pppoe pernet operations.
-Date: Sun, 29 Nov 2009 17:46:10 -0800
-Message-ID: <1259545577-7466-13-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 12/20] net: Simplify ppp_generic pernet operations.
+Date: Sun, 29 Nov 2009 17:46:09 -0800
+Message-ID: <1259545577-7466-12-git-send-email-ebiederm@xmission.com>
 References: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
@@ -10,9 +10,9 @@ Cc: <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46454 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753226AbZK3Bqa (ORCPT
+Received: from out01.mta.xmission.com ([166.70.13.231]:42731 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753168AbZK3Bqa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:46:30 -0500
 In-Reply-To: <1259545577-7466-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
@@ -25,97 +25,90 @@ and stop using compatibility network namespace functions.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/pppoe.c |   38 ++++++++------------------------------
- 1 files changed, 8 insertions(+), 30 deletions(-)
+ drivers/net/ppp_generic.c |   30 +++++++-----------------------
+ 1 files changed, 7 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index a1dcba2..a4ed776 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -1139,59 +1139,37 @@ static struct pppox_proto pppoe_proto = {
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 0a56a77..f671bb8 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -864,12 +864,7 @@ static const struct file_operations ppp_device_fops = {
  
- static __net_init int pppoe_init_net(struct net *net)
+ static __net_init int ppp_init_net(struct net *net)
  {
--	struct pppoe_net *pn;
-+	struct pppoe_net *pn = pppoe_pernet(net);
- 	struct proc_dir_entry *pde;
+-	struct ppp_net *pn;
 -	int err;
 -
 -	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
 -	if (!pn)
 -		return -ENOMEM;
++	struct ppp_net *pn = net_generic(net, ppp_net_id);
  
- 	rwlock_init(&pn->hash_lock);
+ 	idr_init(&pn->units_idr);
+ 	mutex_init(&pn->all_ppp_mutex);
+@@ -879,32 +874,21 @@ static __net_init int ppp_init_net(struct net *net)
  
--	err = net_assign_generic(net, pppoe_net_id, pn);
--	if (err)
--		goto out;
--
- 	pde = proc_net_fops_create(net, "pppoe", S_IRUGO, &pppoe_seq_fops);
- #ifdef CONFIG_PROC_FS
--	if (!pde) {
--		err = -ENOMEM;
--		goto out;
+ 	spin_lock_init(&pn->all_channels_lock);
+ 
+-	err = net_assign_generic(net, ppp_net_id, pn);
+-	if (err) {
+-		kfree(pn);
+-		return err;
 -	}
-+	if (!pde)
-+		return -ENOMEM;
- #endif
- 
- 	return 0;
 -
--out:
--	kfree(pn);
--	return err;
+ 	return 0;
  }
  
- static __net_exit void pppoe_exit_net(struct net *net)
+ static __net_exit void ppp_exit_net(struct net *net)
  {
--	struct pppoe_net *pn;
--
- 	proc_net_remove(net, "pppoe");
--	pn = net_generic(net, pppoe_net_id);
+-	struct ppp_net *pn;
++	struct ppp_net *pn = net_generic(net, ppp_net_id);
+ 
+-	pn = net_generic(net, ppp_net_id);
+ 	idr_destroy(&pn->units_idr);
 -	/*
 -	 * if someone has cached our net then
 -	 * further net_generic call will return NULL
 -	 */
--	net_assign_generic(net, pppoe_net_id, NULL);
+-	net_assign_generic(net, ppp_net_id, NULL);
 -	kfree(pn);
  }
  
- static struct pernet_operations pppoe_net_ops = {
- 	.init = pppoe_init_net,
- 	.exit = pppoe_exit_net,
-+	.id   = &pppoe_net_id,
-+	.size = sizeof(struct pppoe_net),
+ static struct pernet_operations ppp_net_ops = {
+ 	.init = ppp_init_net,
+ 	.exit = ppp_exit_net,
++	.id   = &ppp_net_id,
++	.size = sizeof(struct ppp_net),
  };
  
- static int __init pppoe_init(void)
- {
- 	int err;
+ #define PPP_MAJOR	108
+@@ -917,7 +901,7 @@ static int __init ppp_init(void)
  
--	err = register_pernet_gen_device(&pppoe_net_id, &pppoe_net_ops);
-+	err = register_pernet_device(&pppoe_net_ops);
- 	if (err)
+ 	printk(KERN_INFO "PPP generic driver version " PPP_VERSION "\n");
+ 
+-	err = register_pernet_gen_device(&ppp_net_id, &ppp_net_ops);
++	err = register_pernet_device(&ppp_net_ops);
+ 	if (err) {
+ 		printk(KERN_ERR "failed to register PPP pernet device (%d)\n", err);
  		goto out;
- 
-@@ -1212,7 +1190,7 @@ static int __init pppoe_init(void)
- out_unregister_pppoe_proto:
- 	proto_unregister(&pppoe_sk_proto);
- out_unregister_net_ops:
--	unregister_pernet_gen_device(pppoe_net_id, &pppoe_net_ops);
-+	unregister_pernet_device(&pppoe_net_ops);
+@@ -943,7 +927,7 @@ static int __init ppp_init(void)
+ out_chrdev:
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+ out_net:
+-	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
++	unregister_pernet_device(&ppp_net_ops);
  out:
  	return err;
  }
-@@ -1224,7 +1202,7 @@ static void __exit pppoe_exit(void)
- 	dev_remove_pack(&pppoes_ptype);
- 	unregister_pppox_proto(PX_PROTO_OE);
- 	proto_unregister(&pppoe_sk_proto);
--	unregister_pernet_gen_device(pppoe_net_id, &pppoe_net_ops);
-+	unregister_pernet_device(&pppoe_net_ops);
+@@ -2835,7 +2819,7 @@ static void __exit ppp_cleanup(void)
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+ 	device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
+ 	class_destroy(ppp_class);
+-	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
++	unregister_pernet_device(&ppp_net_ops);
  }
  
- module_init(pppoe_init);
+ /*
 -- 
 1.6.5.2.143.g8cc62
 
