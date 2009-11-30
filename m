@@ -1,3214 +1,1612 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 07/12] sfc: Move shared NIC code from falcon.c to new
- source file nic.c
-Date: Mon, 30 Nov 2009 01:14:45 +0000
-Message-ID: <1259543685.3709.93.camel@localhost>
+Subject: [PATCH 08/12] sfc: Add firmware protocol definitions (MCDI)
+Date: Mon, 30 Nov 2009 01:15:07 +0000
+Message-ID: <1259543707.3709.94.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46782 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:46793 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbZK3BOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:14:45 -0500
+	with ESMTP id S1752688AbZK3BPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Nov 2009 20:15:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Steve Hodgson <shodgson@solarflare.com>
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-Looks huge, but it's pure code movement.
+ drivers/net/sfc/mcdi_pcol.h | 1578 +++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 1578 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/sfc/mcdi_pcol.h
 
-Ben.
-
- drivers/net/sfc/Makefile |    2 +-
- drivers/net/sfc/falcon.c | 1536 ---------------------------------------------
- drivers/net/sfc/nic.c    | 1548 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 1549 insertions(+), 1537 deletions(-)
- create mode 100644 drivers/net/sfc/nic.c
-
-diff --git a/drivers/net/sfc/Makefile b/drivers/net/sfc/Makefile
-index 7b52fe1..223106b 100644
---- a/drivers/net/sfc/Makefile
-+++ b/drivers/net/sfc/Makefile
-@@ -1,4 +1,4 @@
--sfc-y			+= efx.o falcon.o tx.o rx.o falcon_gmac.o \
-+sfc-y			+= efx.o nic.o falcon.o tx.o rx.o falcon_gmac.o \
- 			   falcon_xmac.o selftest.o ethtool.o qt202x_phy.o \
- 			   mdio_10g.o tenxpress.o falcon_boards.o
- sfc-$(CONFIG_SFC_MTD)	+= mtd.o
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 64b47da..48d28d8 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -29,26 +29,6 @@
- 
- /* Hardware control for SFC4000 (aka Falcon). */
- 
--/**************************************************************************
-- *
-- * Configurable values
-- *
-- **************************************************************************
-- */
--
--/* This is set to 16 for a good reason.  In summary, if larger than
-- * 16, the descriptor cache holds more than a default socket
-- * buffer's worth of packets (for UDP we can only have at most one
-- * socket buffer's worth outstanding).  This combined with the fact
-- * that we only get 1 TX event per descriptor cache means the NIC
-- * goes idle.
-- */
--#define TX_DC_ENTRIES 16
--#define TX_DC_ENTRIES_ORDER 1
--
--#define RX_DC_ENTRIES 64
--#define RX_DC_ENTRIES_ORDER 3
--
- static const unsigned int
- /* "Large" EEPROM device: Atmel AT25640 or similar
-  * 8 KB, 16-bit address, 32 B write block */
-@@ -63,87 +43,6 @@ default_flash_type = ((17 << SPI_DEV_TYPE_SIZE_LBN)
- 		      | (15 << SPI_DEV_TYPE_ERASE_SIZE_LBN)
- 		      | (8 << SPI_DEV_TYPE_BLOCK_SIZE_LBN));
- 
--/* RX FIFO XOFF watermark
-- *
-- * When the amount of the RX FIFO increases used increases past this
-- * watermark send XOFF. Only used if RX flow control is enabled (ethtool -A)
-- * This also has an effect on RX/TX arbitration
-- */
--int efx_nic_rx_xoff_thresh = -1;
--module_param_named(rx_xoff_thresh_bytes, efx_nic_rx_xoff_thresh, int, 0644);
--MODULE_PARM_DESC(rx_xoff_thresh_bytes, "RX fifo XOFF threshold");
--
--/* RX FIFO XON watermark
-- *
-- * When the amount of the RX FIFO used decreases below this
-- * watermark send XON. Only used if TX flow control is enabled (ethtool -A)
-- * This also has an effect on RX/TX arbitration
-- */
--int efx_nic_rx_xon_thresh = -1;
--module_param_named(rx_xon_thresh_bytes, efx_nic_rx_xon_thresh, int, 0644);
--MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
--
--/* If EFX_MAX_INT_ERRORS internal errors occur within
-- * EFX_INT_ERROR_EXPIRE seconds, we consider the NIC broken and
-- * disable it.
-- */
--#define EFX_INT_ERROR_EXPIRE 3600
--#define EFX_MAX_INT_ERRORS 5
--
--/* We poll for events every FLUSH_INTERVAL ms, and check FLUSH_POLL_COUNT times
-- */
--#define EFX_FLUSH_INTERVAL 10
--#define EFX_FLUSH_POLL_COUNT 100
--
--/**************************************************************************
-- *
-- * Falcon constants
-- *
-- **************************************************************************
-- */
--
--/* Size and alignment of special buffers (4KB) */
--#define EFX_BUF_SIZE 4096
--
--/* Depth of RX flush request fifo */
--#define EFX_RX_FLUSH_COUNT 4
--
--/**************************************************************************
-- *
-- * Solarstorm hardware access
-- *
-- **************************************************************************/
--
--static inline void efx_write_buf_tbl(struct efx_nic *efx, efx_qword_t *value,
--				     unsigned int index)
--{
--	efx_sram_writeq(efx, efx->membase + efx->type->buf_tbl_base,
--			value, index);
--}
--
--/* Read the current event from the event queue */
--static inline efx_qword_t *efx_event(struct efx_channel *channel,
--				     unsigned int index)
--{
--	return (((efx_qword_t *) (channel->eventq.addr)) + index);
--}
--
--/* See if an event is present
-- *
-- * We check both the high and low dword of the event for all ones.  We
-- * wrote all ones when we cleared the event, and no valid event can
-- * have all ones in either its high or low dwords.  This approach is
-- * robust against reordering.
-- *
-- * Note that using a single 64-bit comparison is incorrect; even
-- * though the CPU read will be atomic, the DMA write may not be.
-- */
--static inline int efx_event_present(efx_qword_t *event)
--{
--	return (!(EFX_DWORD_IS_ALL_ONES(event->dword[0]) |
--		  EFX_DWORD_IS_ALL_ONES(event->dword[1])));
--}
--
- /**************************************************************************
-  *
-  * I2C bus - this is a bit-bashing interface using GPIO pins
-@@ -200,841 +99,6 @@ static struct i2c_algo_bit_data falcon_i2c_bit_operations = {
- 	.timeout	= DIV_ROUND_UP(HZ, 20),
- };
- 
--/**************************************************************************
-- *
-- * Special buffer handling
-- * Special buffers are used for event queues and the TX and RX
-- * descriptor rings.
-- *
-- *************************************************************************/
--
--/*
-- * Initialise a special buffer
-- *
-- * This will define a buffer (previously allocated via
-- * efx_alloc_special_buffer()) in the buffer table, allowing
-- * it to be used for event queues, descriptor rings etc.
-- */
--static void
--efx_init_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
--{
--	efx_qword_t buf_desc;
--	int index;
--	dma_addr_t dma_addr;
--	int i;
--
--	EFX_BUG_ON_PARANOID(!buffer->addr);
--
--	/* Write buffer descriptors to NIC */
--	for (i = 0; i < buffer->entries; i++) {
--		index = buffer->index + i;
--		dma_addr = buffer->dma_addr + (i * 4096);
--		EFX_LOG(efx, "mapping special buffer %d at %llx\n",
--			index, (unsigned long long)dma_addr);
--		EFX_POPULATE_QWORD_3(buf_desc,
--				     FRF_AZ_BUF_ADR_REGION, 0,
--				     FRF_AZ_BUF_ADR_FBUF, dma_addr >> 12,
--				     FRF_AZ_BUF_OWNER_ID_FBUF, 0);
--		efx_write_buf_tbl(efx, &buf_desc, index);
--	}
--}
--
--/* Unmaps a buffer and clears the buffer table entries */
--static void
--efx_fini_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
--{
--	efx_oword_t buf_tbl_upd;
--	unsigned int start = buffer->index;
--	unsigned int end = (buffer->index + buffer->entries - 1);
--
--	if (!buffer->entries)
--		return;
--
--	EFX_LOG(efx, "unmapping special buffers %d-%d\n",
--		buffer->index, buffer->index + buffer->entries - 1);
--
--	EFX_POPULATE_OWORD_4(buf_tbl_upd,
--			     FRF_AZ_BUF_UPD_CMD, 0,
--			     FRF_AZ_BUF_CLR_CMD, 1,
--			     FRF_AZ_BUF_CLR_END_ID, end,
--			     FRF_AZ_BUF_CLR_START_ID, start);
--	efx_writeo(efx, &buf_tbl_upd, FR_AZ_BUF_TBL_UPD);
--}
--
--/*
-- * Allocate a new special buffer
-- *
-- * This allocates memory for a new buffer, clears it and allocates a
-- * new buffer ID range.  It does not write into the buffer table.
-- *
-- * This call will allocate 4KB buffers, since 8KB buffers can't be
-- * used for event queues and descriptor rings.
-- */
--static int efx_alloc_special_buffer(struct efx_nic *efx,
--				    struct efx_special_buffer *buffer,
--				    unsigned int len)
--{
--	len = ALIGN(len, EFX_BUF_SIZE);
--
--	buffer->addr = pci_alloc_consistent(efx->pci_dev, len,
--					    &buffer->dma_addr);
--	if (!buffer->addr)
--		return -ENOMEM;
--	buffer->len = len;
--	buffer->entries = len / EFX_BUF_SIZE;
--	BUG_ON(buffer->dma_addr & (EFX_BUF_SIZE - 1));
--
--	/* All zeros is a potentially valid event so memset to 0xff */
--	memset(buffer->addr, 0xff, len);
--
--	/* Select new buffer ID */
--	buffer->index = efx->next_buffer_table;
--	efx->next_buffer_table += buffer->entries;
--
--	EFX_LOG(efx, "allocating special buffers %d-%d at %llx+%x "
--		"(virt %p phys %llx)\n", buffer->index,
--		buffer->index + buffer->entries - 1,
--		(u64)buffer->dma_addr, len,
--		buffer->addr, (u64)virt_to_phys(buffer->addr));
--
--	return 0;
--}
--
--static void
--efx_free_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
--{
--	if (!buffer->addr)
--		return;
--
--	EFX_LOG(efx, "deallocating special buffers %d-%d at %llx+%x "
--		"(virt %p phys %llx)\n", buffer->index,
--		buffer->index + buffer->entries - 1,
--		(u64)buffer->dma_addr, buffer->len,
--		buffer->addr, (u64)virt_to_phys(buffer->addr));
--
--	pci_free_consistent(efx->pci_dev, buffer->len, buffer->addr,
--			    buffer->dma_addr);
--	buffer->addr = NULL;
--	buffer->entries = 0;
--}
--
--/**************************************************************************
-- *
-- * Generic buffer handling
-- * These buffers are used for interrupt status and MAC stats
-- *
-- **************************************************************************/
--
--int efx_nic_alloc_buffer(struct efx_nic *efx, struct efx_buffer *buffer,
--			 unsigned int len)
--{
--	buffer->addr = pci_alloc_consistent(efx->pci_dev, len,
--					    &buffer->dma_addr);
--	if (!buffer->addr)
--		return -ENOMEM;
--	buffer->len = len;
--	memset(buffer->addr, 0, len);
--	return 0;
--}
--
--void efx_nic_free_buffer(struct efx_nic *efx, struct efx_buffer *buffer)
--{
--	if (buffer->addr) {
--		pci_free_consistent(efx->pci_dev, buffer->len,
--				    buffer->addr, buffer->dma_addr);
--		buffer->addr = NULL;
--	}
--}
--
--/**************************************************************************
-- *
-- * TX path
-- *
-- **************************************************************************/
--
--/* Returns a pointer to the specified transmit descriptor in the TX
-- * descriptor queue belonging to the specified channel.
-- */
--static inline efx_qword_t *
--efx_tx_desc(struct efx_tx_queue *tx_queue, unsigned int index)
--{
--	return (((efx_qword_t *) (tx_queue->txd.addr)) + index);
--}
--
--/* This writes to the TX_DESC_WPTR; write pointer for TX descriptor ring */
--static inline void efx_notify_tx_desc(struct efx_tx_queue *tx_queue)
--{
--	unsigned write_ptr;
--	efx_dword_t reg;
--
--	write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
--	EFX_POPULATE_DWORD_1(reg, FRF_AZ_TX_DESC_WPTR_DWORD, write_ptr);
--	efx_writed_page(tx_queue->efx, &reg,
--			FR_AZ_TX_DESC_UPD_DWORD_P0, tx_queue->queue);
--}
--
--
--/* For each entry inserted into the software descriptor ring, create a
-- * descriptor in the hardware TX descriptor ring (in host memory), and
-- * write a doorbell.
-- */
--void efx_nic_push_buffers(struct efx_tx_queue *tx_queue)
--{
--
--	struct efx_tx_buffer *buffer;
--	efx_qword_t *txd;
--	unsigned write_ptr;
--
--	BUG_ON(tx_queue->write_count == tx_queue->insert_count);
--
--	do {
--		write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
--		buffer = &tx_queue->buffer[write_ptr];
--		txd = efx_tx_desc(tx_queue, write_ptr);
--		++tx_queue->write_count;
--
--		/* Create TX descriptor ring entry */
--		EFX_POPULATE_QWORD_4(*txd,
--				     FSF_AZ_TX_KER_CONT, buffer->continuation,
--				     FSF_AZ_TX_KER_BYTE_COUNT, buffer->len,
--				     FSF_AZ_TX_KER_BUF_REGION, 0,
--				     FSF_AZ_TX_KER_BUF_ADDR, buffer->dma_addr);
--	} while (tx_queue->write_count != tx_queue->insert_count);
--
--	wmb(); /* Ensure descriptors are written before they are fetched */
--	efx_notify_tx_desc(tx_queue);
--}
--
--/* Allocate hardware resources for a TX queue */
--int efx_nic_probe_tx(struct efx_tx_queue *tx_queue)
--{
--	struct efx_nic *efx = tx_queue->efx;
--	BUILD_BUG_ON(EFX_TXQ_SIZE < 512 || EFX_TXQ_SIZE > 4096 ||
--		     EFX_TXQ_SIZE & EFX_TXQ_MASK);
--	return efx_alloc_special_buffer(efx, &tx_queue->txd,
--					EFX_TXQ_SIZE * sizeof(efx_qword_t));
--}
--
--void efx_nic_init_tx(struct efx_tx_queue *tx_queue)
--{
--	efx_oword_t tx_desc_ptr;
--	struct efx_nic *efx = tx_queue->efx;
--
--	tx_queue->flushed = FLUSH_NONE;
--
--	/* Pin TX descriptor ring */
--	efx_init_special_buffer(efx, &tx_queue->txd);
--
--	/* Push TX descriptor ring to card */
--	EFX_POPULATE_OWORD_10(tx_desc_ptr,
--			      FRF_AZ_TX_DESCQ_EN, 1,
--			      FRF_AZ_TX_ISCSI_DDIG_EN, 0,
--			      FRF_AZ_TX_ISCSI_HDIG_EN, 0,
--			      FRF_AZ_TX_DESCQ_BUF_BASE_ID, tx_queue->txd.index,
--			      FRF_AZ_TX_DESCQ_EVQ_ID,
--			      tx_queue->channel->channel,
--			      FRF_AZ_TX_DESCQ_OWNER_ID, 0,
--			      FRF_AZ_TX_DESCQ_LABEL, tx_queue->queue,
--			      FRF_AZ_TX_DESCQ_SIZE,
--			      __ffs(tx_queue->txd.entries),
--			      FRF_AZ_TX_DESCQ_TYPE, 0,
--			      FRF_BZ_TX_NON_IP_DROP_DIS, 1);
--
--	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
--		int csum = tx_queue->queue == EFX_TX_QUEUE_OFFLOAD_CSUM;
--		EFX_SET_OWORD_FIELD(tx_desc_ptr, FRF_BZ_TX_IP_CHKSM_DIS, !csum);
--		EFX_SET_OWORD_FIELD(tx_desc_ptr, FRF_BZ_TX_TCP_CHKSM_DIS,
--				    !csum);
--	}
--
--	efx_writeo_table(efx, &tx_desc_ptr, efx->type->txd_ptr_tbl_base,
--			 tx_queue->queue);
--
--	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0) {
--		efx_oword_t reg;
--
--		/* Only 128 bits in this register */
--		BUILD_BUG_ON(EFX_TX_QUEUE_COUNT >= 128);
--
--		efx_reado(efx, &reg, FR_AA_TX_CHKSM_CFG);
--		if (tx_queue->queue == EFX_TX_QUEUE_OFFLOAD_CSUM)
--			clear_bit_le(tx_queue->queue, (void *)&reg);
--		else
--			set_bit_le(tx_queue->queue, (void *)&reg);
--		efx_writeo(efx, &reg, FR_AA_TX_CHKSM_CFG);
--	}
--}
--
--static void efx_flush_tx_queue(struct efx_tx_queue *tx_queue)
--{
--	struct efx_nic *efx = tx_queue->efx;
--	efx_oword_t tx_flush_descq;
--
--	tx_queue->flushed = FLUSH_PENDING;
--
--	/* Post a flush command */
--	EFX_POPULATE_OWORD_2(tx_flush_descq,
--			     FRF_AZ_TX_FLUSH_DESCQ_CMD, 1,
--			     FRF_AZ_TX_FLUSH_DESCQ, tx_queue->queue);
--	efx_writeo(efx, &tx_flush_descq, FR_AZ_TX_FLUSH_DESCQ);
--}
--
--void efx_nic_fini_tx(struct efx_tx_queue *tx_queue)
--{
--	struct efx_nic *efx = tx_queue->efx;
--	efx_oword_t tx_desc_ptr;
--
--	/* The queue should have been flushed */
--	WARN_ON(tx_queue->flushed != FLUSH_DONE);
--
--	/* Remove TX descriptor ring from card */
--	EFX_ZERO_OWORD(tx_desc_ptr);
--	efx_writeo_table(efx, &tx_desc_ptr, efx->type->txd_ptr_tbl_base,
--			 tx_queue->queue);
--
--	/* Unpin TX descriptor ring */
--	efx_fini_special_buffer(efx, &tx_queue->txd);
--}
--
--/* Free buffers backing TX queue */
--void efx_nic_remove_tx(struct efx_tx_queue *tx_queue)
--{
--	efx_free_special_buffer(tx_queue->efx, &tx_queue->txd);
--}
--
--/**************************************************************************
-- *
-- * RX path
-- *
-- **************************************************************************/
--
--/* Returns a pointer to the specified descriptor in the RX descriptor queue */
--static inline efx_qword_t *
--efx_rx_desc(struct efx_rx_queue *rx_queue, unsigned int index)
--{
--	return (((efx_qword_t *) (rx_queue->rxd.addr)) + index);
--}
--
--/* This creates an entry in the RX descriptor queue */
--static inline void
--efx_build_rx_desc(struct efx_rx_queue *rx_queue, unsigned index)
--{
--	struct efx_rx_buffer *rx_buf;
--	efx_qword_t *rxd;
--
--	rxd = efx_rx_desc(rx_queue, index);
--	rx_buf = efx_rx_buffer(rx_queue, index);
--	EFX_POPULATE_QWORD_3(*rxd,
--			     FSF_AZ_RX_KER_BUF_SIZE,
--			     rx_buf->len -
--			     rx_queue->efx->type->rx_buffer_padding,
--			     FSF_AZ_RX_KER_BUF_REGION, 0,
--			     FSF_AZ_RX_KER_BUF_ADDR, rx_buf->dma_addr);
--}
--
--/* This writes to the RX_DESC_WPTR register for the specified receive
-- * descriptor ring.
-- */
--void efx_nic_notify_rx_desc(struct efx_rx_queue *rx_queue)
--{
--	efx_dword_t reg;
--	unsigned write_ptr;
--
--	while (rx_queue->notified_count != rx_queue->added_count) {
--		efx_build_rx_desc(rx_queue,
--				  rx_queue->notified_count &
--				  EFX_RXQ_MASK);
--		++rx_queue->notified_count;
--	}
--
--	wmb();
--	write_ptr = rx_queue->added_count & EFX_RXQ_MASK;
--	EFX_POPULATE_DWORD_1(reg, FRF_AZ_RX_DESC_WPTR_DWORD, write_ptr);
--	efx_writed_page(rx_queue->efx, &reg,
--			FR_AZ_RX_DESC_UPD_DWORD_P0, rx_queue->queue);
--}
--
--int efx_nic_probe_rx(struct efx_rx_queue *rx_queue)
--{
--	struct efx_nic *efx = rx_queue->efx;
--	BUILD_BUG_ON(EFX_RXQ_SIZE < 512 || EFX_RXQ_SIZE > 4096 ||
--		     EFX_RXQ_SIZE & EFX_RXQ_MASK);
--	return efx_alloc_special_buffer(efx, &rx_queue->rxd,
--					EFX_RXQ_SIZE * sizeof(efx_qword_t));
--}
--
--void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
--{
--	efx_oword_t rx_desc_ptr;
--	struct efx_nic *efx = rx_queue->efx;
--	bool is_b0 = efx_nic_rev(efx) >= EFX_REV_FALCON_B0;
--	bool iscsi_digest_en = is_b0;
--
--	EFX_LOG(efx, "RX queue %d ring in special buffers %d-%d\n",
--		rx_queue->queue, rx_queue->rxd.index,
--		rx_queue->rxd.index + rx_queue->rxd.entries - 1);
--
--	rx_queue->flushed = FLUSH_NONE;
--
--	/* Pin RX descriptor ring */
--	efx_init_special_buffer(efx, &rx_queue->rxd);
--
--	/* Push RX descriptor ring to card */
--	EFX_POPULATE_OWORD_10(rx_desc_ptr,
--			      FRF_AZ_RX_ISCSI_DDIG_EN, iscsi_digest_en,
--			      FRF_AZ_RX_ISCSI_HDIG_EN, iscsi_digest_en,
--			      FRF_AZ_RX_DESCQ_BUF_BASE_ID, rx_queue->rxd.index,
--			      FRF_AZ_RX_DESCQ_EVQ_ID,
--			      rx_queue->channel->channel,
--			      FRF_AZ_RX_DESCQ_OWNER_ID, 0,
--			      FRF_AZ_RX_DESCQ_LABEL, rx_queue->queue,
--			      FRF_AZ_RX_DESCQ_SIZE,
--			      __ffs(rx_queue->rxd.entries),
--			      FRF_AZ_RX_DESCQ_TYPE, 0 /* kernel queue */ ,
--			      /* For >=B0 this is scatter so disable */
--			      FRF_AZ_RX_DESCQ_JUMBO, !is_b0,
--			      FRF_AZ_RX_DESCQ_EN, 1);
--	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
--			 rx_queue->queue);
--}
--
--static void efx_flush_rx_queue(struct efx_rx_queue *rx_queue)
--{
--	struct efx_nic *efx = rx_queue->efx;
--	efx_oword_t rx_flush_descq;
--
--	rx_queue->flushed = FLUSH_PENDING;
--
--	/* Post a flush command */
--	EFX_POPULATE_OWORD_2(rx_flush_descq,
--			     FRF_AZ_RX_FLUSH_DESCQ_CMD, 1,
--			     FRF_AZ_RX_FLUSH_DESCQ, rx_queue->queue);
--	efx_writeo(efx, &rx_flush_descq, FR_AZ_RX_FLUSH_DESCQ);
--}
--
--void efx_nic_fini_rx(struct efx_rx_queue *rx_queue)
--{
--	efx_oword_t rx_desc_ptr;
--	struct efx_nic *efx = rx_queue->efx;
--
--	/* The queue should already have been flushed */
--	WARN_ON(rx_queue->flushed != FLUSH_DONE);
--
--	/* Remove RX descriptor ring from card */
--	EFX_ZERO_OWORD(rx_desc_ptr);
--	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
--			 rx_queue->queue);
--
--	/* Unpin RX descriptor ring */
--	efx_fini_special_buffer(efx, &rx_queue->rxd);
--}
--
--/* Free buffers backing RX queue */
--void efx_nic_remove_rx(struct efx_rx_queue *rx_queue)
--{
--	efx_free_special_buffer(rx_queue->efx, &rx_queue->rxd);
--}
--
--/**************************************************************************
-- *
-- * Event queue processing
-- * Event queues are processed by per-channel tasklets.
-- *
-- **************************************************************************/
--
--/* Update a channel's event queue's read pointer (RPTR) register
-- *
-- * This writes the EVQ_RPTR_REG register for the specified channel's
-- * event queue.
-- *
-- * Note that EVQ_RPTR_REG contains the index of the "last read" event,
-- * whereas channel->eventq_read_ptr contains the index of the "next to
-- * read" event.
-- */
--void efx_nic_eventq_read_ack(struct efx_channel *channel)
--{
--	efx_dword_t reg;
--	struct efx_nic *efx = channel->efx;
--
--	EFX_POPULATE_DWORD_1(reg, FRF_AZ_EVQ_RPTR, channel->eventq_read_ptr);
--	efx_writed_table(efx, &reg, efx->type->evq_rptr_tbl_base,
--			    channel->channel);
--}
--
--/* Use HW to insert a SW defined event */
--void efx_generate_event(struct efx_channel *channel, efx_qword_t *event)
--{
--	efx_oword_t drv_ev_reg;
--
--	BUILD_BUG_ON(FRF_AZ_DRV_EV_DATA_LBN != 0 ||
--		     FRF_AZ_DRV_EV_DATA_WIDTH != 64);
--	drv_ev_reg.u32[0] = event->u32[0];
--	drv_ev_reg.u32[1] = event->u32[1];
--	drv_ev_reg.u32[2] = 0;
--	drv_ev_reg.u32[3] = 0;
--	EFX_SET_OWORD_FIELD(drv_ev_reg, FRF_AZ_DRV_EV_QID, channel->channel);
--	efx_writeo(channel->efx, &drv_ev_reg, FR_AZ_DRV_EV);
--}
--
--/* Handle a transmit completion event
-- *
-- * The NIC batches TX completion events; the message we receive is of
-- * the form "complete all TX events up to this index".
-- */
--static void
--efx_handle_tx_event(struct efx_channel *channel, efx_qword_t *event)
--{
--	unsigned int tx_ev_desc_ptr;
--	unsigned int tx_ev_q_label;
--	struct efx_tx_queue *tx_queue;
--	struct efx_nic *efx = channel->efx;
--
--	if (likely(EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_COMP))) {
--		/* Transmit completion */
--		tx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_DESC_PTR);
--		tx_ev_q_label = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_Q_LABEL);
--		tx_queue = &efx->tx_queue[tx_ev_q_label];
--		channel->irq_mod_score +=
--			(tx_ev_desc_ptr - tx_queue->read_count) &
--			EFX_TXQ_MASK;
--		efx_xmit_done(tx_queue, tx_ev_desc_ptr);
--	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_WQ_FF_FULL)) {
--		/* Rewrite the FIFO write pointer */
--		tx_ev_q_label = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_Q_LABEL);
--		tx_queue = &efx->tx_queue[tx_ev_q_label];
--
--		if (efx_dev_registered(efx))
--			netif_tx_lock(efx->net_dev);
--		efx_notify_tx_desc(tx_queue);
--		if (efx_dev_registered(efx))
--			netif_tx_unlock(efx->net_dev);
--	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_PKT_ERR) &&
--		   EFX_WORKAROUND_10727(efx)) {
--		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
--	} else {
--		EFX_ERR(efx, "channel %d unexpected TX event "
--			EFX_QWORD_FMT"\n", channel->channel,
--			EFX_QWORD_VAL(*event));
--	}
--}
--
--/* Detect errors included in the rx_evt_pkt_ok bit. */
--static void efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
--				 const efx_qword_t *event,
--				 bool *rx_ev_pkt_ok,
--				 bool *discard)
--{
--	struct efx_nic *efx = rx_queue->efx;
--	bool rx_ev_buf_owner_id_err, rx_ev_ip_hdr_chksum_err;
--	bool rx_ev_tcp_udp_chksum_err, rx_ev_eth_crc_err;
--	bool rx_ev_frm_trunc, rx_ev_drib_nib, rx_ev_tobe_disc;
--	bool rx_ev_other_err, rx_ev_pause_frm;
--	bool rx_ev_hdr_type, rx_ev_mcast_pkt;
--	unsigned rx_ev_pkt_type;
--
--	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
--	rx_ev_mcast_pkt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_PKT);
--	rx_ev_tobe_disc = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_TOBE_DISC);
--	rx_ev_pkt_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_TYPE);
--	rx_ev_buf_owner_id_err = EFX_QWORD_FIELD(*event,
--						 FSF_AZ_RX_EV_BUF_OWNER_ID_ERR);
--	rx_ev_ip_hdr_chksum_err = EFX_QWORD_FIELD(*event,
--						  FSF_AZ_RX_EV_IP_HDR_CHKSUM_ERR);
--	rx_ev_tcp_udp_chksum_err = EFX_QWORD_FIELD(*event,
--						   FSF_AZ_RX_EV_TCP_UDP_CHKSUM_ERR);
--	rx_ev_eth_crc_err = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_ETH_CRC_ERR);
--	rx_ev_frm_trunc = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_FRM_TRUNC);
--	rx_ev_drib_nib = ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) ?
--			  0 : EFX_QWORD_FIELD(*event, FSF_AA_RX_EV_DRIB_NIB));
--	rx_ev_pause_frm = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PAUSE_FRM_ERR);
--
--	/* Every error apart from tobe_disc and pause_frm */
--	rx_ev_other_err = (rx_ev_drib_nib | rx_ev_tcp_udp_chksum_err |
--			   rx_ev_buf_owner_id_err | rx_ev_eth_crc_err |
--			   rx_ev_frm_trunc | rx_ev_ip_hdr_chksum_err);
--
--	/* Count errors that are not in MAC stats.  Ignore expected
--	 * checksum errors during self-test. */
--	if (rx_ev_frm_trunc)
--		++rx_queue->channel->n_rx_frm_trunc;
--	else if (rx_ev_tobe_disc)
--		++rx_queue->channel->n_rx_tobe_disc;
--	else if (!efx->loopback_selftest) {
--		if (rx_ev_ip_hdr_chksum_err)
--			++rx_queue->channel->n_rx_ip_hdr_chksum_err;
--		else if (rx_ev_tcp_udp_chksum_err)
--			++rx_queue->channel->n_rx_tcp_udp_chksum_err;
--	}
--
--	/* The frame must be discarded if any of these are true. */
--	*discard = (rx_ev_eth_crc_err | rx_ev_frm_trunc | rx_ev_drib_nib |
--		    rx_ev_tobe_disc | rx_ev_pause_frm);
--
--	/* TOBE_DISC is expected on unicast mismatches; don't print out an
--	 * error message.  FRM_TRUNC indicates RXDP dropped the packet due
--	 * to a FIFO overflow.
--	 */
--#ifdef EFX_ENABLE_DEBUG
--	if (rx_ev_other_err) {
--		EFX_INFO_RL(efx, " RX queue %d unexpected RX event "
--			    EFX_QWORD_FMT "%s%s%s%s%s%s%s%s\n",
--			    rx_queue->queue, EFX_QWORD_VAL(*event),
--			    rx_ev_buf_owner_id_err ? " [OWNER_ID_ERR]" : "",
--			    rx_ev_ip_hdr_chksum_err ?
--			    " [IP_HDR_CHKSUM_ERR]" : "",
--			    rx_ev_tcp_udp_chksum_err ?
--			    " [TCP_UDP_CHKSUM_ERR]" : "",
--			    rx_ev_eth_crc_err ? " [ETH_CRC_ERR]" : "",
--			    rx_ev_frm_trunc ? " [FRM_TRUNC]" : "",
--			    rx_ev_drib_nib ? " [DRIB_NIB]" : "",
--			    rx_ev_tobe_disc ? " [TOBE_DISC]" : "",
--			    rx_ev_pause_frm ? " [PAUSE]" : "");
--	}
--#endif
--}
--
--/* Handle receive events that are not in-order. */
--static void
--efx_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
--{
--	struct efx_nic *efx = rx_queue->efx;
--	unsigned expected, dropped;
--
--	expected = rx_queue->removed_count & EFX_RXQ_MASK;
--	dropped = (index - expected) & EFX_RXQ_MASK;
--	EFX_INFO(efx, "dropped %d events (index=%d expected=%d)\n",
--		dropped, index, expected);
--
--	efx_schedule_reset(efx, EFX_WORKAROUND_5676(efx) ?
--			   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
--}
--
--/* Handle a packet received event
-- *
-- * The NIC gives a "discard" flag if it's a unicast packet with the
-- * wrong destination address
-- * Also "is multicast" and "matches multicast filter" flags can be used to
-- * discard non-matching multicast packets.
-- */
--static void
--efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
--{
--	unsigned int rx_ev_desc_ptr, rx_ev_byte_cnt;
--	unsigned int rx_ev_hdr_type, rx_ev_mcast_pkt;
--	unsigned expected_ptr;
--	bool rx_ev_pkt_ok, discard = false, checksummed;
--	struct efx_rx_queue *rx_queue;
--	struct efx_nic *efx = channel->efx;
--
--	/* Basic packet information */
--	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
--	rx_ev_pkt_ok = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_OK);
--	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
--	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_JUMBO_CONT));
--	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_SOP) != 1);
--	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_Q_LABEL) !=
--		channel->channel);
--
--	rx_queue = &efx->rx_queue[channel->channel];
--
--	rx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_DESC_PTR);
--	expected_ptr = rx_queue->removed_count & EFX_RXQ_MASK;
--	if (unlikely(rx_ev_desc_ptr != expected_ptr))
--		efx_handle_rx_bad_index(rx_queue, rx_ev_desc_ptr);
--
--	if (likely(rx_ev_pkt_ok)) {
--		/* If packet is marked as OK and packet type is TCP/IP or
--		 * UDP/IP, then we can rely on the hardware checksum.
--		 */
--		checksummed =
--			likely(efx->rx_checksum_enabled) &&
--			(rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
--			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP);
--	} else {
--		efx_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok, &discard);
--		checksummed = false;
--	}
--
--	/* Detect multicast packets that didn't match the filter */
--	rx_ev_mcast_pkt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_PKT);
--	if (rx_ev_mcast_pkt) {
--		unsigned int rx_ev_mcast_hash_match =
--			EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_HASH_MATCH);
--
--		if (unlikely(!rx_ev_mcast_hash_match)) {
--			++channel->n_rx_mcast_mismatch;
--			discard = true;
--		}
--	}
--
--	channel->irq_mod_score += 2;
--
--	/* Handle received packet */
--	efx_rx_packet(rx_queue, rx_ev_desc_ptr, rx_ev_byte_cnt,
--		      checksummed, discard);
--}
--
--/* Global events are basically PHY events */
--static void
--efx_handle_global_event(struct efx_channel *channel, efx_qword_t *event)
--{
--	struct efx_nic *efx = channel->efx;
--	bool handled = false;
--
--	if (EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_G_PHY0_INTR) ||
--	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XG_PHY0_INTR) ||
--	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XFP_PHY0_INTR)) {
--		/* Ignored */
--		handled = true;
--	}
--
--	if ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) &&
--	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_XG_MGT_INTR)) {
--		efx->xmac_poll_required = true;
--		handled = true;
--	}
--
--	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ?
--	    EFX_QWORD_FIELD(*event, FSF_AA_GLB_EV_RX_RECOVERY) :
--	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_RX_RECOVERY)) {
--		EFX_ERR(efx, "channel %d seen global RX_RESET "
--			"event. Resetting.\n", channel->channel);
--
--		atomic_inc(&efx->rx_reset);
--		efx_schedule_reset(efx, EFX_WORKAROUND_6555(efx) ?
--				   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
--		handled = true;
--	}
--
--	if (!handled)
--		EFX_ERR(efx, "channel %d unknown global event "
--			EFX_QWORD_FMT "\n", channel->channel,
--			EFX_QWORD_VAL(*event));
--}
--
--static void
--efx_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
--{
--	struct efx_nic *efx = channel->efx;
--	unsigned int ev_sub_code;
--	unsigned int ev_sub_data;
--
--	ev_sub_code = EFX_QWORD_FIELD(*event, FSF_AZ_DRIVER_EV_SUBCODE);
--	ev_sub_data = EFX_QWORD_FIELD(*event, FSF_AZ_DRIVER_EV_SUBDATA);
--
--	switch (ev_sub_code) {
--	case FSE_AZ_TX_DESCQ_FLS_DONE_EV:
--		EFX_TRACE(efx, "channel %d TXQ %d flushed\n",
--			  channel->channel, ev_sub_data);
--		break;
--	case FSE_AZ_RX_DESCQ_FLS_DONE_EV:
--		EFX_TRACE(efx, "channel %d RXQ %d flushed\n",
--			  channel->channel, ev_sub_data);
--		break;
--	case FSE_AZ_EVQ_INIT_DONE_EV:
--		EFX_LOG(efx, "channel %d EVQ %d initialised\n",
--			channel->channel, ev_sub_data);
--		break;
--	case FSE_AZ_SRM_UPD_DONE_EV:
--		EFX_TRACE(efx, "channel %d SRAM update done\n",
--			  channel->channel);
--		break;
--	case FSE_AZ_WAKE_UP_EV:
--		EFX_TRACE(efx, "channel %d RXQ %d wakeup event\n",
--			  channel->channel, ev_sub_data);
--		break;
--	case FSE_AZ_TIMER_EV:
--		EFX_TRACE(efx, "channel %d RX queue %d timer expired\n",
--			  channel->channel, ev_sub_data);
--		break;
--	case FSE_AA_RX_RECOVER_EV:
--		EFX_ERR(efx, "channel %d seen DRIVER RX_RESET event. "
--			"Resetting.\n", channel->channel);
--		atomic_inc(&efx->rx_reset);
--		efx_schedule_reset(efx,
--				   EFX_WORKAROUND_6555(efx) ?
--				   RESET_TYPE_RX_RECOVERY :
--				   RESET_TYPE_DISABLE);
--		break;
--	case FSE_BZ_RX_DSC_ERROR_EV:
--		EFX_ERR(efx, "RX DMA Q %d reports descriptor fetch error."
--			" RX Q %d is disabled.\n", ev_sub_data, ev_sub_data);
--		efx_schedule_reset(efx, RESET_TYPE_RX_DESC_FETCH);
--		break;
--	case FSE_BZ_TX_DSC_ERROR_EV:
--		EFX_ERR(efx, "TX DMA Q %d reports descriptor fetch error."
--			" TX Q %d is disabled.\n", ev_sub_data, ev_sub_data);
--		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
--		break;
--	default:
--		EFX_TRACE(efx, "channel %d unknown driver event code %d "
--			  "data %04x\n", channel->channel, ev_sub_code,
--			  ev_sub_data);
--		break;
--	}
--}
--
--int efx_nic_process_eventq(struct efx_channel *channel, int rx_quota)
--{
--	unsigned int read_ptr;
--	efx_qword_t event, *p_event;
--	int ev_code;
--	int rx_packets = 0;
--
--	read_ptr = channel->eventq_read_ptr;
--
--	do {
--		p_event = efx_event(channel, read_ptr);
--		event = *p_event;
--
--		if (!efx_event_present(&event))
--			/* End of events */
--			break;
--
--		EFX_TRACE(channel->efx, "channel %d event is "EFX_QWORD_FMT"\n",
--			  channel->channel, EFX_QWORD_VAL(event));
--
--		/* Clear this event by marking it all ones */
--		EFX_SET_QWORD(*p_event);
--
--		ev_code = EFX_QWORD_FIELD(event, FSF_AZ_EV_CODE);
--
--		switch (ev_code) {
--		case FSE_AZ_EV_CODE_RX_EV:
--			efx_handle_rx_event(channel, &event);
--			++rx_packets;
--			break;
--		case FSE_AZ_EV_CODE_TX_EV:
--			efx_handle_tx_event(channel, &event);
--			break;
--		case FSE_AZ_EV_CODE_DRV_GEN_EV:
--			channel->eventq_magic = EFX_QWORD_FIELD(
--				event, FSF_AZ_DRV_GEN_EV_MAGIC);
--			EFX_LOG(channel->efx, "channel %d received generated "
--				"event "EFX_QWORD_FMT"\n", channel->channel,
--				EFX_QWORD_VAL(event));
--			break;
--		case FSE_AZ_EV_CODE_GLOBAL_EV:
--			efx_handle_global_event(channel, &event);
--			break;
--		case FSE_AZ_EV_CODE_DRIVER_EV:
--			efx_handle_driver_event(channel, &event);
--			break;
--		default:
--			EFX_ERR(channel->efx, "channel %d unknown event type %d"
--				" (data " EFX_QWORD_FMT ")\n", channel->channel,
--				ev_code, EFX_QWORD_VAL(event));
--		}
--
--		/* Increment read pointer */
--		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
--
--	} while (rx_packets < rx_quota);
--
--	channel->eventq_read_ptr = read_ptr;
--	return rx_packets;
--}
--
- static void falcon_push_irq_moderation(struct efx_channel *channel)
- {
- 	efx_dword_t timer_cmd;
-@@ -1056,135 +120,6 @@ static void falcon_push_irq_moderation(struct efx_channel *channel)
- 	BUILD_BUG_ON(FR_AA_TIMER_COMMAND_KER != FR_BZ_TIMER_COMMAND_P0);
- 	efx_writed_page_locked(efx, &timer_cmd, FR_BZ_TIMER_COMMAND_P0,
- 			       channel->channel);
--
--}
--
--/* Allocate buffer table entries for event queue */
--int efx_nic_probe_eventq(struct efx_channel *channel)
--{
--	struct efx_nic *efx = channel->efx;
--	BUILD_BUG_ON(EFX_EVQ_SIZE < 512 || EFX_EVQ_SIZE > 32768 ||
--		     EFX_EVQ_SIZE & EFX_EVQ_MASK);
--	return efx_alloc_special_buffer(efx, &channel->eventq,
--					EFX_EVQ_SIZE * sizeof(efx_qword_t));
--}
--
--void efx_nic_init_eventq(struct efx_channel *channel)
--{
--	efx_oword_t evq_ptr;
--	struct efx_nic *efx = channel->efx;
--
--	EFX_LOG(efx, "channel %d event queue in special buffers %d-%d\n",
--		channel->channel, channel->eventq.index,
--		channel->eventq.index + channel->eventq.entries - 1);
--
--	/* Pin event queue buffer */
--	efx_init_special_buffer(efx, &channel->eventq);
--
--	/* Fill event queue with all ones (i.e. empty events) */
--	memset(channel->eventq.addr, 0xff, channel->eventq.len);
--
--	/* Push event queue to card */
--	EFX_POPULATE_OWORD_3(evq_ptr,
--			     FRF_AZ_EVQ_EN, 1,
--			     FRF_AZ_EVQ_SIZE, __ffs(channel->eventq.entries),
--			     FRF_AZ_EVQ_BUF_BASE_ID, channel->eventq.index);
--	efx_writeo_table(efx, &evq_ptr, efx->type->evq_ptr_tbl_base,
--			 channel->channel);
--
--	efx->type->push_irq_moderation(channel);
--}
--
--void efx_nic_fini_eventq(struct efx_channel *channel)
--{
--	efx_oword_t eventq_ptr;
--	struct efx_nic *efx = channel->efx;
--
--	/* Remove event queue from card */
--	EFX_ZERO_OWORD(eventq_ptr);
--	efx_writeo_table(efx, &eventq_ptr, efx->type->evq_ptr_tbl_base,
--			 channel->channel);
--
--	/* Unpin event queue */
--	efx_fini_special_buffer(efx, &channel->eventq);
--}
--
--/* Free buffers backing event queue */
--void efx_nic_remove_eventq(struct efx_channel *channel)
--{
--	efx_free_special_buffer(channel->efx, &channel->eventq);
--}
--
--
--/* Generates a test event on the event queue.  A subsequent call to
-- * process_eventq() should pick up the event and place the value of
-- * "magic" into channel->eventq_magic;
-- */
--void efx_nic_generate_test_event(struct efx_channel *channel, unsigned int magic)
--{
--	efx_qword_t test_event;
--
--	EFX_POPULATE_QWORD_2(test_event, FSF_AZ_EV_CODE,
--			     FSE_AZ_EV_CODE_DRV_GEN_EV,
--			     FSF_AZ_DRV_GEN_EV_MAGIC, magic);
--	efx_generate_event(channel, &test_event);
--}
--
--/**************************************************************************
-- *
-- * Flush handling
-- *
-- **************************************************************************/
--
--
--static void efx_poll_flush_events(struct efx_nic *efx)
--{
--	struct efx_channel *channel = &efx->channel[0];
--	struct efx_tx_queue *tx_queue;
--	struct efx_rx_queue *rx_queue;
--	unsigned int read_ptr = channel->eventq_read_ptr;
--	unsigned int end_ptr = (read_ptr - 1) & EFX_EVQ_MASK;
--
--	do {
--		efx_qword_t *event = efx_event(channel, read_ptr);
--		int ev_code, ev_sub_code, ev_queue;
--		bool ev_failed;
--
--		if (!efx_event_present(event))
--			break;
--
--		ev_code = EFX_QWORD_FIELD(*event, FSF_AZ_EV_CODE);
--		ev_sub_code = EFX_QWORD_FIELD(*event,
--					      FSF_AZ_DRIVER_EV_SUBCODE);
--		if (ev_code == FSE_AZ_EV_CODE_DRIVER_EV &&
--		    ev_sub_code == FSE_AZ_TX_DESCQ_FLS_DONE_EV) {
--			ev_queue = EFX_QWORD_FIELD(*event,
--						   FSF_AZ_DRIVER_EV_SUBDATA);
--			if (ev_queue < EFX_TX_QUEUE_COUNT) {
--				tx_queue = efx->tx_queue + ev_queue;
--				tx_queue->flushed = FLUSH_DONE;
--			}
--		} else if (ev_code == FSE_AZ_EV_CODE_DRIVER_EV &&
--			   ev_sub_code == FSE_AZ_RX_DESCQ_FLS_DONE_EV) {
--			ev_queue = EFX_QWORD_FIELD(
--				*event, FSF_AZ_DRIVER_EV_RX_DESCQ_ID);
--			ev_failed = EFX_QWORD_FIELD(
--				*event, FSF_AZ_DRIVER_EV_RX_FLUSH_FAIL);
--			if (ev_queue < efx->n_rx_queues) {
--				rx_queue = efx->rx_queue + ev_queue;
--				rx_queue->flushed =
--					ev_failed ? FLUSH_FAILED : FLUSH_DONE;
--			}
--		}
--
--		/* We're about to destroy the queue anyway, so
--		 * it's ok to throw away every non-flush event */
--		EFX_SET_QWORD(*event);
--
--		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
--	} while (read_ptr != end_ptr);
--
--	channel->eventq_read_ptr = read_ptr;
- }
- 
- static void falcon_deconfigure_mac_wrapper(struct efx_nic *efx);
-@@ -1199,123 +134,6 @@ static void falcon_prepare_flush(struct efx_nic *efx)
- 	msleep(10);
- }
- 
--/* Handle tx and rx flushes at the same time, since they run in
-- * parallel in the hardware and there's no reason for us to
-- * serialise them */
--int efx_nic_flush_queues(struct efx_nic *efx)
--{
--	struct efx_rx_queue *rx_queue;
--	struct efx_tx_queue *tx_queue;
--	int i, tx_pending, rx_pending;
--
--	/* If necessary prepare the hardware for flushing */
--	efx->type->prepare_flush(efx);
--
--	/* Flush all tx queues in parallel */
--	efx_for_each_tx_queue(tx_queue, efx)
--		efx_flush_tx_queue(tx_queue);
--
--	/* The hardware supports four concurrent rx flushes, each of which may
--	 * need to be retried if there is an outstanding descriptor fetch */
--	for (i = 0; i < EFX_FLUSH_POLL_COUNT; ++i) {
--		rx_pending = tx_pending = 0;
--		efx_for_each_rx_queue(rx_queue, efx) {
--			if (rx_queue->flushed == FLUSH_PENDING)
--				++rx_pending;
--		}
--		efx_for_each_rx_queue(rx_queue, efx) {
--			if (rx_pending == EFX_RX_FLUSH_COUNT)
--				break;
--			if (rx_queue->flushed == FLUSH_FAILED ||
--			    rx_queue->flushed == FLUSH_NONE) {
--				efx_flush_rx_queue(rx_queue);
--				++rx_pending;
--			}
--		}
--		efx_for_each_tx_queue(tx_queue, efx) {
--			if (tx_queue->flushed != FLUSH_DONE)
--				++tx_pending;
--		}
--
--		if (rx_pending == 0 && tx_pending == 0)
--			return 0;
--
--		msleep(EFX_FLUSH_INTERVAL);
--		efx_poll_flush_events(efx);
--	}
--
--	/* Mark the queues as all flushed. We're going to return failure
--	 * leading to a reset, or fake up success anyway */
--	efx_for_each_tx_queue(tx_queue, efx) {
--		if (tx_queue->flushed != FLUSH_DONE)
--			EFX_ERR(efx, "tx queue %d flush command timed out\n",
--				tx_queue->queue);
--		tx_queue->flushed = FLUSH_DONE;
--	}
--	efx_for_each_rx_queue(rx_queue, efx) {
--		if (rx_queue->flushed != FLUSH_DONE)
--			EFX_ERR(efx, "rx queue %d flush command timed out\n",
--				rx_queue->queue);
--		rx_queue->flushed = FLUSH_DONE;
--	}
--
--	if (EFX_WORKAROUND_7803(efx))
--		return 0;
--
--	return -ETIMEDOUT;
--}
--
--/**************************************************************************
-- *
-- * Hardware interrupts
-- * The hardware interrupt handler does very little work; all the event
-- * queue processing is carried out by per-channel tasklets.
-- *
-- **************************************************************************/
--
--/* Enable/disable/generate interrupts */
--static inline void efx_nic_interrupts(struct efx_nic *efx,
--				      bool enabled, bool force)
--{
--	efx_oword_t int_en_reg_ker;
--
--	EFX_POPULATE_OWORD_2(int_en_reg_ker,
--			     FRF_AZ_KER_INT_KER, force,
--			     FRF_AZ_DRV_INT_EN_KER, enabled);
--	efx_writeo(efx, &int_en_reg_ker, FR_AZ_INT_EN_KER);
--}
--
--void efx_nic_enable_interrupts(struct efx_nic *efx)
--{
--	struct efx_channel *channel;
--
--	EFX_ZERO_OWORD(*((efx_oword_t *) efx->irq_status.addr));
--	wmb(); /* Ensure interrupt vector is clear before interrupts enabled */
--
--	/* Enable interrupts */
--	efx_nic_interrupts(efx, true, false);
--
--	/* Force processing of all the channels to get the EVQ RPTRs up to
--	   date */
--	efx_for_each_channel(channel, efx)
--		efx_schedule_channel(channel);
--}
--
--void efx_nic_disable_interrupts(struct efx_nic *efx)
--{
--	/* Disable interrupts */
--	efx_nic_interrupts(efx, false, false);
--}
--
--/* Generate a test interrupt
-- * Interrupt must already have been enabled, otherwise nasty things
-- * may happen.
-- */
--void efx_nic_generate_interrupt(struct efx_nic *efx)
--{
--	efx_nic_interrupts(efx, true, true);
--}
--
- /* Acknowledge a legacy interrupt from Falcon
-  *
-  * This acknowledges a legacy (not MSI) interrupt via INT_ACK_KER_REG.
-@@ -1335,102 +153,6 @@ inline void falcon_irq_ack_a1(struct efx_nic *efx)
- 	efx_readd(efx, &reg, FR_AA_WORK_AROUND_BROKEN_PCI_READS);
- }
- 
--/* Process a fatal interrupt
-- * Disable bus mastering ASAP and schedule a reset
-- */
--irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
--{
--	struct falcon_nic_data *nic_data = efx->nic_data;
--	efx_oword_t *int_ker = efx->irq_status.addr;
--	efx_oword_t fatal_intr;
--	int error, mem_perr;
--
--	efx_reado(efx, &fatal_intr, FR_AZ_FATAL_INTR_KER);
--	error = EFX_OWORD_FIELD(fatal_intr, FRF_AZ_FATAL_INTR);
--
--	EFX_ERR(efx, "SYSTEM ERROR " EFX_OWORD_FMT " status "
--		EFX_OWORD_FMT ": %s\n", EFX_OWORD_VAL(*int_ker),
--		EFX_OWORD_VAL(fatal_intr),
--		error ? "disabling bus mastering" : "no recognised error");
--	if (error == 0)
--		goto out;
--
--	/* If this is a memory parity error dump which blocks are offending */
--	mem_perr = EFX_OWORD_FIELD(fatal_intr, FRF_AZ_MEM_PERR_INT_KER);
--	if (mem_perr) {
--		efx_oword_t reg;
--		efx_reado(efx, &reg, FR_AZ_MEM_STAT);
--		EFX_ERR(efx, "SYSTEM ERROR: memory parity error "
--			EFX_OWORD_FMT "\n", EFX_OWORD_VAL(reg));
--	}
--
--	/* Disable both devices */
--	pci_clear_master(efx->pci_dev);
--	if (efx_nic_is_dual_func(efx))
--		pci_clear_master(nic_data->pci_dev2);
--	efx_nic_disable_interrupts(efx);
--
--	/* Count errors and reset or disable the NIC accordingly */
--	if (efx->int_error_count == 0 ||
--	    time_after(jiffies, efx->int_error_expire)) {
--		efx->int_error_count = 0;
--		efx->int_error_expire =
--			jiffies + EFX_INT_ERROR_EXPIRE * HZ;
--	}
--	if (++efx->int_error_count < EFX_MAX_INT_ERRORS) {
--		EFX_ERR(efx, "SYSTEM ERROR - reset scheduled\n");
--		efx_schedule_reset(efx, RESET_TYPE_INT_ERROR);
--	} else {
--		EFX_ERR(efx, "SYSTEM ERROR - max number of errors seen."
--			"NIC will be disabled\n");
--		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
--	}
--out:
--	return IRQ_HANDLED;
--}
--
--/* Handle a legacy interrupt
-- * Acknowledges the interrupt and schedule event queue processing.
-- */
--static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
--{
--	struct efx_nic *efx = dev_id;
--	efx_oword_t *int_ker = efx->irq_status.addr;
--	irqreturn_t result = IRQ_NONE;
--	struct efx_channel *channel;
--	efx_dword_t reg;
--	u32 queues;
--	int syserr;
--
--	/* Read the ISR which also ACKs the interrupts */
--	efx_readd(efx, &reg, FR_BZ_INT_ISR0);
--	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
--
--	/* Check to see if we have a serious error condition */
--	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
--	if (unlikely(syserr))
--		return efx_nic_fatal_interrupt(efx);
--
--	/* Schedule processing of any interrupting queues */
--	efx_for_each_channel(channel, efx) {
--		if ((queues & 1) ||
--		    efx_event_present(
--			    efx_event(channel, channel->eventq_read_ptr))) {
--			efx_schedule_channel(channel);
--			result = IRQ_HANDLED;
--		}
--		queues >>= 1;
--	}
--
--	if (result == IRQ_HANDLED) {
--		efx->last_irq_cpu = raw_smp_processor_id();
--		EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_DWORD_FMT "\n",
--			  irq, raw_smp_processor_id(), EFX_DWORD_VAL(reg));
--	}
--
--	return result;
--}
--
- 
- irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
- {
-@@ -1477,126 +199,6 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
- 
- 	return IRQ_HANDLED;
- }
--
--/* Handle an MSI interrupt
-- *
-- * Handle an MSI hardware interrupt.  This routine schedules event
-- * queue processing.  No interrupt acknowledgement cycle is necessary.
-- * Also, we never need to check that the interrupt is for us, since
-- * MSI interrupts cannot be shared.
-- */
--static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
--{
--	struct efx_channel *channel = dev_id;
--	struct efx_nic *efx = channel->efx;
--	efx_oword_t *int_ker = efx->irq_status.addr;
--	int syserr;
--
--	efx->last_irq_cpu = raw_smp_processor_id();
--	EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
--		  irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
--
--	/* Check to see if we have a serious error condition */
--	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
--	if (unlikely(syserr))
--		return efx_nic_fatal_interrupt(efx);
--
--	/* Schedule processing of the channel */
--	efx_schedule_channel(channel);
--
--	return IRQ_HANDLED;
--}
--
--
--/* Setup RSS indirection table.
-- * This maps from the hash value of the packet to RXQ
-- */
--static void efx_setup_rss_indir_table(struct efx_nic *efx)
--{
--	int i = 0;
--	unsigned long offset;
--	efx_dword_t dword;
--
--	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
--		return;
--
--	for (offset = FR_BZ_RX_INDIRECTION_TBL;
--	     offset < FR_BZ_RX_INDIRECTION_TBL + 0x800;
--	     offset += 0x10) {
--		EFX_POPULATE_DWORD_1(dword, FRF_BZ_IT_QUEUE,
--				     i % efx->n_rx_queues);
--		efx_writed(efx, &dword, offset);
--		i++;
--	}
--}
--
--/* Hook interrupt handler(s)
-- * Try MSI and then legacy interrupts.
-- */
--int efx_nic_init_interrupt(struct efx_nic *efx)
--{
--	struct efx_channel *channel;
--	int rc;
--
--	if (!EFX_INT_MODE_USE_MSI(efx)) {
--		irq_handler_t handler;
--		if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
--			handler = efx_legacy_interrupt;
--		else
--			handler = falcon_legacy_interrupt_a1;
--
--		rc = request_irq(efx->legacy_irq, handler, IRQF_SHARED,
--				 efx->name, efx);
--		if (rc) {
--			EFX_ERR(efx, "failed to hook legacy IRQ %d\n",
--				efx->pci_dev->irq);
--			goto fail1;
--		}
--		return 0;
--	}
--
--	/* Hook MSI or MSI-X interrupt */
--	efx_for_each_channel(channel, efx) {
--		rc = request_irq(channel->irq, efx_msi_interrupt,
--				 IRQF_PROBE_SHARED, /* Not shared */
--				 channel->name, channel);
--		if (rc) {
--			EFX_ERR(efx, "failed to hook IRQ %d\n", channel->irq);
--			goto fail2;
--		}
--	}
--
--	return 0;
--
-- fail2:
--	efx_for_each_channel(channel, efx)
--		free_irq(channel->irq, channel);
-- fail1:
--	return rc;
--}
--
--void efx_nic_fini_interrupt(struct efx_nic *efx)
--{
--	struct efx_channel *channel;
--	efx_oword_t reg;
--
--	/* Disable MSI/MSI-X interrupts */
--	efx_for_each_channel(channel, efx) {
--		if (channel->irq)
--			free_irq(channel->irq, channel);
--	}
--
--	/* ACK legacy interrupt */
--	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
--		efx_reado(efx, &reg, FR_BZ_INT_ISR0);
--	else
--		falcon_irq_ack_a1(efx);
--
--	/* Disable legacy interrupt */
--	if (efx->legacy_irq)
--		free_irq(efx->legacy_irq, efx);
--}
--
- /**************************************************************************
-  *
-  * EEPROM/flash
-@@ -2440,68 +1042,6 @@ static const struct efx_nic_register_test falcon_b0_register_tests[] = {
- 	  EFX_OWORD32(0x0003FF0F, 0x00000000, 0x00000000, 0x00000000) },
- };
- 
--static bool efx_masked_compare_oword(const efx_oword_t *a, const efx_oword_t *b,
--				     const efx_oword_t *mask)
--{
--	return ((a->u64[0] ^ b->u64[0]) & mask->u64[0]) ||
--		((a->u64[1] ^ b->u64[1]) & mask->u64[1]);
--}
--
--int efx_nic_test_registers(struct efx_nic *efx,
--			   const struct efx_nic_register_test *regs,
--			   size_t n_regs)
--{
--	unsigned address = 0, i, j;
--	efx_oword_t mask, imask, original, reg, buf;
--
--	/* Falcon should be in loopback to isolate the XMAC from the PHY */
--	WARN_ON(!LOOPBACK_INTERNAL(efx));
--
--	for (i = 0; i < n_regs; ++i) {
--		address = regs[i].address;
--		mask = imask = regs[i].mask;
--		EFX_INVERT_OWORD(imask);
--
--		efx_reado(efx, &original, address);
--
--		/* bit sweep on and off */
--		for (j = 0; j < 128; j++) {
--			if (!EFX_EXTRACT_OWORD32(mask, j, j))
--				continue;
--
--			/* Test this testable bit can be set in isolation */
--			EFX_AND_OWORD(reg, original, mask);
--			EFX_SET_OWORD32(reg, j, j, 1);
--
--			efx_writeo(efx, &reg, address);
--			efx_reado(efx, &buf, address);
--
--			if (efx_masked_compare_oword(&reg, &buf, &mask))
--				goto fail;
--
--			/* Test this testable bit can be cleared in isolation */
--			EFX_OR_OWORD(reg, original, mask);
--			EFX_SET_OWORD32(reg, j, j, 0);
--
--			efx_writeo(efx, &reg, address);
--			efx_reado(efx, &buf, address);
--
--			if (efx_masked_compare_oword(&reg, &buf, &mask))
--				goto fail;
--		}
--
--		efx_writeo(efx, &original, address);
--	}
--
--	return 0;
--
--fail:
--	EFX_ERR(efx, "wrote "EFX_OWORD_FMT" read "EFX_OWORD_FMT
--		" at address 0x%x mask "EFX_OWORD_FMT"\n", EFX_OWORD_VAL(reg),
--		EFX_OWORD_VAL(buf), address, EFX_OWORD_VAL(mask));
--	return -EIO;
--}
--
- static int falcon_b0_test_registers(struct efx_nic *efx)
- {
- 	return efx_nic_test_registers(efx, falcon_b0_register_tests,
-@@ -2719,7 +1259,6 @@ static int falcon_spi_device_init(struct efx_nic *efx,
- 	return 0;
- }
- 
--
- static void falcon_remove_spi_devices(struct efx_nic *efx)
- {
- 	kfree(efx->spi_eeprom);
-@@ -2789,14 +1328,6 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
- 	return rc;
- }
- 
--u32 efx_nic_fpga_ver(struct efx_nic *efx)
--{
--	efx_oword_t altera_build;
--
--	efx_reado(efx, &altera_build, FR_AZ_ALTERA_BUILD);
--	return EFX_OWORD_FIELD(altera_build, FRF_AZ_ALTERA_BUILD_VER);
--}
--
- /* Probe all SPI devices on the NIC */
- static void falcon_probe_spi_devices(struct efx_nic *efx)
- {
-@@ -3006,73 +1537,6 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
- 	efx_writeo(efx, &reg, FR_AZ_RX_CFG);
- }
- 
--void efx_nic_init_common(struct efx_nic *efx)
--{
--	efx_oword_t temp;
--
--	/* Set positions of descriptor caches in SRAM. */
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_TX_DC_BASE_ADR,
--			     efx->type->tx_dc_base / 8);
--	efx_writeo(efx, &temp, FR_AZ_SRM_TX_DC_CFG);
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_RX_DC_BASE_ADR,
--			     efx->type->rx_dc_base / 8);
--	efx_writeo(efx, &temp, FR_AZ_SRM_RX_DC_CFG);
--
--	/* Set TX descriptor cache size. */
--	BUILD_BUG_ON(TX_DC_ENTRIES != (8 << TX_DC_ENTRIES_ORDER));
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_TX_DC_SIZE, TX_DC_ENTRIES_ORDER);
--	efx_writeo(efx, &temp, FR_AZ_TX_DC_CFG);
--
--	/* Set RX descriptor cache size.  Set low watermark to size-8, as
--	 * this allows most efficient prefetching.
--	 */
--	BUILD_BUG_ON(RX_DC_ENTRIES != (8 << RX_DC_ENTRIES_ORDER));
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_SIZE, RX_DC_ENTRIES_ORDER);
--	efx_writeo(efx, &temp, FR_AZ_RX_DC_CFG);
--	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_PF_LWM, RX_DC_ENTRIES - 8);
--	efx_writeo(efx, &temp, FR_AZ_RX_DC_PF_WM);
--
--	/* Program INT_KER address */
--	EFX_POPULATE_OWORD_2(temp,
--			     FRF_AZ_NORM_INT_VEC_DIS_KER,
--			     EFX_INT_MODE_USE_MSI(efx),
--			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
--	efx_writeo(efx, &temp, FR_AZ_INT_ADR_KER);
--
--	/* Enable all the genuinely fatal interrupts.  (They are still
--	 * masked by the overall interrupt mask, controlled by
--	 * falcon_interrupts()).
--	 *
--	 * Note: All other fatal interrupts are enabled
--	 */
--	EFX_POPULATE_OWORD_3(temp,
--			     FRF_AZ_ILL_ADR_INT_KER_EN, 1,
--			     FRF_AZ_RBUF_OWN_INT_KER_EN, 1,
--			     FRF_AZ_TBUF_OWN_INT_KER_EN, 1);
--	EFX_INVERT_OWORD(temp);
--	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
--
--	efx_setup_rss_indir_table(efx);
--
--	/* Disable the ugly timer-based TX DMA backoff and allow TX DMA to be
--	 * controlled by the RX FIFO fill level. Set arbitration to one pkt/Q.
--	 */
--	efx_reado(efx, &temp, FR_AZ_TX_RESERVED);
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_RX_SPACER, 0xfe);
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_RX_SPACER_EN, 1);
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_ONE_PKT_PER_Q, 1);
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_PUSH_EN, 0);
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_DIS_NON_IP_EV, 1);
--	/* Enable SW_EV to inherit in char driver - assume harmless here */
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_SOFT_EVT_EN, 1);
--	/* Prefetch threshold 2 => fetch when descriptor cache half empty */
--	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_PREF_THRESHOLD, 2);
--	/* Squash TX of packets of 16 bytes or less */
--	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
--		EFX_SET_OWORD_FIELD(temp, FRF_BZ_TX_FLUSH_MIN_LEN_EN, 1);
--	efx_writeo(efx, &temp, FR_AZ_TX_RESERVED);
--}
--
- /* This call performs hardware-specific global initialisation, such as
-  * defining the descriptor cache sizes and number of RSS channels.
-  * It does not set up any buffers, descriptor rings or event queues.
-diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+diff --git a/drivers/net/sfc/mcdi_pcol.h b/drivers/net/sfc/mcdi_pcol.h
 new file mode 100644
-index 0000000..55dbd79
+index 0000000..2a85360
 --- /dev/null
-+++ b/drivers/net/sfc/nic.c
-@@ -0,0 +1,1548 @@
++++ b/drivers/net/sfc/mcdi_pcol.h
+@@ -0,0 +1,1578 @@
 +/****************************************************************************
 + * Driver for Solarflare Solarstorm network controllers and boards
-+ * Copyright 2005-2006 Fen Systems Ltd.
-+ * Copyright 2006-2008 Solarflare Communications Inc.
++ * Copyright 2009 Solarflare Communications Inc.
 + *
 + * This program is free software; you can redistribute it and/or modify it
 + * under the terms of the GNU General Public License version 2 as published
 + * by the Free Software Foundation, incorporated herein by reference.
 + */
 +
-+#include <linux/bitops.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include <linux/module.h>
-+#include <linux/seq_file.h>
-+#include "net_driver.h"
-+#include "bitfield.h"
-+#include "efx.h"
-+#include "nic.h"
-+#include "regs.h"
-+#include "io.h"
-+#include "workarounds.h"
 +
-+/**************************************************************************
++#ifndef MCDI_PCOL_H
++#define MCDI_PCOL_H
++
++/* Values to be written into FMCR_CZ_RESET_STATE_REG to control boot. */
++/* Power-on reset state */
++#define MC_FW_STATE_POR (1)
++/* If this is set in MC_RESET_STATE_REG then it should be
++ * possible to jump into IMEM without loading code from flash. */
++#define MC_FW_WARM_BOOT_OK (2)
++/* The MC main image has started to boot. */
++#define MC_FW_STATE_BOOTING (4)
++/* The Scheduler has started. */
++#define MC_FW_STATE_SCHED (8)
++
++/* Values to be written to the per-port status dword in shared
++ * memory on reboot and assert */
++#define MC_STATUS_DWORD_REBOOT (0xb007b007)
++#define MC_STATUS_DWORD_ASSERT (0xdeaddead)
++
++/* The current version of the MCDI protocol.
 + *
-+ * Configurable values
++ * Note that the ROM burnt into the card only talks V0, so at the very
++ * least every driver must support version 0 and MCDI_PCOL_VERSION
++ */
++#define MCDI_PCOL_VERSION 1
++
++/**
++ * MCDI version 1
 + *
-+ **************************************************************************
++ * Each MCDI request starts with an MCDI_HEADER, which is a 32byte
++ * structure, filled in by the client.
++ *
++ *       0       7  8     16    20     22  23  24    31
++ *      | CODE | R | LEN | SEQ | Rsvd | E | R | XFLAGS |
++ *               |                      |   |
++ *               |                      |   \--- Response
++ *               |                      \------- Error
++ *               \------------------------------ Resync (always set)
++ *
++ * The client writes it's request into MC shared memory, and rings the
++ * doorbell. Each request is completed by either by the MC writting
++ * back into shared memory, or by writting out an event.
++ *
++ * All MCDI commands support completion by shared memory response. Each
++ * request may also contain additional data (accounted for by HEADER.LEN),
++ * and some response's may also contain additional data (again, accounted
++ * for by HEADER.LEN).
++ *
++ * Some MCDI commands support completion by event, in which any associated
++ * response data is included in the event.
++ *
++ * The protocol requires one response to be delivered for every request, a
++ * request should not be sent unless the response for the previous request
++ * has been received (either by polling shared memory, or by receiving
++ * an event).
 + */
 +
-+/* This is set to 16 for a good reason.  In summary, if larger than
-+ * 16, the descriptor cache holds more than a default socket
-+ * buffer's worth of packets (for UDP we can only have at most one
-+ * socket buffer's worth outstanding).  This combined with the fact
-+ * that we only get 1 TX event per descriptor cache means the NIC
-+ * goes idle.
++/** Request/Response structure */
++#define MCDI_HEADER_OFST 0
++#define MCDI_HEADER_CODE_LBN 0
++#define MCDI_HEADER_CODE_WIDTH 7
++#define MCDI_HEADER_RESYNC_LBN 7
++#define MCDI_HEADER_RESYNC_WIDTH 1
++#define MCDI_HEADER_DATALEN_LBN 8
++#define MCDI_HEADER_DATALEN_WIDTH 8
++#define MCDI_HEADER_SEQ_LBN 16
++#define MCDI_HEADER_RSVD_LBN 20
++#define MCDI_HEADER_RSVD_WIDTH 2
++#define MCDI_HEADER_SEQ_WIDTH 4
++#define MCDI_HEADER_ERROR_LBN 22
++#define MCDI_HEADER_ERROR_WIDTH 1
++#define MCDI_HEADER_RESPONSE_LBN 23
++#define MCDI_HEADER_RESPONSE_WIDTH 1
++#define MCDI_HEADER_XFLAGS_LBN 24
++#define MCDI_HEADER_XFLAGS_WIDTH 8
++/* Request response using event */
++#define MCDI_HEADER_XFLAGS_EVREQ 0x01
++
++/* Maximum number of payload bytes */
++#define MCDI_CTL_SDU_LEN_MAX 0xfc
++
++/* The MC can generate events for two reasons:
++ *   - To complete a shared memory request if XFLAGS_EVREQ was set
++ *   - As a notification (link state, i2c event), controlled
++ *     via MC_CMD_LOG_CTRL
++ *
++ * Both events share a common structure:
++ *
++ *  0      32     33      36    44     52     60
++ * | Data | Cont | Level | Src | Code | Rsvd |
++ *           |
++ *           \ There is another event pending in this notification
++ *
++ * If Code==CMDDONE, then the fields are further interpreted as:
++ *
++ *   - LEVEL==INFO    Command succeded
++ *   - LEVEL==ERR     Command failed
++ *
++ *    0     8         16      24     32
++ *   | Seq | Datalen | Errno | Rsvd |
++ *
++ *   These fields are taken directly out of the standard MCDI header, i.e.,
++ *   LEVEL==ERR, Datalen == 0 => Reboot
++ *
++ * Events can be squirted out of the UART (using LOG_CTRL) without a
++ * MCDI header.  An event can be distinguished from a MCDI response by
++ * examining the first byte which is 0xc0.  This corresponds to the
++ * non-existent MCDI command MC_CMD_DEBUG_LOG.
++ *
++ *      0         7        8
++ *     | command | Resync |     = 0xc0
++ *
++ * Since the event is written in big-endian byte order, this works
++ * providing bits 56-63 of the event are 0xc0.
++ *
++ *      56     60  63
++ *     | Rsvd | Code |    = 0xc0
++ *
++ * Which means for convenience the event code is 0xc for all MC
++ * generated events.
 + */
-+#define TX_DC_ENTRIES 16
-+#define TX_DC_ENTRIES_ORDER 1
++#define FSE_AZ_EV_CODE_MCDI_EVRESPONSE 0xc
 +
-+#define RX_DC_ENTRIES 64
-+#define RX_DC_ENTRIES_ORDER 3
++#define MCDI_EVENT_DATA_LBN 0
++#define MCDI_EVENT_DATA_WIDTH 32
++#define MCDI_EVENT_CONT_LBN 32
++#define MCDI_EVENT_CONT_WIDTH 1
++#define MCDI_EVENT_LEVEL_LBN 33
++#define MCDI_EVENT_LEVEL_WIDTH 3
++#define MCDI_EVENT_LEVEL_INFO (0)
++#define MCDI_EVENT_LEVEL_WARN (1)
++#define MCDI_EVENT_LEVEL_ERR (2)
++#define MCDI_EVENT_LEVEL_FATAL (3)
++#define MCDI_EVENT_SRC_LBN 36
++#define MCDI_EVENT_SRC_WIDTH 8
++#define MCDI_EVENT_CODE_LBN 44
++#define MCDI_EVENT_CODE_WIDTH 8
++#define MCDI_EVENT_CODE_BADSSERT (1)
++#define MCDI_EVENT_CODE_PMNOTICE (2)
++#define MCDI_EVENT_CODE_CMDDONE (3)
++#define  MCDI_EVENT_CMDDONE_SEQ_LBN 0
++#define  MCDI_EVENT_CMDDONE_SEQ_WIDTH 8
++#define  MCDI_EVENT_CMDDONE_DATALEN_LBN 8
++#define  MCDI_EVENT_CMDDONE_DATALEN_WIDTH 8
++#define  MCDI_EVENT_CMDDONE_ERRNO_LBN 16
++#define  MCDI_EVENT_CMDDONE_ERRNO_WIDTH 8
++#define MCDI_EVENT_CODE_LINKCHANGE (4)
++#define  MCDI_EVENT_LINKCHANGE_LP_CAP_LBN 0
++#define  MCDI_EVENT_LINKCHANGE_LP_CAP_WIDTH 16
++#define  MCDI_EVENT_LINKCHANGE_SPEED_LBN 16
++#define  MCDI_EVENT_LINKCHANGE_SPEED_WIDTH 4
++#define  MCDI_EVENT_LINKCHANGE_SPEED_100M 1
++#define  MCDI_EVENT_LINKCHANGE_SPEED_1G 2
++#define  MCDI_EVENT_LINKCHANGE_SPEED_10G 3
++#define  MCDI_EVENT_LINKCHANGE_FCNTL_LBN 20
++#define  MCDI_EVENT_LINKCHANGE_FCNTL_WIDTH 4
++#define  MCDI_EVENT_LINKCHANGE_LINK_FLAGS_LBN 24
++#define  MCDI_EVENT_LINKCHANGE_LINK_FLAGS_WIDTH 8
++#define MCDI_EVENT_CODE_SENSOREVT (5)
++#define  MCDI_EVENT_SENSOREVT_MONITOR_LBN 0
++#define  MCDI_EVENT_SENSOREVT_MONITOR_WIDTH 8
++#define  MCDI_EVENT_SENSOREVT_STATE_LBN 8
++#define  MCDI_EVENT_SENSOREVT_STATE_WIDTH 8
++#define  MCDI_EVENT_SENSOREVT_VALUE_LBN 16
++#define  MCDI_EVENT_SENSOREVT_VALUE_WIDTH 16
++#define MCDI_EVENT_CODE_SCHEDERR (6)
++#define MCDI_EVENT_CODE_REBOOT (7)
++#define MCDI_EVENT_CODE_MAC_STATS_DMA (8)
++#define  MCDI_EVENT_MAC_STATS_DMA_GENERATION_LBN 0
++#define  MCDI_EVENT_MAC_STATS_DMA_GENERATION_WIDTH 32
 +
-+/* RX FIFO XOFF watermark
-+ *
-+ * When the amount of the RX FIFO increases used increases past this
-+ * watermark send XOFF. Only used if RX flow control is enabled (ethtool -A)
-+ * This also has an effect on RX/TX arbitration
++/* Non-existent command target */
++#define MC_CMD_ERR_ENOENT 2
++/* assert() has killed the MC */
++#define MC_CMD_ERR_EINTR 4
++/* Caller does not hold required locks */
++#define MC_CMD_ERR_EACCES 13
++/* Resource is currently unavailable (e.g. lock contention) */
++#define MC_CMD_ERR_EBUSY 16
++/* Invalid argument to target */
++#define MC_CMD_ERR_EINVAL 22
++/* Non-recursive resource is already acquired */
++#define MC_CMD_ERR_EDEADLK 35
++/* Operation not implemented */
++#define MC_CMD_ERR_ENOSYS 38
++/* Operation timed out */
++#define MC_CMD_ERR_ETIME 62
++
++#define MC_CMD_ERR_CODE_OFST 0
++
++
++/* MC_CMD_READ32: (debug, variadic out)
++ * Read multiple 32byte words from MC memory
 + */
-+int efx_nic_rx_xoff_thresh = -1;
-+module_param_named(rx_xoff_thresh_bytes, efx_nic_rx_xoff_thresh, int, 0644);
-+MODULE_PARM_DESC(rx_xoff_thresh_bytes, "RX fifo XOFF threshold");
++#define MC_CMD_READ32 0x01
++#define MC_CMD_READ32_IN_LEN 8
++#define MC_CMD_READ32_IN_ADDR_OFST 0
++#define MC_CMD_READ32_IN_NUMWORDS_OFST 4
++#define MC_CMD_READ32_OUT_LEN(_numwords) \
++	(4 * (_numwords))
++#define MC_CMD_READ32_OUT_BUFFER_OFST 0
 +
-+/* RX FIFO XON watermark
-+ *
-+ * When the amount of the RX FIFO used decreases below this
-+ * watermark send XON. Only used if TX flow control is enabled (ethtool -A)
-+ * This also has an effect on RX/TX arbitration
++/* MC_CMD_WRITE32: (debug, variadic in)
++ * Write multiple 32byte words to MC memory
 + */
-+int efx_nic_rx_xon_thresh = -1;
-+module_param_named(rx_xon_thresh_bytes, efx_nic_rx_xon_thresh, int, 0644);
-+MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
++#define MC_CMD_WRITE32 0x02
++#define MC_CMD_WRITE32_IN_LEN(_numwords) (((_numwords) * 4) + 4)
++#define MC_CMD_WRITE32_IN_ADDR_OFST 0
++#define MC_CMD_WRITE32_IN_BUFFER_OFST 4
++#define MC_CMD_WRITE32_OUT_LEN 0
 +
-+/* If EFX_MAX_INT_ERRORS internal errors occur within
-+ * EFX_INT_ERROR_EXPIRE seconds, we consider the NIC broken and
-+ * disable it.
++/* MC_CMD_COPYCODE: (debug)
++ * Copy MC code between two locations and jump
 + */
-+#define EFX_INT_ERROR_EXPIRE 3600
-+#define EFX_MAX_INT_ERRORS 5
++#define MC_CMD_COPYCODE 0x03
++#define MC_CMD_COPYCODE_IN_LEN 16
++#define MC_CMD_COPYCODE_IN_SRC_ADDR_OFST 0
++#define MC_CMD_COPYCODE_IN_DEST_ADDR_OFST 4
++#define MC_CMD_COPYCODE_IN_NUMWORDS_OFST 8
++#define MC_CMD_COPYCODE_IN_JUMP_OFST 12
++/* Control should return to the caller rather than jumping */
++#define MC_CMD_COPYCODE_JUMP_NONE 1
++#define MC_CMD_COPYCODE_OUT_LEN 0
 +
-+/* We poll for events every FLUSH_INTERVAL ms, and check FLUSH_POLL_COUNT times
++/* MC_CMD_SET_FUNC: (debug)
++ * Select function for function-specific commands.
 + */
-+#define EFX_FLUSH_INTERVAL 10
-+#define EFX_FLUSH_POLL_COUNT 100
++#define MC_CMD_SET_FUNC 0x04
++#define MC_CMD_SET_FUNC_IN_LEN 4
++#define MC_CMD_SET_FUNC_IN_FUNC_OFST 0
++#define MC_CMD_SET_FUNC_OUT_LEN 0
 +
-+/* Size and alignment of special buffers (4KB) */
-+#define EFX_BUF_SIZE 4096
-+
-+/* Depth of RX flush request fifo */
-+#define EFX_RX_FLUSH_COUNT 4
-+
-+/**************************************************************************
-+ *
-+ * Solarstorm hardware access
-+ *
-+ **************************************************************************/
-+
-+static inline void efx_write_buf_tbl(struct efx_nic *efx, efx_qword_t *value,
-+				     unsigned int index)
-+{
-+	efx_sram_writeq(efx, efx->membase + efx->type->buf_tbl_base,
-+			value, index);
-+}
-+
-+/* Read the current event from the event queue */
-+static inline efx_qword_t *efx_event(struct efx_channel *channel,
-+				     unsigned int index)
-+{
-+	return (((efx_qword_t *) (channel->eventq.addr)) + index);
-+}
-+
-+/* See if an event is present
-+ *
-+ * We check both the high and low dword of the event for all ones.  We
-+ * wrote all ones when we cleared the event, and no valid event can
-+ * have all ones in either its high or low dwords.  This approach is
-+ * robust against reordering.
-+ *
-+ * Note that using a single 64-bit comparison is incorrect; even
-+ * though the CPU read will be atomic, the DMA write may not be.
++/* MC_CMD_GET_BOOT_STATUS:
++ * Get the instruction address from which the MC booted.
 + */
-+static inline int efx_event_present(efx_qword_t *event)
-+{
-+	return (!(EFX_DWORD_IS_ALL_ONES(event->dword[0]) |
-+		  EFX_DWORD_IS_ALL_ONES(event->dword[1])));
-+}
++#define MC_CMD_GET_BOOT_STATUS 0x05
++#define MC_CMD_GET_BOOT_STATUS_IN_LEN 0
++#define MC_CMD_GET_BOOT_STATUS_OUT_LEN 8
++#define MC_CMD_GET_BOOT_STATUS_OUT_BOOT_OFFSET_OFST 0
++#define MC_CMD_GET_BOOT_STATUS_OUT_FLAGS_OFST 4
++/* Reboot caused by watchdog */
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_WATCHDOG_LBN   (0)
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_WATCHDOG_WIDTH (1)
++/* MC booted from primary flash partition */
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_PRIMARY_LBN    (1)
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_PRIMARY_WIDTH  (1)
++/* MC booted from backup flash partition */
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_BACKUP_LBN     (2)
++#define MC_CMD_GET_BOOT_STATUS_FLAGS_BACKUP_WIDTH   (1)
 +
-+static bool efx_masked_compare_oword(const efx_oword_t *a, const efx_oword_t *b,
-+				     const efx_oword_t *mask)
-+{
-+	return ((a->u64[0] ^ b->u64[0]) & mask->u64[0]) ||
-+		((a->u64[1] ^ b->u64[1]) & mask->u64[1]);
-+}
-+
-+int efx_nic_test_registers(struct efx_nic *efx,
-+			   const struct efx_nic_register_test *regs,
-+			   size_t n_regs)
-+{
-+	unsigned address = 0, i, j;
-+	efx_oword_t mask, imask, original, reg, buf;
-+
-+	/* Falcon should be in loopback to isolate the XMAC from the PHY */
-+	WARN_ON(!LOOPBACK_INTERNAL(efx));
-+
-+	for (i = 0; i < n_regs; ++i) {
-+		address = regs[i].address;
-+		mask = imask = regs[i].mask;
-+		EFX_INVERT_OWORD(imask);
-+
-+		efx_reado(efx, &original, address);
-+
-+		/* bit sweep on and off */
-+		for (j = 0; j < 128; j++) {
-+			if (!EFX_EXTRACT_OWORD32(mask, j, j))
-+				continue;
-+
-+			/* Test this testable bit can be set in isolation */
-+			EFX_AND_OWORD(reg, original, mask);
-+			EFX_SET_OWORD32(reg, j, j, 1);
-+
-+			efx_writeo(efx, &reg, address);
-+			efx_reado(efx, &buf, address);
-+
-+			if (efx_masked_compare_oword(&reg, &buf, &mask))
-+				goto fail;
-+
-+			/* Test this testable bit can be cleared in isolation */
-+			EFX_OR_OWORD(reg, original, mask);
-+			EFX_SET_OWORD32(reg, j, j, 0);
-+
-+			efx_writeo(efx, &reg, address);
-+			efx_reado(efx, &buf, address);
-+
-+			if (efx_masked_compare_oword(&reg, &buf, &mask))
-+				goto fail;
-+		}
-+
-+		efx_writeo(efx, &original, address);
-+	}
-+
-+	return 0;
-+
-+fail:
-+	EFX_ERR(efx, "wrote "EFX_OWORD_FMT" read "EFX_OWORD_FMT
-+		" at address 0x%x mask "EFX_OWORD_FMT"\n", EFX_OWORD_VAL(reg),
-+		EFX_OWORD_VAL(buf), address, EFX_OWORD_VAL(mask));
-+	return -EIO;
-+}
-+
-+/**************************************************************************
++/* MC_CMD_GET_ASSERTS: (debug, variadic out)
++ * Get (and optionally clear) the current assertion status.
 + *
-+ * Special buffer handling
-+ * Special buffers are used for event queues and the TX and RX
-+ * descriptor rings.
-+ *
-+ *************************************************************************/
-+
-+/*
-+ * Initialise a special buffer
-+ *
-+ * This will define a buffer (previously allocated via
-+ * efx_alloc_special_buffer()) in the buffer table, allowing
-+ * it to be used for event queues, descriptor rings etc.
++ * Only OUT.GLOBAL_FLAGS is guaranteed to exist in the completion
++ * payload. The other fields will only be present if
++ * OUT.GLOBAL_FLAGS != NO_FAILS
 + */
-+static void
-+efx_init_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
-+{
-+	efx_qword_t buf_desc;
-+	int index;
-+	dma_addr_t dma_addr;
-+	int i;
++#define MC_CMD_GET_ASSERTS 0x06
++#define MC_CMD_GET_ASSERTS_IN_LEN 4
++#define MC_CMD_GET_ASSERTS_IN_CLEAR_OFST 0
++#define MC_CMD_GET_ASSERTS_OUT_LEN 140
++/* Assertion status flag */
++#define MC_CMD_GET_ASSERTS_OUT_GLOBAL_FLAGS_OFST 0
++/*! No assertions have failed. */
++#define MC_CMD_GET_ASSERTS_FLAGS_NO_FAILS 1
++/*! A system-level assertion has failed. */
++#define MC_CMD_GET_ASSERTS_FLAGS_SYS_FAIL 2
++/*! A thread-level assertion has failed. */
++#define MC_CMD_GET_ASSERTS_FLAGS_THR_FAIL 3
++/*! The system was reset by the watchdog. */
++#define MC_CMD_GET_ASSERTS_FLAGS_WDOG_FIRED 4
++/* Failing PC value */
++#define MC_CMD_GET_ASSERTS_OUT_SAVED_PC_OFFS_OFST 4
++/* Saved GP regs */
++#define MC_CMD_GET_ASSERTS_OUT_GP_REGS_OFFS_OFST 8
++#define MC_CMD_GET_ASSERTS_OUT_GP_REGS_LEN 124
++/* Failing thread address */
++#define MC_CMD_GET_ASSERTS_OUT_THREAD_OFFS_OFST 132
 +
-+	EFX_BUG_ON_PARANOID(!buffer->addr);
-+
-+	/* Write buffer descriptors to NIC */
-+	for (i = 0; i < buffer->entries; i++) {
-+		index = buffer->index + i;
-+		dma_addr = buffer->dma_addr + (i * 4096);
-+		EFX_LOG(efx, "mapping special buffer %d at %llx\n",
-+			index, (unsigned long long)dma_addr);
-+		EFX_POPULATE_QWORD_3(buf_desc,
-+				     FRF_AZ_BUF_ADR_REGION, 0,
-+				     FRF_AZ_BUF_ADR_FBUF, dma_addr >> 12,
-+				     FRF_AZ_BUF_OWNER_ID_FBUF, 0);
-+		efx_write_buf_tbl(efx, &buf_desc, index);
-+	}
-+}
-+
-+/* Unmaps a buffer and clears the buffer table entries */
-+static void
-+efx_fini_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
-+{
-+	efx_oword_t buf_tbl_upd;
-+	unsigned int start = buffer->index;
-+	unsigned int end = (buffer->index + buffer->entries - 1);
-+
-+	if (!buffer->entries)
-+		return;
-+
-+	EFX_LOG(efx, "unmapping special buffers %d-%d\n",
-+		buffer->index, buffer->index + buffer->entries - 1);
-+
-+	EFX_POPULATE_OWORD_4(buf_tbl_upd,
-+			     FRF_AZ_BUF_UPD_CMD, 0,
-+			     FRF_AZ_BUF_CLR_CMD, 1,
-+			     FRF_AZ_BUF_CLR_END_ID, end,
-+			     FRF_AZ_BUF_CLR_START_ID, start);
-+	efx_writeo(efx, &buf_tbl_upd, FR_AZ_BUF_TBL_UPD);
-+}
-+
-+/*
-+ * Allocate a new special buffer
-+ *
-+ * This allocates memory for a new buffer, clears it and allocates a
-+ * new buffer ID range.  It does not write into the buffer table.
-+ *
-+ * This call will allocate 4KB buffers, since 8KB buffers can't be
-+ * used for event queues and descriptor rings.
++/* MC_CMD_LOG_CTRL:
++ * Determine the output stream for various events and messages
 + */
-+static int efx_alloc_special_buffer(struct efx_nic *efx,
-+				    struct efx_special_buffer *buffer,
-+				    unsigned int len)
-+{
-+	len = ALIGN(len, EFX_BUF_SIZE);
++#define MC_CMD_LOG_CTRL 0x07
++#define MC_CMD_LOG_CTRL_IN_LEN 8
++#define MC_CMD_LOG_CTRL_IN_LOG_DEST_OFST 0
++#define MC_CMD_LOG_CTRL_IN_LOG_DEST_UART (1)
++#define MC_CMD_LOG_CTRL_IN_LOG_DEST_EVQ (2)
++#define MC_CMD_LOG_CTRL_IN_LOG_DEST_EVQ_OFST 4
++#define MC_CMD_LOG_CTRL_OUT_LEN 0
 +
-+	buffer->addr = pci_alloc_consistent(efx->pci_dev, len,
-+					    &buffer->dma_addr);
-+	if (!buffer->addr)
-+		return -ENOMEM;
-+	buffer->len = len;
-+	buffer->entries = len / EFX_BUF_SIZE;
-+	BUG_ON(buffer->dma_addr & (EFX_BUF_SIZE - 1));
-+
-+	/* All zeros is a potentially valid event so memset to 0xff */
-+	memset(buffer->addr, 0xff, len);
-+
-+	/* Select new buffer ID */
-+	buffer->index = efx->next_buffer_table;
-+	efx->next_buffer_table += buffer->entries;
-+
-+	EFX_LOG(efx, "allocating special buffers %d-%d at %llx+%x "
-+		"(virt %p phys %llx)\n", buffer->index,
-+		buffer->index + buffer->entries - 1,
-+		(u64)buffer->dma_addr, len,
-+		buffer->addr, (u64)virt_to_phys(buffer->addr));
-+
-+	return 0;
-+}
-+
-+static void
-+efx_free_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
-+{
-+	if (!buffer->addr)
-+		return;
-+
-+	EFX_LOG(efx, "deallocating special buffers %d-%d at %llx+%x "
-+		"(virt %p phys %llx)\n", buffer->index,
-+		buffer->index + buffer->entries - 1,
-+		(u64)buffer->dma_addr, buffer->len,
-+		buffer->addr, (u64)virt_to_phys(buffer->addr));
-+
-+	pci_free_consistent(efx->pci_dev, buffer->len, buffer->addr,
-+			    buffer->dma_addr);
-+	buffer->addr = NULL;
-+	buffer->entries = 0;
-+}
-+
-+/**************************************************************************
-+ *
-+ * Generic buffer handling
-+ * These buffers are used for interrupt status and MAC stats
-+ *
-+ **************************************************************************/
-+
-+int efx_nic_alloc_buffer(struct efx_nic *efx, struct efx_buffer *buffer,
-+			 unsigned int len)
-+{
-+	buffer->addr = pci_alloc_consistent(efx->pci_dev, len,
-+					    &buffer->dma_addr);
-+	if (!buffer->addr)
-+		return -ENOMEM;
-+	buffer->len = len;
-+	memset(buffer->addr, 0, len);
-+	return 0;
-+}
-+
-+void efx_nic_free_buffer(struct efx_nic *efx, struct efx_buffer *buffer)
-+{
-+	if (buffer->addr) {
-+		pci_free_consistent(efx->pci_dev, buffer->len,
-+				    buffer->addr, buffer->dma_addr);
-+		buffer->addr = NULL;
-+	}
-+}
-+
-+/**************************************************************************
-+ *
-+ * TX path
-+ *
-+ **************************************************************************/
-+
-+/* Returns a pointer to the specified transmit descriptor in the TX
-+ * descriptor queue belonging to the specified channel.
++/* MC_CMD_GET_VERSION:
++ * Get version information about the MC firmware
 + */
-+static inline efx_qword_t *
-+efx_tx_desc(struct efx_tx_queue *tx_queue, unsigned int index)
-+{
-+	return (((efx_qword_t *) (tx_queue->txd.addr)) + index);
-+}
++#define MC_CMD_GET_VERSION 0x08
++#define MC_CMD_GET_VERSION_IN_LEN 0
++#define MC_CMD_GET_VERSION_V0_OUT_LEN 4
++#define MC_CMD_GET_VERSION_V1_OUT_LEN 32
++#define MC_CMD_GET_VERSION_OUT_FIRMWARE_OFST 0
++/* Reserved version number to indicate "any" version. */
++#define MC_CMD_GET_VERSION_OUT_FIRMWARE_ANY 0xffffffff
++/* The version response of a boot ROM awaiting rescue */
++#define MC_CMD_GET_VERSION_OUT_FIRMWARE_BOOTROM 0xb0070000
++#define MC_CMD_GET_VERSION_V1_OUT_PCOL_OFST 4
++/* 128bit mask of functions supported by the current firmware */
++#define MC_CMD_GET_VERSION_V1_OUT_SUPPORTED_FUNCS_OFST 8
++/* The command set exported by the boot ROM (MCDI v0) */
++#define MC_CMD_GET_VERSION_V0_SUPPORTED_FUNCS {		\
++	(1 << MC_CMD_READ32)	|			\
++	(1 << MC_CMD_WRITE32)	|			\
++	(1 << MC_CMD_COPYCODE)	|			\
++	(1 << MC_CMD_GET_VERSION),			\
++	0, 0, 0 }
++#define MC_CMD_GET_VERSION_OUT_VERSION_OFST 24
 +
-+/* This writes to the TX_DESC_WPTR; write pointer for TX descriptor ring */
-+static inline void efx_notify_tx_desc(struct efx_tx_queue *tx_queue)
-+{
-+	unsigned write_ptr;
-+	efx_dword_t reg;
++/* Vectors in the boot ROM */
++/* Point to the copycode entry point. */
++#define MC_BOOTROM_COPYCODE_VEC (0x7f4)
++/* Points to the recovery mode entry point. */
++#define MC_BOOTROM_NOFLASH_VEC (0x7f8)
 +
-+	write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
-+	EFX_POPULATE_DWORD_1(reg, FRF_AZ_TX_DESC_WPTR_DWORD, write_ptr);
-+	efx_writed_page(tx_queue->efx, &reg,
-+			FR_AZ_TX_DESC_UPD_DWORD_P0, tx_queue->queue);
-+}
++/* Test execution limits */
++#define MC_TESTEXEC_VARIANT_COUNT 16
++#define MC_TESTEXEC_RESULT_COUNT 7
 +
-+
-+/* For each entry inserted into the software descriptor ring, create a
-+ * descriptor in the hardware TX descriptor ring (in host memory), and
-+ * write a doorbell.
++/* MC_CMD_SET_TESTVARS: (debug, variadic in)
++ * Write variant words for test.
++ *
++ * The user supplies a bitmap of the variants they wish to set.
++ * They must ensure that IN.LEN >= 4 + 4 * ffs(BITMAP)
 + */
-+void efx_nic_push_buffers(struct efx_tx_queue *tx_queue)
-+{
++#define MC_CMD_SET_TESTVARS 0x09
++#define MC_CMD_SET_TESTVARS_IN_LEN(_numwords)	\
++  (4 + 4*(_numwords))
++#define MC_CMD_SET_TESTVARS_IN_ARGS_BITMAP_OFST 0
++/* Up to MC_TESTEXEC_VARIANT_COUNT of 32byte words start here */
++#define MC_CMD_SET_TESTVARS_IN_ARGS_BUFFER_OFST 4
++#define MC_CMD_SET_TESTVARS_OUT_LEN 0
 +
-+	struct efx_tx_buffer *buffer;
-+	efx_qword_t *txd;
-+	unsigned write_ptr;
-+
-+	BUG_ON(tx_queue->write_count == tx_queue->insert_count);
-+
-+	do {
-+		write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
-+		buffer = &tx_queue->buffer[write_ptr];
-+		txd = efx_tx_desc(tx_queue, write_ptr);
-+		++tx_queue->write_count;
-+
-+		/* Create TX descriptor ring entry */
-+		EFX_POPULATE_QWORD_4(*txd,
-+				     FSF_AZ_TX_KER_CONT, buffer->continuation,
-+				     FSF_AZ_TX_KER_BYTE_COUNT, buffer->len,
-+				     FSF_AZ_TX_KER_BUF_REGION, 0,
-+				     FSF_AZ_TX_KER_BUF_ADDR, buffer->dma_addr);
-+	} while (tx_queue->write_count != tx_queue->insert_count);
-+
-+	wmb(); /* Ensure descriptors are written before they are fetched */
-+	efx_notify_tx_desc(tx_queue);
-+}
-+
-+/* Allocate hardware resources for a TX queue */
-+int efx_nic_probe_tx(struct efx_tx_queue *tx_queue)
-+{
-+	struct efx_nic *efx = tx_queue->efx;
-+	BUILD_BUG_ON(EFX_TXQ_SIZE < 512 || EFX_TXQ_SIZE > 4096 ||
-+		     EFX_TXQ_SIZE & EFX_TXQ_MASK);
-+	return efx_alloc_special_buffer(efx, &tx_queue->txd,
-+					EFX_TXQ_SIZE * sizeof(efx_qword_t));
-+}
-+
-+void efx_nic_init_tx(struct efx_tx_queue *tx_queue)
-+{
-+	efx_oword_t tx_desc_ptr;
-+	struct efx_nic *efx = tx_queue->efx;
-+
-+	tx_queue->flushed = FLUSH_NONE;
-+
-+	/* Pin TX descriptor ring */
-+	efx_init_special_buffer(efx, &tx_queue->txd);
-+
-+	/* Push TX descriptor ring to card */
-+	EFX_POPULATE_OWORD_10(tx_desc_ptr,
-+			      FRF_AZ_TX_DESCQ_EN, 1,
-+			      FRF_AZ_TX_ISCSI_DDIG_EN, 0,
-+			      FRF_AZ_TX_ISCSI_HDIG_EN, 0,
-+			      FRF_AZ_TX_DESCQ_BUF_BASE_ID, tx_queue->txd.index,
-+			      FRF_AZ_TX_DESCQ_EVQ_ID,
-+			      tx_queue->channel->channel,
-+			      FRF_AZ_TX_DESCQ_OWNER_ID, 0,
-+			      FRF_AZ_TX_DESCQ_LABEL, tx_queue->queue,
-+			      FRF_AZ_TX_DESCQ_SIZE,
-+			      __ffs(tx_queue->txd.entries),
-+			      FRF_AZ_TX_DESCQ_TYPE, 0,
-+			      FRF_BZ_TX_NON_IP_DROP_DIS, 1);
-+
-+	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
-+		int csum = tx_queue->queue == EFX_TX_QUEUE_OFFLOAD_CSUM;
-+		EFX_SET_OWORD_FIELD(tx_desc_ptr, FRF_BZ_TX_IP_CHKSM_DIS, !csum);
-+		EFX_SET_OWORD_FIELD(tx_desc_ptr, FRF_BZ_TX_TCP_CHKSM_DIS,
-+				    !csum);
-+	}
-+
-+	efx_writeo_table(efx, &tx_desc_ptr, efx->type->txd_ptr_tbl_base,
-+			 tx_queue->queue);
-+
-+	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0) {
-+		efx_oword_t reg;
-+
-+		/* Only 128 bits in this register */
-+		BUILD_BUG_ON(EFX_TX_QUEUE_COUNT >= 128);
-+
-+		efx_reado(efx, &reg, FR_AA_TX_CHKSM_CFG);
-+		if (tx_queue->queue == EFX_TX_QUEUE_OFFLOAD_CSUM)
-+			clear_bit_le(tx_queue->queue, (void *)&reg);
-+		else
-+			set_bit_le(tx_queue->queue, (void *)&reg);
-+		efx_writeo(efx, &reg, FR_AA_TX_CHKSM_CFG);
-+	}
-+}
-+
-+static void efx_flush_tx_queue(struct efx_tx_queue *tx_queue)
-+{
-+	struct efx_nic *efx = tx_queue->efx;
-+	efx_oword_t tx_flush_descq;
-+
-+	tx_queue->flushed = FLUSH_PENDING;
-+
-+	/* Post a flush command */
-+	EFX_POPULATE_OWORD_2(tx_flush_descq,
-+			     FRF_AZ_TX_FLUSH_DESCQ_CMD, 1,
-+			     FRF_AZ_TX_FLUSH_DESCQ, tx_queue->queue);
-+	efx_writeo(efx, &tx_flush_descq, FR_AZ_TX_FLUSH_DESCQ);
-+}
-+
-+void efx_nic_fini_tx(struct efx_tx_queue *tx_queue)
-+{
-+	struct efx_nic *efx = tx_queue->efx;
-+	efx_oword_t tx_desc_ptr;
-+
-+	/* The queue should have been flushed */
-+	WARN_ON(tx_queue->flushed != FLUSH_DONE);
-+
-+	/* Remove TX descriptor ring from card */
-+	EFX_ZERO_OWORD(tx_desc_ptr);
-+	efx_writeo_table(efx, &tx_desc_ptr, efx->type->txd_ptr_tbl_base,
-+			 tx_queue->queue);
-+
-+	/* Unpin TX descriptor ring */
-+	efx_fini_special_buffer(efx, &tx_queue->txd);
-+}
-+
-+/* Free buffers backing TX queue */
-+void efx_nic_remove_tx(struct efx_tx_queue *tx_queue)
-+{
-+	efx_free_special_buffer(tx_queue->efx, &tx_queue->txd);
-+}
-+
-+/**************************************************************************
-+ *
-+ * RX path
-+ *
-+ **************************************************************************/
-+
-+/* Returns a pointer to the specified descriptor in the RX descriptor queue */
-+static inline efx_qword_t *
-+efx_rx_desc(struct efx_rx_queue *rx_queue, unsigned int index)
-+{
-+	return (((efx_qword_t *) (rx_queue->rxd.addr)) + index);
-+}
-+
-+/* This creates an entry in the RX descriptor queue */
-+static inline void
-+efx_build_rx_desc(struct efx_rx_queue *rx_queue, unsigned index)
-+{
-+	struct efx_rx_buffer *rx_buf;
-+	efx_qword_t *rxd;
-+
-+	rxd = efx_rx_desc(rx_queue, index);
-+	rx_buf = efx_rx_buffer(rx_queue, index);
-+	EFX_POPULATE_QWORD_3(*rxd,
-+			     FSF_AZ_RX_KER_BUF_SIZE,
-+			     rx_buf->len -
-+			     rx_queue->efx->type->rx_buffer_padding,
-+			     FSF_AZ_RX_KER_BUF_REGION, 0,
-+			     FSF_AZ_RX_KER_BUF_ADDR, rx_buf->dma_addr);
-+}
-+
-+/* This writes to the RX_DESC_WPTR register for the specified receive
-+ * descriptor ring.
++/* MC_CMD_GET_TESTRCS: (debug, variadic out)
++ * Return result words from test.
 + */
-+void efx_nic_notify_rx_desc(struct efx_rx_queue *rx_queue)
-+{
-+	efx_dword_t reg;
-+	unsigned write_ptr;
++#define MC_CMD_GET_TESTRCS 0x0a
++#define MC_CMD_GET_TESTRCS_IN_LEN 4
++#define MC_CMD_GET_TESTRCS_IN_NUMWORDS_OFST 0
++#define MC_CMD_GET_TESTRCS_OUT_LEN(_numwords) \
++	(4 * (_numwords))
++#define MC_CMD_GET_TESTRCS_OUT_BUFFER_OFST 0
 +
-+	while (rx_queue->notified_count != rx_queue->added_count) {
-+		efx_build_rx_desc(rx_queue,
-+				  rx_queue->notified_count &
-+				  EFX_RXQ_MASK);
-+		++rx_queue->notified_count;
-+	}
-+
-+	wmb();
-+	write_ptr = rx_queue->added_count & EFX_RXQ_MASK;
-+	EFX_POPULATE_DWORD_1(reg, FRF_AZ_RX_DESC_WPTR_DWORD, write_ptr);
-+	efx_writed_page(rx_queue->efx, &reg,
-+			FR_AZ_RX_DESC_UPD_DWORD_P0, rx_queue->queue);
-+}
-+
-+int efx_nic_probe_rx(struct efx_rx_queue *rx_queue)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	BUILD_BUG_ON(EFX_RXQ_SIZE < 512 || EFX_RXQ_SIZE > 4096 ||
-+		     EFX_RXQ_SIZE & EFX_RXQ_MASK);
-+	return efx_alloc_special_buffer(efx, &rx_queue->rxd,
-+					EFX_RXQ_SIZE * sizeof(efx_qword_t));
-+}
-+
-+void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
-+{
-+	efx_oword_t rx_desc_ptr;
-+	struct efx_nic *efx = rx_queue->efx;
-+	bool is_b0 = efx_nic_rev(efx) >= EFX_REV_FALCON_B0;
-+	bool iscsi_digest_en = is_b0;
-+
-+	EFX_LOG(efx, "RX queue %d ring in special buffers %d-%d\n",
-+		rx_queue->queue, rx_queue->rxd.index,
-+		rx_queue->rxd.index + rx_queue->rxd.entries - 1);
-+
-+	rx_queue->flushed = FLUSH_NONE;
-+
-+	/* Pin RX descriptor ring */
-+	efx_init_special_buffer(efx, &rx_queue->rxd);
-+
-+	/* Push RX descriptor ring to card */
-+	EFX_POPULATE_OWORD_10(rx_desc_ptr,
-+			      FRF_AZ_RX_ISCSI_DDIG_EN, iscsi_digest_en,
-+			      FRF_AZ_RX_ISCSI_HDIG_EN, iscsi_digest_en,
-+			      FRF_AZ_RX_DESCQ_BUF_BASE_ID, rx_queue->rxd.index,
-+			      FRF_AZ_RX_DESCQ_EVQ_ID,
-+			      rx_queue->channel->channel,
-+			      FRF_AZ_RX_DESCQ_OWNER_ID, 0,
-+			      FRF_AZ_RX_DESCQ_LABEL, rx_queue->queue,
-+			      FRF_AZ_RX_DESCQ_SIZE,
-+			      __ffs(rx_queue->rxd.entries),
-+			      FRF_AZ_RX_DESCQ_TYPE, 0 /* kernel queue */ ,
-+			      /* For >=B0 this is scatter so disable */
-+			      FRF_AZ_RX_DESCQ_JUMBO, !is_b0,
-+			      FRF_AZ_RX_DESCQ_EN, 1);
-+	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
-+			 rx_queue->queue);
-+}
-+
-+static void efx_flush_rx_queue(struct efx_rx_queue *rx_queue)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	efx_oword_t rx_flush_descq;
-+
-+	rx_queue->flushed = FLUSH_PENDING;
-+
-+	/* Post a flush command */
-+	EFX_POPULATE_OWORD_2(rx_flush_descq,
-+			     FRF_AZ_RX_FLUSH_DESCQ_CMD, 1,
-+			     FRF_AZ_RX_FLUSH_DESCQ, rx_queue->queue);
-+	efx_writeo(efx, &rx_flush_descq, FR_AZ_RX_FLUSH_DESCQ);
-+}
-+
-+void efx_nic_fini_rx(struct efx_rx_queue *rx_queue)
-+{
-+	efx_oword_t rx_desc_ptr;
-+	struct efx_nic *efx = rx_queue->efx;
-+
-+	/* The queue should already have been flushed */
-+	WARN_ON(rx_queue->flushed != FLUSH_DONE);
-+
-+	/* Remove RX descriptor ring from card */
-+	EFX_ZERO_OWORD(rx_desc_ptr);
-+	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
-+			 rx_queue->queue);
-+
-+	/* Unpin RX descriptor ring */
-+	efx_fini_special_buffer(efx, &rx_queue->rxd);
-+}
-+
-+/* Free buffers backing RX queue */
-+void efx_nic_remove_rx(struct efx_rx_queue *rx_queue)
-+{
-+	efx_free_special_buffer(rx_queue->efx, &rx_queue->rxd);
-+}
-+
-+/**************************************************************************
-+ *
-+ * Event queue processing
-+ * Event queues are processed by per-channel tasklets.
-+ *
-+ **************************************************************************/
-+
-+/* Update a channel's event queue's read pointer (RPTR) register
-+ *
-+ * This writes the EVQ_RPTR_REG register for the specified channel's
-+ * event queue.
-+ *
-+ * Note that EVQ_RPTR_REG contains the index of the "last read" event,
-+ * whereas channel->eventq_read_ptr contains the index of the "next to
-+ * read" event.
++/* MC_CMD_RUN_TEST: (debug)
++ * Run the test exported by this firmware image
 + */
-+void efx_nic_eventq_read_ack(struct efx_channel *channel)
-+{
-+	efx_dword_t reg;
-+	struct efx_nic *efx = channel->efx;
++#define MC_CMD_RUN_TEST 0x0b
++#define MC_CMD_RUN_TEST_IN_LEN 0
++#define MC_CMD_RUN_TEST_OUT_LEN 0
 +
-+	EFX_POPULATE_DWORD_1(reg, FRF_AZ_EVQ_RPTR, channel->eventq_read_ptr);
-+	efx_writed_table(efx, &reg, efx->type->evq_rptr_tbl_base,
-+			 channel->channel);
-+}
++/* MC_CMD_CSR_READ32: (debug, variadic out)
++ * Read 32bit words from the indirect memory map
++ */
++#define MC_CMD_CSR_READ32 0x0c
++#define MC_CMD_CSR_READ32_IN_LEN 12
++#define MC_CMD_CSR_READ32_IN_ADDR_OFST 0
++#define MC_CMD_CSR_READ32_IN_STEP_OFST 4
++#define MC_CMD_CSR_READ32_IN_NUMWORDS_OFST 8
++#define MC_CMD_CSR_READ32_OUT_LEN(_numwords)	\
++	(((_numwords) * 4) + 4)
++/* IN.NUMWORDS of 32bit words start here */
++#define MC_CMD_CSR_READ32_OUT_BUFFER_OFST 0
++#define MC_CMD_CSR_READ32_OUT_IREG_STATUS_OFST(_numwords)	\
++	((_numwords) * 4)
 +
-+/* Use HW to insert a SW defined event */
-+void efx_generate_event(struct efx_channel *channel, efx_qword_t *event)
-+{
-+	efx_oword_t drv_ev_reg;
++/* MC_CMD_CSR_WRITE32: (debug, variadic in)
++ * Write 32bit dwords to the indirect memory map
++ */
++#define MC_CMD_CSR_WRITE32 0x0d
++#define MC_CMD_CSR_WRITE32_IN_LEN(_numwords)	\
++	(((_numwords) * 4) + 8)
++#define MC_CMD_CSR_WRITE32_IN_ADDR_OFST 0
++#define MC_CMD_CSR_WRITE32_IN_STEP_OFST 4
++/* Multiple 32bit words of data to write start here */
++#define MC_CMD_CSR_WRITE32_IN_BUFFER_OFST 8
++#define MC_CMD_CSR_WRITE32_OUT_LEN 4
++#define MC_CMD_CSR_WRITE32_OUT_STATUS_OFST 0
 +
-+	BUILD_BUG_ON(FRF_AZ_DRV_EV_DATA_LBN != 0 ||
-+		     FRF_AZ_DRV_EV_DATA_WIDTH != 64);
-+	drv_ev_reg.u32[0] = event->u32[0];
-+	drv_ev_reg.u32[1] = event->u32[1];
-+	drv_ev_reg.u32[2] = 0;
-+	drv_ev_reg.u32[3] = 0;
-+	EFX_SET_OWORD_FIELD(drv_ev_reg, FRF_AZ_DRV_EV_QID, channel->channel);
-+	efx_writeo(channel->efx, &drv_ev_reg, FR_AZ_DRV_EV);
-+}
-+
-+/* Handle a transmit completion event
++/* MC_CMD_JTAG_WORK: (debug, fpga only)
++ * Process JTAG work buffer for RBF acceleration.
 + *
-+ * The NIC batches TX completion events; the message we receive is of
-+ * the form "complete all TX events up to this index".
++ *  Host: bit count, (up to) 32 words of data to clock out to JTAG
++ *   (bits 1,0=TMS,TDO for first bit; bits 3,2=TMS,TDO for second bit, etc.)
++ *  MC: bit count, (up to) 32 words of data clocked in from JTAG
++ *   (bit 0=TDI for first bit, bit 1=TDI for second bit, etc.; [31:16] unused)
 + */
-+static void
-+efx_handle_tx_event(struct efx_channel *channel, efx_qword_t *event)
-+{
-+	unsigned int tx_ev_desc_ptr;
-+	unsigned int tx_ev_q_label;
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_nic *efx = channel->efx;
++#define MC_CMD_JTAG_WORK 0x0e
 +
-+	if (likely(EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_COMP))) {
-+		/* Transmit completion */
-+		tx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_DESC_PTR);
-+		tx_ev_q_label = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_Q_LABEL);
-+		tx_queue = &efx->tx_queue[tx_ev_q_label];
-+		channel->irq_mod_score +=
-+			(tx_ev_desc_ptr - tx_queue->read_count) &
-+			EFX_TXQ_MASK;
-+		efx_xmit_done(tx_queue, tx_ev_desc_ptr);
-+	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_WQ_FF_FULL)) {
-+		/* Rewrite the FIFO write pointer */
-+		tx_ev_q_label = EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_Q_LABEL);
-+		tx_queue = &efx->tx_queue[tx_ev_q_label];
-+
-+		if (efx_dev_registered(efx))
-+			netif_tx_lock(efx->net_dev);
-+		efx_notify_tx_desc(tx_queue);
-+		if (efx_dev_registered(efx))
-+			netif_tx_unlock(efx->net_dev);
-+	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_PKT_ERR) &&
-+		   EFX_WORKAROUND_10727(efx)) {
-+		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
-+	} else {
-+		EFX_ERR(efx, "channel %d unexpected TX event "
-+			EFX_QWORD_FMT"\n", channel->channel,
-+			EFX_QWORD_VAL(*event));
-+	}
-+}
-+
-+/* Detect errors included in the rx_evt_pkt_ok bit. */
-+static void efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
-+				 const efx_qword_t *event,
-+				 bool *rx_ev_pkt_ok,
-+				 bool *discard)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	bool rx_ev_buf_owner_id_err, rx_ev_ip_hdr_chksum_err;
-+	bool rx_ev_tcp_udp_chksum_err, rx_ev_eth_crc_err;
-+	bool rx_ev_frm_trunc, rx_ev_drib_nib, rx_ev_tobe_disc;
-+	bool rx_ev_other_err, rx_ev_pause_frm;
-+	bool rx_ev_hdr_type, rx_ev_mcast_pkt;
-+	unsigned rx_ev_pkt_type;
-+
-+	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
-+	rx_ev_mcast_pkt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_PKT);
-+	rx_ev_tobe_disc = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_TOBE_DISC);
-+	rx_ev_pkt_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_TYPE);
-+	rx_ev_buf_owner_id_err = EFX_QWORD_FIELD(*event,
-+						 FSF_AZ_RX_EV_BUF_OWNER_ID_ERR);
-+	rx_ev_ip_hdr_chksum_err = EFX_QWORD_FIELD(*event,
-+						  FSF_AZ_RX_EV_IP_HDR_CHKSUM_ERR);
-+	rx_ev_tcp_udp_chksum_err = EFX_QWORD_FIELD(*event,
-+						   FSF_AZ_RX_EV_TCP_UDP_CHKSUM_ERR);
-+	rx_ev_eth_crc_err = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_ETH_CRC_ERR);
-+	rx_ev_frm_trunc = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_FRM_TRUNC);
-+	rx_ev_drib_nib = ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) ?
-+			  0 : EFX_QWORD_FIELD(*event, FSF_AA_RX_EV_DRIB_NIB));
-+	rx_ev_pause_frm = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PAUSE_FRM_ERR);
-+
-+	/* Every error apart from tobe_disc and pause_frm */
-+	rx_ev_other_err = (rx_ev_drib_nib | rx_ev_tcp_udp_chksum_err |
-+			   rx_ev_buf_owner_id_err | rx_ev_eth_crc_err |
-+			   rx_ev_frm_trunc | rx_ev_ip_hdr_chksum_err);
-+
-+	/* Count errors that are not in MAC stats.  Ignore expected
-+	 * checksum errors during self-test. */
-+	if (rx_ev_frm_trunc)
-+		++rx_queue->channel->n_rx_frm_trunc;
-+	else if (rx_ev_tobe_disc)
-+		++rx_queue->channel->n_rx_tobe_disc;
-+	else if (!efx->loopback_selftest) {
-+		if (rx_ev_ip_hdr_chksum_err)
-+			++rx_queue->channel->n_rx_ip_hdr_chksum_err;
-+		else if (rx_ev_tcp_udp_chksum_err)
-+			++rx_queue->channel->n_rx_tcp_udp_chksum_err;
-+	}
-+
-+	/* The frame must be discarded if any of these are true. */
-+	*discard = (rx_ev_eth_crc_err | rx_ev_frm_trunc | rx_ev_drib_nib |
-+		    rx_ev_tobe_disc | rx_ev_pause_frm);
-+
-+	/* TOBE_DISC is expected on unicast mismatches; don't print out an
-+	 * error message.  FRM_TRUNC indicates RXDP dropped the packet due
-+	 * to a FIFO overflow.
-+	 */
-+#ifdef EFX_ENABLE_DEBUG
-+	if (rx_ev_other_err) {
-+		EFX_INFO_RL(efx, " RX queue %d unexpected RX event "
-+			    EFX_QWORD_FMT "%s%s%s%s%s%s%s%s\n",
-+			    rx_queue->queue, EFX_QWORD_VAL(*event),
-+			    rx_ev_buf_owner_id_err ? " [OWNER_ID_ERR]" : "",
-+			    rx_ev_ip_hdr_chksum_err ?
-+			    " [IP_HDR_CHKSUM_ERR]" : "",
-+			    rx_ev_tcp_udp_chksum_err ?
-+			    " [TCP_UDP_CHKSUM_ERR]" : "",
-+			    rx_ev_eth_crc_err ? " [ETH_CRC_ERR]" : "",
-+			    rx_ev_frm_trunc ? " [FRM_TRUNC]" : "",
-+			    rx_ev_drib_nib ? " [DRIB_NIB]" : "",
-+			    rx_ev_tobe_disc ? " [TOBE_DISC]" : "",
-+			    rx_ev_pause_frm ? " [PAUSE]" : "");
-+	}
-+#endif
-+}
-+
-+/* Handle receive events that are not in-order. */
-+static void
-+efx_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
-+{
-+	struct efx_nic *efx = rx_queue->efx;
-+	unsigned expected, dropped;
-+
-+	expected = rx_queue->removed_count & EFX_RXQ_MASK;
-+	dropped = (index - expected) & EFX_RXQ_MASK;
-+	EFX_INFO(efx, "dropped %d events (index=%d expected=%d)\n",
-+		dropped, index, expected);
-+
-+	efx_schedule_reset(efx, EFX_WORKAROUND_5676(efx) ?
-+			   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
-+}
-+
-+/* Handle a packet received event
++/* MC_CMD_STACKINFO: (debug, variadic out)
++ * Get stack information
 + *
-+ * The NIC gives a "discard" flag if it's a unicast packet with the
-+ * wrong destination address
-+ * Also "is multicast" and "matches multicast filter" flags can be used to
-+ * discard non-matching multicast packets.
++ * Host: nothing
++ * MC: (thread ptr, stack size, free space) for each thread in system
 + */
-+static void
-+efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
-+{
-+	unsigned int rx_ev_desc_ptr, rx_ev_byte_cnt;
-+	unsigned int rx_ev_hdr_type, rx_ev_mcast_pkt;
-+	unsigned expected_ptr;
-+	bool rx_ev_pkt_ok, discard = false, checksummed;
-+	struct efx_rx_queue *rx_queue;
-+	struct efx_nic *efx = channel->efx;
++#define MC_CMD_STACKINFO 0x0f
 +
-+	/* Basic packet information */
-+	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
-+	rx_ev_pkt_ok = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_OK);
-+	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
-+	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_JUMBO_CONT));
-+	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_SOP) != 1);
-+	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_Q_LABEL) !=
-+		channel->channel);
-+
-+	rx_queue = &efx->rx_queue[channel->channel];
-+
-+	rx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_DESC_PTR);
-+	expected_ptr = rx_queue->removed_count & EFX_RXQ_MASK;
-+	if (unlikely(rx_ev_desc_ptr != expected_ptr))
-+		efx_handle_rx_bad_index(rx_queue, rx_ev_desc_ptr);
-+
-+	if (likely(rx_ev_pkt_ok)) {
-+		/* If packet is marked as OK and packet type is TCP/IP or
-+		 * UDP/IP, then we can rely on the hardware checksum.
-+		 */
-+		checksummed =
-+			likely(efx->rx_checksum_enabled) &&
-+			(rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
-+			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP);
-+	} else {
-+		efx_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok, &discard);
-+		checksummed = false;
-+	}
-+
-+	/* Detect multicast packets that didn't match the filter */
-+	rx_ev_mcast_pkt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_PKT);
-+	if (rx_ev_mcast_pkt) {
-+		unsigned int rx_ev_mcast_hash_match =
-+			EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_MCAST_HASH_MATCH);
-+
-+		if (unlikely(!rx_ev_mcast_hash_match)) {
-+			++channel->n_rx_mcast_mismatch;
-+			discard = true;
-+		}
-+	}
-+
-+	channel->irq_mod_score += 2;
-+
-+	/* Handle received packet */
-+	efx_rx_packet(rx_queue, rx_ev_desc_ptr, rx_ev_byte_cnt,
-+		      checksummed, discard);
-+}
-+
-+/* Global events are basically PHY events */
-+static void
-+efx_handle_global_event(struct efx_channel *channel, efx_qword_t *event)
-+{
-+	struct efx_nic *efx = channel->efx;
-+	bool handled = false;
-+
-+	if (EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_G_PHY0_INTR) ||
-+	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XG_PHY0_INTR) ||
-+	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XFP_PHY0_INTR)) {
-+		/* Ignored */
-+		handled = true;
-+	}
-+
-+	if ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) &&
-+	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_XG_MGT_INTR)) {
-+		efx->xmac_poll_required = true;
-+		handled = true;
-+	}
-+
-+	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ?
-+	    EFX_QWORD_FIELD(*event, FSF_AA_GLB_EV_RX_RECOVERY) :
-+	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_RX_RECOVERY)) {
-+		EFX_ERR(efx, "channel %d seen global RX_RESET "
-+			"event. Resetting.\n", channel->channel);
-+
-+		atomic_inc(&efx->rx_reset);
-+		efx_schedule_reset(efx, EFX_WORKAROUND_6555(efx) ?
-+				   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
-+		handled = true;
-+	}
-+
-+	if (!handled)
-+		EFX_ERR(efx, "channel %d unknown global event "
-+			EFX_QWORD_FMT "\n", channel->channel,
-+			EFX_QWORD_VAL(*event));
-+}
-+
-+static void
-+efx_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
-+{
-+	struct efx_nic *efx = channel->efx;
-+	unsigned int ev_sub_code;
-+	unsigned int ev_sub_data;
-+
-+	ev_sub_code = EFX_QWORD_FIELD(*event, FSF_AZ_DRIVER_EV_SUBCODE);
-+	ev_sub_data = EFX_QWORD_FIELD(*event, FSF_AZ_DRIVER_EV_SUBDATA);
-+
-+	switch (ev_sub_code) {
-+	case FSE_AZ_TX_DESCQ_FLS_DONE_EV:
-+		EFX_TRACE(efx, "channel %d TXQ %d flushed\n",
-+			  channel->channel, ev_sub_data);
-+		break;
-+	case FSE_AZ_RX_DESCQ_FLS_DONE_EV:
-+		EFX_TRACE(efx, "channel %d RXQ %d flushed\n",
-+			  channel->channel, ev_sub_data);
-+		break;
-+	case FSE_AZ_EVQ_INIT_DONE_EV:
-+		EFX_LOG(efx, "channel %d EVQ %d initialised\n",
-+			channel->channel, ev_sub_data);
-+		break;
-+	case FSE_AZ_SRM_UPD_DONE_EV:
-+		EFX_TRACE(efx, "channel %d SRAM update done\n",
-+			  channel->channel);
-+		break;
-+	case FSE_AZ_WAKE_UP_EV:
-+		EFX_TRACE(efx, "channel %d RXQ %d wakeup event\n",
-+			  channel->channel, ev_sub_data);
-+		break;
-+	case FSE_AZ_TIMER_EV:
-+		EFX_TRACE(efx, "channel %d RX queue %d timer expired\n",
-+			  channel->channel, ev_sub_data);
-+		break;
-+	case FSE_AA_RX_RECOVER_EV:
-+		EFX_ERR(efx, "channel %d seen DRIVER RX_RESET event. "
-+			"Resetting.\n", channel->channel);
-+		atomic_inc(&efx->rx_reset);
-+		efx_schedule_reset(efx,
-+				   EFX_WORKAROUND_6555(efx) ?
-+				   RESET_TYPE_RX_RECOVERY :
-+				   RESET_TYPE_DISABLE);
-+		break;
-+	case FSE_BZ_RX_DSC_ERROR_EV:
-+		EFX_ERR(efx, "RX DMA Q %d reports descriptor fetch error."
-+			" RX Q %d is disabled.\n", ev_sub_data, ev_sub_data);
-+		efx_schedule_reset(efx, RESET_TYPE_RX_DESC_FETCH);
-+		break;
-+	case FSE_BZ_TX_DSC_ERROR_EV:
-+		EFX_ERR(efx, "TX DMA Q %d reports descriptor fetch error."
-+			" TX Q %d is disabled.\n", ev_sub_data, ev_sub_data);
-+		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
-+		break;
-+	default:
-+		EFX_TRACE(efx, "channel %d unknown driver event code %d "
-+			  "data %04x\n", channel->channel, ev_sub_code,
-+			  ev_sub_data);
-+		break;
-+	}
-+}
-+
-+int efx_nic_process_eventq(struct efx_channel *channel, int rx_quota)
-+{
-+	unsigned int read_ptr;
-+	efx_qword_t event, *p_event;
-+	int ev_code;
-+	int rx_packets = 0;
-+
-+	read_ptr = channel->eventq_read_ptr;
-+
-+	do {
-+		p_event = efx_event(channel, read_ptr);
-+		event = *p_event;
-+
-+		if (!efx_event_present(&event))
-+			/* End of events */
-+			break;
-+
-+		EFX_TRACE(channel->efx, "channel %d event is "EFX_QWORD_FMT"\n",
-+			  channel->channel, EFX_QWORD_VAL(event));
-+
-+		/* Clear this event by marking it all ones */
-+		EFX_SET_QWORD(*p_event);
-+
-+		ev_code = EFX_QWORD_FIELD(event, FSF_AZ_EV_CODE);
-+
-+		switch (ev_code) {
-+		case FSE_AZ_EV_CODE_RX_EV:
-+			efx_handle_rx_event(channel, &event);
-+			++rx_packets;
-+			break;
-+		case FSE_AZ_EV_CODE_TX_EV:
-+			efx_handle_tx_event(channel, &event);
-+			break;
-+		case FSE_AZ_EV_CODE_DRV_GEN_EV:
-+			channel->eventq_magic = EFX_QWORD_FIELD(
-+				event, FSF_AZ_DRV_GEN_EV_MAGIC);
-+			EFX_LOG(channel->efx, "channel %d received generated "
-+				"event "EFX_QWORD_FMT"\n", channel->channel,
-+				EFX_QWORD_VAL(event));
-+			break;
-+		case FSE_AZ_EV_CODE_GLOBAL_EV:
-+			efx_handle_global_event(channel, &event);
-+			break;
-+		case FSE_AZ_EV_CODE_DRIVER_EV:
-+			efx_handle_driver_event(channel, &event);
-+			break;
-+		default:
-+			EFX_ERR(channel->efx, "channel %d unknown event type %d"
-+				" (data " EFX_QWORD_FMT ")\n", channel->channel,
-+				ev_code, EFX_QWORD_VAL(event));
-+		}
-+
-+		/* Increment read pointer */
-+		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
-+
-+	} while (rx_packets < rx_quota);
-+
-+	channel->eventq_read_ptr = read_ptr;
-+	return rx_packets;
-+}
-+
-+
-+/* Allocate buffer table entries for event queue */
-+int efx_nic_probe_eventq(struct efx_channel *channel)
-+{
-+	struct efx_nic *efx = channel->efx;
-+	BUILD_BUG_ON(EFX_EVQ_SIZE < 512 || EFX_EVQ_SIZE > 32768 ||
-+		     EFX_EVQ_SIZE & EFX_EVQ_MASK);
-+	return efx_alloc_special_buffer(efx, &channel->eventq,
-+					EFX_EVQ_SIZE * sizeof(efx_qword_t));
-+}
-+
-+void efx_nic_init_eventq(struct efx_channel *channel)
-+{
-+	efx_oword_t evq_ptr;
-+	struct efx_nic *efx = channel->efx;
-+
-+	EFX_LOG(efx, "channel %d event queue in special buffers %d-%d\n",
-+		channel->channel, channel->eventq.index,
-+		channel->eventq.index + channel->eventq.entries - 1);
-+
-+	/* Pin event queue buffer */
-+	efx_init_special_buffer(efx, &channel->eventq);
-+
-+	/* Fill event queue with all ones (i.e. empty events) */
-+	memset(channel->eventq.addr, 0xff, channel->eventq.len);
-+
-+	/* Push event queue to card */
-+	EFX_POPULATE_OWORD_3(evq_ptr,
-+			     FRF_AZ_EVQ_EN, 1,
-+			     FRF_AZ_EVQ_SIZE, __ffs(channel->eventq.entries),
-+			     FRF_AZ_EVQ_BUF_BASE_ID, channel->eventq.index);
-+	efx_writeo_table(efx, &evq_ptr, efx->type->evq_ptr_tbl_base,
-+			 channel->channel);
-+
-+	efx->type->push_irq_moderation(channel);
-+}
-+
-+void efx_nic_fini_eventq(struct efx_channel *channel)
-+{
-+	efx_oword_t eventq_ptr;
-+	struct efx_nic *efx = channel->efx;
-+
-+	/* Remove event queue from card */
-+	EFX_ZERO_OWORD(eventq_ptr);
-+	efx_writeo_table(efx, &eventq_ptr, efx->type->evq_ptr_tbl_base,
-+			 channel->channel);
-+
-+	/* Unpin event queue */
-+	efx_fini_special_buffer(efx, &channel->eventq);
-+}
-+
-+/* Free buffers backing event queue */
-+void efx_nic_remove_eventq(struct efx_channel *channel)
-+{
-+	efx_free_special_buffer(channel->efx, &channel->eventq);
-+}
-+
-+
-+/* Generates a test event on the event queue.  A subsequent call to
-+ * process_eventq() should pick up the event and place the value of
-+ * "magic" into channel->eventq_magic;
++/* MC_CMD_MDIO_READ:
++ * MDIO register read
 + */
-+void efx_nic_generate_test_event(struct efx_channel *channel, unsigned int magic)
-+{
-+	efx_qword_t test_event;
++#define MC_CMD_MDIO_READ 0x10
++#define MC_CMD_MDIO_READ_IN_LEN 16
++#define MC_CMD_MDIO_READ_IN_BUS_OFST 0
++#define MC_CMD_MDIO_READ_IN_PRTAD_OFST 4
++#define MC_CMD_MDIO_READ_IN_DEVAD_OFST 8
++#define MC_CMD_MDIO_READ_IN_ADDR_OFST 12
++#define MC_CMD_MDIO_READ_OUT_LEN 8
++#define MC_CMD_MDIO_READ_OUT_VALUE_OFST 0
++#define MC_CMD_MDIO_READ_OUT_STATUS_OFST 4
 +
-+	EFX_POPULATE_QWORD_2(test_event, FSF_AZ_EV_CODE,
-+			     FSE_AZ_EV_CODE_DRV_GEN_EV,
-+			     FSF_AZ_DRV_GEN_EV_MAGIC, magic);
-+	efx_generate_event(channel, &test_event);
-+}
++/* MC_CMD_MDIO_WRITE:
++ * MDIO register write
++ */
++#define MC_CMD_MDIO_WRITE 0x11
++#define MC_CMD_MDIO_WRITE_IN_LEN 20
++#define MC_CMD_MDIO_WRITE_IN_BUS_OFST 0
++#define MC_CMD_MDIO_WRITE_IN_PRTAD_OFST 4
++#define MC_CMD_MDIO_WRITE_IN_DEVAD_OFST 8
++#define MC_CMD_MDIO_WRITE_IN_ADDR_OFST 12
++#define MC_CMD_MDIO_WRITE_IN_VALUE_OFST 16
++#define MC_CMD_MDIO_WRITE_OUT_LEN 4
++#define MC_CMD_MDIO_WRITE_OUT_STATUS_OFST 0
 +
-+/**************************************************************************
++/* By default all the MCDI MDIO operations perform clause45 mode.
++ * If you want to use clause22 then set DEVAD = MC_CMD_MDIO_CLAUSE22.
++ */
++#define MC_CMD_MDIO_CLAUSE22 32
++
++/* There are two MDIO buses: one for the internal PHY, and one for external
++ * devices.
++ */
++#define MC_CMD_MDIO_BUS_INTERNAL 0
++#define MC_CMD_MDIO_BUS_EXTERNAL 1
++
++/* The MDIO commands return the raw status bits from the MDIO block.  A "good"
++ * transaction should have the DONE bit set and all other bits clear.
++ */
++#define MC_CMD_MDIO_STATUS_GOOD 0x08
++
++
++/* MC_CMD_DBI_WRITE: (debug)
++ * Write DBI register(s)
 + *
-+ * Flush handling
++ * Host: address, byte-enables (and VF selection, and cs2 flag),
++ *       value [,address ...]
++ * MC: nothing
++ */
++#define MC_CMD_DBI_WRITE 0x12
++#define MC_CMD_DBI_WRITE_IN_LEN(_numwords)		\
++	(12 * (_numwords))
++#define MC_CMD_DBI_WRITE_IN_ADDRESS_OFST(_word)		\
++	(((_word) * 12) + 0)
++#define MC_CMD_DBI_WRITE_IN_BYTE_MASK_OFST(_word)	\
++	(((_word) * 12) + 4)
++#define MC_CMD_DBI_WRITE_IN_VALUE_OFST(_word)		\
++	(((_word) * 12) + 8)
++#define MC_CMD_DBI_WRITE_OUT_LEN 0
++
++/* MC_CMD_DBI_READ: (debug)
++ * Read DBI register(s)
 + *
-+ **************************************************************************/
++ * Host: address, [,address ...]
++ * MC: value [,value ...]
++ * (note: this does not support reading from VFs, but is retained for backwards
++ * compatibility; see MC_CMD_DBI_READX below)
++ */
++#define MC_CMD_DBI_READ 0x13
++#define MC_CMD_DBI_READ_IN_LEN(_numwords)		\
++	(4 * (_numwords))
++#define MC_CMD_DBI_READ_OUT_LEN(_numwords)		\
++	(4 * (_numwords))
 +
-+
-+static void efx_poll_flush_events(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel = &efx->channel[0];
-+	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
-+	unsigned int read_ptr = channel->eventq_read_ptr;
-+	unsigned int end_ptr = (read_ptr - 1) & EFX_EVQ_MASK;
-+
-+	do {
-+		efx_qword_t *event = efx_event(channel, read_ptr);
-+		int ev_code, ev_sub_code, ev_queue;
-+		bool ev_failed;
-+
-+		if (!efx_event_present(event))
-+			break;
-+
-+		ev_code = EFX_QWORD_FIELD(*event, FSF_AZ_EV_CODE);
-+		ev_sub_code = EFX_QWORD_FIELD(*event,
-+					      FSF_AZ_DRIVER_EV_SUBCODE);
-+		if (ev_code == FSE_AZ_EV_CODE_DRIVER_EV &&
-+		    ev_sub_code == FSE_AZ_TX_DESCQ_FLS_DONE_EV) {
-+			ev_queue = EFX_QWORD_FIELD(*event,
-+						   FSF_AZ_DRIVER_EV_SUBDATA);
-+			if (ev_queue < EFX_TX_QUEUE_COUNT) {
-+				tx_queue = efx->tx_queue + ev_queue;
-+				tx_queue->flushed = FLUSH_DONE;
-+			}
-+		} else if (ev_code == FSE_AZ_EV_CODE_DRIVER_EV &&
-+			   ev_sub_code == FSE_AZ_RX_DESCQ_FLS_DONE_EV) {
-+			ev_queue = EFX_QWORD_FIELD(
-+				*event, FSF_AZ_DRIVER_EV_RX_DESCQ_ID);
-+			ev_failed = EFX_QWORD_FIELD(
-+				*event, FSF_AZ_DRIVER_EV_RX_FLUSH_FAIL);
-+			if (ev_queue < efx->n_rx_queues) {
-+				rx_queue = efx->rx_queue + ev_queue;
-+				rx_queue->flushed =
-+					ev_failed ? FLUSH_FAILED : FLUSH_DONE;
-+			}
-+		}
-+
-+		/* We're about to destroy the queue anyway, so
-+		 * it's ok to throw away every non-flush event */
-+		EFX_SET_QWORD(*event);
-+
-+		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
-+	} while (read_ptr != end_ptr);
-+
-+	channel->eventq_read_ptr = read_ptr;
-+}
-+
-+/* Handle tx and rx flushes at the same time, since they run in
-+ * parallel in the hardware and there's no reason for us to
-+ * serialise them */
-+int efx_nic_flush_queues(struct efx_nic *efx)
-+{
-+	struct efx_rx_queue *rx_queue;
-+	struct efx_tx_queue *tx_queue;
-+	int i, tx_pending, rx_pending;
-+
-+	/* If necessary prepare the hardware for flushing */
-+	efx->type->prepare_flush(efx);
-+
-+	/* Flush all tx queues in parallel */
-+	efx_for_each_tx_queue(tx_queue, efx)
-+		efx_flush_tx_queue(tx_queue);
-+
-+	/* The hardware supports four concurrent rx flushes, each of which may
-+	 * need to be retried if there is an outstanding descriptor fetch */
-+	for (i = 0; i < EFX_FLUSH_POLL_COUNT; ++i) {
-+		rx_pending = tx_pending = 0;
-+		efx_for_each_rx_queue(rx_queue, efx) {
-+			if (rx_queue->flushed == FLUSH_PENDING)
-+				++rx_pending;
-+		}
-+		efx_for_each_rx_queue(rx_queue, efx) {
-+			if (rx_pending == EFX_RX_FLUSH_COUNT)
-+				break;
-+			if (rx_queue->flushed == FLUSH_FAILED ||
-+			    rx_queue->flushed == FLUSH_NONE) {
-+				efx_flush_rx_queue(rx_queue);
-+				++rx_pending;
-+			}
-+		}
-+		efx_for_each_tx_queue(tx_queue, efx) {
-+			if (tx_queue->flushed != FLUSH_DONE)
-+				++tx_pending;
-+		}
-+
-+		if (rx_pending == 0 && tx_pending == 0)
-+			return 0;
-+
-+		msleep(EFX_FLUSH_INTERVAL);
-+		efx_poll_flush_events(efx);
-+	}
-+
-+	/* Mark the queues as all flushed. We're going to return failure
-+	 * leading to a reset, or fake up success anyway */
-+	efx_for_each_tx_queue(tx_queue, efx) {
-+		if (tx_queue->flushed != FLUSH_DONE)
-+			EFX_ERR(efx, "tx queue %d flush command timed out\n",
-+				tx_queue->queue);
-+		tx_queue->flushed = FLUSH_DONE;
-+	}
-+	efx_for_each_rx_queue(rx_queue, efx) {
-+		if (rx_queue->flushed != FLUSH_DONE)
-+			EFX_ERR(efx, "rx queue %d flush command timed out\n",
-+				rx_queue->queue);
-+		rx_queue->flushed = FLUSH_DONE;
-+	}
-+
-+	if (EFX_WORKAROUND_7803(efx))
-+		return 0;
-+
-+	return -ETIMEDOUT;
-+}
-+
-+/**************************************************************************
++/* MC_CMD_PORT_READ32: (debug)
++ * Read a 32-bit register from the indirect port register map.
 + *
-+ * Hardware interrupts
-+ * The hardware interrupt handler does very little work; all the event
-+ * queue processing is carried out by per-channel tasklets.
++ * The port to access is implied by the Shared memory channel used.
++ */
++#define MC_CMD_PORT_READ32 0x14
++#define MC_CMD_PORT_READ32_IN_LEN 4
++#define MC_CMD_PORT_READ32_IN_ADDR_OFST 0
++#define MC_CMD_PORT_READ32_OUT_LEN 8
++#define MC_CMD_PORT_READ32_OUT_VALUE_OFST 0
++#define MC_CMD_PORT_READ32_OUT_STATUS_OFST 4
++
++/* MC_CMD_PORT_WRITE32: (debug)
++ * Write a 32-bit register to the indirect port register map.
 + *
-+ **************************************************************************/
-+
-+/* Enable/disable/generate interrupts */
-+static inline void efx_nic_interrupts(struct efx_nic *efx,
-+				      bool enabled, bool force)
-+{
-+	efx_oword_t int_en_reg_ker;
-+
-+	EFX_POPULATE_OWORD_2(int_en_reg_ker,
-+			     FRF_AZ_KER_INT_KER, force,
-+			     FRF_AZ_DRV_INT_EN_KER, enabled);
-+	efx_writeo(efx, &int_en_reg_ker, FR_AZ_INT_EN_KER);
-+}
-+
-+void efx_nic_enable_interrupts(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+
-+	EFX_ZERO_OWORD(*((efx_oword_t *) efx->irq_status.addr));
-+	wmb(); /* Ensure interrupt vector is clear before interrupts enabled */
-+
-+	/* Enable interrupts */
-+	efx_nic_interrupts(efx, true, false);
-+
-+	/* Force processing of all the channels to get the EVQ RPTRs up to
-+	   date */
-+	efx_for_each_channel(channel, efx)
-+		efx_schedule_channel(channel);
-+}
-+
-+void efx_nic_disable_interrupts(struct efx_nic *efx)
-+{
-+	/* Disable interrupts */
-+	efx_nic_interrupts(efx, false, false);
-+}
-+
-+/* Generate a test interrupt
-+ * Interrupt must already have been enabled, otherwise nasty things
-+ * may happen.
++ * The port to access is implied by the Shared memory channel used.
 + */
-+void efx_nic_generate_interrupt(struct efx_nic *efx)
-+{
-+	efx_nic_interrupts(efx, true, true);
-+}
++#define MC_CMD_PORT_WRITE32 0x15
++#define MC_CMD_PORT_WRITE32_IN_LEN 8
++#define MC_CMD_PORT_WRITE32_IN_ADDR_OFST 0
++#define MC_CMD_PORT_WRITE32_IN_VALUE_OFST 4
++#define MC_CMD_PORT_WRITE32_OUT_LEN 4
++#define MC_CMD_PORT_WRITE32_OUT_STATUS_OFST 0
 +
-+/* Process a fatal interrupt
-+ * Disable bus mastering ASAP and schedule a reset
-+ */
-+irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
-+{
-+	struct falcon_nic_data *nic_data = efx->nic_data;
-+	efx_oword_t *int_ker = efx->irq_status.addr;
-+	efx_oword_t fatal_intr;
-+	int error, mem_perr;
-+
-+	efx_reado(efx, &fatal_intr, FR_AZ_FATAL_INTR_KER);
-+	error = EFX_OWORD_FIELD(fatal_intr, FRF_AZ_FATAL_INTR);
-+
-+	EFX_ERR(efx, "SYSTEM ERROR " EFX_OWORD_FMT " status "
-+		EFX_OWORD_FMT ": %s\n", EFX_OWORD_VAL(*int_ker),
-+		EFX_OWORD_VAL(fatal_intr),
-+		error ? "disabling bus mastering" : "no recognised error");
-+	if (error == 0)
-+		goto out;
-+
-+	/* If this is a memory parity error dump which blocks are offending */
-+	mem_perr = EFX_OWORD_FIELD(fatal_intr, FRF_AZ_MEM_PERR_INT_KER);
-+	if (mem_perr) {
-+		efx_oword_t reg;
-+		efx_reado(efx, &reg, FR_AZ_MEM_STAT);
-+		EFX_ERR(efx, "SYSTEM ERROR: memory parity error "
-+			EFX_OWORD_FMT "\n", EFX_OWORD_VAL(reg));
-+	}
-+
-+	/* Disable both devices */
-+	pci_clear_master(efx->pci_dev);
-+	if (efx_nic_is_dual_func(efx))
-+		pci_clear_master(nic_data->pci_dev2);
-+	efx_nic_disable_interrupts(efx);
-+
-+	/* Count errors and reset or disable the NIC accordingly */
-+	if (efx->int_error_count == 0 ||
-+	    time_after(jiffies, efx->int_error_expire)) {
-+		efx->int_error_count = 0;
-+		efx->int_error_expire =
-+			jiffies + EFX_INT_ERROR_EXPIRE * HZ;
-+	}
-+	if (++efx->int_error_count < EFX_MAX_INT_ERRORS) {
-+		EFX_ERR(efx, "SYSTEM ERROR - reset scheduled\n");
-+		efx_schedule_reset(efx, RESET_TYPE_INT_ERROR);
-+	} else {
-+		EFX_ERR(efx, "SYSTEM ERROR - max number of errors seen."
-+			"NIC will be disabled\n");
-+		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
-+	}
-+out:
-+	return IRQ_HANDLED;
-+}
-+
-+/* Handle a legacy interrupt
-+ * Acknowledges the interrupt and schedule event queue processing.
-+ */
-+static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
-+{
-+	struct efx_nic *efx = dev_id;
-+	efx_oword_t *int_ker = efx->irq_status.addr;
-+	irqreturn_t result = IRQ_NONE;
-+	struct efx_channel *channel;
-+	efx_dword_t reg;
-+	u32 queues;
-+	int syserr;
-+
-+	/* Read the ISR which also ACKs the interrupts */
-+	efx_readd(efx, &reg, FR_BZ_INT_ISR0);
-+	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
-+
-+	/* Check to see if we have a serious error condition */
-+	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
-+	if (unlikely(syserr))
-+		return efx_nic_fatal_interrupt(efx);
-+
-+	/* Schedule processing of any interrupting queues */
-+	efx_for_each_channel(channel, efx) {
-+		if ((queues & 1) ||
-+		    efx_event_present(
-+			    efx_event(channel, channel->eventq_read_ptr))) {
-+				efx_schedule_channel(channel);
-+			result = IRQ_HANDLED;
-+		}
-+		queues >>= 1;
-+	}
-+
-+	if (result == IRQ_HANDLED) {
-+		efx->last_irq_cpu = raw_smp_processor_id();
-+		EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_DWORD_FMT "\n",
-+			  irq, raw_smp_processor_id(), EFX_DWORD_VAL(reg));
-+	}
-+
-+	return result;
-+}
-+
-+/* Handle an MSI interrupt
++/* MC_CMD_PORT_READ128: (debug)
++ * Read a 128-bit register from indirect port register map
 + *
-+ * Handle an MSI hardware interrupt.  This routine schedules event
-+ * queue processing.  No interrupt acknowledgement cycle is necessary.
-+ * Also, we never need to check that the interrupt is for us, since
-+ * MSI interrupts cannot be shared.
++ * The port to access is implied by the Shared memory channel used.
 + */
-+static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
-+{
-+	struct efx_channel *channel = dev_id;
-+	struct efx_nic *efx = channel->efx;
-+	efx_oword_t *int_ker = efx->irq_status.addr;
-+	int syserr;
++#define MC_CMD_PORT_READ128 0x16
++#define MC_CMD_PORT_READ128_IN_LEN 4
++#define MC_CMD_PORT_READ128_IN_ADDR_OFST 0
++#define MC_CMD_PORT_READ128_OUT_LEN 20
++#define MC_CMD_PORT_READ128_OUT_VALUE_OFST 0
++#define MC_CMD_PORT_READ128_OUT_STATUS_OFST 16
 +
-+	efx->last_irq_cpu = raw_smp_processor_id();
-+	EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
-+		  irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
-+
-+	/* Check to see if we have a serious error condition */
-+	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
-+	if (unlikely(syserr))
-+		return efx_nic_fatal_interrupt(efx);
-+
-+	/* Schedule processing of the channel */
-+	efx_schedule_channel(channel);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+
-+/* Setup RSS indirection table.
-+ * This maps from the hash value of the packet to RXQ
++/* MC_CMD_PORT_WRITE128: (debug)
++ * Write a 128-bit register to indirect port register map.
++ *
++ * The port to access is implied by the Shared memory channel used.
 + */
-+static void efx_setup_rss_indir_table(struct efx_nic *efx)
-+{
-+	int i = 0;
-+	unsigned long offset;
-+	efx_dword_t dword;
++#define MC_CMD_PORT_WRITE128 0x17
++#define MC_CMD_PORT_WRITE128_IN_LEN 20
++#define MC_CMD_PORT_WRITE128_IN_ADDR_OFST 0
++#define MC_CMD_PORT_WRITE128_IN_VALUE_OFST 4
++#define MC_CMD_PORT_WRITE128_OUT_LEN 4
++#define MC_CMD_PORT_WRITE128_OUT_STATUS_OFST 0
 +
-+	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
-+		return;
-+
-+	for (offset = FR_BZ_RX_INDIRECTION_TBL;
-+	     offset < FR_BZ_RX_INDIRECTION_TBL + 0x800;
-+	     offset += 0x10) {
-+		EFX_POPULATE_DWORD_1(dword, FRF_BZ_IT_QUEUE,
-+				     i % efx->n_rx_queues);
-+		efx_writed(efx, &dword, offset);
-+		i++;
-+	}
-+}
-+
-+/* Hook interrupt handler(s)
-+ * Try MSI and then legacy interrupts.
++/* MC_CMD_GET_BOARD_CFG:
++ * Returns the MC firmware configuration structure
++ *
++ * The FW_SUBTYPE_LIST contains a 16-bit value for each of the 12 types of
++ * NVRAM area.  The values are defined in the firmware/mc/platform/<xxx>.c file
++ * for a specific board type, but otherwise have no meaning to the MC; they
++ * are used by the driver to manage selection of appropriate firmware updates.
 + */
-+int efx_nic_init_interrupt(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	int rc;
++#define MC_CMD_GET_BOARD_CFG 0x18
++#define MC_CMD_GET_BOARD_CFG_IN_LEN 0
++#define MC_CMD_GET_BOARD_CFG_OUT_LEN 96
++#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_TYPE_OFST 0
++#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_NAME_OFST 4
++#define MC_CMD_GET_BOARD_CFG_OUT_BOARD_NAME_LEN 32
++#define MC_CMD_GET_BOARD_CFG_OUT_CAPABILITIES_PORT0_OFST 36
++#define MC_CMD_GET_BOARD_CFG_OUT_CAPABILITIES_PORT1_OFST 40
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_OFST 44
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT0_LEN 6
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_OFST 50
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_ADDR_BASE_PORT1_LEN 6
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_COUNT_PORT0_OFST 56
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_COUNT_PORT1_OFST 60
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_STRIDE_PORT0_OFST 64
++#define MC_CMD_GET_BOARD_CFG_OUT_MAC_STRIDE_PORT1_OFST 68
++#define MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST 72
++#define MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_LEN 24
 +
-+	if (!EFX_INT_MODE_USE_MSI(efx)) {
-+		irq_handler_t handler;
-+		if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
-+			handler = efx_legacy_interrupt;
-+		else
-+			handler = falcon_legacy_interrupt_a1;
++/* MC_CMD_DBI_READX: (debug)
++ * Read DBI register(s) -- extended functionality
++ *
++ * Host: vf selection, address, [,vf selection ...]
++ * MC: value [,value ...]
++ */
++#define MC_CMD_DBI_READX 0x19
++#define MC_CMD_DBI_READX_IN_LEN(_numwords)	\
++  (8*(_numwords))
++#define MC_CMD_DBI_READX_OUT_LEN(_numwords)	\
++  (4*(_numwords))
 +
-+		rc = request_irq(efx->legacy_irq, handler, IRQF_SHARED,
-+				 efx->name, efx);
-+		if (rc) {
-+			EFX_ERR(efx, "failed to hook legacy IRQ %d\n",
-+				efx->pci_dev->irq);
-+			goto fail1;
-+		}
-+		return 0;
-+	}
++/* MC_CMD_SET_RAND_SEED:
++ * Set the 16byte seed for the MC psuedo-random generator
++ */
++#define MC_CMD_SET_RAND_SEED 0x1a
++#define MC_CMD_SET_RAND_SEED_IN_LEN 16
++#define MC_CMD_SET_RAND_SEED_IN_SEED_OFST 0
++#define MC_CMD_SET_RAND_SEED_OUT_LEN 0
 +
-+	/* Hook MSI or MSI-X interrupt */
-+	efx_for_each_channel(channel, efx) {
-+		rc = request_irq(channel->irq, efx_msi_interrupt,
-+				 IRQF_PROBE_SHARED, /* Not shared */
-+				 channel->name, channel);
-+		if (rc) {
-+			EFX_ERR(efx, "failed to hook IRQ %d\n", channel->irq);
-+			goto fail2;
-+		}
-+	}
++/* MC_CMD_LTSSM_HIST: (debug)
++ * Retrieve the history of the LTSSM, if the build supports it.
++ *
++ * Host: nothing
++ * MC: variable number of LTSSM values, as bytes
++ * The history is read-to-clear.
++ */
++#define MC_CMD_LTSSM_HIST 0x1b
 +
-+	return 0;
++/* MC_CMD_DRV_ATTACH:
++ * Inform MCPU that this port is managed on the host (i.e. driver active)
++ */
++#define MC_CMD_DRV_ATTACH 0x1c
++#define MC_CMD_DRV_ATTACH_IN_LEN 8
++#define MC_CMD_DRV_ATTACH_IN_NEW_STATE_OFST 0
++#define MC_CMD_DRV_ATTACH_IN_UPDATE_OFST 4
++#define MC_CMD_DRV_ATTACH_OUT_LEN 4
++#define MC_CMD_DRV_ATTACH_OUT_OLD_STATE_OFST 0
 +
-+ fail2:
-+	efx_for_each_channel(channel, efx)
-+		free_irq(channel->irq, channel);
-+ fail1:
-+	return rc;
-+}
++/* MC_CMD_NCSI_PROD: (debug)
++ * Trigger an NC-SI event (and possibly an AEN in response)
++ */
++#define MC_CMD_NCSI_PROD 0x1d
++#define MC_CMD_NCSI_PROD_IN_LEN 4
++#define MC_CMD_NCSI_PROD_IN_EVENTS_OFST 0
++#define MC_CMD_NCSI_PROD_LINKCHANGE_LBN 0
++#define MC_CMD_NCSI_PROD_LINKCHANGE_WIDTH 1
++#define MC_CMD_NCSI_PROD_RESET_LBN 1
++#define MC_CMD_NCSI_PROD_RESET_WIDTH 1
++#define MC_CMD_NCSI_PROD_DRVATTACH_LBN 2
++#define MC_CMD_NCSI_PROD_DRVATTACH_WIDTH 1
++#define MC_CMD_NCSI_PROD_OUT_LEN 0
 +
-+void efx_nic_fini_interrupt(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	efx_oword_t reg;
++/* Enumeration */
++#define MC_CMD_NCSI_PROD_LINKCHANGE 0
++#define MC_CMD_NCSI_PROD_RESET 1
++#define MC_CMD_NCSI_PROD_DRVATTACH 2
 +
-+	/* Disable MSI/MSI-X interrupts */
-+	efx_for_each_channel(channel, efx) {
-+		if (channel->irq)
-+			free_irq(channel->irq, channel);
-+	}
++/* MC_CMD_DEVEL: (debug)
++ * Reserved for development
++ */
++#define MC_CMD_DEVEL 0x1e
 +
-+	/* ACK legacy interrupt */
-+	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
-+		efx_reado(efx, &reg, FR_BZ_INT_ISR0);
-+	else
-+		falcon_irq_ack_a1(efx);
++/* MC_CMD_SHMUART: (debug)
++ * Route UART output to circular buffer in shared memory instead.
++ */
++#define MC_CMD_SHMUART 0x1f
++#define MC_CMD_SHMUART_IN_FLAG_OFST 0
++#define MC_CMD_SHMUART_IN_LEN 4
++#define MC_CMD_SHMUART_OUT_LEN 0
 +
-+	/* Disable legacy interrupt */
-+	if (efx->legacy_irq)
-+		free_irq(efx->legacy_irq, efx);
-+}
++/* MC_CMD_PORT_RESET:
++ * Generic per-port reset. There is no equivalent for per-board reset.
++ *
++ * Locks required: None
++ * Return code: 0, ETIME
++ */
++#define MC_CMD_PORT_RESET 0x20
++#define MC_CMD_PORT_RESET_IN_LEN 0
++#define MC_CMD_PORT_RESET_OUT_LEN 0
 +
-+u32 efx_nic_fpga_ver(struct efx_nic *efx)
-+{
-+	efx_oword_t altera_build;
-+	efx_reado(efx, &altera_build, FR_AZ_ALTERA_BUILD);
-+	return EFX_OWORD_FIELD(altera_build, FRF_AZ_ALTERA_BUILD_VER);
-+}
++/* MC_CMD_RESOURCE_LOCK:
++ * Generic resource lock/unlock interface.
++ *
++ * Locks required: None
++ * Return code: 0,
++ *              EBUSY (if trylock is contended by other port),
++ *              EDEADLK (if trylock is already acquired by this port)
++ *              EINVAL (if unlock doesn't own the lock)
++ */
++#define MC_CMD_RESOURCE_LOCK 0x21
++#define MC_CMD_RESOURCE_LOCK_IN_LEN 8
++#define MC_CMD_RESOURCE_LOCK_IN_ACTION_OFST 0
++#define MC_CMD_RESOURCE_LOCK_ACTION_TRYLOCK 1
++#define MC_CMD_RESOURCE_LOCK_ACTION_UNLOCK 0
++#define MC_CMD_RESOURCE_LOCK_IN_RESOURCE_OFST 4
++#define MC_CMD_RESOURCE_LOCK_I2C 2
++#define MC_CMD_RESOURCE_LOCK_PHY 3
++#define MC_CMD_RESOURCE_LOCK_OUT_LEN 0
 +
-+void efx_nic_init_common(struct efx_nic *efx)
-+{
-+	efx_oword_t temp;
++/* MC_CMD_SPI_COMMAND: (variadic in, variadic out)
++ * Read/Write to/from the SPI device.
++ *
++ * Locks required: SPI_LOCK
++ * Return code: 0, ETIME, EINVAL, EACCES (if SPI_LOCK is not held)
++ */
++#define MC_CMD_SPI_COMMAND 0x22
++#define MC_CMD_SPI_COMMAND_IN_LEN(_write_bytes)	(12 + (_write_bytes))
++#define MC_CMD_SPI_COMMAND_IN_ARGS_OFST 0
++#define MC_CMD_SPI_COMMAND_IN_ARGS_ADDRESS_OFST 0
++#define MC_CMD_SPI_COMMAND_IN_ARGS_READ_BYTES_OFST 4
++#define MC_CMD_SPI_COMMAND_IN_ARGS_CHIP_SELECT_OFST 8
++/* Data to write here */
++#define MC_CMD_SPI_COMMAND_IN_WRITE_BUFFER_OFST 12
++#define MC_CMD_SPI_COMMAND_OUT_LEN(_read_bytes) (_read_bytes)
++/* Data read here */
++#define MC_CMD_SPI_COMMAND_OUT_READ_BUFFER_OFST 0
 +
-+	/* Set positions of descriptor caches in SRAM. */
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_TX_DC_BASE_ADR,
-+			     efx->type->tx_dc_base / 8);
-+	efx_writeo(efx, &temp, FR_AZ_SRM_TX_DC_CFG);
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_SRM_RX_DC_BASE_ADR,
-+			     efx->type->rx_dc_base / 8);
-+	efx_writeo(efx, &temp, FR_AZ_SRM_RX_DC_CFG);
++/* MC_CMD_I2C_READ_WRITE: (variadic in, variadic out)
++ * Read/Write to/from the I2C bus.
++ *
++ * Locks required: I2C_LOCK
++ * Return code: 0, ETIME, EINVAL, EACCES (if I2C_LOCK is not held)
++ */
++#define MC_CMD_I2C_RW 0x23
++#define MC_CMD_I2C_RW_IN_LEN(_write_bytes) (8 + (_write_bytes))
++#define MC_CMD_I2C_RW_IN_ARGS_OFST 0
++#define MC_CMD_I2C_RW_IN_ARGS_ADDR_OFST 0
++#define MC_CMD_I2C_RW_IN_ARGS_READ_BYTES_OFST 4
++/* Data to write here */
++#define MC_CMD_I2C_RW_IN_WRITE_BUFFER_OFSET 8
++#define MC_CMD_I2C_RW_OUT_LEN(_read_bytes) (_read_bytes)
++/* Data read here */
++#define MC_CMD_I2C_RW_OUT_READ_BUFFER_OFST 0
 +
-+	/* Set TX descriptor cache size. */
-+	BUILD_BUG_ON(TX_DC_ENTRIES != (8 << TX_DC_ENTRIES_ORDER));
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_TX_DC_SIZE, TX_DC_ENTRIES_ORDER);
-+	efx_writeo(efx, &temp, FR_AZ_TX_DC_CFG);
++/* Generic phy capability bitmask */
++#define MC_CMD_PHY_CAP_10HDX_LBN 1
++#define MC_CMD_PHY_CAP_10HDX_WIDTH 1
++#define MC_CMD_PHY_CAP_10FDX_LBN 2
++#define MC_CMD_PHY_CAP_10FDX_WIDTH 1
++#define MC_CMD_PHY_CAP_100HDX_LBN 3
++#define MC_CMD_PHY_CAP_100HDX_WIDTH 1
++#define MC_CMD_PHY_CAP_100FDX_LBN 4
++#define MC_CMD_PHY_CAP_100FDX_WIDTH 1
++#define MC_CMD_PHY_CAP_1000HDX_LBN 5
++#define MC_CMD_PHY_CAP_1000HDX_WIDTH 1
++#define MC_CMD_PHY_CAP_1000FDX_LBN 6
++#define MC_CMD_PHY_CAP_1000FDX_WIDTH 1
++#define MC_CMD_PHY_CAP_10000FDX_LBN 7
++#define MC_CMD_PHY_CAP_10000FDX_WIDTH 1
++#define MC_CMD_PHY_CAP_PAUSE_LBN 8
++#define MC_CMD_PHY_CAP_PAUSE_WIDTH 1
++#define MC_CMD_PHY_CAP_ASYM_LBN 9
++#define MC_CMD_PHY_CAP_ASYM_WIDTH 1
++#define MC_CMD_PHY_CAP_AN_LBN 10
++#define MC_CMD_PHY_CAP_AN_WIDTH 1
 +
-+	/* Set RX descriptor cache size.  Set low watermark to size-8, as
-+	 * this allows most efficient prefetching.
-+	 */
-+	BUILD_BUG_ON(RX_DC_ENTRIES != (8 << RX_DC_ENTRIES_ORDER));
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_SIZE, RX_DC_ENTRIES_ORDER);
-+	efx_writeo(efx, &temp, FR_AZ_RX_DC_CFG);
-+	EFX_POPULATE_OWORD_1(temp, FRF_AZ_RX_DC_PF_LWM, RX_DC_ENTRIES - 8);
-+	efx_writeo(efx, &temp, FR_AZ_RX_DC_PF_WM);
++/* Generic loopback enumeration */
++#define MC_CMD_LOOPBACK_NONE 0
++#define MC_CMD_LOOPBACK_DATA 1
++#define MC_CMD_LOOPBACK_GMAC 2
++#define MC_CMD_LOOPBACK_XGMII 3
++#define MC_CMD_LOOPBACK_XGXS 4
++#define MC_CMD_LOOPBACK_XAUI 5
++#define MC_CMD_LOOPBACK_GMII 6
++#define MC_CMD_LOOPBACK_SGMII 7
++#define MC_CMD_LOOPBACK_XGBR 8
++#define MC_CMD_LOOPBACK_XFI 9
++#define MC_CMD_LOOPBACK_XAUI_FAR 10
++#define MC_CMD_LOOPBACK_GMII_FAR 11
++#define MC_CMD_LOOPBACK_SGMII_FAR 12
++#define MC_CMD_LOOPBACK_XFI_FAR 13
++#define MC_CMD_LOOPBACK_GPHY 14
++#define MC_CMD_LOOPBACK_PHYXS 15
++#define MC_CMD_LOOPBACK_PCS 16
++#define MC_CMD_LOOPBACK_PMAPMD 17
++#define MC_CMD_LOOPBACK_XPORT 18
++#define MC_CMD_LOOPBACK_XGMII_WS 19
++#define MC_CMD_LOOPBACK_XAUI_WS 20
++#define MC_CMD_LOOPBACK_XAUI_WS_FAR 21
++#define MC_CMD_LOOPBACK_XAUI_WS_NEAR 22
++#define MC_CMD_LOOPBACK_GMII_WS 23
++#define MC_CMD_LOOPBACK_XFI_WS 24
++#define MC_CMD_LOOPBACK_XFI_WS_FAR 25
++#define MC_CMD_LOOPBACK_PHYXS_WS 26
 +
-+	/* Program INT_KER address */
-+	EFX_POPULATE_OWORD_2(temp,
-+			     FRF_AZ_NORM_INT_VEC_DIS_KER,
-+			     EFX_INT_MODE_USE_MSI(efx),
-+			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
-+	efx_writeo(efx, &temp, FR_AZ_INT_ADR_KER);
++/* Generic PHY statistics enumeration */
++#define MC_CMD_OUI 0
++#define MC_CMD_PMA_PMD_LINK_UP 1
++#define MC_CMD_PMA_PMD_RX_FAULT 2
++#define MC_CMD_PMA_PMD_TX_FAULT 3
++#define MC_CMD_PMA_PMD_SIGNAL 4
++#define MC_CMD_PMA_PMD_SNR_A 5
++#define MC_CMD_PMA_PMD_SNR_B 6
++#define MC_CMD_PMA_PMD_SNR_C 7
++#define MC_CMD_PMA_PMD_SNR_D 8
++#define MC_CMD_PCS_LINK_UP 9
++#define MC_CMD_PCS_RX_FAULT 10
++#define MC_CMD_PCS_TX_FAULT 11
++#define MC_CMD_PCS_BER 12
++#define MC_CMD_PCS_BLOCK_ERRORS 13
++#define MC_CMD_PHYXS_LINK_UP 14
++#define MC_CMD_PHYXS_RX_FAULT 15
++#define MC_CMD_PHYXS_TX_FAULT 16
++#define MC_CMD_PHYXS_ALIGN 17
++#define MC_CMD_PHYXS_SYNC 18
++#define MC_CMD_AN_LINK_UP 19
++#define MC_CMD_AN_COMPLETE 20
++#define MC_CMD_AN_10GBT_STATUS 21
++#define MC_CMD_CL22_LINK_UP 22
++#define MC_CMD_PHY_NSTATS 23
 +
-+	/* Enable all the genuinely fatal interrupts.  (They are still
-+	 * masked by the overall interrupt mask, controlled by
-+	 * falcon_interrupts()).
-+	 *
-+	 * Note: All other fatal interrupts are enabled
-+	 */
-+	EFX_POPULATE_OWORD_3(temp,
-+			     FRF_AZ_ILL_ADR_INT_KER_EN, 1,
-+			     FRF_AZ_RBUF_OWN_INT_KER_EN, 1,
-+			     FRF_AZ_TBUF_OWN_INT_KER_EN, 1);
-+	EFX_INVERT_OWORD(temp);
-+	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
++/* MC_CMD_GET_PHY_CFG:
++ * Report PHY configuration.  This guarantees to succeed even if the PHY is in
++ * a "zombie" state.
++ *
++ * Locks required: None
++ * Return code: 0
++ */
++#define MC_CMD_GET_PHY_CFG 0x24
 +
-+	efx_setup_rss_indir_table(efx);
++#define MC_CMD_GET_PHY_CFG_IN_LEN 0
++#define MC_CMD_GET_PHY_CFG_OUT_LEN 72
 +
-+	/* Disable the ugly timer-based TX DMA backoff and allow TX DMA to be
-+	 * controlled by the RX FIFO fill level. Set arbitration to one pkt/Q.
-+	 */
-+	efx_reado(efx, &temp, FR_AZ_TX_RESERVED);
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_RX_SPACER, 0xfe);
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_RX_SPACER_EN, 1);
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_ONE_PKT_PER_Q, 1);
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_PUSH_EN, 0);
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_DIS_NON_IP_EV, 1);
-+	/* Enable SW_EV to inherit in char driver - assume harmless here */
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_SOFT_EVT_EN, 1);
-+	/* Prefetch threshold 2 => fetch when descriptor cache half empty */
-+	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_PREF_THRESHOLD, 2);
-+	/* Squash TX of packets of 16 bytes or less */
-+	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
-+		EFX_SET_OWORD_FIELD(temp, FRF_BZ_TX_FLUSH_MIN_LEN_EN, 1);
-+	efx_writeo(efx, &temp, FR_AZ_TX_RESERVED);
-+}
++#define MC_CMD_GET_PHY_CFG_OUT_FLAGS_OFST 0
++#define MC_CMD_GET_PHY_CFG_PRESENT_LBN 0
++#define MC_CMD_GET_PHY_CFG_PRESENT_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_SHORTBIST_LBN 1
++#define MC_CMD_GET_PHY_CFG_SHORTBIST_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_LONGBIST_LBN 2
++#define MC_CMD_GET_PHY_CFG_LONGBIST_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_LOWPOWER_LBN 3
++#define MC_CMD_GET_PHY_CFG_LOWPOWER_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_POWEROFF_LBN 4
++#define MC_CMD_GET_PHY_CFG_POWEROFF_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_TXDIS_LBN 5
++#define MC_CMD_GET_PHY_CFG_TXDIS_WIDTH 1
++#define MC_CMD_GET_PHY_CFG_OUT_TYPE_OFST 4
++/* Bitmask of supported capabilities */
++#define MC_CMD_GET_PHY_CFG_OUT_SUPPORTED_CAP_OFST 8
++#define MC_CMD_GET_PHY_CFG_OUT_CHANNEL_OFST 12
++#define MC_CMD_GET_PHY_CFG_OUT_PRT_OFST 16
++/* PHY statistics bitmap */
++#define MC_CMD_GET_PHY_CFG_OUT_STATS_MASK_OFST 20
++/* PHY type/name string */
++#define MC_CMD_GET_PHY_CFG_OUT_NAME_OFST 24
++#define MC_CMD_GET_PHY_CFG_OUT_NAME_LEN 20
++#define MC_CMD_GET_PHY_CFG_OUT_MEDIA_TYPE_OFST 44
++#define MC_CMD_MEDIA_XAUI 1
++#define MC_CMD_MEDIA_CX4 2
++#define MC_CMD_MEDIA_KX4 3
++#define MC_CMD_MEDIA_XFP 4
++#define MC_CMD_MEDIA_SFP_PLUS 5
++#define MC_CMD_MEDIA_BASE_T 6
++/* MDIO "MMDS" supported */
++#define MC_CMD_GET_PHY_CFG_OUT_MMD_MASK_OFST 48
++/* Native clause 22 */
++#define MC_CMD_MMD_CLAUSE22  0
++#define MC_CMD_MMD_CLAUSE45_PMAPMD 1
++#define MC_CMD_MMD_CLAUSE45_WIS 2
++#define MC_CMD_MMD_CLAUSE45_PCS 3
++#define MC_CMD_MMD_CLAUSE45_PHYXS 4
++#define MC_CMD_MMD_CLAUSE45_DTEXS 5
++#define MC_CMD_MMD_CLAUSE45_TC 6
++#define MC_CMD_MMD_CLAUSE45_AN 7
++/* Clause22 proxied over clause45 by PHY */
++#define MC_CMD_MMD_CLAUSE45_C22EXT 29
++#define MC_CMD_MMD_CLAUSE45_VEND1 30
++#define MC_CMD_MMD_CLAUSE45_VEND2 31
++/* PHY stepping version */
++#define MC_CMD_GET_PHY_CFG_OUT_REVISION_OFST 52
++#define MC_CMD_GET_PHY_CFG_OUT_REVISION_LEN 20
++
++/* MC_CMD_START_PHY_BIST:
++ * Start a BIST test on the PHY.
++ *
++ * Locks required: PHY_LOCK if doing a  PHY BIST
++ * Return code: 0, EINVAL, EACCES (if PHY_LOCK is not held)
++ */
++#define MC_CMD_START_BIST 0x25
++#define MC_CMD_START_BIST_IN_LEN 4
++#define MC_CMD_START_BIST_TYPE_OFST 0
++
++/* Run the PHY's short BIST */
++#define MC_CMD_PHY_BIST_SHORT  1
++/* Run the PHY's long BIST */
++#define MC_CMD_PHY_BIST_LONG   2
++/* Run BIST on the currently selected BPX Serdes (XAUI or XFI) */
++#define MC_CMD_BPX_SERDES_BIST 3
++
++/* MC_CMD_POLL_PHY_BIST: (variadic output)
++ * Poll for BIST completion
++ *
++ * Returns a single status code, and a binary blob of phy-specific
++ * bist output. If the driver can't succesfully parse the BIST output,
++ * it should still respect the Pass/Fail in OUT.RESULT.
++ *
++ * Locks required: PHY_LOCK  if doing a  PHY BIST
++ * Return code: 0, EACCES (if PHY_LOCK is not held)
++ */
++#define MC_CMD_POLL_BIST 0x26
++#define MC_CMD_POLL_BIST_IN_LEN 0
++#define MC_CMD_POLL_BIST_OUT_LEN UNKNOWN
++#define MC_CMD_POLL_BIST_OUT_RESULT_OFST 0
++#define MC_CMD_POLL_BIST_RUNNING 1
++#define MC_CMD_POLL_BIST_PASSED 2
++#define MC_CMD_POLL_BIST_FAILED 3
++#define MC_CMD_POLL_BIST_TIMEOUT 4
++#define MC_CMD_POLL_BIST_OUT_PRIVATE_OFST 4
++
++/* MC_CMD_PHY_SPI: (variadic in, variadic out)
++ * Read/Write/Erase the PHY SPI device
++ *
++ * Locks required: PHY_LOCK
++ * Return code: 0, ETIME, EINVAL, EACCES (if PHY_LOCK is not held)
++ */
++#define MC_CMD_PHY_SPI 0x27
++#define MC_CMD_PHY_SPI_IN_LEN(_write_bytes) (12 + (_write_bytes))
++#define MC_CMD_PHY_SPI_IN_ARGS_OFST 0
++#define MC_CMD_PHY_SPI_IN_ARGS_ADDR_OFST 0
++#define MC_CMD_PHY_SPI_IN_ARGS_READ_BYTES_OFST 4
++#define MC_CMD_PHY_SPI_IN_ARGS_ERASE_ALL_OFST 8
++/* Data to write here */
++#define MC_CMD_PHY_SPI_IN_WRITE_BUFFER_OFSET 12
++#define MC_CMD_PHY_SPI_OUT_LEN(_read_bytes) (_read_bytes)
++/* Data read here */
++#define MC_CMD_PHY_SPI_OUT_READ_BUFFER_OFST 0
++
++
++/* MC_CMD_GET_LOOPBACK_MODES:
++ * Returns a bitmask of loopback modes evailable at each speed.
++ *
++ * Locks required: None
++ * Return code: 0
++ */
++#define MC_CMD_GET_LOOPBACK_MODES 0x28
++#define MC_CMD_GET_LOOPBACK_MODES_IN_LEN 0
++#define MC_CMD_GET_LOOPBACK_MODES_OUT_LEN 32
++#define MC_CMD_GET_LOOPBACK_MODES_100M_OFST 0
++#define MC_CMD_GET_LOOPBACK_MODES_1G_OFST 8
++#define MC_CMD_GET_LOOPBACK_MODES_10G_OFST 16
++#define MC_CMD_GET_LOOPBACK_MODES_SUGGESTED_OFST 24
++
++/* Flow control enumeration */
++#define MC_CMD_FCNTL_OFF 0
++#define MC_CMD_FCNTL_RESPOND 1
++#define MC_CMD_FCNTL_BIDIR 2
++/* Auto - Use what the link has autonegotiated
++ *      - The driver should modify the advertised capabilities via SET_LINK.CAP
++ *        to control the negotiated flow control mode.
++ *      - Can only be set if the PHY supports PAUSE+ASYM capabilities
++ *      - Never returned by GET_LINK as the value programmed into the MAC
++ */
++#define MC_CMD_FCNTL_AUTO 3
++
++/* Generic mac fault bitmask */
++#define MC_CMD_MAC_FAULT_XGMII_LOCAL_LBN 0
++#define MC_CMD_MAC_FAULT_XGMII_LOCAL_WIDTH 1
++#define MC_CMD_MAC_FAULT_XGMII_REMOTE_LBN 1
++#define MC_CMD_MAC_FAULT_XGMII_REMOTE_WIDTH 1
++#define MC_CMD_MAC_FAULT_SGMII_REMOTE_LBN 2
++#define MC_CMD_MAC_FAULT_SGMII_REMOTE_WIDTH 1
++
++/* MC_CMD_GET_LINK:
++ * Read the unified MAC/PHY link state
++ *
++ * Locks required: None
++ * Return code: 0, ETIME
++ */
++#define MC_CMD_GET_LINK 0x29
++#define MC_CMD_GET_LINK_IN_LEN 0
++#define MC_CMD_GET_LINK_OUT_LEN 28
++/* near-side and link-partner advertised capabilities */
++#define MC_CMD_GET_LINK_OUT_CAP_OFST 0
++#define MC_CMD_GET_LINK_OUT_LP_CAP_OFST 4
++/* Autonegotiated speed in mbit/s. The link may still be down
++ * even if this reads non-zero */
++#define MC_CMD_GET_LINK_OUT_LINK_SPEED_OFST 8
++#define MC_CMD_GET_LINK_OUT_LOOPBACK_MODE_OFST 12
++#define MC_CMD_GET_LINK_OUT_FLAGS_OFST 16
++/* Whether we have overall link up */
++#define MC_CMD_GET_LINK_LINK_UP_LBN 0
++#define MC_CMD_GET_LINK_LINK_UP_WIDTH 1
++#define MC_CMD_GET_LINK_FULL_DUPLEX_LBN 1
++#define MC_CMD_GET_LINK_FULL_DUPLEX_WIDTH 1
++/* Whether we have link at the layers provided by the BPX */
++#define MC_CMD_GET_LINK_BPX_LINK_LBN 2
++#define MC_CMD_GET_LINK_BPX_LINK_WIDTH 1
++/* Whether the PHY has external link */
++#define MC_CMD_GET_LINK_PHY_LINK_LBN 3
++#define MC_CMD_GET_LINK_PHY_LINK_WIDTH 1
++#define MC_CMD_GET_LINK_OUT_FCNTL_OFST 20
++#define MC_CMD_GET_LINK_OUT_MAC_FAULT_OFST 24
++
++/* MC_CMD_SET_LINK:
++ * Write the unified MAC/PHY link configuration
++ *
++ * A loopback speed of "0" is supported, and means
++ * (choose any available speed)
++ *
++ * Locks required: None
++ * Return code: 0, EINVAL, ETIME
++ */
++#define MC_CMD_SET_LINK 0x2a
++#define MC_CMD_SET_LINK_IN_LEN 16
++#define MC_CMD_SET_LINK_IN_CAP_OFST 0
++#define MC_CMD_SET_LINK_IN_FLAGS_OFST 4
++#define MC_CMD_SET_LINK_LOWPOWER_LBN 0
++#define MC_CMD_SET_LINK_LOWPOWER_WIDTH 1
++#define MC_CMD_SET_LINK_POWEROFF_LBN 1
++#define MC_CMD_SET_LINK_POWEROFF_WIDTH 1
++#define MC_CMD_SET_LINK_TXDIS_LBN 2
++#define MC_CMD_SET_LINK_TXDIS_WIDTH 1
++#define MC_CMD_SET_LINK_IN_LOOPBACK_MODE_OFST 8
++#define MC_CMD_SET_LINK_IN_LOOPBACK_SPEED_OFST 12
++#define MC_CMD_SET_LINK_OUT_LEN 0
++
++/* MC_CMD_SET_ID_LED:
++ * Set indentification LED state
++ *
++ * Locks required: None
++ * Return code: 0, EINVAL
++ */
++#define MC_CMD_SET_ID_LED 0x2b
++#define MC_CMD_SET_ID_LED_IN_LEN 4
++#define MC_CMD_SET_ID_LED_IN_STATE_OFST 0
++#define  MC_CMD_LED_OFF 0
++#define  MC_CMD_LED_ON 1
++#define  MC_CMD_LED_DEFAULT 2
++#define MC_CMD_SET_ID_LED_OUT_LEN 0
++
++/* MC_CMD_SET_MAC:
++ * Set MAC configuration
++ *
++ * The MTU is the MTU programmed directly into the XMAC/GMAC
++ * (inclusive of EtherII, VLAN, bug16011 padding)
++ *
++ * Locks required: None
++ * Return code: 0, EINVAL
++ */
++#define MC_CMD_SET_MAC 0x2c
++#define MC_CMD_SET_MAC_IN_LEN 24
++#define MC_CMD_SET_MAC_IN_MTU_OFST 0
++#define MC_CMD_SET_MAC_IN_DRAIN_OFST 4
++#define MC_CMD_SET_MAC_IN_ADDR_OFST 8
++#define MC_CMD_SET_MAC_IN_REJECT_OFST 16
++#define MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN 0
++#define MC_CMD_SET_MAC_IN_REJECT_UNCST_WIDTH 1
++#define MC_CMD_SET_MAC_IN_REJECT_BRDCST_LBN 1
++#define MC_CMD_SET_MAC_IN_REJECT_BRDCST_WIDTH 1
++#define MC_CMD_SET_MAC_IN_FCNTL_OFST 20
++#define MC_CMD_SET_MAC_OUT_LEN 0
++
++/* MC_CMD_PHY_STATS:
++ * Get generic PHY statistics
++ *
++ * This call returns the statistics for a generic PHY, by direct DMA
++ * into host memory, in a sparse array (indexed by the enumerate).
++ * Each value is represented by a 32bit number.
++ *
++ * Locks required: None
++ * Returns: 0, ETIME
++ * Response methods: shared memory, event
++ */
++#define MC_CMD_PHY_STATS 0x2d
++#define MC_CMD_PHY_STATS_IN_LEN 8
++#define MC_CMD_PHY_STATS_IN_DMA_ADDR_LO_OFST 0
++#define MC_CMD_PHY_STATS_IN_DMA_ADDR_HI_OFST 4
++#define MC_CMD_PHY_STATS_OUT_LEN 0
++
++/* Unified MAC statistics enumeration */
++#define MC_CMD_MAC_GENERATION_START 0
++#define MC_CMD_MAC_TX_PKTS 1
++#define MC_CMD_MAC_TX_PAUSE_PKTS 2
++#define MC_CMD_MAC_TX_CONTROL_PKTS 3
++#define MC_CMD_MAC_TX_UNICAST_PKTS 4
++#define MC_CMD_MAC_TX_MULTICAST_PKTS 5
++#define MC_CMD_MAC_TX_BROADCAST_PKTS 6
++#define MC_CMD_MAC_TX_BYTES 7
++#define MC_CMD_MAC_TX_BAD_BYTES 8
++#define MC_CMD_MAC_TX_LT64_PKTS 9
++#define MC_CMD_MAC_TX_64_PKTS 10
++#define MC_CMD_MAC_TX_65_TO_127_PKTS 11
++#define MC_CMD_MAC_TX_128_TO_255_PKTS 12
++#define MC_CMD_MAC_TX_256_TO_511_PKTS 13
++#define MC_CMD_MAC_TX_512_TO_1023_PKTS 14
++#define MC_CMD_MAC_TX_1024_TO_15XX_PKTS 15
++#define MC_CMD_MAC_TX_15XX_TO_JUMBO_PKTS 16
++#define MC_CMD_MAC_TX_GTJUMBO_PKTS 17
++#define MC_CMD_MAC_TX_BAD_FCS_PKTS 18
++#define MC_CMD_MAC_TX_SINGLE_COLLISION_PKTS 19
++#define MC_CMD_MAC_TX_MULTIPLE_COLLISION_PKTS 20
++#define MC_CMD_MAC_TX_EXCESSIVE_COLLISION_PKTS 21
++#define MC_CMD_MAC_TX_LATE_COLLISION_PKTS 22
++#define MC_CMD_MAC_TX_DEFERRED_PKTS 23
++#define MC_CMD_MAC_TX_EXCESSIVE_DEFERRED_PKTS 24
++#define MC_CMD_MAC_TX_NON_TCPUDP_PKTS 25
++#define MC_CMD_MAC_TX_MAC_SRC_ERR_PKTS 26
++#define MC_CMD_MAC_TX_IP_SRC_ERR_PKTS 27
++#define MC_CMD_MAC_RX_PKTS 28
++#define MC_CMD_MAC_RX_PAUSE_PKTS 29
++#define MC_CMD_MAC_RX_GOOD_PKTS 30
++#define MC_CMD_MAC_RX_CONTROL_PKTS 31
++#define MC_CMD_MAC_RX_UNICAST_PKTS 32
++#define MC_CMD_MAC_RX_MULTICAST_PKTS 33
++#define MC_CMD_MAC_RX_BROADCAST_PKTS 34
++#define MC_CMD_MAC_RX_BYTES 35
++#define MC_CMD_MAC_RX_BAD_BYTES 36
++#define MC_CMD_MAC_RX_64_PKTS 37
++#define MC_CMD_MAC_RX_65_TO_127_PKTS 38
++#define MC_CMD_MAC_RX_128_TO_255_PKTS 39
++#define MC_CMD_MAC_RX_256_TO_511_PKTS 40
++#define MC_CMD_MAC_RX_512_TO_1023_PKTS 41
++#define MC_CMD_MAC_RX_1024_TO_15XX_PKTS 42
++#define MC_CMD_MAC_RX_15XX_TO_JUMBO_PKTS 43
++#define MC_CMD_MAC_RX_GTJUMBO_PKTS 44
++#define MC_CMD_MAC_RX_UNDERSIZE_PKTS 45
++#define MC_CMD_MAC_RX_BAD_FCS_PKTS 46
++#define MC_CMD_MAC_RX_OVERFLOW_PKTS 47
++#define MC_CMD_MAC_RX_FALSE_CARRIER_PKTS 48
++#define MC_CMD_MAC_RX_SYMBOL_ERROR_PKTS 49
++#define MC_CMD_MAC_RX_ALIGN_ERROR_PKTS 50
++#define MC_CMD_MAC_RX_LENGTH_ERROR_PKTS 51
++#define MC_CMD_MAC_RX_INTERNAL_ERROR_PKTS 52
++#define MC_CMD_MAC_RX_JABBER_PKTS 53
++#define MC_CMD_MAC_RX_NODESC_DROPS 54
++#define MC_CMD_MAC_RX_LANES01_CHAR_ERR 55
++#define MC_CMD_MAC_RX_LANES23_CHAR_ERR 56
++#define MC_CMD_MAC_RX_LANES01_DISP_ERR 57
++#define MC_CMD_MAC_RX_LANES23_DISP_ERR 58
++#define MC_CMD_MAC_RX_MATCH_FAULT 59
++/* Insert new members here. */
++#define MC_CMD_MAC_GENERATION_END 60
++#define MC_CMD_MAC_NSTATS (MC_CMD_MAC_GENERATION_END+1)
++
++/* MC_CMD_MAC_STATS:
++ * Get unified GMAC/XMAC statistics
++ *
++ * This call returns unified statistics maintained by the MC as it
++ * switches between the GMAC and XMAC. The MC will write out all
++ * supported stats.  The driver should zero initialise the buffer to
++ * guarantee consistent results.
++ *
++ * Locks required: None
++ * Returns: 0
++ * Response methods: shared memory, event
++ */
++#define MC_CMD_MAC_STATS 0x2e
++#define MC_CMD_MAC_STATS_IN_LEN 16
++#define MC_CMD_MAC_STATS_IN_DMA_ADDR_LO_OFST 0
++#define MC_CMD_MAC_STATS_IN_DMA_ADDR_HI_OFST 4
++#define MC_CMD_MAC_STATS_IN_CMD_OFST 8
++#define MC_CMD_MAC_STATS_CMD_DMA_LBN 0
++#define MC_CMD_MAC_STATS_CMD_DMA_WIDTH 1
++#define MC_CMD_MAC_STATS_CMD_CLEAR_LBN 1
++#define MC_CMD_MAC_STATS_CMD_CLEAR_WIDTH 1
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE_LBN 2
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_CHANGE_WIDTH 1
++/* Fields only relevent when PERIODIC_CHANGE is set */
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE_LBN 3
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_ENABLE_WIDTH 1
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR_LBN 4
++#define MC_CMD_MAC_STATS_CMD_PERIODIC_CLEAR_WIDTH 1
++#define MC_CMD_MAC_STATS_CMD_PERIOD_MS_LBN 16
++#define MC_CMD_MAC_STATS_CMD_PERIOD_MS_WIDTH 16
++#define MC_CMD_MAC_STATS_IN_DMA_LEN_OFST 12
++
++#define MC_CMD_MAC_STATS_OUT_LEN 0
++
++/* Callisto flags */
++#define MC_CMD_SFT9001_ROBUST_LBN 0
++#define MC_CMD_SFT9001_ROBUST_WIDTH 1
++#define MC_CMD_SFT9001_SHORT_REACH_LBN 1
++#define MC_CMD_SFT9001_SHORT_REACH_WIDTH 1
++
++/* MC_CMD_SFT9001_GET:
++ * Read current callisto specific setting
++ *
++ * Locks required: None
++ * Returns: 0, ETIME
++ */
++#define MC_CMD_SFT9001_GET 0x30
++#define MC_CMD_SFT9001_GET_IN_LEN 0
++#define MC_CMD_SFT9001_GET_OUT_LEN 4
++#define MC_CMD_SFT9001_GET_OUT_FLAGS_OFST 0
++
++/* MC_CMD_SFT9001_SET:
++ * Write current callisto specific setting
++ *
++ * Locks required: None
++ * Returns: 0, ETIME, EINVAL
++ */
++#define MC_CMD_SFT9001_SET 0x31
++#define MC_CMD_SFT9001_SET_IN_LEN 4
++#define MC_CMD_SFT9001_SET_IN_FLAGS_OFST 0
++#define MC_CMD_SFT9001_SET_OUT_LEN 0
++
++
++/* MC_CMD_WOL_FILTER_SET:
++ * Set a WoL filter
++ *
++ * Locks required: None
++ * Returns: 0, EBUSY, EINVAL, ENOSYS
++ */
++#define MC_CMD_WOL_FILTER_SET 0x32
++#define MC_CMD_WOL_FILTER_SET_IN_LEN 192 /* 190 rounded up to a word */
++#define MC_CMD_WOL_FILTER_SET_IN_FILTER_MODE_OFST 0
++#define MC_CMD_WOL_FILTER_SET_IN_WOL_TYPE_OFST 4
++
++/* There is a union at offset 8, following defines overlap due to
++ * this */
++#define MC_CMD_WOL_FILTER_SET_IN_DATA_OFST 8
++
++#define MC_CMD_WOL_FILTER_SET_IN_MAGIC_MAC_OFST		\
++	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
++
++#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_SRC_IP_OFST   \
++	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
++#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_DST_IP_OFST   \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 4)
++#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_SRC_PORT_OFST \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 8)
++#define MC_CMD_WOL_FILTER_SET_IN_IPV4_SYN_DST_PORT_OFST \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 10)
++
++#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_SRC_IP_OFST   \
++	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
++#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_DST_IP_OFST   \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 16)
++#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_SRC_PORT_OFST \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 32)
++#define MC_CMD_WOL_FILTER_SET_IN_IPV6_SYN_DST_PORT_OFST \
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 34)
++
++#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_MASK_OFST	\
++	MC_CMD_WOL_FILTER_SET_IN_DATA_OFST
++#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_OFST		\
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 48)
++#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LEN_OFST	\
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 176)
++#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LAYER3_OFST	\
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 177)
++#define MC_CMD_WOL_FILTER_SET_IN_BITMAP_LAYER4_OFST	\
++	(MC_CMD_WOL_FILTER_SET_IN_DATA_OFST + 178)
++
++#define MC_CMD_WOL_FILTER_SET_OUT_LEN 4
++#define MC_CMD_WOL_FILTER_SET_OUT_FILTER_ID_OFST 0
++
++/* WOL Filter types enumeration */
++#define MC_CMD_WOL_TYPE_MAGIC      0x0
++			 /* unused 0x1 */
++#define MC_CMD_WOL_TYPE_WIN_MAGIC  0x2
++#define MC_CMD_WOL_TYPE_IPV4_SYN   0x3
++#define MC_CMD_WOL_TYPE_IPV6_SYN   0x4
++#define MC_CMD_WOL_TYPE_BITMAP     0x5
++#define MC_CMD_WOL_TYPE_MAX        0x6
++
++#define MC_CMD_FILTER_MODE_SIMPLE     0x0
++#define MC_CMD_FILTER_MODE_STRUCTURED 0xffffffff
++
++/* MC_CMD_WOL_FILTER_REMOVE:
++ * Remove a WoL filter
++ *
++ * Locks required: None
++ * Returns: 0, EINVAL, ENOSYS
++ */
++#define MC_CMD_WOL_FILTER_REMOVE 0x33
++#define MC_CMD_WOL_FILTER_REMOVE_IN_LEN 4
++#define MC_CMD_WOL_FILTER_REMOVE_IN_FILTER_ID_OFST 0
++#define MC_CMD_WOL_FILTER_REMOVE_OUT_LEN 0
++
++
++/* MC_CMD_WOL_FILTER_RESET:
++ * Reset (i.e. remove all) WoL filters
++ *
++ * Locks required: None
++ * Returns: 0, ENOSYS
++ */
++#define MC_CMD_WOL_FILTER_RESET 0x34
++#define MC_CMD_WOL_FILTER_RESET_IN_LEN 0
++#define MC_CMD_WOL_FILTER_RESET_OUT_LEN 0
++
++/* MC_CMD_SET_MCAST_HASH:
++ * Set the MCASH hash value without otherwise
++ * reconfiguring the MAC
++ */
++#define MC_CMD_SET_MCAST_HASH 0x35
++#define MC_CMD_SET_MCAST_HASH_IN_LEN 32
++#define MC_CMD_SET_MCAST_HASH_IN_HASH0_OFST 0
++#define MC_CMD_SET_MCAST_HASH_IN_HASH1_OFST 16
++#define MC_CMD_SET_MCAST_HASH_OUT_LEN 0
++
++/* MC_CMD_NVRAM_TYPES:
++ * Return bitfield indicating available types of virtual NVRAM partitions
++ *
++ * Locks required: none
++ * Returns: 0
++ */
++#define MC_CMD_NVRAM_TYPES 0x36
++#define MC_CMD_NVRAM_TYPES_IN_LEN 0
++#define MC_CMD_NVRAM_TYPES_OUT_LEN 4
++#define MC_CMD_NVRAM_TYPES_OUT_TYPES_OFST 0
++
++/* Supported NVRAM types */
++#define MC_CMD_NVRAM_TYPE_DISABLED_CALLISTO 0
++#define MC_CMD_NVRAM_TYPE_MC_FW 1
++#define MC_CMD_NVRAM_TYPE_MC_FW_BACKUP 2
++#define MC_CMD_NVRAM_TYPE_STATIC_CFG_PORT0 3
++#define MC_CMD_NVRAM_TYPE_STATIC_CFG_PORT1 4
++#define MC_CMD_NVRAM_TYPE_DYNAMIC_CFG_PORT0 5
++#define MC_CMD_NVRAM_TYPE_DYNAMIC_CFG_PORT1 6
++#define MC_CMD_NVRAM_TYPE_EXP_ROM 7
++#define MC_CMD_NVRAM_TYPE_EXP_ROM_CFG_PORT0 8
++#define MC_CMD_NVRAM_TYPE_EXP_ROM_CFG_PORT1 9
++#define MC_CMD_NVRAM_TYPE_PHY_PORT0 10
++#define MC_CMD_NVRAM_TYPE_PHY_PORT1 11
++#define MC_CMD_NVRAM_TYPE_LOG 12
++
++/* MC_CMD_NVRAM_INFO:
++ * Read info about a virtual NVRAM partition
++ *
++ * Locks required: none
++ * Returns: 0, EINVAL (bad type)
++ */
++#define MC_CMD_NVRAM_INFO 0x37
++#define MC_CMD_NVRAM_INFO_IN_LEN 4
++#define MC_CMD_NVRAM_INFO_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_INFO_OUT_LEN 24
++#define MC_CMD_NVRAM_INFO_OUT_TYPE_OFST 0
++#define MC_CMD_NVRAM_INFO_OUT_SIZE_OFST 4
++#define MC_CMD_NVRAM_INFO_OUT_ERASESIZE_OFST 8
++#define MC_CMD_NVRAM_INFO_OUT_FLAGS_OFST 12
++#define   MC_CMD_NVRAM_PROTECTED_LBN 0
++#define   MC_CMD_NVRAM_PROTECTED_WIDTH 1
++#define MC_CMD_NVRAM_INFO_OUT_PHYSDEV_OFST 16
++#define MC_CMD_NVRAM_INFO_OUT_PHYSADDR_OFST 20
++
++/* MC_CMD_NVRAM_UPDATE_START:
++ * Start a group of update operations on a virtual NVRAM partition
++ *
++ * Locks required: PHY_LOCK if type==*PHY*
++ * Returns: 0, EINVAL (bad type), EACCES (if PHY_LOCK required and not held)
++ */
++#define MC_CMD_NVRAM_UPDATE_START 0x38
++#define MC_CMD_NVRAM_UPDATE_START_IN_LEN 4
++#define MC_CMD_NVRAM_UPDATE_START_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_UPDATE_START_OUT_LEN 0
++
++/* MC_CMD_NVRAM_READ:
++ * Read data from a virtual NVRAM partition
++ *
++ * Locks required: PHY_LOCK if type==*PHY*
++ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
++ */
++#define MC_CMD_NVRAM_READ 0x39
++#define MC_CMD_NVRAM_READ_IN_LEN 12
++#define MC_CMD_NVRAM_READ_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_READ_IN_OFFSET_OFST 4
++#define MC_CMD_NVRAM_READ_IN_LENGTH_OFST 8
++#define MC_CMD_NVRAM_READ_OUT_LEN(_read_bytes) (_read_bytes)
++#define MC_CMD_NVRAM_READ_OUT_READ_BUFFER_OFST 0
++
++/* MC_CMD_NVRAM_WRITE:
++ * Write data to a virtual NVRAM partition
++ *
++ * Locks required: PHY_LOCK if type==*PHY*
++ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
++ */
++#define MC_CMD_NVRAM_WRITE 0x3a
++#define MC_CMD_NVRAM_WRITE_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_WRITE_IN_OFFSET_OFST 4
++#define MC_CMD_NVRAM_WRITE_IN_LENGTH_OFST 8
++#define MC_CMD_NVRAM_WRITE_IN_WRITE_BUFFER_OFST 12
++#define MC_CMD_NVRAM_WRITE_IN_LEN(_write_bytes) (12 + _write_bytes)
++#define MC_CMD_NVRAM_WRITE_OUT_LEN 0
++
++/* MC_CMD_NVRAM_ERASE:
++ * Erase sector(s) from a virtual NVRAM partition
++ *
++ * Locks required: PHY_LOCK if type==*PHY*
++ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
++ */
++#define MC_CMD_NVRAM_ERASE 0x3b
++#define MC_CMD_NVRAM_ERASE_IN_LEN 12
++#define MC_CMD_NVRAM_ERASE_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_ERASE_IN_OFFSET_OFST 4
++#define MC_CMD_NVRAM_ERASE_IN_LENGTH_OFST 8
++#define MC_CMD_NVRAM_ERASE_OUT_LEN 0
++
++/* MC_CMD_NVRAM_UPDATE_FINISH:
++ * Finish a group of update operations on a virtual NVRAM partition
++ *
++ * Locks required: PHY_LOCK if type==*PHY*
++ * Returns: 0, EINVAL (bad type/offset/length), EACCES (if PHY_LOCK required and not held)
++ */
++#define MC_CMD_NVRAM_UPDATE_FINISH 0x3c
++#define MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN 4
++#define MC_CMD_NVRAM_UPDATE_FINISH_IN_TYPE_OFST 0
++#define MC_CMD_NVRAM_UPDATE_FINISH_OUT_LEN 0
++
++/* MC_CMD_REBOOT:
++ * Reboot the MC. The AFTER_ASSERTION flag is intended to be used
++ * when the driver notices an assertion failure, to allow two ports to
++ * both recover (semi-)gracefully.
++ *
++ * Locks required: NONE
++ * Returns: Nothing. You get back a response with ERR=1, DATALEN=0
++ */
++#define MC_CMD_REBOOT 0x3d
++#define MC_CMD_REBOOT_IN_LEN 4
++#define MC_CMD_REBOOT_IN_FLAGS_OFST 0
++#define MC_CMD_REBOOT_FLAGS_AFTER_ASSERTION 1
++#define MC_CMD_REBOOT_OUT_LEN 0
++
++/* MC_CMD_SCHEDINFO:
++ * Request scheduler info. from the MC.
++ *
++ * Locks required: NONE
++ * Returns: An array of (timeslice,maximum overrun), one for each thread,
++ * in ascending order of thread address.s
++ */
++#define MC_CMD_SCHEDINFO 0x3e
++#define MC_CMD_SCHEDINFO_IN_LEN 0
++
++
++/* MC_CMD_SET_REBOOT_MODE: (debug)
++ * Set the mode for the next MC reboot.
++ *
++ * Locks required: NONE
++ *
++ * Sets the reboot mode to the specified value.  Returns the old mode.
++ */
++#define MC_CMD_REBOOT_MODE 0x3f
++#define MC_CMD_REBOOT_MODE_IN_LEN 4
++#define MC_CMD_REBOOT_MODE_IN_VALUE_OFST 0
++#define MC_CMD_REBOOT_MODE_OUT_LEN 4
++#define MC_CMD_REBOOT_MODE_OUT_VALUE_OFST 0
++#define   MC_CMD_REBOOT_MODE_NORMAL 0
++#define   MC_CMD_REBOOT_MODE_SNAPPER 3
++
++/* MC_CMD_DEBUG_LOG:
++ * Null request/response command (debug)
++ * - sequence number is always zero
++ * - only supported on the UART interface
++ * (the same set of bytes is delivered as an
++ * event over PCI)
++ */
++#define MC_CMD_DEBUG_LOG 0x40
++#define MC_CMD_DEBUG_LOG_IN_LEN 0
++#define MC_CMD_DEBUG_LOG_OUT_LEN 0
++
++/* Generic sensor enumeration. Note that a dual port NIC
++ * will EITHER expose PHY_COMMON_TEMP OR PHY0_TEMP and
++ * PHY1_TEMP depending on whether there is a single sensor
++ * in the vicinity of the two port, or one per port.
++ */
++#define MC_CMD_SENSOR_CONTROLLER_TEMP 0		/* degC */
++#define MC_CMD_SENSOR_PHY_COMMON_TEMP 1		/* degC */
++#define MC_CMD_SENSOR_CONTROLLER_COOLING 2	/* bool */
++#define MC_CMD_SENSOR_PHY0_TEMP 3		/* degC */
++#define MC_CMD_SENSOR_PHY0_COOLING 4		/* bool */
++#define MC_CMD_SENSOR_PHY1_TEMP 5		/* degC */
++#define MC_CMD_SENSOR_PHY1_COOLING 6		/* bool */
++#define MC_CMD_SENSOR_IN_1V0 7			/* mV */
++#define MC_CMD_SENSOR_IN_1V2 8			/* mV */
++#define MC_CMD_SENSOR_IN_1V8 9			/* mV */
++#define MC_CMD_SENSOR_IN_2V5 10			/* mV */
++#define MC_CMD_SENSOR_IN_3V3 11			/* mV */
++#define MC_CMD_SENSOR_IN_12V0 12		/* mV */
++
++
++/* Sensor state */
++#define MC_CMD_SENSOR_STATE_OK 0
++#define MC_CMD_SENSOR_STATE_WARNING 1
++#define MC_CMD_SENSOR_STATE_FATAL 2
++#define MC_CMD_SENSOR_STATE_BROKEN 3
++
++/* MC_CMD_SENSOR_INFO:
++ * Returns information about every available sensor.
++ *
++ * Each sensor has a single (16bit) value, and a corresponding state.
++ * The mapping between value and sensor is nominally determined by the
++ * MC, but in practise is implemented as zero (BROKEN), one (TEMPERATURE),
++ * or two (VOLTAGE) ranges per sensor per state.
++ *
++ * This call returns a mask (32bit) of the sensors that are supported
++ * by this platform, then an array (indexed by MC_CMD_SENSOR) of byte
++ * offsets to the per-sensor arrays. Each sensor array has four 16bit
++ * numbers, min1, max1, min2, max2.
++ *
++ * Locks required: None
++ * Returns: 0
++ */
++#define MC_CMD_SENSOR_INFO 0x41
++#define MC_CMD_SENSOR_INFO_IN_LEN 0
++#define MC_CMD_SENSOR_INFO_OUT_MASK_OFST 0
++#define MC_CMD_SENSOR_INFO_OUT_OFFSET_OFST(_x) \
++	(4 + (_x))
++#define MC_CMD_SENSOR_INFO_OUT_MIN1_OFST(_ofst) \
++	((_ofst) + 0)
++#define MC_CMD_SENSOR_INFO_OUT_MAX1_OFST(_ofst) \
++	((_ofst) + 2)
++#define MC_CMD_SENSOR_INFO_OUT_MIN2_OFST(_ofst) \
++	((_ofst) + 4)
++#define MC_CMD_SENSOR_INFO_OUT_MAX2_OFST(_ofst) \
++	((_ofst) + 6)
++
++/* MC_CMD_READ_SENSORS
++ * Returns the current (value, state) for each sensor
++ *
++ * Returns the current (value, state) [each 16bit] of each sensor supported by
++ * this board, by DMA'ing a sparse array (indexed by the sensor type) into host
++ * memory.
++ *
++ * The MC will send a SENSOREVT event every time any sensor changes state. The
++ * driver is responsible for ensuring that it doesn't miss any events. The board
++ * will function normally if all sensors are in STATE_OK or state_WARNING.
++ * Otherwise the board should not be expected to function.
++ */
++#define MC_CMD_READ_SENSORS 0x42
++#define MC_CMD_READ_SENSORS_IN_LEN 8
++#define MC_CMD_READ_SENSORS_IN_DMA_ADDR_LO_OFST 0
++#define MC_CMD_READ_SENSORS_IN_DMA_ADDR_HI_OFST 4
++#define MC_CMD_READ_SENSORS_OUT_LEN 0
++
++
++/* MC_CMD_GET_PHY_STATE:
++ * Report current state of PHY.  A "zombie" PHY is a PHY that has failed to
++ * boot (e.g. due to missing or corrupted firmware).
++ *
++ * Locks required: None
++ * Return code: 0
++ */
++#define MC_CMD_GET_PHY_STATE 0x43
++
++#define MC_CMD_GET_PHY_STATE_IN_LEN 0
++#define MC_CMD_GET_PHY_STATE_OUT_LEN 4
++#define MC_CMD_GET_PHY_STATE_STATE_OFST 0
++/* PHY state enumeration: */
++#define MC_CMD_PHY_STATE_OK 1
++#define MC_CMD_PHY_STATE_ZOMBIE 2
++
++
++/* 802.1Qbb control. 8 Tx queues that map to priorities 0 - 7. Use all 1s to
++ * disable 802.Qbb for a given priority. */
++#define MC_CMD_SETUP_8021QBB 0x44
++#define MC_CMD_SETUP_8021QBB_IN_LEN 32
++#define MC_CMD_SETUP_8021QBB_OUT_LEN 0
++#define MC_CMD_SETUP_8021QBB_IN_TXQS_OFFST 0
++
++
++/* MC_CMD_WOL_FILTER_GET:
++ * Retrieve ID of any WoL filters
++ *
++ * Locks required: None
++ * Returns: 0, ENOSYS
++ */
++#define MC_CMD_WOL_FILTER_GET 0x45
++#define MC_CMD_WOL_FILTER_GET_IN_LEN 0
++#define MC_CMD_WOL_FILTER_GET_OUT_LEN 4
++#define MC_CMD_WOL_FILTER_GET_OUT_FILTER_ID_OFST 0
++
++
++/* MC_CMD_ADD_LIGHTSOUT_OFFLOAD:
++ * Offload a protocol to NIC for lights-out state
++ *
++ * Locks required: None
++ * Returns: 0, ENOSYS
++ */
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD 0x46
++
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_LEN 16
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_PROTOCOL_OFST 0
++
++/* There is a union at offset 4, following defines overlap due to
++ * this */
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_DATA_OFST 4
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_ARPMAC_OFST 4
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_ARPIP_OFST 10
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSMAC_OFST 4
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSSNIPV6_OFST 10
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_IN_NSIPV6_OFST 26
++
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_OUT_LEN 4
++#define MC_CMD_ADD_LIGHTSOUT_OFFLOAD_OUT_FILTER_ID_OFST 0
++
++
++/* MC_CMD_REMOVE_LIGHTSOUT_PROTOCOL_OFFLOAD:
++ * Offload a protocol to NIC for lights-out state
++ *
++ * Locks required: None
++ * Returns: 0, ENOSYS
++ */
++#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD 0x47
++#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_LEN 8
++#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_OUT_LEN 0
++
++#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_PROTOCOL_OFST 0
++#define MC_CMD_REMOVE_LIGHTSOUT_OFFLOAD_IN_FILTER_ID_OFST 4
++
++/* Lights-out offload protocols enumeration */
++#define MC_CMD_LIGHTSOUT_OFFLOAD_PROTOCOL_ARP 0x1
++#define MC_CMD_LIGHTSOUT_OFFLOAD_PROTOCOL_NS  0x2
++
++
++/* MC_CMD_MAC_RESET_RESTORE:
++ * Restore MAC after block reset
++ *
++ * Locks required: None
++ * Returns: 0
++ */
++
++#define MC_CMD_MAC_RESET_RESTORE 0x48
++#define MC_CMD_MAC_RESET_RESTORE_IN_LEN 0
++#define MC_CMD_MAC_RESET_RESTORE_OUT_LEN 0
++
++#endif /* MCDI_PCOL_H */
 -- 
 1.6.5.3
 
