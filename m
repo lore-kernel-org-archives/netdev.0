@@ -1,61 +1,76 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [RFC PATCH 00/10] Remove skb_dma_map/unmap calls
-Date: Mon, 30 Nov 2009 17:03:25 -0800
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F12C7400AD3@orsmsx501.amr.corp.intel.com>
-References: <20091125011111.32704.3009.stgit@gitlad.jf.intel.com>
- <20091129.234037.232627669.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
+	separate vlan from bond device
+Date: Mon, 30 Nov 2009 20:21:46 -0500
+Message-ID: <20091201012145.GH1639@gospo.rdu.redhat.com>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com> <29892.1259625638@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "mcarlson@broadcom.com" <mcarlson@broadcom.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"sathyap@serverengines.com" <sathyap@serverengines.com>,
-	"subbus@serverengines.com" <subbus@serverengines.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:26903 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59520 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752601AbZLABD2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 20:03:28 -0500
-In-Reply-To: <20091129.234037.232627669.davem@davemloft.net>
-Content-Language: en-US
+	id S1751098AbZLABVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Nov 2009 20:21:41 -0500
+Content-Disposition: inline
+In-Reply-To: <29892.1259625638@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Tue, 24 Nov 2009 17:20:12 -0800
+On Mon, Nov 30, 2009 at 04:00:38PM -0800, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
 > 
->> This patch series removes the skb_dma_map and skb_dma_unmap function
->> calls. The reason for this change is because the use of
->> skb_dma_map/unmap can lead to serious issues when HW IOMMU is
->> enabled.  This is because each mapping 
->> of the skb with a HW IOMMU enabled results in a new set of DMA
->> mappings. 
->> This in turn leads to issues when skbs are cloned for uses such as
->> bridging or pktgen because each transmitting device will update the
->> skb shared info structure resulting in some mappings being
->> overwritten, and others being freed multiple times. 
->> 
->> I am looking for input specifically on the tg3, be2net, and bnx2
->> driver patches as I am not very familiar with them and I am not
->> certain if additional changes are required.
->> 
->> I have included the changes for the Intel wired Ethernet drivers as a
->> reference.
+> >This allows a bond device to specify an arp_ip_target as a host that is
+> >not on the same vlan as the base bond device.  A configuration like
+> >this, now works:
+> >
+> >1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
+> >    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> >    inet 127.0.0.1/8 scope host lo
+> >    inet6 ::1/128 scope host
+> >       valid_lft forever preferred_lft forever
+> >2: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000
+> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+> >3: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000
+> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+> >8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue
+> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+> >    inet6 fe80::213:21ff:febe:33e9/64 scope link
+> >       valid_lft forever preferred_lft forever
+> >9: bond0.100@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue
+> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+> >    inet 10.0.100.2/24 brd 10.0.100.255 scope global bond0.100
+> >    inet6 fe80::213:21ff:febe:33e9/64 scope link
+> >       valid_lft forever preferred_lft forever
 > 
-> These changes look good, but at least one of them does not apply
-> to current net-2.6
+> 	I'm not quite clear here on exactly what it is that doesn't
+> work.
 > 
-> Can you respin this against current sources?
+> 	Putting the arp_ip_target on a VLAN destination already works
+> (and has for a long time); I just checked against a 2.6.32-rc to make
+> sure I wasn't misremembering.
 > 
-> Thanks a lot for doing this work Alexander.
+> 	Perhaps there's some nuance of "not on the same vlan as the base
+> bond device" that I'm missing.  What I see working before me is, e.g., a
+> bond0.777 VLAN interface atop a regular bond0 active-backup with a
+> couple of slaves; bond0 may or may not have an IP address of its own.
+> The arp_ip_target destination is on VLAN 777 somewhere.
 
-Due to the fact that nobody else had reported the issue and it existed in previous kernel versions I figured it would be easier to just drop it into net-next-2.6.
+Do you have net.ipv4.conf.all.arp_ignore set to 0 and/or an IP address
+assigned on bond0?  I can easily reproduce this with no IP on bond0 and
+net.ipv4.conf.all.arp_ignore = 1.
 
-If you want I can change the patches to net-2.6 though if that is what you would prefer.
+I can't say for sure that the sysctl setting makes a difference, but I
+have that on all my test rigs, so it's worth mentioning.
 
-Thanks,
+> 	Is this what your patch is meant to enable, or is it something
+> different?  I'm pulling down today's net-next to see if this is
+> something that broke recently.
+> 
 
-Alex
+I first tested and found the problem while running 2.6.30-rc series
+after it was reported to be a problem on RHEL5.  It's not clear how long
+it has been broken, but this situation is odd enough that it probably
+never worked as it was never tested.
+
