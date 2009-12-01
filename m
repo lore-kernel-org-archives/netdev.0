@@ -1,75 +1,44 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: TSOv6 broken in atl1e
-Date: Tue, 01 Dec 2009 03:19:39 +0000
-Message-ID: <1259637579.3709.196.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] sk_nulls_next_rcu
+Date: Tue, 01 Dec 2009 04:54:42 +0100
+Message-ID: <4B149382.9030009@gmail.com>
+References: <200912010219.29340.opurdila@ixiacom.com> <20091130.162454.119309341.davem@davemloft.net> <200912010232.47308.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-7WLBrDJKKGWS03NR6gOf"
-Cc: 558426@bugs.debian.org, netdev <netdev@vger.kernel.org>
-To: Jie Yang <jie.yang@atheros.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39873 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751724AbZLADTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 22:19:45 -0500
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38774 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbZLADyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 22:54:45 -0500
+In-Reply-To: <200912010232.47308.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Octavian Purdila a =E9crit :
+> On Tuesday 01 December 2009 02:24:54 you wrote:
+>> From: Octavian Purdila <opurdila@ixiacom.com>
+>> Date: Tue, 1 Dec 2009 02:19:29 +0200
+>>
+>>> I am trying to convert the LLC code to RCU, and it appears that for=
+ proc
+>>> support a sk_nulls_next_rcu would be required.
+>>>
+>>> Is this the wrong way to do it, or is it that nobody need it yet?
+>> I think simply nobody needed it yet.
+>>
+>> Eric, please take a look at Octavian's patch, thanks!
+>>
+>=20
+> I will send a patch series later with several LLC enhancements, no ne=
+ed to=20
+> look over the LLC bits yet - its not all done yet. I'll CC Eric on th=
+e RCU=20
+> parts :)
 
---=-7WLBrDJKKGWS03NR6gOf
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+No problem I'll review your patches
 
-I received a bug report <http://bugs.debian.org/558426> that shows atl1e
-corrupting IPv6 packets.  I have reproduced this on an Eee PC 901 and
-found that it is linked to TSO.  The most obvious thing wrong with the
-driver code is that it calculates the super-packet length incorrectly.
-However, fixing that:
+Thanks
 
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -1667,6 +1667,7 @@ static int atl1e_tso_csum(struct atl1e_adapter *adapt=
-er,
-=20
- 		if (offload_type & SKB_GSO_TCPV6) {
- 			real_len =3D (((unsigned char *)ipv6_hdr(skb) - skb->data)
-+					+ sizeof(struct ipv6hdr)
- 					+ ntohs(ipv6_hdr(skb)->payload_len));
- 			if (real_len < skb->len)
- 				pskb_trim(skb, real_len);
---- END ---
-
-does not solve the problem.  Presumably this function is not
-constructing correct DMA descriptors for TSOv6.
-
-Please fix this, or I will submit a patch to remove this feature from
-the driver.
-
-Ben.
-
---=20
-Ben Hutchings
-Quantity is no substitute for quality, but it's the only one we've got.
-
---=-7WLBrDJKKGWS03NR6gOf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUASxSLRue/yOyVhhEJAQK2SxAAm7sUDEivggH2WaAdr4Cfe/S6/z0afr/v
-XiC22naaQeUfy6xg3EHqoBRVcb1QweW98EAOQQPgYtt4uihR6+CxXPEBVUoJtiwO
-aCQDpH3j597KxtP/Yt7QLaH/zKJggcD0ibK0o+QNqzot4gBXPc10k9OE02sFUIn4
-2T8c5n9W7yzmk6O04OwHiI4odtTj04NoRiGmr/QdOJdMsA/iyLmu5Ut7vOSAIhEV
-RrAl5M5UyEka0gs4jvY2TMDTx1/NsMQP5defiMnSSumtD4CgHUJMamu6ulmrltBT
-htLiRXmqpqkPU86CLceVuPKQEf0WG/OZRzTDeIleVGadRm65gqO+fg0lBMiZhCJd
-V8kitHmmyoQTAWjvHChCUtTjvdLr0W2pmsKw/SXM2V4fHLtLNXmax5QaCYveDer4
-G1TM8v+rmk6irXXjBQXvc+Y4RH5GCbv1NqkAXc4sR2OUtY2ZNvA9/5Gi7bHfoTQI
-Tmvzr+OYRSSBZIHtNrSjDK/vDkr/4XJt3FbGob96/IWPZHV4zKHVhM/1rmozAU8i
-+bLtgBNGITl36mxgcI3M01efxEnCEvlPYmPFaEWtiZlTA9GD2h6A0iumElKOJEuc
-dZQoyOSzINfcvTwO6uycyL9N0BCRBZ4a4Pifv4B2xGw2zT8IPKcGnOU326wOgzBu
-R9m22fD8kEU=
-=yJV4
------END PGP SIGNATURE-----
-
---=-7WLBrDJKKGWS03NR6gOf--
