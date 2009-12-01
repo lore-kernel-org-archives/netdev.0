@@ -1,79 +1,75 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] sch_htb: ix the deficit overflows
-Date: Tue, 1 Dec 2009 10:32:26 +0800
-Message-ID: <412e6f7f0911301832o53e479f0x42345065b0b1616f@mail.gmail.com>
-References: <4B0F8A5D.1040806@gmail.com> <20091128000401.GA3713@ami.dom.local>
-	 <412e6f7f0911292026w704a70b8yc3af2c2473e05d34@mail.gmail.com>
-	 <20091130111020.GA7114@ff.dom.local>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: TSOv6 broken in atl1e
+Date: Tue, 01 Dec 2009 03:19:39 +0000
+Message-ID: <1259637579.3709.196.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Martin Devera <martin.devera@cdi.cz>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-7WLBrDJKKGWS03NR6gOf"
+Cc: 558426@bugs.debian.org, netdev <netdev@vger.kernel.org>
+To: Jie Yang <jie.yang@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:39304 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbZLACcT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 21:32:19 -0500
-Received: by pwi3 with SMTP id 3so2239593pwi.21
-        for <netdev@vger.kernel.org>; Mon, 30 Nov 2009 18:32:26 -0800 (PST)
-In-Reply-To: <20091130111020.GA7114@ff.dom.local>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39873 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751724AbZLADTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 22:19:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 30, 2009 at 7:10 PM, Jarek Poplawski <jarkao2@gmail.com> wr=
-ote:
-> On Mon, Nov 30, 2009 at 12:26:33PM +0800, Changli Gao wrote:
->
-> Users can control this with "r2q" and "quantum", and there is a hint
-> on quantum size in the user's guide.
 
-Yes. But I think most of users will ignore it like me.
+--=-7WLBrDJKKGWS03NR6gOf
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
->
->> And
->> if we use IMQ to shape traffic, the skb will be defragmented by
->> conntrack, and its size will be larger than MTU.
->
-> IMQ is a very nice thing, but it's considered broken as well, so it
-> can't be the reason for changing HTB.
+I received a bug report <http://bugs.debian.org/558426> that shows atl1e
+corrupting IPv6 packets.  I have reproduced this on an Eee PC 901 and
+found that it is linked to TSO.  The most obvious thing wrong with the
+driver code is that it calculates the super-packet length incorrectly.
+However, fixing that:
 
-I find IMQ is used by many network equipments Linux based. Why not fix
-and integrate it into official Linux?
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1667,6 +1667,7 @@ static int atl1e_tso_csum(struct atl1e_adapter *adapt=
+er,
+=20
+ 		if (offload_type & SKB_GSO_TCPV6) {
+ 			real_len =3D (((unsigned char *)ipv6_hdr(skb) - skb->data)
++					+ sizeof(struct ipv6hdr)
+ 					+ ntohs(ipv6_hdr(skb)->payload_len));
+ 			if (real_len < skb->len)
+ 				pskb_trim(skb, real_len);
+--- END ---
 
-> And this patch is very similar, except ->peek()/dequeue(). Additional
-> lookups are done instead of dequeuing the first found class, which
-> might be quite long in some cases.
+does not solve the problem.  Presumably this function is not
+constructing correct DMA descriptors for TSOv6.
 
-If the quantum is set correctly, there isn't difference except of a
-comparison. In the other case, I think some additional CPU cycles are
-better than overflow.
+Please fix this, or I will submit a patch to remove this feature from
+the driver.
 
->
-> It's not acceptable to me mainly because the real change done by this
-> patch is different than you describe: preventing an overflow might be
-> simple. You change the way DRR is implemented here, and even if it's
-> right, it should be written explicitly and proved with tests results.
->
-
-This way is used by CBQ.
-
-> Anyway, I think you should rather care for the author's acceptance,
-> because the way it's done doesn't look like accidental and has been
-> heavily tested btw. (I added Martin to CC.)
->
-> Regards,
-> Jarek P.
->
-> PS: Btw, this newer version of the patch is broken with spaces.
->
-
-Thanks. It is why I ask for posting again.
-
-
+Ben.
 
 --=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Ben Hutchings
+Quantity is no substitute for quality, but it's the only one we've got.
+
+--=-7WLBrDJKKGWS03NR6gOf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASxSLRue/yOyVhhEJAQK2SxAAm7sUDEivggH2WaAdr4Cfe/S6/z0afr/v
+XiC22naaQeUfy6xg3EHqoBRVcb1QweW98EAOQQPgYtt4uihR6+CxXPEBVUoJtiwO
+aCQDpH3j597KxtP/Yt7QLaH/zKJggcD0ibK0o+QNqzot4gBXPc10k9OE02sFUIn4
+2T8c5n9W7yzmk6O04OwHiI4odtTj04NoRiGmr/QdOJdMsA/iyLmu5Ut7vOSAIhEV
+RrAl5M5UyEka0gs4jvY2TMDTx1/NsMQP5defiMnSSumtD4CgHUJMamu6ulmrltBT
+htLiRXmqpqkPU86CLceVuPKQEf0WG/OZRzTDeIleVGadRm65gqO+fg0lBMiZhCJd
+V8kitHmmyoQTAWjvHChCUtTjvdLr0W2pmsKw/SXM2V4fHLtLNXmax5QaCYveDer4
+G1TM8v+rmk6irXXjBQXvc+Y4RH5GCbv1NqkAXc4sR2OUtY2ZNvA9/5Gi7bHfoTQI
+Tmvzr+OYRSSBZIHtNrSjDK/vDkr/4XJt3FbGob96/IWPZHV4zKHVhM/1rmozAU8i
++bLtgBNGITl36mxgcI3M01efxEnCEvlPYmPFaEWtiZlTA9GD2h6A0iumElKOJEuc
+dZQoyOSzINfcvTwO6uycyL9N0BCRBZ4a4Pifv4B2xGw2zT8IPKcGnOU326wOgzBu
+R9m22fD8kEU=
+=yJV4
+-----END PGP SIGNATURE-----
+
+--=-7WLBrDJKKGWS03NR6gOf--
