@@ -1,52 +1,82 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH] ip: update the description of rp_filter in ip-sysctl.txt
-Date: Tue, 01 Dec 2009 15:04:32 +0800
-Message-ID: <4B14C000.3090608@cn.fujitsu.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sch_htb: ix the deficit overflows
+Date: Tue, 1 Dec 2009 08:01:51 +0000
+Message-ID: <20091201080151.GA6408@ff.dom.local>
+References: <4B0F8A5D.1040806@gmail.com> <20091128000401.GA3713@ami.dom.local> <412e6f7f0911292026w704a70b8yc3af2c2473e05d34@mail.gmail.com> <20091130111020.GA7114@ff.dom.local> <412e6f7f0911301832o53e479f0x42345065b0b1616f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	rdunlap@xenotime.net
-To: David Miller <davem@davemloft.net>, shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Martin Devera <martin.devera@cdi.cz>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50571 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750937AbZLAHFa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 02:05:30 -0500
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:40647 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752557AbZLAIBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 03:01:53 -0500
+Received: by fxm5 with SMTP id 5so4591940fxm.28
+        for <netdev@vger.kernel.org>; Tue, 01 Dec 2009 00:01:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <412e6f7f0911301832o53e479f0x42345065b0b1616f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 27fed4175acf81ddd91d9a4ee2fd298981f60295
-=EF=BC=88ip: fix logic of reverse path filter sysctl=EF=BC=89has change=
-d the logic of rp_filter.
-The document about rp_filter is out of date. Now, setting conf/all/rp_f=
-ilte with 0=20
-can also enable source validation. =20
+On Tue, Dec 01, 2009 at 10:32:26AM +0800, Changli Gao wrote:
+> On Mon, Nov 30, 2009 at 7:10 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > On Mon, Nov 30, 2009 at 12:26:33PM +0800, Changli Gao wrote:
+> >
+> > Users can control this with "r2q" and "quantum", and there is a hint
+> > on quantum size in the user's guide.
+> 
+> Yes. But I think most of users will ignore it like me.
 
-Update the document according to the commit.
+In most cases this shouldn't matter. Default r2q/quantum should be
+OK for higher rates, and lower ones (< 10pps) are probably controlled
+mainly by their state, so even an overflowed deficit doesn't have to
+matter (unless your tests show something else ;-).
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- Documentation/networking/ip-sysctl.txt |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+In other cases those users should see some problems or quantum
+warnings, and that's when they should stop ignoring the docs.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index fbe427a..5dcc067 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -738,8 +738,8 @@ rp_filter - INTEGER
- 	to prevent IP spoofing from DDos attacks. If using asymmetric routing
- 	or other complicated routing, then loose mode is recommended.
-=20
--	conf/all/rp_filter must also be set to non-zero to do source validati=
-on
--	on the interface
-+	The max value from conf/{all,interface}/rp_filter is used
-+	when doing source validation on the {interface}.
-=20
- 	Default value is 0. Note that some distributions enable it
- 	in startup scripts.
---=20
-1.6.3.3
+> 
+> >
+> >> And
+> >> if we use IMQ to shape traffic, the skb will be defragmented by
+> >> conntrack, and its size will be larger than MTU.
+> >
+> > IMQ is a very nice thing, but it's considered broken as well, so it
+> > can't be the reason for changing HTB.
+> 
+> I find IMQ is used by many network equipments Linux based. Why not fix
+> and integrate it into official Linux?
 
+Even I ;-) don't know exact reasons, but I believe some people here
+know better.
+
+> 
+> > And this patch is very similar, except ->peek()/dequeue(). Additional
+> > lookups are done instead of dequeuing the first found class, which
+> > might be quite long in some cases.
+> 
+> If the quantum is set correctly, there isn't difference except of a
+> comparison. In the other case, I think some additional CPU cycles are
+> better than overflow.
+
+No, my main point is there _is_ a difference when the quantum is set
+correctly. Just these additional lookups.
+
+> 
+> >
+> > It's not acceptable to me mainly because the real change done by this
+> > patch is different than you describe: preventing an overflow might be
+> > simple. You change the way DRR is implemented here, and even if it's
+> > right, it should be written explicitly and proved with tests results.
+> >
+> 
+> This way is used by CBQ.
+
+HTB is different by design:
+http://luxik.cdi.cz/~devik/qos/htb/manual/theory.htm
+
+Regards,
+Jarek P.
