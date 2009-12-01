@@ -1,97 +1,91 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a separate vlan from bond device
-Date: Tue, 01 Dec 2009 13:28:13 -0800
-Message-ID: <21331.1259702893@death.nxdomain.ibm.com>
-References: <20091130201453.GF1639@gospo.rdu.redhat.com> <29892.1259625638@death.nxdomain.ibm.com> <20091201012145.GH1639@gospo.rdu.redhat.com> <6611.1259632635@death.nxdomain.ibm.com> <20091201144410.GI1639@gospo.rdu.redhat.com>
-Cc: netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [linux-pm] intermittent suspend problem again
+Date: Tue, 1 Dec 2009 22:32:50 +0100
+Message-ID: <200912012232.50951.rjw@sisk.pl>
+References: <87fx93pwv2.fsf@tac.ki.iif.hu> <200912011328.15551.rjw@sisk.pl> <877ht68u4h.fsf@tac.ki.iif.hu>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-pm@lists.linux-foundation.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Ferenc Wagner <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:37971 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbZLAV2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 16:28:24 -0500
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id nB1LRGW2017042
-	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 14:27:16 -0700
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id nB1LSPgR081014
-	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 14:28:25 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB1FJOeq015074
-	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 08:19:24 -0700
-In-reply-to: <20091201144410.GI1639@gospo.rdu.redhat.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:46627 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929AbZLAVcX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2009 16:32:23 -0500
+In-Reply-To: <877ht68u4h.fsf@tac.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
-[...]
->I am using arp_validate, actually.  I forgot that the arp_validate
->option doesn't show up in the output of /proc/net/bonding/bondX and I
->intended to have that in the subject, but somehow dropped it.
+On Tuesday 01 December 2009, Ferenc Wagner wrote:
+> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+> 
+> > On Tuesday 01 December 2009, Ferenc Wagner wrote:
+> >> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+> >> 
+> >>> On Sunday 29 November 2009, Ferenc Wagner wrote:
+> >>>
+> >>>> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+> >>>> 
+> >>>>> On Saturday 28 November 2009, Ferenc Wagner wrote:
+> >>>>>
+> >>>>>> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
+> >>>>>> 
+> >>>>>>> Compile with CONFIG_PM_VERBOSE (it does mean exactly that).
+> >>>>>> 
+> >>>>>> The last message now was:
+> >>>>>> 
+> >>>>>> e100: 0000:02:08.0: hibernate, may wakeup
+> >>>>>> 
+> >>>>>> Looks like hibernating the e100 driver is unstable.
+> >>>>>
+> >>>>> Can you verify that by trying to hibernate without the e100 driver?
+> >>>> 
+> >>>> Not really, as I still can't reliable reproduce the issue.  Since I'm
+> >>>> running with suspend loglevel = 8, it's happened only twice (in a row),
+> >>>> with seemingly exact same console output.  Some earlier freezes also
+> >>>> happened in dpm_suspend_start, at least.  However, I can certainly add
+> >>>> e100 to SUSPEND_MODULES under /etc/pm/config.d, and continue running
+> >>>> with that.
+> >>>
+> >>> That's what I'd do.
+> >> 
+> >> That worked out mosty OK (no freeze in quite some hibernation cycles),
+> >> but I'm continuing testing it.
+> >
+> > Great, please let me know how it works out.
+> 
+> Will do.  On the negative side, this tends to confuse NetworkManager.
+> 
+> >> On the other hand, I reverted 8fbd962e3, recompiled and replaced the
+> >> module, and got the freeze during hibernation.  And that was the bulk of
+> >> the changes since 2.6.31...  I'll revert the rest and test again, but
+> >> that seems purely cosmetic, so no high hopes.
+> >> 
+> >>> In addition to that, you can run multiple hibernation/resume cycles in
+> >>> a tight loop using the RTC wakealarm.
+> >> 
+> >> I'll do so, as soon as I find a way to automatically supply the dm-crypt
+> >> passphrase... or even better, learn to hibernate to ramdisk from the
+> >> initramfs. :)
+> >
+> > Well, you don't need to use swap encryption for _testing_. :-)
+> 
+> I use partition encryption, everything except for /boot is encrypted.
 
-	Ok, I was doing it wrong earlier; it works with arp_validate.
-I'm seeing one problem with tcpdump, though, which I'll get to in a
-minute.
+If /boot is big enough, you could use a swap file in /boot for the testing.
 
-	Could you update the summary / changelog message to mention that
-this patch fixes the specific case of arp_validate + arp_ip_target on
-VLAN?
+> Apropos: does s2disk perform encryption with a temporary key even if I
+> don't supply and RSA key, to protect mlocked application data from being
+> present in the swap after restore?
 
-	Second, in regards to this:
+It can do that, but you need to provide a key during suspend and resume.
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2439,8 +2439,8 @@ int netif_receive_skb(struct sk_buff *skb)
- 		skb->skb_iif = skb->dev->ifindex;
+Otherwise it doesn't use a random key, because it would have to store it in
+the clear in the image header.
 
- 	null_or_orig = NULL;
--	orig_dev = skb->dev;
--	if (orig_dev->master) {
-+	orig_dev = __dev_get_by_index(dev_net(skb->dev),skb->skb_iif);
-+	if (orig_dev->master && !(skb->dev->priv_flags & IFF_802_1Q_VLAN)) {
- 		if (skb_bond_should_drop(skb))
- 			null_or_orig = orig_dev; /* deliver only exact match */
- 		else
-
-	Would it be useful to add a comment to the effect that VLAN
-packets are run through skb_bond_should_drop at the VLAN layer?
-
-	Lastly, in regards to this:
-
-@@ -2492,7 +2492,7 @@ ncls:
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
- 		if (ptype->type == type &&
- 		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
--		     ptype->dev == orig_dev)) {
-+		     ptype->dev == orig_dev || ptype->dev == orig_dev->master)) {
- 			if (pt_prev)
- 				ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = ptype;
-
-	This is presumably here because orig_dev will now be the actual
-slave the packet arrived on, but we want to additionally deliver to the
-master, correct?
-
-	Lastly, tcpdump.
-
-	This patch appears to affect what traffic tcpdump of a slave or
-the bonding master itself will capture.  Previously, tcpdump of the
-active slave would see only the transmitted packets sent over the bond,
-and tcpdump of the inactive slave would see incoming Ethernet-layer
-multicast or broadcasts sent to its switch port.  Tcpdump on the master
-would see all sent and non-VLAN received traffic, and tcpdump of the
-VLAN interface over the master would see just the VLAN traffic.
-
-	After this change, tcpdump of the active slave or of the bonding
-master (bond0) sees both sent and received traffic for the VLAN, but
-nothing for the non-VLAN traffic other than incoming broadcast /
-multicasts.  This holds true whether or not a VLAN is configured.
-
-	I added a "ptype->dev == orig_dev->master" test to the ptype_all
-receive block in netif_receive_skb, but it didn't help.  At the moment,
-I'm not exactly sure why tcpdump breaks.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Thanks,
+Rafael
