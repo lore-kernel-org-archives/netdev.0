@@ -1,182 +1,106 @@
-From: Geoff Levand <geoffrey.levand@am.sony.com>
-Subject: [patch 1/2] net/ps3: Cleanup gelic enums
-Date: Tue, 1 Dec 2009 14:15:53 -0800
-Message-ID: <4B159599.1010208@am.sony.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
+	separate vlan from bond device
+Date: Tue, 1 Dec 2009 18:07:58 -0500
+Message-ID: <20091201230758.GJ1639@gospo.rdu.redhat.com>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com> <29892.1259625638@death.nxdomain.ibm.com> <20091201012145.GH1639@gospo.rdu.redhat.com> <6611.1259632635@death.nxdomain.ibm.com> <20091201144410.GI1639@gospo.rdu.redhat.com> <21331.1259702893@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"cbe-oss-dev@ozlabs.org" <cbe-oss-dev@ozlabs.org>
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:26115 "EHLO
-	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753523AbZLAWQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 17:16:44 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:50038 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752749AbZLAXHy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2009 18:07:54 -0500
+Content-Disposition: inline
+In-Reply-To: <21331.1259702893@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleanup of the gelic driver enumerations:
+On Tue, Dec 01, 2009 at 01:28:13PM -0800, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+> [...]
+> >I am using arp_validate, actually.  I forgot that the arp_validate
+> >option doesn't show up in the output of /proc/net/bonding/bondX and I
+> >intended to have that in the subject, but somehow dropped it.
+> 
+> 	Ok, I was doing it wrong earlier; it works with arp_validate.
+> I'm seeing one problem with tcpdump, though, which I'll get to in a
+> minute.
+> 
+> 	Could you update the summary / changelog message to mention that
+> this patch fixes the specific case of arp_validate + arp_ip_target on
+> VLAN?
+> 
 
- o Add some missing commas.
- o Add an Ether port post fix (PS3 currently only supports PORT_0).
- o Add a new enum gelic_lv1_phy to use when interacting with the PHY.
+Yep, I would be glad to do that.
 
-Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com>
----
-Hi Jeff,
+> 	Second, in regards to this:
+> 
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2439,8 +2439,8 @@ int netif_receive_skb(struct sk_buff *skb)
+>  		skb->skb_iif = skb->dev->ifindex;
+> 
+>  	null_or_orig = NULL;
+> -	orig_dev = skb->dev;
+> -	if (orig_dev->master) {
+> +	orig_dev = __dev_get_by_index(dev_net(skb->dev),skb->skb_iif);
+> +	if (orig_dev->master && !(skb->dev->priv_flags & IFF_802_1Q_VLAN)) {
+>  		if (skb_bond_should_drop(skb))
+>  			null_or_orig = orig_dev; /* deliver only exact match */
+>  		else
+> 
+> 	Would it be useful to add a comment to the effect that VLAN
+> packets are run through skb_bond_should_drop at the VLAN layer?
+> 
+> 	Lastly, in regards to this:
+> 
+> @@ -2492,7 +2492,7 @@ ncls:
+>  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+>  		if (ptype->type == type &&
+>  		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+> -		     ptype->dev == orig_dev)) {
+> +		     ptype->dev == orig_dev || ptype->dev == orig_dev->master)) {
+>  			if (pt_prev)
+>  				ret = deliver_skb(skb, pt_prev, orig_dev);
+>  			pt_prev = ptype;
+> 
+> 	This is presumably here because orig_dev will now be the actual
+> slave the packet arrived on, but we want to additionally deliver to the
+> master, correct?
 
-This patch does some cleanup needed by the 2nd patch
-[patch 2/2] net/ps3: Add support for gelic link negotiation.
+Yes, that is exactly right.
 
-Please apply for 2.3.33.
+> 
+> 	Lastly, tcpdump.
+> 
+> 	This patch appears to affect what traffic tcpdump of a slave or
+> the bonding master itself will capture.  Previously, tcpdump of the
+> active slave would see only the transmitted packets sent over the bond,
+> and tcpdump of the inactive slave would see incoming Ethernet-layer
+> multicast or broadcasts sent to its switch port.  Tcpdump on the master
+> would see all sent and non-VLAN received traffic, and tcpdump of the
+> VLAN interface over the master would see just the VLAN traffic.
+> 
+> 	After this change, tcpdump of the active slave or of the bonding
+> master (bond0) sees both sent and received traffic for the VLAN, but
+> nothing for the non-VLAN traffic other than incoming broadcast /
+> multicasts.  This holds true whether or not a VLAN is configured.
+> 
+> 	I added a "ptype->dev == orig_dev->master" test to the ptype_all
+> receive block in netif_receive_skb, but it didn't help.  At the moment,
+> I'm not exactly sure why tcpdump breaks.
+> 
 
--Geoff
+This is interesting; I'll investigate.
 
- drivers/net/ps3_gelic_net.c |   26 +++++++++++++-------------
- drivers/net/ps3_gelic_net.h |   19 ++++++++++++-------
- 2 files changed, 25 insertions(+), 20 deletions(-)
-
---- a/drivers/net/ps3_gelic_net.c
-+++ b/drivers/net/ps3_gelic_net.c
-@@ -95,11 +95,11 @@ static void gelic_card_get_ether_port_st
- 
- 	lv1_net_control(bus_id(card), dev_id(card),
- 			GELIC_LV1_GET_ETH_PORT_STATUS,
--			GELIC_LV1_VLAN_TX_ETHERNET, 0, 0,
-+			GELIC_LV1_VLAN_TX_ETHERNET_0, 0, 0,
- 			&card->ether_port_status, &v2);
- 
- 	if (inform) {
--		ether_netdev = card->netdev[GELIC_PORT_ETHERNET];
-+		ether_netdev = card->netdev[GELIC_PORT_ETHERNET_0];
- 		if (card->ether_port_status & GELIC_LV1_ETHER_LINK_UP)
- 			netif_carrier_on(ether_netdev);
- 		else
-@@ -451,14 +451,14 @@ static void gelic_descr_release_tx(struc
- 
- static void gelic_card_stop_queues(struct gelic_card *card)
- {
--	netif_stop_queue(card->netdev[GELIC_PORT_ETHERNET]);
-+	netif_stop_queue(card->netdev[GELIC_PORT_ETHERNET_0]);
- 
- 	if (card->netdev[GELIC_PORT_WIRELESS])
- 		netif_stop_queue(card->netdev[GELIC_PORT_WIRELESS]);
- }
- static void gelic_card_wake_queues(struct gelic_card *card)
- {
--	netif_wake_queue(card->netdev[GELIC_PORT_ETHERNET]);
-+	netif_wake_queue(card->netdev[GELIC_PORT_ETHERNET_0]);
- 
- 	if (card->netdev[GELIC_PORT_WIRELESS])
- 		netif_wake_queue(card->netdev[GELIC_PORT_WIRELESS]);
-@@ -999,7 +999,7 @@ static int gelic_card_decode_one_descr(s
- 			goto refill;
- 		}
- 	} else
--		netdev = card->netdev[GELIC_PORT_ETHERNET];
-+		netdev = card->netdev[GELIC_PORT_ETHERNET_0];
- 
- 	if ((status == GELIC_DESCR_DMA_RESPONSE_ERROR) ||
- 	    (status == GELIC_DESCR_DMA_PROTECTION_ERROR) ||
-@@ -1369,7 +1369,7 @@ static void gelic_net_tx_timeout_task(st
- {
- 	struct gelic_card *card =
- 		container_of(work, struct gelic_card, tx_timeout_task);
--	struct net_device *netdev = card->netdev[GELIC_PORT_ETHERNET];
-+	struct net_device *netdev = card->netdev[GELIC_PORT_ETHERNET_0];
- 
- 	dev_info(ctodev(card), "%s:Timed out. Restarting... \n", __func__);
- 
-@@ -1531,10 +1531,10 @@ static struct gelic_card * __devinit gel
- 	/* gelic_port */
- 	port->netdev = *netdev;
- 	port->card = card;
--	port->type = GELIC_PORT_ETHERNET;
-+	port->type = GELIC_PORT_ETHERNET_0;
- 
- 	/* gelic_card */
--	card->netdev[GELIC_PORT_ETHERNET] = *netdev;
-+	card->netdev[GELIC_PORT_ETHERNET_0] = *netdev;
- 
- 	INIT_WORK(&card->tx_timeout_task, gelic_net_tx_timeout_task);
- 	init_waitqueue_head(&card->waitq);
-@@ -1554,9 +1554,9 @@ static void __devinit gelic_card_get_vla
- 		int tx;
- 		int rx;
- 	} vlan_id_ix[2] = {
--		[GELIC_PORT_ETHERNET] = {
--			.tx = GELIC_LV1_VLAN_TX_ETHERNET,
--			.rx = GELIC_LV1_VLAN_RX_ETHERNET
-+		[GELIC_PORT_ETHERNET_0] = {
-+			.tx = GELIC_LV1_VLAN_TX_ETHERNET_0,
-+			.rx = GELIC_LV1_VLAN_RX_ETHERNET_0
- 		},
- 		[GELIC_PORT_WIRELESS] = {
- 			.tx = GELIC_LV1_VLAN_TX_WIRELESS,
-@@ -1601,7 +1601,7 @@ static void __devinit gelic_card_get_vla
- 			i, card->vlan[i].tx, card->vlan[i].rx);
- 	}
- 
--	if (card->vlan[GELIC_PORT_ETHERNET].tx) {
-+	if (card->vlan[GELIC_PORT_ETHERNET_0].tx) {
- 		BUG_ON(!card->vlan[GELIC_PORT_WIRELESS].tx);
- 		card->vlan_required = 1;
- 	} else
-@@ -1790,7 +1790,7 @@ static int ps3_gelic_driver_remove(struc
- 	gelic_card_free_chain(card, card->tx_top);
- 	gelic_card_free_chain(card, card->rx_top);
- 
--	netdev0 = card->netdev[GELIC_PORT_ETHERNET];
-+	netdev0 = card->netdev[GELIC_PORT_ETHERNET_0];
- 	/* disconnect event port */
- 	free_irq(card->irq, card);
- 	netdev0->irq = NO_IRQ;
---- a/drivers/net/ps3_gelic_net.h
-+++ b/drivers/net/ps3_gelic_net.h
-@@ -186,7 +186,7 @@ enum gelic_lv1_net_control_code {
- 	GELIC_LV1_GET_CHANNEL           = 6,
- 	GELIC_LV1_POST_WLAN_CMD		= 9,
- 	GELIC_LV1_GET_WLAN_CMD_RESULT	= 10,
--	GELIC_LV1_GET_WLAN_EVENT	= 11
-+	GELIC_LV1_GET_WLAN_EVENT	= 11,
- };
- 
- /* for GELIC_LV1_SET_WOL */
-@@ -217,24 +217,29 @@ enum gelic_lv1_ether_port_status {
- 	GELIC_LV1_ETHER_SPEED_10	= 0x0000000000000010L,
- 	GELIC_LV1_ETHER_SPEED_100	= 0x0000000000000020L,
- 	GELIC_LV1_ETHER_SPEED_1000	= 0x0000000000000040L,
--	GELIC_LV1_ETHER_SPEED_MASK	= 0x0000000000000070L
-+	GELIC_LV1_ETHER_SPEED_MASK	= 0x0000000000000070L,
- };
- 
- enum gelic_lv1_vlan_index {
- 	/* for outgoing packets */
--	GELIC_LV1_VLAN_TX_ETHERNET	= 0x0000000000000002L,
-+	GELIC_LV1_VLAN_TX_ETHERNET_0	= 0x0000000000000002L,
- 	GELIC_LV1_VLAN_TX_WIRELESS	= 0x0000000000000003L,
-+
- 	/* for incoming packets */
--	GELIC_LV1_VLAN_RX_ETHERNET	= 0x0000000000000012L,
--	GELIC_LV1_VLAN_RX_WIRELESS	= 0x0000000000000013L
-+	GELIC_LV1_VLAN_RX_ETHERNET_0	= 0x0000000000000012L,
-+	GELIC_LV1_VLAN_RX_WIRELESS	= 0x0000000000000013L,
-+};
-+
-+enum gelic_lv1_phy {
-+	GELIC_LV1_PHY_ETHERNET_0	= 0x0000000000000002L,
- };
- 
- /* size of hardware part of gelic descriptor */
- #define GELIC_DESCR_SIZE	(32)
- 
- enum gelic_port_type {
--	GELIC_PORT_ETHERNET = 0,
--	GELIC_PORT_WIRELESS = 1,
-+	GELIC_PORT_ETHERNET_0	= 0,
-+	GELIC_PORT_WIRELESS	= 1,
- 	GELIC_PORT_MAX
- };
- 
-
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
