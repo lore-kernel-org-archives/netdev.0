@@ -1,69 +1,89 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] sch_htb: ix the deficit overflows
-Date: Tue, 1 Dec 2009 08:43:32 +0000
-Message-ID: <20091201084332.GB6408@ff.dom.local>
-References: <4B0F8A5D.1040806@gmail.com> <20091128000401.GA3713@ami.dom.local> <412e6f7f0911292026w704a70b8yc3af2c2473e05d34@mail.gmail.com> <20091130111020.GA7114@ff.dom.local> <412e6f7f0911301832o53e479f0x42345065b0b1616f@mail.gmail.com> <20091201080151.GA6408@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch] net: fix an array index overflow
+Date: Tue, 01 Dec 2009 09:48:56 +0100
+Message-ID: <4B14D878.1070802@gmail.com>
+References: <20091201082901.4678.16688.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Martin Devera <martin.devera@cdi.cz>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:33081 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752891AbZLAInc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 03:43:32 -0500
-Received: by bwz27 with SMTP id 27so3221683bwz.21
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2009 00:43:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20091201080151.GA6408@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753917AbZLAItK@vger.kernel.org>
+In-Reply-To: <20091201082901.4678.16688.sendpatchset@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 01, 2009 at 08:01:51AM +0000, Jarek Poplawski wrote:
-> On Tue, Dec 01, 2009 at 10:32:26AM +0800, Changli Gao wrote:
-> > On Mon, Nov 30, 2009 at 7:10 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-...
-> > > And this patch is very similar, except ->peek()/dequeue(). Additional
-> > > lookups are done instead of dequeuing the first found class, which
-> > > might be quite long in some cases.
-> > 
-> > If the quantum is set correctly, there isn't difference except of a
-> > comparison. In the other case, I think some additional CPU cycles are
-> > better than overflow.
-> 
-> No, my main point is there _is_ a difference when the quantum is set
-> correctly. Just these additional lookups.
+Amerigo Wang a =E9crit :
+> Don't use the address of an out-of-boundary element.
+>=20
+> Maybe this is not harmful at runtime, but it is still
+> good to improve it.
 
-And, again, there are less invasive ways to fix such overflow, like
+Why ?
 
-htb_dequeue_tree()
-{
-...
-        if (likely(skb != NULL)) {
-                cl->un.leaf.deficit[level] -= qdisc_pkt_len(skb);
-                if (cl->un.leaf.deficit[level] < 0) {
-                        cl->un.leaf.deficit[level] += cl->quantum;
+for (ptr =3D start; ptr < end; ptr++) {}
 
-+                	if (cl->un.leaf.deficit[level] < 0)
-+                        	cl->un.leaf.deficit[level] = -cl->quantum;
-+				/* or other limit */
+is valid, even if 'end' is 'outside of bounds'
 
-                        htb_next_rb_node((level ? cl->parent->un.inner.ptr : q->
-                                          ptr[0]) + prio);
-                }
-                /* this used to be after charge_class but this constelation
-                   gives us slightly better performance */
-                if (!cl->un.leaf.q->q.qlen)
-                        htb_deactivate(q, cl);
-                htb_charge_class(q, cl, level, skb);
-        }
-        return skb;
-}
+It also works if start =3D=3D end.
 
-or even always zeroing cl->un.leaf.deficit[level] on activation or
-deactivation (it's seems unlikely one activity period is enough for
-such an overflow).
+>=20
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Cc: David S. Miller <davem@davemloft.net>
+>=20
+> ---
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 57737b8..2669361 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1586,7 +1586,7 @@ static int __init inet_init(void)
+>  #endif
+> =20
+>  	/* Register the socket-side information for inet_create. */
+> -	for (r =3D &inetsw[0]; r < &inetsw[SOCK_MAX]; ++r)
+> +	for (r =3D &inetsw[0]; r <=3D &inetsw[SOCK_MAX-1]; ++r)
+>  		INIT_LIST_HEAD(r);
+> =20
+>  	for (q =3D inetsw_array; q < &inetsw_array[INETSW_ARRAY_LEN]; ++q)
+> --
 
-Jarek P.
+I wonder why you want to 'fix' this loop and let following loop unchang=
+ed...
+
+	for (q =3D inetsw_array; q < &inetsw_array[INETSW_ARRAY_LEN]; ++q)
+		inet_register_protosw(q);
+
+If this really hurts your eyes, why not using basic loops ?
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 7d12c6a..476cda7 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1540,8 +1540,7 @@ static struct packet_type ip_packet_type __read_m=
+ostly =3D {
+ static int __init inet_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
+-	struct inet_protosw *q;
+-	struct list_head *r;
++	int i;
+ 	int rc =3D -EINVAL;
+=20
+ 	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+@@ -1584,11 +1583,11 @@ static int __init inet_init(void)
+ #endif
+=20
+ 	/* Register the socket-side information for inet_create. */
+-	for (r =3D &inetsw[0]; r < &inetsw[SOCK_MAX]; ++r)
+-		INIT_LIST_HEAD(r);
++	for (i =3D 0; i < SOCK_MAX; i++)
++		INIT_LIST_HEAD(&inetsw[i]);
+=20
+-	for (q =3D inetsw_array; q < &inetsw_array[INETSW_ARRAY_LEN]; ++q)
+-		inet_register_protosw(q);
++	for (i =3D 0; i < INETSW_ARRAY_LEN; i++)
++		inet_register_protosw(&inetsw_array[i]);
+=20
+ 	/*
+ 	 *	Set the ARP module up
