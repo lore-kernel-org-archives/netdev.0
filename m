@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bridge + Conntrack + SKB Recycle: Fragment Reassembly Errors
-Date: Tue, 01 Dec 2009 15:54:20 -0800 (PST)
-Message-ID: <20091201.155420.192663257.davem@davemloft.net>
-References: <4B088600.8090209@trash.net>
-	<767BAF49E93AFB4B815B11325788A8ED4B1FDC@L01SLCXDB03.calltower.com>
-	<4B154337.8060702@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: Add ll_index_to_addr function
+Date: Tue, 1 Dec 2009 15:54:46 -0800
+Message-ID: <20091201155446.37cee6a8@nehalam>
+References: <1255632793-17779-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ben@bigfootnetworks.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, David Ward <david.ward@ll.mit.edu>
+To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44683
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753329AbZLAXyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 18:54:14 -0500
-In-Reply-To: <4B154337.8060702@trash.net>
+Received: from mail.vyatta.com ([76.74.103.46]:42831 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754784AbZLAXzB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Dec 2009 18:55:01 -0500
+In-Reply-To: <1255632793-17779-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 01 Dec 2009 17:24:23 +0100
+On Thu, 15 Oct 2009 14:53:13 -0400
+David Ward <david.ward@ll.mit.edu> wrote:
 
-> Dave, attached is the patch again with a proper changelog.
+> After calling ll_init_map, all of the information stored in the link-layer map
+> can be retrieved by function calls (ll_index_to_*), except for the link-layer
+> address. This patch fills the gap by adding a ll_index_to_addr function.
+> Changes welcome.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> ---
 
-Applied to net-2.6, thanks a lot everyone.
+applied, thanks
 
-I'll queue this up for -stable as well.
+
+-- 
