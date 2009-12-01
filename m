@@ -1,29 +1,43 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [RFC] sk_nulls_next_rcu
-Date: Mon, 30 Nov 2009 22:59:29 -0200
-Message-ID: <20091201005929.GB21463@ghostprotocols.net>
-References: <200912010219.29340.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: warning: massive change to conditional coding style in net?
+Date: Tue, 01 Dec 2009 15:28:43 -0800 (PST)
+Message-ID: <20091201.152843.207086860.davem@davemloft.net>
+References: <4B13A025.7000103@gmail.com>
+	<20091130.123644.203668577.davem@davemloft.net>
+	<4B1558D8.4010804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:60936 "EHLO
-	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753525AbZLAXSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 18:18:42 -0500
-Received: by gxk26 with SMTP id 26so110942gxk.1
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2009 15:18:48 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <200912010219.29340.opurdila@ixiacom.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59820
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754557AbZLAX2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 18:28:38 -0500
+In-Reply-To: <4B1558D8.4010804@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Dec 01, 2009 at 02:19:29AM +0200, Octavian Purdila escreveu:
-> 
-> I am trying to convert the LLC code to RCU, and it appears that for proc 
-> support a sk_nulls_next_rcu would be required. 
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Tue, 01 Dec 2009 12:56:40 -0500
 
-I find it amusing, and give you a carte blanche on that! :-)
+> Heck, changes to comments!
 
-- Arnaldo
+Comments help people understand your code.  Long after you're gone and
+no longer around, other people will need to read your code, maintain
+it, and fix bugs in it.
+
+That's why well written and properly formatted comments are important.
+
+Again, nobody is picking on your specifically, everyone goes through
+this review process.  What is unique about you is that you're the only
+one who throws rotten tomatoes back at the reviewers instead of simply
+fixing up your patch set and resubmitting.
+
+If the changes requested are so simple and trivial, then it should
+take you but a few minutes to respin your patches with the fixes
+included.
+
+It definitely takes you more effort to write all of these angry
+emails, but how you spend your time is your choice.
