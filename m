@@ -1,60 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: warning: massive change to conditional coding style in net?
-Date: Tue, 01 Dec 2009 19:30:14 +0100
-Message-ID: <4B1560B6.3020907@gmail.com>
-References: <4B13A025.7000103@gmail.com> <20091130.123644.203668577.davem@davemloft.net> <4B1558D8.4010804@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753863AbZLASaP@vger.kernel.org>
-In-Reply-To: <4B1558D8.4010804@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arnaldo Carvalho de Melo <acme@infradead.org>
+Subject: [PATCH 1/1] net: compat_mmsghdr must be used in sys_recvmmsg
+Date: Tue,  1 Dec 2009 16:47:26 -0200
+Message-ID: <1259693246-30341-1-git-send-email-acme@infradead.org>
+Cc: netdev@vger.kernel.org,
+	Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:52873 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320AbZLASrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 13:47:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson a =E9crit :
-=20
-> If these changes had been mentioned a month or two ago, as part of a
-> thorough review, it could have been discussed earlier.  Instead, it's
-> like being nibbled by mice.
+From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
 
-William,
+Both to traverse the entries and to set the msg_len field.
 
-This is absolutely _not_ possible to comment a 1000+ lines patches in o=
-ne shot,
-being your patch or not.
+Commiter note: folded two patches and avoided one branch repeating the
+compat test.
 
-It would take _hours_ of work, even for David.
+Signed-off-by: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/socket.c |   24 ++++++++++++++++++------
+ 1 files changed, 18 insertions(+), 6 deletions(-)
 
-We use a step-by-step process, with limited feedbacks, because nobody i=
-s paid
-to make your life easier. We patiently gave you a lot of advices and ye=
-t
-you complain again and again.
+diff --git a/net/socket.c b/net/socket.c
+index 402abb3..b94c3dd 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2144,6 +2144,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 	int fput_needed, err, datagrams;
+ 	struct socket *sock;
+ 	struct mmsghdr __user *entry;
++	struct compat_mmsghdr __user *compat_entry;
+ 	struct msghdr msg_sys;
+ 	struct timespec end_time;
+ 
+@@ -2163,19 +2164,30 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		goto out_put;
+ 
+ 	entry = mmsg;
++	compat_entry = (struct compat_mmsghdr __user *)mmsg;
+ 
+ 	while (datagrams < vlen) {
+ 		/*
+ 		 * No need to ask LSM for more than the first datagram.
+ 		 */
+-		err = __sys_recvmsg(sock, (struct msghdr __user *)entry,
+-				    &msg_sys, flags, datagrams);
+-		if (err < 0)
+-			break;
+-		err = put_user(err, &entry->msg_len);
++		if (MSG_CMSG_COMPAT & flags) {
++			err = __sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
++					    &msg_sys, flags, datagrams);
++			if (err < 0)
++				break;
++			err = __put_user(err, &compat_entry->msg_len);
++			++compat_entry;
++		} else {
++			err = __sys_recvmsg(sock, (struct msghdr __user *)entry,
++					    &msg_sys, flags, datagrams);
++			if (err < 0)
++				break;
++			err = put_user(err, &entry->msg_len);
++			++entry;
++		}
++
+ 		if (err)
+ 			break;
+-		++entry;
+ 		++datagrams;
+ 
+ 		if (timeout) {
+-- 
+1.6.2.5
 
-After 15/30 minutes of reviewing patches, and collecting some suggestio=
-ns,
-the average reviewer stops its review, sends a feedback, and waits for =
-next
-patch submission. [hoping patch author will be pro_active and check all=
- its
-patches, not the precise points that were specificaly raised.]
-
-Yes, sometime we notice a point at round eleven, instead of first/secon=
-d round,
-because more important things were noticed at prior rounds.
-
-I honestly hope you change your mind, or I wont even read your next pat=
-ch
-submissions, wait for the official RFC and code the damn thing myself o=
-r wait for
-some kind developper willing to do the job, in the normal process.
-
-You can copy this mail to all man kind, it wont make your patches magic=
-ally
-ready for inclusion.
-
-Respectfully,
-Eric
