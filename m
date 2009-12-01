@@ -1,58 +1,97 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: scp stalls mysteriously
-Date: Tue, 1 Dec 2009 22:27:01 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
-References: <20091127223545.2a752429@houba> <alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi> <20091128010156.1219012a@houba> <alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi> <20091130195004.38dbc319@houba>
- <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi> <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-1831628680-1259699221=:1904"
-Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>
-To: Frederic Leroy <fredo@starox.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a separate vlan from bond device
+Date: Tue, 01 Dec 2009 13:28:13 -0800
+Message-ID: <21331.1259702893@death.nxdomain.ibm.com>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com> <29892.1259625638@death.nxdomain.ibm.com> <20091201012145.GH1639@gospo.rdu.redhat.com> <6611.1259632635@death.nxdomain.ibm.com> <20091201144410.GI1639@gospo.rdu.redhat.com>
+Cc: netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33033 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbZLAU04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 15:26:56 -0500
-In-Reply-To: <20091201211945.505d3c98@houba>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:37971 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbZLAV2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 16:28:24 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id nB1LRGW2017042
+	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 14:27:16 -0700
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id nB1LSPgR081014
+	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 14:28:25 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB1FJOeq015074
+	for <netdev@vger.kernel.org>; Tue, 1 Dec 2009 08:19:24 -0700
+In-reply-to: <20091201144410.GI1639@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Andy Gospodarek <andy@greyhouse.net> wrote:
+[...]
+>I am using arp_validate, actually.  I forgot that the arp_validate
+>option doesn't show up in the output of /proc/net/bonding/bondX and I
+>intended to have that in the subject, but somehow dropped it.
 
----696230645-1831628680-1259699221=:1904
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+	Ok, I was doing it wrong earlier; it works with arp_validate.
+I'm seeing one problem with tcpdump, though, which I'll get to in a
+minute.
 
-On Tue, 1 Dec 2009, Frederic Leroy wrote:
+	Could you update the summary / changelog message to mention that
+this patch fixes the specific case of arp_validate + arp_ip_target on
+VLAN?
 
-> Le Mon, 30 Nov 2009 23:37:56 +0200 (EET),
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> a écrit :
-> 
-> > On Mon, 30 Nov 2009, Frederic Leroy wrote:
-> >
-> > Could you try btw to disable frto (set tcp_frto sysctl to zero), in
-> > theory it could cause zero cwnd if something else is wrong too (I
-> > haven't yet read them all through so there might be other places
-> > where a zero cwnd can be set). Also I'm interested what happens if
-> > you disable timestamps, is the problem still reproducable.
-> 
-> I made 3 new traces and put it in the usual place.
-> One with frto set to 0, one just after with frto set to 2.
-> 
-> And the last with timestamp disabled. 
-> 
-> All stream has stalled.
+	Second, in regards to this:
 
-Thanks, I'll hopefully have some time tomorrow to go through all the new 
-ones. In the meantime, can you provide your tso configuration on houba 
-(ethtool -k dev). If tso is on it might be worth to try without it 
-(set with -K), however, I don't expect it to change anything. Also,
-I wonder if you have had some working (past) kernel version?
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2439,8 +2439,8 @@ int netif_receive_skb(struct sk_buff *skb)
+ 		skb->skb_iif = skb->dev->ifindex;
 
-No need for additional traces atm, I'll get back to this once I've gone 
-through the logs.
+ 	null_or_orig = NULL;
+-	orig_dev = skb->dev;
+-	if (orig_dev->master) {
++	orig_dev = __dev_get_by_index(dev_net(skb->dev),skb->skb_iif);
++	if (orig_dev->master && !(skb->dev->priv_flags & IFF_802_1Q_VLAN)) {
+ 		if (skb_bond_should_drop(skb))
+ 			null_or_orig = orig_dev; /* deliver only exact match */
+ 		else
 
--- 
- i.
----696230645-1831628680-1259699221=:1904--
+	Would it be useful to add a comment to the effect that VLAN
+packets are run through skb_bond_should_drop at the VLAN layer?
+
+	Lastly, in regards to this:
+
+@@ -2492,7 +2492,7 @@ ncls:
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+ 		if (ptype->type == type &&
+ 		    (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+-		     ptype->dev == orig_dev)) {
++		     ptype->dev == orig_dev || ptype->dev == orig_dev->master)) {
+ 			if (pt_prev)
+ 				ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = ptype;
+
+	This is presumably here because orig_dev will now be the actual
+slave the packet arrived on, but we want to additionally deliver to the
+master, correct?
+
+	Lastly, tcpdump.
+
+	This patch appears to affect what traffic tcpdump of a slave or
+the bonding master itself will capture.  Previously, tcpdump of the
+active slave would see only the transmitted packets sent over the bond,
+and tcpdump of the inactive slave would see incoming Ethernet-layer
+multicast or broadcasts sent to its switch port.  Tcpdump on the master
+would see all sent and non-VLAN received traffic, and tcpdump of the
+VLAN interface over the master would see just the VLAN traffic.
+
+	After this change, tcpdump of the active slave or of the bonding
+master (bond0) sees both sent and received traffic for the VLAN, but
+nothing for the non-VLAN traffic other than incoming broadcast /
+multicasts.  This holds true whether or not a VLAN is configured.
+
+	I added a "ptype->dev == orig_dev->master" test to the ptype_all
+receive block in netif_receive_skb, but it didn't help.  At the moment,
+I'm not exactly sure why tcpdump breaks.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
