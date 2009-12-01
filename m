@@ -1,54 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/20] Batch network namespace cleanup
-Date: Mon, 30 Nov 2009 16:34:54 -0800 (PST)
-Message-ID: <20091130.163454.192638570.davem@davemloft.net>
-References: <m1ljhodbtw.fsf@fess.ebiederm.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [RFC] sk_nulls_next_rcu
+Date: Tue, 1 Dec 2009 02:32:47 +0200
+Message-ID: <200912010232.47308.opurdila@ixiacom.com>
+References: <200912010219.29340.opurdila@ixiacom.com> <20091130.162454.119309341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, dlezcano@fr.ibm.com,
-	adobriyan@gmail.com, kaber@trash.net
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753149AbZLAAes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 19:34:48 -0500
-In-Reply-To: <m1ljhodbtw.fsf@fess.ebiederm.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13503 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753148AbZLAAfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 19:35:54 -0500
+In-Reply-To: <20091130.162454.119309341.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 29 Nov 2009 17:46:03 -0800
-
-> Recently Jamal and Daniel perform some experiments and found that
-> large numbers of network namespace exiting simultaneously is very
-> inefficient.  24+ minutes in some configurations.  The cpu overhead
-> was negligible but it results in long hold times of net_mutex, and
-> memory being consumed a long time after the last user has gone away.
+On Tuesday 01 December 2009 02:24:54 you wrote:
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Tue, 1 Dec 2009 02:19:29 +0200
 > 
-> I looked into it and discovered that by batching network namespace
-> cleanups I can reduce the time for 4k network namespaces exiting from
-> 5-7 minutes in my configuration to 44 seconds.
+> > I am trying to convert the LLC code to RCU, and it appears that for proc
+> > support a sk_nulls_next_rcu would be required.
+> >
+> > Is this the wrong way to do it, or is it that nobody need it yet?
 > 
-> This patch series is my set of changes to the network namespace core
-> and associated cleanups to allow for network namespace batching.
+> I think simply nobody needed it yet.
+> 
+> Eric, please take a look at Octavian's patch, thanks!
+> 
 
-All applied, and assuming all of the build checks pass I'll
-push this out to net-next-2.6
-
-I should look into that inet_twsk_purge performance issue you mention
-when tearing down a namespace.  It walks the entire hash table and
-takes a lock for every hash chain.
-
-Eric, is it possible for us to at least slightly optimize this by
-doing a peek at whether the head pointer of each chain is NULL and
-bypass the spinlock and everything else in that case?  Or is this
-not legal with sk_nulls?
-
-Something like:
-
-	if (hlist_nulls_empty(&head->twchain))
-		continue;
-
-right before the 'restart' label?
+I will send a patch series later with several LLC enhancements, no need to 
+look over the LLC bits yet - its not all done yet. I'll CC Eric on the RCU 
+parts :)
