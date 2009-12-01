@@ -1,44 +1,91 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: net 03/05: fib_rules: add oif classification
-Date: Tue, 1 Dec 2009 09:48:00 +0000
-Message-ID: <20091201094800.GB7573@ff.dom.local>
-References: <20091130175529.7555.10132.sendpatchset@x2.localnet> <20091130175533.7555.35189.sendpatchset@x2.localnet> <4B1447DD.1070904@gmail.com> <4B14E2B8.3030507@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: iplink_vlan: add support for VLAN loose binding flag
+Date: Tue, 01 Dec 2009 12:21:39 +0100
+Message-ID: <4B14FC43.5010501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------000701060402020509040509"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f213.google.com ([209.85.220.213]:44378 "EHLO
-	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753737AbZLAJsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 04:48:00 -0500
-Received: by fxm5 with SMTP id 5so4666391fxm.28
-        for <netdev@vger.kernel.org>; Tue, 01 Dec 2009 01:48:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4B14E2B8.3030507@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:41060 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369AbZLALVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 06:21:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 01, 2009 at 10:32:40AM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > Patrick McHardy wrote, On 11/30/2009 06:55 PM:
-> >   
-> >> diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-> >> index 62bebcb..d4e875a 100644
-> >> --- a/include/net/fib_rules.h
-> >> +++ b/include/net/fib_rules.h
-> >> @@ -11,6 +11,7 @@ struct fib_rule {
-> >>  	struct list_head	list;
-> >>  	atomic_t		refcnt;
-> >>  	int			iifindex;
-> >> +	int			oifindex;
-> >>     
-> >
-> > Doesn't it "break" the cacheline fix from 01/05?
-> 
-> No, there's a 4 byte hole which is plugged by this:
-> 
+This is a multi-part message in MIME format.
+--------------000701060402020509040509
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Right, I missed it, sorry.
+This patch adds support for the VLAN loose binding flag that is
+supported in net-next to iplink_vlan.
 
-Jarek P.
+
+--------------000701060402020509040509
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit 870970deb6cbea7a5d4881bdd717304d5284d315
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Dec 1 12:21:15 2009 +0100
+
+    iplink_vlan: add support for VLAN loose binding flag
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 2dc4a57..329b354 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -33,6 +33,7 @@ enum vlan_ioctl_cmds {
+ enum vlan_flags {
+ 	VLAN_FLAG_REORDER_HDR	= 0x1,
+ 	VLAN_FLAG_GVRP		= 0x2,
++	VLAN_FLAG_LOOSE_BINDING	= 0x4,
+ };
+ 
+ enum vlan_name_types {
+diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
+index 9724482..223feb3 100644
+--- a/ip/iplink_vlan.c
++++ b/ip/iplink_vlan.c
+@@ -27,6 +27,7 @@ static void explain(void)
+ 		"VLANID := 0-4095\n"
+ 		"FLAG-LIST := [ FLAG-LIST ] FLAG\n"
+ 		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ]\n"
++		"        [ loose_binding { on | off } ]\n"
+ 		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
+ 		"QOS-MAPPING := FROM:TO\n"
+ 	);
+@@ -102,6 +103,15 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				flags.flags &= ~VLAN_FLAG_GVRP;
+ 			else
+ 				return on_off("gvrp");
++		} else if (matches(*argv, "loose_binding") == 0) {
++			NEXT_ARG();
++			flags.mask |= VLAN_FLAG_LOOSE_BINDING;
++			if (strcmp(*argv, "on") == 0)
++				flags.flags |= VLAN_FLAG_LOOSE_BINDING;
++			else if (strcmp(*argv, "off") == 0)
++				flags.flags &= ~VLAN_FLAG_LOOSE_BINDING;
++			else
++				return on_off("loose_binding");
+ 		} else if (matches(*argv, "ingress-qos-map") == 0) {
+ 			NEXT_ARG();
+ 			if (vlan_parse_qos_map(&argc, &argv, n,
+@@ -156,6 +166,7 @@ static void vlan_print_flags(FILE *fp, __u32 flags)
+ 		}
+ 	_PF(REORDER_HDR);
+ 	_PF(GVRP);
++	_PF(LOOSE_BINDING);
+ #undef _PF
+ 	if (flags)
+ 		fprintf(fp, "%x", flags);
+
+--------------000701060402020509040509--
