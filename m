@@ -1,66 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] ethtool: Fix switch on port type
-Date: Tue, 01 Dec 2009 16:06:55 +0000
-Message-ID: <1259683615.2831.16.camel@achroite.uk.solarflarecom.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: warning: massive change to conditional coding style in net?
+Date: Tue, 01 Dec 2009 11:08:59 -0500
+Message-ID: <4B153F9B.7050502@gmail.com>
+References: <4B13A025.7000103@gmail.com> <1259603798.29779.293.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:21032 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841AbZLAQG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 11:06:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754133AbZLAQI6@vger.kernel.org>
+In-Reply-To: <1259603798.29779.293.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The new port type cases in commit 6e0512c 'ethtool: Add Direct Attach
-to the available connector ports' were somehow inserted into the
-switch on duplex type, not on port type.  Move them to the correct
-place.
+Joe Perches wrote:
+> On Mon, 2009-11-30 at 05:36 -0500, William Allen Simpson wrote:
+>> Over the past several days, David Miller (with help from Joe Perches)
+>> made sweeping changes to the format of conditional statements in the
+>> net tree -- the equivalent of mass patches that change spaces.
+>> This makes writing patches for multiple versions of the tree very
+>> difficult, and will make future pullups problematic.
+> 
+> If it makes getting tcp cookies accepted difficult,
+> a reversion is simple.  That style isn't as important.
+> 
+Then why make an *un*important (yet sweeping) change?
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/ethtool.c b/ethtool.c
-index df02e91..10dfc80 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -965,12 +965,6 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 	case DUPLEX_FULL:
- 		fprintf(stdout, "Full\n");
- 		break;
--	case PORT_DA:
--		fprintf(stdout, "Direct Attach Copper\n");
--		break;
--	case PORT_NONE:
--		fprintf(stdout, "None\n");
--		break;
- 	default:
- 		fprintf(stdout, "Unknown! (%i)\n", ep->duplex);
- 		break;
-@@ -993,6 +987,12 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 	case PORT_FIBRE:
- 		fprintf(stdout, "FIBRE\n");
- 		break;
-+	case PORT_DA:
-+		fprintf(stdout, "Direct Attach Copper\n");
-+		break;
-+	case PORT_NONE:
-+		fprintf(stdout, "None\n");
-+		break;
- 	case PORT_OTHER:
- 		fprintf(stdout, "Other\n");
- 		break;
--- 
-1.5.5
+> I think writing a single set of patches for multiple
+> versions of linux is not feasible.  Feature changes
+> occur in kernel source daily.
+> 
+My patches were carefully written and applied with small fuzz to .30,
+and .31, and .32-rc3.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
+>> 	if (condition
+>> 	    && condition
+>> 	    && (condition
+>> 	        || condition
+>> 	        || condition)) {
+> 
+> The above is my personally preferred style.
+> 
+That seems fine to me.  And in some areas of the tree, nearly 100% of
+other contributors, too.
+
+My personally preferred style is the single spaced variant, that also
+conforms to the strict letter of CodingStyle, to wit:
+
+   Use one space around (on each side of) most binary and ternary operators
+
+
+>> 	if (condition &&
+>>              condition && (condition || condition ||
+>> 	    condition)) {
+> 
+> Except for the odd spacing, this is the significant
+> majority of net/ style.
+> 
+> The leading style was < 10%.  It's less now.
+> 
+That's only true in net/ -- since the overall tree was 18.7%, with
+net/ < 10%, the density was *much* higher elsewhere.
+
+But more important, at least to my thinking, is keeping patches simple
+by conforming to the *existing* style in the section of code.  No
+sweeping changes!
