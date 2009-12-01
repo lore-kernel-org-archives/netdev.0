@@ -1,7 +1,7 @@
 From: Geoff Levand <geoffrey.levand@am.sony.com>
-Subject: [patch 2/2] net/ps3: Add support for gelic link negotiation
-Date: Tue, 1 Dec 2009 14:15:58 -0800
-Message-ID: <4B15959E.7070708@am.sony.com>
+Subject: [patch 1/2] net/ps3: Cleanup gelic enums
+Date: Tue, 1 Dec 2009 14:15:53 -0800
+Message-ID: <4B159599.1010208@am.sony.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -9,150 +9,174 @@ Cc: netdev@vger.kernel.org,
 	"cbe-oss-dev@ozlabs.org" <cbe-oss-dev@ozlabs.org>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:31520 "EHLO
-	TX2EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbZLAWQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 17:16:40 -0500
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:26115 "EHLO
+	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753523AbZLAWQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 17:16:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Cleanup of the gelic driver enumerations:
 
-From: Hideyuki Sasaki <Hideyuki_Sasaki@hq.scei.sony.co.jp>
+ o Add some missing commas.
+ o Add an Ether port post fix (PS3 currently only supports PORT_0).
+ o Add a new enum gelic_lv1_phy to use when interacting with the PHY.
 
-Add ethtool_ops.set_settings support to the PS3 gelic network driver.
-Allows manual setting of ethernet link speed.
-
-Signed-off-by: Hideyuki Sasaki <xhide@rd.scei.sony.co.jp>
 Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com>
 ---
- drivers/net/ps3_gelic_net.c |   72 ++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/ps3_gelic_net.h |    2 +
- 2 files changed, 72 insertions(+), 2 deletions(-)
+Hi Jeff,
+
+This patch does some cleanup needed by the 2nd patch
+[patch 2/2] net/ps3: Add support for gelic link negotiation.
+
+Please apply for 2.3.33.
+
+-Geoff
+
+ drivers/net/ps3_gelic_net.c |   26 +++++++++++++-------------
+ drivers/net/ps3_gelic_net.h |   19 ++++++++++++-------
+ 2 files changed, 25 insertions(+), 20 deletions(-)
 
 --- a/drivers/net/ps3_gelic_net.c
 +++ b/drivers/net/ps3_gelic_net.c
-@@ -107,6 +107,24 @@ static void gelic_card_get_ether_port_st
+@@ -95,11 +95,11 @@ static void gelic_card_get_ether_port_st
+ 
+ 	lv1_net_control(bus_id(card), dev_id(card),
+ 			GELIC_LV1_GET_ETH_PORT_STATUS,
+-			GELIC_LV1_VLAN_TX_ETHERNET, 0, 0,
++			GELIC_LV1_VLAN_TX_ETHERNET_0, 0, 0,
+ 			&card->ether_port_status, &v2);
+ 
+ 	if (inform) {
+-		ether_netdev = card->netdev[GELIC_PORT_ETHERNET];
++		ether_netdev = card->netdev[GELIC_PORT_ETHERNET_0];
+ 		if (card->ether_port_status & GELIC_LV1_ETHER_LINK_UP)
+ 			netif_carrier_on(ether_netdev);
+ 		else
+@@ -451,14 +451,14 @@ static void gelic_descr_release_tx(struc
+ 
+ static void gelic_card_stop_queues(struct gelic_card *card)
+ {
+-	netif_stop_queue(card->netdev[GELIC_PORT_ETHERNET]);
++	netif_stop_queue(card->netdev[GELIC_PORT_ETHERNET_0]);
+ 
+ 	if (card->netdev[GELIC_PORT_WIRELESS])
+ 		netif_stop_queue(card->netdev[GELIC_PORT_WIRELESS]);
+ }
+ static void gelic_card_wake_queues(struct gelic_card *card)
+ {
+-	netif_wake_queue(card->netdev[GELIC_PORT_ETHERNET]);
++	netif_wake_queue(card->netdev[GELIC_PORT_ETHERNET_0]);
+ 
+ 	if (card->netdev[GELIC_PORT_WIRELESS])
+ 		netif_wake_queue(card->netdev[GELIC_PORT_WIRELESS]);
+@@ -999,7 +999,7 @@ static int gelic_card_decode_one_descr(s
+ 			goto refill;
+ 		}
+ 	} else
+-		netdev = card->netdev[GELIC_PORT_ETHERNET];
++		netdev = card->netdev[GELIC_PORT_ETHERNET_0];
+ 
+ 	if ((status == GELIC_DESCR_DMA_RESPONSE_ERROR) ||
+ 	    (status == GELIC_DESCR_DMA_PROTECTION_ERROR) ||
+@@ -1369,7 +1369,7 @@ static void gelic_net_tx_timeout_task(st
+ {
+ 	struct gelic_card *card =
+ 		container_of(work, struct gelic_card, tx_timeout_task);
+-	struct net_device *netdev = card->netdev[GELIC_PORT_ETHERNET];
++	struct net_device *netdev = card->netdev[GELIC_PORT_ETHERNET_0];
+ 
+ 	dev_info(ctodev(card), "%s:Timed out. Restarting... \n", __func__);
+ 
+@@ -1531,10 +1531,10 @@ static struct gelic_card * __devinit gel
+ 	/* gelic_port */
+ 	port->netdev = *netdev;
+ 	port->card = card;
+-	port->type = GELIC_PORT_ETHERNET;
++	port->type = GELIC_PORT_ETHERNET_0;
+ 
+ 	/* gelic_card */
+-	card->netdev[GELIC_PORT_ETHERNET] = *netdev;
++	card->netdev[GELIC_PORT_ETHERNET_0] = *netdev;
+ 
+ 	INIT_WORK(&card->tx_timeout_task, gelic_net_tx_timeout_task);
+ 	init_waitqueue_head(&card->waitq);
+@@ -1554,9 +1554,9 @@ static void __devinit gelic_card_get_vla
+ 		int tx;
+ 		int rx;
+ 	} vlan_id_ix[2] = {
+-		[GELIC_PORT_ETHERNET] = {
+-			.tx = GELIC_LV1_VLAN_TX_ETHERNET,
+-			.rx = GELIC_LV1_VLAN_RX_ETHERNET
++		[GELIC_PORT_ETHERNET_0] = {
++			.tx = GELIC_LV1_VLAN_TX_ETHERNET_0,
++			.rx = GELIC_LV1_VLAN_RX_ETHERNET_0
+ 		},
+ 		[GELIC_PORT_WIRELESS] = {
+ 			.tx = GELIC_LV1_VLAN_TX_WIRELESS,
+@@ -1601,7 +1601,7 @@ static void __devinit gelic_card_get_vla
+ 			i, card->vlan[i].tx, card->vlan[i].rx);
  	}
- }
  
-+static int gelic_card_set_link_mode(struct gelic_card *card, int mode)
-+{
-+	int status;
-+	u64 v1, v2;
-+
-+	status = lv1_net_control(bus_id(card), dev_id(card),
-+				 GELIC_LV1_SET_NEGOTIATION_MODE,
-+				 GELIC_LV1_PHY_ETHERNET_0, mode, 0, &v1, &v2);
-+	if (status) {
-+		pr_info("%s: failed setting negotiation mode %d\n", __func__,
-+			status);
-+		return -EBUSY;
-+	}
-+
-+	card->link_mode = mode;
-+	return 0;
-+}
-+
- void gelic_card_up(struct gelic_card *card)
- {
- 	pr_debug("%s: called\n", __func__);
-@@ -1244,14 +1262,58 @@ static int gelic_ether_get_settings(stru
- 	cmd->supported = SUPPORTED_TP | SUPPORTED_Autoneg |
- 			SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
- 			SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
--			SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full;
-+			SUPPORTED_1000baseT_Full;
- 	cmd->advertising = cmd->supported;
--	cmd->autoneg = AUTONEG_ENABLE; /* always enabled */
-+	if (card->link_mode & GELIC_LV1_ETHER_AUTO_NEG) {
-+		cmd->autoneg = AUTONEG_ENABLE;
-+	} else {
-+		cmd->autoneg = AUTONEG_DISABLE;
-+		cmd->advertising &= ~ADVERTISED_Autoneg;
-+	}
- 	cmd->port = PORT_TP;
+-	if (card->vlan[GELIC_PORT_ETHERNET].tx) {
++	if (card->vlan[GELIC_PORT_ETHERNET_0].tx) {
+ 		BUG_ON(!card->vlan[GELIC_PORT_WIRELESS].tx);
+ 		card->vlan_required = 1;
+ 	} else
+@@ -1790,7 +1790,7 @@ static int ps3_gelic_driver_remove(struc
+ 	gelic_card_free_chain(card, card->tx_top);
+ 	gelic_card_free_chain(card, card->rx_top);
  
- 	return 0;
- }
- 
-+static int gelic_ether_set_settings(struct net_device *netdev,
-+				    struct ethtool_cmd *cmd)
-+{
-+	struct gelic_card *card = netdev_card(netdev);
-+	u64 mode;
-+	int ret;
-+
-+	if (cmd->autoneg == AUTONEG_ENABLE) {
-+		mode = GELIC_LV1_ETHER_AUTO_NEG;
-+	} else {
-+		switch (cmd->speed) {
-+		case SPEED_10:
-+			mode = GELIC_LV1_ETHER_SPEED_10;
-+			break;
-+		case SPEED_100:
-+			mode = GELIC_LV1_ETHER_SPEED_100;
-+			break;
-+		case SPEED_1000:
-+			mode = GELIC_LV1_ETHER_SPEED_1000;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		if (cmd->duplex == DUPLEX_FULL)
-+			mode |= GELIC_LV1_ETHER_FULL_DUPLEX;
-+		else if (cmd->speed == SPEED_1000) {
-+			pr_info("1000 half duplex is not supported.\n");
-+			return -EINVAL;
-+		}
-+	}
-+
-+	ret = gelic_card_set_link_mode(card, mode);
-+
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
- u32 gelic_net_get_rx_csum(struct net_device *netdev)
- {
- 	struct gelic_card *card = netdev_card(netdev);
-@@ -1349,6 +1411,7 @@ done:
- static const struct ethtool_ops gelic_ether_ethtool_ops = {
- 	.get_drvinfo	= gelic_net_get_drvinfo,
- 	.get_settings	= gelic_ether_get_settings,
-+	.set_settings	= gelic_ether_set_settings,
- 	.get_link	= ethtool_op_get_link,
- 	.get_tx_csum	= ethtool_op_get_tx_csum,
- 	.set_tx_csum	= ethtool_op_set_tx_csum,
-@@ -1657,6 +1720,8 @@ static int __devinit ps3_gelic_driver_pr
- 	/* get internal vlan info */
- 	gelic_card_get_vlan_info(card);
- 
-+	card->link_mode = GELIC_LV1_ETHER_AUTO_NEG;
-+
- 	/* setup interrupt */
- 	result = lv1_net_set_interrupt_status_indicator(bus_id(card),
- 							dev_id(card),
-@@ -1773,6 +1838,9 @@ static int ps3_gelic_driver_remove(struc
- 	struct net_device *netdev0;
- 	pr_debug("%s: called\n", __func__);
- 
-+	/* set auto-negotiation */
-+	gelic_card_set_link_mode(card, GELIC_LV1_ETHER_AUTO_NEG);
-+
- #ifdef CONFIG_GELIC_WIRELESS
- 	gelic_wl_driver_remove(card);
- #endif
+-	netdev0 = card->netdev[GELIC_PORT_ETHERNET];
++	netdev0 = card->netdev[GELIC_PORT_ETHERNET_0];
+ 	/* disconnect event port */
+ 	free_irq(card->irq, card);
+ 	netdev0->irq = NO_IRQ;
 --- a/drivers/net/ps3_gelic_net.h
 +++ b/drivers/net/ps3_gelic_net.h
-@@ -307,6 +307,8 @@ struct gelic_card {
- 	atomic_t users;
+@@ -186,7 +186,7 @@ enum gelic_lv1_net_control_code {
+ 	GELIC_LV1_GET_CHANNEL           = 6,
+ 	GELIC_LV1_POST_WLAN_CMD		= 9,
+ 	GELIC_LV1_GET_WLAN_CMD_RESULT	= 10,
+-	GELIC_LV1_GET_WLAN_EVENT	= 11
++	GELIC_LV1_GET_WLAN_EVENT	= 11,
+ };
  
- 	u64 ether_port_status;
-+	int link_mode;
+ /* for GELIC_LV1_SET_WOL */
+@@ -217,24 +217,29 @@ enum gelic_lv1_ether_port_status {
+ 	GELIC_LV1_ETHER_SPEED_10	= 0x0000000000000010L,
+ 	GELIC_LV1_ETHER_SPEED_100	= 0x0000000000000020L,
+ 	GELIC_LV1_ETHER_SPEED_1000	= 0x0000000000000040L,
+-	GELIC_LV1_ETHER_SPEED_MASK	= 0x0000000000000070L
++	GELIC_LV1_ETHER_SPEED_MASK	= 0x0000000000000070L,
+ };
+ 
+ enum gelic_lv1_vlan_index {
+ 	/* for outgoing packets */
+-	GELIC_LV1_VLAN_TX_ETHERNET	= 0x0000000000000002L,
++	GELIC_LV1_VLAN_TX_ETHERNET_0	= 0x0000000000000002L,
+ 	GELIC_LV1_VLAN_TX_WIRELESS	= 0x0000000000000003L,
 +
- 	/* original address returned by kzalloc */
- 	void *unalign;
+ 	/* for incoming packets */
+-	GELIC_LV1_VLAN_RX_ETHERNET	= 0x0000000000000012L,
+-	GELIC_LV1_VLAN_RX_WIRELESS	= 0x0000000000000013L
++	GELIC_LV1_VLAN_RX_ETHERNET_0	= 0x0000000000000012L,
++	GELIC_LV1_VLAN_RX_WIRELESS	= 0x0000000000000013L,
++};
++
++enum gelic_lv1_phy {
++	GELIC_LV1_PHY_ETHERNET_0	= 0x0000000000000002L,
+ };
+ 
+ /* size of hardware part of gelic descriptor */
+ #define GELIC_DESCR_SIZE	(32)
+ 
+ enum gelic_port_type {
+-	GELIC_PORT_ETHERNET = 0,
+-	GELIC_PORT_WIRELESS = 1,
++	GELIC_PORT_ETHERNET_0	= 0,
++	GELIC_PORT_WIRELESS	= 1,
+ 	GELIC_PORT_MAX
+ };
  
 
