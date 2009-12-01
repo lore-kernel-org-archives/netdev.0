@@ -1,198 +1,177 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
-	separate vlan from bond device
-Date: Tue, 1 Dec 2009 09:44:10 -0500
-Message-ID: <20091201144410.GI1639@gospo.rdu.redhat.com>
-References: <20091130201453.GF1639@gospo.rdu.redhat.com> <29892.1259625638@death.nxdomain.ibm.com> <20091201012145.GH1639@gospo.rdu.redhat.com> <6611.1259632635@death.nxdomain.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: Fix a connect() race with timewait sockets
+Date: Tue, 01 Dec 2009 16:00:39 +0100
+Message-ID: <4B152F97.1090409@gmail.com>
+References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20197 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752089AbZLAOoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2009 09:44:06 -0500
-Content-Disposition: inline
-In-Reply-To: <6611.1259632635@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: kapil dakhane <kdakhane@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 30, 2009 at 05:57:15PM -0800, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
-> 
-> >On Mon, Nov 30, 2009 at 04:00:38PM -0800, Jay Vosburgh wrote:
-> >> Andy Gospodarek <andy@greyhouse.net> wrote:
-> >> 
-> >> >This allows a bond device to specify an arp_ip_target as a host that is
-> >> >not on the same vlan as the base bond device.  A configuration like
-> >> >this, now works:
-> >> >
-> >> >1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
-> >> >    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> >> >    inet 127.0.0.1/8 scope host lo
-> >> >    inet6 ::1/128 scope host
-> >> >       valid_lft forever preferred_lft forever
-> >> >2: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000
-> >> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-> >> >3: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000
-> >> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-> >> >8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue
-> >> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-> >> >    inet6 fe80::213:21ff:febe:33e9/64 scope link
-> >> >       valid_lft forever preferred_lft forever
-> >> >9: bond0.100@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue
-> >> >    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-> >> >    inet 10.0.100.2/24 brd 10.0.100.255 scope global bond0.100
-> >> >    inet6 fe80::213:21ff:febe:33e9/64 scope link
-> >> >       valid_lft forever preferred_lft forever
-> >> 
-> >> 	I'm not quite clear here on exactly what it is that doesn't
-> >> work.
-> >> 
-> >> 	Putting the arp_ip_target on a VLAN destination already works
-> >> (and has for a long time); I just checked against a 2.6.32-rc to make
-> >> sure I wasn't misremembering.
-> >> 
-> >> 	Perhaps there's some nuance of "not on the same vlan as the base
-> >> bond device" that I'm missing.  What I see working before me is, e.g., a
-> >> bond0.777 VLAN interface atop a regular bond0 active-backup with a
-> >> couple of slaves; bond0 may or may not have an IP address of its own.
-> >> The arp_ip_target destination is on VLAN 777 somewhere.
-> >
-> >Do you have net.ipv4.conf.all.arp_ignore set to 0 and/or an IP address
-> >assigned on bond0?  I can easily reproduce this with no IP on bond0 and
-> >net.ipv4.conf.all.arp_ignore = 1.
-> >
-> >I can't say for sure that the sysctl setting makes a difference, but I
-> >have that on all my test rigs, so it's worth mentioning.
-> >
-> >> 	Is this what your patch is meant to enable, or is it something
-> >> different?  I'm pulling down today's net-next to see if this is
-> >> something that broke recently.
-> >> 
-> >
-> >I first tested and found the problem while running 2.6.30-rc series
-> >after it was reported to be a problem on RHEL5.  It's not clear how long
-> >it has been broken, but this situation is odd enough that it probably
-> >never worked as it was never tested.
-> 
-> 	I tried it with both arp_ignore set to 1 and 0, and with the
-> bond0 interface with and without an IP address.  It works fine in all
-> four cases.  I'm using net-next-2.6 pulled earlier today; it claims to
-> be 2.6.32-rc7.
-> 
-> 	I've tested "ARP monitor over VLAN" in the past, so it's worked
-> for me before.  Heck, it's working right now.
-> 
-> 	I thought maybe you have "arp_validate" enabled (which doesn't
-> work over a VLAN), but your patch doesn't help there, so presumably not.
-> Fixing that is a totally separate adventure into hook-ville; I'd briefly
-> hoped you'd found a better way.
-> 
+kapil dakhane a =E9crit :
+> Hello,
+>=20
+> I am trying to analyze the capacity of linux network stack on x6270
+> which has 16 Hyper threads on two 8-core Intel(r) Xeon(r) CPU. I see
+> that at around 150000 simultaneous connections, after around 1.6 gbps=
+,
+> a cpu get stuck in an infinite loop in inet_csk_bind_conflict, then
+> other cpus get locked up doing spin_lock. Before the lockup cpu usage
+> was around 25%. It appears to be a bug, unless I am hitting some kind
+> of resource limit. It would be good if someone familiar with network
+> code would confirm this, or point me in the right direction.
+>=20
+> Important details are:
+>=20
+> I am using kernel version 2.6.31.4 recompiled with TPROXY related
+> options: NF_CONNTRACK, NETFILTER_TPROXY, NETFILTER_XT_MATCH_SOCKET,
+> NETFILTER_XT_TARGET_TPROXY.
+>=20
+>=20
+> I have enabled transparent capture and transparent forward using
+> iptables and ip rules.  I have 10 instances of a single threaded user
+> space bits-forwarding-proxy (fast), each bound to different
+> hyper-threads (CPUs). Rest 6 CPUs are dedicated to interrupt
+> processing, each handling interrupts from six different network cards=
+=2E
+> TCP flow from a 4-tuple always get handled by the same proxy process,
+> interrupt thread, and network card. In this way, network traffic is
+> segregated as much as possible to achieve high degree of parallelism.
+>=20
+> First /var/log/message entry shows CPU#7 is stuck in inet_csk_bind_co=
+nflict
+>=20
+> Nov 17 23:02:04 cap-x6270-01 kernel: BUG: soft lockup - CPU#7 stuck
+> for 61s! [fast:20701]
 
-I am using arp_validate, actually.  I forgot that the arp_validate
-option doesn't show up in the output of /proc/net/bonding/bondX and I
-intended to have that in the subject, but somehow dropped it.
+After some more audit and coffee, I finally found one subtle bug in our
+connect() code, that periodically triggers but never got tracked.
 
-Here is a bit more detail on my setup:
+Here is a patch cooked on top of current linux-2.6 git tree, it should =
+probably
+apply on 2.6.31.6 as well...
 
-# grep -v ^# /etc/sysconfig/network-scripts/ifcfg-bond0 
-DEVICE=bond0
-BOOTPROTO=none
-ONBOOT=no
-BONDING_OPTS="mode=active-backup arp_interval=1000 arp_ip_target=10.0.100.1 arp_validate=3"
+Thanks
 
-(The 'active' and 'backup' arp_validate options work just as well as
-'all.')
+[PATCH] tcp: Fix a connect() race with timewait sockets
 
-Here is the dmesg output for the above config:
+When we find a timewait connection in __inet_hash_connect() and reuse
+it for a new connection request, we have a race window, releasing bind
+list lock and reacquiring it in __inet_twsk_kill() to remove timewait
+socket from list.
 
-bonding: bond0: Warning: failed to get speed and duplex from eth3, assumed to be 100Mb/sec and Full.
-bonding: bond0: enslaving eth3 as a backup interface with an up link.
-bonding: bond0: setting mode to active-backup (1).
-bonding: bond0: Setting ARP monitoring interval to 1000.
-bonding: bond0: ARP target 10.0.100.1 is already present
-bonding: bond0: setting arp_validate to all (3).
-bnx2: eth2 NIC Copper Link is Up, 100 Mbps full duplex, receive & transmit flow control ON
-bnx2: eth3 NIC Copper Link is Up, 100 Mbps full duplex, receive & transmit flow control ON
-bonding: bond0: link status definitely down for interface eth2, disabling it
-bonding: bond0: making interface eth3 the new active one.
-bonding: bond0: no route to arp_ip_target 10.0.100.1
-bonding: bond0: link status definitely up for interface eth2.
-bond0: no IPv6 routers present
-bond0.100: no IPv6 routers present
+Another thread might find the timewait socket we already chose, leading=
+ to
+list corruption and crashes.
 
-# cat /proc/net/bonding/bond0 
-Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+=46ix is to remove timewait socket from bind list before releasing the =
+lock.
 
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: eth3
-MII Status: up
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-ARP Polling Interval (ms): 1000
-ARP IP target/s (n.n.n.n form): 10.0.100.1
+Reported-by: kapil dakhane <kdakhane@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/inet_timewait_sock.h |    4 +++
+ net/ipv4/inet_hashtables.c       |    4 +++
+ net/ipv4/inet_timewait_sock.c    |   37 ++++++++++++++++++++---------
+ 3 files changed, 34 insertions(+), 11 deletions(-)
 
-Slave Interface: eth2
-MII Status: up
-Link Failure Count: 1
-Permanent HW addr: 00:10:18:36:0a:d4
-
-Slave Interface: eth3
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:10:18:36:0a:d6
-
-> 	When it's failing, are you getting any messages in dmesg?  I'm
-> wondering specifically about any of the various routing-related things
-> that bond_arp_send_all might kick out.
-> 
-
-When it doesn't work, dmesg just looks like this:
-
-bonding: bond0: Warning: failed to get speed and duplex from eth3, assumed to be 100Mb/sec and Full.
-bonding: bond0: enslaving eth3 as a backup interface with an up link.
-bonding: bond0: setting mode to active-backup (1).
-bonding: bond0: Setting ARP monitoring interval to 1000.
-bonding: bond0: ARP target 10.0.100.1 is already present
-bonding: bond0: setting arp_validate to all (3).
-bnx2: eth2 NIC Copper Link is Up, 100 Mbps full duplex, receive & transmit flow control ON
-bnx2: eth3 NIC Copper Link is Up, 100 Mbps full duplex, receive & transmit flow control ON
-bonding: bond0: link status definitely down for interface eth2, disabling it
-bonding: bond0: making interface eth3 the new active one.
-bonding: bond0: no route to arp_ip_target 10.0.100.1
-bonding: bond0: link status definitely down for interface eth3, disabling it
-bonding: bond0: now running without any active interface !
-bond0: no IPv6 routers present
-bond0.100: no IPv6 routers present
-
-# cat /proc/net/bonding/bond0 
-Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: None
-MII Status: down
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-ARP Polling Interval (ms): 1000
-ARP IP target/s (n.n.n.n form): 10.0.100.1
-
-Slave Interface: eth2
-MII Status: down
-Link Failure Count: 1
-Permanent HW addr: 00:10:18:36:0a:d4
-
-Slave Interface: eth3
-MII Status: down
-Link Failure Count: 1
-Permanent HW addr: 00:10:18:36:0a:d6
-
-Though I think that information won't be that useful now that I've
-actually explained this patch makes the arp_validate options work with a
-vlan setup like this.
-
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewa=
+it_sock.h
+index f93ad90..e18e5df 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -206,6 +206,10 @@ extern void __inet_twsk_hashdance(struct inet_time=
+wait_sock *tw,
+ 				  struct sock *sk,
+ 				  struct inet_hashinfo *hashinfo);
+=20
++extern void inet_twsk_unhash(struct inet_timewait_sock *tw,
++			     struct inet_hashinfo *hashinfo,
++			     bool mustlock);
++
+ extern void inet_twsk_schedule(struct inet_timewait_sock *tw,
+ 			       struct inet_timewait_death_row *twdr,
+ 			       const int timeo, const int timewait_len);
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 625cc5f..76d81e4 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -488,6 +488,10 @@ ok:
+ 			inet_sk(sk)->sport =3D htons(port);
+ 			hash(sk);
+ 		}
++
++		if (tw)
++			inet_twsk_unhash(tw, hinfo, false);
++
+ 		spin_unlock(&head->lock);
+=20
+ 		if (tw) {
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_soc=
+k.c
+index 13f0781..2d6d543 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -14,12 +14,34 @@
+ #include <net/inet_timewait_sock.h>
+ #include <net/ip.h>
+=20
++
++void inet_twsk_unhash(struct inet_timewait_sock *tw,
++		      struct inet_hashinfo *hashinfo,
++		      bool mustlock)
++{
++	struct inet_bind_hashbucket *bhead;
++	struct inet_bind_bucket *tb =3D tw->tw_tb;
++
++	if (!tb)
++		return;
++
++	/* Disassociate with bind bucket. */
++	bhead =3D &hashinfo->bhash[inet_bhashfn(twsk_net(tw),
++					      tw->tw_num,
++					      hashinfo->bhash_size)];
++	if (mustlock)
++		spin_lock(&bhead->lock);
++	__hlist_del(&tw->tw_bind_node);
++	tw->tw_tb =3D NULL;
++	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
++	if (mustlock)
++		spin_unlock(&bhead->lock);
++}
++
+ /* Must be called with locally disabled BHs. */
+ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
+ 			     struct inet_hashinfo *hashinfo)
+ {
+-	struct inet_bind_hashbucket *bhead;
+-	struct inet_bind_bucket *tb;
+ 	/* Unlink from established hashes. */
+ 	spinlock_t *lock =3D inet_ehash_lockp(hashinfo, tw->tw_hash);
+=20
+@@ -32,15 +54,8 @@ static void __inet_twsk_kill(struct inet_timewait_so=
+ck *tw,
+ 	sk_nulls_node_init(&tw->tw_node);
+ 	spin_unlock(lock);
+=20
+-	/* Disassociate with bind bucket. */
+-	bhead =3D &hashinfo->bhash[inet_bhashfn(twsk_net(tw), tw->tw_num,
+-			hashinfo->bhash_size)];
+-	spin_lock(&bhead->lock);
+-	tb =3D tw->tw_tb;
+-	__hlist_del(&tw->tw_bind_node);
+-	tw->tw_tb =3D NULL;
+-	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
+-	spin_unlock(&bhead->lock);
++	inet_twsk_unhash(tw, hashinfo, true);
++
+ #ifdef SOCK_REFCNT_DEBUG
+ 	if (atomic_read(&tw->tw_refcnt) !=3D 1) {
+ 		printk(KERN_DEBUG "%s timewait_sock %p refcnt=3D%d\n",
