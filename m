@@ -1,44 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] sk_nulls_next_rcu
-Date: Tue, 01 Dec 2009 04:54:42 +0100
-Message-ID: <4B149382.9030009@gmail.com>
-References: <200912010219.29340.opurdila@ixiacom.com> <20091130.162454.119309341.davem@davemloft.net> <200912010232.47308.opurdila@ixiacom.com>
+Subject: [PATCH net-next-2.6] ieee802154: merge cleanup
+Date: Tue, 01 Dec 2009 04:59:20 +0100
+Message-ID: <4B149498.4030307@gmail.com>
+References: <20091130.010520.56312368.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38774 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48300 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbZLADyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 22:54:45 -0500
-In-Reply-To: <200912010232.47308.opurdila@ixiacom.com>
+	with ESMTP id S1752107AbZLAD7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 22:59:17 -0500
+In-Reply-To: <20091130.010520.56312368.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila a =E9crit :
-> On Tuesday 01 December 2009 02:24:54 you wrote:
->> From: Octavian Purdila <opurdila@ixiacom.com>
->> Date: Tue, 1 Dec 2009 02:19:29 +0200
->>
->>> I am trying to convert the LLC code to RCU, and it appears that for=
- proc
->>> support a sk_nulls_next_rcu would be required.
->>>
->>> Is this the wrong way to do it, or is it that nobody need it yet?
->> I think simply nobody needed it yet.
->>
->> Eric, please take a look at Octavian's patch, thanks!
->>
->=20
-> I will send a patch series later with several LLC enhancements, no ne=
-ed to=20
-> look over the LLC bits yet - its not all done yet. I'll CC Eric on th=
-e RCU=20
-> parts :)
+A small cleanup after last net-2.6 merge into net-next-2.6
 
-No problem I'll review your patches
+As we are going to free skb, no need to set skb->skb_iif or skb->dev
 
-Thanks
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/ieee802154/fakehard.c |    3 ---
+ 1 files changed, 3 deletions(-)
+
+diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
+index 5f67540..d9d0e13 100644
+--- a/drivers/ieee802154/fakehard.c
++++ b/drivers/ieee802154/fakehard.c
+@@ -282,9 +282,6 @@ static int ieee802154_fake_close(struct net_device *dev)
+ static netdev_tx_t ieee802154_fake_xmit(struct sk_buff *skb,
+                                              struct net_device *dev)
+ {
+-       skb->skb_iif = dev->ifindex;
+-       skb->dev = dev;
+-
+        dev->stats.tx_packets++;
+        dev->stats.tx_bytes += skb->len;
 
