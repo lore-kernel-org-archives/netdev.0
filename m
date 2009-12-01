@@ -1,91 +1,158 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [linux-pm] intermittent suspend problem again
-Date: Tue, 1 Dec 2009 22:32:50 +0100
-Message-ID: <200912012232.50951.rjw@sisk.pl>
-References: <87fx93pwv2.fsf@tac.ki.iif.hu> <200912011328.15551.rjw@sisk.pl> <877ht68u4h.fsf@tac.ki.iif.hu>
+From: Geoff Levand <geoffrey.levand@am.sony.com>
+Subject: [patch 2/2] net/ps3: Add support for gelic link negotiation
+Date: Tue, 1 Dec 2009 14:15:58 -0800
+Message-ID: <4B15959E.7070708@am.sony.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-pm@lists.linux-foundation.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Ferenc Wagner <wferi@niif.hu>
+Cc: netdev@vger.kernel.org,
+	"cbe-oss-dev@ozlabs.org" <cbe-oss-dev@ozlabs.org>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:46627 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929AbZLAVcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Dec 2009 16:32:23 -0500
-In-Reply-To: <877ht68u4h.fsf@tac.ki.iif.hu>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:31520 "EHLO
+	TX2EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430AbZLAWQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 17:16:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 01 December 2009, Ferenc Wagner wrote:
-> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
-> 
-> > On Tuesday 01 December 2009, Ferenc Wagner wrote:
-> >> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
-> >> 
-> >>> On Sunday 29 November 2009, Ferenc Wagner wrote:
-> >>>
-> >>>> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
-> >>>> 
-> >>>>> On Saturday 28 November 2009, Ferenc Wagner wrote:
-> >>>>>
-> >>>>>> "Rafael J. Wysocki" <rjw@sisk.pl> writes:
-> >>>>>> 
-> >>>>>>> Compile with CONFIG_PM_VERBOSE (it does mean exactly that).
-> >>>>>> 
-> >>>>>> The last message now was:
-> >>>>>> 
-> >>>>>> e100: 0000:02:08.0: hibernate, may wakeup
-> >>>>>> 
-> >>>>>> Looks like hibernating the e100 driver is unstable.
-> >>>>>
-> >>>>> Can you verify that by trying to hibernate without the e100 driver?
-> >>>> 
-> >>>> Not really, as I still can't reliable reproduce the issue.  Since I'm
-> >>>> running with suspend loglevel = 8, it's happened only twice (in a row),
-> >>>> with seemingly exact same console output.  Some earlier freezes also
-> >>>> happened in dpm_suspend_start, at least.  However, I can certainly add
-> >>>> e100 to SUSPEND_MODULES under /etc/pm/config.d, and continue running
-> >>>> with that.
-> >>>
-> >>> That's what I'd do.
-> >> 
-> >> That worked out mosty OK (no freeze in quite some hibernation cycles),
-> >> but I'm continuing testing it.
-> >
-> > Great, please let me know how it works out.
-> 
-> Will do.  On the negative side, this tends to confuse NetworkManager.
-> 
-> >> On the other hand, I reverted 8fbd962e3, recompiled and replaced the
-> >> module, and got the freeze during hibernation.  And that was the bulk of
-> >> the changes since 2.6.31...  I'll revert the rest and test again, but
-> >> that seems purely cosmetic, so no high hopes.
-> >> 
-> >>> In addition to that, you can run multiple hibernation/resume cycles in
-> >>> a tight loop using the RTC wakealarm.
-> >> 
-> >> I'll do so, as soon as I find a way to automatically supply the dm-crypt
-> >> passphrase... or even better, learn to hibernate to ramdisk from the
-> >> initramfs. :)
-> >
-> > Well, you don't need to use swap encryption for _testing_. :-)
-> 
-> I use partition encryption, everything except for /boot is encrypted.
 
-If /boot is big enough, you could use a swap file in /boot for the testing.
+From: Hideyuki Sasaki <Hideyuki_Sasaki@hq.scei.sony.co.jp>
 
-> Apropos: does s2disk perform encryption with a temporary key even if I
-> don't supply and RSA key, to protect mlocked application data from being
-> present in the swap after restore?
+Add ethtool_ops.set_settings support to the PS3 gelic network driver.
+Allows manual setting of ethernet link speed.
 
-It can do that, but you need to provide a key during suspend and resume.
+Signed-off-by: Hideyuki Sasaki <xhide@rd.scei.sony.co.jp>
+Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com>
+---
+ drivers/net/ps3_gelic_net.c |   72 ++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/ps3_gelic_net.h |    2 +
+ 2 files changed, 72 insertions(+), 2 deletions(-)
 
-Otherwise it doesn't use a random key, because it would have to store it in
-the clear in the image header.
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -107,6 +107,24 @@ static void gelic_card_get_ether_port_st
+ 	}
+ }
+ 
++static int gelic_card_set_link_mode(struct gelic_card *card, int mode)
++{
++	int status;
++	u64 v1, v2;
++
++	status = lv1_net_control(bus_id(card), dev_id(card),
++				 GELIC_LV1_SET_NEGOTIATION_MODE,
++				 GELIC_LV1_PHY_ETHERNET_0, mode, 0, &v1, &v2);
++	if (status) {
++		pr_info("%s: failed setting negotiation mode %d\n", __func__,
++			status);
++		return -EBUSY;
++	}
++
++	card->link_mode = mode;
++	return 0;
++}
++
+ void gelic_card_up(struct gelic_card *card)
+ {
+ 	pr_debug("%s: called\n", __func__);
+@@ -1244,14 +1262,58 @@ static int gelic_ether_get_settings(stru
+ 	cmd->supported = SUPPORTED_TP | SUPPORTED_Autoneg |
+ 			SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+ 			SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+-			SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full;
++			SUPPORTED_1000baseT_Full;
+ 	cmd->advertising = cmd->supported;
+-	cmd->autoneg = AUTONEG_ENABLE; /* always enabled */
++	if (card->link_mode & GELIC_LV1_ETHER_AUTO_NEG) {
++		cmd->autoneg = AUTONEG_ENABLE;
++	} else {
++		cmd->autoneg = AUTONEG_DISABLE;
++		cmd->advertising &= ~ADVERTISED_Autoneg;
++	}
+ 	cmd->port = PORT_TP;
+ 
+ 	return 0;
+ }
+ 
++static int gelic_ether_set_settings(struct net_device *netdev,
++				    struct ethtool_cmd *cmd)
++{
++	struct gelic_card *card = netdev_card(netdev);
++	u64 mode;
++	int ret;
++
++	if (cmd->autoneg == AUTONEG_ENABLE) {
++		mode = GELIC_LV1_ETHER_AUTO_NEG;
++	} else {
++		switch (cmd->speed) {
++		case SPEED_10:
++			mode = GELIC_LV1_ETHER_SPEED_10;
++			break;
++		case SPEED_100:
++			mode = GELIC_LV1_ETHER_SPEED_100;
++			break;
++		case SPEED_1000:
++			mode = GELIC_LV1_ETHER_SPEED_1000;
++			break;
++		default:
++			return -EINVAL;
++		}
++		if (cmd->duplex == DUPLEX_FULL)
++			mode |= GELIC_LV1_ETHER_FULL_DUPLEX;
++		else if (cmd->speed == SPEED_1000) {
++			pr_info("1000 half duplex is not supported.\n");
++			return -EINVAL;
++		}
++	}
++
++	ret = gelic_card_set_link_mode(card, mode);
++
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
+ u32 gelic_net_get_rx_csum(struct net_device *netdev)
+ {
+ 	struct gelic_card *card = netdev_card(netdev);
+@@ -1349,6 +1411,7 @@ done:
+ static const struct ethtool_ops gelic_ether_ethtool_ops = {
+ 	.get_drvinfo	= gelic_net_get_drvinfo,
+ 	.get_settings	= gelic_ether_get_settings,
++	.set_settings	= gelic_ether_set_settings,
+ 	.get_link	= ethtool_op_get_link,
+ 	.get_tx_csum	= ethtool_op_get_tx_csum,
+ 	.set_tx_csum	= ethtool_op_set_tx_csum,
+@@ -1657,6 +1720,8 @@ static int __devinit ps3_gelic_driver_pr
+ 	/* get internal vlan info */
+ 	gelic_card_get_vlan_info(card);
+ 
++	card->link_mode = GELIC_LV1_ETHER_AUTO_NEG;
++
+ 	/* setup interrupt */
+ 	result = lv1_net_set_interrupt_status_indicator(bus_id(card),
+ 							dev_id(card),
+@@ -1773,6 +1838,9 @@ static int ps3_gelic_driver_remove(struc
+ 	struct net_device *netdev0;
+ 	pr_debug("%s: called\n", __func__);
+ 
++	/* set auto-negotiation */
++	gelic_card_set_link_mode(card, GELIC_LV1_ETHER_AUTO_NEG);
++
+ #ifdef CONFIG_GELIC_WIRELESS
+ 	gelic_wl_driver_remove(card);
+ #endif
+--- a/drivers/net/ps3_gelic_net.h
++++ b/drivers/net/ps3_gelic_net.h
+@@ -307,6 +307,8 @@ struct gelic_card {
+ 	atomic_t users;
+ 
+ 	u64 ether_port_status;
++	int link_mode;
++
+ 	/* original address returned by kzalloc */
+ 	void *unalign;
+ 
 
-Thanks,
-Rafael
