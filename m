@@ -1,59 +1,123 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Subject: [PATCH 3/6] bna: Brocade 10Gb Ethernet device driver
-Date: Mon, 30 Nov 2009 16:21:51 -0800 (PST)
-Message-ID: <20091130.162151.107218779.davem@davemloft.net>
-References: <200911260928.nAQ9SW9r003958@blc-10-10.brocade.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [RFC] sk_nulls_next_rcu
+Date: Tue, 1 Dec 2009 02:19:29 +0200
+Message-ID: <200912010219.29340.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ddutt@brocade.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43933
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752123AbZLAAVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 19:21:45 -0500
-In-Reply-To: <200911260928.nAQ9SW9r003958@blc-10-10.brocade.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:19462 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751712AbZLAAWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Nov 2009 19:22:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Debashis Dutt <ddutt@brocade.com>
-Date: Thu, 26 Nov 2009 01:28:32 -0800
 
-> +#define BNA_PAGE_SIZE	PAGE_SIZE
-> +#define BNA_PAGE_SHIFT	PAGE_SHIFT
-> +
-> +#define BNA_ASSERT(x) BUG_ON(!(x))
-> +
-> +#define bna_dma_addr64(_x) cpu_to_be64((_x))
-> +
-> +#define bfa_addr_t 	char __iomem *
-> +#define bfa_u32(__pa64)	((__pa64) >> 32)
-> +
-> +#define bfa_reg_read(_raddr)		readl(_raddr)
-> +#define bfa_reg_write(_raddr, _val)	writel(_val, _raddr)
-> +#define bfa_os_panic()
+I am trying to convert the LLC code to RCU, and it appears that for proc 
+support a sk_nulls_next_rcu would be required. 
 
-All of the definitions in this header file are inappropriate.
+Is this the wrong way to do it, or is it that nobody need it yet?
 
-Use the standard types and interfaces the Linux kernel provides in the
-actual source code.
+Thanks,
+tavi
 
-I know what you're trying to do, but it's not appropriate.
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 3f1a480..989d7e9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -351,6 +351,13 @@ static inline struct sock *sk_nulls_next(const struct sock *sk)
+ 		NULL;
+ }
+ 
++static inline struct sock *sk_nulls_next_rcu(const struct sock *sk)
++{
++     struct hlist_nulls_node *n = rcu_dereference(sk->sk_nulls_node.next);
++     return !is_a_nulls(n) ? hlist_nulls_entry(n, struct sock, sk_nulls_node) :
++	    NULL;
++}
++
+ static inline int sk_unhashed(const struct sock *sk)
+ {
+ 	return hlist_unhashed(&sk->sk_node);
 
-You want a layer of abstract types and macros so you can compile the
-same code in different environments and just swap out this one header
-file and we've been trying to tell you over and over again that you
-can't do that.
-
-Also, the "version.h" file that contains just one macro definition is
-excessive.  This driver already has move than 30 (!!!!!) header files,
-that's absolutely and completely rediculious.
-
-Do you know that there are many modern network device drivers in the
-kernel tree that exist in one single C and one single header file?
-
-That's the model you should drift your driver towards, rather than
-one that has on the order of 30+ source files.
-
-This driver still needs a ton of work, sorry...
+diff --git a/net/llc/llc_proc.c b/net/llc/llc_proc.c
+index be47ac4..7567fb9 100644
+--- a/net/llc/llc_proc.c
++++ b/net/llc/llc_proc.c
+@@ -34,19 +34,19 @@ static struct sock *llc_get_sk_idx(loff_t pos)
+ {
+ 	struct list_head *sap_entry;
+ 	struct llc_sap *sap;
+-	struct hlist_node *node;
++	struct hlist_nulls_node *node;
+ 	struct sock *sk = NULL;
+ 
+ 	list_for_each(sap_entry, &llc_sap_list) {
+ 		sap = list_entry(sap_entry, struct llc_sap, node);
+ 
+-		read_lock_bh(&sap->sk_list.lock);
+-		sk_for_each(sk, node, &sap->sk_list.list) {
++		rcu_read_lock_bh();
++		sk_nulls_for_each_rcu(sk, node, &sap->sk_list.list) {
+ 			if (!pos)
+ 				goto found;
+ 			--pos;
+ 		}
+-		read_unlock_bh(&sap->sk_list.lock);
++		rcu_read_unlock_bh();
+ 	}
+ 	sk = NULL;
+ found:
+@@ -73,25 +73,25 @@ static void *llc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 		goto out;
+ 	}
+ 	sk = v;
+-	next = sk_next(sk);
++	next = sk_nulls_next(sk);
+ 	if (next) {
+ 		sk = next;
+ 		goto out;
+ 	}
+ 	llc = llc_sk(sk);
+ 	sap = llc->sap;
+-	read_unlock_bh(&sap->sk_list.lock);
++	rcu_read_unlock_bh();
+ 	sk = NULL;
+ 	for (;;) {
++		struct hlist_nulls_node *node;
++
+ 		if (sap->node.next == &llc_sap_list)
+ 			break;
+ 		sap = list_entry(sap->node.next, struct llc_sap, node);
+-		read_lock_bh(&sap->sk_list.lock);
+-		if (!hlist_empty(&sap->sk_list.list)) {
+-			sk = sk_head(&sap->sk_list.list);
++		rcu_read_lock_bh();
++		sk_nulls_for_each_rcu(sk, node, &sap->sk_list.list)
+ 			break;
+-		}
+-		read_unlock_bh(&sap->sk_list.lock);
++		rcu_read_unlock_bh();
+ 	}
+ out:
+ 	return sk;
+@@ -99,13 +99,8 @@ out:
+ 
+ static void llc_seq_stop(struct seq_file *seq, void *v)
+ {
+-	if (v && v != SEQ_START_TOKEN) {
+-		struct sock *sk = v;
+-		struct llc_sock *llc = llc_sk(sk);
+-		struct llc_sap *sap = llc->sap;
+-
+-		read_unlock_bh(&sap->sk_list.lock);
+-	}
++	if (v && v != SEQ_START_TOKEN)
++		rcu_read_unlock_bh();
+ 	read_unlock_bh(&llc_sap_list_lock);
+ }
+ 
