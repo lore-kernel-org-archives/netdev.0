@@ -1,220 +1,231 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [RFC PATCH 07/10] bnx2: remove skb_dma_map/unmap calls from
- driver
-Date: Mon, 30 Nov 2009 16:17:23 -0800
-Message-ID: <1259626643.17988.3.camel@HP1>
-References: <C27F8246C663564A84BB7AB34397724218065B9850@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-11-30 (security fixes too)
+Date: Mon, 30 Nov 2009 19:23:25 -0500
+Message-ID: <20091201002325.GI21401@tuxdriver.com>
+References: <20091130194706.GE21401@tuxdriver.com> <alpine.LFD.2.00.0911301406230.2872@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"sathyap@serverengines.com" <sathyap@serverengines.com>,
-	"subbus@serverengines.com" <subbus@serverengines.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Alexander Duyck'" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4338 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466AbZLAA1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Nov 2009 19:27:20 -0500
-In-Reply-To: <C27F8246C663564A84BB7AB34397724218065B9850@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.0911301406230.2872-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-11-30 at 02:26 -0800, Michael Chan wrote:
-> It looks ok except in bnx2_free_tx_skbs()
+On Mon, Nov 30, 2009 at 02:08:21PM -0800, Linus Torvalds wrote:
+> 
+> 
+> On Mon, 30 Nov 2009, John W. Linville wrote:
+> > 
+> > If a) you have already taken Dave's latest pull request; and, b) you
+> > don't want to wait for his next one to get the mac80211 security fixes
+> > from Johannes, then you can at your discretion pull from here:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git security
+> 
+> Hmm. If I pull the 'security' branch, I get
+> 
+>  drivers/net/wireless/iwlwifi/iwl-tx.c |   10 +++++++++-
+>  include/net/mac80211.h                |    6 ++++++
+>  net/mac80211/agg-rx.c                 |    4 ----
+>  net/mac80211/agg-tx.c                 |   17 ++++++++---------
+>  net/mac80211/ht.c                     |    8 +++-----
+>  net/mac80211/ieee80211_i.h            |    2 ++
+>  6 files changed, 28 insertions(+), 19 deletions(-)
+> 
+> which does not match what you then descibe in the rest of the email 
+> (changelog and diffstat).
+> 
+> What you describe seems to be the master branch. 
+> 
+> So I'm not going to pull either, and will wait for confirmation of exactly 
+> what you wanted me to pull.
 
-Here's the slightly revised patch with some bug fixes.  Thanks again to
-Alexander.
+Ha!  I confused you... :-)
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Yes, the diffstat above is correct for the security branch.
+The diffstat lower in the email is for the master branch (which is
+a superset).
 
-Due to the fact that skb_dma_map/unmap do not work correctly when a HW
-IOMMU is enabled it has been recommended to go about removing the calls
-from the network device drivers.
+So just for clarity, a pull request tailored for Linus:
 
-[ Fix bnx2_free_tx_skbs() ring indexing and use NETDEV_TX_OK return
-  code in bnx2_start_xmit() after cleaning up DMA mapping errors. -Mchan ]
+The following changes since commit 3e9848403ad59c53b31facb30b43ca80135ae0b9:
+  Eric Dumazet (1):
+        pktgen: Fix netdevice unregister
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |   72 +++++++++++++++++++++++++++++++++++++++++++--------
- drivers/net/bnx2.h |    1 +
- 2 files changed, 61 insertions(+), 12 deletions(-)
+are available in the git repository at:
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 539d23b..f47bf50 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -2815,13 +2815,21 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 			}
- 		}
- 
--		skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
-+		pci_unmap_single(bp->pdev, pci_unmap_addr(tx_buf, mapping),
-+			skb_headlen(skb), PCI_DMA_TODEVICE);
- 
- 		tx_buf->skb = NULL;
- 		last = tx_buf->nr_frags;
- 
- 		for (i = 0; i < last; i++) {
- 			sw_cons = NEXT_TX_BD(sw_cons);
-+
-+			pci_unmap_page(bp->pdev,
-+				pci_unmap_addr(
-+					&txr->tx_buf_ring[TX_RING_IDX(sw_cons)],
-+					mapping),
-+				skb_shinfo(skb)->frags[i].size,
-+				PCI_DMA_TODEVICE);
- 		}
- 
- 		sw_cons = NEXT_TX_BD(sw_cons);
-@@ -5295,17 +5303,29 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
- 		for (j = 0; j < TX_DESC_CNT; ) {
- 			struct sw_tx_bd *tx_buf = &txr->tx_buf_ring[j];
- 			struct sk_buff *skb = tx_buf->skb;
-+			int k, last;
- 
- 			if (skb == NULL) {
- 				j++;
- 				continue;
- 			}
- 
--			skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
-+			pci_unmap_single(bp->pdev,
-+					 pci_unmap_addr(tx_buf, mapping),
-+					 skb_headlen(skb),
-+					 PCI_DMA_TODEVICE);
- 
- 			tx_buf->skb = NULL;
- 
--			j += skb_shinfo(skb)->nr_frags + 1;
-+			last = tx_buf->nr_frags;
-+			j++;
-+			for (k = 0; k < last; k++, j++) {
-+				tx_buf = &txr->tx_buf_ring[TX_RING_IDX(j)];
-+				pci_unmap_page(bp->pdev,
-+					pci_unmap_addr(tx_buf, mapping),
-+					skb_shinfo(skb)->frags[k].size,
-+					PCI_DMA_TODEVICE);
-+			}
- 			dev_kfree_skb(skb);
- 		}
- 	}
-@@ -5684,11 +5704,12 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
- 	for (i = 14; i < pkt_size; i++)
- 		packet[i] = (unsigned char) (i & 0xff);
- 
--	if (skb_dma_map(&bp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+	map = pci_map_single(bp->pdev, skb->data, pkt_size,
-+		PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(bp->pdev, map)) {
- 		dev_kfree_skb(skb);
- 		return -EIO;
- 	}
--	map = skb_shinfo(skb)->dma_head;
- 
- 	REG_WR(bp, BNX2_HC_COMMAND,
- 	       bp->hc_cmd | BNX2_HC_COMMAND_COAL_NOW_WO_INT);
-@@ -5723,7 +5744,7 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
- 
- 	udelay(5);
- 
--	skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
-+	pci_unmap_single(bp->pdev, map, pkt_size, PCI_DMA_TODEVICE);
- 	dev_kfree_skb(skb);
- 
- 	if (bnx2_get_hw_tx_cons(tx_napi) != txr->tx_prod)
-@@ -6302,7 +6323,6 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct bnx2_napi *bnapi;
- 	struct bnx2_tx_ring_info *txr;
- 	struct netdev_queue *txq;
--	struct skb_shared_info *sp;
- 
- 	/*  Determine which tx ring we will be placed on */
- 	i = skb_get_queue_mapping(skb);
-@@ -6367,16 +6387,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	} else
- 		mss = 0;
- 
--	if (skb_dma_map(&bp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(bp->pdev, mapping)) {
- 		dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git security
+
+Johannes Berg (2):
+      mac80211: fix two remote exploits
+      mac80211: fix spurious delBA handling
+
+ drivers/net/wireless/iwlwifi/iwl-tx.c |   10 +++++++++-
+ include/net/mac80211.h                |    6 ++++++
+ net/mac80211/agg-rx.c                 |    4 ----
+ net/mac80211/agg-tx.c                 |   17 ++++++++---------
+ net/mac80211/ht.c                     |    8 +++-----
+ net/mac80211/ieee80211_i.h            |    2 ++
+ 6 files changed, 28 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
+index fb9bcfa..b7e196e 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-tx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
+@@ -1277,8 +1277,16 @@ int iwl_tx_agg_stop(struct iwl_priv *priv , const u8 *ra, u16 tid)
+ 		return -ENXIO;
  	}
  
--	sp = skb_shinfo(skb);
--	mapping = sp->dma_head;
--
- 	tx_buf = &txr->tx_buf_ring[ring_prod];
- 	tx_buf->skb = skb;
-+	pci_unmap_addr_set(tx_buf, mapping, mapping);
- 
- 	txbd = &txr->tx_desc_ring[ring_prod];
- 
-@@ -6397,7 +6416,12 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		txbd = &txr->tx_desc_ring[ring_prod];
- 
- 		len = frag->size;
--		mapping = sp->dma_maps[i];
-+		mapping = pci_map_page(bp->pdev, frag->page, frag->page_offset,
-+			len, PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(bp->pdev, mapping))
-+			goto dma_error;
-+		pci_unmap_addr_set(&txr->tx_buf_ring[ring_prod], mapping,
-+				   mapping);
- 
- 		txbd->tx_bd_haddr_hi = (u64) mapping >> 32;
- 		txbd->tx_bd_haddr_lo = (u64) mapping & 0xffffffff;
-@@ -6424,6 +6448,30 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	return NETDEV_TX_OK;
-+dma_error:
-+	/* save value of frag that failed */
-+	last_frag = i;
-+
-+	/* start back at beginning and unmap skb */
-+	prod = txr->tx_prod;
-+	ring_prod = TX_RING_IDX(prod);
-+	tx_buf = &txr->tx_buf_ring[ring_prod];
-+	tx_buf->skb = NULL;
-+	pci_unmap_single(bp->pdev, pci_unmap_addr(tx_buf, mapping),
-+			 skb_headlen(skb), PCI_DMA_TODEVICE);
-+
-+	/* unmap remaining mapped pages */
-+	for (i = 0; i < last_frag; i++) {
-+		prod = NEXT_TX_BD(prod);
-+		ring_prod = TX_RING_IDX(prod);
-+		tx_buf = &txr->tx_buf_ring[ring_prod];
-+		pci_unmap_page(bp->pdev, pci_unmap_addr(tx_buf, mapping),
-+			       skb_shinfo(skb)->frags[i].size,
-+			       PCI_DMA_TODEVICE);
++	if (priv->stations[sta_id].tid[tid].agg.state ==
++				IWL_EMPTYING_HW_QUEUE_ADDBA) {
++		IWL_DEBUG_HT(priv, "AGG stop before setup done\n");
++		ieee80211_stop_tx_ba_cb_irqsafe(priv->hw, ra, tid);
++		priv->stations[sta_id].tid[tid].agg.state = IWL_AGG_OFF;
++		return 0;
 +	}
 +
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
+ 	if (priv->stations[sta_id].tid[tid].agg.state != IWL_AGG_ON)
+-		IWL_WARN(priv, "Stopping AGG while state not IWL_AGG_ON\n");
++		IWL_WARN(priv, "Stopping AGG while state not ON or starting\n");
+ 
+ 	tid_data = &priv->stations[sta_id].tid[tid];
+ 	ssn = (tid_data->seq_number & IEEE80211_SCTL_SEQ) >> 4;
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index c75b960..998c30f 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -1283,6 +1283,12 @@ enum ieee80211_filter_flags {
+  *
+  * These flags are used with the ampdu_action() callback in
+  * &struct ieee80211_ops to indicate which action is needed.
++ *
++ * Note that drivers MUST be able to deal with a TX aggregation
++ * session being stopped even before they OK'ed starting it by
++ * calling ieee80211_start_tx_ba_cb(_irqsafe), because the peer
++ * might receive the addBA frame and send a delBA right away!
++ *
+  * @IEEE80211_AMPDU_RX_START: start Rx aggregation
+  * @IEEE80211_AMPDU_RX_STOP: stop Rx aggregation
+  * @IEEE80211_AMPDU_TX_START: start Tx aggregation
+diff --git a/net/mac80211/agg-rx.c b/net/mac80211/agg-rx.c
+index bc064d7..ce8e0e7 100644
+--- a/net/mac80211/agg-rx.c
++++ b/net/mac80211/agg-rx.c
+@@ -85,10 +85,6 @@ void ieee80211_sta_stop_rx_ba_session(struct ieee80211_sub_if_data *sdata, u8 *r
+ 	struct ieee80211_local *local = sdata->local;
+ 	struct sta_info *sta;
+ 
+-	/* stop HW Rx aggregation. ampdu_action existence
+-	 * already verified in session init so we add the BUG_ON */
+-	BUG_ON(!local->ops->ampdu_action);
+-
+ 	rcu_read_lock();
+ 
+ 	sta = sta_info_get(local, ra);
+diff --git a/net/mac80211/agg-tx.c b/net/mac80211/agg-tx.c
+index 206fd82..89e238b 100644
+--- a/net/mac80211/agg-tx.c
++++ b/net/mac80211/agg-tx.c
+@@ -123,13 +123,18 @@ void ieee80211_send_bar(struct ieee80211_sub_if_data *sdata, u8 *ra, u16 tid, u1
+ 	ieee80211_tx_skb(sdata, skb, 0);
  }
  
- /* Called with rtnl_lock */
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index a4d8340..4908b9f 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6559,6 +6559,7 @@ struct sw_pg {
+-static int ___ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+-					   enum ieee80211_back_parties initiator)
++int ___ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
++				    enum ieee80211_back_parties initiator)
+ {
+ 	struct ieee80211_local *local = sta->local;
+ 	int ret;
+ 	u8 *state;
  
- struct sw_tx_bd {
- 	struct sk_buff		*skb;
-+	DECLARE_PCI_UNMAP_ADDR(mapping)
- 	unsigned short		is_gso;
- 	unsigned short		nr_frags;
- };
++#ifdef CONFIG_MAC80211_HT_DEBUG
++	printk(KERN_DEBUG "Tx BA session stop requested for %pM tid %u\n",
++	       sta->sta.addr, tid);
++#endif /* CONFIG_MAC80211_HT_DEBUG */
++
+ 	state = &sta->ampdu_mlme.tid_state_tx[tid];
+ 
+ 	if (*state == HT_AGG_STATE_OPERATIONAL)
+@@ -143,7 +148,6 @@ static int ___ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+ 
+ 	/* HW shall not deny going back to legacy */
+ 	if (WARN_ON(ret)) {
+-		*state = HT_AGG_STATE_OPERATIONAL;
+ 		/*
+ 		 * We may have pending packets get stuck in this case...
+ 		 * Not bothering with a workaround for now.
+@@ -525,11 +529,6 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+ 		goto unlock;
+ 	}
+ 
+-#ifdef CONFIG_MAC80211_HT_DEBUG
+-	printk(KERN_DEBUG "Tx BA session stop requested for %pM tid %u\n",
+-	       sta->sta.addr, tid);
+-#endif /* CONFIG_MAC80211_HT_DEBUG */
+-
+ 	ret = ___ieee80211_stop_tx_ba_session(sta, tid, initiator);
+ 
+  unlock:
+@@ -545,7 +544,7 @@ int ieee80211_stop_tx_ba_session(struct ieee80211_hw *hw,
+ 	struct sta_info *sta;
+ 	int ret = 0;
+ 
+-	if (WARN_ON(!local->ops->ampdu_action))
++	if (!local->ops->ampdu_action)
+ 		return -EINVAL;
+ 
+ 	if (tid >= STA_TID_NUM)
+diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
+index 48ef1a2..cdc58e6 100644
+--- a/net/mac80211/ht.c
++++ b/net/mac80211/ht.c
+@@ -141,7 +141,6 @@ void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
+ 			     struct sta_info *sta,
+ 			     struct ieee80211_mgmt *mgmt, size_t len)
+ {
+-	struct ieee80211_local *local = sdata->local;
+ 	u16 tid, params;
+ 	u16 initiator;
+ 
+@@ -161,10 +160,9 @@ void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
+ 						 WLAN_BACK_INITIATOR, 0);
+ 	else { /* WLAN_BACK_RECIPIENT */
+ 		spin_lock_bh(&sta->lock);
+-		sta->ampdu_mlme.tid_state_tx[tid] =
+-				HT_AGG_STATE_OPERATIONAL;
++		if (sta->ampdu_mlme.tid_state_tx[tid] & HT_ADDBA_REQUESTED_MSK)
++			___ieee80211_stop_tx_ba_session(sta, tid,
++							WLAN_BACK_RECIPIENT);
+ 		spin_unlock_bh(&sta->lock);
+-		ieee80211_stop_tx_ba_session(&local->hw, sta->sta.addr, tid,
+-					     WLAN_BACK_RECIPIENT);
+ 	}
+ }
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index a910bf1..10d316e 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -1091,6 +1091,8 @@ void ieee80211_process_addba_request(struct ieee80211_local *local,
+ 
+ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+ 				   enum ieee80211_back_parties initiator);
++int ___ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
++				    enum ieee80211_back_parties initiator);
+ 
+ /* Spectrum management */
+ void ieee80211_process_measurement_req(struct ieee80211_sub_if_data *sdata,
+
+Sorry for the confusion!  That's what I get for trying to be clever... :-)
+
+John
 -- 
-1.6.4.GIT
-
-
-
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
