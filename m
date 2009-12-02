@@ -1,62 +1,84 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: "NIG timer max" messages from bnx2x
-Date: Wed, 2 Dec 2009 20:41:03 +0200
-Message-ID: <1259779263.2020.6.camel@lb-tlvb-eilong>
-References: <4B168F04.60309@redpill-linpro.com>
-Reply-To: eilong@broadcom.com
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: scp stalls mysteriously
+Date: Wed, 02 Dec 2009 20:17:44 +0100
+Message-ID: <4B16BD58.3040802@tvk.rwth-aachen.de>
+References: <20091128010156.1219012a@houba>
+ <alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi>
+ <20091130195004.38dbc319@houba>
+ <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi>
+ <20091130213727.2f4047d2@houba>
+ <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+ <20091201211945.505d3c98@houba>
+ <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
+ <20091202085925.472136e2@houba>
+ <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
+ <20091202154403.GB30730@sd-11162.dedibox.fr>
+ <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
+ <20091202183451.173db5f2@houba>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Benjamin Li" <benli@broadcom.com>
-To: "Tore Anderson" <tore.anderson@redpill-linpro.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2521 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755187AbZLBSlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 13:41:04 -0500
-In-Reply-To: <4B168F04.60309@redpill-linpro.com>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:42368 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755345AbZLBTRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 14:17:39 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KU1003A6HLLU5C0@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Wed, 02 Dec 2009 20:17:45 +0100 (CET)
+In-reply-to: <20091202183451.173db5f2@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-12-02 at 08:00 -0800, Tore Anderson wrote:
-> Hello list,
-> 
-> I'm having a strange error condition I'm hoping someone here might be
-> able to help me get to the bottom of.  I've got a HP blade enclosure
-> with a Nortel switch module, and one of the blades are running VMWare
-> ESX.  When I turn on this blade (or enable its switch port), the entire
-> network stops working after a short while.  Other server blades can no
-> longer communicate, for instance.  The only clue I've found so far is
-> the following error message from one of the other blades that's running
-> CentOS 5.4:
-> 
-> [bnx2x_hw_stats_update:3701(eth0)]NIG timer max (426)
-> 
-> The line is logged every two seconds and the number in parenthesis is
-> incrementing each time.  Once I disable the port to the ESX server, the
-> network instantly recovers.
-> 
-> I have no reason to believe the Linux kernel/bnx2x is doing anything
-> wrong here, but I'm wondering if anybody has any idea on what this error
-> message means and what could be causing it?  I can't see anything
-> unusual going on with tcpdump, and the error counters in "ip -s -s link
-> show eth0" are all zero.
+=46rederic Leroy schrieb:
+> Le Wed, 2 Dec 2009 18:05:24 +0200 (EET),
+> "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+>=20
+>>>> In one of the cases, also the sg end dies (the 4th case). I
+>>>> suppose that was running earlier kernel already?
+>>> This case was the one with tcp_frto=3D2 and tcp_timestamps=3D0 on h=
+ouba.
+>> I suppose we're confused, I was refering to .4. case, did you perhap=
+s
+>> mix that up with the latest set of tests which yields .8.?
+>=20
+> You're right, I was talking about .8
+>=20
+>> In the recent work, the most suspicious things are the new timeout
+>> things, I'll read them through once I've some time (but so far I've
+>> not found anything wrong in them but I of course can miss something
+>> subtle). ...I've added Damian as CC if he has some idea. If you want
+>> you can try with a trivial revert of that stuff, I've included a
+>> patch for that below.
+>=20
+> I will try it.=20
 
-This message indicates that for over 1 second, the device could not
-transmit anything to the network (the same packet was not transmitted
-for over one second) - this usually happens when the network is in fatal
-condition - usually because some device is sending constant pause stream
-that halts all traffic. In this case, the device is incrementing the
-counter and drains outgoing traffic - without this action, the device
-will not be able to unload since even the commands from the driver will
-not be processed due to this excessive back pressure.
+Hi,
+could you please printk retrans_stamp just before the return in=20
+include/net/tcp.h:retransmits_timed_out()?
+If the value is not monotonically increasing but is reset to 0 at some
+point, this might lead to problems in tcp_write_timeout().
+It's the only idea I have now.
 
-As you indicated - once you remove the server that halts all other
-traffic, everything else resumes - that indicates that this server is
-sending constant pause that ultimately halts the entire switch.
-
-Regards,
-Eilon
-
+>=20
+> I just discover something not good. I use tuxonice[1] branch on houba
+> for 2.6.32*.
+> Although my 2.6.31 kernel is vanilla[2].
+>=20
+> [1] git://git.kernel.org/pub/scm/linux/kernel/git/nigelc/tuxonice-hea=
+d.git
+> [2] git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.=
+git
+>=20
+> Now, I'm gonna go compile kernels again and again and make more
+> tests ... :)
+>=20
 
