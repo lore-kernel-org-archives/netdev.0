@@ -1,56 +1,78 @@
-From: =?ISO-8859-2?Q?Krzysztof_Ol=EAdzki?= <ole@ans.pl>
-Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high number
- of RX dropped in bnx2
-Date: Wed, 02 Dec 2009 14:37:56 +0100
-Message-ID: <4B166DB4.9080101@ans.pl>
-References: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com> <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl> <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: tg3: not checking dma errors?
+Date: Wed, 02 Dec 2009 15:01:06 +0100
+Message-ID: <1259762466.32171.159.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-VhAQ789vf4kA2YxkXjv5"
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:35818 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937AbZLBNiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 08:38:13 -0500
-In-Reply-To: <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
+Received: from xc.sipsolutions.net ([83.246.72.84]:40895 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754384AbZLBOBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 09:01:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2009-11-30 18:44, Michael Chan wrote:
-> On Mon, 2009-11-30 at 07:33 -0800, Krzysztof Oledzki wrote:
->> # ethtool -S eth0|egrep "(rx_bcast_packets|rx_mcast_packets|
->> rx_fw_discards)"
->>       rx_mcast_packets: 2806
->>       rx_bcast_packets: 790016
->>       rx_fw_discards: 790016
->=20
-> This tells me that all the dropped packets are occurring in the iSCSI
-> ring.
->=20
-> We have recently enabled iSCSI in the kernel and you probably don't h=
-ave
-> the userspace components to handle the iSCSI ring.  All broadcast
-> packets are also received in the iSCSI ring and they are all dropped =
-in
-> this case without the userspace components.  Networking is not affect=
-ed.
-> If you rmmod the bnx2i and cnic drivers, the drop counter should stop
-> counting.
->=20
-> We have newer firmware that will not include dropped iSCSI packets in
-> the networking counters.  It should appear in the 2.6.33 kernel
-> time-frame.
 
-Yep, it was the cnic driver. Now I feel silly. Thank you for you help=20
-and sorry for the noise. I going to close it with RESOLVED-DOCUMENTED.
+--=-VhAQ789vf4kA2YxkXjv5
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Best regards,
+I'm having some trouble with tg3 under memory pressure when it's
+receiving lots of data, and so far this is the only thing I could find
+-- unfortunately I can't capture the debug information on the machine --
+netconsole obviously doesn't work, there's no serial and the output
+doesn't fit on the screen...
 
-				Krzysztof Ol=EAdzki
+So I figured I'd look at the code, and now I think there could be a bug
+with mappings:
+
+tg3_alloc_rx_skb:
+...
+        mapping =3D pci_map_single(tp->pdev, skb->data, skb_size,
+                                 PCI_DMA_FROMDEVICE);
+
+        map->skb =3D skb;
+        pci_unmap_addr_set(map, mapping, mapping);
+
+        if (src_map !=3D NULL)
+                src_map->skb =3D NULL;
+
+        desc->addr_hi =3D ((u64)mapping >> 32);
+        desc->addr_lo =3D ((u64)mapping & 0xffffffff);
+
+        return skb_size;
+
+
+
+Shouldn't that check that 'mapping' is !=3D DMA_ERROR_CODE?
+
+Similarly in tg3_run_loopback()?
+
+johannes
+
+--=-VhAQ789vf4kA2YxkXjv5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJLFnMfAAoJEODzc/N7+Qmamn0QAI96e1qt7sPbiVRvPnA6HJYl
+HSOkhUF8MQo+9Y/S2WzG/jOBCWvn9RFinQM+v+bUYCgKI16bVnZJRAsCXoBdU+8c
+nIIGRzTxHy9rNVa1XGK+eDXe9ctOU+JiXr/fOuKxpUgaaFhxaBY+ldeyRvAgIp/E
+/FOtOk3vmI8kY5AFJ4VPl1Spq1hcWsiauyBjVTc24qKSAihh07fEDpg0w5kl46Na
+QF28piaWECHHbi2JbN/HCPZBrKu9AHFoMAi51w3Y5WXl1kYOIgOLIMi2lxdtwHoX
+KLuSshdMfJAhCYboKxG9awHRWT3XuUbRP0QoBTK43o4acrRuOVHBmZm3bV9G+kGM
+bEuZFFEoalwlV9a2nxCX2aghKwA/91xwL56ktXBwK2LvjMPSr/KhuM/29m83OdCn
+h+sNZTcy1IY4+XaBin1pPEhdaTS3D4crX0aFwdb2yChg2IqWR2qPd87X/njHielW
+hhKD9vrcYSHeCiua7setf6p+wm0ZBmSzExuTeaQuRGb9Ahz84Q133dl6jSLpbG++
+QaRvJKnCPEBMzOvRv7vbShoxr7JkrqeHUUsMk2cvWZJMtxmWF2gX/GVBcreqUjQz
+LnWzN+d/Ab5umQcMH4YOSQMeTm2F2q07ol5mwTtl5nbi1QR4MPTQ0nBdfGZl5+TP
+Uo6VcqoKODQTAu7UEFiO
+=5YZK
+-----END PGP SIGNATURE-----
+
+--=-VhAQ789vf4kA2YxkXjv5--
+
