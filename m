@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/9] e1000e: ensure the link state is correct for
-	serdes links
-Date: Tue, 01 Dec 2009 17:49:51 -0800
-Message-ID: <20091202014931.519.25024.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 5/9] e1000e: enable new 82567V-3 device
+Date: Tue, 01 Dec 2009 17:50:31 -0800
+Message-ID: <20091202015009.519.97730.stgit@localhost.localdomain>
+References: <20091202014931.519.25024.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,160 +11,65 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:59539 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752036AbZLBBuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:50:02 -0500
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:41991
+	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752408AbZLBBum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:50:42 -0500
+In-Reply-To: <20091202014931.519.25024.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch ensures that the link state (as reported in
-mac->serdes_has_link) will transition to false when autoneg fails to
-complete but valid codewords were detected.
+This new PCI device ID is for a new combination of MAC and PHY both of
+which already have supporting code in the driver, just not yet in this
+combination.  During validation of the device, an intermittent issue was
+discovered with waking it from a suspended state which can be resolved with
+the pre-existing workaround to disable gigabit speed prior to suspending.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c |   76 ++++++++++++++++++++++++++++----------------
- 1 files changed, 48 insertions(+), 28 deletions(-)
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/ich8lan.c |    1 +
+ drivers/net/e1000e/netdev.c  |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 26ea5d5..227f3d0 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1356,8 +1356,20 @@ static s32 e1000_setup_fiber_serdes_link_82571(struct e1000_hw *hw)
-  *  e1000_check_for_serdes_link_82571 - Check for link (Serdes)
-  *  @hw: pointer to the HW structure
-  *
-- *  Checks for link up on the hardware.  If link is not up and we have
-- *  a signal, then we need to force link up.
-+ *  Reports the link state as up or down.
-+ *
-+ *  If autonegotiation is supported by the link partner, the link state is
-+ *  determined by the result of autonegotiation. This is the most likely case.
-+ *  If autonegotiation is not supported by the link partner, and the link
-+ *  has a valid signal, force the link up.
-+ *
-+ *  The link state is represented internally here by 4 states:
-+ *
-+ *  1) down
-+ *  2) autoneg_progress
-+ *  3) autoneg_complete (the link sucessfully autonegotiated)
-+ *  4) forced_up (the link has been forced up, it did not autonegotiate)
-+ *
-  **/
- static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- {
-@@ -1383,6 +1395,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				 */
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_autoneg_progress;
-+				mac->serdes_has_link = false;
- 				e_dbg("AN_UP     -> AN_PROG\n");
- 			}
- 		break;
-@@ -1397,57 +1410,64 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			if (rxcw & E1000_RXCW_C) {
- 				/* Enable autoneg, and unforce link up */
- 				ew32(TXCW, mac->txcw);
--				ew32(CTRL,
--				    (ctrl & ~E1000_CTRL_SLU));
-+				ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_autoneg_progress;
-+				mac->serdes_has_link = false;
- 				e_dbg("FORCED_UP -> AN_PROG\n");
- 			}
- 			break;
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index e0addf3..41609d5 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -356,6 +356,7 @@ enum e1e_registers {
+ #define E1000_DEV_ID_80003ES2LAN_COPPER_SPT	0x10BA
+ #define E1000_DEV_ID_80003ES2LAN_SERDES_SPT	0x10BB
  
- 		case e1000_serdes_link_autoneg_progress:
--			/*
--			 * If the LU bit is set in the STATUS register,
--			 * autoneg has completed sucessfully. If not,
--			 * try foring the link because the far end may be
--			 * available but not capable of autonegotiation.
--			 */
--			if (status & E1000_STATUS_LU)  {
--				mac->serdes_link_state =
--				    e1000_serdes_link_autoneg_complete;
--				e_dbg("AN_PROG   -> AN_UP\n");
-+			if (rxcw & E1000_RXCW_C) {
-+				/*
-+				 * We received /C/ ordered sets, meaning the
-+				 * link partner has autonegotiated, and we can
-+				 * trust the Link Up (LU) status bit.
-+				 */
-+				if (status & E1000_STATUS_LU) {
-+					mac->serdes_link_state =
-+					    e1000_serdes_link_autoneg_complete;
-+					e_dbg("AN_PROG   -> AN_UP\n");
-+					mac->serdes_has_link = true;
-+				} else {
-+					/* Autoneg completed, but failed. */
-+					mac->serdes_link_state =
-+					    e1000_serdes_link_down;
-+					e_dbg("AN_PROG   -> DOWN\n");
-+				}
- 			} else {
- 				/*
--				 * Disable autoneg, force link up and
--				 * full duplex, and change state to forced
-+				 * The link partner did not autoneg.
-+				 * Force link up and full duplex, and change
-+				 * state to forced.
- 				 */
--				ew32(TXCW,
--				    (mac->txcw & ~E1000_TXCW_ANE));
-+				ew32(TXCW, (mac->txcw & ~E1000_TXCW_ANE));
- 				ctrl |= (E1000_CTRL_SLU | E1000_CTRL_FD);
- 				ew32(CTRL, ctrl);
++#define E1000_DEV_ID_ICH8_82567V_3		0x1501
+ #define E1000_DEV_ID_ICH8_IGP_M_AMT		0x1049
+ #define E1000_DEV_ID_ICH8_IGP_AMT		0x104A
+ #define E1000_DEV_ID_ICH8_IGP_C			0x104B
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 9c38955..fbbc6dd 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -3204,6 +3204,7 @@ void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
+ 	u32 phy_ctrl;
  
- 				/* Configure Flow Control after link up. */
--				ret_val =
--				    e1000e_config_fc_after_link_up(hw);
-+				ret_val = e1000e_config_fc_after_link_up(hw);
- 				if (ret_val) {
- 					e_dbg("Error config flow control\n");
- 					break;
- 				}
- 				mac->serdes_link_state =
- 				    e1000_serdes_link_forced_up;
-+				mac->serdes_has_link = true;
- 				e_dbg("AN_PROG   -> FORCED_UP\n");
- 			}
--			mac->serdes_has_link = true;
- 			break;
+ 	switch (hw->mac.type) {
++	case e1000_ich8lan:
+ 	case e1000_ich9lan:
+ 	case e1000_ich10lan:
+ 	case e1000_pchlan:
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index ab4db52..d57880e 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5342,6 +5342,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_C), board_ich8lan },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M), board_ich8lan },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M_AMT), board_ich8lan },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_82567V_3), board_ich8lan },
  
- 		case e1000_serdes_link_down:
- 		default:
--			/* The link was down but the receiver has now gained
-+			/*
-+			 * The link was down but the receiver has now gained
- 			 * valid sync, so lets see if we can bring the link
--			 * up. */
-+			 * up.
-+			 */
- 			ew32(TXCW, mac->txcw);
--			ew32(CTRL,
--			    (ctrl & ~E1000_CTRL_SLU));
-+			ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 			mac->serdes_link_state =
- 			    e1000_serdes_link_autoneg_progress;
- 			e_dbg("DOWN      -> AN_PROG\n");
-@@ -1460,9 +1480,9 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			e_dbg("ANYSTATE  -> DOWN\n");
- 		} else {
- 			/*
--			 * We have sync, and can tolerate one
--			 * invalid (IV) codeword before declaring
--			 * link down, so reread to look again
-+			 * We have sync, and can tolerate one invalid (IV)
-+			 * codeword before declaring link down, so reread
-+			 * to look again.
- 			 */
- 			udelay(10);
- 			rxcw = er32(RXCW);
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE), board_ich9lan },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE_G), board_ich9lan },
 
