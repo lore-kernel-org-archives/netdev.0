@@ -1,44 +1,27 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH net-next-2.6] tcp: connect() race with timewait reuse
-Date: Thu, 3 Dec 2009 01:15:53 +0300
-Message-ID: <20091202221552.GA17579@ioremap.net>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <20091202.005937.177088443.davem@davemloft.net> <4B163226.50801@gmail.com> <4B164293.7070804@gmail.com> <4B16830B.4010801@gmail.com>
+From: Lorenzo Allegrucci <lorenzo.allegrucci@forinicom.it>
+Subject: match SIP & RTP packets
+Date: Wed, 02 Dec 2009 23:38:07 +0100
+Message-ID: <4B16EC4F.4080703@forinicom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kdakhane@gmail.com,
-	netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: netfilter@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:56184 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755701AbZLBWPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 17:15:47 -0500
-Content-Disposition: inline
-In-Reply-To: <4B16830B.4010801@gmail.com>
+Received: from host130-230-149-62.serverdedicati.aruba.it ([62.149.230.130]:36238
+	"EHLO mail.wedoit.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752473AbZLBWqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 17:46:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
 
-Looks very good, thanks Eric, I have one question.
+Hi all, it's not clear to me whether nf_conntrack_sip does SIP and RTP connection
+tracking or just SIP.. can you clarify?
+I need to match both SIP and RTP packets and I was wondering if the rule
+below would satisfy my requirements:
 
-On Wed, Dec 02, 2009 at 04:08:59PM +0100, Eric Dumazet (eric.dumazet@gmail.com) wrote:
-> +
-> +/*
-> + * unhash a timewait socket from established hash
-> + * lock must be hold by caller
-> + */
-> +void inet_twsk_unhash(struct inet_timewait_sock *tw)
-> +{
-> +	if (hlist_nulls_unhashed(&tw->tw_node))
-> +		return;
-> +
-> +	hlist_nulls_del_rcu(&tw->tw_node);
-> +	sk_nulls_node_init(&tw->tw_node);
-> +	inet_twsk_put(tw);
+iptables -t mangle -A FORWARD -o eth0 -m helper --helper sip -j CLASSIFY --set-class 1:1
 
-Is it safe to call in locked context? inet_twsk_put() schedules
-preemption, also I did not check what tw destructor does.
 
--- 
-	Evgeniy Polyakov
+Thank you,
