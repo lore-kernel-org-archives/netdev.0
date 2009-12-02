@@ -1,129 +1,52 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3: not checking dma errors?
-Date: Wed, 2 Dec 2009 09:13:59 -0800
-Message-ID: <20091202171359.GB32112@xw6200.broadcom.net>
-References: <1259762466.32171.159.camel@johannes.local>
+From: Stefano Babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [RFC PATCH v3 0/8] CAIF Protocol Stack
+Date: Wed, 02 Dec 2009 18:02:40 +0100
+Message-ID: <4B169DB0.6010307@babic.homelinux.org>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Johannes Berg" <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3034 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755223AbZLBROC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 12:14:02 -0500
-In-Reply-To: <1259762466.32171.159.camel@johannes.local>
-Content-Disposition: inline
+Received: from smtpout09.attiva.biz ([85.37.16.7]:8033 "EHLO
+	smtpout09.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754700AbZLBRRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 12:17:52 -0500
+In-Reply-To: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2009 at 06:01:06AM -0800, Johannes Berg wrote:
-> I'm having some trouble with tg3 under memory pressure when it's
-> receiving lots of data, and so far this is the only thing I could find
-> -- unfortunately I can't capture the debug information on the machine --
-> netconsole obviously doesn't work, there's no serial and the output
-> doesn't fit on the screen...
-> 
-> So I figured I'd look at the code, and now I think there could be a bug
-> with mappings:
-> 
-> tg3_alloc_rx_skb:
-> ...
->         mapping = pci_map_single(tp->pdev, skb->data, skb_size,
->                                  PCI_DMA_FROMDEVICE);
-> 
->         map->skb = skb;
->         pci_unmap_addr_set(map, mapping, mapping);
-> 
->         if (src_map != NULL)
->                 src_map->skb = NULL;
-> 
->         desc->addr_hi = ((u64)mapping >> 32);
->         desc->addr_lo = ((u64)mapping & 0xffffffff);
-> 
->         return skb_size;
-> 
-> 
-> 
-> Shouldn't that check that 'mapping' is != DMA_ERROR_CODE?
-> 
-> Similarly in tg3_run_loopback()?
-> 
-> johannes
+sjur.brandeland@stericsson.com wrote:
+> General:
+> * Sockets has replaced the character device implementation,
+>   when accessing the modem. AT channels has to open sockets.
 
-Yes.  I submitted a patch to the net-next-2.6 tree addressing this exact
-problem.  It will appear in the 2.6.33 kernel.  The patch is appended at
-the bottom of this email.
+Hi Sjur,
 
-What kind of trouble are you seeing?  What device are you working with?
+I would like to test your patches with real hardware (based on an ARM
+processor), as I did last time before sending my comments.
+I think it should easier if in the Documentation there is an example to
+explain how to setup a connection, for example with AT protocol. I tried
+and I get "Specified PHY type does not exists", probably because I have
+not well understood the parameters.
 
-=====
+There are some errors in the MAN page documentation (patch #7) and the
+example reported does not compile (for example, CAIFSO_CHANNEL should be
+CAIF_CHANNEL_OPT, and so on).
 
-Subject: [PATCH 06/20] tg3: Add more PCI DMA map error checking
+Can you provide an example for the user space to setup a connection ?
 
-This patch adds code to check the status of pci_map_single() before
-allowing rx buffers to be used.  It also converts the pci_map_single()
-call in tg3_run_loopback() to use skb_dma_map() instead.
+> Please check what you think of the asserts in this release and get back to be!
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/tg3.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+Yes, I will do it.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 53a193e..54dbe98 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4426,6 +4426,10 @@ static int tg3_alloc_rx_skb(struct tg3_napi *tnapi, u32 opaque_key,
- 
- 	mapping = pci_map_single(tp->pdev, skb->data, skb_size,
- 				 PCI_DMA_FROMDEVICE);
-+	if (pci_dma_mapping_error(tp->pdev, mapping)) {
-+		dev_kfree_skb(skb);
-+		return -EIO;
-+	}
- 
- 	map->skb = skb;
- 	pci_unmap_addr_set(map, mapping, mapping);
-@@ -10369,7 +10373,10 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	for (i = 14; i < tx_len; i++)
- 		tx_data[i] = (u8) (i & 0xff);
- 
--	map = pci_map_single(tp->pdev, skb->data, tx_len, PCI_DMA_TODEVICE);
-+	if (skb_dma_map(&tp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+		dev_kfree_skb(skb);
-+		return -EIO;
-+	}
- 
- 	tw32_f(HOSTCC_MODE, tp->coalesce_mode | HOSTCC_MODE_ENABLE |
- 	       rnapi->coal_now);
-@@ -10380,7 +10387,8 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 
- 	num_pkts = 0;
- 
--	tg3_set_txd(tnapi, tnapi->tx_prod, map, tx_len, 0, 1);
-+	tg3_set_txd(tnapi, tnapi->tx_prod,
-+		    skb_shinfo(skb)->dma_head, tx_len, 0, 1);
- 
- 	tnapi->tx_prod++;
- 	num_pkts++;
-@@ -10404,7 +10412,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 			break;
- 	}
- 
--	pci_unmap_single(tp->pdev, map, tx_len, PCI_DMA_TODEVICE);
-+	skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
- 	dev_kfree_skb(skb);
- 
- 	if (tx_idx != tnapi->tx_prod)
+Best Regards,
+Stefano
+
 -- 
-1.6.4.4
-
-
-
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
