@@ -1,142 +1,74 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH 3/3] Slightly improve the configure script.
-Date: Wed, 2 Dec 2009 16:12:30 +0100
-Message-ID: <441b45d44e50503f0b7c8bf509cdd1a3cb8de8fc.1259765732.git.andreas@fatal.se>
-References: <cover.1259765732.git.andreas@fatal.se>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: scp stalls mysteriously
+Date: Wed, 2 Dec 2009 16:44:03 +0100
+Message-ID: <20091202154403.GB30730@sd-11162.dedibox.fr>
+References: <20091128010156.1219012a@houba> <alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi> <20091130195004.38dbc319@houba> <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi> <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba> <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi> <20091202085925.472136e2@houba> <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy1.bredband.net ([195.54.101.71]:38388 "EHLO
-	proxy1.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788AbZLBPLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 10:11:25 -0500
-Received: from ipb1.telenor.se (195.54.127.164) by proxy1.bredband.net (7.3.140.3)
-        id 4AD3E1C001662BED for netdev@vger.kernel.org; Wed, 2 Dec 2009 16:11:31 +0100
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:54329 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753644AbZLBPuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 10:50:23 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1259765732.git.andreas@fatal.se>
+In-Reply-To: <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Split up in functions. Make XT checks bail if previous XT check
-was successful.
+On Wed, Dec 02, 2009 at 02:59:20PM +0200, Ilpo J=E4rvinen wrote:
+> On Wed, 2 Dec 2009, Frederic Leroy wrote:
+>=20
+> > Le Tue, 1 Dec 2009 22:27:01 +0200 (EET),
+> > "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> a =E9crit :
+> What is directly inferrable from the logs: Losses happen. RTO is trig=
+gered=20
+> for the first time (for some reason also fast retransmit is missing a=
+nd it=20
+> most likely it should have preceeded RTO), however, the retransmissio=
+n=20
+> that RTO should make is never captured into the tcpdump. Then when RT=
+O=20
+> triggers for the second time, the connection silently dies immediatel=
+y and=20
+> consistently for some reason. ...From that point on resets are sent i=
+f the=20
+> peer keeps trying.
 
-This result improves the output of the configure script to not indicate
-using iptables only because the last test failed (when previous ones could
-have already succeded).
+If you want, I can add printk when a rto is made, in order to compare w=
+ith tcpdump.
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
----
- configure |   66 +++++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 51 insertions(+), 15 deletions(-)
+> > > I wonder if you have had some working (past) kernel version?
+> > I tried a 2.6.31, and it seems to work. If it really work (connecti=
+on
+> > don't stall everytime at the moment), I'll try to make a "git bisec=
+t"
+> > asap.
 
-diff --git a/configure b/configure
-index 4fda7cb..a903bb0 100755
---- a/configure
-+++ b/configure
-@@ -3,11 +3,8 @@
- #
- INCLUDE=${1:-"$PWD/include"}
- 
--echo "# Generated config based on" $INCLUDE >Config
--
--echo "TC schedulers"
--
--echo -n " ATM	"
-+function check_atm
-+{
- cat >/tmp/atmtest.c <<EOF
- #include <atm.h>
- int main(int argc, char **argv) {
-@@ -25,9 +22,10 @@ else
-     echo no
- fi
- rm -f /tmp/atmtest.c /tmp/atmtest
-+}
- 
--echo -n " IPT	"
--
-+function check_xt
-+{
- #check if we have xtables from iptables >= 1.4.5.
- cat >/tmp/ipttest.c <<EOF
- #include <xtables.h>
-@@ -52,7 +50,17 @@ EOF
- if gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl -lxtables >/dev/null 2>&1
- then
- 	echo "TC_CONFIG_XT:=y" >>Config
--	echo "using xtables instead of iptables"
-+	echo "using xtables"
-+fi
-+rm -f /tmp/ipttest.c /tmp/ipttest
-+}
-+
-+function check_xt_old
-+{
-+# bail if previous XT checks has already succeded.
-+if grep TC_CONFIG_XT Config > /dev/null
-+then
-+	return
- fi
- 
- #check if we need dont our internal header ..
-@@ -81,9 +89,17 @@ gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
- if [ $? -eq 0 ]
- then
- 	echo "TC_CONFIG_XT_OLD:=y" >>Config
--	echo "using xtables seems no need for internal.h"
--else
--	echo "failed test 2"
-+	echo "using old xtables (no need for xt-internal.h)"
-+fi
-+rm -f /tmp/ipttest.c /tmp/ipttest
-+}
-+
-+function check_xt_old_internal_h
-+{
-+# bail if previous XT checks has already succeded.
-+if grep TC_CONFIG_XT Config > /dev/null
-+then
-+	return
- fi
- 
- #check if we need our own internal.h
-@@ -112,10 +128,30 @@ gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
- 
- if [ $? -eq 0 ]
- then
--	echo "using xtables instead of iptables (need for internal.h)"
-+	echo "using old xtables with xt-internal.h"
- 	echo "TC_CONFIG_XT_OLD_H:=y" >>Config
--
--else
--	echo "failed test 3 using iptables"
- fi
- rm -f /tmp/ipttest.c /tmp/ipttest
-+}
-+
-+function check_ipt
-+{
-+	if ! grep TC_CONFIG_XT Config > /dev/null
-+	then
-+		echo "using iptables"
-+	fi
-+}
-+
-+echo "# Generated config based on" $INCLUDE >Config
-+
-+echo "TC schedulers"
-+
-+echo -n " ATM	"
-+check_atm
-+
-+echo -n " IPT	"
-+check_xt
-+check_xt_old
-+check_xt_old_internal_h
-+check_ipt
-+
--- 
-1.6.5.3
+I can confirm now that 2.6.31 works well.
 
+I made a little change during the test :=20
+Instead of launching scp on sg, I launched it from houba.
+The scp command return then  to bash with an error, without stalling.
+Which appears to me logical because the connection is killed from houba=
+ point of view.
+=20
+> In one of the cases, also the sg end dies (the 4th case). I suppose t=
+hat=20
+> was running earlier kernel already?
+
+This case was the one with tcp_frto=3D2 and tcp_timestamps=3D0 on houba=
+=2E
+
+I only rebooted sg two days ago. It still 2.6.32-rc5. Nothing had been =
+changed on this host during all tests.
+tcp_frto=3D2
+tcp_timestamps=3D1
+
+--=20
+=46r=E9d=E9ric Leroy
