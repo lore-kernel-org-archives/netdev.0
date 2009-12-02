@@ -1,74 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Teach vlans to cleanup as a pernet subsystem
-Date: Wed, 02 Dec 2009 15:19:08 -0800
-Message-ID: <m1d42xrmkz.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2: EEH is failing with timeout
+Date: Wed, 02 Dec 2009 15:37:32 -0800 (PST)
+Message-ID: <20091202.153732.41986418.davem@davemloft.net>
+References: <1259256709-6976-1-git-send-email-leitao@linux.vnet.ibm.com>
+	<C27F8246C663564A84BB7AB34397724218065B984E@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:44895 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752199AbZLBXTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:19:08 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42573
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755792AbZLBXh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:37:26 -0500
+In-Reply-To: <C27F8246C663564A84BB7AB34397724218065B984E@IRVEXCHCCR01.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 30 Nov 2009 01:40:58 -0800
 
-Take advantage of the fact that an explicit rtnl_kill_links is
-unnecessary (and skipping it improves batching), as network namespace
-exit calls dellink on all remaining virtual devices, and
-rtnl_link_unregister calls dellink on all outstanding devices in that
-network namespace.  To do this we need to leave the vlan proc
-directories in place until after network device exit time, which is
-done by using register_pernet_subsys instead of
-register_pernet_device.
+> leitao@linux.vnet.ibm.com wrote:
+> 
+>> bnx2 is failing when a PCI error is detected. The error is the
+>> following:
+>>
+>> bnx2: Chip not in correct endian mode
+>> bnx2: fw sync timeout, reset code = 404001d
+>>
+>> This error was caused because the way pci_restore_state() is working
+>> after commit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff.
+>>
+>> Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
+> 
+> Thanks Breno.
+> 
+> Acked by: Michael Chan <mchan@broadcom.com>
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- net/8021q/vlan.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+Applied, thanks everyone.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 91e9073..ec37692 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -698,8 +698,6 @@ static int vlan_init_net(struct net *net)
- 
- static void vlan_exit_net(struct net *net)
- {
--	rtnl_kill_links(net, &vlan_link_ops);
--
- 	vlan_proc_cleanup(net);
- }
- 
-@@ -717,7 +715,7 @@ static int __init vlan_proto_init(void)
- 	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
- 	pr_info("All bugs added by %s\n", vlan_buggyright);
- 
--	err = register_pernet_device(&vlan_net_ops);
-+	err = register_pernet_subsys(&vlan_net_ops);
- 	if (err < 0)
- 		goto err0;
- 
-@@ -742,7 +740,7 @@ err4:
- err3:
- 	unregister_netdevice_notifier(&vlan_notifier_block);
- err2:
--	unregister_pernet_device(&vlan_net_ops);
-+	unregister_pernet_subsys(&vlan_net_ops);
- err0:
- 	return err;
- }
-@@ -762,7 +760,7 @@ static void __exit vlan_cleanup_module(void)
- 	for (i = 0; i < VLAN_GRP_HASH_SIZE; i++)
- 		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
- 
--	unregister_pernet_device(&vlan_net_ops);
-+	unregister_pernet_subsys(&vlan_net_ops);
- 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
- 
- 	vlan_gvrp_uninit();
--- 
-1.6.5.2.143.g8cc62
-
+(Michael: Need to have a "-" there in the "Acked-by" otherwise
+	  automated tools won't pick up your ACK.  I know the
+	  tools should be more robust, and I fixed it up for
+	  you when applying Breno's patch.  It's just FYI...)
