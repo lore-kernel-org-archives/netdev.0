@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 5/9] e1000e: enable new 82567V-3 device
-Date: Tue, 01 Dec 2009 17:50:31 -0800
-Message-ID: <20091202015009.519.97730.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 6/9] e1000e: comment corrections
+Date: Tue, 01 Dec 2009 17:51:11 -0800
+Message-ID: <20091202015050.519.22623.stgit@localhost.localdomain>
 References: <20091202014931.519.25024.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,65 +11,150 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:41991
-	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752408AbZLBBum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:50:42 -0500
+Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:45952
+	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753058AbZLBBvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:51:23 -0500
 In-Reply-To: <20091202014931.519.25024.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-This new PCI device ID is for a new combination of MAC and PHY both of
-which already have supporting code in the driver, just not yet in this
-combination.  During validation of the device, an intermittent issue was
-discovered with waking it from a suspended state which can be resolved with
-the pre-existing workaround to disable gigabit speed prior to suspending.
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/ich8lan.c |    1 +
- drivers/net/e1000e/netdev.c  |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/82571.c   |    2 +-
+ drivers/net/e1000e/ich8lan.c |    5 ++---
+ drivers/net/e1000e/lib.c     |    5 +----
+ drivers/net/e1000e/phy.c     |   14 +++++++-------
+ 4 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index e0addf3..41609d5 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -356,6 +356,7 @@ enum e1e_registers {
- #define E1000_DEV_ID_80003ES2LAN_COPPER_SPT	0x10BA
- #define E1000_DEV_ID_80003ES2LAN_SERDES_SPT	0x10BB
- 
-+#define E1000_DEV_ID_ICH8_82567V_3		0x1501
- #define E1000_DEV_ID_ICH8_IGP_M_AMT		0x1049
- #define E1000_DEV_ID_ICH8_IGP_AMT		0x104A
- #define E1000_DEV_ID_ICH8_IGP_C			0x104B
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 227f3d0..f6f3a22 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1551,7 +1551,7 @@ bool e1000e_get_laa_state_82571(struct e1000_hw *hw)
+  *  @hw: pointer to the HW structure
+  *  @state: enable/disable locally administered address
+  *
+- *  Enable/Disable the current locally administers address state.
++ *  Enable/Disable the current locally administered address state.
+  **/
+ void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state)
+ {
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 9c38955..fbbc6dd 100644
+index fbbc6dd..1ce2bf9 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -3204,6 +3204,7 @@ void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
- 	u32 phy_ctrl;
+@@ -1747,7 +1747,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
+ 	if (hsfsts.hsf_status.flcinprog == 0) {
+ 		/*
+ 		 * There is no cycle running at present,
+-		 * so we can start a cycle
++		 * so we can start a cycle.
+ 		 * Begin by setting Flash Cycle Done.
+ 		 */
+ 		hsfsts.hsf_status.flcdone = 1;
+@@ -1755,7 +1755,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
+ 		ret_val = 0;
+ 	} else {
+ 		/*
+-		 * otherwise poll for sometime so the current
++		 * Otherwise poll for sometime so the current
+ 		 * cycle has a chance to end before giving up.
+ 		 */
+ 		for (i = 0; i < ICH_FLASH_READ_COMMAND_TIMEOUT; i++) {
+@@ -2645,7 +2645,6 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 		ctrl |= E1000_CTRL_PHY_RST;
+ 	}
+ 	ret_val = e1000_acquire_swflag_ich8lan(hw);
+-	/* Whether or not the swflag was acquired, we need to reset the part */
+ 	e_dbg("Issuing a global reset to ich8lan\n");
+ 	ew32(CTRL, (ctrl | E1000_CTRL_RST));
+ 	msleep(20);
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index e3976ea..a86c175 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1086,7 +1086,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
+ 		 *   1   |    1    |   0   |    0    | e1000_fc_none
+ 		 *   1   |    1    |   0   |    1    | e1000_fc_rx_pause
+ 		 *
+-		 *
+ 		 * Are both PAUSE bits set to 1?  If so, this implies
+ 		 * Symmetric Flow Control is enabled at both ends.  The
+ 		 * ASM_DIR bits are irrelevant per the spec.
+@@ -1124,7 +1123,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
+ 		 * PAUSE | ASM_DIR | PAUSE | ASM_DIR | Result
+ 		 *-------|---------|-------|---------|--------------------
+ 		 *   0   |    1    |   1   |    1    | e1000_fc_tx_pause
+-		 *
+ 		 */
+ 		else if (!(mii_nway_adv_reg & NWAY_AR_PAUSE) &&
+ 			  (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
+@@ -1140,7 +1138,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
+ 		 * PAUSE | ASM_DIR | PAUSE | ASM_DIR | Result
+ 		 *-------|---------|-------|---------|--------------------
+ 		 *   1   |    1    |   0   |    1    | e1000_fc_rx_pause
+-		 *
+ 		 */
+ 		else if ((mii_nway_adv_reg & NWAY_AR_PAUSE) &&
+ 			 (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
+@@ -2363,7 +2360,7 @@ static s32 e1000_mng_write_cmd_header(struct e1000_hw *hw,
+ }
  
- 	switch (hw->mac.type) {
-+	case e1000_ich8lan:
- 	case e1000_ich9lan:
- 	case e1000_ich10lan:
- 	case e1000_pchlan:
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index ab4db52..d57880e 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5342,6 +5342,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_C), board_ich8lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M), board_ich8lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_IGP_M_AMT), board_ich8lan },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH8_82567V_3), board_ich8lan },
+ /**
+- *  e1000_mng_host_if_write - Writes to the manageability host interface
++ *  e1000_mng_host_if_write - Write to the manageability host interface
+  *  @hw: pointer to the HW structure
+  *  @buffer: pointer to the host interface buffer
+  *  @length: size of the buffer
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 140b23b..1bc09b2 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -153,10 +153,10 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
+ 			goto out;
  
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE), board_ich9lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_ICH9_IFE_G), board_ich9lan },
+ 		/*
+-		 * If the PHY ID is still unknown, we may have an 82577i
+-		 * without link.  We will try again after setting Slow
+-		 * MDIC mode. No harm in trying again in this case since
+-		 * the PHY ID is unknown at this point anyway
++		 * If the PHY ID is still unknown, we may have an 82577
++		 * without link.  We will try again after setting Slow MDIC
++		 * mode. No harm in trying again in this case since the PHY
++		 * ID is unknown at this point anyway.
+ 		 */
+ 		ret_val = phy->ops.acquire(hw);
+ 		if (ret_val)
+@@ -1744,7 +1744,7 @@ out:
+  *  The automatic gain control (agc) normalizes the amplitude of the
+  *  received signal, adjusting for the attenuation produced by the
+  *  cable.  By reading the AGC registers, which represent the
+- *  combination of course and fine gain value, the value can be put
++ *  combination of coarse and fine gain value, the value can be put
+  *  into a lookup table to obtain the approximate cable length
+  *  for each channel.
+  **/
+@@ -1769,7 +1769,7 @@ s32 e1000e_get_cable_length_igp_2(struct e1000_hw *hw)
+ 
+ 		/*
+ 		 * Getting bits 15:9, which represent the combination of
+-		 * course and fine gain values.  The result is a number
++		 * coarse and fine gain values.  The result is a number
+ 		 * that can be put into the lookup table to obtain the
+ 		 * approximate cable length.
+ 		 */
+@@ -2511,7 +2511,7 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 		ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
+ 		                                   data);
+ 	} else {
+-	        /* Read the page 800 value using opcode 0x12 */
++	        /* Write the page 800 value using opcode 0x12 */
+ 		ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
+ 						    *data);
+ 	}
 
