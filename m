@@ -1,48 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 14470] New: freez in TCP stack
-Date: Wed, 02 Dec 2009 15:10:07 -0800 (PST)
-Message-ID: <20091202.151007.202653587.davem@davemloft.net>
-References: <4AE92F4D.6070101@gmail.com>
-	<20091029.010009.175904855.davem@davemloft.net>
-	<alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] net: Teach vlans to cleanup as a pernet subsystem
+Date: Wed, 02 Dec 2009 15:19:08 -0800
+Message-ID: <m1d42xrmkz.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, akpm@linux-foundation.org,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	kolo@albatani.cz, bugzilla-daemon@bugzilla.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53851
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754388AbZLBXKB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:10:01 -0500
-In-Reply-To: <alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
+Received: from out01.mta.xmission.com ([166.70.13.231]:44895 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752199AbZLBXTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:19:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 26 Nov 2009 23:54:53 +0200 (EET)
 
-> [PATCH] tcp: clear hints to avoid a stale one (nfs only affected?)
-> 
-> Eric Dumazet mentioned in a context of another problem:
-> 
-> "Well, it seems NFS reuses its socket, so maybe we miss some
-> cleaning as spotted in this old patch"
-> 
-> I've not check under which conditions that actually happens but
-> if true, we need to make sure we don't accidently leave stale
-> hints behind when the write queue had to be purged (whether reusing
-> with NFS can actually happen if purging took place is something I'm
-> not sure of).
-> 
-> ...At least it compiles.
-> 
-> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Take advantage of the fact that an explicit rtnl_kill_links is
+unnecessary (and skipping it improves batching), as network namespace
+exit calls dellink on all remaining virtual devices, and
+rtnl_link_unregister calls dellink on all outstanding devices in that
+network namespace.  To do this we need to leave the vlan proc
+directories in place until after network device exit time, which is
+done by using register_pernet_subsys instead of
+register_pernet_device.
 
-I think this is a good safety net even if it doesn't specifically
-fix a specific problem.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/8021q/vlan.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-But I'd like to see this patch tested by the person seeing the
-problem so we can know whether that is fixed or not.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 91e9073..ec37692 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -698,8 +698,6 @@ static int vlan_init_net(struct net *net)
+ 
+ static void vlan_exit_net(struct net *net)
+ {
+-	rtnl_kill_links(net, &vlan_link_ops);
+-
+ 	vlan_proc_cleanup(net);
+ }
+ 
+@@ -717,7 +715,7 @@ static int __init vlan_proto_init(void)
+ 	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
+ 	pr_info("All bugs added by %s\n", vlan_buggyright);
+ 
+-	err = register_pernet_device(&vlan_net_ops);
++	err = register_pernet_subsys(&vlan_net_ops);
+ 	if (err < 0)
+ 		goto err0;
+ 
+@@ -742,7 +740,7 @@ err4:
+ err3:
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
+ err2:
+-	unregister_pernet_device(&vlan_net_ops);
++	unregister_pernet_subsys(&vlan_net_ops);
+ err0:
+ 	return err;
+ }
+@@ -762,7 +760,7 @@ static void __exit vlan_cleanup_module(void)
+ 	for (i = 0; i < VLAN_GRP_HASH_SIZE; i++)
+ 		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
+ 
+-	unregister_pernet_device(&vlan_net_ops);
++	unregister_pernet_subsys(&vlan_net_ops);
+ 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ 
+ 	vlan_gvrp_uninit();
+-- 
+1.6.5.2.143.g8cc62
+
