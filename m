@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 6/9] e1000e: comment corrections
-Date: Tue, 01 Dec 2009 17:51:11 -0800
-Message-ID: <20091202015050.519.22623.stgit@localhost.localdomain>
-References: <20091202014931.519.25024.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 7/9] e1000e: add debug messages
+Date: Tue, 01 Dec 2009 17:53:07 -0800
+Message-ID: <20091202015250.592.56893.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,150 +10,117 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:45952
-	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753058AbZLBBvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:51:23 -0500
-In-Reply-To: <20091202014931.519.25024.stgit@localhost.localdomain>
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:32983
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753168AbZLBBxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:53:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+Add some helpful debug messages.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |    2 +-
- drivers/net/e1000e/ich8lan.c |    5 ++---
- drivers/net/e1000e/lib.c     |    5 +----
- drivers/net/e1000e/phy.c     |   14 +++++++-------
- 4 files changed, 11 insertions(+), 15 deletions(-)
+ drivers/net/e1000e/ich8lan.c |    4 +++-
+ drivers/net/e1000e/phy.c     |   26 ++++++++++++++++++++------
+ 2 files changed, 23 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 227f3d0..f6f3a22 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1551,7 +1551,7 @@ bool e1000e_get_laa_state_82571(struct e1000_hw *hw)
-  *  @hw: pointer to the HW structure
-  *  @state: enable/disable locally administered address
-  *
-- *  Enable/Disable the current locally administers address state.
-+ *  Enable/Disable the current locally administered address state.
-  **/
- void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state)
- {
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index fbbc6dd..1ce2bf9 100644
+index 1ce2bf9..6efb77f 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -1747,7 +1747,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 	if (hsfsts.hsf_status.flcinprog == 0) {
- 		/*
- 		 * There is no cycle running at present,
--		 * so we can start a cycle
-+		 * so we can start a cycle.
- 		 * Begin by setting Flash Cycle Done.
- 		 */
- 		hsfsts.hsf_status.flcdone = 1;
-@@ -1755,7 +1755,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 		ret_val = 0;
- 	} else {
- 		/*
--		 * otherwise poll for sometime so the current
-+		 * Otherwise poll for sometime so the current
- 		 * cycle has a chance to end before giving up.
- 		 */
- 		for (i = 0; i < ICH_FLASH_READ_COMMAND_TIMEOUT; i++) {
-@@ -2645,7 +2645,6 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 		ctrl |= E1000_CTRL_PHY_RST;
+@@ -314,8 +314,10 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
+ 		phy->ops.write_reg = e1000e_write_phy_reg_bm;
+ 		phy->ops.read_reg  = e1000e_read_phy_reg_bm;
+ 		ret_val = e1000e_determine_phy_address(hw);
+-		if (ret_val)
++		if (ret_val) {
++			e_dbg("Cannot determine PHY addr. Erroring out\n");
+ 			return ret_val;
++		}
  	}
- 	ret_val = e1000_acquire_swflag_ich8lan(hw);
--	/* Whether or not the swflag was acquired, we need to reset the part */
- 	e_dbg("Issuing a global reset to ich8lan\n");
- 	ew32(CTRL, (ctrl | E1000_CTRL_RST));
- 	msleep(20);
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index e3976ea..a86c175 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1086,7 +1086,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		 *   1   |    1    |   0   |    0    | e1000_fc_none
- 		 *   1   |    1    |   0   |    1    | e1000_fc_rx_pause
- 		 *
--		 *
- 		 * Are both PAUSE bits set to 1?  If so, this implies
- 		 * Symmetric Flow Control is enabled at both ends.  The
- 		 * ASM_DIR bits are irrelevant per the spec.
-@@ -1124,7 +1123,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		 * PAUSE | ASM_DIR | PAUSE | ASM_DIR | Result
- 		 *-------|---------|-------|---------|--------------------
- 		 *   0   |    1    |   1   |    1    | e1000_fc_tx_pause
--		 *
- 		 */
- 		else if (!(mii_nway_adv_reg & NWAY_AR_PAUSE) &&
- 			  (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
-@@ -1140,7 +1138,6 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		 * PAUSE | ASM_DIR | PAUSE | ASM_DIR | Result
- 		 *-------|---------|-------|---------|--------------------
- 		 *   1   |    1    |   0   |    1    | e1000_fc_rx_pause
--		 *
- 		 */
- 		else if ((mii_nway_adv_reg & NWAY_AR_PAUSE) &&
- 			 (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
-@@ -2363,7 +2360,7 @@ static s32 e1000_mng_write_cmd_header(struct e1000_hw *hw,
- }
  
- /**
-- *  e1000_mng_host_if_write - Writes to the manageability host interface
-+ *  e1000_mng_host_if_write - Write to the manageability host interface
-  *  @hw: pointer to the HW structure
-  *  @buffer: pointer to the host interface buffer
-  *  @length: size of the buffer
+ 	phy->id = 0;
 diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 140b23b..1bc09b2 100644
+index 1bc09b2..3e5940a 100644
 --- a/drivers/net/e1000e/phy.c
 +++ b/drivers/net/e1000e/phy.c
-@@ -153,10 +153,10 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
- 			goto out;
+@@ -2472,7 +2472,7 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 	/* Gig must be disabled for MDIO accesses to page 800 */
+ 	if ((hw->mac.type == e1000_pchlan) &&
+ 	   (!(er32(PHY_CTRL) & E1000_PHY_CTRL_GBE_DISABLE)))
+-		e_dbg("Attempting to access page 800 while gig enabled\n");
++		e_dbg("Attempting to access page 800 while gig enabled.\n");
  
- 		/*
--		 * If the PHY ID is still unknown, we may have an 82577i
--		 * without link.  We will try again after setting Slow
--		 * MDIC mode. No harm in trying again in this case since
--		 * the PHY ID is unknown at this point anyway
-+		 * If the PHY ID is still unknown, we may have an 82577
-+		 * without link.  We will try again after setting Slow MDIC
-+		 * mode. No harm in trying again in this case since the PHY
-+		 * ID is unknown at this point anyway.
- 		 */
- 		ret_val = phy->ops.acquire(hw);
- 		if (ret_val)
-@@ -1744,7 +1744,7 @@ out:
-  *  The automatic gain control (agc) normalizes the amplitude of the
-  *  received signal, adjusting for the attenuation produced by the
-  *  cable.  By reading the AGC registers, which represent the
-- *  combination of course and fine gain value, the value can be put
-+ *  combination of coarse and fine gain value, the value can be put
-  *  into a lookup table to obtain the approximate cable length
-  *  for each channel.
-  **/
-@@ -1769,7 +1769,7 @@ s32 e1000e_get_cable_length_igp_2(struct e1000_hw *hw)
+ 	/* All operations in this function are phy address 1 */
+ 	hw->phy.addr = 1;
+@@ -2482,20 +2482,26 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 	                          (BM_WUC_ENABLE_PAGE << IGP_PAGE_SHIFT));
  
- 		/*
- 		 * Getting bits 15:9, which represent the combination of
--		 * course and fine gain values.  The result is a number
-+		 * coarse and fine gain values.  The result is a number
- 		 * that can be put into the lookup table to obtain the
- 		 * approximate cable length.
- 		 */
-@@ -2511,7 +2511,7 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
- 		ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
- 		                                   data);
- 	} else {
--	        /* Read the page 800 value using opcode 0x12 */
-+	        /* Write the page 800 value using opcode 0x12 */
- 		ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, &phy_reg);
+-	if (ret_val)
++	if (ret_val) {
++		e_dbg("Could not read PHY page 769\n");
+ 		goto out;
++	}
+ 
+ 	/* First clear bit 4 to avoid a power state change */
+ 	phy_reg &= ~(BM_WUC_HOST_WU_BIT);
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
+-	if (ret_val)
++	if (ret_val) {
++		e_dbg("Could not clear PHY page 769 bit 4\n");
+ 		goto out;
++	}
+ 
+ 	/* Write bit 2 = 1, and clear bit 4 to 769_17 */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG,
+ 	                                    phy_reg | BM_WUC_ENABLE_BIT);
+-	if (ret_val)
++	if (ret_val) {
++		e_dbg("Could not write PHY page 769 bit 2\n");
+ 		goto out;
++	}
+ 
+ 	/* Select page 800 */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+@@ -2503,8 +2509,10 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 
+ 	/* Write the page 800 offset value using opcode 0x11 */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ADDRESS_OPCODE, reg);
+-	if (ret_val)
++	if (ret_val) {
++		e_dbg("Could not write address opcode to page 800\n");
+ 		goto out;
++	}
+ 
+ 	if (read) {
+ 	        /* Read the page 800 value using opcode 0x12 */
+@@ -2516,8 +2524,10 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
  						    *data);
  	}
+ 
+-	if (ret_val)
++	if (ret_val) {
++		e_dbg("Could not access data value from page 800\n");
+ 		goto out;
++	}
+ 
+ 	/*
+ 	 * Restore 769_17.2 to its original value
+@@ -2528,6 +2538,10 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 
+ 	/* Clear 769_17.2 */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
++	if (ret_val) {
++		e_dbg("Could not clear PHY page 769 bit 2\n");
++		goto out;
++	}
+ 
+ out:
+ 	return ret_val;
 
