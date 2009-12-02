@@ -1,61 +1,56 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [Patch] net: fix an array index overflow
-Date: Wed, 2 Dec 2009 15:24:27 +0200
-Message-ID: <20091202132427.GE5224@bicker>
-References: <20091201082901.4678.16688.sendpatchset@localhost.localdomain>
+From: =?ISO-8859-2?Q?Krzysztof_Ol=EAdzki?= <ole@ans.pl>
+Subject: Re: [Bugme-new] [Bug 14685] New: 2.6.30 -> 2.6.31: very high number
+ of RX dropped in bnx2
+Date: Wed, 02 Dec 2009 14:37:56 +0100
+Message-ID: <4B166DB4.9080101@ans.pl>
+References: <C27F8246C663564A84BB7AB34397724218065B9853@IRVEXCHCCR01.corp.ad.broadcom.com> <alpine.LNX.1.10.0911301632550.21971@bizon.gios.gov.pl> <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754053AbZLBNYc@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091201082901.4678.16688.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugzilla-daemon@bugzilla.kernel.org"
+	<bugzilla-daemon@bugzilla.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:35818 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753937AbZLBNiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 08:38:13 -0500
+In-Reply-To: <1259603093.14964.79.camel@nseg_linux_HP1.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 01, 2009 at 03:26:02AM -0500, Amerigo Wang wrote:
-> 
-> Don't use the address of an out-of-boundary element.
-> 
-> Maybe this is not harmful at runtime, but it is still
-> good to improve it.
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> 
+On 2009-11-30 18:44, Michael Chan wrote:
+> On Mon, 2009-11-30 at 07:33 -0800, Krzysztof Oledzki wrote:
+>> # ethtool -S eth0|egrep "(rx_bcast_packets|rx_mcast_packets|
+>> rx_fw_discards)"
+>>       rx_mcast_packets: 2806
+>>       rx_bcast_packets: 790016
+>>       rx_fw_discards: 790016
+>=20
+> This tells me that all the dropped packets are occurring in the iSCSI
+> ring.
+>=20
+> We have recently enabled iSCSI in the kernel and you probably don't h=
+ave
+> the userspace components to handle the iSCSI ring.  All broadcast
+> packets are also received in the iSCSI ring and they are all dropped =
+in
+> this case without the userspace components.  Networking is not affect=
+ed.
+> If you rmmod the bnx2i and cnic drivers, the drop counter should stop
+> counting.
+>=20
+> We have newer firmware that will not include dropped iSCSI packets in
+> the networking counters.  It should appear in the 2.6.33 kernel
+> time-frame.
 
-It may be coincidence but my static checker smatch also complains 
-about the code you modified.
+Yep, it was the cnic driver. Now I feel silly. Thank you for you help=20
+and sorry for the noise. I going to close it with RESOLVED-DOCUMENTED.
 
-It's the wrong idea to fix code to please a checker.  You end up
-doing things like adding an extra "return -ENOTREACHED" to silence
-warnings.  Then the next person who writes a checker has to figure
-out how to seperate the unreachable code which was added to suppress
-gcc warnings from bits which are unreachable because of typos.
+Best regards,
 
-Really any code that a human can read, a static checker should also
-be able to read.  Computer programs are just state machines.  At 
-the function level they are quite small state machines.  It's all
-logic and math which computers are very good at.  So it should be 
-fairly easy to fix the checker.  ;)
-
-(The above paragraph is funnier if you knew how sucky smatch is).
-
-regards,
-dan carpenter
-
-> ---
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 57737b8..2669361 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1586,7 +1586,7 @@ static int __init inet_init(void)
->  #endif
->  
->  	/* Register the socket-side information for inet_create. */
-> -	for (r = &inetsw[0]; r < &inetsw[SOCK_MAX]; ++r)
-> +	for (r = &inetsw[0]; r <= &inetsw[SOCK_MAX-1]; ++r)
->  		INIT_LIST_HEAD(r);
->  
->  	for (q = inetsw_array; q < &inetsw_array[INETSW_ARRAY_LEN]; ++q)
+				Krzysztof Ol=EAdzki
