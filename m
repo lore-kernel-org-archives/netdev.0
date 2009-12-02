@@ -1,27 +1,48 @@
-From: Lorenzo Allegrucci <lorenzo.allegrucci@forinicom.it>
-Subject: match SIP & RTP packets
-Date: Wed, 02 Dec 2009 23:38:07 +0100
-Message-ID: <4B16EC4F.4080703@forinicom.it>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 14470] New: freez in TCP stack
+Date: Wed, 02 Dec 2009 15:10:07 -0800 (PST)
+Message-ID: <20091202.151007.202653587.davem@davemloft.net>
+References: <4AE92F4D.6070101@gmail.com>
+	<20091029.010009.175904855.davem@davemloft.net>
+	<alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: netfilter@vger.kernel.org
+Cc: eric.dumazet@gmail.com, akpm@linux-foundation.org,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	kolo@albatani.cz, bugzilla-daemon@bugzilla.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host130-230-149-62.serverdedicati.aruba.it ([62.149.230.130]:36238
-	"EHLO mail.wedoit.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbZLBWqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 17:46:37 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53851
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754388AbZLBXKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:10:01 -0500
+In-Reply-To: <alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 26 Nov 2009 23:54:53 +0200 (EET)
 
-Hi all, it's not clear to me whether nf_conntrack_sip does SIP and RTP connection
-tracking or just SIP.. can you clarify?
-I need to match both SIP and RTP packets and I was wondering if the rule
-below would satisfy my requirements:
+> [PATCH] tcp: clear hints to avoid a stale one (nfs only affected?)
+> 
+> Eric Dumazet mentioned in a context of another problem:
+> 
+> "Well, it seems NFS reuses its socket, so maybe we miss some
+> cleaning as spotted in this old patch"
+> 
+> I've not check under which conditions that actually happens but
+> if true, we need to make sure we don't accidently leave stale
+> hints behind when the write queue had to be purged (whether reusing
+> with NFS can actually happen if purging took place is something I'm
+> not sure of).
+> 
+> ...At least it compiles.
+> 
+> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
-iptables -t mangle -A FORWARD -o eth0 -m helper --helper sip -j CLASSIFY --set-class 1:1
+I think this is a good safety net even if it doesn't specifically
+fix a specific problem.
 
-
-Thank you,
+But I'd like to see this patch tested by the person seeing the
+problem so we can know whether that is fixed or not.
