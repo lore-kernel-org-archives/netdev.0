@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: [net-next-2.6 PATCH 1/9] e1000e: provide family-specific functions to
 	manage VLAN filter arrays
-Date: Tue, 01 Dec 2009 17:36:22 -0800
-Message-ID: <20091202013605.326.51371.stgit@localhost.localdomain>
+Date: Tue, 01 Dec 2009 17:46:43 -0800
+Message-ID: <20091202014641.396.57708.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:56092
-	"EHLO QMTA14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751793AbZLBBge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:36:34 -0500
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:46466 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752036AbZLBBqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:46:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
