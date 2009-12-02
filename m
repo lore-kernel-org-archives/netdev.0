@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next]atl1e:disable NETIF_F_TSO6 for hardware limit
-Date: Wed, 02 Dec 2009 00:37:19 -0800 (PST)
-Message-ID: <20091202.003719.233698986.davem@davemloft.net>
-References: <1259723914457-git-send-email-jie.yang@atheros.com>
-	<20091202.003151.77443093.davem@davemloft.net>
-	<72981EBCFD196144B7C6999B9FC34A9A494C6DABC3@SHEXMB-01.global.atheros.com>
+Subject: Re: [net-next-2.6 PATCH 2/9] e1000e: guard against buffer overflow
+ in cable length tables
+Date: Wed, 02 Dec 2009 00:37:42 -0800 (PST)
+Message-ID: <20091202.003742.66088376.davem@davemloft.net>
+References: <20091202014641.396.57708.stgit@localhost.localdomain>
+	<20091202014701.396.84437.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, 558426@bugs.debian.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jie.Yang@Atheros.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754859AbZLBIhP@vger.kernel.org>
-In-Reply-To: <72981EBCFD196144B7C6999B9FC34A9A494C6DABC3@SHEXMB-01.global.atheros.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53943
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754780AbZLBIhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 03:37:35 -0500
+In-Reply-To: <20091202014701.396.84437.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jie Yang <Jie.Yang@Atheros.com>
-Date: Wed, 2 Dec 2009 16:34:18 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 01 Dec 2009 17:47:02 -0800
 
-> On Wednesday, December 02, 2009 4:32 PM
-> David Miller <davem@davemloft.net> wrote:
->>
->> From: <jie.yang@atheros.com>
->> Date: Wed, 2 Dec 2009 11:18:34 +0800
->>
->> > From: Jie Yang <jie.yang@atheros.com>
->> >
->> > For hardware limit to support TSOV6, just disable this feature
->> > Signed-off-by: Jie Yang <jie.yang@atheros.com>
->>
->> Shouldn't we be applying this to net-2.6 since it's a bug fix?
->>
-> oh, It should applying to net-2.6.
+> From: Bruce Allan <bruce.w.allan@intel.com>
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Great, that's where I've applied it.
-
-Thanks.
+Applied.
