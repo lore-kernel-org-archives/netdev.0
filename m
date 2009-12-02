@@ -1,53 +1,70 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 3/3] atl1e: Remove non-implementation of ethtool
- set_msglevel() operation
-Date: Wed, 02 Dec 2009 05:10:18 +0000
-Message-ID: <1259730618.21651.5.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
+ separate vlan from bond device
+Date: Wed, 02 Dec 2009 06:13:15 +0100
+Message-ID: <4B15F76B.9040203@gmail.com>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Jie Yang <jie.yang@atheros.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52316 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751080AbZLBFKP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 00:10:15 -0500
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36267 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935AbZLBFNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 00:13:13 -0500
+In-Reply-To: <20091130201453.GF1639@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unimplemented operations should not silently fail.
+Andy Gospodarek a =E9crit :
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 5d131c2..eeee269 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2439,8 +2439,8 @@ int netif_receive_skb(struct sk_buff *skb)
+>  		skb->skb_iif =3D skb->dev->ifindex;
+> =20
+>  	null_or_orig =3D NULL;
+> -	orig_dev =3D skb->dev;
+> -	if (orig_dev->master) {
+> +	orig_dev =3D __dev_get_by_index(dev_net(skb->dev),skb->skb_iif);
+> +	if (orig_dev->master && !(skb->dev->priv_flags & IFF_802_1Q_VLAN)) =
+{
+>  		if (skb_bond_should_drop(skb))
+>  			null_or_orig =3D orig_dev; /* deliver only exact match */
+>  		else
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/atl1e/atl1e_ethtool.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/atl1e/atl1e_ethtool.c
-index bb15c51..a76006c 100644
---- a/drivers/net/atl1e/atl1e_ethtool.c
-+++ b/drivers/net/atl1e/atl1e_ethtool.c
-@@ -140,10 +140,6 @@ static u32 atl1e_get_msglevel(struct net_device *netdev)
- #endif
- }
- 
--static void atl1e_set_msglevel(struct net_device *netdev, u32 data)
--{
--}
--
- static int atl1e_get_regs_len(struct net_device *netdev)
- {
- 	return AT_REGS_LEN * sizeof(u32);
-@@ -382,7 +378,6 @@ static const struct ethtool_ops atl1e_ethtool_ops = {
- 	.get_wol                = atl1e_get_wol,
- 	.set_wol                = atl1e_set_wol,
- 	.get_msglevel           = atl1e_get_msglevel,
--	.set_msglevel           = atl1e_set_msglevel,
- 	.nway_reset             = atl1e_nway_reset,
- 	.get_link               = ethtool_op_get_link,
- 	.get_eeprom_len         = atl1e_get_eeprom_len,
--- 
-1.6.5.3
+Please dont add a __dev_get_by_index() call in netif_receive_skb()
 
+=46irst, this is not safe against writers.
+
+Second its very expensive on some setups.
+
+Eventually, you could do something like :
+
+
+Change prototypes of netif_receive_skb() to include the orig_dev in arg=
+uments.
+Change vlan code to call __netif_receive_skb(skb, orig_dev)
+instead of netif_received_skb(skb)
+
+int __netif_receive_skb(struct sk_buff *skb, struct net_device *orig_de=
+v)
+{
+=2E..
+	if (!skb->skb_iif) {
+		skb->skb_iif =3D orig_dev->ifindex;
+	} else {
+		if (orig_dev->master &&  ...)=20
+	}
+
+}
+
+int netif_receive_skb(struct sk_buff *skb)
+{
+	return __netif_receive_skb(skb, skb->dev);
+}
 
