@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 9/9] e1000e: Use sizeof struct rather than
- pointer in e1000_get_eeprom()
-Date: Wed, 02 Dec 2009 00:38:26 -0800 (PST)
-Message-ID: <20091202.003826.120472359.davem@davemloft.net>
-References: <20091202015250.592.56893.stgit@localhost.localdomain>
-	<20091202015406.592.42534.stgit@localhost.localdomain>
+Subject: Re: [patch 1/2] net/ps3: Cleanup gelic enums
+Date: Wed, 02 Dec 2009 00:53:27 -0800 (PST)
+Message-ID: <20091202.005327.142907680.davem@davemloft.net>
+References: <4B159599.1010208@am.sony.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, roel.kluin@gmail.com
-To: jeffrey.t.kirsher@intel.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: geoffrey.levand@am.sony.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53978
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44317
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754917AbZLBIiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 03:38:19 -0500
-In-Reply-To: <20091202015406.592.42534.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754881AbZLBIxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 03:53:21 -0500
+In-Reply-To: <4B159599.1010208@am.sony.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 01 Dec 2009 17:54:24 -0800
+From: Geoff Levand <geoffrey.levand@am.sony.com>
+Date: Tue, 1 Dec 2009 14:15:53 -0800
 
-> From: Roel Kluin <roel.kluin@gmail.com>
+> Cleanup of the gelic driver enumerations:
 > 
-> Don't use the sizeof the pointer to clear the result
+>  o Add some missing commas.
+>  o Add an Ether port post fix (PS3 currently only supports PORT_0).
+>  o Add a new enum gelic_lv1_phy to use when interacting with the PHY.
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com>
+> ---
+> Hi Jeff,
+> 
+> This patch does some cleanup needed by the 2nd patch
+> [patch 2/2] net/ps3: Add support for gelic link negotiation.
+> 
+> Please apply for 2.3.33.
 
-Applied.
+Jeff hasn't handled networking driver patches for more than a year.
+Please CC: me instead.
+
+Both patches applied to net-next-2.6, thanks.
