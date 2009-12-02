@@ -1,46 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Fix a connect() race with timewait sockets
-Date: Wed, 02 Dec 2009 11:33:55 +0100
-Message-ID: <4B164293.7070804@gmail.com>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com>	<4B152F97.1090409@gmail.com> <20091202.005937.177088443.davem@davemloft.net> <4B163226.50801@gmail.com>
+From: Martin Devera <martin.devera@cdi.cz>
+Subject: Re: [PATCH] sch_htb: ix the deficit overflows
+Date: Wed, 02 Dec 2009 12:07:44 +0100
+Message-ID: <4B164A80.2000709@cdi.cz>
+References: <20091128000401.GA3713@ami.dom.local> <412e6f7f0911292026w704a70b8yc3af2c2473e05d34@mail.gmail.com> <20091130111020.GA7114@ff.dom.local> <20091202.012017.39623676.davem@davemloft.net> <20091202103204.GA7724@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kdakhane@gmail.com, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, zbr@ioremap.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
+	hadi@cyberus.ca, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58864 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbZLBKd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 05:33:58 -0500
-In-Reply-To: <4B163226.50801@gmail.com>
+Received: from gate.cdi.cz ([80.95.109.117]:50384 "EHLO luxik.cdi.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751312AbZLBLHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2009 06:07:50 -0500
+In-Reply-To: <20091202103204.GA7724@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
->=20
-> But even if sysctl_tw_reuse is cleared, we might trigger the bug if
-> local port is bound to a value.
+Jarek Poplawski wrote:
+>>
+>> Because we toss large SKBs all over the strack quite freely,
+>> protections like those suggested by Changli make perfect sense.
+>>
+>> We really don't have an MTU for packets within our stack any more.
+>> The code, by default, need to be able to handle anything.
+> 
+> Alas, an MTU is still a crucial parameter for some schedulers. Anyway,
+> I hope Changli wasn't mislead to treat my private opinions in this or
+> any other thread as decisive. Otherwise, I'm sorry.
 
-Oh well, that's more subtle than that.
+It seems that the new code is not slower when quantums are larger
+than MTU's. Only when it is not the case, the new code introduces
+loop which will iteratively increase deficit[x] until some packet
+fits.
+This can slow dequeue down. I'm not sure how much - but imagine
+working setup with small quantums which works just now (only
+sharing ratios are wrong).
+After installing new kernel with the change the load could go
+up and router could start  dropping packets.
 
-__inet_check_established() is called not only with bh disabled,
-but also with a lock on bind list if twp !=3D NULL.
-
-However, if twp is NULL, lock is not held by caller.
-
-[ Thats the final
-  ret =3D check_established(death_row, sk, snum, NULL);
-  in __inet_hash_connect()]
-
-So triggering this bug with tw_reuse clear is tricky :
-
-You need several threads, using sockets with REUSEADDR set,
-and bind() to same address/port before connect() to same target.
-
-We need another patch to correct this.
-
-I wonder if always hold lock before calling check_established()
-would be cleaner.
+While I don't believe the load will change so much, Changli
+should measure this one IMHO.
 
