@@ -1,57 +1,76 @@
-From: Tore Anderson <tore.anderson@redpill-linpro.com>
-Subject: "NIG timer max" messages from bnx2x
-Date: Wed, 02 Dec 2009 17:00:04 +0100
-Message-ID: <4B168F04.60309@redpill-linpro.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6] bonding: allow arp_ip_targets to be on a
+	separate vlan from bond device
+Date: Wed, 2 Dec 2009 11:38:15 -0500
+Message-ID: <20091202163814.GK1639@gospo.rdu.redhat.com>
+References: <20091130201453.GF1639@gospo.rdu.redhat.com> <4B15F76B.9040203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	fubar@us.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.linpro.no ([87.238.49.141]:48045 "EHLO
-	mailhub.linpro.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754639AbZLBQ2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 11:28:51 -0500
-Received: from localhost (mailhub.linpro.no [87.238.49.141])
-	by mailhub.linpro.no (Postfix) with ESMTP id 5CFEB1DE51D
-	for <netdev@vger.kernel.org>; Wed,  2 Dec 2009 17:00:15 +0100 (CET)
-Received: from mailhub.linpro.no ([87.238.49.141])
-	by localhost (mailhub.linpro.no [87.238.49.141]) (amavisd-new, port 10024)
-	with ESMTP id 4Fr18N5j6J1T for <netdev@vger.kernel.org>;
-	Wed,  2 Dec 2009 17:00:07 +0100 (CET)
-Received: from zimbra.redpill-linpro.com (claudius.linpro.no [87.238.49.234])
-	by mailhub.linpro.no (Postfix) with ESMTP
-	for <netdev@vger.kernel.org>; Wed,  2 Dec 2009 17:00:07 +0100 (CET)
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by zimbra.redpill-linpro.com (Postfix) with ESMTP id 3105D170C004
-	for <netdev@vger.kernel.org>; Wed,  2 Dec 2009 17:00:07 +0100 (CET)
+Received: from mx1.redhat.com ([209.132.183.28]:24079 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753707AbZLBQiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2009 11:38:13 -0500
+Content-Disposition: inline
+In-Reply-To: <4B15F76B.9040203@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello list,
+On Wed, Dec 02, 2009 at 06:13:15AM +0100, Eric Dumazet wrote:
+> Andy Gospodarek a =E9crit :
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 5d131c2..eeee269 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -2439,8 +2439,8 @@ int netif_receive_skb(struct sk_buff *skb)
+> >  		skb->skb_iif =3D skb->dev->ifindex;
+> > =20
+> >  	null_or_orig =3D NULL;
+> > -	orig_dev =3D skb->dev;
+> > -	if (orig_dev->master) {
+> > +	orig_dev =3D __dev_get_by_index(dev_net(skb->dev),skb->skb_iif);
+> > +	if (orig_dev->master && !(skb->dev->priv_flags & IFF_802_1Q_VLAN)=
+) {
+> >  		if (skb_bond_should_drop(skb))
+> >  			null_or_orig =3D orig_dev; /* deliver only exact match */
+> >  		else
+>=20
+>=20
+> Please dont add a __dev_get_by_index() call in netif_receive_skb()
+>=20
+> First, this is not safe against writers.
+>=20
+> Second its very expensive on some setups.
+>=20
+> Eventually, you could do something like :
+>=20
+>=20
+> Change prototypes of netif_receive_skb() to include the orig_dev in a=
+rguments.
+> Change vlan code to call __netif_receive_skb(skb, orig_dev)
+> instead of netif_received_skb(skb)
+>=20
+> int __netif_receive_skb(struct sk_buff *skb, struct net_device *orig_=
+dev)
+> {
+> ...
+> 	if (!skb->skb_iif) {
+> 		skb->skb_iif =3D orig_dev->ifindex;
+> 	} else {
+> 		if (orig_dev->master &&  ...)=20
+> 	}
+>=20
+> }
+>=20
+> int netif_receive_skb(struct sk_buff *skb)
+> {
+> 	return __netif_receive_skb(skb, skb->dev);
+> }
+>=20
 
-I'm having a strange error condition I'm hoping someone here might be
-able to help me get to the bottom of.  I've got a HP blade enclosure
-with a Nortel switch module, and one of the blades are running VMWare
-ESX.  When I turn on this blade (or enable its switch port), the entire
-network stops working after a short while.  Other server blades can no
-longer communicate, for instance.  The only clue I've found so far is
-the following error message from one of the other blades that's running
-CentOS 5.4:
+That is an interesting thought.  I'll investigate this as well.
 
-[bnx2x_hw_stats_update:3701(eth0)]NIG timer max (426)
-
-The line is logged every two seconds and the number in parenthesis is
-incrementing each time.  Once I disable the port to the ESX server, the
-network instantly recovers.
-
-I have no reason to believe the Linux kernel/bnx2x is doing anything
-wrong here, but I'm wondering if anybody has any idea on what this error
-message means and what could be causing it?  I can't see anything
-unusual going on with tcpdump, and the error counters in "ip -s -s link
-show eth0" are all zero.
-
-Best regards,
--- 
-Tore Anderson
-Redpill Linpro AS - http://www.redpill-linpro.com/
-Tel: +47 21 54 41 27
