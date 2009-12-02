@@ -1,33 +1,66 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] tcp: Fix a connect() race with timewait sockets
-Date: Wed, 2 Dec 2009 14:32:13 +0300
-Message-ID: <20091202113213.GA18453@ioremap.net>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <20091202.005937.177088443.davem@davemloft.net> <4B163226.50801@gmail.com> <4B164293.7070804@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: scp stalls mysteriously
+Date: Wed, 2 Dec 2009 14:59:20 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
+References: <20091127223545.2a752429@houba> <alpine.DEB.2.00.0911272358030.11977@melkinpaasi.cs.helsinki.fi> <20091128010156.1219012a@houba> <alpine.DEB.2.00.0911281257270.25587@melkinpaasi.cs.helsinki.fi> <20091130195004.38dbc319@houba>
+ <alpine.DEB.2.00.0911302113390.9826@melkinpaasi.cs.helsinki.fi> <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba> <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
+ <20091202085925.472136e2@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kdakhane@gmail.com,
-	netdev@vger.kernel.org, netfilter@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: MULTIPART/MIXED; boundary="-696230645-1808783674-1259758134=:20416"
+Cc: Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:32770 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751278AbZLBLcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 06:32:08 -0500
-Content-Disposition: inline
-In-Reply-To: <4B164293.7070804@gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39103 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753490AbZLBM7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 07:59:16 -0500
+In-Reply-To: <20091202085925.472136e2@houba>
+Content-ID: <alpine.DEB.2.00.0912021449140.20416@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 02, 2009 at 11:33:55AM +0100, Eric Dumazet (eric.dumazet@gmail.com) wrote:
-> You need several threads, using sockets with REUSEADDR set,
-> and bind() to same address/port before connect() to same target.
-> 
-> We need another patch to correct this.
-> 
-> I wonder if always hold lock before calling check_established()
-> would be cleaner.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Isnt this a too big overhead?
+---696230645-1808783674-1259758134=:20416
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0912021449141.20416@melkinpaasi.cs.helsinki.fi>
+
+On Wed, 2 Dec 2009, Frederic Leroy wrote:
+
+> Le Tue, 1 Dec 2009 22:27:01 +0200 (EET),
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> a écrit :
+> 
+> > On Tue, 1 Dec 2009, Frederic Leroy wrote:
+> >
+> > Thanks, I'll hopefully have some time tomorrow to go through all the
+> > new ones.
+
+Thanks for the logs. ...It is very much confirmed now that the connection 
+suddently dies.
+
+What is directly inferrable from the logs: Losses happen. RTO is triggered 
+for the first time (for some reason also fast retransmit is missing and it 
+most likely it should have preceeded RTO), however, the retransmission 
+that RTO should make is never captured into the tcpdump. Then when RTO 
+triggers for the second time, the connection silently dies immediately and 
+consistently for some reason. ...From that point on resets are sent if the 
+peer keeps trying.
+
+> > Also,
+> > I wonder if you have had some working (past) kernel version?
+> 
+> I tried a 2.6.31, and it seems to work. If it really work (connection
+> don't stall everytime at the moment), I'll try to make a "git bisect"
+> asap.
+
+In one of the cases, also the sg end dies (the 4th case). I suppose that 
+was running earlier kernel already?
 
 -- 
-	Evgeniy Polyakov
+ i.
+---696230645-1808783674-1259758134=:20416--
