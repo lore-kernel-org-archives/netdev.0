@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/9] e1000e: guard against buffer overflow in
-	cable length tables
-Date: Tue, 01 Dec 2009 17:47:02 -0800
-Message-ID: <20091202014701.396.84437.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/9] e1000e: provide family-specific PHY power
+	up/down operations
+Date: Tue, 01 Dec 2009 17:47:22 -0800
+Message-ID: <20091202014720.396.29751.stgit@localhost.localdomain>
 References: <20091202014641.396.57708.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,105 +12,349 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.westchester.pa.mail.comcast.net ([76.96.59.227]:53365
-	"EHLO QMTA12.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752408AbZLBBrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:47:13 -0500
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:51805
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753168AbZLBBre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Dec 2009 20:47:34 -0500
 In-Reply-To: <20091202014641.396.57708.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+The different families (80003es2lan, 8257x, ICHx/PCH) supported by the
+driver each have their own conditions when the PHY can be powered down.
+This patch rewrites the PHY power up/down code to fit with the family-
+specific style used in the driver.  All pre-existing calls to power up or
+down the PHY remain untouched.  A new call to power down the PHY when
+removing the driver when the interface is down replaces the current call
+to reset the PHY in order to reduce power consumption.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/es2lan.c |   17 +++++++++++++----
- drivers/net/e1000e/phy.c    |   14 +++++++++++---
- 2 files changed, 24 insertions(+), 7 deletions(-)
+ drivers/net/e1000e/82571.c   |   26 ++++++++++++++++++++++
+ drivers/net/e1000e/e1000.h   |    2 ++
+ drivers/net/e1000e/es2lan.c  |   21 ++++++++++++++++++
+ drivers/net/e1000e/hw.h      |    2 ++
+ drivers/net/e1000e/ich8lan.c |   23 +++++++++++++++++++
+ drivers/net/e1000e/netdev.c  |   50 +++++++++---------------------------------
+ drivers/net/e1000e/phy.c     |   37 +++++++++++++++++++++++++++++++
+ 7 files changed, 122 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 3ff932f..3f435c1 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -99,6 +99,8 @@
-  */
- static const u16 e1000_gg82563_cable_length_table[] =
- 	 { 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
-+#define GG82563_CABLE_LENGTH_TABLE_SIZE \
-+		ARRAY_SIZE(e1000_gg82563_cable_length_table)
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 8ea3ed7..26ea5d5 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -69,6 +69,7 @@ static void e1000_clear_vfta_82571(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_82574(struct e1000_hw *hw);
+ static s32 e1000_led_on_82574(struct e1000_hw *hw);
+ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw);
++static void e1000_power_down_phy_copper_82571(struct e1000_hw *hw);
  
- static s32 e1000_setup_copper_link_80003es2lan(struct e1000_hw *hw);
- static s32 e1000_acquire_swfw_sync_80003es2lan(struct e1000_hw *hw, u16 mask);
-@@ -694,20 +696,27 @@ static s32 e1000_phy_force_speed_duplex_80003es2lan(struct e1000_hw *hw)
- static s32 e1000_get_cable_length_80003es2lan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val;
-+	s32 ret_val = 0;
- 	u16 phy_data, index;
+ /**
+  *  e1000_init_phy_params_82571 - Init PHY func ptrs.
+@@ -88,6 +89,9 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
+ 	phy->autoneg_mask		 = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+ 	phy->reset_delay_us		 = 100;
  
- 	ret_val = e1e_rphy(hw, GG82563_PHY_DSP_DISTANCE, &phy_data);
- 	if (ret_val)
--		return ret_val;
-+		goto out;
- 
- 	index = phy_data & GG82563_DSPD_CABLE_LENGTH;
++	phy->ops.power_up		 = e1000_power_up_phy_copper;
++	phy->ops.power_down		 = e1000_power_down_phy_copper_82571;
 +
-+	if (index >= GG82563_CABLE_LENGTH_TABLE_SIZE - 5) {
-+		ret_val = -E1000_ERR_PHY;
-+		goto out;
-+	}
-+
- 	phy->min_cable_length = e1000_gg82563_cable_length_table[index];
--	phy->max_cable_length = e1000_gg82563_cable_length_table[index+5];
-+	phy->max_cable_length = e1000_gg82563_cable_length_table[index + 5];
- 
- 	phy->cable_length = (phy->min_cable_length + phy->max_cable_length) / 2;
- 
--	return 0;
-+out:
-+	return ret_val;
+ 	switch (hw->mac.type) {
+ 	case e1000_82571:
+ 	case e1000_82572:
+@@ -1601,6 +1605,28 @@ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw)
  }
  
  /**
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 5cd01c6..9ce4997 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -44,6 +44,8 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
- /* Cable length tables */
- static const u16 e1000_m88_cable_length_table[] =
- 	{ 0, 50, 80, 110, 140, 140, E1000_CABLE_LENGTH_UNDEFINED };
-+#define M88E1000_CABLE_LENGTH_TABLE_SIZE \
-+		ARRAY_SIZE(e1000_m88_cable_length_table)
- 
- static const u16 e1000_igp_2_cable_length_table[] =
- 	{ 0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 8, 11, 13, 16, 18, 21, 0, 0, 0, 3,
-@@ -1717,15 +1719,21 @@ s32 e1000e_get_cable_length_m88(struct e1000_hw *hw)
- 
- 	ret_val = e1e_rphy(hw, M88E1000_PHY_SPEC_STATUS, &phy_data);
- 	if (ret_val)
--		return ret_val;
-+		goto out;
- 
- 	index = (phy_data & M88E1000_PSSR_CABLE_LENGTH) >>
--		M88E1000_PSSR_CABLE_LENGTH_SHIFT;
-+	        M88E1000_PSSR_CABLE_LENGTH_SHIFT;
-+	if (index >= M88E1000_CABLE_LENGTH_TABLE_SIZE - 1) {
-+		ret_val = -E1000_ERR_PHY;
-+		goto out;
-+	}
++ * e1000_power_down_phy_copper_82571 - Remove link during PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, remove the link.
++ **/
++static void e1000_power_down_phy_copper_82571(struct e1000_hw *hw)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	struct e1000_mac_info *mac = &hw->mac;
 +
- 	phy->min_cable_length = e1000_m88_cable_length_table[index];
--	phy->max_cable_length = e1000_m88_cable_length_table[index+1];
-+	phy->max_cable_length = e1000_m88_cable_length_table[index + 1];
++	if (!(phy->ops.check_reset_block))
++		return;
++
++	/* If the management interface is not enabled, then power down */
++	if (!(mac->ops.check_mng_mode(hw) || phy->ops.check_reset_block(hw)))
++		e1000_power_down_phy_copper(hw);
++
++	return;
++}
++
++/**
+  *  e1000_clear_hw_cntrs_82571 - Clear device specific hardware counters
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 4c08752..c4e861f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -568,6 +568,8 @@ extern s32 e1000e_read_kmrn_reg_locked(struct e1000_hw *hw, u32 offset,
+ extern s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
+ 			       u32 usec_interval, bool *success);
+ extern s32 e1000e_phy_reset_dsp(struct e1000_hw *hw);
++extern void e1000_power_up_phy_copper(struct e1000_hw *hw);
++extern void e1000_power_down_phy_copper(struct e1000_hw *hw);
+ extern s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
+ extern s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
+ extern s32 e1000e_check_downshift(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 3f435c1..c7bc657 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -114,6 +114,7 @@ static s32  e1000_read_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
+                                             u16 *data);
+ static s32  e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
+                                              u16 data);
++static void e1000_power_down_phy_copper_80003es2lan(struct e1000_hw *hw);
  
- 	phy->cable_length = (phy->min_cable_length + phy->max_cable_length) / 2;
+ /**
+  *  e1000_init_phy_params_80003es2lan - Init ESB2 PHY func ptrs.
+@@ -127,6 +128,9 @@ static s32 e1000_init_phy_params_80003es2lan(struct e1000_hw *hw)
+ 	if (hw->phy.media_type != e1000_media_type_copper) {
+ 		phy->type	= e1000_phy_none;
+ 		return 0;
++	} else {
++		phy->ops.power_up = e1000_power_up_phy_copper;
++		phy->ops.power_down = e1000_power_down_phy_copper_80003es2lan;
+ 	}
  
-+out:
- 	return ret_val;
+ 	phy->addr		= 1;
+@@ -1303,6 +1307,23 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
  }
  
+ /**
++ * e1000_power_down_phy_copper_80003es2lan - Remove link during PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, remove the link.
++ **/
++static void e1000_power_down_phy_copper_80003es2lan(struct e1000_hw *hw)
++{
++	/* If the management interface is not enabled, then power down */
++	if (!(hw->mac.ops.check_mng_mode(hw) ||
++	      hw->phy.ops.check_reset_block(hw)))
++		e1000_power_down_phy_copper(hw);
++
++	return;
++}
++
++/**
+  *  e1000_clear_hw_cntrs_80003es2lan - Clear device specific hardware counters
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 6c3d55f..e0addf3 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -774,6 +774,8 @@ struct e1000_phy_operations {
+ 	s32  (*set_d3_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*write_reg)(struct e1000_hw *, u32, u16);
+ 	s32  (*write_reg_locked)(struct e1000_hw *, u32, u16);
++	void (*power_up)(struct e1000_hw *);
++	void (*power_down)(struct e1000_hw *);
+ };
+ 
+ /* Function pointers for the NVM. */
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 7530fc5..9c38955 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -217,6 +217,7 @@ static s32 e1000_cleanup_led_pchlan(struct e1000_hw *hw);
+ static s32 e1000_led_on_pchlan(struct e1000_hw *hw);
+ static s32 e1000_led_off_pchlan(struct e1000_hw *hw);
+ static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active);
++static void e1000_power_down_phy_copper_ich8lan(struct e1000_hw *hw);
+ static void e1000_lan_init_done_ich8lan(struct e1000_hw *hw);
+ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
+ 
+@@ -266,6 +267,8 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->ops.set_d3_lplu_state    = e1000_set_lplu_state_pchlan;
+ 	phy->ops.write_reg            = e1000_write_phy_reg_hv;
+ 	phy->ops.write_reg_locked     = e1000_write_phy_reg_hv_locked;
++	phy->ops.power_up             = e1000_power_up_phy_copper;
++	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+ 
+ 	phy->id = e1000_phy_unknown;
+@@ -299,6 +302,9 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
+ 	phy->addr			= 1;
+ 	phy->reset_delay_us		= 100;
+ 
++	phy->ops.power_up               = e1000_power_up_phy_copper;
++	phy->ops.power_down             = e1000_power_down_phy_copper_ich8lan;
++
+ 	/*
+ 	 * We may need to do this twice - once for IGP and if that fails,
+ 	 * we'll set BM func pointers and try again
+@@ -3392,6 +3398,23 @@ static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw)
+ }
+ 
+ /**
++ * e1000_power_down_phy_copper_ich8lan - Remove link during PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, remove the link.
++ **/
++static void e1000_power_down_phy_copper_ich8lan(struct e1000_hw *hw)
++{
++	/* If the management interface is not enabled, then power down */
++	if (!(hw->mac.ops.check_mng_mode(hw) ||
++	      hw->phy.ops.check_reset_block(hw)))
++		e1000_power_down_phy_copper(hw);
++
++	return;
++}
++
++/**
+  *  e1000_clear_hw_cntrs_ich8lan - Clear statistical counters
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 2381cb7..ab4db52 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2641,18 +2641,8 @@ static void e1000_configure(struct e1000_adapter *adapter)
+  **/
+ void e1000e_power_up_phy(struct e1000_adapter *adapter)
+ {
+-	u16 mii_reg = 0;
+-
+-	/* Just clear the power down bit to wake the phy back up */
+-	if (adapter->hw.phy.media_type == e1000_media_type_copper) {
+-		/*
+-		 * According to the manual, the phy will retain its
+-		 * settings across a power-down/up cycle
+-		 */
+-		e1e_rphy(&adapter->hw, PHY_CONTROL, &mii_reg);
+-		mii_reg &= ~MII_CR_POWER_DOWN;
+-		e1e_wphy(&adapter->hw, PHY_CONTROL, mii_reg);
+-	}
++	if (adapter->hw.phy.ops.power_up)
++		adapter->hw.phy.ops.power_up(&adapter->hw);
+ 
+ 	adapter->hw.mac.ops.setup_link(&adapter->hw);
+ }
+@@ -2660,35 +2650,17 @@ void e1000e_power_up_phy(struct e1000_adapter *adapter)
+ /**
+  * e1000_power_down_phy - Power down the PHY
+  *
+- * Power down the PHY so no link is implied when interface is down
+- * The PHY cannot be powered down is management or WoL is active
++ * Power down the PHY so no link is implied when interface is down.
++ * The PHY cannot be powered down if management or WoL is active.
+  */
+ static void e1000_power_down_phy(struct e1000_adapter *adapter)
+ {
+-	struct e1000_hw *hw = &adapter->hw;
+-	u16 mii_reg;
+-
+ 	/* WoL is enabled */
+ 	if (adapter->wol)
+ 		return;
+ 
+-	/* non-copper PHY? */
+-	if (adapter->hw.phy.media_type != e1000_media_type_copper)
+-		return;
+-
+-	/* reset is blocked because of a SoL/IDER session */
+-	if (e1000e_check_mng_mode(hw) || e1000_check_reset_block(hw))
+-		return;
+-
+-	/* manageability (AMT) is enabled */
+-	if (er32(MANC) & E1000_MANC_SMBUS_EN)
+-		return;
+-
+-	/* power down the PHY */
+-	e1e_rphy(hw, PHY_CONTROL, &mii_reg);
+-	mii_reg |= MII_CR_POWER_DOWN;
+-	e1e_wphy(hw, PHY_CONTROL, mii_reg);
+-	mdelay(1);
++	if (adapter->hw.phy.ops.power_down)
++		adapter->hw.phy.ops.power_down(&adapter->hw);
+ }
+ 
+ /**
+@@ -5294,17 +5266,17 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 	cancel_work_sync(&adapter->print_hang_task);
+ 	flush_scheduled_work();
+ 
++	if (!(netdev->flags & IFF_UP))
++		e1000_power_down_phy(adapter);
++
++	unregister_netdev(netdev);
++
+ 	/*
+ 	 * Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant.
+ 	 */
+ 	e1000_release_hw_control(adapter);
+ 
+-	unregister_netdev(netdev);
+-
+-	if (!e1000_check_reset_block(&adapter->hw))
+-		e1000_phy_hw_reset(&adapter->hw);
+-
+ 	e1000e_reset_interrupt_capability(adapter);
+ 	kfree(adapter->tx_ring);
+ 	kfree(adapter->rx_ring);
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 9ce4997..140b23b 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -2534,6 +2534,43 @@ out:
+ }
+ 
+ /**
++ * e1000_power_up_phy_copper - Restore copper link in case of PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, restore the link to previous
++ * settings.
++ **/
++void e1000_power_up_phy_copper(struct e1000_hw *hw)
++{
++	u16 mii_reg = 0;
++
++	/* The PHY will retain its settings across a power down/up cycle */
++	e1e_rphy(hw, PHY_CONTROL, &mii_reg);
++	mii_reg &= ~MII_CR_POWER_DOWN;
++	e1e_wphy(hw, PHY_CONTROL, mii_reg);
++}
++
++/**
++ * e1000_power_down_phy_copper - Restore copper link in case of PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, restore the link to previous
++ * settings.
++ **/
++void e1000_power_down_phy_copper(struct e1000_hw *hw)
++{
++	u16 mii_reg = 0;
++
++	/* The PHY will retain its settings across a power down/up cycle */
++	e1e_rphy(hw, PHY_CONTROL, &mii_reg);
++	mii_reg |= MII_CR_POWER_DOWN;
++	e1e_wphy(hw, PHY_CONTROL, mii_reg);
++	msleep(1);
++}
++
++/**
+  *  e1000e_commit_phy - Soft PHY reset
+  *  @hw: pointer to the HW structure
+  *
 
