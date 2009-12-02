@@ -1,46 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: EEH is failing with timeout
-Date: Wed, 02 Dec 2009 15:37:32 -0800 (PST)
-Message-ID: <20091202.153732.41986418.davem@davemloft.net>
-References: <1259256709-6976-1-git-send-email-leitao@linux.vnet.ibm.com>
-	<C27F8246C663564A84BB7AB34397724218065B984E@IRVEXCHCCR01.corp.ad.broadcom.com>
+Subject: Re: [PATCH] ip: update the description of rp_filter in
+ ip-sysctl.txt
+Date: Wed, 02 Dec 2009 15:39:18 -0800 (PST)
+Message-ID: <20091202.153918.04085201.davem@davemloft.net>
+References: <4B14C000.3090608@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, rdunlap@xenotime.net
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42573
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42577
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755792AbZLBXh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:37:26 -0500
-In-Reply-To: <C27F8246C663564A84BB7AB34397724218065B984E@IRVEXCHCCR01.corp.ad.broadcom.com>
+	by vger.kernel.org with ESMTP id S1755526AbZLBXjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 18:39:11 -0500
+In-Reply-To: <4B14C000.3090608@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 30 Nov 2009 01:40:58 -0800
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Tue, 01 Dec 2009 15:04:32 +0800
 
-> leitao@linux.vnet.ibm.com wrote:
+> The commit 27fed4175acf81ddd91d9a4ee2fd298981f60295
+> （ip: fix logic of reverse path filter sysctl）has changed the logic of rp_filter.
+> The document about rp_filter is out of date. Now, setting conf/all/rp_filte with 0 
+> can also enable source validation.  
 > 
->> bnx2 is failing when a PCI error is detected. The error is the
->> following:
->>
->> bnx2: Chip not in correct endian mode
->> bnx2: fw sync timeout, reset code = 404001d
->>
->> This error was caused because the way pci_restore_state() is working
->> after commit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff.
->>
->> Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
+> Update the document according to the commit.
 > 
-> Thanks Breno.
-> 
-> Acked by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-Applied, thanks everyone.
-
-(Michael: Need to have a "-" there in the "Acked-by" otherwise
-	  automated tools won't pick up your ACK.  I know the
-	  tools should be more robust, and I fixed it up for
-	  you when applying Breno's patch.  It's just FYI...)
+Patch applied, thank you.
