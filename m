@@ -1,429 +1,141 @@
 From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH 2/3] Add new (iptables 1.4.5 compatible) tc/ipt/xt module.
-Date: Wed, 2 Dec 2009 16:11:50 +0100
-Message-ID: <59840ae567f82d81e66367eddea56553e0771e5f.1259765732.git.andreas@fatal.se>
+Subject: [PATCH 3/3] Slightly improve the configure script.
+Date: Wed, 2 Dec 2009 16:12:30 +0100
+Message-ID: <441b45d44e50503f0b7c8bf509cdd1a3cb8de8fc.1259765732.git.andreas@fatal.se>
 References: <cover.1259765732.git.andreas@fatal.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy2.bredband.net ([195.54.101.72]:58324 "EHLO
-	proxy2.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468AbZLBPKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 10:10:45 -0500
-Received: from ipb2.telenor.se (195.54.127.165) by proxy2.bredband.net (7.3.140.3)
-        id 4AD3E1BC016866AE for netdev@vger.kernel.org; Wed, 2 Dec 2009 16:10:51 +0100
+Received: from proxy1.bredband.net ([195.54.101.71]:38388 "EHLO
+	proxy1.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754788AbZLBPLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 10:11:25 -0500
+Received: from ipb1.telenor.se (195.54.127.164) by proxy1.bredband.net (7.3.140.3)
+        id 4AD3E1C001662BED for netdev@vger.kernel.org; Wed, 2 Dec 2009 16:11:31 +0100
 Content-Disposition: inline
 In-Reply-To: <cover.1259765732.git.andreas@fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new cleaned up m_xt.c based on m_xt_old.c
-The new m_xt.c has been updated to use the new names and new api
-that xtables exposes in iptables 1.4.5.
-All the old internal api cruft has also been dropped.
+Split up in functions. Make XT checks bail if previous XT check
+was successful.
 
-Additionally, a configure script test is added to check for
-the new xtables api and set the TC_CONFIG_XT flag in Config.
-(tc/Makefile already handles this flag in previous commit.)
+This result improves the output of the configure script to not indicate
+using iptables only because the last test failed (when previous ones could
+have already succeded).
 
 Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 ---
- configure |   27 +++++
- tc/m_xt.c |  346 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 373 insertions(+), 0 deletions(-)
- create mode 100644 tc/m_xt.c
+ configure |   66 +++++++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 51 insertions(+), 15 deletions(-)
 
 diff --git a/configure b/configure
-index f3b79b2..4fda7cb 100755
+index 4fda7cb..a903bb0 100755
 --- a/configure
 +++ b/configure
-@@ -28,6 +28,33 @@ rm -f /tmp/atmtest.c /tmp/atmtest
+@@ -3,11 +3,8 @@
+ #
+ INCLUDE=${1:-"$PWD/include"}
  
- echo -n " IPT	"
- 
-+#check if we have xtables from iptables >= 1.4.5.
-+cat >/tmp/ipttest.c <<EOF
-+#include <xtables.h>
-+#include <linux/netfilter.h>
-+static struct xtables_globals test_globals = {
-+	.option_offset = 0,
-+	.program_name = "tc-ipt",
-+	.program_version = XTABLES_VERSION,
-+	.orig_opts = NULL,
-+	.opts = NULL,
-+	.exit_err = NULL,
-+};
-+
-+int main(int argc, char **argv)
+-echo "# Generated config based on" $INCLUDE >Config
+-
+-echo "TC schedulers"
+-
+-echo -n " ATM	"
++function check_atm
 +{
-+	xtables_init_all(&test_globals, NFPROTO_IPV4);
-+	return 0;
+ cat >/tmp/atmtest.c <<EOF
+ #include <atm.h>
+ int main(int argc, char **argv) {
+@@ -25,9 +22,10 @@ else
+     echo no
+ fi
+ rm -f /tmp/atmtest.c /tmp/atmtest
 +}
-+
-+EOF
-+
-+if gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl -lxtables >/dev/null 2>&1
-+then
-+	echo "TC_CONFIG_XT:=y" >>Config
-+	echo "using xtables instead of iptables"
-+fi
-+
- #check if we need dont our internal header ..
+ 
+-echo -n " IPT	"
+-
++function check_xt
++{
+ #check if we have xtables from iptables >= 1.4.5.
  cat >/tmp/ipttest.c <<EOF
  #include <xtables.h>
-diff --git a/tc/m_xt.c b/tc/m_xt.c
-new file mode 100644
-index 0000000..3972d2d
---- /dev/null
-+++ b/tc/m_xt.c
-@@ -0,0 +1,346 @@
-+/*
-+ * m_xt.c	xtables based targets
-+ * 		utilities mostly ripped from iptables <duh, its the linux way>
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:  J Hadi Salim (hadi@cyberus.ca)
-+ */
-+
-+#include <syslog.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <net/if.h>
-+#include <limits.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <xtables.h>
-+#include "utils.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_ipt.h>
-+#include <stdio.h>
-+#include <dlfcn.h>
-+#include <getopt.h>
-+#include <errno.h>
-+#include <string.h>
-+#include <netdb.h>
-+#include <stdlib.h>
-+#include <ctype.h>
-+#include <stdarg.h>
-+#include <limits.h>
-+#include <unistd.h>
-+#include <fcntl.h>
-+#include <sys/wait.h>
-+#ifndef XT_LIB_DIR
-+#       define XT_LIB_DIR "/lib/xtables"
-+#endif
-+
-+static const char *tname = "mangle";
-+
-+char *lib_dir;
-+
-+static const char *ipthooks[] = {
-+	"NF_IP_PRE_ROUTING",
-+	"NF_IP_LOCAL_IN",
-+	"NF_IP_FORWARD",
-+	"NF_IP_LOCAL_OUT",
-+	"NF_IP_POST_ROUTING",
-+};
-+
-+static struct option original_opts[] = {
-+	{
-+		.name = "jump",
-+		.has_arg = 1,
-+		.val = 'j'
-+	},
-+	{0, 0, 0, 0}
-+};
-+
-+static struct xtables_globals tcipt_globals = {
-+	.option_offset = 0,
-+	.program_name = "tc-ipt",
-+	.program_version = "0.2",
-+	.orig_opts = original_opts,
-+	.opts = original_opts,
-+	.exit_err = NULL,
-+};
-+
-+/*
-+ * we may need to check for version mismatch
-+*/
-+int
-+build_st(struct xtables_target *target, struct xt_entry_target *t)
-+{
-+
-+	size_t size =
-+		    XT_ALIGN(sizeof (struct xt_entry_target)) + target->size;
-+
-+	if (NULL == t) {
-+		target->t = xtables_calloc(1, size);
-+		target->t->u.target_size = size;
-+		strcpy(target->t->u.user.name, target->name);
-+		xtables_set_revision(target->t->u.user.name, target->revision);
-+
-+		if (target->init != NULL)
-+			target->init(target->t);
-+	} else {
-+		target->t = t;
-+	}
-+	return 0;
-+
+@@ -52,7 +50,17 @@ EOF
+ if gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl -lxtables >/dev/null 2>&1
+ then
+ 	echo "TC_CONFIG_XT:=y" >>Config
+-	echo "using xtables instead of iptables"
++	echo "using xtables"
++fi
++rm -f /tmp/ipttest.c /tmp/ipttest
 +}
 +
-+inline void set_lib_dir(void)
++function check_xt_old
 +{
-+
-+	lib_dir = getenv("XTABLES_LIBDIR");
-+	if (!lib_dir) {
-+		lib_dir = getenv("IPTABLES_LIB_DIR");
-+		if (lib_dir)
-+			fprintf(stderr, "using deprecated IPTABLES_LIB_DIR \n");
-+	}
-+	if (lib_dir == NULL)
-+		lib_dir = XT_LIB_DIR;
-+
++# bail if previous XT checks has already succeded.
++if grep TC_CONFIG_XT Config > /dev/null
++then
++	return
+ fi
+ 
+ #check if we need dont our internal header ..
+@@ -81,9 +89,17 @@ gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
+ if [ $? -eq 0 ]
+ then
+ 	echo "TC_CONFIG_XT_OLD:=y" >>Config
+-	echo "using xtables seems no need for internal.h"
+-else
+-	echo "failed test 2"
++	echo "using old xtables (no need for xt-internal.h)"
++fi
++rm -f /tmp/ipttest.c /tmp/ipttest
 +}
 +
-+static int parse_ipt(struct action_util *a,int *argc_p,
-+		     char ***argv_p, int tca_id, struct nlmsghdr *n)
++function check_xt_old_internal_h
 +{
-+	struct xtables_target *m = NULL;
-+	struct ipt_entry fw;
-+	struct rtattr *tail;
-+	int c;
-+	int rargc = *argc_p;
-+	char **argv = *argv_p;
-+	int argc = 0, iargc = 0;
-+	char k[16];
-+	int res = -1;
-+	int size = 0;
-+	int iok = 0, ok = 0;
-+	__u32 hook = 0, index = 0;
-+	res = 0;
-+
-+	xtables_init_all(&tcipt_globals, NFPROTO_IPV4);
-+	set_lib_dir();
-+
-+	{
-+		int i;
-+		for (i = 0; i < rargc; i++) {
-+			if (NULL == argv[i] || 0 == strcmp(argv[i], "action")) {
-+				break;
-+			}
-+		}
-+		iargc = argc = i;
-+	}
-+
-+	if (argc <= 2) {
-+		fprintf(stderr,"bad arguements to ipt %d vs %d \n", argc, rargc);
-+		return -1;
-+	}
-+
-+	while (1) {
-+		c = getopt_long(argc, argv, "j:", tcipt_globals.opts, NULL);
-+		if (c == -1)
-+			break;
-+		switch (c) {
-+		case 'j':
-+			m = xtables_find_target(optarg, XTF_TRY_LOAD);
-+			if (NULL != m) {
-+
-+				if (0 > build_st(m, NULL)) {
-+					printf(" %s error \n", m->name);
-+					return -1;
-+				}
-+				tcipt_globals.opts =
-+				    xtables_merge_options(tcipt_globals.opts,
-+				                          m->extra_opts,
-+				                          &m->option_offset);
-+			} else {
-+				fprintf(stderr," failed to find target %s\n\n", optarg);
-+				return -1;
-+			}
-+			ok++;
-+			break;
-+
-+		default:
-+			memset(&fw, 0, sizeof (fw));
-+			if (m) {
-+				m->parse(c - m->option_offset, argv, 0,
-+					 &m->tflags, NULL, &m->t);
-+			} else {
-+				fprintf(stderr," failed to find target %s\n\n", optarg);
-+				return -1;
-+
-+			}
-+			ok++;
-+			break;
-+
-+		}
-+	}
-+
-+	if (iargc > optind) {
-+		if (matches(argv[optind], "index") == 0) {
-+			if (get_u32(&index, argv[optind + 1], 10)) {
-+				fprintf(stderr, "Illegal \"index\"\n");
-+				xtables_free_opts(1);
-+				return -1;
-+			}
-+			iok++;
-+
-+			optind += 2;
-+		}
-+	}
-+
-+	if (!ok && !iok) {
-+		fprintf(stderr," ipt Parser BAD!! (%s)\n", *argv);
-+		return -1;
-+	}
-+
-+	/* check that we passed the correct parameters to the target */
-+	if (m && m->final_check)
-+		m->final_check(m->tflags);
-+
-+	{
-+		struct tcmsg *t = NLMSG_DATA(n);
-+		if (t->tcm_parent != TC_H_ROOT
-+		    && t->tcm_parent == TC_H_MAJ(TC_H_INGRESS)) {
-+			hook = NF_IP_PRE_ROUTING;
-+		} else {
-+			hook = NF_IP_POST_ROUTING;
-+		}
-+	}
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	fprintf(stdout, "tablename: %s hook: %s\n ", tname, ipthooks[hook]);
-+	fprintf(stdout, "\ttarget: ");
-+
-+	if (m)
-+		m->print(NULL, m->t, 0);
-+	fprintf(stdout, " index %d\n", index);
-+
-+	if (strlen(tname) > 16) {
-+		size = 16;
-+		k[15] = 0;
-+	} else {
-+		size = 1 + strlen(tname);
-+	}
-+	strncpy(k, tname, size);
-+
-+	addattr_l(n, MAX_MSG, TCA_IPT_TABLE, k, size);
-+	addattr_l(n, MAX_MSG, TCA_IPT_HOOK, &hook, 4);
-+	addattr_l(n, MAX_MSG, TCA_IPT_INDEX, &index, 4);
-+	if (m)
-+		addattr_l(n, MAX_MSG, TCA_IPT_TARG, m->t, m->t->u.target_size);
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
-+
-+	argc -= optind;
-+	argv += optind;
-+	*argc_p = rargc - iargc;
-+	*argv_p = argv;
-+
-+	optind = 0;
-+	xtables_free_opts(1);
-+	/* Clear flags if target will be used again */
-+        m->tflags=0;
-+        m->used=0;
-+	/* Free allocated memory */
-+        if (m->t)
-+            free(m->t);
-+
-+
-+	return 0;
-+
++# bail if previous XT checks has already succeded.
++if grep TC_CONFIG_XT Config > /dev/null
++then
++	return
+ fi
+ 
+ #check if we need our own internal.h
+@@ -112,10 +128,30 @@ gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
+ 
+ if [ $? -eq 0 ]
+ then
+-	echo "using xtables instead of iptables (need for internal.h)"
++	echo "using old xtables with xt-internal.h"
+ 	echo "TC_CONFIG_XT_OLD_H:=y" >>Config
+-
+-else
+-	echo "failed test 3 using iptables"
+ fi
+ rm -f /tmp/ipttest.c /tmp/ipttest
 +}
 +
-+static int
-+print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
++function check_ipt
 +{
-+	struct rtattr *tb[TCA_IPT_MAX + 1];
-+	struct xt_entry_target *t = NULL;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	xtables_init_all(&tcipt_globals, NFPROTO_IPV4);
-+	set_lib_dir();
-+
-+	parse_rtattr_nested(tb, TCA_IPT_MAX, arg);
-+
-+	if (tb[TCA_IPT_TABLE] == NULL) {
-+		fprintf(f, "[NULL ipt table name ] assuming mangle ");
-+	} else {
-+		fprintf(f, "tablename: %s ",
-+			(char *) RTA_DATA(tb[TCA_IPT_TABLE]));
-+	}
-+
-+	if (tb[TCA_IPT_HOOK] == NULL) {
-+		fprintf(f, "[NULL ipt hook name ]\n ");
-+		return -1;
-+	} else {
-+		__u32 hook;
-+		hook = *(__u32 *) RTA_DATA(tb[TCA_IPT_HOOK]);
-+		fprintf(f, " hook: %s \n", ipthooks[hook]);
-+	}
-+
-+	if (tb[TCA_IPT_TARG] == NULL) {
-+		fprintf(f, "\t[NULL ipt target parameters ] \n");
-+		return -1;
-+	} else {
-+		struct xtables_target *m = NULL;
-+		t = RTA_DATA(tb[TCA_IPT_TARG]);
-+		m = xtables_find_target(t->u.user.name, XTF_TRY_LOAD);
-+		if (NULL != m) {
-+			if (0 > build_st(m, t)) {
-+				fprintf(stderr, " %s error \n", m->name);
-+				return -1;
-+			}
-+
-+			tcipt_globals.opts =
-+			    xtables_merge_options(tcipt_globals.opts,
-+			                          m->extra_opts,
-+			                          &m->option_offset);
-+		} else {
-+			fprintf(stderr, " failed to find target %s\n\n",
-+				t->u.user.name);
-+			return -1;
-+		}
-+		fprintf(f, "\ttarget ");
-+		m->print(NULL, m->t, 0);
-+		if (tb[TCA_IPT_INDEX] == NULL) {
-+			fprintf(f, " [NULL ipt target index ]\n");
-+		} else {
-+			__u32 index;
-+			index = *(__u32 *) RTA_DATA(tb[TCA_IPT_INDEX]);
-+			fprintf(f, " \n\tindex %d", index);
-+		}
-+
-+		if (tb[TCA_IPT_CNT]) {
-+			struct tc_cnt *c  = RTA_DATA(tb[TCA_IPT_CNT]);;
-+			fprintf(f, " ref %d bind %d", c->refcnt, c->bindcnt);
-+		}
-+		if (show_stats) {
-+			if (tb[TCA_IPT_TM]) {
-+				struct tcf_t *tm = RTA_DATA(tb[TCA_IPT_TM]);
-+				print_tm(f,tm);
-+			}
-+		}
-+		fprintf(f, " \n");
-+
-+	}
-+	xtables_free_opts(1);
-+
-+	return 0;
++	if ! grep TC_CONFIG_XT Config > /dev/null
++	then
++		echo "using iptables"
++	fi
 +}
 +
-+struct action_util ipt_action_util = {
-+        .id = "ipt",
-+        .parse_aopt = parse_ipt,
-+        .print_aopt = print_ipt,
-+};
++echo "# Generated config based on" $INCLUDE >Config
++
++echo "TC schedulers"
++
++echo -n " ATM	"
++check_atm
++
++echo -n " IPT	"
++check_xt
++check_xt_old
++check_xt_old_internal_h
++check_ipt
 +
 -- 
 1.6.5.3
