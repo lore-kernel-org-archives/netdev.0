@@ -1,217 +1,98 @@
-From: Patrick Mullaney <pmullaney@novell.com>
-Subject: [PATCH 2/2] venet: Fixes for shutdown and re-registration of venet
-	devices.
-Date: Wed, 02 Dec 2009 16:10:33 -0500
-Message-ID: <20091202211033.5116.63285.stgit@mimic.site>
-References: <20091202204722.5116.33183.stgit@mimic.site>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: problem with 'net: Partially allow skb destructors to be used
+ on receive path'
+Date: Wed, 02 Dec 2009 22:21:44 +0100
+Message-ID: <4B16DA68.3040209@hartkopp.net>
+References: <20090622122525.GA24481@gondor.apana.org.au>	<4A3F8AC6.2070803@hartkopp.net>	<20090622145642.GA31280@gondor.apana.org.au> <20090623.163743.98163763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: alacrityvm-devel@lists.sourceforge.net
+Cc: herbert@gondor.apana.org.au,
+	Matthias Fuchs <matthias.fuchs@esd.eu>, netdev@vger.kernel.org,
+	Michel Marti <mma@objectxp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <20091202204722.5116.33183.stgit@mimic.site>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:44215 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbZLBVVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 16:21:41 -0500
+In-Reply-To: <20090623.163743.98163763.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed a problem with simple re-registration of the venet netdevice. The
-netdev core infrastructure appears to have a problem with re-registering
-a previously registered netdevice(reg_state and kobj.state_initialized
-need to be reset to their default values). I now do this prior to calling
-register_netdev but this probably should be moved to net/core. Fixed an
-issue with the removal of the lower level device of a venet-macvlan. I'm
-planning a cleaner solution in the future. Fixed a lock issue with
-venet-macvlan stop method that was causing a hang.
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Mon, 22 Jun 2009 22:56:42 +0800
+> 
+>> On Mon, Jun 22, 2009 at 03:44:38PM +0200, Oliver Hartkopp wrote:
+>>> I tried to apply the patch on 2.6.30 also and only got some offsets (as expected).
+>> Thanks for testing!
+>>
+>>> Do you think, it's a good idea to queue this up for 2.6.30-stable?
+>> If it's OK with Dave then it's OK with me.
+> 
+> I've applied Herbert's patch, thanks everyone!
+> 
+> I'll queue it up for -stable too.
 
-Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
----
+Hello Dave,
 
- kernel/vbus/devices/venet/device.c      |   11 +++++-
- kernel/vbus/devices/venet/macvlan.c     |   55 +++++++++++++++++++++++++------
- kernel/vbus/devices/venet/venetdevice.h |    7 +++-
- 3 files changed, 58 insertions(+), 15 deletions(-)
+after a request from Matthias Fuchs regarding the status of this patch in
+2.6.30-stable, i discovered a problem with the commit in 2.6.30-stable:
 
-diff --git a/kernel/vbus/devices/venet/device.c b/kernel/vbus/devices/venet/device.c
-index 01d6f1c..b4cf397 100644
---- a/kernel/vbus/devices/venet/device.c
-+++ b/kernel/vbus/devices/venet/device.c
-@@ -2300,7 +2300,7 @@ client_mac_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
- struct vbus_device_attribute attr_cmac =
- 	__ATTR(client_mac, S_IRUGO | S_IWUSR, client_mac_show, cmac_store);
- 
--static ssize_t
-+ssize_t
- enabled_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
- 	 char *buf)
+Patch discussion/history: http://patchwork.ozlabs.org/patch/28993/
+
+The commit in mainline is correct:
+
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
+
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1250,6 +1250,7 @@ static inline int sk_has_allocations(const struct sock *sk)
+
+ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
  {
-@@ -2309,7 +2309,7 @@ enabled_show(struct vbus_device *dev, struct vbus_device_attribute *attr,
- 	return snprintf(buf, PAGE_SIZE, "%d\n", priv->netif.enabled);
- }
- 
--static ssize_t
-+ssize_t
- enabled_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
- 	      const char *buf, size_t count)
++       skb_orphan(skb);
+        skb->sk = sk;
+        skb->destructor = sock_wfree;
+        /*
+@@ -1262,6 +1263,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb,
+struct sock *sk)
+
+ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
  {
-@@ -2323,8 +2323,13 @@ enabled_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
- 	if (enabled != 0 && enabled != 1)
- 		return -EINVAL;
- 
--	if (enabled && !priv->netif.enabled)
-+	if (enabled && !priv->netif.enabled) {
-+		/* need to un-initialize certain fields of the
-+		   net_device so that it may be re-registered */
-+		priv->netif.dev->reg_state = NETREG_UNINITIALIZED;
-+		priv->netif.dev->dev.kobj.state_initialized = 0;
- 		ret = register_netdev(priv->netif.dev);
-+	}
- 
- 	if (!enabled && priv->netif.enabled)
- 		venetdev_netdev_unregister(priv);
-diff --git a/kernel/vbus/devices/venet/macvlan.c b/kernel/vbus/devices/venet/macvlan.c
-index 432ff5d..60479a6 100644
---- a/kernel/vbus/devices/venet/macvlan.c
-+++ b/kernel/vbus/devices/venet/macvlan.c
-@@ -137,7 +137,7 @@ venetmacv_vlink_up(struct venetdev *vdev)
- 		ret = macv->macvlan_netdev_ops->ndo_open(vdev->netif.dev);
- 		rtnl_unlock();
- 		if (ret)
--			printk(KERN_ERR "macvlanopen failed %d!\n", ret);
-+			printk(KERN_ERR "macvlan_open failed %d!\n", ret);
- 	}
- }
- 
-@@ -320,8 +320,10 @@ venetmacv_device_release(struct vbus_device *dev)
++       skb_orphan(skb);
+        skb->sk = sk;
+        skb->destructor = sock_rfree;
+        atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+
+
+
+But the commit in the 2.6.30-stable tree
+
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.30.y.git;a=commitdiff;h=172570a224fe66d560c097e48fca15b620c76e72
+
+has a problem in patching include/net/sock.h:
+
+
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1231,6 +1231,8 @@ static inline void skb_set_owner_w(struct sk_buff *skb,
+struct sock *sk)
+
+ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
  {
- 	struct venetmacv *macv = vbusdev_to_macv(dev);
- 
--	if (macv->mdev.lowerdev)
-+	if (macv->mdev.lowerdev) {
- 		dev_put(macv->mdev.lowerdev);
-+		macv->mdev.lowerdev = NULL;
-+	}
- 
- 	venetdev_netdev_unregister(&macv->dev);
- 	free_netdev(macv->mdev.dev);
-@@ -397,12 +399,31 @@ clientmac_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
- 	return ret;
- }
- 
--struct vbus_device_attribute attr_clientmac =
-+static struct vbus_device_attribute attr_clientmac =
- 	__ATTR(client_mac, S_IRUGO | S_IWUSR, client_mac_show, clientmac_store);
- 
-+
-+static ssize_t
-+macv_enabled_store(struct vbus_device *dev, struct vbus_device_attribute *attr,
-+		   const char *buf, size_t count)
-+{
-+	struct venetmacv *macv = vbusdev_to_macv(dev);
-+	int ret;
-+
-+	if (!macv->mdev.lowerdev)
-+		return -ENXIO;
-+
-+	ret = attr_enabled.store(dev, attr, buf, count);
-+
-+	return ret;
-+}
-+
-+static struct vbus_device_attribute attr_macv_enabled =
-+	__ATTR(enabled, S_IRUGO | S_IWUSR, enabled_show, macv_enabled_store);
-+
- static struct attribute *attrs[] = {
- 	&attr_clientmac.attr,
--	&attr_enabled.attr,
-+	&attr_macv_enabled.attr,
- 	&attr_burstthresh.attr,
- 	&attr_txmitigation.attr,
- 	&attr_ifname.attr,
-@@ -423,9 +444,7 @@ venetmacv_netdev_open(struct net_device *dev)
- 	venetdev_open(&priv->dev);
- 
- 	if (priv->dev.vbus.link) {
--		rtnl_lock();
- 		ret = priv->macvlan_netdev_ops->ndo_open(priv->mdev.dev);
--		rtnl_unlock();
- 	}
- 
- 	return ret;
-@@ -443,15 +462,26 @@ venetmacv_netdev_stop(struct net_device *dev)
- 
- 	venetdev_stop(&priv->dev);
- 
--	if (priv->dev.vbus.link && needs_stop) {
--		rtnl_lock();
-+	if (priv->dev.vbus.link && needs_stop)
- 		ret = priv->macvlan_netdev_ops->ndo_stop(dev);
--		rtnl_unlock();
--	}
- 
- 	return ret;
- }
- 
-+static void
-+venetmacv_netdev_uninit(struct net_device *dev)
-+{
-+	struct venetmacv *macv = netdev_priv(dev);
-+
-+	if (macv->mdev.lowerdev) {
-+		dev_put(macv->mdev.lowerdev);
-+		macv->mdev.lowerdev = NULL;
-+		memset(macv->ll_ifname, '\0', IFNAMSIZ);
-+	}
-+
-+	macv->dev.netif.enabled = 0;
-+}
-+
- /*
-  * out routine for macvlan
-  */
-@@ -527,9 +557,9 @@ static struct net_device_ops venetmacv_netdev_ops = {
- 	.ndo_start_xmit         = venetmacv_netdev_tx,
- 	.ndo_do_ioctl           = venetdev_netdev_ioctl,
- 	.ndo_get_stats          = venetmacv_netdev_stats,
-+	.ndo_uninit             = venetmacv_netdev_uninit,
- };
- 
--
- /*
-  * This is called whenever the admin instantiates our devclass via
-  * "mkdir /config/vbus/devices/$(inst)/venet-tap"
-@@ -545,6 +575,9 @@ venetmacv_device_create(struct vbus_devclass *dc,
- 	dev = alloc_netdev(sizeof(struct venetmacv), "macvenet%d",
- 					   macvlan_setup);
- 
-+
-+	dev->destructor = NULL;
-+
- 	if (!dev)
- 		return -ENOMEM;
- 
-diff --git a/kernel/vbus/devices/venet/venetdevice.h b/kernel/vbus/devices/venet/venetdevice.h
-index 1a74723..edee570 100644
---- a/kernel/vbus/devices/venet/venetdevice.h
-+++ b/kernel/vbus/devices/venet/venetdevice.h
-@@ -150,7 +150,7 @@ struct net_device_stats *venetdev_get_stats(struct venetdev *dev);
- static inline void venetdev_netdev_unregister(struct venetdev *priv)
- {
- 	if (priv->netif.enabled) {
--		venetdev_netdev_stop(priv->netif.dev);
-+		venetdev_stop(priv);
- 		unregister_netdev(priv->netif.dev);
- 	}
- }
-@@ -173,6 +173,11 @@ extern struct vbus_device_attribute attr_ifname;
- extern struct vbus_device_attribute attr_txmitigation;
- extern struct vbus_device_attribute attr_zcthresh;
- 
-+ssize_t enabled_store(struct vbus_device *dev,
-+		struct vbus_device_attribute *attr,
-+		 const char *buf, size_t count);
-+ssize_t enabled_show(struct vbus_device *dev,
-+			struct vbus_device_attribute *attr, char *buf);
- ssize_t cmac_store(struct vbus_device *dev,
- 		struct vbus_device_attribute *attr,
- 		 const char *buf, size_t count);
++       skb_orphan(skb);
++       skb_orphan(skb);
+        skb->sk = sk;
+        skb->destructor = sock_rfree;
+        atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+
+
+The skb_orphan(skb) in skb_set_owner_w() is missing here.
+
+Is there any chance to fix that in 2.6.30-stable?
+
+Thanks,
+Oliver
 
