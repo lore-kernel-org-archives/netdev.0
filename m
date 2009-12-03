@@ -1,53 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] crypto: gmac - Add RFC4543 wrapper for GCM
-Date: Thu, 3 Dec 2009 11:50:13 +0800
-Message-ID: <20091203035013.GA15252@gondor.apana.org.au>
-References: <4B154918.7070008@strongswan.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [net-next-2.6 PATCH v8 0/7] TCPCT part 1: cookie option exchange
+Date: Wed, 02 Dec 2009 23:04:23 -0500
+Message-ID: <4B1738C7.7090101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Tobias Brunner <tobias@strongswan.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B154918.7070008@strongswan.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f182.google.com ([209.85.211.182]:56163 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115AbZLCEEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 23:04:21 -0500
+Received: by ywh12 with SMTP id 12so1054899ywh.21
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2009 20:04:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 01, 2009 at 05:49:28PM +0100, Tobias Brunner wrote:
-> This patch adds the RFC4543 (GMAC) wrapper for GCM similar to the
-> existing RFC4106 wrapper. The main differences between GCM and GMAC are
-> the contents of the AAD and that the plaintext is empty for the latter.
-> 
-> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
-> ---
->  crypto/gcm.c            |  275 +++++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/pfkeyv2.h |    1 +
->  net/xfrm/xfrm_algo.c    |   16 +++
->  3 files changed, 292 insertions(+), 0 deletions(-)
-> 
-> diff --git a/crypto/gcm.c b/crypto/gcm.c
-> index 5fc3292..b097eb4 100644
-> --- a/crypto/gcm.c
-> +++ b/crypto/gcm.c
-> @@ -37,6 +37,15 @@ struct crypto_rfc4106_ctx {
->  	u8 nonce[4];
->  };
->  
-> +struct crypto_rfc4543_ctx {
-> +	struct crypto_aead *child;
-> +	u8 nonce[4];
-> +	u8 auth_tag[16];
+Initiator                            Responder
+=========                            =========
+<SYN>                          ->
+Cookie
+                                 <-   <SYN,ACK(SYN)>
+                                      Cookie
+                                      optional data
 
-This field needs to be aligned to whatever alignment needed by
-the underlying cipher algorithm (currently the biggest is padlock
-which needs 16-byte alignment).
 
-See for example how rfc4543/gcm handles it.
+V8:
+Updated to patch cleanly with recent large commits.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Compiled and lightly tested.  Awaiting performance testing results.
+
+Cosmetic changes, based on review by David Miller.
+
+Merged some part 2 code to relieve ennui.
+
+
+V7:
+Updated to patch cleanly with recent large commits.
+
+Compiled and lightly tested.  Awaiting performance testing results.
+
+Revised RCU spinlocks, based on review by Eric and Joe.
+
+Trivial savings of 2 if tests, based on review by Joe.
+
+Cosmetic changes to comment blocks, based on review by Eric.
+
+Processing optional SYNACK data removed until later.
+
+
+V6:
+The new TCP_MSS_* symbols are now in an entirely separate patch.  Applied.
+
+Updated and reorganized to split the code base into several pieces, as
+requested by Eric.  No significant changes.
+
+...
