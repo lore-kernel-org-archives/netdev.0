@@ -1,79 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
-Date: Thu, 3 Dec 2009 23:47:42 +0100
-Message-ID: <20091203224742.GA16646@ami.dom.local>
-References: <4B17EFE3.4080301@gmail.com>
- <20091203202937.GA11436@ami.dom.local>
- <4B182DC6.5030800@gmail.com>
- <20091203.133108.254093305.davem@davemloft.net>
- <4B1832DD.1070805@gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [RFC] sk_nulls_next_rcu
+Date: Fri, 4 Dec 2009 00:47:02 +0200
+Message-ID: <200912040047.02539.opurdila@ixiacom.com>
+References: <200912010219.29340.opurdila@ixiacom.com> <20091201005929.GB21463@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	kaber@trash.net, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:63846 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111AbZLCWrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 17:47:45 -0500
-Received: by bwz27 with SMTP id 27so1564792bwz.21
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 14:47:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4B1832DD.1070805@gmail.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:25217 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751772AbZLCWuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 17:50:10 -0500
+In-Reply-To: <20091201005929.GB21463@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 03, 2009 at 10:51:25PM +0100, Eric Dumazet wrote:
-> David Miller a =E9crit :
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Thu, 03 Dec 2009 22:29:42 +0100
-> >=20
-> >> Nice patch, thanks :)
-> >>
-> >> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> >=20
-> > I like it too, but please resubmit once we have at least
-> > one example user submitted.
-> >=20
->=20
-> I successfully tested following patch.
+On Tuesday 01 December 2009 02:59:29 you wrote:
+> Em Tue, Dec 01, 2009 at 02:19:29AM +0200, Octavian Purdila escreveu:
+> > I am trying to convert the LLC code to RCU, and it appears that for proc
+> > support a sk_nulls_next_rcu would be required.
+> 
+> I find it amusing, and give you a carte blanche on that! :-)
+> 
 
-Great! But, I see, checking if realloc_netdev_mq() use is always legal
-(before register_netdev()) is not trivial in this driver. (I have some
-suspicions around ixgbe_resume().) I wonder, if there should be added
-some debugging for this.
+:-) Its just an exercise for me to understand RCU, but its harder than I 
+originally thought and I did give up trying to finish it in the first batch of 
+LLC patches I've just sent.
 
-Thanks,
-Jarek P.
-
->=20
-> Thanks !
->=20
-> [PATCH] ixgbe: Use realloc_netdev_mq() helper
->=20
-> Instead of 128 tx queues, we can cap the tx queue number to what driv=
-er really uses.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->=20
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 9ba506f..e524d0d 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -3306,7 +3306,7 @@ static void ixgbe_set_num_queues(struct ixgbe_a=
-dapter *adapter)
-> =20
->  done:
->  	/* Notify the stack of the (possibly) reduced Tx Queue count. */
-> -	adapter->netdev->real_num_tx_queues =3D adapter->num_tx_queues;
-> +	realloc_netdev_mq(adapter->netdev, adapter->num_tx_queues);
->  }
-> =20
->  static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter=
-,
->=20
