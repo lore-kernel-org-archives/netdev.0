@@ -1,47 +1,110 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/3] iproute: fix tc ipt/xt module.
-Date: Thu, 03 Dec 2009 08:09:38 -0500
-Message-ID: <1259845778.3766.32.camel@bigi>
-References: <cover.1259765732.git.andreas@fatal.se>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 6/7] net: Use rcu lookups in inet_twsk_purge.
+Date: Thu, 03 Dec 2009 14:17:41 +0100
+Message-ID: <4B17BA75.1040302@gmail.com>
+References: <m11vjcnsyr.fsf@fess.ebiederm.org> <1259843349-3810-6-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f192.google.com ([209.85.212.192]:42644 "EHLO
-	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821AbZLCNJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:09:35 -0500
-Received: by vws30 with SMTP id 30so591962vws.33
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 05:09:42 -0800 (PST)
-In-Reply-To: <cover.1259765732.git.andreas@fatal.se>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54536 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbZLCNUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:20:52 -0500
+In-Reply-To: <1259843349-3810-6-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric W. Biederman a =E9crit :
+> From: Eric W. Biederman <ebiederm@xmission.com>
+>=20
+> While we are looking up entries to free there is no reason to take
+> the lock in inet_twsk_purge.  We have to drop locks and restart
+> occassionally anyway so adding a few more in case we get on the
+> wrong list because of a timewait move is no big deal.  At the
+> same time not taking the lock for long periods of time is much
+> more polite to the rest of the users of the hash table.
+>=20
+> In my test configuration of killing 4k network namespaces
+> this change causes 4k back to back runs of inet_twsk_purge on an
+> empty hash table to go from roughly 20.7s to 3.3s, and the total
+> time to destroy 4k network namespaces goes from roughly 44s to
+> 3.3s.
+>=20
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-On Wed, 2009-12-02 at 16:10 +0100, Andreas Henriksson wrote:
-> The xtables API has changed since the tc xt module was written.
-> This mini-series moves the legacy stuff out of the way (kept for
-> compatibility with older iptables versions) and starts
-> a new fresh xt module.
-> 
-> Hopefully the xtables api will be kept stable in the future.
-> If so, this new xt module should continue working since it only
-> uses exposed functions (unlike the old one which had an internal
-> header to access internal functions in xtables).
-> 
-> Andreas Henriksson (3):
->   Keep the old tc/ipt/xt module for compatibility.
->   Add new (iptables 1.4.5 compatible) tc/ipt/xt module.
->   Slightly improve the configure script.
+Very nice patch Eric
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Andreas, in the future can you CC me please - I dont read netdev
-in real time (sometimes i catch up in a month and skim over).
-
-cheers,
-jamal
+> ---
+>  net/ipv4/inet_timewait_sock.c |   39 ++++++++++++++++++++++++-------=
+--------
+>  1 files changed, 24 insertions(+), 15 deletions(-)
+>=20
+> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_s=
+ock.c
+> index 1f5d508..683ecec 100644
+> --- a/net/ipv4/inet_timewait_sock.c
+> +++ b/net/ipv4/inet_timewait_sock.c
+> @@ -427,31 +427,40 @@ void inet_twsk_purge(struct net *net, struct in=
+et_hashinfo *hashinfo,
+>  	struct inet_timewait_sock *tw;
+>  	struct sock *sk;
+>  	struct hlist_nulls_node *node;
+> -	int h;
+> +	unsigned int slot;
+> =20
+> -	local_bh_disable();
+> -	for (h =3D 0; h <=3D hashinfo->ehash_mask; h++) {
+> -		struct inet_ehash_bucket *head =3D
+> -			inet_ehash_bucket(hashinfo, h);
+> -		spinlock_t *lock =3D inet_ehash_lockp(hashinfo, h);
+> +	for (slot =3D 0; slot <=3D hashinfo->ehash_mask; slot++) {
+> +		struct inet_ehash_bucket *head =3D &hashinfo->ehash[slot];
+> +restart_rcu:
+> +		rcu_read_lock();
+>  restart:
+> -		spin_lock(lock);
+> -		sk_nulls_for_each(sk, node, &head->twchain) {
+> -
+> +		sk_nulls_for_each_rcu(sk, node, &head->twchain) {
+>  			tw =3D inet_twsk(sk);
+>  			if (!net_eq(twsk_net(tw), net) ||
+>  			    tw->tw_family !=3D family)
+>  				continue;
+> =20
+> -			atomic_inc(&tw->tw_refcnt);
+> -			spin_unlock(lock);
+> +			if (unlikely(!atomic_inc_not_zero(&tw->tw_refcnt)))
+> +				continue;
+> +
+> +			if (unlikely(!net_eq(twsk_net(tw), net) ||
+> +				     tw->tw_family !=3D family)) {
+> +				inet_twsk_put(tw);
+> +				goto restart;
+> +			}
+> +		=09
+> +			rcu_read_unlock();
+>  			inet_twsk_deschedule(tw, twdr);
+>  			inet_twsk_put(tw);
+> -
+> -			goto restart;
+> +			goto restart_rcu;
+>  		}
+> -		spin_unlock(lock);
+> +		/* If the nulls value we got at the end of this lookup is
+> +		 * not the expected one, we must restart lookup.
+> +		 * We probably met an item that was moved to another chain.
+> +		 */
+> +		if (get_nulls_value(node) !=3D slot)
+> +			goto restart;
+> +		rcu_read_unlock();
+>  	}
+> -	local_bh_enable();
+>  }
+>  EXPORT_SYMBOL_GPL(inet_twsk_purge);
 
