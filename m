@@ -1,41 +1,46 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/7] Batched netns improvements.
-Date: Thu, 03 Dec 2009 08:06:31 -0500
-Message-ID: <1259845591.3766.30.camel@bigi>
-References: <m11vjcnsyr.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH 0/3] iproute: fix tc ipt/xt module.
+Date: Thu, 03 Dec 2009 08:09:38 -0500
+Message-ID: <1259845778.3766.32.camel@bigi>
+References: <cover.1259765732.git.andreas@fatal.se>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f192.google.com ([209.85.212.192]:47466 "EHLO
+Received: from mail-vw0-f192.google.com ([209.85.212.192]:42644 "EHLO
 	mail-vw0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754865AbZLCNG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:06:28 -0500
-Received: by vws30 with SMTP id 30so590926vws.33
-        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 05:06:34 -0800 (PST)
-In-Reply-To: <m11vjcnsyr.fsf@fess.ebiederm.org>
+	with ESMTP id S1753821AbZLCNJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:09:35 -0500
+Received: by vws30 with SMTP id 30so591962vws.33
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 05:09:42 -0800 (PST)
+In-Reply-To: <cover.1259765732.git.andreas@fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-12-03 at 04:27 -0800, Eric W. Biederman wrote:
-> This series of patches takes my simple 4k network namespace exit test
-> from about 44s to 1.6s, with a minuscule increase in code side.
 
-Nice.
-I will test these as soon as they make it into net-next (just easier
-for me given the setup).
-I should confirm that:
-The previous patches which are already in net-next from yesterday do
-improve performance to under 1 minute. Can we call that a several-factor
-improvement?;->
+On Wed, 2009-12-02 at 16:10 +0100, Andreas Henriksson wrote:
+> The xtables API has changed since the tc xt module was written.
+> This mini-series moves the legacy stuff out of the way (kept for
+> compatibility with older iptables versions) and starts
+> a new fresh xt module.
+> 
+> Hopefully the xtables api will be kept stable in the future.
+> If so, this new xt module should continue working since it only
+> uses exposed functions (unlike the old one which had an internal
+> header to access internal functions in xtables).
+> 
+> Andreas Henriksson (3):
+>   Keep the old tc/ipt/xt module for compatibility.
+>   Add new (iptables 1.4.5 compatible) tc/ipt/xt module.
+>   Slightly improve the configure script.
 
-Are you planning to give some tender loving to the virtual devices 
-as well (gre etc) or is that taken care of now you have a pernet batch
-exit op?
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+Andreas, in the future can you CC me please - I dont read netdev
+in real time (sometimes i catch up in a month and skim over).
 
 cheers,
 jamal
