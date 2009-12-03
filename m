@@ -1,74 +1,135 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: scp stalls mysteriously
-Date: Thu, 3 Dec 2009 20:23:28 +0100
-Message-ID: <20091203202328.62d7551a@houba>
-References: <20091130213727.2f4047d2@houba>
-	<alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
-	<20091201211945.505d3c98@houba>
-	<alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
-	<20091202085925.472136e2@houba>
-	<alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
-	<20091202154403.GB30730@sd-11162.dedibox.fr>
-	<alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
-	<20091202183451.173db5f2@houba>
-	<4B16BD58.3040802@tvk.rwth-aachen.de>
-	<20091203085933.GD30730@sd-11162.dedibox.fr>
-	<alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
-	<4B17A791.80808@tvk.rwth-aachen.de>
-	<alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
-	<4B17C6C3.1060000@tvk.rwth-aachen.de>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH iproute2] ip: add support for IFA_F_DADFAILED
+Date: Thu, 03 Dec 2009 14:39:19 -0500
+Message-ID: <4B1813E7.2030004@hp.com>
+References: <4AAEAEE7.4090507@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:34453 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756559AbZLCTXq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 14:23:46 -0500
-In-Reply-To: <4B17C6C3.1060000@tvk.rwth-aachen.de>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:27265 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752838AbZLCTjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 14:39:14 -0500
+In-Reply-To: <4AAEAEE7.4090507@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Thu, 03 Dec 2009 15:10:11 +0100,
-Damian Lukowski <damian@tvk.rwth-aachen.de> a =C3=A9crit :
-> > I suppose adding || !tp->retrans_stamp into the false condition is
-> > fine as long as we don't then have a connection that can cause a
-> > connection to hang there forever for some reason (this needs to be
-> > understood well enough, not just test driven in stables :-)).
-> >=20
-> >> Unluckily, I still cannot reproduce the scp stalls here, so it
-> >> would be nice if Frederic printed retrans_stamp together with
-> >> icsk_ca_state and icsk_retransmits, please.
-> >=20
-> > It wouldn't hurt to know tp->packets_out and tp->retrans_out too,
-> > that might have some significant w.r.t what happens because of FRTO=
-=2E
->=20
-> I made a patch for Frederic with Codebase
-> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
->=20
-> Thanks for testing.
+Hi Stephen,
 
-I made a new .11 trace with damian patch.
-The copy went to the end.=20
+Brian Haley wrote:
+> [I'm not sure if I needed to update if_addr.h, or if that will happen
+>  automatically when you update the headers to 2.6.32]
+> 
+> 
+> Add support for IFA_F_DADFAILED and update ip.8 man page.
 
-http://www.starox.org/pub/scp_stall/scp_stall-houba.11-patch_damian.pca=
-p.bz2
-http://www.starox.org/pub/scp_stall/scp_stall-houba.11-patch_damian.dme=
-sg.bz2
-http://www.starox.org/pub/scp_stall/scp_stall-houba.11-patch_damian.pro=
-c_net_netstat-before.bz2
-http://www.starox.org/pub/scp_stall/scp_stall-houba.11-patch_damian.pro=
-c_net_netstat-after.bz2
-http://www.starox.org/pub/scp_stall/scp_stall-houba.11-patch_damian.sys=
-ctl_net.ipv4.tcp-before.bz2
+It looks like you applied a test patch I had sent Jens instead of this
+one.  Can you revert that and apply this instead?  Or I can send a new
+one based on your current git tree.
 
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+Thanks,
+
+-Brian
+
+
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> ---
+> 
+> diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
+> index 08ea980..41b0193 100644
+> --- a/include/linux/if_addr.h
+> +++ b/include/linux/if_addr.h
+> @@ -41,6 +41,7 @@ enum
+>  
+>  #define	IFA_F_NODAD		0x02
+>  #define IFA_F_OPTIMISTIC	0x04
+> +#define IFA_F_DADFAILED		0x08
+>  #define	IFA_F_HOMEADDRESS	0x10
+>  #define IFA_F_DEPRECATED	0x20
+>  #define IFA_F_TENTATIVE		0x40
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 267ecb3..32c9008 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -64,7 +64,7 @@ static void usage(void)
+>  		iplink_usage();
+>  	}
+>  	fprintf(stderr, "Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]\n");
+> -	fprintf(stderr, "                                                      [ CONFFLAG-LIST]\n");
+> +	fprintf(stderr, "                                                      [ CONFFLAG-LIST ]\n");
+>  	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
+>  	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
+>  	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
+> @@ -74,7 +74,8 @@ static void usage(void)
+>  	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
+>  	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+>  	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
+> -	fprintf(stderr, "           tentative | deprecated | CONFFLAG-LIST ]\n");
+> +	fprintf(stderr, "           tentative | deprecated | dadfailed |\n");
+> +	fprintf(stderr, "           CONFFLAG-LIST ]\n");
+>  	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
+>  	fprintf(stderr, "CONFFLAG  := [ home | nodad ]\n");
+>  	fprintf(stderr, "LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]\n");
+> @@ -508,6 +509,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>  		fprintf(fp, "dynamic ");
+>  	} else
+>  		ifa->ifa_flags &= ~IFA_F_PERMANENT;
+> +	if (ifa->ifa_flags&IFA_F_DADFAILED) {
+> +		ifa->ifa_flags &= ~IFA_F_DADFAILED;
+> +		fprintf(fp, "dadfailed ");
+> +	}
+>  	if (ifa->ifa_flags)
+>  		fprintf(fp, "flags %02x ", ifa->ifa_flags);
+>  	if (rta_tb[IFA_LABEL])
+> @@ -655,6 +660,9 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+>  		} else if (strcmp(*argv, "nodad") == 0) {
+>  			filter.flags |= IFA_F_NODAD;
+>  			filter.flagmask |= IFA_F_NODAD;
+> +		} else if (strcmp(*argv, "dadfailed") == 0) {
+> +			filter.flags |= IFA_F_DADFAILED;
+> +			filter.flagmask |= IFA_F_DADFAILED;
+>  		} else if (strcmp(*argv, "label") == 0) {
+>  			NEXT_ARG();
+>  			filter.label = *argv;
+> diff --git a/man/man8/ip.8 b/man/man8/ip.8
+> index a8fccc4..1145b28 100644
+> --- a/man/man8/ip.8
+> +++ b/man/man8/ip.8
+> @@ -97,7 +97,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+>  .ti -8
+>  .IR FLAG " := "
+>  .RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
+> -tentative " | " deprecated " ]"
+> +tentative " | " deprecated " | " dadfailed " ]"
+>  
+>  .ti -8
+>  .BR "ip addrlabel" " { " add " | " del " } " prefix
+> @@ -1030,7 +1030,7 @@ addresses.
+>  
+>  .TP
+>  .B tentative
+> -(IPv6 only) only list addresses which did not pass duplicate
+> +(IPv6 only) only list addresses which have not yet passed duplicate
+>  address detection.
+>  
+>  .TP
+> @@ -1038,6 +1038,11 @@ address detection.
+>  (IPv6 only) only list deprecated addresses.
+>  
+>  .TP
+> +.B dadfailed
+> +(IPv6 only) only list addresses which have failed duplicate
+> +address detection.
+> +
+> +.TP
+>  .BR primary " and " secondary
+>  only list primary (or secondary) addresses.
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
