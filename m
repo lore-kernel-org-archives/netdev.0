@@ -1,69 +1,34 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH 3/4] llc: use a device based hash table to speed up multicast delivery
-Date: Fri, 4 Dec 2009 01:30:54 +0200
-Message-ID: <200912040130.54966.opurdila@ixiacom.com>
-References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com> <1259879498-27860-4-git-send-email-opurdila@ixiacom.com> <4B1842EE.7030208@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: README: net-next-2.6 plans...
+Date: Thu, 03 Dec 2009 15:39:09 -0800 (PST)
+Message-ID: <20091203.153909.40760799.davem@davemloft.net>
+References: <20091202.230142.199015015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:8571 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753931AbZLCXeD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:34:03 -0500
-In-Reply-To: <4B1842EE.7030208@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32862
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755029AbZLCXjD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:39:03 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 7582A24C5DC
+	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 15:39:09 -0800 (PST)
+In-Reply-To: <20091202.230142.199015015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 December 2009 00:59:58 you wrote:
-> Octavian Purdila a =E9crit :
-> > This patch adds a per SAP device based hash table to solve the
-> > multicast delivery scalability issues for the case where the are a
-> > large number of interfaces and a large number of sockets (bound to =
-the
-> > same SAP) are used.
-> >
-> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> > ---
-> >  include/net/llc.h      |   20 ++++++++++++++++----
-> >  include/net/llc_conn.h |    1 +
-> >  net/llc/llc_conn.c     |   18 +++++++++++++++++-
-> >  net/llc/llc_core.c     |    3 +++
-> >  net/llc/llc_sap.c      |   11 ++++++-----
-> >  5 files changed, 43 insertions(+), 10 deletions(-)
-> >
-> > diff --git a/include/net/llc.h b/include/net/llc.h
-> > index 7940da1..31e9902 100644
-> > --- a/include/net/llc.h
-> > +++ b/include/net/llc.h
-> > @@ -31,6 +31,14 @@ struct llc_addr {
-> >  #define LLC_SAP_STATE_INACTIVE	1
-> >  #define LLC_SAP_STATE_ACTIVE	2
-> >
-> > +#define LLC_SK_DEV_HASH_BITS 10
-> > +#define LLC_SK_DEV_HASH_ENTRIES (1<<LLC_SK_DEV_HASH_BITS)
-> > +
-> > +struct llc_sk_list {
-> > +	rwlock_t lock;
-> > +	struct hlist_head list;
-> > +};
-> > +
->=20
-> This patch introduces a big hash table, and 1024 rwlocks, for IXIACOM=
- need.
->=20
+From: David Miller <davem@davemloft.net>
+Date: Wed, 02 Dec 2009 23:01:42 -0800 (PST)
 
-Yes, that is probably not appropriate for upstream. What would be a goo=
-d=20
-value?
+> If it doesn't reach my inbox by tomorrow afternoon (PST timezone) then
+> it had better be a bug fix of some kind :-)
 
-> Is the problem both on lock contention and lookup ?
+Ok, the door is shut, no more new features or anything like that.
 
-Since at this point we are using UP ports contention is not really an i=
-ssue=20
-for us. I've extrapolated this (lock per hash bucket) based on how lock=
-ing is=20
-done in other places, like UDP.=20
+I'm really disappointed how much last minute stuff got submitted
+today, that was way too much.
+
+You can't wait until the first day of the merge window to send
+your stuff in folks.
