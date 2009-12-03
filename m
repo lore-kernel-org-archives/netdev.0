@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Batched netns improvements.
-Date: Thu, 03 Dec 2009 12:24:06 -0800 (PST)
-Message-ID: <20091203.122406.203286092.davem@davemloft.net>
-References: <m11vjcnsyr.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH 7/7] net: Batch inet_twsk_purge
+Date: Thu, 03 Dec 2009 12:24:36 -0800 (PST)
+Message-ID: <20091203.122436.239332194.davem@davemloft.net>
+References: <1259843349-3810-7-git-send-email-ebiederm@xmission.com>
+	<4B17BBC9.8070106@gmail.com>
+	<m1ws14kwln.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, dlezcano@fr.ibm.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
+	dlezcano@fr.ibm.com
 To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54517
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54523
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753962AbZLCUX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:23:59 -0500
-In-Reply-To: <m11vjcnsyr.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1753764AbZLCUYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:24:30 -0500
+In-Reply-To: <m1ws14kwln.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 03 Dec 2009 04:27:08 -0800
+Date: Thu, 03 Dec 2009 05:36:52 -0800
 
-> 
-> This series of patches takes my simple 4k network namespace exit test
-> from about 44s to 1.6s, with a minuscule increase in code side.
-> 
-> While batching has given me big improvements there are a few
-> changes in there that improve the performance of cleaning up
-> a single network namespace.
+> I think dccp may also need a inet_twsk_purge as well, but I couldn't
+> figure out what it was doing with timewait sockets.
 
-All applied to net-next-2.6, thanks Eric.
+DCCP doesn't have time-wait sockets, it's more like UDP than TCP.
