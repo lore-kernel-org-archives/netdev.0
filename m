@@ -1,58 +1,63 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: scp stalls mysteriously
-Date: Thu, 3 Dec 2009 22:37:28 +0100
-Message-ID: <20091203223728.3d5efa74@houba>
-References: <20091130213727.2f4047d2@houba>
-	<alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
-	<20091201211945.505d3c98@houba>
-	<alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
-	<20091202085925.472136e2@houba>
-	<alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
-	<20091202154403.GB30730@sd-11162.dedibox.fr>
-	<alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
-	<20091202183451.173db5f2@houba>
-	<4B16BD58.3040802@tvk.rwth-aachen.de>
-	<20091203085933.GD30730@sd-11162.dedibox.fr>
-	<alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
-	<4B17A791.80808@tvk.rwth-aachen.de>
-	<alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
-	<4B17C6C3.1060000@tvk.rwth-aachen.de>
-	<20091203202328.62d7551a@houba>
-	<alpine.DEB.2.00.0912032207430.776@melkinpaasi.cs.helsinki.fi>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 14711] New: usbnet ax88172 mac address change
+ broken
+Date: Thu, 3 Dec 2009 13:38:45 -0800
+Message-ID: <20091203133845.4977551c.akpm@linux-foundation.org>
+References: <bug-14711-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:46288 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753573AbZLCVhq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:37:46 -0500
-In-Reply-To: <alpine.DEB.2.00.0912032207430.776@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	remur-hi6Y0CQ0nG0@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <bug-14711-10286-V0hAGp6uBxO456/isadD/XN4h3HLQggn@public.gmane.org/>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le Thu, 3 Dec 2009 22:36:53 +0200 (EET),
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
-> however, annoying thing is that now we didn't get get the zero events
-> logged :-). Can you please print them also in that branch. Also, I
-> forgot previously that tp->frto_counter would be nice to know. And
-> since there seems to be a need for yet another case, in order to
-> solve the other problem related to fast retransmit, also tp->lost_out
-> and tp->sacked_out would be nice to know.
 
-=2E12 is online, including patch
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-I added the fields and moved the printk at the beginning of
-retransmits_timed_out as sk is not modified in the function.
+On Tue, 1 Dec 2009 15:41:10 GMT
+bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org wrote:
 
-I'm preparing one test without the "|| !tp->retrans_stamp"
+> http://bugzilla.kernel.org/show_bug.cgi?id=14711
+> 
+>            Summary: usbnet ax88172 mac address change broken
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.31rc8
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network-ztI5WcYan/vQLgFONoPN62D2FQJk+8+b@public.gmane.org
+>         ReportedBy: remur-hi6Y0CQ0nG0@public.gmane.org
+>         Regression: No
+> 
+> 
+> When changing the MAC address on a NETGEAR FA120 (because an old one is
+> registered with my provider) the replies to the traffic don't reach the system
+> anymore, the NIC is dropping them, putting the NIC into promiscous mode will
+> show they are properly replied to.
+> 
+> Searching around I found this patch from the openBSD folks
+> http://www.mail-archive.com/misc-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org/msg76418.html
+> http://www.openbsd.org/cgi-bin/cvsweb/src/sys/dev/usb/if_axe.c.diff?r1=1.91;r2=1.92
+> 
+> Looks like it is not working with the ax88172, but only with newer models.
+> Still an error message would be nice when setting another physical address
+> 
 
---=20
-=46r=C3=A9d=C3=A9ric Leroy
+It would be nice if some asix-competent person could take a look at porting
+that openbsd patch across, see if it fixes Karsten's hardware.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
