@@ -1,45 +1,45 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 6/6] tg3: Update version to 3.105
-Date: Thu, 3 Dec 2009 10:36:25 -0800
-Message-ID: <1259865385-7773-7-git-send-email-mcarlson@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	"Matt Carlson" <mcarlson@broadcom.com>
-To: davem@davemloft.net
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: [PATCH 01/18] Bluetooth: Removal of unused variable in btmrvl driver
+Date: Thu,  3 Dec 2009 19:45:38 +0100
+Message-ID: <b3cf652afb5404685e3d7ed6780a8d1fa10e21da.1259865280.git.marcel@holtmann.org>
+References: <cover.1259865279.git.marcel@holtmann.org>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2996 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755555AbZLCSkd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 13:40:33 -0500
+Received: from senator.holtmann.net ([87.106.208.187]:37643 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755767AbZLCSpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 13:45:55 -0500
+In-Reply-To: <cover.1259865279.git.marcel@holtmann.org>
+In-Reply-To: <cover.1259865279.git.marcel@holtmann.org>
+References: <cover.1259865279.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the tg3 version to 3.105.
+From: Rahul Tank <rahult@marvell.com>
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
+This patch removes unused variable "drvdbg" from btmrvl_debugfs_data
+structure.
+
+Signed-off-by: Rahul Tank <rahult@marvell.com>
+Signed-off-by: Bing Zhao <bzhao@marvell.com>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/bluetooth/btmrvl_debugfs.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 042e391..d566034 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -68,8 +68,8 @@
+diff --git a/drivers/bluetooth/btmrvl_debugfs.c b/drivers/bluetooth/btmrvl_debugfs.c
+index 4617bd1..d43b5cb 100644
+--- a/drivers/bluetooth/btmrvl_debugfs.c
++++ b/drivers/bluetooth/btmrvl_debugfs.c
+@@ -29,7 +29,6 @@ struct btmrvl_debugfs_data {
+ 	struct dentry *root_dir, *config_dir, *status_dir;
  
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.104"
--#define DRV_MODULE_RELDATE	"November 13, 2009"
-+#define DRV_MODULE_VERSION	"3.105"
-+#define DRV_MODULE_RELDATE	"December 2, 2009"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+ 	/* config */
+-	struct dentry *drvdbg;
+ 	struct dentry *psmode;
+ 	struct dentry *pscmd;
+ 	struct dentry *hsmode;
 -- 
-1.6.4.4
-
+1.6.5.2
 
