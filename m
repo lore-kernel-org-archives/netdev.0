@@ -1,41 +1,30 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] ip: add support for IFA_F_DADFAILED
-Date: Thu, 3 Dec 2009 12:10:15 -0800
-Message-ID: <20091203121015.7a7c069e@nehalam>
-References: <4AAEAEE7.4090507@hp.com>
-	<4B1813E7.2030004@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net 00/05: routing based send-to-self implementation
+Date: Thu, 03 Dec 2009 12:15:14 -0800 (PST)
+Message-ID: <20091203.121514.20643462.davem@davemloft.net>
+References: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35124 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752727AbZLCUKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 15:10:34 -0500
-In-Reply-To: <4B1813E7.2030004@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34578
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753482AbZLCUPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:15:08 -0500
+In-Reply-To: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 03 Dec 2009 14:39:19 -0500
-Brian Haley <brian.haley@hp.com> wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu,  3 Dec 2009 12:25:52 +0100 (MET)
 
-> Hi Stephen,
-> 
-> Brian Haley wrote:
-> > [I'm not sure if I needed to update if_addr.h, or if that will happen
-> >  automatically when you update the headers to 2.6.32]
-> > 
-> > 
-> > Add support for IFA_F_DADFAILED and update ip.8 man page.
-> 
-> It looks like you applied a test patch I had sent Jens instead of this
-> one.  Can you revert that and apply this instead?  Or I can send a new
-> one based on your current git tree.
-> 
-> Thanks,
+> These patches are yet another attempt at adding "send-to-self" functionality,
+> allowing to send packets between two local interfaces over the wire. Unlike
+> the approaches I've seen so far, this one is purely routing based.
+> Especially the oif classification should also be useful for different setups.
+...
+> Please apply, thanks!
 
-Delta would be easier.
-
--- 
+All applied to net-next-2.6, thanks!
