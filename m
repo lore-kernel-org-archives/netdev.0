@@ -1,38 +1,51 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 7/7] net: Batch inet_twsk_purge
-Date: Thu, 03 Dec 2009 12:45:14 -0800
-Message-ID: <m1ws13g52d.fsf@fess.ebiederm.org>
-References: <1259843349-3810-7-git-send-email-ebiederm@xmission.com>
-	<4B17BBC9.8070106@gmail.com> <m1ws14kwln.fsf@fess.ebiederm.org>
-	<20091203.122436.239332194.davem@davemloft.net>
+From: "Patrick Mullaney" <pmullaney@novell.com>
+Subject: Re: [PATCH 3/3] macvlan: allow in-kernel modules to create and
+	 manage macvlan devices
+Date: Thu, 03 Dec 2009 13:45:43 -0700
+Message-ID: <4B17C107020000C70007C8CE@soto.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
-	dlezcano@fr.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:45310 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149AbZLCUpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:45:15 -0500
-In-Reply-To: <20091203.122436.239332194.davem@davemloft.net> (David Miller's message of "Thu\, 03 Dec 2009 12\:24\:36 -0800 \(PST\)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <bridge@lists.linux-foundation.org>,
+	<alacrityvm-devel@lists.sourceforge.net>, <kaber@trash.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755650AbZLCUpt@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Thu, 03 Dec 2009 05:36:52 -0800
->
->> I think dccp may also need a inet_twsk_purge as well, but I couldn't
->> figure out what it was doing with timewait sockets.
->
-> DCCP doesn't have time-wait sockets, it's more like UDP than TCP.
+I hope I didn't confuse things by posting:
 
-There is net/dccp/minisocks.c:dccp_time_wait that calls
-inet_twsk_alloc().
+netdevice: provide common routine for macvlan and vlan operstate
+management
 
-So dccp is doing something with timewait sockets.
+again. I offered to send that out patched against net-next-2.6 last
+week and I just got back to following up. I'm fine with you rolling
+them into your series too.
 
-Eric
+Thanks.
 
+On Fri, 2009-11-27 at 23:19 +0100, Arnd Bergmann wrote:
+> On Friday 13 November 2009, Patrick Mullaney wrote:
+> > @@ -318,7 +318,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
+> >  #define MACVLAN_FEATURES \
+> >         (NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+> >          NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
+> > -        NETIF_F_TSO_ECN | NETIF_F_TSO6)
+> > +        NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
+> >  
+> >  #define MACVLAN_STATE_MASK \
+> >         ((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
+> 
+> This hunk looks like it should be a separate patch, because we will
+> want to have this independently of the rest. I have taken it into
+> a series I'm preparing for a new posting of macvtap based on the
+> current net-next tree with my bridge mode changes. I also have
+> your patch 1 (the fixed version) and 2 in there. It's currently
+> work in progress, but if you are interested, take a look at [1].
+> 
+> 	Arnd <><
+> 
+> [1] http://git.kernel.org/?p=linux/kernel/git/arnd/playground.git;a=shortlog;h=refs/heads/macvlan
