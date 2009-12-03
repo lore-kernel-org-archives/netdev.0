@@ -1,51 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
-Date: Thu, 03 Dec 2009 13:45:32 -0800 (PST)
-Message-ID: <20091203.134532.225926933.davem@davemloft.net>
-References: <200912032241.43772.oliver@neukum.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
+Date: Thu, 03 Dec 2009 22:51:25 +0100
+Message-ID: <4B1832DD.1070805@gmail.com>
+References: <4B17EFE3.4080301@gmail.com>	<20091203202937.GA11436@ami.dom.local>	<4B182DC6.5030800@gmail.com> <20091203.133108.254093305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: oliver@neukum.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, mchan@broadcom.com, kaber@trash.net,
+	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58028
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751028AbZLCVp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:45:26 -0500
-In-Reply-To: <200912032241.43772.oliver@neukum.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34077 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbZLCVva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:51:30 -0500
+In-Reply-To: <20091203.133108.254093305.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oliver@neukum.org>
-Date: Thu, 3 Dec 2009 22:41:43 +0100
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 03 Dec 2009 22:29:42 +0100
+>=20
+>> Nice patch, thanks :)
+>>
+>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> I like it too, but please resubmit once we have at least
+> one example user submitted.
+>=20
 
-> From 17b97d1c24a061843a8f707e80f23a7b0b7647df Mon Sep 17 00:00:00 2001
-> From: Oliver Neukum <oliver@neukum.org>
-> Date: Thu, 3 Dec 2009 22:08:12 +0100
-> Subject: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
-> 
-> Using remote wakeup and delayed transmission to allow
-> online device to go into usb autosuspend.
-> Minimal alternate support for devices that don't support
-> remote wakeup.
-> 
-> Signed-off-by: Oliver Neukum <oliver@neukum.org>
+I successfully tested following patch.
 
-Same problem:
+Thanks !
 
-davem@sunset:~/src/GIT/net-next-2.6$ git am --signoff bundle-737.mbox
-Applying: cdc-ether:Implement reset_resume()
-Applying: usbnet & cdc-ether: Autosuspend for online devices
-error: patch failed: drivers/net/usb/cdc_ether.c:411
-error: drivers/net/usb/cdc_ether.c: patch does not apply
-error: patch failed: drivers/net/usb/usbnet.c:353
-error: drivers/net/usb/usbnet.c: patch does not apply
-Patch failed at 0002 usbnet & cdc-ether: Autosuspend for online devices
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-davem@sunset:~/src/GIT/net-next-2.6$ 
+[PATCH] ixgbe: Use realloc_netdev_mq() helper
 
-But this all might be due to some other changes I applied today and
-didn't push out yet to net-next-2.6, let me check on that for you.
+Instead of 128 tx queues, we can cap the tx queue number to what driver=
+ really uses.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_m=
+ain.c
+index 9ba506f..e524d0d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3306,7 +3306,7 @@ static void ixgbe_set_num_queues(struct ixgbe_ada=
+pter *adapter)
+=20
+ done:
+ 	/* Notify the stack of the (possibly) reduced Tx Queue count. */
+-	adapter->netdev->real_num_tx_queues =3D adapter->num_tx_queues;
++	realloc_netdev_mq(adapter->netdev, adapter->num_tx_queues);
+ }
+=20
+ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+
