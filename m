@@ -1,40 +1,30 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH iproute2] ip: print "temporary" for IPv6 temp addresses
-Date: Thu, 03 Dec 2009 15:31:57 -0500
-Message-ID: <4B18203D.8070309@hp.com>
-References: <4AAEAF37.7020305@hp.com>	<4B18144E.7020907@hp.com> <20091203122045.2f6e7cd7@nehalam>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch]USB autosuspend for cdc-eem
+Date: Thu, 03 Dec 2009 12:32:15 -0800 (PST)
+Message-ID: <20091203.123215.123983270.davem@davemloft.net>
+References: <200912031525.49001.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:35229 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754039AbZLCUbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:31:52 -0500
-In-Reply-To: <20091203122045.2f6e7cd7@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200912031525.49001.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Thu, 03 Dec 2009 14:41:02 -0500
-> Brian Haley <brian.haley@hp.com> wrote:
-> 
->> Hi Stephen,
->>
->> Brian Haley wrote:
->>> IPv6 addresses that have IFA_F_SECONDARY set are actually temporary addresses,
->>> hence the IFA_F_TEMPORARY equivalent.  Change the output in this case and
->>> allow filtering on the word "temporary".
->> I didn't see this in your current git tree, just pinging you about it.  This
->> would apply on top of my dad_failed patch.
->>
-> 
-> I'll put it as well, why did patchwork not see it?
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date: Thu, 3 Dec 2009 15:25:48 +0100
 
-I can only assume it was my subject line?
+> this uses the generic framework of usbnet to implement USB autosuspend
+> for cdc-eem. Comments?
 
-Let me know if I need to re-send as it was based on the other one.
+Please compose this patch posting properly as I described in my
+previous email to you.
 
--Brian
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
