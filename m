@@ -1,110 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 6/7] net: Use rcu lookups in inet_twsk_purge.
-Date: Thu, 03 Dec 2009 14:17:41 +0100
-Message-ID: <4B17BA75.1040302@gmail.com>
-References: <m11vjcnsyr.fsf@fess.ebiederm.org> <1259843349-3810-6-git-send-email-ebiederm@xmission.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/7] Batched netns improvements.
+Date: Thu, 03 Dec 2009 05:23:05 -0800
+Message-ID: <m1fx7smbt2.fsf@fess.ebiederm.org>
+References: <m11vjcnsyr.fsf@fess.ebiederm.org> <1259845591.3766.30.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54536 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbZLCNUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:20:52 -0500
-In-Reply-To: <1259843349-3810-6-git-send-email-ebiederm@xmission.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:42708 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752290AbZLCNXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:23:06 -0500
+In-Reply-To: <1259845591.3766.30.camel@bigi> (jamal's message of "Thu\, 03 Dec 2009 08\:06\:31 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman a =E9crit :
-> From: Eric W. Biederman <ebiederm@xmission.com>
->=20
-> While we are looking up entries to free there is no reason to take
-> the lock in inet_twsk_purge.  We have to drop locks and restart
-> occassionally anyway so adding a few more in case we get on the
-> wrong list because of a timewait move is no big deal.  At the
-> same time not taking the lock for long periods of time is much
-> more polite to the rest of the users of the hash table.
->=20
-> In my test configuration of killing 4k network namespaces
-> this change causes 4k back to back runs of inet_twsk_purge on an
-> empty hash table to go from roughly 20.7s to 3.3s, and the total
-> time to destroy 4k network namespaces goes from roughly 44s to
-> 3.3s.
->=20
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+jamal <hadi@cyberus.ca> writes:
 
-Very nice patch Eric
+> On Thu, 2009-12-03 at 04:27 -0800, Eric W. Biederman wrote:
+>> This series of patches takes my simple 4k network namespace exit test
+>> from about 44s to 1.6s, with a minuscule increase in code side.
+>
+> Nice.
+> I will test these as soon as they make it into net-next (just easier
+> for me given the setup).
+> I should confirm that:
+> The previous patches which are already in net-next from yesterday do
+> improve performance to under 1 minute. Can we call that a several-factor
+> improvement?;->
+>
+> Are you planning to give some tender loving to the virtual devices 
+> as well (gre etc) or is that taken care of now you have a pernet batch
+> exit op?
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+The tunnel devices gre, ipip, sit, ip6_tunnel, and the ethernet
+bridging still need some tlc to give them rtnl_link_ops, and in
+particular dellink operations so the deletions can be done in one big
+batch.
 
-> ---
->  net/ipv4/inet_timewait_sock.c |   39 ++++++++++++++++++++++++-------=
---------
->  1 files changed, 24 insertions(+), 15 deletions(-)
->=20
-> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_s=
-ock.c
-> index 1f5d508..683ecec 100644
-> --- a/net/ipv4/inet_timewait_sock.c
-> +++ b/net/ipv4/inet_timewait_sock.c
-> @@ -427,31 +427,40 @@ void inet_twsk_purge(struct net *net, struct in=
-et_hashinfo *hashinfo,
->  	struct inet_timewait_sock *tw;
->  	struct sock *sk;
->  	struct hlist_nulls_node *node;
-> -	int h;
-> +	unsigned int slot;
-> =20
-> -	local_bh_disable();
-> -	for (h =3D 0; h <=3D hashinfo->ehash_mask; h++) {
-> -		struct inet_ehash_bucket *head =3D
-> -			inet_ehash_bucket(hashinfo, h);
-> -		spinlock_t *lock =3D inet_ehash_lockp(hashinfo, h);
-> +	for (slot =3D 0; slot <=3D hashinfo->ehash_mask; slot++) {
-> +		struct inet_ehash_bucket *head =3D &hashinfo->ehash[slot];
-> +restart_rcu:
-> +		rcu_read_lock();
->  restart:
-> -		spin_lock(lock);
-> -		sk_nulls_for_each(sk, node, &head->twchain) {
-> -
-> +		sk_nulls_for_each_rcu(sk, node, &head->twchain) {
->  			tw =3D inet_twsk(sk);
->  			if (!net_eq(twsk_net(tw), net) ||
->  			    tw->tw_family !=3D family)
->  				continue;
-> =20
-> -			atomic_inc(&tw->tw_refcnt);
-> -			spin_unlock(lock);
-> +			if (unlikely(!atomic_inc_not_zero(&tw->tw_refcnt)))
-> +				continue;
-> +
-> +			if (unlikely(!net_eq(twsk_net(tw), net) ||
-> +				     tw->tw_family !=3D family)) {
-> +				inet_twsk_put(tw);
-> +				goto restart;
-> +			}
-> +		=09
-> +			rcu_read_unlock();
->  			inet_twsk_deschedule(tw, twdr);
->  			inet_twsk_put(tw);
-> -
-> -			goto restart;
-> +			goto restart_rcu;
->  		}
-> -		spin_unlock(lock);
-> +		/* If the nulls value we got at the end of this lookup is
-> +		 * not the expected one, we must restart lookup.
-> +		 * We probably met an item that was moved to another chain.
-> +		 */
-> +		if (get_nulls_value(node) !=3D slot)
-> +			goto restart;
-> +		rcu_read_unlock();
->  	}
-> -	local_bh_enable();
->  }
->  EXPORT_SYMBOL_GPL(inet_twsk_purge);
+The batch operations are mostly a generalization of a bunch of what
+was already there.
+
+I keep planning on doing something else and then I wind up working on
+this.
+
+Mostly what I have done turned out to be some very low hanging fruit,
+and some general cleanups.
+
+Eric
 
