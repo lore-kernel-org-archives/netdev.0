@@ -1,135 +1,160 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH iproute2] ip: add support for IFA_F_DADFAILED
-Date: Thu, 03 Dec 2009 14:39:19 -0500
-Message-ID: <4B1813E7.2030004@hp.com>
-References: <4AAEAEE7.4090507@hp.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 4/5] bnx2: Read firmware version from VPD.
+Date: Thu, 3 Dec 2009 11:46:34 -0800
+Message-ID: <1259869595-6450-4-git-send-email-mchan@broadcom.com>
+References: <1259869595-6450-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:27265 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838AbZLCTjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 14:39:14 -0500
-In-Reply-To: <4AAEAEE7.4090507@hp.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4591 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754686AbZLCTjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2009 14:39:23 -0500
+In-Reply-To: <1259869595-6450-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+And display it through ethtool -i.
 
-Brian Haley wrote:
-> [I'm not sure if I needed to update if_addr.h, or if that will happen
->  automatically when you update the headers to 2.6.32]
-> 
-> 
-> Add support for IFA_F_DADFAILED and update ip.8 man page.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |  102 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 99 insertions(+), 3 deletions(-)
 
-It looks like you applied a test patch I had sent Jens instead of this
-one.  Can you revert that and apply this instead?  Or I can send a new
-one based on your current git tree.
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index dba3840..b7bc74b 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7722,6 +7722,93 @@ bnx2_get_pci_speed(struct bnx2 *bp)
+ 
+ }
+ 
++static void __devinit
++bnx2_read_vpd_fw_ver(struct bnx2 *bp)
++{
++	int rc, i, v0_len = 0;
++	u8 *data;
++	u8 *v0_str = NULL;
++	bool mn_match = false;
++
++#define BNX2_MAX_VER_SLEN	30
++
++	data = kmalloc(256, GFP_KERNEL);
++	if (!data)
++		return;
++
++	rc = bnx2_nvram_read(bp, 0x300, data + 128, 128);
++	if (rc)
++		goto vpd_done;
++
++	for (i = 0; i < 128; i += 4) {
++		data[i] = data[i + 131];
++		data[i + 1] = data[i + 130];
++		data[i + 2] = data[i + 129];
++		data[i + 3] = data[i + 128];
++	}
++
++	for (i = 0; i < 128; ) {
++		unsigned char val = data[i];
++		unsigned int block_end;
++
++		if (val == 0x82 || val == 0x91) {
++			i = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
++			continue;
++		}
++
++		if (val != 0x90)
++			goto vpd_done;
++
++		block_end = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
++		i += 3;
++
++		if (block_end > 128)
++			goto vpd_done;
++
++		while (i < (block_end - 2)) {
++			if (data[i] == 'M' && data[i + 1] == 'N') {
++				int mn_len = data[i + 2];
++
++				if (mn_len != 4)
++					goto vpd_done;
++
++				i += 3;
++				if (memcmp(&data[i], "1028", 4))
++					goto vpd_done;
++				mn_match = true;
++				i += 4;
++
++			} else if (data[i] == 'V' && data[i + 1] == '0') {
++				v0_len = data[i + 2];
++
++				i += 3;
++				if (v0_len > BNX2_MAX_VER_SLEN ||
++				    (v0_len + i) > 128)
++					goto vpd_done;
++
++				if (v0_len > BNX2_MAX_VER_SLEN)
++					v0_len = BNX2_MAX_VER_SLEN;
++
++				v0_str = &data[i];
++				i += data[i + 2];
++
++			} else {
++				i += 3 + data[i + 2];
++			}
++
++			if (mn_match && v0_str) {
++				memcpy(bp->fw_version, v0_str, v0_len);
++				bp->fw_version[v0_len] = ' ';
++				goto vpd_done;
++			}
++		}
++		goto vpd_done;
++	}
++
++vpd_done:
++	kfree(data);
++}
++
+ static int __devinit
+ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ {
+@@ -7895,10 +7982,18 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 		goto err_out_unmap;
+ 	}
+ 
++	bnx2_read_vpd_fw_ver(bp);
++
++	j = strlen(bp->fw_version);
+ 	reg = bnx2_shmem_rd(bp, BNX2_DEV_INFO_BC_REV);
+-	for (i = 0, j = 0; i < 3; i++) {
++	for (i = 0; i < 3 && j < 24; i++) {
+ 		u8 num, k, skip0;
+ 
++		if (i == 0) {
++			bp->fw_version[j++] = 'b';
++			bp->fw_version[j++] = 'c';
++			bp->fw_version[j++] = ' ';
++		}
+ 		num = (u8) (reg >> (24 - (i * 8)));
+ 		for (k = 100, skip0 = 1; k >= 1; num %= k, k /= 10) {
+ 			if (num >= k || !skip0 || k == 1) {
+@@ -7929,8 +8024,9 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	    reg != BNX2_CONDITION_MFW_RUN_NONE) {
+ 		u32 addr = bnx2_shmem_rd(bp, BNX2_MFW_VER_PTR);
+ 
+-		bp->fw_version[j++] = ' ';
+-		for (i = 0; i < 3; i++) {
++		if (j < 32)
++			bp->fw_version[j++] = ' ';
++		for (i = 0; i < 3 && j < 28; i++) {
+ 			reg = bnx2_reg_rd_ind(bp, addr + i * 4);
+ 			reg = swab32(reg);
+ 			memcpy(&bp->fw_version[j], &reg, 4);
+-- 
+1.6.4.GIT
 
-Thanks,
 
--Brian
-
-
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> ---
-> 
-> diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-> index 08ea980..41b0193 100644
-> --- a/include/linux/if_addr.h
-> +++ b/include/linux/if_addr.h
-> @@ -41,6 +41,7 @@ enum
->  
->  #define	IFA_F_NODAD		0x02
->  #define IFA_F_OPTIMISTIC	0x04
-> +#define IFA_F_DADFAILED		0x08
->  #define	IFA_F_HOMEADDRESS	0x10
->  #define IFA_F_DEPRECATED	0x20
->  #define IFA_F_TENTATIVE		0x40
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 267ecb3..32c9008 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -64,7 +64,7 @@ static void usage(void)
->  		iplink_usage();
->  	}
->  	fprintf(stderr, "Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]\n");
-> -	fprintf(stderr, "                                                      [ CONFFLAG-LIST]\n");
-> +	fprintf(stderr, "                                                      [ CONFFLAG-LIST ]\n");
->  	fprintf(stderr, "       ip addr del IFADDR dev STRING\n");
->  	fprintf(stderr, "       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]\n");
->  	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]\n");
-> @@ -74,7 +74,8 @@ static void usage(void)
->  	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
->  	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
->  	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
-> -	fprintf(stderr, "           tentative | deprecated | CONFFLAG-LIST ]\n");
-> +	fprintf(stderr, "           tentative | deprecated | dadfailed |\n");
-> +	fprintf(stderr, "           CONFFLAG-LIST ]\n");
->  	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
->  	fprintf(stderr, "CONFFLAG  := [ home | nodad ]\n");
->  	fprintf(stderr, "LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]\n");
-> @@ -508,6 +509,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
->  		fprintf(fp, "dynamic ");
->  	} else
->  		ifa->ifa_flags &= ~IFA_F_PERMANENT;
-> +	if (ifa->ifa_flags&IFA_F_DADFAILED) {
-> +		ifa->ifa_flags &= ~IFA_F_DADFAILED;
-> +		fprintf(fp, "dadfailed ");
-> +	}
->  	if (ifa->ifa_flags)
->  		fprintf(fp, "flags %02x ", ifa->ifa_flags);
->  	if (rta_tb[IFA_LABEL])
-> @@ -655,6 +660,9 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
->  		} else if (strcmp(*argv, "nodad") == 0) {
->  			filter.flags |= IFA_F_NODAD;
->  			filter.flagmask |= IFA_F_NODAD;
-> +		} else if (strcmp(*argv, "dadfailed") == 0) {
-> +			filter.flags |= IFA_F_DADFAILED;
-> +			filter.flagmask |= IFA_F_DADFAILED;
->  		} else if (strcmp(*argv, "label") == 0) {
->  			NEXT_ARG();
->  			filter.label = *argv;
-> diff --git a/man/man8/ip.8 b/man/man8/ip.8
-> index a8fccc4..1145b28 100644
-> --- a/man/man8/ip.8
-> +++ b/man/man8/ip.8
-> @@ -97,7 +97,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
->  .ti -8
->  .IR FLAG " := "
->  .RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
-> -tentative " | " deprecated " ]"
-> +tentative " | " deprecated " | " dadfailed " ]"
->  
->  .ti -8
->  .BR "ip addrlabel" " { " add " | " del " } " prefix
-> @@ -1030,7 +1030,7 @@ addresses.
->  
->  .TP
->  .B tentative
-> -(IPv6 only) only list addresses which did not pass duplicate
-> +(IPv6 only) only list addresses which have not yet passed duplicate
->  address detection.
->  
->  .TP
-> @@ -1038,6 +1038,11 @@ address detection.
->  (IPv6 only) only list deprecated addresses.
->  
->  .TP
-> +.B dadfailed
-> +(IPv6 only) only list addresses which have failed duplicate
-> +address detection.
-> +
-> +.TP
->  .BR primary " and " secondary
->  only list primary (or secondary) addresses.
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
