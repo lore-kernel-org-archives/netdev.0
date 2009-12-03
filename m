@@ -1,63 +1,234 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 5/6] tg3: Clean tg3_init_one()
-Date: Thu, 3 Dec 2009 10:36:24 -0800
-Message-ID: <1259865385-7773-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 1/6] tg3: Make TSS enable independent of MSI-X enable
+Date: Thu, 3 Dec 2009 10:36:20 -0800
+Message-ID: <1259865385-7773-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	"Matt Carlson" <mcarlson@broadcom.com>
+	"Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1198 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1186 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756159AbZLCSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756339AbZLCSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 Dec 2009 13:40:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tg3's firmware is no longer loaded from tg3_init_one().  Remove the
-error path that releases the firmware back to the system.
+The 57765 asic rev has MSI-X capability, but does not support TSS.  This
+patch changes the tx paths so that TSS is explicitly mentioned, rather
+than implied through the ENABLE_MSIX flag.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/tg3.c |   91 ++++++++++++++++++++++++++++++++--------------------
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 57 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 49c60f9..042e391 100644
+index 302ea0b..fdc2412 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -14483,7 +14483,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	if (err) {
- 		printk(KERN_ERR PFX "Could not obtain valid ethernet address, "
- 		       "aborting.\n");
--		goto err_out_fw;
-+		goto err_out_iounmap;
- 	}
+@@ -4351,7 +4351,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
+ 	struct netdev_queue *txq;
+ 	int index = tnapi - tp->napi;
  
- 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) {
-@@ -14492,7 +14492,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 			printk(KERN_ERR PFX "Cannot map APE registers, "
- 			       "aborting.\n");
- 			err = -ENOMEM;
--			goto err_out_fw;
-+			goto err_out_iounmap;
- 		}
+-	if (tp->tg3_flags2 & TG3_FLG2_USING_MSIX)
++	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+ 		index--;
  
- 		tg3_ape_lock_init(tp);
-@@ -14623,10 +14623,6 @@ err_out_apeunmap:
- 		tp->aperegs = NULL;
- 	}
+ 	txq = netdev_get_tx_queue(tp->dev, index);
+@@ -5436,7 +5436,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
  
--err_out_fw:
--	if (tp->fw)
--		release_firmware(tp->fw);
+ 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+ 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
+-	if (tp->tg3_flags2 & TG3_FLG2_USING_MSIX)
++	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+ 		tnapi++;
+ 
+ 	/* We are running in BH disabled context with netif_tx_lock
+@@ -5640,7 +5640,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 
+ 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+ 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
+-	if (tp->tg3_flags2 & TG3_FLG2_USING_MSIX)
++	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+ 		tnapi++;
+ 
+ 	/* We are running in BH disabled context with netif_tx_lock
+@@ -6279,6 +6279,24 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 		memset(tnapi->hw_status, 0, TG3_HW_STATUS_SIZE);
+ 		sblk = tnapi->hw_status;
+ 
++		/* If multivector TSS is enabled, vector 0 does not handle
++		 * tx interrupts.  Don't allocate any resources for it.
++		 */
++		if ((!i && !(tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)) ||
++		    (i && (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS))) {
++			tnapi->tx_buffers = kzalloc(sizeof(struct ring_info) *
++						    TG3_TX_RING_SIZE,
++						    GFP_KERNEL);
++			if (!tnapi->tx_buffers)
++				goto err_out;
++
++			tnapi->tx_ring = pci_alloc_consistent(tp->pdev,
++							      TG3_TX_RING_BYTES,
++						       &tnapi->tx_desc_mapping);
++			if (!tnapi->tx_ring)
++				goto err_out;
++		}
++
+ 		/*
+ 		 * When RSS is enabled, the status block format changes
+ 		 * slightly.  The "rx_jumbo_consumer", "reserved",
+@@ -6319,17 +6337,6 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 			goto err_out;
+ 
+ 		memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
 -
- err_out_iounmap:
- 	if (tp->regs) {
- 		iounmap(tp->regs);
+-		tnapi->tx_buffers = kzalloc(sizeof(struct ring_info) *
+-					    TG3_TX_RING_SIZE, GFP_KERNEL);
+-		if (!tnapi->tx_buffers)
+-			goto err_out;
+-
+-		tnapi->tx_ring = pci_alloc_consistent(tp->pdev,
+-						      TG3_TX_RING_BYTES,
+-						      &tnapi->tx_desc_mapping);
+-		if (!tnapi->tx_ring)
+-			goto err_out;
+ 	}
+ 
+ 	return 0;
+@@ -7317,19 +7324,21 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
+ {
+ 	int i;
+ 
+-	if (!(tp->tg3_flags2 & TG3_FLG2_USING_MSIX)) {
++	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)) {
+ 		tw32(HOSTCC_TXCOL_TICKS, ec->tx_coalesce_usecs);
+ 		tw32(HOSTCC_TXMAX_FRAMES, ec->tx_max_coalesced_frames);
+ 		tw32(HOSTCC_TXCOAL_MAXF_INT, ec->tx_max_coalesced_frames_irq);
+-
+-		tw32(HOSTCC_RXCOL_TICKS, ec->rx_coalesce_usecs);
+-		tw32(HOSTCC_RXMAX_FRAMES, ec->rx_max_coalesced_frames);
+-		tw32(HOSTCC_RXCOAL_MAXF_INT, ec->rx_max_coalesced_frames_irq);
+ 	} else {
+ 		tw32(HOSTCC_TXCOL_TICKS, 0);
+ 		tw32(HOSTCC_TXMAX_FRAMES, 0);
+ 		tw32(HOSTCC_TXCOAL_MAXF_INT, 0);
++	}
+ 
++	if (!(tp->tg3_flags2 & TG3_FLG2_USING_MSIX)) {
++		tw32(HOSTCC_RXCOL_TICKS, ec->rx_coalesce_usecs);
++		tw32(HOSTCC_RXMAX_FRAMES, ec->rx_max_coalesced_frames);
++		tw32(HOSTCC_RXCOAL_MAXF_INT, ec->rx_max_coalesced_frames_irq);
++	} else {
+ 		tw32(HOSTCC_RXCOL_TICKS, 0);
+ 		tw32(HOSTCC_RXMAX_FRAMES, 0);
+ 		tw32(HOSTCC_RXCOAL_MAXF_INT, 0);
+@@ -7352,25 +7361,31 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
+ 
+ 		reg = HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18;
+ 		tw32(reg, ec->rx_coalesce_usecs);
+-		reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
+-		tw32(reg, ec->tx_coalesce_usecs);
+ 		reg = HOSTCC_RXMAX_FRAMES_VEC1 + i * 0x18;
+ 		tw32(reg, ec->rx_max_coalesced_frames);
+-		reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
+-		tw32(reg, ec->tx_max_coalesced_frames);
+ 		reg = HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18;
+ 		tw32(reg, ec->rx_max_coalesced_frames_irq);
+-		reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
+-		tw32(reg, ec->tx_max_coalesced_frames_irq);
++
++		if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS) {
++			reg = HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_coalesce_usecs);
++			reg = HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_max_coalesced_frames);
++			reg = HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18;
++			tw32(reg, ec->tx_max_coalesced_frames_irq);
++		}
+ 	}
+ 
+ 	for (; i < tp->irq_max - 1; i++) {
+ 		tw32(HOSTCC_RXCOL_TICKS_VEC1 + i * 0x18, 0);
+-		tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
+ 		tw32(HOSTCC_RXMAX_FRAMES_VEC1 + i * 0x18, 0);
+-		tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
+ 		tw32(HOSTCC_RXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
+-		tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
++
++		if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS) {
++			tw32(HOSTCC_TXCOL_TICKS_VEC1 + i * 0x18, 0);
++			tw32(HOSTCC_TXMAX_FRAMES_VEC1 + i * 0x18, 0);
++			tw32(HOSTCC_TXCOAL_MAXF_INT_VEC1 + i * 0x18, 0);
++		}
+ 	}
+ }
+ 
+@@ -7471,17 +7486,19 @@ static void tg3_rings_reset(struct tg3 *tp)
+ 		/* Clear status block in ram. */
+ 		memset(tnapi->hw_status, 0, TG3_HW_STATUS_SIZE);
+ 
+-		tg3_set_bdinfo(tp, txrcb, tnapi->tx_desc_mapping,
+-			       (TG3_TX_RING_SIZE <<
+-				BDINFO_FLAGS_MAXLEN_SHIFT),
+-			       NIC_SRAM_TX_BUFFER_DESC);
++		if (tnapi->tx_ring) {
++			tg3_set_bdinfo(tp, txrcb, tnapi->tx_desc_mapping,
++				       (TG3_TX_RING_SIZE <<
++					BDINFO_FLAGS_MAXLEN_SHIFT),
++				       NIC_SRAM_TX_BUFFER_DESC);
++			txrcb += TG3_BDINFO_SIZE;
++		}
+ 
+ 		tg3_set_bdinfo(tp, rxrcb, tnapi->rx_rcb_mapping,
+ 			       (TG3_RX_RCB_RING_SIZE(tp) <<
+ 				BDINFO_FLAGS_MAXLEN_SHIFT), 0);
+ 
+ 		stblk += 8;
+-		txrcb += TG3_BDINFO_SIZE;
+ 		rxrcb += TG3_BDINFO_SIZE;
+ 	}
+ }
+@@ -8024,7 +8041,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
+ 		tw32(SNDDATAI_MODE, SNDDATAI_MODE_ENABLE | 0x8);
+ 	val = SNDBDI_MODE_ENABLE | SNDBDI_MODE_ATTN_ENABLE;
+-	if (tp->tg3_flags2 & TG3_FLG2_USING_MSIX)
++	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+ 		val |= SNDBDI_MODE_MULTI_TXQ_EN;
+ 	tw32(SNDBDI_MODE, val);
+ 	tw32(SNDBDS_MODE, SNDBDS_MODE_ENABLE | SNDBDS_MODE_ATTN_ENABLE);
+@@ -8632,7 +8649,11 @@ static bool tg3_enable_msix(struct tg3 *tp)
+ 	for (i = 0; i < tp->irq_max; i++)
+ 		tp->napi[i].irq_vec = msix_ent[i].vector;
+ 
+-	tp->dev->real_num_tx_queues = tp->irq_cnt - 1;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
++		tp->tg3_flags3 |= TG3_FLG3_ENABLE_TSS;
++		tp->dev->real_num_tx_queues = tp->irq_cnt - 1;
++	} else
++		tp->dev->real_num_tx_queues = 1;
+ 
+ 	return true;
+ }
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 8972523..8035583 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2791,6 +2791,7 @@ struct tg3 {
+ #define TG3_FLG3_NO_NVRAM		0x00004000
+ #define TG3_FLG3_PHY_IS_FET		0x00010000
+ #define TG3_FLG3_ENABLE_RSS		0x00020000
++#define TG3_FLG3_ENABLE_TSS		0x00040000
+ #define TG3_FLG3_4G_DMA_BNDRY_BUG	0x00080000
+ #define TG3_FLG3_40BIT_DMA_LIMIT_BUG	0x00100000
+ #define TG3_FLG3_SHORT_DMA_BUG		0x00200000
 -- 
 1.6.4.4
 
