@@ -1,62 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/5] bnx2: Print warning when unable to allocate the
- full SKB/page ring.
-Date: Thu, 3 Dec 2009 11:46:33 -0800
-Message-ID: <1259869595-6450-3-git-send-email-mchan@broadcom.com>
-References: <1259869595-6450-1-git-send-email-mchan@broadcom.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH iproute2] ip: print "temporary" for IPv6 temp addresses
+Date: Thu, 03 Dec 2009 14:41:02 -0500
+Message-ID: <4B18144E.7020907@hp.com>
+References: <4AAEAF37.7020305@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4589 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754707AbZLCTjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 14:39:23 -0500
-In-Reply-To: <1259869595-6450-1-git-send-email-mchan@broadcom.com>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:45964 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753482AbZLCTlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 14:41:12 -0500
+In-Reply-To: <4AAEAF37.7020305@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/bnx2.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+Hi Stephen,
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 665253a..dba3840 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -5158,8 +5158,12 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
- 
- 	ring_prod = prod = rxr->rx_pg_prod;
- 	for (i = 0; i < bp->rx_pg_ring_size; i++) {
--		if (bnx2_alloc_rx_page(bp, rxr, ring_prod) < 0)
-+		if (bnx2_alloc_rx_page(bp, rxr, ring_prod) < 0) {
-+			printk(KERN_WARNING PFX "%s: init'ed rx page ring %d "
-+						"with %d/%d pages only\n",
-+			       bp->dev->name, ring_num, i, bp->rx_pg_ring_size);
- 			break;
-+		}
- 		prod = NEXT_RX_BD(prod);
- 		ring_prod = RX_PG_RING_IDX(prod);
- 	}
-@@ -5167,8 +5171,12 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
- 
- 	ring_prod = prod = rxr->rx_prod;
- 	for (i = 0; i < bp->rx_ring_size; i++) {
--		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod) < 0)
-+		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod) < 0) {
-+			printk(KERN_WARNING PFX "%s: init'ed rx ring %d with "
-+						"%d/%d skbs only\n",
-+			       bp->dev->name, ring_num, i, bp->rx_ring_size);
- 			break;
-+		}
- 		prod = NEXT_RX_BD(prod);
- 		ring_prod = RX_RING_IDX(prod);
- 	}
--- 
-1.6.4.GIT
+Brian Haley wrote:
+> IPv6 addresses that have IFA_F_SECONDARY set are actually temporary addresses,
+> hence the IFA_F_TEMPORARY equivalent.  Change the output in this case and
+> allow filtering on the word "temporary".
+
+I didn't see this in your current git tree, just pinging you about it.  This
+would apply on top of my dad_failed patch.
+
+Thanks,
+
+-Brian
 
 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> ---
+> 
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 32c9008..8492fa8 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -74,7 +74,7 @@ static void usage(void)
+>  	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
+>  	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+>  	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
+> -	fprintf(stderr, "           tentative | deprecated | dadfailed |\n");
+> +	fprintf(stderr, "           tentative | deprecated | dadfailed | temporary |\n");
+>  	fprintf(stderr, "           CONFFLAG-LIST ]\n");
+>  	fprintf(stderr, "CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG\n");
+>  	fprintf(stderr, "CONFFLAG  := [ home | nodad ]\n");
+> @@ -486,7 +486,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>  	fprintf(fp, "scope %s ", rtnl_rtscope_n2a(ifa->ifa_scope, b1, sizeof(b1)));
+>  	if (ifa->ifa_flags&IFA_F_SECONDARY) {
+>  		ifa->ifa_flags &= ~IFA_F_SECONDARY;
+> -		fprintf(fp, "secondary ");
+> +		if (ifa->ifa_family == AF_INET6)
+> +			fprintf(fp, "temporary ");
+> +		else
+> +			fprintf(fp, "secondary ");
+>  	}
+>  	if (ifa->ifa_flags&IFA_F_TENTATIVE) {
+>  		ifa->ifa_flags &= ~IFA_F_TENTATIVE;
+> @@ -642,7 +645,8 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+>  		} else if (strcmp(*argv, "permanent") == 0) {
+>  			filter.flags |= IFA_F_PERMANENT;
+>  			filter.flagmask |= IFA_F_PERMANENT;
+> -		} else if (strcmp(*argv, "secondary") == 0) {
+> +		} else if (strcmp(*argv, "secondary") == 0 ||
+> +			   strcmp(*argv, "temporary") == 0) {
+>  			filter.flags |= IFA_F_SECONDARY;
+>  			filter.flagmask |= IFA_F_SECONDARY;
+>  		} else if (strcmp(*argv, "primary") == 0) {
+> diff --git a/man/man8/ip.8 b/man/man8/ip.8
+> index 1145b28..24a3812 100644
+> --- a/man/man8/ip.8
+> +++ b/man/man8/ip.8
+> @@ -97,7 +97,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+>  .ti -8
+>  .IR FLAG " := "
+>  .RB "[ " permanent " | " dynamic " | " secondary " | " primary " | "\
+> -tentative " | " deprecated " | " dadfailed " ]"
+> +tentative " | " deprecated " | " dadfailed " | " temporary " ]"
+>  
+>  .ti -8
+>  .BR "ip addrlabel" " { " add " | " del " } " prefix
+> @@ -1043,6 +1043,10 @@ address detection.
+>  address detection.
+>  
+>  .TP
+> +.B temporary
+> +(IPv6 only) only list temporary addresses.
+> +
+> +.TP
+>  .BR primary " and " secondary
+>  only list primary (or secondary) addresses.
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
