@@ -1,79 +1,60 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 4/4] stmmac: convert unicast addr list to list_head
-Date: Thu,  3 Dec 2009 11:40:05 +0100
-Message-ID: <1259836805-7512-4-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/4] stmmac: thinking about a generic driver for Synopsys
+ Controllers.
+Date: Thu, 03 Dec 2009 11:42:30 +0100
+Message-ID: <4B179616.2010907@st.com>
 References: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com>
- <1259836805-7512-2-git-send-email-peppe.cavallaro@st.com>
- <1259836805-7512-3-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:52693 "EHLO
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:53600 "EHLO
 	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755360AbZLCKkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 05:40:53 -0500
+	by vger.kernel.org with ESMTP id S1755879AbZLCKm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 05:42:29 -0500
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C7865237
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:57 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7A143A70
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:57 +0000 (GMT)
-In-Reply-To: <1259836805-7512-3-git-send-email-peppe.cavallaro@st.com>
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 8D3A4B6
+	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:42:33 +0000 (GMT)
+Received: from mail1.ctn.st.com (mail1.ctn.st.com [164.130.116.128])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5428EA70
+	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:42:33 +0000 (GMT)
+In-Reply-To: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts unicast address list to standard list_head using
-previously introduced struct netdev_hw_addr.
----
- drivers/net/stmmac/dwmac1000_core.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
-index 3752e1e..e109bea 100644
---- a/drivers/net/stmmac/dwmac1000_core.c
-+++ b/drivers/net/stmmac/dwmac1000_core.c
-@@ -83,7 +83,7 @@ static void gmac_set_filter(struct net_device *dev)
- 	unsigned int value = 0;
- 
- 	DBG(KERN_INFO "%s: # mcasts %d, # unicast %d\n",
--	    __func__, dev->mc_count, dev->uc_count);
-+	    __func__, dev->mc_count, dev->uc.count);
- 
- 	if (dev->flags & IFF_PROMISC)
- 		value = GMAC_FRAME_FILTER_PR;
-@@ -117,17 +117,16 @@ static void gmac_set_filter(struct net_device *dev)
- 	}
- 
- 	/* Handle multiple unicast addresses (perfect filtering)*/
--	if (dev->uc_count > GMAC_MAX_UNICAST_ADDRESSES)
-+	if (dev->uc.count > GMAC_MAX_UNICAST_ADDRESSES)
- 		/* Switch to promiscuous mode is more than 16 addrs
- 		   are required */
- 		value |= GMAC_FRAME_FILTER_PR;
- 	else {
--		int i;
--		struct dev_addr_list *uc_ptr = dev->uc_list;
-+		int i = 0;
-+		struct netdev_hw_addr *ha;
- 
--			for (i = 0; i < dev->uc_count; i++) {
--				gmac_set_umac_addr(ioaddr, uc_ptr->da_addr,
--						i + 1);
-+			list_for_each_entry(ha, &dev->uc.list, list) {
-+				gmac_set_umac_addr(ioaddr, ha->addr, i + 1);
- 
- 				DBG(KERN_INFO "\t%d "
- 				"- Unicast addr %02x:%02x:%02x:%02x:%02x:"
-@@ -135,7 +134,8 @@ static void gmac_set_filter(struct net_device *dev)
- 				uc_ptr->da_addr[0], uc_ptr->da_addr[1],
- 				uc_ptr->da_addr[2], uc_ptr->da_addr[3],
- 				uc_ptr->da_addr[4], uc_ptr->da_addr[5]);
--				uc_ptr = uc_ptr->next;
-+
-+				i++;
- 		}
- 	}
- 
--- 
-1.6.0.4
+Giuseppe CAVALLARO wrote:
+> The idea behind this patch is to start thinking about a
+> generic driver for Synopsys Ethernet Controllers
+> starting from the stmmac device driver.
+> In the future, the stmmac could be also renamed as "synmac";
+> I'd like to see it working on other systems with other CPUs
+> (ARM, SH) and other Synopsys Ethernet IPs.
 
+Folks,
+after releasing the first version of this driver, many people contacted
+me asking to candidate the stmmac as generic device driver for Synopsys.
+So this is the meaning of this patch I'm sending the Community.
+I do hope that could help other developers.
+
+The driver continues to work on stlinux platforms (tested on several
+board with mac100 and gmac controllers).
+
+I'm also thinking to rename the driver as "synmac" (instead of stmmac).
+What do you think?
+Welcome advice and review as usual.
+
+Regards,
+Peppe
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAksXlhYACgkQ2Xo3j31MSSJNVgCgrFPzJqw0iS+0Hh22Zs7rQloT
+IsgAoJuBubpOzz5y6VKGctYl0Avvjhk8
+=TbCM
+-----END PGP SIGNATURE-----
