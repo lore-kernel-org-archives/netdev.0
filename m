@@ -1,253 +1,209 @@
-From: kapil dakhane <kdakhane@gmail.com>
-Subject: Re: soft lockup in inet_csk_get_port
-Date: Wed, 2 Dec 2009 20:13:24 -0800
-Message-ID: <99d458640912022013l473690dax3f497248072cce0d@mail.gmail.com>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com>
-	 <4B14B35F.5000403@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v8 3/7] TCPCT part 1c: sysctl_tcp_cookie_size,
+ socket option TCP_COOKIE_TRANSACTIONS
+Date: Wed, 02 Dec 2009 23:14:19 -0500
+Message-ID: <4B173B1B.1060502@gmail.com>
+References: <4B1738C7.7090101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------010004030609030309070102"
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f171.google.com ([209.85.223.171]:61947 "EHLO
+Received: from mail-iw0-f171.google.com ([209.85.223.171]:59371 "EHLO
 	mail-iw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755506AbZLCENS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 23:13:18 -0500
-Received: by iwn1 with SMTP id 1so649111iwn.33
-        for <netdev@vger.kernel.org>; Wed, 02 Dec 2009 20:13:24 -0800 (PST)
-In-Reply-To: <4B14B35F.5000403@gmail.com>
+	with ESMTP id S1753470AbZLCEOP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 23:14:15 -0500
+Received: by iwn1 with SMTP id 1so649487iwn.33
+        for <netdev@vger.kernel.org>; Wed, 02 Dec 2009 20:14:22 -0800 (PST)
+In-Reply-To: <4B1738C7.7090101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Hmm, I did an one hour audit and could not yet find the bug.
->
-> Is it a reproductible error, and any chance I can have a snapshot of
-> "netstat -atn" before the lockup ? (maybe privately, since it might be
-> too big for netdev)
->
-It happens every time. I am working on it will send it to you very soon.
+This is a multi-part message in MIME format.
+--------------010004030609030309070102
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> What is the 'fast' program, is it freely available somewhere ?
->
-Its some thing we cooked up in house to test linux network stack
-scalability. Its a single threaded transparent proxy, it uses libevent
-(which uses epoll), and forwards data from incoming transparently
-captured connection, to its original destination. It does this without
-doing any copy of data once its read from socket. Clients simply send
-data to content server's ip-address, without being aware of the proxy
-in the middle, and content-servers see clients ip-address as the
-source ip. mpstat output shows that it has very little overhead in
-terms of user-space cpu.
+Define sysctl (tcp_cookie_size) to turn on and off the cookie option
+default globally, instead of a compiled configuration option.
 
-Let me know what part of the program you are interested in, and I can
-give you the code snippets. IMO, here's what you should know:
-sysctl options:
-net.ipv4.ip_local_port_range = 1024 65535
-# increase TCP max buffer size setable using setsockopt()
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-# increase Linux autotuning TCP buffer limits
-# min, default, and max number of bytes to use
-# set max to at least 4MB, or higher if you use very high BDP paths
-net.ipv4.tcp_rmem = 4096 87380 16777216
-net.ipv4.tcp_wmem = 4096 65536 16777216
-net.ipv4.tcp_keepalive_intvl = 5
-net.ipv4.tcp_keepalive_probes = 3
-net.ipv4.tcp_keepalive_time = 180
-net.ipv4.tcp_fin_timeout = 10
-net.ipv4.tcp_max_syn_backlog = 8192
-error: "net.ipv4.netfilter.ip_conntrack_max" is an unknown key
-error: "net.ipv4.ip_conntrack_max" is an unknown key
-net.ipv4.tcp_max_tw_buckets = 360000
-net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_tw_recycle = 1
-net.ipv4.tcp_syncookies = 0
-net.core.netdev_max_backlog = 5000
+Define per socket option (TCP_COOKIE_TRANSACTIONS) for setting constant
+data values, retrieving variable cookie values, and other facilities.
 
-/etc/security/limits.conf :
-* - nofile 262144
+Move inline tcp_clear_options() unchanged from net/tcp.h to linux/tcp.h,
+near its corresponding struct tcp_options_received (prior to changes).
 
+This is a straightforward re-implementation of an earlier (year-old)
+patch that no longer applies cleanly, with permission of the original
+author (Adam Langley):
 
+    http://thread.gmane.org/gmane.linux.network/102586
 
-Listen sockets options:
-    176   if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))
-...
-    106   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one))
-    114   if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one))
-    122   if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one))
-    131     if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val))
-    141     if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val))
+These functions will also be used in subsequent patches that implement
+additional features.
 
-  int flags = fcntl(fd, F_GETFL, 0);
-  if (flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+Requires:
+   net: TCP_MSS_DEFAULT, TCP_MSS_DESIRED
 
-    162     if (setsockopt(sock, SOL_IP, IP_TRANSPARENT, &one, sizeof(one))
-...
-    190   if (bind(sock, (struct sockaddr *)&sain, sizeof(sain))
-//listen port == 4002
-    202   if (listen(sock, config.listen_backlog) == -1) { //backlog == 1024
-Client socket options:
-  int flags = fcntl(fd, F_GETFL, 0);
-  if (flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+Signed-off-by: William.Allen.Simpson@gmail.com
+---
+  Documentation/networking/ip-sysctl.txt |    8 +++++++
+  include/linux/tcp.h                    |   33 +++++++++++++++++++++++++++++++-
+  include/net/tcp.h                      |    6 +----
+  net/ipv4/sysctl_net_ipv4.c             |    8 +++++++
+  net/ipv4/tcp_output.c                  |    3 ++
+  5 files changed, 52 insertions(+), 6 deletions(-)
 
-Outbound connections:
-  if (unlikely((conn->ssock = socket(AF_INET, SOCK_STREAM,  IPPROTO_TCP))
-  if (unlikely(setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one))
-  if (unlikely(setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one))
-  if (unlikely(setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val))
-  if (unlikely(setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val))
-  int flags = fcntl(fd, F_GETFL, 0);
-//O_NONBLOCK
-  if (flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0)
-   if (setsockopt(sock, SOL_IP, IP_TRANSPARENT, &one, sizeof(one))
-//masquerade client
-  local_sain.sin_family = AF_INET;
-  local_sain.sin_addr.s_addr = tctx->client_sain->sin_addr.s_addr;
-  local_sain.sin_port = tctx->client_sain->sin_port;
-  int attempts = 0;
-  again:
-  attempts++;
-  UPDATE_MAX_STAT(server.peak_masqattempts, attempts);
-  if (unlikely(bind(*(tctx->ssock), (struct sockaddr *)&local_sain,
-                    sizeof(local_sain)) == -1)) {
-    if (errno == EADDRINUSE && attempts < config.max_masq_attempts) {
-      local_sain.sin_port = htons(generate_random_port());
-      goto again;
-    }
-  if (unlikely(connect(conn->ssock, (struct sockaddr *)&conn->server_sain,
-                       sizeof(conn->server_sain))
+--------------010004030609030309070102
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+1c8.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="TCPCT+1c8.patch"
 
-// Get the local address
-  socklen_t sl = sizeof(conn->sproxy_sain);
-  if (unlikely(getsockname(conn->ssock, (struct sockaddr *)&conn->sproxy_sain,
-                           &sl) == -1)) {
-    LOG_ERROR(NULL, "Unable to get the local address for server connection "
-              "(%d): %s.\n", errno, strerror(errno));
-    return -1;
-  }
-
-
-Network setup:
-Clients and servers are segregated into several vlans:
-ifcfg-eth1.147  ifcfg-eth2.143  ifcfg-eth2.43  ifcfg-eth4.145
-ifcfg-eth4.45  ifcfg-eth5.153  ifcfg-eth6.139  ifcfg-eth6.39
-ifcfg-eth7.141  ifcfg-eth7.41
-ifcfg-eth1.148  ifcfg-eth2.144  ifcfg-eth2.44  ifcfg-eth4.146
-ifcfg-eth4.46  ifcfg-eth5.154  ifcfg-eth6.140  ifcfg-eth6.40
-ifcfg-eth7.142  ifcfg-eth7.42
-ifcfg-eth1.47   ifcfg-eth2.149  ifcfg-eth2.49  ifcfg-eth4.151
-ifcfg-eth4.51  ifcfg-eth5.53   ifcfg-eth6.155  ifcfg-eth6.55
-ifcfg-eth7.157  ifcfg-eth7.57
-ifcfg-eth1.48   ifcfg-eth2.150  ifcfg-eth2.50  ifcfg-eth4.152
-ifcfg-eth4.52  ifcfg-eth5.54   ifcfg-eth6.156  ifcfg-eth6.56
-ifcfg-eth7.158  ifcfg-eth7.58
-
-Traffic comes in through ifcfg-ethx.xx and goes out via ifcfg-ethx.1xx
-on the same NIC. Reverse traffic goes from 1xx to xx.
-
-iptables and ip rules are set like so:
-Printing MANGLE rules...
-Chain PREROUTING (policy ACCEPT 20M packets, 8970M bytes)
- pkts bytes target     prot opt in     out     source
-destination
- 681M  586G DIVERT     tcp  --  *      *       0.0.0.0/0
-0.0.0.0/0           socket
-1290K   76M TPROXY     tcp  --  eth6.39 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.39.1:4002 mark
-0x1/0x1
-1902K  112M TPROXY     tcp  --  eth6.40 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.40.1:4002 mark
-0x1/0x1
-1348K   79M TPROXY     tcp  --  eth7.41 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.41.1:4002 mark
-0x1/0x1
- 867K   51M TPROXY     tcp  --  eth7.42 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.42.1:4002 mark
-0x1/0x1
- 850K   49M TPROXY     tcp  --  eth2.43 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.43.1:4002 mark
-0x1/0x1
- 847K   49M TPROXY     tcp  --  eth2.44 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.44.1:4002 mark
-0x1/0x1
-1334K   78M TPROXY     tcp  --  eth4.45 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.45.1:4002 mark
-0x1/0x1
- 858K   50M TPROXY     tcp  --  eth4.46 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.46.1:4002 mark
-0x1/0x1
- 818K   46M TPROXY     tcp  --  eth1.47 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.47.1:4002 mark
-0x1/0x1
- 807K   45M TPROXY     tcp  --  eth1.48 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.48.1:4002 mark
-0x1/0x1
- 804K   45M TPROXY     tcp  --  eth2.49 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.49.1:4002 mark
-0x1/0x1
- 906K   51M TPROXY     tcp  --  eth2.50 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.50.1:4002 mark
-0x1/0x1
-1569K   89M TPROXY     tcp  --  eth4.51 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.51.1:4002 mark
-0x1/0x1
-1851K  105M TPROXY     tcp  --  eth4.52 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.52.1:4002 mark
-0x1/0x1
-1798K  101M TPROXY     tcp  --  eth5.53 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.53.1:4002 mark
-0x1/0x1
-1829K  103M TPROXY     tcp  --  eth5.54 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.54.1:4002 mark
-0x1/0x1
-1752K   99M TPROXY     tcp  --  eth6.55 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.55.1:4002 mark
-0x1/0x1
-1777K  101M TPROXY     tcp  --  eth6.56 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.56.1:4002 mark
-0x1/0x1
-1800K  102M TPROXY     tcp  --  eth7.57 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.57.1:4002 mark
-0x1/0x1
-1794K  101M TPROXY     tcp  --  eth7.58 *       0.0.0.0/0
-0.0.0.0/0           tcp dpt:80 TPROXY redirect 192.168.58.1:4002 mark
-0x1/0x1
-
-Chain INPUT (policy ACCEPT 708M packets, 588G bytes)
- pkts bytes target     prot opt in     out     source
-destination
-
-Chain FORWARD (policy ACCEPT 20M packets, 8970M bytes)
- pkts bytes target     prot opt in     out     source
-destination
-
-Chain OUTPUT (policy ACCEPT 713M packets, 593G bytes)
- pkts bytes target     prot opt in     out     source
-destination
-
-Chain POSTROUTING (policy ACCEPT 733M packets, 602G bytes)
- pkts bytes target     prot opt in     out     source
-destination
-
-Chain DIVERT (1 references)
- pkts bytes target     prot opt in     out     source
-destination
- 681M  586G MARK       all  --  *      *       0.0.0.0/0
-0.0.0.0/0           MARK xset 0x1/0xffffffff
- 681M  586G ACCEPT     all  --  *      *       0.0.0.0/0
-0.0.0.0/0
-
-Printing IP rules...
-0:      from all lookup 255
-32765:  from all fwmark 0x1 lookup 100
-32766:  from all lookup main
-32767:  from all lookup default
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index a0e134d..820dd4b 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -164,6 +164,14 @@ tcp_congestion_control - STRING
+ 	additional choices may be available based on kernel configuration.
+ 	Default is set as part of kernel configuration.
+ 
++tcp_cookie_size - INTEGER
++	Default size of TCP Cookie Transactions (TCPCT) option, that may be
++	overridden on a per socket basis by the TCPCT socket option.
++	Values greater than the maximum (16) are interpreted as the maximum.
++	Values greater than zero and less than the minimum (8) are interpreted
++	as the minimum.  Odd values are interpreted as the next even value.
++	Default: 0 (off).
++
+ tcp_dsack - BOOLEAN
+ 	Allows TCP to send "duplicate" SACKs.
+ 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 32d7d77..eaa3113 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -102,7 +102,9 @@ enum {
+ #define TCP_QUICKACK		12	/* Block/reenable quick acks */
+ #define TCP_CONGESTION		13	/* Congestion control algorithm */
+ #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
++#define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
+ 
++/* for TCP_INFO socket option */
+ #define TCPI_OPT_TIMESTAMPS	1
+ #define TCPI_OPT_SACK		2
+ #define TCPI_OPT_WSCALE		4
+@@ -174,6 +176,30 @@ struct tcp_md5sig {
+ 	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
+ };
+ 
++/* for TCP_COOKIE_TRANSACTIONS (TCPCT) socket option */
++#define TCP_COOKIE_MIN		 8		/*  64-bits */
++#define TCP_COOKIE_MAX		16		/* 128-bits */
++#define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
++
++/* Flags for both getsockopt and setsockopt */
++#define TCP_COOKIE_IN_ALWAYS	(1 << 0)	/* Discard SYN without cookie */
++#define TCP_COOKIE_OUT_NEVER	(1 << 1)	/* Prohibit outgoing cookies,
++						 * supercedes everything. */
++
++/* Flags for getsockopt */
++#define TCP_S_DATA_IN		(1 << 2)	/* Was data received? */
++#define TCP_S_DATA_OUT		(1 << 3)	/* Was data sent? */
++
++/* TCP_COOKIE_TRANSACTIONS data */
++struct tcp_cookie_transactions {
++	__u16	tcpct_flags;			/* see above */
++	__u8	__tcpct_pad1;			/* zero */
++	__u8	tcpct_cookie_desired;		/* bytes */
++	__u16	tcpct_s_data_desired;		/* bytes of variable data */
++	__u16	tcpct_used;			/* bytes in value */
++	__u8	tcpct_value[TCP_MSS_DEFAULT];
++};
++
+ #ifdef __KERNEL__
+ 
+ #include <linux/skbuff.h>
+@@ -227,6 +253,11 @@ struct tcp_options_received {
+ 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
+ };
+ 
++static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
++{
++	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
++}
++
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+  * to increse this, although since:
+  *   size = TCPOLEN_SACK_BASE_ALIGNED (4) + n * TCPOLEN_SACK_PERBLOCK (8)
+@@ -435,6 +466,6 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
+ 	return (struct tcp_timewait_sock *)sk;
+ }
+ 
+-#endif
++#endif	/* __KERNEL__ */
+ 
+ #endif	/* _LINUX_TCP_H */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 4a99a8e..738b65f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -234,6 +234,7 @@ extern int sysctl_tcp_base_mss;
+ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_max_ssthresh;
++extern int sysctl_tcp_cookie_size;
+ 
+ extern atomic_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+@@ -340,11 +341,6 @@ static inline void tcp_dec_quickack_mode(struct sock *sk,
+ 
+ extern void tcp_enter_quickack_mode(struct sock *sk);
+ 
+-static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
+-{
+- 	rx_opt->tstamp_ok = rx_opt->sack_ok = rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
+-}
+-
+ #define	TCP_ECN_OK		1
+ #define	TCP_ECN_QUEUE_CWR	2
+ #define	TCP_ECN_DEMAND_CWR	4
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index c00323b..13f7ab6 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -714,6 +714,14 @@ static struct ctl_table ipv4_table[] = {
+ 	},
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "tcp_cookie_size",
++		.data		= &sysctl_tcp_cookie_size,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "udp_mem",
+ 		.data		= &sysctl_udp_mem,
+ 		.maxlen		= sizeof(sysctl_udp_mem),
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b8b2504..307f318 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -59,6 +59,9 @@ int sysctl_tcp_base_mss __read_mostly = 512;
+ /* By default, RFC2861 behavior.  */
+ int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
+ 
++int sysctl_tcp_cookie_size __read_mostly = 0; /* TCP_COOKIE_MAX */
++
++
+ /* Account for new data that has been sent to the network. */
+ static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
+ {
+-- 
+1.6.3.3
 
 
-Each fast proxy handles traffic from two client-facing vlans.
-
-Hope this helps.
-
-Regards,
-Kapil
+--------------010004030609030309070102--
