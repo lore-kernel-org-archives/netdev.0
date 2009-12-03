@@ -1,164 +1,96 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/5] bnx2: Read firmware version from VPD.
-Date: Thu, 03 Dec 2009 20:17:13 +0000
-Message-ID: <1259871433.2780.42.camel@achroite.uk.solarflarecom.com>
-References: <1259869595-6450-1-git-send-email-mchan@broadcom.com>
-	 <1259869595-6450-4-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/08: Netfilter Update
+Date: Thu,  3 Dec 2009 21:19:32 +0100 (MET)
+Message-ID: <20091203201931.8831.92922.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:43529 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753490AbZLCURO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:17:14 -0500
-In-Reply-To: <1259869595-6450-4-git-send-email-mchan@broadcom.com>
+Received: from stinky.trash.net ([213.144.137.162]:37689 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753265AbZLCUT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:19:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-12-03 at 11:46 -0800, Michael Chan wrote:
-> And display it through ethtool -i.
->=20
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->  drivers/net/bnx2.c |  102 ++++++++++++++++++++++++++++++++++++++++++=
-++++++++--
->  1 files changed, 99 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index dba3840..b7bc74b 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -7722,6 +7722,93 @@ bnx2_get_pci_speed(struct bnx2 *bp)
-> =20
->  }
-> =20
-> +static void __devinit
-> +bnx2_read_vpd_fw_ver(struct bnx2 *bp)
-> +{
-> +	int rc, i, v0_len =3D 0;
-> +	u8 *data;
-> +	u8 *v0_str =3D NULL;
-> +	bool mn_match =3D false;
-> +
-> +#define BNX2_MAX_VER_SLEN	30
+Hi Dave,
 
-And how about:
+following is a small netfilter update for 2.6.32, containing:
 
-#define BNX2_VPD_LEN		128
+- various cleanups by Changli Gao, Hannes Eder and Joe Perches
 
-and then using that instead of all the magic numbers below...
+- a patch from Pablo to improve TCP window tracking behaviour
+  when connection tracking is out-of-sync with the connection
+  endpoints.
 
-> +	data =3D kmalloc(256, GFP_KERNEL);
-> +	if (!data)
-> +		return;
-> +
-> +	rc =3D bnx2_nvram_read(bp, 0x300, data + 128, 128);
-> +	if (rc)
-> +		goto vpd_done;
-> +
-> +	for (i =3D 0; i < 128; i +=3D 4) {
-> +		data[i] =3D data[i + 131];
-> +		data[i + 1] =3D data[i + 130];
-> +		data[i + 2] =3D data[i + 129];
-> +		data[i + 3] =3D data[i + 128];
-> +	}
+- INPUT chain support for the xt_socket match
 
-Is this correct for both big-endian and little-endian architectures?
+- a fix for dumping the revision 1 data of the conntrack match
+  by Florian Westphal.
 
-> +	for (i =3D 0; i < 128; ) {
+- Removal of some unnecessary code by myself and Eric
 
-Allowing for the size of a long tag, that should be:
+Please apply or pull from:
 
-	for (i =3D 0; i <=3D BNX2_VPD_LEN - 3; ) {
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-> +		unsigned char val =3D data[i];
-> +		unsigned int block_end;
-> +
-> +		if (val =3D=3D 0x82 || val =3D=3D 0x91) {
-> +			i =3D (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
-> +			continue;
-> +		}
-> +
-> +		if (val !=3D 0x90)
-> +			goto vpd_done;
-> +
-> +		block_end =3D (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
+Thanks!
 
-=EF=BB=BFPerhaps these VPD tag values should go in pci_regs.h.  And the=
-re's
-really no need to repeat the length calculation.
 
-> +		i +=3D 3;
-> +
-> +		if (block_end > 128)
-> +			goto vpd_done;
-> +
-> +		while (i < (block_end - 2)) {
-> +			if (data[i] =3D=3D 'M' && data[i + 1] =3D=3D 'N') {
-> +				int mn_len =3D data[i + 2];
-> +
-> +				if (mn_len !=3D 4)
-> +					goto vpd_done;
-> +
-> +				i +=3D 3;
-> +				if (memcmp(&data[i], "1028", 4))
-> +					goto vpd_done;
-> +				mn_match =3D true;
-> +				i +=3D 4;
-> +
-> +			} else if (data[i] =3D=3D 'V' && data[i + 1] =3D=3D '0') {
-> +				v0_len =3D data[i + 2];
-> +
-> +				i +=3D 3;
-> +				if (v0_len > BNX2_MAX_VER_SLEN ||
-> +				    (v0_len + i) > 128)
-> +					goto vpd_done;
-> +
-> +				if (v0_len > BNX2_MAX_VER_SLEN)
-> +					v0_len =3D BNX2_MAX_VER_SLEN;
-> +
-> +				v0_str =3D &data[i];
-> +				i +=3D data[i + 2];
+ include/linux/netfilter/nf_conntrack_tcp.h     |    3 +
+ net/ipv4/netfilter/arp_tables.c                |   22 ++++----
+ net/ipv4/netfilter/ip_queue.c                  |    5 +-
+ net/ipv4/netfilter/ip_tables.c                 |   46 +++++++++---------
+ net/ipv4/netfilter/ipt_CLUSTERIP.c             |   20 ++++----
+ net/ipv4/netfilter/ipt_ECN.c                   |    8 ++--
+ net/ipv4/netfilter/ipt_LOG.c                   |   22 ++++----
+ net/ipv4/netfilter/ipt_MASQUERADE.c            |    4 +-
+ net/ipv4/netfilter/ipt_REJECT.c                |    4 +-
+ net/ipv4/netfilter/ipt_ULOG.c                  |    6 +-
+ net/ipv4/netfilter/ipt_ecn.c                   |    4 +-
+ net/ipv4/netfilter/iptable_mangle.c            |    4 +-
+ net/ipv4/netfilter/iptable_security.c          |    4 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   28 +++++-----
+ net/ipv4/netfilter/nf_nat_helper.c             |   22 ++++-----
+ net/ipv4/netfilter/nf_nat_standalone.c         |   10 ++--
+ net/ipv6/netfilter/ip6_queue.c                 |    5 +-
+ net/ipv6/netfilter/ip6_tables.c                |   42 ++++++++--------
+ net/ipv6/netfilter/ip6t_LOG.c                  |    4 +-
+ net/ipv6/netfilter/ip6t_REJECT.c               |    4 +-
+ net/ipv6/netfilter/ip6t_ah.c                   |   19 +++----
+ net/ipv6/netfilter/ip6t_frag.c                 |   47 ++++++++----------
+ net/ipv6/netfilter/ip6t_rt.c                   |    9 +--
+ net/ipv6/netfilter/ip6table_filter.c           |    4 +-
+ net/ipv6/netfilter/ip6table_mangle.c           |   14 +++---
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   12 ++--
+ net/netfilter/nf_conntrack_core.c              |   14 ++++--
+ net/netfilter/nf_conntrack_proto_tcp.c         |   51 ++++++++++++++++----
+ net/netfilter/nfnetlink_log.c                  |    3 +-
+ net/netfilter/nfnetlink_queue.c                |    3 +-
+ net/netfilter/xt_conntrack.c                   |   61 +++++++-----------------
+ net/netfilter/xt_socket.c                      |    6 ++-
+ 32 files changed, 253 insertions(+), 257 deletions(-)
 
-This last statement is reading the length from the wrong byte since i
-has already been updated.
+Changli Gao (1):
+      netfilter: nf_conntrack: avoid additional compare.
 
-> +			} else {
-> +				i +=3D 3 + data[i + 2];
-> +			}
-[...]
+Eric Dumazet (1):
+      netfilter: remove synchronize_net() calls in ip_queue/ip6_queue
 
-=EF=BB=BFIt would make more sense to read and validate length just once=
-:
+Florian Westphal (1):
+      netfilter: xtables: fix conntrack match v1 ipt-save output
 
-=EF=BB=BF		while (i < (block_end - 2)) {
-			int len =3D data[i + 2];
+Hannes Eder (1):
+      netfilter: nf_nat_helper: tidy up adjust_tcp_sequence
 
-			if (i + 3 + len > block_end)
-				goto vpd_done;
+Jan Engelhardt (1):
+      netfilter: xt_socket: make module available for INPUT chain
 
-			if (data[i] =3D=3D 'M' && data[i + 1] =3D=3D 'N') {
-				if (len !=3D 4 ||
-				    memcmp(&data[i + 3], "1028", 4))
-					goto vpd_done;
-				mn_match =3D true;
-			} else if (data[i] =3D=3D 'V' && data[i + 1] =3D=3D '0') {
-				if (len > BNX2_MAX_VER_SLEN)
-					goto vpd_done;
-				v0_str =3D &data[i + 3];
-				v0_len =3D len;
-			}
+Joe Perches (1):
+      netfilter: net/ipv[46]/netfilter: Move && and || to end of previous line
 
-			i +=3D 3 + len;
-			...
+Pablo Neira Ayuso (1):
+      netfilter: nf_ct_tcp: improve out-of-sync situation in TCP tracking
 
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Patrick McHardy (1):
+      netfilter: remove unneccessary checks from netlink notifiers
