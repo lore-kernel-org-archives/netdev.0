@@ -1,90 +1,54 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 2/4] stmmac: add the new Header file for stmmac platform data
-Date: Thu,  3 Dec 2009 11:40:03 +0100
-Message-ID: <1259836805-7512-2-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 3/4] stmmac: use MII_BUS_ID_SIZE instead of  BUS_ID_SIZE
+Date: Thu,  3 Dec 2009 11:40:04 +0100
+Message-ID: <1259836805-7512-3-git-send-email-peppe.cavallaro@st.com>
 References: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com>
+ <1259836805-7512-2-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:59305 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755889AbZLCKkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 05:40:39 -0500
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:59957 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754758AbZLCKkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 05:40:46 -0500
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 131F9232
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:42 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BCA0822F
+	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:49 +0000 (GMT)
 Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D14CDA6E
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:41 +0000 (GMT)
-In-Reply-To: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7F113A6C
+	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 10:40:49 +0000 (GMT)
+In-Reply-To: <1259836805-7512-2-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- include/linux/stmmac.h |   53 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 53 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/stmmac.h
+ drivers/net/stmmac/stmmac_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-new file mode 100644
-index 0000000..0f7fad2
---- /dev/null
-+++ b/include/linux/stmmac.h
-@@ -0,0 +1,53 @@
-+/*******************************************************************************
-+
-+  Header file for stmmac platform data
-+
-+  Copyright (C) 2009  STMicroelectronics Ltd
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+*******************************************************************************/
-+
-+#ifndef __STMMAC_PLATFORM_DATA
-+#define __STMMAC_PLATFORM_DATA __FILE__
-+
-+/* platfrom data for platfrom device structure's platfrom_data field */
-+
-+/* Private data for the STM on-board ethernet driver */
-+struct plat_stmmacenet_data {
-+	int bus_id;
-+	int pbl;
-+	int has_gmac;
-+	void (*fix_mac_speed)(void *priv, unsigned int speed);
-+	void (*bus_setup)(unsigned long ioaddr);
-+#ifdef CONFIG_STM_DRIVERS
-+	struct stm_pad_config *pad_config;
-+#endif
-+	void *bsp_priv;
-+};
-+
-+struct plat_stmmacphy_data {
-+	int bus_id;
-+	int phy_addr;
-+	unsigned int phy_mask;
-+	int interface;
-+	int (*phy_reset)(void *priv);
-+	void *priv;
-+};
-+#endif
-+
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index d9cad02..59905b7 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -304,8 +304,8 @@ static int stmmac_init_phy(struct net_device *dev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	struct phy_device *phydev;
+-	char phy_id[BUS_ID_SIZE];	/* PHY to connect */
+-	char bus_id[BUS_ID_SIZE];
++	char phy_id[MII_BUS_ID_SIZE + 3];
++	char bus_id[MII_BUS_ID_SIZE];
+ 
+ 	priv->oldlink = 0;
+ 	priv->speed = 0;
+@@ -317,7 +317,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	}
+ 
+ 	snprintf(bus_id, MII_BUS_ID_SIZE, "%x", priv->bus_id);
+-	snprintf(phy_id, BUS_ID_SIZE, PHY_ID_FMT, bus_id, priv->phy_addr);
++	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id, priv->phy_addr);
+ 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
+ 
+ 	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0,
 -- 
 1.6.0.4
 
