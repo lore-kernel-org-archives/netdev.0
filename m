@@ -1,124 +1,186 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: scp stalls mysteriously
-Date: Thu, 03 Dec 2009 15:10:11 +0100
-Message-ID: <4B17C6C3.1060000@tvk.rwth-aachen.de>
-References: <20091130213727.2f4047d2@houba>
- <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
- <20091201211945.505d3c98@houba>
- <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
- <20091202085925.472136e2@houba>
- <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
- <20091202154403.GB30730@sd-11162.dedibox.fr>
- <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
- <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de>
- <20091203085933.GD30730@sd-11162.dedibox.fr>
- <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
- <4B17A791.80808@tvk.rwth-aachen.de>
- <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] net: Introduce realloc_netdev_mq()
+Date: Thu, 3 Dec 2009 14:10:11 +0000
+Message-ID: <20091203141011.GA19986@ff.dom.local>
+References: <20091101132017.GA2598@ami.dom.local> <20091102.033533.08766686.davem@davemloft.net> <20091102123029.GA7790@ff.dom.local> <20091102.043907.236634594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frederic Leroy <fredo@starox.org>, Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:60945 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755959AbZLCOKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 09:10:07 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KU20061UY10DT00@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Thu, 03 Dec 2009 15:10:13 +0100 (CET)
-In-reply-to: <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:63706 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755996AbZLCOKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 09:10:10 -0500
+Received: by fxm21 with SMTP id 21so1446729fxm.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 06:10:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20091102.043907.236634594.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen schrieb:
-> On Thu, 3 Dec 2009, Damian Lukowski wrote:
->=20
->>> On Thu, 3 Dec 2009, Frederic Leroy wrote:
->>>> On Wed, Dec 02, 2009 at 08:17:44PM +0100, Damian Lukowski wrote:
->>>>> could you please printk retrans_stamp just before the return in=20
->>>>> include/net/tcp.h:retransmits_timed_out()?
->>>>> If the value is not monotonically increasing but is reset to 0 at=
- some
->>>>> point, this might lead to problems in tcp_write_timeout().
->>>>> It's the only idea I have now.
->>>> Your idea is good.
->>>> Only one out of 4 value is not null.
->>>>
->>>> Logs corresponding on http://wwW.starox.org/pub/scp_stall is .10
->>>>
->>>> I make 2 attempts. Printk corresponding to .10 are those after the=
- line=20
->>>> "wlan1 enter promiscuous mode"
->>> Nice thinking indeed Damian, thanks. ...But but, where exactly did =
-you=20
->>> print? ...There are multiple returns and the return false branch is=
-=20
->>> expected to have a zero retrans_stamp in a typical case but that is=
- not
->>> a problem because we never use the value.
->> Yes, it's the retrans_stamp in the subtraction I suspected to be 0.
->> I also suspect this to happen only in the ca_state < CA_Loss case,
->> so one first solution might be to return true whenever retrans_stamp=
- =3D=3D 0.
->=20
-> I suppose adding || !tp->retrans_stamp into the false condition is fi=
-ne=20
-> as long as we don't then have a connection that can cause a connectio=
-n=20
-> to hang there forever for some reason (this needs to be understood we=
-ll=20
-> enough, not just test driven in stables :-)).
->=20
->> Unluckily, I still cannot reproduce the scp stalls here, so it would=
- be nice
->> if Frederic printed retrans_stamp together with icsk_ca_state and
->> icsk_retransmits, please.
->=20
-> It wouldn't hurt to know tp->packets_out and tp->retrans_out too, tha=
-t=20
-> might have some significant w.r.t what happens because of FRTO.
+On Mon, Nov 02, 2009 at 04:39:07AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 2 Nov 2009 12:30:29 +0000
+> 
+> > Right, but it's not a 50% chance, I guess? A user most of the time
+> > gets consistently multiqueue or non-multiqueue behavior after open,
+> > unless I miss something. Then such an exceptional state could be
+> > handled by real_num_tx_queues (just like in case of powered of cpus).
+> > The main difference is to hold in num_tx_queues something that is
+> > really available vs max possible value for all configs.
+> 
+> I see your point, yes this would seem to be a reasonable way
+> to start handling num_tx_queues and real_num_tx_queues.
 
-I made a patch for Frederic with Codebase
-git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+Here is a proposal of netdev api change. I hope Michael finds time
+to try if this can be really useful for drivers.
 
-Thanks for testing.
+Thanks,
+Jarek P.
+--------------->
 
+This patch separates allocation of TX subqueues from alloc_netdev_mq()
+to realloc_netdev_mq() to allow for resizing like in this example:
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 03a49c7..c170948 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1268,7 +1268,8 @@ static inline bool retransmits_timed_out(const st=
-ruct sock *sk,
- {
- 	unsigned int timeout, linear_backoff_thresh;
-=20
--	if (!inet_csk(sk)->icsk_retransmits)
-+	if (!inet_csk(sk)->icsk_retransmits ||
-+	    !tcp_sk(sk)->retrans_stamp)
- 		return false;
-=20
- 	linear_backoff_thresh =3D ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
-@@ -1279,6 +1280,11 @@ static inline bool retransmits_timed_out(const s=
-truct sock *sk,
- 		timeout =3D ((2 << linear_backoff_thresh) - 1) * TCP_RTO_MIN +
- 			  (boundary - linear_backoff_thresh) * TCP_RTO_MAX;
-=20
-+	printk("stamp, rstamp, retrans, ca, p_out, retr_out: "
-+	       "%u, %u, %u, %u, %u, %u\n", tcp_time_stamp,
-+	       tcp_sk(sk)->retrans_stamp, inet_csk(sk)->icsk_retransmits,
-+	       inet_csk(sk)->icsk_ca_state, tcp_sk(sk)->packets_out,
-+	       tcp_sk(sk)->retrans_out);
- 	return (tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >=3D timeout;
+some_nic_probe()
+{
+	...
+	dev = alloc_etherdev_mq(sizeof(*bp), 1)
+	...
+	if (MSI-X_available && device_supports_MSI-X_and_multiqueue)
+		realloc_netdev_mq(dev, TX_MAX_RINGS)
+	register_netdev(dev)
+	...
+}
+
+The main difference is to hold in num_tx_queues something that is
+really available, instead of max possible value for all configs, in
+case of drivers allocating net_device at the beginning of the probe.
+
+The description of alloc_netdev_mq() is fixed btw.
+
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/core/dev.c |   65 +++++++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 46 insertions(+), 19 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3e18de..7ea3a77 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5265,11 +5265,49 @@ static void netdev_init_one_queue(struct net_device *dev,
+ 	queue->dev = dev;
  }
-=20
---=20
-1.6.4.4
+ 
+-static void netdev_init_queues(struct net_device *dev)
++/**
++ *	realloc_netdev_mq - (re)allocate network subqueues
++ *	@dev:		device
++ *	@queue_count:	the number of subqueues to (re)allocate
++ *
++ *	(Re)allocates and initializes subqueue structs for each queue.
++ *	It is allowed to use only until register_netdev().
++ *	On error previous structs are intact.
++ */
++int realloc_netdev_mq(struct net_device *dev, unsigned int queue_count)
+ {
+-	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
++	struct netdev_queue *tx;
++
++	tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
++	if (!tx) {
++		printk(KERN_ERR "alloc_netdev: Unable to allocate "
++		       "tx qdiscs.\n");
++		return -ENOMEM;
++	}
++
++	kfree(dev->_tx);
++
++	dev->_tx = tx;
++	dev->num_tx_queues = queue_count;
++	dev->real_num_tx_queues = queue_count;
++
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
++
++	return 0;
++}
++EXPORT_SYMBOL(realloc_netdev_mq);
++
++static int netdev_init_queues(struct net_device *dev, unsigned int queue_count)
++{
++	int err = realloc_netdev_mq(dev, queue_count);
++
++	if (err)
++		return err;
++
++	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
+ 	spin_lock_init(&dev->tx_global_lock);
++
++	return 0;
+ }
+ 
+ /**
+@@ -5280,13 +5318,12 @@ static void netdev_init_queues(struct net_device *dev)
+  *	@queue_count:	the number of subqueues to allocate
+  *
+  *	Allocates a struct net_device with private data area for driver use
+- *	and performs basic initialization.  Also allocates subquue structs
+- *	for each queue on the device at the end of the netdevice.
++ *	and performs basic initialization.  Also allocates subqueue structs
++ *	for each queue on the device.
+  */
+ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		void (*setup)(struct net_device *), unsigned int queue_count)
+ {
+-	struct netdev_queue *tx;
+ 	struct net_device *dev;
+ 	size_t alloc_size;
+ 	struct net_device *p;
+@@ -5308,16 +5345,12 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		return NULL;
+ 	}
+ 
+-	tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
+-	if (!tx) {
+-		printk(KERN_ERR "alloc_netdev: Unable to allocate "
+-		       "tx qdiscs.\n");
+-		goto free_p;
+-	}
+-
+ 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded = (char *)dev - (char *)p;
+ 
++	if (netdev_init_queues(dev, queue_count))
++		goto free_p;
++
+ 	if (dev_addr_init(dev))
+ 		goto free_tx;
+ 
+@@ -5325,14 +5358,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	dev_net_set(dev, &init_net);
+ 
+-	dev->_tx = tx;
+-	dev->num_tx_queues = queue_count;
+-	dev->real_num_tx_queues = queue_count;
+-
+ 	dev->gso_max_size = GSO_MAX_SIZE;
+ 
+-	netdev_init_queues(dev);
+-
+ 	INIT_LIST_HEAD(&dev->napi_list);
+ 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	INIT_LIST_HEAD(&dev->link_watch_list);
+@@ -5342,7 +5369,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	return dev;
+ 
+ free_tx:
+-	kfree(tx);
++	kfree(dev->_tx);
+ 
+ free_p:
+ 	kfree(p);
