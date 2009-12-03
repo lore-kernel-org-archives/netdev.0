@@ -1,199 +1,118 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 7/7] net: Batch inet_twsk_purge
-Date: Thu, 03 Dec 2009 05:36:52 -0800
-Message-ID: <m1ws14kwln.fsf@fess.ebiederm.org>
-References: <m11vjcnsyr.fsf@fess.ebiederm.org>
-	<1259843349-3810-7-git-send-email-ebiederm@xmission.com>
-	<4B17BBC9.8070106@gmail.com>
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Subject: Re: scp stalls mysteriously
+Date: Thu, 03 Dec 2009 14:37:03 +0100
+Message-ID: <4B17BEFF.2030309@nets.rwth-aachen.de>
+References: <20091130213727.2f4047d2@houba>
+ <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+ <20091201211945.505d3c98@houba>
+ <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
+ <20091202085925.472136e2@houba>
+ <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
+ <20091202154403.GB30730@sd-11162.dedibox.fr>
+ <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
+ <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de>
+ <20091203085933.GD30730@sd-11162.dedibox.fr>
+ <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
+ <20091203131127.131e9122@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
+	Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Netdev <netdev@vger.kernel.org>, Asdo <asdo@shiftmail.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:49165 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbZLCNgx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:36:53 -0500
-In-Reply-To: <4B17BBC9.8070106@gmail.com> (Eric Dumazet's message of "Thu\, 03 Dec 2009 14\:23\:21 +0100")
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:64149 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755970AbZLCNhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 08:37:15 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KU200IA8WI9MJ70@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Thu, 03 Dec 2009 14:37:21 +0100 (CET)
+In-reply-to: <20091203131127.131e9122@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+=46rederic Leroy wrote:
+> Le Thu, 3 Dec 2009 12:29:39 +0200 (EET),
+> "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+>=20
+>> Opinions, Dave?, Greg?
+>>
+>> Now back to the issue...
+>>
+>> You said in the other mail that "All further test are on linus-stabl=
+e=20
+>> tree.", which has this contradiction that Linus does not maintain
+>> stable trees. Which exactly was the tree used for the .9. test
+>=20
+> Sorry I'm confused and so confuse you.
+> For .9 .10 and now I'm only using :=20
+> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+> =20
+>> Linus' tree or the 2.6.31 stable tree? I suppose the former since th=
+e
+>> revert wouldn't apply to 2.6.31 so I just want to confirm.
+>=20
+> I didn't keep the source of the old 2.6.31 kernel I have.=20
+> So it's either=20
+> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+> or
+> git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-2.6-stable=
+=2Egit
+>=20
+>> Nice thinking indeed Damian, thanks. ...But but, where exactly did
+>> you print? ...There are multiple returns and the return false branch
+>> is expected to have a zero retrans_stamp in a typical case but that
+>> is not a problem because we never use the value.
+>=20
+> Here is the code :
+> http://www.starox.org/pub/scp_stall/printk_retrans_stamp.patch
+>=20
+>> ...Anyway, if I'm wrong with my suspicion and it still holds that we
+>> have zero retrans_stamp in the substraction too, it could have
+>> something to do with this snippet:
+>>
+>> static void tcp_try_to_open(struct sock *sk, int flag)
+>> {
+>>         struct tcp_sock *tp =3D tcp_sk(sk);
+>>
+>>         tcp_verify_left_out(tp);
+>>
+>>         if (!tp->frto_counter && tp->retrans_out =3D=3D 0)
+>>                 tp->retrans_stamp =3D 0;
+>>
+>> ...It bit me last time when FRTO was enabled after very small
+>> modification (without running a full verification after the trivial
+>> looking modification). ...So I've worked around this clearing for
+>> FRTO as you can see :-).
+>=20
+> :)
+>=20
+>> Also, we have the another mystery to be solved, the fast
+>> retransmission is not triggered for some reason (or alternatively no=
+t
+>> captured in to a log), even in the working .9. case. It would be eas=
+y
+>> to see whether it works at all from TCP point of view by looking int=
+o
+>> mibs once you have have some transfers in a working configuration:
+>>
+>> grep -A1 TCP /proc/net/netstat
+>=20
+> I will try this evening. I can do test only outside office hours.
 
-> Eric W. Biederman a =C3=A9crit :
->> From: Eric W. Biederman <ebiederm@xmission.com>
->>=20
->> This function walks the whole hashtable so there is no point in
->> passing it a network namespace.  Instead I purge all timewait
->> sockets from dead network namespaces that I find.  If the namespace
->> is one of the once I am trying to purge I am guaranteed no new timew=
-ait
->> sockets can be formed so this will get them all.  If the namespace
->> is one I am not acting for it might form a few more but I will
->> call inet_twsk_purge again and  shortly to get rid of them.  In
->> any even if the network namespace is dead timewait sockets are
->> useless.
->>=20
->> Move the calls of inet_twsk_purge into batch_exit routines so
->> that if I am killing a bunch of namespaces at once I will just
->> call inet_twsk_purge once and save a lot of redundant unnecessary
->> work.
->>=20
->> My simple 4k network namespace exit test the cleanup time dropped fr=
-om
->> roughly 8.2s to 1.6s.  While the time spent running inet_twsk_purge =
-fell
->> to about 2ms.  1ms for ipv4 and 1ms for ipv6.
->>=20
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->> ---
->>  include/net/inet_timewait_sock.h |    6 +++---
->>  net/ipv4/inet_timewait_sock.c    |   10 +++++-----
->>  net/ipv4/tcp_ipv4.c              |   11 ++++++++---
->>  net/ipv6/tcp_ipv6.c              |   11 ++++++++---
->>  4 files changed, 24 insertions(+), 14 deletions(-)
->>=20
->> diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_tim=
-ewait_sock.h
->> index 773b10f..4fd007f 100644
->> --- a/include/net/inet_timewait_sock.h
->> +++ b/include/net/inet_timewait_sock.h
->> @@ -212,14 +212,14 @@ extern void inet_twsk_schedule(struct inet_tim=
-ewait_sock *tw,
->>  extern void inet_twsk_deschedule(struct inet_timewait_sock *tw,
->>  				 struct inet_timewait_death_row *twdr);
->> =20
->> -extern void inet_twsk_purge(struct net *net, struct inet_hashinfo *=
-hashinfo,
->> +extern void inet_twsk_purge(struct inet_hashinfo *hashinfo,
->>  			    struct inet_timewait_death_row *twdr, int family);
->> =20
->>  static inline
->>  struct net *twsk_net(const struct inet_timewait_sock *twsk)
->>  {
->>  #ifdef CONFIG_NET_NS
->> -	return twsk->tw_net;
->> +	return rcu_dereference(twsk->tw_net);
->>  #else
->>  	return &init_net;
->>  #endif
->> @@ -229,7 +229,7 @@ static inline
->>  void twsk_net_set(struct inet_timewait_sock *twsk, struct net *net)
->>  {
->>  #ifdef CONFIG_NET_NS
->> -	twsk->tw_net =3D net;
->> +	rcu_assign_pointer(twsk->tw_net, net);
->>  #endif
->>  }
->>  #endif	/* _INET_TIMEWAIT_SOCK_ */
->> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_=
-sock.c
->> index 683ecec..a3699ac 100644
->> --- a/net/ipv4/inet_timewait_sock.c
->> +++ b/net/ipv4/inet_timewait_sock.c
->> @@ -421,7 +421,7 @@ out:
->> =20
->>  EXPORT_SYMBOL_GPL(inet_twdr_twcal_tick);
->> =20
->> -void inet_twsk_purge(struct net *net, struct inet_hashinfo *hashinf=
-o,
->> +void inet_twsk_purge(struct inet_hashinfo *hashinfo,
->>  		     struct inet_timewait_death_row *twdr, int family)
->>  {
->>  	struct inet_timewait_sock *tw;
->> @@ -436,15 +436,15 @@ restart_rcu:
->>  restart:
->>  		sk_nulls_for_each_rcu(sk, node, &head->twchain) {
->>  			tw =3D inet_twsk(sk);
->> -			if (!net_eq(twsk_net(tw), net) ||
->> -			    tw->tw_family !=3D family)
->> +			if ((tw->tw_family !=3D family) ||
->> +				atomic_read(&twsk_net(tw)->count))
->>  				continue;
->> =20
->>  			if (unlikely(!atomic_inc_not_zero(&tw->tw_refcnt)))
->>  				continue;
->> =20
->> -			if (unlikely(!net_eq(twsk_net(tw), net) ||
->> -				     tw->tw_family !=3D family)) {
->> +			if (unlikely((tw->tw_family !=3D family) ||
->> +				     atomic_read(&twsk_net(tw)->count))) {
->>  				inet_twsk_put(tw);
->>  				goto restart;
->>  			}
->> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
->> index df18ce0..e30f026 100644
->> --- a/net/ipv4/tcp_ipv4.c
->> +++ b/net/ipv4/tcp_ipv4.c
->> @@ -2468,12 +2468,17 @@ static int __net_init tcp_sk_init(struct net=
- *net)
->>  static void __net_exit tcp_sk_exit(struct net *net)
->>  {
->>  	inet_ctl_sock_destroy(net->ipv4.tcp_sock);
->> -	inet_twsk_purge(net, &tcp_hashinfo, &tcp_death_row, AF_INET);
->> +}
->> +
->> +static void __net_exit tcp_sk_exit_batch(struct list_head *net_exit=
-_list)
->> +{
->> +	inet_twsk_purge(&tcp_hashinfo, &tcp_death_row, AF_INET);
->>  }
->> =20
->>  static struct pernet_operations __net_initdata tcp_sk_ops =3D {
->> -       .init =3D tcp_sk_init,
->> -       .exit =3D tcp_sk_exit,
->> +       .init	   =3D tcp_sk_init,
->> +       .exit	   =3D tcp_sk_exit,
->> +       .exit_batch =3D tcp_sk_exit_batch,
->>  };
->> =20
->>  void __init tcp_v4_init(void)
->> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
->> index de70909..5f46d36 100644
->> --- a/net/ipv6/tcp_ipv6.c
->> +++ b/net/ipv6/tcp_ipv6.c
->> @@ -2126,12 +2126,17 @@ static int tcpv6_net_init(struct net *net)
->>  static void tcpv6_net_exit(struct net *net)
->>  {
->>  	inet_ctl_sock_destroy(net->ipv6.tcp_sk);
->> -	inet_twsk_purge(net, &tcp_hashinfo, &tcp_death_row, AF_INET6);
->> +}
->> +
->> +static void tcpv6_net_exit_batch(struct list_head *net_exit_list)
->> +{
->> +	inet_twsk_purge(&tcp_hashinfo, &tcp_death_row, AF_INET6);
->>  }
->> =20
->>  static struct pernet_operations tcpv6_net_ops =3D {
->> -	.init =3D tcpv6_net_init,
->> -	.exit =3D tcpv6_net_exit,
->> +	.init	    =3D tcpv6_net_init,
->> +	.exit	    =3D tcpv6_net_exit,
->> +	.exit_batch =3D tcpv6_net_exit_batch,
->>  };
->> =20
->>  int __init tcpv6_init(void)
->
->
-> OK, but why calling inet_twsk_purge() twice, one for AF_INET, once fo=
-r AF_INET6
->
-> I believe you could zap family check as well in inet_twsk_purge(), an=
-d not
-> need tcpv6_net_ops.exit_batch =3D tcpv6_net_exit_batch
+If you don't mind, could you also post the output of
+"sysctl -a | grep net.ipv4.tcp", please.
+The tars you posted (proc_net_tcp.tbz2) seem to be empty.
 
-Technically it is needed if someone does rmmod ipv6.  rmmod ipv6 didn't=
- seem
-to work for me, but if it ever does...  That and the cost is now in the=
- noise
-in human terms.
+Thanks.
 
-I think dccp may also need a inet_twsk_purge as well, but I couldn't fi=
-gure out what
-it was doing with timewait sockets.
-
-Eric
-
-
+Best regards,
+Arnd
