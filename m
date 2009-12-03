@@ -1,28 +1,20 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
-Date: Thu, 03 Dec 2009 15:27:21 -0800 (PST)
-Message-ID: <20091203.152721.266674825.davem@davemloft.net>
-References: <200912032241.43772.oliver@neukum.org>
-	<20091203.134532.225926933.davem@davemloft.net>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [net-next-2.6 PATCH v9 0/2] TCPCT part 1: cleanup
+Date: Thu, 03 Dec 2009 18:30:40 -0500
+Message-ID: <4B184A20.4050005@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: oliver@neukum.org
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48579
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753324AbZLCX1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:27:15 -0500
-In-Reply-To: <20091203.134532.225926933.davem@davemloft.net>
+Received: from mail-gx0-f226.google.com ([209.85.217.226]:42671 "EHLO
+	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751304AbZLCXah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:30:37 -0500
+Received: by gxk26 with SMTP id 26so1723314gxk.1
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 15:30:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 03 Dec 2009 13:45:32 -0800 (PST)
-
-> But this all might be due to some other changes I applied today and
-> didn't push out yet to net-next-2.6, let me check on that for you.
-
-I've resolved this, it was a conflict with Joe Perches's drivers/net
-coding style cleanups that went in today.
+Some portions that were removed during the various patch splits,
+last seen in v4 and v6 respectively.
