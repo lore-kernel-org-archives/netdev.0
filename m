@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 02/10] e1000: remove use of skb_dma_map from
-	e1000 driver
-Date: Wed, 02 Dec 2009 18:46:00 -0800
-Message-ID: <20091203024559.2232.18789.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 03/10] ixgb: remove use of skb_dma_map from ixgb
+Date: Wed, 02 Dec 2009 18:46:31 -0800
+Message-ID: <20091203024630.2232.77443.stgit@localhost.localdomain>
 References: <20091203024519.2232.6084.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,46 +11,47 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:39084 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754327AbZLCCqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 21:46:22 -0500
+Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:40124
+	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752827AbZLCCqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 21:46:49 -0500
 In-Reply-To: <20091203024519.2232.6084.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Remove the use of skb_dma_map from the e1000 driver in order to avoid
-issues when HW iommu are in use.
+skb_dma_map is incompatible with HW iommu due to the fact that multiple
+mappings can result in different results each time.  For this reason it is
+best to just remove use of these function calls.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000/e1000.h      |    1 +
- drivers/net/e1000/e1000_main.c |   56 +++++++++++++++++++++++++++++-----------
- 2 files changed, 41 insertions(+), 16 deletions(-)
+ drivers/net/ixgb/ixgb.h      |    1 +
+ drivers/net/ixgb/ixgb_main.c |   60 +++++++++++++++++++++++++++++-------------
+ 2 files changed, 42 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-index a566528..2a567df 100644
---- a/drivers/net/e1000/e1000.h
-+++ b/drivers/net/e1000/e1000.h
-@@ -167,6 +167,7 @@ struct e1000_buffer {
+diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
+index e95d9b6..5257ae0 100644
+--- a/drivers/net/ixgb/ixgb.h
++++ b/drivers/net/ixgb/ixgb.h
+@@ -117,6 +117,7 @@ struct ixgb_buffer {
  	unsigned long time_stamp;
  	u16 length;
  	u16 next_to_watch;
 +	u16 mapped_as_page;
  };
  
- struct e1000_tx_ring {
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index c938114..b9d86f8 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1839,10 +1839,17 @@ void e1000_free_all_tx_resources(struct e1000_adapter *adapter)
- static void e1000_unmap_and_free_tx_resource(struct e1000_adapter *adapter,
- 					     struct e1000_buffer *buffer_info)
+ struct ixgb_desc_ring {
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 7364606..bcd0f01 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -892,10 +892,18 @@ static void
+ ixgb_unmap_and_free_tx_resource(struct ixgb_adapter *adapter,
+                                 struct ixgb_buffer *buffer_info)
  {
 -	buffer_info->dma = 0;
 +	if (buffer_info->dma) {
@@ -59,26 +59,29 @@ index c938114..b9d86f8 100644
 +			pci_unmap_page(adapter->pdev, buffer_info->dma,
 +				       buffer_info->length, PCI_DMA_TODEVICE);
 +		else
-+			pci_unmap_single(adapter->pdev,	buffer_info->dma,
++			pci_unmap_single(adapter->pdev, buffer_info->dma,
 +					 buffer_info->length,
 +					 PCI_DMA_TODEVICE);
 +		buffer_info->dma = 0;
 +	}
++
  	if (buffer_info->skb) {
 -		skb_dma_unmap(&adapter->pdev->dev, buffer_info->skb,
 -		              DMA_TO_DEVICE);
  		dev_kfree_skb_any(buffer_info->skb);
  		buffer_info->skb = NULL;
  	}
-@@ -2683,22 +2690,14 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 			unsigned int mss)
+@@ -1272,24 +1280,16 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 	    unsigned int first)
  {
- 	struct e1000_hw *hw = &adapter->hw;
+ 	struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
 +	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_buffer *buffer_info;
- 	unsigned int len = skb_headlen(skb);
--	unsigned int offset, size, count = 0, i;
-+	unsigned int offset = 0, size, count = 0, i;
+ 	struct ixgb_buffer *buffer_info;
+ 	int len = skb_headlen(skb);
+ 	unsigned int offset = 0, size, count = 0, i;
+ 	unsigned int mss = skb_shinfo(skb)->gso_size;
+-
+ 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
  	unsigned int f;
 -	dma_addr_t *map;
  
@@ -90,25 +93,28 @@ index c938114..b9d86f8 100644
 -	}
 -
 -	map = skb_shinfo(skb)->dma_maps;
--	offset = 0;
 -
  	while (len) {
  		buffer_info = &tx_ring->buffer_info[i];
- 		size = min(len, max_per_txd);
-@@ -2735,7 +2734,11 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 		size = min(len, IXGB_MAX_DATA_PER_TXD);
+@@ -1301,11 +1301,11 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
  		buffer_info->length = size;
- 		/* set time_stamp *before* dma to help avoid a possible race */
+ 		WARN_ON(buffer_info->dma != 0);
  		buffer_info->time_stamp = jiffies;
 -		buffer_info->dma = skb_shinfo(skb)->dma_head + offset;
+-			pci_map_single(adapter->pdev,
+-				skb->data + offset,
+-				size,
+-				PCI_DMA_TODEVICE);
 +		buffer_info->mapped_as_page = false;
-+		buffer_info->dma = pci_map_single(pdev,	skb->data + offset,
-+						  size,	PCI_DMA_TODEVICE);
++		buffer_info->dma = pci_map_single(pdev, skb->data + offset,
++						  size, PCI_DMA_TODEVICE);
 +		if (pci_dma_mapping_error(pdev, buffer_info->dma))
 +			goto dma_error;
- 		buffer_info->next_to_watch = i;
+ 		buffer_info->next_to_watch = 0;
  
  		len -= size;
-@@ -2753,7 +2756,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+@@ -1323,7 +1323,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
  
  		frag = &skb_shinfo(skb)->frags[f];
  		len = frag->size;
@@ -117,21 +123,22 @@ index c938114..b9d86f8 100644
  
  		while (len) {
  			i++;
-@@ -2777,7 +2780,12 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+@@ -1341,7 +1341,13 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
  
  			buffer_info->length = size;
  			buffer_info->time_stamp = jiffies;
 -			buffer_info->dma = map[f] + offset;
 +			buffer_info->mapped_as_page = true;
-+			buffer_info->dma = pci_map_page(pdev, frag->page,
-+							offset,	size,
-+							PCI_DMA_TODEVICE);
++			buffer_info->dma =
++				pci_map_page(pdev, frag->page,
++					     offset, size,
++					     PCI_DMA_TODEVICE);
 +			if (pci_dma_mapping_error(pdev, buffer_info->dma))
 +				goto dma_error;
- 			buffer_info->next_to_watch = i;
+ 			buffer_info->next_to_watch = 0;
  
  			len -= size;
-@@ -2790,6 +2798,22 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+@@ -1353,6 +1359,22 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
  	tx_ring->buffer_info[first].next_to_watch = i;
  
  	return count;
@@ -147,11 +154,11 @@ index c938114..b9d86f8 100644
 +		if (i < 0)
 +			i += tx_ring->count;
 +		buffer_info = &tx_ring->buffer_info[i];
-+		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
++		ixgb_unmap_and_free_tx_resource(adapter, buffer_info);
 +	}
 +
 +	return 0;
  }
  
- static void e1000_tx_queue(struct e1000_adapter *adapter,
+ static void
 
