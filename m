@@ -1,421 +1,141 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 09/10] tg3: remove use of skb_dma_map/unmap
-Date: Wed, 02 Dec 2009 18:48:38 -0800
-Message-ID: <20091203024837.2232.59671.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 10/10] skbuff: remove skb_dma_map/unmap
+Date: Wed, 02 Dec 2009 18:49:02 -0800
+Message-ID: <20091203024901.2232.80292.stgit@localhost.localdomain>
 References: <20091203024519.2232.6084.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:57500 "EHLO
-	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755506AbZLCCsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 21:48:53 -0500
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:44823
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755454AbZLCCtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Dec 2009 21:49:13 -0500
 In-Reply-To: <20091203024519.2232.6084.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Due to the fact that skb_dma_map/unmap do not work correctly when a HW
-IOMMU is enabled it has been recommended to go about removing the calls
-from the network device drivers.
+The two functions skb_dma_map/unmap are unsafe to use as they cause
+problems when packets are cloned and sent to multiple devices while a HW
+IOMMU is enabled.  Due to this it is best to remove the code so it is not
+used by any other network driver maintainters.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Matt Carlson <mcarlson@broadcom.com>
-CC: Michael Chan <mchan@broadcom.com>
 ---
 
- drivers/net/tg3.c |  173 ++++++++++++++++++++++++++++++++++++++++-------------
- drivers/net/tg3.h |    6 --
- 2 files changed, 132 insertions(+), 47 deletions(-)
+ include/linux/skbuff.h |    8 ------
+ net/core/Makefile      |    1 -
+ net/core/skb_dma_map.c |   65 ------------------------------------------------
+ 3 files changed, 0 insertions(+), 74 deletions(-)
+ delete mode 100644 net/core/skb_dma_map.c
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6e6db95..302ea0b 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4357,7 +4357,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 	txq = netdev_get_tx_queue(tp->dev, index);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 89eed8c..ae836fd 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -416,14 +416,6 @@ struct sk_buff {
  
- 	while (sw_idx != hw_idx) {
--		struct tx_ring_info *ri = &tnapi->tx_buffers[sw_idx];
-+		struct ring_info *ri = &tnapi->tx_buffers[sw_idx];
- 		struct sk_buff *skb = ri->skb;
- 		int i, tx_bug = 0;
+ #include <asm/system.h>
  
-@@ -4366,7 +4366,10 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 			return;
- 		}
- 
--		skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
-+		pci_unmap_single(tp->pdev,
-+				 pci_unmap_addr(ri, mapping),
-+				 skb_headlen(skb),
-+				 PCI_DMA_TODEVICE);
- 
- 		ri->skb = NULL;
- 
-@@ -4376,6 +4379,11 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 			ri = &tnapi->tx_buffers[sw_idx];
- 			if (unlikely(ri->skb != NULL || sw_idx == hw_idx))
- 				tx_bug = 1;
-+
-+			pci_unmap_page(tp->pdev,
-+				       pci_unmap_addr(ri, mapping),
-+				       skb_shinfo(skb)->frags[i].size,
-+				       PCI_DMA_TODEVICE);
- 			sw_idx = NEXT_TX(sw_idx);
- 		}
- 
-@@ -5334,17 +5342,21 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 	} else {
- 		/* New SKB is guaranteed to be linear. */
- 		entry = *start;
--		ret = skb_dma_map(&tp->pdev->dev, new_skb, DMA_TO_DEVICE);
--		new_addr = skb_shinfo(new_skb)->dma_head;
-+		new_addr = pci_map_single(tp->pdev, new_skb->data, new_skb->len,
-+					  PCI_DMA_TODEVICE);
-+		/* Make sure the mapping succeeded */
-+		if (pci_dma_mapping_error(tp->pdev, new_addr)) {
-+			ret = -1;
-+			dev_kfree_skb(new_skb);
-+			new_skb = NULL;
- 
- 		/* Make sure new skb does not cross any 4G boundaries.
- 		 * Drop the packet if it does.
- 		 */
--		if (ret || ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
--			    tg3_4g_overflow_test(new_addr, new_skb->len))) {
--			if (!ret)
--				skb_dma_unmap(&tp->pdev->dev, new_skb,
--					      DMA_TO_DEVICE);
-+		} else if ((tp->tg3_flags3 & TG3_FLG3_4G_DMA_BNDRY_BUG) &&
-+			    tg3_4g_overflow_test(new_addr, new_skb->len)) {
-+			pci_unmap_single(tp->pdev, new_addr, new_skb->len,
-+					 PCI_DMA_TODEVICE);
- 			ret = -1;
- 			dev_kfree_skb(new_skb);
- 			new_skb = NULL;
-@@ -5358,15 +5370,28 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 	/* Now clean up the sw ring entries. */
- 	i = 0;
- 	while (entry != last_plus_one) {
-+		int len;
-+
- 		if (i == 0)
--			tnapi->tx_buffers[entry].skb = new_skb;
-+			len = skb_headlen(skb);
- 		else
-+			len = skb_shinfo(skb)->frags[i-1].size;
-+
-+		pci_unmap_single(tp->pdev,
-+				 pci_unmap_addr(&tnapi->tx_buffers[entry],
-+						mapping),
-+				 len, PCI_DMA_TODEVICE);
-+		if (i == 0) {
-+			tnapi->tx_buffers[entry].skb = new_skb;
-+			pci_unmap_addr_set(&tnapi->tx_buffers[entry], mapping,
-+					   new_addr);
-+		} else {
- 			tnapi->tx_buffers[entry].skb = NULL;
-+		}
- 		entry = NEXT_TX(entry);
- 		i++;
- 	}
- 
--	skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
- 	dev_kfree_skb(skb);
- 
- 	return ret;
-@@ -5403,10 +5428,11 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+-#ifdef CONFIG_HAS_DMA
+-#include <linux/dma-mapping.h>
+-extern int skb_dma_map(struct device *dev, struct sk_buff *skb,
+-		       enum dma_data_direction dir);
+-extern void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
+-			  enum dma_data_direction dir);
+-#endif
+-
+ static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
  {
- 	struct tg3 *tp = netdev_priv(dev);
- 	u32 len, entry, base_flags, mss;
--	struct skb_shared_info *sp;
- 	dma_addr_t mapping;
- 	struct tg3_napi *tnapi;
- 	struct netdev_queue *txq;
-+	unsigned int i, last;
-+
+ 	return (struct dst_entry *)skb->_skb_dst;
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 796f46e..08791ac 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -6,7 +6,6 @@ obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
+ 	 gen_stats.o gen_estimator.o net_namespace.o
  
- 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
- 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
-@@ -5477,18 +5503,17 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 			       (vlan_tx_tag_get(skb) << 16));
- #endif
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+-obj-$(CONFIG_HAS_DMA) += skb_dma_map.o
  
--	if (skb_dma_map(&tp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+	len = skb_headlen(skb);
-+
-+	/* Queue skb data, a.k.a. the main skb fragment. */
-+	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(tp->pdev, mapping)) {
- 		dev_kfree_skb(skb);
- 		goto out_unlock;
- 	}
- 
--	sp = skb_shinfo(skb);
+ obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
+diff --git a/net/core/skb_dma_map.c b/net/core/skb_dma_map.c
+deleted file mode 100644
+index 79687df..0000000
+--- a/net/core/skb_dma_map.c
++++ /dev/null
+@@ -1,65 +0,0 @@
+-/* skb_dma_map.c: DMA mapping helpers for socket buffers.
+- *
+- * Copyright (C) David S. Miller <davem@davemloft.net>
+- */
 -
--	mapping = sp->dma_head;
+-#include <linux/kernel.h>
+-#include <linux/module.h>
+-#include <linux/dma-mapping.h>
+-#include <linux/skbuff.h>
 -
- 	tnapi->tx_buffers[entry].skb = skb;
+-int skb_dma_map(struct device *dev, struct sk_buff *skb,
+-		enum dma_data_direction dir)
+-{
+-	struct skb_shared_info *sp = skb_shinfo(skb);
+-	dma_addr_t map;
+-	int i;
 -
--	len = skb_headlen(skb);
-+	pci_unmap_addr_set(&tnapi->tx_buffers[entry], mapping, mapping);
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 &&
- 	    !mss && skb->len > ETH_DATA_LEN)
-@@ -5501,15 +5526,21 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 
- 	/* Now loop through additional data fragments, and queue them. */
- 	if (skb_shinfo(skb)->nr_frags > 0) {
--		unsigned int i, last;
+-	map = dma_map_single(dev, skb->data,
+-			     skb_headlen(skb), dir);
+-	if (dma_mapping_error(dev, map))
+-		goto out_err;
 -
- 		last = skb_shinfo(skb)->nr_frags - 1;
- 		for (i = 0; i <= last; i++) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 			len = frag->size;
--			mapping = sp->dma_maps[i];
-+			mapping = pci_map_page(tp->pdev,
-+					       frag->page,
-+					       frag->page_offset,
-+					       len, PCI_DMA_TODEVICE);
-+			if (pci_dma_mapping_error(tp->pdev, mapping))
-+				goto dma_error;
-+
- 			tnapi->tx_buffers[entry].skb = NULL;
-+			pci_unmap_addr_set(&tnapi->tx_buffers[entry], mapping,
-+					   mapping);
- 
- 			tg3_set_txd(tnapi, entry, mapping, len,
- 				    base_flags, (i == last) | (mss << 1));
-@@ -5532,6 +5563,27 @@ out_unlock:
- 	mmiowb();
- 
- 	return NETDEV_TX_OK;
-+
-+dma_error:
-+	last = i;
-+	entry = tnapi->tx_prod;
-+	tnapi->tx_buffers[entry].skb = NULL;
-+	pci_unmap_single(tp->pdev,
-+			 pci_unmap_addr(&tnapi->tx_buffers[entry], mapping),
-+			 skb_headlen(skb),
-+			 PCI_DMA_TODEVICE);
-+	for (i = 0; i <= last; i++) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+		entry = NEXT_TX(entry);
-+
-+		pci_unmap_page(tp->pdev,
-+			       pci_unmap_addr(&tnapi->tx_buffers[entry],
-+					      mapping),
-+			       frag->size, PCI_DMA_TODEVICE);
-+	}
-+
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *,
-@@ -5579,11 +5631,12 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 	u32 len, entry, base_flags, mss;
--	struct skb_shared_info *sp;
- 	int would_hit_hwbug;
- 	dma_addr_t mapping;
- 	struct tg3_napi *tnapi;
- 	struct netdev_queue *txq;
-+	unsigned int i, last;
-+
- 
- 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
- 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
-@@ -5678,21 +5731,19 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	    !mss && skb->len > ETH_DATA_LEN)
- 		base_flags |= TXD_FLAG_JMB_PKT;
- 
--	if (skb_dma_map(&tp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+	len = skb_headlen(skb);
-+
-+	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(tp->pdev, mapping)) {
- 		dev_kfree_skb(skb);
- 		goto out_unlock;
- 	}
- 
--	sp = skb_shinfo(skb);
+-	sp->dma_head = map;
+-	for (i = 0; i < sp->nr_frags; i++) {
+-		skb_frag_t *fp = &sp->frags[i];
 -
--	mapping = sp->dma_head;
+-		map = dma_map_page(dev, fp->page, fp->page_offset,
+-				   fp->size, dir);
+-		if (dma_mapping_error(dev, map))
+-			goto unwind;
+-		sp->dma_maps[i] = map;
+-	}
 -
- 	tnapi->tx_buffers[entry].skb = skb;
-+	pci_unmap_addr_set(&tnapi->tx_buffers[entry], mapping, mapping);
- 
- 	would_hit_hwbug = 0;
- 
--	len = skb_headlen(skb);
+-	return 0;
 -
- 	if ((tp->tg3_flags3 & TG3_FLG3_SHORT_DMA_BUG) && len <= 8)
- 		would_hit_hwbug = 1;
- 
-@@ -5714,16 +5765,21 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 	/* Now loop through additional data fragments, and queue them. */
- 	if (skb_shinfo(skb)->nr_frags > 0) {
--		unsigned int i, last;
+-unwind:
+-	while (--i >= 0) {
+-		skb_frag_t *fp = &sp->frags[i];
 -
- 		last = skb_shinfo(skb)->nr_frags - 1;
- 		for (i = 0; i <= last; i++) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 			len = frag->size;
--			mapping = sp->dma_maps[i];
-+			mapping = pci_map_page(tp->pdev,
-+					       frag->page,
-+					       frag->page_offset,
-+					       len, PCI_DMA_TODEVICE);
- 
- 			tnapi->tx_buffers[entry].skb = NULL;
-+			pci_unmap_addr_set(&tnapi->tx_buffers[entry], mapping,
-+					   mapping);
-+			if (pci_dma_mapping_error(tp->pdev, mapping))
-+				goto dma_error;
- 
- 			if ((tp->tg3_flags3 & TG3_FLG3_SHORT_DMA_BUG) &&
- 			    len <= 8)
-@@ -5779,6 +5835,27 @@ out_unlock:
- 	mmiowb();
- 
- 	return NETDEV_TX_OK;
-+
-+dma_error:
-+	last = i;
-+	entry = tnapi->tx_prod;
-+	tnapi->tx_buffers[entry].skb = NULL;
-+	pci_unmap_single(tp->pdev,
-+			 pci_unmap_addr(&tnapi->tx_buffers[entry], mapping),
-+			 skb_headlen(skb),
-+			 PCI_DMA_TODEVICE);
-+	for (i = 0; i <= last; i++) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+		entry = NEXT_TX(entry);
-+
-+		pci_unmap_page(tp->pdev,
-+			       pci_unmap_addr(&tnapi->tx_buffers[entry],
-+					      mapping),
-+			       frag->size, PCI_DMA_TODEVICE);
-+	}
-+
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
-@@ -6046,8 +6123,9 @@ static void tg3_free_rings(struct tg3 *tp)
- 			continue;
- 
- 		for (i = 0; i < TG3_TX_RING_SIZE; ) {
--			struct tx_ring_info *txp;
-+			struct ring_info *txp;
- 			struct sk_buff *skb;
-+			unsigned int k;
- 
- 			txp = &tnapi->tx_buffers[i];
- 			skb = txp->skb;
-@@ -6057,11 +6135,22 @@ static void tg3_free_rings(struct tg3 *tp)
- 				continue;
- 			}
- 
--			skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
+-		dma_unmap_page(dev, sp->dma_maps[i],
+-			       fp->size, dir);
+-	}
+-	dma_unmap_single(dev, sp->dma_head,
+-			 skb_headlen(skb), dir);
+-out_err:
+-	return -ENOMEM;
+-}
+-EXPORT_SYMBOL(skb_dma_map);
 -
-+			pci_unmap_single(tp->pdev,
-+					 pci_unmap_addr(txp, mapping),
-+					 skb_headlen(skb),
-+					 PCI_DMA_TODEVICE);
- 			txp->skb = NULL;
- 
--			i += skb_shinfo(skb)->nr_frags + 1;
-+			i++;
-+
-+			for (k = 0; k < skb_shinfo(skb)->nr_frags; k++) {
-+				txp = &tnapi->tx_buffers[i & (TG3_TX_RING_SIZE - 1)];
-+				pci_unmap_page(tp->pdev,
-+					       pci_unmap_addr(txp, mapping),
-+					       skb_shinfo(skb)->frags[k].size,
-+					       PCI_DMA_TODEVICE);
-+				i++;
-+			}
- 
- 			dev_kfree_skb_any(skb);
- 		}
-@@ -6231,7 +6320,7 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 
- 		memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
- 
--		tnapi->tx_buffers = kzalloc(sizeof(struct tx_ring_info) *
-+		tnapi->tx_buffers = kzalloc(sizeof(struct ring_info) *
- 					    TG3_TX_RING_SIZE, GFP_KERNEL);
- 		if (!tnapi->tx_buffers)
- 			goto err_out;
-@@ -10637,7 +10726,8 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	for (i = 14; i < tx_len; i++)
- 		tx_data[i] = (u8) (i & 0xff);
- 
--	if (skb_dma_map(&tp->pdev->dev, skb, DMA_TO_DEVICE)) {
-+	map = pci_map_single(tp->pdev, skb->data, tx_len, PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(tp->pdev, map)) {
- 		dev_kfree_skb(skb);
- 		return -EIO;
- 	}
-@@ -10651,8 +10741,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 
- 	num_pkts = 0;
- 
--	tg3_set_txd(tnapi, tnapi->tx_prod,
--		    skb_shinfo(skb)->dma_head, tx_len, 0, 1);
-+	tg3_set_txd(tnapi, tnapi->tx_prod, map, tx_len, 0, 1);
- 
- 	tnapi->tx_prod++;
- 	num_pkts++;
-@@ -10676,7 +10765,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 			break;
- 	}
- 
--	skb_dma_unmap(&tp->pdev->dev, skb, DMA_TO_DEVICE);
-+	pci_unmap_single(tp->pdev, map, tx_len, PCI_DMA_TODEVICE);
- 	dev_kfree_skb(skb);
- 
- 	if (tx_idx != tnapi->tx_prod)
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 453a34f..8972523 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2441,10 +2441,6 @@ struct ring_info {
- 	DECLARE_PCI_UNMAP_ADDR(mapping)
- };
- 
--struct tx_ring_info {
--	struct sk_buff			*skb;
--};
+-void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
+-		   enum dma_data_direction dir)
+-{
+-	struct skb_shared_info *sp = skb_shinfo(skb);
+-	int i;
 -
- struct tg3_config_info {
- 	u32				flags;
- };
-@@ -2608,7 +2604,7 @@ struct tg3_napi {
- 
- 	struct tg3_rx_buffer_desc	*rx_rcb;
- 	struct tg3_tx_buffer_desc	*tx_ring;
--	struct tx_ring_info		*tx_buffers;
-+	struct ring_info		*tx_buffers;
- 
- 	dma_addr_t			status_mapping;
- 	dma_addr_t			rx_rcb_mapping;
+-	dma_unmap_single(dev, sp->dma_head,
+-			 skb_headlen(skb), dir);
+-	for (i = 0; i < sp->nr_frags; i++) {
+-		skb_frag_t *fp = &sp->frags[i];
+-
+-		dma_unmap_page(dev, sp->dma_maps[i],
+-			       fp->size, dir);
+-	}
+-}
+-EXPORT_SYMBOL(skb_dma_unmap);
 
