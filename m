@@ -1,84 +1,201 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: scp stalls mysteriously
-Date: Thu, 3 Dec 2009 16:36:18 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912031630390.7024@wel-95.cs.helsinki.fi>
-References: <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba> <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi> <20091202085925.472136e2@houba>
- <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi> <20091202154403.GB30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi> <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de>
- <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi> <4B17CABE.8070402@nets.rwth-aachen.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH v2] net: Introduce realloc_netdev_mq()
+Date: Thu, 3 Dec 2009 14:39:18 +0000
+Message-ID: <20091203143918.GA20526@ff.dom.local>
+References: <20091101132017.GA2598@ami.dom.local> <20091102.033533.08766686.davem@davemloft.net> <20091102123029.GA7790@ff.dom.local> <20091102.043907.236634594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-709105506-1259850978=:7024"
-Cc: Frederic Leroy <fredo@starox.org>,
-	Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57023 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbZLCOgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 09:36:14 -0500
-In-Reply-To: <4B17CABE.8070402@nets.rwth-aachen.de>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:46294 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755959AbZLCOjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 09:39:15 -0500
+Received: by bwz27 with SMTP id 27so1135197bwz.21
+        for <netdev@vger.kernel.org>; Thu, 03 Dec 2009 06:39:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20091102.043907.236634594.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Take 2 (with forgotten headers, sorry).
 
---8323329-709105506-1259850978=:7024
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Thu, 3 Dec 2009, Arnd Hannemann wrote:
-
-> Ilpo Järvinen wrote:
+On Mon, Nov 02, 2009 at 04:39:07AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 2 Nov 2009 12:30:29 +0000
 > 
-> [snipped]
+> > Right, but it's not a 50% chance, I guess? A user most of the time
+> > gets consistently multiqueue or non-multiqueue behavior after open,
+> > unless I miss something. Then such an exceptional state could be
+> > handled by real_num_tx_queues (just like in case of powered of cpus).
+> > The main difference is to hold in num_tx_queues something that is
+> > really available vs max possible value for all configs.
 > 
-> > Also, we have the another mystery to be solved, the fast retransmission is 
-> > not triggered for some reason (or alternatively not captured in to a 
-> > log), even in the working .9. case. It would be easy to see whether it 
-> > works at all from TCP point of view by looking into mibs once you have 
-> > have some transfers in a working configuration:
-> > 
-> > grep -A1 TCP /proc/net/netstat
-> > 
-> > ...luckily this fast retransmit issue is less crucial as almost all people 
-> > are pretty happy already if their RTO-based recovery works even if the 
-> > fast recovery would not. So figuring it out can be postponed (if one has 
-> > to prioritize) until the silent death issue is out of the way.
-> > 
-> > 
-> 
-> I looked at the working .9 case stream from 192.168.1.15 to 192.168.1.19.
-> I don't think it is a mystery that fast retransmit does not trigger.
-> The condition SACKED_DATA > 3* SMSS is simply not fulfilled.
-> Neither are there 3 non-continuous SACK sequences.
-> The segments sent are too small :-(
-> Interesting though, seems to me in this case non-SACK would be better than SACK.
-> Or did I miss something?
+> I see your point, yes this would seem to be a reasonable way
+> to start handling num_tx_queues and real_num_tx_queues.
 
-Yes, a particularly big one, linux does not count SACKs bytes but packets. 
-In the first recovery, plenty of packets are SACKed:
+Here is a proposal of netdev api change. I hope Michael finds time
+to try if this can be really useful for drivers.
 
-    135 sack 1 {2598:2646}>
-    108 sack 1 {2598:2694}>
-    121 sack 1 {2598:2742}>
-     95 sack 1 {2598:2790}>
-    426 sack 1 {2598:2838}>
+Thanks,
+Jarek P.
+---------------> (take 2)
 
-fackets_out should be 6 now which is way more than 3 which is the 
-default tp->reordering.
+This patch separates allocation of TX subqueues from alloc_netdev_mq()
+to realloc_netdev_mq() to allow for resizing like in this example:
 
-> Hey we could cook up a draft for this problem ;-)
->
-> Anyway, real problem is, RTO does not trigger...
+some_nic_probe()
+{
+	...
+	dev = alloc_etherdev_mq(sizeof(*bp), 1)
+	...
+	if (MSI-X_available && device_supports_MSI-X_and_multiqueue)
+		realloc_netdev_mq(dev, TX_MAX_RINGS)
+	register_netdev(dev)
+	...
+}
 
-There are two problems. ...Both are real. ;-) But significance of the 
-other is much worse than the other.
+The main difference is to hold in num_tx_queues something that is
+really available, instead of max possible value for all configs, in
+case of drivers allocating net_device at the beginning of the probe.
 
--- 
- i.
---8323329-709105506-1259850978=:7024--
+The description of alloc_netdev_mq() is fixed btw.
+
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ include/linux/netdevice.h |    1 +
+ net/core/dev.c            |   65 +++++++++++++++++++++++++++++++-------------
+ 2 files changed, 47 insertions(+), 19 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index daf13d3..4b6e2ef 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1904,6 +1904,7 @@ extern void		ether_setup(struct net_device *dev);
+ extern struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 				       void (*setup)(struct net_device *),
+ 				       unsigned int queue_count);
++extern int realloc_netdev_mq(struct net_device *dev, unsigned int queue_count);
+ #define alloc_netdev(sizeof_priv, name, setup) \
+ 	alloc_netdev_mq(sizeof_priv, name, setup, 1)
+ extern int		register_netdev(struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3e18de..7ea3a77 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5265,11 +5265,49 @@ static void netdev_init_one_queue(struct net_device *dev,
+ 	queue->dev = dev;
+ }
+ 
+-static void netdev_init_queues(struct net_device *dev)
++/**
++ *	realloc_netdev_mq - (re)allocate network subqueues
++ *	@dev:		device
++ *	@queue_count:	the number of subqueues to (re)allocate
++ *
++ *	(Re)allocates and initializes subqueue structs for each queue.
++ *	It is allowed to use only until register_netdev().
++ *	On error previous structs are intact.
++ */
++int realloc_netdev_mq(struct net_device *dev, unsigned int queue_count)
+ {
+-	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
++	struct netdev_queue *tx;
++
++	tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
++	if (!tx) {
++		printk(KERN_ERR "alloc_netdev: Unable to allocate "
++		       "tx qdiscs.\n");
++		return -ENOMEM;
++	}
++
++	kfree(dev->_tx);
++
++	dev->_tx = tx;
++	dev->num_tx_queues = queue_count;
++	dev->real_num_tx_queues = queue_count;
++
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
++
++	return 0;
++}
++EXPORT_SYMBOL(realloc_netdev_mq);
++
++static int netdev_init_queues(struct net_device *dev, unsigned int queue_count)
++{
++	int err = realloc_netdev_mq(dev, queue_count);
++
++	if (err)
++		return err;
++
++	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
+ 	spin_lock_init(&dev->tx_global_lock);
++
++	return 0;
+ }
+ 
+ /**
+@@ -5280,13 +5318,12 @@ static void netdev_init_queues(struct net_device *dev)
+  *	@queue_count:	the number of subqueues to allocate
+  *
+  *	Allocates a struct net_device with private data area for driver use
+- *	and performs basic initialization.  Also allocates subquue structs
+- *	for each queue on the device at the end of the netdevice.
++ *	and performs basic initialization.  Also allocates subqueue structs
++ *	for each queue on the device.
+  */
+ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		void (*setup)(struct net_device *), unsigned int queue_count)
+ {
+-	struct netdev_queue *tx;
+ 	struct net_device *dev;
+ 	size_t alloc_size;
+ 	struct net_device *p;
+@@ -5308,16 +5345,12 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		return NULL;
+ 	}
+ 
+-	tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
+-	if (!tx) {
+-		printk(KERN_ERR "alloc_netdev: Unable to allocate "
+-		       "tx qdiscs.\n");
+-		goto free_p;
+-	}
+-
+ 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded = (char *)dev - (char *)p;
+ 
++	if (netdev_init_queues(dev, queue_count))
++		goto free_p;
++
+ 	if (dev_addr_init(dev))
+ 		goto free_tx;
+ 
+@@ -5325,14 +5358,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	dev_net_set(dev, &init_net);
+ 
+-	dev->_tx = tx;
+-	dev->num_tx_queues = queue_count;
+-	dev->real_num_tx_queues = queue_count;
+-
+ 	dev->gso_max_size = GSO_MAX_SIZE;
+ 
+-	netdev_init_queues(dev);
+-
+ 	INIT_LIST_HEAD(&dev->napi_list);
+ 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	INIT_LIST_HEAD(&dev->link_watch_list);
+@@ -5342,7 +5369,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	return dev;
+ 
+ free_tx:
+-	kfree(tx);
++	kfree(dev->_tx);
+ 
+ free_p:
+ 	kfree(p);
