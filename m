@@ -1,51 +1,51 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: seeing strange values for tcp sk_rmem_alloc
-Date: Thu, 03 Dec 2009 15:40:41 -0600
-Message-ID: <4B183059.4070109@nortel.com>
-References: <4B15416A.2060202@nortel.com> <4B154B29.1030807@cosmosbay.com> <4B155252.1040604@nortel.com> <4B1557CC.4060503@gmail.com> <4B17ED8D.7050409@nortel.com> <4B17EF8E.60704@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
+Date: Thu, 03 Dec 2009 13:45:32 -0800 (PST)
+Message-ID: <20091203.134532.225926933.davem@davemloft.net>
+References: <200912032241.43772.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Linux kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754637AbZLCVnQ@vger.kernel.org>
-In-Reply-To: <4B17EF8E.60704@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: oliver@neukum.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58028
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751028AbZLCVp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:45:26 -0500
+In-Reply-To: <200912032241.43772.oliver@neukum.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/03/2009 11:04 AM, Eric Dumazet wrote:
-> Chris Friesen a =E9crit :
+From: Oliver Neukum <oliver@neukum.org>
+Date: Thu, 3 Dec 2009 22:41:43 +0100
 
->> Ah, that makes a difference.  But the results (see below) still
->> look odd.  For this test, /proc/sys/net/core/rmem_default is
->> 118784.  For some reason sk_rmem_alloc gets bumped by 16KB when I
->> only send 2KB of data, and it drops back down again every 6
->> packets.
+> From 17b97d1c24a061843a8f707e80f23a7b0b7647df Mon Sep 17 00:00:00 2001
+> From: Oliver Neukum <oliver@neukum.org>
+> Date: Thu, 3 Dec 2009 22:08:12 +0100
+> Subject: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
+> 
+> Using remote wakeup and delayed transmission to allow
+> online device to go into usb autosuspend.
+> Minimal alternate support for devices that don't support
+> remote wakeup.
+> 
+> Signed-off-by: Oliver Neukum <oliver@neukum.org>
 
->=20
-> Might be because you use loopback device ? ;)
->=20
-> ifconfig lo | grep MTU UP LOOPBACK RUNNING  MTU:16436  Metric:1
->=20
-> After a while (when hitting rcvbuf limit), tcp stack performs skb
-> collapses, to reduce ram usage.
+Same problem:
 
-Looks like this is indeed the case, changing the loopback mtu to 8K
-makes it increase in 8K increments.  This is quite unexpected, since fo=
-r
-UDP it only increases by the actual amount of the data being sent rathe=
-r
-than the size of the full MTU.
+davem@sunset:~/src/GIT/net-next-2.6$ git am --signoff bundle-737.mbox
+Applying: cdc-ether:Implement reset_resume()
+Applying: usbnet & cdc-ether: Autosuspend for online devices
+error: patch failed: drivers/net/usb/cdc_ether.c:411
+error: drivers/net/usb/cdc_ether.c: patch does not apply
+error: patch failed: drivers/net/usb/usbnet.c:353
+error: drivers/net/usb/usbnet.c: patch does not apply
+Patch failed at 0002 usbnet & cdc-ether: Autosuspend for online devices
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
+davem@sunset:~/src/GIT/net-next-2.6$ 
 
-As it stands, it looks like sk_rmem_alloc isn't very useful.  Can you
-point me to something that is more reflective of the actual space used
-by the tcp socket?  I'd like something that increases monotonically wit=
-h
-received data and once it exceeds the configured size then the tcp stac=
-k
-will start dropping packets.  Does such a thing exist, or is the tcp
-stack just too complicated to easily obtain this sort of information?
-
-Thanks for your help,
-
-Chris
+But this all might be due to some other changes I applied today and
+didn't push out yet to net-next-2.6, let me check on that for you.
