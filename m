@@ -1,30 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [iproute2]: fix support for IFA_F_DADFAILED
-Date: Thu, 03 Dec 2009 12:55:46 -0800 (PST)
-Message-ID: <20091203.125546.225410046.davem@davemloft.net>
-References: <4B1813E7.2030004@hp.com>
-	<20091203121015.7a7c069e@nehalam>
-	<4B182208.8010707@hp.com>
+Subject: Re: netfilter 00/08: Netfilter Update
+Date: Thu, 03 Dec 2009 13:00:35 -0800 (PST)
+Message-ID: <20091203.130035.01303942.davem@davemloft.net>
+References: <20091203201931.8831.92922.sendpatchset@x2.localnet>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: brian.haley@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33679
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753864AbZLCUzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:55:40 -0500
-In-Reply-To: <4B182208.8010707@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20091203201931.8831.92922.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Thu, 03 Dec 2009 15:39:36 -0500
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu,  3 Dec 2009 21:19:32 +0100 (MET)
 
-> Stephen Hemminger wrote:
->> Delta would be easier.
-> 
-> Ok, here it is.
+> following is a small netfilter update for 2.6.32, containing:
 
-This showed up in patchwork properly, FWIW.
+2.6.32 was just released, surely you mean 2.6.33 :-)
