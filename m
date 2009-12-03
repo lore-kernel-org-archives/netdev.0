@@ -1,50 +1,60 @@
-From: Takashi Iwai <tiwai@suse.de>
-Subject: [PATCH 1/2] net: Fix Yukon-2 Optima TCP offload setup
-Date: Thu,  3 Dec 2009 16:12:01 +0100
-Message-ID: <1259853122-21134-2-git-send-email-tiwai@suse.de>
-References: <1259853122-21134-1-git-send-email-tiwai@suse.de>
-Cc: Takashi Iwai <tiwai@suse.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: Introduce realloc_netdev_mq()
+Date: Thu, 03 Dec 2009 16:17:43 +0100
+Message-ID: <4B17D697.8000105@gmail.com>
+References: <20091101132017.GA2598@ami.dom.local> <20091102.033533.08766686.davem@davemloft.net> <20091102123029.GA7790@ff.dom.local> <20091102.043907.236634594.davem@davemloft.net> <20091203143918.GA20526@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:56699 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756308AbZLCPMG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 10:12:06 -0500
-Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.221.2])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id 0FE9174609
-	for <netdev@vger.kernel.org>; Thu,  3 Dec 2009 16:12:13 +0100 (CET)
-In-Reply-To: <1259853122-21134-1-git-send-email-tiwai@suse.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54492 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756288AbZLCPRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 10:17:43 -0500
+In-Reply-To: <20091203143918.GA20526@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the TCP offload setup for Yukon-2 Optima.
-It requires SKY2_HW_NE_LE flag unlike Ultra 2.
+Jarek Poplawski a =E9crit :
+> Take 2 (with forgotten headers, sorry).
 
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
----
- drivers/net/sky2.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+Very nice, thanks !
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index a3d9991..0718cdd 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2968,8 +2968,13 @@ static int __devinit sky2_init(struct sky2_hw *hw)
- 		break;
- 
- 	case CHIP_ID_YUKON_UL_2:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_ADV_POWER_CTL;
-+		break;
-+
- 	case CHIP_ID_YUKON_OPT:
- 		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_NEW_LE
- 			| SKY2_HW_ADV_POWER_CTL;
- 		break;
- 
--- 
-1.6.5.3
+> Here is a proposal of netdev api change. I hope Michael finds time
+> to try if this can be really useful for drivers.
+>=20
+> Thanks,
+> Jarek P.
+> ---------------> (take 2)
+>=20
+> This patch separates allocation of TX subqueues from alloc_netdev_mq(=
+)
+> to realloc_netdev_mq() to allow for resizing like in this example:
+>=20
+> some_nic_probe()
+> {
+> 	...
+> 	dev =3D alloc_etherdev_mq(sizeof(*bp), 1)
+> 	...
+> 	if (MSI-X_available && device_supports_MSI-X_and_multiqueue)
+> 		realloc_netdev_mq(dev, TX_MAX_RINGS)
+> 	register_netdev(dev)
+> 	...
+> }
+>=20
 
+Or the reverse :
+
+ie, the device first allocate its max possible tx rings
+
+dev =3D alloc_etherdev_mq(sizeof(*bp), 128)
+
+then, later, try to reduce it, when knowing exact tx count.
+
+if (realloc_netdev_mq(dev, real_queues))
+	dev->real_num_tx_queues =3D real_queues;
+
+In this case the memory error is not fatal.
