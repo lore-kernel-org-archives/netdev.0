@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] llc enhancements
-Date: Thu, 03 Dec 2009 15:55:53 -0800 (PST)
-Message-ID: <20091203.155553.236357128.davem@davemloft.net>
-References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH 3/4] llc: use a device based hash table to speed up multicast delivery
+Date: Fri, 4 Dec 2009 01:53:11 +0200
+Message-ID: <200912040153.11395.opurdila@ixiacom.com>
+References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com> <1259879498-27860-4-git-send-email-opurdila@ixiacom.com> <20091203152513.643c471a@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
-To: opurdila@ixiacom.com
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44978
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754855AbZLCXzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:55:47 -0500
-In-Reply-To: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:28039 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754990AbZLCX4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:56:20 -0500
+In-Reply-To: <20091203152513.643c471a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Fri,  4 Dec 2009 00:31:34 +0200
-
+On Friday 04 December 2009 01:25:13 you wrote:
+> On Fri,  4 Dec 2009 00:31:37 +0200
 > 
-> This patch series introduces a couple of general enhancements to LLC
-> socket code as well as changes to scale the LLC socket lookup code for
-> a large number of interfaces needed for our uses cases (STP traffic
-> generation from a large number of ports, via virtual network
-> interfaces).
+> Octavian Purdila <opurdila@ixiacom.com> wrote:
+> > This patch adds a per SAP device based hash table to solve the
+> > multicast delivery scalability issues for the case where the are a
+> > large number of interfaces and a large number of sockets (bound to the
+> > same SAP) are used.
+> 
+> Rather than adding hash table and rwlock, why not hash list RCU
+> and a single spin lock
+> 
 
-These patches are still in flux, in particular the hash table
-bits need changes, so this stuff will have to wait until the
-next merge window, it's too late for the current one sorry.
+I have a partial version with RCU and single spinlock, but then I ran into a 
+(Eric's I think) patch which moved the UDP lock per bucket. And since RCU 
+can't help on the write side (in this instance each time we bound or delete 
+the socket) it was not clear to me what is the best approach.
+
+Should I go ahead with the RCU and single lock?
+
