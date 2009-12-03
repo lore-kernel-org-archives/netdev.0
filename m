@@ -1,65 +1,87 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 03/18] Bluetooth: Remove unused global minor variable
-Date: Thu,  3 Dec 2009 19:45:40 +0100
-Message-ID: <329ab1b3e6ceac3f77ab400206a97cc402624259.1259865280.git.marcel@holtmann.org>
-References: <cover.1259865279.git.marcel@holtmann.org>
- <b3cf652afb5404685e3d7ed6780a8d1fa10e21da.1259865280.git.marcel@holtmann.org>
- <5990108cfcd3eb2d365c9ea6f82318be80c4e9d3.1259865280.git.marcel@holtmann.org>
-Cc: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] tcp: diag: Dont report negative values for rx
+ queue
+Date: Thu, 03 Dec 2009 19:54:40 +0100
+Message-ID: <4B180970.4020609@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:37647 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756505AbZLCSpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 13:45:55 -0500
-In-Reply-To: <5990108cfcd3eb2d365c9ea6f82318be80c4e9d3.1259865280.git.marcel@holtmann.org>
-In-Reply-To: <cover.1259865279.git.marcel@holtmann.org>
-References: <cover.1259865279.git.marcel@holtmann.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56863 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755680AbZLCSyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 13:54:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the removal of the module parameter for setting the minor number,
-this variable became unused. So just remove it.
+Both netlink and /proc/net/tcp interfaces can report transient
+negative values for rx queue.
 
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+ss ->
+State   Recv-Q Send-Q  Local Address:Port  Peer Address:Port
+ESTAB   -6     6       127.0.0.1:45956     127.0.0.1:3333 
+
+netstat ->
+tcp   4294967290      6 127.0.0.1:37784  127.0.0.1:3333 ESTABLISHED
+
+This is because we dont lock socket while computing 
+tp->rcv_nxt - tp->copied_seq,
+and another CPU can update copied_seq before rcv_next in RX path.
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/bluetooth/hci_vhci.c |   12 ++----------
- 1 files changed, 2 insertions(+), 10 deletions(-)
+ net/ipv4/tcp_diag.c |    2 +-
+ net/ipv4/tcp_ipv4.c |   12 ++++++++++--
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/bluetooth/hci_vhci.c b/drivers/bluetooth/hci_vhci.c
-index ff02e90..c1d389f 100644
---- a/drivers/bluetooth/hci_vhci.c
-+++ b/drivers/bluetooth/hci_vhci.c
-@@ -41,8 +41,6 @@
+diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
+index fcbcd4f..939edb3 100644
+--- a/net/ipv4/tcp_diag.c
++++ b/net/ipv4/tcp_diag.c
+@@ -27,7 +27,7 @@ static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
+ 		r->idiag_rqueue = sk->sk_ack_backlog;
+ 		r->idiag_wqueue = sk->sk_max_ack_backlog;
+ 	} else {
+-		r->idiag_rqueue = tp->rcv_nxt - tp->copied_seq;
++		r->idiag_rqueue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
+ 		r->idiag_wqueue = tp->write_seq - tp->snd_una;
+ 	}
+ 	if (info != NULL)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 59c911f..3064549 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2318,6 +2318,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+ 	__be32 src = inet->inet_rcv_saddr;
+ 	__u16 destp = ntohs(inet->inet_dport);
+ 	__u16 srcp = ntohs(inet->inet_sport);
++	int rx_queue;
  
- #define VERSION "1.3"
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
+ 		timer_active	= 1;
+@@ -2333,12 +2334,19 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+ 		timer_expires = jiffies;
+ 	}
  
--static int minor = MISC_DYNAMIC_MINOR;
--
- struct vhci_data {
- 	struct hci_dev *hdev;
- 
-@@ -295,18 +293,12 @@ static int __init vhci_init(void)
- {
- 	BT_INFO("Virtual HCI driver ver %s", VERSION);
- 
--	if (misc_register(&vhci_miscdev) < 0) {
--		BT_ERR("Can't register misc device with minor %d", minor);
--		return -EIO;
--	}
--
--	return 0;
-+	return misc_register(&vhci_miscdev);
- }
- 
- static void __exit vhci_exit(void)
- {
--	if (misc_deregister(&vhci_miscdev) < 0)
--		BT_ERR("Can't unregister misc device with minor %d", minor);
-+	misc_deregister(&vhci_miscdev);
- }
- 
- module_init(vhci_init);
--- 
-1.6.5.2
++	if (sk->sk_state == TCP_LISTEN)
++		rx_queue = sk->sk_ack_backlog;
++	else
++		/*
++		 * because we dont lock socket, we might find a transient negative value
++		 */
++		rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
++
+ 	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+ 			"%08X %5d %8d %lu %d %p %lu %lu %u %u %d%n",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+ 		tp->write_seq - tp->snd_una,
+-		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
+-					     (tp->rcv_nxt - tp->copied_seq),
++		rx_queue,
+ 		timer_active,
+ 		jiffies_to_clock_t(timer_expires - jiffies),
+ 		icsk->icsk_retransmits,
 
