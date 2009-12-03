@@ -1,25 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] tg3: 57765 support and cleanups
-Date: Thu, 03 Dec 2009 12:40:54 -0800 (PST)
-Message-ID: <20091203.124054.191186429.davem@davemloft.net>
-References: <1259865385-7773-1-git-send-email-mcarlson@broadcom.com>
+From: "Patrick Mullaney" <pmullaney@novell.com>
+Subject: Re: [PATCH 3/3] macvlan: allow in-kernel modules to create and
+	 manage macvlan devices
+Date: Thu, 03 Dec 2009 13:40:53 -0700
+Message-ID: <4B17BFE5020000C70007C8C6@soto.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <bridge@lists.linux-foundation.org>,
+	<alacrityvm-devel@lists.sourceforge.net>, <kaber@trash.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56644
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754350AbZLCUks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 15:40:48 -0500
-In-Reply-To: <1259865385-7773-1-git-send-email-mcarlson@broadcom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 3 Dec 2009 10:36:19 -0800
+On Fri, 2009-11-27 at 23:14 +0100, Arnd Bergmann wrote:
+> On Friday 13 November 2009, Patrick Mullaney wrote:
+> > 
+> > The macvlan driver didn't allow for creation/deletion of devices
+> > by other in-kernel modules. This patch provides common routines
+> > for both in-kernel and netlink based management. This patch
+> > also enables macvlan device support for gro for lower level
+> > devices that support gro.
+> 
+> I wonder if doing this way round is a good idea, why don't
+> you just use netlink to set up the endpoint device like
+> the current macvlan and macvtap do? I think doing it consistently
+> for all backends would be a significant advantage.
 
-> This patchset adds 57765 asic rev support and appends a few cleanups.
+sorry for the late response - I'm thinking about re-implementing
+this along the lines that you are talking about. Especially in light
+of your new configuration options. The reason(probably short sighted)
+for the previous approach was that the creation step was already being
+handled in our venet driver(but it doesn't have to be).
 
-All applied to net-next-2.6, thanks.
+Thanks for the suggestion.
+Patrick
+
+> 
+> 	Arnd <><
+
