@@ -1,175 +1,91 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net 02/05: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
-Date: Thu,  3 Dec 2009 12:25:54 +0100 (MET)
-Message-ID: <20091203112553.15100.85326.sendpatchset@x2.localnet>
+Subject: net 01/05: fib_rules: rearrange struct fib_rule
+Date: Thu,  3 Dec 2009 12:25:53 +0100 (MET)
+Message-ID: <20091203112551.15100.37082.sendpatchset@x2.localnet>
 References: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60316 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:60314 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755923AbZLCLZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 06:25:48 -0500
+	with ESMTP id S1755823AbZLCLZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 06:25:47 -0500
 In-Reply-To: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 229e77eec406ad68662f18e49fda8b5d366768c5
+commit b8952893d5d86f69c4e499d191b98c6658f64b0f
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Dec 3 12:05:23 2009 +0100
+Date:   Thu Dec 3 12:05:22 2009 +0100
 
-    net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
+    net: fib_rules: rearrange struct fib_rule
     
-    The next patch will add oif classification, rename interface related members
-    and attributes to reflect that they're used for iif classification.
+    The ifname member is only used to resolve interface names and is not needed
+    during rule lookups. The target and ctarget members however are used during
+    rule lookups and are currently located in a second cacheline.
+    
+    Move ifname further to the end to make sure both target and ctarget are
+    located in the same cacheline as other members used during rule lookups.
+    
+    The layout on 64 bit changes from:
+    
+    struct fib_rule {
+    	...
+            u32                        table;                /*    56     4 */
+            u8                         action;               /*    60     1 */
+    
+            /* XXX 3 bytes hole, try to pack */
+    
+            /* --- cacheline 1 boundary (64 bytes) --- */
+            u32                        target;               /*    64     4 */
+    
+            /* XXX 4 bytes hole, try to pack */
+    
+            struct fib_rule *          ctarget;              /*    72     8 */
+            struct rcu_head            rcu;                  /*    80    16 */
+            struct net *               fr_net;               /*    96     8 */
+    };
+    
+    to:
+    
+    struct fib_rule {
+    	...
+            u32                        table;                /*    40     4 */
+            u8                         action;               /*    44     1 */
+    
+            /* XXX 3 bytes hole, try to pack */
+    
+            u32                        target;               /*    48     4 */
+    
+            /* XXX 4 bytes hole, try to pack */
+    
+            struct fib_rule *          ctarget;              /*    56     8 */
+            /* --- cacheline 1 boundary (64 bytes) --- */
+            char                       ifname[16];           /*    64    16 */
+            struct rcu_head            rcu;                  /*    80    16 */
+            struct net *               fr_net;               /*    96     8 */
+    
+    };
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
-index c7e5b70..7e11bb2 100644
---- a/include/linux/fib_rules.h
-+++ b/include/linux/fib_rules.h
-@@ -8,7 +8,8 @@
- #define FIB_RULE_PERMANENT	0x00000001
- #define FIB_RULE_INVERT		0x00000002
- #define FIB_RULE_UNRESOLVED	0x00000004
--#define FIB_RULE_DEV_DETACHED	0x00000008
-+#define FIB_RULE_IIF_DETACHED	0x00000008
-+#define FIB_RULE_DEV_DETACHED	FIB_RULE_IIF_DETACHED
- 
- /* try to find source address in routing lookups */
- #define FIB_RULE_FIND_SADDR	0x00010000
-@@ -31,7 +32,8 @@ enum {
- 	FRA_UNSPEC,
- 	FRA_DST,	/* destination address */
- 	FRA_SRC,	/* source address */
--	FRA_IFNAME,	/* interface name */
-+	FRA_IIFNAME,	/* interface name */
-+#define FRA_IFNAME	FRA_IIFNAME
- 	FRA_GOTO,	/* target to jump to (FR_ACT_GOTO) */
- 	FRA_UNUSED2,
- 	FRA_PRIORITY,	/* priority/preference */
 diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 22fb323..62bebcb 100644
+index 2cd707b..22fb323 100644
 --- a/include/net/fib_rules.h
 +++ b/include/net/fib_rules.h
-@@ -10,7 +10,7 @@
- struct fib_rule {
+@@ -11,7 +11,6 @@ struct fib_rule {
  	struct list_head	list;
  	atomic_t		refcnt;
--	int			ifindex;
-+	int			iifindex;
+ 	int			ifindex;
+-	char			ifname[IFNAMSIZ];
  	u32			mark;
  	u32			mark_mask;
  	u32			pref;
-@@ -19,7 +19,7 @@ struct fib_rule {
+@@ -20,6 +19,7 @@ struct fib_rule {
  	u8			action;
  	u32			target;
  	struct fib_rule *	ctarget;
--	char			ifname[IFNAMSIZ];
-+	char			iifname[IFNAMSIZ];
++	char			ifname[IFNAMSIZ];
  	struct rcu_head		rcu;
  	struct net *		fr_net;
  };
-@@ -67,7 +67,7 @@ struct fib_rules_ops {
- };
- 
- #define FRA_GENERIC_POLICY \
--	[FRA_IFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
-+	[FRA_IIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
- 	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
- 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
- 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index bd30938..8e8028c 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -135,7 +135,7 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
- {
- 	int ret = 0;
- 
--	if (rule->ifindex && (rule->ifindex != fl->iif))
-+	if (rule->iifindex && (rule->iifindex != fl->iif))
- 		goto out;
- 
- 	if ((rule->mark ^ fl->mark) & rule->mark_mask)
-@@ -248,14 +248,14 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	if (tb[FRA_PRIORITY])
- 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
- 
--	if (tb[FRA_IFNAME]) {
-+	if (tb[FRA_IIFNAME]) {
- 		struct net_device *dev;
- 
--		rule->ifindex = -1;
--		nla_strlcpy(rule->ifname, tb[FRA_IFNAME], IFNAMSIZ);
--		dev = __dev_get_by_name(net, rule->ifname);
-+		rule->iifindex = -1;
-+		nla_strlcpy(rule->iifname, tb[FRA_IIFNAME], IFNAMSIZ);
-+		dev = __dev_get_by_name(net, rule->iifname);
- 		if (dev)
--			rule->ifindex = dev->ifindex;
-+			rule->iifindex = dev->ifindex;
- 	}
- 
- 	if (tb[FRA_FWMARK]) {
-@@ -388,8 +388,8 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 		    (rule->pref != nla_get_u32(tb[FRA_PRIORITY])))
- 			continue;
- 
--		if (tb[FRA_IFNAME] &&
--		    nla_strcmp(tb[FRA_IFNAME], rule->ifname))
-+		if (tb[FRA_IIFNAME] &&
-+		    nla_strcmp(tb[FRA_IIFNAME], rule->iifname))
- 			continue;
- 
- 		if (tb[FRA_FWMARK] &&
-@@ -447,7 +447,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 					 struct fib_rule *rule)
- {
- 	size_t payload = NLMSG_ALIGN(sizeof(struct fib_rule_hdr))
--			 + nla_total_size(IFNAMSIZ) /* FRA_IFNAME */
-+			 + nla_total_size(IFNAMSIZ) /* FRA_IIFNAME */
- 			 + nla_total_size(4) /* FRA_PRIORITY */
- 			 + nla_total_size(4) /* FRA_TABLE */
- 			 + nla_total_size(4) /* FRA_FWMARK */
-@@ -481,11 +481,11 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	if (rule->action == FR_ACT_GOTO && rule->ctarget == NULL)
- 		frh->flags |= FIB_RULE_UNRESOLVED;
- 
--	if (rule->ifname[0]) {
--		NLA_PUT_STRING(skb, FRA_IFNAME, rule->ifname);
-+	if (rule->iifname[0]) {
-+		NLA_PUT_STRING(skb, FRA_IIFNAME, rule->iifname);
- 
--		if (rule->ifindex == -1)
--			frh->flags |= FIB_RULE_DEV_DETACHED;
-+		if (rule->iifindex == -1)
-+			frh->flags |= FIB_RULE_IIF_DETACHED;
- 	}
- 
- 	if (rule->pref)
-@@ -600,9 +600,9 @@ static void attach_rules(struct list_head *rules, struct net_device *dev)
- 	struct fib_rule *rule;
- 
- 	list_for_each_entry(rule, rules, list) {
--		if (rule->ifindex == -1 &&
--		    strcmp(dev->name, rule->ifname) == 0)
--			rule->ifindex = dev->ifindex;
-+		if (rule->iifindex == -1 &&
-+		    strcmp(dev->name, rule->iifname) == 0)
-+			rule->iifindex = dev->ifindex;
- 	}
- }
- 
-@@ -611,8 +611,8 @@ static void detach_rules(struct list_head *rules, struct net_device *dev)
- 	struct fib_rule *rule;
- 
- 	list_for_each_entry(rule, rules, list)
--		if (rule->ifindex == dev->ifindex)
--			rule->ifindex = -1;
-+		if (rule->iifindex == dev->ifindex)
-+			rule->iifindex = -1;
- }
- 
- 
