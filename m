@@ -1,359 +1,49 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RFC 1/2] macvlan: Allow plugging in additional backends
-Date: Thu,  3 Dec 2009 18:51:59 +0100
-Message-ID: <1259862720-28432-2-git-send-email-arnd@arndb.de>
-References: <1259862720-28432-1-git-send-email-arnd@arndb.de>
+Subject: [RFC 0/2] macvtap, second try
+Date: Thu,  3 Dec 2009 18:51:58 +0100
+Message-ID: <1259862720-28432-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller\"" <davem@davemloft.net>,
+	"David S . Miller \"" <davem@davemloft.net>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Edge Virtual Bridging <evb@yahoogroups.com>,
 	Patrick Mullaney <pmullaney@novell.com>
 To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755343AbZLCRxR@vger.kernel.org>
-In-Reply-To: <1259862720-28432-1-git-send-email-arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756251AbZLCRxv@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch includes only the basic framework for overriding the
-receive path. With these hooks, we can add the macvtap driver
-and potentially other drivers that directly interface with a
-hypervisor.
+I did not get this ready for the merge window, but people asked what
+the status of this is so I'm posting it now to solicit feedback.
 
-Loosely based on a patch by Patrick Mullaney based on another
-patch by Arnd Bergmann.
+The first patch just adds some hooks into macvlan.c and is less
+invasive than the previous version. That part should be fine
+and I'd like this to get merged into macvlan for 2.6.33 if people
+agree that the approach is right.
 
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: David S. Miller" <davem@davemloft.net>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: netdev@vger.kernel.org
-Cc: bridge@lists.linux-foundation.org
-Cc: linux-kernel@vger.kernel.org
-Cc: Patrick Mullaney <pmullaney@novell.com>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+The second patch adds the driver using it and is not ready for
+integration unfortunately, but maybe it could get into staging
+anyway. Please look at that patch carefully and provide feedback.
+
+	Arnd <><
 ---
- drivers/net/macvlan.c      |  113 +++++++++++++++++++-------------------------
- include/linux/if_macvlan.h |   71 +++++++++++++++++++++++++++
- 2 files changed, 120 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index e0436fd..4fb4370 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -39,31 +39,6 @@ struct macvlan_port {
- 	struct list_head	vlans;
- };
- 
--/**
-- *	struct macvlan_rx_stats - MACVLAN percpu rx stats
-- *	@rx_packets: number of received packets
-- *	@rx_bytes: number of received bytes
-- *	@multicast: number of received multicast packets
-- *	@rx_errors: number of errors
-- */
--struct macvlan_rx_stats {
--	unsigned long rx_packets;
--	unsigned long rx_bytes;
--	unsigned long multicast;
--	unsigned long rx_errors;
--};
--
--struct macvlan_dev {
--	struct net_device	*dev;
--	struct list_head	list;
--	struct hlist_node	hlist;
--	struct macvlan_port	*port;
--	struct net_device	*lowerdev;
--	struct macvlan_rx_stats *rx_stats;
--	enum macvlan_mode	mode;
--};
--
--
- static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
- 					       const unsigned char *addr)
- {
-@@ -118,31 +93,17 @@ static int macvlan_addr_busy(const struct macvlan_port *port,
- 	return 0;
- }
- 
--static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
--				    unsigned int len, bool success,
--				    bool multicast)
--{
--	struct macvlan_rx_stats *rx_stats;
--
--	rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
--	if (likely(success)) {
--		rx_stats->rx_packets++;;
--		rx_stats->rx_bytes += len;
--		if (multicast)
--			rx_stats->multicast++;
--	} else {
--		rx_stats->rx_errors++;
--	}
--}
- 
--static int macvlan_broadcast_one(struct sk_buff *skb, struct net_device *dev,
-+static int macvlan_broadcast_one(struct sk_buff *skb,
-+				 const struct macvlan_dev *vlan,
- 				 const struct ethhdr *eth, bool local)
- {
-+	struct net_device *dev = vlan->dev;
- 	if (!skb)
- 		return NET_RX_DROP;
- 
- 	if (local)
--		return dev_forward_skb(dev, skb);
-+		return vlan->forward(dev, skb);
- 
- 	skb->dev = dev;
- 	if (!compare_ether_addr_64bits(eth->h_dest,
-@@ -151,7 +112,7 @@ static int macvlan_broadcast_one(struct sk_buff *skb, struct net_device *dev,
- 	else
- 		skb->pkt_type = PACKET_MULTICAST;
- 
--	return netif_receive_skb(skb);
-+	return vlan->receive(skb);
- }
- 
- static void macvlan_broadcast(struct sk_buff *skb,
-@@ -175,7 +136,7 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 				continue;
- 
- 			nskb = skb_clone(skb, GFP_ATOMIC);
--			err = macvlan_broadcast_one(nskb, vlan->dev, eth,
-+			err = macvlan_broadcast_one(nskb, vlan, eth,
- 					 mode == MACVLAN_MODE_BRIDGE);
- 			macvlan_count_rx(vlan, skb->len + ETH_HLEN,
- 					 err == NET_RX_SUCCESS, 1);
-@@ -238,7 +199,7 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
- 	skb->dev = dev;
- 	skb->pkt_type = PACKET_HOST;
- 
--	netif_receive_skb(skb);
-+	vlan->receive(skb);
- 	return NULL;
- }
- 
-@@ -260,7 +221,7 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dest = macvlan_hash_lookup(port, eth->h_dest);
- 		if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
- 			unsigned int length = skb->len + ETH_HLEN;
--			int ret = dev_forward_skb(dest->dev, skb);
-+			int ret = dest->forward(dest->dev, skb);
- 			macvlan_count_rx(dest, length,
- 					 ret == NET_RX_SUCCESS, 0);
- 
-@@ -273,8 +234,8 @@ xmit_world:
- 	return dev_queue_xmit(skb);
- }
- 
--static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
--				      struct net_device *dev)
-+netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
-+			       struct net_device *dev)
- {
- 	int i = skb_get_queue_mapping(skb);
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-@@ -290,6 +251,7 @@ static netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(macvlan_start_xmit);
- 
- static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
- 			       unsigned short type, const void *daddr,
-@@ -623,8 +585,11 @@ static int macvlan_get_tx_queues(struct net *net,
- 	return 0;
- }
- 
--static int macvlan_newlink(struct net *src_net, struct net_device *dev,
--			   struct nlattr *tb[], struct nlattr *data[])
-+int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
-+			   struct nlattr *tb[], struct nlattr *data[],
-+			   int (*receive)(struct sk_buff *skb),
-+			   int (*forward)(struct net_device *dev,
-+					  struct sk_buff *skb))
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvlan_port *port;
-@@ -664,6 +629,8 @@ static int macvlan_newlink(struct net *src_net, struct net_device *dev,
- 	vlan->lowerdev = lowerdev;
- 	vlan->dev      = dev;
- 	vlan->port     = port;
-+	vlan->receive  = netif_receive_skb;
-+	vlan->forward  = dev_forward_skb;
- 
- 	vlan->mode     = MACVLAN_MODE_VEPA;
- 	if (data && data[IFLA_MACVLAN_MODE])
-@@ -677,8 +644,17 @@ static int macvlan_newlink(struct net *src_net, struct net_device *dev,
- 	netif_stacked_transfer_operstate(lowerdev, dev);
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(macvlan_common_newlink);
- 
--static void macvlan_dellink(struct net_device *dev, struct list_head *head)
-+static int macvlan_newlink(struct net *src_net, struct net_device *dev,
-+			   struct nlattr *tb[], struct nlattr *data[])
-+{
-+	return macvlan_common_newlink(src_net, dev, tb, data,
-+				      netif_receive_skb,
-+				      dev_forward_skb);
-+}
-+
-+void macvlan_dellink(struct net_device *dev, struct list_head *head)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvlan_port *port = vlan->port;
-@@ -689,6 +665,7 @@ static void macvlan_dellink(struct net_device *dev, struct list_head *head)
- 	if (list_empty(&port->vlans))
- 		macvlan_port_destroy(port->dev);
- }
-+EXPORT_SYMBOL_GPL(macvlan_dellink);
- 
- static int macvlan_changelink(struct net_device *dev,
- 		struct nlattr *tb[], struct nlattr *data[])
-@@ -720,19 +697,27 @@ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
- 	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
- };
- 
--static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
-+int macvlan_link_register(struct rtnl_link_ops *ops)
-+{
-+	/* common fields */
-+	ops->priv_size		= sizeof(struct macvlan_dev);
-+	ops->get_tx_queues	= macvlan_get_tx_queues;
-+	ops->setup		= macvlan_setup;
-+	ops->validate		= macvlan_validate;
-+	ops->maxtype		= IFLA_MACVLAN_MAX;
-+	ops->policy		= macvlan_policy;
-+	ops->changelink		= macvlan_changelink;
-+	ops->get_size		= macvlan_get_size;
-+	ops->fill_info		= macvlan_fill_info;
-+
-+	return rtnl_link_register(ops);
-+};
-+EXPORT_SYMBOL_GPL(macvlan_link_register);
-+
-+static struct rtnl_link_ops macvlan_link_ops = {
- 	.kind		= "macvlan",
--	.priv_size	= sizeof(struct macvlan_dev),
--	.get_tx_queues  = macvlan_get_tx_queues,
--	.setup		= macvlan_setup,
--	.validate	= macvlan_validate,
- 	.newlink	= macvlan_newlink,
- 	.dellink	= macvlan_dellink,
--	.maxtype	= IFLA_MACVLAN_MAX,
--	.policy		= macvlan_policy,
--	.changelink	= macvlan_changelink,
--	.get_size	= macvlan_get_size,
--	.fill_info	= macvlan_fill_info,
- };
- 
- static int macvlan_device_event(struct notifier_block *unused,
-@@ -761,7 +746,7 @@ static int macvlan_device_event(struct notifier_block *unused,
- 		break;
- 	case NETDEV_UNREGISTER:
- 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
--			macvlan_dellink(vlan->dev, NULL);
-+			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
- 		break;
- 	}
- 	return NOTIFY_DONE;
-@@ -778,7 +763,7 @@ static int __init macvlan_init_module(void)
- 	register_netdevice_notifier(&macvlan_notifier_block);
- 	macvlan_handle_frame_hook = macvlan_handle_frame;
- 
--	err = rtnl_link_register(&macvlan_link_ops);
-+	err = macvlan_link_register(&macvlan_link_ops);
- 	if (err < 0)
- 		goto err1;
- 	return 0;
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 5f200ba..51f1512 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -1,6 +1,77 @@
- #ifndef _LINUX_IF_MACVLAN_H
- #define _LINUX_IF_MACVLAN_H
- 
-+#include <linux/if_link.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/netlink.h>
-+#include <net/netlink.h>
-+
-+struct macvlan_port;
-+struct macvtap_queue;
-+
-+/**
-+ *	struct macvlan_rx_stats - MACVLAN percpu rx stats
-+ *	@rx_packets: number of received packets
-+ *	@rx_bytes: number of received bytes
-+ *	@multicast: number of received multicast packets
-+ *	@rx_errors: number of errors
-+ */
-+struct macvlan_rx_stats {
-+	unsigned long rx_packets;
-+	unsigned long rx_bytes;
-+	unsigned long multicast;
-+	unsigned long rx_errors;
-+};
-+
-+struct macvlan_dev {
-+	struct net_device	*dev;
-+	struct list_head	list;
-+	struct hlist_node	hlist;
-+	struct macvlan_port	*port;
-+	struct net_device	*lowerdev;
-+	struct macvlan_rx_stats *rx_stats;
-+	enum macvlan_mode	mode;
-+	int (*receive)(struct sk_buff *skb);
-+	int (*forward)(struct net_device *dev, struct sk_buff *skb);
-+	struct macvtap_queue	*tap;
-+};
-+
-+static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
-+				    unsigned int len, bool success,
-+				    bool multicast)
-+{
-+	struct macvlan_rx_stats *rx_stats;
-+
-+	rx_stats = per_cpu_ptr(vlan->rx_stats, smp_processor_id());
-+	if (likely(success)) {
-+		rx_stats->rx_packets++;;
-+		rx_stats->rx_bytes += len;
-+		if (multicast)
-+			rx_stats->multicast++;
-+	} else {
-+		rx_stats->rx_errors++;
-+	}
-+}
-+
-+extern int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
-+				  struct nlattr *tb[], struct nlattr *data[],
-+				  int (*receive)(struct sk_buff *skb),
-+				  int (*forward)(struct net_device *dev,
-+						 struct sk_buff *skb));
-+
-+extern void macvlan_count_rx(const struct macvlan_dev *vlan,
-+			     unsigned int len, bool success,
-+			     bool multicast);
-+
-+extern void macvlan_dellink(struct net_device *dev, struct list_head *head);
-+
-+extern int macvlan_link_register(struct rtnl_link_ops *ops);
-+
-+extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
-+				      struct net_device *dev);
-+
-+
- extern struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *);
- 
- #endif /* _LINUX_IF_MACVLAN_H */
--- 
-1.6.3.3
+Arnd Bergmann (1):
+  macvlan: add tap device backend
+
+Patrick Mullaney (1):
+  macvlan: Allow plugging in additional backends
+
+ drivers/net/Kconfig        |   12 +
+ drivers/net/Makefile       |    1 +
+ drivers/net/macvlan.c      |  113 ++++-----
+ drivers/net/macvtap.c      |  560 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/if_macvlan.h |   71 ++++++
+ 5 files changed, 693 insertions(+), 64 deletions(-)
+ create mode 100644 drivers/net/macvtap.c
