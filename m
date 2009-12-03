@@ -1,63 +1,45 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 14711] New: usbnet ax88172 mac address change
- broken
-Date: Thu, 3 Dec 2009 13:38:45 -0800
-Message-ID: <20091203133845.4977551c.akpm@linux-foundation.org>
-References: <bug-14711-10286@http.bugzilla.kernel.org/>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [PATCH 1/2]cdc-ether:Implement reset_resume()
+Date: Thu, 3 Dec 2009 22:41:07 +0100
+Message-ID: <200912032241.07433.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	remur-hi6Y0CQ0nG0@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <bug-14711-10286-V0hAGp6uBxO456/isadD/XN4h3HLQggn@public.gmane.org/>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:51976 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752601AbZLCVk4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:40:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+>From b215603d7bbe3907666d27ebcd6ae847dd4f3a03 Mon Sep 17 00:00:00 2001
+From: Oliver Neukum <oliver@neukum.org>
+Date: Thu, 3 Dec 2009 22:02:11 +0100
+Subject: [PATCH 1/2] cdc-ether:Implement reset_resume()
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Normal resume can do double duty as reset_resume() for this driver
+as it keeps no state in the device
 
-On Tue, 1 Dec 2009 15:41:10 GMT
-bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org wrote:
+Signed-off-by: Oliver Neukum <oliver@neukum.org>
+---
+ drivers/net/usb/cdc_ether.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14711
-> 
->            Summary: usbnet ax88172 mac address change broken
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.31rc8
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network-ztI5WcYan/vQLgFONoPN62D2FQJk+8+b@public.gmane.org
->         ReportedBy: remur-hi6Y0CQ0nG0@public.gmane.org
->         Regression: No
-> 
-> 
-> When changing the MAC address on a NETGEAR FA120 (because an old one is
-> registered with my provider) the replies to the traffic don't reach the system
-> anymore, the NIC is dropping them, putting the NIC into promiscous mode will
-> show they are properly replied to.
-> 
-> Searching around I found this patch from the openBSD folks
-> http://www.mail-archive.com/misc-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org/msg76418.html
-> http://www.openbsd.org/cgi-bin/cvsweb/src/sys/dev/usb/if_axe.c.diff?r1=1.91;r2=1.92
-> 
-> Looks like it is not working with the ax88172, but only with newer models.
-> Still an error message would be nice when setting another physical address
-> 
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 21e1ba1..075e33f 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -610,6 +610,7 @@ static struct usb_driver cdc_driver = {
+ 	.disconnect =	usbnet_disconnect,
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
++	.reset_resume =	usbnet_resume,
+ };
+ 
+ 
+-- 
+1.6.4.2
 
-It would be nice if some asix-competent person could take a look at porting
-that openbsd patch across, see if it fixes Karsten's hardware.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
