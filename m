@@ -1,65 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] virtio_net: add more ethtool information
-Date: Wed, 02 Dec 2009 22:32:26 -0800
-Message-ID: <20091203063311.902077645@vyatta.com>
-References: <20091203063225.926337440@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Alex Williamson <alex.williamson@hp.com>
+From: Tore Anderson <tore.anderson@redpill-linpro.com>
+Subject: Re: "NIG timer max" messages from bnx2x
+Date: Thu, 03 Dec 2009 08:36:38 +0100
+Message-ID: <4B176A86.30009@redpill-linpro.com>
+References: <4B168F04.60309@redpill-linpro.com> <1259779263.2020.6.camel@lb-tlvb-eilong>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Benjamin Li <benli@broadcom.com>
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59372 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075AbZLCH3D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 02:29:03 -0500
-Content-Disposition: inline; filename=vda-speed.patch
+Received: from mailhub.linpro.no ([87.238.49.141]:45800 "EHLO
+	mailhub.linpro.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbZLCHgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 02:36:41 -0500
+In-Reply-To: <1259779263.2020.6.camel@lb-tlvb-eilong>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is useful for some tools (as well as bonding, and bridging)
-for virtio network interface provide more ethtool information.
+* Eilon Greenstein
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> This message indicates that for over 1 second, the device could not 
+> transmit anything to the network (the same packet was not
+> transmitted for over one second) - this usually happens when the
+> network is in fatal condition - usually because some device is
+> sending constant pause stream that halts all traffic. In this case,
+> the device is incrementing the counter and drains outgoing traffic -
+> without this action, the device will not be able to unload since even
+> the commands from the driver will not be processed due to this
+> excessive back pressure.
+> 
+> As you indicated - once you remove the server that halts all other 
+> traffic, everything else resumes - that indicates that this server
+> is sending constant pause that ultimately halts the entire switch.
 
---- a/drivers/net/virtio_net.c	2009-12-01 14:24:14.766450584 -0800
-+++ b/drivers/net/virtio_net.c	2009-12-01 16:49:18.295535415 -0800
-@@ -763,7 +763,36 @@ static void virtnet_vlan_rx_kill_vid(str
- 		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
- }
- 
-+static void virtnet_get_drvinfo(struct net_device *dev,
-+				struct ethtool_drvinfo *info)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+
-+	strcpy(info->driver, "virtnet");
-+	strcpy(info->version, "0.1");
-+	strcpy(info->fw_version, "N/A");
-+	strcpy(info->bus_info, dev_driver_string(&vi->vdev->dev));
-+}
-+
-+static int virtnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	cmd->supported = SUPPORTED_1000baseT_Full |
-+		SUPPORTED_Autoneg | SUPPORTED_FIBRE;
-+	cmd->advertising = ADVERTISED_1000baseT_Full |
-+		ADVERTISED_Autoneg | ADVERTISED_FIBRE;
-+	cmd->speed = SPEED_1000;
-+	cmd->duplex = DUPLEX_FULL;
-+	cmd->port = PORT_FIBRE;
-+	cmd->phy_address = 0;
-+	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->autoneg = AUTONEG_ENABLE;
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops virtnet_ethtool_ops = {
-+	.get_settings = virtnet_get_settings,
-+	.get_drvinfo = virtnet_get_drvinfo,
- 	.set_tx_csum = virtnet_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
- 	.set_tso = ethtool_op_set_tso,
+Thank you very much for your input Elion, you've definetively helped me
+look in the right place.  I do see a constant stream of pause frames
+being sent by the switch module to a F5 BIG-IP box that's connected to
+external ports of the switch.  The stream appears instantly when the ESX
+server is connected and vanishes just as fast when it's been
+disconnected.  I haven't been able to verify what the ESX server is
+doing to the switch yet, but your assumption that it too is spewing out
+pause frames sounds very likely to me.
 
+However I'm still a bit confused on why this is triggering the "NIG
+timer max" message on the Linux blade.  It would have made perfect sense
+to me for the bnx2x driver/NIC to stop transmitting outbound frames if
+it was the recipient of an inbound pause frame flood, but tcpdump does
+not show any such frames being received.  Yet it stalls all outbound
+traffic.  Any idea why?
+
+Best regards,
 -- 
-
+Tore Anderson
+Redpill Linpro AS - http://www.redpill-linpro.com/
+Tel: +47 21 54 41 27
