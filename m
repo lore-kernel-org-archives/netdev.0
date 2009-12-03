@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 3/4] be2net: Add support for ethtool self
- test
-Date: Thu, 03 Dec 2009 13:16:06 -0800 (PST)
-Message-ID: <20091203.131606.107274637.davem@davemloft.net>
-References: <20091203161804.GA1382@serverengines.com>
-	<20091203.124016.226739840.davem@davemloft.net>
+Subject: Re: [PATCH 02/02]usbnet & cdc-ether: Autosuspend for online devices
+Date: Thu, 03 Dec 2009 13:19:30 -0800 (PST)
+Message-ID: <20091203.131930.42454846.davem@davemloft.net>
+References: <200912032210.55403.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ajitk@serverengines.com
+To: oliver@neukum.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35744
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35748
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755076AbZLCVQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:16:00 -0500
-In-Reply-To: <20091203.124016.226739840.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1752749AbZLCVTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:19:23 -0500
+In-Reply-To: <200912032210.55403.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 03 Dec 2009 12:40:16 -0800 (PST)
+From: Oliver Neukum <oliver@neukum.org>
+Date: Thu, 3 Dec 2009 22:10:55 +0100
 
-> From: Ajit Khaparde <ajitk@serverengines.com>
-> Date: Thu, 3 Dec 2009 21:48:14 +0530
+> commit 17b97d1c24a061843a8f707e80f23a7b0b7647df
+> Author: Oliver Neukum <oliver@neukum.org>
+> Date:   Thu Dec 3 22:08:12 2009 +0100
 > 
->> This patch adds support for ethtool selftest.
->> 
->> From: Suresh R <sureshr@serverengines.com>
->> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-> 
-> Applied.
+>     usbnet & cdc-ether: Autosuspend for online devices
+>     
+>     Using remote wakeup and delayed transmission to allow
+>     online device to go into usb autosuspend.
+>     Minimal alternate support for devices that don't support
+>     remote wakeup.
+>     
+>     Signed-off-by: Oliver Neukum <oliver@neukum.org>
 
-This breaks the build, there is no ->self_test_count member
-of ethtool_ops.
+Oliver, this patch still doesn't apply after patch #1 is
+added.
 
-I'm reverting just this change.
+davem@sunset:~/src/GIT/net-next-2.6$ git am --signoff bundle-735.mbox 
+Applying: cdc-ether:Implement reset_resume()
+Applying: usbnet & cdc-ether: Autosuspend for online devices
+error: patch failed: drivers/net/usb/cdc_ether.c:411
+error: drivers/net/usb/cdc_ether.c: patch does not apply
+error: patch failed: drivers/net/usb/usbnet.c:353
+error: drivers/net/usb/usbnet.c: patch does not apply
+Patch failed at 0002 usbnet & cdc-ether: Autosuspend for online devices
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
+You have new mail in /var/mail/davem
