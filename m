@@ -1,63 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
-Date: Fri, 04 Dec 2009 00:04:42 +0100
-Message-ID: <4B18440A.2080507@gmail.com>
-References: <4B17EFE3.4080301@gmail.com> <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com> <20091203.133108.254093305.davem@davemloft.net> <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH net-next-2.6] tcp: connect() race with timewait reuse
+Date: Fri, 4 Dec 2009 02:22:47 +0300
+Message-ID: <20091203232247.GA31496@ioremap.net>
+References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <20091202.005937.177088443.davem@davemloft.net> <4B163226.50801@gmail.com> <4B164293.7070804@gmail.com> <4B16830B.4010801@gmail.com> <20091202221552.GA17579@ioremap.net> <4B175E65.3070905@gmail.com> <4B177757.3010407@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	kaber@trash.net, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39714 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbZLCXEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:04:44 -0500
-In-Reply-To: <20091203224742.GA16646@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kdakhane@gmail.com,
+	netdev@vger.kernel.org, netfilter@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B177757.3010407@gmail.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski a =E9crit :
-> On Thu, Dec 03, 2009 at 10:51:25PM +0100, Eric Dumazet wrote:
->> David Miller a =E9crit :
->>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>> Date: Thu, 03 Dec 2009 22:29:42 +0100
->>>
->>>> Nice patch, thanks :)
->>>>
->>>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->>> I like it too, but please resubmit once we have at least
->>> one example user submitted.
->>>
->> I successfully tested following patch.
->=20
-> Great! But, I see, checking if realloc_netdev_mq() use is always lega=
-l
-> (before register_netdev()) is not trivial in this driver. (I have som=
-e
-> suspicions around ixgbe_resume().) I wonder, if there should be added
-> some debugging for this.
+Hi Eric.
 
-Yes, probably
+Patch looks good, thank you!
 
-Or even better, allowing realloc_netdev_mq() to be called even after
-register_netdev() :)
+On Thu, Dec 03, 2009 at 09:31:19AM +0100, Eric Dumazet (eric.dumazet@gmail.com) wrote:
+> +/*
+> + * unhash a timewait socket from established hash
+> + * lock must be hold by caller
+> + */
+> +int inet_twsk_unhash(struct inet_timewait_sock *tw)
+> +{
+> +	if (hlist_nulls_unhashed(&tw->tw_node))
+> +		return 0;
+> +
+> +	hlist_nulls_del_rcu(&tw->tw_node);
+> +	sk_nulls_node_init(&tw->tw_node);
+> +	return 1;
+> +}
+> +
+>  /* Must be called with locally disabled BHs. */
+>  static void __inet_twsk_kill(struct inet_timewait_sock *tw,
+>  			     struct inet_hashinfo *hashinfo)
+>  {
+>  	struct inet_bind_hashbucket *bhead;
+>  	struct inet_bind_bucket *tb;
+> +	int refcnt;
+>  	/* Unlink from established hashes. */
+>  	spinlock_t *lock = inet_ehash_lockp(hashinfo, tw->tw_hash);
+>  
+>  	spin_lock(lock);
+> -	if (hlist_nulls_unhashed(&tw->tw_node)) {
+> -		spin_unlock(lock);
+> -		return;
+> -	}
+> -	hlist_nulls_del_rcu(&tw->tw_node);
+> -	sk_nulls_node_init(&tw->tw_node);
+> +	refcnt = inet_twsk_unhash(tw);
 
-bnx2 for example could not be patched easily, following patch doesnt wo=
-rk.
+Tricky :)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4cae2a8..8bd5d0d 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6177,6 +6177,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
-=20
- 	bp->num_tx_rings =3D rounddown_pow_of_two(bp->irq_nvecs);
--	bp->dev->real_num_tx_queues =3D bp->num_tx_rings;
-+	realloc_netdev_mq(bp->dev, bp->num_tx_rings);
-=20
- 	bp->num_rx_rings =3D bp->irq_nvecs;
- }
+>  	spin_unlock(lock);
+>  
+>  	/* Disassociate with bind bucket. */
+> @@ -37,9 +48,12 @@ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
+>  			hashinfo->bhash_size)];
+>  	spin_lock(&bhead->lock);
+>  	tb = tw->tw_tb;
+> -	__hlist_del(&tw->tw_bind_node);
+> -	tw->tw_tb = NULL;
+> -	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
+> +	if (tb) {
+> +		__hlist_del(&tw->tw_bind_node);
+> +		tw->tw_tb = NULL;
+> +		inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
+> +		refcnt++;
+> +	}
+>  	spin_unlock(&bhead->lock);
+>  #ifdef SOCK_REFCNT_DEBUG
+>  	if (atomic_read(&tw->tw_refcnt) != 1) {
+> @@ -47,7 +61,10 @@ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
+>  		       tw->tw_prot->name, tw, atomic_read(&tw->tw_refcnt));
+>  	}
+>  #endif
+> -	inet_twsk_put(tw);
+> +	while (refcnt) {
+> +		inet_twsk_put(tw);
+> +		refcnt--;
+> +	}
+>  }
 
+-- 
+	Evgeniy Polyakov
