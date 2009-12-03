@@ -1,47 +1,142 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 4/5] cnic: Fix rq_page_table DMA address.
-Date: Wed, 2 Dec 2009 17:15:38 -0800
-Message-ID: <1259802939-4742-4-git-send-email-mchan@broadcom.com>
-References: <1259802939-4742-1-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/2] netxen : fix debug tools access for NX2031
+Date: Wed,  2 Dec 2009 17:46:18 -0800
+Message-ID: <1259804779-23091-2-git-send-email-amit.salecha@qlogic.com>
+References: <1259804779-23091-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
+	Narender Kumar <narender.kumar@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2980 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753456AbZLCBId (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 20:08:33 -0500
-In-Reply-To: <1259802939-4742-1-git-send-email-mchan@broadcom.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:15837 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753354AbZLCBqO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2009 20:46:14 -0500
+In-Reply-To: <1259804779-23091-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The old code mistakenly zeroed out the upper 32-bit of the DMA address.
+From: Narender Kumar <narender.kumar@qlogic.com>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
+Driver maps only some part of the MMIO bar 0 in case of
+NX2031. This is sufficient for tx and rx by the driver.
+When debug tools need to access resources in
+unmapped regions, driver needs to map these on the fly
+in order to complete read/write request.
+
+Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
+Signed-off-by: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/cnic.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/netxen/netxen_nic_hw.c |   63 +++++++++++++++++++++++++-----------
+ 1 files changed, 44 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index bb6ce8d..d78e803 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -1500,9 +1500,9 @@ static int cnic_setup_bnx2x_ctx(struct cnic_dev *dev, struct kwqe *wqes[],
- 	ictx->timers_context.flags |= ISCSI_TIMERS_BLOCK_CONTEXT_CONN_VALID_FLG;
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index e71ca30..89bd519 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -1175,24 +1175,46 @@ netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong off)
+ 	adapter->ahw.crb_win = window;
+ }
  
- 	ictx->ustorm_st_context.ring.rq.pbl_base.lo =
--		req2->rq_page_table_addr_lo & 0xffffffff;
-+		req2->rq_page_table_addr_lo;
- 	ictx->ustorm_st_context.ring.rq.pbl_base.hi =
--		(u64) req2->rq_page_table_addr_hi >> 32;
-+		req2->rq_page_table_addr_hi;
- 	ictx->ustorm_st_context.ring.rq.curr_pbe.lo = req3->qp_first_pte[0].hi;
- 	ictx->ustorm_st_context.ring.rq.curr_pbe.hi = req3->qp_first_pte[0].lo;
- 	ictx->ustorm_st_context.ring.r2tq.pbl_base.lo =
++static void __iomem *
++netxen_nic_map_indirect_address_128M(struct netxen_adapter *adapter,
++		ulong win_off, void __iomem **mem_ptr)
++{
++	ulong off = win_off;
++	void __iomem *addr;
++	resource_size_t mem_base;
++
++	if (ADDR_IN_WINDOW1(win_off))
++		off = NETXEN_CRB_NORMAL(win_off);
++
++	addr = pci_base_offset(adapter, off);
++	if (addr)
++		return addr;
++
++	if (adapter->ahw.pci_len0 == 0)
++		off -= NETXEN_PCI_CRBSPACE;
++
++	mem_base = pci_resource_start(adapter->pdev, 0);
++	*mem_ptr = ioremap(mem_base + (off & PAGE_MASK), PAGE_SIZE);
++	if (*mem_ptr)
++		addr = *mem_ptr + (off & (PAGE_SIZE - 1));
++
++	return addr;
++}
++
+ static int
+ netxen_nic_hw_write_wx_128M(struct netxen_adapter *adapter, ulong off, u32 data)
+ {
+ 	unsigned long flags;
+-	void __iomem *addr;
+-
+-	if (ADDR_IN_WINDOW1(off))
+-		addr = NETXEN_CRB_NORMALIZE(adapter, off);
+-	else
+-		addr = pci_base_offset(adapter, off);
++	void __iomem *addr, *mem_ptr = NULL;
+ 
+-	BUG_ON(!addr);
++	addr = netxen_nic_map_indirect_address_128M(adapter, off, &mem_ptr);
++	if (!addr)
++		return -EIO;
+ 
+-	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
++	if (ADDR_IN_WINDOW1(off)) { /* Window 1 */
+ 		netxen_nic_io_write_128M(adapter, addr, data);
+-	} else {		/* Window 0 */
++	} else {        /* Window 0 */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+-		addr = pci_base_offset(adapter, off);
+ 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
+ 		writel(data, addr);
+ 		netxen_nic_pci_set_crbwindow_128M(adapter,
+@@ -1200,6 +1222,9 @@ netxen_nic_hw_write_wx_128M(struct netxen_adapter *adapter, ulong off, u32 data)
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+ 	}
+ 
++	if (mem_ptr)
++		iounmap(mem_ptr);
++
+ 	return 0;
+ }
+ 
+@@ -1207,19 +1232,16 @@ static u32
+ netxen_nic_hw_read_wx_128M(struct netxen_adapter *adapter, ulong off)
+ {
+ 	unsigned long flags;
+-	void __iomem *addr;
++	void __iomem *addr, *mem_ptr = NULL;
+ 	u32 data;
+ 
+-	if (ADDR_IN_WINDOW1(off))
+-		addr = NETXEN_CRB_NORMALIZE(adapter, off);
+-	else
+-		addr = pci_base_offset(adapter, off);
+-
+-	BUG_ON(!addr);
++	addr = netxen_nic_map_indirect_address_128M(adapter, off, &mem_ptr);
++	if (!addr)
++		return -EIO;
+ 
+-	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
++	if (ADDR_IN_WINDOW1(off)) { /* Window 1 */
+ 		data = netxen_nic_io_read_128M(adapter, addr);
+-	} else {		/* Window 0 */
++	} else {        /* Window 0 */
+ 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
+ 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
+ 		data = readl(addr);
+@@ -1228,6 +1250,9 @@ netxen_nic_hw_read_wx_128M(struct netxen_adapter *adapter, ulong off)
+ 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
+ 	}
+ 
++	if (mem_ptr)
++		iounmap(mem_ptr);
++
+ 	return data;
+ }
+ 
 -- 
-1.6.4.GIT
-
+1.6.0.2
 
