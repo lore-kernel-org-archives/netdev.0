@@ -1,38 +1,38 @@
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Subject: [PATCH 2.6.32 1/3] net: Fix ks8851 snl NULL pointer dereference Oops
-Date: Thu, 3 Dec 2009 13:06:42 -0800
-Message-ID: <14385191E87B904DBD836449AA30269D021A40@MORGANITE.micrel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 3/4] be2net: Add support for ethtool self
+ test
+Date: Thu, 03 Dec 2009 13:16:06 -0800 (PST)
+Message-ID: <20091203.131606.107274637.davem@davemloft.net>
+References: <20091203161804.GA1382@serverengines.com>
+	<20091203.124016.226739840.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Ben Dooks" <ben@simtec.co.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755727AbZLCVOO@vger.kernel.org>
-Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ajitk@serverengines.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35744
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755076AbZLCVQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:16:00 -0500
+In-Reply-To: <20091203.124016.226739840.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tristram Ha <Tristram.Ha@micrel.com>
+From: David Miller <davem@davemloft.net>
+Date: Thu, 03 Dec 2009 12:40:16 -0800 (PST)
 
-This fixes the NULL pointer dereference Oops in the ks8851 snl network driver during transmission.  All socket buffers from the queue are processed inside the loop, but new workqueues have been scheduled to run.
+> From: Ajit Khaparde <ajitk@serverengines.com>
+> Date: Thu, 3 Dec 2009 21:48:14 +0530
+> 
+>> This patch adds support for ethtool selftest.
+>> 
+>> From: Suresh R <sureshr@serverengines.com>
+>> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> 
+> Applied.
 
-Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
----
-diff -urpN linux-2.6.32.old/drivers/net/ks8851.c linux-2.6.32.new/drivers/net/ks8851.c
---- linux-2.6.32.old/drivers/net/ks8851.c	2009-11-03 11:37:49.000000000 -0800
-+++ linux-2.6.32.new/drivers/net/ks8851.c	2009-12-02 15:31:39.000000000 -0800
-@@ -1,4 +1,4 @@
--/* drivers/net/ks8651.c
-+/* drivers/net/ks8851.c
-  *
-  * Copyright 2009 Simtec Electronics
-  *	http://www.simtec.co.uk/
-@@ -714,7 +714,7 @@ static void ks8851_tx_work(struct work_s
- {
- 	struct ks8851_net *ks = container_of(work, struct ks8851_net, tx_work);
- 	struct sk_buff *txb;
--	bool last = false;
-+	bool last = skb_queue_empty(&ks->txq);
- 
- 	mutex_lock(&ks->lock);
- 
+This breaks the build, there is no ->self_test_count member
+of ethtool_ops.
+
+I'm reverting just this change.
