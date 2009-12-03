@@ -1,43 +1,58 @@
-From: David Miller <davem@davemloft.net>
+From: Frederic Leroy <fredo@starox.org>
 Subject: Re: scp stalls mysteriously
-Date: Thu, 03 Dec 2009 13:37:22 -0800 (PST)
-Message-ID: <20091203.133722.04752487.davem@davemloft.net>
-References: <20091203085933.GD30730@sd-11162.dedibox.fr>
+Date: Thu, 3 Dec 2009 22:37:28 +0100
+Message-ID: <20091203223728.3d5efa74@houba>
+References: <20091130213727.2f4047d2@houba>
+	<alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+	<20091201211945.505d3c98@houba>
+	<alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
+	<20091202085925.472136e2@houba>
+	<alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
+	<20091202154403.GB30730@sd-11162.dedibox.fr>
+	<alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
+	<20091202183451.173db5f2@houba>
+	<4B16BD58.3040802@tvk.rwth-aachen.de>
+	<20091203085933.GD30730@sd-11162.dedibox.fr>
 	<alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
-	<20091203183207.GA13626@suse.de>
+	<4B17A791.80808@tvk.rwth-aachen.de>
+	<alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
+	<4B17C6C3.1060000@tvk.rwth-aachen.de>
+	<20091203202328.62d7551a@houba>
+	<alpine.DEB.2.00.0912032207430.776@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, fredo@starox.org,
-	damian@tvk.rwth-aachen.de, netdev@vger.kernel.org,
-	asdo@shiftmail.org, eric.dumazet@gmail.com,
-	herbert@gondor.apana.org.au
-To: gregkh@suse.de
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34419
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753815AbZLCVhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:37:16 -0500
-In-Reply-To: <20091203183207.GA13626@suse.de>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:46288 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753573AbZLCVhq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:37:46 -0500
+In-Reply-To: <alpine.DEB.2.00.0912032207430.776@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <gregkh@suse.de>
-Date: Thu, 3 Dec 2009 10:32:07 -0800
+Le Thu, 3 Dec 2009 22:36:53 +0200 (EET),
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
+> however, annoying thing is that now we didn't get get the zero events
+> logged :-). Can you please print them also in that branch. Also, I
+> forgot previously that tp->frto_counter would be nice to know. And
+> since there seems to be a need for yet another case, in order to
+> solve the other problem related to fast retransmit, also tp->lost_out
+> and tp->sacked_out would be nice to know.
 
-> On Thu, Dec 03, 2009 at 12:29:39PM +0200, Ilpo Järvinen wrote:
->> I've added Greg as CC to make him aware of this issue in early as it now 
->> affects 2.6.32 too (rather important to get dealt quickly in stable once 
->> we have a tested solution since TCP is pretty broken with the silent 
->> deaths this problem seems to cause). ...One possibility would be to just 
->> queue the tested revert to stable and sort this thing out for 2.6.33 in 
->> net-2.6.
->> 
->> Opinions, Dave?, Greg?
-> 
-> As always, if you have a patch that you want in the -stable tree, send
-> it, with the git commit id of the patch that is in Linus's tree, to the
-> stable@kernel.org email address so I don't loose it.
+=2E12 is online, including patch
 
-Yep, we'll do that once we track this down and make a final decision
-on how to fix it.
+I added the fields and moved the printk at the beginning of
+retransmits_timed_out as sk is not modified in the function.
+
+I'm preparing one test without the "|| !tp->retrans_stamp"
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
