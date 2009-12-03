@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Fix a connect() race with timewait sockets
-Date: Wed, 02 Dec 2009 22:38:37 -0800 (PST)
-Message-ID: <20091202.223837.203062830.davem@davemloft.net>
-References: <4B152F97.1090409@gmail.com>
-	<20091202.005937.177088443.davem@davemloft.net>
-	<fd1a5ee40912020805r7a490ea2mdf7dc8597b9973b8@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] tcp: connect() race with timewait reuse
+Date: Thu, 03 Dec 2009 07:44:53 +0100
+Message-ID: <4B175E65.3070905@gmail.com>
+References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <20091202.005937.177088443.davem@davemloft.net> <4B163226.50801@gmail.com> <4B164293.7070804@gmail.com> <4B16830B.4010801@gmail.com> <20091202221552.GA17579@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, kdakhane@gmail.com, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, zbr@ioremap.net
-To: ashwas@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56330
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751020AbZLCGib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 01:38:31 -0500
-In-Reply-To: <fd1a5ee40912020805r7a490ea2mdf7dc8597b9973b8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, kdakhane@gmail.com,
+	netdev@vger.kernel.org, netfilter@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20091202221552.GA17579@ioremap.net>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ashwani Wason <ashwas@gmail.com>
-Date: Wed, 2 Dec 2009 08:05:51 -0800
+Evgeniy Polyakov a =E9crit :
+> Hi.
+>=20
+> Looks very good, thanks Eric, I have one question.
+>=20
+> On Wed, Dec 02, 2009 at 04:08:59PM +0100, Eric Dumazet (eric.dumazet@=
+gmail.com) wrote:
+>> +
+>> +/*
+>> + * unhash a timewait socket from established hash
+>> + * lock must be hold by caller
+>> + */
+>> +void inet_twsk_unhash(struct inet_timewait_sock *tw)
+>> +{
+>> +	if (hlist_nulls_unhashed(&tw->tw_node))
+>> +		return;
+>> +
+>> +	hlist_nulls_del_rcu(&tw->tw_node);
+>> +	sk_nulls_node_init(&tw->tw_node);
+>> +	inet_twsk_put(tw);
+>=20
+> Is it safe to call in locked context? inet_twsk_put() schedules
+> preemption, also I did not check what tw destructor does.
+>=20
 
-> Both reuse and recycle were enabled for this test. (I know because we,
-> Kapil and I are working together on different aspects of this.)
+You are probably right, we could defer the inet_twsk_put(tw) out of loc=
+ked
+section, you or I will submit another patch to correct this.
 
-Thanks, so the timewait recycling code paths really are relevant.
+Thanks !
