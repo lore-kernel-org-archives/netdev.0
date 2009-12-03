@@ -1,74 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/08: nf_nat_helper: tidy up adjust_tcp_sequence
-Date: Thu,  3 Dec 2009 21:19:37 +0100 (MET)
-Message-ID: <20091203201936.8831.52977.sendpatchset@x2.localnet>
-References: <20091203201931.8831.92922.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20091203201931.8831.92922.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] ip: print "temporary" for IPv6 temp addresses
+Date: Thu, 3 Dec 2009 12:20:45 -0800
+Message-ID: <20091203122045.2f6e7cd7@nehalam>
+References: <4AAEAF37.7020305@hp.com>
+	<4B18144E.7020907@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35801 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752733AbZLCUUy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2009 15:20:54 -0500
+In-Reply-To: <4B18144E.7020907@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 76ac894080019c6619d3c3bf615db42a43a77f32
-Author: Hannes Eder <heder@google.com>
-Date:   Thu Nov 5 15:51:19 2009 +0100
+On Thu, 03 Dec 2009 14:41:02 -0500
+Brian Haley <brian.haley@hp.com> wrote:
 
-    netfilter: nf_nat_helper: tidy up adjust_tcp_sequence
-    
-    The variable 'other_way' gets initialized but is not read afterwards,
-    so remove it.  Pass the right arguments to a pr_debug call.
-    
-    While being at tidy up a bit and it fix this checkpatch warning:
-      WARNING: suspect code indent for conditional statements
-    
-    Signed-off-by: Hannes Eder <heder@google.com>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Hi Stephen,
+> 
+> Brian Haley wrote:
+> > IPv6 addresses that have IFA_F_SECONDARY set are actually temporary addresses,
+> > hence the IFA_F_TEMPORARY equivalent.  Change the output in this case and
+> > allow filtering on the word "temporary".
+> 
+> I didn't see this in your current git tree, just pinging you about it.  This
+> would apply on top of my dad_failed patch.
+> 
 
-diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 09172a6..5bf6a92 100644
---- a/net/ipv4/netfilter/nf_nat_helper.c
-+++ b/net/ipv4/netfilter/nf_nat_helper.c
-@@ -41,18 +41,14 @@ adjust_tcp_sequence(u32 seq,
- 		    struct nf_conn *ct,
- 		    enum ip_conntrack_info ctinfo)
- {
--	int dir;
--	struct nf_nat_seq *this_way, *other_way;
-+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	struct nf_conn_nat *nat = nfct_nat(ct);
-+	struct nf_nat_seq *this_way = &nat->seq[dir];
- 
--	pr_debug("adjust_tcp_sequence: seq = %u, sizediff = %d\n", seq, seq);
--
--	dir = CTINFO2DIR(ctinfo);
--
--	this_way = &nat->seq[dir];
--	other_way = &nat->seq[!dir];
-+	pr_debug("adjust_tcp_sequence: seq = %u, sizediff = %d\n",
-+		 seq, sizediff);
- 
--	pr_debug("nf_nat_resize_packet: Seq_offset before: ");
-+	pr_debug("adjust_tcp_sequence: Seq_offset before: ");
- 	DUMP_OFFSET(this_way);
- 
- 	spin_lock_bh(&nf_nat_seqofs_lock);
-@@ -63,13 +59,13 @@ adjust_tcp_sequence(u32 seq,
- 	 * retransmit */
- 	if (this_way->offset_before == this_way->offset_after ||
- 	    before(this_way->correction_pos, seq)) {
--		   this_way->correction_pos = seq;
--		   this_way->offset_before = this_way->offset_after;
--		   this_way->offset_after += sizediff;
-+		this_way->correction_pos = seq;
-+		this_way->offset_before = this_way->offset_after;
-+		this_way->offset_after += sizediff;
- 	}
- 	spin_unlock_bh(&nf_nat_seqofs_lock);
- 
--	pr_debug("nf_nat_resize_packet: Seq_offset after: ");
-+	pr_debug("adjust_tcp_sequence: Seq_offset after: ");
- 	DUMP_OFFSET(this_way);
- }
- 
+I'll put it as well, why did patchwork not see it?
+
+-- 
