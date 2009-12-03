@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/5] ixgbe: performance tweaks
-Date: Thu, 03 Dec 2009 13:33:29 -0800
-Message-ID: <20091203213328.9291.25485.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 5/5] ixgbe: use EIAM to automask MSI-X
+Date: Thu, 03 Dec 2009 13:33:54 -0800
+Message-ID: <20091203213353.9291.64013.stgit@localhost.localdomain>
 References: <20091203213221.9291.34218.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,237 +12,86 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:54811
-	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754318AbZLCVdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:33:45 -0500
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:47580
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755158AbZLCVeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:34:08 -0500
 In-Reply-To: <20091203213221.9291.34218.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-drop variables that had cache lines modified in simultaneous hot paths.
-keep some variables modified on hot paths but make their storage per queue.
-cache align DMA data buffer start addresses.
-cache align (padding) some structures that end within a cacheline.
+when disabling interrupts, driver was writing with IO, this is no
+necessary because on ixgbe parts the hardware can "oneshot"
+disable and clear the interrupt.  So on 82598/82599 use of EIAM
+should avoid one posted write per interrupt when in MSI-X mode.
+This should improve performance and seems to in my limited
+testing, reduce CPU utilization VERY slightly.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe.h         |   20 +++++++++-----------
- drivers/net/ixgbe/ixgbe_ethtool.c |    5 -----
- drivers/net/ixgbe/ixgbe_main.c    |   32 ++++++++++++++++++--------------
- 3 files changed, 27 insertions(+), 30 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   25 +++++++++++++++++++------
+ 1 files changed, 19 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 91d80b7..8da8eb5 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -161,10 +161,12 @@ struct ixgbe_ring {
- 	unsigned long reinit_state;
- 	u64 rsc_count;			/* stat for coalesced packets */
- 	u64 rsc_flush;			/* stats for flushed packets */
-+	u32 restart_queue;		/* track tx queue restarts */
-+	u32 non_eop_descs;		/* track hardware descriptor chaining */
- 
- 	unsigned int size;		/* length in bytes */
- 	dma_addr_t dma;			/* phys. address of descriptor ring */
--};
-+} ____cacheline_internodealigned_in_smp;
- 
- enum ixgbe_ring_f_enum {
- 	RING_F_NONE = 0,
-@@ -189,7 +191,7 @@ enum ixgbe_ring_f_enum {
- struct ixgbe_ring_feature {
- 	int indices;
- 	int mask;
--};
-+} ____cacheline_internodealigned_in_smp;
- 
- #define MAX_RX_QUEUES 128
- #define MAX_TX_QUEUES 128
-@@ -275,29 +277,25 @@ struct ixgbe_adapter {
- 	u16 eitr_high;
- 
- 	/* TX */
--	struct ixgbe_ring *tx_ring;	/* One per active queue */
-+	struct ixgbe_ring *tx_ring ____cacheline_aligned_in_smp; /* One per active queue */
- 	int num_tx_queues;
--	u64 restart_queue;
--	u64 hw_csum_tx_good;
--	u64 lsc_int;
--	u64 hw_tso_ctxt;
--	u64 hw_tso6_ctxt;
- 	u32 tx_timeout_count;
- 	bool detect_tx_hung;
- 
-+	u64 restart_queue;
-+	u64 lsc_int;
-+
- 	/* RX */
--	struct ixgbe_ring *rx_ring;	/* One per active queue */
-+	struct ixgbe_ring *rx_ring ____cacheline_aligned_in_smp; /* One per active queue */
- 	int num_rx_queues;
- 	u64 hw_csum_rx_error;
- 	u64 hw_rx_no_dma_resources;
--	u64 hw_csum_rx_good;
- 	u64 non_eop_descs;
- 	int num_msix_vectors;
- 	int max_msix_q_vectors;         /* true count of q_vectors for device */
- 	struct ixgbe_ring_feature ring_feature[RING_F_ARRAY_SIZE];
- 	struct msix_entry *msix_entries;
- 
--	u64 rx_hdr_split;
- 	u32 alloc_rx_page_failed;
- 	u32 alloc_rx_buff_failed;
- 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 1928d55..06a9d18 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -93,16 +93,11 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"tx_restart_queue", IXGBE_STAT(restart_queue)},
- 	{"rx_long_length_errors", IXGBE_STAT(stats.roc)},
- 	{"rx_short_length_errors", IXGBE_STAT(stats.ruc)},
--	{"tx_tcp4_seg_ctxt", IXGBE_STAT(hw_tso_ctxt)},
--	{"tx_tcp6_seg_ctxt", IXGBE_STAT(hw_tso6_ctxt)},
- 	{"tx_flow_control_xon", IXGBE_STAT(stats.lxontxc)},
- 	{"rx_flow_control_xon", IXGBE_STAT(stats.lxonrxc)},
- 	{"tx_flow_control_xoff", IXGBE_STAT(stats.lxofftxc)},
- 	{"rx_flow_control_xoff", IXGBE_STAT(stats.lxoffrxc)},
--	{"rx_csum_offload_good", IXGBE_STAT(hw_csum_rx_good)},
- 	{"rx_csum_offload_errors", IXGBE_STAT(hw_csum_rx_error)},
--	{"tx_csum_offload_ctxt", IXGBE_STAT(hw_csum_tx_good)},
--	{"rx_header_split", IXGBE_STAT(rx_hdr_split)},
- 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
- 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
- 	{"rx_no_dma_resources", IXGBE_STAT(hw_rx_no_dma_resources)},
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e3dc68b..db05030 100644
+index db05030..247ed2a 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -413,7 +413,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		if (__netif_subqueue_stopped(netdev, tx_ring->queue_index) &&
- 		    !test_bit(__IXGBE_DOWN, &adapter->state)) {
- 			netif_wake_subqueue(netdev, tx_ring->queue_index);
--			++adapter->restart_queue;
-+			++tx_ring->restart_queue;
- 		}
+@@ -1329,8 +1329,7 @@ static irqreturn_t ixgbe_msix_clean_tx(int irq, void *data)
+ 		                      r_idx + 1);
  	}
  
-@@ -624,7 +624,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_adapter *adapter,
+-	/* disable interrupts on this vector only */
+-	ixgbe_irq_disable_queues(adapter, ((u64)1 << q_vector->v_idx));
++	/* EIAM disabled interrupts (on this vector) for us */
+ 	napi_schedule(&q_vector->napi);
  
- 	/* It must be a TCP or UDP packet with a valid checksum */
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	adapter->hw_csum_rx_good++;
- }
+ 	return IRQ_HANDLED;
+@@ -1362,7 +1361,7 @@ static irqreturn_t ixgbe_msix_clean_rx(int irq, void *data)
+ 		return IRQ_HANDLED;
  
- static inline void ixgbe_release_rx_desc(struct ixgbe_hw *hw,
-@@ -681,14 +680,19 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 	/* disable interrupts on this vector only */
+-	ixgbe_irq_disable_queues(adapter, ((u64)1 << q_vector->v_idx));
++	/* EIAM disabled interrupts (on this vector) for us */
+ 	napi_schedule(&q_vector->napi);
  
- 		if (!bi->skb) {
- 			struct sk_buff *skb;
--			skb = netdev_alloc_skb_ip_align(adapter->netdev,
--							rx_ring->rx_buf_len);
-+			/* netdev_alloc_skb reserves 32 bytes up front!! */
-+			uint bufsz = rx_ring->rx_buf_len + SMP_CACHE_BYTES;
-+			skb = netdev_alloc_skb(adapter->netdev, bufsz);
- 
- 			if (!skb) {
- 				adapter->alloc_rx_buff_failed++;
- 				goto no_buffers;
- 			}
- 
-+			/* advance the data pointer to the next cache line */
-+			skb_reserve(skb, (PTR_ALIGN(skb->data, SMP_CACHE_BYTES)
-+			                  - skb->data));
-+
- 			bi->skb = skb;
- 			bi->dma = pci_map_single(pdev, skb->data,
- 			                         rx_ring->rx_buf_len,
-@@ -801,8 +805,6 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
- 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
- 			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
--			if (hdr_info & IXGBE_RXDADV_SPH)
--				adapter->rx_hdr_split++;
- 			if (len > IXGBE_RX_HDR_SIZE)
- 				len = IXGBE_RX_HDR_SIZE;
- 			upper_len = le16_to_cpu(rx_desc->wb.upper.length);
-@@ -812,7 +814,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 
- 		cleaned = true;
- 		skb = rx_buffer_info->skb;
--		prefetch(skb->data - NET_IP_ALIGN);
-+		prefetch(skb->data);
- 		rx_buffer_info->skb = NULL;
- 
- 		if (rx_buffer_info->dma) {
-@@ -884,7 +886,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 				skb->next = next_buffer->skb;
- 				skb->next->prev = skb;
- 			}
--			adapter->non_eop_descs++;
-+			rx_ring->non_eop_descs++;
- 			goto next_desc;
- 		}
- 
-@@ -4511,6 +4513,13 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 		adapter->rsc_total_flush = rsc_flush;
+ 	return IRQ_HANDLED;
+@@ -1397,8 +1396,7 @@ static irqreturn_t ixgbe_msix_clean_many(int irq, void *data)
+ 		                      r_idx + 1);
  	}
  
-+	/* gather some stats to the adapter struct that are per queue */
-+	for (i = 0; i < adapter->num_tx_queues; i++)
-+		adapter->restart_queue += adapter->tx_ring[i].restart_queue;
-+
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		adapter->non_eop_descs += adapter->tx_ring[i].non_eop_descs;
-+
- 	adapter->stats.crcerrs += IXGBE_READ_REG(hw, IXGBE_CRCERRS);
- 	for (i = 0; i < 8; i++) {
- 		/* for packet buffers not used, the register should read 0 */
-@@ -4893,14 +4902,12 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
- 			                                         iph->daddr, 0,
- 			                                         IPPROTO_TCP,
- 			                                         0);
--			adapter->hw_tso_ctxt++;
- 		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
- 			ipv6_hdr(skb)->payload_len = 0;
- 			tcp_hdr(skb)->check =
- 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 			                     &ipv6_hdr(skb)->daddr,
- 			                     0, IPPROTO_TCP, 0);
--			adapter->hw_tso6_ctxt++;
- 		}
+-	/* disable interrupts on this vector only */
+-	ixgbe_irq_disable_queues(adapter, ((u64)1 << q_vector->v_idx));
++	/* EIAM disabled interrupts (on this vector) for us */
+ 	napi_schedule(&q_vector->napi);
  
- 		i = tx_ring->next_to_use;
-@@ -5019,7 +5026,6 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
- 		tx_buffer_info->time_stamp = jiffies;
- 		tx_buffer_info->next_to_watch = i;
+ 	return IRQ_HANDLED;
+@@ -2716,7 +2714,22 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
+ 	}
  
--		adapter->hw_csum_tx_good++;
- 		i++;
- 		if (i == tx_ring->count)
- 			i = 0;
-@@ -5256,8 +5262,6 @@ static void ixgbe_atr(struct ixgbe_adapter *adapter, struct sk_buff *skb,
- static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
-                                  struct ixgbe_ring *tx_ring, int size)
- {
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--
- 	netif_stop_subqueue(netdev, tx_ring->queue_index);
- 	/* Herbert's original patch had:
- 	 *  smp_mb__after_netif_stop_queue();
-@@ -5271,7 +5275,7 @@ static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
- 
- 	/* A reprieve! - use start_queue because it doesn't call schedule */
- 	netif_start_subqueue(netdev, tx_ring->queue_index);
--	++adapter->restart_queue;
-+	++tx_ring->restart_queue;
- 	return 0;
- }
- 
+-	if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED)) {
++	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
++		/*
++		 * use EIAM to auto-mask when MSI-X interrupt is asserted
++		 * this saves a register write for every interrupt
++		 */
++		switch (hw->mac.type) {
++		case ixgbe_mac_82598EB:
++			IXGBE_WRITE_REG(hw, IXGBE_EIAM, IXGBE_EICS_RTX_QUEUE);
++			break;
++		default:
++		case ixgbe_mac_82599EB:
++			IXGBE_WRITE_REG(hw, IXGBE_EIAM_EX(0), 0xFFFFFFFF);
++			IXGBE_WRITE_REG(hw, IXGBE_EIAM_EX(1), 0xFFFFFFFF);
++			break;
++		}
++	} else {
+ 		/* legacy interrupts, use EIAM to auto-mask when reading EICR,
+ 		 * specifically only auto mask tx and rx interrupts */
+ 		IXGBE_WRITE_REG(hw, IXGBE_EIAM, IXGBE_EICS_RTX_QUEUE);
 
