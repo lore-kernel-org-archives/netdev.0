@@ -1,121 +1,63 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] bnx2: Refine VPD logic.
-Date: Thu, 3 Dec 2009 15:07:36 -0800
-Message-ID: <1259881656-6693-1-git-send-email-mchan@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
+Date: Fri, 04 Dec 2009 00:04:42 +0100
+Message-ID: <4B18440A.2080507@gmail.com>
+References: <4B17EFE3.4080301@gmail.com> <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com> <20091203.133108.254093305.davem@davemloft.net> <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	kaber@trash.net, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1943 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754315AbZLCXAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Dec 2009 18:00:36 -0500
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39714 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbZLCXEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:04:44 -0500
+In-Reply-To: <20091203224742.GA16646@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Replace magic values with constants
-- Simplify length calculation and fix a bug
+Jarek Poplawski a =E9crit :
+> On Thu, Dec 03, 2009 at 10:51:25PM +0100, Eric Dumazet wrote:
+>> David Miller a =E9crit :
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Thu, 03 Dec 2009 22:29:42 +0100
+>>>
+>>>> Nice patch, thanks :)
+>>>>
+>>>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>> I like it too, but please resubmit once we have at least
+>>> one example user submitted.
+>>>
+>> I successfully tested following patch.
+>=20
+> Great! But, I see, checking if realloc_netdev_mq() use is always lega=
+l
+> (before register_netdev()) is not trivial in this driver. (I have som=
+e
+> suspicions around ixgbe_resume().) I wonder, if there should be added
+> some debugging for this.
 
-Based on valuable feedback from Ben Hutchings <bhutchings@solarflare.com>
+Yes, probably
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |   49 +++++++++++++++++++++----------------------------
- 1 files changed, 21 insertions(+), 28 deletions(-)
+Or even better, allowing realloc_netdev_mq() to be called even after
+register_netdev() :)
+
+bnx2 for example could not be patched easily, following patch doesnt wo=
+rk.
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index cf4322d..4bfc808 100644
+index 4cae2a8..8bd5d0d 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -7730,24 +7730,27 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
- 	u8 *v0_str = NULL;
- 	bool mn_match = false;
- 
-+#define BNX2_VPD_NVRAM_OFFSET	0x300
-+#define BNX2_VPD_LEN		128
- #define BNX2_MAX_VER_SLEN	30
- 
- 	data = kmalloc(256, GFP_KERNEL);
- 	if (!data)
- 		return;
- 
--	rc = bnx2_nvram_read(bp, 0x300, data + 128, 128);
-+	rc = bnx2_nvram_read(bp, BNX2_VPD_NVRAM_OFFSET, data + BNX2_VPD_LEN,
-+			     BNX2_VPD_LEN);
- 	if (rc)
- 		goto vpd_done;
- 
--	for (i = 0; i < 128; i += 4) {
--		data[i] = data[i + 131];
--		data[i + 1] = data[i + 130];
--		data[i + 2] = data[i + 129];
--		data[i + 3] = data[i + 128];
-+	for (i = 0; i < BNX2_VPD_LEN; i += 4) {
-+		data[i] = data[i + BNX2_VPD_LEN + 3];
-+		data[i + 1] = data[i + BNX2_VPD_LEN + 2];
-+		data[i + 2] = data[i + BNX2_VPD_LEN + 1];
-+		data[i + 3] = data[i + BNX2_VPD_LEN];
- 	}
- 
--	for (i = 0; i < 128; ) {
-+	for (i = 0; i <= BNX2_VPD_LEN - 3; ) {
- 		unsigned char val = data[i];
- 		unsigned int block_end;
- 
-@@ -7762,39 +7765,29 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
- 		block_end = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
- 		i += 3;
- 
--		if (block_end > 128)
-+		if (block_end > BNX2_VPD_LEN)
- 			goto vpd_done;
- 
- 		while (i < (block_end - 2)) {
--			if (data[i] == 'M' && data[i + 1] == 'N') {
--				int mn_len = data[i + 2];
-+			int len = data[i + 2];
- 
--				if (mn_len != 4)
--					goto vpd_done;
-+			if (i + 3 + len > block_end)
-+				goto vpd_done;
- 
--				i += 3;
--				if (memcmp(&data[i], "1028", 4))
-+			if (data[i] == 'M' && data[i + 1] == 'N') {
-+				if (len != 4 ||
-+				    memcmp(&data[i + 3], "1028", 4))
- 					goto vpd_done;
- 				mn_match = true;
--				i += 4;
- 
- 			} else if (data[i] == 'V' && data[i + 1] == '0') {
--				v0_len = data[i + 2];
--
--				i += 3;
--				if (v0_len > BNX2_MAX_VER_SLEN ||
--				    (v0_len + i) > 128)
-+				if (len > BNX2_MAX_VER_SLEN)
- 					goto vpd_done;
- 
--				if (v0_len > BNX2_MAX_VER_SLEN)
--					v0_len = BNX2_MAX_VER_SLEN;
--
--				v0_str = &data[i];
--				i += data[i + 2];
--
--			} else {
--				i += 3 + data[i + 2];
-+				v0_len = len;
-+				v0_str = &data[i + 3];
- 			}
-+			i += 3 + len;
- 
- 			if (mn_match && v0_str) {
- 				memcpy(bp->fw_version, v0_str, v0_len);
--- 
-1.6.4.GIT
-
+@@ -6177,6 +6177,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+=20
+ 	bp->num_tx_rings =3D rounddown_pow_of_two(bp->irq_nvecs);
+-	bp->dev->real_num_tx_queues =3D bp->num_tx_rings;
++	realloc_netdev_mq(bp->dev, bp->num_tx_rings);
+=20
+ 	bp->num_rx_rings =3D bp->irq_nvecs;
+ }
 
