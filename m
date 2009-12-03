@@ -1,142 +1,132 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/2] netxen : fix debug tools access for NX2031
-Date: Wed,  2 Dec 2009 17:46:18 -0800
-Message-ID: <1259804779-23091-2-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 2/2] netxen: fix failure cases for fw hang recovery
+Date: Wed,  2 Dec 2009 17:46:19 -0800
+Message-ID: <1259804779-23091-3-git-send-email-amit.salecha@qlogic.com>
 References: <1259804779-23091-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	Narender Kumar <narender.kumar@qlogic.com>
+	Amit Kumar Salecha <amit@unm84.unmin.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:15837 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:15841 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753354AbZLCBqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Dec 2009 20:46:14 -0500
+	id S1753506AbZLCBqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Dec 2009 20:46:13 -0500
 In-Reply-To: <1259804779-23091-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Narender Kumar <narender.kumar@qlogic.com>
+From: Amit Kumar Salecha <amit@unm84.unmin.com>
 
-Driver maps only some part of the MMIO bar 0 in case of
-NX2031. This is sufficient for tx and rx by the driver.
-When debug tools need to access resources in
-unmapped regions, driver needs to map these on the fly
-in order to complete read/write request.
+Handle few corner cases in firmware hang detection and recovery:
 
-Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
-Signed-off-by: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+o Don't mark device state as READY, till handshake with
+  firmware is done.
+o During probe, if start_firmware fails, restore reference
+  count.
+o Don't increment refernce count, if start_firmware fails
+  during firmware reset.
+o Clear __NX_RESETTING bit, incase of fatal error or tempeature
+  reaches critical limit so that pci remove() doesn't poll on
+  this bit.
+
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/netxen/netxen_nic_hw.c |   63 +++++++++++++++++++++++++-----------
- 1 files changed, 44 insertions(+), 19 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |   26 +++++++++++++++-----------
+ 1 files changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index e71ca30..89bd519 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1175,24 +1175,46 @@ netxen_nic_pci_set_crbwindow_2M(struct netxen_adapter *adapter, ulong off)
- 	adapter->ahw.crb_win = window;
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 838420d..e5d187f 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -819,7 +819,7 @@ netxen_start_firmware(struct netxen_adapter *adapter)
+ 	if (err < 0)
+ 		goto err_out;
+ 	if (err == 0)
+-		goto ready;
++		goto wait_init;
+ 
+ 	if (first_boot != 0x55555555) {
+ 		NXWR32(adapter, CRB_CMDPEG_STATE, 0);
+@@ -862,9 +862,6 @@ netxen_start_firmware(struct netxen_adapter *adapter)
+ 		| (_NETXEN_NIC_LINUX_SUBVERSION);
+ 	NXWR32(adapter, CRB_DRIVER_VERSION, val);
+ 
+-ready:
+-	NXWR32(adapter, NX_CRB_DEV_STATE, NX_DEV_READY);
+-
+ wait_init:
+ 	/* Handshake with the card before we register the devices. */
+ 	err = netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+@@ -873,6 +870,8 @@ wait_init:
+ 		goto err_out;
+ 	}
+ 
++	NXWR32(adapter, NX_CRB_DEV_STATE, NX_DEV_READY);
++
+ 	nx_update_dma_mask(adapter);
+ 
+ 	netxen_check_options(adapter);
+@@ -1282,7 +1281,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = netxen_start_firmware(adapter);
+ 	if (err)
+-		goto err_out_iounmap;
++		goto err_out_decr_ref;
+ 
+ 	/*
+ 	 * See if the firmware gave us a virtual-physical port mapping.
+@@ -1326,6 +1325,7 @@ err_out_disable_msi:
+ 
+ 	netxen_free_dummy_dma(adapter);
+ 
++err_out_decr_ref:
+ 	nx_decr_dev_ref_cnt(adapter);
+ 
+ err_out_iounmap:
+@@ -2189,14 +2189,13 @@ netxen_fwinit_work(struct work_struct *work)
+ 					netxen_fwinit_work, 2 * FW_POLL_DELAY);
+ 			return;
+ 		}
+-		break;
+ 
+ 	case NX_DEV_FAILED:
+ 	default:
++		nx_incr_dev_ref_cnt(adapter);
+ 		break;
+ 	}
+ 
+-	nx_incr_dev_ref_cnt(adapter);
+ 	clear_bit(__NX_RESETTING, &adapter->state);
  }
  
-+static void __iomem *
-+netxen_nic_map_indirect_address_128M(struct netxen_adapter *adapter,
-+		ulong win_off, void __iomem **mem_ptr)
-+{
-+	ulong off = win_off;
-+	void __iomem *addr;
-+	resource_size_t mem_base;
+@@ -2218,18 +2217,23 @@ netxen_detach_work(struct work_struct *work)
+ 
+ 	status = NXRD32(adapter, NETXEN_PEG_HALT_STATUS1);
+ 
+-	ref_cnt = nx_decr_dev_ref_cnt(adapter);
+-
+ 	if (status & NX_RCODE_FATAL_ERROR)
+-		return;
++		goto err_ret;
+ 
+ 	if (adapter->temp == NX_TEMP_PANIC)
+-		return;
++		goto err_ret;
 +
-+	if (ADDR_IN_WINDOW1(win_off))
-+		off = NETXEN_CRB_NORMAL(win_off);
++	ref_cnt = nx_decr_dev_ref_cnt(adapter);
+ 
+ 	delay = (ref_cnt == 0) ? 0 : (2 * FW_POLL_DELAY);
+ 
+ 	adapter->fw_wait_cnt = 0;
+ 	netxen_schedule_work(adapter, netxen_fwinit_work, delay);
 +
-+	addr = pci_base_offset(adapter, off);
-+	if (addr)
-+		return addr;
++	return;
 +
-+	if (adapter->ahw.pci_len0 == 0)
-+		off -= NETXEN_PCI_CRBSPACE;
-+
-+	mem_base = pci_resource_start(adapter->pdev, 0);
-+	*mem_ptr = ioremap(mem_base + (off & PAGE_MASK), PAGE_SIZE);
-+	if (*mem_ptr)
-+		addr = *mem_ptr + (off & (PAGE_SIZE - 1));
-+
-+	return addr;
-+}
-+
++err_ret:
++	clear_bit(__NX_RESETTING, &adapter->state);
+ }
+ 
  static int
- netxen_nic_hw_write_wx_128M(struct netxen_adapter *adapter, ulong off, u32 data)
- {
- 	unsigned long flags;
--	void __iomem *addr;
--
--	if (ADDR_IN_WINDOW1(off))
--		addr = NETXEN_CRB_NORMALIZE(adapter, off);
--	else
--		addr = pci_base_offset(adapter, off);
-+	void __iomem *addr, *mem_ptr = NULL;
- 
--	BUG_ON(!addr);
-+	addr = netxen_nic_map_indirect_address_128M(adapter, off, &mem_ptr);
-+	if (!addr)
-+		return -EIO;
- 
--	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
-+	if (ADDR_IN_WINDOW1(off)) { /* Window 1 */
- 		netxen_nic_io_write_128M(adapter, addr, data);
--	} else {		/* Window 0 */
-+	} else {        /* Window 0 */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
--		addr = pci_base_offset(adapter, off);
- 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 		writel(data, addr);
- 		netxen_nic_pci_set_crbwindow_128M(adapter,
-@@ -1200,6 +1222,9 @@ netxen_nic_hw_write_wx_128M(struct netxen_adapter *adapter, ulong off, u32 data)
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	}
- 
-+	if (mem_ptr)
-+		iounmap(mem_ptr);
-+
- 	return 0;
- }
- 
-@@ -1207,19 +1232,16 @@ static u32
- netxen_nic_hw_read_wx_128M(struct netxen_adapter *adapter, ulong off)
- {
- 	unsigned long flags;
--	void __iomem *addr;
-+	void __iomem *addr, *mem_ptr = NULL;
- 	u32 data;
- 
--	if (ADDR_IN_WINDOW1(off))
--		addr = NETXEN_CRB_NORMALIZE(adapter, off);
--	else
--		addr = pci_base_offset(adapter, off);
--
--	BUG_ON(!addr);
-+	addr = netxen_nic_map_indirect_address_128M(adapter, off, &mem_ptr);
-+	if (!addr)
-+		return -EIO;
- 
--	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
-+	if (ADDR_IN_WINDOW1(off)) { /* Window 1 */
- 		data = netxen_nic_io_read_128M(adapter, addr);
--	} else {		/* Window 0 */
-+	} else {        /* Window 0 */
- 		write_lock_irqsave(&adapter->ahw.crb_lock, flags);
- 		netxen_nic_pci_set_crbwindow_128M(adapter, 0);
- 		data = readl(addr);
-@@ -1228,6 +1250,9 @@ netxen_nic_hw_read_wx_128M(struct netxen_adapter *adapter, ulong off)
- 		write_unlock_irqrestore(&adapter->ahw.crb_lock, flags);
- 	}
- 
-+	if (mem_ptr)
-+		iounmap(mem_ptr);
-+
- 	return data;
- }
- 
 -- 
 1.6.0.2
 
