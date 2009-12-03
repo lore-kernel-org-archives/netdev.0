@@ -1,109 +1,248 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/5] ixgbe: select FCoE Tx queue in
-	ndo_select_queue
-Date: Thu, 03 Dec 2009 13:32:44 -0800
-Message-ID: <20091203213243.9291.21296.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 4/5] ixgbe: performance tweaks
+Date: Thu, 03 Dec 2009 13:33:29 -0800
+Message-ID: <20091203213328.9291.25485.stgit@localhost.localdomain>
 References: <20091203213221.9291.34218.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Yi Zou <yi.zou@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:54811
 	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755090AbZLCVc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:32:58 -0500
+	by vger.kernel.org with ESMTP id S1754318AbZLCVdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 16:33:45 -0500
 In-Reply-To: <20091203213221.9291.34218.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yi Zou <yi.zou@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This removes the Tx queue selection for FCoE traffic from ixgbe_xmit_frame()
-and does it in the ndo_select_queue() call, moving all Tx queue selection
-into a single routine.
+drop variables that had cache lines modified in simultaneous hot paths.
+keep some variables modified on hot paths but make their storage per queue.
+cache align DMA data buffer start addresses.
+cache align (padding) some structures that end within a cacheline.
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   24 ++++++++++++++----------
- 1 files changed, 14 insertions(+), 10 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |   20 +++++++++-----------
+ drivers/net/ixgbe/ixgbe_ethtool.c |    5 -----
+ drivers/net/ixgbe/ixgbe_main.c    |   32 ++++++++++++++++++--------------
+ 3 files changed, 27 insertions(+), 30 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 91d80b7..8da8eb5 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -161,10 +161,12 @@ struct ixgbe_ring {
+ 	unsigned long reinit_state;
+ 	u64 rsc_count;			/* stat for coalesced packets */
+ 	u64 rsc_flush;			/* stats for flushed packets */
++	u32 restart_queue;		/* track tx queue restarts */
++	u32 non_eop_descs;		/* track hardware descriptor chaining */
+ 
+ 	unsigned int size;		/* length in bytes */
+ 	dma_addr_t dma;			/* phys. address of descriptor ring */
+-};
++} ____cacheline_internodealigned_in_smp;
+ 
+ enum ixgbe_ring_f_enum {
+ 	RING_F_NONE = 0,
+@@ -189,7 +191,7 @@ enum ixgbe_ring_f_enum {
+ struct ixgbe_ring_feature {
+ 	int indices;
+ 	int mask;
+-};
++} ____cacheline_internodealigned_in_smp;
+ 
+ #define MAX_RX_QUEUES 128
+ #define MAX_TX_QUEUES 128
+@@ -275,29 +277,25 @@ struct ixgbe_adapter {
+ 	u16 eitr_high;
+ 
+ 	/* TX */
+-	struct ixgbe_ring *tx_ring;	/* One per active queue */
++	struct ixgbe_ring *tx_ring ____cacheline_aligned_in_smp; /* One per active queue */
+ 	int num_tx_queues;
+-	u64 restart_queue;
+-	u64 hw_csum_tx_good;
+-	u64 lsc_int;
+-	u64 hw_tso_ctxt;
+-	u64 hw_tso6_ctxt;
+ 	u32 tx_timeout_count;
+ 	bool detect_tx_hung;
+ 
++	u64 restart_queue;
++	u64 lsc_int;
++
+ 	/* RX */
+-	struct ixgbe_ring *rx_ring;	/* One per active queue */
++	struct ixgbe_ring *rx_ring ____cacheline_aligned_in_smp; /* One per active queue */
+ 	int num_rx_queues;
+ 	u64 hw_csum_rx_error;
+ 	u64 hw_rx_no_dma_resources;
+-	u64 hw_csum_rx_good;
+ 	u64 non_eop_descs;
+ 	int num_msix_vectors;
+ 	int max_msix_q_vectors;         /* true count of q_vectors for device */
+ 	struct ixgbe_ring_feature ring_feature[RING_F_ARRAY_SIZE];
+ 	struct msix_entry *msix_entries;
+ 
+-	u64 rx_hdr_split;
+ 	u32 alloc_rx_page_failed;
+ 	u32 alloc_rx_buff_failed;
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 1928d55..06a9d18 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -93,16 +93,11 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"tx_restart_queue", IXGBE_STAT(restart_queue)},
+ 	{"rx_long_length_errors", IXGBE_STAT(stats.roc)},
+ 	{"rx_short_length_errors", IXGBE_STAT(stats.ruc)},
+-	{"tx_tcp4_seg_ctxt", IXGBE_STAT(hw_tso_ctxt)},
+-	{"tx_tcp6_seg_ctxt", IXGBE_STAT(hw_tso6_ctxt)},
+ 	{"tx_flow_control_xon", IXGBE_STAT(stats.lxontxc)},
+ 	{"rx_flow_control_xon", IXGBE_STAT(stats.lxonrxc)},
+ 	{"tx_flow_control_xoff", IXGBE_STAT(stats.lxofftxc)},
+ 	{"rx_flow_control_xoff", IXGBE_STAT(stats.lxoffrxc)},
+-	{"rx_csum_offload_good", IXGBE_STAT(hw_csum_rx_good)},
+ 	{"rx_csum_offload_errors", IXGBE_STAT(hw_csum_rx_error)},
+-	{"tx_csum_offload_ctxt", IXGBE_STAT(hw_csum_tx_good)},
+-	{"rx_header_split", IXGBE_STAT(rx_hdr_split)},
+ 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
+ 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
+ 	{"rx_no_dma_resources", IXGBE_STAT(hw_rx_no_dma_resources)},
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 09990ed..e3dc68b 100644
+index e3dc68b..db05030 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5286,10 +5286,19 @@ static int ixgbe_maybe_stop_tx(struct net_device *netdev,
- static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+@@ -413,7 +413,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		if (__netif_subqueue_stopped(netdev, tx_ring->queue_index) &&
+ 		    !test_bit(__IXGBE_DOWN, &adapter->state)) {
+ 			netif_wake_subqueue(netdev, tx_ring->queue_index);
+-			++adapter->restart_queue;
++			++tx_ring->restart_queue;
+ 		}
+ 	}
+ 
+@@ -624,7 +624,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_adapter *adapter,
+ 
+ 	/* It must be a TCP or UDP packet with a valid checksum */
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	adapter->hw_csum_rx_good++;
+ }
+ 
+ static inline void ixgbe_release_rx_desc(struct ixgbe_hw *hw,
+@@ -681,14 +680,19 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 
+ 		if (!bi->skb) {
+ 			struct sk_buff *skb;
+-			skb = netdev_alloc_skb_ip_align(adapter->netdev,
+-							rx_ring->rx_buf_len);
++			/* netdev_alloc_skb reserves 32 bytes up front!! */
++			uint bufsz = rx_ring->rx_buf_len + SMP_CACHE_BYTES;
++			skb = netdev_alloc_skb(adapter->netdev, bufsz);
+ 
+ 			if (!skb) {
+ 				adapter->alloc_rx_buff_failed++;
+ 				goto no_buffers;
+ 			}
+ 
++			/* advance the data pointer to the next cache line */
++			skb_reserve(skb, (PTR_ALIGN(skb->data, SMP_CACHE_BYTES)
++			                  - skb->data));
++
+ 			bi->skb = skb;
+ 			bi->dma = pci_map_single(pdev, skb->data,
+ 			                         rx_ring->rx_buf_len,
+@@ -801,8 +805,6 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
+ 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
+ 			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
+-			if (hdr_info & IXGBE_RXDADV_SPH)
+-				adapter->rx_hdr_split++;
+ 			if (len > IXGBE_RX_HDR_SIZE)
+ 				len = IXGBE_RX_HDR_SIZE;
+ 			upper_len = le16_to_cpu(rx_desc->wb.upper.length);
+@@ -812,7 +814,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 
+ 		cleaned = true;
+ 		skb = rx_buffer_info->skb;
+-		prefetch(skb->data - NET_IP_ALIGN);
++		prefetch(skb->data);
+ 		rx_buffer_info->skb = NULL;
+ 
+ 		if (rx_buffer_info->dma) {
+@@ -884,7 +886,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 				skb->next = next_buffer->skb;
+ 				skb->next->prev = skb;
+ 			}
+-			adapter->non_eop_descs++;
++			rx_ring->non_eop_descs++;
+ 			goto next_desc;
+ 		}
+ 
+@@ -4511,6 +4513,13 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 		adapter->rsc_total_flush = rsc_flush;
+ 	}
+ 
++	/* gather some stats to the adapter struct that are per queue */
++	for (i = 0; i < adapter->num_tx_queues; i++)
++		adapter->restart_queue += adapter->tx_ring[i].restart_queue;
++
++	for (i = 0; i < adapter->num_rx_queues; i++)
++		adapter->non_eop_descs += adapter->tx_ring[i].non_eop_descs;
++
+ 	adapter->stats.crcerrs += IXGBE_READ_REG(hw, IXGBE_CRCERRS);
+ 	for (i = 0; i < 8; i++) {
+ 		/* for packet buffers not used, the register should read 0 */
+@@ -4893,14 +4902,12 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 			                                         iph->daddr, 0,
+ 			                                         IPPROTO_TCP,
+ 			                                         0);
+-			adapter->hw_tso_ctxt++;
+ 		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
+ 			ipv6_hdr(skb)->payload_len = 0;
+ 			tcp_hdr(skb)->check =
+ 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 			                     &ipv6_hdr(skb)->daddr,
+ 			                     0, IPPROTO_TCP, 0);
+-			adapter->hw_tso6_ctxt++;
+ 		}
+ 
+ 		i = tx_ring->next_to_use;
+@@ -5019,7 +5026,6 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 		tx_buffer_info->time_stamp = jiffies;
+ 		tx_buffer_info->next_to_watch = i;
+ 
+-		adapter->hw_csum_tx_good++;
+ 		i++;
+ 		if (i == tx_ring->count)
+ 			i = 0;
+@@ -5256,8 +5262,6 @@ static void ixgbe_atr(struct ixgbe_adapter *adapter, struct sk_buff *skb,
+ static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
+                                  struct ixgbe_ring *tx_ring, int size)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int txq = smp_processor_id();
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-
+ 	netif_stop_subqueue(netdev, tx_ring->queue_index);
+ 	/* Herbert's original patch had:
+ 	 *  smp_mb__after_netif_stop_queue();
+@@ -5271,7 +5275,7 @@ static int __ixgbe_maybe_stop_tx(struct net_device *netdev,
  
- 	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
--		return smp_processor_id();
-+		return txq;
+ 	/* A reprieve! - use start_queue because it doesn't call schedule */
+ 	netif_start_subqueue(netdev, tx_ring->queue_index);
+-	++adapter->restart_queue;
++	++tx_ring->restart_queue;
+ 	return 0;
+ }
  
-+#ifdef IXGBE_FCOE
-+	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
-+	    (skb->protocol == htons(ETH_P_FCOE))) {
-+		txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
-+		txq += adapter->ring_feature[RING_F_FCOE].mask;
-+		return txq;
-+	}
-+#endif
- 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
- 		return (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK) >> 13;
- 
-@@ -5304,7 +5313,7 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 	unsigned int first;
- 	unsigned int tx_flags = 0;
- 	u8 hdr_len = 0;
--	int r_idx = 0, tso;
-+	int tso;
- 	int count = 0;
- 	unsigned int f;
- 
-@@ -5312,13 +5321,13 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		tx_flags |= vlan_tx_tag_get(skb);
- 		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 			tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
--			tx_flags |= (skb->queue_mapping << 13);
-+			tx_flags |= ((skb->queue_mapping & 0x7) << 13);
- 		}
- 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
- 	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 		if (skb->priority != TC_PRIO_CONTROL) {
--			tx_flags |= (skb->queue_mapping << 13);
-+			tx_flags |= ((skb->queue_mapping & 0x7) << 13);
- 			tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 			tx_flags |= IXGBE_TX_FLAGS_VLAN;
- 		} else {
-@@ -5327,8 +5336,7 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		}
- 	}
- 
--	r_idx = skb->queue_mapping;
--	tx_ring = &adapter->tx_ring[r_idx];
-+	tx_ring = &adapter->tx_ring[skb->queue_mapping];
- 
- 	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
- 	    (skb->protocol == htons(ETH_P_FCOE))) {
-@@ -5340,10 +5348,6 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		tx_flags |= ((adapter->fcoe.up << 13)
- 			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
- #endif
--		r_idx = smp_processor_id();
--		r_idx &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
--		r_idx += adapter->ring_feature[RING_F_FCOE].mask;
--		tx_ring = &adapter->tx_ring[r_idx];
- #endif
- 	}
- 	/* four things can cause us to need a context descriptor */
 
