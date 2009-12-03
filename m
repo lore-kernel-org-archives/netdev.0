@@ -1,29 +1,86 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: match SIP & RTP packets
-Date: Thu, 03 Dec 2009 12:11:20 +0100
-Message-ID: <4B179CD8.2080002@trash.net>
-References: <4B16EC4F.4080703@forinicom.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org
-To: Lorenzo Allegrucci <lorenzo.allegrucci@forinicom.it>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4B16EC4F.4080703@forinicom.it>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: net 00/05: routing based send-to-self implementation
+Date: Thu,  3 Dec 2009 12:25:52 +0100 (MET)
+Message-ID: <20091203112550.15100.86217.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:60311 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754446AbZLCLZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 06:25:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lorenzo Allegrucci wrote:
-> 
-> Hi all, it's not clear to me whether nf_conntrack_sip does SIP and RTP
-> connection
-> tracking or just SIP.. can you clarify?
-> I need to match both SIP and RTP packets and I was wondering if the rule
-> below would satisfy my requirements:
-> 
-> iptables -t mangle -A FORWARD -o eth0 -m helper --helper sip -j CLASSIFY
-> --set-class 1:1
+These patches are yet another attempt at adding "send-to-self" functionality,
+allowing to send packets between two local interfaces over the wire. Unlike
+the approaches I've seen so far, this one is purely routing based.
+Especially the oif classification should also be useful for different setups.
 
-Almost, this will match on RTP packets and incoming signalling
-connections (-m helper matches on expected connections). What's
-missing is the original signalling connection on port 5060.
+The patchset consists of three parts:
+
+- the first three patches add oif classification to fib_rules. This can be
+  used create special routing tables for sockets bound to an interface.
+
+- the fourth patch changes IPv4 and IPv6 to allow to delete the local rule
+  with priority 0. This allows to re-create it using a lower priority and
+  insert new rules below it to force packets with a local destination out
+  on the wire.
+
+- the fifth patch adds a devinet sysctl to accept packets with local source
+  addresses in fib_validate_source(). This one unfortunately seems to be
+  necessary, I couldn't come up with a method based purely on adding more
+  routes to fool fib_validate_source() into accepting those packets.
+
+Usage example:
+
+# move local routing rule to lower priority
+ip rule add pref 1000 lookup local
+ip rule del pref 0
+
+# only reply to ARP requests for addresses configured on the device
+echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
+
+# configure device and force packets of bound sockets out on eth1
+ip address add dev eth1 10.0.0.1/24
+echo 1 > /proc/sys/net/ipv4/conf/eth1/accept_local
+ip link set eth1 up
+ip rule add pref 500 oif eth1 lookup 500
+ip route add default dev eth1 table 500
+
+# configure device and force packets of bound sockets out on eth2
+ip address add dev eth2 10.0.0.2/24
+echo 1 > /proc/sys/net/ipv4/conf/eth2/accept_local
+ip link set eth2 up
+ip rule add pref 501 oif eth2 lookup 501
+ip route add default dev eth2 table 501
+
+At this point packets between sockets bound to eth1/eth2 will go over the wire.
+
+Changes since last posting:
+
+- fixed an incorrect FIB_RULE_DEV_DETACHED define
+- fixed incorrect example in the changelog
+
+Please apply, thanks!
+
+
+ Documentation/networking/ip-sysctl.txt |    6 +++
+ include/linux/fib_rules.h              |    8 +++-
+ include/linux/inetdevice.h             |    1 +
+ include/linux/sysctl.h                 |    1 +
+ include/net/fib_rules.h                |    9 +++-
+ kernel/sysctl_check.c                  |    1 +
+ net/core/fib_rules.c                   |   71 +++++++++++++++++++++++---------
+ net/ipv4/devinet.c                     |    1 +
+ net/ipv4/fib_frontend.c                |   11 +++--
+ net/ipv4/fib_rules.c                   |    2 +-
+ net/ipv6/fib6_rules.c                  |    2 +-
+ 11 files changed, 82 insertions(+), 31 deletions(-)
+
+Patrick McHardy (5):
+      net: fib_rules: rearrange struct fib_rule
+      net: fib_rules: rename ifindex/ifname/FRA_IFNAME to iifindex/iifname/FRA_IIFNAME
+      net: fib_rules: add oif classification
+      net: fib_rules: allow to delete local rule
+      ipv4: add sysctl to accept packets with local source addresses
