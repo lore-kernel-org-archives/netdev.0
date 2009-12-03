@@ -1,38 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] bnx2: Print warning when unable to allocate the
- full SKB/page ring.
-Date: Thu, 03 Dec 2009 14:05:04 -0800 (PST)
-Message-ID: <20091203.140504.190401557.davem@davemloft.net>
-References: <1259869595-6450-3-git-send-email-mchan@broadcom.com>
-	<20091203.130821.253017587.davem@davemloft.net>
-	<1259876960.8991.12.camel@HP1>
+From: Asdo <asdo@shiftmail.org>
+Subject: tcp_* settings change on the fly?
+Date: Thu, 03 Dec 2009 23:21:02 +0100
+Message-ID: <4B1839CE.2080000@shiftmail.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751778AbZLCWE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 17:04:57 -0500
-In-Reply-To: <1259876960.8991.12.camel@HP1>
+Received: from mx2.isti.cnr.it ([194.119.192.4]:2010 "EHLO mx2.isti.cnr.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751376AbZLCWUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2009 17:20:40 -0500
+Received: from conversionlocal.isti.cnr.it by mx.isti.cnr.it (PMDF V6.4 #31773)
+ id <01NGU5WCDVR490SCW5@mx.isti.cnr.it> for netdev@vger.kernel.org; Thu,
+ 03 Dec 2009 23:20:42 +0100
+Received: from [10.0.0.2]
+ (host-84-220-174-188.cust-adsl.tiscali.it [84.220.174.188])
+ by mx.isti.cnr.it (PMDF V6.4 #31703)
+ with ESMTPSA id <01NGU5WBOR6A95OCX8@mx.isti.cnr.it> for
+ netdev@vger.kernel.org; Thu, 03 Dec 2009 23:20:42 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 3 Dec 2009 13:49:20 -0800
-
-> 
-> On Thu, 2009-12-03 at 13:08 -0800, David Miller wrote:
->> Applied, but I would rate limit this thing.
->> 
->> It could especially be problematic if this condition is
->> triggered when the device is being used for netconsole.
->> 
-> 
-> We only do the printk() during init. time if we cannot allocate buffers
-> for the whole ring.  printk() is not used at all during run-time.
-
-Thanks for clearing that up.  I mistakedly thought this was for
-the buffers not the ring.
+Hi all,
+if I change some of the settings
+/proc/sys/net/ipv4/tcp_*
+does the change apply "on the fly" on existing established connections, 
+or do I have to kill and reestablish the connections to have the change?
+Thank you
