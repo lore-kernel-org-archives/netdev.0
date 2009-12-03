@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 14/18] Bluetooth: Fix 'SendRRorRNR' to send the ReqSeq value
-Date: Thu,  3 Dec 2009 19:45:51 +0100
-Message-ID: <2ab25cdd7b54473dd42dcffc9872737de2517466.1259865280.git.marcel@holtmann.org>
+Subject: [PATCH 16/18] Bluetooth: Add L2CAP option for max transmit value
+Date: Thu,  3 Dec 2009 19:45:53 +0100
+Message-ID: <5fbcd3d1a07e234583e17830e8aef47282c22141.1259865280.git.marcel@holtmann.org>
 References: <cover.1259865279.git.marcel@holtmann.org>
  <b3cf652afb5404685e3d7ed6780a8d1fa10e21da.1259865280.git.marcel@holtmann.org>
  <5990108cfcd3eb2d365c9ea6f82318be80c4e9d3.1259865280.git.marcel@holtmann.org>
@@ -16,50 +16,59 @@ References: <cover.1259865279.git.marcel@holtmann.org>
  <889a3ca466018ab68363c3168993793bc2d984f1.1259865280.git.marcel@holtmann.org>
  <9f121a5a80b4417c6db5a35e26d2e79c29c3fc0d.1259865280.git.marcel@holtmann.org>
  <4ec10d9720ef78cd81d8bcc30a3238665744569f.1259865280.git.marcel@holtmann.org>
+ <2ab25cdd7b54473dd42dcffc9872737de2517466.1259865280.git.marcel@holtmann.org>
+ <32fd63981ed453bd882f22e3e9b0ccbc11fb47e5.1259865280.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:37648 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:37647 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756541AbZLCSqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 13:46:02 -0500
-In-Reply-To: <4ec10d9720ef78cd81d8bcc30a3238665744569f.1259865280.git.marcel@holtmann.org>
+	with ESMTP id S1756133AbZLCSqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 13:46:03 -0500
+In-Reply-To: <32fd63981ed453bd882f22e3e9b0ccbc11fb47e5.1259865280.git.marcel@holtmann.org>
 In-Reply-To: <cover.1259865279.git.marcel@holtmann.org>
 References: <cover.1259865279.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
+For testing purposes it is important to modify the max transmit value.
 
-SendRRorRNR needs to acknowledge received I-frames (actually every packet
-needs to acknowledge received I-frames by sending the proper packet
-sequence number), so ReqSeq is set to the next I-frame number sequence to
-be pulled by the reassembly function.
-SendRRorRNR tells the remote side about local busy conditions, it sends
-a Receiver Ready frame if local busy is false or a Receiver Not Ready
-if local busy is true.
-ReqSeq is the packet's field to send the number of the acknowledged
-packets.
-
-Signed-off-by: Gustavo F. Padovan <gustavo@las.ic.unicamp.br>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 73bda0a..c898f34 100644
+index c898f34..5129b88 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -373,6 +373,8 @@ static inline int l2cap_send_rr_or_rnr(struct l2cap_pinfo *pi, u16 control)
- 	else
- 		control |= L2CAP_SUPER_RCV_READY;
+@@ -54,6 +54,7 @@
+ #define VERSION "2.14"
  
-+	control |= pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT;
+ static int enable_ertm = 0;
++static int max_transmit = L2CAP_DEFAULT_MAX_TX;
+ 
+ static u32 l2cap_feat_mask = L2CAP_FEAT_FIXED_CHAN;
+ static u8 l2cap_fixed_chan[8] = { 0x02, };
+@@ -2253,7 +2254,7 @@ done:
+ 	case L2CAP_MODE_ERTM:
+ 		rfc.mode            = L2CAP_MODE_ERTM;
+ 		rfc.txwin_size      = L2CAP_DEFAULT_TX_WINDOW;
+-		rfc.max_transmit    = L2CAP_DEFAULT_MAX_TX;
++		rfc.max_transmit    = max_transmit;
+ 		rfc.retrans_timeout = 0;
+ 		rfc.monitor_timeout = 0;
+ 		rfc.max_pdu_size    = cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
+@@ -4060,6 +4061,9 @@ module_exit(l2cap_exit);
+ module_param(enable_ertm, bool, 0644);
+ MODULE_PARM_DESC(enable_ertm, "Enable enhanced retransmission mode");
+ 
++module_param(max_transmit, uint, 0644);
++MODULE_PARM_DESC(max_transmit, "Max transmit value (default = 3)");
 +
- 	return l2cap_send_sframe(pi, control);
- }
- 
+ MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
+ MODULE_DESCRIPTION("Bluetooth L2CAP ver " VERSION);
+ MODULE_VERSION(VERSION);
 -- 
 1.6.5.2
 
