@@ -1,120 +1,44 @@
-From: Emese Revfy <re.emese@gmail.com>
-Subject: Re: [PATCH 15/31] Constify struct iwl_ops for 2.6.32 v1
-Date: Sat, 05 Dec 2009 00:05:47 +0100
-Message-ID: <4B1995CB.1050700@gmail.com>
-References: <4B198670.2000406@gmail.com> <4B198DA7.1080809@gmail.com>
+From: Caleb Cushing <xenoterracide@gmail.com>
+Subject: Re: large packet loss take2 2.6.31.x
+Date: Fri, 4 Dec 2009 18:07:42 -0500
+Message-ID: <81bfc67a0912041507k6ef497f9w7b9294c90012e1a1@mail.gmail.com>
+References: <20091124111946.GA7883@ff.dom.local>
+	 <20091125191105.GA3167@ami.dom.local>
+	 <81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
+	 <20091127213640.GA2611@ami.dom.local>
+	 <81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
+	 <20091127224206.GA3350@ami.dom.local>
+	 <81bfc67a0912031749y15faed66s9c8a924684c97a19@mail.gmail.com>
+	 <20091204090524.GB6478@ff.dom.local>
+	 <81bfc67a0912041028w16668d0cx4da04bee989eef4a@mail.gmail.com>
+	 <20091204204443.GA2736@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-To: yi.zhu@intel.com, reinette.chatre@intel.com, ilw@linux.intel.com,
-	linville@tuxdriver.com, torvalds@linux-foundation.org,
+Content-Type: text/plain; charset=UTF-8
+Cc: Frans Pop <elendil@planet.nl>, Andi Kleen <andi@firstfloor.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@da
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932440AbZLDXEE@vger.kernel.org>
-In-Reply-To: <4B198DA7.1080809@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f226.google.com ([209.85.217.226]:64153 "EHLO
+	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757451AbZLDXHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 18:07:36 -0500
+In-Reply-To: <20091204204443.GA2736@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Added netdev@vger.kernel.org and davem@davemloft.net to CC.
-> From: Emese Revfy <re.emese@gmail.com>
-> 
-> Constify struct iwl_ops.
-> 
-> Signed-off-by: Emese Revfy <re.emese@gmail.com>
-> ---
->  drivers/net/wireless/iwlwifi/iwl-1000.c |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-3945.c |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-5000.c |    4 ++--
->  drivers/net/wireless/iwlwifi/iwl-6000.c |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-dev.h  |    2 +-
->  6 files changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
-> index 950267a..80d5fd2 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-1000.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
-> @@ -137,7 +137,7 @@ static struct iwl_lib_ops iwl1000_lib = {
->  	 },
->  };
->  
-> -static struct iwl_ops iwl1000_ops = {
-> +static const struct iwl_ops iwl1000_ops = {
->  	.ucode = &iwl5000_ucode,
->  	.lib = &iwl1000_lib,
->  	.hcmd = &iwl5000_hcmd,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wireless/iwlwifi/iwl-3945.c
-> index f059b49..fe90e0a 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-3945.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
-> @@ -2876,7 +2876,7 @@ static struct iwl_hcmd_utils_ops iwl3945_hcmd_utils = {
->  	.build_addsta_hcmd = iwl3945_build_addsta_hcmd,
->  };
->  
-> -static struct iwl_ops iwl3945_ops = {
-> +static const struct iwl_ops iwl3945_ops = {
->  	.ucode = &iwl3945_ucode,
->  	.lib = &iwl3945_lib,
->  	.hcmd = &iwl3945_hcmd,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-> index 6f703a0..b7c4e48 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-> @@ -2335,7 +2335,7 @@ static struct iwl_lib_ops iwl4965_lib = {
->  	},
->  };
->  
-> -static struct iwl_ops iwl4965_ops = {
-> +static const struct iwl_ops iwl4965_ops = {
->  	.ucode = &iwl4965_ucode,
->  	.lib = &iwl4965_lib,
->  	.hcmd = &iwl4965_hcmd,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
-> index 6e6f516..0ec1f24 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-5000.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
-> @@ -1627,14 +1627,14 @@ static struct iwl_lib_ops iwl5150_lib = {
->  	 },
->  };
->  
-> -struct iwl_ops iwl5000_ops = {
-> +const struct iwl_ops iwl5000_ops = {
->  	.ucode = &iwl5000_ucode,
->  	.lib = &iwl5000_lib,
->  	.hcmd = &iwl5000_hcmd,
->  	.utils = &iwl5000_hcmd_utils,
->  };
->  
-> -static struct iwl_ops iwl5150_ops = {
-> +static const struct iwl_ops iwl5150_ops = {
->  	.ucode = &iwl5000_ucode,
->  	.lib = &iwl5150_lib,
->  	.hcmd = &iwl5000_hcmd,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-6000.c b/drivers/net/wireless/iwlwifi/iwl-6000.c
-> index 1473452..f07d5e1 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-6000.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-6000.c
-> @@ -146,7 +146,7 @@ static struct iwl_hcmd_utils_ops iwl6000_hcmd_utils = {
->  	.calc_rssi = iwl5000_calc_rssi,
->  };
->  
-> -static struct iwl_ops iwl6000_ops = {
-> +static const struct iwl_ops iwl6000_ops = {
->  	.ucode = &iwl5000_ucode,
->  	.lib = &iwl6000_lib,
->  	.hcmd = &iwl5000_hcmd,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-dev.h b/drivers/net/wireless/iwlwifi/iwl-dev.h
-> index 028d505..0c927e5 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-dev.h
-> +++ b/drivers/net/wireless/iwlwifi/iwl-dev.h
-> @@ -67,7 +67,7 @@ struct iwl_tx_queue;
->  
->  /* shared structures from iwl-5000.c */
->  extern struct iwl_mod_params iwl50_mod_params;
-> -extern struct iwl_ops iwl5000_ops;
-> +extern const struct iwl_ops iwl5000_ops;
->  extern struct iwl_ucode_ops iwl5000_ucode;
->  extern struct iwl_lib_ops iwl5000_lib;
->  extern struct iwl_hcmd_ops iwl5000_hcmd;
-> 
-> 
+> So, again, if you're willing to debug this, the new bugzilla report
+> seems reasonable to me, plus maybe some notice to this #11998 too.
+
+I will later today. I'm thinking since I now have 2 active nics...
+would hooking the 1 card directly to the other and then running the
+tests be helpful? (I wish this mobo had a 3rd pci slot because I'd
+have put a 3rd card in so I can connect to the net at the same time.
+
+
+-- 
+Caleb Cushing
+
+http://xenoterracide.blogspot.com
