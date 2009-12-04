@@ -1,42 +1,77 @@
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Subject: [PATCH] mv643xx_eth: check for valid hw address
-Date: Fri, 4 Dec 2009 14:51:38 +0300
-Message-ID: <20091204115138.GA5532@coldcone>
-Reply-To: kirjanov@gmail.com
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] ipv6: Fix "waiting for %s to become free" hang
+Date: Fri, 4 Dec 2009 17:45:47 +0530
+Message-ID: <OF5EE0E5C1.4524B513-ON65257682.00420FFC-65257682.00425E41@in.ibm.com>
+References: <20091204112734.24535.86096.sendpatchset@localhost.localdomain> <4B18F54A.8000106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:60610 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753049AbZLDLtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 06:49:47 -0500
-Received: by bwz27 with SMTP id 27so1872408bwz.21
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 03:49:53 -0800 (PST)
-Content-Disposition: inline
+Received: from e28smtp09.in.ibm.com ([122.248.162.9]:38201 "EHLO
+	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754000AbZLDMEw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 07:04:52 -0500
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp09.in.ibm.com (8.14.3/8.13.1) with ESMTP id nB4BhSPl017270
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 17:13:28 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nB4C4vew2719776
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 17:34:57 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB4C4vAo019160
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 23:04:57 +1100
+In-Reply-To: <4B18F54A.8000106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check for valid hw address.
+> Eric Dumazet <eric.dumazet@gmail.com>
+>
+> Re: [PATCH] ipv6: Fix "waiting for %s to become free" hang
+>
+> Krishna Kumar a =E9crit :
+> > From: Krishna Kumar <krkumar2@in.ibm.com>
+> >
+> > (From code-walkthrough, and untested)
+> >
+> > Fix "waiting for %s to become free" hang. dev has an
+> > extra hold (by ip6mr_reg_vif) which was not dropped
+> > before calling unregister_netdevice.
+> >
+> > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> > ---
+> >  net/ipv6/ip6mr.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff -ruNp org/net/ipv6/ip6mr.c new/net/ipv6/ip6mr.c
+> > --- org/net/ipv6/ip6mr.c   2009-12-04 16:08:07.000000000 +0530
+> > +++ new/net/ipv6/ip6mr.c   2009-12-04 16:09:56.000000000 +0530
+> > @@ -648,8 +648,8 @@ static int mif6_add(struct net *net, str
+> >           return -ENOBUFS;
+> >        err =3D dev_set_allmulti(dev, 1);
+> >        if (err) {
+> > -         unregister_netdevice(dev);
+> >           dev_put(dev);
+> > +         unregister_netdevice(dev);
+> >           return err;
+> >        }
+> >        break;
+>
+> This changes nothing, since we hold rtnl at this point.
+>
+> unregister_netdevice() only queues the device (net_set_todo()) in a l=
+ist.
+>
+> And we process this list later, when renl_unlock() is finally called.
 
-Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+Yes, you are right. I sent the patch on my memory of unregister_netdev,
+which gets
+the rtnl and drops it, and that would have caused this problem. Please =
+drop
+the patch.
 
----
-drivers/net/mv643xx_eth.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+thanks,
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 796a493..0b85501 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -1827,6 +1827,9 @@ static int mv643xx_eth_set_mac_address(struct net_device *dev, void *addr)
- {
- 	struct sockaddr *sa = addr;
- 
-+	if (!is_valid_ether_addr(sa->sa_data))
-+		return -EADDRNOTAVAIL;
-+
- 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
- 
- 	netif_addr_lock_bh(dev);
+- KK
+
