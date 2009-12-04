@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.32 3/3] net: Make ks8851 snl work under Beagle
- Zippy combo board
-Date: Thu, 03 Dec 2009 16:05:11 -0800 (PST)
-Message-ID: <20091203.160511.211490797.davem@davemloft.net>
-References: <14385191E87B904DBD836449AA30269D021A42@MORGANITE.micrel.com>
+Subject: Re: [PATCH net-next-2.6] tcp: diag: Dont report negative values
+ for rx queue
+Date: Thu, 03 Dec 2009 16:06:23 -0800 (PST)
+Message-ID: <20091203.160623.238913212.davem@davemloft.net>
+References: <4B180970.4020609@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@simtec.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tristram.Ha@Micrel.Com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755343AbZLDAFH@vger.kernel.org>
-In-Reply-To: <14385191E87B904DBD836449AA30269D021A42@MORGANITE.micrel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50754
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754737AbZLDAGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 19:06:16 -0500
+In-Reply-To: <4B180970.4020609@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Date: Thu, 3 Dec 2009 13:30:03 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 03 Dec 2009 19:54:40 +0100
 
-> From: Tristram Ha <Tristram.Ha@micrel.com>
+> Both netlink and /proc/net/tcp interfaces can report transient
+> negative values for rx queue.
 > 
-> The Micrel KSZ8851 SNL Ethernet chip is used in the OMAP Beagle Zippy combo board.  Requesting interrupt using level triggering flag hangs the system because the interrupt handling routine is called continually.  Using edge triggering avoids this problem.  As a result, disabling interrupt may not be necessary.
+> ss ->
+> State   Recv-Q Send-Q  Local Address:Port  Peer Address:Port
+> ESTAB   -6     6       127.0.0.1:45956     127.0.0.1:3333 
 > 
-> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+> netstat ->
+> tcp   4294967290      6 127.0.0.1:37784  127.0.0.1:3333 ESTABLISHED
+> 
+> This is because we dont lock socket while computing 
+> tp->rcv_nxt - tp->copied_seq,
+> and another CPU can update copied_seq before rcv_next in RX path.
+> 
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-You say "may not be necessary", do you actually know for sure?
-
-This seems questionable, if the interrupt disabling was there
-for a reason what has changed to make it such that it is no
-longer necessary?
+Applied, thanks Eric.
