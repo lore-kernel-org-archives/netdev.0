@@ -1,59 +1,51 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: linux-next: manual merge of the sysctl tree with the net tree
-Date: Fri, 04 Dec 2009 13:42:49 -0800
-Message-ID: <m1vdgmbeli.fsf@fess.ebiederm.org>
-References: <20091204194301.ca77fe40.sfr@canb.auug.org.au>
-	<4B18FDA3.5060601@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ixgbe: allow tx of pre-formatted vlan tagged packets
+Date: Fri, 4 Dec 2009 13:45:44 -0800
+Message-ID: <9929d2390912041345g4557770bh1467db58b8ade572@mail.gmail.com>
+References: <1259961156.4198.163.camel@gshetty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4B18FDA3.5060601@gmail.com> (William Allen Simpson's message of "Fri\, 04 Dec 2009 07\:16\:35 -0500")
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Arthur Jones <ajones@riverbed.com>
+To: Gurucharan Shetty <gshetty@riverbed.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:61197 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757298AbZLDVph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 16:45:37 -0500
+Received: by pwi3 with SMTP id 3so2360365pwi.21
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 13:45:44 -0800 (PST)
+In-Reply-To: <1259961156.4198.163.camel@gshetty>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-William Allen Simpson <william.allen.simpson@gmail.com> writes:
-
-> Stephen Rothwell wrote:
->> Hi Eric,
->>
->> Today's linux-next merge of the sysctl tree got a conflict in
->> net/ipv4/sysctl_net_ipv4.c between commit
->> 519855c508b9a17878c0977a3cdefc09b59b30df ("TCPCT part 1c:
->> sysctl_tcp_cookie_size, socket option TCP_COOKIE_TRANSACTIONS") from the
->> net tree and commit f8572d8f2a2ba75408b97dc24ef47c83671795d7 ("sysctl
->> net: Remove unused binary sysctl code") from the sysctl tree.
->>
->> I fixed it up (see below) and can carry the fix as necessary.
+On Fri, Dec 4, 2009 at 13:12, Gurucharan Shetty <gshetty@riverbed.com> wrote:
+> ixgbe: allow tx of pre-formatted vlan tagged packets
 >
-> Hi, I'm not Eric, but it's my TCPCT patch -- is there something more
-> that I need to do?
+> When the 82598 is fed 802.1q packets, it chokes with
+> an error of the form:
 >
-> Adding a sysctl was my very first query to Linux lists.  I thought
-> everything was covered in that and subsequent threads.
+> ixgbe: eth0: ixgbe_tx_csum: partial checksum but proto=81!
+>
+> As the logic there was not smart enough to look into
+> the vlan header to pick out the encapsulated protocol.
+>
+> There are times when we'd like to send these packets
+> out without having to configure a vlan on the interface.
+> Here we check for the vlan tag and allow the packet to
+> go out with the correct hardware checksum.
+>
+> This patch is a clone of a previously submitted patch by
+> Arthur Jones <ajones@riverbed.com> for igb (Commit -
+> fa4a7ef36ec834fee1719636b30d2f28f4cb0166).
+>
+> Signed-off-by: Gurucharan Shetty <gshetty@riverbed.com>
+> Signed-off-by: Arthur Jones <ajones@riverbed.com>
+>
 
-My apologies for not giving you a heads up earlier.
+Thanks, I have added the patch to my queue for testing.  After
+successful testing, I will push to Dave/netdev.
 
-You initially ran into the problem in sysctl_check where you added a
-new binary sysctl and you had errors.  That works to keep people from
-adding new binary sysctl but as you experienced it is not the most
-obvious way of communicating.
-
-In my sysctl tree I have written a compatibility layer for all of the
-existing binary sysctl handlers, and have removed the .ctl_name and
-.strategy fields, that used to be used for implementing binary
-sysctls.
-
-In the best case scenario you could have seen that coming and not
-included the .ctl_name line in your patch.  Then there would have been
-a trivial conflict that would have required no changes to fixup.
-However since I removed .ctl_name from before and after your new entry
-a minor merge conflict was inevitable.
-
-The price it seems for multiple independent development trees are the
-occasionally conflicts in trees hosting kernel wide cleanups and fixes.
-
-Eric
+-- 
+Cheers,
+Jeff
