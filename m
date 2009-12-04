@@ -1,32 +1,30 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: scp stalls mysteriously
-Date: Fri, 4 Dec 2009 10:36:29 +0100
-Message-ID: <20091204093629.GA17976@sd-11162.dedibox.fr>
-References: <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi> <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de> <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi> <4B17A791.80808@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi> <4B17C6C3.1060000@tvk.rwth-aachen.de> <20091203202328.62d7551a@houba> <4B1820B8.7050500@tvk.rwth-aachen.de>
+From: Ben Dooks <ben@simtec.co.uk>
+Subject: Re: [PATCH 2.6.32 3/3] net: Make ks8851 snl work under Beagle Zippy
+ combo board
+Date: Fri, 04 Dec 2009 10:20:14 +0000
+Message-ID: <4B18E25E.7030808@simtec.co.uk>
+References: <14385191E87B904DBD836449AA30269D021A42@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:59645 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751592AbZLDJgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 04:36:23 -0500
-Content-Disposition: inline
-In-Reply-To: <4B1820B8.7050500@tvk.rwth-aachen.de>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:36697 "EHLO
+	ben-laptop.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752099AbZLDKTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 05:19:43 -0500
+In-Reply-To: <14385191E87B904DBD836449AA30269D021A42@MORGANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 03, 2009 at 09:34:00PM +0100, Damian Lukowski wrote:
-> Frederic Leroy schrieb:
->
-> Ok, at least this "fix" seems to work at first glance, but the printk
-> is quite useless now. Could you run another test with the printk's but
-> without the retrans_stamp == 0 check, please?
+Ha, Tristram wrote:
+> From: Tristram Ha <Tristram.Ha@micrel.com>
+> 
+> The Micrel KSZ8851 SNL Ethernet chip is used in the OMAP Beagle Zippy combo board.  Requesting interrupt using level triggering flag hangs the system because the interrupt handling routine is called continually.  Using edge triggering avoids this problem.  As a result, disabling interrupt may not be necessary.
+> 
+> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
 
-I just made 3 more test (.14 .15 .16), all streams has failed.
+Making this sort of change could impact other users. I'll
+submit a patch to get the interrupt type properly and push
+everything else i've got,
