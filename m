@@ -1,35 +1,49 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 2/2] usbnet & cdc-ether: Autosuspend for online devices
-Date: Fri, 4 Dec 2009 09:14:18 +0100
-Message-ID: <200912040914.19339.oliver@neukum.org>
-References: <200912032241.43772.oliver@neukum.org> <20091203.134532.225926933.davem@davemloft.net> <20091203.152721.266674825.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the sysctl tree with the net tree
+Date: Fri, 4 Dec 2009 19:36:13 +1100
+Message-ID: <20091204193613.8986a3c6.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:40272 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbZLDIOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 03:14:09 -0500
-In-Reply-To: <20091203.152721.266674825.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__4_Dec_2009_19_36_13_+1100_zJQ4Qik+y3yrDuzS"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Freitag, 4. Dezember 2009 00:27:21 schrieb David Miller:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 03 Dec 2009 13:45:32 -0800 (PST)
-> 
-> > But this all might be due to some other changes I applied today and
-> > didn't push out yet to net-next-2.6, let me check on that for you.
-> 
-> I've resolved this, it was a conflict with Joe Perches's drivers/net
-> coding style cleanups that went in today.
+--Signature=_Fri__4_Dec_2009_19_36_13_+1100_zJQ4Qik+y3yrDuzS
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-OK, so you don't need me to respin on a newer tree?
-I was doubting my own sanity.
+Hi Eric,
 
-	Regards
-		Oliver
+Today's linux-next merge of the sysctl tree got a conflict in
+kernel/sysctl_check.c between commit
+8153a10c08f1312af563bb92532002e46d3f504a ("ipv4: add sysctl to accept
+packets with local source addresses") from the net tree and commit
+83ac201b4f06eb8aeb7ac93cf162651ba30e0b28 ("sysctl: Remove dead code from
+sysctl_check") from the sysctl tree.
+
+The latter removes the need for the former to change this file.  I just
+used the latter.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__4_Dec_2009_19_36_13_+1100_zJQ4Qik+y3yrDuzS
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAksYyf0ACgkQjjKRsyhoI8yv6QCgu+22/azgw9SVjpdnlo7sJFqf
+kb8AoKDfyPVRZ3415pHZ8T+Q9hZ/lx/I
+=hkXo
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__4_Dec_2009_19_36_13_+1100_zJQ4Qik+y3yrDuzS--
