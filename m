@@ -1,18 +1,23 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH] atm: [br2684] allow routed mode operation again
-Date: Fri, 04 Dec 2009 15:55:50 -0500
-Message-ID: <200912042055.nB4Kto8M008310@cmf.nrl.navy.mil>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] atm: [br2684] allow routed mode operation again
+Date: Fri, 04 Dec 2009 16:06:32 -0500
+Message-ID: <200912042106.nB4L6Wc7012919@cmf.nrl.navy.mil>
+References: <200912042055.nB4Kto8M008310@cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
 Cc: mfuentes@agenciaefe.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:34903 "EHLO
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:57177 "EHLO
 	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932425AbZLDUzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 15:55:52 -0500
+	with ESMTP id S1757277AbZLDVGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 16:06:34 -0500
+In-reply-to: <200912042055.nB4Kto8M008310@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+sorry this should be Signed-off-by me instead of manuel.  *sigh*
+
+From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
 atm: [br2684] allow routed mode operation again
 
@@ -20,7 +25,7 @@ in routed mode, we don't have a hardware address so netdev_ops doesnt
 need to validate our hardware address via .ndo_validate_addr
 
 Reported-by: Manuel Fuentes <mfuentes@agenciaefe.com>
-Signed-off-by: Manuel Fuentes <mfuentes@agenciaefe.com>
+Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
 diff --git a/net/atm/br2684.c b/net/atm/br2684.c
 index 26a646d..c9230c3 100644
@@ -53,3 +58,8 @@ index 26a646d..c9230c3 100644
  	netdev->addr_len = 0;
  	netdev->mtu = 1500;
  	netdev->type = ARPHRD_PPP;
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
