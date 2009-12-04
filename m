@@ -1,7 +1,7 @@
 From: Amit Kucheria <amit.kucheria@canonical.com>
-Subject: [RFC][PATCH 07/10] fec: Add LAN8700 phy support
-Date: Fri,  4 Dec 2009 04:47:07 +0200
-Message-ID: <a34d2aac8d5282bfbdf09dddc2da57c4ad7da355.1259893118.git.amit.kucheria@canonical.com>
+Subject: [RFC][PATCH 09/10] fec: Add ARCH_MX5 as a dependency
+Date: Fri,  4 Dec 2009 04:47:09 +0200
+Message-ID: <2a48ec938005ba7e32a4acc10c1820888003bec8.1259893118.git.amit.kucheria@canonical.com>
 References: <cover.1259893118.git.amit.kucheria@canonical.com>
 	<e99e70e2a619693064130a747b6ee3a93273337b.1259893118.git.amit.kucheria@canonical.com>
 	<6608c4dca645d87efce78ae0b7dbad265004f482.1259893118.git.amit.kucheria@canonical.com>
@@ -9,6 +9,8 @@ References: <cover.1259893118.git.amit.kucheria@canonical.com>
 	<a079a0627e77f2df590840e4798fc067f4436160.1259893118.git.amit.kucheria@canonical.com>
 	<0559d42bc9f32e30264fea6ca6fa679121f6a241.1259893118.git.amit.kucheria@canonical.com>
 	<7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
+	<a34d2aac8d5282bfbdf09dddc2da57c4ad7da355.1259893118.git.amit.kucheria@canonical.com>
+	<dbab65547b41b82719df19067b50db9c82eeb6d6.1259893118.git.amit.kucheria@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +21,7 @@ Cc: Dinh.Nguyen@freescale.com, netdev@vger.kernel.org, s.hauer@pengutronix.de,
 	linux-arm-kernel@lists.infradead.org
 To: List Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
+In-Reply-To: <dbab65547b41b82719df19067b50db9c82eeb6d6.1259893118.git.amit.kucheria@canonical.com>
 In-Reply-To: <cover.1259893118.git.amit.kucheria@canonical.com>
 References: <cover.1259893118.git.amit.kucheria@canonical.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
@@ -33,53 +35,28 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The i.MX51 babbage board has a FEC ethernet controller with this phy.
+i.MX51 babbage board has a FEC ethernet controller
 
 Signed-off-by: Amit Kucheria <amit.kucheria@canonical.com>
 Cc: David S. Miller <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/fec.c |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
+ drivers/net/Kconfig |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 9a8743d..5d0d332 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -1128,6 +1128,26 @@ static phy_info_t phy_info_dp83848= {
- 	},
- };
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index b2f71f7..328112b 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1883,7 +1883,8 @@ config 68360_ENET
  
-+static phy_info_t phy_info_lan8700 = {
-+	0x0007C0C,
-+	"LAN8700",
-+	(const phy_cmd_t []) { /* config */
-+		{ mk_mii_read(MII_REG_CR), mii_parse_cr },
-+		{ mk_mii_read(MII_REG_ANAR), mii_parse_anar },
-+		{ mk_mii_end, }
-+	},
-+	(const phy_cmd_t []) { /* startup */
-+		{ mk_mii_write(MII_REG_CR, 0x1200), NULL }, /* autonegotiate */
-+		{ mk_mii_read(MII_REG_SR), mii_parse_sr },
-+		{ mk_mii_end, }
-+	},
-+	(const phy_cmd_t []) { /* act_int */
-+		{ mk_mii_end, }
-+	},
-+	(const phy_cmd_t []) { /* shutdown */
-+		{ mk_mii_end, }
-+	},
-+};
- /* ------------------------------------------------------------------------- */
- 
- static phy_info_t const * const phy_info[] = {
-@@ -1137,6 +1157,7 @@ static phy_info_t const * const phy_info[] = {
- 	&phy_info_am79c874,
- 	&phy_info_ks8721bl,
- 	&phy_info_dp83848,
-+	&phy_info_lan8700,
- 	NULL
- };
- 
+ config FEC
+ 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+-	depends on M523x || M527x || M5272 || M528x || M520x || M532x || MACH_MX27 || ARCH_MX35 || ARCH_MX25
++	depends on M523x || M527x || M5272 || M528x || M520x || M532x || \
++		MACH_MX27 || ARCH_MX35 || ARCH_MX25 || ARCH_MX5
+ 	help
+ 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+ 	  controller on some Motorola ColdFire and Freescale i.MX processors.
 -- 
 1.6.3.3
