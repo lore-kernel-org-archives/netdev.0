@@ -1,77 +1,151 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Fri, 4 Dec 2009 09:05:25 +0000
-Message-ID: <20091204090524.GB6478@ff.dom.local>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
-	<20091124111946.GA7883@ff.dom.local>
-	<81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
-	<20091125191105.GA3167@ami.dom.local>
-	<81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
-	<20091127213640.GA2611@ami.dom.local>
-	<81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
-	<20091127224206.GA3350@ami.dom.local>
-	<81bfc67a0912031749y15faed66s9c8a924684c97a19@mail.gmail.com>
+From: Sven Anders <sven@anduras.de>
+Subject: Re: [PATCH] e1000e: Fix usage under kexec
+Date: Fri, 04 Dec 2009 10:10:35 +0100
+Message-ID: <4B18D20B.5070204@anduras.de>
+References: <4AF87AB1.1070603@anduras.de> <4B026B24.5040108@redhat.com> <EA929A9653AAE14F841771FB1DE5A1365FA68EE924@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Caleb Cushing <xenoterracide@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <81bfc67a0912031749y15faed66s9c8a924684c97a19@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBE4FAAE96D4301CAE592A641"
+Cc: Stefan Assmann <sassmann@redhat.com>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metropolitan.anduras.de ([80.237.200.159]:33863 "EHLO
+	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755196AbZLDJKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 04:10:39 -0500
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA68EE924@rrsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 03, 2009 at 08:49:17PM -0500, Caleb Cushing wrote:
-> >
-> > modprobe -r e1000e
-> > modprobe e1000e IntMode=0
-> >
-> > Jarek P.
-> >
-> tested on kernel behaving properly no change. what do these modes do?
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBE4FAAE96D4301CAE592A641
+Content-Type: multipart/mixed;
+ boundary="------------020905090207040000050909"
 
-e1000e by default uses MSI-X interrupts if possible, which are most
-modern. If there are some problems IntMode lets us try older types,
-so I rather meant it for the misbehaving kernel.
+This is a multi-part message in MIME format.
+--------------020905090207040000050909
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> I've installed a 10/100 linksys nic into my system. it appears to be
-> working fine on a bad kernel (2.6.32-final tested and for sure
-> verified). I've only tested it once though. my laptop died so direct
-> connection between that won't work. can I test between these 2 nics?
-> (suppose no real reason why not) but what should I proceed with at
-> this point?
+Tantilov, Emil S schrieb:
+> Stefan Assmann wrote:
+>> On 09.11.2009 21:25, Sven Anders wrote:
+>>>
+>>> We're experiencing the following problem:
+>>>
+>>> We start a minimal linux system, prepare the system and start the
+>>> final system via kexec. On two different systems (one with a 82573
+>>> and one with a 82574), the driver cannot initialize the network
+>>> hardware, because the PHY is not recognized.=20
+>>>
+>>> We get the following error:
+>>>   e1000e: probe of 0000:02:00.0 failed with error -2
+>> Hi Sven,
+>>
+>> have a look at the following thread, it seems very similar.
+>> http://kerneltrap.org/mailarchive/linux-netdev/2009/3/7/5114394
+>=20
+> There is already similar code in e1000e:
+> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcommi=
+t;h=3D4f9de721ab73a5271a79b126f7b5140b01a05c99
 
-If you have it fixed easily with another nic you should first
-reconsider if this debugging is worth of your time. Of course it's
-could be very useful for the kernel (unless it's a hardware fault),
-but on the other hand this is a popular nic, tested by many people.
+Yes it sound similar. We will test this when we upgrade the kernel for
+our next OS release...
 
-Then, if you find time for such testing, I'd suggest to try mainly
-2.6.32 - I'm not sure if you tried it with e1000e. So if after longer
-testing both linksys and e1000e you find only the latter has problems
-I think you should open the new report in bugzilla for e1000e and
-submit things like: dmesg, .config, lspci -v from 2.6.32, and if
-possible the same things from the last kernel which didn't have these
-problems. Add some references to previous attempts in bugzilla and
-this thread. (Btw, any reproducible tests should be fine.)
+> Sven, could you provide some additional information about your system a=
+nd=20
+> kernel/driver verison you used when the issue occurred?
+> I have not been able to reproduce it on my setup.
 
-Jarek P.
+Currently we are using the Linux kernel 2.6.29.6 for our appliances.
+Which is/was the first officially released kernel with this patch?
 
-------------------------------------------------------------------------------
-Join us December 9, 2009 for the Red Hat Virtual Experience,
-a free event focused on virtualization and cloud computing. 
-Attend in-depth sessions from your desk. Your couch. Anywhere.
-http://p.sf.net/sfu/redhat-sfdev2dev
+
+
+Andi Kleen wrote:
+>> We fixed it by adding a
+>> >
+>> > +       /* Reset PHY before initializing it. Allows re-init after ke=
+xec. */
+>> > +       if (!e1000_check_reset_block(hw))
+>> > +         e1000_phy_hw_reset(hw);
+>=20
+> The problem of resetting PHYs in the driver init path is that it tends
+> to lose link-state, and if the link takes some time to re-negotiate
+> you can significantly slow down the "total time to network access"
+> at boot.
+>=20
+> Perhaps you could only reset when the message above would trigger
+> and try again?
+>=20
+> -Andi
+
+Ok, know we are doing the following. But maybe it isn't needed with the
+new kernel any more...
+
+@@ -109,6 +109,13 @@ static s32 e1000_init_phy_params_82571(s
+        /* This can only be done after all function pointers are setup. *=
+/
+        ret_val =3D e1000_get_phy_id_82571(hw);
+
++       /* Could not determine PHY id. This can happen when booting
++          via kexec. So reset and try again. */
++       if (ret_val =3D=3D -E1000_ERR_PHY) {
++               e1000_phy_hw_reset(hw);
++               ret_val =3D e1000_get_phy_id_82571(hw);
++       }
++
+        /* Verify phy id */
+        switch (hw->mac.type) {
+        case e1000_82571:
+
+
+Regards
+ Sven Anders
+
+--=20
+ Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campaign=
+
+                                                 /\ Support plain text e-=
+mail
+ ANDURAS service solutions AG
+ Innstrasse 71 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 5=
+0-55
+
+Those who would give up essential Liberty, to purchase a little
+temporary Safety, deserve neither Liberty nor Safety.
+  - Benjamin Franklin
+
+--------------020905090207040000050909
+Content-Type: text/x-vcard; charset=utf-8;
+ name="sven.vcf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="sven.vcf"
+
+YmVnaW46dmNhcmQNCmZuOlN2ZW4gQW5kZXJzDQpuOkFuZGVycztTdmVuDQphZHI7cXVvdGVk
+LXByaW50YWJsZTo7O1dlaWRlc3RyYT1DMz05RmUgMTk7SGFubm92ZXI7TmllZGVyc2FjaHNl
+bjszMDQ1MztEZXV0c2NobGFuZA0KZW1haWw7aW50ZXJuZXQ6c3ZlbkBhbmR1cmFzLmRlDQp0
+ZWw7aG9tZTorNDkgKDApNTExIC8gMjEyMzA5MA0KdGVsO2NlbGw6KzQ5ICgwKTE3MCAvIDgw
+OTExODANCngtbW96aWxsYS1odG1sOkZBTFNFDQp1cmw6aHR0cDovL3N0YWZmLmFuZHVyYXMu
+ZGUvYW5kZXJzDQp2ZXJzaW9uOjIuMQ0KZW5kOnZjYXJkDQoNCg==
+--------------020905090207040000050909--
+
+--------------enigBE4FAAE96D4301CAE592A641
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAksY0hMACgkQ5lKZ7Feg4EfOJgCfU5I3O021YBUPzDhuc6lpBa8c
+kNwAoIyiB1V3s9V6SHn3Rl0aBjWM0oCE
+=MmyV
+-----END PGP SIGNATURE-----
+
+--------------enigBE4FAAE96D4301CAE592A641--
