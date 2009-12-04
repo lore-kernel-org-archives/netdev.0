@@ -1,37 +1,85 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH 0/4] llc enhancements
-Date: Fri, 4 Dec 2009 02:20:14 +0200
-Message-ID: <200912040220.14402.opurdila@ixiacom.com>
-References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com> <20091203.155553.236357128.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/4] llc: use a device based hash table to speed up multicast
+ delivery
+Date: Fri, 04 Dec 2009 01:28:11 +0100
+Message-ID: <4B18579B.7020702@gmail.com>
+References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com> <200912040130.54966.opurdila@ixiacom.com> <4B184F4C.3060407@gmail.com> <200912040215.16690.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26895 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755287AbZLDAXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 19:23:22 -0500
-In-Reply-To: <20091203.155553.236357128.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35562 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753570AbZLDA2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 19:28:09 -0500
+In-Reply-To: <200912040215.16690.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 04 December 2009 01:55:53 you wrote:
-> From: Octavian Purdila <opurdila@ixiacom.com>
-> Date: Fri,  4 Dec 2009 00:31:34 +0200
-> 
-> > This patch series introduces a couple of general enhancements to LLC
-> > socket code as well as changes to scale the LLC socket lookup code for
-> > a large number of interfaces needed for our uses cases (STP traffic
-> > generation from a large number of ports, via virtual network
-> > interfaces).
-> 
-> These patches are still in flux, in particular the hash table
-> bits need changes, so this stuff will have to wait until the
-> next merge window, it's too late for the current one sorry.
-> 
+Octavian Purdila a =E9crit :
+> On Friday 04 December 2009 01:52:44 you wrote:
+>> Octavian Purdila a =E9crit :
+>=20
+>>> Since at this point we are using UP ports contention is not really =
+an
+>>> issue for us. I've extrapolated this (lock per hash bucket) based o=
+n how
+>>> locking is done in other places, like UDP.
+>> Yes but you know we want to remove those locks per UDP hash bucket, =
+since
+>>  we dont really need them anymore. ;)
+>>
+>> If you remember, we had in the past one rwlock for the whole UDP tab=
+le.
+>>
+>> Then this was converted to one spinlock per hash slot (128 slots) + =
+RCU
+>>  lookups for unicast RX
+>>
+>> Then we dynamically sized udp table at boot (up to 65536 slots)
+>>
+>> multicast optimization (holding lock for small duration + double has=
+hing)
+>>
+>> bind optimization (thanks to double hashing)
+>>
+>> To be done :
+>>
+>> 1) multicast RX can be done without taking any lock, and RCU lookups
+>> 2) zap all locks and use one lock, or a small array of hashed spinlo=
+cks
+>>
+>=20
+> Thanks for the nice summary Eric !
+>=20
+> I still have one doubt related to this: we still need locking for cre=
+ating and=20
+> destroying sockets to insert/remove them into/from the hash, RCU can'=
+t help us=20
+> here, right?=20
 
-Sure, not problem, I didn't intended these for this merge window. I've should 
-have marked them as [RFC PATCH], sorry for the confusion.
+Sure. RCU is used for readers only. We still need locks to protect writ=
+ers
+against them.
+
+>=20
+> In that case wouldn't spinlock contention become an issue for short l=
+ived=20
+> connections? Probably not for UDP (or LLC), but for TCP I certainly c=
+an think=20
+> of a few usecases for short lived connections.
+
+Yes, this is why an array of hashed spinlocks would be good, (as alread=
+y done with TCP
+for example, or IP route cache)
+
+(Say you have a table of 65536 UDP slots on your high performance serve=
+r,
+handling millions of udp sockets, you dont _need_ 65536 spinlocks, but =
+some number
+related to number of cpus)
+
+
