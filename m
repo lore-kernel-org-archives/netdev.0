@@ -1,114 +1,51 @@
-From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 1/1] cxgb3i: Fix a login over vlan issue
-Date: Fri,  4 Dec 2009 16:34:25 +0530
-Message-ID: <1259924665-2301-1-git-send-email-rakesh@chelsio.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Support for Intel 82598EB 10-Gigabit AT2 Server Adapter
+Date: Fri, 04 Dec 2009 18:33:25 +0100
+Message-ID: <4B1947E5.2020205@krogh.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <38UUZSwYLCpsM5F9NC7C9GNDJ.7JHJK9I-DN7NDBJJBG9BMJPKN.7JH-JX7+OpRa80S8N/ZHIG5xj07CuiCeIGUxQQ4Iyu8u01E@public.gmane.org>
-List-Post: <http://groups.google.com/group/open-iscsi/post?hl=>,
-	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/?hl=>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/open-iscsi?hl=>
-List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=>,
-	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 2605ds1-ynoe.0.fullrate.dk ([90.184.12.24]:46951 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932249AbZLDRjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2009 12:39:08 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by shrek.krogh.cc (Postfix) with ESMTP id 782B9153095
+	for <netdev@vger.kernel.org>; Fri,  4 Dec 2009 18:33:30 +0100 (CET)
+Received: from shrek.krogh.cc ([127.0.0.1])
+	by localhost (shrek.krogh.cc [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id OsPCRz4iHWSa for <netdev@vger.kernel.org>;
+	Fri,  4 Dec 2009 18:33:26 +0100 (CET)
+Received: from [90.184.13.137] (unknown [90.184.13.137])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: jesper@krogh.cc)
+	by shrek.krogh.cc (Postfix) with ESMTPSA id 657E6152B3B
+	for <netdev@vger.kernel.org>; Fri,  4 Dec 2009 18:33:26 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix a login over vlan issue, when parent interface is vlan and we are using cxgb3i sepecific
-private ip address in '/etc/iscsi/ifaces/' iface file.
+Hi.
 
-Acked-by: Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/scsi/cxgb3i/cxgb3i_offload.c |   34 +++++++++++++++++++++++++++++++++-
- 1 files changed, 33 insertions(+), 1 deletions(-)
+I just got two Intel 82598EB 10-Gigabit AT2 Server Adapter i sort of
+assumed that they "just worked" since I have a AF-adapter (SR-fiber),
+that works flawlessly and it it "just another media" in the other end.
 
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.c b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-index c1d5be4..66d52e4 100644
---- a/drivers/scsi/cxgb3i/cxgb3i_offload.c
-+++ b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-@@ -1440,6 +1440,10 @@ void cxgb3i_c3cn_release(struct s3_conn *c3cn)
- static int is_cxgb3_dev(struct net_device *dev)
- {
- 	struct cxgb3i_sdev_data *cdata;
-+	struct net_device *ndev = dev;
-+
-+	if (dev->priv_flags & IFF_802_1Q_VLAN)
-+		ndev = vlan_dev_real_dev(dev);
- 
- 	write_lock(&cdata_rwlock);
- 	list_for_each_entry(cdata, &cdata_list, list) {
-@@ -1447,7 +1451,7 @@ static int is_cxgb3_dev(struct net_device *dev)
- 		int i;
- 
- 		for (i = 0; i < ports->nports; i++)
--			if (dev == ports->lldevs[i]) {
-+			if (ndev == ports->lldevs[i]) {
- 				write_unlock(&cdata_rwlock);
- 				return 1;
- 			}
-@@ -1566,6 +1570,26 @@ out_err:
- 	return -1;
- }
- 
-+/**
-+ * cxgb3i_find_dev - find the interface associated with the given address
-+ * @ipaddr: ip address
-+ */
-+static struct net_device *
-+cxgb3i_find_dev(__be32 ipaddr)
-+{
-+	struct flowi fl;
-+	int err;
-+	struct rtable *rt;
-+
-+	memset(&fl, 0, sizeof(fl));
-+	fl.nl_u.ip4_u.daddr = ipaddr;
-+
-+	err = ip_route_output_key(&init_net, &rt, &fl);
-+	if (!err)
-+		return (&rt->u.dst)->dev;
-+
-+	return NULL;
-+}
- 
- /**
-  * cxgb3i_c3cn_connect - initiates an iscsi tcp connection to a given address
-@@ -1581,6 +1605,7 @@ int cxgb3i_c3cn_connect(struct net_device *dev, struct s3_conn *c3cn,
- 	struct cxgb3i_sdev_data *cdata;
- 	struct t3cdev *cdev;
- 	__be32 sipv4;
-+	struct net_device *dstdev;
- 	int err;
- 
- 	c3cn_conn_debug("c3cn 0x%p, dev 0x%p.\n", c3cn, dev);
-@@ -1591,6 +1616,13 @@ int cxgb3i_c3cn_connect(struct net_device *dev, struct s3_conn *c3cn,
- 	c3cn->daddr.sin_port = usin->sin_port;
- 	c3cn->daddr.sin_addr.s_addr = usin->sin_addr.s_addr;
- 
-+	dstdev = cxgb3i_find_dev(usin->sin_addr.s_addr);
-+	if (!dstdev || !is_cxgb3_dev(dstdev))
-+		return -ENETUNREACH;
-+
-+	if (dstdev->priv_flags & IFF_802_1Q_VLAN)
-+		dev = dstdev;
-+
- 	rt = find_route(dev, c3cn->saddr.sin_addr.s_addr,
- 			c3cn->daddr.sin_addr.s_addr,
- 			c3cn->saddr.sin_port,
--- 
-1.6.0.6
+But as of 2.6.31.6 the pci-ids is not registered in modules.pcimap
 
---
+82:00.0 0200: 8086:150b (rev 01)
+84:00.0 Ethernet controller: Intel Corporation 82598EB 10-Gigabit AT2
+Server Adapter (rev 01)
 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
+And the adapter does not produce any ethX interfaces for usage when the
+ixgbe drivers is loaded.
+
+Is it as simple as just adding the identifiers to the module-map or is
+there a patch flying around somewhere?
+
+Thanks.
+
+Jesper
+
