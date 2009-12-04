@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdevice: provide common routine for macvlan and vlan
- operstate management
-Date: Thu, 03 Dec 2009 15:59:33 -0800 (PST)
-Message-ID: <20091203.155933.218088805.davem@davemloft.net>
-References: <4B105311.1020005@trash.net>
-	<20091203201824.15789.7578.stgit@mimic.site>
-	<200912032134.32338.arnd@arndb.de>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: add more ethtool information
+Date: Fri, 4 Dec 2009 10:32:23 +1030
+Message-ID: <200912041032.23865.rusty@rustcorp.com.au>
+References: <20091203063225.926337440@vyatta.com> <20091203063311.902077645@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: pmullaney@novell.com, netdev@vger.kernel.org, kaber@trash.net
-To: arnd@arndb.de
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alex Williamson <alex.williamson@hp.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44992
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752266AbZLCX70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Dec 2009 18:59:26 -0500
-In-Reply-To: <200912032134.32338.arnd@arndb.de>
+Received: from ozlabs.org ([203.10.76.45]:59754 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751794AbZLDACY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Dec 2009 19:02:24 -0500
+In-Reply-To: <20091203063311.902077645@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 3 Dec 2009 21:34:32 +0000
+On Thu, 3 Dec 2009 05:02:26 pm Stephen Hemminger wrote:
+> It is useful for some tools (as well as bonding, and bridging)
+> for virtio network interface provide more ethtool information.
 
-> On Thursday 03 December 2009 20:21:54 Patrick Mullaney wrote:
->> Provide common routine for the transition of operational state for a leaf
->> device during a root device transition.
->> 
->> Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
-> 
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> The last time this was posted, we also had an "Acked-by: Patrick McHardy
-> <kaber@trash.net>", which should be in there as well.
+Hi Stephen,
 
-I've done that and applied this patch, thanks.
+    Can't see any harm.  Some minor questions below:
+
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/drivers/net/virtio_net.c	2009-12-01 14:24:14.766450584 -0800
+> +++ b/drivers/net/virtio_net.c	2009-12-01 16:49:18.295535415 -0800
+> @@ -763,7 +763,36 @@ static void virtnet_vlan_rx_kill_vid(str
+>  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
+>  }
+>  
+> +static void virtnet_get_drvinfo(struct net_device *dev,
+> +				struct ethtool_drvinfo *info)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	strcpy(info->driver, "virtnet");
+> +	strcpy(info->version, "0.1");
+> +	strcpy(info->fw_version, "N/A");
+> +	strcpy(info->bus_info, dev_driver_string(&vi->vdev->dev));
+
+0.1 as a version is weird.  If we need a number, "0" seems best.
+
+> +	cmd->speed = SPEED_1000;
+
+Why 1000?  Because it's commong?  How about a SPEED_UNLIMITED?
+
+Thanks,
+Rusty.
