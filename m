@@ -1,131 +1,410 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: pull request: SCTP updates for net-next
-Date: Fri, 04 Dec 2009 11:23:14 -0500
-Message-ID: <4B193772.9010109@hp.com>
-References: <4B0AF96A.3050709@hp.com> <20091203210050.d886f229.akpm@linux-foundation.org>
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: Re: [PATCH] crypto: gmac - Add RFC4543 wrapper for GCM
+Date: Fri, 04 Dec 2009 17:31:43 +0100
+Message-ID: <4B19396F.8040601@strongswan.org>
+References: <4B154918.7070008@strongswan.org> <20091203035013.GA15252@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux SCTP Dev Mailing list <linux-sctp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrei Pelinescu-Onciul <andrei@iptel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:42568 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932150AbZLDQXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 11:23:11 -0500
-In-Reply-To: <20091203210050.d886f229.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20091203035013.GA15252@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+>> +	u8 auth_tag[16];
+> 
+> This field needs to be aligned to whatever alignment needed by
+> the underlying cipher algorithm (currently the biggest is padlock
+> which needs 16-byte alignment).
+
+Didn't realize that, thanks. I fixed the aligning according to
+how it's done in GCM.
+
+Regards,
+Tobias
+
+-------------8<-------------8<-------------
+
+This patch adds the RFC4543 (GMAC) wrapper for GCM similar to the
+existing RFC4106 wrapper. The main differences between GCM and GMAC are
+the contents of the AAD and that the plaintext is empty for the latter.
+
+Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+
+---
+ crypto/gcm.c            |  287 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/pfkeyv2.h |    1 +
+ net/xfrm/xfrm_algo.c    |   16 +++
+ 3 files changed, 304 insertions(+), 0 deletions(-)
+
+diff --git a/crypto/gcm.c b/crypto/gcm.c
+index 5fc3292..7d3fba8 100644
+--- a/crypto/gcm.c
++++ b/crypto/gcm.c
+@@ -37,6 +37,19 @@ struct crypto_rfc4106_ctx {
+ 	u8 nonce[4];
+ };
+ 
++struct crypto_rfc4543_ctx {
++	struct crypto_aead *child;
++	u8 nonce[4];
++};
++
++struct crypto_rfc4543_req_ctx {
++	u8 auth_tag[16];
++	struct scatterlist cipher[1];
++	struct scatterlist payload[2];
++	struct scatterlist assoc[2];
++	struct aead_request subreq;
++};
++
+ struct crypto_gcm_ghash_ctx {
+ 	unsigned int cryptlen;
+ 	struct scatterlist *src;
+@@ -1008,6 +1021,272 @@ static struct crypto_template crypto_rfc4106_tmpl = {
+ 	.module = THIS_MODULE,
+ };
+ 
++static inline struct crypto_rfc4543_req_ctx *crypto_rfc4543_reqctx(
++	struct aead_request *req)
++{
++	unsigned long align = crypto_aead_alignmask(crypto_aead_reqtfm(req));
++
++	return (void *)PTR_ALIGN((u8 *)aead_request_ctx(req), align + 1);
++}
++
++static int crypto_rfc4543_setkey(struct crypto_aead *parent, const u8 *key,
++				 unsigned int keylen)
++{
++	struct crypto_rfc4543_ctx *ctx = crypto_aead_ctx(parent);
++	struct crypto_aead *child = ctx->child;
++	int err;
++
++	if (keylen < 4)
++		return -EINVAL;
++
++	keylen -= 4;
++	memcpy(ctx->nonce, key + keylen, 4);
++
++	crypto_aead_clear_flags(child, CRYPTO_TFM_REQ_MASK);
++	crypto_aead_set_flags(child, crypto_aead_get_flags(parent) &
++				     CRYPTO_TFM_REQ_MASK);
++	err = crypto_aead_setkey(child, key, keylen);
++	crypto_aead_set_flags(parent, crypto_aead_get_flags(child) &
++				      CRYPTO_TFM_RES_MASK);
++
++	return err;
++}
++
++static int crypto_rfc4543_setauthsize(struct crypto_aead *parent,
++				      unsigned int authsize)
++{
++	struct crypto_rfc4543_ctx *ctx = crypto_aead_ctx(parent);
++
++	if (authsize != 16)
++		return -EINVAL;
++
++	return crypto_aead_setauthsize(ctx->child, authsize);
++}
++
++/* this is the same as crypto_authenc_chain */
++static void crypto_rfc4543_chain(struct scatterlist *head,
++				 struct scatterlist *sg, int chain)
++{
++	if (chain) {
++		head->length += sg->length;
++		sg = scatterwalk_sg_next(sg);
++	}
++
++	if (sg)
++		scatterwalk_sg_chain(head, 2, sg);
++	else
++		sg_mark_end(head);
++}
++
++static struct aead_request *crypto_rfc4543_crypt(struct aead_request *req,
++						 int enc)
++{
++	struct crypto_aead *aead = crypto_aead_reqtfm(req);
++	struct crypto_rfc4543_ctx *ctx = crypto_aead_ctx(aead);
++	struct crypto_rfc4543_req_ctx *rctx = crypto_rfc4543_reqctx(req);
++	struct aead_request *subreq = &rctx->subreq;
++	struct scatterlist *dst = req->dst;
++	struct scatterlist *cipher = rctx->cipher;
++	struct scatterlist *payload = rctx->payload;
++	struct scatterlist *assoc = rctx->assoc;
++	unsigned int authsize = crypto_aead_authsize(aead);
++	unsigned int assoclen = req->assoclen;
++	struct page *dstp;
++	u8 *vdst;
++	u8 *iv = PTR_ALIGN((u8 *)(rctx + 1) + crypto_aead_reqsize(ctx->child),
++			   crypto_aead_alignmask(ctx->child) + 1);
++
++	memcpy(iv, ctx->nonce, 4);
++	memcpy(iv + 4, req->iv, 8);
++
++	/* construct cipher/plaintext */
++	if (enc)
++		memset(rctx->auth_tag, 0, authsize);
++	else
++		scatterwalk_map_and_copy(rctx->auth_tag, dst,
++					 req->cryptlen - authsize,
++					 authsize, 0);
++
++	sg_init_one(cipher, rctx->auth_tag, authsize);
++
++	/* construct the aad */
++	dstp = sg_page(dst);
++	vdst = PageHighMem(dstp) ? NULL : page_address(dstp) + dst->offset;
++
++	sg_init_table(payload, 2);
++	sg_set_buf(payload, req->iv, 8);
++	crypto_rfc4543_chain(payload, dst, vdst == req->iv + 8);
++	assoclen += 8 + req->cryptlen - (enc ? 0 : authsize);
++
++	sg_init_table(assoc, 2);
++	sg_set_page(assoc, sg_page(req->assoc), req->assoc->length,
++		    req->assoc->offset);
++	crypto_rfc4543_chain(assoc, payload, 0);
++
++	aead_request_set_tfm(subreq, ctx->child);
++	aead_request_set_callback(subreq, req->base.flags, req->base.complete,
++				  req->base.data);
++	aead_request_set_crypt(subreq, cipher, cipher, enc ? 0 : authsize, iv);
++	aead_request_set_assoc(subreq, assoc, assoclen);
++
++	return subreq;
++}
++
++static int crypto_rfc4543_encrypt(struct aead_request *req)
++{
++	struct crypto_aead *aead = crypto_aead_reqtfm(req);
++	struct crypto_rfc4543_req_ctx *rctx = crypto_rfc4543_reqctx(req);
++	struct aead_request *subreq;
++	int err;
++
++	subreq = crypto_rfc4543_crypt(req, 1);
++	err = crypto_aead_encrypt(subreq);
++	if (err)
++		return err;
++
++	scatterwalk_map_and_copy(rctx->auth_tag, req->dst, req->cryptlen,
++				 crypto_aead_authsize(aead), 1);
++
++	return 0;
++}
++
++static int crypto_rfc4543_decrypt(struct aead_request *req)
++{
++	req = crypto_rfc4543_crypt(req, 0);
++
++	return crypto_aead_decrypt(req);
++}
++
++static int crypto_rfc4543_init_tfm(struct crypto_tfm *tfm)
++{
++	struct crypto_instance *inst = (void *)tfm->__crt_alg;
++	struct crypto_aead_spawn *spawn = crypto_instance_ctx(inst);
++	struct crypto_rfc4543_ctx *ctx = crypto_tfm_ctx(tfm);
++	struct crypto_aead *aead;
++	unsigned long align;
++
++	aead = crypto_spawn_aead(spawn);
++	if (IS_ERR(aead))
++		return PTR_ERR(aead);
++
++	ctx->child = aead;
++
++	align = crypto_aead_alignmask(aead);
++	align &= ~(crypto_tfm_ctx_alignment() - 1);
++	tfm->crt_aead.reqsize = sizeof(struct crypto_rfc4543_req_ctx) +
++				ALIGN(crypto_aead_reqsize(aead),
++				      crypto_tfm_ctx_alignment()) +
++				align + 16;
++
++	return 0;
++}
++
++static void crypto_rfc4543_exit_tfm(struct crypto_tfm *tfm)
++{
++	struct crypto_rfc4543_ctx *ctx = crypto_tfm_ctx(tfm);
++
++	crypto_free_aead(ctx->child);
++}
++
++static struct crypto_instance *crypto_rfc4543_alloc(struct rtattr **tb)
++{
++	struct crypto_attr_type *algt;
++	struct crypto_instance *inst;
++	struct crypto_aead_spawn *spawn;
++	struct crypto_alg *alg;
++	const char *ccm_name;
++	int err;
++
++	algt = crypto_get_attr_type(tb);
++	err = PTR_ERR(algt);
++	if (IS_ERR(algt))
++		return ERR_PTR(err);
++
++	if ((algt->type ^ CRYPTO_ALG_TYPE_AEAD) & algt->mask)
++		return ERR_PTR(-EINVAL);
++
++	ccm_name = crypto_attr_alg_name(tb[1]);
++	err = PTR_ERR(ccm_name);
++	if (IS_ERR(ccm_name))
++		return ERR_PTR(err);
++
++	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	if (!inst)
++		return ERR_PTR(-ENOMEM);
++
++	spawn = crypto_instance_ctx(inst);
++	crypto_set_aead_spawn(spawn, inst);
++	err = crypto_grab_aead(spawn, ccm_name, 0,
++			       crypto_requires_sync(algt->type, algt->mask));
++	if (err)
++		goto out_free_inst;
++
++	alg = crypto_aead_spawn_alg(spawn);
++
++	err = -EINVAL;
++
++	/* We only support 16-byte blocks. */
++	if (alg->cra_aead.ivsize != 16)
++		goto out_drop_alg;
++
++	/* Not a stream cipher? */
++	if (alg->cra_blocksize != 1)
++		goto out_drop_alg;
++
++	err = -ENAMETOOLONG;
++	if (snprintf(inst->alg.cra_name, CRYPTO_MAX_ALG_NAME,
++		     "rfc4543(%s)", alg->cra_name) >= CRYPTO_MAX_ALG_NAME ||
++	    snprintf(inst->alg.cra_driver_name, CRYPTO_MAX_ALG_NAME,
++		     "rfc4543(%s)", alg->cra_driver_name) >=
++	    CRYPTO_MAX_ALG_NAME)
++		goto out_drop_alg;
++
++	inst->alg.cra_flags = CRYPTO_ALG_TYPE_AEAD;
++	inst->alg.cra_flags |= alg->cra_flags & CRYPTO_ALG_ASYNC;
++	inst->alg.cra_priority = alg->cra_priority;
++	inst->alg.cra_blocksize = 1;
++	inst->alg.cra_alignmask = alg->cra_alignmask;
++	inst->alg.cra_type = &crypto_nivaead_type;
++
++	inst->alg.cra_aead.ivsize = 8;
++	inst->alg.cra_aead.maxauthsize = 16;
++
++	inst->alg.cra_ctxsize = sizeof(struct crypto_rfc4543_ctx);
++
++	inst->alg.cra_init = crypto_rfc4543_init_tfm;
++	inst->alg.cra_exit = crypto_rfc4543_exit_tfm;
++
++	inst->alg.cra_aead.setkey = crypto_rfc4543_setkey;
++	inst->alg.cra_aead.setauthsize = crypto_rfc4543_setauthsize;
++	inst->alg.cra_aead.encrypt = crypto_rfc4543_encrypt;
++	inst->alg.cra_aead.decrypt = crypto_rfc4543_decrypt;
++
++	inst->alg.cra_aead.geniv = "seqiv";
++
++out:
++	return inst;
++
++out_drop_alg:
++	crypto_drop_aead(spawn);
++out_free_inst:
++	kfree(inst);
++	inst = ERR_PTR(err);
++	goto out;
++}
++
++static void crypto_rfc4543_free(struct crypto_instance *inst)
++{
++	crypto_drop_spawn(crypto_instance_ctx(inst));
++	kfree(inst);
++}
++
++static struct crypto_template crypto_rfc4543_tmpl = {
++	.name = "rfc4543",
++	.alloc = crypto_rfc4543_alloc,
++	.free = crypto_rfc4543_free,
++	.module = THIS_MODULE,
++};
++
+ static int __init crypto_gcm_module_init(void)
+ {
+ 	int err;
+@@ -1028,8 +1307,14 @@ static int __init crypto_gcm_module_init(void)
+ 	if (err)
+ 		goto out_undo_gcm;
+ 
++	err = crypto_register_template(&crypto_rfc4543_tmpl);
++	if (err)
++		goto out_undo_rfc4106;
++
+ 	return 0;
+ 
++out_undo_rfc4106:
++	crypto_unregister_template(&crypto_rfc4106_tmpl);
+ out_undo_gcm:
+ 	crypto_unregister_template(&crypto_gcm_tmpl);
+ out_undo_base:
+@@ -1042,6 +1327,7 @@ out:
+ static void __exit crypto_gcm_module_exit(void)
+ {
+ 	kfree(gcm_zeroes);
++	crypto_unregister_template(&crypto_rfc4543_tmpl);
+ 	crypto_unregister_template(&crypto_rfc4106_tmpl);
+ 	crypto_unregister_template(&crypto_gcm_tmpl);
+ 	crypto_unregister_template(&crypto_gcm_base_tmpl);
+@@ -1055,3 +1341,4 @@ MODULE_DESCRIPTION("Galois/Counter Mode");
+ MODULE_AUTHOR("Mikko Herranen <mh1@iki.fi>");
+ MODULE_ALIAS("gcm_base");
+ MODULE_ALIAS("rfc4106");
++MODULE_ALIAS("rfc4543");
+diff --git a/include/linux/pfkeyv2.h b/include/linux/pfkeyv2.h
+index 228b0b6..0b80c80 100644
+--- a/include/linux/pfkeyv2.h
++++ b/include/linux/pfkeyv2.h
+@@ -315,6 +315,7 @@ struct sadb_x_kmaddress {
+ #define SADB_X_EALG_AES_GCM_ICV12	19
+ #define SADB_X_EALG_AES_GCM_ICV16	20
+ #define SADB_X_EALG_CAMELLIACBC		22
++#define SADB_X_EALG_NULL_AES_GMAC	23
+ #define SADB_EALG_MAX                   253 /* last EALG */
+ /* private allocations should use 249-255 (RFC2407) */
+ #define SADB_X_EALG_SERPENTCBC  252     /* draft-ietf-ipsec-ciph-aes-cbc-00 */
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index ef8d61d..c9182fb 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -125,6 +125,22 @@ static struct xfrm_algo_desc aead_list[] = {
+ 		.sadb_alg_maxbits = 256
+ 	}
+ },
++{
++	.name = "rfc4543(gcm(aes))",
++
++	.uinfo = {
++		.aead = {
++			.icv_truncbits = 128,
++		}
++	},
++
++	.desc = {
++		.sadb_alg_id = SADB_X_EALG_NULL_AES_GMAC,
++		.sadb_alg_ivlen = 8,
++		.sadb_alg_minbits = 128,
++		.sadb_alg_maxbits = 256
++	}
++},
+ };
+ 
+ static struct xfrm_algo_desc aalg_list[] = {
+-- 
+1.6.3.3
 
 
-Andrew Morton wrote:
-> On Mon, 23 Nov 2009 16:06:50 -0500 Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
-> 
->> Andrei Pelinescu-Onciul (3):
->>       sctp: allow setting path_maxrxt independent of SPP_PMTUD_ENABLE
->>       sctp: limit maximum autoclose setsockopt value
->>       sctp: fix integer overflow when setting the autoclose timer
-> 
-> Problems with this one:
-> 
-> : commit f6778aab6ccc4b510b4dcfa770d9949b696b4545
-> : Author:     Andrei Pelinescu-Onciul <andrei@iptel.org>
-> : AuthorDate: Mon Nov 23 15:54:01 2009 -0500
-> : Commit:     Vlad Yasevich <vladislav.yasevich@hp.com>
-> : CommitDate: Mon Nov 23 15:54:01 2009 -0500
-> : 
-> :     sctp: limit maximum autoclose setsockopt value
-> :     
-> :     To avoid overflowing the maximum timer interval when transforming
-> :     the  autoclose interval from seconds to jiffies, limit the maximum
-> :     autoclose value to MAX_SCHEDULE_TIMEOUT/HZ.
-> :     
-> :     Signed-off-by: Andrei Pelinescu-Onciul <andrei@iptel.org>
-> :     Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> : 
-> : diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> : index d2681a6..71513b3 100644
-> : --- a/net/sctp/socket.c
-> : +++ b/net/sctp/socket.c
-> : @@ -2086,6 +2086,9 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
-> :  		return -EINVAL;
-> :  	if (copy_from_user(&sp->autoclose, optval, optlen))
-> :  		return -EFAULT;
-> : +	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
-> : +	if (sp->autoclose > (MAX_SCHEDULE_TIMEOUT / HZ) )
-> : +		sp->autoclose = MAX_SCHEDULE_TIMEOUT / HZ ;
-> :  
-> :  	return 0;
-> :  }
-> 
-> a) it has two coding-style errors in two lines.  Please go away, add
->    scripts/checkpatch.pl to your patch development tools and then continue
->    reading.
-> 
-> b) have you done that yet?
-
-Gack, totally missed those spaces in the email client.  Will use checkpatch from
-now on.
-
-> 
-> c) it generates this on 64-bit:
-> 
-> net/sctp/socket.c: In function 'sctp_setsockopt_autoclose':
-> net/sctp/socket.c:2090: warning: comparison is always false due to limited range of data type
-> 
->    but that's proving somewhat hard to fix in a nice way.
-
-There was a patch that fixed it.  I saw that you pulled it into -mm tree.
-
-> 
-> d) I'm not sure that we should fix it anyway.  Is it really a good
->    idea to take an incorrect, invalid setting from userspace, to
->    silently modify that setting and to not inform userspace?
-> 
-
-We do it with other options, that's not an issue.  At the values where
-we change it, it becomes somewhat moot point.
-
->    Bear in mind that MAX_SCHEDULE_TIMEOUT has different values on
->    32- and 64-bit kernels.  So the same source code will have different
->    behaviour depending on what type of kernel it is executed on.
-> 
->    I think.
-> 
->    It also means that kernel behaviour will differ as CONFIG_HZ is
->    altered, in some way which I can't be bothered working out.
-> 
-
-This is actually OK.  It allows the longest possible timeout depending
-on configuration.  I've actually tested this in a harness and it works
-very well with different HZ values (to bad the harness in not 64 bit aware. :( )
-
-> 
-> Overall, it would be way simpler and saner to clamp this value to some
-> explicit time period, IMO.
-> 
-> <pulls number out of thin air>
-> 
-> --- a/net/sctp/socket.c~a
-> +++ a/net/sctp/socket.c
-> @@ -2086,9 +2086,8 @@ static int sctp_setsockopt_autoclose(str
->  		return -EINVAL;
->  	if (copy_from_user(&sp->autoclose, optval, optlen))
->  		return -EFAULT;
-> -	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
-> -	if (sp->autoclose > (MAX_SCHEDULE_TIMEOUT / HZ) )
-> -		sp->autoclose = MAX_SCHEDULE_TIMEOUT / HZ ;
-> +	/* make sure it won't exceed one hour */
-> +	sp->autoclose = min_t(u32, sp->autoclose, 60 * 60);
->  
-
-But that may not be long enough.  The spec doesn't impose limits
-and it's really up to the application to decide how long it wants
-to keep idle connections open.  Thus any limits shorter the maximum
-supported by kernel are really artificial and may not be sufficient.
-
-Thanks
--vlad
