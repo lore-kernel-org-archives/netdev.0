@@ -1,54 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: pull request: SCTP updates for net-next
-Date: Fri, 4 Dec 2009 12:52:33 -0800
-Message-ID: <20091204125233.eea7de39.akpm@linux-foundation.org>
-References: <4B0AF96A.3050709@hp.com>
-	<20091203210050.d886f229.akpm@linux-foundation.org>
-	<4B193772.9010109@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux SCTP Dev Mailing list <linux-sctp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrei Pelinescu-Onciul <andrei@iptel.org>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH] atm: [br2684] allow routed mode operation again
+Date: Fri, 04 Dec 2009 15:55:50 -0500
+Message-ID: <200912042055.nB4Kto8M008310@cmf.nrl.navy.mil>
+Cc: mfuentes@agenciaefe.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33485 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932380AbZLDUxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 15:53:05 -0500
-In-Reply-To: <4B193772.9010109@hp.com>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:34903 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932425AbZLDUzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 15:55:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 04 Dec 2009 11:23:14 -0500
-Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-> > 
-> > Overall, it would be way simpler and saner to clamp this value to some
-> > explicit time period, IMO.
-> > 
-> > <pulls number out of thin air>
-> > 
-> > --- a/net/sctp/socket.c~a
-> > +++ a/net/sctp/socket.c
-> > @@ -2086,9 +2086,8 @@ static int sctp_setsockopt_autoclose(str
-> >  		return -EINVAL;
-> >  	if (copy_from_user(&sp->autoclose, optval, optlen))
-> >  		return -EFAULT;
-> > -	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
-> > -	if (sp->autoclose > (MAX_SCHEDULE_TIMEOUT / HZ) )
-> > -		sp->autoclose = MAX_SCHEDULE_TIMEOUT / HZ ;
-> > +	/* make sure it won't exceed one hour */
-> > +	sp->autoclose = min_t(u32, sp->autoclose, 60 * 60);
-> >  
-> 
-> But that may not be long enough.  The spec doesn't impose limits
-> and it's really up to the application to decide how long it wants
-> to keep idle connections open.  Thus any limits shorter the maximum
-> supported by kernel are really artificial and may not be sufficient.
+atm: [br2684] allow routed mode operation again
 
-Could make ->autoclose a u64?  That fixes any 32bit-vs-64bit
-inconsistencies and allows for an effectively infinite period.
+in routed mode, we don't have a hardware address so netdev_ops doesnt
+need to validate our hardware address via .ndo_validate_addr
 
+Reported-by: Manuel Fuentes <mfuentes@agenciaefe.com>
+Signed-off-by: Manuel Fuentes <mfuentes@agenciaefe.com>
+
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 26a646d..c9230c3 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -554,6 +554,12 @@ static const struct net_device_ops br2684_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 
++static const struct net_device_ops br2684_netdev_ops_routed = {
++	.ndo_start_xmit 	= br2684_start_xmit,
++	.ndo_set_mac_address	= br2684_mac_addr,
++	.ndo_change_mtu		= eth_change_mtu
++};
++
+ static void br2684_setup(struct net_device *netdev)
+ {
+ 	struct br2684_dev *brdev = BRPRIV(netdev);
+@@ -569,11 +575,10 @@ static void br2684_setup(struct net_device *netdev)
+ static void br2684_setup_routed(struct net_device *netdev)
+ {
+ 	struct br2684_dev *brdev = BRPRIV(netdev);
+-	brdev->net_dev = netdev;
+ 
++	brdev->net_dev = netdev;
+ 	netdev->hard_header_len = 0;
+-
+-	netdev->netdev_ops = &br2684_netdev_ops;
++	netdev->netdev_ops = &br2684_netdev_ops_routed;
+ 	netdev->addr_len = 0;
+ 	netdev->mtu = 1500;
+ 	netdev->type = ARPHRD_PPP;
