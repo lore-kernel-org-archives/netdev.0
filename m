@@ -1,85 +1,49 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [RFC][PATCH 07/10] fec: Add LAN8700 phy support
-Date: Fri, 4 Dec 2009 12:15:59 +0100
-Message-ID: <20091204111559.GM15126@pengutronix.de>
-References: <cover.1259893118.git.amit.kucheria@canonical.com> <a34d2aac8d5282bfbdf09dddc2da57c4ad7da355.1259893118.git.amit.kucheria@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: List Linux Kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, valentin.longchamp@epfl.ch,
-	daniel@caiaq.de, grant.likely@secretlab.ca,
-	Dinh.Nguyen@freescale.com, r.herring@freescale.com
-To: Amit Kucheria <amit.kucheria@canonical.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756049AbZLDLPz@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a34d2aac8d5282bfbdf09dddc2da57c4ad7da355.1259893118.git.amit.kucheria@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] ipv6: Fix "waiting for %s to become free" hang
+Date: Fri, 04 Dec 2009 16:57:34 +0530
+Message-ID: <20091204112734.24535.86096.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp07.au.ibm.com ([202.81.31.140]:42748 "EHLO
+	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754000AbZLDL1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 06:27:32 -0500
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.31.245])
+	by e23smtp07.au.ibm.com (8.14.3/8.13.1) with ESMTP id nB4BRbTB019736
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 22:27:37 +1100
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nB4BRb8U1679454
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 22:27:37 +1100
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB4BRagG031748
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 22:27:37 +1100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 04, 2009 at 04:47:07AM +0200, Amit Kucheria wrote:
-> The i.MX51 babbage board has a FEC ethernet controller with this phy.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-I already saw patches for proper phylib support for the fec driver.
-Maybe we should reactivate them rather than adding another phy to this
-driver.
+(From code-walkthrough, and untested)
 
-Sascha
+Fix "waiting for %s to become free" hang. dev has an
+extra hold (by ip6mr_reg_vif) which was not dropped
+before calling unregister_netdevice.
 
-> 
-> Signed-off-by: Amit Kucheria <amit.kucheria@canonical.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> ---
->  drivers/net/fec.c |   21 +++++++++++++++++++++
->  1 files changed, 21 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 9a8743d..5d0d332 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -1128,6 +1128,26 @@ static phy_info_t phy_info_dp83848= {
->  	},
->  };
->  
-> +static phy_info_t phy_info_lan8700 = {
-> +	0x0007C0C,
-> +	"LAN8700",
-> +	(const phy_cmd_t []) { /* config */
-> +		{ mk_mii_read(MII_REG_CR), mii_parse_cr },
-> +		{ mk_mii_read(MII_REG_ANAR), mii_parse_anar },
-> +		{ mk_mii_end, }
-> +	},
-> +	(const phy_cmd_t []) { /* startup */
-> +		{ mk_mii_write(MII_REG_CR, 0x1200), NULL }, /* autonegotiate */
-> +		{ mk_mii_read(MII_REG_SR), mii_parse_sr },
-> +		{ mk_mii_end, }
-> +	},
-> +	(const phy_cmd_t []) { /* act_int */
-> +		{ mk_mii_end, }
-> +	},
-> +	(const phy_cmd_t []) { /* shutdown */
-> +		{ mk_mii_end, }
-> +	},
-> +};
->  /* ------------------------------------------------------------------------- */
->  
->  static phy_info_t const * const phy_info[] = {
-> @@ -1137,6 +1157,7 @@ static phy_info_t const * const phy_info[] = {
->  	&phy_info_am79c874,
->  	&phy_info_ks8721bl,
->  	&phy_info_dp83848,
-> +	&phy_info_lan8700,
->  	NULL
->  };
->  
-> -- 
-> 1.6.3.3
-> 
-> 
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ net/ipv6/ip6mr.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+diff -ruNp org/net/ipv6/ip6mr.c new/net/ipv6/ip6mr.c
+--- org/net/ipv6/ip6mr.c	2009-12-04 16:08:07.000000000 +0530
++++ new/net/ipv6/ip6mr.c	2009-12-04 16:09:56.000000000 +0530
+@@ -648,8 +648,8 @@ static int mif6_add(struct net *net, str
+ 			return -ENOBUFS;
+ 		err = dev_set_allmulti(dev, 1);
+ 		if (err) {
+-			unregister_netdevice(dev);
+ 			dev_put(dev);
++			unregister_netdevice(dev);
+ 			return err;
+ 		}
+ 		break;
