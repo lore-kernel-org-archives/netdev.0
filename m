@@ -1,48 +1,224 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
-Date: Fri, 4 Dec 2009 11:41:47 +0000
-Message-ID: <20091204114147.GA8488@ff.dom.local>
-References: <4B17EFE3.4080301@gmail.com> <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com> <20091203.133108.254093305.davem@davemloft.net> <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local> <4B18440A.2080507@gmail.com> <20091204074833.GA6478@ff.dom.local> <1259923898.23199.23.camel@localhost>
+From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
+Subject: [PATCH] net: Modify return value for the .ndo_set_mac_address
+Date: Fri, 4 Dec 2009 14:47:22 +0300
+Message-ID: <20091204114721.GA5505@coldcone>
+Reply-To: kirjanov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:58173 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753049AbZLDLlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 06:41:46 -0500
-Received: by fg-out-1718.google.com with SMTP id e21so1079696fga.1
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 03:41:52 -0800 (PST)
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:36810 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049AbZLDLp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 06:45:28 -0500
+Received: by bwz27 with SMTP id 27so1869530bwz.21
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 03:45:32 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1259923898.23199.23.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 04, 2009 at 02:51:38AM -0800, Peter P Waskiewicz Jr wrote:
-> Honestly, there's no reason we can't know how many Tx queues we'll have
-> prior to registering the netdev.  All of this should be figured out
-> after ixgbe_alloc_queues() and ixgbe_init_interrupt_scheme() are called.
-> 
-> Once we know what features are enabled, and how many MSI-X vectors the
-> platform gives us, we can make the call for how many queues to allocate.
+Return -EADDRNOTAVAIL insted of -EINVAL in .ndo_set_mac_address.
 
-Yes. It seems, it's more about cleaning/reordering a few things
-sometimes.
+Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
 
-> 
-> I like this realloc_netdev_mq() mechanism.  I'm going to pull that into
-> my tree for testing, since I unfortunately was unaware it existed (lack
-> of my poking around).  This is good stuff.
 
-Actually, it's only a simple separation of functionality, no big deal,
-but thanks. Since it's still a part of RFC feel free to make it better
-or even different way.
+---
+drivers/net/b44.c                    |    2 +-
+ drivers/net/bnx2.c                   |    2 +-
+ drivers/net/bnx2x_main.c             |    2 +-
+ drivers/net/cxgb3/cxgb3_main.c       |    2 +-
+ drivers/net/davinci_emac.c           |    2 +-
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ drivers/net/niu.c                    |    2 +-
+ drivers/net/pasemi_mac.c             |    2 +-
+ drivers/net/s2io.c                   |    2 +-
+ drivers/net/sfc/efx.c                |    2 +-
+ drivers/net/tsi108_eth.c             |    2 +-
+ drivers/net/usb/dm9601.c             |    2 +-
+ drivers/net/usb/mcs7830.c            |    2 +-
+ drivers/net/vxge/vxge-main.c         |    2 +-
+ 14 files changed, 14 insertions(+), 14 deletions(-)
 
-Cheers,
-Jarek P.
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 2a91323..2f4877e 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1363,7 +1363,7 @@ static int b44_set_mac_addr(struct net_device *dev, void *p)
+ 		return -EBUSY;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 4bfc808..dd86477 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7594,7 +7594,7 @@ bnx2_change_mac_addr(struct net_device *dev, void *p)
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 	if (netif_running(dev))
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 77ba135..b87509e 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -11582,7 +11582,7 @@ static int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+ 	if (!is_valid_ether_addr((u8 *)(addr->sa_data)))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 	if (netif_running(dev)) {
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index cef3f88..fda1dd6 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2523,7 +2523,7 @@ static int cxgb_set_mac_addr(struct net_device *dev, void *p)
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 	t3_mac_set_address(&pi->mac, LAN_MAC_IDX, dev->dev_addr);
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 8edac89..cc78677 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1823,7 +1823,7 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+ 	struct sockaddr *sa = addr;
+ 
+ 	if (!is_valid_ether_addr(sa->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	/* Store mac addr in priv and rx channel and set it in EMAC hw */
+ 	memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index e5d187f..5d754ba 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -461,7 +461,7 @@ int netxen_nic_set_mac(struct net_device *netdev, void *p)
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	if (netif_running(netdev)) {
+ 		netif_device_detach(netdev);
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 8ce58c4..67d762c 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -6435,7 +6435,7 @@ static int niu_set_mac_addr(struct net_device *dev, void *p)
+ 	unsigned long flags;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index 1673eb0..9a68ef2 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -236,7 +236,7 @@ static int pasemi_mac_set_mac_addr(struct net_device *dev, void *p)
+ 	unsigned int adr0, adr1;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 0dd7839..781e7bd 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -5273,7 +5273,7 @@ static int s2io_set_mac_addr(struct net_device *dev, void *p)
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index f983e3b..6893681 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1585,7 +1585,7 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ 	if (!is_valid_ether_addr(new_addr)) {
+ 		EFX_ERR(efx, "invalid ethernet MAC address requested: %pM\n",
+ 			new_addr);
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 	}
+ 
+ 	memcpy(net_dev->dev_addr, new_addr, net_dev->addr_len);
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index a69c4a4..c4e385b 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -1146,7 +1146,7 @@ static int tsi108_set_mac(struct net_device *dev, void *addr)
+ 	int i;
+ 
+ 	if (!is_valid_ether_addr(addr))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	for (i = 0; i < 6; i++)
+ 		/* +2 is for the offset of the HW addr type */
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 3d406f9..eb59c2d 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -410,7 +410,7 @@ static int dm9601_set_mac_address(struct net_device *net, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data)) {
+ 		dev_err(&net->dev, "not setting invalid mac address %pM\n",
+ 								addr->sa_data);
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 	}
+ 
+ 	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index 8737431..1b4d77a 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -473,7 +473,7 @@ static int mcs7830_set_mac_address(struct net_device *netdev, void *p)
+ 		return -EBUSY;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index f1c4b2a..4b36d06 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -1301,7 +1301,7 @@ static int vxge_set_mac_addr(struct net_device *dev, void *p)
+ 	hldev = vdev->devh;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EINVAL;
++		return -EADDRNOTAVAIL;
+ 
+ 	memset(&mac_info_new, 0, sizeof(struct macInfo));
+ 	memset(&mac_info_old, 0, sizeof(struct macInfo));
