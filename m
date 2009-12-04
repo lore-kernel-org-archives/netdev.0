@@ -1,66 +1,51 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: scp stalls mysteriously
-Date: Fri, 4 Dec 2009 17:09:45 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912041659450.19748@melkinpaasi.cs.helsinki.fi>
-References: <4B16BD58.3040802@tvk.rwth-aachen.de> <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi> <4B17A791.80808@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
- <4B17C6C3.1060000@tvk.rwth-aachen.de> <20091203202328.62d7551a@houba> <4B1820B8.7050500@tvk.rwth-aachen.de> <20091204093629.GA17976@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912041302460.7024@wel-95.cs.helsinki.fi>
- <20091204135836.GB17976@sd-11162.dedibox.fr>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-866132796-1259939385=:19748"
-Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: Frederic Leroy <fredo@starox.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 2/2] atm: [he] adjust tests to account for sk_wmem_alloc changes
+Date: Fri, 04 Dec 2009 10:22:17 -0500
+Message-ID: <200912041522.nB4FMHgq028277@cmf.nrl.navy.mil>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43228 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbZLDPJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 10:09:39 -0500
-In-Reply-To: <20091204135836.GB17976@sd-11162.dedibox.fr>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:57005 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbZLDPe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 10:34:26 -0500
+Received: from cmf.nrl.navy.mil (thirdoffive.cmf.nrl.navy.mil [134.207.12.180])
+	by hedwig.cmf.nrl.navy.mil (8.14.2/8.14.2) with ESMTP id nB4FMHTd031388
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 10:22:18 -0500
+Received: from thirdoffive.cmf.nrl.navy.mil (chas@localhost)
+	by cmf.nrl.navy.mil (8.14.3/8.14.3/Submit) with ESMTP id nB4FMHgq028277
+	for <netdev@vger.kernel.org>; Fri, 4 Dec 2009 10:22:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
----696230645-866132796-1259939385=:19748
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+atm: [he] adjust tests to account for sk_wmem_alloc changes
 
-On Fri, 4 Dec 2009, Frederic Leroy wrote:
+due to reference counting sk_wmem_alloc now has a value of 1 when all
+the outstanding data has been sent.
 
-> On Fri, Dec 04, 2009 at 01:14:46PM +0200, Ilpo Järvinen wrote:
-> > On Fri, 4 Dec 2009, Frederic Leroy wrote:
-> > 
-> > I noticed that we'll absolutely need that || !retrans_stamp thing as 
-> > [...] 
-> > But there may be other error handling related things here too. Can you try 
-> > with the following once you can (probably can print quite much, once per 
-> > arriving packet when in recovery):
-> 
-> I made 2 more trace .15 and .16 but ... 
-> I applied your patch and forgot to add "|| !retrans_stamp" thing.
-> 
-> I can't test another kernel until this evening :(
+Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-I think it's fine without it too (I just meant that we'll need that || 
-!retrans_stamp into mainline/stable for sure even if we find the cause for 
-the another problem) and your traces now confirm what I was suspecting.
-The retransmissions do not succeed because of error (-EAGAIN). Possibly 
-from this check: 
-
-        if (atomic_read(&sk->sk_wmem_alloc) >
-            min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
-                return -EAGAIN;
-
-...Or alternatively it comes from queue_xmit.
-
-Eric, can you please take a look if you have a clue on this?
-
-
--- 
- i.
----696230645-866132796-1259939385=:19748--
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 7066703..d744d62 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -2505,7 +2505,7 @@ he_close(struct atm_vcc *vcc)
+ 		 * TBRQ, the host issues the close command to the adapter.
+ 		 */
+ 
+-		while (((tx_inuse = atomic_read(&sk_atm(vcc)->sk_wmem_alloc)) > 0) &&
++		while (((tx_inuse = atomic_read(&sk_atm(vcc)->sk_wmem_alloc)) > 1) &&
+ 		       (retry < MAX_RETRY)) {
+ 			msleep(sleep);
+ 			if (sleep < 250)
+@@ -2514,7 +2514,7 @@ he_close(struct atm_vcc *vcc)
+ 			++retry;
+ 		}
+ 
+-		if (tx_inuse)
++		if (tx_inuse > 1)
+ 			hprintk("close tx cid 0x%x tx_inuse = %d\n", cid, tx_inuse);
+ 
+ 		/* 2.3.1.1 generic close operations with flush */
