@@ -1,59 +1,85 @@
-From: Caleb Cushing <xenoterracide@gmail.com>
-Subject: Re: large packet loss take2 2.6.31.x
-Date: Thu, 3 Dec 2009 20:49:17 -0500
-Message-ID: <81bfc67a0912031749y15faed66s9c8a924684c97a19@mail.gmail.com>
-References: <81bfc67a0911232217n41b9ac02w3b7770b789e5d209@mail.gmail.com>
-	<20091124111946.GA7883@ff.dom.local>
-	<81bfc67a0911250606k1ec76354n217da9ca20b3517c@mail.gmail.com>
-	<20091125191105.GA3167@ami.dom.local>
-	<81bfc67a0911271007o1fb8f8c2vdd36e8585280e4da@mail.gmail.com>
-	<20091127213640.GA2611@ami.dom.local>
-	<81bfc67a0911271435g4106652bpe8c9ea07893d0ebd@mail.gmail.com>
-	<20091127224206.GA3350@ami.dom.local>
+From: Amit Kucheria <amit.kucheria@canonical.com>
+Subject: [RFC][PATCH 07/10] fec: Add LAN8700 phy support
+Date: Fri,  4 Dec 2009 04:47:07 +0200
+Message-ID: <a34d2aac8d5282bfbdf09dddc2da57c4ad7da355.1259893118.git.amit.kucheria@canonical.com>
+References: <cover.1259893118.git.amit.kucheria@canonical.com>
+	<e99e70e2a619693064130a747b6ee3a93273337b.1259893118.git.amit.kucheria@canonical.com>
+	<6608c4dca645d87efce78ae0b7dbad265004f482.1259893118.git.amit.kucheria@canonical.com>
+	<58eb7d14c6cf56cbc874657dff5789c47116b49e.1259893118.git.amit.kucheria@canonical.com>
+	<a079a0627e77f2df590840e4798fc067f4436160.1259893118.git.amit.kucheria@canonical.com>
+	<0559d42bc9f32e30264fea6ca6fa679121f6a241.1259893118.git.amit.kucheria@canonical.com>
+	<7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Frans Pop <elendil@planet.nl>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20091127224206.GA3350@ami.dom.local>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Dinh.Nguyen@freescale.com, netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	grant.likely@secretlab.ca, r.herring@freescale.com,
+	valentin.longchamp@epfl.ch, daniel@caiaq.de,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: List Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
+In-Reply-To: <cover.1259893118.git.amit.kucheria@canonical.com>
+References: <cover.1259893118.git.amit.kucheria@canonical.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
->
-> modprobe -r e1000e
-> modprobe e1000e IntMode=0
->
-> Jarek P.
->
-tested on kernel behaving properly no change. what do these modes do?
+The i.MX51 babbage board has a FEC ethernet controller with this phy.
 
-I've installed a 10/100 linksys nic into my system. it appears to be
-working fine on a bad kernel (2.6.32-final tested and for sure
-verified). I've only tested it once though. my laptop died so direct
-connection between that won't work. can I test between these 2 nics?
-(suppose no real reason why not) but what should I proceed with at
-this point?
+Signed-off-by: Amit Kucheria <amit.kucheria@canonical.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/fec.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
 
-
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 9a8743d..5d0d332 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -1128,6 +1128,26 @@ static phy_info_t phy_info_dp83848= {
+ 	},
+ };
+ 
++static phy_info_t phy_info_lan8700 = {
++	0x0007C0C,
++	"LAN8700",
++	(const phy_cmd_t []) { /* config */
++		{ mk_mii_read(MII_REG_CR), mii_parse_cr },
++		{ mk_mii_read(MII_REG_ANAR), mii_parse_anar },
++		{ mk_mii_end, }
++	},
++	(const phy_cmd_t []) { /* startup */
++		{ mk_mii_write(MII_REG_CR, 0x1200), NULL }, /* autonegotiate */
++		{ mk_mii_read(MII_REG_SR), mii_parse_sr },
++		{ mk_mii_end, }
++	},
++	(const phy_cmd_t []) { /* act_int */
++		{ mk_mii_end, }
++	},
++	(const phy_cmd_t []) { /* shutdown */
++		{ mk_mii_end, }
++	},
++};
+ /* ------------------------------------------------------------------------- */
+ 
+ static phy_info_t const * const phy_info[] = {
+@@ -1137,6 +1157,7 @@ static phy_info_t const * const phy_info[] = {
+ 	&phy_info_am79c874,
+ 	&phy_info_ks8721bl,
+ 	&phy_info_dp83848,
++	&phy_info_lan8700,
+ 	NULL
+ };
+ 
 -- 
-Caleb Cushing
-
-http://xenoterracide.blogspot.com
-
-------------------------------------------------------------------------------
-Join us December 9, 2009 for the Red Hat Virtual Experience,
-a free event focused on virtualization and cloud computing. 
-Attend in-depth sessions from your desk. Your couch. Anywhere.
-http://p.sf.net/sfu/redhat-sfdev2dev
+1.6.3.3
