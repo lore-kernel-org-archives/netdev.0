@@ -1,145 +1,116 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [RFC][PATCH 06/10] fec: fix uninitialized rx buffer usage
-Date: Fri, 4 Dec 2009 12:13:46 +0100
-Message-ID: <20091204111346.GL15126@pengutronix.de>
-References: <cover.1259893118.git.amit.kucheria@canonical.com> <7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: scp stalls mysteriously
+Date: Fri, 4 Dec 2009 13:14:46 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912041302460.7024@wel-95.cs.helsinki.fi>
+References: <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi> <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de> <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
+ <4B17A791.80808@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi> <4B17C6C3.1060000@tvk.rwth-aachen.de> <20091203202328.62d7551a@houba> <4B1820B8.7050500@tvk.rwth-aachen.de> <20091204093629.GA17976@sd-11162.dedibox.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: List Linux Kernel <linux-kernel@vger.kernel.org>,
-	Rob Herring <r.herring@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, valentin.longchamp@epfl.ch,
-	daniel@caiaq.de, grant.likely@secretlab.ca,
-	Dinh.Nguyen@freescale.com
-To: Amit Kucheria <amit.kucheria@canonical.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756020AbZLDLNm@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7a49f4c0ea2f5030068729978c2cb173a6e15857.1259893118.git.amit.kucheria@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: Frederic Leroy <fredo@starox.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45296 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754815AbZLDLOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 06:14:41 -0500
+In-Reply-To: <20091204093629.GA17976@sd-11162.dedibox.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 04, 2009 at 04:47:06AM +0200, Amit Kucheria wrote:
-> From: Rob Herring <r.herring@freescale.com>
+On Fri, 4 Dec 2009, Frederic Leroy wrote:
+
+> On Thu, Dec 03, 2009 at 09:34:00PM +0100, Damian Lukowski wrote:
+> > Frederic Leroy schrieb:
+> >
+> > Ok, at least this "fix" seems to work at first glance, but the printk
+> > is quite useless now. Could you run another test with the printk's but
+> > without the retrans_stamp == 0 check, please?
 > 
-> The fec driver was enabling receive buffer descriptor without allocating
-> the buffers. Make sure the buffer descriptors are initialized to not
-> start receiving packets.
-> 
-> Signed-off-by: Rob Herring <r.herring@freescale.com>
-> Signed-off-by: Amit Kucheria <amit.kucheria@canonical.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> ---
->  drivers/net/fec.c |   57 +++++++++++++++++++++++++++--------------------------
->  1 files changed, 29 insertions(+), 28 deletions(-)
-> 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 16a1d58..9a8743d 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -1658,6 +1658,7 @@ static int fec_enet_init(struct net_device *dev, int index)
->  {
->  	struct fec_enet_private *fep = netdev_priv(dev);
->  	struct bufdesc *cbd_base;
-> +	struct bufdesc *bdp;
->  	int i;
->  
->  	/* Allocate memory for buffer descriptors. */
-> @@ -1710,6 +1711,34 @@ static int fec_enet_init(struct net_device *dev, int index)
->  	/* Set MII speed to 2.5 MHz */
->  	fep->phy_speed = ((((clk_get_rate(fep->clk) / 2 + 4999999)
->  					/ 2500000) / 2) & 0x3F) << 1;
-> +
-> +	/* Initialize the receive buffer descriptors. */
-> +	bdp = fep->rx_bd_base;
-> +	for (i = 0; i < RX_RING_SIZE; i++) {
-> +
-> +		/* Initialize the BD for every fragment in the page. */
-> +		bdp->cbd_sc = 0;
-> +		bdp++;
-> +	}
-> +
-> +	/* Set the last buffer to wrap */
-> +	bdp--;
-> +	bdp->cbd_sc |= BD_SC_WRAP;
-> +
-> +	/* ...and the same for transmit */
-> +	bdp = fep->tx_bd_base;
-> +	for (i = 0; i < TX_RING_SIZE; i++) {
-> +
-> +		/* Initialize the BD for every fragment in the page. */
-> +		bdp->cbd_sc = 0;
-> +		bdp->cbd_bufaddr = 0;
-> +		bdp++;
-> +	}
-> +
-> +	/* Set the last buffer to wrap */
-> +	bdp--;
-> +	bdp->cbd_sc |= BD_SC_WRAP;
-> +
->  	fec_restart(dev, 0);
+> I just made 3 more test (.14 .15 .16), all streams has failed.
 
-I do not really understand why this patch is needed. You move the buffer
-initialisation from fec_restart to fec_enet_init, but fec_restart is
-called directly after the initialisation, so this shouldn't change much.
+I noticed that we'll absolutely need that || !retrans_stamp thing as 
+at least this can result in icsk_retransmits without retrans_stamp:
 
-I don't need this patch on my boards, so I wonder what is really going
-wrong here.
+        if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk)) > 0) {
+                /* Retransmission failed because of local congestion,
+                 * do not backoff.
+                 */
+                if (!icsk->icsk_retransmits)
+                        icsk->icsk_retransmits = 1;
 
-Sascha
+But there may be other error handling related things here too. Can you try 
+with the following once you can (probably can print quite much, once per 
+arriving packet when in recovery):
 
-
->  
->  	/* Queue up command to detect the PHY and initialize the
-> @@ -1730,7 +1759,6 @@ static void
->  fec_restart(struct net_device *dev, int duplex)
->  {
->  	struct fec_enet_private *fep = netdev_priv(dev);
-> -	struct bufdesc *bdp;
->  	int i;
->  
->  	/* Whack a reset.  We should wait for this. */
-> @@ -1768,33 +1796,6 @@ fec_restart(struct net_device *dev, int duplex)
->  		}
->  	}
->  
-> -	/* Initialize the receive buffer descriptors. */
-> -	bdp = fep->rx_bd_base;
-> -	for (i = 0; i < RX_RING_SIZE; i++) {
-> -
-> -		/* Initialize the BD for every fragment in the page. */
-> -		bdp->cbd_sc = BD_ENET_RX_EMPTY;
-> -		bdp++;
-> -	}
-> -
-> -	/* Set the last buffer to wrap */
-> -	bdp--;
-> -	bdp->cbd_sc |= BD_SC_WRAP;
-> -
-> -	/* ...and the same for transmit */
-> -	bdp = fep->tx_bd_base;
-> -	for (i = 0; i < TX_RING_SIZE; i++) {
-> -
-> -		/* Initialize the BD for every fragment in the page. */
-> -		bdp->cbd_sc = 0;
-> -		bdp->cbd_bufaddr = 0;
-> -		bdp++;
-> -	}
-> -
-> -	/* Set the last buffer to wrap */
-> -	bdp--;
-> -	bdp->cbd_sc |= BD_SC_WRAP;
-> -
->  	/* Enable MII mode */
->  	if (duplex) {
->  		/* MII enable / FD enable */
-> -- 
-> 1.6.3.3
-> 
-> 
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index fcd278a..19934d2 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1898,18 +1898,24 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * copying overhead: fragmentation, tunneling, mangling etc.
+ 	 */
+ 	if (atomic_read(&sk->sk_wmem_alloc) >
+-	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
+-		return -EAGAIN;
++	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf)) {
++		err = -EAGAIN;
++		goto out;
++	}
+ 
+ 	if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
+ 		if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
+ 			BUG();
+-		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
+-			return -ENOMEM;
++		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)) {
++			err = -ENOMEM;
++			goto out;
++		}
+ 	}
+ 
+-	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
+-		return -EHOSTUNREACH; /* Routing failure or similar. */
++	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk)) {
++		err = -EHOSTUNREACH; /* Routing failure or similar. */
++		goto out;
++	}
+ 
+ 	cur_mss = tcp_current_mss(sk);
+ 
+@@ -1919,12 +1925,16 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * our retransmit serves as a zero window probe.
+ 	 */
+ 	if (!before(TCP_SKB_CB(skb)->seq, tcp_wnd_end(tp))
+-	    && TCP_SKB_CB(skb)->seq != tp->snd_una)
+-		return -EAGAIN;
++	    && TCP_SKB_CB(skb)->seq != tp->snd_una) {
++	    	err = -EAGAIN;
++	    	goto out;
++	}
+ 
+ 	if (skb->len > cur_mss) {
+-		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
+-			return -ENOMEM; /* We'll try again later. */
++		if (tcp_fragment(sk, skb, cur_mss, cur_mss)) {
++			err = -ENOMEM; /* We'll try again later. */
++			goto out;
++		}
+ 	} else {
+ 		int oldpcount = tcp_skb_pcount(skb);
+ 
+@@ -1986,6 +1996,9 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
+ 	}
++out:
++	if (err)
++		printk("rxt %p %u %d ca:%d\n", sk, TCP_SKB_CB(skb)->seq, err, icsk->icsk_ca_state);
+ 	return err;
+ }
+ 
