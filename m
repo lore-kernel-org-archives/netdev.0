@@ -1,122 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 2/2] tcp: Fix a connect() race with timewait sockets
-Date: Fri, 04 Dec 2009 14:47:42 +0100
-Message-ID: <4B1912FE.9020600@gmail.com>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
+Date: Fri, 4 Dec 2009 13:49:51 +0000
+Message-ID: <20091204134951.GA9711@ff.dom.local>
+References: <4B17EFE3.4080301@gmail.com> <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com> <20091203.133108.254093305.davem@davemloft.net> <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local> <4B18440A.2080507@gmail.com> <20091204130134.GA9336@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: kapil dakhane <kdakhane@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	kaber@trash.net, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53488 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756520AbZLDNrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 08:47:40 -0500
-In-Reply-To: <4B152F97.1090409@gmail.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:61356 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645AbZLDNtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 08:49:51 -0500
+Received: by bwz27 with SMTP id 27so1953134bwz.21
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 05:49:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20091204130134.GA9336@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we find a timewait connection in __inet_hash_connect() and reuse
-it for a new connection request, we have a race window, releasing bind
-list lock and reacquiring it in __inet_twsk_kill() to remove timewait
-socket from list.
+On Fri, Dec 04, 2009 at 01:01:34PM +0000, Jarek Poplawski wrote:
+> On Fri, Dec 04, 2009 at 12:04:42AM +0100, Eric Dumazet wrote:
+> ...
+> > bnx2 for example could not be patched easily, following patch doesnt work.
+> > 
+> > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> > index 4cae2a8..8bd5d0d 100644
+> > --- a/drivers/net/bnx2.c
+> > +++ b/drivers/net/bnx2.c
+> > @@ -6177,6 +6177,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+> >  
+> >  	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
+> > -	bp->dev->real_num_tx_queues = bp->num_tx_rings;
+> > +	realloc_netdev_mq(bp->dev, bp->num_tx_rings);
+> >  
+> >  	bp->num_rx_rings = bp->irq_nvecs;
+> >  }
+> 
+> Eric, if didn't miss something in the example you gave at the
+> beginning of this thread, it seems a change like below (not compiled)
+> should fix your problem (without even testing MSI exactly)?
 
-Another thread might find the timewait socket we already chose, leading to
-list corruption and crashes.
-
-Fix is to remove timewait socket from bind list before releasing the bind lock.
-
-Note: This problem happens if sysctl_tcp_tw_reuse is set.
-
-Reported-by: kapil dakhane <kdakhane@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+OOPS! Take 2...;-)
+ 
+Jarek P.
 ---
- include/net/inet_timewait_sock.h |    3 +++
- net/ipv4/inet_hashtables.c       |    2 ++
- net/ipv4/inet_timewait_sock.c    |   29 +++++++++++++++++++++--------
- 3 files changed, 26 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index b801ade..79f67ea 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -201,6 +201,9 @@ extern void inet_twsk_put(struct inet_timewait_sock *tw);
- 
- extern int inet_twsk_unhash(struct inet_timewait_sock *tw);
- 
-+extern int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
-+				 struct inet_hashinfo *hashinfo);
+ drivers/net/bnx2.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 4bfc808..c1ba2b1 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -8288,6 +8288,11 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev->features |= NETIF_F_TSO6;
+ 		vlan_features_add(dev, NETIF_F_TSO6);
+ 	}
 +
- extern struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
- 						  const int state);
- 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index c4201b7..2b79377 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -502,6 +502,8 @@ ok:
- 			inet_sk(sk)->inet_sport = htons(port);
- 			twrefcnt += hash(sk, tw);
- 		}
-+		if (tw)
-+			twrefcnt += inet_twsk_bind_unhash(tw, hinfo);
- 		spin_unlock(&head->lock);
- 
- 		if (tw) {
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index 0a1c62b..1958cf5 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -29,12 +29,29 @@ int inet_twsk_unhash(struct inet_timewait_sock *tw)
- 	return 1;
- }
- 
-+/*
-+ * unhash a timewait socket from bind hash
-+ * lock must be hold by caller
-+ */
-+int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
-+			  struct inet_hashinfo *hashinfo)
-+{
-+	struct inet_bind_bucket *tb = tw->tw_tb;
++	if (!((bp->flags & BNX2_FLAG_MSIX_CAP) ||
++	     (bp->flags & BNX2_FLAG_MSI_CAP)) || disable_msi)
++		realloc_netdev_mq(dev, 1);
 +
-+	if (!tb)
-+		return 0;
-+
-+	__hlist_del(&tw->tw_bind_node);
-+	tw->tw_tb = NULL;
-+	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
-+	return 1;
-+}
-+
- /* Must be called with locally disabled BHs. */
- static void __inet_twsk_kill(struct inet_timewait_sock *tw,
- 			     struct inet_hashinfo *hashinfo)
- {
- 	struct inet_bind_hashbucket *bhead;
--	struct inet_bind_bucket *tb;
- 	int refcnt;
- 	/* Unlink from established hashes. */
- 	spinlock_t *lock = inet_ehash_lockp(hashinfo, tw->tw_hash);
-@@ -46,15 +63,11 @@ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
- 	/* Disassociate with bind bucket. */
- 	bhead = &hashinfo->bhash[inet_bhashfn(twsk_net(tw), tw->tw_num,
- 			hashinfo->bhash_size)];
-+
- 	spin_lock(&bhead->lock);
--	tb = tw->tw_tb;
--	if (tb) {
--		__hlist_del(&tw->tw_bind_node);
--		tw->tw_tb = NULL;
--		inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
--		refcnt++;
--	}
-+	refcnt += inet_twsk_bind_unhash(tw, hashinfo);
- 	spin_unlock(&bhead->lock);
-+
- #ifdef SOCK_REFCNT_DEBUG
- 	if (atomic_read(&tw->tw_refcnt) != 1) {
- 		printk(KERN_DEBUG "%s timewait_sock %p refcnt=%d\n",
+ 	if ((rc = register_netdev(dev))) {
+ 		dev_err(&pdev->dev, "Cannot register net device\n");
+ 		goto error;
