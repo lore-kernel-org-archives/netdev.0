@@ -1,51 +1,45 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: RFC: how to control device specific features. sysfs or mod
- param?
-Date: Sat, 05 Dec 2009 02:29:39 -0800
-Message-ID: <1260008979.3565.25.camel@localhost>
-References: <1260006955.3565.12.camel@localhost>
-	 <20091205.021321.73648278.davem@davemloft.net>
-	 <1260008573.3565.17.camel@localhost>
-	 <20091205.022540.250826631.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: dst_release() cleanup
+Date: Sat, 05 Dec 2009 13:02:13 +0100
+Message-ID: <4B1A4BC5.3050300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62964 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753840AbZLEK3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Dec 2009 05:29:33 -0500
-In-Reply-To: <20091205.022540.250826631.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:40339 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754137AbZLEMCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2009 07:02:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-12-05 at 02:25 -0800, David Miller wrote:
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Date: Sat, 05 Dec 2009 02:22:53 -0800
-> 
-> > Yes, I looked at either ethtool or extending any of the existing
-> > rtnetlink interfaces.  But my problem with those is this setting is very
-> > specific to my hardware, and I'm not sure anyone else could benefit from
-> > this.
-> > 
-> > I could try and make it as generic as possible, say pass a 32 or 64-bit
-> > generic bitfield to a driver through an ethtool operation, and each
-> > driver would apply some secret sauce based on the bitfield?
-> 
-> We support device specific statistics in a nice way in ethtool, why
-> don't we do something similar for device specific settings?
-> 
-> A variable length array of names (strings) and values.
-> 
-> This is pretty straightforward for what %99.9999 of uses will be,
-> boolean enables.  If we make the value type a u32 we can handle pretty
-> much all the other cases as well.
+atomic_dec_return() is a full memory barrier, we can omit
+the smp_mb__before_atomic_dec() call.
 
-That does make sense.  I'll try and put something together to make this
-work.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dst.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-Thanks Dave,
--PJ
-
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 57bc4d5..cdec1d1 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -262,13 +262,8 @@ again:
+ 
+ void dst_release(struct dst_entry *dst)
+ {
+-	if (dst) {
+-               int newrefcnt;
+-
+-		smp_mb__before_atomic_dec();
+-               newrefcnt = atomic_dec_return(&dst->__refcnt);
+-               WARN_ON(newrefcnt < 0);
+-	}
++	if (dst)
++		WARN_ON(atomic_dec_return(&dst->__refcnt) < 0);
+ }
+ EXPORT_SYMBOL(dst_release);
+ 
