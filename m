@@ -1,50 +1,63 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: linux-next: manual merge of the limits tree with the net and
- fsnotify trees
-Date: Sat, 05 Dec 2009 15:21:24 +0100
-Message-ID: <4B1A6C64.4050408@gmail.com>
-References: <20091204183011.e92d36cd.sfr@canb.auug.org.au>	<4B18C15A.8060901@gmail.com> <20091205150053.48384393.sfr@canb.auug.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] drivers/net: Move && and || to end of
+ previous line
+Date: Sat, 05 Dec 2009 09:50:40 -0800
+Message-ID: <1260035440.11126.50.camel@Joe-Laptop.home>
+References: <1259001504.16503.79.camel@Joe-Laptop.home>
+	 <20091123.104130.117837098.davem@davemloft.net>
+	 <1259528449.29779.194.camel@Joe-Laptop.home>
+	 <20091129.165557.84377714.davem@davemloft.net>
+	 <1259863101.22783.63.camel@Joe-Laptop.home>  <4B190A29.5080905@myri.com>
+	 <1259947271.22783.120.camel@Joe-Laptop.home>  <4B1A557D.4080707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Paris <eparis@redhat.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f213.google.com ([209.85.220.213]:55674 "EHLO
-	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755275AbZLEOVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2009 09:21:23 -0500
-In-Reply-To: <20091205150053.48384393.sfr@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Brice Goglin <brice@myri.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756925AbZLERug@vger.kernel.org>
+In-Reply-To: <4B1A557D.4080707@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/05/2009 05:00 AM, Stephen Rothwell wrote:
-> On Fri, 04 Dec 2009 08:59:22 +0100 Jiri Slaby <jirislaby@gmail.com> wrote:
->>
->> On 12/04/2009 08:30 AM, Stephen Rothwell wrote:
->>> diff --cc arch/x86/ia32/ia32entry.S
->>> index da89ae1,c61ced2..0000000
->>> --- a/arch/x86/ia32/ia32entry.S
->>> +++ b/arch/x86/ia32/ia32entry.S
->>> @@@ -841,7 -841,6 +841,9 @@@ ia32_sys_call_table
->>>   	.quad compat_sys_pwritev
->>>   	.quad compat_sys_rt_tgsigqueueinfo	/* 335 */
->>>   	.quad sys_perf_event_open
->>>  +	.quad compat_sys_recvmmsg
->>>  +	.quad sys_fanotify_init
->>>  +	.quad sys32_fanotify_mark
->>> + 	.quad compat_sys_getprlimit
->>
->> Thanks, but please go on with the by-five numbering in comments.
-> 
-> I am sure that will be done by whoever does the final conflict
-> resolution.
+On Sat, 2009-12-05 at 07:43 -0500, William Allen Simpson wrote:
+> Joe Perches wrote:
+> > On Fri, 2009-12-04 at 14:10 +0100, Brice Goglin wrote:
+> >> Joe Perches wrote:
+> >>> Only files where David Miller is the primary git-signer.
+> >>> wireless, wimax, ixgbe, etc are not modified.
+> >> What's the point? Having them at the beginning of the next line is
+> >> easier to read from my point of view.
+> > It's just a stupid consistency thing.
+> Joe *agrees* that
+> having them on the beginning of the line is preferred.
 
-Ah, sorry, I apparently don't know how this works. Thanks for explanation.
+This is not true.
 
--- 
-js
+I prefer code that I write for myself to
+use leading continuation tests.
+
+For the Linux code, as should be obvious
+from the patches I submit, I prefer to
+have adherence to one predominant majority
+style.  I don't much care what form that
+style actually takes.
+
+> Thousands of
+> contributors throughout the tree agree.
+> This is entirely a Miller thing.
+
+Nope.  There have been many efforts to
+help standardize on single form styles.
+
+> My main objection to these sweeping patches is that it makes it much
+> more difficult to maintain and apply patches across different versions of
+> the tree.
+
+I think you underestimate the value of
+standardization and overestimate the
+quantity of work to sort it out for
+the -stable versions.
+
+cheers, Joe
