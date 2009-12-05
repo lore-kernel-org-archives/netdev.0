@@ -1,41 +1,39 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH 29/31] Constify struct sysfs_ops for 2.6.32 v1
-Date: Sat, 5 Dec 2009 22:15:28 +0100
-Message-ID: <20091205211527.GH8742@kernel.dk>
-References: <4B198670.2000406@gmail.com> <4B1991E2.5010903@gmail.com> <4B19A33B.9050907@gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 1/2] tcp: Fix a connect() race with timewait sockets
+Date: Sun, 6 Dec 2009 00:21:48 +0300
+Message-ID: <20091205212148.GA26270@ioremap.net>
+References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <4B1912CE.5040304@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tony.luck@intel.com, fenghua.yu@intel.com,
-	benh@kernel.crashing.org, lethal@linux-sh.org, tglx@linutronix.de,
-	mingo@redhat.com, hpa@zytor.com, gregkh@suse.de, petero2@telia.com,
-	davej@redhat.com, maciej.sosnowski@intel.com,
-	dougthompson@xmission.com, airlied@linux.ie, rolandd@cisco.com,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com, neilb@suse.de,
-	rdunlap@xenotime.net, kyle@mcmartin.ca, deller@gmx.de,
-	jejb@parisc-linux.org, jbarnes@virtuousgeek.org, hjk@linutronix.de,
-	david.vrabel@csr.com, jeremy@xensource.com, chris.mason@oracle.com,
-	ccaulfie@redhat.com, teigland@redhat.com, tytso@mit.edu,
-	adilger@sun.com, swhiteho@redhat.com, mfasheh@suse.com,
-	joel.becker@oracle.com, rusty@rustcorp.com.au,
-	penberg@cs.helsinki.fi, shemminger@linux-foundation.org,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Emese Revfy <re.emese@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755725AbZLEVP0@vger.kernel.org>
+Cc: kapil dakhane <kdakhane@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from corega.com.ru ([195.178.208.66]:47692 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754805AbZLEVVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Dec 2009 16:21:43 -0500
 Content-Disposition: inline
-In-Reply-To: <4B19A33B.9050907@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4B1912CE.5040304@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 05 2009, Emese Revfy wrote:
-> From: Emese Revfy <re.emese@gmail.com>
+Hi Eric.
+
+On Fri, Dec 04, 2009 at 02:46:54PM +0100, Eric Dumazet (eric.dumazet@gmail.com) wrote:
+> First patch changes __inet_hash_nolisten() and __inet6_hash()
+> to get a timewait parameter to be able to unhash it from ehash
+> at same time the new socket is inserted in hash.
 > 
-> Constify struct sysfs_ops.
-> Per Dave Miller's suggestion, resend with proper CC list and patch format.
+> This makes sure timewait socket wont be found by a concurrent
+> writer in __inet_check_established()
 
-For the block parts:
-
-Acked-by: Jens Axboe <jens.axboe@oracle.com>
+Both patches look good, although trick with returning reference counter
+may look like a hack especially when only viewing into ip code and not
+hashtable itself. Can you please cook up a documentation update for hash
+function that it is supposed to return refcnt when socket was in hash
+table.
 
 -- 
-Jens Axboe
+	Evgeniy Polyakov
