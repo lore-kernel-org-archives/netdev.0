@@ -1,25 +1,31 @@
-From: Tilman Schmidt <tilman@imap.cc>
+From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 Subject: [PATCH] gigaset: don't enable any debugging output by default
-Date: Sat,  5 Dec 2009 19:04:16 +0100 (CET)
-Message-ID: <20091205180416.B3629400DE@xenon.ts.pxnet.com>
-Cc: Hansjoerg Lipp <hjlipp@web.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de
-To: David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([195.227.45.7]:54732 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932874AbZLETBb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Dec 2009 14:01:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Date: Sat,  5 Dec 2009 18:52:19 +0100 (CET)
+Message-ID: <20091205175219.4298A400D9@xenon.ts.pxnet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        isdn4linux-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org, Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>
+Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+List-Unsubscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper>
+List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
+List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
+Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 When built with debugging support, the Gigaset driver enabled some
 debugging messages by default. Change the default to "all off".
 
 Impact: cosmetic
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
 
 Please merge for 2.6.33 so I can in good conscience encourage people to
@@ -45,4 +51,3 @@ index c438cfc..a0b85d1 100644
  MODULE_PARM_DESC(debug, "debug level");
 -- 
 1.6.5.3.298.g39add
-
