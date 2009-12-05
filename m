@@ -1,118 +1,106 @@
-From: Emese Revfy <re.emese@gmail.com>
-Subject: Re: [PATCH 15/31] Constify struct iwl_ops for 2.6.32 v1
-Date: Sat, 05 Dec 2009 01:02:57 +0100
-Message-ID: <4B19A331.1050003@gmail.com>
-References: <4B198670.2000406@gmail.com> <4B198DA7.1080809@gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
+Date: Fri, 4 Dec 2009 16:09:42 -0800
+Message-ID: <20091205000942.GA8224@suse.de>
+References: <4B198670.2000406@gmail.com>
+ <4B198C43.50205@gmail.com>
+ <4B19A333.5080103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-To: yi.zhu@intel.com, reinette.chatre@intel.com, ilw@linux.intel.com,
-	linville@tuxdriver.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@da
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932721AbZLEADA@vger.kernel.org>
-In-Reply-To: <4B198DA7.1080809@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
+	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
+	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
+	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Emese Revfy <re.emese@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:43237 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932581AbZLEAK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2009 19:10:57 -0500
+Content-Disposition: inline
+In-Reply-To: <4B19A333.5080103@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Emese Revfy <re.emese@gmail.com>
+On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
+> From: Emese Revfy <re.emese@gmail.com>
+> 
+> Constify struct file_operations with some exceptions.
+> Per Dave Miller's suggestion, resend with proper CC list and patch format.
+> 
+> Signed-off-by: Emese Revfy <re.emese@gmail.com>
+> ---
+>  drivers/acpi/battery.c                           |    2 +-
+>  drivers/char/pty.c                               |   16 +++++++++---
+>  drivers/char/tty_io.c                            |   28 ++++-----------------
+>  drivers/media/dvb/dvb-core/dvbdev.c              |    1 +
+>  drivers/net/wireless/b43/debugfs.c               |    2 +-
+>  drivers/net/wireless/b43legacy/debugfs.c         |    2 +-
+>  drivers/net/wireless/libertas/debugfs.c          |    2 +-
+>  drivers/staging/b3dfg/b3dfg.c                    |    2 +-
+>  drivers/staging/dream/qdsp5/adsp_driver.c        |    2 +-
+>  drivers/staging/dream/qdsp5/audio_aac.c          |    2 +-
+>  drivers/staging/dream/qdsp5/audio_amrnb.c        |    2 +-
+>  drivers/staging/dream/qdsp5/audio_evrc.c         |    2 +-
+>  drivers/staging/dream/qdsp5/audio_in.c           |    4 +-
+>  drivers/staging/dream/qdsp5/audio_mp3.c          |    2 +-
+>  drivers/staging/dream/qdsp5/audio_out.c          |    4 +-
+>  drivers/staging/dream/qdsp5/audio_qcelp.c        |    2 +-
+>  drivers/staging/dream/qdsp5/snd.c                |    2 +-
+>  drivers/staging/dream/smd/smd_qmi.c              |    2 +-
+>  drivers/staging/dream/smd/smd_rpcrouter_device.c |    4 +-
+>  drivers/staging/panel/panel.c                    |    4 +-
+>  drivers/staging/poch/poch.c                      |    2 +-
+>  drivers/staging/sep/sep_driver.c                 |    2 +-
+>  drivers/staging/vme/devices/vme_user.c           |    2 +-
+>  fs/fuse/cuse.c                                   |   20 +++++++++------
+>  fs/fuse/dev.c                                    |    8 +++---
+>  fs/fuse/fuse_i.h                                 |   10 ++++++++
+>  include/linux/tty.h                              |   14 ++++++++++-
+>  include/net/tcp.h                                |    1 +
+>  include/net/udp.h                                |    1 +
+>  kernel/trace/trace_events.c                      |    2 +
+>  virt/kvm/kvm_main.c                              |    3 ++
+>  31 files changed, 89 insertions(+), 63 deletions(-)
+> 
+> diff --git a/drivers/acpi/battery.c b/drivers/acpi/battery.c
+> index 3f4602b..2e41d36 100644
+> --- a/drivers/acpi/battery.c
+> +++ b/drivers/acpi/battery.c
+> @@ -763,7 +763,7 @@ DECLARE_FILE_FUNCTIONS(alarm);
+>  	}
+>  
+>  static struct battery_file {
+> -	struct file_operations ops;
+> +	const struct file_operations ops;
+>  	mode_t mode;
+>  	const char *name;
+>  } acpi_battery_file[] = {
+> diff --git a/drivers/char/pty.c b/drivers/char/pty.c
+> index 62f282e..d39c67b 100644
+> --- a/drivers/char/pty.c
+> +++ b/drivers/char/pty.c
+> @@ -682,7 +682,18 @@ static int ptmx_open(struct inode *inode, struct file *filp)
+>  	return ret;
+>  }
+>  
+> -static struct file_operations ptmx_fops;
+> +static const struct file_operations ptmx_fops = {
+> +	.llseek		= no_llseek,
+> +	.read		= tty_read,
+> +	.write		= tty_write,
+> +	.poll		= tty_poll,
+> +	.unlocked_ioctl	= tty_ioctl,
+> +	.compat_ioctl	= tty_compat_ioctl,
+> +	.open		= ptmx_open,
+> +	.release	= tty_release,
+> +	.fasync		= tty_fasync,
+> +};
 
-Constify struct iwl_ops.
-Per Dave Miller's suggestion, resend with proper CC list and patch format.
+You just made these functions all global, for no real good reason.  Why
+did you do this?
 
-Signed-off-by: Emese Revfy <re.emese@gmail.com>
----
- drivers/net/wireless/iwlwifi/iwl-1000.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-5000.c |    4 ++--
- drivers/net/wireless/iwlwifi/iwl-6000.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-dev.h  |    2 +-
- 6 files changed, 7 insertions(+), 7 deletions(-)
+confused,
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
-index 950267a..80d5fd2 100644
---- a/drivers/net/wireless/iwlwifi/iwl-1000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
-@@ -137,7 +137,7 @@ static struct iwl_lib_ops iwl1000_lib = {
- 	 },
- };
- 
--static struct iwl_ops iwl1000_ops = {
-+static const struct iwl_ops iwl1000_ops = {
- 	.ucode = &iwl5000_ucode,
- 	.lib = &iwl1000_lib,
- 	.hcmd = &iwl5000_hcmd,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wireless/iwlwifi/iwl-3945.c
-index f059b49..fe90e0a 100644
---- a/drivers/net/wireless/iwlwifi/iwl-3945.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
-@@ -2876,7 +2876,7 @@ static struct iwl_hcmd_utils_ops iwl3945_hcmd_utils = {
- 	.build_addsta_hcmd = iwl3945_build_addsta_hcmd,
- };
- 
--static struct iwl_ops iwl3945_ops = {
-+static const struct iwl_ops iwl3945_ops = {
- 	.ucode = &iwl3945_ucode,
- 	.lib = &iwl3945_lib,
- 	.hcmd = &iwl3945_hcmd,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-index 6f703a0..b7c4e48 100644
---- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-@@ -2335,7 +2335,7 @@ static struct iwl_lib_ops iwl4965_lib = {
- 	},
- };
- 
--static struct iwl_ops iwl4965_ops = {
-+static const struct iwl_ops iwl4965_ops = {
- 	.ucode = &iwl4965_ucode,
- 	.lib = &iwl4965_lib,
- 	.hcmd = &iwl4965_hcmd,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
-index 6e6f516..0ec1f24 100644
---- a/drivers/net/wireless/iwlwifi/iwl-5000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
-@@ -1627,14 +1627,14 @@ static struct iwl_lib_ops iwl5150_lib = {
- 	 },
- };
- 
--struct iwl_ops iwl5000_ops = {
-+const struct iwl_ops iwl5000_ops = {
- 	.ucode = &iwl5000_ucode,
- 	.lib = &iwl5000_lib,
- 	.hcmd = &iwl5000_hcmd,
- 	.utils = &iwl5000_hcmd_utils,
- };
- 
--static struct iwl_ops iwl5150_ops = {
-+static const struct iwl_ops iwl5150_ops = {
- 	.ucode = &iwl5000_ucode,
- 	.lib = &iwl5150_lib,
- 	.hcmd = &iwl5000_hcmd,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-6000.c b/drivers/net/wireless/iwlwifi/iwl-6000.c
-index 1473452..f07d5e1 100644
---- a/drivers/net/wireless/iwlwifi/iwl-6000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-6000.c
-@@ -146,7 +146,7 @@ static struct iwl_hcmd_utils_ops iwl6000_hcmd_utils = {
- 	.calc_rssi = iwl5000_calc_rssi,
- };
- 
--static struct iwl_ops iwl6000_ops = {
-+static const struct iwl_ops iwl6000_ops = {
- 	.ucode = &iwl5000_ucode,
- 	.lib = &iwl6000_lib,
- 	.hcmd = &iwl5000_hcmd,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-dev.h b/drivers/net/wireless/iwlwifi/iwl-dev.h
-index 028d505..0c927e5 100644
---- a/drivers/net/wireless/iwlwifi/iwl-dev.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-dev.h
-@@ -67,7 +67,7 @@ struct iwl_tx_queue;
- 
- /* shared structures from iwl-5000.c */
- extern struct iwl_mod_params iwl50_mod_params;
--extern struct iwl_ops iwl5000_ops;
-+extern const struct iwl_ops iwl5000_ops;
- extern struct iwl_ucode_ops iwl5000_ucode;
- extern struct iwl_lib_ops iwl5000_lib;
- extern struct iwl_hcmd_ops iwl5000_hcmd;
+greg k-h
