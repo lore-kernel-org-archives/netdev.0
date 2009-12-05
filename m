@@ -1,57 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Support for Intel 82598EB 10-Gigabit AT2 Server Adapter
-Date: Fri, 4 Dec 2009 16:36:31 -0800
-Message-ID: <9929d2390912041636g39667623nbdff6f55819354e6@mail.gmail.com>
-References: <4B1947E5.2020205@krogh.cc>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 06/31] Constify struct e1000_mac_operations for 2.6.32
+ v1
+Date: Sat, 5 Dec 2009 11:40:48 +1100
+Message-ID: <20091205114048.37df384e.sfr@canb.auug.org.au>
+References: <4B198670.2000406@gmail.com>
+	<4B198A33.7080705@gmail.com>
+	<4B19A337.6060808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Jesper Krogh <jesper@krogh.cc>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sat__5_Dec_2009_11_40_48_+1100_FsPW.pWV84JZiWzZ"
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Emese Revfy <re.emese@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f188.google.com ([209.85.216.188]:36148 "EHLO
-	mail-px0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932329AbZLEAgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 19:36:25 -0500
-Received: by pxi26 with SMTP id 26so797725pxi.21
-        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 16:36:31 -0800 (PST)
-In-Reply-To: <4B1947E5.2020205@krogh.cc>
+Received: from chilli.pcug.org.au ([203.10.76.44]:54178 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932564AbZLEAkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Dec 2009 19:40:47 -0500
+In-Reply-To: <4B19A337.6060808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 4, 2009 at 09:33, Jesper Krogh <jesper@krogh.cc> wrote:
-> Hi.
->
-> I just got two Intel 82598EB 10-Gigabit AT2 Server Adapter i sort of
-> assumed that they "just worked" since I have a AF-adapter (SR-fiber),
-> that works flawlessly and it it "just another media" in the other end.
->
-> But as of 2.6.31.6 the pci-ids is not registered in modules.pcimap
->
-> 82:00.0 0200: 8086:150b (rev 01)
-> 84:00.0 Ethernet controller: Intel Corporation 82598EB 10-Gigabit AT2
-> Server Adapter (rev 01)
->
-> And the adapter does not produce any ethX interfaces for usage when the
-> ixgbe drivers is loaded.
->
-> Is it as simple as just adding the identifiers to the module-map or is
-> there a patch flying around somewhere?
->
-> Thanks.
->
-> Jesper
->
-> --
+--Signature=_Sat__5_Dec_2009_11_40_48_+1100_FsPW.pWV84JZiWzZ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Support for your NIC was first introduced in 2.6.32 kernel, so your
-kernel does not have native support for the NIC.  You can move to
-2.6.32 or newer kernel OR simply download the ixgbe driver from
-http://e1000.sf.net.  I would suggest downloading the latest version
-which is 2.0.44.14 which has support for you NIC.
+Hi Emese,
 
-Support was first introduced in version 2.0.38.2 (which is also on the
-sourceforge site), but I would suggest using the latest version.
+On Sat, 05 Dec 2009 01:03:03 +0100 Emese Revfy <re.emese@gmail.com> wrote:
+>
+> --- a/drivers/net/e1000e/82571.c
+> +++ b/drivers/net/e1000e/82571.c
+> @@ -212,6 +212,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_a=
+dapter *adapter)
+>  {
+>  	struct e1000_hw *hw =3D &adapter->hw;
+>  	struct e1000_mac_info *mac =3D &hw->mac;
+> +	/* cannot be const */
+>  	struct e1000_mac_operations *func =3D &mac->ops;
 
--- 
+Adding to the comment to say why it can't be const may allow us to fix
+this later ...
+
+--=20
 Cheers,
-Jeff
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Sat__5_Dec_2009_11_40_48_+1100_FsPW.pWV84JZiWzZ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAksZrBAACgkQjjKRsyhoI8z09wCfUmY5uM7Vgp7CMDLOjHMVK6bC
+VxgAoJ8Pd6zjO1RWy5S+j91W3k7FVXdI
+=4VE8
+-----END PGP SIGNATURE-----
+
+--Signature=_Sat__5_Dec_2009_11_40_48_+1100_FsPW.pWV84JZiWzZ--
