@@ -1,106 +1,57 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
-Date: Fri, 4 Dec 2009 16:09:42 -0800
-Message-ID: <20091205000942.GA8224@suse.de>
-References: <4B198670.2000406@gmail.com>
- <4B198C43.50205@gmail.com>
- <4B19A333.5080103@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: Support for Intel 82598EB 10-Gigabit AT2 Server Adapter
+Date: Fri, 4 Dec 2009 16:36:31 -0800
+Message-ID: <9929d2390912041636g39667623nbdff6f55819354e6@mail.gmail.com>
+References: <4B1947E5.2020205@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
-	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
-	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
-	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Emese Revfy <re.emese@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Jesper Krogh <jesper@krogh.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:43237 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932581AbZLEAK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Dec 2009 19:10:57 -0500
-Content-Disposition: inline
-In-Reply-To: <4B19A333.5080103@gmail.com>
+Received: from mail-px0-f188.google.com ([209.85.216.188]:36148 "EHLO
+	mail-px0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932329AbZLEAgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Dec 2009 19:36:25 -0500
+Received: by pxi26 with SMTP id 26so797725pxi.21
+        for <netdev@vger.kernel.org>; Fri, 04 Dec 2009 16:36:31 -0800 (PST)
+In-Reply-To: <4B1947E5.2020205@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
-> From: Emese Revfy <re.emese@gmail.com>
-> 
-> Constify struct file_operations with some exceptions.
-> Per Dave Miller's suggestion, resend with proper CC list and patch format.
-> 
-> Signed-off-by: Emese Revfy <re.emese@gmail.com>
-> ---
->  drivers/acpi/battery.c                           |    2 +-
->  drivers/char/pty.c                               |   16 +++++++++---
->  drivers/char/tty_io.c                            |   28 ++++-----------------
->  drivers/media/dvb/dvb-core/dvbdev.c              |    1 +
->  drivers/net/wireless/b43/debugfs.c               |    2 +-
->  drivers/net/wireless/b43legacy/debugfs.c         |    2 +-
->  drivers/net/wireless/libertas/debugfs.c          |    2 +-
->  drivers/staging/b3dfg/b3dfg.c                    |    2 +-
->  drivers/staging/dream/qdsp5/adsp_driver.c        |    2 +-
->  drivers/staging/dream/qdsp5/audio_aac.c          |    2 +-
->  drivers/staging/dream/qdsp5/audio_amrnb.c        |    2 +-
->  drivers/staging/dream/qdsp5/audio_evrc.c         |    2 +-
->  drivers/staging/dream/qdsp5/audio_in.c           |    4 +-
->  drivers/staging/dream/qdsp5/audio_mp3.c          |    2 +-
->  drivers/staging/dream/qdsp5/audio_out.c          |    4 +-
->  drivers/staging/dream/qdsp5/audio_qcelp.c        |    2 +-
->  drivers/staging/dream/qdsp5/snd.c                |    2 +-
->  drivers/staging/dream/smd/smd_qmi.c              |    2 +-
->  drivers/staging/dream/smd/smd_rpcrouter_device.c |    4 +-
->  drivers/staging/panel/panel.c                    |    4 +-
->  drivers/staging/poch/poch.c                      |    2 +-
->  drivers/staging/sep/sep_driver.c                 |    2 +-
->  drivers/staging/vme/devices/vme_user.c           |    2 +-
->  fs/fuse/cuse.c                                   |   20 +++++++++------
->  fs/fuse/dev.c                                    |    8 +++---
->  fs/fuse/fuse_i.h                                 |   10 ++++++++
->  include/linux/tty.h                              |   14 ++++++++++-
->  include/net/tcp.h                                |    1 +
->  include/net/udp.h                                |    1 +
->  kernel/trace/trace_events.c                      |    2 +
->  virt/kvm/kvm_main.c                              |    3 ++
->  31 files changed, 89 insertions(+), 63 deletions(-)
-> 
-> diff --git a/drivers/acpi/battery.c b/drivers/acpi/battery.c
-> index 3f4602b..2e41d36 100644
-> --- a/drivers/acpi/battery.c
-> +++ b/drivers/acpi/battery.c
-> @@ -763,7 +763,7 @@ DECLARE_FILE_FUNCTIONS(alarm);
->  	}
->  
->  static struct battery_file {
-> -	struct file_operations ops;
-> +	const struct file_operations ops;
->  	mode_t mode;
->  	const char *name;
->  } acpi_battery_file[] = {
-> diff --git a/drivers/char/pty.c b/drivers/char/pty.c
-> index 62f282e..d39c67b 100644
-> --- a/drivers/char/pty.c
-> +++ b/drivers/char/pty.c
-> @@ -682,7 +682,18 @@ static int ptmx_open(struct inode *inode, struct file *filp)
->  	return ret;
->  }
->  
-> -static struct file_operations ptmx_fops;
-> +static const struct file_operations ptmx_fops = {
-> +	.llseek		= no_llseek,
-> +	.read		= tty_read,
-> +	.write		= tty_write,
-> +	.poll		= tty_poll,
-> +	.unlocked_ioctl	= tty_ioctl,
-> +	.compat_ioctl	= tty_compat_ioctl,
-> +	.open		= ptmx_open,
-> +	.release	= tty_release,
-> +	.fasync		= tty_fasync,
-> +};
+On Fri, Dec 4, 2009 at 09:33, Jesper Krogh <jesper@krogh.cc> wrote:
+> Hi.
+>
+> I just got two Intel 82598EB 10-Gigabit AT2 Server Adapter i sort of
+> assumed that they "just worked" since I have a AF-adapter (SR-fiber),
+> that works flawlessly and it it "just another media" in the other end.
+>
+> But as of 2.6.31.6 the pci-ids is not registered in modules.pcimap
+>
+> 82:00.0 0200: 8086:150b (rev 01)
+> 84:00.0 Ethernet controller: Intel Corporation 82598EB 10-Gigabit AT2
+> Server Adapter (rev 01)
+>
+> And the adapter does not produce any ethX interfaces for usage when the
+> ixgbe drivers is loaded.
+>
+> Is it as simple as just adding the identifiers to the module-map or is
+> there a patch flying around somewhere?
+>
+> Thanks.
+>
+> Jesper
+>
+> --
 
-You just made these functions all global, for no real good reason.  Why
-did you do this?
+Support for your NIC was first introduced in 2.6.32 kernel, so your
+kernel does not have native support for the NIC.  You can move to
+2.6.32 or newer kernel OR simply download the ixgbe driver from
+http://e1000.sf.net.  I would suggest downloading the latest version
+which is 2.0.44.14 which has support for you NIC.
 
-confused,
+Support was first introduced in version 2.0.38.2 (which is also on the
+sourceforge site), but I would suggest using the latest version.
 
-greg k-h
+-- 
+Cheers,
+Jeff
