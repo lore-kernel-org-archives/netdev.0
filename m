@@ -1,72 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Modify return value for the .ndo_set_mac_address
-Date: Sat, 05 Dec 2009 14:32:55 -0800 (PST)
-Message-ID: <20091205.143255.216248367.davem@davemloft.net>
-References: <20091204114721.GA5505@coldcone>
-	<20091204.133018.10228592.davem@davemloft.net>
-	<20091205192926.GA4031@coldcone>
+From: Emese Revfy <re.emese@gmail.com>
+Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
+Date: Sun, 06 Dec 2009 02:47:44 +0100
+Message-ID: <4B1B0D40.3040209@gmail.com>
+References: <4B198670.2000406@gmail.com> <4B198C43.50205@gmail.com> <4B19A333.5080103@gmail.com> <20091205000942.GA8224@suse.de> <4B19CA6F.4090700@gmail.com> <20091205041507.GA24885@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "kirjanov@gmail.com"@sunset.davemloft.net.davemloft.net,
-	kirjanov@gmail.com
+Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
+	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
+	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
+	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42590
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756698AbZLEWcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Dec 2009 17:32:48 -0500
-In-Reply-To: <20091205192926.GA4031@coldcone>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:50270 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755349AbZLFBqa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Dec 2009 20:46:30 -0500
+In-Reply-To: <20091205041507.GA24885@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Date: Sat, 5 Dec 2009 22:29:26 +0300
+Greg KH wrote:
+> On Sat, Dec 05, 2009 at 03:50:23AM +0100, Emese Revfy wrote:
+>> Greg KH wrote:
+>>> On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
+>>>> -static struct file_operations ptmx_fops;
+>>>> +static const struct file_operations ptmx_fops = {
+>>>> +	.llseek		= no_llseek,
+>>>> +	.read		= tty_read,
+>>>> +	.write		= tty_write,
+>>>> +	.poll		= tty_poll,
+>>>> +	.unlocked_ioctl	= tty_ioctl,
+>>>> +	.compat_ioctl	= tty_compat_ioctl,
+>>>> +	.open		= ptmx_open,
+>>>> +	.release	= tty_release,
+>>>> +	.fasync		= tty_fasync,
+>>>> +};
+>>> You just made these functions all global, for no real good reason.  Why
+>>> did you do this?
+>> I think this is the only way to make ptmx_fops const, provided we want to. 
+> 
+> Why do we want to?
 
-> On Fri, Dec 04, 2009 at 13:30 -0800, David Miller wrote:
->> From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
->> Date: Fri, 4 Dec 2009 14:47:22 +0300
->> 
->> > Return -EADDRNOTAVAIL insted of -EINVAL in .ndo_set_mac_address.
->> > 
->> > Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
->> 
->> Why?
->> 
->> The address is "invalid" so we return "invalid" error.
->> 
->> What's the problem?
->> 
->> And whether there is a good reason or not, your commit message did not
->> describe that reason so needs to be updated.
-
-Will you please talk to me instead of just responding in the
-commit message itself?  I want to have a real conversation about
-this.
-
-> Some drivers in drivers/net return -EINVAL in .ndo_set_mac_address,
-> but some -EADDRNOTAVAIL. Thus, we use
-> "Cannot assign requested address" in the case of setting up new hw address
-> to be more consistent across drivers/net in
-> .ndo_set_mac_address function.
-
-This doesn't by itself make EADDRNOTAVAIL a better choice.
-
-If you look elsewhere, this error code is used in cases where
-tries to use  an address is not configured on a device or a
-socket.
-
-This is different than the usage you are trying to make the
-tree use consistently here.
-
-I still think -EINVAL makes more sense.
-
-Yes it is a problem that UNIX lacks more verbose and precise error
-code specifications, but that itself should be attacked as a problem
-rather than used as a reason to choose EADDRNOTAVAIL as an
-error code here.
-
-I'm not applying your patches, I do not agree with your reasoning.
-I still think -EINVAL is better, and therefore you still need to
-respin your other patch.
-
+Because I saw that checkpatch.pl itself tries to ensure the same I went
+through the whole tree looking for non-const file_operations structures
+and tried to make them const as best as I could. If you think making
+ptmx_fops const is not worth the effort I will remove it from the patch.
+--
+Emese
