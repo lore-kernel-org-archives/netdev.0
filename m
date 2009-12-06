@@ -1,41 +1,52 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Subject: Re: [PATCH net-next-2.6] drivers/net: Move && and || to end of
- previous line
-Date: Sun, 6 Dec 2009 10:01:03 -0700
-Message-ID: <20091206100103.427f0049@tpl.lwn.net>
-References: <4B190A29.5080905@myri.com>
-	<1259947271.22783.120.camel@Joe-Laptop.home>
-	<4B1A557D.4080707@gmail.com>
-	<20091205.142126.23618243.davem@davemloft.net>
-	<4B1B1E59.1030307@gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
+Date: Sun, 6 Dec 2009 09:25:26 -0800
+Message-ID: <20091206172526.GA17480@suse.de>
+References: <4B198670.2000406@gmail.com> <4B198C43.50205@gmail.com> <4B19A333.5080103@gmail.com> <20091205000942.GA8224@suse.de> <4B19CA6F.4090700@gmail.com> <20091205041507.GA24885@suse.de> <4B1B0D40.3040209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, joe@perches.com,
-	brice@myri.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tex.lwn.net ([70.33.254.29]:37532 "EHLO tex.lwn.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933981AbZLFR2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Dec 2009 12:28:30 -0500
-In-Reply-To: <4B1B1E59.1030307@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
+	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
+	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
+	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Emese Revfy <re.emese@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934012AbZLFRcX@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B1B0D40.3040209@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 05 Dec 2009 22:00:41 -0500
-William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+On Sun, Dec 06, 2009 at 02:47:44AM +0100, Emese Revfy wrote:
+> Greg KH wrote:
+> > On Sat, Dec 05, 2009 at 03:50:23AM +0100, Emese Revfy wrote:
+> >> Greg KH wrote:
+> >>> On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
+> >>>> -static struct file_operations ptmx_fops;
+> >>>> +static const struct file_operations ptmx_fops = {
+> >>>> +	.llseek		= no_llseek,
+> >>>> +	.read		= tty_read,
+> >>>> +	.write		= tty_write,
+> >>>> +	.poll		= tty_poll,
+> >>>> +	.unlocked_ioctl	= tty_ioctl,
+> >>>> +	.compat_ioctl	= tty_compat_ioctl,
+> >>>> +	.open		= ptmx_open,
+> >>>> +	.release	= tty_release,
+> >>>> +	.fasync		= tty_fasync,
+> >>>> +};
+> >>> You just made these functions all global, for no real good reason.  Why
+> >>> did you do this?
+> >> I think this is the only way to make ptmx_fops const, provided we want to. 
+> > 
+> > Why do we want to?
+> 
+> Because I saw that checkpatch.pl itself tries to ensure the same I went
+> through the whole tree looking for non-const file_operations structures
+> and tried to make them const as best as I could. If you think making
+> ptmx_fops const is not worth the effort I will remove it from the patch.
 
-> > You come out of nowhere as a new contributor.  You have to constantly
-> > ask about policy and other formalities wrt. kernel development.
-> >   
-> Because they are not documented.  Oh, and a reminder -- you've not
-> answered my most recent questions....
+Based on the patch, I would think it is not worth it.
 
-Might I suggest a look at Documentation/HOWTO and
-Documentation/development-process/?  You might find that more of this
-stuff is better documented than you think.  If there are gaps, please
-let us know where they are, and we'll endeavor to fill them in.
+thanks,
 
-jon
+greg k-h
