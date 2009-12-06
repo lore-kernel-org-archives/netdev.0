@@ -1,59 +1,57 @@
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Subject: [PATCH] mv643xx_eth: check for valid hw address (resubmit)
-Date: Sun, 6 Dec 2009 13:36:33 +0300
-Message-ID: <20091206103633.GA4407@coldcone>
-References: <20091204115138.GA5532@coldcone>
- <20091204.133042.10804388.davem@davemloft.net>
-Reply-To: kirjanov@gmail.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] Remove deprecated print_mac to fix warnings
+Date: Sun, 6 Dec 2009 15:08:28 +0100
+Message-ID: <20091206140828.GA8600@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:39328 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933212AbZLFKem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2009 05:34:42 -0500
-Received: by bwz27 with SMTP id 27so2872857bwz.21
-        for <netdev@vger.kernel.org>; Sun, 06 Dec 2009 02:34:48 -0800 (PST)
+Received: from one.firstfloor.org ([213.235.205.2]:59672 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932286AbZLFOIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2009 09:08:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20091204.133042.10804388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 04, 2009 at 13:30 -0800, David Miller wrote:
-> From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-> Date: Fri, 4 Dec 2009 14:51:38 +0300
-> 
-> > Check for valid hw address.
-> > 
-> > Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
-> 
-> Assuming we don't accept your other patch this needs
-> to return -EINVAL.
-(resubmitted due the fix in the return value)
+Remove deprecated and unused print_mac to fix warnings
 
-Check for valid hw address.
+There seems to be no user in tree of print_mac left. So just remove it.
 
-Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+This eliminates two compiler warnings for every build, because gcc
+complains about the deprecated use of the symbol in its EXPORT_SYMBOL.
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+
 ---
+ include/linux/if_ether.h |    1 -
+ net/ethernet/eth.c       |    7 -------
+ 2 files changed, 8 deletions(-)
 
- drivers/net/mv643xx_eth.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 796a493..1405a17 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -1827,6 +1827,9 @@ static int mv643xx_eth_set_mac_address(struct net_device *dev, void *addr)
- {
- 	struct sockaddr *sa = addr;
- 
-+	if (!is_valid_ether_addr(sa->sa_data))
-+		return -EINVAL;
-+
- 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
- 
- 	netif_addr_lock_bh(dev);
-
-
+Index: linux-2.6.32-ak/include/linux/if_ether.h
+===================================================================
+--- linux-2.6.32-ak.orig/include/linux/if_ether.h
++++ linux-2.6.32-ak/include/linux/if_ether.h
+@@ -139,7 +139,6 @@ extern ssize_t sysfs_format_mac(char *bu
+ /*
+  *	Display a 6 byte device address (MAC) in a readable format.
+  */
+-extern char *print_mac(char *buf, const unsigned char *addr) __deprecated;
+ #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+ #define MAC_BUF_SIZE	18
+ #define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE]
+Index: linux-2.6.32-ak/net/ethernet/eth.c
+===================================================================
+--- linux-2.6.32-ak.orig/net/ethernet/eth.c
++++ linux-2.6.32-ak/net/ethernet/eth.c
+@@ -393,10 +393,3 @@ ssize_t sysfs_format_mac(char *buf, cons
+ 	return ((ssize_t) l);
+ }
+ EXPORT_SYMBOL(sysfs_format_mac);
+-
+-char *print_mac(char *buf, const unsigned char *addr)
+-{
+-	_format_mac_addr(buf, MAC_BUF_SIZE, addr, ETH_ALEN);
+-	return buf;
+-}
+-EXPORT_SYMBOL(print_mac);
