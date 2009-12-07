@@ -1,136 +1,84 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: scp stalls mysteriously
-Date: Mon, 7 Dec 2009 01:09:47 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912070048570.2032@melkinpaasi.cs.helsinki.fi>
-References: <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba> <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi> <20091202085925.472136e2@houba>
- <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi> <20091202154403.GB30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi> <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de>
- <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi> <4B17A791.80808@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi> <4B17C6C3.1060000@tvk.rwth-aachen.de> <20091203202328.62d7551a@houba>
- <4B1ADF79.6000101@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912061206490.19391@melkinpaasi.cs.helsinki.fi> <4B1C33C5.8030309@tvk.rwth-aachen.de>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: [PATCH] tcp: Fix for stalling connections
+Date: Mon, 07 Dec 2009 01:28:21 +0100
+Message-ID: <4B1C4C25.1070104@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-1602502683-1260140989=:2032"
-Cc: Frederic Leroy <fredo@starox.org>, Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Frederic Leroy <fredo@starox.org>,
 	David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Greg KH <gregkh@suse.de>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60431 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757814AbZLFXJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2009 18:09:43 -0500
-In-Reply-To: <4B1C33C5.8030309@tvk.rwth-aachen.de>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:52408 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934440AbZLGA2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Dec 2009 19:28:15 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KU900G7LAN9AMC0@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Mon, 07 Dec 2009 01:28:21 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This patch fixes a problem in the TCP connection timeout calculation.
+Currently, timeout decisions are made on the basis of the current
+tcp_time_stamp and retrans_stamp, which is usually set at the first
+retransmission.
+However, if the retransmission fails in tcp_retransmit_skb(),
+retrans_stamp is not updated and remains zero. This leads to wrong
+decisions in retransmits_timed_out() if tcp_time_stamp is larger than
+the specified timeout, which is very likely.
+In this case, the TCP connection dies after the first attempted
+(and unsuccessful) retransmission.
 
----696230645-1602502683-1260140989=:2032
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
+With this patch, tcp_skb_cb->when is used instead, when retrans_stamp
+is not available.
 
-On Sun, 6 Dec 2009, Damian Lukowski wrote:
+Thanks to Ilpo J=E4rvinen for code suggestions.
 
-> Ilpo Järvinen schrieb:
-> > On Sat, 5 Dec 2009, Damian Lukowski wrote:
-> > 
-> >> Frederic Leroy schrieb:
-> >>> Le Thu, 03 Dec 2009 15:10:11 +0100,
-> >>> Damian Lukowski <damian@tvk.rwth-aachen.de> a écrit :
-> >>>>> I suppose adding || !tp->retrans_stamp into the false condition is
-> >>>>> fine as long as we don't then have a connection that can cause a
-> >>>>> connection to hang there forever for some reason (this needs to be
-> >>>>> understood well enough, not just test driven in stables :-)).
-> >>>>>
-> >>>>>> Unluckily, I still cannot reproduce the scp stalls here, so it
-> >>>>>> would be nice if Frederic printed retrans_stamp together with
-> >>>>>> icsk_ca_state and icsk_retransmits, please.
-> >>>>> It wouldn't hurt to know tp->packets_out and tp->retrans_out too,
-> >>>>> that might have some significant w.r.t what happens because of FRTO.
-> >>>> I made a patch for Frederic with Codebase
-> >>>> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
-> >>>>
-> >>>> Thanks for testing.
-> >>> I made a new .11 trace with damian patch.
-> >>> The copy went to the end.
-> >> Could you please make another test and unplug the cable or drop ACKs for
-> >> several seconds, so that some RTO retransmissions are performed?
-> >> I'd like to see if retrans_stamp remains constant. In the dmesg output of
-> >> the 11th run, it seems to change while icsk_retransmits also increases.
-> >> This is kind of bad for connection timeout calculation in the RTO case ...
-> > 
-> > 
-> > ...Good point, I think that's another bug in this area. We should prevent 
-> > retrans_stamp update when the RTO itself caused tp->retrans_out to become
-> > zero. This bug affects also other things that are based on retrans_stamp, 
-> > not only your code but there the effect is just less devastating.
-> > 
-> > ...Anyway, we know already what happens by reading code when we know the 
-> > case what to look for. If tcp_retransmit_skb encounters any error no 
-> > retrans_stamp is changed (besides, cable might not be enough if you don't 
-> > lose the route, depends on configuration what happens). And if retrans_out 
-> > is zero, the stamp gets updated (assuming the rexmit was successfully 
-> > made without some error condition).
-> > 
-> > What I think we need is something like this to handle all error cases 
-> > cleanly (plus to fix that another bug I mentioned above):
-> > 
-> > 	if (!icsk->icsk_retransmits)
-> > 		return false;
-> > 
-> > 	if (unlikely(!tp->retrans_stamp)) {
-> > 		start_ts = TCP_SKB_CB(tcp_write_queue_head(sk))->when;
-> > 	} else {
-> > 		start_ts = tp->retrans_stamp;
-> > 	}
-> > 
-> > ...and then use that timestamp in the substraction. It handles the case 
-> > where retrans_stamp was never updated (agreeably there are corner cases 
-> > even then where the connection doesn't die exactly when we would want when 
-> > retrans_stamp got set on some high icsk_retransmits but still it would 
-> > only be less than double of the specified time). ...We just need to audit 
-> > that tcp_write_queue_head and when are always valid when call happens (I 
-> > think they should be but that has to checked).
-> 
-> retransmits_timed_out() is called directly by tcp_retransmit_timer() and by
-> tcp_write_timeout() which itself is only called by tcp_retransmit_timer().
-> As tcp_retransmit_timer() calls tcp_write_queue_head() at two points,
-> I think it is safe to assume, that it will be valid in
-> retransmits_timed_out() as well.
-> Also I have checked, that any call of tcp_transmit_skb() is preceded by
-> an update of cb->when. So it should be set and valid in
-> retransmits_timed_out(). Do you agree?
+Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+---
+ include/net/tcp.h |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-That's what I've been reading out too.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 03a49c7..46f06e0 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1267,10 +1267,17 @@ static inline bool retransmits_timed_out(const =
+struct sock *sk,
+ 					 unsigned int boundary)
+ {
+ 	unsigned int timeout, linear_backoff_thresh;
++	unsigned int start_ts;
+=20
+ 	if (!inet_csk(sk)->icsk_retransmits)
+ 		return false;
+=20
++	if (unlikely(!tcp_sk(sk)->retrans_stamp))
++		start_ts =3D TCP_SKB_CB(tcp_write_queue_head(
++					(struct sock *)sk))->when;
++	else
++		start_ts =3D tcp_sk(sk)->retrans_stamp;
++
+ 	linear_backoff_thresh =3D ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
+=20
+ 	if (boundary <=3D linear_backoff_thresh)
+@@ -1279,7 +1286,7 @@ static inline bool retransmits_timed_out(const st=
+ruct sock *sk,
+ 		timeout =3D ((2 << linear_backoff_thresh) - 1) * TCP_RTO_MIN +
+ 			  (boundary - linear_backoff_thresh) * TCP_RTO_MAX;
+=20
+-	return (tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >=3D timeout;
++	return (tcp_time_stamp - start_ts) >=3D timeout;
+ }
+=20
+ static inline struct sk_buff *tcp_send_head(struct sock *sk)
+--=20
+1.6.4.4
 
-> Anyway, how to proceed now? Should I make a patch and post it? If yes, on
-> which mailing list, which codebase?
-
-To netdev, keep ccs from this thread but change the subject. Once 
-Frederic has tested them we can put them onward with his Tested-by:.
-
-I was kind of hoping you would have posted a more official version of the 
-!tp->retrans_stamp patch already earlier (without any debug garbage and 
-proper description etc.), after all, you did most the hard work in 
-figuring out what was wrong with it :-). Feel still free to send, 
-otherwise I'll be doing that tomorrow if I've some time. ...I intend to 
-take a look on this retrans_stamp bug and come up with some solution and 
-see if there is some clean up work necessary to be done in net-next 
-timeframe for that stuff.
-
-> Or maybe it should be posted in a series of patches, which also fixes 
-> the ENOMEM issue (which I do not really have a clue about)?
-
-...Plus I intend to provided a debug patch to the -EAGAIN problem as it 
-is still unclear to me what exactly happens there, however, the other 
-problems need fix regardless of that and are independent enough to not be 
-included into a same fix. This !retrans_stamp issue is really a high 
-priority one.
-
-...In addition, I have the RTT bloat problem to handle but not with so 
-high priority.
-
--- 
- i.
----696230645-1602502683-1260140989=:2032--
