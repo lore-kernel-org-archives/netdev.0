@@ -1,108 +1,127 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCHv3 1/2] tcp: Stalling connections: Fix timeout calculation
- routine
-Date: Mon, 7 Dec 2009 20:50:11 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912072046500.27565@melkinpaasi.cs.helsinki.fi>
-References: <4B1C4C25.1070104@tvk.rwth-aachen.de> <4B1C9D94.3070504@gmail.com> <4B1CE45A.9010908@tvk.rwth-aachen.de> <4B1D27F7.9000502@tvk.rwth-aachen.de>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Mon, 07 Dec 2009 13:53:29 -0500
+Message-ID: <4B1D4F29.8020309@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-175245638-1260211812=:27565"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Frederic Leroy <fredo@starox.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41838 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758119AbZLGSuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 13:50:09 -0500
-In-Reply-To: <4B1D27F7.9000502@tvk.rwth-aachen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig60DE440AFE06F18CF3FEB625"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758704AbZLGSxa@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig60DE440AFE06F18CF3FEB625
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
----696230645-175245638-1260211812=:27565
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
+Hi Linus,
 
-On Mon, 7 Dec 2009, Damian Lukowski wrote:
+Please pull AlacrityVM guest support for 2.6.33 from:
 
-> This patch fixes a problem in the TCP connection timeout calculation.
-> Currently, timeout decisions are made on the basis of the current
-> tcp_time_stamp and retrans_stamp, which is usually set at the first
-> retransmission.
-> However, if the retransmission fails in tcp_retransmit_skb(),
-> retrans_stamp is not updated and remains zero. This leads to wrong
-> decisions in retransmits_timed_out() if tcp_time_stamp is larger than
-> the specified timeout, which is very likely.
-> In this case, the TCP connection dies after the first attempted
-> (and unsuccessful) retransmission.
-> 
-> With this patch, tcp_skb_cb->when is used instead, when retrans_stamp
-> is not available.
-> 
-> This bug has been introduced together with retransmits_timed_out()
-> in 2.6.32, as the number of retransmissions has been used for timeout
-> decisions before. The corresponding commit was
-> 6fa12c85031485dff38ce550c24f10da23b0adaa.
-> 
-> Thanks to Ilpo Järvinen for code suggestions and Frederic Leroy for
-> testing.
-> 
-> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> ---
->  include/net/tcp.h |   10 ++++++++--
->  1 files changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 03a49c7..842ac4d 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1263,14 +1263,20 @@ static inline struct sk_buff *tcp_write_queue_prev(struct sock *sk, struct sk_bu
->   * TCP connection after "boundary" unsucessful, exponentially backed-off
->   * retransmissions with an initial RTO of TCP_RTO_MIN.
->   */
-> -static inline bool retransmits_timed_out(const struct sock *sk,
-> +static inline bool retransmits_timed_out(struct sock *sk,
->  					 unsigned int boundary)
->  {
->  	unsigned int timeout, linear_backoff_thresh;
-> +	unsigned int start_ts;
->  
->  	if (!inet_csk(sk)->icsk_retransmits)
->  		return false;
->  
-> +	if (unlikely(!tcp_sk(sk)->retrans_stamp))
-> +		start_ts = TCP_SKB_CB(tcp_write_queue_head(sk))->when;
-> +	else
-> +		start_ts = tcp_sk(sk)->retrans_stamp;
-> +
->  	linear_backoff_thresh = ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
->  
->  	if (boundary <= linear_backoff_thresh)
-> @@ -1279,7 +1285,7 @@ static inline bool retransmits_timed_out(const struct sock *sk,
->  		timeout = ((2 << linear_backoff_thresh) - 1) * TCP_RTO_MIN +
->  			  (boundary - linear_backoff_thresh) * TCP_RTO_MAX;
->  
-> -	return (tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >= timeout;
-> +	return (tcp_time_stamp - start_ts) >= timeout;
->  }
->  
->  static inline struct sk_buff *tcp_send_head(struct sock *sk)
+git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/linux-2=
+=2E6.git
+for-linus
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+All of these patches have stewed in linux-next for quite a while now:
 
-Also, this should be added:
+Gregory Haskins (26):
+      shm-signal: shared-memory signals
+      ioq: Add basic definitions for a shared-memory, lockless queue
+      vbus: add a "vbus-proxy" bus model for vbus_driver objects
+      vbus-proxy: add a pci-to-vbus bridge
+      ioq: add driver-side vbus helpers
+      net: add vbus_enet driver
+      venet: Update maintainer
+      venet: fix gso.hdr_len to report correct length
+      venet: add pre-mapped tx descriptor feature
+      venet: report actual used descriptor size
+      venet: cache the ringlen values at init
+      venet: add eventq protocol
+      venet: use an skblist for outstanding descriptors
+      venet: add a tx-complete event for out-of-order support
+      venet: add Layer-4 Reassembler Offload (L4RO) support
+      vbus: allow shmsignals to be named
+      vbus: register shm-signal events as standard Linux IRQ vectors
+      net: fix vbus-enet Kconfig dependencies
+      venet: fix locking issue with dev_kfree_skb()
+      vbus: fix kmalloc() from interrupt context to use GFP_ATOMIC
+      fix irq resource leak
+      vbus: remove create_irq() references from the pcibridge
+      vbus: make library code properly declared as GPL
+      venet: add missing ethtool include
+      vbus: add autoprobe capability to guest
+      vbus: fix pcibridge busmaster support
 
-Reported-by: Frederic Leroy <fredo@starox.org>
+Jaswinder Singh Rajput (1):
+      ioq: includecheck fix
 
-...and I think he has already tested this fix a number of times in 
-different forms, so I'd already include his Tested-by: too.
+Patrick Mullaney (1):
+      vbus-enet: fix l4ro pool non-atomic allocations in softirq context
 
--- 
- i.
----696230645-175245638-1260211812=:27565--
+Rakib Mullick (1):
+      vbus: Fix section mismatch warnings in pci-bridge.c
+
+Randy Dunlap (2):
+      vbus-proxy also uses ioq, so it should select IOQ.
+      Eliminate all cast warnings in vbus-enet.c and pci-bridge.c.
+
+Thadeu Lima de Souza Cascardo (1):
+      trivial: fix a typo in SHM_SIGNAL config description
+
+ MAINTAINERS                 |   25 +
+ arch/x86/Kconfig            |    2 +
+ drivers/Makefile            |    1 +
+ drivers/net/Kconfig         |   14 +
+ drivers/net/Makefile        |    1 +
+ drivers/net/vbus-enet.c     | 1560
++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vbus/Kconfig        |   25 +
+ drivers/vbus/Makefile       |    6 +
+ drivers/vbus/bus-proxy.c    |  247 +++++++
+ drivers/vbus/pci-bridge.c   | 1015 ++++++++++++++++++++++++++++
+ include/linux/Kbuild        |    4 +
+ include/linux/ioq.h         |  414 ++++++++++++
+ include/linux/shm_signal.h  |  189 ++++++
+ include/linux/vbus_driver.h |   83 +++
+ include/linux/vbus_pci.h    |  145 ++++
+ include/linux/venet.h       |  133 ++++
+ lib/Kconfig                 |   21 +
+ lib/Makefile                |    2 +
+ lib/ioq.c                   |  300 +++++++++
+ lib/shm_signal.c            |  196 ++++++
+ 20 files changed, 4383 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/vbus-enet.c
+ create mode 100644 drivers/vbus/Kconfig
+ create mode 100644 drivers/vbus/Makefile
+ create mode 100644 drivers/vbus/bus-proxy.c
+ create mode 100644 drivers/vbus/pci-bridge.c
+ create mode 100644 include/linux/ioq.h
+ create mode 100644 include/linux/shm_signal.h
+ create mode 100644 include/linux/vbus_driver.h
+ create mode 100644 include/linux/vbus_pci.h
+ create mode 100644 include/linux/venet.h
+ create mode 100644 lib/ioq.c
+ create mode 100644 lib/shm_signal.c
+
+
+--------------enig60DE440AFE06F18CF3FEB625
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksdTykACgkQP5K2CMvXmqEMgwCeNEOmsfPP3FiDa1oBtXJq+XkZ
+krMAn09WC3h6hnXuVxmLA1ftoQ8SElju
+=jjgY
+-----END PGP SIGNATURE-----
+
+--------------enig60DE440AFE06F18CF3FEB625--
