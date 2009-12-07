@@ -1,55 +1,31 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH/RFC] Adding IP(v6) address with scope link creates global
- address
-Date: Mon, 07 Dec 2009 12:18:06 -0500
-Message-ID: <4B1D38CE.1060001@hp.com>
-References: <20091125135945.GA7195@amd64.fatal.se> <20091207134108.GA23087@amd64.fatal.se>
+From: Emese Revfy <re.emese@gmail.com>
+Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
+Date: Mon, 07 Dec 2009 18:35:07 +0100
+Message-ID: <4B1D3CCB.5000607@gmail.com>
+References: <4B198670.2000406@gmail.com> <4B198C43.50205@gmail.com> <4B19A333.5080103@gmail.com> <20091205000942.GA8224@suse.de> <4B19CA6F.4090700@gmail.com> <20091205041507.GA24885@suse.de> <4B1B0D40.3040209@gmail.com> <20091206172526.GA17480@suse.de> <4B1C500E.5040406@gmail.com> <20091207151156.GA27574@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Andreas Henriksson <andreas@fatal.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:28963 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964797AbZLGRSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 12:18:32 -0500
-In-Reply-To: <20091207134108.GA23087@amd64.fatal.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
+	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
+	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
+	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935548AbZLGRdy@vger.kernel.org>
+In-Reply-To: <20091207151156.GA27574@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andreas,
-
-Andreas Henriksson wrote:
-> Hello again!
-> 
-> Replying to myself (see http://www.spinics.net/lists/netdev/msg113943.html)
-> and attaching an untested patch to see if this sparks more interest.
-> 
-> On Wed, Nov 25, 2009 at 02:59:45PM +0100, Andreas Henriksson wrote:
->> "Jedasothi" reported problems setting scope with iproute on newly added
->> ipv6 addresses in:
->> https://bugs.launchpad.net/ubuntu/+source/iproute/+bug/487745
+>> From: Emese Revfy <re.emese@gmail.com>
 >>
->>> To reproduce bug run
->>> ip addr add '::4/64' scope link dev eth0
->>>
->>> This results in a line seen with
->>> ip addr show eth0
->>> inet6 ::4/64 scope global tentative
->>>
->>> The label "global" is seen instead of "link".
+>> Constify struct file_operations with some exceptions.
 > 
-> I'd appreciate if someone could review and test this:
+> Now please break this patch (and your others) out into "one subsystem at
+> a time" type thing so it will have a chance at being applied.
 
-I tried the patch quickly since I was curious why this is a problem, but
-it didn't work exactly right.  I could post an update, but I'm not sure
-this is the right thing to do - ::4 isn't a link-local address, and other
-parts of the network stack (and other systems) aren't going to treat it as
-such.
-
-Maybe the submitter can explain exactly how this is breaking something?
-
-Thanks,
-
--Brian
+Shall i split them up per subsystem and structure type or
+only per subsystem (that is, include all affected structures
+in the given subsystem)?
+--
+Emese
