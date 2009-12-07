@@ -1,111 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/3] e1000e: increase skb size to prevent dma over skb
-	boundary (v2)
-Date: Mon, 7 Dec 2009 12:53:39 -0800
-Message-ID: <9929d2390912071253w5413f701ub91d888a886fa714@mail.gmail.com>
+Subject: Re: [PATCH 3/3] ixgb: increase skb size to prevent
+	dma over skb boundary
+Date: Mon, 7 Dec 2009 12:54:40 -0800
+Message-ID: <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
 References: <20091207144623.GA8073@hmsreliant.think-freely.org>
-	 <20091207144817.GC8073@hmsreliant.think-freely.org>
-	 <20091207160236.GF8073@hmsreliant.think-freely.org>
+	<20091207144922.GD8073@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	davem@davemloft.net, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, davem@davemloft.net
 To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:39452 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935561AbZLGUxd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 15:53:33 -0500
-Received: by pwj9 with SMTP id 9so1155016pwj.21
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2009 12:53:39 -0800 (PST)
-In-Reply-To: <20091207160236.GF8073@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091207144922.GD8073@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 7, 2009 at 08:02, Neil Horman <nhorman@tuxdriver.com> wrote=
-:
-> Sorry to reply to myself, but given the comments regarding the e1000 =
-driver, I
-> should take the same changes into account here. =C2=A0New version of =
-the patch, much
-> cleaner than previously.
->
->
-> Update e1000e driver to not allow dma beyond the end of the allocated=
- sk
->
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->
->
-> netdev.c | =C2=A0 14 +++++++++++++-
-> 1 file changed, 13 insertions(+), 1 deletion(-)
->
->
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.=
-c
-> index c3105c5..84e1b5d 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -2332,6 +2332,16 @@ static void e1000_setup_rctl(struct e1000_adap=
-ter *adapter)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Setup buffer sizes */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E1000_RCTL_SZ_4096;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E1000_RCTL_BSEX;
-> + =C2=A0 =C2=A0 =C2=A0 /*
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* We need to normalize the rx_buffer_len=
- here
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* since the hardware only knows about 7 =
-discrete
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* frame lengths here. =C2=A0To accomodat=
-e that we need
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* to set the rx length in the hardware t=
-o the next highest
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* size over the rx_buffer_len, then incr=
-ease rx_buffer_len
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* to match it, so that we can get a full=
- mtu sized frame
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
-> + =C2=A0 =C2=A0 =C2=A0 adapter->rx_buffer_len =3D roundup_pow_of_two(=
-adapter->rx_buffer_len);
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0switch (adapter->rx_buffer_len) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 256:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
-0_RCTL_SZ_256;
-> @@ -2346,7 +2356,6 @@ static void e1000_setup_rctl(struct e1000_adapt=
-er *adapter)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E10=
-00_RCTL_BSEX;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 2048:
-> - =C2=A0 =C2=A0 =C2=A0 default:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
-0_RCTL_SZ_2048;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E10=
-00_RCTL_BSEX;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
-> @@ -2359,6 +2368,9 @@ static void e1000_setup_rctl(struct e1000_adapt=
-er *adapter)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 16384:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
-0_RCTL_SZ_16384;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
-> + =C2=A0 =C2=A0 =C2=A0 default:
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 panic("Bad rx_buff=
-er_len size\n");
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
-> --
-
-I have added this patch to my queue of e1000e patches for
-reveiw/testing.  Upon successful review/testing I will submit to
-Dave/netdev.
-
---=20
-Cheers,
-Jeff
+T24gTW9uLCBEZWMgNywgMjAwOSBhdCAwNjo0OSwgTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJp
+dmVyLmNvbT4gd3JvdGU6Cj4gVXBkYXRlIHhnYiBkcml2ZXIgdG8gbm90IGFsbG93IGRtYSBiZXlv
+bmQgdGhlIGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Cj4gU2lnbmVkLW9mZi1ieTogTmVpbCBI
+b3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPgo+IGl4Z2JfbWFpbi5jIHwgwqAgMTMgKysr
+KysrKysrLS0tLQo+IDEgZmlsZSBjaGFuZ2VkLCA5IGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25z
+KC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYyBiL2RyaXZl
+cnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMKPiBpbmRleCBiY2QwZjAxLi4yZDhlNjk5IDEwMDY0NAo+
+IC0tLSBhL2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9p
+eGdiL2l4Z2JfbWFpbi5jCj4gQEAgLTc5OCwxNCArNzk4LDE5IEBAIGl4Z2Jfc2V0dXBfcmN0bChz
+dHJ1Y3QgaXhnYl9hZGFwdGVyICphZGFwdGVyKQo+Cj4gwqAgwqAgwqAgwqByY3RsIHw9IElYR0Jf
+UkNUTF9TRUNSQzsKPgo+IC0gwqAgwqAgwqAgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPD0g
+SVhHQl9SWEJVRkZFUl8yMDQ4KQo+ICsgwqAgwqAgwqAgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9s
+ZW4gPD0gSVhHQl9SWEJVRkZFUl8yMDQ4KSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqByY3Rs
+IHw9IElYR0JfUkNUTF9CU0laRV8yMDQ4Owo+IC0gwqAgwqAgwqAgZWxzZSBpZiAoYWRhcHRlci0+
+cnhfYnVmZmVyX2xlbiA8PSBJWEdCX1JYQlVGRkVSXzQwOTYpCj4gKyDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCBhZGFwdGVyLT5yeF9idWZmZXJfbGVuID0gSVhHQl9SWEJVRkZFUl8yMDQ4Owo+ICsgwqAg
+wqAgwqAgfSBlbHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVuIDw9IElYR0JfUlhCVUZGRVJf
+NDA5Nikgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmN0bCB8PSBJWEdCX1JDVExfQlNJWkVf
+NDA5NjsKPiAtIMKgIMKgIMKgIGVsc2UgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPD0gSVhH
+Ql9SWEJVRkZFUl84MTkyKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRhcHRlci0+cnhfYnVm
+ZmVyX2xlbiA9IElYR0JfUlhCVUZGRVJfNDA5NjsKPiArIMKgIMKgIMKgIH0gZWxzZSBpZiAoYWRh
+cHRlci0+cnhfYnVmZmVyX2xlbiA8PSBJWEdCX1JYQlVGRkVSXzgxOTIpIHsKPiDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoHJjdGwgfD0gSVhHQl9SQ1RMX0JTSVpFXzgxOTI7Cj4gLSDCoCDCoCDCoCBl
+bHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVuIDw9IElYR0JfUlhCVUZGRVJfMTYzODQpCj4g
+KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBhZGFwdGVyLT5yeF9idWZmZXJfbGVuID0gSVhHQl9SWEJV
+RkZFUl84MTkyOwo+ICsgwqAgwqAgwqAgfSBlbHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVu
+IDw9IElYR0JfUlhCVUZGRVJfMTYzODQpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwg
+fD0gSVhHQl9SQ1RMX0JTSVpFXzE2Mzg0Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRhcHRl
+ci0+cnhfYnVmZmVyX2xlbiA9IElYR0JfUlhCVUZGRVJfMTYzODQ7Cj4gKyDCoCDCoCDCoCB9Cj4K
+PiDCoCDCoCDCoCDCoElYR0JfV1JJVEVfUkVHKCZhZGFwdGVyLT5odywgUkNUTCwgcmN0bCk7Cj4g
+wqB9Cj4gLS0KCkkgaGF2ZSBhZGRlZCB0aGlzIHBhdGNoIHRvIG15IHF1ZXVlIG9mIGl4Z2IgcGF0
+Y2hlcyBmb3IKcmV2ZWl3L3Rlc3RpbmcuICBVcG9uIHN1Y2Nlc3NmdWwgcmV2aWV3L3Rlc3Rpbmcg
+SSB3aWxsIHN1Ym1pdCB0bwpEYXZlL25ldGRldi4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLQpKb2luIHVzIERlY2VtYmVyIDksIDIwMDkgZm9yIHRoZSBSZWQgSGF0IFZp
+cnR1YWwgRXhwZXJpZW5jZSwKYSBmcmVlIGV2ZW50IGZvY3VzZWQgb24gdmlydHVhbGl6YXRpb24g
+YW5kIGNsb3VkIGNvbXB1dGluZy4gCkF0dGVuZCBpbi1kZXB0aCBzZXNzaW9ucyBmcm9tIHlvdXIg
+ZGVzay4gWW91ciBjb3VjaC4gQW55d2hlcmUuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvcmVkaGF0LXNm
+ZGV2MmRldgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpF
+MTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0
+Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVs
+Cg==
