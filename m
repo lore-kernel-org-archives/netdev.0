@@ -1,35 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: dst_release() cleanup
-Date: Mon, 07 Dec 2009 20:13:14 +0100
-Message-ID: <4B1D53CA.3060004@gmail.com>
-References: <4B1A4BC5.3050300@gmail.com> <20091207091746.51d8958a@nehalam> <alpine.DEB.2.00.0912072056350.27565@melkinpaasi.cs.helsinki.fi>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: [PATCH/RFC] Adding IP(v6) address with scope link creates
+ global address
+Date: Mon, 07 Dec 2009 20:30:05 +0100
+Message-ID: <1260214205.9431.53.camel@amd64.fatal.se>
+References: <20091125135945.GA7195@amd64.fatal.se>
+	 <20091207134108.GA23087@amd64.fatal.se>  <4B1D38CE.1060001@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Jedasothi <sotheme@nphiuu.mine.nu>,
+	Bug 487745 <487745@bugs.launchpad.net>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51368 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757879AbZLGTNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 14:13:41 -0500
-In-Reply-To: <alpine.DEB.2.00.0912072056350.27565@melkinpaasi.cs.helsinki.fi>
+Received: from proxy3.bredband.net ([195.54.101.73]:63807 "EHLO
+	proxy3.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755715AbZLGT2q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 14:28:46 -0500
+Received: from ipb1.telenor.se (195.54.127.164) by proxy3.bredband.net (7.3.140.3)
+        id 4AD3E1BA0178B8F4 for netdev@vger.kernel.org; Mon, 7 Dec 2009 20:28:45 +0100
+In-Reply-To: <4B1D38CE.1060001@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilpo J=E4rvinen a =E9crit :
+Adding submitter and launchpad bug to CC.
 
-> That's their problem then to fix all relevant places. ...That won't e=
-ven=20
-> compile because of constructs like this:
+On m=C3=A5n, 2009-12-07 at 12:18 -0500, Brian Haley wrote:
+> Hi Andreas,
 >=20
-> 	if (WARN_ON(x))
+> Andreas Henriksson wrote:
+> > Hello again!
+> >=20
+> > Replying to myself (see http://www.spinics.net/lists/netdev/msg1139=
+43.html)
+> > and attaching an untested patch to see if this sparks more interest=
+=2E
+> >=20
+> > On Wed, Nov 25, 2009 at 02:59:45PM +0100, Andreas Henriksson wrote:
+> >> "Jedasothi" reported problems setting scope with iproute on newly =
+added
+> >> ipv6 addresses in:
+> >> https://bugs.launchpad.net/ubuntu/+source/iproute/+bug/487745
+> >>
+> >>> To reproduce bug run
+> >>> ip addr add '::4/64' scope link dev eth0
+> >>>
+> >>> This results in a line seen with
+> >>> ip addr show eth0
+> >>> inet6 ::4/64 scope global tentative
+> >>>
+> >>> The label "global" is seen instead of "link".
+> >=20
+> > I'd appreciate if someone could review and test this:
 >=20
-> ...To my knowing this perfectly legal way of doing this.
+> I tried the patch quickly since I was curious why this is a problem, =
+but
+> it didn't work exactly right.  I could post an update, but I'm not su=
+re
+> this is the right thing to do - ::4 isn't a link-local address, and o=
+ther
+> parts of the network stack (and other systems) aren't going to treat =
+it as
+> such.
 >=20
-
-Sure, but let be conservative :)
-
+> Maybe the submitter can explain exactly how this is breaking somethin=
+g?
+>=20
+> Thanks,
+>=20
+> -Brian
 
