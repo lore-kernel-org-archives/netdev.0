@@ -1,49 +1,75 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
-Date: Mon, 7 Dec 2009 09:57:43 -0800
-Message-ID: <20091207175743.GA25930@suse.de>
-References: <4B198C43.50205@gmail.com>
- <4B19A333.5080103@gmail.com>
- <20091205000942.GA8224@suse.de>
- <4B19CA6F.4090700@gmail.com>
- <20091205041507.GA24885@suse.de>
- <4B1B0D40.3040209@gmail.com>
- <20091206172526.GA17480@suse.de>
- <4B1C500E.5040406@gmail.com>
- <20091207151156.GA27574@suse.de>
- <4B1D3CCB.5000607@gmail.com>
+From: reinette chatre <reinette.chatre@intel.com>
+Subject: Re: linux-next: net/kbuild trees build failure
+Date: Mon, 07 Dec 2009 10:12:17 -0800
+Message-ID: <1260209537.4653.778.camel@rc-desk>
+References: <20091207200317.57820f0a.sfr@canb.auug.org.au>
+	 <20091207114158.GA2428@merkur.ravnborg.org> <4B1CF39A.5050806@suse.cz>
+	 <20091207160903.GB18939@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
-	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
-	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
-	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Emese Revfy <re.emese@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53894 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964862AbZLGSGr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2009 13:06:47 -0500
-Content-Disposition: inline
-In-Reply-To: <4B1D3CCB.5000607@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michal Marek <mmarek@suse.cz>, Sam Ravnborg <sam@ravnborg.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091207160903.GB18939@tuxdriver.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 07, 2009 at 06:35:07PM +0100, Emese Revfy wrote:
-> >> From: Emese Revfy <re.emese@gmail.com>
-> >>
-> >> Constify struct file_operations with some exceptions.
+Hi John,
+
+On Mon, 2009-12-07 at 08:09 -0800, John W. Linville wrote:
+> On Mon, Dec 07, 2009 at 01:22:50PM +0100, Michal Marek wrote:
+> > On 7.12.2009 12:41, Sam Ravnborg wrote:
+> > > On Mon, Dec 07, 2009 at 08:03:17PM +1100, Stephen Rothwell wrote:
+> > >> Hi Dave,
+> > >>
+> > >> Today's linux-next build (powerpc allyesconfig) failed like this:
+> > >>
+> > >> In file included from drivers/net/wireless/iwlwifi/iwl3945-base.c:57:
+> > >> drivers/net/wireless/iwlwifi/iwl-core.h:66:30: error: linux/utsrelease.h: No such file or directory
+> > >>
+> > >> Caused by commit 250cce26d5d03337aec4ff8405121f026adb4a89 ("iwlwifi:
+> > >> driver version track kernel version") from the net tree interacting with
+> > >> commit 8e5c76aace9705b6983cfbf5eb2f2e869dab6738 ("kbuild: move
+> > >> utsrelease.h to include/generated") from the kbuild tree.
+> > >>
+> > >> I applied this patch for today (and will carry it as necessary):
+> > > 
+> > > The right fix would be to use 'utsname()->sysname' (I think sysname
+> > > is the right member).
 > > 
-> > Now please break this patch (and your others) out into "one subsystem at
-> > a time" type thing so it will have a chance at being applied.
+> > ->release would be the right one. One could also question why iwlwifi
+> > needs to repeat the kernel version it was built / is running against,
+> > but I that's not the point here :). Dave, John, can we agree that
+> > whichever tree gets merged first, the other tree applies the one-liner?
 > 
-> Shall i split them up per subsystem and structure type or
-> only per subsystem (that is, include all affected structures
-> in the given subsystem)?
+> Hmmm...well, the suggested fixes are fine for the printk (i.e. runtime)
+> usage.  But (other than Stephen's) they don't seem to help with the
+> MODULE_VERSION (i.e. compile time) usage.  Is there an approved
+> solution for that?
 
-Both.
+Right - could we please use the solution that works at compile time? I
+used UTS_RELEASE after learning about its use in init/version.c, would
+that not make it an approved solution?
 
-thanks,
+> For some reason the Intel drivers encode some of their build options
+> into their MODULE_VERSION string.
 
-greg k-h
+This has been useful many times, especially to know if users compiled
+with debug support so that we can immediately support users to
+understand why the debug flags they are providing does not work.
+
+>   Other than that, the vermagic
+> field from modinfo would seem to suffice for replacing this version
+> information.  Honestly, I'm not too fond of the "build options in
+> the version string" stuff...perhaps we could just get rid of it all?
+
+I would prefer not to since it has been useful on many occasions
+already.
+
+Reinette
