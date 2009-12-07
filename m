@@ -1,119 +1,59 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] tcp: documents timewait refcnt tricks
-Date: Mon, 07 Dec 2009 08:06:58 -0800
-Message-ID: <4B1D2822.5030704@xenotime.net>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <4B1912CE.5040304@gmail.com> <20091205212148.GA26270@ioremap.net> <4B1CD20D.8030407@gmail.com>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: [PATCHv2 1/2] tcp: Stalling connections: Move timeout calculation
+ routine
+Date: Mon, 07 Dec 2009 17:11:39 +0100
+Message-ID: <op.u4kslpdnp498uc@nexus>
+References: <4B1C4C25.1070104@tvk.rwth-aachen.de> <4B1C9D94.3070504@gmail.com>
+ <4B1CE45A.9010908@tvk.rwth-aachen.de> <4B1CE9E7.5010400@tvk.rwth-aachen.de>
+ <20091207130101.5dcbb949@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8;
+	format=flowed	delsp=yes
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	kapil dakhane <kdakhane@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	=?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([72.52.64.118]:55242 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934681AbZLGQGz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2009 11:06:55 -0500
-Received: from ::ffff:96.253.169.185 ([96.253.169.185]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 7 Dec 2009 08:06:59 -0800
-In-Reply-To: <4B1CD20D.8030407@gmail.com>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:39264 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932496AbZLGQLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 11:11:40 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KUA00EQ0IBMWD20@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Mon, 07 Dec 2009 17:11:46 +0100 (CET)
+In-reply-to: <20091207130101.5dcbb949@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Evgeniy Polyakov a =E9crit :
->> Hi Eric.
->>
->> On Fri, Dec 04, 2009 at 02:46:54PM +0100, Eric Dumazet (eric.dumazet=
-@gmail.com) wrote:
->>> First patch changes __inet_hash_nolisten() and __inet6_hash()
->>> to get a timewait parameter to be able to unhash it from ehash
->>> at same time the new socket is inserted in hash.
->>>
->>> This makes sure timewait socket wont be found by a concurrent
->>> writer in __inet_check_established()
->> Both patches look good, although trick with returning reference coun=
-ter
->> may look like a hack especially when only viewing into ip code and n=
-ot
->> hashtable itself. Can you please cook up a documentation update for =
-hash
->> function that it is supposed to return refcnt when socket was in has=
-h
->> table.
->>
->=20
-> Sure, here it is :
->=20
-> Thanks !
->=20
-> [PATCH] tcp: documents timewait refcnt tricks=20
->=20
-> Adds kerneldoc for inet_twsk_unhash() & inet_twsk_bind_unhash().
->=20
-> Suggested-by: Evgeniy Polyakov <zbr@ioremap.net>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->=20
-> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_s=
-ock.c
-> index 1958cf5..cf719c2 100644
-> --- a/net/ipv4/inet_timewait_sock.c
-> +++ b/net/ipv4/inet_timewait_sock.c
-> @@ -15,9 +15,13 @@
->  #include <net/ip.h>
-> =20
-> =20
-> -/*
-> - * unhash a timewait socket from established hash
-> - * lock must be hold by caller
-> +/**
-> + *	inet_twsk_unhash - unhash a timewait socket from established hash
-> + *	@tw: timewait socket
-> + *
-> + *	unhash a timewait socket from established hash, if hashed.
-> + *	ehash lock must be hold by caller.
+Am 07.12.2009, 13:01 Uhr, schrieb Frederic Leroy <fredo@starox.org>:
 
-	                   held
+> Le Mon, 07 Dec 2009 12:41:27 +0100,
+> Damian Lukowski <damian@tvk.rwth-aachen.de> a =C3=A9crit :
+>
+>> This patch moves retransmits_timed_out() from include/net/tcp.h
+>> to tcp_timer.c, where it is used.
+>
+> I just finish to make .18 and .19 trace with your previous patch.
+> It's still available in http://www.starox.org/pub/scp_stall/
+>
+> The copy was successful.
+> .18 is with your patch + some printk.
+> .19 is with your patch only.
+> I also checked that it still fails without.
+>
+> Do you wan't me to make new trace with the new series of patch ?
+> I couldn't do it before this evening.
 
-> + *	Returns 1 if caller should call inet_twsk_put() after lock releas=
-e.
->   */
->  int inet_twsk_unhash(struct inet_timewait_sock *tw)
->  {
-> @@ -26,12 +30,21 @@ int inet_twsk_unhash(struct inet_timewait_sock *t=
-w)
-> =20
->  	hlist_nulls_del_rcu(&tw->tw_node);
->  	sk_nulls_node_init(&tw->tw_node);
-> +	/*
-> +	 * We cannot call inet_twsk_put() ourself under lock,
-> +	 * caller must call it for us.
-> +	 */
->  	return 1;
->  }
-> =20
-> -/*
-> - * unhash a timewait socket from bind hash
-> - * lock must be hold by caller
-> +/**
-> + *	inet_twsk_bind_unhash - unhash a timewait socket from bind hash
-> + *	@tw: timewait socket
-> + *	@hashinfo: hashinfo pointer
-> + *
-> + *	unhash a timewait socket from bind hash, if hashed.
-> + *	bind hash lock must be hold by caller.
+Hi,
+you could test v3 if it is acked at least by Ilpo. But since v3
+leads to the same code as v2, it think it will be fine.
 
-	                       held
+Thank you.
 
-> + *	Returns 1 if caller should call inet_twsk_put() after lock releas=
-e.
->   */
->  int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
->  			  struct inet_hashinfo *hashinfo)
-
-
-thanks.
---=20
-~Randy
+Damian
