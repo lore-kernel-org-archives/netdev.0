@@ -1,51 +1,78 @@
-From: reinette chatre <reinette.chatre@intel.com>
-Subject: Re: linux-next: net/kbuild trees build failure
-Date: Mon, 07 Dec 2009 14:04:03 -0800
-Message-ID: <1260223443.4653.794.camel@rc-desk>
-References: <20091207200317.57820f0a.sfr@canb.auug.org.au>
-	 <20091207114158.GA2428@merkur.ravnborg.org> <4B1CF39A.5050806@suse.cz>
-	 <20091207160903.GB18939@tuxdriver.com> <1260209537.4653.778.camel@rc-desk>
-	 <4B1D76B1.6070601@suse.cz>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: scp stalls mysteriously
+Date: Mon, 7 Dec 2009 23:18:04 +0100
+Message-ID: <20091207231804.23baebd2@houba>
+References: <20091130213727.2f4047d2@houba>
+	<alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi>
+	<20091201211945.505d3c98@houba>
+	<alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi>
+	<20091202085925.472136e2@houba>
+	<alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi>
+	<20091202154403.GB30730@sd-11162.dedibox.fr>
+	<alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi>
+	<20091202183451.173db5f2@houba>
+	<4B16BD58.3040802@tvk.rwth-aachen.de>
+	<20091203085933.GD30730@sd-11162.dedibox.fr>
+	<alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi>
+	<4B17A791.80808@tvk.rwth-aachen.de>
+	<alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi>
+	<4B17C6C3.1060000@tvk.rwth-aachen.de>
+	<20091203202328.62d7551a@houba>
+	<4B1ADF79.6000101@tvk.rwth-aachen.de>
+	<alpine.DEB.2.00.0912071532080.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Michal Marek <mmarek@suse.cz>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4B1D76B1.6070601@suse.cz>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:51071 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934433AbZLGWSX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 17:18:23 -0500
+In-Reply-To: <alpine.DEB.2.00.0912071532080.7024@wel-95.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-12-07 at 13:42 -0800, Michal Marek wrote:
-> It seems there is some misunderstanding.
-> The original problem reported by Stephen was that linux/utsrelease.h was
-> moved to generated/utsrelease.h in the kbuild tree (that commit also
-> patched init/version.c and all other users known at that time). This
-> change in kbuild broke the new iwlwifi in the net tree. Stephen attached
-> the most obvious fix, i.e. change linux/utsrelease.h to
-> generated/utsrelease.h in the iwlwifi source
-> (http://lkml.org/lkml/2009/12/7/121). My suggestion was to let Stephen
-> carry the fix in linux-next for now, and once one of the trees (kbuild
-> or net) hits mainline, the other tree would apply Stephen's patch. Would
-> that work for everyone?
+Le Mon, 7 Dec 2009 16:01:53 +0200 (EET),
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
 
-I am not involved in the merging part and would thus not be the one
-applying Stephen's patch. I would like the iwlwifi patch that uses
-UTS_RELEASE as well as Stephen's fix to find it in the right place to go
-in though (end up in linux-2.6).
+> On Sat, 5 Dec 2009, Damian Lukowski wrote:
+>=20
+> > Could you please make another test and unplug the cable or drop
+> > [...]
+> After taking some more look into this, this is partly a red herring.
+> It looks like that because of the place of the printk that was still
+> in the end of the function. You can see the full trace of what
+> happens in .13., they come from independent incarnations of RTO
+> recovery (when finally no error happens in tcp_retransmit_skb).
 
-> Now if someone wants to remove the DRV_VERSION macro from iwlwifi or rip
-> the UTS_RELEASE part out of it, that would make this problem go away,
-> but I don't think it's necessary _just_ because of the kbuild change.
+Doh ! Sorry :(=20
 
-This is perhaps something John and I should discuss separately.
+> However, the problem itself could occur. Here's the patch which
+> should prevent that (I'm rather convinced that this really isn't
+> stable worthy but net-next or net-2.6 would be fine):
+>=20
+> --
+> [PATCH] tcp: fix retrans_stamp advancing in error cases
+> [...]
 
-Thank you
+Tonight, I made 2 more tests : .20 and .21 .=20
 
-Reinette
+The first with latest damian patch from today.
+Added the printk (This time I doubled checked ;).
+Start the copy, wait 20s, disconnect cable 20s, reconnect.=20
+
+The second try was identical, but I added your patch.
+The copy was slower comparing to the first try.
+
+I didn't took time to understand tcp retransmission timeout and read
+the code. So, I'm not sure the printk is at the good place and usefull.
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
