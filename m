@@ -1,126 +1,160 @@
 From: ben@fluff.org.uk
-Subject: [patch 3/9] KS8851: Add support for EEPROM MAC address
-Date: Mon, 07 Dec 2009 12:15:04 +0000
-Message-ID: <20091207121646.572304617@fluff.org.uk>
+Subject: [patch 5/9] KS8851: Add debugfs export for driver state
+Date: Mon, 07 Dec 2009 12:15:06 +0000
+Message-ID: <20091207121646.881044322@fluff.org.uk>
 References: <20091207121501.819539008@fluff.org.uk>
 Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:48513 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:48495 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933882AbZLGMQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:45 -0500
-Content-Disposition: inline; filename=ks8851-mac-from-eeprom.patch
+	with ESMTP id S933586AbZLGMQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:41 -0500
+Content-Disposition: inline; filename=ks8851-add-debugfs.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for reading the MAC address from the system registers if there
-is an EEPROM present. This involves caching the KS_CCR register for later
-use (will also be useful for ETHTOOL support) and adding a print to say
-that there is an EEPROM present.
+Add the ability to export the state of each network chip via debugfs
+to show the cached register state and some of the network device state
+information.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
 
 ---
-
----
- drivers/net/ks8851.c |   46 +++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 39 insertions(+), 7 deletions(-)
+ drivers/net/ks8851.c |   94 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
 
 Index: b/drivers/net/ks8851.c
 ===================================================================
---- a/drivers/net/ks8851.c	2009-12-07 10:59:14.000000000 +0000
-+++ b/drivers/net/ks8851.c	2009-12-07 10:59:24.000000000 +0000
-@@ -76,6 +76,7 @@ union ks8851_tx_hdr {
-  * @msg_enable: The message flags controlling driver output (see ethtool).
-  * @fid: Incrementing frame id tag.
-  * @rc_ier: Cached copy of KS_IER.
-+ * @rc_ccr: Cached copy of KS_CCR.
-  * @rc_rxqcr: Cached copy of KS_RXQCR.
-  *
-  * The @lock ensures that the chip is protected when certain operations are
-@@ -107,6 +108,7 @@ struct ks8851_net {
+--- a/drivers/net/ks8851.c	2009-12-07 11:01:34.000000000 +0000
++++ b/drivers/net/ks8851.c	2009-12-07 11:01:39.000000000 +0000
+@@ -21,6 +21,9 @@
+ #include <linux/mii.h>
+ #include <linux/eeprom_93cx6.h>
  
- 	u16			rc_ier;
- 	u16			rc_rxqcr;
-+	u16			rc_ccr;
++#include <linux/debugfs.h>
++#include <linux/seq_file.h>
++
+ #include <linux/spi/spi.h>
  
- 	struct mii_if_info	mii;
- 	struct ks8851_rxctrl	rxctrl;
-@@ -367,21 +369,47 @@ static int ks8851_write_mac_addr(struct 
+ #include "ks8851.h"
+@@ -128,6 +131,9 @@ struct ks8851_net {
+ 	struct spi_transfer	spi_xfer1;
+ 	struct spi_transfer	spi_xfer2[2];
+ 
++	struct dentry		*debug_root;
++	struct dentry		*debug_file;
++
+ 	struct eeprom_93cx6	eeprom;
+ };
+ 
+@@ -1374,6 +1380,91 @@ static int ks8851_read_selftest(struct k
+ 	return 0;
  }
  
- /**
-+ * ks8851_read_mac_addr - read mac address from device registers
-+ * @dev: The network device
-+ *
-+ * Update our copy of the KS8851 MAC address from the registers of @dev.
-+*/
-+static void ks8851_read_mac_addr(struct net_device *dev)
++/* debugfs code */
++static int state_show(struct seq_file *seq, void *v)
 +{
-+	struct ks8851_net *ks = netdev_priv(dev);
-+	int i;
++	struct ks8851_net *ks = seq->private;
++	struct net_device *ndev = ks->netdev;
 +
-+	mutex_lock(&ks->lock);
++	seq_printf(seq, "Register cache:\n");
++	seq_printf(seq, "IEQ\t 0x%04x\n", ks->rc_ier);
++	seq_printf(seq, "RXQCR\t 0x%04x\n", ks->rc_rxqcr);
++	seq_printf(seq, "CCR\t 0x%04x\n", ks->rc_ccr);
++	seq_printf(seq, "RXCR1\t 0x%04x\n", ks->rxctrl.rxcr1);
++	seq_printf(seq, "RXCR2\t 0x%04x\n", ks->rxctrl.rxcr2);
++	seq_printf(seq, "MCHASH\t 0=0x%04x, 1=%04x, 2=0x%04x, 3=0x%04x\n",
++		   ks->rxctrl.mchash[0], ks->rxctrl.mchash[1],
++		   ks->rxctrl.mchash[2], ks->rxctrl.mchash[3]);
 +
-+	for (i = 0; i < ETH_ALEN; i++)
-+		dev->dev_addr[i] = ks8851_rdreg8(ks, KS_MAR(i));
++	seq_printf(seq, "\n");
 +
-+	mutex_unlock(&ks->lock);
++	seq_printf(seq, "tx_space = 0x%04x\n", ks->tx_space);
++	seq_printf(seq, "tx fid\t= 0x%02x\n", ks->fid);
++
++	seq_printf(seq, "\n");
++
++	if (ndev->flags & IFF_MULTICAST) {
++		struct dev_mc_list *mcptr = ndev->mc_list;
++		int i;
++
++		seq_printf(seq, "MC list is %d entries\n", ndev->mc_count);
++
++		for (i = 0; i < ndev->mc_count; i++) {
++			seq_printf(seq, "\t%d: %pM\n", i, mcptr->dmi_addr);
++			mcptr = mcptr->next;
++		}
++	} else
++		seq_printf(seq, "No multicast list set\n");
++
++	return 0;
 +}
 +
-+/**
-  * ks8851_init_mac - initialise the mac address
-  * @ks: The device structure
-  *
-  * Get or create the initial mac address for the device and then set that
-- * into the station address register. Currently we assume that the device
-- * does not have a valid mac address in it, and so we use random_ether_addr()
-+ * into the station address register. If there is an EEPROM present, then
-+ * we try that. If no valid mac address is found we use random_ether_addr()
-  * to create a new one.
-- *
-- * In future, the driver should check to see if the device has an EEPROM
-- * attached and whether that has a valid ethernet address in it.
-  */
- static void ks8851_init_mac(struct ks8851_net *ks)
- {
- 	struct net_device *dev = ks->netdev;
- 
-+	/* first, try reading what we've got already */
-+	if (ks->rc_ccr & CCR_EEPROM) {
-+		ks8851_read_mac_addr(dev);
-+		if (is_valid_ether_addr(dev->dev_addr))
-+			return;
++static int state_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, state_show, inode->i_private);
++}
 +
-+		ks_err(ks, "invalid mac address read %pM\n",
-+			dev->dev_addr);
++static const struct file_operations state_fops = {
++	.owner	= THIS_MODULE,
++	.open	= state_open,
++	.read	= seq_read,
++	.llseek	= seq_lseek,
++	.release = single_release,
++};
++
++/**
++ * ks8851_create_debugfs - create debugfs directory and files
++ * @ks: The driver state
++ *
++ * Create the debugfs entries for the specific device.
++ */
++static void __devinit ks8851_create_debugfs(struct ks8851_net *ks)
++{
++	struct dentry *root;
++	char root_name[32];
++
++	snprintf(root_name, sizeof(root_name), "ks8851_%s",
++		 dev_name(&ks->spidev->dev));
++
++	root = debugfs_create_dir(root_name, NULL);
++	if (IS_ERR(root)) {
++		ks_err(ks, "cannot create debugfs root\n");
++		return;
 +	}
 +
- 	random_ether_addr(dev->dev_addr);
- 	ks8851_write_mac_addr(dev);
- }
-@@ -1280,6 +1308,9 @@ static int __devinit ks8851_probe(struct
- 		goto err_id;
- 	}
- 
-+  	/* cache the contents of the CCR register for EEPROM, etc. */
-+  	ks->rc_ccr = ks8851_rdreg16(ks, KS_CCR);
++	ks->debug_root = root;
++	ks->debug_file = debugfs_create_file("state", 0444, root,
++					     ks, &state_fops);
++	if (IS_ERR(ks->debug_file))
++		ks_err(ks, "cannot create debugfs state file\n");
++}
 +
- 	ks8851_read_selftest(ks);
- 	ks8851_init_mac(ks);
- 	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
-@@ -1297,9 +1328,10 @@ static int __devinit ks8851_probe(struct
- 		goto err_netdev;
- 	}
++static void __devexit ks8851_delete_debugfs(struct ks8851_net *ks)
++{
++	debugfs_remove(ks->debug_file);
++	debugfs_remove(ks->debug_root);
++}
++
+ /* driver bus management functions */
  
--	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d\n",
-+	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
- 		 CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
--		 ndev->dev_addr, ndev->irq);
-+		 ndev->dev_addr, ndev->irq,
-+		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ static int __devinit ks8851_probe(struct spi_device *spi)
+@@ -1482,6 +1573,8 @@ static int __devinit ks8851_probe(struct
+ 		 ndev->dev_addr, ndev->irq,
+ 		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
  
++	ks8851_create_debugfs(ks);
++
  	return 0;
  
+ 
+@@ -1501,6 +1594,7 @@ static int __devexit ks8851_remove(struc
+ 	if (netif_msg_drv(priv))
+ 		dev_info(&spi->dev, "remove");
+ 
++	ks8851_delete_debugfs(priv);
+ 	unregister_netdev(priv->netdev);
+ 	free_irq(spi->irq, priv);
+ 	free_netdev(priv->netdev);
 
