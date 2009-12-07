@@ -1,75 +1,60 @@
-From: reinette chatre <reinette.chatre@intel.com>
-Subject: Re: linux-next: net/kbuild trees build failure
-Date: Mon, 07 Dec 2009 10:12:17 -0800
-Message-ID: <1260209537.4653.778.camel@rc-desk>
-References: <20091207200317.57820f0a.sfr@canb.auug.org.au>
-	 <20091207114158.GA2428@merkur.ravnborg.org> <4B1CF39A.5050806@suse.cz>
-	 <20091207160903.GB18939@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: dst_release() cleanup
+Date: Mon, 07 Dec 2009 19:12:03 +0100
+Message-ID: <4B1D4573.9040605@gmail.com>
+References: <4B1A4BC5.3050300@gmail.com> <20091207091746.51d8958a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michal Marek <mmarek@suse.cz>, Sam Ravnborg <sam@ravnborg.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091207160903.GB18939@tuxdriver.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48430 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964956AbZLGSMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 13:12:20 -0500
+In-Reply-To: <20091207091746.51d8958a@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+Stephen Hemminger a =E9crit :
+=20
+> I don't like to put actual necessary code in WARN or BUG macro
+> args because some embedded type developer is likely to build
+> with
+>=20
+> #define WARN_ON(x)
+>=20
+> to get rid of all warnings.
 
-On Mon, 2009-12-07 at 08:09 -0800, John W. Linville wrote:
-> On Mon, Dec 07, 2009 at 01:22:50PM +0100, Michal Marek wrote:
-> > On 7.12.2009 12:41, Sam Ravnborg wrote:
-> > > On Mon, Dec 07, 2009 at 08:03:17PM +1100, Stephen Rothwell wrote:
-> > >> Hi Dave,
-> > >>
-> > >> Today's linux-next build (powerpc allyesconfig) failed like this:
-> > >>
-> > >> In file included from drivers/net/wireless/iwlwifi/iwl3945-base.c:57:
-> > >> drivers/net/wireless/iwlwifi/iwl-core.h:66:30: error: linux/utsrelease.h: No such file or directory
-> > >>
-> > >> Caused by commit 250cce26d5d03337aec4ff8405121f026adb4a89 ("iwlwifi:
-> > >> driver version track kernel version") from the net tree interacting with
-> > >> commit 8e5c76aace9705b6983cfbf5eb2f2e869dab6738 ("kbuild: move
-> > >> utsrelease.h to include/generated") from the kbuild tree.
-> > >>
-> > >> I applied this patch for today (and will carry it as necessary):
-> > > 
-> > > The right fix would be to use 'utsname()->sysname' (I think sysname
-> > > is the right member).
-> > 
-> > ->release would be the right one. One could also question why iwlwifi
-> > needs to repeat the kernel version it was built / is running against,
-> > but I that's not the point here :). Dave, John, can we agree that
-> > whichever tree gets merged first, the other tree applies the one-liner?
-> 
-> Hmmm...well, the suggested fixes are fine for the printk (i.e. runtime)
-> usage.  But (other than Stephen's) they don't seem to help with the
-> MODULE_VERSION (i.e. compile time) usage.  Is there an approved
-> solution for that?
+Oops, I thought WARN_ON(X) must evaluate X once, my bad, since its not =
+documented.
 
-Right - could we please use the solution that works at compile time? I
-used UTS_RELEASE after learning about its use in init/version.c, would
-that not make it an approved solution?
+Thanks
 
-> For some reason the Intel drivers encode some of their build options
-> into their MODULE_VERSION string.
+[PATCH] net: dst_release() cleanup
 
-This has been useful many times, especially to know if users compiled
-with debug support so that we can immediately support users to
-understand why the debug flags they are providing does not work.
+atomic_dec_return() is a full memory barrier, we can omit
+the smp_mb__before_atomic_dec() call.
 
->   Other than that, the vermagic
-> field from modinfo would seem to suffice for replacing this version
-> information.  Honestly, I'm not too fond of the "build options in
-> the version string" stuff...perhaps we could just get rid of it all?
-
-I would prefer not to since it has been useful on many occasions
-already.
-
-Reinette
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 57bc4d5..c3d0cfa 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -263,11 +263,9 @@ again:
+ void dst_release(struct dst_entry *dst)
+ {
+ 	if (dst) {
+-               int newrefcnt;
++		int newrefcnt =3D atomic_dec_return(&dst->__refcnt);
+=20
+-		smp_mb__before_atomic_dec();
+-               newrefcnt =3D atomic_dec_return(&dst->__refcnt);
+-               WARN_ON(newrefcnt < 0);
++		WARN_ON(newrefcnt < 0);
+ 	}
+ }
+ EXPORT_SYMBOL(dst_release);
