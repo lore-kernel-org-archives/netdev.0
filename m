@@ -1,81 +1,108 @@
 From: Ben Dooks <ben@simtec.co.uk>
-Subject: [patch 1/9] eeprom_93cx6: Add data direction control.
-Date: Mon, 07 Dec 2009 12:17:28 +0000
-Message-ID: <20091207121827.433183360@fluff.org.uk>
+Subject: [patch 8/9] KS8851: Use the ks8851.h header to hold union ks8851_tx_hdr
+Date: Mon, 07 Dec 2009 12:17:35 +0000
+Message-ID: <20091207121828.593562553@fluff.org.uk>
 References: <20091207121727.016092171@fluff.org.uk>
-Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Jean Delvare <khali@linux-fr.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934491AbZLGMSh@vger.kernel.org>
-Content-Disposition: inline; filename=93c-eeprom-add-direction.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:48544 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755816AbZLGMSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:18:22 -0500
+Content-Disposition: inline; filename=ks8851-reduce-header-duplication3.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some devices need to know if the data is to be output or read, so add a
-data direction into the eeprom structure to tell the driver whether the
-data line should be driven.
+The union ks8851_tx_hdr turns up in both ks8851.c and ks8851_mll.c in two
+different formats, thus making a common version in ks8851.h is going to
+save source file usage.
 
-The user in this case is the Micrel KS8851 which has a direction
-control for the EEPROM data line and thus needs to know whether
-to drive it (writing) or to tristate it for receiving.
+The ks8851_mll.c uses the name ks_tx_hdr instead of ks8851_tx_hdr, so
+rename this instance.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
-Cc: Wolfram Sang <w.sang@pengutronix.de>
-Cc: Jean Delvare <khali@linux-fr.org>
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
---
- drivers/misc/eeprom/eeprom_93cx6.c |    3 +++
- include/linux/eeprom_93cx6.h       |    2 ++
- 2 files changed, 5 insertions(+)
+---
 
-Index: b/drivers/misc/eeprom/eeprom_93cx6.c
+Index: b/drivers/net/ks8851.c
 ===================================================================
---- a/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:35:38.000000000 +0100
-+++ b/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:51:18.000000000 +0100
-@@ -70,6 +70,7 @@ static void eeprom_93cx6_startup(struct 
- 	eeprom->reg_data_out = 0;
- 	eeprom->reg_data_clock = 0;
- 	eeprom->reg_chip_select = 1;
-+	eeprom->drive_data = 1;
- 	eeprom->register_write(eeprom);
+--- a/drivers/net/ks8851.c	2009-12-07 11:24:54.000000000 +0000
++++ b/drivers/net/ks8851.c	2009-12-07 11:29:02.000000000 +0000
+@@ -46,19 +46,6 @@ struct ks8851_rxctrl {
+ 	u16	rxcr2;
+ };
  
- 	/*
-@@ -108,6 +109,7 @@ static void eeprom_93cx6_write_bits(stru
- 	 */
- 	eeprom->reg_data_in = 0;
- 	eeprom->reg_data_out = 0;
-+	eeprom->drive_data = 1;
+-/**
+- * union ks8851_tx_hdr - tx header data
+- * @txb: The header as bytes
+- * @txw: The header as 16bit, little-endian words
+- *
+- * A dual representation of the tx header data to allow
+- * access to individual bytes, and to allow 16bit accesses
+- * with 16bit alignment.
+- */
+-union ks8851_tx_hdr {
+-	u8	txb[6];
+-	__le16	txw[3];
+-};
  
- 	/*
- 	 * Start writing all bits.
-@@ -147,6 +149,7 @@ static void eeprom_93cx6_read_bits(struc
- 	 */
- 	eeprom->reg_data_in = 0;
- 	eeprom->reg_data_out = 0;
-+	eeprom->drive_data = 0;
- 
- 	/*
- 	 * Start reading all bits.
-Index: b/include/linux/eeprom_93cx6.h
+ /**
+  * struct ks8851_net - KS8851 driver private data
+Index: b/drivers/net/ks8851.h
 ===================================================================
---- a/include/linux/eeprom_93cx6.h	2009-10-06 15:35:38.000000000 +0100
-+++ b/include/linux/eeprom_93cx6.h	2009-10-06 15:51:18.000000000 +0100
-@@ -45,6 +45,7 @@
-  * @register_write(struct eeprom_93cx6 *eeprom): handler to
-  * write to the eeprom register by using all reg_* fields.
-  * @width: eeprom width, should be one of the PCI_EEPROM_WIDTH_* defines
-+ * @drive_data: Set if we're driving the data line.
-  * @reg_data_in: register field to indicate data input
-  * @reg_data_out: register field to indicate data output
-  * @reg_data_clock: register field to set the data clock
-@@ -61,6 +62,7 @@ struct eeprom_93cx6 {
+--- a/drivers/net/ks8851.h	2009-12-07 11:26:50.000000000 +0000
++++ b/drivers/net/ks8851.h	2009-12-07 11:28:31.000000000 +0000
+@@ -323,3 +323,17 @@
+ #define KS_SPIOP_WR				(0x40)
+ #define KS_SPIOP_RXFIFO				(0x80)
+ #define KS_SPIOP_TXFIFO				(0xC0)
++
++/**
++ * union ks8851_tx_hdr - tx header data
++ * @txb: The header as bytes
++ * @txw: The header as 16bit, little-endian words
++ *
++ * A dual representation of the tx header data to allow
++ * access to individual bytes, and to allow 16bit accesses
++ * with 16bit alignment.
++ */
++union ks8851_tx_hdr {
++	u8	txb[6];
++	__le16	txw[3];
++};
+Index: b/drivers/net/ks8851_mll.c
+===================================================================
+--- a/drivers/net/ks8851_mll.c	2009-12-07 11:24:46.000000000 +0000
++++ b/drivers/net/ks8851_mll.c	2009-12-07 11:28:49.000000000 +0000
+@@ -72,20 +72,6 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
+ #define MAC_ADDR_LEN			6
  
- 	int width;
- 
-+	char drive_data;
- 	char reg_data_in;
- 	char reg_data_out;
- 	char reg_data_clock;
+ /**
+- * union ks_tx_hdr - tx header data
+- * @txb: The header as bytes
+- * @txw: The header as 16bit, little-endian words
+- *
+- * A dual representation of the tx header data to allow
+- * access to individual bytes, and to allow 16bit accesses
+- * with 16bit alignment.
+- */
+-union ks_tx_hdr {
+-	u8      txb[4];
+-	__le16  txw[2];
+-};
+-
+-/**
+  * struct ks_net - KS8851 driver private data
+  * @net_device 	: The network device we're bound to
+  * @hw_addr	: start address of data register.
+@@ -137,7 +123,7 @@ struct ks_net {
+ 	struct net_device	*netdev;
+ 	void __iomem    	*hw_addr;
+ 	void __iomem    	*hw_addr_cmd;
+-	union ks_tx_hdr		txh ____cacheline_aligned;
++	union ks8851_tx_hdr	txh ____cacheline_aligned;
+ 	struct mutex      	lock; /* spinlock to be interrupt safe */
+ 	struct platform_device *pdev;
+ 	struct mii_if_info	mii;
+
