@@ -1,102 +1,122 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: allow tx of pre-formatted vlan tagged packets
-Date: Mon, 7 Dec 2009 12:50:01 -0800
-Message-ID: <9929d2390912071250j7d2dcea7y9ddb62ee0c826df9@mail.gmail.com>
-References: <1259961156.4198.163.camel@gshetty>
-	 <9929d2390912041345g4557770bh1467db58b8ade572@mail.gmail.com>
-	 <1260216128.4226.18.camel@gshetty> <1260216295.4226.21.camel@gshetty>
+Subject: Re: [PATCH 1/3] e1000: increase skb size to prevent
+	dma over skb boundary (v2)
+Date: Mon, 7 Dec 2009 12:52:57 -0800
+Message-ID: <9929d2390912071252u2de5cf73tf1a43d7959413ac4@mail.gmail.com>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org>
+	<20091207144736.GB8073@hmsreliant.think-freely.org>
+	<4B1D1E12.8010200@lastsummer.de>
+	<20091207155953.GE8073@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Arthur Jones <Arthur.Jones@riverbed.com>
-To: Gurucharan Shetty <gshetty@riverbed.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f188.google.com ([209.85.222.188]:47573 "EHLO
-	mail-pz0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935574AbZLGUty convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 15:49:54 -0500
-Received: by pzk26 with SMTP id 26so4210544pzk.4
-        for <netdev@vger.kernel.org>; Mon, 07 Dec 2009 12:50:01 -0800 (PST)
-In-Reply-To: <1260216295.4226.21.camel@gshetty>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Franco Fichtner <franco@lastsummer.de>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091207155953.GE8073@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 7, 2009 at 12:04, Gurucharan Shetty <gshetty@riverbed.com> =
-wrote:
-> ixgbe: allow tx of pre-formatted vlan tagged packets
->
-> When the 82598 is fed 802.1q packets, it chokes with
-> an error of the form:
->
-> ixgbe: eth0: ixgbe_tx_csum: partial checksum but proto=3D81!
->
-> As the logic there was not smart enough to look into
-> the vlan header to pick out the encapsulated protocol.
->
-> There are times when we'd like to send these packets
-> out without having to configure a vlan on the interface.
-> Here we check for the vlan tag and allow the packet to
-> go out with the correct hardware checksum.
->
-> This patch is a clone of a previously submitted patch by
-> Arthur Jones <ajones@riverbed.com> for igb (Commit -
-> fa4a7ef36ec834fee1719636b30d2f28f4cb0166).
->
-> Signed-off-by: Gurucharan Shetty <gshetty@riverbed.com>
-> Signed-off-by: Arthur Jones <ajones@riverbed.com>
->
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 77b0381..4eff407 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -4810,7 +4810,18 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter=
- *adapter,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0IXGBE_ADVTXD_DT=
-YP_CTXT);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb->ip_su=
-mmed =3D=3D CHECKSUM_PARTIAL) {
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 switch (skb->protocol) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 __be16 protocol;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 if (skb->protocol =3D=3D cpu_to_be16(ETH_P_8021Q)) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 const struct vlan_ethhdr *vhdr =3D
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (const =
-struct vlan_ethhdr *)skb->data;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 protocol =3D vhdr->h_vlan_encapsula=
-ted_proto;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 } else {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 protocol =3D skb->protocol;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 }
-> +
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 switch (protocol) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0case cpu_to_be16(ETH_P_IP):
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0type_tucmd_mlhl |=3D IXGBE_AD=
-VTXD_TUCMD_IPV4;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ip_hdr(skb)->protocol =3D=
-=3D IPPROTO_TCP)
->
->
-
-Thanks, I have updated the patch in my queue.
-
---=20
-Cheers,
-Jeff
+T24gTW9uLCBEZWMgNywgMjAwOSBhdCAwNzo1OSwgTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJp
+dmVyLmNvbT4gd3JvdGU6Cj4gT24gTW9uLCBEZWMgMDcsIDIwMDkgYXQgMDQ6MjQ6MDJQTSArMDEw
+MCwgRnJhbmNvIEZpY2h0bmVyIHdyb3RlOgo+PiBIaSBOZWlsLAo+Pgo+PiBOZWlsIEhvcm1hbiB3
+cm90ZToKPj4+IFVwZGF0ZSBlMTAwMCBkcml2ZXIgdG8gbm90IGFsbG93IGRtYSBiZXlvbmQgdGhl
+IGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Pj4gwqAgwqAgU2lnbmVkLW9mZi1ieTogTmVpbCBI
+b3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPj4+Cj4+Pgo+Pj4gZTEwMDBfbWFpbi5jIHwg
+wqAgMzQgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQo+Pj4gMSBmaWxlIGNoYW5n
+ZWQsIDMzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKPj4+Cj4+Pgo+Pj4gZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYyBiL2RyaXZlcnMvbmV0L2UxMDAwL2Ux
+MDAwX21haW4uYwo+Pj4gaW5kZXggN2U4NTVmOS4uNzYwMGRlYiAxMDA2NDQKPj4+IC0tLSBhL2Ry
+aXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYwo+Pj4gKysrIGIvZHJpdmVycy9uZXQvZTEwMDAv
+ZTEwMDBfbWFpbi5jCj4+PiBAQCAtMTY2Nyw2ICsxNjY3LDE5IEBAIGludCBlMTAwMF9zZXR1cF9h
+bGxfcnhfcmVzb3VyY2VzKHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQo+Pj4gwqAgwqAg
+wqByZXR1cm4gZXJyOwo+Pj4gwqB9Cj4+PiDCoCtzdGF0aWMgaW5saW5lIHUzMiBub3JtYWxpemVf
+cnhfbGVuKHUzMiBsZW4pCj4+PiArewo+Pj4gKyDCoCDCoCDCoCDCoHUzMiBtYXRjaCwgbGFzdF9t
+YXRjaDsKPj4+ICsKPj4+Cj4+IFNraXAgbmV3bGluZSBhbmQgZ2V0IHJpZCBvZiBsYXN0X21hdGNo
+LiBBbHNvLCB0aGVyZSBpcyBhIHdoaXRlc3BhY2UgZXJyb3IuLi4KPiBJJ2xsIGp1c3Qgd2FzaCB0
+aGlzIGFsbCBvdXQsIGJhc2VkIG9uIHlvdXIgY29tbWVudHMsIGJlbidzIGFuZCBNaWNoYWxzLCBp
+dHMgbm90Cj4gbmVlZGVkLi4KPj4+IDxzbmlwPgo+PiBJZiB5b3UgbW9kaWZ5IHJ4X2J1ZmZlcl9s
+ZW4gYW55d2F5LCB0aGVuIGdldCByaWQgb2Ygbm9ybWVkX3J4X2xlbiBhbmQKPj4gZG8gYSBxdWlj
+awo+Pgo+PiDCoCDCoGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPSBub3JtYWxpemVfcnhfbGVuKGFk
+YXB0ZXItPnJ4X2J1ZmZlcl9sZW4pOwo+Pgo+PiBpbnN0ZWFkLiBXaXRoIHRoZSBtb2RpZmljYXRp
+b24gYWJvdmUsIGl0IG5ldmVyIGZhaWxzLCBzbyBubyBuZWVkIHRvIGNoZWNrCj4+IGZvciAhbm9y
+bWVkX3J4X2xlbi4KPj4KPiBBZ3JlZWQsIGJ5IHVzaW5nIHJvdW5kdXBfcG93X29mX3R3byBhcyB3
+YXMgcHJldmlvdXNseSBzdWdnZXN0ZWQgdGhlIGV4dHJhCj4gdmFyaWFibGUgaXMgbm8gbG9uZ2Vy
+IG5lZWRlZC4KPgo+PiBCdXQgSSBkb24ndCByZWFsbHkga25vdyB0aGUgY29udGV4dCBvZiB0aGlz
+IGNoYW5nZS4gSXMgaXQgb2theSB0byBzaG9ydGVuCj4+IHJ4X2J1ZmZlcl9sZW4gaGVyZT8gV2h5
+IHdhcyBpdCBub3Qgc2V0IGFwcHJvcHJpYXRlbHkgYXMgdGhlIGRyaXZlcgo+PiBleHBlY3RzPwo+
+Pgo+IFdlJ3JlIG5vdCBzaG9ydGVuaW5nLCB3ZSdyZSByb3VuZGluZyB1cC4gwqBBbmQgeWVzIGl0
+cyBib3RoIG9rLCBhbmQgbmVjZXNzZWNhcnkuCj4gVGhlIHByb2JsZW0gKGZyb20gdGhlIGludGlh
+bCBlbWFpbCBJIHNlbnQpLCB3YXMgdGhhdCB0aGlzIGRyaXZlciB0ZWxscyB0aGUKPiBoYXJkd2Fy
+ZSB0aGF0IHBvdGVudGlhbGx5IGl0IGNhbiBkbWEgdXAgdG8gWCBieXRlcyB0byBhIGdpdmVuIHJ4
+IGJ1ZmZlciwgYnV0IGl0Cj4gaXMgcG9zc2libGUgYW5kIGxpa2VseSB0aGF0IHdlIG9ubHkgcHJv
+dmlkZSBZIGJ5dGVzIHRvIGRtYSB0bywgd2hlcmUgWCA+IFkuCj4gVGhpcyBsZWFkcyB0byBjb3Jy
+dXB0aW9uIG9mIHRoZSBza2Jfc2hhcmVkX2luZm8gc3RydWN0dXJlLgo+Cj4+IE9oLCBCVFcsIHRo
+ZSBkZWZhdWx0IGNhc2UgaW4gdGhlIHN3aXRjaCBzdGF0ZW1lbnQgaXMgc3R1cGlkIGFuZCBzaG91
+bGQKPj4gYmUgcmVtb3ZlZC4KPj4KPiBJIGFncmVlLCBpdHMgc2lsbHksIGJ1dCB3aXRoIHRoZSBh
+Ym92ZSBjaGFuZ2VzLCBpdCBiZWNvbWVzIG5lZWRlZCAob3IgYmVuZWZpY2lhbAo+IGFnYWluKSwg
+dG8gY2F0Y2ggY2FzZXMgaW4gd2hpY2ggcm91bmR1cF9wb3dfb2ZfdHdvIHJldHVybnMgYSB2YWx1
+ZSBiZXlvbmQgd2hhdAo+IHRoZSBoYXJkd2FyZSBjYW4gaGFuZGxlLiDCoEkgdGhpbmsgaW4gdGhp
+cyBjYXNlIHdlIHNob3VsZCBqdXN0IHBhbmljLCBhcwo+IHJ4X2J1ZmZlcl9sZW4gc2hvdWxkIG5l
+dmVyIGJlIGxhcmdlciB0aGFuIDE2Mzg0Lgo+Cj4KPiBUaGFua3MgYWxsIGZvciB0aGUgY29tbWVu
+dHMsIGhlcmVzIHZlcnNpb24gdHdvIG9mIHRoaXMgcGF0Y2gsIHRha2luZyBhbGwKPiBjb21tZW50
+cyBpbnRvIGFjY291bnQ6Cj4KPgo+IFVwZGF0ZSBlMTAwMCBkcml2ZXIgdG8gbm90IGFsbG93IGRt
+YSBiZXlvbmQgdGhlIGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Cj4gU2lnbmVkLW9mZi1ieTog
+TmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPgo+Cj4gZTEwMDBfbWFpbi5jIHwg
+wqAgMTUgKysrKysrKysrKysrKystCj4gMSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyks
+IDEgZGVsZXRpb24oLSkKPgo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAw
+X21haW4uYyBiL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYwo+IGluZGV4IDdlODU1Zjku
+LmNiMTY2MTUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jCj4g
+KysrIGIvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jCj4gQEAgLTE2OTcsNiArMTY5Nywx
+NyBAQCBzdGF0aWMgdm9pZCBlMTAwMF9zZXR1cF9yY3RsKHN0cnVjdCBlMTAwMF9hZGFwdGVyICph
+ZGFwdGVyKQo+IMKgIMKgIMKgIMKgLyogU2V0dXAgYnVmZmVyIHNpemVzICovCj4gwqAgwqAgwqAg
+wqByY3RsICY9IH5FMTAwMF9SQ1RMX1NaXzQwOTY7Cj4gwqAgwqAgwqAgwqByY3RsIHw9IEUxMDAw
+X1JDVExfQlNFWDsKPiArCj4gKyDCoCDCoCDCoCAvKgo+ICsgwqAgwqAgwqAgwqAqIFdlIG5lZWQg
+dG8gbm9ybWFsaXplIHRoZSByeF9idWZmZXJfbGVuIGhlcmUKPiArIMKgIMKgIMKgIMKgKiBzaW5j
+ZSB0aGUgaGFyZHdhcmUgb25seSBrbm93cyBhYm91dCA3IGRpc2NyZXRlCj4gKyDCoCDCoCDCoCDC
+oCogZnJhbWUgbGVuZ3RocyBoZXJlLiDCoFRvIGFjY29tb2RhdGUgdGhhdCB3ZSBuZWVkCj4gKyDC
+oCDCoCDCoCDCoCogdG8gc2V0IHRoZSByeCBsZW5ndGggaW4gdGhlIGhhcmR3YXJlIHRvIHRoZSBu
+ZXh0IGhpZ2hlc3QKPiArIMKgIMKgIMKgIMKgKiBzaXplIG92ZXIgdGhlIHJ4X2J1ZmZlcl9sZW4s
+IHRoZW4gaW5jcmVhc2UgcnhfYnVmZmVyX2xlbgo+ICsgwqAgwqAgwqAgwqAqIHRvIG1hdGNoIGl0
+LCBzbyB0aGF0IHdlIGNhbiBnZXQgYSBmdWxsIG10dSBzaXplZCBmcmFtZQo+ICsgwqAgwqAgwqAg
+wqAqLwo+ICsgwqAgwqAgwqAgYWRhcHRlci0+cnhfYnVmZmVyX2xlbiA9IHJvdW5kdXBfcG93X29m
+X3R3byhhZGFwdGVyLT5yeF9idWZmZXJfbGVuKTsKPiArCj4gwqAgwqAgwqAgwqBzd2l0Y2ggKGFk
+YXB0ZXItPnJ4X2J1ZmZlcl9sZW4pIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGNhc2UgRTEw
+MDBfUlhCVUZGRVJfMjU2Ogo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmN0
+bCB8PSBFMTAwMF9SQ1RMX1NaXzI1NjsKPiBAQCAtMTcxMSw3ICsxNzIyLDYgQEAgc3RhdGljIHZv
+aWQgZTEwMDBfc2V0dXBfcmN0bChzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlcikKPiDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwgJj0gfkUxMDAwX1JDVExfQlNFWDsK
+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGJyZWFrOwo+IMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgY2FzZSBFMTAwMF9SWEJVRkZFUl8yMDQ4Ogo+IC0gwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgZGVmYXVsdDoKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwg
+fD0gRTEwMDBfUkNUTF9TWl8yMDQ4Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgcmN0bCAmPSB+RTEwMDBfUkNUTF9CU0VYOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgYnJlYWs7Cj4gQEAgLTE3MjQsNiArMTczNCw5IEBAIHN0YXRpYyB2b2lkIGUxMDAw
+X3NldHVwX3JjdGwoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIpCj4gwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqBjYXNlIEUxMDAwX1JYQlVGRkVSXzE2Mzg0Ogo+IMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgcmN0bCB8PSBFMTAwMF9SQ1RMX1NaXzE2Mzg0Owo+IMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnJlYWs7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBkZWZhdWx0Ogo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcGFuaWMoIkJh
+ZCByeF9idWZmZXJfbGVuIHNpemVcbiIpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgYnJlYWs7Cj4gwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoGV3MzIoUkNUTCwgcmN0
+bCk7Cj4gLS0KCkkgaGF2ZSBhZGRlZCB0aGlzIHBhdGNoIHRvIG15IHF1ZXVlIG9mIGUxMDAwZSBw
+YXRjaGVzIGZvcgpyZXZlaXcvdGVzdGluZy4gIFVwb24gc3VjY2Vzc2Z1bCByZXZpZXcvdGVzdGlu
+ZyBJIHdpbGwgc3VibWl0IHRvCkRhdmUvbmV0ZGV2LgoKLS0gCkNoZWVycywKSmVmZgoKLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tCkpvaW4gdXMgRGVjZW1iZXIgOSwgMjAwOSBmb3IgdGhlIFJlZCBIYXQg
+VmlydHVhbCBFeHBlcmllbmNlLAphIGZyZWUgZXZlbnQgZm9jdXNlZCBvbiB2aXJ0dWFsaXphdGlv
+biBhbmQgY2xvdWQgY29tcHV0aW5nLiAKQXR0ZW5kIGluLWRlcHRoIHNlc3Npb25zIGZyb20geW91
+ciBkZXNrLiBZb3VyIGNvdWNoLiBBbnl3aGVyZS4KaHR0cDovL3Auc2YubmV0L3NmdS9yZWRoYXQt
+c2ZkZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
+ZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2
+ZWwK
