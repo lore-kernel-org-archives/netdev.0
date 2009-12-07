@@ -1,38 +1,45 @@
-From: Jean Delvare <khali@linux-fr.org>
-Subject: Re: [patch 1/9] eeprom_93cx6: Add data direction control.
-Date: Mon, 7 Dec 2009 13:21:41 +0100
-Message-ID: <20091207132141.1db65cd3@hyperion.delvare>
-References: <20091207121727.016092171@fluff.org.uk>
-	<20091207121827.433183360@fluff.org.uk>
+From: Michal Marek <mmarek@suse.cz>
+Subject: Re: linux-next: net/kbuild trees build failure
+Date: Mon, 07 Dec 2009 13:22:50 +0100
+Message-ID: <4B1CF39A.5050806@suse.cz>
+References: <20091207200317.57820f0a.sfr@canb.auug.org.au> <20091207114158.GA2428@merkur.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@simtec.co.uk, doong.ping@micrel.com,
-	tristram.ha@micrel.com, Wolfram Sang <w.sang@pengutronix.de>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Ben Dooks <ben@simtec.co.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934798AbZLGMVm@vger.kernel.org>
-In-Reply-To: <20091207121827.433183360@fluff.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091207114158.GA2428@merkur.ravnborg.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Dec 2009 12:17:28 +0000, Ben Dooks wrote:
-> Some devices need to know if the data is to be output or read, so add a
-> data direction into the eeprom structure to tell the driver whether the
-> data line should be driven.
+On 7.12.2009 12:41, Sam Ravnborg wrote:
+> On Mon, Dec 07, 2009 at 08:03:17PM +1100, Stephen Rothwell wrote:
+>> Hi Dave,
+>>
+>> Today's linux-next build (powerpc allyesconfig) failed like this:
+>>
+>> In file included from drivers/net/wireless/iwlwifi/iwl3945-base.c:57:
+>> drivers/net/wireless/iwlwifi/iwl-core.h:66:30: error: linux/utsrelease.h: No such file or directory
+>>
+>> Caused by commit 250cce26d5d03337aec4ff8405121f026adb4a89 ("iwlwifi:
+>> driver version track kernel version") from the net tree interacting with
+>> commit 8e5c76aace9705b6983cfbf5eb2f2e869dab6738 ("kbuild: move
+>> utsrelease.h to include/generated") from the kbuild tree.
+>>
+>> I applied this patch for today (and will carry it as necessary):
 > 
-> The user in this case is the Micrel KS8851 which has a direction
-> control for the EEPROM data line and thus needs to know whether
-> to drive it (writing) or to tristate it for receiving.
-> 
-> Signed-off-by: Ben Dooks <ben@simtec.co.uk>
-> Cc: Wolfram Sang <w.sang@pengutronix.de>
-> Cc: Jean Delvare <khali@linux-fr.org>
-> Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+> The right fix would be to use 'utsname()->sysname' (I think sysname
+> is the right member).
 
-FYI, I will not be reviewing this patch nor any other patch to the
-eeprom_93cx6 driver. I have no clue what these devices are, no access
-to any and no interest in them either.
+->release would be the right one. One could also question why iwlwifi
+needs to repeat the kernel version it was built / is running against,
+but I that's not the point here :). Dave, John, can we agree that
+whichever tree gets merged first, the other tree applies the one-liner?
 
--- 
-Jean Delvare
+Thanks!
+Michal
