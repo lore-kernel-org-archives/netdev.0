@@ -1,69 +1,50 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
-Date: Mon, 7 Dec 2009 07:11:56 -0800
-Message-ID: <20091207151156.GA27574@suse.de>
-References: <4B198670.2000406@gmail.com> <4B198C43.50205@gmail.com> <4B19A333.5080103@gmail.com> <20091205000942.GA8224@suse.de> <4B19CA6F.4090700@gmail.com> <20091205041507.GA24885@suse.de> <4B1B0D40.3040209@gmail.com> <20091206172526.GA17480@suse.de> <4B1C500E.5040406@gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/3] e1000: increase skb size to prevent dma over skb
+	boundary
+Date: Mon, 7 Dec 2009 16:19:43 +0100
+Message-ID: <e2d7436a0912070719n5b979cfbsad4f9a9bc7058edb@mail.gmail.com>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org>
+	 <20091207144736.GB8073@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
-	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
-	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
-	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Emese Revfy <re.emese@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:40356 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935216AbZLGPPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2009 10:15:00 -0500
-Content-Disposition: inline
-In-Reply-To: <4B1C500E.5040406@gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.25]:13410 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935254AbZLGPTi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 10:19:38 -0500
+Received: by ey-out-2122.google.com with SMTP id d26so1156419eyd.19
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2009 07:19:44 -0800 (PST)
+In-Reply-To: <20091207144736.GB8073@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 01:45:02AM +0100, Emese Revfy wrote:
-> Greg KH wrote:
-> > On Sun, Dec 06, 2009 at 02:47:44AM +0100, Emese Revfy wrote:
-> >> Greg KH wrote:
-> >>> On Sat, Dec 05, 2009 at 03:50:23AM +0100, Emese Revfy wrote:
-> >>>> Greg KH wrote:
-> >>>>> On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
-> >>>>>> -static struct file_operations ptmx_fops;
-> >>>>>> +static const struct file_operations ptmx_fops = {
-> >>>>>> +	.llseek		= no_llseek,
-> >>>>>> +	.read		= tty_read,
-> >>>>>> +	.write		= tty_write,
-> >>>>>> +	.poll		= tty_poll,
-> >>>>>> +	.unlocked_ioctl	= tty_ioctl,
-> >>>>>> +	.compat_ioctl	= tty_compat_ioctl,
-> >>>>>> +	.open		= ptmx_open,
-> >>>>>> +	.release	= tty_release,
-> >>>>>> +	.fasync		= tty_fasync,
-> >>>>>> +};
-> >>>>> You just made these functions all global, for no real good reason.  Why
-> >>>>> did you do this?
-> >>>> I think this is the only way to make ptmx_fops const, provided we want to. 
-> >>> Why do we want to?
-> >> Because I saw that checkpatch.pl itself tries to ensure the same I went
-> >> through the whole tree looking for non-const file_operations structures
-> >> and tried to make them const as best as I could. If you think making
-> >> ptmx_fops const is not worth the effort I will remove it from the patch.
-> > 
-> > Based on the patch, I would think it is not worth it.
-> > 
-> > thanks,
-> > 
-> > greg k-h
-> > 
-> Ok, I removed the affected hunks.
-> 
-> From: Emese Revfy <re.emese@gmail.com>
-> 
-> Constify struct file_operations with some exceptions.
+2009/12/7 Neil Horman <nhorman@tuxdriver.com>:
+> Update e1000 driver to not allow dma beyond the end of the allocated =
+skb
+>
+[...]
+> +static inline u32 normalize_rx_len(u32 len)
+> +{
+> + =A0 =A0 =A0 =A0u32 match, last_match;
+> +
+> +
+> + =A0 =A0 =A0 =A0for (match =3D 0x100; match <=3D 0x4000; match *=3D =
+2) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (len <=3D match)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return match;
+> + =A0 =A0 =A0 =A0}
+> +
+> + =A0 =A0 =A0 =A0return 0;
+> +}
+> +
 
-Now please break this patch (and your others) out into "one subsystem at
-a time" type thing so it will have a chance at being applied.
+You could use roundup_pow_of_two() instead.
 
-thanks,
-
-greg k-h
+Best Regards,
+Micha=B3 Miros=B3aw
