@@ -1,68 +1,89 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 3/3] ixgb: increase skb size to prevent
-	dma over skb boundary
-Date: Mon, 7 Dec 2009 12:54:40 -0800
-Message-ID: <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
-References: <20091207144623.GA8073@hmsreliant.think-freely.org>
-	<20091207144922.GD8073@hmsreliant.think-freely.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 3/3] ixgb: increase skb size to prevent dma over skb
+	boundary
+Date: Mon, 7 Dec 2009 15:57:02 -0500
+Message-ID: <20091207205702.GI8073@hmsreliant.think-freely.org>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org> <20091207144922.GD8073@hmsreliant.think-freely.org> <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20091207144922.GD8073@hmsreliant.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	davem@davemloft.net, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39876 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935594AbZLGU45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 15:56:57 -0500
+Content-Disposition: inline
+In-Reply-To: <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBEZWMgNywgMjAwOSBhdCAwNjo0OSwgTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJp
-dmVyLmNvbT4gd3JvdGU6Cj4gVXBkYXRlIHhnYiBkcml2ZXIgdG8gbm90IGFsbG93IGRtYSBiZXlv
-bmQgdGhlIGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Cj4gU2lnbmVkLW9mZi1ieTogTmVpbCBI
-b3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPgo+IGl4Z2JfbWFpbi5jIHwgwqAgMTMgKysr
-KysrKysrLS0tLQo+IDEgZmlsZSBjaGFuZ2VkLCA5IGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25z
-KC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYyBiL2RyaXZl
-cnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMKPiBpbmRleCBiY2QwZjAxLi4yZDhlNjk5IDEwMDY0NAo+
-IC0tLSBhL2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMKPiArKysgYi9kcml2ZXJzL25ldC9p
-eGdiL2l4Z2JfbWFpbi5jCj4gQEAgLTc5OCwxNCArNzk4LDE5IEBAIGl4Z2Jfc2V0dXBfcmN0bChz
-dHJ1Y3QgaXhnYl9hZGFwdGVyICphZGFwdGVyKQo+Cj4gwqAgwqAgwqAgwqByY3RsIHw9IElYR0Jf
-UkNUTF9TRUNSQzsKPgo+IC0gwqAgwqAgwqAgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPD0g
-SVhHQl9SWEJVRkZFUl8yMDQ4KQo+ICsgwqAgwqAgwqAgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9s
-ZW4gPD0gSVhHQl9SWEJVRkZFUl8yMDQ4KSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqByY3Rs
-IHw9IElYR0JfUkNUTF9CU0laRV8yMDQ4Owo+IC0gwqAgwqAgwqAgZWxzZSBpZiAoYWRhcHRlci0+
-cnhfYnVmZmVyX2xlbiA8PSBJWEdCX1JYQlVGRkVSXzQwOTYpCj4gKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCBhZGFwdGVyLT5yeF9idWZmZXJfbGVuID0gSVhHQl9SWEJVRkZFUl8yMDQ4Owo+ICsgwqAg
-wqAgwqAgfSBlbHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVuIDw9IElYR0JfUlhCVUZGRVJf
-NDA5Nikgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmN0bCB8PSBJWEdCX1JDVExfQlNJWkVf
-NDA5NjsKPiAtIMKgIMKgIMKgIGVsc2UgaWYgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPD0gSVhH
-Ql9SWEJVRkZFUl84MTkyKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRhcHRlci0+cnhfYnVm
-ZmVyX2xlbiA9IElYR0JfUlhCVUZGRVJfNDA5NjsKPiArIMKgIMKgIMKgIH0gZWxzZSBpZiAoYWRh
-cHRlci0+cnhfYnVmZmVyX2xlbiA8PSBJWEdCX1JYQlVGRkVSXzgxOTIpIHsKPiDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoHJjdGwgfD0gSVhHQl9SQ1RMX0JTSVpFXzgxOTI7Cj4gLSDCoCDCoCDCoCBl
-bHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVuIDw9IElYR0JfUlhCVUZGRVJfMTYzODQpCj4g
-KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBhZGFwdGVyLT5yeF9idWZmZXJfbGVuID0gSVhHQl9SWEJV
-RkZFUl84MTkyOwo+ICsgwqAgwqAgwqAgfSBlbHNlIGlmIChhZGFwdGVyLT5yeF9idWZmZXJfbGVu
-IDw9IElYR0JfUlhCVUZGRVJfMTYzODQpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwg
-fD0gSVhHQl9SQ1RMX0JTSVpFXzE2Mzg0Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRhcHRl
-ci0+cnhfYnVmZmVyX2xlbiA9IElYR0JfUlhCVUZGRVJfMTYzODQ7Cj4gKyDCoCDCoCDCoCB9Cj4K
-PiDCoCDCoCDCoCDCoElYR0JfV1JJVEVfUkVHKCZhZGFwdGVyLT5odywgUkNUTCwgcmN0bCk7Cj4g
-wqB9Cj4gLS0KCkkgaGF2ZSBhZGRlZCB0aGlzIHBhdGNoIHRvIG15IHF1ZXVlIG9mIGl4Z2IgcGF0
-Y2hlcyBmb3IKcmV2ZWl3L3Rlc3RpbmcuICBVcG9uIHN1Y2Nlc3NmdWwgcmV2aWV3L3Rlc3Rpbmcg
-SSB3aWxsIHN1Ym1pdCB0bwpEYXZlL25ldGRldi4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLQpKb2luIHVzIERlY2VtYmVyIDksIDIwMDkgZm9yIHRoZSBSZWQgSGF0IFZp
-cnR1YWwgRXhwZXJpZW5jZSwKYSBmcmVlIGV2ZW50IGZvY3VzZWQgb24gdmlydHVhbGl6YXRpb24g
-YW5kIGNsb3VkIGNvbXB1dGluZy4gCkF0dGVuZCBpbi1kZXB0aCBzZXNzaW9ucyBmcm9tIHlvdXIg
-ZGVzay4gWW91ciBjb3VjaC4gQW55d2hlcmUuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvcmVkaGF0LXNm
-ZGV2MmRldgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpF
-MTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0
-Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVs
-Cg==
+On Mon, Dec 07, 2009 at 12:54:40PM -0800, Jeff Kirsher wrote:
+> On Mon, Dec 7, 2009 at 06:49, Neil Horman <nhorman@tuxdriver.com> wro=
+te:
+> > Update xgb driver to not allow dma beyond the end of the allocated =
+skb
+> >
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >
+> > ixgb_main.c | =A0 13 +++++++++----
+> > 1 file changed, 9 insertions(+), 4 deletions(-)
+> >
+> > diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_m=
+ain.c
+> > index bcd0f01..2d8e699 100644
+> > --- a/drivers/net/ixgb/ixgb_main.c
+> > +++ b/drivers/net/ixgb/ixgb_main.c
+> > @@ -798,14 +798,19 @@ ixgb_setup_rctl(struct ixgb_adapter *adapter)
+> >
+> > =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_SECRC;
+> >
+> > - =A0 =A0 =A0 if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_2048)
+> > + =A0 =A0 =A0 if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_2048) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_2048;
+> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_40=
+96)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
+=46ER_2048;
+> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
+4096) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_4096;
+> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_81=
+92)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
+=46ER_4096;
+> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
+8192) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_8192;
+> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_16=
+384)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
+=46ER_8192;
+> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
+16384) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_16384;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
+=46ER_16384;
+> > + =A0 =A0 =A0 }
+> >
+> > =A0 =A0 =A0 =A0IXGB_WRITE_REG(&adapter->hw, RCTL, rctl);
+> > =A0}
+> > --
+>=20
+> I have added this patch to my queue of ixgb patches for
+> reveiw/testing.  Upon successful review/testing I will submit to
+> Dave/netdev.
+>=20
+> --=20
+> Cheers,
+> Jeff
+>=20
+Um, Well, its already submitted to dave and netdev, but an ACK would su=
+re be=20
+appreciated pending your review. :)
+Neil
+
