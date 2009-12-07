@@ -1,63 +1,63 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: pull request: SCTP updates for net-next
-Date: Mon, 07 Dec 2009 10:05:34 -0500
-Message-ID: <4B1D19BE.4080903@hp.com>
-References: <4B0AF96A.3050709@hp.com>	<20091203210050.d886f229.akpm@linux-foundation.org>	<4B193772.9010109@hp.com> <20091204125233.eea7de39.akpm@linux-foundation.org>
+From: Ben Dooks <ben@fluff.org.uk>
+Subject: Re: [PATCH 1/3] e1000: increase skb size to prevent dma over skb
+ boundary
+Date: Mon, 7 Dec 2009 15:13:26 +0000
+Message-ID: <20091207151326.GB17863@fluff.org.uk>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org>
+ <20091207144736.GB8073@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux SCTP Dev Mailing list <linux-sctp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrei Pelinescu-Onciul <andrei@iptel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:47134 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932685AbZLGPFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 10:05:31 -0500
-In-Reply-To: <20091204125233.eea7de39.akpm@linux-foundation.org>
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:40526 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S935228AbZLGPNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 10:13:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20091207144736.GB8073@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Andrew Morton wrote:
-> On Fri, 04 Dec 2009 11:23:14 -0500
-> Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+On Mon, Dec 07, 2009 at 09:47:36AM -0500, Neil Horman wrote:
+> Update e1000 driver to not allow dma beyond the end of the allocated skb
+>     
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
->>> Overall, it would be way simpler and saner to clamp this value to some
->>> explicit time period, IMO.
->>>
->>> <pulls number out of thin air>
->>>
->>> --- a/net/sctp/socket.c~a
->>> +++ a/net/sctp/socket.c
->>> @@ -2086,9 +2086,8 @@ static int sctp_setsockopt_autoclose(str
->>>  		return -EINVAL;
->>>  	if (copy_from_user(&sp->autoclose, optval, optlen))
->>>  		return -EFAULT;
->>> -	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
->>> -	if (sp->autoclose > (MAX_SCHEDULE_TIMEOUT / HZ) )
->>> -		sp->autoclose = MAX_SCHEDULE_TIMEOUT / HZ ;
->>> +	/* make sure it won't exceed one hour */
->>> +	sp->autoclose = min_t(u32, sp->autoclose, 60 * 60);
->>>  
->> But that may not be long enough.  The spec doesn't impose limits
->> and it's really up to the application to decide how long it wants
->> to keep idle connections open.  Thus any limits shorter the maximum
->> supported by kernel are really artificial and may not be sufficient.
 > 
-> Could make ->autoclose a u64?  That fixes any 32bit-vs-64bit
-> inconsistencies and allows for an effectively infinite period.
+> e1000_main.c |   34 +++++++++++++++++++++++++++++++++-
+> 1 file changed, 33 insertions(+), 1 deletion(-)
 > 
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 7e855f9..7600deb 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -1667,6 +1667,19 @@ int e1000_setup_all_rx_resources(struct e1000_adapter *adapter)
+>  	return err;
+>  }
+>  
+> +static inline u32 normalize_rx_len(u32 len)
+> +{
+> +        u32 match, last_match;
+> +
+> +
+> +        for (match = 0x100; match <= 0x4000; match *= 2) {
+> +                if (len <= match)
+> +                        return match;
+> +        }
+> +
+> +        return 0;
+> +}
 
-That's isn't going to help much since the timer intervals are unsigned longs,
-and would overflow on 32 bit systems.  We would still need the limiting value to
-prevent that overflow, but would be able to drop the cast.  Additionally, the
-API provides only for a 32 bit integer, thus we would waste 32 bit of space.
+thought there was an ilog2() call in the kernel to do something like
+this? see linux/log2.h. will also make it easier to switch on the
+result if you've got a value in bit-position instead of size.
 
-I don't think that's worth it.  The last patch from Andrei fixed the warning
-with a cast to u32.  It seems like the simplest solution.
+-- 
+Ben (ben@fluff.org, http://www.fluff.org/)
 
--vlad
+  'a smiley only costs 4 bytes'
