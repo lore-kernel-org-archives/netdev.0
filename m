@@ -1,46 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Subject: Re: [PATCH] net: dst_release() cleanup
-Date: Mon, 7 Dec 2009 10:57:30 -0800
-Message-ID: <20091207105730.1fc14c4d@nehalam>
-References: <4B1A4BC5.3050300@gmail.com>
-	<20091207091746.51d8958a@nehalam>
-	<4B1D4573.9040605@gmail.com>
+Date: Mon, 7 Dec 2009 20:59:00 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912072056350.27565@melkinpaasi.cs.helsinki.fi>
+References: <4B1A4BC5.3050300@gmail.com> <20091207091746.51d8958a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48668 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758303AbZLGS5e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 13:57:34 -0500
-In-Reply-To: <4B1D4573.9040605@gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34102 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758492AbZLGS64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 13:58:56 -0500
+In-Reply-To: <20091207091746.51d8958a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Dec 2009 19:12:03 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mon, 7 Dec 2009, Stephen Hemminger wrote:
 
-> Stephen Hemminger a =C3=A9crit :
-> =20
-> > I don't like to put actual necessary code in WARN or BUG macro
-> > args because some embedded type developer is likely to build
-> > with
-> >=20
-> > #define WARN_ON(x)
-> >=20
-> > to get rid of all warnings.
->=20
-> Oops, I thought WARN_ON(X) must evaluate X once, my bad, since its no=
-t documented.
->=20
+> On Sat, 05 Dec 2009 13:02:13 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > atomic_dec_return() is a full memory barrier, we can omit
+> > the smp_mb__before_atomic_dec() call.
+> > 
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
+> >  net/core/dst.c |    9 ++-------
+> >  1 file changed, 2 insertions(+), 7 deletions(-)
+> > 
+> > diff --git a/net/core/dst.c b/net/core/dst.c
+> > index 57bc4d5..cdec1d1 100644
+> > --- a/net/core/dst.c
+> > +++ b/net/core/dst.c
+> > @@ -262,13 +262,8 @@ again:
+> >  
+> >  void dst_release(struct dst_entry *dst)
+> >  {
+> > -	if (dst) {
+> > -               int newrefcnt;
+> > -
+> > -		smp_mb__before_atomic_dec();
+> > -               newrefcnt = atomic_dec_return(&dst->__refcnt);
+> > -               WARN_ON(newrefcnt < 0);
+> > -	}
+> > +	if (dst)
+> > +		WARN_ON(atomic_dec_return(&dst->__refcnt) < 0);
+> >  }
+> >  EXPORT_SYMBOL(dst_release);
+> 
+> I don't like to put actual necessary code in WARN or BUG macro
+> args because some embedded type developer is likely to build
+> with
+> 
+> #define WARN_ON(x)
+> 
+> to get rid of all warnings.
 
-If done correctly, it would. The correct way to ignore warnings would b=
-e to do
-something like:
+That's their problem then to fix all relevant places. ...That won't even 
+compile because of constructs like this:
 
-#define WARN_ON(x) (x)
+	if (WARN_ON(x))
 
+...To my knowing this perfectly legal way of doing this.
 
+-- 
+ i.
