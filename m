@@ -1,108 +1,154 @@
 From: ben@fluff.org.uk
-Subject: [patch 8/9] KS8851: Use the ks8851.h header to hold union ks8851_tx_hdr
-Date: Mon, 07 Dec 2009 12:15:09 +0000
-Message-ID: <20091207121647.349234115@fluff.org.uk>
+Subject: [patch 7/9] KS8851: Update ks8851.h header from ks8851_mll.c
+Date: Mon, 07 Dec 2009 12:15:08 +0000
+Message-ID: <20091207121647.161149402@fluff.org.uk>
 References: <20091207121501.819539008@fluff.org.uk>
 Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:48503 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:48498 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933563AbZLGMQl (ORCPT
+	with ESMTP id S933602AbZLGMQl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:41 -0500
-Content-Disposition: inline; filename=ks8851-reduce-header-duplication3.patch
+Content-Disposition: inline; filename=ks8851-reduce-header-duplication2.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The union ks8851_tx_hdr turns up in both ks8851.c and ks8851_mll.c in two
-different formats, thus making a common version in ks8851.h is going to
-save source file usage.
-
-The ks8851_mll.c uses the name ks_tx_hdr instead of ks8851_tx_hdr, so
-rename this instance.
+Move more useful definitions from ks8851_mll.c into ks8851.h and include
+a brief copyright update from the mll source file. Also mop up a few
+definitions that got missed in the first patch.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
 
 ---
 
-Index: b/drivers/net/ks8851.c
-===================================================================
---- a/drivers/net/ks8851.c	2009-12-07 11:24:54.000000000 +0000
-+++ b/drivers/net/ks8851.c	2009-12-07 11:29:02.000000000 +0000
-@@ -46,19 +46,6 @@ struct ks8851_rxctrl {
- 	u16	rxcr2;
- };
- 
--/**
-- * union ks8851_tx_hdr - tx header data
-- * @txb: The header as bytes
-- * @txw: The header as 16bit, little-endian words
-- *
-- * A dual representation of the tx header data to allow
-- * access to individual bytes, and to allow 16bit accesses
-- * with 16bit alignment.
-- */
--union ks8851_tx_hdr {
--	u8	txb[6];
--	__le16	txw[3];
--};
- 
- /**
-  * struct ks8851_net - KS8851 driver private data
 Index: b/drivers/net/ks8851.h
 ===================================================================
---- a/drivers/net/ks8851.h	2009-12-07 11:26:50.000000000 +0000
-+++ b/drivers/net/ks8851.h	2009-12-07 11:28:31.000000000 +0000
-@@ -323,3 +323,17 @@
- #define KS_SPIOP_WR				(0x40)
- #define KS_SPIOP_RXFIFO				(0x80)
- #define KS_SPIOP_TXFIFO				(0xC0)
-+
-+/**
-+ * union ks8851_tx_hdr - tx header data
-+ * @txb: The header as bytes
-+ * @txw: The header as 16bit, little-endian words
+--- a/drivers/net/ks8851.h	2009-12-07 11:20:52.000000000 +0000
++++ b/drivers/net/ks8851.h	2009-12-07 11:21:21.000000000 +0000
+@@ -3,6 +3,9 @@
+  * Copyright 2009 Simtec Electronics
+  *      Ben Dooks <ben@simtec.co.uk>
+  *
++ * portions from drivers/net/ks8851_mll.c,
++ *	Copyright (c) 2009 Micrel Inc.
 + *
-+ * A dual representation of the tx header data to allow
-+ * access to individual bytes, and to allow 16bit accesses
-+ * with 16bit alignment.
-+ */
-+union ks8851_tx_hdr {
-+	u8	txb[6];
-+	__le16	txw[3];
-+};
+  * KS8851 register definitions
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -13,6 +16,10 @@
+ #define KS_CCR					0x08
+ #define CCR_EEPROM				(1 << 9)
+ #define CCR_SPI					(1 << 8)
++#define CCR_8BIT				(1 << 7)
++#define CCR_16BIT				(1 << 6)
++#define CCR_32BIT				(1 << 5)
++#define CCR_SHARED				(1 << 4)
+ #define CCR_32PIN				(1 << 0)
+ 
+ /* MAC address registers */
+@@ -250,7 +257,13 @@
+ 
+ /* Standard MII PHY data */
+ #define KS_P1MBCR				0xE4
++#define P1MBCR_FORCE_FDX			(1 << 8)
++
+ #define KS_P1MBSR				0xE6
++#define P1MBSR_AN_COMPLETE			(1 << 5)
++#define P1MBSR_AN_CAPABLE			(1 << 3)
++#define P1MBSR_LINK_UP				(1 << 2)
++
+ #define KS_PHY1ILR				0xE8
+ #define KS_PHY1IHR				0xEA
+ #define KS_P1ANAR				0xEC
+@@ -285,6 +298,20 @@
+ #define P1CR_PNTR_10BT_FDX			(1 << 1)
+ #define P1CR_PNTR_10BT_HDX			(1 << 0)
+ 
++#define KS_P1SR					0xF8
++#define P1SR_HP_MDIX				(1 << 15)
++#define P1SR_REV_POL				(1 << 13)
++#define P1SR_OP_100M				(1 << 10)
++#define P1SR_OP_FDX				(1 << 9)
++#define P1SR_OP_MDI				(1 << 7)
++#define P1SR_AN_DONE				(1 << 6)
++#define P1SR_LINK_GOOD				(1 << 5)
++#define P1SR_PNTR_FLOW				(1 << 4)
++#define P1SR_PNTR_100BT_FDX			(1 << 3)
++#define P1SR_PNTR_100BT_HDX			(1 << 2)
++#define P1SR_PNTR_10BT_FDX			(1 << 1)
++#define P1SR_PNTR_10BT_HDX			(1 << 0)
++
+ /* TX Frame control */
+ 
+ #define TXFR_TXIC				(1 << 15)
 Index: b/drivers/net/ks8851_mll.c
 ===================================================================
---- a/drivers/net/ks8851_mll.c	2009-12-07 11:24:46.000000000 +0000
-+++ b/drivers/net/ks8851_mll.c	2009-12-07 11:28:49.000000000 +0000
-@@ -72,20 +72,6 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
- #define MAC_ADDR_LEN			6
+--- a/drivers/net/ks8851_mll.c	2009-12-07 11:21:15.000000000 +0000
++++ b/drivers/net/ks8851_mll.c	2009-12-07 11:22:47.000000000 +0000
+@@ -42,13 +42,6 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
+ #define TX_BUF_SIZE			2000
+ #define RX_BUF_SIZE			2000
  
- /**
-- * union ks_tx_hdr - tx header data
-- * @txb: The header as bytes
-- * @txw: The header as 16bit, little-endian words
-- *
-- * A dual representation of the tx header data to allow
-- * access to individual bytes, and to allow 16bit accesses
-- * with 16bit alignment.
-- */
--union ks_tx_hdr {
--	u8      txb[4];
--	__le16  txw[2];
--};
+-#define CCR_8BIT			(1 << 7)
+-#define CCR_16BIT			(1 << 6)
+-#define CCR_32BIT			(1 << 5)
+-#define CCR_SHARED			(1 << 4)
 -
--/**
-  * struct ks_net - KS8851 driver private data
-  * @net_device 	: The network device we're bound to
-  * @hw_addr	: start address of data register.
-@@ -137,7 +123,7 @@ struct ks_net {
- 	struct net_device	*netdev;
- 	void __iomem    	*hw_addr;
- 	void __iomem    	*hw_addr_cmd;
--	union ks_tx_hdr		txh ____cacheline_aligned;
-+	union ks8851_tx_hdr	txh ____cacheline_aligned;
- 	struct mutex      	lock; /* spinlock to be interrupt safe */
- 	struct platform_device *pdev;
- 	struct mii_if_info	mii;
+-#define OBCR_ODS_16MA			(1 << 6)
+-
+ #define RXCR1_FILTER_MASK    		(RXCR1_RXINVF | RXCR1_RXAE | \
+ 					 RXCR1_RXMAFMA | RXCR1_RXPAFMA)
+ 
+@@ -64,41 +57,10 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
+ 
+ #define RXQCR_CMD_CNTL                	(RXQCR_RXFCTE|RXQCR_ADRFE)
+ 
+-#define KS_TXFDPR			0x84
+-#define TXFDPR_TXFPAI			(1 << 14)
+-#define TXFDPR_TXFP_MASK		(0x7ff << 0)
+-#define TXFDPR_TXFP_SHIFT		(0)
+-
+-#define KS_RXFDPR			0x86
+-#define RXFDPR_RXFPAI			(1 << 14)
+-
+ #define RXFCTR_THRESHOLD_MASK     	0x00FF
+ 
+-#define P1MBCR_FORCE_FDX		(1 << 8)
+-
+-#define P1MBSR_AN_COMPLETE		(1 << 5)
+-#define P1MBSR_AN_CAPABLE		(1 << 3)
+-#define P1MBSR_LINK_UP			(1 << 2)
+-
+ /* TX Frame control */
+ 
+-#define TXFR_TXIC			(1 << 15)
+-#define TXFR_TXFID_MASK			(0x3f << 0)
+-#define TXFR_TXFID_SHIFT		(0)
+-
+-#define KS_P1SR				0xF8
+-#define P1SR_HP_MDIX			(1 << 15)
+-#define P1SR_REV_POL			(1 << 13)
+-#define P1SR_OP_100M			(1 << 10)
+-#define P1SR_OP_FDX			(1 << 9)
+-#define P1SR_OP_MDI			(1 << 7)
+-#define P1SR_AN_DONE			(1 << 6)
+-#define P1SR_LINK_GOOD			(1 << 5)
+-#define P1SR_PNTR_FLOW			(1 << 4)
+-#define P1SR_PNTR_100BT_FDX		(1 << 3)
+-#define P1SR_PNTR_100BT_HDX		(1 << 2)
+-#define P1SR_PNTR_10BT_FDX		(1 << 1)
+-#define P1SR_PNTR_10BT_HDX		(1 << 0)
+ 
+ #define	ENUM_BUS_NONE			0
+ #define	ENUM_BUS_8BIT			1
+@@ -1360,7 +1322,7 @@ static int __devinit ks8851_probe(struct
+ 	memcpy(netdev->dev_addr, ks->mac_addr, 6);
+ 
+ 	data = ks_rdreg16(ks, KS_OBCR);
+-	ks_wrreg16(ks, KS_OBCR, data | OBCR_ODS_16MA);
++	ks_wrreg16(ks, KS_OBCR, data | OBCR_ODS_16mA);
+ 
+ 	/**
+ 	 * If you want to use the default MAC addr,
 
