@@ -1,89 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 3/3] ixgb: increase skb size to prevent dma over skb
-	boundary
-Date: Mon, 7 Dec 2009 15:57:02 -0500
-Message-ID: <20091207205702.GI8073@hmsreliant.think-freely.org>
-References: <20091207144623.GA8073@hmsreliant.think-freely.org> <20091207144922.GD8073@hmsreliant.think-freely.org> <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14737] New: e1000e driver experiences large
+ packet losses
+Date: Mon, 7 Dec 2009 13:19:00 -0800
+Message-ID: <20091207131900.19c776ed.akpm@linux-foundation.org>
+References: <bug-14737-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	davem@davemloft.net, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	xenoterracide@gmail.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Joh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39876 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935594AbZLGU45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 15:56:57 -0500
-Content-Disposition: inline
-In-Reply-To: <9929d2390912071254v24eb6980s1b43cf2e6f86f1dc@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46797 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964975AbZLGVTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 16:19:31 -0500
+In-Reply-To: <bug-14737-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 12:54:40PM -0800, Jeff Kirsher wrote:
-> On Mon, Dec 7, 2009 at 06:49, Neil Horman <nhorman@tuxdriver.com> wro=
-te:
-> > Update xgb driver to not allow dma beyond the end of the allocated =
-skb
-> >
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >
-> > ixgb_main.c | =A0 13 +++++++++----
-> > 1 file changed, 9 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_m=
-ain.c
-> > index bcd0f01..2d8e699 100644
-> > --- a/drivers/net/ixgb/ixgb_main.c
-> > +++ b/drivers/net/ixgb/ixgb_main.c
-> > @@ -798,14 +798,19 @@ ixgb_setup_rctl(struct ixgb_adapter *adapter)
-> >
-> > =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_SECRC;
-> >
-> > - =A0 =A0 =A0 if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_2048)
-> > + =A0 =A0 =A0 if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_2048) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_2048;
-> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_40=
-96)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
-=46ER_2048;
-> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
-4096) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_4096;
-> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_81=
-92)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
-=46ER_4096;
-> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
-8192) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_8192;
-> > - =A0 =A0 =A0 else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_16=
-384)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
-=46ER_8192;
-> > + =A0 =A0 =A0 } else if (adapter->rx_buffer_len <=3D IXGB_RXBUFFER_=
-16384) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rctl |=3D IXGB_RCTL_BSIZE_16384;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->rx_buffer_len =3D IXGB_RXBUF=
-=46ER_16384;
-> > + =A0 =A0 =A0 }
-> >
-> > =A0 =A0 =A0 =A0IXGB_WRITE_REG(&adapter->hw, RCTL, rctl);
-> > =A0}
-> > --
->=20
-> I have added this patch to my queue of ixgb patches for
-> reveiw/testing.  Upon successful review/testing I will submit to
-> Dave/netdev.
->=20
-> --=20
-> Cheers,
-> Jeff
->=20
-Um, Well, its already submitted to dave and netdev, but an ACK would su=
-re be=20
-appreciated pending your review. :)
-Neil
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Sat, 5 Dec 2009 07:02:49 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=14737
+> 
+>            Summary: e1000e driver experiences large packet losses
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.32--
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: xenoterracide@gmail.com
+>         Regression: No
+> 
+> 
+> possibly related to this bug #13835 same symptoms and I upped a lot of info for
+> this bug on there.
+> 
+> Also Read this thread http://marc.info/?t=125699907100001&r=1&w=2
+> 
+> I have thus far been able to find similar symptoms all the way back to 2.6.29.6
+> I've not yet done testing farther. problem is intermittent. It does not appear
+> to affect another nic on the system (however testing of that hasn't been
+> extensive,and a different driver). if I do not reboot the computer and the bug
+> hasn't manifested, it will not manifest (perhaps unless I reload modules or
+> restart interfaces (not tested).
+> 
 
