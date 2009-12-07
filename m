@@ -1,114 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC, PATCH] net: sock_queue_err_skb() and sk_forward_alloc corruption
-Date: Mon, 07 Dec 2009 23:32:16 +0100
-Message-ID: <4B1D8270.20308@gmail.com>
-References: <20091207090154.6bbfe8e2@nehalam>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: scp stalls mysteriously
+Date: Tue, 8 Dec 2009 00:38:01 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912080023590.27565@melkinpaasi.cs.helsinki.fi>
+References: <20091130213727.2f4047d2@houba> <alpine.DEB.2.00.0911302244160.9826@melkinpaasi.cs.helsinki.fi> <20091201211945.505d3c98@houba> <alpine.DEB.2.00.0912012220570.1904@melkinpaasi.cs.helsinki.fi> <20091202085925.472136e2@houba>
+ <alpine.DEB.2.00.0912021438030.20416@melkinpaasi.cs.helsinki.fi> <20091202154403.GB30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912021745200.7024@wel-95.cs.helsinki.fi> <20091202183451.173db5f2@houba> <4B16BD58.3040802@tvk.rwth-aachen.de>
+ <20091203085933.GD30730@sd-11162.dedibox.fr> <alpine.DEB.2.00.0912031121190.7024@wel-95.cs.helsinki.fi> <4B17A791.80808@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912031444150.7024@wel-95.cs.helsinki.fi> <4B17C6C3.1060000@tvk.rwth-aachen.de> <20091203202328.62d7551a@houba>
+ <4B1ADF79.6000101@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912071532080.7024@wel-95.cs.helsinki.fi> <20091207231804.23baebd2@houba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-658249380-1260225482=:27565"
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Frederic Leroy <fredo@starox.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42799 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935606AbZLGWcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 17:32:13 -0500
-In-Reply-To: <20091207090154.6bbfe8e2@nehalam>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60695 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757642AbZLGWiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 17:38:00 -0500
+In-Reply-To: <20091207231804.23baebd2@houba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While investigating on sk_forward_alloc corruptions, I found two problems :
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-1) skb_tstamp_tx() is calling sock_queue_err_skb().
+---696230645-658249380-1260225482=:27565
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-This is not good as is, because we need sock lock
-before calling sock_queue_err_skb().
+Trimmed Ccs.
 
-Problem is skb_tstamp_rx() wont be able to lock sock...
+On Mon, 7 Dec 2009, Frederic Leroy wrote:
 
-skb_tstamp_rx() ->
-	sock_queue_err_skb() ->
-		sk_mem_charge(sk, skb->truesize) -> // PROBLEM :
-			sk->sk_forward_alloc -= size; // MUST BE PROTECTED
+> Le Mon, 7 Dec 2009 16:01:53 +0200 (EET),
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> a écrit :
+> 
+> > On Sat, 5 Dec 2009, Damian Lukowski wrote:
+> > 
+> > > Could you please make another test and unplug the cable or drop
+> > > [...]
+> > After taking some more look into this, this is partly a red herring.
+> > It looks like that because of the place of the printk that was still
+> > in the end of the function. You can see the full trace of what
+> > happens in .13., they come from independent incarnations of RTO
+> > recovery (when finally no error happens in tcp_retransmit_skb).
+> 
+> Doh ! Sorry :( 
+
+Now I think we have had just too many testcases and are all confused :-).
+I was referring to the case .11. (the same case as Damian did) ...Not 
+something too newish you did, sorry about that.
+
+> > However, the problem itself could occur. Here's the patch which
+> > should prevent that (I'm rather convinced that this really isn't
+> > stable worthy but net-next or net-2.6 would be fine):
+> > 
+> > --
+> > [PATCH] tcp: fix retrans_stamp advancing in error cases
+> > [...]
+> 
+> Tonight, I made 2 more tests : .20 and .21 . 
+> 
+> The first with latest damian patch from today.
+> Added the printk (This time I doubled checked ;).
+> Start the copy, wait 20s, disconnect cable 20s, reconnect. 
+> 
+> The second try was identical, but I added your patch.
+> The copy was slower comparing to the first try.
+
+The losses you are getting are somewhat random process, so it is usually 
+the main explination on different transfer rates. One thing leads to 
+another and therefore one case suffers more than other.
+
+> I didn't took time to understand tcp retransmission timeout and read
+> the code. So, I'm not sure the printk is at the good place and usefull.
+
+Thanks anyway for all testing so far. I'll try to come up with the other 
+debug patch tomorrow to get some information on that -EAGAIN. Unless you 
+want to do it yourself and printk all the variables involved in this check 
+(in tcp_output.c):
+
+        /* Do not sent more than we queued. 1/4 is reserved for possible
+         * copying overhead: fragmentation, tunneling, mangling etc.
+         */
+        if (atomic_read(&sk->sk_wmem_alloc) >
+            min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
+                return -EAGAIN;
+
+...better to print them before the check it regardless of the actual 
+result of the comparison.
 
 
-2) UDP (again) sk_forward_alloc corruption 
+...So far only the Damian's patch is clearly required for stable (but I 
+suppose DaveM will handle the stable submissions as usual, hopefully it 
+won't take too long though as some other people might start reporting this 
+same issue once some time has passed and they notice that something is 
+wrong with TCP of their new and shiny 2.6.32 :-)).
 
-__udp4_lib_err ->
-	if (inet->recverr)
-		ip_icmp_error() ->
-			sock_queue_err_skb() // PROBLEM
 
-
-Oh well...
-
-I wonder if we could use a special version of skb_set_owner_r()/sock_rfree()
-*without* sk_mem_charge()/sk_mem_uncharge() calls for this error queue.
-
-(We dont call sk_rmem_schedule() anyway, so I guess current usage is not correct,
-even with sock locked ?)
-
-Something like this (untested but compiled) patch ?
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sock.h |   11 ++++++++++-
- net/core/sock.c    |    8 ++++++++
- 2 files changed, 18 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3f1a480..76277ce 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -961,6 +961,7 @@ extern struct sk_buff		*sock_rmalloc(struct sock *sk,
- 					      gfp_t priority);
- extern void			sock_wfree(struct sk_buff *skb);
- extern void			sock_rfree(struct sk_buff *skb);
-+extern void			sock_nocharge_rfree(struct sk_buff *skb);
- 
- extern int			sock_setsockopt(struct socket *sock, int level,
- 						int op, char __user *optval,
-@@ -1383,6 +1384,14 @@ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- 	sk_mem_charge(sk, skb->truesize);
- }
- 
-+static inline void skb_set_owner_nocharge_r(struct sk_buff *skb, struct sock *sk)
-+{
-+	skb_orphan(skb);
-+	skb->sk = sk;
-+	skb->destructor = sock_nocharge_rfree;
-+	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+}
-+
- extern void sk_reset_timer(struct sock *sk, struct timer_list* timer,
- 			   unsigned long expires);
- 
-@@ -1398,7 +1407,7 @@ static inline int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
- 	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
- 	    (unsigned)sk->sk_rcvbuf)
- 		return -ENOMEM;
--	skb_set_owner_r(skb, sk);
-+	skb_set_owner_nocharge_r(skb, sk);
- 	skb_queue_tail(&sk->sk_error_queue, skb);
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_data_ready(sk, skb->len);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 76ff58d..181a39a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1284,6 +1284,14 @@ void sock_rfree(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(sock_rfree);
- 
-+void sock_nocharge_rfree(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
-+}
-+EXPORT_SYMBOL(sock_nocharge_rfree);
-+
- 
- int sock_i_uid(struct sock *sk)
- {
+-- 
+ i.
+---696230645-658249380-1260225482=:27565--
