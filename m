@@ -1,63 +1,69 @@
-From: Ben Dooks <ben@fluff.org.uk>
-Subject: Re: [PATCH 1/3] e1000: increase skb size to prevent dma over skb
- boundary
-Date: Mon, 7 Dec 2009 15:13:26 +0000
-Message-ID: <20091207151326.GB17863@fluff.org.uk>
-References: <20091207144623.GA8073@hmsreliant.think-freely.org>
- <20091207144736.GB8073@hmsreliant.think-freely.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 11/31] Constify struct file_operations for 2.6.32 v1
+Date: Mon, 7 Dec 2009 07:11:56 -0800
+Message-ID: <20091207151156.GA27574@suse.de>
+References: <4B198670.2000406@gmail.com> <4B198C43.50205@gmail.com> <4B19A333.5080103@gmail.com> <20091205000942.GA8224@suse.de> <4B19CA6F.4090700@gmail.com> <20091205041507.GA24885@suse.de> <4B1B0D40.3040209@gmail.com> <20091206172526.GA17480@suse.de> <4B1C500E.5040406@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: lenb@kernel.org, astarikovskiy@suse.de, mchehab@infradead.org,
+	linville@tuxdriver.com, miklos@szeredi.hu, davem@davemloft.net,
+	rostedt@goodmis.org, fweisbec@gmail.com, mingo@redhat.com,
+	avi@redhat.com, mtosatti@redhat.com, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Emese Revfy <re.emese@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:40526 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S935228AbZLGPNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 10:13:40 -0500
+Received: from cantor.suse.de ([195.135.220.2]:40356 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935216AbZLGPPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2009 10:15:00 -0500
 Content-Disposition: inline
-In-Reply-To: <20091207144736.GB8073@hmsreliant.think-freely.org>
+In-Reply-To: <4B1C500E.5040406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 09:47:36AM -0500, Neil Horman wrote:
-> Update e1000 driver to not allow dma beyond the end of the allocated skb
->     
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+On Mon, Dec 07, 2009 at 01:45:02AM +0100, Emese Revfy wrote:
+> Greg KH wrote:
+> > On Sun, Dec 06, 2009 at 02:47:44AM +0100, Emese Revfy wrote:
+> >> Greg KH wrote:
+> >>> On Sat, Dec 05, 2009 at 03:50:23AM +0100, Emese Revfy wrote:
+> >>>> Greg KH wrote:
+> >>>>> On Sat, Dec 05, 2009 at 01:02:59AM +0100, Emese Revfy wrote:
+> >>>>>> -static struct file_operations ptmx_fops;
+> >>>>>> +static const struct file_operations ptmx_fops = {
+> >>>>>> +	.llseek		= no_llseek,
+> >>>>>> +	.read		= tty_read,
+> >>>>>> +	.write		= tty_write,
+> >>>>>> +	.poll		= tty_poll,
+> >>>>>> +	.unlocked_ioctl	= tty_ioctl,
+> >>>>>> +	.compat_ioctl	= tty_compat_ioctl,
+> >>>>>> +	.open		= ptmx_open,
+> >>>>>> +	.release	= tty_release,
+> >>>>>> +	.fasync		= tty_fasync,
+> >>>>>> +};
+> >>>>> You just made these functions all global, for no real good reason.  Why
+> >>>>> did you do this?
+> >>>> I think this is the only way to make ptmx_fops const, provided we want to. 
+> >>> Why do we want to?
+> >> Because I saw that checkpatch.pl itself tries to ensure the same I went
+> >> through the whole tree looking for non-const file_operations structures
+> >> and tried to make them const as best as I could. If you think making
+> >> ptmx_fops const is not worth the effort I will remove it from the patch.
+> > 
+> > Based on the patch, I would think it is not worth it.
+> > 
+> > thanks,
+> > 
+> > greg k-h
+> > 
+> Ok, I removed the affected hunks.
 > 
+> From: Emese Revfy <re.emese@gmail.com>
 > 
-> e1000_main.c |   34 +++++++++++++++++++++++++++++++++-
-> 1 file changed, 33 insertions(+), 1 deletion(-)
-> 
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 7e855f9..7600deb 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -1667,6 +1667,19 @@ int e1000_setup_all_rx_resources(struct e1000_adapter *adapter)
->  	return err;
->  }
->  
-> +static inline u32 normalize_rx_len(u32 len)
-> +{
-> +        u32 match, last_match;
-> +
-> +
-> +        for (match = 0x100; match <= 0x4000; match *= 2) {
-> +                if (len <= match)
-> +                        return match;
-> +        }
-> +
-> +        return 0;
-> +}
+> Constify struct file_operations with some exceptions.
 
-thought there was an ilog2() call in the kernel to do something like
-this? see linux/log2.h. will also make it easier to switch on the
-result if you've got a value in bit-position instead of size.
+Now please break this patch (and your others) out into "one subsystem at
+a time" type thing so it will have a chance at being applied.
 
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
+thanks,
 
-  'a smiley only costs 4 bytes'
+greg k-h
