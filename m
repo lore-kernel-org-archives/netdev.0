@@ -1,160 +1,346 @@
 From: ben@fluff.org.uk
-Subject: [patch 5/9] KS8851: Add debugfs export for driver state
-Date: Mon, 07 Dec 2009 12:15:06 +0000
-Message-ID: <20091207121646.881044322@fluff.org.uk>
+Subject: [patch 6/9] KS8851: ks8851_mll.c: Use the ks8851.h header for device register defines
+Date: Mon, 07 Dec 2009 12:15:07 +0000
+Message-ID: <20091207121647.021947810@fluff.org.uk>
 References: <20091207121501.819539008@fluff.org.uk>
-Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com
+Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com,
+	Ben Dooks <ben-linux@fluff.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:48495 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:48501 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933586AbZLGMQl (ORCPT
+	with ESMTP id S933598AbZLGMQl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:41 -0500
-Content-Disposition: inline; filename=ks8851-add-debugfs.patch
+Content-Disposition: inline; filename=ks8851-reduce-header-duplication.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ability to export the state of each network chip via debugfs
-to show the cached register state and some of the network device state
-information.
+From: Ben Dooks <ben-linux@fluff.org>
 
-Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+The ks8851_mll.c file uses an almost identical copy of ks8851.h included
+directly into the source code, baring some identation changes. This patch
+removes the commone defines from ks8851_mll.c and includes ks8851.h.
+
+As a note, we did not merge anything that is specific in ks8851_mll.c into
+ks8851.h yet.
+
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
 ---
- drivers/net/ks8851.c |   94 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 94 insertions(+)
+ drivers/net/ks8851_mll.c |  263 -----------------------------------------------
+ 1 file changed, 5 insertions(+), 258 deletions(-)
 
-Index: b/drivers/net/ks8851.c
+Index: b/drivers/net/ks8851_mll.c
 ===================================================================
---- a/drivers/net/ks8851.c	2009-12-07 11:01:34.000000000 +0000
-+++ b/drivers/net/ks8851.c	2009-12-07 11:01:39.000000000 +0000
-@@ -21,6 +21,9 @@
- #include <linux/mii.h>
- #include <linux/eeprom_93cx6.h>
+--- a/drivers/net/ks8851_mll.c	2009-12-07 10:52:31.000000000 +0000
++++ b/drivers/net/ks8851_mll.c	2009-12-07 11:21:15.000000000 +0000
+@@ -32,6 +32,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/delay.h>
  
-+#include <linux/debugfs.h>
-+#include <linux/seq_file.h>
++#include "ks8851.h"
 +
- #include <linux/spi/spi.h>
+ #define	DRV_NAME	"ks8851_mll"
  
- #include "ks8851.h"
-@@ -128,6 +131,9 @@ struct ks8851_net {
- 	struct spi_transfer	spi_xfer1;
- 	struct spi_transfer	spi_xfer2[2];
+ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0x00, 0x10, 0xA1, 0x86, 0x95, 0x11 };
+@@ -40,165 +42,26 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
+ #define TX_BUF_SIZE			2000
+ #define RX_BUF_SIZE			2000
  
-+	struct dentry		*debug_root;
-+	struct dentry		*debug_file;
-+
- 	struct eeprom_93cx6	eeprom;
- };
+-#define KS_CCR				0x08
+-#define CCR_EEPROM			(1 << 9)
+-#define CCR_SPI				(1 << 8)
+ #define CCR_8BIT			(1 << 7)
+ #define CCR_16BIT			(1 << 6)
+ #define CCR_32BIT			(1 << 5)
+ #define CCR_SHARED			(1 << 4)
+-#define CCR_32PIN			(1 << 0)
+-
+-/* MAC address registers */
+-#define KS_MARL				0x10
+-#define KS_MARM				0x12
+-#define KS_MARH				0x14
  
-@@ -1374,6 +1380,91 @@ static int ks8851_read_selftest(struct k
- 	return 0;
- }
+-#define KS_OBCR				0x20
+ #define OBCR_ODS_16MA			(1 << 6)
  
-+/* debugfs code */
-+static int state_show(struct seq_file *seq, void *v)
-+{
-+	struct ks8851_net *ks = seq->private;
-+	struct net_device *ndev = ks->netdev;
-+
-+	seq_printf(seq, "Register cache:\n");
-+	seq_printf(seq, "IEQ\t 0x%04x\n", ks->rc_ier);
-+	seq_printf(seq, "RXQCR\t 0x%04x\n", ks->rc_rxqcr);
-+	seq_printf(seq, "CCR\t 0x%04x\n", ks->rc_ccr);
-+	seq_printf(seq, "RXCR1\t 0x%04x\n", ks->rxctrl.rxcr1);
-+	seq_printf(seq, "RXCR2\t 0x%04x\n", ks->rxctrl.rxcr2);
-+	seq_printf(seq, "MCHASH\t 0=0x%04x, 1=%04x, 2=0x%04x, 3=0x%04x\n",
-+		   ks->rxctrl.mchash[0], ks->rxctrl.mchash[1],
-+		   ks->rxctrl.mchash[2], ks->rxctrl.mchash[3]);
-+
-+	seq_printf(seq, "\n");
-+
-+	seq_printf(seq, "tx_space = 0x%04x\n", ks->tx_space);
-+	seq_printf(seq, "tx fid\t= 0x%02x\n", ks->fid);
-+
-+	seq_printf(seq, "\n");
-+
-+	if (ndev->flags & IFF_MULTICAST) {
-+		struct dev_mc_list *mcptr = ndev->mc_list;
-+		int i;
-+
-+		seq_printf(seq, "MC list is %d entries\n", ndev->mc_count);
-+
-+		for (i = 0; i < ndev->mc_count; i++) {
-+			seq_printf(seq, "\t%d: %pM\n", i, mcptr->dmi_addr);
-+			mcptr = mcptr->next;
-+		}
-+	} else
-+		seq_printf(seq, "No multicast list set\n");
-+
-+	return 0;
-+}
-+
-+static int state_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, state_show, inode->i_private);
-+}
-+
-+static const struct file_operations state_fops = {
-+	.owner	= THIS_MODULE,
-+	.open	= state_open,
-+	.read	= seq_read,
-+	.llseek	= seq_lseek,
-+	.release = single_release,
-+};
-+
-+/**
-+ * ks8851_create_debugfs - create debugfs directory and files
-+ * @ks: The driver state
-+ *
-+ * Create the debugfs entries for the specific device.
-+ */
-+static void __devinit ks8851_create_debugfs(struct ks8851_net *ks)
-+{
-+	struct dentry *root;
-+	char root_name[32];
-+
-+	snprintf(root_name, sizeof(root_name), "ks8851_%s",
-+		 dev_name(&ks->spidev->dev));
-+
-+	root = debugfs_create_dir(root_name, NULL);
-+	if (IS_ERR(root)) {
-+		ks_err(ks, "cannot create debugfs root\n");
-+		return;
-+	}
-+
-+	ks->debug_root = root;
-+	ks->debug_file = debugfs_create_file("state", 0444, root,
-+					     ks, &state_fops);
-+	if (IS_ERR(ks->debug_file))
-+		ks_err(ks, "cannot create debugfs state file\n");
-+}
-+
-+static void __devexit ks8851_delete_debugfs(struct ks8851_net *ks)
-+{
-+	debugfs_remove(ks->debug_file);
-+	debugfs_remove(ks->debug_root);
-+}
-+
- /* driver bus management functions */
+-#define KS_EEPCR			0x22
+-#define EEPCR_EESA			(1 << 4)
+-#define EEPCR_EESB			(1 << 3)
+-#define EEPCR_EEDO			(1 << 2)
+-#define EEPCR_EESCK			(1 << 1)
+-#define EEPCR_EECS			(1 << 0)
+-
+-#define KS_MBIR				0x24
+-#define MBIR_TXMBF			(1 << 12)
+-#define MBIR_TXMBFA			(1 << 11)
+-#define MBIR_RXMBF			(1 << 4)
+-#define MBIR_RXMBFA			(1 << 3)
+-
+-#define KS_GRR				0x26
+-#define GRR_QMU				(1 << 1)
+-#define GRR_GSR				(1 << 0)
+-
+-#define KS_WFCR				0x2A
+-#define WFCR_MPRXE			(1 << 7)
+-#define WFCR_WF3E			(1 << 3)
+-#define WFCR_WF2E			(1 << 2)
+-#define WFCR_WF1E			(1 << 1)
+-#define WFCR_WF0E			(1 << 0)
+-
+-#define KS_WF0CRC0			0x30
+-#define KS_WF0CRC1			0x32
+-#define KS_WF0BM0			0x34
+-#define KS_WF0BM1			0x36
+-#define KS_WF0BM2			0x38
+-#define KS_WF0BM3			0x3A
+-
+-#define KS_WF1CRC0			0x40
+-#define KS_WF1CRC1			0x42
+-#define KS_WF1BM0			0x44
+-#define KS_WF1BM1			0x46
+-#define KS_WF1BM2			0x48
+-#define KS_WF1BM3			0x4A
+-
+-#define KS_WF2CRC0			0x50
+-#define KS_WF2CRC1			0x52
+-#define KS_WF2BM0			0x54
+-#define KS_WF2BM1			0x56
+-#define KS_WF2BM2			0x58
+-#define KS_WF2BM3			0x5A
+-
+-#define KS_WF3CRC0			0x60
+-#define KS_WF3CRC1			0x62
+-#define KS_WF3BM0			0x64
+-#define KS_WF3BM1			0x66
+-#define KS_WF3BM2			0x68
+-#define KS_WF3BM3			0x6A
+-
+-#define KS_TXCR				0x70
+-#define TXCR_TCGICMP			(1 << 8)
+-#define TXCR_TCGUDP			(1 << 7)
+-#define TXCR_TCGTCP			(1 << 6)
+-#define TXCR_TCGIP			(1 << 5)
+-#define TXCR_FTXQ			(1 << 4)
+-#define TXCR_TXFCE			(1 << 3)
+-#define TXCR_TXPE			(1 << 2)
+-#define TXCR_TXCRC			(1 << 1)
+-#define TXCR_TXE			(1 << 0)
+-
+-#define KS_TXSR				0x72
+-#define TXSR_TXLC			(1 << 13)
+-#define TXSR_TXMC			(1 << 12)
+-#define TXSR_TXFID_MASK			(0x3f << 0)
+-#define TXSR_TXFID_SHIFT		(0)
+-#define TXSR_TXFID_GET(_v)		(((_v) >> 0) & 0x3f)
+-
+-
+-#define KS_RXCR1			0x74
+-#define RXCR1_FRXQ			(1 << 15)
+-#define RXCR1_RXUDPFCC			(1 << 14)
+-#define RXCR1_RXTCPFCC			(1 << 13)
+-#define RXCR1_RXIPFCC			(1 << 12)
+-#define RXCR1_RXPAFMA			(1 << 11)
+-#define RXCR1_RXFCE			(1 << 10)
+-#define RXCR1_RXEFE			(1 << 9)
+-#define RXCR1_RXMAFMA			(1 << 8)
+-#define RXCR1_RXBE			(1 << 7)
+-#define RXCR1_RXME			(1 << 6)
+-#define RXCR1_RXUE			(1 << 5)
+-#define RXCR1_RXAE			(1 << 4)
+-#define RXCR1_RXINVF			(1 << 1)
+-#define RXCR1_RXE			(1 << 0)
+ #define RXCR1_FILTER_MASK    		(RXCR1_RXINVF | RXCR1_RXAE | \
+ 					 RXCR1_RXMAFMA | RXCR1_RXPAFMA)
  
- static int __devinit ks8851_probe(struct spi_device *spi)
-@@ -1482,6 +1573,8 @@ static int __devinit ks8851_probe(struct
- 		 ndev->dev_addr, ndev->irq,
- 		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
- 
-+	ks8851_create_debugfs(ks);
+-#define KS_RXCR2			0x76
+-#define RXCR2_SRDBL_MASK		(0x7 << 5)
+-#define RXCR2_SRDBL_SHIFT		(5)
+-#define RXCR2_SRDBL_4B			(0x0 << 5)
+-#define RXCR2_SRDBL_8B			(0x1 << 5)
+-#define RXCR2_SRDBL_16B			(0x2 << 5)
+-#define RXCR2_SRDBL_32B			(0x3 << 5)
+-/* #define RXCR2_SRDBL_FRAME		(0x4 << 5) */
+-#define RXCR2_IUFFP			(1 << 4)
+-#define RXCR2_RXIUFCEZ			(1 << 3)
+-#define RXCR2_UDPLFE			(1 << 2)
+-#define RXCR2_RXICMPFCC			(1 << 1)
+-#define RXCR2_RXSAF			(1 << 0)
+-
+-#define KS_TXMIR			0x78
+-
+-#define KS_RXFHSR			0x7C
+-#define RXFSHR_RXFV			(1 << 15)
+-#define RXFSHR_RXICMPFCS		(1 << 13)
+-#define RXFSHR_RXIPFCS			(1 << 12)
+-#define RXFSHR_RXTCPFCS			(1 << 11)
+-#define RXFSHR_RXUDPFCS			(1 << 10)
+-#define RXFSHR_RXBF			(1 << 7)
+-#define RXFSHR_RXMF			(1 << 6)
+-#define RXFSHR_RXUF			(1 << 5)
+-#define RXFSHR_RXMR			(1 << 4)
+-#define RXFSHR_RXFT			(1 << 3)
+-#define RXFSHR_RXFTL			(1 << 2)
+-#define RXFSHR_RXRF			(1 << 1)
+-#define RXFSHR_RXCE			(1 << 0)
++#undef RXCR2_SRDBL_FRAME
 +
- 	return 0;
+ #define	RXFSHR_ERR			(RXFSHR_RXCE | RXFSHR_RXRF |\
+ 					RXFSHR_RXFTL | RXFSHR_RXMR |\
+ 					RXFSHR_RXICMPFCS | RXFSHR_RXIPFCS |\
+ 					RXFSHR_RXTCPFCS)
++
+ #define KS_RXFHBCR			0x7E
+ #define RXFHBCR_CNT_MASK		0x0FFF
  
+-#define KS_TXQCR			0x80
+-#define TXQCR_AETFE			(1 << 2)
+-#define TXQCR_TXQMAM			(1 << 1)
+-#define TXQCR_METFE			(1 << 0)
+-
+-#define KS_RXQCR			0x82
+-#define RXQCR_RXDTTS			(1 << 12)
+-#define RXQCR_RXDBCTS			(1 << 11)
+-#define RXQCR_RXFCTS			(1 << 10)
+-#define RXQCR_RXIPHTOE			(1 << 9)
+-#define RXQCR_RXDTTE			(1 << 7)
+-#define RXQCR_RXDBCTE			(1 << 6)
+-#define RXQCR_RXFCTE			(1 << 5)
+-#define RXQCR_ADRFE			(1 << 4)
+-#define RXQCR_SDA			(1 << 3)
+-#define RXQCR_RRXEF			(1 << 0)
+ #define RXQCR_CMD_CNTL                	(RXQCR_RXFCTE|RXQCR_ADRFE)
  
-@@ -1501,6 +1594,7 @@ static int __devexit ks8851_remove(struc
- 	if (netif_msg_drv(priv))
- 		dev_info(&spi->dev, "remove");
+ #define KS_TXFDPR			0x84
+@@ -209,130 +72,14 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
+ #define KS_RXFDPR			0x86
+ #define RXFDPR_RXFPAI			(1 << 14)
  
-+	ks8851_delete_debugfs(priv);
- 	unregister_netdev(priv->netdev);
- 	free_irq(spi->irq, priv);
- 	free_netdev(priv->netdev);
+-#define KS_RXDTTR			0x8C
+-#define KS_RXDBCTR			0x8E
+-
+-#define KS_IER				0x90
+-#define KS_ISR				0x92
+-#define IRQ_LCI				(1 << 15)
+-#define IRQ_TXI				(1 << 14)
+-#define IRQ_RXI				(1 << 13)
+-#define IRQ_RXOI			(1 << 11)
+-#define IRQ_TXPSI			(1 << 9)
+-#define IRQ_RXPSI			(1 << 8)
+-#define IRQ_TXSAI			(1 << 6)
+-#define IRQ_RXWFDI			(1 << 5)
+-#define IRQ_RXMPDI			(1 << 4)
+-#define IRQ_LDI				(1 << 3)
+-#define IRQ_EDI				(1 << 2)
+-#define IRQ_SPIBEI			(1 << 1)
+-#define IRQ_DEDI			(1 << 0)
+-
+-#define KS_RXFCTR			0x9C
+ #define RXFCTR_THRESHOLD_MASK     	0x00FF
+ 
+-#define KS_RXFC				0x9D
+-#define RXFCTR_RXFC_MASK		(0xff << 8)
+-#define RXFCTR_RXFC_SHIFT		(8)
+-#define RXFCTR_RXFC_GET(_v)		(((_v) >> 8) & 0xff)
+-#define RXFCTR_RXFCT_MASK		(0xff << 0)
+-#define RXFCTR_RXFCT_SHIFT		(0)
+-
+-#define KS_TXNTFSR			0x9E
+-
+-#define KS_MAHTR0			0xA0
+-#define KS_MAHTR1			0xA2
+-#define KS_MAHTR2			0xA4
+-#define KS_MAHTR3			0xA6
+-
+-#define KS_FCLWR			0xB0
+-#define KS_FCHWR			0xB2
+-#define KS_FCOWR			0xB4
+-
+-#define KS_CIDER			0xC0
+-#define CIDER_ID			0x8870
+-#define CIDER_REV_MASK			(0x7 << 1)
+-#define CIDER_REV_SHIFT			(1)
+-#define CIDER_REV_GET(_v)		(((_v) >> 1) & 0x7)
+-
+-#define KS_CGCR				0xC6
+-#define KS_IACR				0xC8
+-#define IACR_RDEN			(1 << 12)
+-#define IACR_TSEL_MASK			(0x3 << 10)
+-#define IACR_TSEL_SHIFT			(10)
+-#define IACR_TSEL_MIB			(0x3 << 10)
+-#define IACR_ADDR_MASK			(0x1f << 0)
+-#define IACR_ADDR_SHIFT			(0)
+-
+-#define KS_IADLR			0xD0
+-#define KS_IAHDR			0xD2
+-
+-#define KS_PMECR			0xD4
+-#define PMECR_PME_DELAY			(1 << 14)
+-#define PMECR_PME_POL			(1 << 12)
+-#define PMECR_WOL_WAKEUP		(1 << 11)
+-#define PMECR_WOL_MAGICPKT		(1 << 10)
+-#define PMECR_WOL_LINKUP		(1 << 9)
+-#define PMECR_WOL_ENERGY		(1 << 8)
+-#define PMECR_AUTO_WAKE_EN		(1 << 7)
+-#define PMECR_WAKEUP_NORMAL		(1 << 6)
+-#define PMECR_WKEVT_MASK		(0xf << 2)
+-#define PMECR_WKEVT_SHIFT		(2)
+-#define PMECR_WKEVT_GET(_v)		(((_v) >> 2) & 0xf)
+-#define PMECR_WKEVT_ENERGY		(0x1 << 2)
+-#define PMECR_WKEVT_LINK		(0x2 << 2)
+-#define PMECR_WKEVT_MAGICPKT		(0x4 << 2)
+-#define PMECR_WKEVT_FRAME		(0x8 << 2)
+-#define PMECR_PM_MASK			(0x3 << 0)
+-#define PMECR_PM_SHIFT			(0)
+-#define PMECR_PM_NORMAL			(0x0 << 0)
+-#define PMECR_PM_ENERGY			(0x1 << 0)
+-#define PMECR_PM_SOFTDOWN		(0x2 << 0)
+-#define PMECR_PM_POWERSAVE		(0x3 << 0)
+-
+-/* Standard MII PHY data */
+-#define KS_P1MBCR			0xE4
+ #define P1MBCR_FORCE_FDX		(1 << 8)
+ 
+-#define KS_P1MBSR			0xE6
+ #define P1MBSR_AN_COMPLETE		(1 << 5)
+ #define P1MBSR_AN_CAPABLE		(1 << 3)
+ #define P1MBSR_LINK_UP			(1 << 2)
+ 
+-#define KS_PHY1ILR			0xE8
+-#define KS_PHY1IHR			0xEA
+-#define KS_P1ANAR			0xEC
+-#define KS_P1ANLPR			0xEE
+-
+-#define KS_P1SCLMD			0xF4
+-#define P1SCLMD_LEDOFF			(1 << 15)
+-#define P1SCLMD_TXIDS			(1 << 14)
+-#define P1SCLMD_RESTARTAN		(1 << 13)
+-#define P1SCLMD_DISAUTOMDIX		(1 << 10)
+-#define P1SCLMD_FORCEMDIX		(1 << 9)
+-#define P1SCLMD_AUTONEGEN		(1 << 7)
+-#define P1SCLMD_FORCE100		(1 << 6)
+-#define P1SCLMD_FORCEFDX		(1 << 5)
+-#define P1SCLMD_ADV_FLOW		(1 << 4)
+-#define P1SCLMD_ADV_100BT_FDX		(1 << 3)
+-#define P1SCLMD_ADV_100BT_HDX		(1 << 2)
+-#define P1SCLMD_ADV_10BT_FDX		(1 << 1)
+-#define P1SCLMD_ADV_10BT_HDX		(1 << 0)
+-
+-#define KS_P1CR				0xF6
+-#define P1CR_HP_MDIX			(1 << 15)
+-#define P1CR_REV_POL			(1 << 13)
+-#define P1CR_OP_100M			(1 << 10)
+-#define P1CR_OP_FDX			(1 << 9)
+-#define P1CR_OP_MDI			(1 << 7)
+-#define P1CR_AN_DONE			(1 << 6)
+-#define P1CR_LINK_GOOD			(1 << 5)
+-#define P1CR_PNTR_FLOW			(1 << 4)
+-#define P1CR_PNTR_100BT_FDX		(1 << 3)
+-#define P1CR_PNTR_100BT_HDX		(1 << 2)
+-#define P1CR_PNTR_10BT_FDX		(1 << 1)
+-#define P1CR_PNTR_10BT_HDX		(1 << 0)
+-
+ /* TX Frame control */
+ 
+ #define TXFR_TXIC			(1 << 15)
 
