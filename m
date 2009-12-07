@@ -1,40 +1,47 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: linux-next: net/kbuild trees build failure
-Date: Mon, 7 Dec 2009 12:41:58 +0100
-Message-ID: <20091207114158.GA2428@merkur.ravnborg.org>
-References: <20091207200317.57820f0a.sfr@canb.auug.org.au>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: [PATCHv2 1/2] tcp: Stalling connections: Move timeout
+ calculation routine
+Date: Mon, 7 Dec 2009 13:01:01 +0100
+Message-ID: <20091207130101.5dcbb949@houba>
+References: <4B1C4C25.1070104@tvk.rwth-aachen.de>
+	<4B1C9D94.3070504@gmail.com>
+	<4B1CE45A.9010908@tvk.rwth-aachen.de>
+	<4B1CE9E7.5010400@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Michal Marek <mmarek@suse.cz>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091207200317.57820f0a.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:46829 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934189AbZLGMBU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:01:20 -0500
+In-Reply-To: <4B1CE9E7.5010400@tvk.rwth-aachen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 08:03:17PM +1100, Stephen Rothwell wrote:
-> Hi Dave,
-> 
-> Today's linux-next build (powerpc allyesconfig) failed like this:
-> 
-> In file included from drivers/net/wireless/iwlwifi/iwl3945-base.c:57:
-> drivers/net/wireless/iwlwifi/iwl-core.h:66:30: error: linux/utsrelease.h: No such file or directory
-> 
-> Caused by commit 250cce26d5d03337aec4ff8405121f026adb4a89 ("iwlwifi:
-> driver version track kernel version") from the net tree interacting with
-> commit 8e5c76aace9705b6983cfbf5eb2f2e869dab6738 ("kbuild: move
-> utsrelease.h to include/generated") from the kbuild tree.
-> 
-> I applied this patch for today (and will carry it as necessary):
+Le Mon, 07 Dec 2009 12:41:27 +0100,
+Damian Lukowski <damian@tvk.rwth-aachen.de> a =C3=A9crit :
 
-The right fix would be to use 'utsname()->sysname' (I think sysname
-is the right member).
+> This patch moves retransmits_timed_out() from include/net/tcp.h
+> to tcp_timer.c, where it is used.
 
-Then we should also be uts namespace aware.
+I just finish to make .18 and .19 trace with your previous patch.
+It's still available in http://www.starox.org/pub/scp_stall/
 
-	Sam
+The copy was successful.
+=2E18 is with your patch + some printk.
+=2E19 is with your patch only.
+I also checked that it still fails without.
+
+Do you wan't me to make new trace with the new series of patch ?
+I couldn't do it before this evening.
+
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
