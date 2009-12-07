@@ -1,121 +1,119 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: [PATCHv3 2/2] tcp: Stalling connections: Move timeout calculation
- routine
-Date: Mon, 07 Dec 2009 17:06:16 +0100
-Message-ID: <4B1D27F8.2000603@tvk.rwth-aachen.de>
-References: <4B1C4C25.1070104@tvk.rwth-aachen.de> <4B1C9D94.3070504@gmail.com>
- <4B1CE45A.9010908@tvk.rwth-aachen.de>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH] tcp: documents timewait refcnt tricks
+Date: Mon, 07 Dec 2009 08:06:58 -0800
+Message-ID: <4B1D2822.5030704@xenotime.net>
+References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com> <4B152F97.1090409@gmail.com> <4B1912CE.5040304@gmail.com> <20091205212148.GA26270@ioremap.net> <4B1CD20D.8030407@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7BIT
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Frederic Leroy <fredo@starox.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	kapil dakhane <kdakhane@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:61886 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934630AbZLGQGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 11:06:11 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KUA00LABI2CX820@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Mon, 07 Dec 2009 17:06:17 +0100 (CET)
-In-reply-to: <4B1CE45A.9010908@tvk.rwth-aachen.de>
+Received: from xenotime.net ([72.52.64.118]:55242 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S934681AbZLGQGz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2009 11:06:55 -0500
+Received: from ::ffff:96.253.169.185 ([96.253.169.185]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 7 Dec 2009 08:06:59 -0800
+In-Reply-To: <4B1CD20D.8030407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves retransmits_timed_out() from include/net/tcp.h
-to tcp_timer.c, where it is used.
+Eric Dumazet wrote:
+> Evgeniy Polyakov a =E9crit :
+>> Hi Eric.
+>>
+>> On Fri, Dec 04, 2009 at 02:46:54PM +0100, Eric Dumazet (eric.dumazet=
+@gmail.com) wrote:
+>>> First patch changes __inet_hash_nolisten() and __inet6_hash()
+>>> to get a timewait parameter to be able to unhash it from ehash
+>>> at same time the new socket is inserted in hash.
+>>>
+>>> This makes sure timewait socket wont be found by a concurrent
+>>> writer in __inet_check_established()
+>> Both patches look good, although trick with returning reference coun=
+ter
+>> may look like a hack especially when only viewing into ip code and n=
+ot
+>> hashtable itself. Can you please cook up a documentation update for =
+hash
+>> function that it is supposed to return refcnt when socket was in has=
+h
+>> table.
+>>
+>=20
+> Sure, here it is :
+>=20
+> Thanks !
+>=20
+> [PATCH] tcp: documents timewait refcnt tricks=20
+>=20
+> Adds kerneldoc for inet_twsk_unhash() & inet_twsk_bind_unhash().
+>=20
+> Suggested-by: Evgeniy Polyakov <zbr@ioremap.net>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>=20
+> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_s=
+ock.c
+> index 1958cf5..cf719c2 100644
+> --- a/net/ipv4/inet_timewait_sock.c
+> +++ b/net/ipv4/inet_timewait_sock.c
+> @@ -15,9 +15,13 @@
+>  #include <net/ip.h>
+> =20
+> =20
+> -/*
+> - * unhash a timewait socket from established hash
+> - * lock must be hold by caller
+> +/**
+> + *	inet_twsk_unhash - unhash a timewait socket from established hash
+> + *	@tw: timewait socket
+> + *
+> + *	unhash a timewait socket from established hash, if hashed.
+> + *	ehash lock must be hold by caller.
 
-Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
----
- include/net/tcp.h    |   28 ----------------------------
- net/ipv4/tcp_timer.c |   29 +++++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 28 deletions(-)
+	                   held
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 842ac4d..ffab98a 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1259,34 +1259,6 @@ static inline struct sk_buff *tcp_write_queue_prev(struct sock *sk, struct sk_bu
- #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
- 	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
- 
--/* This function calculates a "timeout" which is equivalent to the timeout of a
-- * TCP connection after "boundary" unsucessful, exponentially backed-off
-- * retransmissions with an initial RTO of TCP_RTO_MIN.
-- */
--static inline bool retransmits_timed_out(struct sock *sk,
--					 unsigned int boundary)
--{
--	unsigned int timeout, linear_backoff_thresh;
--	unsigned int start_ts;
--
--	if (!inet_csk(sk)->icsk_retransmits)
--		return false;
--
--	if (unlikely(!tcp_sk(sk)->retrans_stamp))
--		start_ts = TCP_SKB_CB(tcp_write_queue_head(sk))->when;
--	else
--		start_ts = tcp_sk(sk)->retrans_stamp;
--
--	linear_backoff_thresh = ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
--
--	if (boundary <= linear_backoff_thresh)
--		timeout = ((2 << boundary) - 1) * TCP_RTO_MIN;
--	else
--		timeout = ((2 << linear_backoff_thresh) - 1) * TCP_RTO_MIN +
--			  (boundary - linear_backoff_thresh) * TCP_RTO_MAX;
--
--	return (tcp_time_stamp - start_ts) >= timeout;
--}
- 
- static inline struct sk_buff *tcp_send_head(struct sock *sk)
- {
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index cdb2ca7..dfa0c37 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -132,6 +132,35 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
- 	}
- }
- 
-+/* This function calculates a "timeout" which is equivalent to the timeout of a
-+ * TCP connection after "boundary" unsucessful, exponentially backed-off
-+ * retransmissions with an initial RTO of TCP_RTO_MIN.
-+ */
-+static bool retransmits_timed_out(struct sock *sk,
-+				  unsigned int boundary)
-+{
-+	unsigned int timeout, linear_backoff_thresh;
-+	unsigned int start_ts;
-+
-+	if (!inet_csk(sk)->icsk_retransmits)
-+		return false;
-+
-+	if (unlikely(!tcp_sk(sk)->retrans_stamp))
-+		start_ts = TCP_SKB_CB(tcp_write_queue_head(sk))->when;
-+	else
-+		start_ts = tcp_sk(sk)->retrans_stamp;
-+
-+	linear_backoff_thresh = ilog2(TCP_RTO_MAX/TCP_RTO_MIN);
-+
-+	if (boundary <= linear_backoff_thresh)
-+		timeout = ((2 << boundary) - 1) * TCP_RTO_MIN;
-+	else
-+		timeout = ((2 << linear_backoff_thresh) - 1) * TCP_RTO_MIN +
-+			  (boundary - linear_backoff_thresh) * TCP_RTO_MAX;
-+
-+	return (tcp_time_stamp - start_ts) >= timeout;
-+}
-+
- /* A write timeout has occurred. Process the after effects. */
- static int tcp_write_timeout(struct sock *sk)
- {
--- 
-1.6.4.4
+> + *	Returns 1 if caller should call inet_twsk_put() after lock releas=
+e.
+>   */
+>  int inet_twsk_unhash(struct inet_timewait_sock *tw)
+>  {
+> @@ -26,12 +30,21 @@ int inet_twsk_unhash(struct inet_timewait_sock *t=
+w)
+> =20
+>  	hlist_nulls_del_rcu(&tw->tw_node);
+>  	sk_nulls_node_init(&tw->tw_node);
+> +	/*
+> +	 * We cannot call inet_twsk_put() ourself under lock,
+> +	 * caller must call it for us.
+> +	 */
+>  	return 1;
+>  }
+> =20
+> -/*
+> - * unhash a timewait socket from bind hash
+> - * lock must be hold by caller
+> +/**
+> + *	inet_twsk_bind_unhash - unhash a timewait socket from bind hash
+> + *	@tw: timewait socket
+> + *	@hashinfo: hashinfo pointer
+> + *
+> + *	unhash a timewait socket from bind hash, if hashed.
+> + *	bind hash lock must be hold by caller.
+
+	                       held
+
+> + *	Returns 1 if caller should call inet_twsk_put() after lock releas=
+e.
+>   */
+>  int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
+>  			  struct inet_hashinfo *hashinfo)
+
+
+thanks.
+--=20
+~Randy
