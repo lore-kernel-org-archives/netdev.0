@@ -1,137 +1,86 @@
 From: ben@fluff.org.uk
-Subject: [patch 9/9] KS8851: Add platform data to specific IRQ trigger type.
-Date: Mon, 07 Dec 2009 12:15:10 +0000
-Message-ID: <20091207121647.507074095@fluff.org.uk>
+Subject: [patch 1/9] eeprom_93cx6: Add data direction control.
+Date: Mon, 07 Dec 2009 12:15:02 +0000
+Message-ID: <20091207121646.260524161@fluff.org.uk>
 References: <20091207121501.819539008@fluff.org.uk>
-Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com
+Cc: linux@simtec.co.uk, doong.ping@micrel.com, tristram.ha@micrel.com,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Jean Delvare <khali@linux-fr.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:48505 "EHLO
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:48527 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933603AbZLGMQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:41 -0500
-Content-Disposition: inline; filename=ks8851-add-platform-data.patch
+	with ESMTP id S934450AbZLGMQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 07:16:58 -0500
+Content-Disposition: inline; filename=93c-eeprom-add-direction.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add platform data to allow the board registering the SPI device to
-pass what IRQ trigger type it needs to the driver. The default of
-low-level trigger is used if no data is specified, or the field is
-zero.
+Some devices need to know if the data is to be output or read, so add a
+data direction into the eeprom structure to tell the driver whether the
+data line should be driven.
+
+The user in this case is the Micrel KS8851 which has a direction
+control for the EEPROM data line and thus needs to know whether
+to drive it (writing) or to tristate it for receiving.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+Cc: Wolfram Sang <w.sang@pengutronix.de>
+Cc: Jean Delvare <khali@linux-fr.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
----
- drivers/net/ks8851.c   |   27 +++++++++++++++++++++++----
- include/linux/ks8851.h |   23 +++++++++++++++++++++++
- 2 files changed, 46 insertions(+), 4 deletions(-)
+--
+ drivers/misc/eeprom/eeprom_93cx6.c |    3 +++
+ include/linux/eeprom_93cx6.h       |    2 ++
+ 2 files changed, 5 insertions(+)
 
-Index: b/drivers/net/ks8851.c
+Index: b/drivers/misc/eeprom/eeprom_93cx6.c
 ===================================================================
---- a/drivers/net/ks8851.c	2009-12-07 11:47:13.000000000 +0000
-+++ b/drivers/net/ks8851.c	2009-12-07 11:58:01.000000000 +0000
-@@ -20,6 +20,7 @@
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/eeprom_93cx6.h>
-+#include <linux/ks8851.h>
+--- a/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:35:38.000000000 +0100
++++ b/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:51:18.000000000 +0100
+@@ -70,6 +70,7 @@ static void eeprom_93cx6_startup(struct 
+ 	eeprom->reg_data_out = 0;
+ 	eeprom->reg_data_clock = 0;
+ 	eeprom->reg_chip_select = 1;
++	eeprom->drive_data = 1;
+ 	eeprom->register_write(eeprom);
  
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -70,6 +71,7 @@ struct ks8851_rxctrl {
-  * @rc_ccr: Cached copy of KS_CCR.
-  * @rc_rxqcr: Cached copy of KS_RXQCR.
-  * @eeprom: 93CX6 EEPROM state for accessing on-board EEPROM.
-+ * @irq_flags: The IRQ flags passed to request_irq().
-  *
-  * The @lock ensures that the chip is protected when certain operations are
-  * in progress. When the read or write packet transfer is in progress, most
-@@ -412,6 +414,15 @@ static void ks8851_init_mac(struct ks885
- }
+ 	/*
+@@ -108,6 +109,7 @@ static void eeprom_93cx6_write_bits(stru
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
++	eeprom->drive_data = 1;
  
- /**
-+ * is_level_irq() - return if the given IRQ flags are level triggered
-+ * @flags: The flags passed to request_irq().
-+*/
-+static bool is_level_irq(unsigned flags)
-+{
-+	return flags & (IRQF_TIRGGER_LOW | IRQF_TRIGGER_HIGH);
-+}
-+
-+/**
-  * ks8851_irq - device interrupt handler
-  * @irq: Interrupt number passed from the IRQ hnalder.
-  * @pw: The private word passed to register_irq(), our struct ks8851_net.
-@@ -423,7 +434,9 @@ static irqreturn_t ks8851_irq(int irq, v
- {
- 	struct ks8851_net *ks = pw;
+ 	/*
+ 	 * Start writing all bits.
+@@ -147,6 +149,7 @@ static void eeprom_93cx6_read_bits(struc
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
++	eeprom->drive_data = 0;
  
--	disable_irq_nosync(irq);
-+	if (is_level_irq(ks->irq_flags))
-+		disable_irq_nosync(irq);
-+
- 	schedule_work(&ks->irq_work);
- 	return IRQ_HANDLED;
- }
-@@ -637,7 +650,8 @@ static void ks8851_irq_work(struct work_
- 
- 	mutex_unlock(&ks->lock);
- 
--	enable_irq(ks->netdev->irq);
-+	if (is_level_irq(ks->irq_flags))
-+		enable_irq(ks->netdev->irq);
- }
- 
- /**
-@@ -1456,6 +1470,7 @@ static void __devexit ks8851_delete_debu
- 
- static int __devinit ks8851_probe(struct spi_device *spi)
- {
-+	struct ks8851_pdata *pd = spi->dev.platform_data;
- 	struct net_device *ndev;
- 	struct ks8851_net *ks;
- 	int ret;
-@@ -1542,8 +1557,12 @@ static int __devinit ks8851_probe(struct
- 	ks8851_init_mac(ks);
- 	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
- 
--	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
--			  ndev->name, ks);
-+	if (pd && pd->irq_flags)
-+		ks->irq_flags = pd->irq_flags;
-+	else
-+		ks->irq_flags = IRQF_TRIGGER_LOW;
-+
-+	ret = request_irq(spi->irq, ks8851_irq, ks->irq_flags, ndev->name, ks);
- 	if (ret < 0) {
- 		dev_err(&spi->dev, "failed to get irq\n");
- 		goto err_irq;
-Index: b/include/linux/ks8851.h
+ 	/*
+ 	 * Start reading all bits.
+Index: b/include/linux/eeprom_93cx6.h
 ===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/include/linux/ks8851.h	2009-12-07 11:53:54.000000000 +0000
-@@ -0,0 +1,23 @@
-+/* include/linux/ks8851.h
-+ *
-+ * Platform specific configuration data for KS8851 driver.
-+ *
-+ * Copyright 2009 Simtec Electronics
-+ *	http://www.simtec.co.uk/
-+ *	Ben Dooks <ben@simtec.co.uk>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+/**
-+ * struct ks8851_pdata - platform specific configuration data
-+ * @irq_flags: The IRQ trigger flags to pass to request_irq().
-+ *
-+ * Platform specific configuration to be passed from board support
-+ * registering the spi device to the driver.
-+ */
-+struct ks8851_pdata {
-+	unsigned	irq_flags;
-+};
+--- a/include/linux/eeprom_93cx6.h	2009-10-06 15:35:38.000000000 +0100
++++ b/include/linux/eeprom_93cx6.h	2009-10-06 15:51:18.000000000 +0100
+@@ -45,6 +45,7 @@
+  * @register_write(struct eeprom_93cx6 *eeprom): handler to
+  * write to the eeprom register by using all reg_* fields.
+  * @width: eeprom width, should be one of the PCI_EEPROM_WIDTH_* defines
++ * @drive_data: Set if we're driving the data line.
+  * @reg_data_in: register field to indicate data input
+  * @reg_data_out: register field to indicate data output
+  * @reg_data_clock: register field to set the data clock
+@@ -61,6 +62,7 @@ struct eeprom_93cx6 {
+ 
+ 	int width;
+ 
++	char drive_data;
+ 	char reg_data_in;
+ 	char reg_data_out;
+ 	char reg_data_clock;
 
