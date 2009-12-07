@@ -1,122 +1,111 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/3] e1000: increase skb size to prevent
-	dma over skb boundary (v2)
-Date: Mon, 7 Dec 2009 12:52:57 -0800
-Message-ID: <9929d2390912071252u2de5cf73tf1a43d7959413ac4@mail.gmail.com>
+Subject: Re: [PATCH 2/3] e1000e: increase skb size to prevent dma over skb
+	boundary (v2)
+Date: Mon, 7 Dec 2009 12:53:39 -0800
+Message-ID: <9929d2390912071253w5413f701ub91d888a886fa714@mail.gmail.com>
 References: <20091207144623.GA8073@hmsreliant.think-freely.org>
-	<20091207144736.GB8073@hmsreliant.think-freely.org>
-	<4B1D1E12.8010200@lastsummer.de>
-	<20091207155953.GE8073@hmsreliant.think-freely.org>
+	 <20091207144817.GC8073@hmsreliant.think-freely.org>
+	 <20091207160236.GF8073@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Franco Fichtner <franco@lastsummer.de>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	davem@davemloft.net, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
 To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20091207155953.GE8073@hmsreliant.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:39452 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935561AbZLGUxd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 15:53:33 -0500
+Received: by pwj9 with SMTP id 9so1155016pwj.21
+        for <netdev@vger.kernel.org>; Mon, 07 Dec 2009 12:53:39 -0800 (PST)
+In-Reply-To: <20091207160236.GF8073@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBEZWMgNywgMjAwOSBhdCAwNzo1OSwgTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJp
-dmVyLmNvbT4gd3JvdGU6Cj4gT24gTW9uLCBEZWMgMDcsIDIwMDkgYXQgMDQ6MjQ6MDJQTSArMDEw
-MCwgRnJhbmNvIEZpY2h0bmVyIHdyb3RlOgo+PiBIaSBOZWlsLAo+Pgo+PiBOZWlsIEhvcm1hbiB3
-cm90ZToKPj4+IFVwZGF0ZSBlMTAwMCBkcml2ZXIgdG8gbm90IGFsbG93IGRtYSBiZXlvbmQgdGhl
-IGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Pj4gwqAgwqAgU2lnbmVkLW9mZi1ieTogTmVpbCBI
-b3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPj4+Cj4+Pgo+Pj4gZTEwMDBfbWFpbi5jIHwg
-wqAgMzQgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQo+Pj4gMSBmaWxlIGNoYW5n
-ZWQsIDMzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKPj4+Cj4+Pgo+Pj4gZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYyBiL2RyaXZlcnMvbmV0L2UxMDAwL2Ux
-MDAwX21haW4uYwo+Pj4gaW5kZXggN2U4NTVmOS4uNzYwMGRlYiAxMDA2NDQKPj4+IC0tLSBhL2Ry
-aXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYwo+Pj4gKysrIGIvZHJpdmVycy9uZXQvZTEwMDAv
-ZTEwMDBfbWFpbi5jCj4+PiBAQCAtMTY2Nyw2ICsxNjY3LDE5IEBAIGludCBlMTAwMF9zZXR1cF9h
-bGxfcnhfcmVzb3VyY2VzKHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQo+Pj4gwqAgwqAg
-wqByZXR1cm4gZXJyOwo+Pj4gwqB9Cj4+PiDCoCtzdGF0aWMgaW5saW5lIHUzMiBub3JtYWxpemVf
-cnhfbGVuKHUzMiBsZW4pCj4+PiArewo+Pj4gKyDCoCDCoCDCoCDCoHUzMiBtYXRjaCwgbGFzdF9t
-YXRjaDsKPj4+ICsKPj4+Cj4+IFNraXAgbmV3bGluZSBhbmQgZ2V0IHJpZCBvZiBsYXN0X21hdGNo
-LiBBbHNvLCB0aGVyZSBpcyBhIHdoaXRlc3BhY2UgZXJyb3IuLi4KPiBJJ2xsIGp1c3Qgd2FzaCB0
-aGlzIGFsbCBvdXQsIGJhc2VkIG9uIHlvdXIgY29tbWVudHMsIGJlbidzIGFuZCBNaWNoYWxzLCBp
-dHMgbm90Cj4gbmVlZGVkLi4KPj4+IDxzbmlwPgo+PiBJZiB5b3UgbW9kaWZ5IHJ4X2J1ZmZlcl9s
-ZW4gYW55d2F5LCB0aGVuIGdldCByaWQgb2Ygbm9ybWVkX3J4X2xlbiBhbmQKPj4gZG8gYSBxdWlj
-awo+Pgo+PiDCoCDCoGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPSBub3JtYWxpemVfcnhfbGVuKGFk
-YXB0ZXItPnJ4X2J1ZmZlcl9sZW4pOwo+Pgo+PiBpbnN0ZWFkLiBXaXRoIHRoZSBtb2RpZmljYXRp
-b24gYWJvdmUsIGl0IG5ldmVyIGZhaWxzLCBzbyBubyBuZWVkIHRvIGNoZWNrCj4+IGZvciAhbm9y
-bWVkX3J4X2xlbi4KPj4KPiBBZ3JlZWQsIGJ5IHVzaW5nIHJvdW5kdXBfcG93X29mX3R3byBhcyB3
-YXMgcHJldmlvdXNseSBzdWdnZXN0ZWQgdGhlIGV4dHJhCj4gdmFyaWFibGUgaXMgbm8gbG9uZ2Vy
-IG5lZWRlZC4KPgo+PiBCdXQgSSBkb24ndCByZWFsbHkga25vdyB0aGUgY29udGV4dCBvZiB0aGlz
-IGNoYW5nZS4gSXMgaXQgb2theSB0byBzaG9ydGVuCj4+IHJ4X2J1ZmZlcl9sZW4gaGVyZT8gV2h5
-IHdhcyBpdCBub3Qgc2V0IGFwcHJvcHJpYXRlbHkgYXMgdGhlIGRyaXZlcgo+PiBleHBlY3RzPwo+
-Pgo+IFdlJ3JlIG5vdCBzaG9ydGVuaW5nLCB3ZSdyZSByb3VuZGluZyB1cC4gwqBBbmQgeWVzIGl0
-cyBib3RoIG9rLCBhbmQgbmVjZXNzZWNhcnkuCj4gVGhlIHByb2JsZW0gKGZyb20gdGhlIGludGlh
-bCBlbWFpbCBJIHNlbnQpLCB3YXMgdGhhdCB0aGlzIGRyaXZlciB0ZWxscyB0aGUKPiBoYXJkd2Fy
-ZSB0aGF0IHBvdGVudGlhbGx5IGl0IGNhbiBkbWEgdXAgdG8gWCBieXRlcyB0byBhIGdpdmVuIHJ4
-IGJ1ZmZlciwgYnV0IGl0Cj4gaXMgcG9zc2libGUgYW5kIGxpa2VseSB0aGF0IHdlIG9ubHkgcHJv
-dmlkZSBZIGJ5dGVzIHRvIGRtYSB0bywgd2hlcmUgWCA+IFkuCj4gVGhpcyBsZWFkcyB0byBjb3Jy
-dXB0aW9uIG9mIHRoZSBza2Jfc2hhcmVkX2luZm8gc3RydWN0dXJlLgo+Cj4+IE9oLCBCVFcsIHRo
-ZSBkZWZhdWx0IGNhc2UgaW4gdGhlIHN3aXRjaCBzdGF0ZW1lbnQgaXMgc3R1cGlkIGFuZCBzaG91
-bGQKPj4gYmUgcmVtb3ZlZC4KPj4KPiBJIGFncmVlLCBpdHMgc2lsbHksIGJ1dCB3aXRoIHRoZSBh
-Ym92ZSBjaGFuZ2VzLCBpdCBiZWNvbWVzIG5lZWRlZCAob3IgYmVuZWZpY2lhbAo+IGFnYWluKSwg
-dG8gY2F0Y2ggY2FzZXMgaW4gd2hpY2ggcm91bmR1cF9wb3dfb2ZfdHdvIHJldHVybnMgYSB2YWx1
-ZSBiZXlvbmQgd2hhdAo+IHRoZSBoYXJkd2FyZSBjYW4gaGFuZGxlLiDCoEkgdGhpbmsgaW4gdGhp
-cyBjYXNlIHdlIHNob3VsZCBqdXN0IHBhbmljLCBhcwo+IHJ4X2J1ZmZlcl9sZW4gc2hvdWxkIG5l
-dmVyIGJlIGxhcmdlciB0aGFuIDE2Mzg0Lgo+Cj4KPiBUaGFua3MgYWxsIGZvciB0aGUgY29tbWVu
-dHMsIGhlcmVzIHZlcnNpb24gdHdvIG9mIHRoaXMgcGF0Y2gsIHRha2luZyBhbGwKPiBjb21tZW50
-cyBpbnRvIGFjY291bnQ6Cj4KPgo+IFVwZGF0ZSBlMTAwMCBkcml2ZXIgdG8gbm90IGFsbG93IGRt
-YSBiZXlvbmQgdGhlIGVuZCBvZiB0aGUgYWxsb2NhdGVkIHNrYgo+Cj4gU2lnbmVkLW9mZi1ieTog
-TmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4KPgo+Cj4gZTEwMDBfbWFpbi5jIHwg
-wqAgMTUgKysrKysrKysrKysrKystCj4gMSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyks
-IDEgZGVsZXRpb24oLSkKPgo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAw
-X21haW4uYyBiL2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYwo+IGluZGV4IDdlODU1Zjku
-LmNiMTY2MTUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jCj4g
-KysrIGIvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jCj4gQEAgLTE2OTcsNiArMTY5Nywx
-NyBAQCBzdGF0aWMgdm9pZCBlMTAwMF9zZXR1cF9yY3RsKHN0cnVjdCBlMTAwMF9hZGFwdGVyICph
-ZGFwdGVyKQo+IMKgIMKgIMKgIMKgLyogU2V0dXAgYnVmZmVyIHNpemVzICovCj4gwqAgwqAgwqAg
-wqByY3RsICY9IH5FMTAwMF9SQ1RMX1NaXzQwOTY7Cj4gwqAgwqAgwqAgwqByY3RsIHw9IEUxMDAw
-X1JDVExfQlNFWDsKPiArCj4gKyDCoCDCoCDCoCAvKgo+ICsgwqAgwqAgwqAgwqAqIFdlIG5lZWQg
-dG8gbm9ybWFsaXplIHRoZSByeF9idWZmZXJfbGVuIGhlcmUKPiArIMKgIMKgIMKgIMKgKiBzaW5j
-ZSB0aGUgaGFyZHdhcmUgb25seSBrbm93cyBhYm91dCA3IGRpc2NyZXRlCj4gKyDCoCDCoCDCoCDC
-oCogZnJhbWUgbGVuZ3RocyBoZXJlLiDCoFRvIGFjY29tb2RhdGUgdGhhdCB3ZSBuZWVkCj4gKyDC
-oCDCoCDCoCDCoCogdG8gc2V0IHRoZSByeCBsZW5ndGggaW4gdGhlIGhhcmR3YXJlIHRvIHRoZSBu
-ZXh0IGhpZ2hlc3QKPiArIMKgIMKgIMKgIMKgKiBzaXplIG92ZXIgdGhlIHJ4X2J1ZmZlcl9sZW4s
-IHRoZW4gaW5jcmVhc2UgcnhfYnVmZmVyX2xlbgo+ICsgwqAgwqAgwqAgwqAqIHRvIG1hdGNoIGl0
-LCBzbyB0aGF0IHdlIGNhbiBnZXQgYSBmdWxsIG10dSBzaXplZCBmcmFtZQo+ICsgwqAgwqAgwqAg
-wqAqLwo+ICsgwqAgwqAgwqAgYWRhcHRlci0+cnhfYnVmZmVyX2xlbiA9IHJvdW5kdXBfcG93X29m
-X3R3byhhZGFwdGVyLT5yeF9idWZmZXJfbGVuKTsKPiArCj4gwqAgwqAgwqAgwqBzd2l0Y2ggKGFk
-YXB0ZXItPnJ4X2J1ZmZlcl9sZW4pIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGNhc2UgRTEw
-MDBfUlhCVUZGRVJfMjU2Ogo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmN0
-bCB8PSBFMTAwMF9SQ1RMX1NaXzI1NjsKPiBAQCAtMTcxMSw3ICsxNzIyLDYgQEAgc3RhdGljIHZv
-aWQgZTEwMDBfc2V0dXBfcmN0bChzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlcikKPiDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwgJj0gfkUxMDAwX1JDVExfQlNFWDsK
-PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGJyZWFrOwo+IMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgY2FzZSBFMTAwMF9SWEJVRkZFUl8yMDQ4Ogo+IC0gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgZGVmYXVsdDoKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJjdGwg
-fD0gRTEwMDBfUkNUTF9TWl8yMDQ4Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgcmN0bCAmPSB+RTEwMDBfUkNUTF9CU0VYOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgYnJlYWs7Cj4gQEAgLTE3MjQsNiArMTczNCw5IEBAIHN0YXRpYyB2b2lkIGUxMDAw
-X3NldHVwX3JjdGwoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIpCj4gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqBjYXNlIEUxMDAwX1JYQlVGRkVSXzE2Mzg0Ogo+IMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgcmN0bCB8PSBFMTAwMF9SQ1RMX1NaXzE2Mzg0Owo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnJlYWs7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBkZWZhdWx0Ogo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcGFuaWMoIkJh
-ZCByeF9idWZmZXJfbGVuIHNpemVcbiIpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgYnJlYWs7Cj4gwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoGV3MzIoUkNUTCwgcmN0
-bCk7Cj4gLS0KCkkgaGF2ZSBhZGRlZCB0aGlzIHBhdGNoIHRvIG15IHF1ZXVlIG9mIGUxMDAwZSBw
-YXRjaGVzIGZvcgpyZXZlaXcvdGVzdGluZy4gIFVwb24gc3VjY2Vzc2Z1bCByZXZpZXcvdGVzdGlu
-ZyBJIHdpbGwgc3VibWl0IHRvCkRhdmUvbmV0ZGV2LgoKLS0gCkNoZWVycywKSmVmZgoKLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tCkpvaW4gdXMgRGVjZW1iZXIgOSwgMjAwOSBmb3IgdGhlIFJlZCBIYXQg
-VmlydHVhbCBFeHBlcmllbmNlLAphIGZyZWUgZXZlbnQgZm9jdXNlZCBvbiB2aXJ0dWFsaXphdGlv
-biBhbmQgY2xvdWQgY29tcHV0aW5nLiAKQXR0ZW5kIGluLWRlcHRoIHNlc3Npb25zIGZyb20geW91
-ciBkZXNrLiBZb3VyIGNvdWNoLiBBbnl3aGVyZS4KaHR0cDovL3Auc2YubmV0L3NmdS9yZWRoYXQt
-c2ZkZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
-ZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2
-ZWwK
+On Mon, Dec 7, 2009 at 08:02, Neil Horman <nhorman@tuxdriver.com> wrote=
+:
+> Sorry to reply to myself, but given the comments regarding the e1000 =
+driver, I
+> should take the same changes into account here. =C2=A0New version of =
+the patch, much
+> cleaner than previously.
+>
+>
+> Update e1000e driver to not allow dma beyond the end of the allocated=
+ sk
+>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>
+>
+> netdev.c | =C2=A0 14 +++++++++++++-
+> 1 file changed, 13 insertions(+), 1 deletion(-)
+>
+>
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.=
+c
+> index c3105c5..84e1b5d 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -2332,6 +2332,16 @@ static void e1000_setup_rctl(struct e1000_adap=
+ter *adapter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Setup buffer sizes */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E1000_RCTL_SZ_4096;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E1000_RCTL_BSEX;
+> + =C2=A0 =C2=A0 =C2=A0 /*
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* We need to normalize the rx_buffer_len=
+ here
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* since the hardware only knows about 7 =
+discrete
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* frame lengths here. =C2=A0To accomodat=
+e that we need
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* to set the rx length in the hardware t=
+o the next highest
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* size over the rx_buffer_len, then incr=
+ease rx_buffer_len
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* to match it, so that we can get a full=
+ mtu sized frame
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+> + =C2=A0 =C2=A0 =C2=A0 adapter->rx_buffer_len =3D roundup_pow_of_two(=
+adapter->rx_buffer_len);
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0switch (adapter->rx_buffer_len) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 256:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
+0_RCTL_SZ_256;
+> @@ -2346,7 +2356,6 @@ static void e1000_setup_rctl(struct e1000_adapt=
+er *adapter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E10=
+00_RCTL_BSEX;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 2048:
+> - =C2=A0 =C2=A0 =C2=A0 default:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
+0_RCTL_SZ_2048;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl &=3D ~E10=
+00_RCTL_BSEX;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
+> @@ -2359,6 +2368,9 @@ static void e1000_setup_rctl(struct e1000_adapt=
+er *adapter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0case 16384:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rctl |=3D E100=
+0_RCTL_SZ_16384;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0break;
+> + =C2=A0 =C2=A0 =C2=A0 default:
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 panic("Bad rx_buff=
+er_len size\n");
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
+> --
+
+I have added this patch to my queue of e1000e patches for
+reveiw/testing.  Upon successful review/testing I will submit to
+Dave/netdev.
+
+--=20
+Cheers,
+Jeff
