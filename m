@@ -1,71 +1,54 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] net: dst_release() cleanup
-Date: Mon, 7 Dec 2009 20:59:00 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912072056350.27565@melkinpaasi.cs.helsinki.fi>
-References: <4B1A4BC5.3050300@gmail.com> <20091207091746.51d8958a@nehalam>
+From: Frederic Leroy <fredo@starox.org>
+Subject: Re: [PATCHv3 1/2] tcp: Stalling connections: Fix timeout
+ calculation routine
+Date: Mon, 7 Dec 2009 20:09:04 +0100
+Message-ID: <20091207200904.5f6e145a@houba>
+References: <4B1C4C25.1070104@tvk.rwth-aachen.de>
+	<4B1C9D94.3070504@gmail.com>
+	<4B1CE45A.9010908@tvk.rwth-aachen.de>
+	<4B1D27F7.9000502@tvk.rwth-aachen.de>
+	<alpine.DEB.2.00.0912072046500.27565@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Greg KH <gregkh@suse.de>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34102 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758492AbZLGS64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 13:58:56 -0500
-In-Reply-To: <20091207091746.51d8958a@nehalam>
+Received: from sd-11162.dedibox.fr ([88.191.70.230]:36935 "EHLO
+	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757879AbZLGTJY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 14:09:24 -0500
+In-Reply-To: <alpine.DEB.2.00.0912072046500.27565@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Dec 2009, Stephen Hemminger wrote:
+Le Mon, 7 Dec 2009 20:50:11 +0200 (EET),
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> a =C3=A9crit :
 
-> On Sat, 05 Dec 2009 13:02:13 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > atomic_dec_return() is a full memory barrier, we can omit
-> > the smp_mb__before_atomic_dec() call.
-> > 
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > ---
-> >  net/core/dst.c |    9 ++-------
-> >  1 file changed, 2 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/net/core/dst.c b/net/core/dst.c
-> > index 57bc4d5..cdec1d1 100644
-> > --- a/net/core/dst.c
-> > +++ b/net/core/dst.c
-> > @@ -262,13 +262,8 @@ again:
-> >  
-> >  void dst_release(struct dst_entry *dst)
-> >  {
-> > -	if (dst) {
-> > -               int newrefcnt;
-> > -
-> > -		smp_mb__before_atomic_dec();
-> > -               newrefcnt = atomic_dec_return(&dst->__refcnt);
-> > -               WARN_ON(newrefcnt < 0);
-> > -	}
-> > +	if (dst)
-> > +		WARN_ON(atomic_dec_return(&dst->__refcnt) < 0);
-> >  }
-> >  EXPORT_SYMBOL(dst_release);
-> 
-> I don't like to put actual necessary code in WARN or BUG macro
-> args because some embedded type developer is likely to build
-> with
-> 
-> #define WARN_ON(x)
-> 
-> to get rid of all warnings.
+> On Mon, 7 Dec 2009, Damian Lukowski wrote:
+>=20
+> > This patch fixes a problem in the TCP connection timeout
+> > calculation. Currently, timeout decisions are made on the basis of
+> > 6fa12c85031485dff38ce550c24f10da23b0adaa.
+> [...]
+>> >  static inline struct sk_buff *tcp_send_head(struct sock *sk)=20
+>=20
+> Acked-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+>=20
+> Also, this should be added:
+>=20
+> Reported-by: Frederic Leroy <fredo@starox.org>
+>=20
+> ...and I think he has already tested this fix a number of times in=20
+> different forms, so I'd already include his Tested-by: too.
 
-That's their problem then to fix all relevant places. ...That won't even 
-compile because of constructs like this:
+If you need a bad connection to do some test, don't hesitate !
+Thank you guys ;)
 
-	if (WARN_ON(x))
-
-...To my knowing this perfectly legal way of doing this.
-
--- 
- i.
+--=20
+=46r=C3=A9d=C3=A9ric Leroy
