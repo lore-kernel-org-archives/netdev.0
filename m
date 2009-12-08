@@ -1,64 +1,53 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: [PATCH 2/2] print DMI_BOARD_NAME as well as DMI_PRODUCT_NAME from __show_regs
-Date: Tue, 8 Dec 2009 00:30:21 -0800
-Message-ID: <20091208083021.GB27174@hexapodia.org>
-References: <4B1DC4F0.9050708@gmail.com>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes of heavy surfing
+Date: Tue, 8 Dec 2009 01:03:15 -0800 (PST)
+Message-ID: <335647.4861.qm@web52906.mail.re2.yahoo.com>
+References: <4B1DC202.20607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Hancock <hancockrwd@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Richard Zidlicky <rz@linux-m68k.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from straum.hexapodia.org ([64.81.70.185]:41014 "EHLO
-	straum.hexapodia.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753706AbZLHIaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 03:30:14 -0500
-Content-Disposition: inline
-In-Reply-To: <4B1DC4F0.9050708@gmail.com>
+Received: from web52906.mail.re2.yahoo.com ([206.190.49.16]:32820 "HELO
+	web52906.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751089AbZLHJDJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 04:03:09 -0500
+In-Reply-To: <4B1DC202.20607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Hancock observes that DMI_BOARD_NAME is often more useful
-than DMI_PRODUCT_NAME, especially on standalone motherboards.
-So, print both.
+--- On Tue, 8/12/09, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Its all two years old UDP bugs (I spot another one some
+> hours ago), and very rare.
 
-Signed-off-by: Andy Isaacson <adi@hexapodia.org>
-Cc: Robert Hancock <hancockrwd@gmail.com>
-LKML-Reference: <4B1DC4F0.9050708@gmail.com>
----
- arch/x86/kernel/process.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+> I am quite suprised it could happen on your machine on
+> demand.
 
-diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
-index a93f319..520d9d1 100644
---- a/arch/x86/kernel/process.c
-+++ b/arch/x86/kernel/process.c
-@@ -93,18 +93,21 @@ void exit_thread(void)
- 
- void show_regs_common(void)
- {
--	const char *board;
-+	const char *board, *product;
- 
--	board = dmi_get_system_info(DMI_PRODUCT_NAME);
-+	board = dmi_get_system_info(DMI_BOARD_NAME);
- 	if (!board)
- 		board = "";
-+	product = dmi_get_system_info(DMI_PRODUCT_NAME);
-+	if (!product)
-+		product = "";
- 
- 	printk("\n");
--	printk(KERN_INFO "Pid: %d, comm: %.20s %s %s %.*s %s\n",
-+	printk(KERN_INFO "Pid: %d, comm: %.20s %s %s %.*s %s/%s\n",
- 		current->pid, current->comm, print_tainted(),
- 		init_utsname()->release,
- 		(int)strcspn(init_utsname()->version, " "),
--		init_utsname()->version, board);
-+		init_utsname()->version, board, product);
- }
- 
- void flush_thread(void)
--- 
-1.6.5.3
+Who said anything about "on demand"? It took about 30 minutes to freeze last time; I was starting to think that a complete recompile had fixed it!
+
+For the record: I've only seen that dmesg warning I've reported *once*, and that didn't kill the machine immediately (hence I was able to report it in the first place).
+
+> 1) Do you have another NIC adapter to try ? It might be a
+> buggy driver. (Neil Horman found an error on Intel drivers some
+> hours ago, that can corrupt skbs)
+
+I can test any patches for a e1000 that apply to 2.6.31.x. But the e1000 is an on-board device and I don't have another. But Fedora's 2.6.31.x kernels seem OK.
+
+> 2) Could you add following debugging aid ?
+
+Not a problem; I do have a serial console attached.
+
+> 3) Any chance you can do a git bisect ?
+
+How do you git-bisect a bug that you can't reproduce on demand? A negative is easy to spot, but a positive would be not experiencing a random freeze. As I said, I *almost* thought that I'd resolved the issue by recompiling last night.
+
+Cheers,
+Chris
+
+
+
+      
