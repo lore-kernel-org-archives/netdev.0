@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 2/3] e1000e: replace incorrect use of GG82563_REG macro
-Date: Tue, 08 Dec 2009 09:28:01 -0800
-Message-ID: <20091208172800.19741.84491.stgit@localhost.localdomain>
+Subject: [PATCH 3/3] e1000e: only perform ESB2 MDIC workaround on certain
+	configurations
+Date: Tue, 08 Dec 2009 09:28:20 -0800
+Message-ID: <20091208172819.19741.89888.stgit@localhost.localdomain>
 References: <20091208172725.19741.25809.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,65 +12,191 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:52048
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936868AbZLHR2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 12:28:12 -0500
+Received: from qmta12.westchester.pa.mail.comcast.net ([76.96.59.227]:34229
+	"EHLO QMTA12.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S936886AbZLHR2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 12:28:32 -0500
 In-Reply-To: <20091208172725.19741.25809.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The GG82563_REG() macro should not be used to determine the offset provided
-to the e1000e_[read|write]_kmrn_reg() functions since the first argument to
-the macro is already implied and gets masked off anyway in the functions.
-The resultant register reads/writes with this patch are functionally the
-same as before.
+A workaround added for all ESB2 devices (adds a delay for all MDIC accesses
+which resolves an issue with the MDIC ready bit being set prematurely) is
+applicable only to devices in which the MAC-PHY interconnect is not
+operating in a certain mode with in-band MDIO.  Check the control register
+for the operating mode and enable the workaround accordingly.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/hw.h      |    2 ++
- drivers/net/e1000e/ich8lan.c |    8 +++++---
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/es2lan.c |   97 ++++++++++++++++++++++++++++---------------
+ drivers/net/e1000e/hw.h     |    5 ++
+ 2 files changed, 69 insertions(+), 33 deletions(-)
 
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index d2a1047..3028f23 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -46,6 +46,9 @@
+ #define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	 0x0000
+ #define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		 0x2000
+ 
++#define E1000_KMRNCTRLSTA_OPMODE_MASK		 0x000C
++#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	 0x0004
++
+ #define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00 /* Gigabit Carry Extend Padding */
+ #define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	 0x00010000
+ 
+@@ -462,28 +465,36 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 		return ret_val;
+ 	}
+ 
+-	/*
+-	 * The "ready" bit in the MDIC register may be incorrectly set
+-	 * before the device has completed the "Page Select" MDI
+-	 * transaction.  So we wait 200us after each MDI command...
+-	 */
+-	udelay(200);
++	if (hw->dev_spec.e80003es2lan.mdic_wa_enable == true) {
++		/*
++		 * The "ready" bit in the MDIC register may be incorrectly set
++		 * before the device has completed the "Page Select" MDI
++		 * transaction.  So we wait 200us after each MDI command...
++		 */
++		udelay(200);
+ 
+-	/* ...and verify the command was successful. */
+-	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
++		/* ...and verify the command was successful. */
++		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
+ 
+-	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
+-		ret_val = -E1000_ERR_PHY;
+-		e1000_release_phy_80003es2lan(hw);
+-		return ret_val;
+-	}
++		if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
++			ret_val = -E1000_ERR_PHY;
++			e1000_release_phy_80003es2lan(hw);
++			return ret_val;
++		}
+ 
+-	udelay(200);
++		udelay(200);
+ 
+-	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+-					   data);
++		ret_val = e1000e_read_phy_reg_mdic(hw,
++		                                  MAX_PHY_REG_ADDRESS & offset,
++		                                  data);
++
++		udelay(200);
++	} else {
++		ret_val = e1000e_read_phy_reg_mdic(hw,
++		                                  MAX_PHY_REG_ADDRESS & offset,
++		                                  data);
++	}
+ 
+-	udelay(200);
+ 	e1000_release_phy_80003es2lan(hw);
+ 
+ 	return ret_val;
+@@ -526,28 +537,35 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 		return ret_val;
+ 	}
+ 
++	if (hw->dev_spec.e80003es2lan.mdic_wa_enable == true) {
++		/*
++		 * The "ready" bit in the MDIC register may be incorrectly set
++		 * before the device has completed the "Page Select" MDI
++		 * transaction.  So we wait 200us after each MDI command...
++		 */
++		udelay(200);
+ 
+-	/*
+-	 * The "ready" bit in the MDIC register may be incorrectly set
+-	 * before the device has completed the "Page Select" MDI
+-	 * transaction.  So we wait 200us after each MDI command...
+-	 */
+-	udelay(200);
++		/* ...and verify the command was successful. */
++		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
+ 
+-	/* ...and verify the command was successful. */
+-	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
++		if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
++			e1000_release_phy_80003es2lan(hw);
++			return -E1000_ERR_PHY;
++		}
+ 
+-	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
+-		e1000_release_phy_80003es2lan(hw);
+-		return -E1000_ERR_PHY;
+-	}
++		udelay(200);
+ 
+-	udelay(200);
++		ret_val = e1000e_write_phy_reg_mdic(hw,
++		                                  MAX_PHY_REG_ADDRESS & offset,
++		                                  data);
+ 
+-	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
+-					    data);
++		udelay(200);
++	} else {
++		ret_val = e1000e_write_phy_reg_mdic(hw,
++		                                  MAX_PHY_REG_ADDRESS & offset,
++		                                  data);
++	}
+ 
+-	udelay(200);
+ 	e1000_release_phy_80003es2lan(hw);
+ 
+ 	return ret_val;
+@@ -866,6 +884,19 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
+ 	reg_data &= ~0x00100000;
+ 	E1000_WRITE_REG_ARRAY(hw, E1000_FFLT, 0x0001, reg_data);
+ 
++	/* default to true to enable the MDIC W/A */
++	hw->dev_spec.e80003es2lan.mdic_wa_enable = true;
++
++	ret_val = e1000_read_kmrn_reg_80003es2lan(hw,
++	                              E1000_KMRNCTRLSTA_OFFSET >>
++	                              E1000_KMRNCTRLSTA_OFFSET_SHIFT,
++	                              &i);
++	if (!ret_val) {
++		if ((i & E1000_KMRNCTRLSTA_OPMODE_MASK) ==
++		     E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO)
++			hw->dev_spec.e80003es2lan.mdic_wa_enable = false;
++	}
++
+ 	/*
+ 	 * Clear all of the statistics registers (clear on read).  It is
+ 	 * important that we do this after we have tried to establish link
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index a7d08da..5ed1788 100644
+index 5ed1788..2784cf4 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -302,6 +302,8 @@ enum e1e_registers {
- #define E1000_KMRNCTRLSTA_OFFSET_SHIFT	16
- #define E1000_KMRNCTRLSTA_REN		0x00200000
- #define E1000_KMRNCTRLSTA_DIAG_OFFSET	0x3    /* Kumeran Diagnostic */
-+#define E1000_KMRNCTRLSTA_TIMEOUTS	0x4    /* Kumeran Timeouts */
-+#define E1000_KMRNCTRLSTA_INBAND_PARAM	0x9    /* Kumeran InBand Parameters */
- #define E1000_KMRNCTRLSTA_DIAG_NELPBK	0x1000 /* Nearend Loopback mode */
- #define E1000_KMRNCTRLSTA_K1_CONFIG	0x7
- #define E1000_KMRNCTRLSTA_K1_ENABLE	0x140E
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 7b33be9..9b09246 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -2755,14 +2755,16 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
- 	 * and increase the max iterations when polling the phy;
- 	 * this fixes erroneous timeouts at 10Mbps.
- 	 */
--	ret_val = e1000e_write_kmrn_reg(hw, GG82563_REG(0x34, 4), 0xFFFF);
-+	ret_val = e1000e_write_kmrn_reg(hw, E1000_KMRNCTRLSTA_TIMEOUTS, 0xFFFF);
- 	if (ret_val)
- 		return ret_val;
--	ret_val = e1000e_read_kmrn_reg(hw, GG82563_REG(0x34, 9), &reg_data);
-+	ret_val = e1000e_read_kmrn_reg(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
-+	                               &reg_data);
- 	if (ret_val)
- 		return ret_val;
- 	reg_data |= 0x3F;
--	ret_val = e1000e_write_kmrn_reg(hw, GG82563_REG(0x34, 9), reg_data);
-+	ret_val = e1000e_write_kmrn_reg(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
-+	                                reg_data);
- 	if (ret_val)
- 		return ret_val;
+@@ -900,6 +900,10 @@ struct e1000_dev_spec_82571 {
+ 	u32 smb_counter;
+ };
  
++struct e1000_dev_spec_80003es2lan {
++	bool  mdic_wa_enable;
++};
++
+ struct e1000_shadow_ram {
+ 	u16  value;
+ 	bool modified;
+@@ -928,6 +932,7 @@ struct e1000_hw {
+ 
+ 	union {
+ 		struct e1000_dev_spec_82571	e82571;
++		struct e1000_dev_spec_80003es2lan e80003es2lan;
+ 		struct e1000_dev_spec_ich8lan	ich8lan;
+ 	} dev_spec;
+ };
 
