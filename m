@@ -1,238 +1,526 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 20/20] net/atm/lec.c: Add __lec_arp_check_expire and other cleanups
-Date: Mon,  7 Dec 2009 21:57:16 -0800
-Message-ID: <f706588f30ade06dc115fb66e259c0f0de9a8b43.1260251570.git.joe@perches.com>
+Subject: [PATCH 17/20] net/atm/resources.c: checkpatch cleanups
+Date: Mon,  7 Dec 2009 21:57:13 -0800
+Message-ID: <bc508b257d72562e0cfeccd2f3390de07d044c90.1260251570.git.joe@perches.com>
 References: <cover.1260251570.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1061 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1048 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932696AbZLHF5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932682AbZLHF5P (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 Dec 2009 00:57:15 -0500
 In-Reply-To: <cover.1260251570.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reduce indentation in lec_arp_check_expire
-Indent a case label
-Remove != NULL logical tests from while ((skb = foo())) assign and tests
+Includes some or all of these:
+
+Mostly 80 column wrapped.
+printk->pr_info and pr_cont
+Use print_hex_dump
+Use __func__ for embedded print strings
+Move embedded assigns out of tests
+Move trailing statements to new lines
+switch/case cleanups
+    removed breaks after returns
+Removed paren around returns
+Use %pM
+Moved leading continuation logical tests to end of previous line
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/lec.c |  153 ++++++++++++++++++++++++++++++---------------------------
- 1 files changed, 80 insertions(+), 73 deletions(-)
+ net/atm/resources.c |  390 +++++++++++++++++++++++++--------------------------
+ 1 files changed, 192 insertions(+), 198 deletions(-)
 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 92f536c..584b8a5 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -286,7 +286,6 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
- 
- 	/* Make sure we have room for lec_id */
- 	if (skb_headroom(skb) < 2) {
+diff --git a/net/atm/resources.c b/net/atm/resources.c
+index 0d4c0ee..447ed89 100644
+--- a/net/atm/resources.c
++++ b/net/atm/resources.c
+@@ -71,7 +71,7 @@ struct atm_dev *atm_dev_lookup(int number)
+ 	mutex_unlock(&atm_dev_mutex);
+ 	return dev;
+ }
 -
- 		pr_debug("reallocating skb\n");
- 		skb2 = skb_realloc_headroom(skb, LEC_HEADER_LEN);
- 		kfree_skb(skb);
-@@ -509,34 +508,31 @@ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
- 		break;
- 	case l_should_bridge:
- #if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
--		{
--			pr_debug("%s: bridge zeppelin asks about %pM\n",
--				 dev->name, mesg->content.proxy.mac_addr);
-+	{
-+		pr_debug("%s: bridge zeppelin asks about %pM\n",
-+			 dev->name, mesg->content.proxy.mac_addr);
++EXPORT_SYMBOL(atm_dev_lookup);
  
--			if (br_fdb_test_addr_hook == NULL)
--				break;
-+		if (br_fdb_test_addr_hook == NULL)
-+			break;
- 
--			if (br_fdb_test_addr_hook(dev,
--						  mesg->content.proxy.mac_addr)) {
--				/* hit from bridge table, send LE_ARP_RESPONSE */
--				struct sk_buff *skb2;
--				struct sock *sk;
--
--				pr_debug("%s: entry found, responding to zeppelin\n",
--					 dev->name);
--				skb2 = alloc_skb(sizeof(struct atmlec_msg),
--						 GFP_ATOMIC);
--				if (skb2 == NULL)
--					break;
--				skb2->len = sizeof(struct atmlec_msg);
--				skb_copy_to_linear_data(skb2, mesg,
--							sizeof(*mesg));
--				atm_force_charge(priv->lecd, skb2->truesize);
--				sk = sk_atm(priv->lecd);
--				skb_queue_tail(&sk->sk_receive_queue, skb2);
--				sk->sk_data_ready(sk, skb2->len);
--			}
-+		if (br_fdb_test_addr_hook(dev, mesg->content.proxy.mac_addr)) {
-+			/* hit from bridge table, send LE_ARP_RESPONSE */
-+			struct sk_buff *skb2;
-+			struct sock *sk;
-+
-+			pr_debug("%s: entry found, responding to zeppelin\n",
-+				 dev->name);
-+			skb2 = alloc_skb(sizeof(struct atmlec_msg), GFP_ATOMIC);
-+			if (skb2 == NULL)
-+				break;
-+			skb2->len = sizeof(struct atmlec_msg);
-+			skb_copy_to_linear_data(skb2, mesg, sizeof(*mesg));
-+			atm_force_charge(priv->lecd, skb2->truesize);
-+			sk = sk_atm(priv->lecd);
-+			skb_queue_tail(&sk->sk_receive_queue, skb2);
-+			sk->sk_data_ready(sk, skb2->len);
- 		}
-+	}
- #endif /* defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE) */
- 		break;
- 	default:
-@@ -562,7 +558,7 @@ static void lec_atm_close(struct atm_vcc *vcc)
- 
- 	if (skb_peek(&sk_atm(vcc)->sk_receive_queue))
- 		pr_info("%s closing with messages pending\n", dev->name);
--	while ((skb = skb_dequeue(&sk_atm(vcc)->sk_receive_queue)) != NULL) {
-+	while ((skb = skb_dequeue(&sk_atm(vcc)->sk_receive_queue))) {
- 		atm_return(vcc, skb->truesize);
- 		dev_kfree_skb(skb);
+ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
+ 				 int number, unsigned long *flags)
+@@ -85,7 +85,8 @@ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
  	}
-@@ -1756,6 +1752,50 @@ static void lec_arp_expire_vcc(unsigned long data)
- 	lec_arp_put(to_remove);
+ 	mutex_lock(&atm_dev_mutex);
+ 	if (number != -1) {
+-		if ((inuse = __atm_dev_lookup(number))) {
++		inuse = __atm_dev_lookup(number);
++		if (inuse) {
+ 			atm_dev_put(inuse);
+ 			mutex_unlock(&atm_dev_mutex);
+ 			kfree(dev);
+@@ -130,7 +131,7 @@ out_fail:
+ 	dev = NULL;
+ 	goto out;
+ }
+-
++EXPORT_SYMBOL(atm_dev_register);
+ 
+ void atm_dev_deregister(struct atm_dev *dev)
+ {
+@@ -152,7 +153,7 @@ void atm_dev_deregister(struct atm_dev *dev)
+ 
+ 	atm_dev_put(dev);
+ }
+-
++EXPORT_SYMBOL(atm_dev_deregister);
+ 
+ static void copy_aal_stats(struct k_atm_aal_stats *from,
+     struct atm_aal_stats *to)
+@@ -162,7 +163,6 @@ static void copy_aal_stats(struct k_atm_aal_stats *from,
+ #undef __HANDLE_ITEM
  }
  
-+static bool __lec_arp_check_expire(struct lec_arp_table *entry,
-+				   unsigned long now,
-+				   struct lec_priv *priv)
-+{
-+	unsigned long time_to_check;
-+
-+	if ((entry->flags) & LEC_REMOTE_FLAG && priv->topology_change)
-+		time_to_check = priv->forward_delay_time;
-+	else
-+		time_to_check = priv->aging_time;
-+
-+	pr_debug("About to expire: %lx - %lx > %lx\n",
-+		 now, entry->last_used, time_to_check);
-+	if (time_after(now, entry->last_used + time_to_check) &&
-+	    !(entry->flags & LEC_PERMANENT_FLAG) &&
-+	    !(entry->mac_addr[0] & 0x01)) {	/* LANE2: 7.1.20 */
-+		/* Remove entry */
-+		pr_debug("Entry timed out\n");
-+		lec_arp_remove(priv, entry);
-+		lec_arp_put(entry);
-+	} else {
-+		/* Something else */
-+		if ((entry->status == ESI_VC_PENDING ||
-+		     entry->status == ESI_ARP_PENDING) &&
-+		    time_after_eq(now, entry->timestamp +
-+				       priv->max_unknown_frame_time)) {
-+			entry->timestamp = jiffies;
-+			entry->packets_flooded = 0;
-+			if (entry->status == ESI_VC_PENDING)
-+				send_to_lecd(priv, l_svc_setup,
-+					     entry->mac_addr,
-+					     entry->atm_addr,
-+					     NULL);
-+		}
-+		if (entry->status == ESI_FLUSH_PENDING &&
-+		    time_after_eq(now, entry->timestamp +
-+				       priv->path_switching_delay)) {
-+			lec_arp_hold(entry);
-+			return true;
-+		}
-+	}
-+
-+	return false;
-+}
- /*
-  * Expire entries.
-  * 1. Re-set timer
-@@ -1780,7 +1820,6 @@ static void lec_arp_check_expire(struct work_struct *work)
- 	struct hlist_node *node, *next;
- 	struct lec_arp_table *entry;
- 	unsigned long now;
--	unsigned long time_to_check;
- 	int i;
+-
+ static void subtract_aal_stats(struct k_atm_aal_stats *from,
+     struct atm_aal_stats *to)
+ {
+@@ -171,8 +171,8 @@ static void subtract_aal_stats(struct k_atm_aal_stats *from,
+ #undef __HANDLE_ITEM
+ }
  
- 	pr_debug("%p\n", priv);
-@@ -1790,51 +1829,19 @@ restart:
- 	for (i = 0; i < LEC_ARP_TABLE_SIZE; i++) {
- 		hlist_for_each_entry_safe(entry, node, next,
- 					  &priv->lec_arp_tables[i], next) {
--			if ((entry->flags) & LEC_REMOTE_FLAG &&
--			    priv->topology_change)
--				time_to_check = priv->forward_delay_time;
--			else
--				time_to_check = priv->aging_time;
 -
--			pr_debug("About to expire: %lx - %lx > %lx\n",
--				 now, entry->last_used, time_to_check);
--			if (time_after(now, entry->last_used + time_to_check) &&
--			    !(entry->flags & LEC_PERMANENT_FLAG) &&
--			    !(entry->mac_addr[0] & 0x01)) {	/* LANE2: 7.1.20 */
--				/* Remove entry */
--				pr_debug("Entry timed out\n");
--				lec_arp_remove(priv, entry);
-+			if (__lec_arp_check_expire(entry, now, priv)) {
-+				struct sk_buff *skb;
-+				struct atm_vcc *vcc = entry->vcc;
-+
-+				spin_unlock_irqrestore(&priv->lec_arp_lock,
-+						       flags);
-+				while ((skb = skb_dequeue(&entry->tx_wait)))
-+					lec_send(vcc, skb);
-+				entry->last_used = jiffies;
-+				entry->status = ESI_FORWARD_DIRECT;
- 				lec_arp_put(entry);
+-static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, int zero)
++static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg,
++		       int zero)
+ {
+ 	struct atm_dev_stats tmp;
+ 	int error = 0;
+@@ -190,7 +190,6 @@ static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, in
+ 	return error ? -EFAULT : 0;
+ }
+ 
+-
+ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ {
+ 	void __user *buf;
+@@ -206,50 +205,49 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ #endif
+ 
+ 	switch (cmd) {
+-		case ATM_GETNAMES:
+-
+-			if (compat) {
++	case ATM_GETNAMES:
++		if (compat) {
+ #ifdef CONFIG_COMPAT
+-				struct compat_atm_iobuf __user *ciobuf = arg;
+-				compat_uptr_t cbuf;
+-				iobuf_len = &ciobuf->length;
+-				if (get_user(cbuf, &ciobuf->buffer))
+-					return -EFAULT;
+-				buf = compat_ptr(cbuf);
++			struct compat_atm_iobuf __user *ciobuf = arg;
++			compat_uptr_t cbuf;
++			iobuf_len = &ciobuf->length;
++			if (get_user(cbuf, &ciobuf->buffer))
++				return -EFAULT;
++			buf = compat_ptr(cbuf);
+ #endif
 -			} else {
--				/* Something else */
--				if ((entry->status == ESI_VC_PENDING ||
--				     entry->status == ESI_ARP_PENDING) &&
--				    time_after_eq(now,
--						  entry->timestamp +
--						  priv->max_unknown_frame_time)) {
--					entry->timestamp = jiffies;
--					entry->packets_flooded = 0;
--					if (entry->status == ESI_VC_PENDING)
--						send_to_lecd(priv, l_svc_setup,
--							     entry->mac_addr,
--							     entry->atm_addr,
--							     NULL);
--				}
--				if (entry->status == ESI_FLUSH_PENDING &&
--				    time_after_eq(now, entry->timestamp +
--						  priv->path_switching_delay)) {
--					struct sk_buff *skb;
--					struct atm_vcc *vcc = entry->vcc;
--
--					lec_arp_hold(entry);
--					spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
--					while ((skb = skb_dequeue(&entry->tx_wait)) != NULL)
--						lec_send(vcc, skb);
--					entry->last_used = jiffies;
--					entry->status = ESI_FORWARD_DIRECT;
--					lec_arp_put(entry);
--					goto restart;
--				}
-+
-+				goto restart;
- 			}
- 		}
+-				struct atm_iobuf __user *iobuf = arg;
+-				iobuf_len = &iobuf->length;
+-				if (get_user(buf, &iobuf->buffer))
+-					return -EFAULT;
+-			}
+-			if (get_user(len, iobuf_len))
++		} else {
++			struct atm_iobuf __user *iobuf = arg;
++			iobuf_len = &iobuf->length;
++			if (get_user(buf, &iobuf->buffer))
+ 				return -EFAULT;
+-			mutex_lock(&atm_dev_mutex);
+-			list_for_each(p, &atm_devs)
+-				size += sizeof(int);
+-			if (size > len) {
+-				mutex_unlock(&atm_dev_mutex);
+-				return -E2BIG;
+-			}
+-			tmp_buf = kmalloc(size, GFP_ATOMIC);
+-			if (!tmp_buf) {
+-				mutex_unlock(&atm_dev_mutex);
+-				return -ENOMEM;
+-			}
+-			tmp_p = tmp_buf;
+-			list_for_each(p, &atm_devs) {
+-				dev = list_entry(p, struct atm_dev, dev_list);
+-				*tmp_p++ = dev->number;
+-			}
++		}
++		if (get_user(len, iobuf_len))
++			return -EFAULT;
++		mutex_lock(&atm_dev_mutex);
++		list_for_each(p, &atm_devs)
++			size += sizeof(int);
++		if (size > len) {
+ 			mutex_unlock(&atm_dev_mutex);
+-			error = ((copy_to_user(buf, tmp_buf, size)) ||
+-					put_user(size, iobuf_len))
+-						? -EFAULT : 0;
+-			kfree(tmp_buf);
+-			return error;
+-		default:
+-			break;
++			return -E2BIG;
++		}
++		tmp_buf = kmalloc(size, GFP_ATOMIC);
++		if (!tmp_buf) {
++			mutex_unlock(&atm_dev_mutex);
++			return -ENOMEM;
++		}
++		tmp_p = tmp_buf;
++		list_for_each(p, &atm_devs) {
++			dev = list_entry(p, struct atm_dev, dev_list);
++			*tmp_p++ = dev->number;
++		}
++		mutex_unlock(&atm_dev_mutex);
++		error = ((copy_to_user(buf, tmp_buf, size)) ||
++			 put_user(size, iobuf_len))
++			? -EFAULT : 0;
++		kfree(tmp_buf);
++		return error;
++	default:
++		break;
  	}
-@@ -2245,7 +2252,7 @@ restart:
- 				lec_arp_hold(entry);
- 				spin_unlock_irqrestore(&priv->lec_arp_lock,
- 						       flags);
--				while ((skb = skb_dequeue(&entry->tx_wait)) != NULL)
-+				while ((skb = skb_dequeue(&entry->tx_wait)))
- 					lec_send(vcc, skb);
- 				entry->last_used = jiffies;
- 				entry->status = ESI_FORWARD_DIRECT;
+ 
+ 	if (compat) {
+@@ -278,166 +276,167 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ 		if (get_user(number, &sioc->number))
+ 			return -EFAULT;
+ 	}
+-	if (!(dev = try_then_request_module(atm_dev_lookup(number),
+-					    "atm-device-%d", number)))
++
++	dev = try_then_request_module(atm_dev_lookup(number), "atm-device-%d",
++				      number);
++	if (!dev)
+ 		return -ENODEV;
+ 
+ 	switch (cmd) {
+-		case ATM_GETTYPE:
+-			size = strlen(dev->type) + 1;
+-			if (copy_to_user(buf, dev->type, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_GETESI:
+-			size = ESI_LEN;
+-			if (copy_to_user(buf, dev->esi, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_SETESI:
+-			{
+-				int i;
+-
+-				for (i = 0; i < ESI_LEN; i++)
+-					if (dev->esi[i]) {
+-						error = -EEXIST;
+-						goto done;
+-					}
+-			}
+-			/* fall through */
+-		case ATM_SETESIF:
+-			{
+-				unsigned char esi[ESI_LEN];
+-
+-				if (!capable(CAP_NET_ADMIN)) {
+-					error = -EPERM;
+-					goto done;
+-				}
+-				if (copy_from_user(esi, buf, ESI_LEN)) {
+-					error = -EFAULT;
+-					goto done;
+-				}
+-				memcpy(dev->esi, esi, ESI_LEN);
+-				error =  ESI_LEN;
+-				goto done;
+-			}
+-		case ATM_GETSTATZ:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			/* fall through */
+-		case ATM_GETSTAT:
+-			size = sizeof(struct atm_dev_stats);
+-			error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
+-			if (error)
+-				goto done;
+-			break;
+-		case ATM_GETCIRANGE:
+-			size = sizeof(struct atm_cirange);
+-			if (copy_to_user(buf, &dev->ci_range, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_GETLINKRATE:
+-			size = sizeof(int);
+-			if (copy_to_user(buf, &dev->link_rate, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_RSTADDR:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			atm_reset_addr(dev, ATM_ADDR_LOCAL);
+-			break;
+-		case ATM_ADDADDR:
+-		case ATM_DELADDR:
+-		case ATM_ADDLECSADDR:
+-		case ATM_DELLECSADDR:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			{
+-				struct sockaddr_atmsvc addr;
+-
+-				if (copy_from_user(&addr, buf, sizeof(addr))) {
+-					error = -EFAULT;
+-					goto done;
+-				}
+-				if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
+-					error = atm_add_addr(dev, &addr,
+-							     (cmd == ATM_ADDADDR ?
+-							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
+-				else
+-					error = atm_del_addr(dev, &addr,
+-							     (cmd == ATM_DELADDR ?
+-							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++	case ATM_GETTYPE:
++		size = strlen(dev->type) + 1;
++		if (copy_to_user(buf, dev->type, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_GETESI:
++		size = ESI_LEN;
++		if (copy_to_user(buf, dev->esi, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_SETESI:
++	{
++		int i;
++
++		for (i = 0; i < ESI_LEN; i++)
++			if (dev->esi[i]) {
++				error = -EEXIST;
+ 				goto done;
+ 			}
+-		case ATM_GETADDR:
+-		case ATM_GETLECSADDR:
+-			error = atm_get_addr(dev, buf, len,
+-					     (cmd == ATM_GETADDR ?
++	}
++	/* fall through */
++	case ATM_SETESIF:
++	{
++		unsigned char esi[ESI_LEN];
++
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		if (copy_from_user(esi, buf, ESI_LEN)) {
++			error = -EFAULT;
++			goto done;
++		}
++		memcpy(dev->esi, esi, ESI_LEN);
++		error =  ESI_LEN;
++		goto done;
++	}
++	case ATM_GETSTATZ:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		/* fall through */
++	case ATM_GETSTAT:
++		size = sizeof(struct atm_dev_stats);
++		error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
++		if (error)
++			goto done;
++		break;
++	case ATM_GETCIRANGE:
++		size = sizeof(struct atm_cirange);
++		if (copy_to_user(buf, &dev->ci_range, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_GETLINKRATE:
++		size = sizeof(int);
++		if (copy_to_user(buf, &dev->link_rate, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_RSTADDR:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		atm_reset_addr(dev, ATM_ADDR_LOCAL);
++		break;
++	case ATM_ADDADDR:
++	case ATM_DELADDR:
++	case ATM_ADDLECSADDR:
++	case ATM_DELLECSADDR:
++	{
++		struct sockaddr_atmsvc addr;
++
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++
++		if (copy_from_user(&addr, buf, sizeof(addr))) {
++			error = -EFAULT;
++			goto done;
++		}
++		if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
++			error = atm_add_addr(dev, &addr,
++					     (cmd == ATM_ADDADDR ?
+ 					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
+-			if (error < 0)
+-				goto done;
+-			size = error;
+-			/* may return 0, but later on size == 0 means "don't
+-			   write the length" */
+-			error = put_user(size, sioc_len)
+-				? -EFAULT : 0;
++		else
++			error = atm_del_addr(dev, &addr,
++					     (cmd == ATM_DELADDR ?
++					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++		goto done;
++	}
++	case ATM_GETADDR:
++	case ATM_GETLECSADDR:
++		error = atm_get_addr(dev, buf, len,
++				     (cmd == ATM_GETADDR ?
++				      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++		if (error < 0)
++			goto done;
++		size = error;
++		/* may return 0, but later on size == 0 means "don't
++		   write the length" */
++		error = put_user(size, sioc_len) ? -EFAULT : 0;
++		goto done;
++	case ATM_SETLOOP:
++		if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
++		    __ATM_LM_XTLOC((int) (unsigned long) buf) >
++		    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
++			error = -EINVAL;
+ 			goto done;
+-		case ATM_SETLOOP:
+-			if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
+-			    __ATM_LM_XTLOC((int) (unsigned long) buf) >
+-			    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
++		}
++		/* fall through */
++	case ATM_SETCIRANGE:
++	case SONET_GETSTATZ:
++	case SONET_SETDIAG:
++	case SONET_CLRDIAG:
++	case SONET_SETFRAMING:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		/* fall through */
++	default:
++		if (compat) {
++#ifdef CONFIG_COMPAT
++			if (!dev->ops->compat_ioctl) {
+ 				error = -EINVAL;
+ 				goto done;
+ 			}
+-			/* fall through */
+-		case ATM_SETCIRANGE:
+-		case SONET_GETSTATZ:
+-		case SONET_SETDIAG:
+-		case SONET_CLRDIAG:
+-		case SONET_SETFRAMING:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			/* fall through */
+-		default:
+-			if (compat) {
+-#ifdef CONFIG_COMPAT
+-				if (!dev->ops->compat_ioctl) {
+-					error = -EINVAL;
+-					goto done;
+-				}
+-				size = dev->ops->compat_ioctl(dev, cmd, buf);
++			size = dev->ops->compat_ioctl(dev, cmd, buf);
+ #endif
+-			} else {
+-				if (!dev->ops->ioctl) {
+-					error = -EINVAL;
+-					goto done;
+-				}
+-				size = dev->ops->ioctl(dev, cmd, buf);
+-			}
+-			if (size < 0) {
+-				error = (size == -ENOIOCTLCMD ? -EINVAL : size);
++		} else {
++			if (!dev->ops->ioctl) {
++				error = -EINVAL;
+ 				goto done;
+ 			}
++			size = dev->ops->ioctl(dev, cmd, buf);
++		}
++		if (size < 0) {
++			error = (size == -ENOIOCTLCMD ? -EINVAL : size);
++			goto done;
++		}
+ 	}
+ 
+ 	if (size)
+-		error = put_user(size, sioc_len)
+-			? -EFAULT : 0;
++		error = put_user(size, sioc_len) ? -EFAULT : 0;
+ 	else
+ 		error = 0;
+ done:
+@@ -445,7 +444,7 @@ done:
+ 	return error;
+ }
+ 
+-static __inline__ void *dev_get_idx(loff_t left)
++static inline void *dev_get_idx(loff_t left)
+ {
+ 	struct list_head *p;
+ 
+@@ -474,8 +473,3 @@ void *atm_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 		? atm_devs.next : ((struct list_head *)v)->next;
+ 	return (v == &atm_devs) ? NULL : v;
+ }
+-
+-
+-EXPORT_SYMBOL(atm_dev_register);
+-EXPORT_SYMBOL(atm_dev_deregister);
+-EXPORT_SYMBOL(atm_dev_lookup);
 -- 
 1.6.6.rc0.57.gad7a
 
