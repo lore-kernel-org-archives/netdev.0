@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] vhost_net
-Date: Tue, 08 Dec 2009 12:47:37 -0800 (PST)
-Message-ID: <20091208.124737.56023027.davem@davemloft.net>
-References: <200912081349.32763.rusty@rustcorp.com.au>
+Subject: Re: [GIT]: Networking
+Date: Tue, 08 Dec 2009 12:50:32 -0800 (PST)
+Message-ID: <20091208.125032.70743046.davem@davemloft.net>
+References: <20091205.193505.193701079.davem@davemloft.net>
+	<20091208194530.GA24530@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, herbert@gondor.apana.org.au
-To: rusty@rustcorp.com.au
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35857
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35864
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753285AbZLHUrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:47:31 -0500
-In-Reply-To: <200912081349.32763.rusty@rustcorp.com.au>
+	by vger.kernel.org with ESMTP id S937868AbZLHUu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:50:26 -0500
+In-Reply-To: <20091208194530.GA24530@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Tue, 8 Dec 2009 13:49:32 +1030
+From: Ingo Molnar <mingo@elte.hu>
+Date: Tue, 8 Dec 2009 20:45:30 +0100
 
-> I've had these sitting in my tree and linux-next; should have pushed
-> them out to netdev weeks ago.  Thanks to MST for the ping...
+> i just switched to today's -git tree and there's this new build failure 
+> on x86:
+> 
+>  net/sctp/sysctl.c:251: error: unknown field 'strategy' specified in initializer
+>  net/sctp/sysctl.c:251: error: 'sysctl_intvec' undeclared here (not in a function)
+> 
+> havent looked into it yet - config attached.
 
-But you in fact didn't push them out, and I specifically stated that
-I'm not taking new features into the netdev tree as of Dec 3rd:
-
-	http://marc.info/?l=linux-netdev&m=125988357131776&w=2
-
-I even warned the day previous to that posting how things were going
-to work and be enforced.
-
-I've already made too many exceptions, and I'm not making any more,
-sorry.
-
-Too many subsystems do not follow the proper procedure, so we have
-tons of last minute stuff going in during the merge window.
-
-Feel free to try and merge your bits to Linus directly or whatever,
-but it's not going in via my tree, sorry.
-
-I'm not going to be part of the problem. :-)
+It's probably a conflict with Eric Beiderman's sysctl cleanups that
+got merged in at the same time.
