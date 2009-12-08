@@ -1,68 +1,47 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
- vhost-net
-Date: Tue, 08 Dec 2009 14:50:05 -0800
-Message-ID: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Add sysctl to set the advertised TCP initial receive
+ window.
+Date: Tue, 08 Dec 2009 15:00:36 -0800
+Message-ID: <1260313236.27677.163.camel@Joe-Laptop.home>
+References: <pvm638hum1a.fsf@chavey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: rusty@rustcorp.com.au, mst@redhat.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:54350 "EHLO e6.ny.us.ibm.com"
+Received: from mail.perches.com ([173.55.12.10]:1100 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966427AbZLHWuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 17:50:02 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e6.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id nB8MjaOv009176
-	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:45:36 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nB8Mo8b1132412
-	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:50:08 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB8Mo7BC009759
-	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:50:08 -0500
+	id S966891AbZLHXAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 18:00:30 -0500
+In-Reply-To: <pvm638hum1a.fsf@chavey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When testing vhost-net patches with a guest running linux 2.6.32, i am
-running into "Unexpected full queue" warning messages from start_xmit() in
-virtio_net.c causing a lot of requeues and a drastic reduction in throughput.
+On Tue, 2009-12-08 at 14:40 -0800, chavey@google.com wrote:
+> Add a sysctl, tcp_init_rcv_wnd, to set the TCP initial receive window
+> size advertised by passive and active TCP connections. 
+[]
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 2dcf04d..85232fc 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -656,6 +656,14 @@ static struct ctl_table ipv4_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec
+>  	},
+> +	{
+> +		.ctl_name	= CTL_UNNUMBERED,
+> +		.procname	= "tcp_init_rcv_wnd",
+> +		.data 		= &sysctl_tcp_init_rcv_wnd,
+> +		.maxlen 	= sizeof(int),
+> +		.mode 		= 0644,
+> +		.proc_handler 	= &proc_dointvec,
 
-With a guest running 2.6.31, i get guest to host throughput around 7000Mb/s,
-but it drops to around 3200Mb/s with 2.6.32.
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &SOMESTATIC_FOR_TCP_INIT_RCV_WND_MAX,
 
-I don't see this problem with usermode virtio in qemu, but i get a thruput of
-only 2700Mb/s with both 2.6.31 and 2.6.32.
-
-The following patch fixes this problem by dropping the skb and not requeuing
-to qdisc when it cannot be added to ring buffer. With this patch, i see
-similar performance as 2.6.31 with vhost-net.
-
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b9e002f..307cfd6 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -528,7 +528,11 @@ again:
- 			netif_start_queue(dev);
- 			goto again;
- 		}
--		return NETDEV_TX_BUSY;
-+
-+		/* drop the skb under stress. */ 
-+ 		vi->dev->stats.tx_dropped++;
-+		kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
- 	vi->svq->vq_ops->kick(vi->svq);
- 
-
-Thanks
-Sridhar
-
-
-
+?
 
 
