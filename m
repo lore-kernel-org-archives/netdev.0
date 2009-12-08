@@ -1,28 +1,29 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes of heavy surfing
-Date: Mon, 7 Dec 2009 16:38:26 -0800 (PST)
-Message-ID: <797041.38013.qm@web52902.mail.re2.yahoo.com>
-References: <20091207135342.6fb07264.akpm@linux-foundation.org>
+From: Andy Isaacson <adi@hexapodia.org>
+Subject: Re: 2.6.32 regression, hard lock
+Date: Mon, 7 Dec 2009 16:42:21 -0800
+Message-ID: <20091208004221.GA15968@hexapodia.org>
+References: <20091206141419.GA6195@linux-m68k.org> <20091207143057.53c6a362.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Zidlicky <rz@linux-m68k.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52902.mail.re2.yahoo.com ([206.190.49.12]:37564 "HELO
-	web52902.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965161AbZLHAiU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2009 19:38:20 -0500
-In-Reply-To: <20091207135342.6fb07264.akpm@linux-foundation.org>
+Received: from straum.hexapodia.org ([64.81.70.185]:36059 "EHLO
+	straum.hexapodia.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965184AbZLHAmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 19:42:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20091207143057.53c6a362.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One other point that seems worth mentioning: Fedora's 2.6.31.6-162.fc12.i686 kernel does *not* seem to have this problem, and neither did 2.6.31.6-145.fc12.i686 before it. (Fedora kernels have had KMS problems, but nothing that has stopped SysRq from working.)
+On Mon, Dec 07, 2009 at 02:30:57PM -0800, Andrew Morton wrote:
+> btw, why does your kernel say "To Be Filled By O.E.M." in the traces? 
+> The kernel.org kernel doesn't do that.  Is that kernel patched at all?
 
-Cheers,
-Chris
+That's traditional for DMI_PRODUCT_NAME in dodgy vendor BIOSes.  I
+routinely see it on Intel evaluation boards and less frequently on
+Taiwanese Brand X boards.
 
-
-      
+-andy
