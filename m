@@ -1,41 +1,32 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: IPv6: presentation format for zero scope ID
-Date: Tue, 8 Dec 2009 08:03:31 -0500
-Message-ID: <20091208080331.3eb5ddfa@tlielax.poochiereds.net>
-References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com>
-	<4B1DC794.5020406@hp.com>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes of heavy surfing
+Date: Tue, 8 Dec 2009 05:35:40 -0800 (PST)
+Message-ID: <755510.33826.qm@web52905.mail.re2.yahoo.com>
+References: <20091208113645.GA8263@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Chuck Lever <chuck.lever@oracle.com>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20959 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754496AbZLHNFO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 08:05:14 -0500
-In-Reply-To: <4B1DC794.5020406@hp.com>
+Received: from web52905.mail.re2.yahoo.com ([206.190.49.15]:34401 "HELO
+	web52905.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754818AbZLHNfe convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 08:35:34 -0500
+In-Reply-To: <20091208113645.GA8263@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 07 Dec 2009 22:27:16 -0500
-Brian Haley <brian.haley@hp.com> wrote:
+--- On Tue, 8/12/09, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> Is it the same .config?
 
-> Chuck Lever wrote:
-> > I recently added some functions to sunrpc.ko that behave like
-> > getnameinfo(AI_NUMERICHOST) does in user space.
-> > 
-> > One of the functions, rpc_ntop6(), sticks a scope ID on the end of link-
-> > and site-local IPv6 addresses.  It does not try to map the scope ID to a
-> > device name.
-> 
-> Site-local addresses have been deprecated...
-> 
+Similar, but no. I'll attach the .config to the bug tonight.
 
-So this means that addresses with those prefixes should be treated like
-any other address, right? If so, then I think the rpc_ntop6 shouldn't be
-affixing scopeid's to site local addresses.
+Chris
 
--- 
-Jeff Layton <jlayton@redhat.com>
+
+      
