@@ -1,31 +1,43 @@
-From: Richard Zidlicky <rz@linux-m68k.org>
-Subject: Re: 2.6.32 regression, hard lock
-Date: Tue, 8 Dec 2009 21:25:41 +0100
-Message-ID: <20091208202541.GB6322@linux-m68k.org>
-References: <20091206141419.GA6195@linux-m68k.org> <20091207143057.53c6a362.akpm@linux-foundation.org> <20091208002353.GA30011@linux-m68k.org> <20091207164826.eb2bbc48.akpm@linux-foundation.org> <s5hocm9som6.wl%tiwai@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] vhost_net
+Date: Tue, 08 Dec 2009 12:47:37 -0800 (PST)
+Message-ID: <20091208.124737.56023027.davem@davemloft.net>
+References: <200912081349.32763.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Takashi Iwai <tiwai@suse.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mst@redhat.com, herbert@gondor.apana.org.au
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:50237 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935789AbZLHUc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:32:58 -0500
-Content-Disposition: inline
-In-Reply-To: <s5hocm9som6.wl%tiwai@suse.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35857
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753285AbZLHUrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:47:31 -0500
+In-Reply-To: <200912081349.32763.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2009 at 12:15:45PM +0100, Takashi Iwai wrote:
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Tue, 8 Dec 2009 13:49:32 +1030
 
-> 
-> But, as Andrew pointed, this should be irrelevant with the IRQ
-> lockup.  At most it could be a dead-locking of PA and other
-> sound-related processes, but I've never heard the real issue.
+> I've had these sitting in my tree and linux-next; should have pushed
+> them out to netdev weeks ago.  Thanks to MST for the ping...
 
-indeed, had to kill and restart PA on a few occassions but no other
-ill effects so far.
+But you in fact didn't push them out, and I specifically stated that
+I'm not taking new features into the netdev tree as of Dec 3rd:
 
-Richard
+	http://marc.info/?l=linux-netdev&m=125988357131776&w=2
+
+I even warned the day previous to that posting how things were going
+to work and be enforced.
+
+I've already made too many exceptions, and I'm not making any more,
+sorry.
+
+Too many subsystems do not follow the proper procedure, so we have
+tons of last minute stuff going in during the merge window.
+
+Feel free to try and merge your bits to Linus directly or whatever,
+but it's not going in via my tree, sorry.
+
+I'm not going to be part of the problem. :-)
