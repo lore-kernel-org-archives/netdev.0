@@ -1,47 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Add sysctl to set the advertised TCP initial receive
- window.
-Date: Tue, 08 Dec 2009 15:00:36 -0800
-Message-ID: <1260313236.27677.163.camel@Joe-Laptop.home>
-References: <pvm638hum1a.fsf@chavey.mtv.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: net/kbuild trees build failure
+Date: Wed, 9 Dec 2009 10:11:26 +1100
+Message-ID: <20091209101126.35bf0fd3.sfr@canb.auug.org.au>
+References: <20091207200317.57820f0a.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
-To: chavey@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1100 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966891AbZLHXAa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 18:00:30 -0500
-In-Reply-To: <pvm638hum1a.fsf@chavey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Sam Ravnborg <sam@ravnborg.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Michal Marek <mmarek@suse.cz>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20091207200317.57820f0a.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-12-08 at 14:40 -0800, chavey@google.com wrote:
-> Add a sysctl, tcp_init_rcv_wnd, to set the TCP initial receive window
-> size advertised by passive and active TCP connections. 
-[]
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 2dcf04d..85232fc 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -656,6 +656,14 @@ static struct ctl_table ipv4_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +	{
-> +		.ctl_name	= CTL_UNNUMBERED,
-> +		.procname	= "tcp_init_rcv_wnd",
-> +		.data 		= &sysctl_tcp_init_rcv_wnd,
-> +		.maxlen 	= sizeof(int),
-> +		.mode 		= 0644,
-> +		.proc_handler 	= &proc_dointvec,
+Hi Michal,
 
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &SOMESTATIC_FOR_TCP_INIT_RCV_WND_MAX,
+On Mon, 7 Dec 2009 20:03:17 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> Today's linux-next build (powerpc allyesconfig) failed like this:
+> 
+> In file included from drivers/net/wireless/iwlwifi/iwl3945-base.c:57:
+> drivers/net/wireless/iwlwifi/iwl-core.h:66:30: error: linux/utsrelease.h: No such file or directory
+> 
+> Caused by commit 250cce26d5d03337aec4ff8405121f026adb4a89 ("iwlwifi:
+> driver version track kernel version") from the net tree interacting with
+> commit 8e5c76aace9705b6983cfbf5eb2f2e869dab6738 ("kbuild: move
+> utsrelease.h to include/generated") from the kbuild tree.
+> 
+> I applied this patch for today (and will carry it as necessary):
 
-?
+With the merge of the net tree into Linus' tree today, this patch (or
+something else) is needed in the kbuild tree to avoid the above build
+failure.  I have reproduced the patch below in case you want to use it.
+I will be applying it as a merge fix to the merge of the kbuild tree
+today.
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 7 Dec 2009 19:56:42 +1100
+Subject: [PATCH] net: fix for utsrelease.h moving to generated
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/wireless/iwlwifi/iwl-core.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.h b/drivers/net/wireless/iwlwifi/iwl-core.h
+index 675b7df..27ca859 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.h
++++ b/drivers/net/wireless/iwlwifi/iwl-core.h
+@@ -63,7 +63,7 @@
+ #ifndef __iwl_core_h__
+ #define __iwl_core_h__
+ 
+-#include <linux/utsrelease.h>
++#include <generated/utsrelease.h>
+ 
+ /************************
+  * forward declarations *
+-- 
+1.6.5.3
 
 
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
