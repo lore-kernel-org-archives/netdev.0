@@ -1,43 +1,125 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: linux-next: net/kbuild trees build failure
-Date: Tue, 8 Dec 2009 06:38:19 +0100
-Message-ID: <20091208053819.GA4604@merkur.ravnborg.org>
-References: <20091207200317.57820f0a.sfr@canb.auug.org.au> <20091207114158.GA2428@merkur.ravnborg.org> <4B1CF39A.5050806@suse.cz> <20091207160903.GB18939@tuxdriver.com> <1260209537.4653.778.camel@rc-desk> <4B1D76B1.6070601@suse.cz> <20091207222853.GE18939@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Marek <mmarek@suse.cz>,
-	reinette chatre <reinette.chatre@intel.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091207222853.GE18939@tuxdriver.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 06/20] net/atm/clip.c: checkpatch cleanups
+Date: Mon,  7 Dec 2009 21:57:02 -0800
+Message-ID: <594a0f113659ffff060149e359dd16819af7100c.1260251570.git.joe@perches.com>
+References: <cover.1260251570.git.joe@perches.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1048 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932381AbZLHF5M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 00:57:12 -0500
+In-Reply-To: <cover.1260251570.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 05:28:53PM -0500, John W. Linville wrote:
-> On Mon, Dec 07, 2009 at 10:42:09PM +0100, Michal Marek wrote:
-> > reinette chatre napsal(a):
-> 
-> > > Right - could we please use the solution that works at compile time? I
-> > > used UTS_RELEASE after learning about its use in init/version.c, would
-> > > that not make it an approved solution?
-> > 
-> > It seems there is some misunderstanding.
-> 
-> Alright, if Stephen's fix is acceptable then your suggestion is fine.
-> Sam seemed to suggest that Stephen's fix was a stop-gap.
+Includes some or all of these:
 
-The need to use utsrelease seems very prominent in external drivers.
-But a quick grep turned up only a single staging driver in-tree that
-include utsrelease.
-So whatever problem this driver solves using utsrelease it is not shared
-with the rest of the in-tree drivers.
+Mostly 80 column wrapped.
+printk->pr_info and pr_cont
+Use print_hex_dump
+Use __func__ for embedded print strings
+Move embedded assigns out of tests
+Move trailing statements to new lines
+switch/case cleanups
+    removed breaks after returns
+Removed paren around returns
+Use %pM
+Moved leading continuation logical tests to end of previous line
 
-So no - it is not a stop-gap. It is more a "is it really needed?".
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/atm/clip.c |   26 ++++++++++++--------------
+ 1 files changed, 12 insertions(+), 14 deletions(-)
 
-	Sam
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index d7939fd..ebfa022 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -32,10 +32,10 @@
+ #include <linux/jhash.h>
+ #include <net/route.h> /* for struct rtable and routing */
+ #include <net/icmp.h> /* icmp_send */
+-#include <asm/param.h> /* for HZ */
++#include <linux/param.h> /* for HZ */
++#include <linux/uaccess.h>
+ #include <asm/byteorder.h> /* for htons etc. */
+ #include <asm/system.h> /* save/restore_flags */
+-#include <asm/uaccess.h>
+ #include <asm/atomic.h>
+ 
+ #include "common.h"
+@@ -56,10 +56,10 @@ static int to_atmarpd(enum atmarp_ctrl_type type, int itf, __be32 ip)
+ 	pr_debug("(%d)\n", type);
+ 	if (!atmarpd)
+ 		return -EUNATCH;
+-	skb = alloc_skb(sizeof(struct atmarp_ctrl),GFP_ATOMIC);
++	skb = alloc_skb(sizeof(struct atmarp_ctrl), GFP_ATOMIC);
+ 	if (!skb)
+ 		return -ENOMEM;
+-	ctrl = (struct atmarp_ctrl *) skb_put(skb,sizeof(struct atmarp_ctrl));
++	ctrl = (struct atmarp_ctrl *)skb_put(skb, sizeof(struct atmarp_ctrl));
+ 	ctrl->type = type;
+ 	ctrl->itf_num = itf;
+ 	ctrl->ip = ip;
+@@ -111,7 +111,7 @@ static void unlink_clip_vcc(struct clip_vcc *clip_vcc)
+ 			goto out;
+ 		}
+ 	pr_crit("ATMARP: failed (entry %p, vcc 0x%p)\n", entry, clip_vcc);
+-      out:
++out:
+ 	netif_tx_unlock_bh(entry->neigh->dev);
+ }
+ 
+@@ -205,12 +205,12 @@ static void clip_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ 	}
+ 	ATM_SKB(skb)->vcc = vcc;
+ 	skb_reset_mac_header(skb);
+-	if (!clip_vcc->encap
+-	    || skb->len < RFC1483LLC_LEN
+-	    || memcmp(skb->data, llc_oui, sizeof (llc_oui)))
++	if (!clip_vcc->encap ||
++	    skb->len < RFC1483LLC_LEN ||
++	    memcmp(skb->data, llc_oui, sizeof(llc_oui)))
+ 		skb->protocol = htons(ETH_P_IP);
+ 	else {
+-		skb->protocol = ((__be16 *) skb->data)[3];
++		skb->protocol = ((__be16 *)skb->data)[3];
+ 		skb_pull(skb, RFC1483LLC_LEN);
+ 		if (skb->protocol == htons(ETH_P_ARP)) {
+ 			skb->dev->stats.rx_packets++;
+@@ -644,7 +644,6 @@ static int clip_inet_event(struct notifier_block *this, unsigned long event,
+ 	return clip_device_event(this, NETDEV_CHANGE, in_dev->dev);
+ }
+ 
+-
+ static struct notifier_block clip_dev_notifier = {
+ 	.notifier_call = clip_device_event,
+ };
+@@ -670,7 +669,6 @@ static void atmarpd_close(struct atm_vcc *vcc)
+ 	module_put(THIS_MODULE);
+ }
+ 
+-
+ static struct atmdev_ops atmarpd_dev_ops = {
+ 	.close = atmarpd_close
+ };
+@@ -692,11 +690,11 @@ static int atm_init_atmarp(struct atm_vcc *vcc)
+ 		return -EADDRINUSE;
+ 	}
+ 
+-	mod_timer(&idle_timer, jiffies+CLIP_CHECK_INTERVAL*HZ);
++	mod_timer(&idle_timer, jiffies + CLIP_CHECK_INTERVAL * HZ);
+ 
+ 	atmarpd = vcc;
+-	set_bit(ATM_VF_META,&vcc->flags);
+-	set_bit(ATM_VF_READY,&vcc->flags);
++	set_bit(ATM_VF_META, &vcc->flags);
++	set_bit(ATM_VF_READY, &vcc->flags);
+ 	    /* allow replies and avoid getting closed if signaling dies */
+ 	vcc->dev = &atmarpd_dev;
+ 	vcc_insert_socket(sk_atm(vcc));
+-- 
+1.6.6.rc0.57.gad7a
+
