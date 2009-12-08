@@ -1,202 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 3/3] e1000e: only perform ESB2 MDIC workaround on certain
-	configurations
-Date: Tue, 08 Dec 2009 09:28:20 -0800
-Message-ID: <20091208172819.19741.89888.stgit@localhost.localdomain>
-References: <20091208172725.19741.25809.stgit@localhost.localdomain>
+Subject: [ethtool PATCH] ethtool: Can't parse ints with stroul()
+Date: Tue, 08 Dec 2009 09:32:40 -0800
+Message-ID: <20091208173240.19917.99052.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.westchester.pa.mail.comcast.net ([76.96.59.227]:34229
-	"EHLO QMTA12.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936886AbZLHR2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 12:28:32 -0500
-In-Reply-To: <20091208172725.19741.25809.stgit@localhost.localdomain>
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:33505
+	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S937077AbZLHRcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 12:32:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-A workaround added for all ESB2 devices (adds a delay for all MDIC accesses
-which resolves an issue with the MDIC ready bit being set prematurely) is
-applicable only to devices in which the MAC-PHY interconnect is not
-operating in a certain mode with in-band MDIO.  Check the control register
-for the operating mode and enable the workaround accordingly.
+A recent change to how int's were being parsed from the command
+line had them being read in with an unsigned int string operator.
+This didn't allow signed numbers from being read in correctly.
+This patch adds a get_uint() routine, and fixes the get_int()
+routine to read in signed values.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/es2lan.c |   97 ++++++++++++++++++++++++++++---------------
- drivers/net/e1000e/hw.h     |    5 ++
- 2 files changed, 69 insertions(+), 33 deletions(-)
+ ethtool.c |   21 ++++++++++++++++++++-
+ 1 files changed, 20 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index d2a1047..3028f23 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -46,6 +46,9 @@
- #define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	 0x0000
- #define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		 0x2000
+diff --git a/ethtool.c b/ethtool.c
+index 10dfc80..415ee77 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -324,6 +324,7 @@ typedef enum {
+ 	CMDL_NONE,
+ 	CMDL_BOOL,
+ 	CMDL_INT,
++	CMDL_UINT,
+ 	CMDL_STR,
+ } cmdline_type_t;
  
-+#define E1000_KMRNCTRLSTA_OPMODE_MASK		 0x000C
-+#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	 0x0004
+@@ -404,6 +405,20 @@ static struct cmdline_info cmdline_coalesce[] = {
+ 
+ static int get_int(char *str, int base)
+ {
++	long v;
++	char *endp;
 +
- #define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00 /* Gigabit Carry Extend Padding */
- #define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	 0x00010000
- 
-@@ -462,28 +465,36 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 		return ret_val;
- 	}
- 
--	/*
--	 * The "ready" bit in the MDIC register may be incorrectly set
--	 * before the device has completed the "Page Select" MDI
--	 * transaction.  So we wait 200us after each MDI command...
--	 */
--	udelay(200);
-+	if (hw->dev_spec.e80003es2lan.mdic_wa_enable == true) {
-+		/*
-+		 * The "ready" bit in the MDIC register may be incorrectly set
-+		 * before the device has completed the "Page Select" MDI
-+		 * transaction.  So we wait 200us after each MDI command...
-+		 */
-+		udelay(200);
- 
--	/* ...and verify the command was successful. */
--	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
-+		/* ...and verify the command was successful. */
-+		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
- 
--	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
--		ret_val = -E1000_ERR_PHY;
--		e1000_release_phy_80003es2lan(hw);
--		return ret_val;
--	}
-+		if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
-+			ret_val = -E1000_ERR_PHY;
-+			e1000_release_phy_80003es2lan(hw);
-+			return ret_val;
-+		}
- 
--	udelay(200);
-+		udelay(200);
- 
--	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
--					   data);
-+		ret_val = e1000e_read_phy_reg_mdic(hw,
-+		                                  MAX_PHY_REG_ADDRESS & offset,
-+		                                  data);
++	if (!str)
++		show_usage(1);
++	errno = 0;
++	v = strtol(str, &endp, base);
++	if ( errno || *endp || v > INT_MAX)
++		show_usage(1);
++	return (int)v;
++}
 +
-+		udelay(200);
-+	} else {
-+		ret_val = e1000e_read_phy_reg_mdic(hw,
-+		                                  MAX_PHY_REG_ADDRESS & offset,
-+		                                  data);
-+	}
++static int get_uint(char *str, int base)
++{
+ 	unsigned long v;
+ 	char *endp;
  
--	udelay(200);
- 	e1000_release_phy_80003es2lan(hw);
+@@ -413,7 +428,7 @@ static int get_int(char *str, int base)
+ 	v = strtoul(str, &endp, base);
+ 	if ( errno || *endp || v > INT_MAX)
+ 		show_usage(1);
+-	return (int)v;
++	return v;
+ }
  
- 	return ret_val;
-@@ -526,28 +537,35 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
- 		return ret_val;
- 	}
- 
-+	if (hw->dev_spec.e80003es2lan.mdic_wa_enable == true) {
-+		/*
-+		 * The "ready" bit in the MDIC register may be incorrectly set
-+		 * before the device has completed the "Page Select" MDI
-+		 * transaction.  So we wait 200us after each MDI command...
-+		 */
-+		udelay(200);
- 
--	/*
--	 * The "ready" bit in the MDIC register may be incorrectly set
--	 * before the device has completed the "Page Select" MDI
--	 * transaction.  So we wait 200us after each MDI command...
--	 */
--	udelay(200);
-+		/* ...and verify the command was successful. */
-+		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
- 
--	/* ...and verify the command was successful. */
--	ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
-+		if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
-+			e1000_release_phy_80003es2lan(hw);
-+			return -E1000_ERR_PHY;
-+		}
- 
--	if (((u16)offset >> GG82563_PAGE_SHIFT) != temp) {
--		e1000_release_phy_80003es2lan(hw);
--		return -E1000_ERR_PHY;
--	}
-+		udelay(200);
- 
--	udelay(200);
-+		ret_val = e1000e_write_phy_reg_mdic(hw,
-+		                                  MAX_PHY_REG_ADDRESS & offset,
-+		                                  data);
- 
--	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & offset,
--					    data);
-+		udelay(200);
-+	} else {
-+		ret_val = e1000e_write_phy_reg_mdic(hw,
-+		                                  MAX_PHY_REG_ADDRESS & offset,
-+		                                  data);
-+	}
- 
--	udelay(200);
- 	e1000_release_phy_80003es2lan(hw);
- 
- 	return ret_val;
-@@ -866,6 +884,19 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
- 	reg_data &= ~0x00100000;
- 	E1000_WRITE_REG_ARRAY(hw, E1000_FFLT, 0x0001, reg_data);
- 
-+	/* default to true to enable the MDIC W/A */
-+	hw->dev_spec.e80003es2lan.mdic_wa_enable = true;
-+
-+	ret_val = e1000_read_kmrn_reg_80003es2lan(hw,
-+	                              E1000_KMRNCTRLSTA_OFFSET >>
-+	                              E1000_KMRNCTRLSTA_OFFSET_SHIFT,
-+	                              &i);
-+	if (!ret_val) {
-+		if ((i & E1000_KMRNCTRLSTA_OPMODE_MASK) ==
-+		     E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO)
-+			hw->dev_spec.e80003es2lan.mdic_wa_enable = false;
-+	}
-+
- 	/*
- 	 * Clear all of the statistics registers (clear on read).  It is
- 	 * important that we do this after we have tried to establish link
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 5ed1788..2784cf4 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -900,6 +900,10 @@ struct e1000_dev_spec_82571 {
- 	u32 smb_counter;
- };
- 
-+struct e1000_dev_spec_80003es2lan {
-+	bool  mdic_wa_enable;
-+};
-+
- struct e1000_shadow_ram {
- 	u16  value;
- 	bool modified;
-@@ -928,6 +932,7 @@ struct e1000_hw {
- 
- 	union {
- 		struct e1000_dev_spec_82571	e82571;
-+		struct e1000_dev_spec_80003es2lan e80003es2lan;
- 		struct e1000_dev_spec_ich8lan	ich8lan;
- 	} dev_spec;
- };
+ static void parse_generic_cmdline(int argc, char **argp,
+@@ -447,6 +462,10 @@ static void parse_generic_cmdline(int argc, char **argp,
+ 					*p = get_int(argp[i],0);
+ 					break;
+ 				}
++				case CMDL_UINT: {
++					*p = get_uint(argp[i],0);
++					break;
++				}
+ 				case CMDL_STR: {
+ 					char **s = info[idx].wanted_val;
+ 					*s = strdup(argp[i]);
 
