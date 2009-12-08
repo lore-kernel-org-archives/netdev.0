@@ -1,43 +1,161 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes of heavy surfing
-Date: Mon, 7 Dec 2009 16:19:35 -0800 (PST)
-Message-ID: <138412.20552.qm@web52903.mail.re2.yahoo.com>
-References: <20091207135342.6fb07264.akpm@linux-foundation.org>
+From: Richard Zidlicky <rz@linux-m68k.org>
+Subject: Re: 2.6.32 regression, hard lock
+Date: Tue, 8 Dec 2009 01:23:53 +0100
+Message-ID: <20091208002353.GA30011@linux-m68k.org>
+References: <20091206141419.GA6195@linux-m68k.org> <20091207143057.53c6a362.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52903.mail.re2.yahoo.com ([206.190.49.13]:41839 "HELO
-	web52903.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965148AbZLHAT3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Dec 2009 19:19:29 -0500
-In-Reply-To: <20091207135342.6fb07264.akpm@linux-foundation.org>
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:64907 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965198AbZLHAbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 19:31:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20091207143057.53c6a362.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- On Mon, 7/12/09, Andrew Morton <akpm@linux-foundation.org> wrote:
-> A regression in the latest 2.6.31 -stable tree.
+
+> > first visible symptom is that ppp over UMTS connection "stops working", connection
+> > did not die. Trying to restart the connection fails and the related processes hang.
+> > 
+> > After that one after another everything stops working, "telinit 6" does not do its
+> > job and SysRQ sync-umount-reboot is logged in messages but has no visible effect.
+> > 
+> > Attaching messages and .config.
+> > 
 > 
-> Are you really really sure that you applied that patch,
-> recompiled, reinstalled, etc?
+> I uploaded your dmesg output to
+> http://userweb.kernel.org/~akpm/stuff/messages.txt
 
-Yup, 'fraid so. And because you asked so nicely, I've just managed to reproduce the problem having first done "make distclean" and "make oldconfig", followed by "make" :-). (This was with F12's latest compiler gcc 4.4.2 20091027, BTW.) The symptom was the same - a complete system freeze without anything written to the serial console. So it's just a *guess* that it's network-related, but it does always seem to happen while I'm waiting for a web page to load in my browser...
+> 
+> I'm looking at those traces and am not able to develop a theory to
+> explain it :(
 
-I saw something interesting in 2.6.31.7 about a crash due to fragmentation:
+thanks for looking at it. 
 
-ipv4: additional update of dev_net(dev) to struct *net in ip_fragment.c, NULL ptr OOPS
+I did revert to 2.31.5 and to my big surprise found a similar thing happened
+so it is not a regression, at least not from 2.6.31.
+No idea why it did not occur anytime sooner while running earlier kernels, however
+the most recently plugged in device is an USB webcam with micro which I am suspecting
+to play a role in this message (posted more details about it earlier):
 
-I'll try applying that patch too, to see if it makes any difference. Along with that other UDP-related thing I noticed:
+Dec  6 10:31:39 localhost kernel: [  162.087836] =======================================================
+Dec  6 10:31:39 localhost kernel: [  162.087839] [ INFO: possible circular locking dependency detected ]
+Dec  6 10:31:39 localhost kernel: [  162.087842] 2.6.32v0 #1
+Dec  6 10:31:39 localhost kernel: [  162.087844] -------------------------------------------------------
+Dec  6 10:31:39 localhost kernel: [  162.087846] pulseaudio/4506 is trying to acquire lock:
+Dec  6 10:31:39 localhost kernel: [  162.087848]  (sysfs_mutex){+.+.+.}, at: [<c050c99d>] sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.087857]
+Dec  6 10:31:39 localhost kernel: [  162.087858] but task is already holding lock:
+Dec  6 10:31:39 localhost kernel: [  162.087860]  (&pcm->open_mutex){+.+.+.}, at: [<f80f4b2a>] snd_pcm_release+0x55/0x9e [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.087873]
+Dec  6 10:31:39 localhost kernel: [  162.087874] which lock already depends on the new lock.
+Dec  6 10:31:39 localhost kernel: [  162.087875]
+Dec  6 10:31:39 localhost kernel: [  162.087876]
+Dec  6 10:31:39 localhost kernel: [  162.087877] the existing dependency chain (in reverse order) is:
+Dec  6 10:31:39 localhost kernel: [  162.087879]
+Dec  6 10:31:39 localhost kernel: [  162.087880] -> #2 (&pcm->open_mutex){+.+.+.}:
+Dec  6 10:31:39 localhost kernel: [  162.087884]        [<c045a703>] __lock_acquire+0xa2a/0xbb5
 
-udp: Fix udp_poll() and ioctl()
+Dec  6 10:31:39 localhost kernel: [  162.087890]        [<c045a922>] lock_acquire+0x94/0xb1
+Dec  6 10:31:39 localhost kernel: [  162.087893]        [<c07324a6>] __mutex_lock_common+0x35/0x2dc
+Dec  6 10:31:39 localhost kernel: [  162.087898]        [<c07327eb>] mutex_lock_nested+0x30/0x38
+Dec  6 10:31:39 localhost kernel: [  162.087901]        [<f80f4b2a>] snd_pcm_release+0x55/0x9e [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.087913]        [<c04ca0b5>] __fput+0xf0/0x187
+Dec  6 10:31:39 localhost kernel: [  162.087918]        [<c04ca165>] fput+0x19/0x1b
+Dec  6 10:31:39 localhost kernel: [  162.087921]        [<c04b0d6b>] remove_vma+0x3e/0x5d
+Dec  6 10:31:39 localhost kernel: [  162.087926]        [<c04b19f0>] do_munmap+0x21c/0x237
+Dec  6 10:31:39 localhost kernel: [  162.087929]        [<c04b1a3b>] sys_munmap+0x30/0x3f
+Dec  6 10:31:39 localhost kernel: [  162.087932]        [<c040321d>] syscall_call+0x7/0xb
+Dec  6 10:31:39 localhost kernel: [  162.087937]
+Dec  6 10:31:39 localhost kernel: [  162.087938] -> #1 (&mm->mmap_sem){++++++}:
+Dec  6 10:31:39 localhost kernel: [  162.087942]        [<c045a703>] __lock_acquire+0xa2a/0xbb5
+Dec  6 10:31:39 localhost kernel: [  162.087946]        [<c045a922>] lock_acquire+0x94/0xb1
+Dec  6 10:31:39 localhost kernel: [  162.087949]        [<c04aba42>] might_fault+0x64/0x81
+Dec  6 10:31:39 localhost kernel: [  162.087952]        [<c05b34cc>] copy_to_user+0x2c/0xfc
+Dec  6 10:31:39 localhost kernel: [  162.087957]        [<c04d4879>] filldir+0x78/0xb7
+Dec  6 10:31:39 localhost kernel: [  162.087961]        [<c050c88d>] sysfs_readdir+0x117/0x14b
+Dec  6 10:31:39 localhost kernel: [  162.087964]        [<c04d49dd>] vfs_readdir+0x68/0x94
+Dec  6 10:31:39 localhost kernel: [  162.087968]        [<c04d4b0b>] sys_getdents+0x62/0xa1
+Dec  6 10:31:39 localhost kernel: [  162.087971]        [<c040321d>] syscall_call+0x7/0xb
+Dec  6 10:31:39 localhost kernel: [  162.087975]
+Dec  6 10:31:39 localhost kernel: [  162.087975] -> #0 (sysfs_mutex){+.+.+.}:
+Dec  6 10:31:39 localhost kernel: [  162.087979]        [<c045a610>] __lock_acquire+0x937/0xbb5
+Dec  6 10:31:39 localhost kernel: [  162.087983]        [<c045a922>] lock_acquire+0x94/0xb1
+Dec  6 10:31:39 localhost kernel: [  162.087986]        [<c07324a6>] __mutex_lock_common+0x35/0x2dc
+Dec  6 10:31:39 localhost kernel: [  162.087990]        [<c07327eb>] mutex_lock_nested+0x30/0x38
+Dec  6 10:31:39 localhost kernel: [  162.087993]        [<c050c99d>] sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.087996]        [<c050e03e>] sysfs_remove_group+0x1e/0xa3
+Dec  6 10:31:39 localhost kernel: [  162.088000]        [<c062bf50>] dpm_sysfs_remove+0x10/0x12
+Dec  6 10:31:39 localhost kernel: [  162.088006]        [<c0627108>] device_del+0x33/0x154
+Dec  6 10:31:39 localhost kernel: [  162.088010]        [<c0627251>] device_unregister+0x28/0x4b
+Dec  6 10:31:39 localhost kernel: [  162.088014]        [<c0678499>] usb_remove_ep_devs+0x15/0x1f
+Dec  6 10:31:39 localhost kernel: [  162.088018]        [<c0672ba2>] remove_intf_ep_devs+0x21/0x32
+Dec  6 10:31:39 localhost kernel: [  162.088023]        [<c0673b3a>] usb_set_interface+0x10c/0x19f
+Dec  6 10:31:39 localhost kernel: [  162.088027]        [<f832dce6>] snd_usb_capture_close+0x1e/0x37 [snd_usb_audio]
+Dec  6 10:31:39 localhost kernel: [  162.088040]        [<f80f4aac>] snd_pcm_release_substream+0x3d/0x66 [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.088050]        [<f80f4b31>] snd_pcm_release+0x5c/0x9e [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.088058]        [<c04ca0b5>] __fput+0xf0/0x187
+Dec  6 10:31:39 localhost kernel: [  162.088062]        [<c04ca165>] fput+0x19/0x1b
+Dec  6 10:31:39 localhost kernel: [  162.088065]        [<c04b0d6b>] remove_vma+0x3e/0x5d
+Dec  6 10:31:39 localhost kernel: [  162.088069]        [<c04b19f0>] do_munmap+0x21c/0x237
+Dec  6 10:31:39 localhost kernel: [  162.088072]        [<c04b1a3b>] sys_munmap+0x30/0x3f
+Dec  6 10:31:39 localhost kernel: [  162.088076]        [<c040321d>] syscall_call+0x7/0xb
+Dec  6 10:31:39 localhost kernel: [  162.088079]
+Dec  6 10:31:39 localhost kernel: [  162.088080] other info that might help us debug this:
+Dec  6 10:31:39 localhost kernel: [  162.088080]
+Dec  6 10:31:39 localhost kernel: [  162.088083] 2 locks held by pulseaudio/4506:
+Dec  6 10:31:39 localhost kernel: [  162.088085]  #0:  (&mm->mmap_sem){++++++}, at: [<c04b1a2e>] sys_munmap+0x23/0x3f
+Dec  6 10:31:39 localhost kernel: [  162.088090]  #1:  (&pcm->open_mutex){+.+.+.}, at: [<f80f4b2a>] snd_pcm_release+0x55/0x9e [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.088104]
+Dec  6 10:31:39 localhost kernel: [  162.088105] stack backtrace:
+Dec  6 10:31:39 localhost kernel: [  162.088108] Pid: 4506, comm: pulseaudio Not tainted 2.6.32v0 #1
+Dec  6 10:31:39 localhost kernel: [  162.088110] Call Trace:
+Dec  6 10:31:39 localhost kernel: [  162.088113]  [<c07312cc>] ? printk+0xf/0x13
+Dec  6 10:31:39 localhost kernel: [  162.088117]  [<c045999b>] print_circular_bug+0x91/0x9d
+Dec  6 10:31:39 localhost kernel: [  162.088121]  [<c045a610>] __lock_acquire+0x937/0xbb5
+Dec  6 10:31:39 localhost kernel: [  162.088124]  [<c04584f5>] ? save_trace+0x37/0xa3
+Dec  6 10:31:39 localhost kernel: [  162.088128]  [<c045a922>] lock_acquire+0x94/0xb1
+Dec  6 10:31:39 localhost kernel: [  162.088131]  [<c050c99d>] ? sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.088135]  [<c07324a6>] __mutex_lock_common+0x35/0x2dc
+Dec  6 10:31:39 localhost kernel: [  162.088138]  [<c050c99d>] ? sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.088141]  [<c0458f23>] ? mark_held_locks+0x43/0x5b
+Dec  6 10:31:39 localhost kernel: [  162.088145]  [<c04591bf>] ? trace_hardirqs_on+0xb/0xd
+Dec  6 10:31:39 localhost kernel: [  162.088148]  [<c07327eb>] mutex_lock_nested+0x30/0x38
+Dec  6 10:31:39 localhost kernel: [  162.088151]  [<c050c99d>] ? sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.088154]  [<c050c99d>] sysfs_get_dirent+0x15/0x35
+Dec  6 10:31:39 localhost kernel: [  162.088157]  [<c050e03e>] sysfs_remove_group+0x1e/0xa3
+Dec  6 10:31:39 localhost kernel: [  162.088161]  [<c062bf50>] dpm_sysfs_remove+0x10/0x12
+Dec  6 10:31:39 localhost kernel: [  162.088164]  [<c0627108>] device_del+0x33/0x154
+Dec  6 10:31:39 localhost kernel: [  162.088168]  [<c0627251>] device_unregister+0x28/0x4b
+Dec  6 10:31:39 localhost kernel: [  162.088171]  [<c0678499>] usb_remove_ep_devs+0x15/0x1f
+Dec  6 10:31:39 localhost kernel: [  162.088174]  [<c0672ba2>] remove_intf_ep_devs+0x21/0x32
+Dec  6 10:31:39 localhost kernel: [  162.088178]  [<c0673b3a>] usb_set_interface+0x10c/0x19f
+Dec  6 10:31:39 localhost kernel: [  162.088190]  [<f832dce6>] snd_usb_capture_close+0x1e/0x37 [snd_usb_audio]
+Dec  6 10:31:39 localhost kernel: [  162.088199]  [<f80f4aac>] snd_pcm_release_substream+0x3d/0x66 [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.088208]  [<f80f4b31>] snd_pcm_release+0x5c/0x9e [snd_pcm]
+Dec  6 10:31:39 localhost kernel: [  162.088211]  [<c04ca0b5>] __fput+0xf0/0x187
+Dec  6 10:31:39 localhost kernel: [  162.088215]  [<c04ca165>] fput+0x19/0x1b
+Dec  6 10:31:39 localhost kernel: [  162.088218]  [<c04b0d6b>] remove_vma+0x3e/0x5d
+Dec  6 10:31:39 localhost kernel: [  162.088221]  [<c04b19f0>] do_munmap+0x21c/0x237
+Dec  6 10:31:39 localhost kernel: [  162.088225]  [<c04b1a3b>] sys_munmap+0x30/0x3f
+Dec  6 10:31:39 localhost kernel: [  162.088228]  [<c040321d>] syscall_call+0x7/0xb
 
-Cheers,
-Chris
+> There's some libata implication at timestamp 13203.385345 but that
+> looks like it's just a fluke.
+
+hm.. I am running everything on a dm-crypted device with LVM, my ata is a mix
+of ancient 40/80 wire-flat-cable disks and sata.
 
 
-      
+
+> btw, why does your kernel say "To Be Filled By O.E.M." in the traces? 
+> The kernel.org kernel doesn't do that.  Is that kernel patched at all?
+
+strange, this was the first kernel in months that was not patched - even difffed 
+it against kernel.org to make sure.
+
+Richard
