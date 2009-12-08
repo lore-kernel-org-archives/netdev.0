@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT]: Networking
-Date: Tue, 08 Dec 2009 12:50:32 -0800 (PST)
-Message-ID: <20091208.125032.70743046.davem@davemloft.net>
-References: <20091205.193505.193701079.davem@davemloft.net>
-	<20091208194530.GA24530@elte.hu>
+Date: Tue, 8 Dec 2009 12:51:00 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0912081249060.3560@localhost.localdomain>
+References: <20091205.193505.193701079.davem@davemloft.net> <20091208194530.GA24530@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com
-To: mingo@elte.hu
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35864
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937868AbZLHUu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:50:26 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55154 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966033AbZLHUvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:51:19 -0500
 In-Reply-To: <20091208194530.GA24530@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 8 Dec 2009 20:45:30 +0100
 
+
+On Tue, 8 Dec 2009, Ingo Molnar wrote:
+
+> 
+> hi Dave,
+> 
 > i just switched to today's -git tree and there's this new build failure 
 > on x86:
 > 
@@ -31,5 +32,7 @@ Date: Tue, 8 Dec 2009 20:45:30 +0100
 > 
 > havent looked into it yet - config attached.
 
-It's probably a conflict with Eric Beiderman's sysctl cleanups that
-got merged in at the same time.
+That's my mismerge. I should have removed the strategy field too, not just 
+the ctr_name. My bad, will fix up,
+
+		Linus
