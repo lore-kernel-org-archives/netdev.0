@@ -1,72 +1,68 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH 12/12] ixgbevf: Kconfig, Makefile and Documentation
-Date: Tue, 8 Dec 2009 14:49:21 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F07558C0F4B7F@orsmsx508.amr.corp.intel.com>
-References: <20091208221258.28373.16663.stgit@localhost.localdomain>
-	<20091208221652.28373.22254.stgit@localhost.localdomain>
- <20091208144136.dff6ce84.randy.dunlap@oracle.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+ vhost-net
+Date: Tue, 08 Dec 2009 14:50:05 -0800
+Message-ID: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Randy Dunlap <randy.dunlap@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: rusty@rustcorp.com.au, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19358 "EHLO mga09.intel.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:54350 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966793AbZLHWt0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 17:49:26 -0500
-In-Reply-To: <20091208144136.dff6ce84.randy.dunlap@oracle.com>
-Content-Language: en-US
+	id S966427AbZLHWuC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 17:50:02 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e6.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id nB8MjaOv009176
+	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:45:36 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nB8Mo8b1132412
+	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:50:08 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nB8Mo7BC009759
+	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 17:50:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Randy Dunlap [mailto:randy.dunlap@oracle.com]
->Sent: Tuesday, December 08, 2009 2:42 PM
->To: Kirsher, Jeffrey T
->Cc: netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V
->Subject: Re: [RFC PATCH 12/12] ixgbevf: Kconfig, Makefile and
->Documentation
->
->> +The ixgbevf driver supports 82599-based virtual function devices that
->can only
->> +be activated on kernels with CONFIG_PCI_IOV enabled.
->> +
->> +The guest OS loading the ixgbevf driver must support MSI-X
->interrupts.
->
->Hi,
->
->Could the Kconfig language express some of these requirements, or
->am I confused between the host and the guest OS?
-[Rose, Gregory V] 
+When testing vhost-net patches with a guest running linux 2.6.32, i am
+running into "Unexpected full queue" warning messages from start_xmit() in
+virtio_net.c causing a lot of requeues and a drastic reduction in throughput.
 
-The guest OS must also support MSI-X interrupts.  It is a requirement of our VF device to use MSI-X.
+With a guest running 2.6.31, i get guest to host throughput around 7000Mb/s,
+but it drops to around 3200Mb/s with 2.6.32.
 
->
->
->> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->> index 0bbd5ae..a484415 100644
->> --- a/drivers/net/Kconfig
->> +++ b/drivers/net/Kconfig
->> @@ -2614,6 +2614,27 @@ config IXGBE_DCB
->>
->>  	  If unsure, say N.
->>
->> +config IXGBEVF
->> +       tristate "Intel(R) 82599 Virtual Function Ethernet support"
->> +       depends on PCI
->
->	depends on PCI_IOV && PCI_MSI
->??
->
-[Rose, Gregory V] 
+I don't see this problem with usermode virtio in qemu, but i get a thruput of
+only 2700Mb/s with both 2.6.31 and 2.6.32.
 
-The guest does not need to have IOV support configured to use the VF device but it does need MSI-X.  We'll incorporate this suggested change.
+The following patch fixes this problem by dropping the skb and not requeuing
+to qdisc when it cannot be added to ring buffer. With this patch, i see
+similar performance as 2.6.31 with vhost-net.
 
-Thanks for your comments.
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-- Greg
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b9e002f..307cfd6 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -528,7 +528,11 @@ again:
+ 			netif_start_queue(dev);
+ 			goto again;
+ 		}
+-		return NETDEV_TX_BUSY;
++
++		/* drop the skb under stress. */ 
++ 		vi->dev->stats.tx_dropped++;
++		kfree_skb(skb);
++		return NETDEV_TX_OK;
+ 	}
+ 	vi->svq->vq_ops->kick(vi->svq);
+ 
+
+Thanks
+Sridhar
+
+
+
+
 
