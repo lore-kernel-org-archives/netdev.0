@@ -1,79 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes
- of heavy surfing
-Date: Tue, 08 Dec 2009 04:03:30 +0100
-Message-ID: <4B1DC202.20607@gmail.com>
-References: <138412.20552.qm@web52903.mail.re2.yahoo.com>
+From: Robert Hancock <hancockrwd@gmail.com>
+Subject: Re: 2.6.32 regression, hard lock
+Date: Mon, 07 Dec 2009 21:16:00 -0600
+Message-ID: <4B1DC4F0.9050708@gmail.com>
+References: <20091206141419.GA6195@linux-m68k.org> <20091207143057.53c6a362.akpm@linux-foundation.org> <20091208004221.GA15968@hexapodia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Chris Rankin <rankincj@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38542 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756541AbZLHDEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 22:04:16 -0500
-In-Reply-To: <138412.20552.qm@web52903.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Richard Zidlicky <rz@linux-m68k.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andy Isaacson <adi@hexapodia.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935790AbZLHDQK@vger.kernel.org>
+In-Reply-To: <20091208004221.GA15968@hexapodia.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Chris Rankin a =C3=A9crit :
->=20
-> I saw something interesting in 2.6.31.7 about a crash due to fragment=
-ation:
->=20
-> ipv4: additional update of dev_net(dev) to struct *net in ip_fragment=
-=2Ec, NULL ptr OOPS
->=20
-> I'll try applying that patch too, to see if it makes any difference. =
-Along with that other UDP-related thing I noticed:
->=20
-> udp: Fix udp_poll() and ioctl()
->=20
+On 12/07/2009 06:42 PM, Andy Isaacson wrote:
+> On Mon, Dec 07, 2009 at 02:30:57PM -0800, Andrew Morton wrote:
+>> btw, why does your kernel say "To Be Filled By O.E.M." in the traces?
+>> The kernel.org kernel doesn't do that.  Is that kernel patched at all?
+>
+> That's traditional for DMI_PRODUCT_NAME in dodgy vendor BIOSes.  I
+> routinely see it on Intel evaluation boards and less frequently on
+> Taiwanese Brand X boards.
 
-Its all two years old UDP bugs (I spot another one some hours ago), and=
- very rare.
-I run heavy duty servers with lot of UDP trafic and never caught a _sin=
-gle_ error,
-I am quite suprised it could happen on your machine on demand.
-
-1) Do you have another NIC adapter to try ? It might be a buggy driver.
-  (Neil Horman found an error on Intel drivers some hours ago, that can=
- corrupt skbs)
-
-2) Could you add following debugging aid ?
-
-3) Any chance you can do a git bisect ?
-
-Thanks
-
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7d12c6a..5a7a456 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -147,10 +147,15 @@ void inet_sock_destruct(struct sock *sk)
- 		return;
- 	}
-=20
--	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
--	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
--	WARN_ON(sk->sk_wmem_queued);
--	WARN_ON(sk->sk_forward_alloc);
-+	WARN((atomic_read(&sk->sk_rmem_alloc) | atomic_read(&sk->sk_wmem_allo=
-c) |
-+	     sk->sk_wmem_queued | sk->sk_forward_alloc) !=3D 0,
-+	     "%s socket sk_rmem_alloc=3D%d sk_wmem_alloc=3D%d "
-+	     "sk_wmem_queued=3D%d sk_forward_alloc=3D%d\n",
-+	     sk->sk_prot->name,
-+	     atomic_read(&sk->sk_rmem_alloc),
-+	     atomic_read(&sk->sk_wmem_alloc),
-+	     sk->sk_wmem_queued,
-+	     sk->sk_forward_alloc);
-=20
- 	kfree(inet->opt);
- 	dst_release(sk->sk_dst_cache);
+It seems like the DMI board product name would be more useful than the 
+system product name to print out in those messages (for kerneloops.org 
+use, etc) as the system name is so frequently populated with such dummy 
+values. My Asus P7P55D has the product name set to "System Product Name" 
+which obviously isn't very unique or useful. Most likely only big-name 
+manufactured systems would have a chance of filling that in properly.
