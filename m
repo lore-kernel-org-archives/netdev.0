@@ -1,79 +1,38 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: IPv6: presentation format for zero scope ID
-Date: Tue, 8 Dec 2009 11:08:01 -0500
-Message-ID: <2146C217-21C6-4F38-B056-EDCD40E3DE1D@oracle.com>
-References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Developers <netdev@vger.kernel.org>,
-	Jeff Layton <jlayton@redhat.com>
-To: Brian Haley <brian.haley@hp.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [Bugme-new] [Bug 14702] New: via_rhine: Extremaly drop speed
+ after days of work
+Date: Tue, 8 Dec 2009 17:24:10 +0100
+Message-ID: <20091208162410.GA31049@core.hellgate.ch>
+References: <bug-14702-10286@http.bugzilla.kernel.org/>
+ <20091201153817.b2936c8a.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bbugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	rom_as@oscada.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:28193 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932433AbZLHQJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 11:09:25 -0500
-In-Reply-To: <4B1DC794.5020406@hp.com>
+Received: from mail13.bluewin.ch ([195.186.18.62]:25335 "EHLO
+	mail13.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932447AbZLHQbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 11:31:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20091201153817.b2936c8a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 7, 2009, at 10:27 PM, Brian Haley wrote:
-> Chuck Lever wrote:
->> I recently added some functions to sunrpc.ko that behave like
->> getnameinfo(AI_NUMERICHOST) does in user space.
->>
->> One of the functions, rpc_ntop6(), sticks a scope ID on the end of  
->> link-
->> and site-local IPv6 addresses.  It does not try to map the scope ID  
->> to a
->> device name.
->
-> Site-local addresses have been deprecated...
->
->> It has been pointed out, however, that glibc's getnameinfo(3) skips
->> appending a device name if the scope ID is zero.  Should rpc_ntop6()
->> display or ignore zero scope IDs?
->
-> A zero scope id implies it's not set, so I would ignore it.  Things  
-> like
-> *bind() and *connect() already do this.
->
->> Would it be better if it also
->> converted scope IDs to device names?
->
-> *nix typically uses %eth0, Windows uses %1, so I guess if it's for
-> display purposes I'd do the same thing all the tools use - %name.
-> This isn't being put in a packet, is it?
+On Tue, 01 Dec 2009 15:38:17 -0800, Andrew Morton wrote:
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Fri, 27 Nov 2009 19:42:39 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=14702
 
-RPC uses presentation format addresses for lots of things.  Such a  
-presentation address will go on the wire in the form of a universal  
-address.  uaddrs were around before scope IDs were invented, so they  
-don't support or use the %n or %dev notation.  Naturally the scope ID  
-doesn't have meaning for other systems anyway.
+A reliable method for reproducing the problem would be an important first
+step. I can give it a try on my Rhine-III gear, but the bug report is a
+bit thin on details.
 
-Such an address can also be used for RPC cache upcalls to user space  
-daemons.  A scope ID would potentially have meaning in that case.
-
-So it sounds like it would be reasonable to:
-
-a) squelch appending "%n" if n is zero, and
-
-b) append a device name instead of an integer scope ID
-
->> I'm not familiar enough with the IETF mandates regarding presentation
->> address format, or the idiosyncrasies of the Linux IPv6  
->> implementation,
->> to know what is the desired behavior here.  Any guidance appreciated.
->
-> The URI spec (RFC 3986) doesn't cover scope id's, so it winds-up being
-> implementor's choice.
->
-> -Brian
-
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
-
-
-
+Roger
