@@ -1,125 +1,59 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 06/20] net/atm/clip.c: checkpatch cleanups
-Date: Mon,  7 Dec 2009 21:57:02 -0800
-Message-ID: <594a0f113659ffff060149e359dd16819af7100c.1260251570.git.joe@perches.com>
-References: <cover.1260251570.git.joe@perches.com>
+Subject: [PATCH 00/20] net/atm: Cleanups
+Date: Mon,  7 Dec 2009 21:56:56 -0800
+Message-ID: <cover.1260251570.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1048 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1036 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932381AbZLHF5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 00:57:12 -0500
-In-Reply-To: <cover.1260251570.git.joe@perches.com>
+	id S932381AbZLHF5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Dec 2009 00:57:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Includes some or all of these:
+Reduced checkpatch complaints, added a couple of cleanup functions
+to reduce indentation levels
 
-Mostly 80 column wrapped.
-printk->pr_info and pr_cont
-Use print_hex_dump
-Use __func__ for embedded print strings
-Move embedded assigns out of tests
-Move trailing statements to new lines
-switch/case cleanups
-    removed breaks after returns
-Removed paren around returns
-Use %pM
-Moved leading continuation logical tests to end of previous line
+Joe Perches (20):
+  net/atm: Convert printk to pr_<level>
+  net/atm/addr.c: checkpatch cleanups
+  net/atm/atm_misc.c: checkpatch cleanups
+  net/atm/atm_sysfs.c: checkpatch cleanups
+  net/atm/br2684.c: checkpatch cleanups
+  net/atm/clip.c: checkpatch cleanups
+  net/atm/common.c: checkpatch cleanups
+  net/atm/ioctl.c: checkpatch cleanups
+  net/atm/lec.c: checkpatch cleanups
+  net/atm/mpc.c: checkpatch cleanups
+  net/atm/mpoa_caches.c: checkpatch cleanups
+  net/atm/mpoa_proc.c: checkpatch cleanups
+  net/atm/pppoatm.c: checkpatch cleanups
+  net/atm/proc.c: checkpatch cleanups
+  net/atm/pvc.c: checkpatch cleanups
+  net/atm/raw.c: checkpatch cleanups
+  net/atm/resources.c: checkpatch cleanups
+  net/atm/signaling.c: checkpatch cleanups
+  net/atm/svc.c: checkpatch cleanups
+  net/atm/lec.c: Add __lec_arp_check_expire and other cleanups
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/atm/clip.c |   26 ++++++++++++--------------
- 1 files changed, 12 insertions(+), 14 deletions(-)
-
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index d7939fd..ebfa022 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -32,10 +32,10 @@
- #include <linux/jhash.h>
- #include <net/route.h> /* for struct rtable and routing */
- #include <net/icmp.h> /* icmp_send */
--#include <asm/param.h> /* for HZ */
-+#include <linux/param.h> /* for HZ */
-+#include <linux/uaccess.h>
- #include <asm/byteorder.h> /* for htons etc. */
- #include <asm/system.h> /* save/restore_flags */
--#include <asm/uaccess.h>
- #include <asm/atomic.h>
- 
- #include "common.h"
-@@ -56,10 +56,10 @@ static int to_atmarpd(enum atmarp_ctrl_type type, int itf, __be32 ip)
- 	pr_debug("(%d)\n", type);
- 	if (!atmarpd)
- 		return -EUNATCH;
--	skb = alloc_skb(sizeof(struct atmarp_ctrl),GFP_ATOMIC);
-+	skb = alloc_skb(sizeof(struct atmarp_ctrl), GFP_ATOMIC);
- 	if (!skb)
- 		return -ENOMEM;
--	ctrl = (struct atmarp_ctrl *) skb_put(skb,sizeof(struct atmarp_ctrl));
-+	ctrl = (struct atmarp_ctrl *)skb_put(skb, sizeof(struct atmarp_ctrl));
- 	ctrl->type = type;
- 	ctrl->itf_num = itf;
- 	ctrl->ip = ip;
-@@ -111,7 +111,7 @@ static void unlink_clip_vcc(struct clip_vcc *clip_vcc)
- 			goto out;
- 		}
- 	pr_crit("ATMARP: failed (entry %p, vcc 0x%p)\n", entry, clip_vcc);
--      out:
-+out:
- 	netif_tx_unlock_bh(entry->neigh->dev);
- }
- 
-@@ -205,12 +205,12 @@ static void clip_push(struct atm_vcc *vcc, struct sk_buff *skb)
- 	}
- 	ATM_SKB(skb)->vcc = vcc;
- 	skb_reset_mac_header(skb);
--	if (!clip_vcc->encap
--	    || skb->len < RFC1483LLC_LEN
--	    || memcmp(skb->data, llc_oui, sizeof (llc_oui)))
-+	if (!clip_vcc->encap ||
-+	    skb->len < RFC1483LLC_LEN ||
-+	    memcmp(skb->data, llc_oui, sizeof(llc_oui)))
- 		skb->protocol = htons(ETH_P_IP);
- 	else {
--		skb->protocol = ((__be16 *) skb->data)[3];
-+		skb->protocol = ((__be16 *)skb->data)[3];
- 		skb_pull(skb, RFC1483LLC_LEN);
- 		if (skb->protocol == htons(ETH_P_ARP)) {
- 			skb->dev->stats.rx_packets++;
-@@ -644,7 +644,6 @@ static int clip_inet_event(struct notifier_block *this, unsigned long event,
- 	return clip_device_event(this, NETDEV_CHANGE, in_dev->dev);
- }
- 
--
- static struct notifier_block clip_dev_notifier = {
- 	.notifier_call = clip_device_event,
- };
-@@ -670,7 +669,6 @@ static void atmarpd_close(struct atm_vcc *vcc)
- 	module_put(THIS_MODULE);
- }
- 
--
- static struct atmdev_ops atmarpd_dev_ops = {
- 	.close = atmarpd_close
- };
-@@ -692,11 +690,11 @@ static int atm_init_atmarp(struct atm_vcc *vcc)
- 		return -EADDRINUSE;
- 	}
- 
--	mod_timer(&idle_timer, jiffies+CLIP_CHECK_INTERVAL*HZ);
-+	mod_timer(&idle_timer, jiffies + CLIP_CHECK_INTERVAL * HZ);
- 
- 	atmarpd = vcc;
--	set_bit(ATM_VF_META,&vcc->flags);
--	set_bit(ATM_VF_READY,&vcc->flags);
-+	set_bit(ATM_VF_META, &vcc->flags);
-+	set_bit(ATM_VF_READY, &vcc->flags);
- 	    /* allow replies and avoid getting closed if signaling dies */
- 	vcc->dev = &atmarpd_dev;
- 	vcc_insert_socket(sk_atm(vcc));
--- 
-1.6.6.rc0.57.gad7a
+ net/atm/addr.c        |    2 +-
+ net/atm/atm_misc.c    |   40 ++--
+ net/atm/atm_sysfs.c   |   27 ++-
+ net/atm/br2684.c      |   90 ++++----
+ net/atm/clip.c        |   86 ++++----
+ net/atm/common.c      |  386 ++++++++++++++++---------------
+ net/atm/ioctl.c       |  196 ++++++++--------
+ net/atm/lec.c         |  601 +++++++++++++++++++++++--------------------------
+ net/atm/mpc.c         |  443 +++++++++++++++++++++----------------
+ net/atm/mpoa_caches.c |  154 +++++++------
+ net/atm/mpoa_proc.c   |   65 +++---
+ net/atm/pppoatm.c     |   28 ++-
+ net/atm/proc.c        |   81 ++++---
+ net/atm/pvc.c         |   43 ++--
+ net/atm/raw.c         |   26 +--
+ net/atm/resources.c   |  402 ++++++++++++++++-----------------
+ net/atm/signaling.c   |  219 +++++++++---------
+ net/atm/svc.c         |  258 +++++++++++-----------
+ 18 files changed, 1589 insertions(+), 1558 deletions(-)
 
