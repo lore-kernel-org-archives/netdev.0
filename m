@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 08 Dec 2009 12:52:11 -0800 (PST)
-Message-ID: <20091208.125211.110155993.davem@davemloft.net>
-References: <20091205.193505.193701079.davem@davemloft.net>
-	<20091208194530.GA24530@elte.hu>
-	<alpine.LFD.2.00.0912081249060.3560@localhost.localdomain>
+Subject: Re: ipv6: why disable ipv6 on last address removal?
+Date: Tue, 08 Dec 2009 12:56:11 -0800 (PST)
+Message-ID: <20091208.125611.135547597.davem@davemloft.net>
+References: <20091208192046.GA5649@midget.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966133AbZLHUwJ@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0912081249060.3560@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: jbohac@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53433
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966102AbZLHU4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 15:56:05 -0500
+In-Reply-To: <20091208192046.GA5649@midget.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 8 Dec 2009 12:51:00 -0800 (PST)
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Tue, 8 Dec 2009 20:20:46 +0100
 
-> That's my mismerge. I should have removed the strategy field too, not just 
-> the ctr_name. My bad, will fix up,
+> Is there any reason why inet6_addr_del needs to sets how=1 and
+> disable IPv6 even more than "ifconfig down" does?
 
-Thanks everyone for working to fix this up.
+All I can say is that this behavior is definitely on purpose, although
+I don't exactly remember why.
+
+And although it helps you, it could also break things for other people
+who expect the current behavior.
+
+Some people definitely expect no IPV6 at all in any way shape or
+form if they have not assigned IPV6 addresses to an interface.
