@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC PATCH 07/12] ixgbevf: Macros, data structures,
-	useful defines and registers
-Date: Tue, 08 Dec 2009 14:15:14 -0800
-Message-ID: <20091208221513.28373.64700.stgit@localhost.localdomain>
+Subject: [RFC PATCH 08/12] ixgbevf: 82599 Virtual Function core functions and
+	header
+Date: Tue, 08 Dec 2009 14:15:34 -0800
+Message-ID: <20091208221533.28373.77319.stgit@localhost.localdomain>
 References: <20091208221258.28373.16663.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,37 +12,36 @@ Cc: gospo@redhat.com, Greg Rose <gregory.v.rose@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:32771 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966723AbZLHWPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 17:15:25 -0500
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:51320
+	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966714AbZLHWPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 17:15:46 -0500
 In-Reply-To: <20091208221258.28373.16663.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-These two headers define the commonly used macros, data structures,
-register bits and register offsets used by the ixgbevf driver on the
-82599 virtual function device
+This module and header file contain the core functions for the 82599
+virtual function device.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbevf/defines.h |  301 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbevf/regs.h    |   85 ++++++++++++
- 2 files changed, 386 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ixgbevf/defines.h
- create mode 100644 drivers/net/ixgbevf/regs.h
+ drivers/net/ixgbevf/vf.c |  404 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbevf/vf.h |  168 +++++++++++++++++++
+ 2 files changed, 572 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ixgbevf/vf.c
+ create mode 100644 drivers/net/ixgbevf/vf.h
 
-diff --git a/drivers/net/ixgbevf/defines.h b/drivers/net/ixgbevf/defines.h
+diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
 new file mode 100644
-index 0000000..b111771
+index 0000000..22cccc5
 --- /dev/null
-+++ b/drivers/net/ixgbevf/defines.h
-@@ -0,0 +1,301 @@
++++ b/drivers/net/ixgbevf/vf.c
+@@ -0,0 +1,404 @@
 +/*******************************************************************************
 +
 +  Intel 82599 Virtual Function driver
@@ -70,286 +69,389 @@ index 0000000..b111771
 +
 +*******************************************************************************/
 +
-+#ifndef _IXGBEVF_DEFINES_H_
-+#define _IXGBEVF_DEFINES_H_
++#include "vf.h"
 +
-+/* Device IDs */
-+#define IXGBE_DEV_ID_82599_VF           0x10ED
++static s32 ixgbevf_init_hw_vf(struct ixgbe_hw *hw);
++static s32 ixgbevf_start_hw_vf(struct ixgbe_hw *hw);
++static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw);
++static s32 ixgbevf_stop_hw_vf(struct ixgbe_hw *hw);
++static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr);
++static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
++				   ixgbe_link_speed speed, bool autoneg,
++				   bool autoneg_wait_to_complete);
++static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
++				   ixgbe_link_speed *speed,
++				   bool *link_up,
++				   bool autoneg_wait_to_complete);
++static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
++			      u32 vmdq);
++static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
++					u32 mc_addr_count, ixgbe_mc_addr_itr);
++static s32 ixgbevf_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
++			     bool vlan_on);
 +
-+#define IXGBE_VF_IRQ_CLEAR_MASK         7
-+#define IXGBE_VF_MAX_TX_QUEUES          1
-+#define IXGBE_VF_MAX_RX_QUEUES          1
-+#define IXGBE_ETH_LENGTH_OF_ADDRESS     6
++/**
++ *  ixgbevf_start_hw_vf - Prepare hardware for Tx/Rx
++ *  @hw: pointer to hardware structure
++ *
++ *  Starts the hardware by filling the bus info structure and media type, clears
++ *  all on chip counters, initializes receive address registers, multicast
++ *  table, VLAN filter table, calls routine to set up link and flow control
++ *  settings, and leaves transmit and receive units disabled and uninitialized
++ **/
++static s32 ixgbevf_start_hw_vf(struct ixgbe_hw *hw)
++{
++	/* Clear adapter stopped flag */
++	hw->adapter_stopped = false;
 +
-+/* Link speed */
-+typedef u32 ixgbe_link_speed;
-+#define IXGBE_LINK_SPEED_1GB_FULL       0x0020
-+#define IXGBE_LINK_SPEED_10GB_FULL      0x0080
++	return 0;
++}
 +
-+#define IXGBE_CTRL_RST          0x04000000 /* Reset (SW) */
-+#define IXGBE_RXDCTL_ENABLE     0x02000000 /* Enable specific Rx Queue */
-+#define IXGBE_TXDCTL_ENABLE     0x02000000 /* Enable specific Tx Queue */
-+#define IXGBE_LINKS_UP          0x40000000
-+#define IXGBE_LINKS_SPEED       0x20000000
++/**
++ *  ixgbevf_init_hw_vf - virtual function hardware initialization
++ *  @hw: pointer to hardware structure
++ *
++ *  Initialize the hardware by resetting the hardware and then starting
++ *  the hardware
++ **/
++static s32 ixgbevf_init_hw_vf(struct ixgbe_hw *hw)
++{
++	s32 status = hw->mac.ops.start_hw(hw);
 +
-+/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
-+#define IXGBE_REQ_TX_DESCRIPTOR_MULTIPLE  8
-+#define IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE  8
-+#define IXGBE_REQ_TX_BUFFER_GRANULARITY   1024
++	hw->mac.ops.get_mac_addr(hw, hw->mac.addr);
 +
-+/* Interrupt Vector Allocation Registers */
-+#define IXGBE_IVAR_ALLOC_VAL    0x80 /* Interrupt Allocation valid */
++	return status;
++}
 +
-+#define IXGBE_VF_INIT_TIMEOUT   200 /* Number of retries to clear RSTI */
++/**
++ *  ixgbevf_reset_hw_vf - Performs hardware reset
++ *  @hw: pointer to hardware structure
++ *
++ *  Resets the hardware by reseting the transmit and receive units, masks and
++ *  clears all interrupts.
++ **/
++static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
++{
++	struct ixgbe_mbx_info *mbx = &hw->mbx;
++	u32 timeout = IXGBE_VF_INIT_TIMEOUT;
++	s32 ret_val = IXGBE_ERR_INVALID_MAC_ADDR;
++	u32 msgbuf[IXGBE_VF_PERMADDR_MSG_LEN];
++	u8 *addr = (u8 *)(&msgbuf[1]);
 +
-+/* Receive Config masks */
-+#define IXGBE_RXCTRL_RXEN       0x00000001  /* Enable Receiver */
-+#define IXGBE_RXCTRL_DMBYPS     0x00000002  /* Descriptor Monitor Bypass */
-+#define IXGBE_RXDCTL_ENABLE     0x02000000  /* Enable specific Rx Queue */
-+#define IXGBE_RXDCTL_VME        0x40000000  /* VLAN mode enable */
++	/* Call adapter stop to disable tx/rx and clear interrupts */
++	hw->mac.ops.stop_adapter(hw);
 +
-+/* DCA Control */
-+#define IXGBE_DCA_TXCTRL_TX_WB_RO_EN (1 << 11) /* Tx Desc writeback RO bit */
++	IXGBE_WRITE_REG(hw, IXGBE_VFCTRL, IXGBE_CTRL_RST);
++	IXGBE_WRITE_FLUSH(hw);
 +
-+/* Check whether address is multicast.  This is little-endian specific check.*/
-+#define IXGBE_IS_MULTICAST(Address) \
-+	(bool)(((u8 *)(Address))[0] & ((u8)0x01))
++	/* we cannot reset while the RSTI / RSTD bits are asserted */
++	while (!mbx->ops.check_for_rst(hw) && timeout) {
++		timeout--;
++		udelay(5);
++	}
 +
-+/* Check whether an address is broadcast. */
-+#define IXGBE_IS_BROADCAST(Address)              \
-+	((((u8 *)(Address))[0] == ((u8)0xFF)) && \
-+	 (((u8 *)(Address))[1] == ((u8)0xFF)))
++	if (timeout) {
++		/* mailbox timeout can now become active */
++		mbx->timeout = IXGBE_VF_MBX_INIT_TIMEOUT;
 +
-+/* PSRTYPE bit definitions */
-+#define IXGBE_PSRTYPE_TCPHDR    0x00000010
-+#define IXGBE_PSRTYPE_UDPHDR    0x00000020
-+#define IXGBE_PSRTYPE_IPV4HDR   0x00000100
-+#define IXGBE_PSRTYPE_IPV6HDR   0x00000200
-+#define IXGBE_PSRTYPE_L2HDR     0x00001000
++		msgbuf[0] = IXGBE_VF_RESET;
++		mbx->ops.write_posted(hw, msgbuf, 1);
 +
-+/* SRRCTL bit definitions */
-+#define IXGBE_SRRCTL_BSIZEPKT_SHIFT     10     /* so many KBs */
-+#define IXGBE_SRRCTL_RDMTS_SHIFT        22
-+#define IXGBE_SRRCTL_RDMTS_MASK         0x01C00000
-+#define IXGBE_SRRCTL_DROP_EN            0x10000000
-+#define IXGBE_SRRCTL_BSIZEPKT_MASK      0x0000007F
-+#define IXGBE_SRRCTL_BSIZEHDR_MASK      0x00003F00
-+#define IXGBE_SRRCTL_DESCTYPE_LEGACY    0x00000000
-+#define IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF 0x02000000
-+#define IXGBE_SRRCTL_DESCTYPE_HDR_SPLIT  0x04000000
-+#define IXGBE_SRRCTL_DESCTYPE_HDR_REPLICATION_LARGE_PKT 0x08000000
-+#define IXGBE_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS 0x0A000000
-+#define IXGBE_SRRCTL_DESCTYPE_MASK      0x0E000000
++		msleep(10);
 +
-+/* Receive Descriptor bit definitions */
-+#define IXGBE_RXD_STAT_DD         0x01    /* Descriptor Done */
-+#define IXGBE_RXD_STAT_EOP        0x02    /* End of Packet */
-+#define IXGBE_RXD_STAT_FLM        0x04    /* FDir Match */
-+#define IXGBE_RXD_STAT_VP         0x08    /* IEEE VLAN Packet */
-+#define IXGBE_RXDADV_NEXTP_MASK   0x000FFFF0 /* Next Descriptor Index */
-+#define IXGBE_RXDADV_NEXTP_SHIFT  0x00000004
-+#define IXGBE_RXD_STAT_UDPCS      0x10    /* UDP xsum calculated */
-+#define IXGBE_RXD_STAT_L4CS       0x20    /* L4 xsum calculated */
-+#define IXGBE_RXD_STAT_IPCS       0x40    /* IP xsum calculated */
-+#define IXGBE_RXD_STAT_PIF        0x80    /* passed in-exact filter */
-+#define IXGBE_RXD_STAT_CRCV       0x100   /* Speculative CRC Valid */
-+#define IXGBE_RXD_STAT_VEXT       0x200   /* 1st VLAN found */
-+#define IXGBE_RXD_STAT_UDPV       0x400   /* Valid UDP checksum */
-+#define IXGBE_RXD_STAT_DYNINT     0x800   /* Pkt caused INT via DYNINT */
-+#define IXGBE_RXD_STAT_TS         0x10000 /* Time Stamp */
-+#define IXGBE_RXD_STAT_SECP       0x20000 /* Security Processing */
-+#define IXGBE_RXD_STAT_LB         0x40000 /* Loopback Status */
-+#define IXGBE_RXD_STAT_ACK        0x8000  /* ACK Packet indication */
-+#define IXGBE_RXD_ERR_CE          0x01    /* CRC Error */
-+#define IXGBE_RXD_ERR_LE          0x02    /* Length Error */
-+#define IXGBE_RXD_ERR_PE          0x08    /* Packet Error */
-+#define IXGBE_RXD_ERR_OSE         0x10    /* Oversize Error */
-+#define IXGBE_RXD_ERR_USE         0x20    /* Undersize Error */
-+#define IXGBE_RXD_ERR_TCPE        0x40    /* TCP/UDP Checksum Error */
-+#define IXGBE_RXD_ERR_IPE         0x80    /* IP Checksum Error */
-+#define IXGBE_RXDADV_ERR_MASK     0xFFF00000 /* RDESC.ERRORS mask */
-+#define IXGBE_RXDADV_ERR_SHIFT    20         /* RDESC.ERRORS shift */
-+#define IXGBE_RXDADV_ERR_HBO      0x00800000 /*Header Buffer Overflow */
-+#define IXGBE_RXDADV_ERR_CE       0x01000000 /* CRC Error */
-+#define IXGBE_RXDADV_ERR_LE       0x02000000 /* Length Error */
-+#define IXGBE_RXDADV_ERR_PE       0x08000000 /* Packet Error */
-+#define IXGBE_RXDADV_ERR_OSE      0x10000000 /* Oversize Error */
-+#define IXGBE_RXDADV_ERR_USE      0x20000000 /* Undersize Error */
-+#define IXGBE_RXDADV_ERR_TCPE     0x40000000 /* TCP/UDP Checksum Error */
-+#define IXGBE_RXDADV_ERR_IPE      0x80000000 /* IP Checksum Error */
-+#define IXGBE_RXD_VLAN_ID_MASK    0x0FFF  /* VLAN ID is in lower 12 bits */
-+#define IXGBE_RXD_PRI_MASK        0xE000  /* Priority is in upper 3 bits */
-+#define IXGBE_RXD_PRI_SHIFT       13
-+#define IXGBE_RXD_CFI_MASK        0x1000  /* CFI is bit 12 */
-+#define IXGBE_RXD_CFI_SHIFT       12
++		/* set our "perm_addr" based on info provided by PF */
++		/* also set up the mc_filter_type which is piggy backed
++		 * on the mac address in word 3 */
++		ret_val = mbx->ops.read_posted(hw, msgbuf,
++					       IXGBE_VF_PERMADDR_MSG_LEN);
++		if (!ret_val) {
++			if (msgbuf[0] == (IXGBE_VF_RESET |
++					  IXGBE_VT_MSGTYPE_ACK)) {
++				memcpy(hw->mac.perm_addr, addr,
++				       IXGBE_ETH_LENGTH_OF_ADDRESS);
++				hw->mac.mc_filter_type =
++					msgbuf[IXGBE_VF_MC_TYPE_WORD];
++			} else {
++				ret_val = IXGBE_ERR_INVALID_MAC_ADDR;
++			}
++		}
++	}
 +
-+#define IXGBE_RXDADV_STAT_DD            IXGBE_RXD_STAT_DD  /* Done */
-+#define IXGBE_RXDADV_STAT_EOP           IXGBE_RXD_STAT_EOP /* End of Packet */
-+#define IXGBE_RXDADV_STAT_FLM           IXGBE_RXD_STAT_FLM /* FDir Match */
-+#define IXGBE_RXDADV_STAT_VP            IXGBE_RXD_STAT_VP  /* IEEE VLAN Pkt */
-+#define IXGBE_RXDADV_STAT_MASK          0x000FFFFF /* Stat/NEXTP: bit 0-19 */
-+#define IXGBE_RXDADV_STAT_FCEOFS        0x00000040 /* FCoE EOF/SOF Stat */
-+#define IXGBE_RXDADV_STAT_FCSTAT        0x00000030 /* FCoE Pkt Stat */
-+#define IXGBE_RXDADV_STAT_FCSTAT_NOMTCH 0x00000000 /* 00: No Ctxt Match */
-+#define IXGBE_RXDADV_STAT_FCSTAT_NODDP  0x00000010 /* 01: Ctxt w/o DDP */
-+#define IXGBE_RXDADV_STAT_FCSTAT_FCPRSP 0x00000020 /* 10: Recv. FCP_RSP */
-+#define IXGBE_RXDADV_STAT_FCSTAT_DDP    0x00000030 /* 11: Ctxt w/ DDP */
++	return ret_val;
++}
 +
-+#define IXGBE_RXDADV_RSSTYPE_MASK       0x0000000F
-+#define IXGBE_RXDADV_PKTTYPE_MASK       0x0000FFF0
-+#define IXGBE_RXDADV_PKTTYPE_MASK_EX    0x0001FFF0
-+#define IXGBE_RXDADV_HDRBUFLEN_MASK     0x00007FE0
-+#define IXGBE_RXDADV_RSCCNT_MASK        0x001E0000
-+#define IXGBE_RXDADV_RSCCNT_SHIFT       17
-+#define IXGBE_RXDADV_HDRBUFLEN_SHIFT    5
-+#define IXGBE_RXDADV_SPLITHEADER_EN     0x00001000
-+#define IXGBE_RXDADV_SPH                0x8000
++/**
++ *  ixgbevf_stop_hw_vf - Generic stop Tx/Rx units
++ *  @hw: pointer to hardware structure
++ *
++ *  Sets the adapter_stopped flag within ixgbe_hw struct. Clears interrupts,
++ *  disables transmit and receive units. The adapter_stopped flag is used by
++ *  the shared code and drivers to determine if the adapter is in a stopped
++ *  state and should not touch the hardware.
++ **/
++static s32 ixgbevf_stop_hw_vf(struct ixgbe_hw *hw)
++{
++	u32 number_of_queues;
++	u32 reg_val;
++	u16 i;
 +
-+#define IXGBE_RXD_ERR_FRAME_ERR_MASK ( \
-+				      IXGBE_RXD_ERR_CE |  \
-+				      IXGBE_RXD_ERR_LE |  \
-+				      IXGBE_RXD_ERR_PE |  \
-+				      IXGBE_RXD_ERR_OSE | \
-+				      IXGBE_RXD_ERR_USE)
++	/*
++	 * Set the adapter_stopped flag so other driver functions stop touching
++	 * the hardware
++	 */
++	hw->adapter_stopped = true;
 +
-+#define IXGBE_RXDADV_ERR_FRAME_ERR_MASK ( \
-+					 IXGBE_RXDADV_ERR_CE |  \
-+					 IXGBE_RXDADV_ERR_LE |  \
-+					 IXGBE_RXDADV_ERR_PE |  \
-+					 IXGBE_RXDADV_ERR_OSE | \
-+					 IXGBE_RXDADV_ERR_USE)
++	/* Disable the receive unit by stopped each queue */
++	number_of_queues = hw->mac.max_rx_queues;
++	for (i = 0; i < number_of_queues; i++) {
++		reg_val = IXGBE_READ_REG(hw, IXGBE_VFRXDCTL(i));
++		if (reg_val & IXGBE_RXDCTL_ENABLE) {
++			reg_val &= ~IXGBE_RXDCTL_ENABLE;
++			IXGBE_WRITE_REG(hw, IXGBE_VFRXDCTL(i), reg_val);
++		}
++	}
 +
-+#define IXGBE_TXD_POPTS_IXSM 0x01       /* Insert IP checksum */
-+#define IXGBE_TXD_POPTS_TXSM 0x02       /* Insert TCP/UDP checksum */
-+#define IXGBE_TXD_CMD_EOP    0x01000000 /* End of Packet */
-+#define IXGBE_TXD_CMD_IFCS   0x02000000 /* Insert FCS (Ethernet CRC) */
-+#define IXGBE_TXD_CMD_IC     0x04000000 /* Insert Checksum */
-+#define IXGBE_TXD_CMD_RS     0x08000000 /* Report Status */
-+#define IXGBE_TXD_CMD_DEXT   0x20000000 /* Descriptor extension (0 = legacy) */
-+#define IXGBE_TXD_CMD_VLE    0x40000000 /* Add VLAN tag */
-+#define IXGBE_TXD_STAT_DD    0x00000001 /* Descriptor Done */
++	IXGBE_WRITE_FLUSH(hw);
 +
-+/* Transmit Descriptor - Advanced */
-+union ixgbe_adv_tx_desc {
-+	struct {
-+		__le64 buffer_addr;      /* Address of descriptor's data buf */
-+		__le32 cmd_type_len;
-+		__le32 olinfo_status;
-+	} read;
-+	struct {
-+		__le64 rsvd;       /* Reserved */
-+		__le32 nxtseq_seed;
-+		__le32 status;
-+	} wb;
++	/* Clear interrupt mask to stop from interrupts being generated */
++	IXGBE_WRITE_REG(hw, IXGBE_VTEIMC, IXGBE_VF_IRQ_CLEAR_MASK);
++
++	/* Clear any pending interrupts */
++	IXGBE_READ_REG(hw, IXGBE_VTEICR);
++
++	/* Disable the transmit unit.  Each queue must be disabled. */
++	number_of_queues = hw->mac.max_tx_queues;
++	for (i = 0; i < number_of_queues; i++) {
++		reg_val = IXGBE_READ_REG(hw, IXGBE_VFTXDCTL(i));
++		if (reg_val & IXGBE_TXDCTL_ENABLE) {
++			reg_val &= ~IXGBE_TXDCTL_ENABLE;
++			IXGBE_WRITE_REG(hw, IXGBE_VFTXDCTL(i), reg_val);
++		}
++	}
++
++	return 0;
++}
++
++/**
++ *  ixgbevf_mta_vector - Determines bit-vector in multicast table to set
++ *  @hw: pointer to hardware structure
++ *  @mc_addr: the multicast address
++ *
++ *  Extracts the 12 bits, from a multicast address, to determine which
++ *  bit-vector to set in the multicast table. The hardware uses 12 bits, from
++ *  incoming rx multicast addresses, to determine the bit-vector to check in
++ *  the MTA. Which of the 4 combination, of 12-bits, the hardware uses is set
++ *  by the MO field of the MCSTCTRL. The MO field is set during initialization
++ *  to mc_filter_type.
++ **/
++static s32 ixgbevf_mta_vector(struct ixgbe_hw *hw, u8 *mc_addr)
++{
++	u32 vector = 0;
++
++	switch (hw->mac.mc_filter_type) {
++	case 0:   /* use bits [47:36] of the address */
++		vector = ((mc_addr[4] >> 4) | (((u16)mc_addr[5]) << 4));
++		break;
++	case 1:   /* use bits [46:35] of the address */
++		vector = ((mc_addr[4] >> 3) | (((u16)mc_addr[5]) << 5));
++		break;
++	case 2:   /* use bits [45:34] of the address */
++		vector = ((mc_addr[4] >> 2) | (((u16)mc_addr[5]) << 6));
++		break;
++	case 3:   /* use bits [43:32] of the address */
++		vector = ((mc_addr[4]) | (((u16)mc_addr[5]) << 8));
++		break;
++	default:  /* Invalid mc_filter_type */
++		break;
++	}
++
++	/* vector can only be 12-bits or boundary will be exceeded */
++	vector &= 0xFFF;
++	return vector;
++}
++
++/**
++ *  ixgbevf_set_rar_vf - set device MAC address
++ *  @hw: pointer to hardware structure
++ *  @index: Receive address register to write
++ *  @addr: Address to put into receive address register
++ *  @vmdq: VMDq "set" or "pool" index
++ **/
++static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
++			      u32 vmdq)
++{
++	struct ixgbe_mbx_info *mbx = &hw->mbx;
++	u32 msgbuf[3];
++	u8 *msg_addr = (u8 *)(&msgbuf[1]);
++	s32 ret_val;
++
++	memset(msgbuf, 0, 12);
++	msgbuf[0] = IXGBE_VF_SET_MAC_ADDR;
++	memcpy(msg_addr, addr, 6);
++	ret_val = mbx->ops.write_posted(hw, msgbuf, 3);
++
++	if (!ret_val)
++		ret_val = mbx->ops.read_posted(hw, msgbuf, 3);
++
++	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
++
++	/* if nacked the address was rejected, use "perm_addr" */
++	if (!ret_val &&
++	    (msgbuf[0] == (IXGBE_VF_SET_MAC_ADDR | IXGBE_VT_MSGTYPE_NACK)))
++		ixgbevf_get_mac_addr_vf(hw, hw->mac.addr);
++
++	return ret_val;
++}
++
++/**
++ *  ixgbevf_update_mc_addr_list_vf - Update Multicast addresses
++ *  @hw: pointer to the HW structure
++ *  @mc_addr_list: array of multicast addresses to program
++ *  @mc_addr_count: number of multicast addresses to program
++ *  @next: caller supplied function to return next address in list
++ *
++ *  Updates the Multicast Table Array.
++ **/
++static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
++					u32 mc_addr_count,
++					ixgbe_mc_addr_itr next)
++{
++	struct ixgbe_mbx_info *mbx = &hw->mbx;
++	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
++	u16 *vector_list = (u16 *)&msgbuf[1];
++	u32 vector;
++	u32 cnt, i;
++	u32 vmdq;
++
++	/* Each entry in the list uses 1 16 bit word.  We have 30
++	 * 16 bit words available in our HW msg buffer (minus 1 for the
++	 * msg type).  That's 30 hash values if we pack 'em right.  If
++	 * there are more than 30 MC addresses to add then punt the
++	 * extras for now and then add code to handle more than 30 later.
++	 * It would be unusual for a server to request that many multi-cast
++	 * addresses except for in large enterprise network environments.
++	 */
++
++	cnt = (mc_addr_count > 30) ? 30 : mc_addr_count;
++	msgbuf[0] = IXGBE_VF_SET_MULTICAST;
++	msgbuf[0] |= cnt << IXGBE_VT_MSGINFO_SHIFT;
++
++	for (i = 0; i < cnt; i++) {
++		vector = ixgbevf_mta_vector(hw, next(hw, &mc_addr_list, &vmdq));
++		vector_list[i] = vector;
++	}
++
++	mbx->ops.write_posted(hw, msgbuf, IXGBE_VFMAILBOX_SIZE);
++
++	return 0;
++}
++
++/**
++ *  ixgbevf_set_vfta_vf - Set/Unset vlan filter table address
++ *  @hw: pointer to the HW structure
++ *  @vlan: 12 bit VLAN ID
++ *  @vind: unused by VF drivers
++ *  @vlan_on: if true then set bit, else clear bit
++ **/
++static s32 ixgbevf_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
++			       bool vlan_on)
++{
++	struct ixgbe_mbx_info *mbx = &hw->mbx;
++	u32 msgbuf[2];
++
++	msgbuf[0] = IXGBE_VF_SET_VLAN;
++	msgbuf[1] = vlan;
++	/* Setting the 8 bit field MSG INFO to TRUE indicates "add" */
++	msgbuf[0] |= vlan_on << IXGBE_VT_MSGINFO_SHIFT;
++
++	return mbx->ops.write_posted(hw, msgbuf, 2);
++}
++
++/**
++ *  ixgbevf_get_mac_addr_vf - Read device MAC address
++ *  @hw: pointer to the HW structure
++ **/
++static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr)
++{
++	int i;
++
++	for (i = 0; i < IXGBE_ETH_LENGTH_OF_ADDRESS; i++)
++		mac_addr[i] = hw->mac.perm_addr[i];
++
++	return 0;
++}
++
++/**
++ *  ixgbevf_setup_mac_link_vf - Setup MAC link settings
++ *  @hw: pointer to hardware structure
++ *  @speed: new link speed
++ *  @autoneg: true if autonegotiation enabled
++ *  @autoneg_wait_to_complete: true when waiting for completion is needed
++ *
++ *  Set the link speed in the AUTOC register and restarts link.
++ **/
++static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
++				     ixgbe_link_speed speed, bool autoneg,
++				     bool autoneg_wait_to_complete)
++{
++	return 0;
++}
++
++/**
++ *  ixgbevf_check_mac_link_vf - Get link/speed status
++ *  @hw: pointer to hardware structure
++ *  @speed: pointer to link speed
++ *  @link_up: true is link is up, false otherwise
++ *  @autoneg_wait_to_complete: true when waiting for completion is needed
++ *
++ *  Reads the links register to determine if link is up and the current speed
++ **/
++static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
++				     ixgbe_link_speed *speed,
++				     bool *link_up,
++				     bool autoneg_wait_to_complete)
++{
++	u32 links_reg;
++
++	links_reg = IXGBE_READ_REG(hw, IXGBE_VFLINKS);
++
++	if (links_reg & IXGBE_LINKS_UP)
++		*link_up = true;
++	else
++		*link_up = false;
++
++	if (links_reg & IXGBE_LINKS_SPEED)
++		*speed = IXGBE_LINK_SPEED_10GB_FULL;
++	else
++		*speed = IXGBE_LINK_SPEED_1GB_FULL;
++
++	return 0;
++}
++
++struct ixgbe_mac_operations ixgbevf_mac_ops = {
++	.init_hw             = ixgbevf_init_hw_vf,
++	.reset_hw            = ixgbevf_reset_hw_vf,
++	.start_hw            = ixgbevf_start_hw_vf,
++	.get_mac_addr        = ixgbevf_get_mac_addr_vf,
++	.stop_adapter        = ixgbevf_stop_hw_vf,
++	.setup_link          = ixgbevf_setup_mac_link_vf,
++	.check_link          = ixgbevf_check_mac_link_vf,
++	.set_rar             = ixgbevf_set_rar_vf,
++	.update_mc_addr_list = ixgbevf_update_mc_addr_list_vf,
++	.set_vfta            = ixgbevf_set_vfta_vf,
 +};
 +
-+/* Receive Descriptor - Advanced */
-+union ixgbe_adv_rx_desc {
-+	struct {
-+		__le64 pkt_addr; /* Packet buffer address */
-+		__le64 hdr_addr; /* Header buffer address */
-+	} read;
-+	struct {
-+		struct {
-+			union {
-+				__le32 data;
-+				struct {
-+					__le16 pkt_info; /* RSS, Pkt type */
-+					__le16 hdr_info; /* Splithdr, hdrlen */
-+				} hs_rss;
-+			} lo_dword;
-+			union {
-+				__le32 rss; /* RSS Hash */
-+				struct {
-+					__le16 ip_id; /* IP id */
-+					__le16 csum; /* Packet Checksum */
-+				} csum_ip;
-+			} hi_dword;
-+		} lower;
-+		struct {
-+			__le32 status_error; /* ext status/error */
-+			__le16 length; /* Packet length */
-+			__le16 vlan; /* VLAN tag */
-+		} upper;
-+	} wb;  /* writeback */
++struct ixgbevf_info ixgbevf_vf_info = {
++	.mac = ixgbe_mac_82599_vf,
++	.mac_ops = &ixgbevf_mac_ops,
 +};
 +
-+/* Context descriptors */
-+struct ixgbe_adv_tx_context_desc {
-+	__le32 vlan_macip_lens;
-+	__le32 seqnum_seed;
-+	__le32 type_tucmd_mlhl;
-+	__le32 mss_l4len_idx;
-+};
-+
-+/* Adv Transmit Descriptor Config Masks */
-+#define IXGBE_ADVTXD_DTYP_MASK  0x00F00000 /* DTYP mask */
-+#define IXGBE_ADVTXD_DTYP_CTXT  0x00200000 /* Advanced Context Desc */
-+#define IXGBE_ADVTXD_DTYP_DATA  0x00300000 /* Advanced Data Descriptor */
-+#define IXGBE_ADVTXD_DCMD_EOP   IXGBE_TXD_CMD_EOP  /* End of Packet */
-+#define IXGBE_ADVTXD_DCMD_IFCS  IXGBE_TXD_CMD_IFCS /* Insert FCS */
-+#define IXGBE_ADVTXD_DCMD_RS    IXGBE_TXD_CMD_RS   /* Report Status */
-+#define IXGBE_ADVTXD_DCMD_DEXT  IXGBE_TXD_CMD_DEXT /* Desc ext (1=Adv) */
-+#define IXGBE_ADVTXD_DCMD_VLE   IXGBE_TXD_CMD_VLE  /* VLAN pkt enable */
-+#define IXGBE_ADVTXD_DCMD_TSE   0x80000000 /* TCP Seg enable */
-+#define IXGBE_ADVTXD_STAT_DD    IXGBE_TXD_STAT_DD  /* Descriptor Done */
-+#define IXGBE_ADVTXD_TUCMD_IPV4      0x00000400  /* IP Packet Type: 1=IPv4 */
-+#define IXGBE_ADVTXD_TUCMD_IPV6      0x00000000  /* IP Packet Type: 0=IPv6 */
-+#define IXGBE_ADVTXD_TUCMD_L4T_UDP   0x00000000  /* L4 Packet TYPE of UDP */
-+#define IXGBE_ADVTXD_TUCMD_L4T_TCP   0x00000800  /* L4 Packet TYPE of TCP */
-+#define IXGBE_ADVTXD_TUCMD_L4T_SCTP  0x00001000  /* L4 Packet TYPE of SCTP */
-+#define IXGBE_ADVTXD_IDX_SHIFT  4 /* Adv desc Index shift */
-+#define IXGBE_ADVTXD_POPTS_SHIFT      8  /* Adv desc POPTS shift */
-+#define IXGBE_ADVTXD_POPTS_IXSM (IXGBE_TXD_POPTS_IXSM << \
-+				 IXGBE_ADVTXD_POPTS_SHIFT)
-+#define IXGBE_ADVTXD_POPTS_TXSM (IXGBE_TXD_POPTS_TXSM << \
-+				 IXGBE_ADVTXD_POPTS_SHIFT)
-+#define IXGBE_ADVTXD_PAYLEN_SHIFT    14 /* Adv desc PAYLEN shift */
-+#define IXGBE_ADVTXD_MACLEN_SHIFT    9  /* Adv ctxt desc mac len shift */
-+#define IXGBE_ADVTXD_VLAN_SHIFT      16  /* Adv ctxt vlan tag shift */
-+#define IXGBE_ADVTXD_L4LEN_SHIFT     8  /* Adv ctxt L4LEN shift */
-+#define IXGBE_ADVTXD_MSS_SHIFT       16  /* Adv ctxt MSS shift */
-+
-+/* Interrupt register bitmasks */
-+
-+/* Extended Interrupt Cause Read */
-+#define IXGBE_EICR_RTX_QUEUE    0x0000FFFF /* RTx Queue Interrupt */
-+#define IXGBE_EICR_MAILBOX      0x00080000 /* VF to PF Mailbox Interrupt */
-+#define IXGBE_EICR_OTHER        0x80000000 /* Interrupt Cause Active */
-+
-+/* Extended Interrupt Cause Set */
-+#define IXGBE_EICS_RTX_QUEUE    IXGBE_EICR_RTX_QUEUE /* RTx Queue Interrupt */
-+#define IXGBE_EICS_MAILBOX      IXGBE_EICR_MAILBOX   /* VF to PF Mailbox Int */
-+#define IXGBE_EICS_OTHER        IXGBE_EICR_OTHER     /* INT Cause Active */
-+
-+/* Extended Interrupt Mask Set */
-+#define IXGBE_EIMS_RTX_QUEUE    IXGBE_EICR_RTX_QUEUE /* RTx Queue Interrupt */
-+#define IXGBE_EIMS_MAILBOX      IXGBE_EICR_MAILBOX   /* VF to PF Mailbox Int */
-+#define IXGBE_EIMS_OTHER        IXGBE_EICR_OTHER     /* INT Cause Active */
-+
-+/* Extended Interrupt Mask Clear */
-+#define IXGBE_EIMC_RTX_QUEUE    IXGBE_EICR_RTX_QUEUE /* RTx Queue Interrupt */
-+#define IXGBE_EIMC_MAILBOX      IXGBE_EICR_MAILBOX   /* VF to PF Mailbox Int */
-+#define IXGBE_EIMC_OTHER        IXGBE_EICR_OTHER     /* INT Cause Active */
-+
-+#define IXGBE_EIMS_ENABLE_MASK ( \
-+				IXGBE_EIMS_RTX_QUEUE       | \
-+				IXGBE_EIMS_MAILBOX         | \
-+				IXGBE_EIMS_OTHER)
-+
-+#define IXGBE_EITR_CNT_WDIS     0x80000000
-+
-+/* Error Codes */
-+#define IXGBE_ERR_INVALID_MAC_ADDR              -1
-+#define IXGBE_ERR_RESET_FAILED                  -2
-+
-+#endif /* _IXGBEVF_DEFINES_H_ */
-diff --git a/drivers/net/ixgbevf/regs.h b/drivers/net/ixgbevf/regs.h
+diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ixgbevf/vf.h
 new file mode 100644
-index 0000000..12f7596
+index 0000000..799600e
 --- /dev/null
-+++ b/drivers/net/ixgbevf/regs.h
-@@ -0,0 +1,85 @@
++++ b/drivers/net/ixgbevf/vf.h
+@@ -0,0 +1,168 @@
 +/*******************************************************************************
 +
 +  Intel 82599 Virtual Function driver
@@ -377,62 +479,145 @@ index 0000000..12f7596
 +
 +*******************************************************************************/
 +
-+#ifndef _IXGBEVF_REGS_H_
-+#define _IXGBEVF_REGS_H_
++#ifndef __IXGBE_VF_H__
++#define __IXGBE_VF_H__
 +
-+#define IXGBE_VFCTRL           0x00000
-+#define IXGBE_VFSTATUS         0x00008
-+#define IXGBE_VFLINKS          0x00010
-+#define IXGBE_VFRTIMER         0x00048
-+#define IXGBE_VFRXMEMWRAP      0x03190
-+#define IXGBE_VTEICR           0x00100
-+#define IXGBE_VTEICS           0x00104
-+#define IXGBE_VTEIMS           0x00108
-+#define IXGBE_VTEIMC           0x0010C
-+#define IXGBE_VTEIAC           0x00110
-+#define IXGBE_VTEIAM           0x00114
-+#define IXGBE_VTEITR(x)        (0x00820 + (4 * x))
-+#define IXGBE_VTIVAR(x)        (0x00120 + (4 * x))
-+#define IXGBE_VTIVAR_MISC      0x00140
-+#define IXGBE_VTRSCINT(x)      (0x00180 + (4 * x))
-+#define IXGBE_VFRDBAL(x)       (0x01000 + (0x40 * x))
-+#define IXGBE_VFRDBAH(x)       (0x01004 + (0x40 * x))
-+#define IXGBE_VFRDLEN(x)       (0x01008 + (0x40 * x))
-+#define IXGBE_VFRDH(x)         (0x01010 + (0x40 * x))
-+#define IXGBE_VFRDT(x)         (0x01018 + (0x40 * x))
-+#define IXGBE_VFRXDCTL(x)      (0x01028 + (0x40 * x))
-+#define IXGBE_VFSRRCTL(x)      (0x01014 + (0x40 * x))
-+#define IXGBE_VFRSCCTL(x)      (0x0102C + (0x40 * x))
-+#define IXGBE_VFPSRTYPE        0x00300
-+#define IXGBE_VFTDBAL(x)       (0x02000 + (0x40 * x))
-+#define IXGBE_VFTDBAH(x)       (0x02004 + (0x40 * x))
-+#define IXGBE_VFTDLEN(x)       (0x02008 + (0x40 * x))
-+#define IXGBE_VFTDH(x)         (0x02010 + (0x40 * x))
-+#define IXGBE_VFTDT(x)         (0x02018 + (0x40 * x))
-+#define IXGBE_VFTXDCTL(x)      (0x02028 + (0x40 * x))
-+#define IXGBE_VFTDWBAL(x)      (0x02038 + (0x40 * x))
-+#define IXGBE_VFTDWBAH(x)      (0x0203C + (0x40 * x))
-+#define IXGBE_VFDCA_RXCTRL(x)  (0x0100C + (0x40 * x))
-+#define IXGBE_VFDCA_TXCTRL(x)  (0x0200c + (0x40 * x))
-+#define IXGBE_VFGPRC           0x0101C
-+#define IXGBE_VFGPTC           0x0201C
-+#define IXGBE_VFGORC_LSB       0x01020
-+#define IXGBE_VFGORC_MSB       0x01024
-+#define IXGBE_VFGOTC_LSB       0x02020
-+#define IXGBE_VFGOTC_MSB       0x02024
-+#define IXGBE_VFMPRC           0x01034
++#include <linux/pci.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/if_ether.h>
 +
-+#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
++#include "defines.h"
++#include "regs.h"
++#include "mbx.h"
 +
-+#define IXGBE_READ_REG(a, reg) readl((a)->hw_addr + (reg))
++struct ixgbe_hw;
 +
-+#define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) ( \
-+    writel((value), ((a)->hw_addr + (reg) + ((offset) << 2))))
++/* iterator type for walking multicast address lists */
++typedef u8* (*ixgbe_mc_addr_itr) (struct ixgbe_hw *hw, u8 **mc_addr_ptr,
++				  u32 *vmdq);
++struct ixgbe_mac_operations {
++	s32 (*init_hw)(struct ixgbe_hw *);
++	s32 (*reset_hw)(struct ixgbe_hw *);
++	s32 (*start_hw)(struct ixgbe_hw *);
++	s32 (*clear_hw_cntrs)(struct ixgbe_hw *);
++	enum ixgbe_media_type (*get_media_type)(struct ixgbe_hw *);
++	u32 (*get_supported_physical_layer)(struct ixgbe_hw *);
++	s32 (*get_mac_addr)(struct ixgbe_hw *, u8 *);
++	s32 (*stop_adapter)(struct ixgbe_hw *);
++	s32 (*get_bus_info)(struct ixgbe_hw *);
 +
-+#define IXGBE_READ_REG_ARRAY(a, reg, offset) ( \
-+    readl((a)->hw_addr + (reg) + ((offset) << 2)))
++	/* Link */
++	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool, bool);
++	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *, bool);
++	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
++				     bool *);
 +
-+#define IXGBE_WRITE_FLUSH(a) (IXGBE_READ_REG(a, IXGBE_VFSTATUS))
++	/* RAR, Multicast, VLAN */
++	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32);
++	s32 (*init_rx_addrs)(struct ixgbe_hw *);
++	s32 (*update_mc_addr_list)(struct ixgbe_hw *, u8 *, u32,
++				   ixgbe_mc_addr_itr);
++	s32 (*enable_mc)(struct ixgbe_hw *);
++	s32 (*disable_mc)(struct ixgbe_hw *);
++	s32 (*clear_vfta)(struct ixgbe_hw *);
++	s32 (*set_vfta)(struct ixgbe_hw *, u32, u32, bool);
++};
 +
-+#endif /* _IXGBEVF_REGS_H_ */
++enum ixgbe_mac_type {
++	ixgbe_mac_unknown = 0,
++	ixgbe_mac_82599_vf,
++	ixgbe_num_macs
++};
++
++struct ixgbe_mac_info {
++	struct ixgbe_mac_operations ops;
++	u8 addr[6];
++	u8 perm_addr[6];
++
++	enum ixgbe_mac_type type;
++
++	s32  mc_filter_type;
++
++	bool get_link_status;
++	u32  max_tx_queues;
++	u32  max_rx_queues;
++	u32  max_msix_vectors;
++};
++
++struct ixgbe_mbx_operations {
++	s32 (*init_params)(struct ixgbe_hw *hw);
++	s32 (*read)(struct ixgbe_hw *, u32 *, u16);
++	s32 (*write)(struct ixgbe_hw *, u32 *, u16);
++	s32 (*read_posted)(struct ixgbe_hw *, u32 *, u16);
++	s32 (*write_posted)(struct ixgbe_hw *, u32 *, u16);
++	s32 (*check_for_msg)(struct ixgbe_hw *);
++	s32 (*check_for_ack)(struct ixgbe_hw *);
++	s32 (*check_for_rst)(struct ixgbe_hw *);
++};
++
++struct ixgbe_mbx_stats {
++	u32 msgs_tx;
++	u32 msgs_rx;
++
++	u32 acks;
++	u32 reqs;
++	u32 rsts;
++};
++
++struct ixgbe_mbx_info {
++	struct ixgbe_mbx_operations ops;
++	struct ixgbe_mbx_stats stats;
++	u32 timeout;
++	u32 udelay;
++	u32 v2p_mailbox;
++	u16 size;
++};
++
++struct ixgbe_hw {
++	void *back;
++
++	u8 __iomem *hw_addr;
++	u8 *flash_address;
++	unsigned long io_base;
++
++	struct ixgbe_mac_info mac;
++	struct ixgbe_mbx_info mbx;
++
++	u16 device_id;
++	u16 subsystem_vendor_id;
++	u16 subsystem_device_id;
++	u16 vendor_id;
++
++	u8  revision_id;
++	bool adapter_stopped;
++};
++
++struct ixgbevf_hw_stats {
++	u64 base_vfgprc;
++	u64 base_vfgptc;
++	u64 base_vfgorc;
++	u64 base_vfgotc;
++	u64 base_vfmprc;
++
++	u64 last_vfgprc;
++	u64 last_vfgptc;
++	u64 last_vfgorc;
++	u64 last_vfgotc;
++	u64 last_vfmprc;
++
++	u64 vfgprc;
++	u64 vfgptc;
++	u64 vfgorc;
++	u64 vfgotc;
++	u64 vfmprc;
++};
++
++struct ixgbevf_info {
++	enum ixgbe_mac_type		mac;
++	struct ixgbe_mac_operations	*mac_ops;
++};
++
++#endif /* __IXGBE_VF_H__ */
++
 
