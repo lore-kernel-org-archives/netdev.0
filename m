@@ -1,29 +1,37 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: Re: 2.6.32 regression, hard lock
-Date: Mon, 7 Dec 2009 16:42:21 -0800
-Message-ID: <20091208004221.GA15968@hexapodia.org>
-References: <20091206141419.GA6195@linux-m68k.org> <20091207143057.53c6a362.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few
+ minutes of heavy surfing
+Date: Mon, 7 Dec 2009 16:44:53 -0800
+Message-ID: <20091207164453.25ce95c9.akpm@linux-foundation.org>
+References: <20091207135342.6fb07264.akpm@linux-foundation.org>
+	<111884.25075.qm@web52903.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Zidlicky <rz@linux-m68k.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, stable@kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Chris Rankin <rankincj@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from straum.hexapodia.org ([64.81.70.185]:36059 "EHLO
-	straum.hexapodia.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965184AbZLHAmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Dec 2009 19:42:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20091207143057.53c6a362.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54014 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965208AbZLHAp6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Dec 2009 19:45:58 -0500
+In-Reply-To: <111884.25075.qm@web52903.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 07, 2009 at 02:30:57PM -0800, Andrew Morton wrote:
-> btw, why does your kernel say "To Be Filled By O.E.M." in the traces? 
-> The kernel.org kernel doesn't do that.  Is that kernel patched at all?
+On Mon, 7 Dec 2009 16:31:48 -0800 (PST)
+Chris Rankin <rankincj@yahoo.com> wrote:
 
-That's traditional for DMI_PRODUCT_NAME in dodgy vendor BIOSes.  I
-routinely see it on Intel evaluation boards and less frequently on
-Taiwanese Brand X boards.
+> --- On Mon, 7/12/09, Andrew Morton <akpm@linux-foundation.org> wrote:
+> > (switched to email.=A0 Please respond via emailed reply-to-all, not=
+ via the
+> > bugzilla web interface).
+>=20
+> Hmm, I think "reply-to-all" was a mistake when the bugzilla address w=
+as listed *twice* amongst the CCs... ;-).
 
--andy
+That's OK - I can never remember which of those addresses is the one wh=
+ich works, so
+I cc both.  It's an age thing :)
