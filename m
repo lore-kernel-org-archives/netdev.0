@@ -1,31 +1,34 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few minutes of heavy surfing
-Date: Tue, 8 Dec 2009 05:39:28 -0800 (PST)
-Message-ID: <219482.3038.qm@web52901.mail.re2.yahoo.com>
-References: <20091208120021.GA24223@hmsreliant.think-freely.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few
+	minutes of heavy surfing
+Date: Tue, 8 Dec 2009 08:41:57 -0500
+Message-ID: <20091208134157.GB24223@hmsreliant.think-freely.org>
+References: <20091208120021.GA24223@hmsreliant.think-freely.org> <219482.3038.qm@web52901.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
 	bugme-daemon@bugzilla.kernel.org, stable@kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+To: Chris Rankin <rankincj@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web52901.mail.re2.yahoo.com ([206.190.49.11]:39451 "HELO
-	web52901.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754809AbZLHNjV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 08:39:21 -0500
-In-Reply-To: <20091208120021.GA24223@hmsreliant.think-freely.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54650 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755066AbZLHNl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 08:41:58 -0500
+Content-Disposition: inline
+In-Reply-To: <219482.3038.qm@web52901.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- On Tue, 8/12/09, Neil Horman <nhorman@tuxdriver.com> wrote:
-> 30 minutes isn't too long to wait for an error to appear, I think.
+On Tue, Dec 08, 2009 at 05:39:28AM -0800, Chris Rankin wrote:
+> --- On Tue, 8/12/09, Neil Horman <nhorman@tuxdriver.com> wrote:
+> > 30 minutes isn't too long to wait for an error to appear, I think.
+> 
+> Except it's a very "busy" waiting process with me actively surfing the web. I can't automate that. I'm still not entirely sure what the trigger condition is.
+> 
+Sure you can, generate a list of sites that you visited and access them all with
+a curl or wget script.  I would imagine thats a reasonable test to trigger the
+reproducer.
 
-Except it's a very "busy" waiting process with me actively surfing the web. I can't automate that. I'm still not entirely sure what the trigger condition is.
+Neil
 
-Chris
-
-
-      
