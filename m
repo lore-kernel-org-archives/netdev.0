@@ -1,58 +1,51 @@
-From: Jiri Bohac <jbohac@suse.cz>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Subject: Re: ipv6: why disable ipv6 on last address removal?
-Date: Wed, 9 Dec 2009 08:18:17 +0100
-Message-ID: <20091209071817.GA4554@smudla.bakulak.kosire.czf>
-References: <20091208192046.GA5649@midget.suse.cz>
- <20091208.125611.135547597.davem@davemloft.net>
+Date: Wed, 09 Dec 2009 16:39:15 +0900
+Message-ID: <4B1F5423.4070109@linux-ipv6.org>
+References: <20091208192046.GA5649@midget.suse.cz> <20091208.125611.135547597.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jbohac@suse.cz, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jbohac@suse.cz, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:38867 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757048AbZLIHSN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 02:18:13 -0500
-Content-Disposition: inline
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39364 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752016AbZLIHjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 02:39:21 -0500
 In-Reply-To: <20091208.125611.135547597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 08, 2009 at 12:56:11PM -0800, David Miller wrote:
+Hello.
+
+Well, AFAIK, it is basically ancient thing.
+Some (rather new) paramters are exactly related bringing
+up each interface.
+
+Such parameters should be set _before_ it is brought up.
+For now, people can do this using the "default" value.
+
+We might have rtnetlink interface for up/down interface,
+allowing userspace to send related parameters as well.
+
+Regards,
+
+--yoshfuji
+
+David Miller wrote:
 > From: Jiri Bohac <jbohac@suse.cz>
-> > Is there any reason why inet6_addr_del needs to sets how=1 and
-> > disable IPv6 even more than "ifconfig down" does?
+> Date: Tue, 8 Dec 2009 20:20:46 +0100
+> 
+>> Is there any reason why inet6_addr_del needs to sets how=1 and
+>> disable IPv6 even more than "ifconfig down" does?
 > 
 > All I can say is that this behavior is definitely on purpose, although
 > I don't exactly remember why.
-
+> 
+> And although it helps you, it could also break things for other people
+> who expect the current behavior.
+> 
 > Some people definitely expect no IPV6 at all in any way shape or
 > form if they have not assigned IPV6 addresses to an interface.
-
-Sure, even with how=0, IPv6 is about as much disabled as when the
-interface is down. The problem is that the current behaviour goes
-like this:
-
-#1 modprobe driver_for_eth0
-#2 sysctl net.ipv6.conf.tun0.aaaaaaa=b
-#3 ip link set up dev eth0
-#4 ip addr add xxx/yy dev eth0
-#5 ip addr flush dev eth0
-#6 ip link set down dev eth0 
-#7 ip link set up dev eth0
-
-#5 turns IPv6 off even deeper that it was after #1, losing the
-settings made in #2.
-
-To re-configure the settings from #2, you need to do:
-#6, #7, [#6 again for some sysctl settings], #2
-
-I think it would probably be ok for #5 to turn off IPv6 to the
-state you get with #6.
-
-Thanks,
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
 
