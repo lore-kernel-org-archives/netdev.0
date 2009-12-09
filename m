@@ -1,80 +1,76 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: ixgbe funkiness after OOM
-Date: Tue, 08 Dec 2009 16:12:54 -0800
-Message-ID: <4B1EEB86.4030903@candelatech.com>
+From: stefano babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [RFC PATCH v3  2/8] CAIF Protocol Stack
+Date: Wed, 09 Dec 2009 01:18:52 +0100
+Message-ID: <4B1EECEC.5080903@babic.homelinux.org>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:56827 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965731AbZLIAMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 19:12:48 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id nB90CsOP021755
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 8 Dec 2009 16:12:55 -0800
+Received: from smtpout23.attiva.biz ([85.37.16.24]:45698 "EHLO
+	smtpout23.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966710AbZLIASv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 19:18:51 -0500
+In-Reply-To: <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel: 2.6.31.7, plus hacks
-Fedora 11, 64-bit
-ixgbe NIC is 82699 chipset, 5GT/s 8-lane pcie, not manufactured by Intel.
-CPU:  Intel(R) Core(TM) i7 CPU         965  @ 3.20GHz
+sjur.brandeland@stericsson.com wrote:
+> diff --git a/include/net/caif/generic/caif_layer.h b/include/net/caif/generic/caif_layer.h
 
-I've been running some tests with 10k tcp connections (to self), over
-a 2-port ixgbe NIC.  First..I managed to OOM my 12GB system..perhaps because
-I have tcp memory settings too high or something (though I was not actually
-setting the tcp rcv/tx buffers for the sockets.)  ixgbe was unable to do
-order 0 allocations.
+> +enum caif_ctrlcmd {
+> +	/** Flow Control is OFF, transmit function should stop sending data */
+> +	CAIF_CTRLCMD_FLOW_OFF_IND = 0,
+> +	/** Flow Control is ON, transmit function can start sending data */
+> +	CAIF_CTRLCMD_FLOW_ON_IND = 1,
+> +	/** Remote end modem has decided to close down channel */
+> +	CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND = 5,
 
-When this happened, the ixgbe NICs got into a state where they could not
-tx any packets:  tshark showed ARPs going out on eth2, but the tx pkt counters
-for that NIC did not increase and the peer (eth3, other port on this NIC),
-did not show any rx pkts.
-
-I tried doing ifdown/ifup, but that didn't have much affect (eth3 bumped it's tx counter by 1).
-
-I then tried to rmmod the NIC and re-load the driver.  This time, it really looks unhappy:
+Not really important, but is there some reason to not put them in order ?
 
 
-Dec  8 15:27:57 localhost kernel: ixgbe: Intel(R) 10 Gigabit PCI Express Network Driver - version 2.0.34-k2
-Dec  8 15:27:57 localhost kernel: ixgbe: Copyright (c) 1999-2009 Intel Corporation.
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.0: HW Init failed: -12
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.0: PCI INT A disabled
-Dec  8 15:27:57 localhost kernel: ixgbe: probe of 0000:03:00.0 failed with error -12
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: PCI INT B -> GSI 17 (level, low) -> IRQ 17
-Dec  8 15:27:57 localhost kernel: ixgbe: 0000:03:00.1: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: (PCI Express:5.0Gb/s:Width x4) 00:0c:bd:00:90:19
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: MAC: 2, PHY: 9, SFP+: 5, PBA No: ffffff-0ff
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: PCI-Express bandwidth available for this card is not sufficient for optimal performance.
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: For optimal performance a x8 PCI-Express slot is required.
-Dec  8 15:27:57 localhost kernel: ixgbe 0000:03:00.1: Intel(R) 10 Gigabit Network Connection
+> diff --git a/include/net/caif/generic/cfcnfg.h b/include/net/caif/generic/cfcnfg.h
+> +/** Physical preference - HW Abstraction */
+> +enum cfcnfg_phy_preference {
+> +	/** Default physical interface */
+> +	CFPHYPREF_UNSPECIFIED = 0xa0,
+> +	/** Default physical interface for low-latency traffic */
+> +	CFPHYPREF_LOW_LAT = 0xd0,
+> +	/** Default physical interface for high-bandwidth traffic */
+> +	CFPHYPREF_HIGH_BW = 0xe0,
+> +	/** \b TEST \b ONLY Loopback interface simulating modem responses */
+> +	CFPHYPREF_LOOP = 0x70,
+> +	/** \b TEST \b ONLY Raw loopback interface */
+> +	CFPHYPREF_RAW_LOOP = 0x80
+> +};
 
+Different context, but preferences have always the same values. Could we
+remove the duplicates ?
 
-At this point, there is 8GB of free RAM, and no obvious OOM issues showing up in the logs.
+> +/** Configuration parameters for a physical layer (e.g. serial) */
+> +struct cfcnfg_phy_param {
+> +	int foo;
+> +};
 
-It looks like error -12 means:
+This structure is obsolete and can be safely dropped.
 
-IXGBE_ERR_MASTER_REQUESTS_PENDING
+> +/**
+> + * These variable is used as a global flag, in order to configure padding on SPI communication.
+> + * NOTE: This is not a fully future-proof solution.
+> + */
 
+I understand that the padding is due to the fact that a lot of spi
+controller can send only words and not bytes. However, this is very
+processor specific. Probably when you will add the SPI layer you will
+need to add a way to set up this issue.
 
-I tried rmmod/modprobe several more times...each time I get the same error for
-that device.  The one that fails is eth2, the same that could not tx earlier.
-
-Everything came up fine on reboot.
-
-Anyway, this is mostly just for information in case someone else is hitting similar
-issues.
-
-Thanks,
-Ben
-
+Stefano
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
