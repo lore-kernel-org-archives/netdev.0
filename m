@@ -1,47 +1,36 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: VFS and IMA API patch series please pull
-Date: Wed, 9 Dec 2009 22:44:38 +0000
-Message-ID: <20091209224438.GS14381@ZenIV.linux.org.uk>
-References: <1260393952.3344.18.camel@localhost>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: IPv6: presentation format for zero scope ID
+Date: Wed, 09 Dec 2009 17:50:09 -0500
+Message-ID: <4B2029A1.5010404@hp.com>
+References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com> <20091208080331.3eb5ddfa@tlielax.poochiereds.net> <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-cachefs@redhat.com, ecryptfs-devel@lists.launchpad.net,
-	linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	rdunlap@xenotime.net, zohar@linux.vnet.ibm.com, jmorris@namei.org,
-	serue@us.ibm.com, dhowells@redhat.com, steved@redhat.com,
-	tiwai@suse.de, tyhicks@linux.vnet.ibm.com, kirkland@canonical.com,
-	akpm@linux-foundation.org, npiggin@suse.de, wli@holomorphy.com,
-	mel@csn.ul.ie, shuber2@gmail.com, dsmith@redhat.com, jack@suse.cz,
-	jmalicki@metacarta.com, hch@lst.de, bfields@fieldses.org,
-	neilb@suse.de, agruen@suse.de, john@johnmccutchan.com,
-	rlove@rlove.org, ebiederm@xmission.com, heiko.carstens@de.ibm.com,
-	penguin-kernel@I-love.SAKURA.ne.jp, miklos@szeredi.hu,
-	jens.axboe@oracle.com, arnd@arndb.de
-To: Eric Paris <eparis@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1260393952.3344.18.camel@localhost>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Layton <jlayton@redhat.com>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Chuck Lever <chuck.lever@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:15449 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758541AbZLIWuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 17:50:37 -0500
+In-Reply-To: <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 09, 2009 at 04:25:52PM -0500, Eric Paris wrote:
+Hi Chuck,
 
-> I'm not sure who the best person to pull this would be.  VFS maintainer?
-> Al?  Should I just send straight to Linus?  I'm not sure what the best
-> path is.  All of the individual fs changes have been acked by their
-> respective maintainers and the IMA work has been acked by the IMA
-> maintainer.  The only patches without CLEAR acks and review are the two
-> which remove the get_empty_filp() and init_file() calls.
+Chuck Lever wrote:
+>> So this means that addresses with those prefixes should be treated like
+>> any other address, right? If so, then I think the rpc_ntop6 shouldn't be
+>> affixing scopeid's to site local addresses.
+> 
+> As a final detail, we're trying to understand what is the correct
+> treatment for site-local addresses.  I've looked at RFC 3879.  In
+> late-model Linux kernels, is Jeff's interpretation correct, for
+> application layer protocols like RPC?
 
-Sigh...  I'll merge it with my queue and push to Linus along with the
-rest.  It conflicts with some of the pending stuff, but seeing that I
-hadn't yelled in time, it's my PITA to deal with.
+Not sure if this answers the question, but recent Linux kernels only look
+at the scope ID for link-local addresses.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-Brian
