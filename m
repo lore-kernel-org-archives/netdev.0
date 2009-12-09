@@ -1,46 +1,31 @@
-From: Jon Loeliger <jdl@bigfootnetworks.com>
-Subject: Re: Using netlink for intra-kernel requests?
-Date: Wed, 09 Dec 2009 10:41:40 -0600
-Message-ID: <1260376900.31877.10.camel@jdl-desktop>
-References: <1260308546.29528.27.camel@jdl-desktop>
-	 <87bpi8mfur.fsf@basil.nowhere.org>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Q: netdev: generate kobject uevent on network events.
+Date: Wed, 9 Dec 2009 18:02:51 +0100
+Message-ID: <20091209170251.GA11650@sig21.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from L01SLCSMTP01.calltower.com ([69.4.184.248]:15466 "EHLO
-	L01SLCSMTP01.calltower.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756051AbZLIQnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 11:43:04 -0500
-In-Reply-To: <87bpi8mfur.fsf@basil.nowhere.org>
+Received: from bar.sig21.net ([80.81.252.164]:60192 "EHLO bar.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753346AbZLIRCr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2009 12:02:47 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-12-09 at 14:33 +0100, Andi Kleen wrote:
-> Jon Loeliger <jdl@bigfootnetworks.com> writes:
-> > I feel like I am missing or don't know where to find the
-> > documentation for the intra-kernel netlink messaging.
-> 
-> I don't think the kernel uses intra kernel netlink normally,
-> just tends to call functions directly. That's more efficient
-> anyways.
-> 
-> -Andi
+Hi Stephen,
 
-Hi Andi,
+about a year ago you posted a patch which allows to manage
+network hotplug via udev (or busybox mdev), which is useful
+for low-end embedded platforms that don't want to run ifplugd.
 
-OK.  So, _which_ set of netlink functions should I use?
-Is rtnl_notify() the correct one to use to send a netlink
-request for the RTM_GETQDISC or RTM_GETTCCLASS data?
+http://article.gmane.org/gmane.linux.hotplug.devel/13386
 
-What's the mechanism used to send and then receive a reply?
-Will it be async?  How do I specify the call-back to receive
-the reply netlink message?  Or will it be synchronous and
-I pass in some call-back-reply function?
-
-Thanks for you suggestions!
-jdl
+The patch still works with 2.6.32.  Can it get merged or
+were there any issues with it?  It seems the discussion
+just stopped and the patch was forgotten...
 
 
+Johannes
