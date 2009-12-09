@@ -1,66 +1,117 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Add sysctl to set the advertised TCP initial receive
- window.
-Date: Wed, 09 Dec 2009 22:11:30 +0100
-Message-ID: <4B201282.3090800@gmail.com>
-References: <pvmk4wvc3eb.fsf@chavey.mtv.corp.google.com>	 <4B20098C.8040102@gmail.com> <1260392131.5351.43.camel@Joe-Laptop.home>
+From: Eric Paris <eparis@redhat.com>
+Subject: VFS and IMA API patch series please pull
+Date: Wed, 09 Dec 2009 16:25:52 -0500
+Message-ID: <1260393952.3344.18.camel__18874.4471794509$1260394496$gmane$org@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: chavey@google.com, davem@davemloft.net, netdev@vger.kernel.org,
-	therbert@google.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, zohar@linux.vnet.ibm.com, eparis@redhat.com,
+	jmorris@namei.org, serue@us.ibm.com, dhowells@redhat.com,
+	steved@redhat.com, tiwai@suse.de, viro@zeniv.linux.org.uk,
+	tyhicks@linux.vnet.ibm.com, kirkland@canonical.com,
+	akpm@linux-foundation.org, npiggin@suse.de, wli@holomorphy.com,
+	mel@csn.ul.ie, shuber2@gmail.com, dsmith@redhat.com, jack@suse.cz,
+	jmalicki@metacarta.com, hch@lst.de, bfields@fieldses.org,
+	neilb@suse.de, agruen@suse.de, john@johnmccutchan.com,
+	rlove@rlove.org, ebiederm@xmission.com, heiko.carstens@de.ibm.com,
+	penguin-kernel@I-love.SAKURA.ne.jp, miklos@szeredi.hu,
+	jens.axboe@oracle.com, arnd@arndb.de, drepper@redhat.com,
+	a.p.zijlstra@chello.nl, Trond.Myklebust@netapp.com, matthew@wil.cx,
+	hooanon05@yahoo.co.jp, mingo@elte.hu, rusty@rustcorp.com.au,
+	penberg@cs.helsinki.fi, clg@fr.ibm.com, hugh.dickins@tiscali.co.uk,
+	vapier@gentoo.org, kameza
+To: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-cachefs@redhat.com, ecryptfs-devel@lists.launchpad.net,
+	linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	linux-
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46910 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805AbZLIVLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 16:11:33 -0500
-In-Reply-To: <1260392131.5351.43.camel@Joe-Laptop.home>
+Received: from mx1.redhat.com ([209.132.183.28]:32675 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751745AbZLIVeK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2009 16:34:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/12/2009 21:55, Joe Perches a =C3=A9crit :
-> On Wed, 2009-12-09 at 21:33 +0100, Eric Dumazet wrote:
->> Le 09/12/2009 21:13, chavey@google.com a =C3=A9crit :
->>> Add a sysctl, tcp_init_rcv_wnd, to set the TCP initial receive wind=
-ow
->>> size advertised by passive and active TCP connections.
->>> index f1813bc..7567edd 100644
->>> --- a/net/ipv4/tcp.c
->>> +++ b/net/ipv4/tcp.c
->>> @@ -2248,6 +2248,11 @@ static int do_tcp_setsockopt(struct sock *sk=
-, int level,
->>>  		break;
->>>  #endif
->>> =20
->>> +	case TCP_INIT_RCV_WND:
->>> +		val =3D min_t(int, val, TCP_INIT_RCV_WND_MAX);
->>> +		tp->rx_opt.init_rcv_wnd =3D val;
->>> +		break;
->>> +
->>
->> If user pass val =3D -1, you end with init_rcv_wnd =3D 255
->>
->> Is it what you want ?
->> Probably not :)
->=20
-> I believe min_t() is superfluous now because:
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &zero,
-> +               .extra2         =3D &tcp_init_rcv_wnd_max
->=20
->=20
+I've sent this patch series out a couple of times but at now 18 patches
+long and all having received acks I don't want to send the whole series
+again.  I have a version based of off linus' tree including all of the
+ACKs I received on list and which has been run through the LTP test
+suite successfully.  This series basically does two things.
 
-It is *not* superfluous, since sysctl_tcp_init_rcv_wnd is ignored if
-user called setsockopt(TCP_INIT_RCV_WND) with a non null value :
+1) removes all users of get_empty_filp() and init_file()
+2) reworks the ima API to hide it under the LSM and remove its hooks
+into individual filesystems (shmem, pipes, hugetables, ecrypts, nfs,
+networking, ?afs?).
 
-+	if (tp->rx_opt.init_rcv_wnd =3D=3D 0)
-+		tp->rx_opt.init_rcv_wnd =3D sysctl_tcp_init_rcv_wnd;
+This repo contains all of the patches including those which actually
+make init_file() static and remove init_file() from the headers.  They
+remove the EXPORT_SYMBOL for those as well.  If a deprecation is
+required for out of tree kernel code they can still be exported but that
+out of tree code will now certainly fail to work with IMA and will
+result in (harmless) printk spam.
 
-So its probably better to not silently cap user provided val but report=
- an error.
+I'm not sure who the best person to pull this would be.  VFS maintainer?
+Al?  Should I just send straight to Linus?  I'm not sure what the best
+path is.  All of the individual fs changes have been acked by their
+respective maintainers and the IMA work has been acked by the IMA
+maintainer.  The only patches without CLEAR acks and review are the two
+which remove the get_empty_filp() and init_file() calls.
 
-if (val < 0 || val > TCP_INIT_RCV_WND_MAX)
-	err =3D -EINVAL
-else
-	tp->rx_opt.init_rcv_wnd =3D val;
+The following changes since commit 2b876f95d03e226394b5d360c86127cbefaf614b:
+  Linus Torvalds (1):
+        Merge branches 'timers-for-linus-ntp' and 'irq-core-for-linus' of git://git.kernel.org/.../tip/linux-2.6-tip
+
+are available in the git repository at:
+
+  git://git.infradead.org/users/eparis/vfsima.git master
+
+Eric Paris (14):
+      shmem: do not call fput_filp on an initialized filp
+      shmem: use alloc_file instead of init_file
+      pipes: use alloc-file instead of duplicating code
+      inotify: use alloc_file instead of doing it internally
+      networking: rework socket to fd mapping using alloc-file
+      vfs: make init-file static
+      fs: move get_empty_filp() deffinition to internal.h
+      ima: valid return code from ima_inode_alloc
+      ima: only insert at inode creation time
+      ima: initialize ima before inodes can be allocated
+      IMA: clean up the IMA counts updating code
+      ima: call ima_inode_free ima_inode_free
+      ima: move ima hooks to __dentry_open for easier ima API
+      ima: rename ima_path_check to ima_file_check
+
+Mimi Zohar (4):
+      ima: Fix refcnt bug in get_path_measurement
+      security: move ima_file_check() to lsm hook
+      ima: limit imbalance msg
+      ima: rename PATH_CHECK to FILE_CHECK
+
+ Documentation/ABI/testing/ima_policy |   12 +-
+ fs/cachefiles/rdwr.c                 |    2 -
+ fs/ecryptfs/main.c                   |    3 -
+ fs/file_table.c                      |   81 +++++------
+ fs/hugetlbfs/inode.c                 |    2 -
+ fs/internal.h                        |    1 +
+ fs/namei.c                           |   35 +----
+ fs/nfsd/vfs.c                        |   14 --
+ fs/notify/inotify/inotify_user.c     |   23 +-
+ fs/open.c                            |    9 +-
+ fs/pipe.c                            |   21 +--
+ include/asm-generic/fcntl.h          |    8 +
+ include/linux/file.h                 |    3 -
+ include/linux/fs.h                   |    7 +-
+ include/linux/ima.h                  |   16 +--
+ init/main.c                          |    2 +-
+ ipc/mqueue.c                         |    2 -
+ ipc/shm.c                            |    2 -
+ mm/shmem.c                           |   25 ++--
+ net/socket.c                         |  123 ++++++----------
+ security/integrity/ima/ima.h         |    6 +-
+ security/integrity/ima/ima_api.c     |    4 +-
+ security/integrity/ima/ima_iint.c    |   84 ++---------
+ security/integrity/ima/ima_main.c    |  273 +++++++++++++++++-----------------
+ security/integrity/ima/ima_policy.c  |   19 ++-
+ security/security.c                  |    8 +-
+ 26 files changed, 324 insertions(+), 461 deletions(-)
+
