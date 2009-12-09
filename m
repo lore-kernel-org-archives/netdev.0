@@ -1,41 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Fix build with CONFIG_NET_POLL_CONTROLLER=y
-Date: Wed, 09 Dec 2009 02:52:45 -0800 (PST)
-Message-ID: <20091209.025245.152622485.davem@davemloft.net>
-References: <1260341804.16132.22.camel@pasglop>
-	<20091209104427.GA25526@oksana.dev.rtsoft.ru>
+From: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] add the driver for Analog Devices Blackfin on-chip CAN
+	controllers
+Date: Wed, 9 Dec 2009 20:31:32 +0800
+Message-ID: <3c17e3570912090431o4daaab7cwfee25df4cb0774c2@mail.gmail.com>
+References: <1260353277-30902-1-git-send-email-21cnbao@gmail.com>
+	<4B1F790C.2060201@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sandeep.Kumar@freescale.com, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20091209104427.GA25526@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B1F790C.2060201-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Wed, 9 Dec 2009 13:44:27 +0300
-
-> commit 46ceb60ca80fa07703bc6eb8f4651f900dff5a82 ("gianfar: Add
-> Multiple group Support") introduced the following build error
-> with CONFIG_NET_POLL_CONTROLLER=y:
- ...
-> This patch fixes the issue.
-> 
-> Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-
-Applied, but this shows that netconsole needs some serious
-testing with this drive now :-/
-
-Thanks.
+T24gV2VkLCBEZWMgOSwgMjAwOSBhdCA2OjE2IFBNLCBXb2xmZ2FuZyBHcmFuZGVnZ2VyIDx3Z0Bn
+cmFuZGVnZ2VyLmNvbT4gd3JvdGU6Cj4gQmFycnkgU29uZyB3cm90ZToKPj4gU2lnbmVkLW9mZi1i
+eTogQmFycnkgU29uZyA8MjFjbmJhb0BnbWFpbC5jb20+Cj4+IFNpZ25lZC1vZmYtYnk6IEguSi4g
+T2VydGVsIDxvZUBwb3J0LmRlPgo+PiAtLS0KPj4gwqAgwqAgwqAgLXYyOiBjbGVhbnVwIGFjY29y
+ZGluZyB0byBXb2xmZ2FuZyBHcmFuZGVnZ2VyJ3MgZmVlZGJhY2sKPj4gwqAgwqAgwqAgMS5kZWxl
+dGUgc29tZSB1bm5lY2Vzc2FyeSBkZWJ1ZyBwcmludAo+PiDCoCDCoCDCoCAyLmRlbGV0ZSBuZG9f
+dHhfdGltZW91dCBlbnRyeSBhcyBpdCBpcyBub3QgbmVlZGVkIGluIGNhbgo+PiDCoCDCoCDCoCAz
+LnVzZSBhbGxvY19jYW5fc2tiLCBhbGxvY19jYW5fZXJyX3NrYiBpbnN0ZWFkIG9mIG5ldGRldl9h
+bGxvY19za2IKPj4gwqAgwqAgwqAgNC5hZGQgdGltZW91dCB3aGlsZSBwb2xsaW5nIGNhbiBzdGF0
+dXMKPj4gwqAgwqAgwqAgNS5yZW5hbWUgQkZJTl9DQU5fUkVBRC9XUklURV9NU0cgdG8gYmZpbl9j
+YW5fcmVhZC93cml0ZV9kYXRhCj4+IMKgIMKgIMKgIDYudXNlIGtlcm5lbCBCSVQgaW5zdGVhZCBv
+ZiBiaXQgc2hpZnQKPj4gwqAgwqAgwqAgNy51c2Ugdm9pZCBfX2lvbWVtICogZm9yIENBTiBtZW1v
+cnkgYmFzZSBtZW1vcnkgaW5zdGVhZCBvZiB1MzIKPj4gwqAgwqAgwqAgOC5kZWxldGUgImRldi0+
+bGFzdF9yeCA9IGppZmZpZXMiIHNpbmNlIGl0IGlzIG5vdCBuZWVkZWQgbm93Cj4+IMKgIMKgIMKg
+IDkuZGVsZXRlIHJlZHVuZGFudCAiZWNob19za2IiIG1lbWJlciBpbiBiZmluIGNhbiBwcml2YXRl
+IGRhdGEKPj4gwqAgwqAgwqAgMTAuZm9sbG93IGNhbiBjb252ZW50aW9uIHRvIHVzZSAiXyIgaW5z
+dGVhZCBvZiAiLSIgZm9yIGZpbGUgbmFtZXMKPgo+IERpZCB5b3UgY29uc2lkZXIgdXNpbmcgc3Ry
+dWN0cyBpbnN0ZWFkIG9mIHRoZXNlIHVnbHkgYW5kIGN1bWJlcnNvbWUKPiBtYWNybyBmdW5jdGlv
+bnM/IFRoaXMgd2FzIG15IG1ham9yIGNyaXRpY2lzbXMgd2l0aCB5b3VyIHByZXZpb3VzIHZlcnNp
+b24KPiBvZiB0aGUgcGF0Y2guCldvbGZnYW5nLApJIGNvbnNpZGVyZWQgdXNpbmcgdGhlIHN0cnVj
+dHVyZXMgdG8gZGVzY3JpYmUgcmVnaXN0ZXJzLCBhbmQgSQpjb21wbGV0ZWx5IGFncmVlIHdpdGgg
+eW91IGFib3V0IHRoZSBhZHZhbnRhZ2VzIG9mIHN0cnVjdHVyZXMuIEFuZCBJIGFtCnN1cmUgSSB3
+aWxsIG1vdmUgdG8gc3RydWN0dXJlcyBhZnRlciBzb21lIHRpbWUgYW5kIHNlbmQgYSBwYXRjaCBm
+b3IKaXQuIEJ1dCBmb3IgdGhlIG1vbWVudCwgaXQgaXMgbm90IHRvbyB1cmdlbnQsIHNvIEkgb25s
+eSBmaXhlZCBhbGwgeW91cgpvdGhlciBjb21tZW50cy4gQW55d2F5LCBpZiB5b3UgaW5zaXN0IG9u
+IHVzaW5nIHN0cnVjdHVyZXMgaW4ganVzdCB0aGlzCnBhdGNoLCBJIGNhbiBmaXggYW5kIHNlbmQg
+dGhlIC12MyBwYXRjaCBhZnRlciBmaW5pc2hpbmcgaXQuClRoYW5rcwpCYXJyeQoKPgo+IFdvbGZn
+YW5nLgo+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClNv
+Y2tldGNhbi1jb3JlIG1haWxpbmcgbGlzdApTb2NrZXRjYW4tY29yZUBsaXN0cy5iZXJsaW9zLmRl
+Cmh0dHBzOi8vbGlzdHMuYmVybGlvcy5kZS9tYWlsbWFuL2xpc3RpbmZvL3NvY2tldGNhbi1jb3Jl
+Cg==
