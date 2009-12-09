@@ -1,54 +1,89 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH/REPOST] net/mpc5200: Fix locking on fec_mpc52xx driver
-Date: Tue, 8 Dec 2009 22:16:36 -0700
-Message-ID: <fa686aa40912082116r7750c83cs55ccfbb4b937c095@mail.gmail.com>
-References: <20091205043015.28041.19288.stgit@angua> <20091208.202838.78052287.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, a.llano@ziv.es
-To: David Miller <davem@davemloft.net>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/4] netxen: minor suspend resume fixes
+Date: Tue,  8 Dec 2009 22:40:54 -0800
+Message-ID: <1260340857-11487-2-git-send-email-amit.salecha@qlogic.com>
+References: <1260340857-11487-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:34268 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbZLIFQt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 00:16:49 -0500
-Received: by yxe17 with SMTP id 17so5626146yxe.33
-        for <netdev@vger.kernel.org>; Tue, 08 Dec 2009 21:16:56 -0800 (PST)
-In-Reply-To: <20091208.202838.78052287.davem@davemloft.net>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:53135 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755511AbZLIGkv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2009 01:40:51 -0500
+In-Reply-To: <1260340857-11487-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 8, 2009 at 9:28 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Fri, 04 Dec 2009 21:33:13 -0700
->
->> Fix the locking scheme on the fec_mpc52xx driver. =A0This device can
->> receive IRQs from three sources; the FEC itself, the tx DMA, and the
->> rx DMA. =A0Mutual exclusion was handled by taking a spin_lock() in t=
-he
->> critical regions, but because the handlers are run with IRQs enabled=
-,
->> spin_lock() is insufficient and the driver can end up interrupting
->> a critical region anyway from another IRQ.
->>
->> Asier Llano discovered that this occurs when an error IRQ is raised
->> in the middle of handling rx irqs which resulted in an sk_buff memor=
-y
->> leak.
->
-> I'll apply this fix.
+o pci device should be disable at the end and it should be enable first.
+o Interface should be attached(netif_device_attach()) irrespective
+  of its state.
 
-Thanks.
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
 
-> But, longer term, it's a thousand times easier and more efficient to
-> move the processing of these interrupts into softirq context.
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index f499684..6a51ca3 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1446,14 +1446,14 @@ static int __netxen_nic_shutdown(struct pci_dev *pdev)
+ 		pci_enable_wake(pdev, PCI_D3hot, 1);
+ 	}
+ 
+-	pci_disable_device(pdev);
+-
+ 	return 0;
+ }
+ static void netxen_nic_shutdown(struct pci_dev *pdev)
+ {
+ 	if (__netxen_nic_shutdown(pdev))
+ 		return;
++
++	pci_disable_device(pdev);
+ }
+ #ifdef CONFIG_PM
+ static int
+@@ -1466,6 +1466,8 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		return retval;
+ 
+ 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++
++	pci_disable_device(pdev);
+ 	return 0;
+ }
+ 
+@@ -1476,13 +1478,14 @@ netxen_nic_resume(struct pci_dev *pdev)
+ 	struct net_device *netdev = adapter->netdev;
+ 	int err;
+ 
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+ 		return err;
+ 
++	pci_set_power_state(pdev, PCI_D0);
++	pci_set_master(pdev);
++	pci_restore_state(pdev);
++
+ 	adapter->ahw.crb_win = -1;
+ 	adapter->ahw.ocm_win = -1;
+ 
+@@ -1501,11 +1504,10 @@ netxen_nic_resume(struct pci_dev *pdev)
+ 		if (err)
+ 			goto err_out_detach;
+ 
+-		netif_device_attach(netdev);
+-
+ 		netxen_config_indev_addr(netdev, NETDEV_UP);
+ 	}
+ 
++	netif_device_attach(netdev);
+ 	netxen_schedule_work(adapter, netxen_fw_poll_work, FW_POLL_DELAY);
+ 	return 0;
+ 
+-- 
+1.6.0.2
 
-I agree.  Just need to find someone to do it.
-
-g.
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
