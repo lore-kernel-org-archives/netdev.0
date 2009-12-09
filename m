@@ -1,44 +1,41 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] smc91x: fix unused flags warnings on UP systems
-Date: Wed,  9 Dec 2009 08:40:04 -0500
-Message-ID: <1260366004-27366-1-git-send-email-vapier@gentoo.org>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Nicolas Pitre <nico@fluxnic.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:33778 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755894AbZLINkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 08:40:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [PATCH] gianfar: Fix build with CONFIG_NET_POLL_CONTROLLER=y
+Date: Wed, 9 Dec 2009 19:25:00 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA08A9A@zin33exm22.fsl.freescale.net>
+References: <1260341804.16132.22.camel@pasglop><20091209104427.GA25526@oksana.dev.rtsoft.ru>
+	<20091209.025245.152622485.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: <avorontsov@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091209.025245.152622485.davem@davemloft.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Local flags variables will be declared whenever these functions get used,
-but obviously on UP systems the flags parameter won't be touched.  So add
-some dummy ops that get optimized away anyways to satisfy gcc's warnings.
-
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/smc91x.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index ae4983a..b0c92b6 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -534,9 +534,9 @@ static inline void  smc_rcv(struct net_device *dev)
- #define smc_special_lock(lock, flags)		spin_lock_irqsave(lock, flags)
- #define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
- #else
--#define smc_special_trylock(lock, flags)	(1)
--#define smc_special_lock(lock, flags)   	do { } while (0)
--#define smc_special_unlock(lock, flags)	do { } while (0)
-+#define smc_special_trylock(lock, flags)	(flags == flags)
-+#define smc_special_lock(lock, flags)   	do { flags = 0; } while (0)
-+#define smc_special_unlock(lock, flags)	do { flags = 0; } while (0)
- #endif
  
- /*
--- 
-1.6.5.5
+>From: Anton Vorontsov <avorontsov@ru.mvista.com>
+>Date: Wed, 9 Dec 2009 13:44:27 +0300
+>
+>> commit 46ceb60ca80fa07703bc6eb8f4651f900dff5a82 ("gianfar: Add 
+>> Multiple group Support") introduced the following build error with 
+>> CONFIG_NET_POLL_CONTROLLER=y:
+> ...
+>> This patch fixes the issue.
+>> 
+>> Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+>
 
+Thanks Anton !
