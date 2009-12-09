@@ -1,36 +1,58 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: IPv6: presentation format for zero scope ID
-Date: Wed, 09 Dec 2009 17:50:09 -0500
-Message-ID: <4B2029A1.5010404@hp.com>
-References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com> <20091208080331.3eb5ddfa@tlielax.poochiereds.net> <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: ucc_geth: Fix the wrong the Rx/Tx FIFO size
+Date: Thu, 10 Dec 2009 02:00:15 +0300
+Message-ID: <20091209230015.GA13654@oksana.dev.rtsoft.ru>
+References: <1259309803-5474-1-git-send-email-daveliu@freescale.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Layton <jlayton@redhat.com>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:15449 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758541AbZLIWuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 17:50:37 -0500
-In-Reply-To: <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Dave Liu <daveliu@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1259309803-5474-1-git-send-email-daveliu@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Hi Chuck,
-
-Chuck Lever wrote:
->> So this means that addresses with those prefixes should be treated like
->> any other address, right? If so, then I think the rpc_ntop6 shouldn't be
->> affixing scopeid's to site local addresses.
+On Fri, Nov 27, 2009 at 04:16:43PM +0800, Dave Liu wrote:
+> current the Rx/Tx FIFO size settings cause problem
+> when four UEC ethernets work simultaneously.
 > 
-> As a final detail, we're trying to understand what is the correct
-> treatment for site-local addresses.  I've looked at RFC 3879.  In
-> late-model Linux kernels, is Jeff's interpretation correct, for
-> application layer protocols like RPC?
+> eg: GETH1, UEM-J15, GETH2, UEC-J5 on 8569MDS board
+> 
+>  $ ifconfig eth0 10.193.20.166
+>  $ ifconfig eth1 10.193.20.167
+>  $ ifconfig eth2 10.193.20.168
+>  then
+>  $ ifconfig eth3 10.193.20.169
+> 
+> The fourth ethernet will cause all of interface broken,
+> you cann't ping successfully any more.
+> The patch fix this issue for MPC8569 Rev1.0 and Rev2.0
+> 
+> Signed-off-by: Dave Liu <daveliu@freescale.com>
 
-Not sure if this answers the question, but recent Linux kernels only look
-at the scope ID for link-local addresses.
+Acked-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
--Brian
+Thanks Dave! I see that the new values actually match the QEIWRM
+spec (except UTFS... spec recommends 2048, but it also says that
+it might differ for different memory setups, though that's a
+separate issue).
+
+And FWIW, I did some quick netperf tests on MPC8360, and the
+patch doesn't cause any problems.
+
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
