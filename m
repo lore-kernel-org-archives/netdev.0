@@ -1,46 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [GIT]: Networking
-Date: Tue, 08 Dec 2009 17:54:47 -0800
-Message-ID: <m1ein4zzbs.fsf@fess.ebiederm.org>
-References: <20091205.193505.193701079.davem@davemloft.net>
-	<20091208194530.GA24530@elte.hu>
-	<20091208.125032.70743046.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: + net-ipv4-tcpc-fix-warning.patch added to -mm tree
+Date: Tue, 8 Dec 2009 18:08:01 -0800
+Message-ID: <20091208180801.88be28ba.akpm@linux-foundation.org>
+References: <200912090045.nB90jTaO010647@imap1.linux-foundation.org>
+	<4B1F0151.10903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mingo@elte.hu, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36965 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387AbZLIByt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 20:54:49 -0500
-In-Reply-To: <20091208.125032.70743046.davem@davemloft.net> (David Miller's message of "Tue\, 08 Dec 2009 12\:50\:32 -0800 \(PST\)")
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60791 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753529AbZLICH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 21:07:57 -0500
+In-Reply-To: <4B1F0151.10903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Tue, 08 Dec 2009 20:45:53 -0500
+William Allen Simpson <william.allen.simpson@gmail.com> wrote:
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Tue, 8 Dec 2009 20:45:30 +0100
->
->> i just switched to today's -git tree and there's this new build failure 
->> on x86:
->> 
->>  net/sctp/sysctl.c:251: error: unknown field 'strategy' specified in initializer
->>  net/sctp/sysctl.c:251: error: 'sysctl_intvec' undeclared here (not in a function)
->> 
->> havent looked into it yet - config attached.
->
-> It's probably a conflict with Eric Beiderman's sysctl cleanups that
-> got merged in at the same time.
+> > ------------------------------------------------------
+> > Subject: net/ipv4/tcp.c: fix warning
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > 
+> > x86_64 allmodconfig:
+> > 
+> > net/ipv4/tcp.c: In function 'do_tcp_getsockopt':
+> > net/ipv4/tcp.c:2544: warning: comparison is always false due to limited range of data type
+> > 
+> > sizeof(tcpct_value) is 536, which can never be less than a value which is held
+> > in a u8.
+> > 
+> > This fix is stupid - just delete the code?
+> > 
+> I didn't have this warning, how in the world do you get it?
 
-Yep. You guys figured it out.  Thanks all.
+Used gcc-4.0.2.  They re-randomise the warnings with each release I think.
 
-I have looked and I don't see any more .ctl_name or .strategy fields
-left in the kernel so this should be the last of it.
+> This is what David calls my "anal" coding style.  I check everything,
+> because someday somebody else might make a change, and it's important
+> that such problems be detected.  In this case, I assume the compiler
+> will compile them out or it would have no effect, and commented that
+> it should be impossible.
+> 
+> Your test should probably be TCP_MSS_DEFAULT < TCP_COOKIE_PAIR_SIZE
 
-Hooray!  Maintenance of binary sysctl is gone!
+I'd say just delete it ;)
 
-Eric
