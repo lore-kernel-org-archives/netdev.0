@@ -1,46 +1,93 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v2] add the driver for Analog Devices Blackfin on-chip
-	CAN controllers
-Date: Wed, 09 Dec 2009 11:16:44 +0100
-Message-ID: <4B1F790C.2060201@grandegger.com>
-References: <1260353277-30902-1-git-send-email-21cnbao@gmail.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] gianfar: Fix build with CONFIG_NET_POLL_CONTROLLER=y
+Date: Wed, 9 Dec 2009 13:44:27 +0300
+Message-ID: <20091209104427.GA25526@oksana.dev.rtsoft.ru>
+References: <1260341804.16132.22.camel@pasglop>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1260353277-30902-1-git-send-email-21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kumar Gala <galak@kernel.crashing.org>,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imap.ru.mvista.com ([213.79.90.228]:50194 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754155AbZLIKoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 05:44:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1260341804.16132.22.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Barry Song wrote:
-> Signed-off-by: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: H.J. Oertel <oe-pJ9TYRvN+WE@public.gmane.org>
-> ---
-> 	-v2: cleanup according to Wolfgang Grandegger's feedback
-> 	1.delete some unnecessary debug print
-> 	2.delete ndo_tx_timeout entry as it is not needed in can 
-> 	3.use alloc_can_skb, alloc_can_err_skb instead of netdev_alloc_skb
-> 	4.add timeout while polling can status
-> 	5.rename BFIN_CAN_READ/WRITE_MSG to bfin_can_read/write_data
-> 	6.use kernel BIT instead of bit shift
-> 	7.use void __iomem * for CAN memory base memory instead of u32
-> 	8.delete "dev->last_rx = jiffies" since it is not needed now
-> 	9.delete redundant "echo_skb" member in bfin can private data
-> 	10.follow can convention to use "_" instead of "-" for file names
+commit 46ceb60ca80fa07703bc6eb8f4651f900dff5a82 ("gianfar: Add
+Multiple group Support") introduced the following build error
+with CONFIG_NET_POLL_CONTROLLER=3Dy:
 
-Did you consider using structs instead of these ugly and cumbersome
-macro functions? This was my major criticisms with your previous version
-of the patch.
+  CC      ggianfar.o
+ggianfar.c: In function 'gfar_netpoll':
+ggianfar.c:2653: error: invalid storage class for function 'gfar_interr=
+upt'
+ggianfar.c:2652: warning: ISO C90 forbids mixed declarations and code
+ggianfar.c:2681: error: invalid storage class for function 'adjust_link=
+'
+ggianfar.c:2764: error: invalid storage class for function 'gfar_set_mu=
+lti'
+ggianfar.c:2855: error: invalid storage class for function 'gfar_clear_=
+exact_match'
+ggianfar.c:2877: error: invalid storage class for function 'gfar_set_ha=
+sh_for_addr'
+ggianfar.c:2898: error: invalid storage class for function 'gfar_set_ma=
+c_for_addr'
+ggianfar.c:2922: error: invalid storage class for function 'gfar_error'
+ggianfar.c:3020: warning: ISO C90 forbids mixed declarations and code
+ggianfar.c:3032: error: invalid storage class for function 'gfar_init'
+ggianfar.c:3037: error: invalid storage class for function 'gfar_exit'
+ggianfar.c:3041: error: initializer element is not constant
+ggianfar.c:3042: error: initializer element is not constant
+ggianfar.c:3042: warning: ISO C90 forbids mixed declarations and code
+ggianfar.c:3042: error: expected declaration or statement at end of inp=
+ut
+make[1]: *** [ggianfar.o] Error 1
 
-Wolfgang.
+This patch fixes the issue.
+
+Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+
+On Wed, Dec 09, 2009 at 05:56:44PM +1100, Benjamin Herrenschmidt wrote:
+> In my next (not pushed out yet as I'm writing this but will be by the
+> time you read it hopefully), I get a build failure:
+>=20
+> /home/benh/linux-powerpc-test/drivers/net/gianfar.c: In function =E2=80=
+=98gfar_netpoll=E2=80=99:
+> /home/benh/linux-powerpc-test/drivers/net/gianfar.c:2653: error: inva=
+lid storage class for function =E2=80=98gfar_interrupt=E2=80=99
+[...]
+> make[3]: *** [drivers/net/gianfar.o] Error 1
+>=20
+> Stephen says that breakage has been in -next for some time...
+>=20
+> Can you guys sort it out ?
+
+ drivers/net/gianfar.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 16def13..6850dc0 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -2644,6 +2644,7 @@ static void gfar_netpoll(struct net_device *dev)
+ 			gfar_interrupt(priv->gfargrp[i].interruptTransmit,
+ 						&priv->gfargrp[i]);
+ 			enable_irq(priv->gfargrp[i].interruptTransmit);
++		}
+ 	}
+ }
+ #endif
+--=20
+1.6.3.3
+
