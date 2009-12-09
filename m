@@ -1,30 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gigaset: documentation amendments
-Date: Tue, 08 Dec 2009 20:30:59 -0800 (PST)
-Message-ID: <20091208.203059.38343130.davem@davemloft.net>
-References: <20091205185420.A191D400DE@xenon.ts.pxnet.com>
+Subject: Re: [PATCH] net: dst_release() cleanup
+Date: Tue, 08 Dec 2009 20:35:03 -0800 (PST)
+Message-ID: <20091208.203503.45117329.davem@davemloft.net>
+References: <20091207091746.51d8958a@nehalam>
+	<alpine.DEB.2.00.0912072056350.27565@melkinpaasi.cs.helsinki.fi>
+	<4B1D53CA.3060004@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, hjlipp@web.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de
-To: tilman@imap.cc
+Cc: ilpo.jarvinen@helsinki.fi, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44855
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43235
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756809AbZLIEaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 23:30:52 -0500
-In-Reply-To: <20091205185420.A191D400DE@xenon.ts.pxnet.com>
+	by vger.kernel.org with ESMTP id S1755472AbZLIEe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 23:34:56 -0500
+In-Reply-To: <4B1D53CA.3060004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sat,  5 Dec 2009 19:54:20 +0100 (CET)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 07 Dec 2009 20:13:14 +0100
 
-> Various additions and improvements to the Gigaset driver's README
-> file, and added comments to its userspace visible include file.
+> Ilpo Järvinen a écrit :
 > 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+>> That's their problem then to fix all relevant places. ...That won't even 
+>> compile because of constructs like this:
+>> 
+>> 	if (WARN_ON(x))
+>> 
+>> ...To my knowing this perfectly legal way of doing this.
+>> 
+> 
+> Sure, but let be conservative :)
 
-Applied.
+It certainly jumped out at me.
+
+Using side effects in a debugging macro, that's always asking for
+trouble.  Every time I see this thing I'm going to do a double
+take on it.
+
+We can pull the return value into an 'int' with a descriptive name
+such as "orig_dst_refcnt", and also use WARN() to make a descriptive
+error message for kerneloops.org to log if it triggers.
+
+Ok Eric?
