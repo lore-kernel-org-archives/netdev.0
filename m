@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: Fix a connect() race with timewait sockets
-Date: Tue, 08 Dec 2009 20:19:00 -0800 (PST)
-Message-ID: <20091208.201900.109640288.davem@davemloft.net>
-References: <99d458640911301802i4bde20f4wa314668d543e3170@mail.gmail.com>
-	<4B152F97.1090409@gmail.com>
-	<4B1912FE.9020600@gmail.com>
+Subject: Re: [PATCH] tcp: documents timewait refcnt tricks
+Date: Tue, 08 Dec 2009 20:20:19 -0800 (PST)
+Message-ID: <20091208.202019.169120898.davem@davemloft.net>
+References: <20091205212148.GA26270@ioremap.net>
+	<4B1CD20D.8030407@gmail.com>
+	<4B1D2822.5030704@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: kdakhane@gmail.com, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, zbr@ioremap.net
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, zbr@ioremap.net, kdakhane@gmail.com,
+	netdev@vger.kernel.org, netfilter@vger.kernel.org
+To: rdunlap@xenotime.net
 Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4B1912FE.9020600@gmail.com>
+In-Reply-To: <4B1D2822.5030704@xenotime.net>
 Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 04 Dec 2009 14:47:42 +0100
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Mon, 07 Dec 2009 08:06:58 -0800
 
-> When we find a timewait connection in __inet_hash_connect() and reuse
-> it for a new connection request, we have a race window, releasing bind
-> list lock and reacquiring it in __inet_twsk_kill() to remove timewait
-> socket from list.
+> Eric Dumazet wrote:
+>> Evgeniy Polyakov a écrit :
+>> [PATCH] tcp: documents timewait refcnt tricks 
+>> 
+>> Adds kerneldoc for inet_twsk_unhash() & inet_twsk_bind_unhash().
+>> 
+>> Suggested-by: Evgeniy Polyakov <zbr@ioremap.net>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+ ...
+>> + *	unhash a timewait socket from established hash, if hashed.
+>> + *	ehash lock must be hold by caller.
 > 
-> Another thread might find the timewait socket we already chose, leading to
-> list corruption and crashes.
+> 	                   held
 > 
-> Fix is to remove timewait socket from bind list before releasing the bind lock.
+ ...
+>> + *	unhash a timewait socket from bind hash, if hashed.
+>> + *	bind hash lock must be hold by caller.
 > 
-> Note: This problem happens if sysctl_tcp_tw_reuse is set.
-> 
-> Reported-by: kapil dakhane <kdakhane@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 	                       held
 
-Applied and queued up for -stable, thanks!
+I've applied the patch with Randy's corrections added.
