@@ -1,37 +1,46 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH] xfrm: Fix truncation length of authentication algorithms installed via PF_KEY
-Date: Wed,  9 Dec 2009 17:11:15 +0100
-Message-ID: <1260375075-16187-1-git-send-email-martin@strongswan.org>
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Loeliger <jdl@bigfootnetworks.com>
+Subject: Re: Using netlink for intra-kernel requests?
+Date: Wed, 09 Dec 2009 10:41:40 -0600
+Message-ID: <1260376900.31877.10.camel@jdl-desktop>
+References: <1260308546.29528.27.camel@jdl-desktop>
+	 <87bpi8mfur.fsf@basil.nowhere.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from L01SLCSMTP01.calltower.com ([69.4.184.248]:15466 "EHLO
+	L01SLCSMTP01.calltower.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756051AbZLIQnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 11:43:04 -0500
+In-Reply-To: <87bpi8mfur.fsf@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 4447bb33f09444920a8f1d89e1540137429351b6 breaks installation of
-authentication algorithms via PF_KEY, as the state specific truncation
-length is not installed with the algorithms default truncation length.
-This patch initializes state properly to the default if installed via
-PF_KEY.
+On Wed, 2009-12-09 at 14:33 +0100, Andi Kleen wrote:
+> Jon Loeliger <jdl@bigfootnetworks.com> writes:
+> > I feel like I am missing or don't know where to find the
+> > documentation for the intra-kernel netlink messaging.
+> 
+> I don't think the kernel uses intra kernel netlink normally,
+> just tends to call functions directly. That's more efficient
+> anyways.
+> 
+> -Andi
 
-Signed-off-by: Martin Willi <martin@strongswan.org>
----
- net/key/af_key.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Hi Andi,
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 84209fb..76fa6fe 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1193,6 +1193,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
- 			x->aalg->alg_key_len = key->sadb_key_bits;
- 			memcpy(x->aalg->alg_key, key+1, keysize);
- 		}
-+		x->aalg->alg_trunc_len = a->uinfo.auth.icv_truncbits;
- 		x->props.aalgo = sa->sadb_sa_auth;
- 		/* x->algo.flags = sa->sadb_sa_flags; */
- 	}
--- 
-1.6.3.3
+OK.  So, _which_ set of netlink functions should I use?
+Is rtnl_notify() the correct one to use to send a netlink
+request for the RTM_GETQDISC or RTM_GETTCCLASS data?
+
+What's the mechanism used to send and then receive a reply?
+Will it be async?  How do I specify the call-back to receive
+the reply netlink message?  Or will it be synchronous and
+I pass in some call-back-reply function?
+
+Thanks for you suggestions!
+jdl
+
 
