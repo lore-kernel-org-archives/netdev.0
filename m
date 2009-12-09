@@ -1,71 +1,96 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Add sysctl to set the advertised TCP initial receive
- window.
-Date: Tue, 08 Dec 2009 16:59:29 -0800
-Message-ID: <1260320369.27677.183.camel@Joe-Laptop.home>
-References: <pvmljhdat12.fsf@chavey.mtv.corp.google.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: + net-ipv4-tcpc-fix-warning.patch added to -mm tree
+Date: Tue, 08 Dec 2009 20:45:53 -0500
+Message-ID: <4B1F0151.10903@gmail.com>
+References: <200912090045.nB90jTaO010647@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
-To: chavey@google.com
+Cc: mm-commits@vger.kernel.org, davem@davemloft.net,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1105 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967060AbZLIA7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Dec 2009 19:59:24 -0500
-In-Reply-To: <pvmljhdat12.fsf@chavey.mtv.corp.google.com>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:33790 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbZLIBpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Dec 2009 20:45:49 -0500
+In-Reply-To: <200912090045.nB90jTaO010647@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-12-08 at 16:30 -0800, chavey@google.com wrote:
-> Add a sysctl, tcp_init_rcv_wnd, to set the TCP initial receive window
-> size advertised by passive and active TCP connections.
+akpm@linux-foundation.org wrote:
+> The patch titled
+>      net/ipv4/tcp.c: fix warning
+> has been added to the -mm tree.  Its filename is
+>      net-ipv4-tcpc-fix-warning.patch
+> 
+> Before you just go and hit "reply", please:
+>    a) Consider who else should be cc'ed
+>    b) Prefer to cc a suitable mailing list as well
+>    c) Ideally: find the original patch on the mailing list and do a
+>       reply-to-all to that, adding suitable additional cc's
+> 
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+> 
+> See http://userweb.kernel.org/~akpm/stuff/added-to-mm.txt to find
+> out what to do about this
+> 
+> The current -mm tree may be found at http://userweb.kernel.org/~akpm/mmotm/
+> 
+> ------------------------------------------------------
+> Subject: net/ipv4/tcp.c: fix warning
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> x86_64 allmodconfig:
+> 
+> net/ipv4/tcp.c: In function 'do_tcp_getsockopt':
+> net/ipv4/tcp.c:2544: warning: comparison is always false due to limited range of data type
+> 
+> sizeof(tcpct_value) is 536, which can never be less than a value which is held
+> in a u8.
+> 
+> This fix is stupid - just delete the code?
+> 
+I didn't have this warning, how in the world do you get it?
 
-Hi Laurent.
+This is what David calls my "anal" coding style.  I check everything,
+because someday somebody else might make a change, and it's important
+that such problems be detected.  In this case, I assume the compiler
+will compile them out or it would have no effect, and commented that
+it should be impossible.
 
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 2dcf04d..1257f89 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -656,6 +656,16 @@ static struct ctl_table ipv4_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +	{
-> +		.ctl_name	= CTL_UNNUMBERED,
-> +		.procname	= "tcp_init_rcv_wnd",
-> +		.data 		= &sysctl_tcp_init_rcv_wnd,
-> +		.maxlen 	= sizeof(int),
-> +		.mode 		= 0644,
-> +		.proc_handler 	= proc_dointvec_minmax,
-> +		.extra1		= &zero,
-> +		.extra2		= TCP_INIT_RCV_WND_MAX
-
-This won't work if you use proc_dointvec_minmax.
-
-.extra1 and .extra2 are used as pointers to int,
-not the int values themselves.
-
-You'd have to use something like:
-
-static const int zero = 0;
-static const int tcp_init_rcv_wnd_max = TCP_INIT_RCV_WND_MAX;
-
-[...]
-		.proc_handler 	= proc_dointvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &tcp_init_rcv_wnd_max;
-
-For instance, the tcp_retries1 entry:
-
-{
-	.procname = "tcp_retries1",
-	.data = &sysctl_tcp_retries1,
-	.maxlen = sizeof(int),
-	.mode = 0644,
-	.proc_handler = proc_dointvec_minmax,
-	.extra2 = &tcp_retr1_max
-}
+Your test should probably be TCP_MSS_DEFAULT < TCP_COOKIE_PAIR_SIZE
 
 
+> btw, what does "return as nonce" try to mean?
+> 
+The internet-draft specifies returning a nonce.
+
+
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Acked-by: William Allen Simpson <william.allen.simpson@gmail.com>
+
+> ---
+> 
+>  net/ipv4/tcp.c |    2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff -puN net/ipv4/tcp.c~net-ipv4-tcpc-fix-warning net/ipv4/tcp.c
+> --- a/net/ipv4/tcp.c~net-ipv4-tcpc-fix-warning
+> +++ a/net/ipv4/tcp.c
+> @@ -2540,11 +2540,13 @@ static int do_tcp_getsockopt(struct sock
+>  			ctd.tcpct_cookie_desired = cvp->cookie_desired;
+>  			ctd.tcpct_s_data_desired = cvp->s_data_desired;
+>  
+> +#if TCP_MSS_DEFAULT < 256
+>  			/* Cookie(s) saved, return as nonce */
+>  			if (sizeof(ctd.tcpct_value) < cvp->cookie_pair_size) {
+>  				/* impossible? */
+>  				return -EINVAL;
+>  			}
+> +#endif
+>  			memcpy(&ctd.tcpct_value[0], &cvp->cookie_pair[0],
+>  			       cvp->cookie_pair_size);
+>  			ctd.tcpct_used = cvp->cookie_pair_size;
+> _
