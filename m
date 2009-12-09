@@ -1,51 +1,38 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 11/12] net/mac80211: Correct size given to memset
-Date: Wed, 9 Dec 2009 20:25:59 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0912092025240.1870@ask.diku.dk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/2] Small fixes for sky2 Yukon-2 Optima chip
+Date: Wed, 9 Dec 2009 11:35:22 -0800
+Message-ID: <20091209113522.303d0cb5@nehalam>
+References: <1259853122-21134-1-git-send-email-tiwai@suse.de>
+	<20091203.160719.140476237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757429AbZLIT0B@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: tiwai@suse.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51056 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756975AbZLITfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2009 14:35:22 -0500
+In-Reply-To: <20091203.160719.140476237.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+On Thu, 03 Dec 2009 16:07:19 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Memset should be given the size of the structure, not the size of the pointer.
+> From: Takashi Iwai <tiwai@suse.de>
+> Date: Thu,  3 Dec 2009 16:12:00 +0100
+> 
+> > here are two small patches to fix the bugs found on sky2 Yukon-2
+> > Optima chip.  These are for the latest net-next kernel.  Would be
+> > nice if they come in for 2.6.33.
+> 
+> Please always CC: the driver maintainer when submitting changes
+> to a driver.
+> 
+> Stephen, please have a look at these, thanks.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+Apply them, if anything comes up the fix can go on top of these
 
-// <smpl>
-@@
-type T;
-T *x;
-expression E;
-@@
-
-memset(x, E, sizeof(
-+ *
- x))
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- net/mac80211/mesh.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -u -p a/net/mac80211/mesh.c b/Net/mac80211/mesh.c
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -427,7 +427,7 @@ int ieee80211_new_mesh_header(struct iee
- 		char *addr5, char *addr6)
- {
- 	int aelen = 0;
--	memset(meshhdr, 0, sizeof(meshhdr));
-+	memset(meshhdr, 0, sizeof(*meshhdr));
- 	meshhdr->ttl = sdata->u.mesh.mshcfg.dot11MeshTTL;
- 	put_unaligned(cpu_to_le32(sdata->u.mesh.mesh_seqnum), &meshhdr->seqnum);
- 	sdata->u.mesh.mesh_seqnum++;
+-- 
