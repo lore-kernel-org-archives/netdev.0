@@ -1,59 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] llc: convert the socket list to RCU locking (was
- Re: [PATCH 3/4] llc: use a device based hash table to speed up multicast
- delivery)
-Date: Wed, 09 Dec 2009 23:34:37 +0100
-Message-ID: <4B2025FD.3030106@gmail.com>
-References: <1259879498-27860-1-git-send-email-opurdila@ixiacom.com> <4B20064C.7070301@gmail.com> <200912092236.06298.opurdila@ixiacom.com> <200912092349.26264.opurdila@ixiacom.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: VFS and IMA API patch series please pull
+Date: Thu, 10 Dec 2009 09:38:03 +1100 (EST)
+Message-ID: <alpine.LRH.2.00.0912100937110.18606@tundra.namei.org>
+References: <1260393952.3344.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43287 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758246AbZLIWeg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 17:34:36 -0500
-In-Reply-To: <200912092349.26264.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-cachefs@redhat.com, ecryptfs-devel@lists.launchpad.net,
+        linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org,
+        linux-arch@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org,
+        linux-security-module@vger.kernel.org, rdunlap@xenotime.net,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        "Serge E. Hallyn" <serue@us.ibm.com>,
+        David Howells <dhowells@redhat.com>, steved@redhat.com, tiwai@suse.de,
+        viro@zeniv.linux.org.uk, tyhicks@linux.vnet.ibm.com,
+        kirkland@canonical.com, Andrew Morton <akpm@linux-foundation.org>,
+        npiggin@suse.de, wli@holomorphy.com, mel@csn.ul.ie, shuber2@gmail.com,
+        dsmith@redhat.com, jack@suse.cz, jmalicki@metacarta.com, hch@lst.de,
+        "J. Bruce Fields" <bfields@fieldses.org>, neilb@suse.de,
+        agruen@suse.de, j
+To: Eric Paris <eparis@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1260393952.3344.18.camel@localhost>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le 09/12/2009 22:49, Octavian Purdila a =E9crit :
-> On Wednesday 09 December 2009 22:36:06 you wrote:
-> =20
->> I think I have everything  (in my head :) ) that I need now to come =
-back
->>  with a v2 llc patch set now.=20
->=20
-> Hmm, not really :) I still can't see how we can do multicast delivery=
- only with RCU when we need to restart the lookup.
->=20
-> I think you mentioned that it is actually possible to do this for UDP=
-, but I didn't found out how :-?
+On Wed, 9 Dec 2009, Eric Paris wrote:
 
-A patch is coming for this, it might need a seqlock (instead of a spinl=
-ock).
+> I'm not sure who the best person to pull this would be.  VFS maintainer?
+> Al?  Should I just send straight to Linus?  I'm not sure what the best
+> path is.  All of the individual fs changes have been acked by their
+> respective maintainers and the IMA work has been acked by the IMA
+> maintainer.  The only patches without CLEAR acks and review are the two
+> which remove the get_empty_filp() and init_file() calls.
 
-Do the list lookup and take a refcount on all matching sockets, store p=
-ointers in a 'stack'.
+It should probably go via Al, due to all the VFS core changes, but I can 
+take it in my tree if needed.
 
-If lookup was sucessful, then multicast packet to all sockets present i=
-n stack.
+-- 
+James Morris
+<jmorris@namei.org>
 
->=20
-> Also, I think we need to restart the lookup even when only one list i=
-s used, when we found out that the object is either free or not the one=
- we were looking for, since the current object might have been added to=
- the end of the=20
-> list, thus short circuiting our search. E.g.:
->=20
-
-Not necessary, because a socket is always added at front of the list.
-
-You have a guarantee that you examined all sockets at least once.
-
-But it doesnt matter so much anyway, because you dont want a single lis=
-t :)
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
