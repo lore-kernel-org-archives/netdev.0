@@ -1,38 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 0/2] Small fixes for sky2 Yukon-2 Optima chip
-Date: Wed, 9 Dec 2009 11:35:22 -0800
-Message-ID: <20091209113522.303d0cb5@nehalam>
-References: <1259853122-21134-1-git-send-email-tiwai@suse.de>
-	<20091203.160719.140476237.davem@davemloft.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v2] add the driver for Analog Devices Blackfin on-chip
+	CAN	controllers
+Date: Wed, 09 Dec 2009 20:50:47 +0100
+Message-ID: <4B1FFF97.8040005@grandegger.com>
+References: <1260353277-30902-1-git-send-email-21cnbao@gmail.com>
+	<4B1F790C.2060201@grandegger.com>
+	<3c17e3570912090431o4daaab7cwfee25df4cb0774c2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: tiwai@suse.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51056 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756975AbZLITfW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 14:35:22 -0500
-In-Reply-To: <20091203.160719.140476237.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <3c17e3570912090431o4daaab7cwfee25df4cb0774c2-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 03 Dec 2009 16:07:19 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Barry Song wrote:
+> On Wed, Dec 9, 2009 at 6:16 PM, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org> wrote:
+>> Barry Song wrote:
+>>> Signed-off-by: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>> Signed-off-by: H.J. Oertel <oe-pJ9TYRvN+WE@public.gmane.org>
+>>> ---
+>>>       -v2: cleanup according to Wolfgang Grandegger's feedback
+>>>       1.delete some unnecessary debug print
+>>>       2.delete ndo_tx_timeout entry as it is not needed in can
+>>>       3.use alloc_can_skb, alloc_can_err_skb instead of netdev_alloc_skb
+>>>       4.add timeout while polling can status
+>>>       5.rename BFIN_CAN_READ/WRITE_MSG to bfin_can_read/write_data
+>>>       6.use kernel BIT instead of bit shift
+>>>       7.use void __iomem * for CAN memory base memory instead of u32
+>>>       8.delete "dev->last_rx = jiffies" since it is not needed now
+>>>       9.delete redundant "echo_skb" member in bfin can private data
+>>>       10.follow can convention to use "_" instead of "-" for file names
+>> Did you consider using structs instead of these ugly and cumbersome
+>> macro functions? This was my major criticisms with your previous version
+>> of the patch.
+> Wolfgang,
+> I considered using the structures to describe registers, and I
+> completely agree with you about the advantages of structures. And I am
+> sure I will move to structures after some time and send a patch for
+> it. But for the moment, it is not too urgent, so I only fixed all your
+> other comments. Anyway, if you insist on using structures in just this
+> patch, I can fix and send the -v3 patch after finishing it.
 
-> From: Takashi Iwai <tiwai@suse.de>
-> Date: Thu,  3 Dec 2009 16:12:00 +0100
-> 
-> > here are two small patches to fix the bugs found on sky2 Yukon-2
-> > Optima chip.  These are for the latest net-next kernel.  Would be
-> > nice if they come in for 2.6.33.
-> 
-> Please always CC: the driver maintainer when submitting changes
-> to a driver.
-> 
-> Stephen, please have a look at these, thanks.
+Well, "it's not too urgent" is not a real argument for me, sorry. As
+Marc pointed out, the current "#define's" are not acceptable, anyway.
+Please invest time in moving to structs right a way.
 
-Apply them, if anything comes up the fix can go on top of these
+Thanks,
 
--- 
+Wolfgang.
