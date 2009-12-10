@@ -1,57 +1,63 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the trivial tree with the net-current
- tree
-Date: Thu, 10 Dec 2009 14:37:56 +1100
-Message-ID: <20091210143756.5a236829.sfr@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: Fix compiler warning.
+Date: Thu, 10 Dec 2009 05:25:36 +0100
+Message-ID: <4B207840.7080603@gmail.com>
+References: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__10_Dec_2009_14_37_56_+1100_CMTkHqMk8yQZ9WnF"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	=?UTF-8?B?IkFuZHLDqSBHb2RkYXJkIFJvc2Ei?= <andre.goddard@gmail.com>
-To: Jiri Kosina <jkosina@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:55892 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759277AbZLJDh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 22:37:56 -0500
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52489 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932287AbZLJEZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 23:25:37 -0500
+In-Reply-To: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__10_Dec_2009_14_37_56_+1100_CMTkHqMk8yQZ9WnF
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le 10/12/2009 02:25, chavey@google.com a =E9crit :
+> Fix compiler warning "discards qualifiers from pointer target type".
+> The function prototype defines parameters as pointer to a constant.
+> Such parameters should not have their content modified in the
+> function.
+>=20
+> Signed-off-by: Laurent Chavey <chavey@google.com>
 
-Hi Jiri,
+This is not the right fix IMHO.
 
-Today's linux-next merge of the trivial tree got a conflict in
-include/net/tcp.h between commit 2f7de5710a4d394920405febc2a9937c69e16dda
-("tcp: Stalling connections: Move timeout calculation routine") from the
-net-current tree and commit af901ca181d92aac3a7dc265144a9081a86d8f39
-("tree-wide: fix assorted typos all over the place") from the trivial
-tree.
+We want an unique timestamp for the whole netfilter matches, because se=
+veral 'time' rules
+could get 'interesting' effects.
 
-The former moves the comment that the latter corrects to
-net/ipv4/tcp_timer.c.  I just used the net-current version and didn't
-bother fixing it up in its new location.
+The 'const' attribute is a debugging aid, and the skb->tstamp 'write-on=
+ce' is a valid exception.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Read again the comment in time_mt() :
 
---Signature=_Thu__10_Dec_2009_14_37_56_+1100_CMTkHqMk8yQZ9WnF
-Content-Type: application/pgp-signature
+vi +163 net/netfilter/xt_time.c
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+static bool
+time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+{
+        const struct xt_time_info *info =3D par->matchinfo;
+        unsigned int packet_time;
+        struct xtm current_time;
+        s64 stamp;
 
-iEYEARECAAYFAksgbRQACgkQjjKRsyhoI8yG7ACfceolhrv9JxlGbpgdrIBMiKqv
-ZhkAn3nlKsXyEQrIHIt7IkhpQ3E0cFph
-=fvjq
------END PGP SIGNATURE-----
+        /*
+         * We cannot use get_seconds() instead of __net_timestamp() her=
+e.
+         * Suppose you have two rules:
+         *      1. match before 13:00
+         *      2. match after 13:00
+         * If you match against processing time (get_seconds) it
+         * may happen that the same packet matches both rules if
+         * it arrived at the right moment before 13:00.
+         */
+        if (skb->tstamp.tv64 =3D=3D 0)
+                __net_timestamp((struct sk_buff *)skb);
 
---Signature=_Thu__10_Dec_2009_14_37_56_+1100_CMTkHqMk8yQZ9WnF--
