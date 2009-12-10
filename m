@@ -1,185 +1,134 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH] net: export the number of times the recv queue was full
-Date: Thu, 10 Dec 2009 16:09:20 -0500
-Message-ID: <20091210210920.6820.12664.stgit@paris.rdu.redhat.com>
+From: Ian Marsh <mushypea@dominion.net.uk>
+Subject: r8169
+Date: Thu, 10 Dec 2009 20:58:21 +0000
+Message-ID: <20091210205821.GX6965@slinky.marshes.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48629 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759392AbZLJVJO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2009 16:09:14 -0500
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id nBAL9LW5017850
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 16:09:21 -0500
+Received: from slinky.marshes.co.uk ([80.45.84.194]:35264 "EHLO
+	slinky.marshes.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757023AbZLJVYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 16:24:47 -0500
+Received: from mushypea by slinky.marshes.co.uk with local (Exim 4.69)
+	(envelope-from <mushypea@dominion.net.uk>)
+	id 1NIq5d-00056l-Kl
+	for netdev@vger.kernel.org; Thu, 10 Dec 2009 20:58:21 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We got a request in which a customer was trying to determine how often their
-recieve queue was full and thus they were sending a zero window back to the
-other side.  By the time they would notice the slowdowns they would have all
-empty receive queues and wouldn't know which socket was a problem.  It also
-allows them to find the sockets in which they need to up the recv queue size
-rather than doing it for all sockets across the box.  This patch exports that
-information via /proc/net/tcp.
+Hi, all,
 
-# cat /proc/net/tcp
-  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
-[snip]
-  10: D7E70B0A:0016 E4E70B0A:E0BD 01 00000000:00000000 02:000AF288 00000000     0        0 12598 4 ffff88003e4c1e00 20 3 17 5 -1 0
-  11: 0100007F:2710 0100007F:B91D 01 00000000:000113DA 02:000AEFA6 00000000     0        0 12592 2 ffff88003e7b2800 20 11 0 2 -1 8
+After many hours of frustration trying to solve this, I am hoping you guys can
+shed some light and help me out.
 
-Signed-off-by: Eric Paris <eparis@redhat.com>
----
+I have a PC with an Asus P5B i965 motherboard, which has an on-board gigabit
+ethernet port.  According to dmesg this is a "RTL8168b/8111b", lspci reports a
+"Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
+Express Gigabit Ethernet controller [10ec:8168] (rev 01)".
 
- Documentation/networking/proc_net_tcp.txt |    4 +++-
- include/linux/tcp.h                       |    3 +++
- net/ipv4/tcp.c                            |    3 +++
- net/ipv4/tcp_ipv4.c                       |    5 ++++-
- net/ipv4/tcp_output.c                     |    4 +++-
- net/ipv6/tcp_ipv6.c                       |   10 +++++++---
- 6 files changed, 23 insertions(+), 6 deletions(-)
+This PC is a media centre PC, currently using Xubuntu Hardy (8.04.1), with
+stock kernel image, 2.6.24-19-generic.  This uses version 2.2LK of the r8169
+driver (according to modinfo, srcversion: 449281D8F257330CF6D0E38), which
+works perfectly.
 
-diff --git a/Documentation/networking/proc_net_tcp.txt b/Documentation/networking/proc_net_tcp.txt
-index 4a79209..03375f4 100644
---- a/Documentation/networking/proc_net_tcp.txt
-+++ b/Documentation/networking/proc_net_tcp.txt
-@@ -24,7 +24,9 @@ up into 3 parts because of the length of the line):
-       |        |----------------------> receive-queue
-       |-------------------------------> transmit-queue
- 
--   1000        0 54165785 4 cd1e6040 25 4 27 3 -1
-+   1000        0 54165785 4 cd1e6040 25 4 27 3 -1 12
-+    |          |    |     |    |     |  | |  | |  |--> number of times socket
-+    |          |    |     |    |     |  | |  | |       replied with zero window
-     |          |    |     |    |     |  | |  | |--> slow start size threshold, 
-     |          |    |     |    |     |  | |  |      or -1 if the threshold
-     |          |    |     |    |     |  | |  |      is >= 0xFFFF
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 7fee8a4..b50627d 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -163,6 +163,8 @@ struct tcp_info {
- 	__u32	tcpi_rcv_space;
- 
- 	__u32	tcpi_total_retrans;
-+
-+	__u32	tcpi_rcv_wnd_zero_cnt;
- };
- 
- /* for TCP_MD5SIG socket option */
-@@ -376,6 +378,7 @@ struct tcp_sock {
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
- 	u32	pushed_seq;	/* Last pushed seq, required to talk to windows */
-+	u32	rcv_wnd_zero_cnt;
- 	u32	lost_out;	/* Lost packets			*/
- 	u32	sacked_out;	/* SACK'd packets			*/
- 	u32	fackets_out;	/* FACK'd packets			*/
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index b0a26bb..3fa846e 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2061,6 +2061,7 @@ int tcp_disconnect(struct sock *sk, int flags)
- 	tp->snd_cwnd_cnt = 0;
- 	tp->bytes_acked = 0;
- 	tp->window_clamp = 0;
-+	tp->rcv_wnd_zero_cnt = 0;
- 	tcp_set_ca_state(sk, TCP_CA_Open);
- 	tcp_clear_retrans(tp);
- 	inet_csk_delack_init(sk);
-@@ -2432,6 +2433,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_rcv_space = tp->rcvq_space.space;
- 
- 	info->tcpi_total_retrans = tp->total_retrans;
-+
-+	info->tcpi_rcv_wnd_zero_cnt = tp->rcv_wnd_zero_cnt;
- }
- 
- EXPORT_SYMBOL_GPL(tcp_get_info);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 15e9603..d61ecb8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1885,6 +1885,8 @@ static int tcp_v4_init_sock(struct sock *sk)
- 	 *	cookie_in_always, cookie_out_never,
- 	 *	s_data_constant, s_data_in, s_data_out
- 	 */
-+	tp->rcv_wnd_zero_cnt = 0;
-+
- 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
- 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
- 
-@@ -2343,7 +2345,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
- 		rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
- 
- 	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
--			"%08X %5d %8d %lu %d %p %lu %lu %u %u %d%n",
-+			"%08X %5d %8d %lu %d %p %lu %lu %u %u %d %u%n",
- 		i, src, srcp, dest, destp, sk->sk_state,
- 		tp->write_seq - tp->snd_una,
- 		rx_queue,
-@@ -2359,6 +2361,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
- 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
- 		tp->snd_cwnd,
- 		tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh,
-+		tp->rcv_wnd_zero_cnt,
- 		len);
- }
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 93316a9..337676d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -277,8 +277,10 @@ static u16 tcp_select_window(struct sock *sk)
- 	new_win >>= tp->rx_opt.rcv_wscale;
- 
- 	/* If we advertise zero window, disable fast path. */
--	if (new_win == 0)
-+	if (new_win == 0) {
-+		tp->rcv_wnd_zero_cnt++;
- 		tp->pred_flags = 0;
-+	}
- 
- 	return new_win;
- }
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index ee9cf62..8f6c992 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1925,6 +1925,8 @@ static int tcp_v6_init_sock(struct sock *sk)
- 	 *	cookie_in_always, cookie_out_never,
- 	 *	s_data_constant, s_data_in, s_data_out
- 	 */
-+	tp->rcv_wnd_zero_cnt = 0;
-+
- 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
- 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
- 
-@@ -2010,8 +2012,9 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 	}
- 
- 	seq_printf(seq,
--		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %lu %lu %u %u %d\n",
-+		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X %02X "
-+		   "%08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %lu %lu %u %u "
-+		   "%d %u\n",
- 		   i,
- 		   src->s6_addr32[0], src->s6_addr32[1],
- 		   src->s6_addr32[2], src->s6_addr32[3], srcp,
-@@ -2031,7 +2034,8 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 		   jiffies_to_clock_t(icsk->icsk_ack.ato),
- 		   (icsk->icsk_ack.quick << 1 ) | icsk->icsk_ack.pingpong,
- 		   tp->snd_cwnd,
--		   tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh
-+		   tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh,
-+		   tp->rcv_wnd_zero_cnt
- 		   );
- }
- 
+I want to upgrade, and have tried Mythbuntu Karmic (9.10), with stock kernel
+image, 2.6.31-14-generic.  This uses version 2.3LK-NAPI of the r8169 driver
+(according to modinfo, srcversion: AF7CFACF4C12EBE33B133F7), which does not
+work for anything beyond pings and very small connections, e.g. browsing to
+the Google homepage.
+
+I also tried Mythbuntu Jaunty (9.04) with kernel 2.6.28-11-generic, same
+problem.
+
+I also tried (on Mythbuntu Karmic) upgrading the kernel (via a USB stick) to
+2.6.32-7-generic, still no joy.
+
+Oh, and I've tried with pci=nomsi too.  And noapic.  Same result every time.
+
+Just to be clear about the symptoms:
+
+1) Network comes up.
+2) DHCP succeeds (I get a statically-mapped IP via DHCP)
+3) pings work
+4) Google homepage works
+5) Large web pages (e.g. ubuntu.com, bbc.co.uk) fail, not even fetching the
+   initial HTML page.
+
+For example, a wget test did this:
+
+--2009-12-10 11:27:58--  http://www.ubuntu.com/
+Resolving www.ubuntu.com... 91.189.90.41
+Connecting to www.ubuntu.com|91.189.90.41|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 18366 (18K) [text/html]
+Saving to: `/dev/null'
+
+84% [================>   ] 15,465      --.-K/s  eta 11s
+
+It gets to that almost instantly, then hangs.  Ctrl-C and repeat causes it to
+hang at the exact same place every time.  Different pages hang at different
+byte counts, but each page always hangs at the same point.
+
+
+The relevant part of dmesg is:
+
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:03:00.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
+r8169 0000:03:00.0: setting latency timer to 64
+  alloc irq_desc for 28 on node -1
+  alloc kstat_irqs on node -1
+r8169 0000:03:00.0: irq 28 for MSI/MSI-X
+eth0: RTL8168b/8111b at 0xf80d6000, 00:1a:92:9d:44:55, XID 38000000 IRQ 28
+
+Full output of uname -a:
+
+Linux shiny 2.6.31-14-generic #48-Ubuntu SMP Fri Oct 16 14:04:26 UTC 2009 i686 GNU/Linux
+
+The relevant part of lspci -nnvvv is:
+
+03:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller [10ec:
+8168] (rev 01)
+        Subsystem: ASUSTeK Computer Inc. Device [1043:81aa]
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 28
+        Region 0: I/O ports at b800 [size=256]
+        Region 2: Memory at d1eff000 (64-bit, non-prefetchable) [size=4K]
+        Expansion ROM at d1ec0000 [disabled] [size=128K]
+        Capabilities: [40] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0-,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+        Capabilities: [48] Vital Product Data <?>
+        Capabilities: [50] Message Signalled Interrupts: Mask- 64bit+ Queue=0/1 Enable+
+                Address: 00000000fee0300c  Data: 41a1
+        Capabilities: [60] Express (v1) Endpoint, MSI 00
+                DevCap: MaxPayload 1024 bytes, PhantFunc 0, Latency L0s <1us, L1 unlimited
+                        ExtTag+ AttnBtn+ AttnInd+ PwrInd+ RBE- FLReset-
+                DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                        MaxPayload 128 bytes, MaxReadReq 4096 bytes
+                DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s, Latency L0 unlimited, L1 unlimited
+                        ClockPM- Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [84] Vendor Specific Information <?>
+        Capabilities: [100] Advanced Error Reporting <?>
+        Capabilities: [12c] Virtual Channel <?>
+        Capabilities: [148] Device Serial Number 68-81-ec-10-00-00-00-1a
+        Capabilities: [154] Power Budgeting <?>
+        Kernel driver in use: r8169
+
+
+Would appreciate any ideas/suggestions.  I'm fairly handy with Linux and C,
+although new to kernel hacking, but willing to get my hands dirty to get this
+fixed.  If you need any further info or any debugs running, just let me know.
+
+Thanks in advance for your time,
+
+Ian.
 
