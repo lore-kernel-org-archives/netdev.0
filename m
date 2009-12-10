@@ -1,134 +1,162 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v3] add the driver for Analog Devices Blackfin on-chip
-	CAN controllers
-Date: Thu, 10 Dec 2009 11:21:45 +0100
-Message-ID: <20091210102145.GA3097@pengutronix.de>
-References: <1260430072-21106-1-git-send-email-21cnbao@gmail.com>
-	<4B20BB36.50509@grandegger.com>
-	<3c17e3570912100214k4b3eb038u1108c82bfa346389@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Crazy TCP bug (keepalive flood?) in 2.6.32?
+Date: Thu, 10 Dec 2009 12:24:11 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912101218100.7024@wel-95.cs.helsinki.fi>
+References: <200912092051.18258.denys@visp.net.lb> <alpine.DEB.2.00.0912101019490.23376@melkinpaasi.cs.helsinki.fi> <alpine.DEB.2.00.0912101025260.23376@melkinpaasi.cs.helsinki.fi> <alpine.DEB.2.00.0912101044190.23376@melkinpaasi.cs.helsinki.fi>
+ <4B20C7E6.3040105@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1395840974=="
-Cc: "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <3c17e3570912100214k4b3eb038u1108c82bfa346389-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="8323329-1987605094-1260440405=:7024"
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	Netdev <netdev@vger.kernel.org>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49162 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759451AbZLJKYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 05:24:07 -0500
+In-Reply-To: <4B20C7E6.3040105@tvk.rwth-aachen.de>
+Content-ID: <alpine.DEB.2.00.0912101220280.7024@wel-95.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
---===============1395840974==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VbJkn9YxBvnuCH5J"
-Content-Disposition: inline
+--8323329-1987605094-1260440405=:7024
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0912101220281.7024@wel-95.cs.helsinki.fi>
 
+On Thu, 10 Dec 2009, Damian Lukowski wrote:
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Ilpo Järvinen schrieb:
+> > On Thu, 10 Dec 2009, Ilpo Järvinen wrote:
+> > 
+> >> On Thu, 10 Dec 2009, Ilpo Järvinen wrote:
+> >>
+> >>> Cc Damian.
+> >>>
+> >>> On Wed, 9 Dec 2009, Denys Fedoryshchenko wrote:
+> >>>
+> >>>> Hi
+> >>>>
+> >>>> I did upgrade of my lusca(squid) proxies and notice that some users getting up 
+> >>>> to 8-15 Mbit/s flood (while they are shaped to 128Kbit/s). After tracing i end 
+> >>>> up on  one of proxies host and seems it is bug in kernel tcp stack.
+> >>>>
+> >>>> I check packets inside - it is same repeating content (and even same tcp 
+> >>>> sequence, so it is almost sure tcp bug). Sender also ignoring ICMP unreachable 
+> >>>> packets and continue flooding destination
+> 
+> By "also" you mean, that the sender is flooding with and without ICMPs?
+> 
+> >>>>
+> >>>> Here is some examples
+> >>>> ss output for corresponding entry
+> >>>>
+> >>>> ESTAB      0      8267        194.146.153.114:8080         172.16.67.243:2512
+> >>>>
+> >>>>
+> >>>> 20:32:08.491470 IP (tos 0x0, ttl 64, id 49493, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>     194.146.153.114.8080 > 172.16.67.243.2512: Flags [P.], cksum 0xce63 
+> >>>> (correct), seq 0:615, ack 1, win 7504, length 615
+> >>>> 20:32:08.492487 IP (tos 0x0, ttl 64, id 49494, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>     194.146.153.114.8080 > 172.16.67.243.2512: Flags [P.], cksum 0xce63 
+> >>>> (correct), seq 0:615, ack 1, win 7504, length 615
+> >>>> 20:32:08.493468 IP (tos 0x0, ttl 64, id 49495, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>     194.146.153.114.8080 > 172.16.67.243.2512: Flags [P.], cksum 0xce63 
+> >>>> (correct), seq 0:615, ack 1, win 7504, length 615
+> >>>> 20:32:08.494463 IP (tos 0x0, ttl 64, id 49496, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>     194.146.153.114.8080 > 172.16.67.243.2512: Flags [P.], cksum 0xce63 
+> >>>> (correct), seq 0:615, ack 1, win 7504, length 615
+> >>>> 20:32:08.495463 IP (tos 0x0, ttl 64, id 49497, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>     194.146.153.114.8080 > 172.16.67.243.2512: Flags [P.], cksum 0xce63 
+> >>>> (correct), seq 0:615, ack 1, win 7504, length 615
+> >>>> 20:32:08.496467 IP (tos 0x0, ttl 64, id 49498, offset 0, flags [DF], proto TCP 
+> >>>> (6), length 655)
+> >>>>
+> >>>>
+> >>>> One more
+> >>>> 20:36:13.310718 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.311725 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.312729 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.313717 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.314717 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.315718 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>> 20:36:13.316725 IP 194.146.153.114.8080 > 172.16.49.30.1319: Flags [.], ack 1, 
+> >>>> win 7469, length 1440
+> >>>>
+> >>>> I run multiple times ss
+> >>>>
+> >>>> ESTAB      0      7730        194.146.153.114:8080          172.16.49.30:1319   
+> >>>> timer:(on,,172) uid:101 ino:4772596 sk:c0ce84c0
+> >>>> ESTAB      0      7730        194.146.153.114:8080          172.16.49.30:1319   
+> >>>> timer:(on,,43) uid:101 ino:4772596 sk:c0ce84c0
+> >>>> ESTAB      0      7730        194.146.153.114:8080          172.16.49.30:1319   
+> >>>> timer:(on,,17) uid:101 ino:4772596 sk:c0ce84c0
+> >>>>
+> >>>> After i kill squid it will  switch socket to FIN-WAIT state and flood will 
+> >>>> stop.
+> >>>>
+> >>>> Some sysctl tuning done during boot (maybe related)
+> >>>> sysctl -w net.ipv4.tcp_frto=2
+> >>>> sysctl -w net.ipv4.tcp_frto_response=2
+> >>>>
+> >>>> And most probably it is related to keepalive. I have it set on this socket:
+> >>>> http_port 8080 transparent tcpkeepalive=30,30,60 http11                                                                                                                                                   
+> >>>>
+> >>>> From manual
+> >>>> #<----->   tcpkeepalive[=idle,interval,timeout]
+> >>>> #<-----><------><------>Enable TCP keepalive probes of idle connections
+> >>>> #<-----><------><------>idle is the initial time before TCP starts probing
+> >>>> #<-----><------><------>the connection, interval how often to probe, and
+> >>>> #<-----><------><------>timeout the time before giving up.
+> >>>>
+> >>>> I am not able to reproduce reliably bug, but it is appearing on different 
+> >>>> cluster pc's randomly for single connection each 5-10 minutes (around 8000 
+> >>>> established connections to each at moment, 8 pc's in cluster) and dissapearing 
+> >>>> after 10-50 seconds of flood.
+> >>> Damian, can you please take a look. ...It's a bit weird after a very brief 
+> >>> look (as if RTO would trigger way too often). Maybe its backoff is broken 
+> >>> now?
+> >> ...I meant broken when keepalives are in use.
+> > 
+> > I guess it's that the ICMPs are somehow triggering the 
+> > tcp_retransmit_timer call in tcp_ipv4 even though they're not supposed 
+> > to do that until the RTO timeout would have fired. I've no idea why 
+> > remaining doesn't do what it's supposed to.
+> > 
+> 
+> Hm.
+> Those ICMPs will trigger only, if icsk_backoff and retransmits is non-zero.
+> If that's because of a retransmission (which was thought to be), then
+> packets_out is non-zero and tcp_probe_timer will return before sending anything.
+> Correct me, if I'm wrong here.
+> I'll try to think of a case, where those are non-zero with no packets_out.
 
+...I thought that myself too but after some thinking I concluded that 
+zero packets_out alone would not end up into a loop. ...As the when field 
+would then get set to a rather valid value on the first (bogus) 
+transmission of the not yet sent segment, so no loop for the next ICMP 
+anymore because there should then be plenty of time remaining. I couldn't 
+immediately determine whether that packets_out == 0 could occur (I suppose 
+we need to think that through but I'm a bit skeptic that it is the reason 
+here).
 
-> >> + =A0 =A0 if (status) {
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 priv->can.can_stats.bus_error++;
-> >> +
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 cf->can_id |=3D CAN_ERR_PROT | CAN_ERR_BUSER=
-ROR;
-> >> +
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 if (status & BEF)
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cf->data[2] |=3D CAN_ERR_PRO=
-T_BIT;
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 else if (status & FER)
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cf->data[2] |=3D CAN_ERR_PRO=
-T_FORM;
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 else if (status & SER)
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cf->data[2] |=3D CAN_ERR_PRO=
-T_STUFF;
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 else
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cf->data[2] |=3D CAN_ERR_PRO=
-T_UNSPEC;
-> >> + =A0 =A0 }
-> >
-> > Add {} here as well.
-> {} will cause checkpatch warning if it is given to only one line.
+Another alternative to cause this is that icsk_rto become very small for 
+some reason.
 
-Right, no need for braces here, because it is always one statement after
-if/else.
-
-
-> >> + =A0 =A0 if ((irq =3D=3D priv->tx_irq) && readw(&reg->mbtif2)) {
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 /* transmission complete interrupt */
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 writew(0xFFFF, &reg->mbtif2);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 stats->tx_packets++;
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 stats->tx_bytes +=3D bfin_can_read_dlc(priv,=
- TRANSMIT_CHL);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 can_get_echo_skb(dev, 0);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 netif_wake_queue(dev);
-> >> + =A0 =A0 } else if ((irq =3D=3D priv->rx_irq) && readw(&reg->mbrif1))=
- {
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 /* receive interrupt */
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 isrc =3D readw(&reg->mbrif1);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 writew(0xFFFF, &reg->mbrif1);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 bfin_can_rx(dev, isrc);
-> >> + =A0 =A0 } else if ((irq =3D=3D priv->err_irq) && readw(&reg->gis)) {
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 /* error interrupt */
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 isrc =3D readw(&reg->gis);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 status =3D readw(&reg->esr);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 writew(0x7FF, &reg->gis);
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 bfin_can_err(dev, isrc, status);
-> >> + =A0 =A0 } else
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 return IRQ_NONE;
-> >
-> > Use {} here as well.
-> {} will cause checkpatch warning if it is given to only one line.
-
-Then again, here braces are suggested. If the 'if'-block has braces, the
-'else'-block should have braces, too. If checkpatch really complains about =
-it,
-this is a bug in checkpatch.
-
-Regards,
-
-   Wolfram
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---VbJkn9YxBvnuCH5J
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAksgy7kACgkQD27XaX1/VRuNlwCgsSRFNBn9ZOhqnQrNuO8T+jGD
-0IcAnj31td4yugsGcccmKyPPkNTogzGt
-=u741
------END PGP SIGNATURE-----
-
---VbJkn9YxBvnuCH5J--
-
---===============1395840974==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1395840974==--
+-- 
+ i.
+--8323329-1987605094-1260440405=:7024--
