@@ -1,74 +1,95 @@
-From: chavey@google.com
-Subject: Re: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
-Date: Wed, 09 Dec 2009 17:15:10 -0800
-Message-ID: <pvmiqcfbpep.fsf@chavey.mtv.corp.google.com>
-Cc: netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3: link is permanently down after ifdown and ifup
+Date: Wed, 9 Dec 2009 17:19:31 -0800
+Message-ID: <20091210011931.GA30802@xw6200.broadcom.net>
+References: <4B056158.5060104@embedded-sol.com>
+ <4B056D85.5010904@embedded-sol.com>
+ <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com>
+ <4B1F631E.5030908@embedded-sol.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Felix Radensky" <felix@embedded-sol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:33544 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751889AbZLJBPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 20:15:12 -0500
-Received: from spaceape24.eur.corp.google.com (spaceape24.eur.corp.google.com [172.28.16.76])
-	by smtp-out.google.com with ESMTP id nBA1FHKN014937
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 01:15:17 GMT
-Received: from gxk23 (gxk23.prod.google.com [10.202.11.23])
-	by spaceape24.eur.corp.google.com with ESMTP id nBA1FEGc026124
-	for <netdev@vger.kernel.org>; Wed, 9 Dec 2009 17:15:15 -0800
-Received: by gxk23 with SMTP id 23so4914283gxk.2
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2009 17:15:14 -0800 (PST)
+Received: from mms3.broadcom.com ([216.31.210.19]:3263 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755616AbZLJBTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Dec 2009 20:19:30 -0500
+In-Reply-To: <4B1F631E.5030908@embedded-sol.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+I understand the problem now.  The problem is that tg3_set_power_state()
+puts the phy into a low-power mode when it releases the device.  When
+the phy is reacquired, a phy reset is missing to take the device back
+out of the low-power mode.
 
-Adds SR-IOV features supported by the 82599 controller to the main driver
-module.  If the CONFIG_PCI_IOV kernel option is selected then the SR-IOV
-features are enabled.  Use the max_vfs module option to allocate up to 63
-virtual functions per physical port.
+The patch at the bottom of this email is the fix I'm currently testing.
+If you wish, you can try it out.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Wed, Dec 09, 2009 at 12:43:10AM -0800, Felix Radensky wrote:
+> Hi, Matt
+> 
+> Did you have a chance to look into this problem ?
+> 
+> Thanks a lot.
+> 
+> Felix.
+>  
+> Michael Chan wrote:
+> > On Thu, 2009-11-19 at 08:08 -0800, Felix Radensky wrote:
+> >   
+> >> Hi,
+> >>
+> >> The problem goes away if I remove the call to
+> >>
+> >> tg3_set_power_state(tp, PCI_D3hot);
+> >>
+> >> from tg3_close().
+> >>     
+> >
+> > Added Matt to CC.  He is on vacation and may not be able to look into
+> > this right away.  Thanks.
+
+
+[PATCH] tg3: Fix 57780 connectivity problems
+
+When management firmware is not present, and WOL is disabled, the driver
+will put the phy into a low-power mode when shutting down.  To get out
+of low-power mode, the operation must be reversed or the phy must be
+reset.
+
+In the past, the phylib reset the phy from either phy_start() or
+phy_start_aneg().  This phy reset has been removed from more recent
+kernels.  The tg3 driver already has phy reset code in place which is
+called when it assumes control of the device.  It is bypassed if phylib
+is enabled though.
+
+This patch removes the phylib exception.
 ---
+ drivers/net/tg3.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-+static inline void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
-+{
-+       struct ixgbe_hw *hw = &adapter->hw;
-+       u32 gcr;
-+       u32 gpie;
-+       u32 vmdctl;
-+
-+#ifdef CONFIG_PCI_IOV
-+       /* disable iov and allow time for transactions to clear */
-+       pci_disable_sriov(adapter->pdev);
-+#endif
-+       msleep(500);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 3a74d21..c0a3080 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7523,8 +7523,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		tg3_abort_hw(tp, 1);
+ 	}
+ 
+-	if (reset_phy &&
+-	    !(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB))
++	if (reset_phy)
+ 		tg3_phy_reset(tp);
+ 
+ 	err = tg3_chip_reset(tp);
+-- 
+1.6.4.4
 
-what is the sleep used for ?
-if this is to wait for pci_disable then add it
-in the #ifdef above.
-i s there a registerthat can be checked to ensure that
-the device is in the expected state ? (similar to line 311 of
-the orginal patch)
-
-
-@@ -2269,6 +2376,20 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
-       }
-       IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-
-+       if (adapter->num_vfs) {
-+               u32 reg;
-+
-+               /* Map PF MAC address in RAR Entry 0 to first pool
-+                * following VFs */
-+               hw->mac.ops.set_vmdq(hw, 0, adapter->num_vfs);
-+
-+               /* Set up VF register offsets for selected VT Mode, i.e.
-+                * 64 VFs for SR-IOV */
-+               reg = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
-+               reg |= 0x80000003;
-
-what is the significance of the 0x80000003 ?
 
