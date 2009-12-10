@@ -1,88 +1,98 @@
-From: chavey@google.com
-Subject: [PATCH] netfilter: Fix compiler warning.
-Date: Wed, 09 Dec 2009 17:25:00 -0800
-Message-ID: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com>
-Cc: netdev@vger.kernel.org, chavey@google.com
-To: davem@davemloft.net
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
+Date: Wed, 9 Dec 2009 17:40:33 -0800
+Message-ID: <43F901BD926A4E43B106BF17856F07558C3DEDB1@orsmsx508.amr.corp.intel.com>
+References: <pvmiqcfbpep.fsf@chavey.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: "chavey@google.com" <chavey@google.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:35961 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759342AbZLJBZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 20:25:00 -0500
-Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
-	by smtp-out.google.com with ESMTP id nBA1P6iI001037
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 01:25:06 GMT
-Received: from gxk3 (gxk3.prod.google.com [10.202.11.3])
-	by wpaz13.hot.corp.google.com with ESMTP id nBA1P3ia006328
-	for <netdev@vger.kernel.org>; Wed, 9 Dec 2009 17:25:04 -0800
-Received: by gxk3 with SMTP id 3so686152gxk.1
-        for <netdev@vger.kernel.org>; Wed, 09 Dec 2009 17:25:03 -0800 (PST)
+Received: from mga14.intel.com ([143.182.124.37]:50929 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759373AbZLJBka convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 20:40:30 -0500
+In-Reply-To: <pvmiqcfbpep.fsf@chavey.mtv.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix compiler warning "discards qualifiers from pointer target type".
-The function prototype defines parameters as pointer to a constant.
-Such parameters should not have their content modified in the
-function.
+>-----Original Message-----
+>From: chavey@google.com [mailto:chavey@google.com]
+>Sent: Wednesday, December 09, 2009 5:15 PM
+>To: Kirsher, Jeffrey T
+>Cc: netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V;
+>Waskiewicz Jr, Peter P
+>Subject: Re: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
+>
+>From: Greg Rose <gregory.v.rose@intel.com>
+>
+>Adds SR-IOV features supported by the 82599 controller to the main
+>driver
+>module.  If the CONFIG_PCI_IOV kernel option is selected then the SR-IOV
+>features are enabled.  Use the max_vfs module option to allocate up to
+>63
+>virtual functions per physical port.
+>
+>---
+>
+>+static inline void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+>+{
+>+       struct ixgbe_hw *hw = &adapter->hw;
+>+       u32 gcr;
+>+       u32 gpie;
+>+       u32 vmdctl;
+>+
+>+#ifdef CONFIG_PCI_IOV
+>+       /* disable iov and allow time for transactions to clear */
+>+       pci_disable_sriov(adapter->pdev);
+>+#endif
+>+       msleep(500);
+>
+>what is the sleep used for ?
+[Rose, Gregory V] 
 
-Signed-off-by: Laurent Chavey <chavey@google.com>
----
- net/ipv4/netfilter/ipt_ULOG.c |    6 ++++--
- net/netfilter/xt_time.c       |    6 ++++--
- 2 files changed, 8 insertions(+), 4 deletions(-)
+It's mostly a safety valve to give plenty of time for all bus transactions to complete or time out.
 
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index d32cc4b..8490f9f 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -166,6 +166,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
- 	size_t size, copy_len;
- 	struct nlmsghdr *nlh;
- 	struct timeval tv;
-+	ktime_t	tstamp;
- 
- 	/* ffs == find first bit set, necessary because userspace
- 	 * is already shifting groupnumber, but we need unshifted.
-@@ -208,13 +209,14 @@ static void ipt_ulog_packet(unsigned int hooknum,
- 
- 	pm = NLMSG_DATA(nlh);
- 
-+	tstamp = skb->tstamp;
- 	/* We might not have a timestamp, get one */
- 	if (skb->tstamp.tv64 == 0)
--		__net_timestamp((struct sk_buff *)skb);
-+		tstamp = ktime_get_real();
- 
- 	/* copy hook, prefix, timestamp, payload, etc. */
- 	pm->data_len = copy_len;
--	tv = ktime_to_timeval(skb->tstamp);
-+	tv = ktime_to_timeval(tstamp);
- 	put_unaligned(tv.tv_sec, &pm->timestamp_sec);
- 	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
- 	put_unaligned(skb->mark, &pm->mark);
-diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
-index 93acaa5..66e2a75 100644
---- a/net/netfilter/xt_time.c
-+++ b/net/netfilter/xt_time.c
-@@ -159,6 +159,7 @@ time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	unsigned int packet_time;
- 	struct xtm current_time;
- 	s64 stamp;
-+	ktime_t	tstamp;
- 
- 	/*
- 	 * We cannot use get_seconds() instead of __net_timestamp() here.
-@@ -169,10 +170,11 @@ time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	 * may happen that the same packet matches both rules if
- 	 * it arrived at the right moment before 13:00.
- 	 */
-+	tstamp = skb->tstamp;
- 	if (skb->tstamp.tv64 == 0)
--		__net_timestamp((struct sk_buff *)skb);
-+		tstamp = ktime_get_real();
- 
--	stamp = ktime_to_ns(skb->tstamp);
-+	stamp = ktime_to_ns(tstamp);
- 	stamp = div_s64(stamp, NSEC_PER_SEC);
- 
- 	if (info->flags & XT_TIME_LOCAL_TZ)
+>if this is to wait for pci_disable then add it
+>in the #ifdef above.
+>i s there a registerthat can be checked to ensure that
+>the device is in the expected state ? (similar to line 311 of
+>the orginal patch)
+[Rose, Gregory V] 
+
+Not reliably.
+
+>
+>
+>@@ -2269,6 +2376,20 @@ static void ixgbe_configure_rx(struct
+>ixgbe_adapter *adapter)
+>       }
+>       IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
+>
+>+       if (adapter->num_vfs) {
+>+               u32 reg;
+>+
+>+               /* Map PF MAC address in RAR Entry 0 to first pool
+>+                * following VFs */
+>+               hw->mac.ops.set_vmdq(hw, 0, adapter->num_vfs);
+>+
+>+               /* Set up VF register offsets for selected VT Mode, i.e.
+>+                * 64 VFs for SR-IOV */
+>+               reg = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
+>+               reg |= 0x80000003;
+>
+>what is the significance of the 0x80000003 ?
+
+[Rose, Gregory V] 
+
+Oh, a magic number.  We'll fix that.
+
+In this case it's to set up the correct PCIe configuration on the device.
+
+- Greg
+
