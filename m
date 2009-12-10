@@ -1,87 +1,122 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
-	Blackfin on-chip CAN controllers
-Date: Thu, 10 Dec 2009 12:19:48 +0100
-Message-ID: <4B20D954.8040002@grandegger.com>
-References: <1260430072-21106-1-git-send-email-21cnbao@gmail.com>	<4B20BB36.50509@grandegger.com>	<8bd0f97a0912100204gd2b09f6r2799d9f951d6b9e1@mail.gmail.com><4B20CB82.6060702@grandegger.com>
-	<4B20D214.4050503@grandegger.com>
-	<8A42379416420646B9BFAC9682273B6D0EDD9A3C@limkexm3.ad.analog.com>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [RFC PATCH v3  2/8] CAIF Protocol Stack
+Date: Thu, 10 Dec 2009 12:20:26 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E0790311F06B@eseldmw101.eemea.ericsson.se>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com> <4B1EECEC.5080903@babic.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "Hennerich, Michael" <Michael.Hennerich-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <8A42379416420646B9BFAC9682273B6D0EDD9A3C-pcKY8lWzTjquVPpjEGsWsTcYPEmu4y7e@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <randy.dunlap@oracle.com>,
+	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>,
+	"Christian Bejram" <christian.bejram@stericsson.com>,
+	"Daniel Martensson" <daniel.martensson@stericsson.com>
+To: <stefano.babic@babic.homelinux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw3.ericsson.se ([193.180.251.60]:62622 "EHLO
+	mailgw3.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760672AbZLJLUX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 06:20:23 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <4B1EECEC.5080903@babic.homelinux.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hennerich, Michael wrote:
+Hi Stefano.
+
+stefano babic wrote:
+>> +enum caif_ctrlcmd {
+>> +	/** Flow Control is OFF, transmit function should stop sending
+>> data */ +	CAIF_CTRLCMD_FLOW_OFF_IND = 0,
+>> +	/** Flow Control is ON, transmit function can start sending data */
+>> +	CAIF_CTRLCMD_FLOW_ON_IND = 1,
+>> +	/** Remote end modem has decided to close down channel */
+>> +	CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND = 5,
 > 
->> Wolfgang Grandegger wrote:
->>> Mike Frysinger wrote:
->>>> On Thu, Dec 10, 2009 at 04:11, Wolfgang Grandegger wrote:
->>>>> Barry Song wrote:
->>>>>> +#include <linux/module.h>
->>>>>> +#include <linux/init.h>
->>>>>> +#include <linux/kernel.h>
->>>>>> +#include <linux/types.h>
->>>>> I think you don't need "types.h" as the code no longer uses
->> "uint*_t".
->>>> linux/types.h declares all types, like u* which this driver still
->> uses
->>> I just remember that "linux/types.h" needs to be added for the
-> uint*_t
->>> types. At a first glance I do not see __u8/u8 being defined in that
->>> header file but I might have missed something.
->>>
->>>>> Well, I'm still not a friend of the following inline functions,
->>>>> especially the *one-liners* which are called just *once*. With the
->> usage
->>>>> of structs they seem even more useless.
->>>> seems like it would make more sense to not even use the read/write
->>>> functions either.  just declare the regs as volatile and assign/read
->>>> the struct directly.
->>> Two times no. Don't use volatile and proper accessor functions. See:
->>>
->>> http://lxr.linux.no/#linux+v2.6.32/Documentation/volatile-considered-
->> harmful.txt
->>
->> I was just wondering if bfin_read/write16 would not be the proper
->> accessor functions. readw/writew seems to be implemented differently:
->>
->> http://lxr.linux.no/#linux+v2.6.32/arch/blackfin/include/asm/io.h#L44
->>
->> Puh, they do an cli,nop,nop,sync..sti for the access. This also nicely
->> shows why accessor functions should be used to access device registers.
->>
->> Well, just curious. I don't really know the blackfin arch.
+> Not really important, but is there some reason to not put them in
+> order ? 
+Good question, I don't remember why it ended up like this. I'll fix this up by
+removing the assignment in the enum.
 > 
-> Well - on Blackfin its absolutely ok to access System Memory Mapped
-> Registers using structs.
-> At any rate volatile is then required to prevent the compiler to
-> optimize accesses away.
-> IMHO this is a pretty legal use of volatile, and used in hundreds of
-> places all over the kernel. 
->  
-> When accessing external controllers accessor functions from io.h must be
-> used.
-> There are two things to consider here:
-> 1) weak ordering of reads and writes 
-> 2) killed and reissued reads (especially harmful when reading from
-> FIFOs)
+> 
+>> diff --git a/include/net/caif/generic/cfcnfg.h
+>> b/include/net/caif/generic/cfcnfg.h
+>> +/** Physical preference - HW Abstraction */ enum
+>> +cfcnfg_phy_preference {
+>> +	/** Default physical interface */
+>> +	CFPHYPREF_UNSPECIFIED = 0xa0,
+>> +	/** Default physical interface for low-latency traffic */
+>> +	CFPHYPREF_LOW_LAT = 0xd0, +	/** Default physical interface for
+>> high-bandwidth traffic */ +	CFPHYPREF_HIGH_BW = 0xe0, +	/** \b TEST
+>> \b ONLY Loopback interface simulating modem responses */
+>> +	CFPHYPREF_LOOP = 0x70, +	/** \b TEST \b ONLY Raw loopback
+>> interface */ +	CFPHYPREF_RAW_LOOP = 0x80 +};
+> 
+> Different context, but preferences have always the same values. Could
+> we remove the duplicates ? 
+At some point I was thinking on or-ing preferences together.
+This is no longer done and I think I'd rather skip the assignment
+of values.
 
-OK, anyway, I believe that it's good practice to hide all such details
-by using proper accessor functions.
+However on the subject of duplications, I have found some issues.
+When I e.g. grep for UNSPECIFIED I get:
+include/linux/caif/caif_socket.h:	CAIF_LINK_UNSPECIFIED	= 0x00,
+include/linux/caif/caif_config.h:	CAIF_PHYPREF_UNSPECIFIED = 0x00,
+include/net/caif/caif_actions.h:	CAIF_PHY_UNSPECIFIED = 0x00,
+include/net/caif/generic/cfcnfg.h:	CFPHYPREF_UNSPECIFIED = 0xa0,
 
-Wolfgang.
+There are some types that are duplicated in different places for CAIF, 
+but this is done for a reason.
+* caif_socket.h header file is self-contained and defines types needed for
+  setting up CAIF Connections.
+* caif_kernel.h provides a interface for CAIF connections from kernel modules.
+* The modules inside net/caif/generic include/net/caif/generic are designed to 
+  be a generic CAIF Stack. 
+
+As you might have noticed the CAIF stack residing in "generic" is designed to
+be a generic CAIF implementation. This implies that if must be self-contained 
+and not depend on caif_socket.h and caif_kernel.h. This allows CAIF protocol
+implementation to be tested in user space test-applications and CAIF to be 
+portable. The file cfglue.h contains wrappers for the Kernel Specific functions. 
+
+Due to this you'll find duplicated information in structs like caif_channel_config, 
+sockaddr_caif, cfctrl_link_param. One example of the effect of this is the following:
+
+[snip from caif_dev.c]
+int caifdev_adapt_register(struct caif_channel_config *config,
+			   struct layer *adap_layer)
+{
+	struct cfctrl_link_param param;
+	if (channel_config_2_link_param(get_caif_conf(), config, &param) == 0) <--
+									-- Convert from caif_channel_config
+									-- to cfctrl_link_param  
+		if (cfcnfg_add_adaptation_layer(get_caif_conf(), <-- Wrap the generic function
+						&param, adap_layer))
+			return 0;
+	return -EINVAL;
+}
+
+> 
+>> +/** Configuration parameters for a physical layer (e.g. serial) */
+>> +struct cfcnfg_phy_param { +	int foo;
+>> +};
+> 
+> This structure is obsolete and can be safely dropped.
+Yes you're right. Thanks for pointing this out, I have forgotten to remove some
+obsolete functions and types here. I need to clean this up.
+
+> 
+>> +/**
+>> + * These variable is used as a global flag, in order to configure
+>> padding on SPI communication. + * NOTE: This is not a fully
+>> future-proof solution. + */
+> 
+> I understand that the padding is due to the fact that a lot of spi
+> controller can send only words and not bytes. However, this is very
+> processor specific. Probably when you will add the SPI layer you will
+> need to add a way to set up this issue. 
+Yes, these parameters are module parameters to the SPI physical driver,
+and they change on different platforms due to DMA specifics etc.
+As mentioned before we're moving all SPI handling down to the SPI driver, 
+so all SPI related code will be gone in the next patch-set.
+
+BR/Sjur
