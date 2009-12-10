@@ -1,108 +1,63 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
-Date: Wed, 9 Dec 2009 17:44:17 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0912091743160.8780@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <pvmiqcfbpep.fsf@chavey.mtv.corp.google.com>
- <43F901BD926A4E43B106BF17856F07558C3DEDB1@orsmsx508.amr.corp.intel.com>
+From: Felix Radensky <felix@embedded-sol.com>
+Subject: Re: tg3: link is permanently down after ifdown and ifup
+Date: Thu, 10 Dec 2009 03:45:36 +0200
+Message-ID: <4B2052C0.4030802@embedded-sol.com>
+References: <4B056158.5060104@embedded-sol.com> <4B056D85.5010904@embedded-sol.com> <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com> <4B1F631E.5030908@embedded-sol.com> <20091210011931.GA30802@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "chavey@google.com" <chavey@google.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45008 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759386AbZLJBoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 20:44:08 -0500
-In-Reply-To: <43F901BD926A4E43B106BF17856F07558C3DEDB1@orsmsx508.amr.corp.intel.com>
+Received: from vega.surpasshosting.com ([72.29.83.9]:33813 "EHLO
+	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759392AbZLJBpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 20:45:32 -0500
+In-Reply-To: <20091210011931.GA30802@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Dec 2009, Rose, Gregory V wrote:
+Hi, Matt
 
-> >-----Original Message-----
-> >From: chavey@google.com [mailto:chavey@google.com]
-> >Sent: Wednesday, December 09, 2009 5:15 PM
-> >To: Kirsher, Jeffrey T
-> >Cc: netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V;
-> >Waskiewicz Jr, Peter P
-> >Subject: Re: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
-> >
-> >From: Greg Rose <gregory.v.rose@intel.com>
-> >
-> >Adds SR-IOV features supported by the 82599 controller to the main
-> >driver
-> >module.  If the CONFIG_PCI_IOV kernel option is selected then the SR-IOV
-> >features are enabled.  Use the max_vfs module option to allocate up to
-> >63
-> >virtual functions per physical port.
-> >
-> >---
-> >
-> >+static inline void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
-> >+{
-> >+       struct ixgbe_hw *hw = &adapter->hw;
-> >+       u32 gcr;
-> >+       u32 gpie;
-> >+       u32 vmdctl;
-> >+
-> >+#ifdef CONFIG_PCI_IOV
-> >+       /* disable iov and allow time for transactions to clear */
-> >+       pci_disable_sriov(adapter->pdev);
-> >+#endif
-> >+       msleep(500);
-> >
-> >what is the sleep used for ?
-> [Rose, Gregory V] 
-> 
-> It's mostly a safety valve to give plenty of time for all bus transactions to complete or time out.
+Matt Carlson wrote:
+> I understand the problem now.  The problem is that tg3_set_power_state()
+> puts the phy into a low-power mode when it releases the device.  When
+> the phy is reacquired, a phy reset is missing to take the device back
+> out of the low-power mode.
+>
+> The patch at the bottom of this email is the fix I'm currently testing.
+> If you wish, you can try it out.
+>
+>   
+Thanks a lot for the fix, I'll ask the guys with access to hardware to 
+test it.
 
-I think Chavey is pointing out that if CONFIG_PCI_IOV is not enabled, 
-you'd be sleeping for 500 msecs for no reason.  You should probably stick 
-the msleep(500) inside the ifdef.
+The problem with lost link happened to me when link was synchronized
+at 1000Mbit/sec. At 100Mbit/sec, ifdown would result in the following
+soft lockup:
 
--PJ
+BUG: soft lockup - CPU#0 stuck for 61s! [events/0:5]
+Modules linked in: ehci_hcd usbcore
+NIP: c0191f0c LR: c018774c CTR: c0191f04
+REGS: ef83fe60 TRAP: 0901 Not tainted (2.6.31)
+MSR: 00029000 <EE,ME,CE> CR: 24022084 XER: 00000000
+TASK = ef8312c0[5] 'events/0' THREAD: ef83e000
+GPR00: f1040000 ef83ff10 ef8312c0 ef8292c0 00000400 00c04808 00000000 
+00000000
+GPR08: 00000000 00000000 00000006 00c04800 44024084
+NIP [c0191f0c] tg3_read32+0x8/0x18
+LR [c018774c] _tw32_flush+0x94/0xa4
+Call Trace:
+[ef83ff10] [ef8314b8] 0xef8314b8 (unreliable)
+[ef83ff30] [c0192074] tg3_adjust_link+0x98/0x24c
+[ef83ff50] [c017eab0] phy_state_machine+0xd4/0x5b8
+[ef83ff70] [c0037570] worker_thread+0x124/0x1b8
+[ef83ffc0] [c003b5fc] kthread+0x78/0x7c
+[ef83fff0] [c000f584] kernel_thread+0x4c/0x68
 
-> 
-> >if this is to wait for pci_disable then add it
-> >in the #ifdef above.
-> >i s there a registerthat can be checked to ensure that
-> >the device is in the expected state ? (similar to line 311 of
-> >the orginal patch)
-> [Rose, Gregory V] 
-> 
-> Not reliably.
-> 
-> >
-> >
-> >@@ -2269,6 +2376,20 @@ static void ixgbe_configure_rx(struct
-> >ixgbe_adapter *adapter)
-> >       }
-> >       IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-> >
-> >+       if (adapter->num_vfs) {
-> >+               u32 reg;
-> >+
-> >+               /* Map PF MAC address in RAR Entry 0 to first pool
-> >+                * following VFs */
-> >+               hw->mac.ops.set_vmdq(hw, 0, adapter->num_vfs);
-> >+
-> >+               /* Set up VF register offsets for selected VT Mode, i.e.
-> >+                * 64 VFs for SR-IOV */
-> >+               reg = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
-> >+               reg |= 0x80000003;
-> >
-> >what is the significance of the 0x80000003 ?
-> 
-> [Rose, Gregory V] 
-> 
-> Oh, a magic number.  We'll fix that.
-> 
-> In this case it's to set up the correct PCIe configuration on the device.
-> 
-> - Greg
-> 
-> 
+Can you reproduce this ?
+
+Thanks a lot for your help.
+
+Felix.
