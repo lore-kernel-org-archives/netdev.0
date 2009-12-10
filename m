@@ -1,95 +1,88 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3: link is permanently down after ifdown and ifup
-Date: Wed, 9 Dec 2009 17:19:31 -0800
-Message-ID: <20091210011931.GA30802@xw6200.broadcom.net>
-References: <4B056158.5060104@embedded-sol.com>
- <4B056D85.5010904@embedded-sol.com>
- <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com>
- <4B1F631E.5030908@embedded-sol.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Felix Radensky" <felix@embedded-sol.com>
+From: chavey@google.com
+Subject: [PATCH] netfilter: Fix compiler warning.
+Date: Wed, 09 Dec 2009 17:25:00 -0800
+Message-ID: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com>
+Cc: netdev@vger.kernel.org, chavey@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3263 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755616AbZLJBTa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Dec 2009 20:19:30 -0500
-In-Reply-To: <4B1F631E.5030908@embedded-sol.com>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.33.17]:35961 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759342AbZLJBZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 20:25:00 -0500
+Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
+	by smtp-out.google.com with ESMTP id nBA1P6iI001037
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 01:25:06 GMT
+Received: from gxk3 (gxk3.prod.google.com [10.202.11.3])
+	by wpaz13.hot.corp.google.com with ESMTP id nBA1P3ia006328
+	for <netdev@vger.kernel.org>; Wed, 9 Dec 2009 17:25:04 -0800
+Received: by gxk3 with SMTP id 3so686152gxk.1
+        for <netdev@vger.kernel.org>; Wed, 09 Dec 2009 17:25:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I understand the problem now.  The problem is that tg3_set_power_state()
-puts the phy into a low-power mode when it releases the device.  When
-the phy is reacquired, a phy reset is missing to take the device back
-out of the low-power mode.
+Fix compiler warning "discards qualifiers from pointer target type".
+The function prototype defines parameters as pointer to a constant.
+Such parameters should not have their content modified in the
+function.
 
-The patch at the bottom of this email is the fix I'm currently testing.
-If you wish, you can try it out.
-
-On Wed, Dec 09, 2009 at 12:43:10AM -0800, Felix Radensky wrote:
-> Hi, Matt
-> 
-> Did you have a chance to look into this problem ?
-> 
-> Thanks a lot.
-> 
-> Felix.
->  
-> Michael Chan wrote:
-> > On Thu, 2009-11-19 at 08:08 -0800, Felix Radensky wrote:
-> >   
-> >> Hi,
-> >>
-> >> The problem goes away if I remove the call to
-> >>
-> >> tg3_set_power_state(tp, PCI_D3hot);
-> >>
-> >> from tg3_close().
-> >>     
-> >
-> > Added Matt to CC.  He is on vacation and may not be able to look into
-> > this right away.  Thanks.
-
-
-[PATCH] tg3: Fix 57780 connectivity problems
-
-When management firmware is not present, and WOL is disabled, the driver
-will put the phy into a low-power mode when shutting down.  To get out
-of low-power mode, the operation must be reversed or the phy must be
-reset.
-
-In the past, the phylib reset the phy from either phy_start() or
-phy_start_aneg().  This phy reset has been removed from more recent
-kernels.  The tg3 driver already has phy reset code in place which is
-called when it assumes control of the device.  It is bypassed if phylib
-is enabled though.
-
-This patch removes the phylib exception.
+Signed-off-by: Laurent Chavey <chavey@google.com>
 ---
- drivers/net/tg3.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/ipv4/netfilter/ipt_ULOG.c |    6 ++++--
+ net/netfilter/xt_time.c       |    6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 3a74d21..c0a3080 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -7523,8 +7523,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		tg3_abort_hw(tp, 1);
- 	}
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index d32cc4b..8490f9f 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -166,6 +166,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
+ 	size_t size, copy_len;
+ 	struct nlmsghdr *nlh;
+ 	struct timeval tv;
++	ktime_t	tstamp;
  
--	if (reset_phy &&
--	    !(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB))
-+	if (reset_phy)
- 		tg3_phy_reset(tp);
+ 	/* ffs == find first bit set, necessary because userspace
+ 	 * is already shifting groupnumber, but we need unshifted.
+@@ -208,13 +209,14 @@ static void ipt_ulog_packet(unsigned int hooknum,
  
- 	err = tg3_chip_reset(tp);
--- 
-1.6.4.4
-
-
+ 	pm = NLMSG_DATA(nlh);
+ 
++	tstamp = skb->tstamp;
+ 	/* We might not have a timestamp, get one */
+ 	if (skb->tstamp.tv64 == 0)
+-		__net_timestamp((struct sk_buff *)skb);
++		tstamp = ktime_get_real();
+ 
+ 	/* copy hook, prefix, timestamp, payload, etc. */
+ 	pm->data_len = copy_len;
+-	tv = ktime_to_timeval(skb->tstamp);
++	tv = ktime_to_timeval(tstamp);
+ 	put_unaligned(tv.tv_sec, &pm->timestamp_sec);
+ 	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
+ 	put_unaligned(skb->mark, &pm->mark);
+diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
+index 93acaa5..66e2a75 100644
+--- a/net/netfilter/xt_time.c
++++ b/net/netfilter/xt_time.c
+@@ -159,6 +159,7 @@ time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	unsigned int packet_time;
+ 	struct xtm current_time;
+ 	s64 stamp;
++	ktime_t	tstamp;
+ 
+ 	/*
+ 	 * We cannot use get_seconds() instead of __net_timestamp() here.
+@@ -169,10 +170,11 @@ time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	 * may happen that the same packet matches both rules if
+ 	 * it arrived at the right moment before 13:00.
+ 	 */
++	tstamp = skb->tstamp;
+ 	if (skb->tstamp.tv64 == 0)
+-		__net_timestamp((struct sk_buff *)skb);
++		tstamp = ktime_get_real();
+ 
+-	stamp = ktime_to_ns(skb->tstamp);
++	stamp = ktime_to_ns(tstamp);
+ 	stamp = div_s64(stamp, NSEC_PER_SEC);
+ 
+ 	if (info->flags & XT_TIME_LOCAL_TZ)
