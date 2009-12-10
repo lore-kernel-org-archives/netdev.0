@@ -1,46 +1,48 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: IPv6: presentation format for zero scope ID
-Date: Thu, 10 Dec 2009 14:32:31 -0500
-Message-ID: <4B214CCF.3040207@hp.com>
-References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com> <20091208080331.3eb5ddfa@tlielax.poochiereds.net> <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com> <4B2029A1.5010404@hp.com> <3C8ED938-D4F9-4167-BC02-575265B7A56A@oracle.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC PATCH 05/12] ixgbe: Add SR-IOV features to main module
+Date: Thu, 10 Dec 2009 11:57:40 -0800
+Message-ID: <adamy1qlhzf.fsf@roland-alpha.cisco.com>
+References: <pvmiqcfbpep.fsf@chavey.mtv.corp.google.com>
+	<43F901BD926A4E43B106BF17856F07558C3DEDB1@orsmsx508.amr.corp.intel.com>
+	<Pine.WNT.4.64.0912091743160.8780@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Layton <jlayton@redhat.com>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rose\, Gregory V" <gregory.v.rose@intel.com>,
+	"chavey\@google.com" <chavey@google.com>,
+	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo\@redhat.com" <gospo@redhat.com>
+To: "Waskiewicz Jr\, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:26795 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688AbZLJTc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 14:32:28 -0500
-In-Reply-To: <3C8ED938-D4F9-4167-BC02-575265B7A56A@oracle.com>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:49247 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757137AbZLJT5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 14:57:35 -0500
+In-Reply-To: <Pine.WNT.4.64.0912091743160.8780@ppwaskie-MOBL2.amr.corp.intel.com>
+	(Waskiewicz Jr's message of "Wed, 9 Dec 2009 17:44:17 -0800 (Pacific
+	Standard Time)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Lever wrote:
-> One other thing.  This is a rather more broad question, but still
-> IPv6-related.
-> 
-> I'm considering mapping the scope ID to a device name in rpc_ntop6(),
-> but it looks like network device names are part of a net namespace, and
-> these presentation address strings are shared.  This address string
-> might appear in /proc/mounts, for example, but can also be used to send
-> messages to user space service daemons like statd or gssd.  We try to do
-> the conversion once when certain objects are created (like an RPC client
-> data structure) and then save the string.
 
-Devices can be renamed, I'm not sure how common it is after boot though.
-If you're not printing it that often the overhead of dev_get_by_index()
-probably isn't that high, especially since it now uses RCU.
+ > > >+#ifdef CONFIG_PCI_IOV
+ > > >+       /* disable iov and allow time for transactions to clear */
+ > > >+       pci_disable_sriov(adapter->pdev);
+ > > >+#endif
+ > > >+       msleep(500);
+ > > >
+ > > >what is the sleep used for ?
+ > > [Rose, Gregory V] 
+ > > 
+ > > It's mostly a safety valve to give plenty of time for all bus transactions to complete or time out.
+ > 
+ > I think Chavey is pointing out that if CONFIG_PCI_IOV is not enabled, 
+ > you'd be sleeping for 500 msecs for no reason.  You should probably stick 
+ > the msleep(500) inside the ifdef.
 
-> Is it OK to leave just the scope ID (for link-local only, of course), or
-> might the scope IDs also vary depending on the namespace?  I wouldn't
-> think that they would.
+pci_disable_sriov() calls sriov_disable(), which already does
+ssleep(1).  Do you really need another 500 msec of sleep after that 1000
+msecs?  My impression of the PCI spec was that the 1 second wait is
+supposed to be sufficient.
 
-Are you asking if a given numeric scope ID could map to a different interface
-depending on the namespace?  I don't think so, the ifindex is unique for every
-device, but a given network namespace might not contain the device that
-matches a certain ifindex.
-
--Brian
+ - R.
