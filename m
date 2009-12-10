@@ -1,77 +1,41 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] netfilter: Fix compiler warning.
-Date: Thu, 10 Dec 2009 14:13:14 -0800
-Message-ID: <20091210141314.7be114d9.akpm@linux-foundation.org>
-References: <pvmein2bj1p.fsf@chavey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: RT metric sharing...
+Date: Thu, 10 Dec 2009 14:14:38 -0800 (PST)
+Message-ID: <20091210.141438.78359022.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com
-To: chavey@google.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <pvmein2bj1p.fsf@chavey.mtv.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60053
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761756AbZLJWOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 17:14:31 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id D428724C6E2
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 14:14:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Dec 2009 13:44:50 -0800
-chavey@google.com wrote:
 
-> Fix compiler warning "discards qualifiers from pointer target type",
-> by allowing explicit discard of const qualifier thru type casting.
-> The const_cast() macro is taken from a patch from Kaveh R. Ghazi
-> [PATCH]: Fix problematic -Wcast-qual cases using new CONST_CAST macro
-> posted on 
-> http://old.nabble.com/-PATCH-:-Fix-problematic--Wcast-qual-cases-using-new-CONST_CAST--macro-td11824676.html
-> The proposed __nowarn__ keyword has not yet been implemented, 
-> (see http://gcc.gnu.org/ml/gcc-patches/2009-11/msg01261.html).
-> 
-> 
-> Signed-off-by: Laurent Chavey <chavey@google.com>
-> ---
->  include/linux/kernel.h        |   12 ++++++++++++
->  net/ipv4/netfilter/ipt_ULOG.c |    2 +-
->  net/netfilter/xt_time.c       |    2 +-
->  3 files changed, 14 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-> index 3fa4c59..0246771 100644
-> --- a/include/linux/kernel.h
-> +++ b/include/linux/kernel.h
-> @@ -710,4 +710,16 @@ struct sysinfo {
->  # define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
->  #endif
->  
-> +/* Cast away const-ness to pass -Wcast-qual */
+This topic has come up a few times, but I had a reason to
+consider it again.
 
-This comment simply doesn't make sense.
+The routing metrics take up quite a bit of space in the
+dst_entry and thus every routing cache entry.
 
-I don't think it adequately explains why the macro exists, how and when
-one should use it, etc.
+We could save some space with indirection.
 
-> +#ifdef __GNUC__
-> +union gcc_constcast
-> +{
+Basically my idea is:
 
-union gcc_constcast {
+1) dst_metrics are maintained in external structure
 
-> +	const void *cv;
-> +	void *v;
-> +};
-> +#define const_cast(X) ((__extension__(union gcc_constcast)(const void *)(X)).v)
-> +#else
-> +#define const_cast(X) ((void *)(X))
-> +#endif
+2) when cache entry is created, read-only dst_metrics object
+   is allocated for it
 
-Why don't we just use the simple version on all compilers?  What's the
-advantage in using the gcc-specific extension?
+3) any attempt to change the metrics of such a read-only dst_entry
+   cow's it, all further writes proceed as normal
 
-And I was wrong - this should be implemented in linux/compiler.h.  We
-have infrastructure there to separate gcc-specific and non-gcc
-implementations of the same interface.
-
-Finally, are we sure that __extension__(union gcc_constcast) is
-available on all gcc versions mentioned in Documentation/Changes?  If
-not, this patch should use include/linux/compiler-gcc4.h, etc.
-
+We currently have 13 (so 13 * sizeof(u32) == 52) and we're probably
+about to get a 14th (for the initial receive window stuff).
 
