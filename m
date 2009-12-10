@@ -1,63 +1,60 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 3/3] tcp: Slightly optimize tcp_sendmsg
-Date: Thu, 10 Dec 2009 15:59:45 +0530
-Message-ID: <OFC615F4FC.74D9EC7D-ON65257688.003074DE-65257688.0038A471@in.ibm.com>
-References: <20091209082613.19055.58864.sendpatchset@localhost.localdomain> <20091209082624.19055.99645.sendpatchset@localhost.localdomain> <alpine.DEB.2.00.0912101016040.23376@melkinpaasi.cs.helsinki.fi>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
+	Blackfin on-chip CAN controllers
+Date: Thu, 10 Dec 2009 11:20:50 +0100
+Message-ID: <4B20CB82.6060702@grandegger.com>
+References: <1260430072-21106-1-git-send-email-21cnbao@gmail.com>
+	<4B20BB36.50509@grandegger.com>
+	<8bd0f97a0912100204gd2b09f6r2799d9f951d6b9e1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([122.248.162.7]:43268 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933517AbZLJKSj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 05:18:39 -0500
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id nBAAIiFY021226
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 15:48:44 +0530
-Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBAAIi6u3665950
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 15:48:44 +0530
-Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
-	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBAAIhAj012126
-	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 15:48:44 +0530
-In-Reply-To: <alpine.DEB.2.00.0912101016040.23376@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <8bd0f97a0912100204gd2b09f6r2799d9f951d6b9e1-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ilpo,
+Mike Frysinger wrote:
+> On Thu, Dec 10, 2009 at 04:11, Wolfgang Grandegger wrote:
+>> Barry Song wrote:
+>>> +#include <linux/module.h>
+>>> +#include <linux/init.h>
+>>> +#include <linux/kernel.h>
+>>> +#include <linux/types.h>
+>> I think you don't need "types.h" as the code no longer uses "uint*_t".
+> 
+> linux/types.h declares all types, like u* which this driver still uses
 
-"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote on 12/10/2009 01:47=
-:30
-PM:
+I just remember that "linux/types.h" needs to be added for the uint*_t
+types. At a first glance I do not see __u8/u8 being defined in that
+header file but I might have missed something.
 
-> Subject: Re: [PATCH 3/3] tcp: Slightly optimize tcp_sendmsg>
->
-> > Slightly optimize tcp_sendmsg since NETIF_F_SG is used many
-> > times iteratively in the loop. The only other modification is
-> > to change:
-> >          } else if (i =3D=3D MAX_SKB_FRAGS ||
-> >                (!i &&
-> >                !(sk->sk_route_caps & NETIF_F_SG))) {
-> >    to:
-> >          } else if (i =3D=3D MAX_SKB_FRAGS || !sg) {
->
-> I can see that you make this change from the patch itself but could y=
-ou
-> give a justification on why dropping the !i is possible? ...I couldn'=
-t
-> see what would allow that.
+> 
+>> Well, I'm still not a friend of the following inline functions,
+>> especially the *one-liners* which are called just *once*. With the usage
+>> of structs they seem even more useless.
+> 
+> seems like it would make more sense to not even use the read/write
+> functions either.  just declare the regs as volatile and assign/read
+> the struct directly.
 
-=46rom what *I understood*, this code (other than the MAX_SKB_FRAGS cas=
-e)
-executes only due to the else part of "if (skb_tailroom(skb) > 0) {" -
-there was no space in the skb to put the data inline. Hence SG is false
-is a sufficient condition and there is no way to add a fragment (i =3D=3D=
- 0
-since skb_fill_page_desc cannot be called when !SG).
+Two times no. Don't use volatile and proper accessor functions. See:
 
-thanks,
+http://lxr.linux.no/#linux+v2.6.32/Documentation/volatile-considered-harmful.txt
 
-- KK
+Wolfgang.
 
+> 
+> 
