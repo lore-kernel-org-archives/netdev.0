@@ -1,60 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: nfs broken in net-next? -- now in mainline
-Date: Thu, 10 Dec 2009 08:33:25 +0100
-Message-ID: <20091210073325.GH16874@elte.hu>
-References: <86802c440912091234t74fd2311t33c85379c06dd55c@mail.gmail.com>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [RFC] gianfar: Fix stats support
+Date: Thu, 10 Dec 2009 13:13:02 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA08AE5@zin33exm22.fsl.freescale.net>
+References: <1260423764-21210-1-git-send-email-Sandeep.Kumar@freescale.com> <4B209173.7030304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suresh Jayaraman <sjayaraman@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <avorontsov@ru.mvista.com>,
+	<davem@davemloft.net>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:58098 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760508AbZLJHd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2009 02:33:27 -0500
-Content-Disposition: inline
-In-Reply-To: <86802c440912091234t74fd2311t33c85379c06dd55c@mail.gmail.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43874 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760661AbZLJHmT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 02:42:19 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nBA7gPXh007757
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 00:42:25 -0700 (MST)
+Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id nBA7kZOj001326
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 01:46:36 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <4B209173.7030304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ 
+>Fine by me, but if this patch is for linux-2.6.33, you can use 
+>dev_txq_stats_fold() helper in your gfar_get_stats()
+>
+>dev_txq_stats_fold(dev, &dev->stats);
+>return &dev->stats;
+>
 
-* Yinghai Lu <yhlu.kernel@gmail.com> wrote:
+Eric, the problem in using dev_txq_stats_fold() will be that
+txq->tx_dropped will not be updated. tx_dropped counter is updated on a
+device level in the gfar_error( ) interrupt context (here we do not know
+the txq index).
+So, if we use dev_txq_stats_fold(), we will incorrectly give the
+tx_dropped stats.
 
-> On Thu, Oct 29, 2009 at 2:03 AM, Yinghai Lu <yhlu.kernel@gmail.com> wrote:
-> > On Thu, Oct 29, 2009 at 12:23 AM, Suresh Jayaraman <sjayaraman@suse.de> wrote:
-> >> On 10/29/2009 01:43 AM, Yinghai Lu wrote:
-> >>> pk12-3214-189-102:~ # mount -t nfs 10.6.75.100:/data/shared/pxeboot /x
-> >>> mount.nfs: rpc.statd is not running but is required for remote locking.
-> >>> mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
-> >>
-> >> rpc.statd on client should have be started by mount.nfs when a nfs
-> >> filesystem is mounted. Is this not happening for some reason or do you
-> >> see any errors in syslog?
-> >>
-> >>>
-> >>> using opensuse11.1
-> >>>
-> >>
-> >> Are you using 11.1 betas? I know of a problem where non-root user mounts
-> >> fail to start rpc.statd in betas that got fixed later:
-> >>
-> >> http://marc.info/?l=linux-nfs&m=122748525624094&w=2
-> >>
-> >> Is the problem seen only recently (after updating to net-next)?
-> >>
-> >
-> > only happen with net-next.
-> >
-> > linus tree and tip tree are ok.
-> >
-> 
-> Finally it reached linus tree and tip.
+--
 
-In the quoted text above it's being disputed that it's a kernel 
-regression so i guess your best option is to bisect it (if you can).
-
-	Ingo
+Thanks
+Sandeep
