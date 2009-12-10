@@ -1,50 +1,39 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: release dst entry while cache-hot for GSO case too
-Date: Thu, 10 Dec 2009 09:21:00 +0100
-Message-ID: <4B20AF6C.2060604@gmail.com>
-References: <20091210065958.10261.89370.sendpatchset@localhost.localdomain>
+Subject: Re: [RFC] gianfar: Fix stats support
+Date: Thu, 10 Dec 2009 09:21:58 +0100
+Message-ID: <4B20AFA6.80706@gmail.com>
+References: <1260423764-21210-1-git-send-email-Sandeep.Kumar@freescale.com> <4B209173.7030304@gmail.com> <9F4C7D19E8361D4C94921B95BE08B81BA08AE5@zin33exm22.fsl.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org, avorontsov@ru.mvista.com,
+	davem@davemloft.net
+To: Kumar Gopalpet-B05799 <B05799@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47194 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45766 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760788AbZLJIVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 03:21:00 -0500
-In-Reply-To: <20091210065958.10261.89370.sendpatchset@localhost.localdomain>
+	with ESMTP id S1760733AbZLJIWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 03:22:19 -0500
+In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81BA08AE5@zin33exm22.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 10/12/2009 07:59, Krishna Kumar a =E9crit :
-> From: Krishna Kumar <krkumar2@in.ibm.com>
->=20
-> Non-GSO code drops dst entry for performance reasons, but
-> the same is missing for GSO code. Drop dst while cache-hot
-> for GSO case too.
->=20
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> ---
->=20
-> diff -ruNp org/net/core/dev.c new/net/core/dev.c
-> --- org/net/core/dev.c	2009-12-10 10:20:39.000000000 +0530
-> +++ new/net/core/dev.c	2009-12-10 10:21:17.000000000 +0530
-> @@ -1853,6 +1853,14 @@ gso:
+Le 10/12/2009 08:43, Kumar Gopalpet-B05799 a =E9crit :
 > =20
->  		skb->next =3D nskb->next;
->  		nskb->next =3D NULL;
-> +
-> +		/*
-> +		 * If device doesnt need nskb->dst, release it right now while
-> +		 * its hot in this cpu cache
-> +		 */
-> +		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
-> +			skb_dst_drop(nskb);
-> +
->  		rc =3D ops->ndo_start_xmit(nskb, dev);
->  		if (unlikely(rc !=3D NETDEV_TX_OK)) {
->  			if (rc & ~NETDEV_TX_MASK)
+>> Fine by me, but if this patch is for linux-2.6.33, you can use=20
+>> dev_txq_stats_fold() helper in your gfar_get_stats()
+>>
+>> dev_txq_stats_fold(dev, &dev->stats);
+>> return &dev->stats;
+>>
+>=20
+> Eric, the problem in using dev_txq_stats_fold() will be that
+> txq->tx_dropped will not be updated. tx_dropped counter is updated on=
+ a
+> device level in the gfar_error( ) interrupt context (here we do not k=
+now
+> the txq index).
+> So, if we use dev_txq_stats_fold(), we will incorrectly give the
+> tx_dropped stats.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
+Ah yes, you are very right, thanks !
