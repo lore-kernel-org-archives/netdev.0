@@ -1,58 +1,62 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: ucc_geth: Fix the wrong the Rx/Tx FIFO size
-Date: Thu, 10 Dec 2009 02:00:15 +0300
-Message-ID: <20091209230015.GA13654@oksana.dev.rtsoft.ru>
-References: <1259309803-5474-1-git-send-email-daveliu@freescale.com>
-Reply-To: avorontsov@ru.mvista.com
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH 03/12] ixgbe: Add SR-IOV register, structure and
+ bit defines
+Date: Thu, 10 Dec 2009 11:06:35 +1100
+Message-ID: <20091210000634.GE4163@verge.net.au>
+References: <20091208221258.28373.16663.stgit@localhost.localdomain>
+ <20091208221350.28373.42808.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Dave Liu <daveliu@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56201 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758700AbZLJAG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Dec 2009 19:06:29 -0500
 Content-Disposition: inline
-In-Reply-To: <1259309803-5474-1-git-send-email-daveliu@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091208221350.28373.42808.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 27, 2009 at 04:16:43PM +0800, Dave Liu wrote:
-> current the Rx/Tx FIFO size settings cause problem
-> when four UEC ethernets work simultaneously.
+On Tue, Dec 08, 2009 at 02:13:51PM -0800, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
 > 
-> eg: GETH1, UEM-J15, GETH2, UEC-J5 on 8569MDS board
+> This patch adds register definitions, bit definitions and structures used by
+> the SW to support SR-IOV features of the 82599 controller.
 > 
->  $ ifconfig eth0 10.193.20.166
->  $ ifconfig eth1 10.193.20.167
->  $ ifconfig eth2 10.193.20.168
->  then
->  $ ifconfig eth3 10.193.20.169
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 > 
-> The fourth ethernet will cause all of interface broken,
-> you cann't ping successfully any more.
-> The patch fix this issue for MPC8569 Rev1.0 and Rev2.0
+>  drivers/net/ixgbe/ixgbe.h      |   31 +++++++++++++++++++++++++--
+>  drivers/net/ixgbe/ixgbe_type.h |   46 ++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 75 insertions(+), 2 deletions(-)
 > 
-> Signed-off-by: Dave Liu <daveliu@freescale.com>
+> diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
 
-Acked-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+[snip]
 
-Thanks Dave! I see that the new values actually match the QEIWRM
-spec (except UTFS... spec recommends 2048, but it also says that
-it might differ for different memory setups, though that's a
-separate issue).
+> @@ -440,6 +466,7 @@ extern s32 ixgbe_atr_set_flex_byte_82599(struct ixgbe_atr_input *input,
+>                                           u16 flex_byte);
+>  extern s32 ixgbe_atr_set_l4type_82599(struct ixgbe_atr_input *input,
+>                                        u8 l4type);
+> +extern void ixgbe_set_rx_mode(struct net_device *netdev);
+>  #ifdef IXGBE_FCOE
+>  extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
+>  extern int ixgbe_fso(struct ixgbe_adapter *adapter,
 
-And FWIW, I did some quick netperf tests on MPC8360, and the
-patch doesn't cause any problems.
+Making ixgbe_set_rx_mode() non-static in ixgbe_main.c needs to be moved
+forward from patch "[RFC PATCH 05/12] ixgbe: Add SR-IOV features to main
+module" into this patch to avoid breaking the build.
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+$ make
+...
+  CC [M]  drivers/net/ixgbe/ixgbe_main.o
+drivers/net/ixgbe/ixgbe_main.c:2402: error: static declaration of 'ixgbe_set_rx_mode' follows non-static declaration
+drivers/net/ixgbe/ixgbe.h:470: error: previous declaration of 'ixgbe_set_rx_mode' was here
+make[1]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
+make: *** [_module_drivers/net/ixgbe] Error 2
