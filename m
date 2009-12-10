@@ -1,80 +1,64 @@
-From: Laurent Chavey <chavey@google.com>
-Subject: Re: [PATCH] netfilter: Fix compiler warning.
-Date: Thu, 10 Dec 2009 09:50:43 -0800
-Message-ID: <97949e3e0912100950u51f627c9r515d9b69a02430f4@mail.gmail.com>
-References: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com> <4B207840.7080603@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B207840.7080603@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: IPv6: presentation format for zero scope ID
+Date: Thu, 10 Dec 2009 13:19:08 -0500
+Message-ID: <3C8ED938-D4F9-4167-BC02-575265B7A56A@oracle.com>
+References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com> <20091208080331.3eb5ddfa@tlielax.poochiereds.net> <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com> <4B2029A1.5010404@hp.com>
+Mime-Version: 1.0 (Apple Message framework v936)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Layton <jlayton@redhat.com>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:25416 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761246AbZLJSTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 13:19:25 -0500
+In-Reply-To: <4B2029A1.5010404@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 9, 2009 at 8:25 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le 10/12/2009 02:25, chavey@google.com a =E9crit :
->> Fix compiler warning "discards qualifiers from pointer target type".
->> The function prototype defines parameters as pointer to a constant.
->> Such parameters should not have their content modified in the
->> function.
+On Dec 9, 2009, at 5:50 PM, Brian Haley wrote:
+> Hi Chuck,
+>
+> Chuck Lever wrote:
+>>> So this means that addresses with those prefixes should be treated  
+>>> like
+>>> any other address, right? If so, then I think the rpc_ntop6  
+>>> shouldn't be
+>>> affixing scopeid's to site local addresses.
 >>
->> Signed-off-by: Laurent Chavey <chavey@google.com>
+>> As a final detail, we're trying to understand what is the correct
+>> treatment for site-local addresses.  I've looked at RFC 3879.  In
+>> late-model Linux kernels, is Jeff's interpretation correct, for
+>> application layer protocols like RPC?
 >
-> This is not the right fix IMHO.
->
-> We want an unique timestamp for the whole netfilter matches, because =
-several 'time' rules
-> could get 'interesting' effects.
->
-> The 'const' attribute is a debugging aid, and the skb->tstamp 'write-=
-once' is a valid exception.
->
-> Read again the comment in time_mt() :
+> Not sure if this answers the question, but recent Linux kernels only  
+> look
+> at the scope ID for link-local addresses.
 
-good point.  I  agree with the need for the exception, I would just
-like it to be more explicit
-in the code itself (like a turn off check around that particular
-statement) so we do not have to
-scrub thru the compiler output to filter out good / bad warning.
-question:
-  why do we not force the timestamp in the skb before going thru the
-chain ? it looks to me
-  that the check for (skb->tstamp.tv64 =3D=3D 0) should be done once
->
-> vi +163 net/netfilter/xt_time.c
->
-> static bool
-> time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
-> {
-> =A0 =A0 =A0 =A0const struct xt_time_info *info =3D par->matchinfo;
-> =A0 =A0 =A0 =A0unsigned int packet_time;
-> =A0 =A0 =A0 =A0struct xtm current_time;
-> =A0 =A0 =A0 =A0s64 stamp;
->
-> =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 * We cannot use get_seconds() instead of __net_timest=
-amp() here.
-> =A0 =A0 =A0 =A0 * Suppose you have two rules:
-> =A0 =A0 =A0 =A0 * =A0 =A0 =A01. match before 13:00
-> =A0 =A0 =A0 =A0 * =A0 =A0 =A02. match after 13:00
-> =A0 =A0 =A0 =A0 * If you match against processing time (get_seconds) =
-it
-> =A0 =A0 =A0 =A0 * may happen that the same packet matches both rules =
-if
-> =A0 =A0 =A0 =A0 * it arrived at the right moment before 13:00.
-> =A0 =A0 =A0 =A0 */
-> =A0 =A0 =A0 =A0if (skb->tstamp.tv64 =3D=3D 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__net_timestamp((struct sk_buff *)skb)=
-;
->
->
+OK, I'll drop the support in net/sunrpc/addr.c for SITELOCAL.
+
+One other thing.  This is a rather more broad question, but still IPv6- 
+related.
+
+I'm considering mapping the scope ID to a device name in rpc_ntop6(),  
+but it looks like network device names are part of a net namespace,  
+and these presentation address strings are shared.  This address  
+string might appear in /proc/mounts, for example, but can also be used  
+to send messages to user space service daemons like statd or gssd.  We  
+try to do the conversion once when certain objects are created (like  
+an RPC client data structure) and then save the string.
+
+Is it OK to leave just the scope ID (for link-local only, of course),  
+or might the scope IDs also vary depending on the namespace?  I  
+wouldn't think that they would.
+
+Thanks for your advice so far.
+
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
+
+
+
