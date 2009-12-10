@@ -1,83 +1,62 @@
-From: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3] add the driver for Analog Devices Blackfin on-chip CAN
-	controllers
-Date: Thu, 10 Dec 2009 18:25:49 +0800
-Message-ID: <3c17e3570912100225v3084037fl8d47be3251b7f51a@mail.gmail.com>
-References: <1260430072-21106-1-git-send-email-21cnbao@gmail.com>
-	<4B20BB36.50509@grandegger.com>
-	<3c17e3570912100214k4b3eb038u1108c82bfa346389@mail.gmail.com>
-	<20091210102145.GA3097@pengutronix.de>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/3] tcp: Remove unrequired operations in tcp_push()
+Date: Thu, 10 Dec 2009 12:26:59 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0912101224270.7024@wel-95.cs.helsinki.fi>
+References: <20091209082613.19055.58864.sendpatchset@localhost.localdomain> <20091209082619.19055.10563.sendpatchset@localhost.localdomain> <alpine.DEB.2.00.0912101008010.23376@melkinpaasi.cs.helsinki.fi>
+ <OFDF2F06F9.1F8246ED-ON65257688.0030E506-65257688.00310B14@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "H.J. Oertel" <oe-pJ9TYRvN+WE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20091210102145.GA3097-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-128538840-1260440819=:7024"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43927 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932687AbZLJK07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 05:26:59 -0500
+In-Reply-To: <OFDF2F06F9.1F8246ED-ON65257688.0030E506-65257688.00310B14@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBEZWMgMTAsIDIwMDkgYXQgNjoyMSBQTSwgV29sZnJhbSBTYW5nIDx3LnNhbmdAcGVu
-Z3V0cm9uaXguZGU+IHdyb3RlOgo+Cj4+ID4+ICsgwqAgwqAgaWYgKHN0YXR1cykgewo+PiA+PiAr
-IMKgIMKgIMKgIMKgIMKgIMKgIHByaXYtPmNhbi5jYW5fc3RhdHMuYnVzX2Vycm9yKys7Cj4+ID4+
-ICsKPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCBjZi0+Y2FuX2lkIHw9IENBTl9FUlJfUFJPVCB8
-IENBTl9FUlJfQlVTRVJST1I7Cj4+ID4+ICsKPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCBpZiAo
-c3RhdHVzICYgQkVGKQo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGNmLT5k
-YXRhWzJdIHw9IENBTl9FUlJfUFJPVF9CSVQ7Cj4+ID4+ICsgwqAgwqAgwqAgwqAgwqAgwqAgZWxz
-ZSBpZiAoc3RhdHVzICYgRkVSKQo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IGNmLT5kYXRhWzJdIHw9IENBTl9FUlJfUFJPVF9GT1JNOwo+PiA+PiArIMKgIMKgIMKgIMKgIMKg
-IMKgIGVsc2UgaWYgKHN0YXR1cyAmIFNFUikKPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBjZi0+ZGF0YVsyXSB8PSBDQU5fRVJSX1BST1RfU1RVRkY7Cj4+ID4+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgZWxzZQo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGNm
-LT5kYXRhWzJdIHw9IENBTl9FUlJfUFJPVF9VTlNQRUM7Cj4+ID4+ICsgwqAgwqAgfQo+PiA+Cj4+
-ID4gQWRkIHt9IGhlcmUgYXMgd2VsbC4KPj4ge30gd2lsbCBjYXVzZSBjaGVja3BhdGNoIHdhcm5p
-bmcgaWYgaXQgaXMgZ2l2ZW4gdG8gb25seSBvbmUgbGluZS4KPgo+IFJpZ2h0LCBubyBuZWVkIGZv
-ciBicmFjZXMgaGVyZSwgYmVjYXVzZSBpdCBpcyBhbHdheXMgb25lIHN0YXRlbWVudCBhZnRlcgo+
-IGlmL2Vsc2UuCj4KPgo+PiA+PiArIMKgIMKgIGlmICgoaXJxID09IHByaXYtPnR4X2lycSkgJiYg
-cmVhZHcoJnJlZy0+bWJ0aWYyKSkgewo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIC8qIHRyYW5z
-bWlzc2lvbiBjb21wbGV0ZSBpbnRlcnJ1cHQgKi8KPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCB3
-cml0ZXcoMHhGRkZGLCAmcmVnLT5tYnRpZjIpOwo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIHN0
-YXRzLT50eF9wYWNrZXRzKys7Cj4+ID4+ICsgwqAgwqAgwqAgwqAgwqAgwqAgc3RhdHMtPnR4X2J5
-dGVzICs9IGJmaW5fY2FuX3JlYWRfZGxjKHByaXYsIFRSQU5TTUlUX0NITCk7Cj4+ID4+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgY2FuX2dldF9lY2hvX3NrYihkZXYsIDApOwo+PiA+PiArIMKgIMKgIMKg
-IMKgIMKgIMKgIG5ldGlmX3dha2VfcXVldWUoZGV2KTsKPj4gPj4gKyDCoCDCoCB9IGVsc2UgaWYg
-KChpcnEgPT0gcHJpdi0+cnhfaXJxKSAmJiByZWFkdygmcmVnLT5tYnJpZjEpKSB7Cj4+ID4+ICsg
-wqAgwqAgwqAgwqAgwqAgwqAgLyogcmVjZWl2ZSBpbnRlcnJ1cHQgKi8KPj4gPj4gKyDCoCDCoCDC
-oCDCoCDCoCDCoCBpc3JjID0gcmVhZHcoJnJlZy0+bWJyaWYxKTsKPj4gPj4gKyDCoCDCoCDCoCDC
-oCDCoCDCoCB3cml0ZXcoMHhGRkZGLCAmcmVnLT5tYnJpZjEpOwo+PiA+PiArIMKgIMKgIMKgIMKg
-IMKgIMKgIGJmaW5fY2FuX3J4KGRldiwgaXNyYyk7Cj4+ID4+ICsgwqAgwqAgfSBlbHNlIGlmICgo
-aXJxID09IHByaXYtPmVycl9pcnEpICYmIHJlYWR3KCZyZWctPmdpcykpIHsKPj4gPj4gKyDCoCDC
-oCDCoCDCoCDCoCDCoCAvKiBlcnJvciBpbnRlcnJ1cHQgKi8KPj4gPj4gKyDCoCDCoCDCoCDCoCDC
-oCDCoCBpc3JjID0gcmVhZHcoJnJlZy0+Z2lzKTsKPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCBz
-dGF0dXMgPSByZWFkdygmcmVnLT5lc3IpOwo+PiA+PiArIMKgIMKgIMKgIMKgIMKgIMKgIHdyaXRl
-dygweDdGRiwgJnJlZy0+Z2lzKTsKPj4gPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCBiZmluX2Nhbl9l
-cnIoZGV2LCBpc3JjLCBzdGF0dXMpOwo+PiA+PiArIMKgIMKgIH0gZWxzZQo+PiA+PiArIMKgIMKg
-IMKgIMKgIMKgIMKgIHJldHVybiBJUlFfTk9ORTsKPj4gPgo+PiA+IFVzZSB7fSBoZXJlIGFzIHdl
-bGwuCj4+IHt9IHdpbGwgY2F1c2UgY2hlY2twYXRjaCB3YXJuaW5nIGlmIGl0IGlzIGdpdmVuIHRv
-IG9ubHkgb25lIGxpbmUuCj4KPiBUaGVuIGFnYWluLCBoZXJlIGJyYWNlcyBhcmUgc3VnZ2VzdGVk
-LiBJZiB0aGUgJ2lmJy1ibG9jayBoYXMgYnJhY2VzLCB0aGUKPiAnZWxzZSctYmxvY2sgc2hvdWxk
-IGhhdmUgYnJhY2VzLCB0b28uIElmIGNoZWNrcGF0Y2ggcmVhbGx5IGNvbXBsYWlucyBhYm91dCBp
-dCwKPiB0aGlzIGlzIGEgYnVnIGluIGNoZWNrcGF0Y2guCkkgdGhpbmsgeW91IGFyZSByaWdodC4g
-ImVsc2Uge3JldHVybiBJUlFfTk9ORTt9IiBnaXZlcyBubyBjaGVjayBwYXRjaCB3YXJuaW5nLgo+
-Cj4gUmVnYXJkcywKPgo+IMKgIFdvbGZyYW0KPgo+IC0tCj4gUGVuZ3V0cm9uaXggZS5LLiDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB8IFdvbGZyYW0gU2FuZyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoHwKPiBJbmR1c3RyaWFsIExpbnV4IFNvbHV0aW9ucyDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCB8IGh0dHA6Ly93d3cucGVuZ3V0cm9uaXguZGUvIMKgfAo+Cj4gLS0tLS1C
-RUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KPiBWZXJzaW9uOiBHbnVQRyB2MS40LjkgKEdOVS9MaW51
-eCkKPgo+IGlFWUVBUkVDQUFZRkFrc2d5N2tBQ2drUUQyN1hhWDEvVlJ1Tmx3Q2dzU1JGTkJuOVpP
-aHFuUXJOdU84VCtqR0QKPiAwSWNBbmozMXRkNHl1Z3NHY2NjbUt5UFBrTlRvZ3pHdAo+ID11NzQx
-Cj4gLS0tLS1FTkQgUEdQIFNJR05BVFVSRS0tLS0tCj4KPgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpTb2NrZXRjYW4tY29yZSBtYWlsaW5nIGxpc3QKU29j
-a2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZQpodHRwczovL2xpc3RzLmJlcmxpb3MuZGUvbWFp
-bG1hbi9saXN0aW5mby9zb2NrZXRjYW4tY29yZQo=
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-128538840-1260440819=:7024
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Thu, 10 Dec 2009, Krishna Kumar2 wrote:
+
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote on 12/10/2009 01:40:51
+> PM:
+> 
+> > Re: [PATCH 2/3] tcp: Remove unrequired operations in tcp_push()
+> >
+> >
+> > >  static inline void tcp_push(struct sock *sk, int flags, int mss_now,
+> > >               int nonagle)
+> > >  {
+> > > -   struct tcp_sock *tp = tcp_sk(sk);
+> > > -
+> > >     if (tcp_send_head(sk)) {
+> > > -      struct sk_buff *skb = tcp_write_queue_tail(sk);
+> > > -      if (!(flags & MSG_MORE) || forced_push(tp))
+> > > +      struct tcp_sock *tp = tcp_sk(sk);
+> > > +
+> > > +      if (!(flags & MSG_MORE) || forced_push(tp)) {
+> > > +         struct sk_buff *skb = tcp_write_queue_tail(sk);
+> > > +
+> > >           tcp_mark_push(tp, skb);
+> >
+> > I suppose one could kill the temporary variable completely then?
+> 
+> I did consider that, but kept it this way for readability reasons.
+> Should I change it?
+
+Honestly that doesn't look that fuzzy code even if you'd stick it into the 
+tcp_mark_push line (nor should be even close to 80 limit). ...I was even 
+thinking of getting totally rid of that skb arg of tcp_mark_push as I 
+think it's always tcp_write_queue_tail(sk) that is put there.
+
+-- 
+ i.
+--8323329-128538840-1260440819=:7024--
