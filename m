@@ -1,41 +1,28 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH -next] net: niu uses crc32, so select CRC32
-Date: Thu, 10 Dec 2009 13:59:32 -0800
-Message-ID: <20091210135932.b0774727.randy.dunlap@oracle.com>
-References: <20091210175919.340b4c0c.sfr@canb.auug.org.au>
-	<20091210093103.eda05dfe.randy.dunlap@oracle.com>
-	<20091210.135138.263963420.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: export the number of times the recv queue was full
+Date: Thu, 10 Dec 2009 14:02:34 -0800 (PST)
+Message-ID: <20091210.140234.161691808.davem@davemloft.net>
+References: <20091210210920.6820.12664.stgit@paris.rdu.redhat.com>
+	<4B216A61.7020704@hp.com>
+	<1260481947.2784.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20091210.135138.263963420.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: eparis@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37178
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761030AbZLJWC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 17:02:27 -0500
+In-Reply-To: <1260481947.2784.33.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Dec 2009 13:51:38 -0800 (PST) David Miller wrote:
+From: Eric Paris <eparis@redhat.com>
+Date: Thu, 10 Dec 2009 16:52:27 -0500
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Thu, 10 Dec 2009 09:31:03 -0800
-> 
-> > From: Randy Dunlap <randy.dunlap@oracle.com>
-> > 
-> > niu drivers uses crc32 functions, so it needs to select CRC32.
-> > 
-> > niu.c:(.text+0x18a7f8): undefined reference to `crc32_le'
-> > 
-> > Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Applied, thanks Randy.
-> 
-> That dependency is quite indirect, it's due to ether_crc_*().
-> I bet a quick grep for that will find several other drivers
-> missing this Kconfig bit.
+> It could as a post processing measure be used to find this situation.  I
+> believe they want a more 'on the fly' method.
 
-Yes, I've noticed that also...
-
----
-~Randy
+Then use tracepoints.
