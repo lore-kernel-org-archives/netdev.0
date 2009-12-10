@@ -1,40 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: Fix compiler warning.
-Date: Thu, 10 Dec 2009 20:31:52 +0100
-Message-ID: <4B214CA8.7010902@gmail.com>
-References: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com> <4B207840.7080603@gmail.com> <97949e3e0912100950u51f627c9r515d9b69a02430f4@mail.gmail.com> <alpine.LSU.2.01.0912101953360.23791@obet.zrqbmnf.qr>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: IPv6: presentation format for zero scope ID
+Date: Thu, 10 Dec 2009 14:32:31 -0500
+Message-ID: <4B214CCF.3040207@hp.com>
+References: <EA6985CB-3B58-4982-85FE-94C951D2FE5E@oracle.com> <4B1DC794.5020406@hp.com> <20091208080331.3eb5ddfa@tlielax.poochiereds.net> <9E4B7973-D2C4-438C-9BF6-A35B343F2363@oracle.com> <4B2029A1.5010404@hp.com> <3C8ED938-D4F9-4167-BC02-575265B7A56A@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Laurent Chavey <chavey@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.0912101953360.23791@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Layton <jlayton@redhat.com>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Chuck Lever <chuck.lever@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:26795 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753688AbZLJTc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 14:32:28 -0500
+In-Reply-To: <3C8ED938-D4F9-4167-BC02-575265B7A56A@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 10/12/2009 19:53, Jan Engelhardt a =E9crit :
->=20
-> On Donnerstag 2009-12-10 18:50, Laurent Chavey wrote:
->>
->> good point.  I  agree with the need for the exception, I would just
->> like it to be more explicit in the code itself (like a turn off
->> check around that particular statement) so we do not have to scrub
->> thru the compiler output to filter out good / bad warning. question:
->>  why do we not force the timestamp in the skb before going thru the
->> chain ?
->=20
-> Because it is probably too expensive to do, unless you employ
-> things like xt_time?
+Chuck Lever wrote:
+> One other thing.  This is a rather more broad question, but still
+> IPv6-related.
+> 
+> I'm considering mapping the scope ID to a device name in rpc_ntop6(),
+> but it looks like network device names are part of a net namespace, and
+> these presentation address strings are shared.  This address string
+> might appear in /proc/mounts, for example, but can also be used to send
+> messages to user space service daemons like statd or gssd.  We try to do
+> the conversion once when certain objects are created (like an RPC client
+> data structure) and then save the string.
 
-Right. On some platforms, timestamps are quite expensive (say, a fracti=
-on=20
-of one micro second to get one of them), we try to avoid them as much a=
-s possible.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Devices can be renamed, I'm not sure how common it is after boot though.
+If you're not printing it that often the overhead of dev_get_by_index()
+probably isn't that high, especially since it now uses RCU.
+
+> Is it OK to leave just the scope ID (for link-local only, of course), or
+> might the scope IDs also vary depending on the namespace?  I wouldn't
+> think that they would.
+
+Are you asking if a given numeric scope ID could map to a different interface
+depending on the namespace?  I don't think so, the ifindex is unique for every
+device, but a given network namespace might not contain the device that
+matches a certain ifindex.
+
+-Brian
