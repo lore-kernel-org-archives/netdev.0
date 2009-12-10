@@ -1,64 +1,75 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 3/3] tcp: Slightly optimize tcp_sendmsg
-Date: Thu, 10 Dec 2009 12:42:09 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912101227320.7024@wel-95.cs.helsinki.fi>
-References: <20091209082613.19055.58864.sendpatchset@localhost.localdomain> <20091209082624.19055.99645.sendpatchset@localhost.localdomain> <alpine.DEB.2.00.0912101016040.23376@melkinpaasi.cs.helsinki.fi>
- <OFC615F4FC.74D9EC7D-ON65257688.003074DE-65257688.0038A471@in.ibm.com>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
+	Blackfin on-chip CAN controllers
+Date: Thu, 10 Dec 2009 05:45:52 -0500
+Message-ID: <8bd0f97a0912100245k9930c90ke4b184da68a9f958@mail.gmail.com>
+References: <1260430072-21106-1-git-send-email-21cnbao@gmail.com>
+	<4B20BB36.50509@grandegger.com> <8bd0f97a0912100204gd2b09f6r2799d9f951d6b9e1@mail.gmail.com>
+	<4B20CB82.6060702@grandegger.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1660665738-1260441729=:7024"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Barry Song <21cnbao@gmail.com>, socketcan-core@lists.berlios.de,
+	uclinux-dist-devel@blackfin.uclinux.org, davem@davemloft.net,
+	"H.J. Oertel" <oe@port.de>, netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45564 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933683AbZLJKmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 05:42:04 -0500
-In-Reply-To: <OFC615F4FC.74D9EC7D-ON65257688.003074DE-65257688.0038A471@in.ibm.com>
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:44965 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933726AbZLJKqF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 05:46:05 -0500
+Received: by ywh6 with SMTP id 6so6976532ywh.4
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 02:46:12 -0800 (PST)
+In-Reply-To: <4B20CB82.6060702@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, Dec 10, 2009 at 05:20, Wolfgang Grandegger wrote:
+> Mike Frysinger wrote:
+>> On Thu, Dec 10, 2009 at 04:11, Wolfgang Grandegger wrote:
+>>> Barry Song wrote:
+>>>> +#include <linux/module.h>
+>>>> +#include <linux/init.h>
+>>>> +#include <linux/kernel.h>
+>>>> +#include <linux/types.h>
+>>> I think you don't need "types.h" as the code no longer uses "uint*_=
+t".
+>>
+>> linux/types.h declares all types, like u* which this driver still us=
+es
+>
+> I just remember that "linux/types.h" needs to be added for the uint*_=
+t
+> types. At a first glance I do not see __u8/u8 being defined in that
+> header file but I might have missed something.
 
---8323329-1660665738-1260441729=:7024
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+you need to follow the include paths
 
-On Thu, 10 Dec 2009, Krishna Kumar2 wrote:
+>>> Well, I'm still not a friend of the following inline functions,
+>>> especially the *one-liners* which are called just *once*. With the =
+usage
+>>> of structs they seem even more useless.
+>>
+>> seems like it would make more sense to not even use the read/write
+>> functions either. =C2=A0just declare the regs as volatile and assign=
+/read
+>> the struct directly.
+>
+> Two times no. Don't use volatile and proper accessor functions. See:
+>
+> http://lxr.linux.no/#linux+v2.6.32/Documentation/volatile-considered-=
+harmful.txt
 
-> Hi Ilpo,
-> 
-> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote on 12/10/2009 01:47:30
-> PM:
-> 
-> > Subject: Re: [PATCH 3/3] tcp: Slightly optimize tcp_sendmsg>
-> >
-> > > Slightly optimize tcp_sendmsg since NETIF_F_SG is used many
-> > > times iteratively in the loop. The only other modification is
-> > > to change:
-> > >          } else if (i == MAX_SKB_FRAGS ||
-> > >                (!i &&
-> > >                !(sk->sk_route_caps & NETIF_F_SG))) {
-> > >    to:
-> > >          } else if (i == MAX_SKB_FRAGS || !sg) {
-> >
-> > I can see that you make this change from the patch itself but could you
-> > give a justification on why dropping the !i is possible? ...I couldn't
-> > see what would allow that.
-> 
-> From what *I understood*, this code (other than the MAX_SKB_FRAGS case)
-> executes only due to the else part of "if (skb_tailroom(skb) > 0) {" -
-> there was no space in the skb to put the data inline. Hence SG is false
-> is a sufficient condition and there is no way to add a fragment (i == 0
-> since skb_fill_page_desc cannot be called when !SG).
+too bad the document is largely irrelevant (all but one paragraph)
+because this is how volatiles were designed in the first place --
+hardware I/O registers.  the CAN implementation here is Blackfin
+specific and not going to be use elsewhere, so other architectures are
+irrelevant.  the resulting C code would certainly look a hell of a lot
+more natural without the useless I/O accessor functions, and be much
+tighter.
 
-Please put this description into the patch description then :-). ...After 
-some more thinking, reading and verification it seems right, however, it 
-certainly wassn't immediately obvious from the code.
-
-...You can add my Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> for 
-the resubmission.
-
--- 
- i.
---8323329-1660665738-1260441729=:7024--
+at any rate, the common Blackfin I/O accessor functions force a lot of
+useless overhead when used here as they're designed for async memory,
+not MMRs.  the driver needs to be switched to the bfin_read/bfin_write
+MMR functions.
+-mike
