@@ -1,32 +1,32 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: Fix compiler warning.
-Date: Thu, 10 Dec 2009 19:53:58 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.0912101953360.23791@obet.zrqbmnf.qr>
-References: <pvmhbrzboyb.fsf@chavey.mtv.corp.google.com> <4B207840.7080603@gmail.com> <97949e3e0912100950u51f627c9r515d9b69a02430f4@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Add sysctl to set the advertised TCP initial receive
+ window.
+Date: Thu, 10 Dec 2009 10:55:33 -0800
+Message-ID: <1260471333.1868.6.camel@Joe-Laptop.home>
+References: <pvmfx7jbn2h.fsf@chavey.mtv.corp.google.com>
+	 <20091210085719.4dae2bce@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Laurent Chavey <chavey@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: chavey@google.com, davem@davemloft.net, netdev@vger.kernel.org,
+	therbert@google.com, eric.dumazet@gmail.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:56951 "EHLO borg.medozas.de"
+Received: from mail.perches.com ([173.55.12.10]:1071 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761405AbZLJSxz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Dec 2009 13:53:55 -0500
-In-Reply-To: <97949e3e0912100950u51f627c9r515d9b69a02430f4@mail.gmail.com>
+	id S1754000AbZLJSz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2009 13:55:28 -0500
+In-Reply-To: <20091210085719.4dae2bce@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2009-12-10 at 08:57 -0800, Stephen Hemminger wrote:
+> You could use the hole in the structure:
+>                 snd_wscale : 4, /* Window scaling received from sender  */
+>                 rcv_wscale : 4; /* Window scaling to send to receiver   */
+> +	u8	init_rcv_wnd;	/* TCP initial receive window in MSS */
+> /*      SACKs data      */
+>         u8      num_sacks;      /* Number of SACK blocks        
 
-On Donnerstag 2009-12-10 18:50, Laurent Chavey wrote:
->
->good point.  I  agree with the need for the exception, I would just
->like it to be more explicit in the code itself (like a turn off
->check around that particular statement) so we do not have to scrub
->thru the compiler output to filter out good / bad warning. question:
->  why do we not force the timestamp in the skb before going thru the
->chain ?
+That hole got filled by tcp cookies.
 
-Because it is probably too expensive to do, unless you employ
-things like xt_time?
