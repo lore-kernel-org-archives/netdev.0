@@ -1,75 +1,46 @@
-From: chavey@google.com
-Subject: [PATCH] netfilter: Fix compiler warning.
-Date: Thu, 10 Dec 2009 13:44:50 -0800
-Message-ID: <pvmein2bj1p.fsf@chavey.mtv.corp.google.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	chavey@google.com, eric.dumazet@gmail.com, akpm@google.com
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
+Date: Thu, 10 Dec 2009 13:46:13 -0800 (PST)
+Message-ID: <20091210.134613.91416472.davem@davemloft.net>
+References: <4B20FC2E.7050809@gmail.com>
+	<4B2102B4.7050702@gmail.com>
+	<4B211452.40600@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Transfer-Encoding: 7bit
+Cc: william.allen.simpson@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33929
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761767AbZLJVqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 16:46:06 -0500
+In-Reply-To: <4B211452.40600@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix compiler warning "discards qualifiers from pointer target type",
-by allowing explicit discard of const qualifier thru type casting.
-The const_cast() macro is taken from a patch from Kaveh R. Ghazi
-[PATCH]: Fix problematic -Wcast-qual cases using new CONST_CAST macro
-posted on 
-http://old.nabble.com/-PATCH-:-Fix-problematic--Wcast-qual-cases-using-new-CONST_CAST--macro-td11824676.html
-The proposed __nowarn__ keyword has not yet been implemented, 
-(see http://gcc.gnu.org/ml/gcc-patches/2009-11/msg01261.html).
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 Dec 2009 16:31:30 +0100
 
+> Le 10/12/2009 15:16, William Allen Simpson a écrit :
+>> Replace + net-ipv4-tcpc-fix-warning.patch added to -mm tree
+>> 
+>> Remove the offending code, and replace with comments.  This is an
+>> unlikely problem, so depend on human finding any future error.
+>> 
+>> Signed-off-by: William.Allen.Simpson@gmail.com
+>> ---
+>>  net/ipv4/tcp.c |    9 ++++-----
+>>  1 files changed, 4 insertions(+), 5 deletions(-)
+> 
+> This is not necessary, David already _did_ the thing, and _told_ so.
 
-Signed-off-by: Laurent Chavey <chavey@google.com>
----
- include/linux/kernel.h        |   12 ++++++++++++
- net/ipv4/netfilter/ipt_ULOG.c |    2 +-
- net/netfilter/xt_time.c       |    2 +-
- 3 files changed, 14 insertions(+), 2 deletions(-)
+Right.
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 3fa4c59..0246771 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -710,4 +710,16 @@ struct sysinfo {
- # define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
- #endif
- 
-+/* Cast away const-ness to pass -Wcast-qual */
-+#ifdef __GNUC__
-+union gcc_constcast
-+{
-+	const void *cv;
-+	void *v;
-+};
-+#define const_cast(X) ((__extension__(union gcc_constcast)(const void *)(X)).v)
-+#else
-+#define const_cast(X) ((void *)(X))
-+#endif
-+
- #endif
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index d32cc4b..c8f8b8b 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -210,7 +210,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
- 
- 	/* We might not have a timestamp, get one */
- 	if (skb->tstamp.tv64 == 0)
--		__net_timestamp((struct sk_buff *)skb);
-+		__net_timestamp((struct sk_buff *)const_cast(skb));
- 
- 	/* copy hook, prefix, timestamp, payload, etc. */
- 	pm->data_len = copy_len;
-diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
-index 93acaa5..8f34a4a 100644
---- a/net/netfilter/xt_time.c
-+++ b/net/netfilter/xt_time.c
-@@ -170,7 +170,7 @@ time_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	 * it arrived at the right moment before 13:00.
- 	 */
- 	if (skb->tstamp.tv64 == 0)
--		__net_timestamp((struct sk_buff *)skb);
-+		__net_timestamp((struct sk_buff *)const_cast(skb));
- 
- 	stamp = ktime_to_ns(skb->tstamp);
- 	stamp = div_s64(stamp, NSEC_PER_SEC);
+> You probably missed fact we are in merge window, so fixes (and only fixes)
+> are pushed into net-2.6 tree.
+
+I even announced this explicitly to the list:
+
+	http://marc.info/?l=linux-netdev&m=126031591420846&w=2
