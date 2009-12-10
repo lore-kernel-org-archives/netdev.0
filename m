@@ -1,126 +1,84 @@
-From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: RE: [RFC PATCH v3  1/8] CAIF Protocol Stack
-Date: Thu, 10 Dec 2009 12:11:41 +0100
-Message-ID: <61D8D34BB13CFE408D154529C120E0790311F064@eseldmw101.eemea.ericsson.se>
-References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <4B1EE474.5000508@babic.homelinux.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 2/3] tcp: Remove unrequired operations in tcp_push()
+Date: Thu, 10 Dec 2009 17:29:39 +0530
+Message-ID: <OFEBDDB464.6D48255E-ON65257688.004044DE-65257688.0040DF93@in.ibm.com>
+References: <20091209082613.19055.58864.sendpatchset@localhost.localdomain> <20091209082619.19055.10563.sendpatchset@localhost.localdomain> <alpine.DEB.2.00.0912101008010.23376@melkinpaasi.cs.helsinki.fi> <OFDF2F06F9.1F8246ED-ON65257688.0030E506-65257688.00310B14@in.ibm.com> <alpine.DEB.2.00.0912101224270.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <randy.dunlap@oracle.com>,
-	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>,
-	"Christian Bejram" <christian.bejram@stericsson.com>,
-	"Daniel Martensson" <daniel.martensson@stericsson.com>
-To: <stefano.babic@babic.homelinux.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:49731 "EHLO
-	mailgw4.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933999AbZLJLoA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 06:44:00 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4B1EE474.5000508@babic.homelinux.org>
+Received: from e28smtp06.in.ibm.com ([122.248.162.6]:35906 "EHLO
+	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934019AbZLJLsf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 06:48:35 -0500
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp06.in.ibm.com (8.14.3/8.13.1) with ESMTP id nBABmeUY008572
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 17:18:40 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBABmefk2490388
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 17:18:40 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBABmdQJ022179
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 22:48:40 +1100
+In-Reply-To: <alpine.DEB.2.00.0912101224270.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stefano.
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote on 12/10/2009 03:56=
+:59
+PM:
 
-Thank you for good feedback.
+> Re: [PATCH 2/3] tcp: Remove unrequired operations in tcp_push()
+>
+> On Thu, 10 Dec 2009, Krishna Kumar2 wrote:
+>
+> > "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> wrote on 12/10/2009
+01:40:51
+> > PM:
+> >
+> > > Re: [PATCH 2/3] tcp: Remove unrequired operations in tcp_push()
+> > >
+> > >
+> > > >  static inline void tcp_push(struct sock *sk, int flags, int
+mss_now,
+> > > >               int nonagle)
+> > > >  {
+> > > > -   struct tcp_sock *tp =3D tcp_sk(sk);
+> > > > -
+> > > >     if (tcp_send_head(sk)) {
+> > > > -      struct sk_buff *skb =3D tcp_write_queue_tail(sk);
+> > > > -      if (!(flags & MSG_MORE) || forced_push(tp))
+> > > > +      struct tcp_sock *tp =3D tcp_sk(sk);
+> > > > +
+> > > > +      if (!(flags & MSG_MORE) || forced_push(tp)) {
+> > > > +         struct sk_buff *skb =3D tcp_write_queue_tail(sk);
+> > > > +
+> > > >           tcp_mark_push(tp, skb);
+> > >
+> > > I suppose one could kill the temporary variable completely then?
+> >
+> > I did consider that, but kept it this way for readability reasons.
+> > Should I change it?
+>
+> Honestly that doesn't look that fuzzy code even if you'd stick it int=
+o
+the
+> tcp_mark_push line (nor should be even close to 80 limit). ...I was e=
+ven
+> thinking of getting totally rid of that skb arg of tcp_mark_push as I
+> think it's always tcp_write_queue_tail(sk) that is put there.
 
-stefano babic wrote:
->> +#define CAIF_PRIO_UNSPCEIFIED  0x0
-> 
-> The define is not used in code, but probably you would prefer to set
-> CAIF_PRIO_UNSPECIFIED 
+Yes, the skb is always the one at the tail. But in 4/5 cases, the
+skb pointer is already available, so may be OK to pass the skb. I
+will resubmit with the change you suggested (remove the temporary
+variable).
 
-I'll remove this one.
+Also, for the NETIF_F_SG patch, I will try to put a meaningful
+explanation and resubmit.
 
-> 
-> 
->> diff --git a/include/linux/caif/caif_ioctl.h
->> b/include/linux/caif/caif_ioctl.h
->> +/*!\page  caif_ioctl.h
->> + * This file defines the management interface to CAIF.
->> + * It defines how CAIF channels are configured and become visible
->> in +the + * Linux file system, typically under "/dev".
-> 
-> This is not updated, you have already removed the char devices.
-Right - agree. I'll remove this.
-> 
->> + *
->> + *\b Example - creating a new AT character device: + * \code
->> +   fd = open("/dev/caifconfig",..);
->> +   struct caif_channel_create_action at_config = { +	 .name =
->> "cnhl2", +	 .config = {
->> +	    .channel = CAIF_CHTY_AT,
->> +	    .phy_ref = CAIF_PHY_LOW_LAT,
->> +	    .priority = CAIF_PRIO_HIGH
->> +	 }};
->> +   ioctl(fd, CAIF_IOC_CONFIG_DEVICE,&at_config);
->> +   close(fd);
->> + * \endcode
->> + * This will cause a new AT channel to be available in at
->> "/dev/chnl2". + * This CAIF channel can then be connected by using
->> \ref open. + */
-> 
-> This is obsolete,too.
+Thanks for your review,
 
-Yes, Thanks.
-
-> 
->> +/* Specifies the type of device to create: NET device or CHAR
->> +device*/ enum caif_dev_type {
->> +	CAIF_DEV_CHR = 1,
->> +	CAIF_DEV_NET = 2
->> +};
-> 
-> You can remove this enum, it is not used anymore in your code.
-
-Yes, I'll do it.
-
-> 
->> +
->> +/** Used for identifying devices, PHY interfaces, etc.*/ struct
->> +caif_device_name { +	char name[DEVICE_NAME_LEN];	/*!< Device name */
->> +	enum caif_dev_type devtype;	/*!< Device type */
->> +};
-> 
-> I think this one is obsolete, too.
-
-Yes, this is obsolete.
-
-> 
->> +/* TODO: Move these defs to /usr/include/linux/socket.h */
->> +#define AF_CAIF    37 		/* CAIF Socket Address Family */
->> +#define PF_CAIF    37           /* CAIF Socket Protocol Family */
->> +#define SOL_CAIF   278		/* CAIF Socket Option Level */
-> 
-> You sent already a patch for socket.h, I think you can safely remove
-> these duplicates. 
-Yes they should be moved to include/linux/socket.h.
-> 
->> +
->> +#define CAIF_DEFAULT_PRI       0xf
-> 
-> You have already defined CAIF_PRIO_NORMAL with the same value. Do you
-> need both ? 
-Hmm good question. My initial thinking was to have two self-contained
-header files:caif_socket.h and caif_config.h. The first is used for
-sockets and the second for modules using the kernel API (caif_kernel.h).
-Perhaps I should look into the option of letting caif_config.h include
-caif_socket.h allowing removal of duplicate types.
-
-> 
->> +enum caif_link_selector {
->> +	CAIF_LINK_UNSPECIFIED	= 0x00,
->> +	CAIF_LINK_LOW_LATENCY	= 0xd0,
->> +	CAIF_LINK_HIGH_BANDW	= 0xe0
-> 
-> caif_phy_preference and caif_link_selector have the same values for
-> priority. Should we have a single enum for both ? 
-I'll remove the assignment to 0xd0 and 0xe0.
-Link selection and priority are two fundamental different things.
-Link Selectors are used to select the physical link such as SPI or UART,
-while priority is about the channel's priority used for CAIF-packet
-scheduling in the modem.
-
-BR/Sjur
+- KK
 
