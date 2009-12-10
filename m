@@ -1,34 +1,94 @@
-From: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
-Subject: Re: stmmac latest patches  (Dec09)
-Date: Thu, 10 Dec 2009 10:16:34 -0500
-Message-ID: <4B2110D2.9050801@octasic.com>
-References: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com> <4B179616.2010907@st.com> <4B20F8FE.90804@st.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [RFC PATCH v3  5/8] CAIF Protocol Stack
+Date: Thu, 10 Dec 2009 08:44:37 -0800
+Message-ID: <20091210084437.cc38367c.randy.dunlap@oracle.com>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com>
+	<1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com>
+	<1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com>
+	<1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com>
+	<1259593252-2493-6-git-send-email-sjur.brandeland@stericsson.com>
+	<4B13F5D3.6090009@oracle.com>
+	<61D8D34BB13CFE408D154529C120E0790311F113@eseldmw101.eemea.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <stefano.babic@babic.homelinux.org>,
+	"Kim Lilliestierna XX" <kim.xx.lilliestierna@stericsson.com>,
+	"Christian Bejram" <christian.bejram@stericsson.com>,
+	"Daniel Martensson" <daniel.martensson@stericsson.com>
+To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.octasic.com ([70.54.254.106]:6328 "EHLO
-	MAILEXCH.octasic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760869AbZLJPbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 10:31:40 -0500
-In-Reply-To: <4B20F8FE.90804@st.com>
+Received: from rcsinet12.oracle.com ([148.87.113.124]:55372 "EHLO
+	rcsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760801AbZLJQqI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 11:46:08 -0500
+In-Reply-To: <61D8D34BB13CFE408D154529C120E0790311F113@eseldmw101.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 10 Dec 2009 14:05:13 +0100 Sjur Br=E6ndeland wrote:
+
+> Randy Dunlap wrote:
+> > sjur.brandeland@stericsson.com wrote:
+> >> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> >=20
+> > what Patrick said:
+> > patch description should be here and each email subject should be
+> > different and describe what that patch does. Please read
+> > Documentation/SubmittingPatches.=20
+> OK I'll read carefully through Submitting Patches. Do you recon this =
+will be ok?
+> Subject: [PATCH X/Y] net-caif: Add CAIF Protocol Stack in net/caif/ge=
+neric
+
+One big point is that the subject line shouldn't be the same
+for all of the patches (disregarding PATCH X/Y).
+They should be like (e.g.):
+
+[PATCH 1/5] net-caif: add header files
+[PATCH 2/5] net-caif: add caif protocol
+[PATCH 3/5] net-caif: add caif devices
+[PATCH 4/5] net-caif: documentation
+[PATCH 5/5] net-caif: Kconfig and Makefile
 
 
-Giuseppe CAVALLARO wrote:
-> - - [PATCH 1/4] stmmac: thinking about a generic driver for Synopsys
-> Controllers.
->   
-Looks good to me. This way, the driver architecture will more closely 
-follow the Synopsys IP architecture.
-> - - [PATCH 2/4] stmmac: add the new Header file for stmmac platform data
-> - - [PATCH 3/4] stmmac: use MII_BUS_ID_SIZE instead of  BUS_ID_SIZE
-> - - [PATCH 4/4] stmmac: convert unicast addr list to list_head
->   
-These 3 basically fix build errors with the newer kernels. great.
 
-jh
+
+> >> +menuconfig CAIF
+> >> +	tristate "Enable CAIF support"
+> >> +	default n
+> >> +	---help---
+> >=20
+> > Tell us what CAIF means, probably in the help text.
+>=20
+> I have rephrased this a bit, what do you think about this:
+> [snip]
+> menuconfig CAIF
+> 	tristate "Enable CAIF support"
+> 	default n
+> 	---help---
+> 	The "Communication CPU to Application CPU Interface" (CAIF) is a pac=
+ket based
+> 	connection-oriented MUX protocol developed by ST-Ericsson for use wi=
+th its modems.
+>=20
+> 	Say Y (or M) here if you build for a phone product (e.g. Android) th=
+at uses
+> 	CAIF as transport, if unsure say N.=20
+>=20
+> 	If you select to build it as module then CAIF_SOCK and CAIF_NETDEV a=
+lso needs to=20
+> 	be built as modules. You will also need to say yes to any CAIF physi=
+cal devices that
+> 	your platform requires.
+>=20
+> 	See Documentation/net/CAIF for a further explanation on how to use a=
+nd configure CAIF.
+
+
+That looks good, thanks.
+
+---
+~Randy
