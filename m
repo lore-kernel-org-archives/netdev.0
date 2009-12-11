@@ -1,41 +1,79 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: mmotm-2009-12-08-17-45 resume slowly
-Date: Fri, 11 Dec 2009 16:10:40 +0800
-Message-ID: <1260519040.12157.233.camel@debian>
-References: <a8e1da0912100127k4dcddd65gfe5ff0b1330fe63b@mail.gmail.com>
-	 <a8e1da0912100130i2e654796mf899dd27df869673@mail.gmail.com>
-	 <20091210184931.257A.A69D9226@jp.fujitsu.com>
-	 <4B217219.6040109@crca.org.au>
-	 <a8e1da0912101747l7e0e9fcbh8a7007e95e7c8509@mail.gmail.com>
-	 <1260499048.12157.219.camel@debian>
-	 <a8e1da0912101935g99a0902m43136a05edea938b@mail.gmail.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
+	Blackfin on-chip CAN controllers
+Date: Fri, 11 Dec 2009 09:51:54 +0100
+Message-ID: <4B22082A.3050404@grandegger.com>
+References: <4B20CB82.6060702@grandegger.com>	<4B20D214.4050503@grandegger.com>
+	<8bd0f97a0912100258n6896b21er1d9525bb7dbf6aec@mail.gmail.com>
+	<20091210.133729.42872813.davem@davemloft.net>	<3c17e3570912101805n682c316l44ec68ade5d18cd1@mail.gmail.com>
+	<8bd0f97a0912101817x79a17d5dje21e2a2b4ad1fc58@mail.gmail.com>
+	<3c17e3570912102000vd30d452s2d6b6ae7d24f340f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nigel Cunningham <ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org>,
-	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a8e1da0912101935g99a0902m43136a05edea938b-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, oe-pJ9TYRvN+WE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <3c17e3570912102000vd30d452s2d6b6ae7d24f340f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-12-11 at 11:35 +0800, Dave Young wrote:
-> > Try powering off the AP before resume?
-> 
-> Unfortunately, I use public wireless resouce, so I cann't do that. 
-
-Then move the laptop away.
-
-Thanks,
--yi
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+QmFycnkgU29uZyB3cm90ZToKPiBPbiBGcmksIERlYyAxMSwgMjAwOSBhdCAxMDoxNyBBTSwgTWlr
+ZSBGcnlzaW5nZXIgPHZhcGllci5hZGlAZ21haWwuY29tPiB3cm90ZToKPj4gT24gVGh1LCBEZWMg
+MTAsIDIwMDkgYXQgMjE6MDUsIEJhcnJ5IFNvbmcgd3JvdGU6Cj4+PiAyMDA5LzEyLzExIERhdmlk
+IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD46Cj4+Pj4gRnJvbTogTWlrZSBGcnlzaW5nZXIg
+PHZhcGllci5hZGlAZ21haWwuY29tPgo+Pj4+PiBPbiBUaHUsIERlYyAxMCwgMjAwOSBhdCAwNTo0
+OCwgV29sZmdhbmcgR3JhbmRlZ2dlciB3cm90ZToKPj4+Pj4+IFdvbGZnYW5nIEdyYW5kZWdnZXIg
+d3JvdGU6Cj4+Pj4+Pj4gTWlrZSBGcnlzaW5nZXIgd3JvdGU6Cj4+Pj4+Pj4+IE9uIFRodSwgRGVj
+IDEwLCAyMDA5IGF0IDA0OjExLCBXb2xmZ2FuZyBHcmFuZGVnZ2VyIHdyb3RlOgo+Pj4+Pj4+Pj4g
+V2VsbCwgSSdtIHN0aWxsIG5vdCBhIGZyaWVuZCBvZiB0aGUgZm9sbG93aW5nIGlubGluZSBmdW5j
+dGlvbnMsCj4+Pj4+Pj4+PiBlc3BlY2lhbGx5IHRoZSAqb25lLWxpbmVycyogd2hpY2ggYXJlIGNh
+bGxlZCBqdXN0ICpvbmNlKi4gV2l0aCB0aGUgdXNhZ2UKPj4+Pj4+Pj4+IG9mIHN0cnVjdHMgdGhl
+eSBzZWVtIGV2ZW4gbW9yZSB1c2VsZXNzLgo+Pj4+Pj4+PiBzZWVtcyBsaWtlIGl0IHdvdWxkIG1h
+a2UgbW9yZSBzZW5zZSB0byBub3QgZXZlbiB1c2UgdGhlIHJlYWQvd3JpdGUKPj4+Pj4+Pj4gZnVu
+Y3Rpb25zIGVpdGhlci4g77+9LEEganVzdCBkZWNsYXJlIHRoZSByZWdzIGFzIHZvbGF0aWxlIGFu
+ZCBhc3NpZ24vcmVhZAo+Pj4+Pj4+PiB0aGUgc3RydWN0IGRpcmVjdGx5Lgo+Pj4+Pj4+IFR3byB0
+aW1lcyBuby4gRG9uJ3QgdXNlIHZvbGF0aWxlIGFuZCBwcm9wZXIgYWNjZXNzb3IgZnVuY3Rpb25z
+LiBTZWU6Cj4+Pj4+Pj4KPj4+Pj4+PiBodHRwOi8vbHhyLmxpbnV4Lm5vLyNsaW51eCt2Mi42LjMy
+L0RvY3VtZW50YXRpb24vdm9sYXRpbGUtY29uc2lkZXJlZC1oYXJtZnVsLnR4dAo+Pj4+Pj4gSSB3
+YXMganVzdCB3b25kZXJpbmcgaWYgYmZpbl9yZWFkL3dyaXRlMTYgd291bGQgbm90IGJlIHRoZSBw
+cm9wZXIKPj4+Pj4+IGFjY2Vzc29yIGZ1bmN0aW9ucy4gcmVhZHcvd3JpdGV3IHNlZW1zIHRvIGJl
+IGltcGxlbWVudGVkIGRpZmZlcmVudGx5Ogo+Pj4+Pj4KPj4+Pj4+IGh0dHA6Ly9seHIubGludXgu
+bm8vI2xpbnV4K3YyLjYuMzIvYXJjaC9ibGFja2Zpbi9pbmNsdWRlL2FzbS9pby5oI0w0NAo+Pj4+
+Pj4KPj4+Pj4+IFB1aCwgdGhleSBkbyBhbiBjbGksbm9wLG5vcCxzeW5jLi5zdGkgZm9yIHRoZSBh
+Y2Nlc3MuIFRoaXMgYWxzbyBuaWNlbHkKPj4+Pj4+IHNob3dzIHdoeSBhY2Nlc3NvciBmdW5jdGlv
+bnMgc2hvdWxkIGJlIHVzZWQgdG8gYWNjZXNzIGRldmljZSByZWdpc3RlcnMuCj4+Pj4+Pgo+Pj4+
+Pj4gV2VsbCwganVzdCBjdXJpb3VzLiBJIGRvbid0IHJlYWxseSBrbm93IHRoZSBibGFja2ZpbiBh
+cmNoLgo+Pj4+PiB0aGUgY29tbW9uIEkvTyBmdW5jdGlvbnMgbmVlZCB0byBhY2NvdW50IGZvciBp
+c3N1ZXMgc3Vycm91bmRpbmcgdGhlCj4+Pj4+IGJ1cyB0aGF0IGhhcyBhcmJpdHJhcnkgZGV2aWNl
+cyBtZW1vcnkgbWFwcGVkIHRvIGl0LiAgb24tY2hpcCBkZXZpY2VzCj4+Pj4+IChsaWtlIHdoYXQg
+d2UncmUgdGFsa2luZyBhYm91dCBoZXJlKSBkbyBub3QgaGF2ZSB0aGVzZSBpc3N1ZXMgYW5kIHNv
+Cj4+Pj4+IHVzaW5nIHRoZSBjb21tb24gZnVuY3Rpb25zIGlzIGF3ZnVsIG92ZXJoZWFkLgo+Pj4+
+IFRoZW4gY3JlYXRlIHNwZWNpYWwgYWNjZXNzb3JzIChwZXJoYXBzIHdpdGggdGhlIHNhbWUgbmFt
+ZXMgYXMgdGhlCj4+Pj4gZXhpc3Rpbmcgb25lcywgYnV0IHdpdGggIl9fIiBwcmVwZW5kZWQpIHRo
+YXQgbGFjayBhbGwgb2YgdGhlCj4+Pj4gaW50ZXJydXB0IGRpc2FibGluZywgc3luY3MsIGV0Yy4K
+Pj4+Pgo+Pj4+IFJlYWxseSBpdCBfaXNfIGNsZWFuZXIgYW5kIG1ha2VzIHlvdXIgZHJpdmVyIGxv
+b2sgYSBsb3QgbmljZXIuCj4+PiBJIHRoaW5rIE1pa2UgaGFzIHNhaWQgdGhlIGZ1bmN0aW9ucyBh
+cmUgYmZpbl9yZWFkL2JmaW5fd3JpdGUgaW4KPj4+IGJsYWNrZmluIGFyY2ggc2luY2UgdGhvc2Ug
+Q0FOIHJlZ2lzdGVycyBhcmUgbG9jYXRlZCBpbiBtZW1vcnkgbWFwcGVkCj4+PiBhcmVhIGJ1dCBu
+b3QgYXN5bmMgbWVtb3J5IGFuZCBoYXZlIGxlc3Mgb3ZlcmhlYWQgdGhhbiBjb21tb24gaW8KPj4+
+IGZ1bmN0aW9ucz8gSXMgaXQgYWNjZXB0YWJsZSB0byB1c2UgdGhvc2UgZnVuY3Rpb25zIGluIHRo
+aXMgZHJpdmVyPwo+PiB5ZXMsIGJmaW5fe3JlYWQsd3JpdGV9IHNob3VsZCBiZSB1c2VkCj4gCj4g
+V29sZmdhbmcvRGF2aWQsIGFyZSB5b3Ugb2sgd2l0aCB0aGF0IHRvbz8gSWYgc28sIEkgd2lsbCBz
+ZW5kIGEgLXY0Cj4gcGF0Y2ggdXNpbmcgYmZpbl9yZWFkL3dyaXRlLCB3aXRoIGFsbCBmaXggYWNj
+b3JkaW5nIHRvIHlvdXIgb3RoZXIKPiBjb21tZW50cy4KCkkgdW5kZXJzdG9vZCBmcm9tIE1pa2Ug
+dGhhdCB0aGVzZSBhcmUgdGhlIHByb3BlciBmdW5jdGlvbnMgdG8gYmUgdXNlZApmb3IgYWNjZXNz
+aW5nIG9uLWNoaXAgcmVnaXN0ZXJzLgoKV29sZmdhbmcuCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fClNvY2tldGNhbi1jb3JlIG1haWxpbmcgbGlzdApTb2Nr
+ZXRjYW4tY29yZUBsaXN0cy5iZXJsaW9zLmRlCmh0dHBzOi8vbGlzdHMuYmVybGlvcy5kZS9tYWls
+bWFuL2xpc3RpbmZvL3NvY2tldGNhbi1jb3JlCg==
