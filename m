@@ -1,48 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RT metric sharing...
-Date: Fri, 11 Dec 2009 01:22:41 +0100
-Message-ID: <4B2190D1.9080505@gmail.com>
-References: <20091210.141438.78359022.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2/2] cnic: Zero out status block and Event Queue
+ indices.
+Date: Thu, 10 Dec 2009 17:40:58 -0800
+Message-ID: <1260495658-25866-2-git-send-email-mchan@broadcom.com>
+References: <1260495658-25866-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58554 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757420AbZLKAWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 19:22:37 -0500
-In-Reply-To: <20091210.141438.78359022.davem@davemloft.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:4107 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762156AbZLKBdf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Dec 2009 20:33:35 -0500
+In-Reply-To: <1260495658-25866-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 10/12/2009 23:14, David Miller a =E9crit :
->=20
-> This topic has come up a few times, but I had a reason to
-> consider it again.
->=20
-> The routing metrics take up quite a bit of space in the
-> dst_entry and thus every routing cache entry.
->=20
-> We could save some space with indirection.
->=20
-> Basically my idea is:
->=20
-> 1) dst_metrics are maintained in external structure
->=20
-> 2) when cache entry is created, read-only dst_metrics object
->    is allocated for it
->=20
-> 3) any attempt to change the metrics of such a read-only dst_entry
->    cow's it, all further writes proceed as normal
->=20
-> We currently have 13 (so 13 * sizeof(u32) =3D=3D 52) and we're probab=
-ly
-> about to get a 14th (for the initial receive window stuff).
->=20
+To prevent stale indices from causing spurious events when restarting the
+bnx2x devices.
 
-Nice idea Dave.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/cnic.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-(Note : we do have a hole available for the 14th metric
-because of forced __refcnt alignement)
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index a2c3328..4332b3a 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -1104,6 +1104,8 @@ static int cnic_alloc_bnx2x_resc(struct cnic_dev *dev)
+ 	cp->bnx2x_status_blk = cp->status_blk;
+ 	cp->bnx2x_def_status_blk = cp->ethdev->irq_arr[1].status_blk;
+ 
++	memset(cp->bnx2x_status_blk, 0, sizeof(struct host_status_block));
++
+ 	cp->l2_rx_ring_size = 15;
+ 
+ 	ret = cnic_alloc_l2_rings(dev, 4);
+@@ -4295,6 +4297,9 @@ static void cnic_stop_bnx2x_hw(struct cnic_dev *dev)
+ 		  offsetof(struct cstorm_status_block_c,
+ 			   index_values[HC_INDEX_C_ISCSI_EQ_CONS]),
+ 		  0);
++	CNIC_WR(dev, BAR_CSTRORM_INTMEM +
++		CSTORM_ISCSI_EQ_CONS_OFFSET(cp->func, 0), 0);
++	CNIC_WR16(dev, cp->kcq_io_addr, 0);
+ 	cnic_free_resc(dev);
+ }
+ 
+-- 
+1.6.4.GIT
+
+
