@@ -1,118 +1,50 @@
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: mmotm-2009-12-08-17-45 resume slowly
-Date: Fri, 11 Dec 2009 17:10:56 +0800
-Message-ID: <a8e1da0912110110m425d8544xdcdf1f5a9ed8ab17@mail.gmail.com>
-References: <a8e1da0912100127k4dcddd65gfe5ff0b1330fe63b@mail.gmail.com>
-	 <a8e1da0912100130i2e654796mf899dd27df869673@mail.gmail.com>
-	 <20091210184931.257A.A69D9226@jp.fujitsu.com>
-	 <4B217219.6040109@crca.org.au>
-	 <a8e1da0912101747l7e0e9fcbh8a7007e95e7c8509@mail.gmail.com>
+From: Franco Fichtner <franco@lastsummer.de>
+Subject: Re: r8169
+Date: Fri, 11 Dec 2009 10:17:49 +0100
+Message-ID: <4B220E3D.5030502@lastsummer.de>
+References: <20091210205821.GX6965@slinky.marshes.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Nigel Cunningham <ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a8e1da0912101747l7e0e9fcbh8a7007e95e7c8509-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ian Marsh <mushypea@dominion.net.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host64.kissl.de ([213.239.241.64]:38932 "EHLO host64.kissl.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751601AbZLKJRw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2009 04:17:52 -0500
+In-Reply-To: <20091210205821.GX6965@slinky.marshes.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 11, 2009 at 9:47 AM, Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=
- wrote:
-> On Fri, Dec 11, 2009 at 6:11 AM, Nigel Cunningham
-> <ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org> wrote:
->> Dave, could you be more specific?
->>
->> Is the delay Ksaki has picked out related to your report...
+Hi Ian,
+
+> After many hours of frustration trying to solve this, I am hoping you guys can
+> shed some light and help me out.
 >
-> I can not reproduce the wireless delay today, maybe related to
-> wireless environment?
+> I have a PC with an Asus P5B i965 motherboard, which has an on-board gigabit
+> ethernet port.  According to dmesg this is a "RTL8168b/8111b", lspci reports a
+> "Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
+> Express Gigabit Ethernet controller [10ec:8168] (rev 01)".
 >
->>
->> KOSAKI Motohiro wrote:
->>> (cc to netdev)
->>>
->>> Hi net-folks
->>>
->>>>> [ =C2=A0561.323866] mtrr: type mismatch for e0000000,10000000 old=
-:
->>>>> write-back new: write-combining
->>>>> [ 2688.500033] No probe response from AP 00:02:2d:08:51:2b after
->>>>> 500ms, disconnecting.
->>>>> [ 2689.580376] wlan0: direct probe to AP 00:02:2d:08:51:2b (try 1=
-)
->>>
->>> What's mean "No probe response"? Why its point waste 2000sec?
+> This PC is a media centre PC, currently using Xubuntu Hardy (8.04.1), with
+> stock kernel image, 2.6.24-19-generic.  This uses version 2.2LK of the r8169
+> driver (according to modinfo, srcversion: 449281D8F257330CF6D0E38), which
+> works perfectly.
+>   
 
-Rereading the dmesg I post, I think maybe this delay is not relevant
-because it is after "PM: Finishing wakeup."
+At work we're also using ubuntu which comes with the r8169 driver,
+and had to deal with network dropouts while trying to benchmark
+heavy loads. This is what the support of our boxes told us:
 
-The brightness is so low after resume finished that I thought it as
-resume delay.
-
-
->>
->> [...]
->>
->>>>> [ =C2=A0225.731462] ACPI: Preparing to enter system sleep state S=
-3
->>>>> [ =C2=A0225.754167] Disabling non-boot CPUs ...
->>>>> [ =C2=A0225.809478] CPU 1 is now offline
->>>>> [ =C2=A0225.809481] lockdep: fixing up alternatives.
->>>>> [ =C2=A0225.809487] SMP alternatives: switching to UP code
->>>>> [ =C2=A0225.816500] Extended CMOS year: 2000
->>>>> [ =C2=A0225.816500] Back to C!
->>>>> [ =C2=A0225.816500] Extended CMOS year: 2000
->>>>> [ =C2=A0225.816720] Enabling non-boot CPUs ...
->>>>> [ =C2=A0225.818422] lockdep: fixing up alternatives.
->>>>> [ =C2=A0225.818425] SMP alternatives: switching to SMP code
->>>>> [ =C2=A0225.822188] Booting processor 1 APIC 0x1 ip 0x6000
->>>>> [ =C2=A0225.818021] Initializing CPU#1
->>>>> [ =C2=A0225.818021] CPU: Physical Processor ID: 0
->>>>> [ =C2=A0225.818021] CPU: Processor Core ID: 1
->>>>> [ =C2=A0225.913392] CPU1: Intel(R) Core(TM)2 Duo CPU =C2=A0 =C2=A0=
- T7250 =C2=A0@ 2.00GHz stepping 0d
->>>>> [ =C2=A0225.937046] microcode: CPU1 sig=3D0x6fd, pf=3D0x80, revis=
-ion=3D0xa3
->>>>> [ =C2=A0225.937053] platform microcode: firmware: requesting inte=
-l-ucode/06-0f-0d
->>>>> [ =C2=A0225.937179] firmware microcode: parent microcode should n=
-ot be sleeping
->>>>> [ =C2=A0285.940840] CPU1 is up
->>
->> ... or the 60 second delay before the CPU1 is up message?
+>Please use 8168 instead of 8169. Please see the notice about this
+>important point in May..
 >
-> Yes, this delay occurs every time
+>The situation you observed should be a misjudgment by the Linux Kernel.
+>Driver 8168 is recommended by Realtek. Please use this revision.
 
 
-Then what caused this one, any idea?
-
->
->>
->> Regards,
->>
->> Nigel
->>
->
->
->
-> --
-> Regards
-> dave
->
+No more problems since then. Hope that helps!
 
 
-
---=20
-Regards
-dave
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Franco
