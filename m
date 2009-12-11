@@ -1,42 +1,38 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: [PATCH] net: smc91x: Fix up type mismatch in smc_drv_resume().
-Date: Fri, 11 Dec 2009 15:42:27 +0900
-Message-ID: <20091211064226.GA7625@linux-sh.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
+Date: Fri, 11 Dec 2009 06:50:11 +0000
+Message-ID: <20091211065011.GA6409@ff.dom.local>
+References: <20091210.134613.91416472.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nico@fluxnic.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757574AbZLKGm0@vger.kernel.org>
+Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:56797 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752985AbZLKGuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 01:50:12 -0500
+Received: by fxm21 with SMTP id 21so677135fxm.1
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 22:50:17 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091210.134613.91416472.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-smc_drv_resume() takes a struct device, while smc_enable_device() takes a
-platform device. This fixes up the smc_enable_device() callsite with the
-proper pointer.
+>>> Replace + net-ipv4-tcpc-fix-warning.patch added to -mm tree
+>>>
+>>> Remove the offending code, and replace with comments.  This is an
+>>> unlikely problem, so depend on human finding any future error.
+>>>
+>>> Signed-off-by: William.Allen.Simpson@gmail.com
+>>> ---
+>>>  net/ipv4/tcp.c |    9 ++++-----
+>>>  1 files changed, 4 insertions(+), 5 deletions(-)
+>> This is not necessary, David already _did_ the thing, and _told_ so.
+> 
+> Right.
 
-It's not obvious when this change was introduced, as git history doesn't
-go back that far. Presumably the resume code has always been broken in
-this fashion.
+But David _did_ forget to _send_ the thing to the list. ;-)
 
-Signed-off-by: Paul Mundt <lethal@linux-sh.org>
-
----
-
- drivers/net/smc91x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index ae4983a..5c9222d 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -2387,7 +2387,7 @@ static int smc_drv_resume(struct device *dev)
- 
- 	if (ndev) {
- 		struct smc_local *lp = netdev_priv(ndev);
--		smc_enable_device(dev);
-+		smc_enable_device(pdev);
- 		if (netif_running(ndev)) {
- 			smc_reset(ndev);
- 			smc_enable(ndev);
+Jarek P.
