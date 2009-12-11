@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smc91x: fix unused flags warnings on UP systems
-Date: Fri, 11 Dec 2009 15:15:02 -0800 (PST)
-Message-ID: <20091211.151502.188418417.davem@davemloft.net>
-References: <1260366004-27366-1-git-send-email-vapier@gentoo.org>
+Subject: Re: [PATCH] xfrm: Fix truncation length of authentication
+ algorithms installed via PF_KEY
+Date: Fri, 11 Dec 2009 15:15:39 -0800 (PST)
+Message-ID: <20091211.151539.266471885.davem@davemloft.net>
+References: <1260375075-16187-1-git-send-email-martin@strongswan.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nico@fluxnic.net,
-	linux-kernel@vger.kernel.org
-To: vapier@gentoo.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750779AbZLKXO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 18:14:56 -0500
-In-Reply-To: <1260366004-27366-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: martin@strongswan.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1260375075-16187-1-git-send-email-martin@strongswan.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Wed,  9 Dec 2009 08:40:04 -0500
+From: Martin Willi <martin@strongswan.org>
+Date: Wed,  9 Dec 2009 17:11:15 +0100
 
-> Local flags variables will be declared whenever these functions get used,
-> but obviously on UP systems the flags parameter won't be touched.  So add
-> some dummy ops that get optimized away anyways to satisfy gcc's warnings.
+> Commit 4447bb33f09444920a8f1d89e1540137429351b6 breaks installation of
+> authentication algorithms via PF_KEY, as the state specific truncation
+> length is not installed with the algorithms default truncation length.
+> This patch initializes state properly to the default if installed via
+> PF_KEY.
 > 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> Signed-off-by: Martin Willi <martin@strongswan.org>
 
-Applied, although I thought we had a standard macro to handle this
-kind of case.
+Applied.
 
-In any case, for future reference, the usual way to handle this is
-usually "(void) var;"
+Herbert, thanks for reviewing, I didn't miss your ACK.  :-)
