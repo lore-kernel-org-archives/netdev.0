@@ -1,38 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
-Date: Fri, 11 Dec 2009 06:50:11 +0000
-Message-ID: <20091211065011.GA6409@ff.dom.local>
-References: <20091210.134613.91416472.davem@davemloft.net>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: mmotm-2009-12-08-17-45 resume slowly
+Date: Fri, 11 Dec 2009 16:10:40 +0800
+Message-ID: <1260519040.12157.233.camel@debian>
+References: <a8e1da0912100127k4dcddd65gfe5ff0b1330fe63b@mail.gmail.com>
+	 <a8e1da0912100130i2e654796mf899dd27df869673@mail.gmail.com>
+	 <20091210184931.257A.A69D9226@jp.fujitsu.com>
+	 <4B217219.6040109@crca.org.au>
+	 <a8e1da0912101747l7e0e9fcbh8a7007e95e7c8509@mail.gmail.com>
+	 <1260499048.12157.219.camel@debian>
+	 <a8e1da0912101935g99a0902m43136a05edea938b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, william.allen.simpson@gmail.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:56797 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752985AbZLKGuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 01:50:12 -0500
-Received: by fxm21 with SMTP id 21so677135fxm.1
-        for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 22:50:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20091210.134613.91416472.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nigel Cunningham <ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org>,
+	KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <a8e1da0912101935g99a0902m43136a05edea938b-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>> Replace + net-ipv4-tcpc-fix-warning.patch added to -mm tree
->>>
->>> Remove the offending code, and replace with comments.  This is an
->>> unlikely problem, so depend on human finding any future error.
->>>
->>> Signed-off-by: William.Allen.Simpson@gmail.com
->>> ---
->>>  net/ipv4/tcp.c |    9 ++++-----
->>>  1 files changed, 4 insertions(+), 5 deletions(-)
->> This is not necessary, David already _did_ the thing, and _told_ so.
+On Fri, 2009-12-11 at 11:35 +0800, Dave Young wrote:
+> > Try powering off the AP before resume?
 > 
-> Right.
+> Unfortunately, I use public wireless resouce, so I cann't do that. 
 
-But David _did_ forget to _send_ the thing to the list. ;-)
+Then move the laptop away.
 
-Jarek P.
+Thanks,
+-yi
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
