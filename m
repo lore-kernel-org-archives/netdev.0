@@ -1,40 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]Transfering-maintainership-of-cdc-ether
-Date: Fri, 11 Dec 2009 14:58:42 -0800 (PST)
-Message-ID: <20091211.145842.222545120.davem@davemloft.net>
-References: <200912112333.09074.oliver@neukum.org>
-	<20091211225350.GA9483@kroah.com>
+Subject: Re: [PATCH] net: Handle NETREG_UNINITIALIZED devices correctly
+Date: Fri, 11 Dec 2009 15:12:18 -0800 (PST)
+Message-ID: <20091211.151218.91435502.davem@davemloft.net>
+References: <20091209082602.19053.97297.sendpatchset@localhost.localdomain>
+	<4B1F7498.2090007@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, netdev@vger.kernel.org
-To: greg@kroah.com
+Cc: krkumar2@in.ibm.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37595
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58923
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754203AbZLKW6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 17:58:36 -0500
-In-Reply-To: <20091211225350.GA9483@kroah.com>
+	by vger.kernel.org with ESMTP id S1757257AbZLKXMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 18:12:12 -0500
+In-Reply-To: <4B1F7498.2090007@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Fri, 11 Dec 2009 14:53:50 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Dec 2009 10:57:44 +0100
 
-> On Fri, Dec 11, 2009 at 11:33:08PM +0100, Oliver Neukum wrote:
->> From 128a6479f06fdaa71ec75efe145a10c1309d13a4 Mon Sep 17 00:00:00 2001
->> From: Oliver Neukum <oliver@neukum.org>
->> Date: Fri, 11 Dec 2009 23:29:42 +0100
->> Subject: [PATCH] Transfering maintainership of cdc-ether
+> Krishna Kumar a écrit :
+>> From: Krishna Kumar <krkumar2@in.ibm.com>
 >> 
->> Oliver Neukum takes over from Greg KH
+>> Fix two problems:
 >> 
->> Signed-off-by: Oliver Neukum <oliver@neukum.org>
+>> 1. If unregister_netdevice_many() is called with both registered
+>>    and unregistered devices, rollback_registered_many() bails out
+>>    when it reaches the first unregistered device. The processing
+>>    of the prior registered devices is unfinished, and the
+>>    remaining devices are skipped, and possible registered netdev's
+>>    are leaked/unregistered.
+>> 
+>> 2. System hangs or panics depending on how the devices are passed,
+>>    since when netdev_run_todo() runs, some devices were not fully
+>>    processed.
+>> 
+>> Tested by passing intermingled unregistered and registered vlan
+>> devices to unregister_netdevice_many() as follows:
+>> 	1. dev, fake_dev1, fake_dev2: hangs in run_todo
+>> 	   ("unregister_netdevice: waiting for eth1.100 to become
+>> 	    free. Usage count = 1")
+>> 	2. fake_dev1, dev, fake_dev2: failure during de-registration
+>> 	   and next registration, followed by a vlan driver Oops
+>> 	   during subsequent registration.
+>> 
+>> Confirmed that the patch fixes both cases.
+>> 
+>> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> 
-> Signed-off-by: Greg Kroah-Hartman <greg@kroah.com>
-> 
-> 
-> David, want to take this, or do you want me to?
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I'll take it, thanks Greg.
+Nice work Krishna, applied, thanks!
