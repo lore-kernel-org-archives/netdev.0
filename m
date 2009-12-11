@@ -1,93 +1,87 @@
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: mmotm-2009-12-08-17-45 resume slowly
-Date: Fri, 11 Dec 2009 09:47:54 +0800
-Message-ID: <a8e1da0912101747l7e0e9fcbh8a7007e95e7c8509@mail.gmail.com>
-References: <a8e1da0912100127k4dcddd65gfe5ff0b1330fe63b@mail.gmail.com>
-	 <a8e1da0912100130i2e654796mf899dd27df869673@mail.gmail.com>
-	 <20091210184931.257A.A69D9226@jp.fujitsu.com>
-	 <4B217219.6040109@crca.org.au>
+From: Barry Song <21cnbao@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
+	Blackfin on-chip CAN controllers
+Date: Fri, 11 Dec 2009 10:05:06 +0800
+Message-ID: <3c17e3570912101805n682c316l44ec68ade5d18cd1@mail.gmail.com>
+References: <4B20CB82.6060702@grandegger.com> <4B20D214.4050503@grandegger.com>
+	<8bd0f97a0912100258n6896b21er1d9525bb7dbf6aec@mail.gmail.com>
+	<20091210.133729.42872813.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Nigel Cunningham <ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4B217219.6040109-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vapier.adi@gmail.com, wg@grandegger.com, oe@port.de,
+	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:36294 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762184AbZLKCFV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 21:05:21 -0500
+Received: by ywh6 with SMTP id 6so451572ywh.4
+        for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 18:05:27 -0800 (PST)
+In-Reply-To: <20091210.133729.42872813.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 11, 2009 at 6:11 AM, Nigel Cunningham
-<ncunningham-VWkGxi2CTS+6c6uEtOJ/EA@public.gmane.org> wrote:
-> Dave, could you be more specific?
+2009/12/11 David Miller <davem@davemloft.net>:
+> From: Mike Frysinger <vapier.adi@gmail.com>
+> Date: Thu, 10 Dec 2009 05:58:58 -0500
 >
-> Is the delay Ksaki has picked out related to your report...
-
-I can not reproduce the wireless delay today, maybe related to
-wireless environment?
-
->
-> KOSAKI Motohiro wrote:
->> (cc to netdev)
+>> On Thu, Dec 10, 2009 at 05:48, Wolfgang Grandegger wrote:
+>>> Wolfgang Grandegger wrote:
+>>>> Mike Frysinger wrote:
+>>>>> On Thu, Dec 10, 2009 at 04:11, Wolfgang Grandegger wrote:
+>>>>>> Well, I'm still not a friend of the following inline functions,
+>>>>>> especially the *one-liners* which are called just *once*. With t=
+he usage
+>>>>>> of structs they seem even more useless.
+>>>>> seems like it would make more sense to not even use the read/writ=
+e
+>>>>> functions either. =EF=BF=BD,A just declare the regs as volatile a=
+nd assign/read
+>>>>> the struct directly.
+>>>>
+>>>> Two times no. Don't use volatile and proper accessor functions. Se=
+e:
+>>>>
+>>>> http://lxr.linux.no/#linux+v2.6.32/Documentation/volatile-consider=
+ed-harmful.txt
+>>>
+>>> I was just wondering if bfin_read/write16 would not be the proper
+>>> accessor functions. readw/writew seems to be implemented differentl=
+y:
+>>>
+>>> http://lxr.linux.no/#linux+v2.6.32/arch/blackfin/include/asm/io.h#L=
+44
+>>>
+>>> Puh, they do an cli,nop,nop,sync..sti for the access. This also nic=
+ely
+>>> shows why accessor functions should be used to access device regist=
+ers.
+>>>
+>>> Well, just curious. I don't really know the blackfin arch.
 >>
->> Hi net-folks
->>
->>>> [ =C2=A0561.323866] mtrr: type mismatch for e0000000,10000000 old:
->>>> write-back new: write-combining
->>>> [ 2688.500033] No probe response from AP 00:02:2d:08:51:2b after
->>>> 500ms, disconnecting.
->>>> [ 2689.580376] wlan0: direct probe to AP 00:02:2d:08:51:2b (try 1)
->>
->> What's mean "No probe response"? Why its point waste 2000sec?
+>> the common I/O functions need to account for issues surrounding the
+>> bus that has arbitrary devices memory mapped to it. =C2=A0on-chip de=
+vices
+>> (like what we're talking about here) do not have these issues and so
+>> using the common functions is awful overhead.
 >
-> [...]
+> Then create special accessors (perhaps with the same names as the
+> existing ones, but with "__" prepended) that lack all of the
+> interrupt disabling, syncs, etc.
 >
->>>> [ =C2=A0225.731462] ACPI: Preparing to enter system sleep state S3
->>>> [ =C2=A0225.754167] Disabling non-boot CPUs ...
->>>> [ =C2=A0225.809478] CPU 1 is now offline
->>>> [ =C2=A0225.809481] lockdep: fixing up alternatives.
->>>> [ =C2=A0225.809487] SMP alternatives: switching to UP code
->>>> [ =C2=A0225.816500] Extended CMOS year: 2000
->>>> [ =C2=A0225.816500] Back to C!
->>>> [ =C2=A0225.816500] Extended CMOS year: 2000
->>>> [ =C2=A0225.816720] Enabling non-boot CPUs ...
->>>> [ =C2=A0225.818422] lockdep: fixing up alternatives.
->>>> [ =C2=A0225.818425] SMP alternatives: switching to SMP code
->>>> [ =C2=A0225.822188] Booting processor 1 APIC 0x1 ip 0x6000
->>>> [ =C2=A0225.818021] Initializing CPU#1
->>>> [ =C2=A0225.818021] CPU: Physical Processor ID: 0
->>>> [ =C2=A0225.818021] CPU: Processor Core ID: 1
->>>> [ =C2=A0225.913392] CPU1: Intel(R) Core(TM)2 Duo CPU =C2=A0 =C2=A0=
- T7250 =C2=A0@ 2.00GHz stepping 0d
->>>> [ =C2=A0225.937046] microcode: CPU1 sig=3D0x6fd, pf=3D0x80, revisi=
-on=3D0xa3
->>>> [ =C2=A0225.937053] platform microcode: firmware: requesting intel=
--ucode/06-0f-0d
->>>> [ =C2=A0225.937179] firmware microcode: parent microcode should no=
-t be sleeping
->>>> [ =C2=A0285.940840] CPU1 is up
->
-> ... or the 60 second delay before the CPU1 is up message?
+> Really it _is_ cleaner and makes your driver look a lot nicer.
 
-Yes, this delay occurs every time
+I think Mike has said the functions are bfin_read/bfin_write in
+blackfin arch since those CAN registers are located in memory mapped
+area but not async memory and have less overhead than common io
+functions? Is it acceptable to use those functions in this driver?
 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
 >
-> Regards,
->
-> Nigel
->
-
-
-
---=20
-Regards
-dave
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
