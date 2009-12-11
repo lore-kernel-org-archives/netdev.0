@@ -1,34 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: Fix truncation length of authentication
-	algorithms installed via PF_KEY
-Date: Fri, 11 Dec 2009 14:28:56 +0800
-Message-ID: <20091211062856.GC28849@gondor.apana.org.au>
-References: <1260375075-16187-1-git-send-email-martin@strongswan.org>
+From: Paul Mundt <lethal@linux-sh.org>
+Subject: [PATCH] net: smc91x: Fix up type mismatch in smc_drv_resume().
+Date: Fri, 11 Dec 2009 15:42:27 +0900
+Message-ID: <20091211064226.GA7625@linux-sh.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Martin Willi <martin@strongswan.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nico@fluxnic.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757574AbZLKGm0@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1260375075-16187-1-git-send-email-martin@strongswan.org>
-Sender: linux-crypto-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 09, 2009 at 05:11:15PM +0100, Martin Willi wrote:
-> Commit 4447bb33f09444920a8f1d89e1540137429351b6 breaks installation of
-> authentication algorithms via PF_KEY, as the state specific truncation
-> length is not installed with the algorithms default truncation length.
-> This patch initializes state properly to the default if installed via
-> PF_KEY.
-> 
-> Signed-off-by: Martin Willi <martin@strongswan.org>
+smc_drv_resume() takes a struct device, while smc_enable_device() takes a
+platform device. This fixes up the smc_enable_device() callsite with the
+proper pointer.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+It's not obvious when this change was introduced, as git history doesn't
+go back that far. Presumably the resume code has always been broken in
+this fashion.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Paul Mundt <lethal@linux-sh.org>
+
+---
+
+ drivers/net/smc91x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index ae4983a..5c9222d 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -2387,7 +2387,7 @@ static int smc_drv_resume(struct device *dev)
+ 
+ 	if (ndev) {
+ 		struct smc_local *lp = netdev_priv(ndev);
+-		smc_enable_device(dev);
++		smc_enable_device(pdev);
+ 		if (netif_running(ndev)) {
+ 			smc_reset(ndev);
+ 			smc_enable(ndev);
