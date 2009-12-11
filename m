@@ -1,42 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Small fixes for sky2 Yukon-2 Optima chip
-Date: Fri, 11 Dec 2009 14:54:49 -0800 (PST)
-Message-ID: <20091211.145449.158436446.davem@davemloft.net>
-References: <1259853122-21134-1-git-send-email-tiwai@suse.de>
-	<20091203.160719.140476237.davem@davemloft.net>
-	<20091209113522.303d0cb5@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH]Transfering-maintainership-of-cdc-ether
+Date: Fri, 11 Dec 2009 14:53:50 -0800
+Message-ID: <20091211225350.GA9483@kroah.com>
+References: <200912112333.09074.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tiwai@suse.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49412
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751494AbZLKWyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 17:54:43 -0500
-In-Reply-To: <20091209113522.303d0cb5@nehalam>
+Received: from kroah.org ([198.145.64.141]:44317 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759208AbZLKWzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2009 17:55:39 -0500
+Content-Disposition: inline
+In-Reply-To: <200912112333.09074.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 9 Dec 2009 11:35:22 -0800
-
-> On Thu, 03 Dec 2009 16:07:19 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
+On Fri, Dec 11, 2009 at 11:33:08PM +0100, Oliver Neukum wrote:
+> From 128a6479f06fdaa71ec75efe145a10c1309d13a4 Mon Sep 17 00:00:00 2001
+> From: Oliver Neukum <oliver@neukum.org>
+> Date: Fri, 11 Dec 2009 23:29:42 +0100
+> Subject: [PATCH] Transfering maintainership of cdc-ether
 > 
->> From: Takashi Iwai <tiwai@suse.de>
->> Date: Thu,  3 Dec 2009 16:12:00 +0100
->> 
->> > here are two small patches to fix the bugs found on sky2 Yukon-2
->> > Optima chip.  These are for the latest net-next kernel.  Would be
->> > nice if they come in for 2.6.33.
->> 
->> Please always CC: the driver maintainer when submitting changes
->> to a driver.
->> 
->> Stephen, please have a look at these, thanks.
+> Oliver Neukum takes over from Greg KH
 > 
-> Apply them, if anything comes up the fix can go on top of these
+> Signed-off-by: Oliver Neukum <oliver@neukum.org>
 
-Ok, done.  Thanks!
+
+Signed-off-by: Greg Kroah-Hartman <greg@kroah.com>
+
+
+David, want to take this, or do you want me to?
+
+thanks,
+
+greg k-h
