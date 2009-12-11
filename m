@@ -1,35 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-12-11
-Date: Fri, 11 Dec 2009 14:20:16 -0800 (PST)
-Message-ID: <20091211.142016.35345283.davem@davemloft.net>
-References: <20091211193757.GC6663@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
+Date: Fri, 11 Dec 2009 14:24:29 -0800 (PST)
+Message-ID: <20091211.142429.60531819.davem@davemloft.net>
+References: <4B2102B4.7050702@gmail.com>
+	<4B211452.40600@gmail.com>
+	<4B226A12.5070102@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091211193757.GC6663-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: william.allen.simpson@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59554
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761469AbZLKWYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 17:24:23 -0500
+In-Reply-To: <4B226A12.5070102@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 11 Dec 2009 14:37:57 -0500
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Date: Fri, 11 Dec 2009 10:49:38 -0500
 
-> Dave,
-> 
-> Here is another little batch of fixes intended for 2.6.33.  Most of them
-> are tiny.  The rtl8187 led patch is self-contained and squashes a
-> warning during suspend.  The regulatory rules update only applies to the
-> people _not_ using CRDA, which should be fairly rare nowadays.  But
-> still, anyone using that configuration should be working with current
-> and safe rules.
-> 
-> Please let me know if there are problems!
+> So, he'll have no problems backing out his patch and adding mine.
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Guess again.
