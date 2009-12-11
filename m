@@ -1,41 +1,50 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCHv9 3/3] vhost_net: a kernel-level virtio server
-Date: Fri, 11 Dec 2009 07:52:22 -0800
-Message-ID: <1260546742.3960.27.camel@localhost.localdomain>
-References: <cover.1257786516.git.mst@redhat.com>
-	 <20091109172230.GD4724@redhat.com>
-	 <C85CEDA13AB1CF4D9D597824A86D2B901925446AB4@PDSMSX501.ccr.corp.intel.com>
-	 <20091122103511.GB13644@redhat.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v2] Documentation: rw_lock lessons learned
+Date: Fri, 11 Dec 2009 12:01:16 -0500
+Message-ID: <4B227ADC.5010908@gmail.com>
+References: <4AF9C540.5090403@gmail.com>	<20091110180646.2e5859a8@nehalam>	<4AFAEF78.4080807@gmail.com> <20091111093724.4f40a48d@nehalam> <4AFBEC44.9030409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"gregory.haskins@gmail.com" <gregory.haskins@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"s.hetze@linux-ag.com" <s.hetze@linux-ag.com>,
-	Daniel Walker <dwalker@fifo99.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20091122103511.GB13644@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Clark <sclark46@earthlink.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.24]:19987 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755838AbZLKRBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 12:01:14 -0500
+In-Reply-To: <4AFBEC44.9030409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+William Allen Simpson wrote:
+> In recent weeks, two different network projects erroneously
+> strayed down the rw_lock path.  Update the Documentation
+> based upon comments by Eric Dumazet and Paul E. McKenney in
+> those threads.
+> 
+> Merged with editorial changes by Stephen Hemminger.
+> 
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> 
+A month ago, I'd taken the final line "Ho humm.." of Linus'
+response to mean he wasn't interested.  But at the local
+discussion yesterday, I'm told that's just a typical Linusism.
 
-On Sun, 2009-11-22 at 12:35 +0200, Michael S. Tsirkin wrote:
-> These results where sent by Shirley Ma (Cc'd).
-> I think they were with tap, host-to-guest/guest-to-host
+The thread diverged into discussion of another document entirely.
 
-Yes, you are right.
+I'm not the person to update this document with any of the other
+information about global locks and tasklists and such.  But surely
+somebody else could handle that in another patch.
 
-Shirley
-
+Anybody have answers/updates to Linus's concerns about "pretty old
+and bogus language"?  Would folks be interested in the update?
+Does anybody know which list(s) would be better for discussion?
