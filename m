@@ -1,37 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
-Date: Fri, 11 Dec 2009 14:25:45 -0800 (PST)
-Message-ID: <20091211.142545.186399947.davem@davemloft.net>
-References: <20091211065011.GA6409@ff.dom.local>
-	<4B226A79.1070900@gmail.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [PATCH]Transfering-maintainership-of-cdc-ether
+Date: Fri, 11 Dec 2009 23:33:08 +0100
+Message-ID: <200912112333.09074.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, eric.dumazet@gmail.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: william.allen.simpson@gmail.com
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: David Miller <davem@davemloft.net>, Greg KH <greg@kroah.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59558
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762711AbZLKWZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 17:25:39 -0500
-In-Reply-To: <4B226A79.1070900@gmail.com>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:58370 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755764AbZLKWcw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 17:32:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Date: Fri, 11 Dec 2009 10:51:21 -0500
+>From 128a6479f06fdaa71ec75efe145a10c1309d13a4 Mon Sep 17 00:00:00 2001
+From: Oliver Neukum <oliver@neukum.org>
+Date: Fri, 11 Dec 2009 23:29:42 +0100
+Subject: [PATCH] Transfering maintainership of cdc-ether
 
-> Jarek Poplawski wrote:
->>>> This is not necessary, David already _did_ the thing, and _told_ so.
->> But David _did_ forget to _send_ the thing to the list. ;-)
->> 
-> Aha, so it wasn't a local problem.  Thanks!
+Oliver Neukum takes over from Greg KH
 
-I didn't necessarily have to, I stated exactly in the thread with
-Andrew Morton what change I was going to make in my tree to resolve
-this.
+Signed-off-by: Oliver Neukum <oliver@neukum.org>
+---
+ MAINTAINERS |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-If you're really interested in following development and generating
-correct current patches to the project, you should follow the
-appropriate GIT tree.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ea781c1..04390e9 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5391,10 +5391,9 @@ S:	Supported
+ F:	drivers/block/ub.c
+ 
+ USB CDC ETHERNET DRIVER
+-M:	Greg Kroah-Hartman <greg@kroah.com>
++M:	Oliver Neukum <oliver@neukum.name>
+ L:	linux-usb@vger.kernel.org
+ S:	Maintained
+-W:	http://www.kroah.com/linux-usb/
+ F:	drivers/net/usb/cdc_*.c
+ F:	include/linux/usb/cdc.h
+ 
+-- 
+1.6.4.2
+
