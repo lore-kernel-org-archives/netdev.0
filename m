@@ -1,77 +1,46 @@
-From: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Uclinux-dist-devel] [PATCH v3] add the driver for Analog Devices
-	Blackfin on-chip CAN controllers
-Date: Fri, 11 Dec 2009 12:00:34 +0800
-Message-ID: <3c17e3570912102000vd30d452s2d6b6ae7d24f340f@mail.gmail.com>
-References: <4B20CB82.6060702@grandegger.com>
-	<4B20D214.4050503@grandegger.com>
-	<8bd0f97a0912100258n6896b21er1d9525bb7dbf6aec@mail.gmail.com>
-	<20091210.133729.42872813.davem@davemloft.net>
-	<3c17e3570912101805n682c316l44ec68ade5d18cd1@mail.gmail.com>
-	<8bd0f97a0912101817x79a17d5dje21e2a2b4ad1fc58@mail.gmail.com>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [PATCH] gianfar: Fix a filer bug
+Date: Fri, 11 Dec 2009 10:14:48 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA08B34@zin33exm22.fsl.freescale.net>
+References: <1260366911-15178-1-git-send-email-Sandeep.Kumar@freescale.com> <20091210150712.GA17851@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: oe-pJ9TYRvN+WE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <8bd0f97a0912101817x79a17d5dje21e2a2b4ad1fc58-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: <avorontsov@ru.mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:64411 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933372AbZLKEox convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Dec 2009 23:44:53 -0500
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nBB4iw9d016666
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 21:44:58 -0700 (MST)
+Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id nBB4o3gw018764
+	for <netdev@vger.kernel.org>; Thu, 10 Dec 2009 22:50:04 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20091210150712.GA17851@oksana.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBEZWMgMTEsIDIwMDkgYXQgMTA6MTcgQU0sIE1pa2UgRnJ5c2luZ2VyIDx2YXBpZXIu
-YWRpQGdtYWlsLmNvbT4gd3JvdGU6Cj4gT24gVGh1LCBEZWMgMTAsIDIwMDkgYXQgMjE6MDUsIEJh
-cnJ5IFNvbmcgd3JvdGU6Cj4+IDIwMDkvMTIvMTEgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxv
-ZnQubmV0PjoKPj4+IEZyb206IE1pa2UgRnJ5c2luZ2VyIDx2YXBpZXIuYWRpQGdtYWlsLmNvbT4K
-Pj4+PiBPbiBUaHUsIERlYyAxMCwgMjAwOSBhdCAwNTo0OCwgV29sZmdhbmcgR3JhbmRlZ2dlciB3
-cm90ZToKPj4+Pj4gV29sZmdhbmcgR3JhbmRlZ2dlciB3cm90ZToKPj4+Pj4+IE1pa2UgRnJ5c2lu
-Z2VyIHdyb3RlOgo+Pj4+Pj4+IE9uIFRodSwgRGVjIDEwLCAyMDA5IGF0IDA0OjExLCBXb2xmZ2Fu
-ZyBHcmFuZGVnZ2VyIHdyb3RlOgo+Pj4+Pj4+PiBXZWxsLCBJJ20gc3RpbGwgbm90IGEgZnJpZW5k
-IG9mIHRoZSBmb2xsb3dpbmcgaW5saW5lIGZ1bmN0aW9ucywKPj4+Pj4+Pj4gZXNwZWNpYWxseSB0
-aGUgKm9uZS1saW5lcnMqIHdoaWNoIGFyZSBjYWxsZWQganVzdCAqb25jZSouIFdpdGggdGhlIHVz
-YWdlCj4+Pj4+Pj4+IG9mIHN0cnVjdHMgdGhleSBzZWVtIGV2ZW4gbW9yZSB1c2VsZXNzLgo+Pj4+
-Pj4+IHNlZW1zIGxpa2UgaXQgd291bGQgbWFrZSBtb3JlIHNlbnNlIHRvIG5vdCBldmVuIHVzZSB0
-aGUgcmVhZC93cml0ZQo+Pj4+Pj4+IGZ1bmN0aW9ucyBlaXRoZXIuIO+/vSxBIGp1c3QgZGVjbGFy
-ZSB0aGUgcmVncyBhcyB2b2xhdGlsZSBhbmQgYXNzaWduL3JlYWQKPj4+Pj4+PiB0aGUgc3RydWN0
-IGRpcmVjdGx5Lgo+Pj4+Pj4KPj4+Pj4+IFR3byB0aW1lcyBuby4gRG9uJ3QgdXNlIHZvbGF0aWxl
-IGFuZCBwcm9wZXIgYWNjZXNzb3IgZnVuY3Rpb25zLiBTZWU6Cj4+Pj4+Pgo+Pj4+Pj4gaHR0cDov
-L2x4ci5saW51eC5uby8jbGludXgrdjIuNi4zMi9Eb2N1bWVudGF0aW9uL3ZvbGF0aWxlLWNvbnNp
-ZGVyZWQtaGFybWZ1bC50eHQKPj4+Pj4KPj4+Pj4gSSB3YXMganVzdCB3b25kZXJpbmcgaWYgYmZp
-bl9yZWFkL3dyaXRlMTYgd291bGQgbm90IGJlIHRoZSBwcm9wZXIKPj4+Pj4gYWNjZXNzb3IgZnVu
-Y3Rpb25zLiByZWFkdy93cml0ZXcgc2VlbXMgdG8gYmUgaW1wbGVtZW50ZWQgZGlmZmVyZW50bHk6
-Cj4+Pj4+Cj4+Pj4+IGh0dHA6Ly9seHIubGludXgubm8vI2xpbnV4K3YyLjYuMzIvYXJjaC9ibGFj
-a2Zpbi9pbmNsdWRlL2FzbS9pby5oI0w0NAo+Pj4+Pgo+Pj4+PiBQdWgsIHRoZXkgZG8gYW4gY2xp
-LG5vcCxub3Asc3luYy4uc3RpIGZvciB0aGUgYWNjZXNzLiBUaGlzIGFsc28gbmljZWx5Cj4+Pj4+
-IHNob3dzIHdoeSBhY2Nlc3NvciBmdW5jdGlvbnMgc2hvdWxkIGJlIHVzZWQgdG8gYWNjZXNzIGRl
-dmljZSByZWdpc3RlcnMuCj4+Pj4+Cj4+Pj4+IFdlbGwsIGp1c3QgY3VyaW91cy4gSSBkb24ndCBy
-ZWFsbHkga25vdyB0aGUgYmxhY2tmaW4gYXJjaC4KPj4+Pgo+Pj4+IHRoZSBjb21tb24gSS9PIGZ1
-bmN0aW9ucyBuZWVkIHRvIGFjY291bnQgZm9yIGlzc3VlcyBzdXJyb3VuZGluZyB0aGUKPj4+PiBi
-dXMgdGhhdCBoYXMgYXJiaXRyYXJ5IGRldmljZXMgbWVtb3J5IG1hcHBlZCB0byBpdC4gwqBvbi1j
-aGlwIGRldmljZXMKPj4+PiAobGlrZSB3aGF0IHdlJ3JlIHRhbGtpbmcgYWJvdXQgaGVyZSkgZG8g
-bm90IGhhdmUgdGhlc2UgaXNzdWVzIGFuZCBzbwo+Pj4+IHVzaW5nIHRoZSBjb21tb24gZnVuY3Rp
-b25zIGlzIGF3ZnVsIG92ZXJoZWFkLgo+Pj4KPj4+IFRoZW4gY3JlYXRlIHNwZWNpYWwgYWNjZXNz
-b3JzIChwZXJoYXBzIHdpdGggdGhlIHNhbWUgbmFtZXMgYXMgdGhlCj4+PiBleGlzdGluZyBvbmVz
-LCBidXQgd2l0aCAiX18iIHByZXBlbmRlZCkgdGhhdCBsYWNrIGFsbCBvZiB0aGUKPj4+IGludGVy
-cnVwdCBkaXNhYmxpbmcsIHN5bmNzLCBldGMuCj4+Pgo+Pj4gUmVhbGx5IGl0IF9pc18gY2xlYW5l
-ciBhbmQgbWFrZXMgeW91ciBkcml2ZXIgbG9vayBhIGxvdCBuaWNlci4KPj4KPj4gSSB0aGluayBN
-aWtlIGhhcyBzYWlkIHRoZSBmdW5jdGlvbnMgYXJlIGJmaW5fcmVhZC9iZmluX3dyaXRlIGluCj4+
-IGJsYWNrZmluIGFyY2ggc2luY2UgdGhvc2UgQ0FOIHJlZ2lzdGVycyBhcmUgbG9jYXRlZCBpbiBt
-ZW1vcnkgbWFwcGVkCj4+IGFyZWEgYnV0IG5vdCBhc3luYyBtZW1vcnkgYW5kIGhhdmUgbGVzcyBv
-dmVyaGVhZCB0aGFuIGNvbW1vbiBpbwo+PiBmdW5jdGlvbnM/IElzIGl0IGFjY2VwdGFibGUgdG8g
-dXNlIHRob3NlIGZ1bmN0aW9ucyBpbiB0aGlzIGRyaXZlcj8KPgo+IHllcywgYmZpbl97cmVhZCx3
-cml0ZX0gc2hvdWxkIGJlIHVzZWQKCldvbGZnYW5nL0RhdmlkLCBhcmUgeW91IG9rIHdpdGggdGhh
-dCB0b28/IElmIHNvLCBJIHdpbGwgc2VuZCBhIC12NApwYXRjaCB1c2luZyBiZmluX3JlYWQvd3Jp
-dGUsIHdpdGggYWxsIGZpeCBhY2NvcmRpbmcgdG8geW91ciBvdGhlcgpjb21tZW50cy4KCj4gLW1p
-a2UKPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpTb2Nr
-ZXRjYW4tY29yZSBtYWlsaW5nIGxpc3QKU29ja2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZQpo
-dHRwczovL2xpc3RzLmJlcmxpb3MuZGUvbWFpbG1hbi9saXN0aW5mby9zb2NrZXRjYW4tY29yZQo=
+ 
+>[...]
+>> -	if (priv->rx_filer_enable)
+>> +	if (priv->rx_filer_enable) {
+>>  		rctrl |= RCTRL_FILREN;
+>> +		/* Program the RIR0 reg with the required 
+>distribution */
+>> +		regs->rir0 = DEFAULT_RIR0;
+>
+>You cannot access regs directly. You have to use gfar_write 
+>since regs is ioremapped memory.
+>
+
+Yes. I will send out the patch with the required change.
+
+--
+
+Thanks
+Sandeep
