@@ -1,56 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Handle NETREG_UNINITIALIZED devices correctly
-Date: Fri, 11 Dec 2009 15:12:18 -0800 (PST)
-Message-ID: <20091211.151218.91435502.davem@davemloft.net>
-References: <20091209082602.19053.97297.sendpatchset@localhost.localdomain>
-	<4B1F7498.2090007@gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH] cxgb3: Fixing EEH handlers
+Date: Fri, 11 Dec 2009 15:05:23 -0800
+Message-ID: <4B22D033.40105@chelsio.com>
+References: <1260471817-7184-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58923
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757257AbZLKXMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 18:12:12 -0500
-In-Reply-To: <4B1F7498.2090007@gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:17063 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756395AbZLKXOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 18:14:17 -0500
+In-Reply-To: <1260471817-7184-1-git-send-email-leitao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Dec 2009 10:57:44 +0100
+leitao@linux.vnet.ibm.com wrote:
+>
+> After commit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff, the EEH
+> is not working proplery on cxgb3.
+>
+> This patch fixes it, always saving the PCI state after a recovery,
+> in order to allow further reoveries.
+>
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+>
 
-> Krishna Kumar a écrit :
->> From: Krishna Kumar <krkumar2@in.ibm.com>
->> 
->> Fix two problems:
->> 
->> 1. If unregister_netdevice_many() is called with both registered
->>    and unregistered devices, rollback_registered_many() bails out
->>    when it reaches the first unregistered device. The processing
->>    of the prior registered devices is unfinished, and the
->>    remaining devices are skipped, and possible registered netdev's
->>    are leaked/unregistered.
->> 
->> 2. System hangs or panics depending on how the devices are passed,
->>    since when netdev_run_todo() runs, some devices were not fully
->>    processed.
->> 
->> Tested by passing intermingled unregistered and registered vlan
->> devices to unregister_netdevice_many() as follows:
->> 	1. dev, fake_dev1, fake_dev2: hangs in run_todo
->> 	   ("unregister_netdevice: waiting for eth1.100 to become
->> 	    free. Usage count = 1")
->> 	2. fake_dev1, dev, fake_dev2: failure during de-registration
->> 	   and next registration, followed by a vlan driver Oops
->> 	   during subsequent registration.
->> 
->> Confirmed that the patch fixes both cases.
->> 
->> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Nice work Krishna, applied, thanks!
+> ---
+>  drivers/net/cxgb3/cxgb3_main.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/cxgb3/cxgb3_main.c 
+> b/drivers/net/cxgb3/cxgb3_main.c
+> index cef3f88..89bec9c 100644
+> --- a/drivers/net/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/cxgb3/cxgb3_main.c
+> @@ -2860,6 +2860,7 @@ static int t3_reenable_adapter(struct adapter 
+> *adapter)
+>         }
+>         pci_set_master(adapter->pdev);
+>         pci_restore_state(adapter->pdev);
+> +       pci_save_state(adapter->pdev);
+>
+>         /* Free sge resources */
+>         t3_free_sge_resources(adapter);
+> --
+> 1.6.0.2
+>
+
