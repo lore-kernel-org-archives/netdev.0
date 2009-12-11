@@ -1,87 +1,74 @@
-From: Frederic Leroy <fredo@starox.org>
-Subject: Re: TCP not retransmitting
-Date: Fri, 11 Dec 2009 13:57:34 +0100
-Message-ID: <20091211125734.GA23559@sd-11162.dedibox.fr>
-References: <4B1C4C25.1070104@tvk.rwth-aachen.de> <4B1C9D94.3070504@gmail.com> <4B1CE45A.9010908@tvk.rwth-aachen.de> <4B1D27F7.9000502@tvk.rwth-aachen.de> <alpine.DEB.2.00.0912072046500.27565@melkinpaasi.cs.helsinki.fi> <20091207200904.5f6e145a@houba> <alpine.DEB.2.00.0912101518050.7024@wel-95.cs.helsinki.fi>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: r8169
+Date: Fri, 11 Dec 2009 12:58:06 +0000
+Message-ID: <1260536286.4532.529.camel@localhost>
+References: <20091210205821.GX6965@slinky.marshes.co.uk>
+	 <4B220E3D.5030502@lastsummer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-a7Ry6shSCM99uaoifpE0"
+Cc: Ian Marsh <mushypea@dominion.net.uk>, netdev@vger.kernel.org
+To: Franco Fichtner <franco@lastsummer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-11162.dedibox.fr ([88.191.70.230]:39386 "EHLO
-	sd-11162.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbZLKM52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 07:57:28 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0912101518050.7024@wel-95.cs.helsinki.fi>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54153 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754129AbZLKM6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 07:58:05 -0500
+In-Reply-To: <4B220E3D.5030502@lastsummer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ilpo,
 
-On Thu, Dec 10, 2009 at 03:24:20PM +0200, Ilpo J=E4rvinen wrote:
-> Hi,
+--=-a7Ry6shSCM99uaoifpE0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2009-12-11 at 10:17 +0100, Franco Fichtner wrote:
+[...]
+> At work we're also using ubuntu which comes with the r8169 driver,
+> and had to deal with network dropouts while trying to benchmark
+> heavy loads. This is what the support of our boxes told us:
 >=20
-> Now that the more important issues are out of the way, could try with=
- the=20
-> following debug patch, if we could get some information on why the=20
-> retransmission are not happening when they're supposed to (the EAGAIN=
-=20
-> problem we noticed earlier). Besides trying with 2.6.32, it might als=
-o be=20
-> worth of the effort to try that in 2.6.31 to see if that also gives t=
-hose=20
-> EAGAIN things or if it's a new issue. It is quite insignificant wheth=
-er=20
-> to previous fix patch is included or not though perhaps easier to kno=
-w=20
-> that the problem really happened if a stall is experiencable vs. the =
-fixed=20
-> kernel.
-
-I made 3 test this time. Unlike the other, I put them appart in a new d=
-irectory :=20
-http://www.starox.org/pub/scp_stall/eagain/
-
-The first was made with 2.6.31 kernel.
-I disconnected the ethernet cable for about 30s.
-There was some eagain error.
-
-The two other were made with 2.6.32, without the fix.
-I didn't disconnected anything as I know it will fails quickly :)
-The first try has an eagain error.
-
->=20
-> --=20
->  i.
+> >Please use 8168 instead of 8169. Please see the notice about this
+> >important point in May..
+> >
+> >The situation you observed should be a misjudgment by the Linux Kernel.
+> >Driver 8168 is recommended by Realtek. Please use this revision.
 >=20
 >=20
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index fcd278a..c29aed0 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1894,6 +1894,8 @@ int tcp_retransmit_skb(struct sock *sk, struct =
-sk_buff *skb)
->  		icsk->icsk_mtup.probe_size =3D 0;
->  	}
-> =20
-> +	printk("sk: %p wm_a: %u wm_q: %u sbuf: %u\n", sk,
-> +		atomic_read(&sk->sk_wmem_alloc), sk->sk_wmem_queued, sk->sk_sndbuf=
-);
->  	/* Do not sent more than we queued. 1/4 is reserved for possible
->  	 * copying overhead: fragmentation, tunneling, mangling etc.
->  	 */
-> @@ -1986,6 +1988,7 @@ int tcp_retransmit_skb(struct sock *sk, struct =
-sk_buff *skb)
->  		 */
->  		TCP_SKB_CB(skb)->ack_seq =3D tp->snd_nxt;
->  	}
-> +	printk("sk: %p E %u", sk, err);
-                           ^
-                      missing \n ;-)
->  	return err;
->  }
+> No more problems since then. Hope that helps!
+
+Realtek releases separate r8168 and r8169 drivers for controllers
+attached to a PCI Express or PCI bus, but they are largely identical.
+The in-tree r8169 driver is based on a combination of the two Realtek
+drivers.
+
+Ben.
 
 --=20
-=46r=E9d=E9ric Leroy
+Ben Hutchings
+Kids!  Bringing about Armageddon can be dangerous.  Do not attempt it in
+your own home. - Terry Pratchett and Neil Gaiman, `Good Omens'
+
+--=-a7Ry6shSCM99uaoifpE0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUASyJB1+e/yOyVhhEJAQKzYw//VRFb3lFWTOkn7URkUpkZcTqw0hMaE5KL
+sC1X4VyEAUklCmFe5d6O+Jd0k4cJgy22B/rK3nNiq/Q0fNXoaEmCpazVnL+ZMdEa
+cZxs1w9Fruin6SiIFYXDl280leQK4s8fBD/xCLwtWP0xfYjxNlk1xU2q/dqrJ3Na
+qtHhv4WCnkI+7kA/YHHvkANYmrYYRHe1rxmPSdiwdupp3MtnxP649RV0wqKGMPWP
+fKkV/SkRcddY/LGeYuyXhadCHShKNMUngncgOs/K56MyQiXWHbST4AL+K8OHAAwO
+z29Z6qvm5usCxdtUSRj+i1pUE/6eBiSWATxEcUdCLCw1htFXOc/eiNHqJDAIsFBU
+aCy+F0/ZjsuIz7OsdmBo8rNzwhH/9jznwsiIdBWmP9vYdvnORLx9rsuo+O1RXjxv
+fUTNhQf+ESxMXePo0OOZ9fb/309Izi0aaL/SnE5NvrtyQG/G4VTFiaAcT+uNdaE0
+2aRFZp7aa3u0EC8VCHyqZkhsu3uPiZUAFr7rptilr+PeieckuCWj6XF5DwN5C3ch
+u3tN/UgPGkFyKPmFYVOONTDkhnUB4c+JtzjVrWZZE7z8gjxKxU9l5ZOYGix1Nb6E
+KnB4F2/gVf8lMOykZ6r9uLXm+kW5P+B8H7nqsgc/TE8p/jXbO9o1Yq8sZzuUIQWa
+kPYCqldn7w8=
+=vpL9
+-----END PGP SIGNATURE-----
+
+--=-a7Ry6shSCM99uaoifpE0--
