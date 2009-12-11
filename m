@@ -1,56 +1,36 @@
-From: Ian Marsh <mushypea@dominion.net.uk>
-Subject: Re: r8169
-Date: Fri, 11 Dec 2009 14:58:24 +0000
-Message-ID: <20091211145824.GB19780@slinky.marshes.co.uk>
-References: <20091210205821.GX6965@slinky.marshes.co.uk> <4B220E3D.5030502@lastsummer.de>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH] net-ipv4-tcp.c-fix-warning-from-older-compilers.patch
+Date: Fri, 11 Dec 2009 10:30:24 -0500
+Message-ID: <4B226590.6030608@gmail.com>
+References: <200912090045.nB90jTaO010647@imap1.linux-foundation.org>	 <4B1F0151.10903@gmail.com>	 <20091208180801.88be28ba.akpm@linux-foundation.org>	 <4B20FC2E.7050809@gmail.com>  <4B2102B4.7050702@gmail.com> <1260455516.2783.0.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Franco Fichtner <franco@lastsummer.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slinky.marshes.co.uk ([80.45.84.194]:32873 "EHLO
-	slinky.marshes.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758591AbZLKO6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 09:58:24 -0500
-Content-Disposition: inline
-In-Reply-To: <4B220E3D.5030502@lastsummer.de>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:33130 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758635AbZLKPgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 10:36:53 -0500
+Received: by yxe17 with SMTP id 17so869652yxe.33
+        for <netdev@vger.kernel.org>; Fri, 11 Dec 2009 07:37:00 -0800 (PST)
+In-Reply-To: <1260455516.2783.0.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Franco,
+Ben Hutchings wrote:
+> You can use BUILD_BUG_ON() to ensure that remains true.
+> 
+Another fine undocumented Linux Kernel feature.  In the absence of
+standardized functions that check for buffer overruns, that's just
+the ticket!
 
-Thanks for your reply.
+Kinda the opposite conditional of static assert, but I'm pretty sure
+static assert wasn't working in gcc until a year or so ago.  That's
+why I used the more old-fashioned test instead.  I'd no idea those
+triggered a warning in some versions of gcc -- I never trusted 4.0.x,
+and had plenty of problems with 4.1.x, too.
 
-On Fri 11 Dec 2009 at 10:17:49 +0100, Franco Fichtner wrote:
-> At work we're also using ubuntu which comes with the r8169 driver,
-> and had to deal with network dropouts while trying to benchmark
-> heavy loads. This is what the support of our boxes told us:
->
->> Please use 8168 instead of 8169. Please see the notice about this
->> important point in May..
->>
->> The situation you observed should be a misjudgment by the Linux Kernel.
->> Driver 8168 is recommended by Realtek. Please use this revision.
-
-I have tried the 8168 driver, and get the same problem.  I followed this
-process:
-
-1) rmmod the 8169 driver
-2) blacklist the 8169 driver
-3) install the 8168 driver
-4) rebuild initramfs
-5) reboot
-
-Symptoms are identical; it loads the module, gets an IP, pings, fetches Google
-okay, but nothing more substantial.
-
-I believe I tried 8.014.00 with a patch to make it compile for 2.6.31 (from
-www.jamesonwilliams.com/bin/r8168_scripts.tar.bz2 ).  I don't think I could
-get 8.015.00 from www.realtek.com.tw to compile at all, but can't check at the
-moment.
-
-When searching for a solution, I did come across several different problems
-with the r8169 driver, mostly believed to be fixed in earlier kernels, and
-tried several fixs/workarounds to no avail.
-
-Ian.
+Thanks, I'll resubmit.
