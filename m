@@ -1,70 +1,50 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v4] add the driver for Analog Devices Blackfin on-chip
-	CAN controllers
-Date: Fri, 11 Dec 2009 11:43:21 +0100
-Message-ID: <4B222249.2050304@grandegger.com>
-References: <1260524788-13103-1-git-send-email-21cnbao@gmail.com>	<4B22183F.2070806@grandegger.com>
-	<20091211.021033.211260458.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH v2 0/4] Defer skb allocation for both mergeable buffers and
+ big packets in virtio_net
+Date: Fri, 11 Dec 2009 04:28:26 -0800
+Message-ID: <1260534506.30371.6.camel@localhost.localdomain>
+References: <1258697359.7416.14.camel@localhost.localdomain>
+	 <200911231123.18898.rusty@rustcorp.com.au>
+	 <20091208122134.GA17286@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-	oe-pJ9TYRvN+WE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20091211.021033.211260458.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:38374 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751952AbZLKM2X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Dec 2009 07:28:23 -0500
+In-Reply-To: <20091208122134.GA17286@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> Date: Fri, 11 Dec 2009 11:00:31 +0100
-> 
->> Barry Song wrote:
->>> Signed-off-by: Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> Signed-off-by: H.J. Oertel <oe-pJ9TYRvN+WE@public.gmane.org>
->>> ---
->>>  -v4:
->>>  1. request and release interrupts in open/close instead of in module load/unload
->>>  2. use bfin_read16/write16 instead of common readw/writew
->>>  3. fix "line over 80 characters" checkpatch warning
->>>  4. fix other coding style issues required by Wolfgang Grandegger
->> David, here is my
->>
->> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O63ddJNmlsFzeA@public.gmane.org>
->>
->> for this driver. There is just some minor issue with the copyright
->> below. IIRC, the merge window is still open.
-> 
-> The networking merge window is closed.  If I have to post a reference
-> to this announcement I made one more freakin' time I'm going to be
-> really angry:
-> 
-> http://marc.info/?l=linux-netdev&m=125988357131776&w=2
-> 
-> If people don't read the announcements I send to netdev, in particular
-> the ones I prefix with "README" to show it's important, I might as
-> well not do it at all.
+This is a patch-set for deferring skb allocation based on Rusty and
+Michael's inputs.
 
-The "README" prefix is a good thing. Now I know what to look for next time.
+Guest virtio_net receives packets from its pre-allocated vring 
+buffers, then it delivers these packets to upper layer protocols
+as skb buffs. So it's not necessary to pre-allocate skb for each
+mergable buffer, then frees it when it's useless. 
 
-> Then you'll really have to guess what the current state of affairs
-> is :-)
-> 
-> But it doesn't even matter for this case because we can take
-> completely new drivers at any point in time, not just during
-> the merge window.
+This patch has deferred skb allocation when receiving packets for
+both big packets and mergeable buffers. It reduces skb pre-allocations 
+and skb_frees.
 
-OK, sorry for bothering you.
+A destroy function has been created to push virtio free buffs to vring
+for unused pages, and used page private to maintain page list.
 
-Thanks,
+This patch has tested and measured against 2.6.32-rc7 git. It is built
+again 2.6.32 kernel. Tests have been done for small packets, big packets
+and mergeable buffers.
 
-Wolfgang.
+The single netperf TCP_STREAM performance improved for host to guest. 
+It also reduces UDP packets drop rate.
+
+Thanks
+Shirley
+
