@@ -1,42 +1,59 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Sat, 12 Dec 2009 02:24:39 -0800
-Message-ID: <20091212022439.fae86037.akpm@linux-foundation.org>
-References: <20091211.181712.211179737.davem@davemloft.net>
-	<4B236C18.4050007@gmail.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v2] Documentation: rw_lock lessons learned
+Date: Sat, 12 Dec 2009 05:36:26 -0500
+Message-ID: <4B23722A.5000507@gmail.com>
+References: <4AF9C540.5090403@gmail.com>	<20091110180646.2e5859a8@nehalam>	<4AFAEF78.4080807@gmail.com> <20091111093724.4f40a48d@nehalam> <4AFBEC44.9030409@gmail.com> <4B227ADC.5010908@gmail.com> <4B22B481.9060600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Clark <sclark46@earthlink.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43160 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755172AbZLLKZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2009 05:25:06 -0500
-In-Reply-To: <4B236C18.4050007@gmail.com>
+Received: from mail-yw0-f182.google.com ([209.85.211.182]:55277 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761475AbZLLKgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2009 05:36:23 -0500
+In-Reply-To: <4B22B481.9060600@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 12 Dec 2009 05:10:32 -0500 William Allen Simpson <william.allen.simpson@gmail.com> wrote:
-
-> David Miller wrote:
-> > David S. Miller (4):
-> >       Merge branch 'master' of git://git.kernel.org/.../linville/wireless-next-2.6
-> >       tcp: Remove runtime check that can never be true.
+Jarek Poplawski wrote:
+> William Allen Simpson wrote, On 12/11/2009 06:01 PM:
+>> A month ago, I'd taken the final line "Ho humm.." of Linus'
+>> response to mean he wasn't interested.  But at the local
+>> discussion yesterday, I'm told that's just a typical Linusism.
 > 
-> This is a poor patch that was never sent to the netdev list for review.
+> Why would he write 6 paragraphs if he wasn't interested?
+> 
+Good point.  Since I've only met him a couple of times, roughly a
+decade or so ago, it wasn't obvious to me that it wasn't just a rant.
 
-It's better than the original code, which was checking to see whether a
-u8 exceeded 536!
 
-> Please substitute the better patch in the main tree.
+>> The thread diverged into discussion of another document entirely.
+>>
+>> I'm not the person to update this document with any of the other
+>> information about global locks and tasklists and such.  But surely
+>> somebody else could handle that in another patch.
+>>
+>> Anybody have answers/updates to Linus's concerns about "pretty old
+>> and bogus language"?  Would folks be interested in the update?
+>> Does anybody know which list(s) would be better for discussion?
+> 
+> I guess, you could literally start with removing this "global
+> interrupt lock", adding "the example of a _good_ case of rwlocks",
+> plus Stephen's "it is not just networking" fix in v3.
+> 
+As I mentioned, I'm not the person to do either of the former -- I'm
+simply not conversant with the details.  If anybody has more specific
+information, I'd be happy to edit it together with mine.  Or it could
+be another patch entirely.
 
-Linus won't remove a commit from the middle of David's merge and
-replace it with some unchangelogged, un-signed-off alternative.
-
-An appropriate way to handle this is to prepare a new patch against
-Linus or David's tree after this merge has been performed.  Package
-that patch in the usual way and send it to the usual recipients. That's
-the no-fuss, no-drama, stuff-gets-done path.
+I'll do the latter later today.  Thanks for your interest.
