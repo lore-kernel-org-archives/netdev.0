@@ -1,103 +1,224 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: KVM related crash
-Date: Sat, 12 Dec 2009 19:11:01 -0800
-Message-ID: <20091212191101.669ba881.akpm@linux-foundation.org>
-References: <ec55d96f0912090600u4ff02e06m1506530d4161f280@mail.gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH net-2.6] can: Fix data length code handling in rx path
+Date: Sat, 12 Dec 2009 15:13:21 +0100
+Message-ID: <4B23A501.9000208@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/mixed;
+ boundary="------------060505090307030601080103"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-fb.rzone.de ([81.169.146.163]:14591 "HELO
+	mo-p00-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756118AbZLMDNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Dec 2009 22:13:44 -0500
+Received: from mo-p00-ob.rzone.de (fruni-mo-p00-ob.mail [192.168.63.71])
+	by snori-fb-01.store (RZmta 22.5) with ESMTP id W03c0blBCBOUJg
+	for <netdev@vger.kernel.org>; Sat, 12 Dec 2009 16:26:52 +0100 (MET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------060505090307030601080103
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: Adam Huffman <adam.huffman.lkml@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757633AbZLMDLH@vger.kernel.org>
-In-Reply-To: <ec55d96f0912090600u4ff02e06m1506530d4161f280@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+
+A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
+
+When reading the CAN controllers register the 4-bit value may contain values
+from 0 .. 15 which may exceed the reserved space in the socket buffer!
+
+The ISO 11898-1 Chapter 8.4.2.3 (DLC field) says that register values > 8
+should be reduced to 8 without any error reporting or frame drop.
+
+This patch introduces a new helper macro to cast a given 4-bit data length
+code (dlc) to __u8 and ensure the DLC value to be max. 8 bytes.
+
+The different handlings in the rx path of the CAN netdevice drivers are fixed.
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+---
 
 
-(networking cc's added)
+--------------060505090307030601080103
+Content-Type: text/x-patch;
+ name="can_dlc_rx_path_fixup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="can_dlc_rx_path_fixup.patch"
 
-On Wed, 9 Dec 2009 14:00:04 +0000 Adam Huffman <adam.huffman.lkml@gmail.com> wrote:
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index cbe3fce..d0ec178 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -474,7 +474,7 @@ static void at91_read_mb(struct net_device *dev, unsigned int mb,
+ 	reg_msr = at91_read(priv, AT91_MSR(mb));
+ 	if (reg_msr & AT91_MSR_MRTR)
+ 		cf->can_id |= CAN_RTR_FLAG;
+-	cf->can_dlc = min_t(__u8, (reg_msr >> 16) & 0xf, 8);
++	cf->can_dlc = get_can_dlc((reg_msr >> 16) & 0xf);
+ 
+ 	*(u32 *)(cf->data + 0) = at91_read(priv, AT91_MDL(mb));
+ 	*(u32 *)(cf->data + 4) = at91_read(priv, AT91_MDH(mb));
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index c7fc1de..0ec1524 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -392,7 +392,7 @@ static void bfin_can_rx(struct net_device *dev, u16 isrc)
+ 		cf->can_id |= CAN_RTR_FLAG;
+ 
+ 	/* get data length code */
+-	cf->can_dlc = bfin_read16(&reg->chl[obj].dlc);
++	cf->can_dlc = get_can_dlc(bfin_read16(&reg->chl[obj].dlc) & 0xF);
+ 
+ 	/* get payload */
+ 	for (i = 0; i < 8; i += 2) {
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 78b1b69..9c5a153 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -403,9 +403,8 @@ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
+ 
+ 		for (i = 1; i < RXBDAT_OFF; i++)
+ 			buf[i] = mcp251x_read_reg(spi, RXBCTRL(buf_idx) + i);
+-		len = buf[RXBDLC_OFF] & RXBDLC_LEN_MASK;
+-		if (len > 8)
+-			len = 8;
++
++		len = get_can_dlc(buf[RXBDLC_OFF] & RXBDLC_LEN_MASK);
+ 		for (; i < (RXBDAT_OFF + len); i++)
+ 			buf[i] = mcp251x_read_reg(spi, RXBCTRL(buf_idx) + i);
+ 	} else {
+@@ -455,13 +454,7 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
+ 			(buf[RXBSIDL_OFF] >> RXBSIDL_SHIFT);
+ 	}
+ 	/* Data length */
+-	frame->can_dlc = buf[RXBDLC_OFF] & RXBDLC_LEN_MASK;
+-	if (frame->can_dlc > 8) {
+-		dev_warn(&spi->dev, "invalid frame recevied\n");
+-		priv->net->stats.rx_errors++;
+-		dev_kfree_skb(skb);
+-		return;
+-	}
++	frame->can_dlc = get_can_dlc(buf[RXBDLC_OFF] & RXBDLC_LEN_MASK);
+ 	memcpy(frame->data, buf + RXBDAT_OFF, frame->can_dlc);
+ 
+ 	priv->net->stats.rx_packets++;
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index bb06dfb..07346f8 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -297,7 +297,8 @@ static void mscan_get_rx_frame(struct net_device *dev, struct can_frame *frame)
+ 	frame->can_id |= can_id >> 1;
+ 	if (can_id & 1)
+ 		frame->can_id |= CAN_RTR_FLAG;
+-	frame->can_dlc = in_8(&regs->rx.dlr) & 0xf;
++
++	frame->can_dlc = get_can_dlc(in_8(&regs->rx.dlr) & 0xf);
+ 
+ 	if (!(frame->can_id & CAN_RTR_FLAG)) {
+ 		void __iomem *data = &regs->rx.dsr1_0;
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index b4ba88a..542a4f7 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -293,15 +293,14 @@ static void sja1000_rx(struct net_device *dev)
+ 	uint8_t fi;
+ 	uint8_t dreg;
+ 	canid_t id;
+-	uint8_t dlc;
+ 	int i;
+ 
++	/* create zero'ed CAN frame buffer */
+ 	skb = alloc_can_skb(dev, &cf);
+ 	if (skb == NULL)
+ 		return;
+ 
+ 	fi = priv->read_reg(priv, REG_FI);
+-	dlc = fi & 0x0F;
+ 
+ 	if (fi & FI_FF) {
+ 		/* extended frame format (EFF) */
+@@ -318,16 +317,15 @@ static void sja1000_rx(struct net_device *dev)
+ 		    | (priv->read_reg(priv, REG_ID2) >> 5);
+ 	}
+ 
+-	if (fi & FI_RTR)
++	if (fi & FI_RTR) {
+ 		id |= CAN_RTR_FLAG;
++	} else {
++		cf->can_dlc = get_can_dlc(fi & 0x0F);
++		for (i = 0; i < cf->can_dlc; i++)
++			cf->data[i] = priv->read_reg(priv, dreg++);
++	}
+ 
+ 	cf->can_id = id;
+-	cf->can_dlc = dlc;
+-	for (i = 0; i < dlc; i++)
+-		cf->data[i] = priv->read_reg(priv, dreg++);
+-
+-	while (i < 8)
+-		cf->data[i++] = 0;
+ 
+ 	/* release receive buffer */
+ 	priv->write_reg(priv, REG_CMR, CMD_RRB);
+@@ -335,7 +333,7 @@ static void sja1000_rx(struct net_device *dev)
+ 	netif_rx(skb);
+ 
+ 	stats->rx_packets++;
+-	stats->rx_bytes += dlc;
++	stats->rx_bytes += cf->can_dlc;
+ }
+ 
+ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index 07e8016..5c993c2 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -552,7 +552,7 @@ static int ti_hecc_rx_pkt(struct ti_hecc_priv *priv, int mbxno)
+ 	data = hecc_read_mbx(priv, mbxno, HECC_CANMCF);
+ 	if (data & HECC_CANMCF_RTR)
+ 		cf->can_id |= CAN_RTR_FLAG;
+-	cf->can_dlc = data & 0xF;
++	cf->can_dlc = get_can_dlc(data & 0xF);
+ 	data = hecc_read_mbx(priv, mbxno, HECC_CANMDL);
+ 	*(u32 *)(cf->data) = cpu_to_be32(data);
+ 	if (cf->can_dlc > 4) {
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index 591eb0e..efbb05c 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -316,7 +316,7 @@ static void ems_usb_rx_can_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
+ 		return;
+ 
+ 	cf->can_id = le32_to_cpu(msg->msg.can_msg.id);
+-	cf->can_dlc = min_t(u8, msg->msg.can_msg.length, 8);
++	cf->can_dlc = get_can_dlc(msg->msg.can_msg.length & 0xF);
+ 
+ 	if (msg->type == CPC_MSG_TYPE_EXT_CAN_FRAME ||
+ 	    msg->type == CPC_MSG_TYPE_EXT_RTR_FRAME)
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+index 1ed2a5c..3db7767 100644
+--- a/include/linux/can/dev.h
++++ b/include/linux/can/dev.h
+@@ -51,6 +51,15 @@ struct can_priv {
+ 	struct sk_buff **echo_skb;
+ };
+ 
++/*
++ * get_can_dlc(value) - helper macro to cast a given data length code (dlc)
++ * to __u8 and ensure the dlc value to be max. 8 bytes.
++ *
++ * To be used in the CAN netdriver receive path to ensure conformance with
++ * ISO 11898-1 Chapter 8.4.2.3 (DLC field)
++ */
++#define get_can_dlc(i)	(min_t(__u8, (i), 8))
++
+ struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max);
+ void free_candev(struct net_device *dev);
+ 
 
-> Have seen multiple crashes on a new Dell Precision T7500 workstation,
-> seemingly related to KVM:
-
-Looks like a networking crash to me - that CPU just happened to be
-running some KVM code when the interrupt happened.
-
-> BUG: unable to handle kernel paging request at 0000000000200200
-> IP: [<ffffffff8139aab7>] destroy_conntrack+0x82/0x11f
-> PGD 332d0e067 PUD 33453c067 PMD 0
-> Oops: 0002 [#1] SMP
-> last sysfs file: /sys/devices/system/cpu/cpu7/cache/index2/shared_cpu_map
-> CPU 4
-> Modules linked in: tun bridge stp llc sunrpc ipt_MASQUERADE
-> iptable_nat nf_nat ipt_LOG xt_physdev ip6t_REJECT nf_conntrack_ipv6
-> ip6table_filter ip6
-> _tables ipv6 dm_multipath kvm_intel kvm uinput snd_hda_codec_analog
-> nouveau snd_hda_intel snd_hda_codec ttm drm_kms_helper snd_hwdep
-> snd_seq drm sn
-> d_seq_device snd_pcm firewire_ohci i2c_i801 snd_timer ppdev
-> firewire_core snd i2c_algo_bit iTCO_wdt crc_itu_t parport_pc i2c_core
-> soundcore parport
->  iTCO_vendor_support tg3 snd_page_alloc shpchp dcdbas wmi mptsas
-> mptscsih mptbase scsi_transport_sas megaraid_sas [last_unloaded:
-> speedstep_lib]
-> Pid: 1759, comm: qemu-kvm Not tainted 2.6.31.6-162.fc12.x86_64 #1
-> Precision WorkStation T7500
-> RIP: 0010:[<ffffffff8139aab7>]  [<ffffffff8139aab7>]
-> destroy_conntrack+0x82/0x11f
-> RSP: 0018:ffffc90000803bf0  EFLAGS: 00010202
-> RAX: 0000000080000001 RBX: ffffffff816fb1a0 RCX: 000000000000752f
-> RDX: 0000000000200200 RSI: 0000000000000011 RDI: ffffffff816fb1a0
-> RBP: ffffc90000803c00 R08: ffff880336699438 R09: 0000000000aaa5e0
-> R10: 00000002f54189d5 R11: 0000000000000001 R12: ffffffff819a92e0
-> R13: ffffffffa029adcc R14: 0000000000000000 R15: ffff880632866c38
-> FS:  00007fdd34b17710(0000) GS:ffffc90000800000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 002B ES: 002B CR0: 0000000080050033
-> CR2: 0000000000200200 CR3: 00000003349c0000 CR4: 00000000000026e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process qemu-kvm (pid: 1759, threadinfo ffff88062e9e8000, task ffff880634945e00)
-> Stack:
->  ffff880632866c00 ffff880634640c30 ffffc90000803c10 ffffffff813989c2
-> <0> ffffc90000803c30 ffffffff81374092 ffffc90000803c30 ffff880632866c00
-> <0> ffffc90000803c50 ffffffff81373dd3 0000000200000000 ffff880632866c00
-> Call Trace:
->  <IRQ>
->  [<ffffffff813989c2>] nf_conntrack_destroy+0x1b/0x1d
->  [<ffffffff81374092>] skb_release_head_state+0x95/0xd7
->  [<ffffffff81373dd3>] __kfree_skb+0x16/0x81
->  [<ffffffff81373ed7>] kfree_skb+0x6a/0x72
->  [<ffffffffa029adcc>] ip6_mc_input+0x220/0x230 [ipv6]
->  [<ffffffffa029a3d1>] ip6_rcv_finish+0x27/0x2b [ipv6]
->  [<ffffffffa029a763>] ipv6_rcv+0x38e/0x3e5 [ipv6]
->  [<ffffffff8137bd91>] netif_receive_skb+0x402/0x427
->  [<ffffffff8137bf1b>] napi_skb_finish+0x29/0x3d
->  [<ffffffff8137c37a>] napi_gro_receive+0x2f/0x34
->  [<ffffffffa0084fad>] tg3_poll+0x6c6/0x8c3 [tg3]
->  [<ffffffff8137c4b0>] net_rx_action+0xaf/0x1c9
->  [<ffffffff81379cfe>] ? list-add_tail+0x15/0x17
->  [<ffffffff81057614>] __do_softirq+0xdd/0x1ad
->  [<ffffffff81026936>] ? apic_write+0x16/0x18
->  [<ffffffff81012eac>] call_softirq+0x1c/0x30
->  [<ffffffff810143fb>] do_softirq+0x47/0x8d
->  [<ffffffff81057326>] irq_exit+0x44/0x86
->  [<ffffffff8141ecd5>] do_IRQ+0xa5/0xbc
->  [<ffffffff810126d3>] ret_from_intr+0x0/0x11
->  <EOI>
->  [<ffffffffa02437bb>] ? kvm_arch_vcpu_ioctl_run+0x84b/0xb34 [kvm]
->  [<ffffffffa02437aa>] ? kvm_arch_vcpu_ioctl_run+0x83a/0xb34 [kvm]
->  [<ffffffffa02395e3>] ? kvm_vcpu_ioctl+0xfd/0x556 [kvm]
->  [<ffffffff81108adc>] ? vfs_ioctl+0x22/0x87
->  [<ffffffff81109038>] ? do_vfs_ioctl+0x47b/0x4c1
->  [<ffffffff811090d4>] ? sys_ioctl+0x56/0x79
->  [<ffffffff81012093>] ? stub_clone+0x13/0x20
->  [<ffffffff81011cf2>] ? system_call_fastpath+0x16/0x1b
-> Code: c7 00 a6 9a 81 e8 23 04 08 00 48 89 df e8 68 29 00 00 f6 43 78
-> 08 75 24 48 8b 53 10 48 85 d2 75 04 0f 0b eb fe 48 8b 43 08 a8 01 <48>
-> 89 02 7
-> 5 04 48 89 50 08 48 c7 43 10 00 02 20 00 65 8b 14 25
-> RIP  [<ffffffff8139aab7>] destroy_conntrack+0x82/0x11f
->  RSP <ffffc90000803bf0>
-> CR2: 0000000000200200
+--------------060505090307030601080103--
