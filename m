@@ -1,57 +1,51 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: Custom hardware Qdisc...
-Date: Fri, 11 Dec 2009 16:58:50 -0800
-Message-ID: <4B22EACA.2060407@caviumnetworks.com>
-References: <4B228EC0.80105@caviumnetworks.com> <20091211.144021.192655356.davem@davemloft.net>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH] be2net: fix error in rx completion processing.
+Date: Sat, 12 Dec 2009 07:08:49 +0530
+Message-ID: <20091212013847.GA10922@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.caviumnetworks.com ([209.113.159.134]:18233 "EHLO
-	smtp2.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758394AbZLLBNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 20:13:45 -0500
-In-Reply-To: <20091211.144021.192655356.davem@davemloft.net>
+Received: from segment-124-30.sify.net ([124.30.166.146]:61781 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1762665AbZLLBih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 20:38:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Daney <ddaney@caviumnetworks.com>
-> Date: Fri, 11 Dec 2009 10:26:08 -0800
-> 
->> Our hardware (Octeon SOC) has fairly flexible packet output queuing
->> that can be done completely in hardware.
-> 
-> You haven't described sufficiently what your hardware is
-> capable of.
-> 
+There are certain skews of the NIC which have multiple bits set in adapter->cap.
+Use & instead of == to process rx completions.
 
-Up to 16 output queues per port. With (almost) any combination of 
-absolute and weighted priorities between the various queues.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-
-> Generally, implementing qdiscs specifically to support
-> hardware features is not how things are handled.
-> 
-
-I think I could emulate the default pfifo Qdisk fairly well in hardware. 
-  By making it a Qdisc, the user would still be able to switch to one of 
-the software implementations if desired at runtime.
-
-
-> But really we need to know a lot more about the details of your
-> hardware to make any kind of real suggestions.
-> 
-
-Well see above for the overview.  I just wanted to get an idea if such 
-an approach would be highly frowned upon before coding anything up.
-
-We see significant cacheline bouncing in the Qdisc code and can increase 
-  packet forwarding rates by 10%-15% by setting the txqueuelen to zero 
-to disable the queuing.  I would like to see if the same thing can be 
-achieved without throwing away the features of the Qdisc.
-
-David Daney
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 957a0f7..8959bc7 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -759,7 +759,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 
+ 	/* vlanf could be wrongly set in some cards.
+ 	 * ignore if vtm is not set */
+-	if ((adapter->cap == 0x400) && !vtm)
++	if ((adapter->cap & 0x400) && !vtm)
+ 		vlanf = 0;
+ 
+ 	skb = netdev_alloc_skb_ip_align(adapter->netdev, BE_HDR_LEN);
+@@ -816,7 +816,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 
+ 	/* vlanf could be wrongly set in some cards.
+ 	 * ignore if vtm is not set */
+-	if ((adapter->cap == 0x400) && !vtm)
++	if ((adapter->cap & 0x400) && !vtm)
+ 		vlanf = 0;
+ 
+ 	skb = napi_get_frags(&eq_obj->napi);
+-- 
+1.6.3.3
 
