@@ -1,7 +1,7 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Subject: Re: [PATCH net-2.6] can: Fix data length code handling in rx path
-Date: Sat, 12 Dec 2009 17:34:10 +0100
-Message-ID: <4B23C602.7050302@grandegger.com>
+Date: Sat, 12 Dec 2009 19:09:54 +0100
+Message-ID: <4B23DC72.6030307@grandegger.com>
 References: <4B23A501.9000208@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,8 +23,6 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Oliver,
-
 Oliver Hartkopp wrote:
 > A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
 > 
@@ -41,9 +39,7 @@ Oliver Hartkopp wrote:
 > 
 > Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-Please send you patches inline next time please. For the bfin_can and
-the ems_usb driver your patch now masks the dlc with 0xf. Are you sure
-this is needed or even correct? Also, s/__u8/u8/, please.
+Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
 Thanks,
 
