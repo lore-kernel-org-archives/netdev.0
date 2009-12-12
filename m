@@ -1,48 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sat, 12 Dec 2009 03:29:38 -0800 (PST)
-Message-ID: <20091212.032938.136002802.davem@davemloft.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-2.6] can: Fix data length code handling in rx path
+Date: Sat, 12 Dec 2009 17:34:10 +0100
+Message-ID: <4B23C602.7050302@grandegger.com>
+References: <4B23A501.9000208@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762092AbZLLL3d@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B23A501.9000208-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi Oliver,
 
-I'm doing a quick push to fix the Kaweth USB driver build
-failure.  It's due to a miscommunication between Greg KH
-and myself, and we'll make sure this doesn't happen again.
+Oliver Hartkopp wrote:
+> A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
+> 
+> When reading the CAN controllers register the 4-bit value may contain values
+> from 0 .. 15 which may exceed the reserved space in the socket buffer!
+> 
+> The ISO 11898-1 Chapter 8.4.2.3 (DLC field) says that register values > 8
+> should be reduced to 8 without any error reporting or frame drop.
+> 
+> This patch introduces a new helper macro to cast a given 4-bit data length
+> code (dlc) to __u8 and ensure the DLC value to be max. 8 bytes.
+> 
+> The different handlings in the rx path of the CAN netdevice drivers are fixed.
+> 
+> Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-There's also two Intel gigabit fixes from Alexander Duyck and
-a be2net driver fix from Ajit Khaparde.
+Please send you patches inline next time please. For the bfin_can and
+the ems_usb driver your patch now masks the dlc with 0xf. Are you sure
+this is needed or even correct? Also, s/__u8/u8/, please.
 
-Please pull, thanks a lot!
+Thanks,
 
-The following changes since commit 053fe57ac249a9531c396175778160d9e9509399:
-  Linus Torvalds (1):
-        Merge git://git.kernel.org/.../davem/net-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ajit Khaparde (1):
-      be2net: fix error in rx completion processing.
-
-Alexander Duyck (2):
-      igb: fix handling of mailbox collisions between PF/VF
-      igbvf: avoid reset storms due to mailbox issues
-
-Oliver Neukum (1):
-      usb: remove rare pm primitive for conversion to new API
-
- drivers/net/benet/be_main.c |    4 ++--
- drivers/net/igb/igb_main.c  |   22 +++++++++++++---------
- drivers/net/igbvf/igbvf.h   |    1 +
- drivers/net/igbvf/netdev.c  |    8 +++++++-
- drivers/net/usb/kaweth.c    |    4 ++--
- 5 files changed, 25 insertions(+), 14 deletions(-)
+Wolfgang.
