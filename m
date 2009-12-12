@@ -1,46 +1,68 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-2.6] can: Fix data length code handling in rx path
-Date: Sat, 12 Dec 2009 19:09:54 +0100
-Message-ID: <4B23DC72.6030307@grandegger.com>
-References: <4B23A501.9000208@hartkopp.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: s2disk encryption was Re: intermittent suspend
+	problem	again
+Date: Sat, 12 Dec 2009 20:27:12 +0100
+Message-ID: <20091212192712.GB1308@ucw.cz>
+References: <87fx93pwv2.fsf@tac.ki.iif.hu> <200912011328.15551.rjw@sisk.pl>
+	<877ht68u4h.fsf@tac.ki.iif.hu> <200912012232.50951.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B23A501.9000208-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+        Ferenc Wagner <wferi@niif.hu>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <200912012232.50951.rjw@sisk.pl>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp wrote:
-> A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
-> 
-> When reading the CAN controllers register the 4-bit value may contain values
-> from 0 .. 15 which may exceed the reserved space in the socket buffer!
-> 
-> The ISO 11898-1 Chapter 8.4.2.3 (DLC field) says that register values > 8
-> should be reduced to 8 without any error reporting or frame drop.
-> 
-> This patch introduces a new helper macro to cast a given 4-bit data length
-> code (dlc) to __u8 and ensure the DLC value to be max. 8 bytes.
-> 
-> The different handlings in the rx path of the CAN netdevice drivers are fixed.
-> 
-> Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Hi!
 
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> > >> On the other hand, I reverted 8fbd962e3, recompiled and replaced the
+> > >> module, and got the freeze during hibernation.  And that was the bulk of
+> > >> the changes since 2.6.31...  I'll revert the rest and test again, but
+> > >> that seems purely cosmetic, so no high hopes.
+> > >> 
+> > >>> In addition to that, you can run multiple hibernation/resume cycles in
+> > >>> a tight loop using the RTC wakealarm.
+> > >> 
+> > >> I'll do so, as soon as I find a way to automatically supply the dm-crypt
+> > >> passphrase... or even better, learn to hibernate to ramdisk from the
+> > >> initramfs. :)
+> > >
+> > > Well, you don't need to use swap encryption for _testing_. :-)
+> > 
+> > I use partition encryption, everything except for /boot is encrypted.
+> 
+> If /boot is big enough, you could use a swap file in /boot for the testing.
+> 
+> > Apropos: does s2disk perform encryption with a temporary key even if I
+> > don't supply and RSA key, to protect mlocked application data from being
+> > present in the swap after restore?
+> 
+> It can do that, but you need to provide a key during suspend and resume.
+> 
+> Otherwise it doesn't use a random key, because it would have to store it in
+> the clear in the image header.
 
-Thanks,
+I believe it can use random key, stored in clear in image
+header. Reason is... image header is easier to overwrite than removing
+whole image.
 
-Wolfgang.
+That was original motivation for encryption... not having to overwrite
+swap data with zeros.
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
