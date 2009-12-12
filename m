@@ -1,45 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Kernel Panics in the network stack
-Date: Fri, 11 Dec 2009 19:44:17 -0500
-Message-ID: <20091212004417.GA13690@hmsreliant.think-freely.org>
-References: <4B22B4F2.8080605@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Custom hardware Qdisc...
+Date: Fri, 11 Dec 2009 17:05:56 -0800 (PST)
+Message-ID: <20091211.170556.67925441.davem@davemloft.net>
+References: <4B228EC0.80105@caviumnetworks.com>
+	<20091211.144021.192655356.davem@davemloft.net>
+	<4B22EACA.2060407@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Kevin Constantine <kevin.constantine@gmail.com>
+To: ddaney@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35649 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761526AbZLLAoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 19:44:15 -0500
-Content-Disposition: inline
-In-Reply-To: <4B22B4F2.8080605@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34102
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763008AbZLLBFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 20:05:51 -0500
+In-Reply-To: <4B22EACA.2060407@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 11, 2009 at 01:09:06PM -0800, Kevin Constantine wrote:
-> Hey Everyone-
->
-> I've been playing with an ARM based linuxstamp  
-> http://opencircuits.com/Linuxstamp, and I've been seeing kernel panics  
-> with both 2.6.28.3, and 2.6.30 within an hour or so of turning the  
-> linuxstamp on.  The stack traces always seem to point at functions  
-> related to networking.  I've pasted a couple of the crash outputs below.  
->  The linuxstamp isn't typically doing anything when the crashes occur,  
-> in fact it'll crash even if I haven't logged in.
->
-> If I ifconfig the interface down, the linuxstamp stays up indefinitely.  
-> Any pointers in one direction or another would be much appreciated.
->
-> I'm not sure if this is the right audience to help out or if the arm  
-> lists might be better.  But in any event, any help would be really  
-> appreciated.
->
->
-Might be worth turning on slab debugging to see if you get any violations on
-slabs prior to your oops.  I was just debugging something simmilar on e1000e,
-and slab debug was an immense help
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Fri, 11 Dec 2009 16:58:50 -0800
 
-Neil
+> David Miller wrote:
+>> From: David Daney <ddaney@caviumnetworks.com>
+>> Date: Fri, 11 Dec 2009 10:26:08 -0800
+>> 
+>>> Our hardware (Octeon SOC) has fairly flexible packet output queuing
+>>> that can be done completely in hardware.
+>> You haven't described sufficiently what your hardware is
+>> capable of.
+>> 
+> 
+> Up to 16 output queues per port. With (almost) any combination of
+> absolute and weighted priorities between the various queues.
 
->
+It sounds like these queues could be configured to have equal
+priorities and thus be used as purely a TX multiqueue scheme
+for better scalability.
+
+I suspect that doing that alone will fix the qdisc cache line bouncing
+you mention.
