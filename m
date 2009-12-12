@@ -1,63 +1,81 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.32-git7] 3c574_cs: disable irq before calling
- el3_interrupt
-Date: Sun, 13 Dec 2009 09:44:11 +0900
-Message-ID: <20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net-2.6] can: Fix data length code handling in rx path
+Date: Sat, 12 Dec 2009 19:06:20 +0100
+Message-ID: <4B23DB9C.8020607@grandegger.com>
+References: <4B23A501.9000208@hartkopp.net> <4B23C602.7050302@grandegger.com> <4B23D4CE.30005@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Barry Song <21cnbao@gmail.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from defg500.nifty.com ([202.248.238.127]:25212 "HELO
-	defg500.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932206AbZLMBPm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2009 20:15:42 -0500
-Received: from userg508.nifty.com (userg508p.nifty.com [172.22.128.88])by defg500.nifty.com with ESMTP id nBD0j5sP016168
-	for <netdev@vger.kernel.org>; Sun, 13 Dec 2009 09:45:05 +0900
-Received: from localhost.localdomain (eaoska169002.adsl.ppp.infoweb.ne.jp [219.116.18.2])by userg508.nifty.com with SMTP id nBD0iC2Y009800
-	for <netdev@vger.kernel.org>; Sun, 13 Dec 2009 09:44:12 +0900
-In-Reply-To: <20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+Received: from mail-out.m-online.net ([212.18.0.9]:42697 "HELO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S932980AbZLMBSL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Dec 2009 20:18:11 -0500
+In-Reply-To: <4B23D4CE.30005@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Oliver Hartkopp wrote:
+> Wolfgang Grandegger wrote:
+>> Hi Oliver,
+>>
+>> Oliver Hartkopp wrote:
+>>> A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
+>>>
+>>> When reading the CAN controllers register the 4-bit value may contain values
+>>> from 0 .. 15 which may exceed the reserved space in the socket buffer!
+>>>
+>>> The ISO 11898-1 Chapter 8.4.2.3 (DLC field) says that register values > 8
+>>> should be reduced to 8 without any error reporting or frame drop.
+>>>
+>>> This patch introduces a new helper macro to cast a given 4-bit data length
+>>> code (dlc) to __u8 and ensure the DLC value to be max. 8 bytes.
+>>>
+>>> The different handlings in the rx path of the CAN netdevice drivers are fixed.
+>>>
+>>> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+>> Please send you patches inline next time please. For the bfin_can and
+>> the ems_usb driver your patch now masks the dlc with 0xf. Are you sure
+>> this is needed or even correct?
+> 
+> Yes. Both needed to be fixed.
+> 
+> The bfin_can has an u16 value which is not reduced to 4-bits before.
 
-3c574_cs, 3c589_cs:
-	disable irq before calling el3_interrupt
-	in the media_check function.
+The relevant bits are hardware specific.
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> The ems_usb driver gets a u8 value via USB urb, which comes from a SJA1000 and
+> needs the same handling as in the sja1000 driver. There's no guarantee that
+> the USB adapter handles the values correctly - so masking is appropriate here.
+> 
+>> Also, s/__u8/u8/, please.
+> 
+> can_frame.can_dlc is the target and it is defined as '__u8' in
+> include/linux/can.h.
 
----
+OK.
 
---- linux-2.6.32-git7/drivers/net/pcmcia/3c574_cs.c.orig	2009-12-12 06:58:14.000000000 +0900
-+++ linux-2.6.32-git7/drivers/net/pcmcia/3c574_cs.c	2009-12-13 08:50:18.000000000 +0900
-@@ -912,7 +912,11 @@ static void media_check(unsigned long ar
- 	if ((inw(ioaddr + EL3_STATUS) & IntLatch) && (inb(ioaddr + Timer) == 0xff)) {
- 		if (!lp->fast_poll)
- 			printk(KERN_INFO "%s: interrupt(s) dropped!\n", dev->name);
-+
-+		local_irq_save(flags);
- 		el3_interrupt(dev->irq, dev);
-+		local_irq_restore(flags);
-+
- 		lp->fast_poll = HZ;
- 	}
- 	if (lp->fast_poll) {
---- linux-2.6.32-git7/drivers/net/pcmcia/3c589_cs.c.orig	2009-12-12 06:58:28.000000000 +0900
-+++ linux-2.6.32-git7/drivers/net/pcmcia/3c589_cs.c	2009-12-13 08:50:38.000000000 +0900
-@@ -711,7 +711,11 @@ static void media_check(unsigned long ar
- 	(inb(ioaddr + EL3_TIMER) == 0xff)) {
- 	if (!lp->fast_poll)
- 	    printk(KERN_WARNING "%s: interrupt(s) dropped!\n", dev->name);
-+
-+	local_irq_save(flags);
- 	el3_interrupt(dev->irq, dev);
-+	local_irq_restore(flags);
-+
- 	lp->fast_poll = HZ;
-     }
-     if (lp->fast_poll) {
+> As discussed on SocketCAN-ML we agreed the at91_can.c to be the 'correct'
+> implementation - and that's what i posted here on your request ... :-)
+
+The spoke about how to handle "dlc > 8". The additional masking is
+hardware specific and you need to check the manual to understand if it's
+really required.
+
+> IMO the patch remains 100% correct.
+
+I just checked the bfin manual. The DLC value uses a 4 bit field and
+there is also written:
+
+ "Any DLC value greater than 8 is treated the same as a value of 8."
+
+That's exactly what this patch fixes. I didn't figure out though, if the
+masking is really required or if the higher bits are undefined (or "0").
+At least it does not harm.
+
+Wolfgang.
+
