@@ -1,174 +1,284 @@
-From: Kevin Constantine <kevin.constantine@gmail.com>
-Subject: Re: Kernel Panics in the network stack
-Date: Fri, 11 Dec 2009 17:49:23 -0800
-Message-ID: <4B22F6A3.9080505@gmail.com>
-References: <4B22B4F2.8080605@gmail.com> <4B22BC1F.607@gmail.com> <4B22BEAB.1080407@gmail.com> <4B22C075.2020902@gmail.com> <4B22C4CD.8010402@gmail.com> <4B22DBE0.1020104@gmail.com> <4B22EC9C.70207@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Fri, 11 Dec 2009 18:17:12 -0800 (PST)
+Message-ID: <20091211.181712.211179737.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f212.google.com ([209.85.217.212]:36869 "EHLO
-	mail-gx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757452AbZLLBtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 20:49:18 -0500
-Received: by gxk4 with SMTP id 4so1718526gxk.8
-        for <netdev@vger.kernel.org>; Fri, 11 Dec 2009 17:49:25 -0800 (PST)
-In-Reply-To: <4B22EC9C.70207@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32930
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762656AbZLLCRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Dec 2009 21:17:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kevin Constantine wrote:
-> On 12/11/2009 03:55 PM, Kevin Constantine wrote:
->> Kevin Constantine wrote:
->>> On 12/11/2009 01:58 PM, Eric Dumazet wrote:
->>>> Le 11/12/2009 22:50, Kevin Constantine a =E9crit :
->>>>> On 12/11/2009 01:39 PM, Eric Dumazet wrote:
->>>>>> Le 11/12/2009 22:09, Kevin Constantine a =E9crit :
->>>>>>> Hey Everyone-
->>>>>>>
->>>>>>> I've been playing with an ARM based linuxstamp
->>>>>>> http://opencircuits.com/Linuxstamp, and I've been seeing kernel
->>>>>>> panics
->>>>>>> with both 2.6.28.3, and 2.6.30 within an hour or so of turning =
-the
->>>>>>> linuxstamp on. The stack traces always seem to point at functio=
-ns
->>>>>>> related to networking. I've pasted a couple of the crash output=
-s
->>>>>>> below.
->>>>>>> The linuxstamp isn't typically doing anything when the crashes=20
->>>>>>> occur,
->>>>>>> in fact it'll crash even if I haven't logged in.
->>>>>>>
->>>>>>> If I ifconfig the interface down, the linuxstamp stays up
->>>>>>> indefinitely.
->>>>>>> Any pointers in one direction or another would be much apprecia=
-ted.
->>>>>>>
->>>>>>> I'm not sure if this is the right audience to help out or if th=
-e arm
->>>>>>> lists might be better. But in any event, any help would be real=
-ly
->>>>>>> appreciated.
->>>>>>>
->>>>>>>
->>>>>>> linuxstamp login: Unable to handle kernel paging request at vir=
-tual
->>>>>>> address 183cb7b0
->>>>>>> pgd =3D c0004000
->>>>>>> [183cb7b0] *pgd=3D00000000
->>>>>>> Internal error: Oops: 0 [#1] PREEMPT
->>>>>>> Modules linked in:
->>>>>>> CPU: 0 Not tainted (2.6.30-00002-g0148992 #13)
->>>>>>> PC is at 0x183cb7b0
->>>>>>> LR is at __udp4_lib_rcv+0x43c/0x72c
->>>>>>
->>>>>> Could you disassemble your vmlinux file, __udp4_lib_rcv function
->>>>>> around LR
->>>>>> <c024ff4c>, to see which function was called ? This function the=
-n
->>>>>> called
->>>>>> a wrong pointer (0x183cb7b0 not a kernel pointer)
->>>>>>
->>>>>> Maybe a kernel stack corruption, or bad ram, ...
->>>>>
->>>>> The vmlinux file I'm using has probably changed a number of times=
-=20
->>>>> since
->>>>> then. I'll get a fresh stack trace and disassemble that one.
->=20
 
-Here's yet another crash.  I recompiled the kernel to include slab=20
-debug.  This crash seems to implicate the at91ether driver.
+Pretty much entirely bug fixes including a 2.6.32 regression fix for
+stalled TCP regressions (will be sent to -stable) from Damian
+Lukowski.
 
+Resolve some wireless merge issues.
 
+As well as a fix for NETREG_UNINITIALIZED state net devices,
+from Krishna Kumar.
 
-debian login: Unable to handle kernel paging request at virtual=20
-address 60000013
-pgd =3D c0004000
-[60000013] *pgd=3D00000000
-Internal error: Oops: 805 [#1] PREEMPT
-Modules linked in:
-CPU: 0    Not tainted  (2.6.30-00002-g0148992 #17)
-PC is at memset+0xb8/0xc0
-LR is at __alloc_skb+0x64/0x108
-pc : [<c017c118>]    lr : [<c0211a64>]    psr: 20000013
-sp : c0383ee8  ip : 5a5a5a5a  fp : ffc00048
-r10: 00000000  r9 : 00000002  r8 : c021268c
-r7 : c1c06d20  r6 : 000000e0  r5 : c1db2000  r4 : 60000013
-r3 : 00000003  r2 : 00000000  r1 : 00000088  r0 : 60000013
-=46lags: nzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
-Control: c000717f  Table: 21d78000  DAC: 00000017
-Process swapper (pid: 0, stack limit =3D 0xc0382268)
-Stack: (0xc0383ee8 to 0xc0384000)
-3ee0:                   c0045164 c1c91e60 000000be c1d38800 c1d38b00=20
-00000006
-3f00: ffc00000 c021268c 00000004 c01c90d4 00000001 c1c91e60 00000000=20
-00000000
-3f20: 00000018 00000001 c0382000 2001cf90 00000000 c006112c 00000000=20
-c1c91e60
-3f40: c038a37c 00000018 00000002 c0062e7c 00000018 00000000 00000018=20
-c0022050
-3f60: 00000000 ffffffff fefff000 c0022a3c 00000000 00000001 00000080=20
-60000013
-3f80: c00243a4 c0382000 c0385ebc c00243a4 c03a7c68 41129200 2001cf90=20
-00000000
-3fa0: fefff800 c0383fb8 c00243e0 c00243ec 60000013 ffffffff c00243a4=20
-c0024368
-3fc0: c03af314 c03a7c30 c001ed30 c0385d08 2001cfc4 c00088d4 c0008434=20
-00000000
-3fe0: 00000000 c001ed30 c0007175 c03a7c98 c001f134 20008034 00000000=20
-00000000
-[<c017c118>] (memset+0xb8/0xc0) from [<c1d38800>] (0xc1d38800)
-Code: ba00001d e3530002 b4c02001 d4c02001 (e4c02001)
-Kernel panic - not syncing: Fatal exception in interrupt
-[<c002895c>] (unwind_backtrace+0x0/0xdc) from [<c02b4c20>]=20
-(panic+0x3c/0x120)
-[<c02b4c20>] (panic+0x3c/0x120) from [<c0026e60>] (die+0x154/0x180)
-[<c0026e60>] (die+0x154/0x180) from [<c0029848>]=20
-(__do_kernel_fault+0x68/0x80)
-[<c0029848>] (__do_kernel_fault+0x68/0x80) from [<c0029a74>]=20
-(do_page_fault+0x214/0x234)
-[<c0029a74>] (do_page_fault+0x214/0x234) from [<c0022244>]=20
-(do_DataAbort+0x30/0x90)
-[<c0022244>] (do_DataAbort+0x30/0x90) from [<c00229e0>]=20
-(__dabt_svc+0x40/0x60)
-Exception stack(0xc0383ea0 to 0xc0383ee8)
-3ea0: 60000013 00000088 00000000 00000003 60000013 c1db2000 000000e0=20
-c1c06d20
-3ec0: c021268c 00000002 00000000 ffc00048 5a5a5a5a c0383ee8 c0211a64=20
-c017c118
-3ee0: 20000013 ffffffff=20
+There is an 'origin' pull in here to resolve a net/tcp.h conflict with
+your tree.
 
-[<c00229e0>] (__dabt_svc+0x40/0x60) from [<c0211a64>]=20
-(__alloc_skb+0x64/0x108)
-[<c0211a64>] (__alloc_skb+0x64/0x108) from [<c021268c>]=20
-(dev_alloc_skb+0x1c/0x44)
-[<c021268c>] (dev_alloc_skb+0x1c/0x44) from [<c01c90d4>]=20
-(at91ether_interrupt+0x44/0x1b8)
-[<c01c90d4>] (at91ether_interrupt+0x44/0x1b8) from [<c006112c>]=20
-(handle_IRQ_event+0x40/0x110)
-[<c006112c>] (handle_IRQ_event+0x40/0x110) from [<c0062e7c>]=20
-(handle_level_irq+0xbc/0x134)
-[<c0062e7c>] (handle_level_irq+0xbc/0x134) from [<c0022050>]=20
-(_text+0x50/0x78)
-[<c0022050>] (_text+0x50/0x78) from [<c0022a3c>] (__irq_svc+0x3c/0x80)
-Exception stack(0xc0383f70 to 0xc0383fb8)
-3f60:                                     00000000 00000001 00000080=20
-60000013
-3f80: c00243a4 c0382000 c0385ebc c00243a4 c03a7c68 41129200 2001cf90=20
-00000000
-3fa0: fefff800 c0383fb8 c00243e0 c00243ec 60000013 ffffffff=20
+Please pull, thanks a lot!
 
-[<c0022a3c>] (__irq_svc+0x3c/0x80) from [<c00243e0>]=20
-(default_idle+0x3c/0x54)
-[<c00243e0>] (default_idle+0x3c/0x54) from [<c0024368>]=20
-(cpu_idle+0x48/0x84)
-[<c0024368>] (cpu_idle+0x48/0x84) from [<c00088d4>]=20
-(start_kernel+0x208/0x254)
-[<c00088d4>] (start_kernel+0x208/0x254) from [<20008034>] (0x20008034)
+The following changes since commit 2fe77b81c77eed92c4c0439f74c8148a295b4a86:
+  Linus Torvalds (1):
+        Merge branch 'next' of git://git.kernel.org/.../davej/cpufreq
 
+are available in the git repository at:
 
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Amit Kumar Salecha (2):
+      netxen: protect device reset by rtnl_lock
+      netxen:fix napi intr enable check
+
+Andrew Morton (1):
+      net/rfkill/core.c: work around gcc-4.0.2 silliness
+
+Anton Vorontsov (1):
+      gianfar: Fix build with CONFIG_NET_POLL_CONTROLLER=y
+
+Asier Llano (1):
+      net/mpc5200: Fix locking on fec_mpc52xx driver
+
+Barry Song (1):
+      can: add the driver for Analog Devices Blackfin on-chip CAN controllers
+
+Breno Leitao (1):
+      cxgb3: Fixing EEH handlers
+
+Brice Goglin (1):
+      myri10ge: use src+dst for rss hashing
+
+Bruce Allan (3):
+      e1000e: minor correction to name of bit in CTRL_EXT register
+      e1000e: replace incorrect use of GG82563_REG macro
+      e1000e: only perform ESB2 MDIC workaround on certain configurations
+
+Damian Lukowski (2):
+      tcp: Stalling connections: Fix timeout calculation routine
+      tcp: Stalling connections: Move timeout calculation routine
+
+David Kilroy (1):
+      orinoco: remove spare KERN_DEBUG
+
+David S. Miller (4):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-next-2.6
+      tcp: Remove runtime check that can never be true.
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
+
+Denis Kirjanov (1):
+      mv643xx_eth: check for valid hw address (resubmit)
+
+Dhananjay Phadke (1):
+      netxen: fix firmware type check
+
+Don Skidmore (1):
+      ixgbe: add support for 82599 KR device 0x1517
+
+Eric Dumazet (4):
+      ixgbe: Fix TX stats accounting
+      tcp: Fix a connect() race with timewait sockets
+      tcp: Fix a connect() race with timewait sockets
+      tcp: documents timewait refcnt tricks
+
+Felix Fietkau (1):
+      ath9k: fix tx status reporting
+
+Heiko Carstens (2):
+      net: fix compat_sys_recvmmsg parameter type
+      net: use compat helper functions in compat_sys_recvmmsg
+
+Herton Ronaldo Krzesinski (1):
+      rtl8187: add radio led and fix warnings on suspend
+
+Ilpo Järvinen (1):
+      tcp: fix retrans_stamp advancing in error cases
+
+Javier Cardona (2):
+      mac80211: Fixed bug in mesh portal paths
+      mac80211: Revert 'Use correct sign for mesh active path refresh'
+
+Jie Yang (2):
+      atl1c:add pci map direction in atl1c_buffer flags
+      atl1c:use common_task instead of reset_task and link_chg_task
+
+Joe Perches (1):
+      include/linux/if_ether.h: Remove unused defines MAC_BUF_SIZE and DECLARE_MAC_BUF
+
+Johannes Berg (1):
+      mac80211: recalculate idle later in MLME
+
+John W. Linville (3):
+      iwlwifi: fix warning from ieee80211_stop_tx_ba_cb_irqsafe argument change
+      wireless: correctly report signal value for IEEE80211_HW_SIGNAL_UNSPEC
+      wireless: update old static regulatory domain rules
+
+Julia Lawall (1):
+      net/mac80211: Correct size given to memset
+
+Kalle Valo (3):
+      wl1251: remove false warning messages
+      wl1251: fix bssid handling
+      wl1251: don't build null data template in wl1251_op_config()
+
+Krishna Kumar (1):
+      net: Handle NETREG_UNINITIALIZED devices correctly
+
+Larry Finger (2):
+      rtl8187: Fix wrong rfkill switch mask for some models
+      b43: Remove reset after fatal DMA error
+
+Lennert Buytenhek (12):
+      mwl8k: fix MCS bitmap size in SET_RATE command
+      mwl8k: fix UPDATE_STADB command struct legacy_rates array length
+      mwl8k: prevent corruption of QoS field on receive
+      mwl8k: fix addr4 zeroing and payload overwrite on DMA header creation
+      mwl8k: properly report rate on received 40MHz packets
+      mwl8k: allow more time for firmware commands to complete
+      mwl8k: allow more time for transmit rings to drain
+      mwl8k: increase firmware loading timeouts
+      mwl8k: don't forget to call pci_disable_device()
+      mwl8k: struct ieee80211_rx_status::qual is deprecated
+      mwl8k: don't overwrite mwl8k_vif::bssid until after disassociation
+      mwl8k: don't complain about oversized beacons in FINALIZE_JOIN
+
+Luis R. Rodriguez (1):
+      ath5k: enable EEPROM checksum check
+
+Martin Willi (1):
+      xfrm: Fix truncation length of authentication algorithms installed via PF_KEY
+
+Michael Chan (2):
+      cnic: Send delete command when shutting down iSCSI ring.
+      cnic: Zero out status block and Event Queue indices.
+
+Mike Frysinger (1):
+      smc91x: fix unused flags warnings on UP systems
+
+Oliver Neukum (1):
+      MAINTAINERS: Transfering maintainership of cdc-ether
+
+Paul Mundt (1):
+      net: smc91x: Fix up type mismatch in smc_drv_resume().
+
+Randy Dunlap (1):
+      net: niu uses crc32, so select CRC32
+
+Shahar Or (1):
+      ath5k: add support for Dell Vostro A860 LED
+
+Stanislav Brabec (1):
+      b44 WOL setup: one-bit-off stack corruption kernel panic fix
+
+Takashi Iwai (2):
+      net: Fix Yukon-2 Optima TCP offload setup
+      net: Add missing TST_CFG_WRITE bits around sky2_pci_write
+
+Tilman Schmidt (2):
+      gigaset: don't enable any debugging output by default
+      gigaset: documentation amendments
+
+Vasanthakumar Thiagarajan (1):
+      mac80211: Fix bug in computing crc over dynamic IEs in beacon
+
+Vivek Natarajan (2):
+      mac80211: Fix dynamic power save for scanning.
+      cfg80211: Clear encryption privacy when key off is done.
+
+chas williams - CONTRACTOR (3):
+      atm: [lec] initialize .netdev_ops before calling register_netdev()
+      atm: [he] adjust tests to account for sk_wmem_alloc changes
+      atm: [br2684] allow routed mode operation again
+
+ Documentation/isdn/README.gigaset             |  116 +++-
+ MAINTAINERS                                   |    3 +-
+ drivers/atm/he.c                              |    4 +-
+ drivers/isdn/gigaset/common.c                 |    2 +-
+ drivers/net/Kconfig                           |    1 +
+ drivers/net/atl1c/atl1c.h                     |   17 +-
+ drivers/net/atl1c/atl1c_main.c                |   94 ++--
+ drivers/net/b44.c                             |    3 +-
+ drivers/net/can/Kconfig                       |    9 +
+ drivers/net/can/Makefile                      |    1 +
+ drivers/net/can/bfin_can.c                    |  783 +++++++++++++++++++++++++
+ drivers/net/cnic.c                            |   11 +
+ drivers/net/cxgb3/cxgb3_main.c                |    1 +
+ drivers/net/e1000e/defines.h                  |    2 +-
+ drivers/net/e1000e/es2lan.c                   |   97 ++-
+ drivers/net/e1000e/hw.h                       |    7 +
+ drivers/net/e1000e/ich8lan.c                  |    8 +-
+ drivers/net/e1000e/netdev.c                   |    2 +-
+ drivers/net/fec_mpc52xx.c                     |  121 ++--
+ drivers/net/gianfar.c                         |    1 +
+ drivers/net/ixgbe/ixgbe_82599.c               |    1 +
+ drivers/net/ixgbe/ixgbe_ethtool.c             |    1 +
+ drivers/net/ixgbe/ixgbe_main.c                |   22 +-
+ drivers/net/ixgbe/ixgbe_type.h                |    1 +
+ drivers/net/mv643xx_eth.c                     |    3 +
+ drivers/net/myri10ge/myri10ge.c               |    4 +-
+ drivers/net/netxen/netxen_nic_init.c          |   14 +-
+ drivers/net/netxen/netxen_nic_main.c          |   49 ++-
+ drivers/net/sky2.c                            |    9 +
+ drivers/net/smc91x.c                          |    8 +-
+ drivers/net/wireless/ath/ath5k/eeprom.c       |    3 +-
+ drivers/net/wireless/ath/ath5k/led.c          |    2 +
+ drivers/net/wireless/ath/ath9k/xmit.c         |    2 +-
+ drivers/net/wireless/b43/main.c               |    5 +-
+ drivers/net/wireless/iwlwifi/iwl-tx.c         |    2 +-
+ drivers/net/wireless/mwl8k.c                  |  327 +++++------
+ drivers/net/wireless/orinoco/hermes_dld.c     |    2 +-
+ drivers/net/wireless/rtl818x/rtl8187.h        |    6 +
+ drivers/net/wireless/rtl818x/rtl8187_dev.c    |   12 +-
+ drivers/net/wireless/rtl818x/rtl8187_leds.c   |   68 ++-
+ drivers/net/wireless/rtl818x/rtl8187_leds.h   |    2 +
+ drivers/net/wireless/rtl818x/rtl8187_rfkill.c |    4 +-
+ drivers/net/wireless/wl12xx/wl1251_main.c     |   36 +-
+ include/linux/gigaset_dev.h                   |   22 +-
+ include/linux/if_ether.h                      |    2 -
+ include/net/compat.h                          |    2 +-
+ include/net/inet6_hashtables.h                |    2 +-
+ include/net/inet_hashtables.h                 |    8 +-
+ include/net/inet_timewait_sock.h              |    3 +
+ include/net/tcp.h                             |   23 -
+ net/atm/br2684.c                              |   11 +-
+ net/atm/lec.c                                 |   10 +-
+ net/compat.c                                  |   11 +-
+ net/core/dev.c                                |   10 +-
+ net/dccp/ipv4.c                               |    2 +-
+ net/dccp/ipv6.c                               |    4 +-
+ net/ipv4/inet_hashtables.c                    |   24 +-
+ net/ipv4/inet_timewait_sock.c                 |   61 ++-
+ net/ipv4/tcp.c                                |    5 -
+ net/ipv4/tcp_input.c                          |   35 +-
+ net/ipv4/tcp_ipv4.c                           |    2 +-
+ net/ipv4/tcp_timer.c                          |   29 +
+ net/ipv6/inet6_hashtables.c                   |    8 +-
+ net/ipv6/tcp_ipv6.c                           |    4 +-
+ net/key/af_key.c                              |    1 +
+ net/mac80211/cfg.c                            |    3 +-
+ net/mac80211/ieee80211_i.h                    |    1 +
+ net/mac80211/mesh.c                           |    2 +-
+ net/mac80211/mesh.h                           |    5 +-
+ net/mac80211/mesh_hwmp.c                      |    2 +-
+ net/mac80211/mlme.c                           |   10 +-
+ net/mac80211/rx.c                             |    1 -
+ net/mac80211/scan.c                           |   20 +-
+ net/mac80211/util.c                           |    2 +-
+ net/rfkill/core.c                             |    4 +-
+ net/wireless/reg.c                            |   75 +--
+ net/wireless/wext-compat.c                    |    1 +
+ 77 files changed, 1677 insertions(+), 594 deletions(-)
+ create mode 100644 drivers/net/can/bfin_can.c
