@@ -1,50 +1,61 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [GIT]: Networking
-Date: Sat, 12 Dec 2009 17:42:22 -0200
-Message-ID: <20091212194222.GC1949@ghostprotocols.net>
-References: <20091211.181712.211179737.davem@davemloft.net>
- <4B236C18.4050007@gmail.com>
- <4B237528.8020708@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] smc91x: fix unused flags warnings on UP systems
+Date: Sat, 12 Dec 2009 18:49:38 -0800
+Message-ID: <20091212184938.bd057145.akpm@linux-foundation.org>
+References: <1260366004-27366-1-git-send-email-vapier@gentoo.org>
+	<20091211.151502.188418417.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
-	torvalds@linux-foundation.org, David Miller <davem@davemloft.net>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: vapier@gentoo.org, netdev@vger.kernel.org, nico@fluxnic.net,
 	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:49297 "HELO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932617AbZLMCoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Dec 2009 21:44:03 -0500
-Received: by yxe17 with SMTP id 17so1826292yxe.33
-        for <netdev@vger.kernel.org>; Sat, 12 Dec 2009 18:44:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4B237528.8020708@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753023AbZLMCtq@vger.kernel.org>
+In-Reply-To: <20091211.151502.188418417.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Sat, Dec 12, 2009 at 11:49:12AM +0100, Eric Dumazet escreveu:
-> Le 12/12/2009 11:10, William Allen Simpson a =E9crit :
-> > David Miller wrote:
-> >> David S. Miller (4):
-> >>       Merge branch 'master' of
-> > This is a poor patch that was never sent to the netdev list for rev=
-iew.=20
->=20
-> William, as I already said, you wont solve your problem with David
-> alerting whole earth, Linus, God, whoever, because we dont care,
-> we have our own problems.
->=20
-> This drama is really ridiculous, could we go forward, correct bugs,
-> add documentation, and so on ?
+On Fri, 11 Dec 2009 15:15:02 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-Indeed, this is over the top, either try to get along with people that
-proved their worth thru almost decades of hard work, even being difficu=
-lt
-to deal with when treated unreasonably (and sometimes when in a bad moo=
-d
-;-)) or get the highway and never look back!
+> From: Mike Frysinger <vapier@gentoo.org>
+> Date: Wed,  9 Dec 2009 08:40:04 -0500
+> 
+> > Local flags variables will be declared whenever these functions get used,
+> > but obviously on UP systems the flags parameter won't be touched.  So add
+> > some dummy ops that get optimized away anyways to satisfy gcc's warnings.
+> > 
+> > Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> 
+> Applied, although I thought we had a standard macro to handle this
+> kind of case.
 
-- Arnaldo
+Nope.
+
+Coverting them to real C functions fixes the warning, and provides
+previously-absent typechecking.  ie, (untested):
+
+--- a/drivers/net/smc91x.c~a
++++ a/drivers/net/smc91x.c
+@@ -534,9 +534,18 @@ static inline void  smc_rcv(struct net_d
+ #define smc_special_lock(lock, flags)		spin_lock_irqsave(lock, flags)
+ #define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
+ #else
+-#define smc_special_trylock(lock, flags)	(1)
+-#define smc_special_lock(lock, flags)   	do { } while (0)
+-#define smc_special_unlock(lock, flags)	do { } while (0)
++static inline int smc_special_trylock(spinlock_t *lock, unsigned long flags)
++{
++	return 1;
++}
++
++static inline void smc_special_lock(spinlock_t *lock, unsigned long flags)
++{
++}
++
++static inline void smc_special_unlock(spinlock_t *lock, unsigned long flags)
++{
++}
+ #endif
+ 
+ /*
+_
