@@ -1,9 +1,9 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 4/4] Defer skb allocation -- change allocation &
-	receiving in recv path
-Date: Sun, 13 Dec 2009 13:08:22 +0200
-Message-ID: <20091213110822.GA7074@redhat.com>
-References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260535793.30371.27.camel@localhost.localdomain>
+Subject: Re: [PATCH v2 2/4] Defer skb allocation -- new skb_set calls &
+	chain pages in virtio_net
+Date: Sun, 13 Dec 2009 13:24:52 +0200
+Message-ID: <20091213112452.GB7074@redhat.com>
+References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260535382.30371.20.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
@@ -11,336 +11,218 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
 	linux-kernel@vger.kernel.org,
 	Anthony Liguori <anthony@codemonkey.ws>
 To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50299 "HELO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752275AbZLMLLM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2009 06:11:12 -0500
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1260535793.30371.27.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1260535382.30371.20.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 11, 2009 at 04:49:53AM -0800, Shirley Ma wrote:
+On Fri, Dec 11, 2009 at 04:43:02AM -0800, Shirley Ma wrote:
 > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> -------------
-
-Comments about splitting up this patch apply here.
-
-
+> --------------
 > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index dde8060..b919169 100644
+> index bb5eb7b..100b4b9 100644
 > --- a/drivers/net/virtio_net.c
 > +++ b/drivers/net/virtio_net.c
-> @@ -270,99 +270,44 @@ static struct sk_buff *receive_mergeable(struct virtnet_info *vi,
->  	return skb;
+> @@ -80,29 +80,25 @@ static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
+>  	return (struct skb_vnet_hdr *)skb->cb;
 >  }
 >  
-> -static void receive_skb(struct net_device *dev, struct sk_buff *skb,
-> -			unsigned len)
-> +static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+> -static void give_a_page(struct virtnet_info *vi, struct page *page)
+> +static void give_pages(struct virtnet_info *vi, struct page *page)
 >  {
->  	struct virtnet_info *vi = netdev_priv(dev);
-> -	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-> -	int err;
-> -	int i;
-> +	struct sk_buff *skb = (struct sk_buff *)buf;
-> +	struct page *page = (struct page *)buf;
+> -	page->private = (unsigned long)vi->pages;
+> -	vi->pages = page;
+> -}
+> +	struct page *end;
+>  
+> -static void trim_pages(struct virtnet_info *vi, struct sk_buff *skb)
+> -{
+> -	unsigned int i;
+> -
+> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+> -		give_a_page(vi, skb_shinfo(skb)->frags[i].page);
+> -	skb_shinfo(skb)->nr_frags = 0;
+> -	skb->data_len = 0;
+> +	/* Find end of list, sew whole thing into vi->pages. */
+> +	for (end = page; end->private; end = (struct page *)end->private);
+
+Hmm, this scans the whole list each time.
+OTOH, the caller probably can easily get list tail as well as head.
+If we ask caller to give us list tail, and chain them at head, then
+1. we won't have to scan the list each time
+2. we get better memory locality reusing same pages over and over again
+
+
+> +	end->private = (unsigned long)vi->pages;
+> +	vi->pages = page;
+>  }
+>  
+>  static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
+>  {
+>  	struct page *p = vi->pages;
+>  
+> -	if (p)
+> +	if (p) {
+>  		vi->pages = (struct page *)p->private;
+> -	else
+> +		/* use private to chain pages for big packets */
+> +		p->private = 0;
+
+So this comment does not explain why this = 0 is here.
+clearly = 0 does not chain anything.
+Please add a bigger comment.
+
+I think you also want to extend the comment at top of
+file, where datastructure is, that explains the deferred
+alogorigthm and how pages are chained.
+
+> +	} else
+>  		p = alloc_page(gfp_mask);
+>  	return p;
+>  }
+> @@ -128,6 +124,85 @@ static void skb_xmit_done(struct virtqueue *svq)
+>  	netif_wake_queue(vi->dev);
+>  }
+>  
+> +static int skb_set_frag(struct sk_buff *skb, struct page *page,
+> +				int offset, int len)
+
+Maybe it's better not to prefix functions with skb_, one
+tries to look them up in skbuff.h immediately.
+
+> +{
+> +	int i = skb_shinfo(skb)->nr_frags;
+> +	skb_frag_t *f;
+> +
+> +	i = skb_shinfo(skb)->nr_frags;
+> +	f = &skb_shinfo(skb)->frags[i];
+
+i seems unused below, so opencode it.
+
+> +	f->page = page;
+> +	f->page_offset = offset;
+> +
+> +	if (len > PAGE_SIZE - f->page_offset)
+> +		f->size = PAGE_SIZE - f->page_offset;
+
+Will be a bit clearer with s/f->page_offset/offset/.
+
+> +	else
+> +		f->size = len;
+
+Use min for clarity instead of opencoded if.
+This will make it obvious that len won't ever become
+negative below.
+
+> +
+> +	skb_shinfo(skb)->nr_frags++;
+> +	skb->data_len += f->size;
+> +	skb->len += f->size;
+
+
+> +
+> +	len -= f->size;
+> +	return len;
+> +}
+> +
+> +static struct sk_buff *skb_goodcopy(struct virtnet_info *vi, struct page **page,
+
+I know you got this name from GOOD_COPY_LEN, but it's not
+very good for a function :) and skb_ prefix is also confusing.
+Just copy_small_skb or something like that?
+
+> +				    unsigned int *len)
+
+Comments about splitting patches  apply here as well.
+No way to understand what this should do and whether it
+does it correctly just by looking at patch.
+
+> +{
+> +	struct sk_buff *skb;
 > +	struct skb_vnet_hdr *hdr;
-
-Do not cast away void*.
-This initialization above looks very strange: in
-fact only one of skb, page makes sense.
-So I think you should either get rid of both page and
-skb variables (routines such as give_pages get page *
-so they will accept void* just as happily) or
-move initialization or even use of these variables to
-where they are used.
-
->  
->  	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
->  		pr_debug("%s: short packet %i\n", dev->name, len);
->  		dev->stats.rx_length_errors++;
-> -		goto drop;
-> -	}
-> -
-> -	if (vi->mergeable_rx_bufs) {
-> -		unsigned int copy;
-> -		char *p = page_address(skb_shinfo(skb)->frags[0].page);
-> -
-> -		if (len > PAGE_SIZE)
-> -			len = PAGE_SIZE;
-> -		len -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> -
-> -		memcpy(&hdr->mhdr, p, sizeof(hdr->mhdr));
-> -		p += sizeof(hdr->mhdr);
-> -
-> -		copy = len;
-> -		if (copy > skb_tailroom(skb))
-> -			copy = skb_tailroom(skb);
-> -
-> -		memcpy(skb_put(skb, copy), p, copy);
-> -
-> -		len -= copy;
-> -
-> -		if (!len) {
-> -			give_pages(vi, skb_shinfo(skb)->frags[0].page);
-> -			skb_shinfo(skb)->nr_frags--;
-> +		if (vi->mergeable_rx_bufs || vi->big_packets) {
-> +			give_pages(vi, page);
-> +			return;
->  		} else {
-> -			skb_shinfo(skb)->frags[0].page_offset +=
-> -				sizeof(hdr->mhdr) + copy;
-> -			skb_shinfo(skb)->frags[0].size = len;
-> -			skb->data_len += len;
-> -			skb->len += len;
-> -		}
-> -
-> -		while (--hdr->mhdr.num_buffers) {
-> -			struct sk_buff *nskb;
-> -
-> -			i = skb_shinfo(skb)->nr_frags;
-> -			if (i >= MAX_SKB_FRAGS) {
-> -				pr_debug("%s: packet too long %d\n", dev->name,
-> -					 len);
-> -				dev->stats.rx_length_errors++;
-> -				goto drop;
-> -			}
-> -
-> -			nskb = vi->rvq->vq_ops->get_buf(vi->rvq, &len);
-> -			if (!nskb) {
-> -				pr_debug("%s: rx error: %d buffers missing\n",
-> -					 dev->name, hdr->mhdr.num_buffers);
-> -				dev->stats.rx_length_errors++;
-> -				goto drop;
-> -			}
-> -
-> -			__skb_unlink(nskb, &vi->recv);
-> -			vi->num--;
-> -
-> -			skb_shinfo(skb)->frags[i] = skb_shinfo(nskb)->frags[0];
-> -			skb_shinfo(nskb)->nr_frags = 0;
-> -			kfree_skb(nskb);
-> -
-> -			if (len > PAGE_SIZE)
-> -				len = PAGE_SIZE;
-> -
-> -			skb_shinfo(skb)->frags[i].size = len;
-> -			skb_shinfo(skb)->nr_frags++;
-> -			skb->data_len += len;
-> -			skb->len += len;
-> +			skb_unlink(skb, &vi->recv);
-> +			goto drop;
->  		}
-> -	} else {
-> -		len -= sizeof(hdr->hdr);
-> +	}
->  
-> -		if (len <= MAX_PACKET_LEN)
-> -			trim_pages(vi, skb);
-> +	if (vi->mergeable_rx_bufs)
-> +		skb = receive_mergeable(vi, page, len);
-> +	else if (vi->big_packets)
-> +		skb = receive_big(vi, page, len);
-> +	else {
-> +		__skb_unlink(skb, &vi->recv);
-> +		len -= sizeof(struct virtio_net_hdr);
-> +		skb_trim(skb, len);
-
-So above you override skb that you initialized
-at the start of function. It would be better
-to do in the 3'd case:
-		skb = buf;
-as well. And then it would be clear why
-" Only for mergeable and big" comment below
-is true.
-
-> +	}
->  
-> -		err = pskb_trim(skb, len);
-> -		if (err) {
-> -			pr_debug("%s: pskb_trim failed %i %d\n", dev->name,
-> -				 len, err);
-> -			dev->stats.rx_dropped++;
-> -			goto drop;
-> -		}
-> +	if (unlikely(!skb)) {
-> +		dev->stats.rx_dropped++;
-> +		/* only for mergeable buf and big packets */
-> +		give_pages(vi, page);
-> +		return;
-
-Did you remove drop: label? If no, is it unused now?
-
->  	}
->  
+> +	int copy, hdr_len, offset;
+> +	char *p;
+> +
+> +	p = page_address(*page);
+> +
+> +	skb = netdev_alloc_skb(vi->dev, GOOD_COPY_LEN + NET_IP_ALIGN);
+> +	if (unlikely(!skb))
+> +		return NULL;
+> +
+> +	skb_reserve(skb, NET_IP_ALIGN);
 > +	hdr = skb_vnet_hdr(skb);
 > +
->  	skb->truesize += skb->data_len;
->  	dev->stats.rx_bytes += skb->len;
->  	dev->stats.rx_packets++;
-> @@ -520,105 +465,22 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp, bool *oom)
->  	return err;
->  }
->  
-> -static bool try_fill_recv_maxbufs(struct virtnet_info *vi, gfp_t gfp)
-> -{
-> -	struct sk_buff *skb;
-> -	struct scatterlist sg[2+MAX_SKB_FRAGS];
-> -	int num, err, i;
-> -	bool oom = false;
-> -
-> -	sg_init_table(sg, 2+MAX_SKB_FRAGS);
-> -	do {
-> -		struct skb_vnet_hdr *hdr;
-> -
-> -		skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
-> -		if (unlikely(!skb)) {
-> -			oom = true;
-> -			break;
-> -		}
-> -
-> -		skb_put(skb, MAX_PACKET_LEN);
-> -
-> -		hdr = skb_vnet_hdr(skb);
-> -		sg_set_buf(sg, &hdr->hdr, sizeof(hdr->hdr));
-> -
-> -		if (vi->big_packets) {
-> -			for (i = 0; i < MAX_SKB_FRAGS; i++) {
-> -				skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-> -				f->page = get_a_page(vi, gfp);
-> -				if (!f->page)
-> -					break;
-> -
-> -				f->page_offset = 0;
-> -				f->size = PAGE_SIZE;
-> -
-> -				skb->data_len += PAGE_SIZE;
-> -				skb->len += PAGE_SIZE;
-> -
-> -				skb_shinfo(skb)->nr_frags++;
-> -			}
-> -		}
-> -
-> -		num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
-> -		skb_queue_head(&vi->recv, skb);
-> -
-> -		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, num, skb);
-> -		if (err < 0) {
-> -			skb_unlink(skb, &vi->recv);
-> -			trim_pages(vi, skb);
-> -			kfree_skb(skb);
-> -			break;
-> -		}
-> -		vi->num++;
-> -	} while (err >= num);
-> -	if (unlikely(vi->num > vi->max))
-> -		vi->max = vi->num;
-> -	vi->rvq->vq_ops->kick(vi->rvq);
-> -	return !oom;
-> -}
-> -
->  /* Returns false if we couldn't fill entirely (OOM). */
->  static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
->  {
-> -	struct sk_buff *skb;
-> -	struct scatterlist sg[1];
->  	int err;
->  	bool oom = false;
->  
-> -	if (!vi->mergeable_rx_bufs)
-> -		return try_fill_recv_maxbufs(vi, gfp);
-> -
->  	do {
-> -		skb_frag_t *f;
-> -
-> -		skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
-> -		if (unlikely(!skb)) {
-> -			oom = true;
-> -			break;
-> -		}
-> -
-> -		f = &skb_shinfo(skb)->frags[0];
-> -		f->page = get_a_page(vi, gfp);
-> -		if (!f->page) {
-> -			oom = true;
-> -			kfree_skb(skb);
-> -			break;
-> -		}
-> -
-> -		f->page_offset = 0;
-> -		f->size = PAGE_SIZE;
-> -
-> -		skb_shinfo(skb)->nr_frags++;
-> -
-> -		sg_init_one(sg, page_address(f->page), PAGE_SIZE);
-> -		skb_queue_head(&vi->recv, skb);
-> +		if (vi->mergeable_rx_bufs)
-> +			err = add_recvbuf_mergeable(vi, gfp, &oom);
-> +		else if (vi->big_packets)
-> +			err = add_recvbuf_big(vi, gfp, &oom);
-> +		else
-> +			err = add_recvbuf_small(vi, gfp, &oom);
->  
-> -		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 1, skb);
-> -		if (err < 0) {
-> -			skb_unlink(skb, &vi->recv);
-> -			kfree_skb(skb);
-> +		if (oom || err < 0)
->  			break;
-> -		}
->  		vi->num++;
->  	} while (err > 0);
->  	if (unlikely(vi->num > vi->max))
-> @@ -657,14 +519,13 @@ static void refill_work(struct work_struct *work)
->  static int virtnet_poll(struct napi_struct *napi, int budget)
->  {
->  	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
-> -	struct sk_buff *skb = NULL;
-> +	void *buf = NULL;
+> +	if (vi->mergeable_rx_bufs) {
+> +		hdr_len = sizeof(hdr->mhdr);
 
-Does this have to be initialized? If not (as it seems) better not do it.
+sizeof(hdr->mhdr) -> sizeof hdr->mhdr
 
->  	unsigned int len, received = 0;
->  
->  again:
->  	while (received < budget &&
-> -	       (skb = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
-> -		__skb_unlink(skb, &vi->recv);
-> -		receive_skb(vi->dev, skb, len);
-> +	       (buf = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
-> +		receive_buf(vi->dev, buf, len);
->  		vi->num--;
->  		received++;
->  	}
-> @@ -1205,6 +1066,7 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
->  {
->  	struct virtnet_info *vi = vdev->priv;
->  	struct sk_buff *skb;
-> +	int freed;
->  
->  	/* Stop all the virtqueues. */
->  	vdev->config->reset(vdev);
-> @@ -1216,11 +1078,14 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
->  	}
->  	__skb_queue_purge(&vi->send);
->  
-> -	BUG_ON(vi->num != 0);
-> -
->  	unregister_netdev(vi->dev);
->  	cancel_delayed_work_sync(&vi->refill);
->  
-> +	freed = vi->rvq->vq_ops->destroy_bufs(vi->rvq, virtio_net_free_pages);
+> +		offset = hdr_len;
+> +	} else {
+> +		/* share one page between virtio_net header and data */
+> +		struct padded_vnet_hdr {
+> +			struct virtio_net_hdr hdr;
+> +			/* This padding makes our data 16 byte aligned */
 
-This looks like double free to me: should not you remove code that does
-__skb_dequeue on recv above?
+I think reader will still wonder about is "why does it
+need to be 16 byte aligned?". And this is what
+comment should explain I think.
 
-> +	vi->num -= freed;
+> +			char padding[6];
+> +		};
+> +		hdr_len = sizeof(hdr->hdr);
+> +		offset = sizeof(struct padded_vnet_hdr);
+> +	}
 > +
-> +	BUG_ON(vi->num != 0);
+> +	memcpy(hdr, p, hdr_len);
 > +
->  	vdev->config->del_vqs(vi->vdev);
+> +	*len -= hdr_len;
+> +	p += offset;
+> +
+> +	copy = *len;
+> +	if (copy > skb_tailroom(skb))
+> +		copy = skb_tailroom(skb);
+> +	memcpy(skb_put(skb, copy), p, copy);
+> +
+> +	*len -= copy;
+> +	offset += copy;
+> +
+> +	if (*len) {
+> +		*len = skb_set_frag(skb, *page, offset, *len);
+
+So you are overriding *len here? why bother calculating it
+then?
+
+Also - this does *not* always copy all of data, and *page
+tells us whether it did a copy or not? This is pretty confusing,
+as APIs go. Also, if we have scatter/gather anyway,
+why do we bother copying the head?
+Also, before skb_set_frag skb is linear, right?
+So in fact you do not need generic skb_set_frag,
+you can just put stuff in the first fragment.
+For example, pass the fragment number to skb_set_frag,
+compiler will be able to better optimize.
+
+> +		*page = (struct page *)(*page)->private;
+> +	} else {
+> +		give_pages(vi, *page);
+> +		*page = NULL;
+> +	}
+> +
+> +	return skb;
+> +}
+> +
+>  static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+>  			unsigned len)
+>  {
+> @@ -162,7 +237,7 @@ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+>  		len -= copy;
 >  
->  	while (vi->pages)
+>  		if (!len) {
+> -			give_a_page(vi, skb_shinfo(skb)->frags[0].page);
+> +			give_pages(vi, skb_shinfo(skb)->frags[0].page);
+>  			skb_shinfo(skb)->nr_frags--;
+>  		} else {
+>  			skb_shinfo(skb)->frags[0].page_offset +=
 > 
