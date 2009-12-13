@@ -1,87 +1,54 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Sun, 13 Dec 2009 14:00:43 -0500
-Message-ID: <4B2539DB.5020805@gmail.com>
-References: <20091211.181712.211179737.davem@davemloft.net>	<4B236C18.4050007@gmail.com> <20091212022439.fae86037.akpm@linux-foundation.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] can: CAN_MCP251X should depend on HAS_DMA
+Date: Sun, 13 Dec 2009 20:11:06 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.0912132008100.21225@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753920AbZLMTHI@vger.kernel.org>
-In-Reply-To: <20091212022439.fae86037.akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Christian Pellegrin <chripell@fsfe.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkop
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753955AbZLMTLO@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Sat, 12 Dec 2009 05:10:32 -0500 William Allen Simpson <william.allen.simpson@gmail.com> wrote:
-> 
->> David Miller wrote:
->>> David S. Miller (4):
->>>       Merge branch 'master' of git://git.kernel.org/.../linville/wireless-next-2.6
->>>       tcp: Remove runtime check that can never be true.
->> This is a poor patch that was never sent to the netdev list for review.
-> 
-> It's better than the original code, which was checking to see whether a
-> u8 exceeded 536!
-> 
-It's preventative, to insure against changes to field sizes.  And it's
-correct C in form that has compiled without error for a dozen years.  But
-as you pointed out, gcc 4.0 generates a warning, while gcc 4.4 doesn't....
+When building for Sun 3:
 
-In the olden days, we'd have done these tests with preprocessor code, and
-that's apparently the style that Linux still prefers.  Sorry, I've not paid
-much attention since early debian, so I'm not up on the current state of
-undocumented Linux defines.
+drivers/net/can/mcp251x.c:1074: undefined reference to `dma_free_coherent'
+drivers/net/can/mcp251x.c:976: undefined reference to `dma_alloc_coherent'
+drivers/net/can/mcp251x.c:1050: undefined reference to `dma_free_coherent'
 
-As I mentioned in an early post to the netdev list, while I've long had
-credit in BSD-derived systems, this is the first I've tried to implement for
-Linux kernel -- although I did give permission 15 or so years ago for a fair
-amount of my stuff to be ported here under GPL....
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/can/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks in advance for your patience.
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index 8c485aa..05b7517 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -50,7 +50,7 @@ config CAN_TI_HECC
+ 
+ config CAN_MCP251X
+ 	tristate "Microchip MCP251x SPI CAN controllers"
+-	depends on CAN_DEV && SPI
++	depends on CAN_DEV && SPI && HAS_DMA
+ 	---help---
+ 	  Driver for the Microchip MCP251x SPI CAN controllers.
+ 
+-- 
+1.6.0.4
 
+Gr{oetje,eeting}s,
 
->> Please substitute the better patch in the main tree.
-> 
-> Linus won't remove a commit from the middle of David's merge and
-> replace it with some unchangelogged, un-signed-off alternative.
-> 
-Actually, it *was* change-logged, discussed, and signed-off:
+						Geert
 
-   http://www.spinics.net/lists/netdev/msg115570.html
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-David rejected it with the deeply explanatory message:
-
-   "Guess again."
-
-   http://www.spinics.net/lists/netdev/msg115585.html
-
-I'll also remind you that David has previously rejected range-checking in
-other patches of mine, with the message:
-
-   "You're being way too anal here, and adding these checks to
-   drivers would be just a lot of rediculious bloat." [sic]
-
-So, we have a fundamental difference about checking for negative before
-stuffing a signed value into an unsigned value.
-
-Then again, in 30+ years, AFAIK I've never shipped code that had a
-serious denial of service attack because of a failure to range check.
-Yes, I'm referring to 2.6.29, .30, and .31.
-
-I may not be perfect, but I try really, really hard to get it right.
-
-
-> An appropriate way to handle this is to prepare a new patch against
-> Linus or David's tree after this merge has been performed.  Package
-> that patch in the usual way and send it to the usual recipients. That's
-> the no-fuss, no-drama, stuff-gets-done path.
-> 
-It was ready before the merge was performed -- instead we got Miller-lite
-drama, fuss, and no-stuff-gets-done....
-
-Since David has rejected it, I was using this message to appeal.
-
-Is there no ability to appeal poor decisions by a maintainer?
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
