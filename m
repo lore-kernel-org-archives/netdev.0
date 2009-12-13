@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: question about drivers/net/3c507.c
-Date: Sun, 13 Dec 2009 02:40:16 -0800 (PST)
-Message-ID: <20091213.024016.77044163.davem@davemloft.net>
-References: <Pine.LNX.4.64.0912131119540.24267@ask.diku.dk>
-	<Pine.LNX.4.64.0912131124100.24267@ask.diku.dk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: question about drivers/net/usb/rtl8150.c
+Date: Sun, 13 Dec 2009 02:40:29 -0800 (PST)
+Message-ID: <20091213.024029.93629279.davem@davemloft.net>
+References: <Pine.LNX.4.64.0912131126570.24267@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: julia@diku.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43664
-	"HELO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752368AbZLMKkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 05:40:15 -0500
-In-Reply-To: <Pine.LNX.4.64.0912131124100.24267@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: julia-dAYI7NvHqcQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0912131126570.24267-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
-Date: Sun, 13 Dec 2009 11:25:02 +0100 (CET)
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Date: Sun, 13 Dec 2009 11:28:42 +0100 (CET)
 
-> The function __devinit cpmac_probe in the file drivers/net/3c507.c 
+> The function rtl8150_set_mac_address in the file drivers/net/usb/rtl8150.c
 > contains the following code:
 > 
->        memcpy_toio(lp->base+SA_OFFSET, dev->dev_addr,
->                   sizeof(dev->dev_addr));
->  
+> set_registers(dev, IDR, sizeof(netdev->dev_addr), netdev->dev_addr);
+> 
 > Is it correct that the size of the pointer is what is wanted?
 
-Same as the cpmac.c case, needs to be fixed.
+Like cpmac.c and 3c507.c, needs to be fixed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
