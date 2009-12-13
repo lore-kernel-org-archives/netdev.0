@@ -1,56 +1,124 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] drivers/net/usb: Correct code taking the size of a pointer
-Date: Sun, 13 Dec 2009 16:47:04 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0912131646400.27767@ask.diku.dk>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH] net: restore ip source validation WAS(Re:
+ [tproxy,regression] tproxy broken in 2.6.32
+Date: Sun, 13 Dec 2009 11:52:27 -0500
+Message-ID: <1260723147.6167.20.camel@bigi>
+References: <1259585129.3992.13.camel@nienna.balabit>
+	 <1259589577.873.30.camel@bigi> <1259674488.3168.45.camel@bigi>
+	 <20091202.223117.228943068.davem@davemloft.net>
+	 <1259848398.3766.43.camel@bigi>  <4B17C346.3000906@trash.net>
+	 <1259849264.13245.3.camel@nienna.balabit>  <1259850594.3766.46.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Petko Manolov <petkan@users.sourceforge.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vge
+Content-Type: multipart/mixed; boundary="=-MuMnMHEgHPFbk6IV1sbK"
+Cc: KOVACS Krisztian <hidden@balabit.hu>,
+	Patrick McHardy <kaber@trash.net>, hidden@sch.bme.hu,
+	aschultz@warp10.net, tproxy@lists.balabit.hu,
+	netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:60531 "HELO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752025AbZLMPrH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2009 10:47:07 -0500
+Received: from qw-out-2122.google.com ([74.125.92.26]:18749 "HELO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752501AbZLMQwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 11:52:32 -0500
+Received: by qw-out-2122.google.com with SMTP id 3so524905qwe.37
+        for <netdev@vger.kernel.org>; Sun, 13 Dec 2009 08:52:31 -0800 (PST)
+In-Reply-To: <1259850594.3766.46.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
 
-sizeof(dev->dev_addr) is the size of a pointer.  A few lines above, the
-size of this field is obtained using netdev->addr_len for a call to memcpy,
-so do the same here.
+--=-MuMnMHEgHPFbk6IV1sbK
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-A simplified version of the semantic patch that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+On Thu, 2009-12-03 at 09:29 -0500, jamal wrote:
 
-// <smpl>
-@@
-expression *x;
-expression f;
-type T;
-@@
+> Dave - i can resubmit on top of Patricks changes once you swallow them.
+> Or if you consider this a bug fix then i could submit before Patrick's
+> (which is essentially that patch). 
+> Let me know.
 
-*f(...,(T)x,...)
-// </smpl>
+Ok, I am gonna pull a Rick-Jones;-> and ASS-U-ME the attached patch is
+fine.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+cheers,
+jamal
 
----
- drivers/net/usb/rtl8150.c           |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index b091e20..f14d225 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -324,7 +324,7 @@ static int rtl8150_set_mac_address(struct net_device *netdev, void *p)
- 		dbg("%02X:", netdev->dev_addr[i]);
- 	dbg("%02X\n", netdev->dev_addr[i]);
- 	/* Set the IDR registers. */
--	set_registers(dev, IDR, sizeof(netdev->dev_addr), netdev->dev_addr);
-+	set_registers(dev, IDR, netdev->addr_len, netdev->dev_addr);
- #ifdef EEPROM_WRITE
- 	{
- 	u8 cr;
+--=-MuMnMHEgHPFbk6IV1sbK
+Content-Disposition: attachment; filename="src-valid-m"
+Content-Type: text/plain; name="src-valid-m"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+commit 24a5f4ecb9f90be07f357b55a3c782088789a990
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Sun Dec 13 11:25:52 2009 -0500
+
+    [PATCH] net: restore ip source validation
+    
+    when using policy routing and the skb mark:
+    there are cases where a back path validation requires us
+    to use a different routing table for src ip validation than
+    the one used for mapping ingress dst ip.
+    One such a case is transparent proxying where we pretend to be
+    the destination system and therefore the local table
+    is used for incoming packets but possibly a main table would
+    be used on outbound.
+    Make the default behavior to allow the above and if users
+    need to turn on the symmetry via sysctl src_valid_mark
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 699e85c..b230492 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -81,6 +81,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_FORWARD(in_dev)		IN_DEV_CONF_GET((in_dev), FORWARDING)
+ #define IN_DEV_MFORWARD(in_dev)		IN_DEV_ANDCONF((in_dev), MC_FORWARDING)
+ #define IN_DEV_RPFILTER(in_dev)		IN_DEV_MAXCONF((in_dev), RP_FILTER)
++#define IN_DEV_SRC_VMARK(in_dev)    	IN_DEV_ORCONF((in_dev), SRC_VMARK)
+ #define IN_DEV_SOURCE_ROUTE(in_dev)	IN_DEV_ANDCONF((in_dev), \
+ 						       ACCEPT_SOURCE_ROUTE)
+ #define IN_DEV_ACCEPT_LOCAL(in_dev)	IN_DEV_ORCONF((in_dev), ACCEPT_LOCAL)
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 877ba03..bd27fbc 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -482,6 +482,7 @@ enum
+ 	NET_IPV4_CONF_ARP_ACCEPT=21,
+ 	NET_IPV4_CONF_ARP_NOTIFY=22,
+ 	NET_IPV4_CONF_ACCEPT_LOCAL=23,
++	NET_IPV4_CONF_SRC_VMARK=24,
+ 	__NET_IPV4_CONF_MAX
+ };
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 5cdbc10..040c4f0 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1397,6 +1397,7 @@ static struct devinet_sysctl_table {
+ 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_SOURCE_ROUTE,
+ 					"accept_source_route"),
+ 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_LOCAL, "accept_local"),
++		DEVINET_SYSCTL_RW_ENTRY(SRC_VMARK, "src_valid_mark"),
+ 		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP, "proxy_arp"),
+ 		DEVINET_SYSCTL_RW_ENTRY(MEDIUM_ID, "medium_id"),
+ 		DEVINET_SYSCTL_RW_ENTRY(BOOTP_RELAY, "bootp_relay"),
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 3323168..3ca6269 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -252,6 +252,8 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+ 		no_addr = in_dev->ifa_list == NULL;
+ 		rpf = IN_DEV_RPFILTER(in_dev);
+ 		accept_local = IN_DEV_ACCEPT_LOCAL(in_dev);
++		if (mark && !IN_DEV_SRC_VMARK(in_dev))
++			mark = 0;
+ 	}
+ 	rcu_read_unlock();
+ 
+
+--=-MuMnMHEgHPFbk6IV1sbK--
+
