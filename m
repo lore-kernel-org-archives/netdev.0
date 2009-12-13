@@ -1,65 +1,45 @@
-From: Michael Stone <michael@laptop.org>
-Subject: setrlimit(RLIMIT_NETWORK) vs. prctl(???)
-Date: Sun, 13 Dec 2009 00:09:00 -0500
-Message-ID: <20091213050900.GC4369@heat>
-References: <20091213034418.GA4416@heat>
+From: Ulrich Drepper <drepper@gmail.com>
+Subject: Re: setrlimit(RLIMIT_NETWORK) vs. prctl(???)
+Date: Sat, 12 Dec 2009 21:20:13 -0800
+Message-ID: <a36005b50912122120n4656b97bx6a6d862a57671e6d@mail.gmail.com>
+References: <20091213034418.GA4416@heat> <20091213050900.GC4369@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
 	Bryan Donlan <bdonlan@gmail.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>,
+	=?UTF-8?Q?R=C3=A9mi_Denis=2DCourmont?= <rdenis@simphalempin.com>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	"C. Scott Ananian" <cscott@cscott.net>,
 	James Morris <jmorris@namei.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Michael Stone <michael@laptop.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751154AbZLMFHL@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091213034418.GA4416@heat>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Mark Seaborn <mrs@mythic-beasts.com>
+To: Michael Stone <michael@laptop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.25]:19257 "HELO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750780AbZLMFUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 00:20:35 -0500
+In-Reply-To: <20091213050900.GC4369@heat>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Folks,
+On Sat, Dec 12, 2009 at 21:09, Michael Stone <michael@laptop.org> wrote:
+>> That being said, I'm not wedded to the decision. Could you give me some
+>> more
+>> specific examples of the kinds of changes in low-level userspace code that
+>> you're worried about?
 
-A colleague just asked me an excellent question about my approach which I'd
-like to share with you. Paraphrasing, he wrote:
+It was an accident that I sent the email privately.
 
-> rlimits seem very heavy for a simple inherited boolean flag. Also, creating
-> a new one will require modifying a lot of delicate userland software.
-> Wouldn't some new prctl() flags be a better choice?
-
-Here's my response:
-
-> You're absolutely right that choosing to expose this functionality as an
-> rlimit (as opposed to as a new syscall or as a flag to an old syscall like
-> prctl()) is a decision with complex consequences.
-> 
-> I picked rlimits for this patch (after trying the "new syscall" approach
-> privately) because doing so provides exactly the interface, semantics, and
-> userland integration that I want:
->
-> interface: "unprivileged", "temporarily drop", "permanently drop", "get
-> current state", "persist current state across exec()", and some room for
-> future expansion of semantics by definining new state values between 0 and
-> RLIMIT_INFINITY.
-> 
-> integration: lots of sandboxing code already contains logic to drop rlimits
-> when starting up an isolated process. Furthermore, I think it would be really
-> great to be able to limit networking from the shell via ulimit and on a
-> per-user basis via /etc/security/limits.conf.
-> 
-> That being said, I'm not wedded to the decision. Could you give me some more
-> specific examples of the kinds of changes in low-level userspace code that
-> you're worried about?
-
-Regards,
-
-Michael
+As summarized in the paraphrased comment, it's a pain to deal with
+rlimit extensions.  It's easy enough to do all this using prctl() with
+the same semantics and without forcing any other code to be modified.
+I let others more competent to judge the usefulness.  But using rlimit
+as the interface is just plain wrong.
