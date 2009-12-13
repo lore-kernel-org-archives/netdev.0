@@ -1,100 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Fix userspace RTM_NEWLINK notifications.
-Date: Sun, 13 Dec 2009 00:11:15 -0800
-Message-ID: <m1fx7fmgyk.fsf@fess.ebiederm.org>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: Network isolation with RLIMIT_NETWORK, cont'd.
+Date: Sun, 13 Dec 2009 10:32:20 +0200
+Message-ID: <200912131032.24251.remi@remlab.net>
+References: <20091213034418.GA4416@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <stable@kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:51225 "HELO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751199AbZLMILW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 03:11:22 -0500
+Received: from yop.chewa.net ([91.121.105.214]:45904 "HELO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751775AbZLMIc2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 03:32:28 -0500
+In-Reply-To: <20091213034418.GA4416@heat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+	Hello,
 
-I received some bug reports about userspace programs having problems
-because after RTM_NEWLINK was received they could not immediate access
-files under /proc/sys/net/ because they had not been registered yet.
+Le dimanche 13 d=E9cembre 2009 05:44:18 Michael Stone, vous avez =E9cri=
+t :
+> You were all meant to be included on the CC-list for the letter and p=
+atches
+> which I just sent to lkml:
+>=20
+>    http://lkml.org/lkml/2009/12/12/149
 
-The original problem was trivially fixed by moving the userspace
-notification from rtnetlink_event() to the end of
-register_netdevice().
+You explicitly mention the need to connect to the X server over local s=
+ockets. =20
+But won't that allow the sandboxed application to send synthetic events=
+ to any=20
+other X11 applications? Hence unless the whole X server has restricted =
+network=20
+access, this seems a bit broken? D-Bus, which also uses local sockets, =
+will=20
+exhibit similar issues, as will any unrestricted IPC mechanism in fact.
 
-When testing that change I discovered I was still getting RTM_NEWLINK
-events before I could access proc and I was also getting RTM_NEWLINK
-events after I was seeing RTM_DELLINK.  Things practically guaranteed
-to confuse userspace.
+I am not sure if restricting network access but not other file descript=
+ors=20
+makes that much sense... ? Then again, I'm not entirely clear what you =
+are=20
+trying to solve.
 
-After a little more investigation these extra notifications proved to
-be from the new notifiers NETDEV_POST_INIT and NETDEV_UNREGISTER_BATCH
-hitting the default case in rtnetlink_event, and triggering
-unnecessary RTM_NEWLINK messages.
+If I had to sandbox something, I'd drop the process file limit to 0. Th=
+at will=20
+effectively cut off network, file system, and POSIX IPCs. Unfortunately=
+, the=20
+process can still use SysV IPC, ptrace(), and send signals to others. S=
+o those=20
+are the gaps I would first try to contain.
 
-rtnetlink_event now explicitly handles NETDEV_UNREGISTER_BATCH and
-NETDEV_POST_INIT to avoid sending the incorrect userspace
-notifications.
-
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
----
- net/core/dev.c       |   11 +++++++++++
- net/core/rtnetlink.c |    6 +++---
- 2 files changed, 14 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c36a17a..369e83a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5033,6 +5033,11 @@ int register_netdevice(struct net_device *dev)
- 		rollback_registered(dev);
- 		dev->reg_state = NETREG_UNREGISTERED;
- 	}
-+	/*
-+	 *	Prevent userspace races by waiting until the network
-+	 *	device is fully setup before sending notifications.
-+	 */
-+	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
- 
- out:
- 	return ret;
-@@ -5595,6 +5600,12 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	/* Notify protocols, that a new device appeared. */
- 	call_netdevice_notifiers(NETDEV_REGISTER, dev);
- 
-+	/*
-+	 *	Prevent userspace races by waiting until the network
-+	 *	device is fully setup before sending notifications.
-+	 */
-+	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
-+
- 	synchronize_net();
- 	err = 0;
- out:
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 33148a5..794bcb8 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1364,15 +1364,15 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_UNREGISTER:
- 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
- 		break;
--	case NETDEV_REGISTER:
--		rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
--		break;
- 	case NETDEV_UP:
- 	case NETDEV_DOWN:
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
- 		break;
-+	case NETDEV_POST_INIT:
-+	case NETDEV_REGISTER:
- 	case NETDEV_CHANGE:
- 	case NETDEV_GOING_DOWN:
-+	case NETDEV_UNREGISTER_BATCH:
- 		break;
- 	default:
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
--- 
-1.6.5.2.143.g8cc62
-
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
+http://fi.linkedin.com/in/remidenis
