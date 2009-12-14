@@ -1,81 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
-	vhost-net
-Date: Mon, 14 Dec 2009 01:40:55 +0200
-Message-ID: <20091213234055.GA28340@redhat.com>
-References: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com> <20091213122512.GA17255@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: re.emese@gmail.com
+Subject: [PATCH 0/1] Constify struct neigh_ops for 2.6.32-git-053fe57ac v2
+Date: Mon, 14 Dec 2009 01:00:14 +0100
+Message-ID: <cover.1260663002.git.re.emese@gmail.com>
+Cc: Emese Revfy <re.emese@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@vyatta.com
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27842 "EHLO mx1.redhat.com"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:34426 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752037AbZLMXoR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Dec 2009 18:44:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20091213122512.GA17255@gondor.apana.org.au>
+	id S1754951AbZLMX6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2009 18:58:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 13, 2009 at 08:25:12PM +0800, Herbert Xu wrote:
-> Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > When testing vhost-net patches with a guest running linux 2.6.32, i am
-> > running into "Unexpected full queue" warning messages from start_xmit() in
-> > virtio_net.c causing a lot of requeues and a drastic reduction in throughput.
-> > 
-> > With a guest running 2.6.31, i get guest to host throughput around 7000Mb/s,
-> > but it drops to around 3200Mb/s with 2.6.32.
-> > 
-> > I don't see this problem with usermode virtio in qemu, but i get a thruput of
-> > only 2700Mb/s with both 2.6.31 and 2.6.32.
-> > 
-> > The following patch fixes this problem by dropping the skb and not requeuing
-> > to qdisc when it cannot be added to ring buffer. With this patch, i see
-> > similar performance as 2.6.31 with vhost-net.
-> > 
-> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index b9e002f..307cfd6 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -528,7 +528,11 @@ again:
-> >                        netif_start_queue(dev);
-> >                        goto again;
-> >                }
-> > -               return NETDEV_TX_BUSY;
-> > +
-> > +               /* drop the skb under stress. */ 
-> > +               vi->dev->stats.tx_dropped++;
-> > +               kfree_skb(skb);
-> > +               return NETDEV_TX_OK;
-> >        }
-> 
-> This patch only hides the real problem.  The issue is that we
-> should never start the queue unless we can accomodate a full
-> 64KB packet.
-> 
-> In your case, whenever we have the space for a single slot we'd
-> start the queue.  However, if the head of the queue required more
-> than one slot it would immediately return BUSY and stop the queue
-> again.
-> 
-> Your patch simply drops the packet (likely to be TSO) which would
-> end up upsetting the TCP transmitter.
-> 
-> Please see what a real Ethernet driver (e.g., tg3 or ixgbe) does
-> for queue management.
-> 
-> Cheers,
+From: Emese Revfy <re.emese@gmail.com>
 
-An interesting thing is that
-48925e372f04f5e35fec6269127c62b2c71ab794
-was supposed to do this already.
+Hello everyone!
 
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The following patch series attempts to constify several structures
+that hold function pointers. This is only the initial batch, there
+are about over 150 candidate structures, some of which can be
+constified as well, I plan to submit them in the future.
+
+The list of constified structures in this series (* marks this thread):
+acpi_dock_ops
+address_space_operations
+backlight_ops
+block_device_operations
+dma_map_ops
+extent_io_ops
+file_lock_operations
+file_operations
+hv_ops
+intel_dvo_dev_ops
+item_operations
+iwl_ops
+kgdb_arch
+kgdb_io
+kset_uevent_ops
+lock_manager_operations
+microcode_ops
+mtrr_ops
+* neigh_ops
+nlmsvc_binding
+pci_raw_ops
+platform_hibernation_ops
+platform_suspend_ops
+snd_ac97_build_ops
+sysfs_ops
+usb_mon_operations
+wd_ops
+
+There are certain exceptions where a given instance of the structure
+cannot be const, they are marked with a comment in the patch.
+
+The patches compile fine with an allyesconfig kernel on i386 and x86_64.
+
+Please let me know if any of these structures should not be constified
+and any other issues you see with them.
+
+
+Changelog:
+----------
+v1 -> v2
+	- updated to linus-git-053fe57
+	- extended comments with a reference to code that prevents constification
+	- split up patches by subsystem as suggested by Greg KH, Jiri Slaby
+	- added all Acked-by's received so far
+	- removed patch for super_operations for now
+	- removed patch for ptmx_fops
+
+Thanks,
+   Emese
+
+ include/net/neighbour.h |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
+
