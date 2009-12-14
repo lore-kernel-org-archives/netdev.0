@@ -1,54 +1,103 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
-	function for virtio
-Date: Mon, 14 Dec 2009 22:22:53 +0200
-Message-ID: <20091214202253.GG6150@redhat.com>
-References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260534805.30371.10.camel@localhost.localdomain> <20091213102632.GB6789@redhat.com> <1260821285.8716.7.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932429AbZLNUZn@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1260821285.8716.7.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tomas Winkler <tomas.winkler@intel.com>
+Subject: [net-2.6 1/3] iwmc3200top: clean up fw_download
+Date: Mon, 14 Dec 2009 22:30:21 +0200
+Message-ID: <1260822623-16480-1-git-send-email-tomas.winkler@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	guy.cohen@intel.com, ron.rindjunsky@intel.com,
+	Tomas Winkler <tomas.winkler@intel.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-mmc@vger.kernel.org
+Return-path: <linux-mmc-owner@vger.kernel.org>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 14, 2009 at 12:08:05PM -0800, Shirley Ma wrote:
-> Hello Michael,
-> 
-> I agree with the comments (will have two patches instead of 4 based on
-> Rusty's comments) except below one.
-> 
-> On Sun, 2009-12-13 at 12:26 +0200, Michael S. Tsirkin wrote:
-> > That said - do we have to use a callback?
-> > I think destroy_buf which returns data pointer,
-> > and which we call repeatedly until we get NULL
-> > or error, would be an a better, more flexible API.
-> > This is not critical though.
-> 
-> The reason to use this is because in virtio_net remove, it has
-> BUG_ON(vi->num != 0), which will be consistent with small skb packet. If
-> we use NULL, error then we lose the track for vi->num, since we don't
-> know how many buffers have been passed to ULPs or still unused.
-> 
-> Thanks
-> Shirley
+1. removed redundant NULL-pointers checks in iwmct_fw_load
+as release_firmware and kfree are NULL pointer friendly
+2. remove redundant memset of the parser since the structure
+is fully initialized in iwmct_fw_parser_init function
 
-I dont insist, but my idea was
+Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+---
+ drivers/misc/iwmc3200top/fw-download.c |   20 ++++++--------------
+ 1 files changed, 6 insertions(+), 14 deletions(-)
 
-for (;;) {
-	b = vq->destroy(vq);
-	if (!b)
-		break;
-	--vi->num;
-	put_page(b);
-}
-
-so we do not have to lose track of the counter.
-
+diff --git a/drivers/misc/iwmc3200top/fw-download.c b/drivers/misc/iwmc3200top/fw-download.c
+index 50d431e..474be92 100644
+--- a/drivers/misc/iwmc3200top/fw-download.c
++++ b/drivers/misc/iwmc3200top/fw-download.c
+@@ -50,8 +50,7 @@ static int iwmct_fw_parser_init(struct iwmct_priv *priv, const u8 *file,
+ 	parser->file = file;
+ 	parser->file_size = file_size;
+ 	parser->cur_pos = 0;
+-	parser->buf = NULL;
+-
++	parser->entry_point = 0;
+ 	parser->buf = kzalloc(block_size, GFP_KERNEL);
+ 	if (!parser->buf) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD, "kzalloc error\n");
+@@ -298,8 +297,6 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 	__le32 addr;
+ 	int ret;
+ 
+-	/* clear parser struct */
+-	memset(&priv->parser, 0, sizeof(struct iwmct_parser));
+ 
+ 	/* get the firmware */
+ 	ret = request_firmware(&raw, fw_name, &priv->func->dev);
+@@ -317,6 +314,7 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 
+ 	LOG_INFO(priv, FW_DOWNLOAD, "Read firmware '%s'\n", fw_name);
+ 
++	/* clear parser struct */
+ 	ret = iwmct_fw_parser_init(priv, raw->data, raw->size, priv->trans_len);
+ 	if (ret < 0) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD,
+@@ -324,7 +322,6 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 		goto exit;
+ 	}
+ 
+-	/* checksum  */
+ 	if (!iwmct_checksum(priv)) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD, "checksum error\n");
+ 		ret = -EINVAL;
+@@ -333,23 +330,18 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 
+ 	/* download firmware to device */
+ 	while (iwmct_parse_next_section(priv, &pdata, &len, &addr)) {
+-		if (iwmct_download_section(priv, pdata, len, addr)) {
++		ret = iwmct_download_section(priv, pdata, len, addr);
++		if (ret) {
+ 			LOG_ERROR(priv, FW_DOWNLOAD,
+ 				  "%s download section failed\n", fw_name);
+-			ret = -EIO;
+ 			goto exit;
+ 		}
+ 	}
+ 
+-	iwmct_kick_fw(priv, !!(priv->barker & BARKER_DNLOAD_JUMP_MSK));
++	ret = iwmct_kick_fw(priv, !!(priv->barker & BARKER_DNLOAD_JUMP_MSK));
+ 
+ exit:
+ 	kfree(priv->parser.buf);
+-
+-	if (raw)
+-		release_firmware(raw);
+-
+-	raw = NULL;
+-
++	release_firmware(raw);
+ 	return ret;
+ }
 -- 
-MST
+1.6.0.6
+
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
+
