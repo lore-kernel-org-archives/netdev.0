@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/9] drivers/atm: Correct code taking the size of a
+Subject: Re: [PATCH 4/9] drivers/net/sfc: Correct code taking the size of a
  pointer
-Date: Sun, 13 Dec 2009 19:57:19 -0800 (PST)
-Message-ID: <20091213.195719.246515608.davem@davemloft.net>
-References: <Pine.LNX.4.64.0912131240400.24267@ask.diku.dk>
+Date: Sun, 13 Dec 2009 19:57:29 -0800 (PST)
+Message-ID: <20091213.195729.28793749.davem@davemloft.net>
+References: <Pine.LNX.4.64.0912131241130.24267@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: julia@diku.dk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756564AbZLND5W@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0912131240400.24267@ask.diku.dk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756585AbZLND5c@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0912131241130.24267@ask.diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
-Date: Sun, 13 Dec 2009 12:40:55 +0100 (CET)
+Date: Sun, 13 Dec 2009 12:41:29 +0100 (CET)
 
 > From: Julia Lawall <julia@diku.dk>
 > 
-> sizeof(TstSchedTbl) is just the size of the pointer.  Change it to the size
-> of the referenced data.
+> The function efx_iterate_state contains the code
+> memcpy(&payload->msg, payload_msg, sizeof(payload_msg));
+> This is the only use of payload_msg.  The type of payload_msg is
+> changed from a pointer to an array, so that the result of sizeof really is
+> the length of the string.
 > 
 > A simplified version of the semantic patch that finds this problem is as
 > follows: (http://coccinelle.lip6.fr/)
