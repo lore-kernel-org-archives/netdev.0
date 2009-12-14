@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_core: return a negative error value
-Date: Sun, 13 Dec 2009 19:48:28 -0800 (PST)
-Message-ID: <20091213.194828.260101393.davem@davemloft.net>
-References: <4B23EA51.30504@gmail.com>
+Subject: Re: [PATCH 2/9] drivers/atm: Correct code taking the size of a
+ pointer
+Date: Sun, 13 Dec 2009 19:57:19 -0800 (PST)
+Message-ID: <20091213.195719.246515608.davem@davemloft.net>
+References: <Pine.LNX.4.64.0912131240400.24267@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.co.il,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: roel.kluin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50721
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754443AbZLNDs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:48:26 -0500
-In-Reply-To: <4B23EA51.30504@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756564AbZLND5W@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0912131240400.24267@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sat, 12 Dec 2009 20:09:05 +0100
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 13 Dec 2009 12:40:55 +0100 (CET)
 
-> The return value should be negative.
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> sizeof(TstSchedTbl) is just the size of the pointer.  Change it to the size
+> of the referenced data.
+> 
+> A simplified version of the semantic patch that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
