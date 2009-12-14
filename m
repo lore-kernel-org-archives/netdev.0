@@ -1,7 +1,7 @@
 From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH 4/4] mx25: add support for FEC on i.MX25 PDK
-Date: Mon, 14 Dec 2009 12:19:42 +0200
-Message-ID: <4eb5a5232acc6028648f94a1fdfd60b52b64149c.1260785451.git.baruch@tkos.co.il>
+Subject: [PATCH 1/4] mx25: s/NO_PAD_CTL/NO_PAD_CTRL/
+Date: Mon, 14 Dec 2009 12:19:39 +0200
+Message-ID: <55dd68ef700eeec904918aceb5b39e47032076e3.1260785451.git.baruch@tkos.co.il>
 References: <cover.1260785451.git.baruch@tkos.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,150 +22,186 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+NO_PAD_CTL is not defined anywhere.
+
 Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 ---
- arch/arm/mach-mx25/clock.c            |    2 +
- arch/arm/mach-mx25/devices.c          |   19 +++++++++++++++
- arch/arm/mach-mx25/devices.h          |    1 +
- arch/arm/mach-mx25/mx25pdk.c          |   40 ++++++++++++++++++++++++++++++++-
- arch/arm/plat-mxc/include/mach/mx25.h |    4 +++
- 5 files changed, 65 insertions(+), 1 deletions(-)
+ arch/arm/plat-mxc/include/mach/iomux-mx25.h |   58 +++++++++++++-------------
+ 1 files changed, 29 insertions(+), 29 deletions(-)
 
-diff --git a/arch/arm/mach-mx25/clock.c b/arch/arm/mach-mx25/clock.c
-index dbbbcc6..ea8c3da 100644
---- a/arch/arm/mach-mx25/clock.c
-+++ b/arch/arm/mach-mx25/clock.c
-@@ -173,6 +173,7 @@ DEFINE_CLOCK(pwm4_clk,	 0, CCM_CGCR2,  2, get_rate_ipg, NULL);
- DEFINE_CLOCK(kpp_clk,	 0, CCM_CGCR1, 28, get_rate_ipg, NULL);
- DEFINE_CLOCK(tsc_clk,	 0, CCM_CGCR2, 13, get_rate_ipg, NULL);
- DEFINE_CLOCK(i2c_clk,	 0, CCM_CGCR0,  6, get_rate_i2c, NULL);
-+DEFINE_CLOCK(fec_clk,	 0, CCM_CGCR0, 23, get_rate_ipg, NULL);
+diff --git a/arch/arm/plat-mxc/include/mach/iomux-mx25.h b/arch/arm/plat-mxc/include/mach/iomux-mx25.h
+index 810c47f..9af494f 100644
+--- a/arch/arm/plat-mxc/include/mach/iomux-mx25.h
++++ b/arch/arm/plat-mxc/include/mach/iomux-mx25.h
+@@ -58,19 +58,19 @@
  
- #define _REGISTER_CLOCK(d, n, c)	\
- 	{				\
-@@ -204,6 +205,7 @@ static struct clk_lookup lookups[] = {
- 	_REGISTER_CLOCK("imx-i2c.0", NULL, i2c_clk)
- 	_REGISTER_CLOCK("imx-i2c.1", NULL, i2c_clk)
- 	_REGISTER_CLOCK("imx-i2c.2", NULL, i2c_clk)
-+	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
- };
+ #define MX25_PAD_A18__A18		IOMUX_PAD(0x23c, 0x020, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A18__GPIO_2_4		IOMUX_PAD(0x23c, 0x020, 0x15, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A18__FEC_COL		IOMUX_PAD(0x23c, 0x020, 0x17, 0x504, 0, NO_PAD_CTL)
++#define MX25_PAD_A18__FEC_COL		IOMUX_PAD(0x23c, 0x020, 0x17, 0x504, 0, NO_PAD_CTRL)
  
- int __init mx25_clocks_init(unsigned long fref)
-diff --git a/arch/arm/mach-mx25/devices.c b/arch/arm/mach-mx25/devices.c
-index 63511de..9fdeea1 100644
---- a/arch/arm/mach-mx25/devices.c
-+++ b/arch/arm/mach-mx25/devices.c
-@@ -419,3 +419,22 @@ int __init mxc_register_gpios(void)
- 	return mxc_gpio_init(imx_gpio_ports, ARRAY_SIZE(imx_gpio_ports));
- }
+ #define MX25_PAD_A19__A19		IOMUX_PAD(0x240, 0x024, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A19__FEC_RX_ER		IOMUX_PAD(0x240, 0x024, 0x17, 0x518, 0, NO_PAD_CTL)
++#define MX25_PAD_A19__FEC_RX_ER		IOMUX_PAD(0x240, 0x024, 0x17, 0x518, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A19__GPIO_2_5		IOMUX_PAD(0x240, 0x024, 0x15, 0, 0, NO_PAD_CTRL)
  
-+static struct resource mx25_fec_resources[] = {
-+	{
-+		.start	= MX25_FEC_BASE_ADDR,
-+		.end	= MX25_FEC_BASE_ADDR + 0xfff,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	{
-+		.start	= MX25_INT_FEC,
-+		.end	= MX25_INT_FEC,
-+		.flags	= IORESOURCE_IRQ,
-+	},
-+};
-+
-+struct platform_device mx25_fec_device = {
-+	.name	= "fec",
-+	.id	= 0,
-+	.num_resources	= ARRAY_SIZE(mx25_fec_resources),
-+	.resource	= mx25_fec_resources,
-+};
-diff --git a/arch/arm/mach-mx25/devices.h b/arch/arm/mach-mx25/devices.h
-index fe6bf88..fe5420f 100644
---- a/arch/arm/mach-mx25/devices.h
-+++ b/arch/arm/mach-mx25/devices.h
-@@ -17,3 +17,4 @@ extern struct platform_device mxc_keypad_device;
- extern struct platform_device mxc_i2c_device0;
- extern struct platform_device mxc_i2c_device1;
- extern struct platform_device mxc_i2c_device2;
-+extern struct platform_device mx25_fec_device;
-diff --git a/arch/arm/mach-mx25/mx25pdk.c b/arch/arm/mach-mx25/mx25pdk.c
-index d23ae57..011d6c3 100644
---- a/arch/arm/mach-mx25/mx25pdk.c
-+++ b/arch/arm/mach-mx25/mx25pdk.c
-@@ -18,6 +18,7 @@
+ #define MX25_PAD_A20__A20		IOMUX_PAD(0x244, 0x028, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A20__GPIO_2_6		IOMUX_PAD(0x244, 0x028, 0x15, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A20__FEC_RDATA2	IOMUX_PAD(0x244, 0x028, 0x17, 0x50c, 0, NO_PAD_CTL)
++#define MX25_PAD_A20__FEC_RDATA2	IOMUX_PAD(0x244, 0x028, 0x17, 0x50c, 0, NO_PAD_CTRL)
  
- #include <linux/types.h>
- #include <linux/init.h>
-+#include <linux/delay.h>
- #include <linux/clk.h>
- #include <linux/irq.h>
- #include <linux/gpio.h>
-@@ -35,16 +36,53 @@
- #include <mach/mx25.h>
- #include <mach/mxc_nand.h>
- #include "devices.h"
--#include <mach/iomux-v3.h>
-+#include <mach/iomux.h>
+ #define MX25_PAD_A21__A21		IOMUX_PAD(0x248, 0x02c, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A21__GPIO_2_7		IOMUX_PAD(0x248, 0x02c, 0x15, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A21__FEC_RDATA3	IOMUX_PAD(0x248, 0x02c, 0x17, 0x510, 0, NO_PAD_CTL)
++#define MX25_PAD_A21__FEC_RDATA3	IOMUX_PAD(0x248, 0x02c, 0x17, 0x510, 0, NO_PAD_CTRL)
  
- static struct imxuart_platform_data uart_pdata = {
- 	.flags = IMXUART_HAVE_RTSCTS,
- };
+ #define MX25_PAD_A22__A22		IOMUX_PAD(0x000, 0x030, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A22__GPIO_2_8		IOMUX_PAD(0x000, 0x030, 0x15, 0, 0, NO_PAD_CTRL)
+@@ -80,11 +80,11 @@
  
-+static struct pad_desc mx25pdk_pads[] = {
-+	MX25_PAD_FEC_MDC__FEC_MDC,
-+	MX25_PAD_FEC_MDIO__FEC_MDIO,
-+	MX25_PAD_FEC_TDATA0__FEC_TDATA0,
-+	MX25_PAD_FEC_TDATA1__FEC_TDATA1,
-+	MX25_PAD_FEC_TX_EN__FEC_TX_EN,
-+	MX25_PAD_FEC_RDATA0__FEC_RDATA0,
-+	MX25_PAD_FEC_RDATA1__FEC_RDATA1,
-+	MX25_PAD_FEC_RX_DV__FEC_RX_DV,
-+	MX25_PAD_FEC_TX_CLK__FEC_TX_CLK,
-+	MX25_PAD_A17__GPIO_2_3, /* FEC_EN, GPIO 35 */
-+	MX25_PAD_D12__GPIO_4_8, /* FEC_RESET_B, GPIO 104 */
-+};
-+
-+#define FEC_ENABLE_GPIO		35
-+#define FEC_RESET_B_GPIO	104
-+
-+static void __init mx25pdk_fec_reset(void)
-+{
-+	gpio_request(FEC_ENABLE_GPIO, "FEC PHY enable");
-+	gpio_request(FEC_RESET_B_GPIO, "FEC PHY reset");
-+
-+	gpio_direction_output(FEC_ENABLE_GPIO, 0);  /* drop PHY power */
-+	gpio_direction_output(FEC_RESET_B_GPIO, 0); /* assert reset */
-+	udelay(2);
-+
-+	/* turn on PHY power and lift reset */
-+	gpio_set_value(FEC_ENABLE_GPIO, 1);
-+	gpio_set_value(FEC_RESET_B_GPIO, 1);
-+}
-+
- static void __init mx25pdk_init(void)
- {
-+	mxc_iomux_v3_setup_multiple_pads(mx25pdk_pads,
-+			ARRAY_SIZE(mx25pdk_pads));
-+
- 	mxc_register_device(&mxc_uart_device0, &uart_pdata);
- 	mxc_register_device(&mxc_usbh2, NULL);
-+
-+	mx25pdk_fec_reset();
-+	mxc_register_device(&mx25_fec_device, NULL);
- }
+ #define MX25_PAD_A24__A24		IOMUX_PAD(0x250, 0x038, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A24__GPIO_2_10		IOMUX_PAD(0x250, 0x038, 0x15, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A24__FEC_RX_CLK	IOMUX_PAD(0x250, 0x038, 0x17, 0x514, 0, NO_PAD_CTL)
++#define MX25_PAD_A24__FEC_RX_CLK	IOMUX_PAD(0x250, 0x038, 0x17, 0x514, 0, NO_PAD_CTRL)
  
- static void __init mx25pdk_timer_init(void)
-diff --git a/arch/arm/plat-mxc/include/mach/mx25.h b/arch/arm/plat-mxc/include/mach/mx25.h
-index ec64bd9..106f651 100644
---- a/arch/arm/plat-mxc/include/mach/mx25.h
-+++ b/arch/arm/plat-mxc/include/mach/mx25.h
-@@ -41,4 +41,8 @@
- #define UART1_BASE_ADDR			0x43f90000
- #define UART2_BASE_ADDR			0x43f94000
+ #define MX25_PAD_A25__A25		IOMUX_PAD(0x254, 0x03c, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_A25__GPIO_2_11		IOMUX_PAD(0x254, 0x03c, 0x15, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_A25__FEC_CRS		IOMUX_PAD(0x254, 0x03c, 0x17, 0x508, 0, NO_PAD_CTL)
++#define MX25_PAD_A25__FEC_CRS		IOMUX_PAD(0x254, 0x03c, 0x17, 0x508, 0, NO_PAD_CTRL)
  
-+#define MX25_FEC_BASE_ADDR		0x50038000
-+
-+#define MX25_INT_FEC	57
-+
- #endif /* __MACH_MX25_H__ */
+ #define MX25_PAD_EB0__EB0		IOMUX_PAD(0x258, 0x040, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_EB0__AUD4_TXD		IOMUX_PAD(0x258, 0x040, 0x14, 0x464, 0, NO_PAD_CTRL)
+@@ -112,7 +112,7 @@
+ #define MX25_PAD_CS5__UART5_RTS		IOMUX_PAD(0x268, 0x058, 0x13, 0x574, 0, NO_PAD_CTRL)
+ #define MX25_PAD_CS5__GPIO_3_21		IOMUX_PAD(0x268, 0x058, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_NF_CE0__NF_CE0		IOMUX_PAD(0x26c, 0x05c, 0x10, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_NF_CE0__NF_CE0		IOMUX_PAD(0x26c, 0x05c, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_NF_CE0__GPIO_3_22	IOMUX_PAD(0x26c, 0x05c, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_ECB__ECB		IOMUX_PAD(0x270, 0x060, 0x10, 0, 0, NO_PAD_CTRL)
+@@ -229,28 +229,28 @@
+ #define MX25_PAD_LD7__GPIO_1_21		IOMUX_PAD(0x2dc, 0x0e4, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD8__LD8		IOMUX_PAD(0x2e0, 0x0e8, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD8__FEC_TX_ERR	IOMUX_PAD(0x2e0, 0x0e8, 0x15, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_LD8__FEC_TX_ERR	IOMUX_PAD(0x2e0, 0x0e8, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD9__LD9		IOMUX_PAD(0x2e4, 0x0ec, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD9__FEC_COL		IOMUX_PAD(0x2e4, 0x0ec, 0x15, 0x504, 1, NO_PAD_CTL)
++#define MX25_PAD_LD9__FEC_COL		IOMUX_PAD(0x2e4, 0x0ec, 0x15, 0x504, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD10__LD10		IOMUX_PAD(0x2e8, 0x0f0, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD10__FEC_RX_ER	IOMUX_PAD(0x2e8, 0x0f0, 0x15, 0x518, 1, NO_PAD_CTL)
++#define MX25_PAD_LD10__FEC_RX_ER	IOMUX_PAD(0x2e8, 0x0f0, 0x15, 0x518, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD11__LD11		IOMUX_PAD(0x2ec, 0x0f4, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD11__FEC_RDATA2	IOMUX_PAD(0x2ec, 0x0f4, 0x15, 0x50c, 1, NO_PAD_CTL)
++#define MX25_PAD_LD11__FEC_RDATA2	IOMUX_PAD(0x2ec, 0x0f4, 0x15, 0x50c, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD12__LD12		IOMUX_PAD(0x2f0, 0x0f8, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD12__FEC_RDATA3	IOMUX_PAD(0x2f0, 0x0f8, 0x15, 0x510, 1, NO_PAD_CTL)
++#define MX25_PAD_LD12__FEC_RDATA3	IOMUX_PAD(0x2f0, 0x0f8, 0x15, 0x510, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD13__LD13		IOMUX_PAD(0x2f4, 0x0fc, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD13__FEC_TDATA2	IOMUX_PAD(0x2f4, 0x0fc, 0x15, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_LD13__FEC_TDATA2	IOMUX_PAD(0x2f4, 0x0fc, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD14__LD14		IOMUX_PAD(0x2f8, 0x100, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD14__FEC_TDATA3	IOMUX_PAD(0x2f8, 0x100, 0x15, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_LD14__FEC_TDATA3	IOMUX_PAD(0x2f8, 0x100, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_LD15__LD15		IOMUX_PAD(0x2fc, 0x104, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_LD15__FEC_RX_CLK	IOMUX_PAD(0x2fc, 0x104, 0x15, 0x514, 1, NO_PAD_CTL)
++#define MX25_PAD_LD15__FEC_RX_CLK	IOMUX_PAD(0x2fc, 0x104, 0x15, 0x514, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_HSYNC__HSYNC		IOMUX_PAD(0x300, 0x108, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_HSYNC__GPIO_1_22	IOMUX_PAD(0x300, 0x108, 0x15, 0, 0, NO_PAD_CTRL)
+@@ -265,7 +265,7 @@
+ #define MX25_PAD_OE_ACD__GPIO_1_25	IOMUX_PAD(0x30c, 0x114, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_CONTRAST__CONTRAST	IOMUX_PAD(0x310, 0x118, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_CONTRAST__FEC_CRS	IOMUX_PAD(0x310, 0x118, 0x15, 0x508, 1, NO_PAD_CTL)
++#define MX25_PAD_CONTRAST__FEC_CRS	IOMUX_PAD(0x310, 0x118, 0x15, 0x508, 1, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_PWM__PWM		IOMUX_PAD(0x314, 0x11c, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_PWM__GPIO_1_26		IOMUX_PAD(0x314, 0x11c, 0x15, 0, 0, NO_PAD_CTRL)
+@@ -354,19 +354,19 @@
+ #define MX25_PAD_UART2_TXD__GPIO_4_27	IOMUX_PAD(0x37c, 0x184, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_UART2_RTS__UART2_RTS	IOMUX_PAD(0x380, 0x188, 0x10, 0, 0, NO_PAD_CTRL)
+-#define MX25_PAD_UART2_RTS__FEC_COL	IOMUX_PAD(0x380, 0x188, 0x12, 0x504, 2, NO_PAD_CTL)
++#define MX25_PAD_UART2_RTS__FEC_COL	IOMUX_PAD(0x380, 0x188, 0x12, 0x504, 2, NO_PAD_CTRL)
+ #define MX25_PAD_UART2_RTS__GPIO_4_28	IOMUX_PAD(0x380, 0x188, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_UART2_CTS__FEC_RX_ER	IOMUX_PAD(0x384, 0x18c, 0x12, 0x518, 2, NO_PAD_CTL)
++#define MX25_PAD_UART2_CTS__FEC_RX_ER	IOMUX_PAD(0x384, 0x18c, 0x12, 0x518, 2, NO_PAD_CTRL)
+ #define MX25_PAD_UART2_CTS__UART2_CTS	IOMUX_PAD(0x384, 0x18c, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_UART2_CTS__GPIO_4_29	IOMUX_PAD(0x384, 0x18c, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_SD1_CMD__SD1_CMD	IOMUX_PAD(0x388, 0x190, 0x10, 0, 0, PAD_CTL_PUS_47K_UP)
+-#define MX25_PAD_SD1_CMD__FEC_RDATA2	IOMUX_PAD(0x388, 0x190, 0x12, 0x50c, 2, NO_PAD_CTL)
++#define MX25_PAD_SD1_CMD__FEC_RDATA2	IOMUX_PAD(0x388, 0x190, 0x12, 0x50c, 2, NO_PAD_CTRL)
+ #define MX25_PAD_SD1_CMD__GPIO_2_23	IOMUX_PAD(0x388, 0x190, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_SD1_CLK__SD1_CLK	IOMUX_PAD(0x38c, 0x194, 0x10, 0, 0, PAD_CTL_PUS_47K_UP)
+-#define MX25_PAD_SD1_CLK__FEC_RDATA3	IOMUX_PAD(0x38c, 0x194, 0x12, 0x510, 2, NO_PAD_CTL)
++#define MX25_PAD_SD1_CLK__FEC_RDATA3	IOMUX_PAD(0x38c, 0x194, 0x12, 0x510, 2, NO_PAD_CTRL)
+ #define MX25_PAD_SD1_CLK__GPIO_2_24	IOMUX_PAD(0x38c, 0x194, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_SD1_DATA0__SD1_DATA0	IOMUX_PAD(0x390, 0x198, 0x10, 0, 0, PAD_CTL_PUS_47K_UP)
+@@ -377,11 +377,11 @@
+ #define MX25_PAD_SD1_DATA1__GPIO_2_26	IOMUX_PAD(0x394, 0x19c, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_SD1_DATA2__SD1_DATA2	IOMUX_PAD(0x398, 0x1a0, 0x10, 0, 0, PAD_CTL_PUS_47K_UP)
+-#define MX25_PAD_SD1_DATA2__FEC_RX_CLK	IOMUX_PAD(0x398, 0x1a0, 0x15, 0x514, 2, NO_PAD_CTL)
++#define MX25_PAD_SD1_DATA2__FEC_RX_CLK	IOMUX_PAD(0x398, 0x1a0, 0x15, 0x514, 2, NO_PAD_CTRL)
+ #define MX25_PAD_SD1_DATA2__GPIO_2_27	IOMUX_PAD(0x398, 0x1a0, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_SD1_DATA3__SD1_DATA3	IOMUX_PAD(0x39c, 0x1a4, 0x10, 0, 0, PAD_CTL_PUS_47K_UP)
+-#define MX25_PAD_SD1_DATA3__FEC_CRS	IOMUX_PAD(0x39c, 0x1a4, 0x10, 0x508, 2, NO_PAD_CTL)
++#define MX25_PAD_SD1_DATA3__FEC_CRS	IOMUX_PAD(0x39c, 0x1a4, 0x10, 0x508, 2, NO_PAD_CTRL)
+ #define MX25_PAD_SD1_DATA3__GPIO_2_28	IOMUX_PAD(0x39c, 0x1a4, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+ #define MX25_PAD_KPP_ROW0__KPP_ROW0	IOMUX_PAD(0x3a0, 0x1a8, 0x10, 0, 0, PAD_CTL_PKE)
+@@ -410,7 +410,7 @@
+ #define MX25_PAD_KPP_COL3__KPP_COL3	IOMUX_PAD(0x3bc, 0x1c4, 0x10, 0, 0, PAD_CTL_PKE | PAD_CTL_ODE)
+ #define MX25_PAD_KPP_COL3__GPIO_3_4	IOMUX_PAD(0x3bc, 0x1c4, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_MDC__FEC_MDC	IOMUX_PAD(0x3c0, 0x1c8, 0x10, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_FEC_MDC__FEC_MDC	IOMUX_PAD(0x3c0, 0x1c8, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_MDC__AUD4_TXD	IOMUX_PAD(0x3c0, 0x1c8, 0x12, 0x464, 1, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_MDC__GPIO_3_5	IOMUX_PAD(0x3c0, 0x1c8, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+@@ -418,23 +418,23 @@
+ #define MX25_PAD_FEC_MDIO__AUD4_RXD	IOMUX_PAD(0x3c4, 0x1cc, 0x12, 0x460, 1, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_MDIO__GPIO_3_6	IOMUX_PAD(0x3c4, 0x1cc, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_TDATA0__FEC_TDATA0	IOMUX_PAD(0x3c8, 0x1d0, 0x10, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_FEC_TDATA0__FEC_TDATA0	IOMUX_PAD(0x3c8, 0x1d0, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_TDATA0__GPIO_3_7	IOMUX_PAD(0x3c8, 0x1d0, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_TDATA1__FEC_TDATA1	IOMUX_PAD(0x3cc, 0x1d4, 0x10, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_FEC_TDATA1__FEC_TDATA1	IOMUX_PAD(0x3cc, 0x1d4, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_TDATA1__AUD4_TXFS	IOMUX_PAD(0x3cc, 0x1d4, 0x12, 0x474, 1, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_TDATA1__GPIO_3_8	IOMUX_PAD(0x3cc, 0x1d4, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_TX_EN__FEC_TX_EN	IOMUX_PAD(0x3d0, 0x1d8, 0x10, 0, 0, NO_PAD_CTL)
++#define MX25_PAD_FEC_TX_EN__FEC_TX_EN	IOMUX_PAD(0x3d0, 0x1d8, 0x10, 0, 0, NO_PAD_CTRL)
+ #define MX25_PAD_FEC_TX_EN__GPIO_3_9   	IOMUX_PAD(0x3d0, 0x1d8, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_RDATA0__FEC_RDATA0	IOMUX_PAD(0x3d4, 0x1dc, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTL)
++#define MX25_PAD_FEC_RDATA0__FEC_RDATA0	IOMUX_PAD(0x3d4, 0x1dc, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
+ #define MX25_PAD_FEC_RDATA0__GPIO_3_10	IOMUX_PAD(0x3d4, 0x1dc, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_RDATA1__FEC_RDATA1	IOMUX_PAD(0x3d8, 0x1e0, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTL)
++#define MX25_PAD_FEC_RDATA1__FEC_RDATA1	IOMUX_PAD(0x3d8, 0x1e0, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
+ #define MX25_PAD_FEC_RDATA1__GPIO_3_11	IOMUX_PAD(0x3d8, 0x1e0, 0x15, 0, 0, NO_PAD_CTRL)
+ 
+-#define MX25_PAD_FEC_RX_DV__FEC_RX_DV	IOMUX_PAD(0x3dc, 0x1e4, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTL)
++#define MX25_PAD_FEC_RX_DV__FEC_RX_DV	IOMUX_PAD(0x3dc, 0x1e4, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
+ #define MX25_PAD_FEC_RX_DV__CAN2_RX	IOMUX_PAD(0x3dc, 0x1e4, 0x14, 0x484, 0, PAD_CTL_PUS_22K_UP)
+ #define MX25_PAD_FEC_RX_DV__GPIO_3_12	IOMUX_PAD(0x3dc, 0x1e4, 0x15, 0, 0, NO_PAD_CTRL)
+ 
 -- 
 1.6.5
