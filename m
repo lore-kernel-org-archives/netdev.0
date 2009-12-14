@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Badness at net/ipv4/inet_connection_sock.c:293
-Date: Mon, 14 Dec 2009 10:19:53 -0800 (PST)
-Message-ID: <20091214.101953.24324389.davem@davemloft.net>
-References: <4B25D38F.1090702@gmail.com>
-	<20091213.234530.82029083.davem@davemloft.net>
-	<4B267708.3010202@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: print Optima chip name
+Date: Mon, 14 Dec 2009 10:33:47 -0800
+Message-ID: <20091214103347.691d7f3d@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lists@nerdbynature.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, john.dykstra1@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932370AbZLNST4@vger.kernel.org>
-In-Reply-To: <4B267708.3010202@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56195 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753049AbZLNSdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2009 13:33:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Dec 2009 18:34:00 +0100
+Off by one in name lookup makes Optima display as (chip 0xbc)
 
-> And commit 96e0bf4b5193d0d97d139f99e2dd128763d55521
-> (tcp: Discard segments that ack data not yet sent)
-> 
-> Did change this area a bit :
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Good catch.
 
-I can reproduce this quite readily so I'll try reverting that
-commit.
+--- a/drivers/net/sky2.c	2009-12-11 11:09:34.515284818 -0800
++++ b/drivers/net/sky2.c	2009-12-11 11:11:58.621253981 -0800
+@@ -4530,7 +4530,7 @@ static const char *sky2_name(u8 chipid, 
+ 		"Optima",	/* 0xbc */
+ 	};
+ 
+-	if (chipid >= CHIP_ID_YUKON_XL && chipid < CHIP_ID_YUKON_OPT)
++	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OPT)
+ 		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+ 	else
+ 		snprintf(buf, sz, "(chip %#x)", chipid);
