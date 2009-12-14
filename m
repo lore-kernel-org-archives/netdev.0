@@ -1,33 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Sun, 13 Dec 2009 20:35:00 -0800 (PST)
-Message-ID: <20091213.203500.15246453.davem@davemloft.net>
-References: <d45a3acc0912132017o327f0cd6h8613758fdd050ac3@mail.gmail.com>
-	<20091213.202037.229738549.davem@davemloft.net>
-	<d45a3acc0912132026w5ab6b3b3x3f211566779257d3@mail.gmail.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-2.6 PATCH 1/3] ixgbe: Fix compiler warning about variable
+ being used uninitialized
+Date: Sun, 13 Dec 2009 20:55:22 -0800
+Message-ID: <1260766522.20884.0.camel@localhost>
+References: <20091212075120.10952.98484.stgit@localhost.localdomain>
+	 <20091213.192029.104053340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andrew.hendry@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756199AbZLNEfA@vger.kernel.org>
-In-Reply-To: <d45a3acc0912132026w5ab6b3b3x3f211566779257d3@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:46223 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756141AbZLNEzX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Dec 2009 23:55:23 -0500
+In-Reply-To: <20091213.192029.104053340.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: andrew hendry <andrew.hendry@gmail.com>
-Date: Mon, 14 Dec 2009 15:26:18 +1100
-
-> Thanks, I didn't know X.25 was actively maintained. I get bounces.
-> Is the the maintainers out of date?
+On Sun, 2009-12-13 at 19:20 -0800, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri, 11 Dec 2009 23:51:23 -0800
 > 
-> AX.25 NETWORK LAYER
-> M:      Ralf Baechle <ralf@linux-mips.org>
+> > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> > 
+> > tc is still throwing a warning that is could be used
+> > uninitialized.  This fixes it.
+> > 
+> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> X.25 NETWORK LAYER
-> M:      Henner Eisen <eis@baty.hanse.de>
+> It's warning because it absolutely can be used uninitialized.
+> 
+> The two code blocks only handle two chip variants.  Why not
+> make what's happening here explicit by using a switch
+> statement and having a 'default' case?
 
-Sorry, I confused the two.
+That I can do, and makes more sense.  I'll respin the patch.
 
-Please resubmit your fixes, if nobody is responding I
-guess I have to handle them directly.
+Thanks Dave,
+-PJ
+
