@@ -1,113 +1,55 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Mon, 14 Dec 2009 11:33:48 +0100
-Message-ID: <20091214103348.GV15126@pengutronix.de>
-References: <cover.1260785451.git.baruch@tkos.co.il>
-	<fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Sascha Hauer <kernel@pengutronix.de>
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] net: sh_eth alignment fix for sh7724 using NET_IP_ALIGN
+Date: Mon, 14 Dec 2009 19:34:43 +0900
+Message-ID: <20091214103443.13082.84079.sendpatchset@rxone.opensource.se>
+Cc: Magnus Damm <magnus.damm@gmail.com>, lethal@linux-sh.org,
+	davem@davemloft.net, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 14, 2009 at 12:19:41PM +0200, Baruch Siach wrote:
-> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
-> necessary bits to make the i.MX25 talk RMII.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
->  drivers/net/fec.c |   22 ++++++++++++++++++++++
->  drivers/net/fec.h |    2 ++
->  2 files changed, 24 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 16a1d58..65c43d3 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -51,6 +51,7 @@
->  #include "fec.h"
->  
->  #ifdef CONFIG_ARCH_MXC
-> +#include <asm/mach-types.h>
->  #include <mach/hardware.h>
->  #define FEC_ALIGNMENT	0xf
->  #else
-> @@ -1722,6 +1723,25 @@ static int fec_enet_init(struct net_device *dev, int index)
->  	return 0;
->  }
->  
-> +static void fec_localhw_setup(struct net_device *dev)
-> +{
-> +	struct fec_enet_private *fep = netdev_priv(dev);
-> +
-> +	if (!machine_is_mx25_3ds())
-> +		return;
+From: Magnus Damm <damm@opensource.se>
 
-We should add a flag in platform data for this. Unfortunately the fec
-driver has no platform data at all at the moment, so this requires some
-more work.
+Fix sh_eth for sh7724 by adding NET_IP_ALIGN support.
+Without this patch the receive data is misaligned.
 
-Sascha
+Signed-off-by: Magnus Damm <damm@opensource.se>
+---
 
-> +
-> +	/* disable the gasket and wait */
-> +	writel(0, fep->hwp + FEC_MIIGSK_ENR);
-> +	while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
-> +		udelay(1);
-> +
-> +	/* configure the gasket for RMII, 50 MHz, no loopback, no echo */
-> +	writel(1, fep->hwp + FEC_MIIGSK_CFGR);
-> +
-> +	/* re-enable the gasket */
-> +	writel(2, fep->hwp + FEC_MIIGSK_ENR);
-> +}
-> +
->  /* This function is called to start or restart the FEC during a link
->   * change.  This only happens when switching between half and full
->   * duplex.
-> @@ -1810,6 +1830,8 @@ fec_restart(struct net_device *dev, int duplex)
->  	/* Set MII speed */
->  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->  
-> +	fec_localhw_setup(dev);
-> +
->  	/* And last, enable the transmit and receive processing */
->  	writel(2, fep->hwp + FEC_ECNTRL);
->  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
-> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-> index cc47f3f..2c48b25 100644
-> --- a/drivers/net/fec.h
-> +++ b/drivers/net/fec.h
-> @@ -43,6 +43,8 @@
->  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
->  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
->  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
-> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
-> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
->  
->  #else
->  
-> -- 
-> 1.6.5
-> 
-> 
+ Tested on Ecovec24. Perhaps for the sh-2.6 tree?
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+ drivers/net/sh_eth.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+--- 0001/drivers/net/sh_eth.c
++++ work/drivers/net/sh_eth.c	2009-12-14 15:27:25.000000000 +0900
+@@ -84,6 +84,10 @@ static struct sh_eth_cpu_data sh_eth_my_
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+ 	.hw_swap	= 1,
++#if NET_IP_ALIGN == 2
++	.rpadir		= 1,
++	.rpadir_value	= 0x00020000,
++#endif
+ };
+ 
+ #elif defined(CONFIG_CPU_SUBTYPE_SH7763)
+@@ -501,6 +505,8 @@ static int sh_eth_ring_init(struct net_d
+ 	 */
+ 	mdp->rx_buf_sz = (ndev->mtu <= 1492 ? PKT_BUF_SZ :
+ 			  (((ndev->mtu + 26 + 7) & ~7) + 2 + 16));
++	if (mdp->cd->rpadir)
++		mdp->rx_buf_sz += NET_IP_ALIGN;
+ 
+ 	/* Allocate RX and TX skb rings */
+ 	mdp->rx_skbuff = kmalloc(sizeof(*mdp->rx_skbuff) * RX_RING_SIZE,
+@@ -715,6 +721,8 @@ static int sh_eth_rx(struct net_device *
+ 					pkt_len + 2);
+ 			skb = mdp->rx_skbuff[entry];
+ 			mdp->rx_skbuff[entry] = NULL;
++			if (mdp->cd->rpadir)
++				skb_reserve(skb, NET_IP_ALIGN);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, ndev);
+ 			netif_rx(skb);
