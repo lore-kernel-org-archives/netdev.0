@@ -1,62 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch] ipvs: zero usvc and udest
-Date: Tue, 15 Dec 2009 09:39:03 +1100
-Message-ID: <20091214223902.GA3784@verge.net.au>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
+ function for virtio
+Date: Mon, 14 Dec 2009 15:22:22 -0800
+Message-ID: <1260832942.4387.9.camel@localhost.localdomain>
+References: <1258697359.7416.14.camel@localhost.localdomain>
+	 <200911231123.18898.rusty@rustcorp.com.au>
+	 <20091208122134.GA17286@redhat.com>
+	 <1260534506.30371.6.camel@localhost.localdomain>
+	 <1260534805.30371.10.camel@localhost.localdomain>
+	 <20091213102632.GB6789@redhat.com>
+	 <1260821285.8716.7.camel@localhost.localdomain>
+	 <20091214202253.GG6150@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Deon van der Merwe <dvdm@truteq.co.za>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.org>
-To: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932925AbZLNXW3@vger.kernel.org>
+In-Reply-To: <20091214202253.GG6150@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure that any otherwise uninitialised fields of usvc are zero.
+Hello Michael,
 
-This has been obvserved to cause a problem whereby the port of
-fwmark services may end up as a non-zero value which causes
-scheduling of a destination server to fail for persisitent services.
+On Mon, 2009-12-14 at 22:22 +0200, Michael S. Tsirkin wrote:
+> I dont insist, but my idea was
+> 
+> for (;;) {
+>         b = vq->destroy(vq);
+>         if (!b)
+>                 break;
+>         --vi->num;
+>         put_page(b);
+> }
+> 
+> so we do not have to lose track of the counter.
 
-As observed by Deon van der Merwe <dvdm@truteq.co.za>.
-This fix suggested by Julian Anastasov <ja@ssi.bg>.
+That's not a bad idea, but to do this, then this fuction will be
+specific for virtio_net device (vi is virtnet_info) only in a generic
+virtqueue API.
 
-For good measure also zero udest.
-
-Cc: Deon van der Merwe <dvdm@truteq.co.za>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
---- 
-
-This bug has been present since the netlink interface to IPVS was
-introduced in 2.6.28. I think it is relevant for 2.6.33 as well
-as -stable.
-
-Index: linux-2.6/net/netfilter/ipvs/ip_vs_ctl.c
-===================================================================
---- linux-2.6.orig/net/netfilter/ipvs/ip_vs_ctl.c	2009-12-11 14:22:23.000000000 +0900
-+++ linux-2.6/net/netfilter/ipvs/ip_vs_ctl.c	2009-12-14 11:05:50.000000000 +0900
-@@ -2714,6 +2714,8 @@ static int ip_vs_genl_parse_service(stru
- 	if (!(nla_af && (nla_fwmark || (nla_port && nla_protocol && nla_addr))))
- 		return -EINVAL;
- 
-+	memset(usvc, 0, sizeof(*usvc));
-+
- 	usvc->af = nla_get_u16(nla_af);
- #ifdef CONFIG_IP_VS_IPV6
- 	if (usvc->af != AF_INET && usvc->af != AF_INET6)
-@@ -2901,6 +2903,8 @@ static int ip_vs_genl_parse_dest(struct 
- 	if (!(nla_addr && nla_port))
- 		return -EINVAL;
- 
-+	memset(udest, 0, sizeof(*udest));
-+
- 	nla_memcpy(&udest->addr, nla_addr, sizeof(udest->addr));
- 	udest->port = nla_get_u16(nla_port);
- 
-
+Thanks
+Shirley
