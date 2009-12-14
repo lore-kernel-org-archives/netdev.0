@@ -1,57 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Badness at net/ipv4/inet_connection_sock.c:293
-Date: Mon, 14 Dec 2009 06:56:31 +0100
-Message-ID: <4B25D38F.1090702@gmail.com>
-References: <alpine.DEB.2.01.0912112335440.2915@bogon.housecafe.de> <20091212.010340.227842186.davem@davemloft.net> <4B2360BF.5000102@gmail.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: RFC: ethtool: add device-specific feature support in a generic
+ fashion
+Date: Sun, 13 Dec 2009 22:12:00 -0800
+Message-ID: <1260771120.20884.17.camel@localhost>
+References: <1260671599.2142.79.camel@localhost>
+	 <4B246B46.1010103@candelatech.com>	<1260688164.2142.84.camel@localhost>
+	 <20091213.201957.232755179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lists@nerdbynature.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "greearb@candelatech.com" <greearb@candelatech.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35844 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbZLNF4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 00:56:37 -0500
-In-Reply-To: <4B2360BF.5000102@gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:65402 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752715AbZLNGMB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2009 01:12:01 -0500
+In-Reply-To: <20091213.201957.232755179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/12/2009 10:22, Eric Dumazet a =E9crit :
-> Le 12/12/2009 10:03, David Miller a =E9crit :
->> From: Christian Kujau <lists@nerdbynature.de>
->> Date: Fri, 11 Dec 2009 23:43:10 -0800 (PST)
->>
->>> today I upgraded from 2.6.32-rc7 to the latest -git (mainline) and =
-after a=20
->>> few hours the messages below appeared in the log. Apparently "privo=
-xy" was=20
->>> very busy handling connections, but the messages never appeared wit=
-h=20
->>> earlier kernels.=20
->>>
->>> Full dmesg & .config is on:
->>> http://nerdbynature.de/bits/2.6.33-git/inet_accept/
->>
->> Yeah I started seeing this on one of my machines too, the
->> assertion is:
->>
->> 	WARN_ON(newsk->sk_state =3D=3D TCP_SYN_RECV);
->>
->> I wonder if some of the refactorings we did to allow per-route
->> SACK/DSACK/etc. controls messed some sequence of state changes
->> on TCP sockets.  But I can't find anything obvious in those
->> commits.
->=20
-> Could it be about syncookies patches ?
->=20
-> tcp_create_openreq_child() changes ?
->=20
+On Sun, 2009-12-13 at 20:19 -0800, David Miller wrote:
+> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Date: Sat, 12 Dec 2009 23:09:24 -0800
+> 
+> > Excellent points.  Thanks Ben!
+> 
+> See ethtool_gstrings please.
+> 
 
-It seems to me tcp_create_openreq_child() doesnt properly initialize
-newtp->cookie_values to NULL, but this should not produce warnings like=
- that ?
+Yes, I looked at this before, then started thinking about it harder than
+I needed to.
 
-Sorry to not provides a proper patch now, I have to run...
+> There is no reason to put a "char *" in any of your interfaces, just
+> as we don't need to in the existing ethtool stats stuff.
+> 
+
+Ah, right.  Just a pointer to a chunk of data.  I see now.
+
+> And you can put the number of knobs available in struct
+> ethtool_drvinfo right before n_priv_flags where we have a reserved
+> area just for adding things like this.
+> 
+> You are specifying way too much new stuff in your datastructures,
+> unnecessary duplicating existing structures and facilities.
+
+Yeah, I was making this too complicated.  Glad I sent the RFC on the
+design first before writing any code.  :-)
+
+> I pointed you at the ethtool private stats stuff because you
+> can reuse %85 of it's implementation for your purposes :-)
+
+Right!  In this case, I just needed a firmer bonk on the head to look in
+the right direction.
+
+On the right track now Dave, thanks.
+
+-PJ
 
