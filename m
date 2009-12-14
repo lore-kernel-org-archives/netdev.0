@@ -1,52 +1,33 @@
-From: re.emese@gmail.com
-Subject: [PATCH 0/3] constify various _ops structures for net-next-dave-git-a252e7
-Date: Mon, 14 Dec 2009 00:59:39 +0100
-Message-ID: <cover.1260707013.git.re.emese@gmail.com>
-Cc: Emese Revfy <re.emese@gmail.com>, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, davem@davemloft.net
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756035AbZLNASb@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] can: CAN_MCP251X should depend on HAS_DMA
+Date: Sun, 13 Dec 2009 17:40:20 -0800 (PST)
+Message-ID: <20091213.174020.26980813.davem@davemloft.net>
+References: <alpine.DEB.2.00.0912132008100.21225@ayla.of.borg>
+	<4B2552C8.4090105@grandegger.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: geert@linux-m68k.org, chripell@fsfe.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: wg@grandegger.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45965
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750959AbZLNBkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 20:40:19 -0500
+In-Reply-To: <4B2552C8.4090105@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Emese Revfy <re.emese@gmail.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Sun, 13 Dec 2009 21:47:04 +0100
 
-Hello everyone!
+> DMA can be selected with the module parameter "mcp251x_enable_dma" and
+> is *off* by default. Therefore the driver does in principle not depend
+> on HAS_DMA but I'm not sure if it's worth to handle it with #idef's.
+> Christian? Any thought?
 
-The following patch series attempts to constify several structures
-that hold function pointers. This is only the initial batch, there
-are other candidate structures, some of which can probably be
-constified as well, I plan to submit them in the future.
+I still think it's a reasonable dependency.
 
-The list of constified structures in this series:
-e1000_mac_operations
-e1000_phy_operations
-e1000_nvm_operations
-
-There are certain exceptions where a given instance of the structure
-cannot be const, they are marked with a comment in the patch.
-
-The patches compile fine with an allyesconfig kernel on i386 and x86_64.
-
-Please let me know if any of these structures should not be constified
-and any other issues you see with them.
-
-
-Changelog:
-----------
-v1 -> v2
-	- updated to net-next-dave-git-a252e7
-	- extended comments with a reference to code that prevents constification
-
-Thanks,
-   Emese
-
- drivers/net/e1000e/82571.c    |   11 ++++++-----
- drivers/net/e1000e/e1000.h    |    6 +++---
- drivers/net/e1000e/es2lan.c   |    7 ++++---
- drivers/net/e1000e/hw.h       |   18 ++++++++++--------
- drivers/net/e1000e/ich8lan.c  |    6 +++---
- drivers/net/igb/e1000_82575.c |    6 +++---
- drivers/net/igb/e1000_hw.h    |    7 +++++--
- drivers/net/igbvf/vf.h        |    1 +
- 8 files changed, 35 insertions(+), 27 deletions(-)
+You're not going to find this device on a s390 system. :-)
