@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rose_loopback_timer VC number <= ROSE_DEFAULT_MAXVC
-Date: Sun, 13 Dec 2009 19:38:15 -0800 (PST)
-Message-ID: <20091213.193815.183034517.davem@davemloft.net>
-References: <4B235AA2.1040608@free.fr>
+Subject: Re: [PATCH] net: Fix userspace RTM_NEWLINK notifications.
+Date: Sun, 13 Dec 2009 19:45:46 -0800 (PST)
+Message-ID: <20091213.194546.39171259.davem@davemloft.net>
+References: <m1fx7fmgyk.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org
-To: bpidoux@free.fr
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40505
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50699
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753658AbZLNDiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:38:14 -0500
-In-Reply-To: <4B235AA2.1040608@free.fr>
+	by vger.kernel.org with ESMTP id S1754148AbZLNDpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:45:45 -0500
+In-Reply-To: <m1fx7fmgyk.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bernard Pidoux <bpidoux@free.fr>
-Date: Sat, 12 Dec 2009 09:56:02 +0100
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sun, 13 Dec 2009 00:11:15 -0800
 
-> [PATCH] rose_loopback_timer VC number <= ROSE_DEFAULT_MAXVC
+> 
+> I received some bug reports about userspace programs having problems
+> because after RTM_NEWLINK was received they could not immediate access
+> files under /proc/sys/net/ because they had not been registered yet.
+ ...
+> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 
-Please see Documentation/SubmittingPatches, you need to
-provide a proper "Signed-off-by:" line with your submission
-etc.
+Applied, thanks Eric.
