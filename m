@@ -1,35 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] macvlan: add tap device backend
-Date: Mon, 14 Dec 2009 04:38:41 -0800 (PST)
-Message-ID: <20091214.043841.107696518.davem@davemloft.net>
-References: <1259862720-28432-3-git-send-email-arnd@arndb.de>
-	<20091212084112.GA8948@gondor.apana.org.au>
-	<200912141300.37063.arnd@arndb.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC 1/2] macvlan: Allow plugging in additional backends
+Date: Mon, 14 Dec 2009 13:49:44 +0100
+Message-ID: <4B263468.3060406@trash.net>
+References: <1259862720-28432-1-git-send-email-arnd@arndb.de> <1259862720-28432-2-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, mst@redhat.com,
-	ogerlitz@voltaire.com, anna.fischer@hp.com, anthony@codemonkey.ws,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	evb@yahoogroups.com
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52436
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752088AbZLNMik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 07:38:40 -0500
-In-Reply-To: <200912141300.37063.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"" <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Patrick Mullaney <pmullaney@novell.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755784AbZLNMt4@vger.kernel.org>
+In-Reply-To: <1259862720-28432-2-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 14 Dec 2009 13:00:36 +0100
+Arnd Bergmann wrote:
+> This patch includes only the basic framework for overriding the
+> receive path. With these hooks, we can add the macvtap driver
+> and potentially other drivers that directly interface with a
+> hypervisor.
+> 
+> Loosely based on a patch by Patrick Mullaney based on another
+> patch by Arnd Bergmann.
 
-> c) prepare a combined patch for net-next.git, or
-
-This is probably fine.
-
-I'll be taking patches into net-next-2.6 right after Linus
-releases 2.6.33-rc1.
+This patch looks fine to me.
