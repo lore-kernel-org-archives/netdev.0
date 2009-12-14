@@ -1,52 +1,57 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [GIT]: Networking
-Date: Mon, 14 Dec 2009 12:53:41 +0100
-Message-ID: <200912141253.42017.arnd@arndb.de>
-References: <20091205.193505.193701079.davem@davemloft.net> <20091213.202037.229738549.davem@davemloft.net> <d45a3acc0912132026w5ab6b3b3x3f211566779257d3@mail.gmail.com>
+Subject: Re: [RFC] macvlan: add tap device backend
+Date: Mon, 14 Dec 2009 13:00:36 +0100
+Message-ID: <200912141300.37063.arnd@arndb.de>
+References: <1259862720-28432-1-git-send-email-arnd@arndb.de> <1259862720-28432-3-git-send-email-arnd@arndb.de> <20091212084112.GA8948@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Henner Eisen <eis@baty.hanse.de>
-To: andrew hendry <andrew.hendry@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Edge Virtual Bridging <evb@yahoogroups.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:50472 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.171]:59437 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757096AbZLNMJb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 07:09:31 -0500
-In-Reply-To: <d45a3acc0912132026w5ab6b3b3x3f211566779257d3@mail.gmail.com>
+	with ESMTP id S1757157AbZLNMJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 07:09:47 -0500
+In-Reply-To: <20091212084112.GA8948@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 14 December 2009, andrew hendry wrote:
-> Thanks, I didn't know X.25 was actively maintained. I get bounces.
-> Is the the maintainers out of date?
-
->From looking at the posts on the x.25 mailing list and the changes
-that went into the kernel during the last three years in that area,
-I think it is safe to say that you are now the maintainer ;-).
-
-The last mail on this topic from Henner Eisen was around 2001.
-
-> AX.25 NETWORK LAYER
-> M:      Ralf Baechle <ralf@linux-mips.org>
+On Saturday 12 December 2009, Herbert Xu wrote:
+> On Thu, Dec 03, 2009 at 06:52:00PM +0100, Arnd Bergmann wrote:
+> > This is a second prototype of a new interface into the network
+> > stack, to eventually replace tun/tap and the bridge driver
+> > in certain virtual machine setups. The code has changed
+> > significantly, but the goals still remain.
 > 
-> X.25 NETWORK LAYER
-> M:      Henner Eisen <eis@baty.hanse.de>
+> The idea looks pretty sound to me.
 
-How about this change?
+Thanks!
 
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5839,9 +5839,9 @@ F:	sound/soc/codecs/wm8350.c
- F:	sound/soc/codecs/wm8400.c
- 
- X.25 NETWORK LAYER
--M:	Henner Eisen <eis@baty.hanse.de>
-+M:	Andrew Hendry <andrew.hendry@gmail.com>
- L:	linux-x25@vger.kernel.org
--S:	Maintained
-+S:	Odd Fixes
- F:	Documentation/networking/x25*
- F:	include/net/x25*
- F:	net/x25/
+> > I'm posting this mainly to solicit feedback. Not sure how
+> > chances for integration into 2.6.33 are, given that the merge
+> > window is opening already.
+> 
+> It's way too late for 2.6.33.  But the earlier this becomes ready
+> then the earlier it can go into linux-next.
+
+Right. Since the code is basically working (I have two known bugs
+I'm still working on) and people want to test it, what is the
+best path? I could
+a) keep my git tree for myself,
+b) have it added to linux-next,
+c) prepare a combined patch for net-next.git, or
+d) have it added to drivers/staging
+
+	Arnd
+
