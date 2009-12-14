@@ -1,126 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] sky2: leave PCI config space writeable
-Date: Mon, 14 Dec 2009 22:49:07 +0100
-Message-ID: <200912142249.07753.rjw@sisk.pl>
-References: <20091214103458.7787e011@nehalam>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: [RESEND PATCH 1/3] X25: Move SYSCTL ifdefs into header
+Date: Tue, 15 Dec 2009 09:02:11 +1100
+Message-ID: <d45a3acc0912141402v69ea4ccet143f8ef7bc04e585@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:48810 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758470AbZLNVs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Dec 2009 16:48:57 -0500
-In-Reply-To: <20091214103458.7787e011@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932611AbZLNWCO@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 14 December 2009, Stephen Hemminger wrote:
-> Since power management is done by PCI subsystem as well as driver,
-> don't toggle the bit that disables PCI register writes.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Moves the CONFIG_SYSCTL ifdefs in x25_init into header.
 
-Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-> --- a/drivers/net/sky2.c	2009-12-11 11:09:44.856489827 -0800
-> +++ b/drivers/net/sky2.c	2009-12-11 11:09:55.947770545 -0800
-> @@ -644,7 +644,6 @@ static void sky2_phy_power_up(struct sky
->  {
->  	u32 reg1;
->  
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
->  	reg1 &= ~phy_power[port];
->  
-> @@ -652,7 +651,6 @@ static void sky2_phy_power_up(struct sky
->  		reg1 |= coma_mode[port];
->  
->  	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  	sky2_pci_read32(hw, PCI_DEV_REG1);
->  
->  	if (hw->chip_id == CHIP_ID_YUKON_FE)
-> @@ -709,11 +707,9 @@ static void sky2_phy_power_down(struct s
->  		gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_PDOWN);
->  	}
->  
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
->  	reg1 |= phy_power[port];		/* set PHY to PowerDown/COMA Mode */
->  	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  }
->  
->  /* Force a renegotiation */
-> @@ -2152,9 +2148,7 @@ static void sky2_qlink_intr(struct sky2_
->  
->  	/* reset PHY Link Detect */
->  	phy = sky2_pci_read16(hw, PSM_CONFIG_REG4);
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  	sky2_pci_write16(hw, PSM_CONFIG_REG4, phy | 1);
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  
->  	sky2_link_up(sky2);
->  }
-> @@ -2645,7 +2639,6 @@ static void sky2_hw_intr(struct sky2_hw 
->  	if (status & (Y2_IS_MST_ERR | Y2_IS_IRQ_STAT)) {
->  		u16 pci_err;
->  
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  		pci_err = sky2_pci_read16(hw, PCI_STATUS);
->  		if (net_ratelimit())
->  			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
-> @@ -2653,14 +2646,12 @@ static void sky2_hw_intr(struct sky2_hw 
->  
->  		sky2_pci_write16(hw, PCI_STATUS,
->  				      pci_err | PCI_STATUS_ERROR_BITS);
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  	}
->  
->  	if (status & Y2_IS_PCI_EXP) {
->  		/* PCI-Express uncorrectable Error occurred */
->  		u32 err;
->  
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  		err = sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
->  		sky2_write32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS,
->  			     0xfffffffful);
-> @@ -2668,7 +2659,6 @@ static void sky2_hw_intr(struct sky2_hw 
->  			dev_err(&pdev->dev, "PCI Express error (0x%x)\n", err);
->  
->  		sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  	}
->  
->  	if (status & Y2_HWE_L1_MASK)
-> @@ -3047,7 +3037,6 @@ static void sky2_reset(struct sky2_hw *h
->  	}
->  
->  	sky2_power_on(hw);
-> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  
->  	for (i = 0; i < hw->ports; i++) {
->  		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_SET);
-> @@ -3084,7 +3073,6 @@ static void sky2_reset(struct sky2_hw *h
->  		reg <<= PSM_CONFIG_REG4_TIMER_PHY_LINK_DETECT_BASE;
->  
->  		/* reset PHY Link Detect */
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
->  		sky2_pci_write16(hw, PSM_CONFIG_REG4,
->  				 reg | PSM_CONFIG_REG4_RST_PHY_LINK_DETECT);
->  		sky2_pci_write16(hw, PSM_CONFIG_REG4, reg);
-> @@ -3102,7 +3090,6 @@ static void sky2_reset(struct sky2_hw *h
->  			/* restore the PCIe Link Control register */
->  			sky2_pci_write16(hw, cap + PCI_EXP_LNKCTL, reg);
->  		}
-> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
->  
->  		/* re-enable PEX PM in PEX PHY debug reg. 8 (clear bit 12) */
->  		sky2_write32(hw, Y2_PEX_PHY_DATA, PEX_DB_ACCESS | (0x08UL << 16));
-> 
-> 
+diff -uprN -X a/Documentation/dontdiff a/include/net/x25.h b/include/net/x25.h
+--- a/include/net/x25.h	2009-11-10 11:32:31.000000000 +1100
++++ b/include/net/x25.h	2009-11-25 09:05:21.000000000 +1100
+@@ -287,8 +287,14 @@ extern unsigned long x25_display_timer(s
+ extern void x25_check_rbuf(struct sock *);
 
+ /* sysctl_net_x25.c */
++#ifdef CONFIG_SYSCTL
+ extern void x25_register_sysctl(void);
+ extern void x25_unregister_sysctl(void);
++#else
++static inline void x25_register_sysctl(void) {};
++static inline void x25_unregister_sysctl(void) {};
++#endif /* CONFIG_SYSCTL */
++
+ struct x25_skb_cb {
+ 	unsigned flags;
+ };
+diff -uprN -X a/Documentation/dontdiff a/net/x25/af_x25.c b/net/x25/af_x25.c
+--- a/net/x25/af_x25.c	2009-11-17 10:30:18.000000000 +1100
++++ b/net/x25/af_x25.c	2009-11-25 09:04:25.000000000 +1100
+@@ -1667,9 +1667,7 @@ static int __init x25_init(void)
+
+ 	printk(KERN_INFO "X.25 for Linux Version 0.2\n");
+
+-#ifdef CONFIG_SYSCTL
+ 	x25_register_sysctl();
+-#endif
+ 	x25_proc_init();
+ out:
+ 	return rc;
+@@ -1682,9 +1680,7 @@ static void __exit x25_exit(void)
+ 	x25_link_free();
+ 	x25_route_free();
+
+-#ifdef CONFIG_SYSCTL
+ 	x25_unregister_sysctl();
+-#endif
+
+ 	unregister_netdevice_notifier(&x25_dev_notifier);
