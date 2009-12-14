@@ -1,31 +1,78 @@
-From: Tim Schneider <schneid5@cs.uni-bonn.de>
-Subject: When is the TCP Timestamp set?
-Date: Mon, 14 Dec 2009 19:40:56 +0100
-Message-ID: <9E2EAFB6-C358-4DDA-A8FC-5C8069465EA9@cs.uni-bonn.de>
-Mime-Version: 1.0 (Apple Message framework v1077)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:57224 "EHLO
-	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753049AbZLNSzY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 13:55:24 -0500
-Received: from [10.0.1.10] (dslb-084-063-021-035.pools.arcor-ip.net [84.63.21.35])
-	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id 17CF35C83E
-	for <netdev@vger.kernel.org>; Mon, 14 Dec 2009 19:40:57 +0100 (MET)
-	(envelope-from schneid5@cs.uni-bonn.de)
-	(envelope-to netdev@vger.kernel.org) (1)
-	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: Badness at net/ipv4/inet_connection_sock.c:293
+Date: Mon, 14 Dec 2009 18:57:13 +0000
+Message-ID: <1260817033.9141.8.camel@merlyn>
+References: <20091212.010340.227842186.davem@davemloft.net>
+	 <4B2360BF.5000102@gmail.com>	<4B25D38F.1090702@gmail.com>
+	 <20091213.234530.82029083.davem@davemloft.net> <4B267708.3010202@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, lists@nerdbynature.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932191AbZLNS5U@vger.kernel.org>
+In-Reply-To: <4B267708.3010202@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, 2009-12-14 at 18:34 +0100, Eric Dumazet wrote:
+> Le 14/12/2009 08:45, David Miller a =C3=A9crit :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Mon, 14 Dec 2009 06:56:31 +0100
+> >=20
+> >> It seems to me tcp_create_openreq_child() doesnt properly initiali=
+ze
+> >> newtp->cookie_values to NULL, but this should not produce warnings=
+ like that ?
+> >=20
+> > If oldtp->cookie_values is NULL, the child's should be as well
+> > because of sk_clone().
+>=20
+> Right, maybe then its a tcp_ack() or a syncookie validation change ?
+>=20
+>=20
+> tcp_v4_rcv()
+>         bh_lock_sock_nested(sk);
+>         if (!sock_owned_by_user(sk)) {
+>=20
+>         -> tcp_v4_do_rcv()
+>                 -> tcp_v4_hnd_req()
+>                         -> cookie_v4_check()
+>                                 -> get_cookie_sock()
+>                                         -> child =3D syn_recv_sock()
+>                                         -> inet_csk_reqsk_queue_add(c=
+hild) (TCP_SYN_RECV socket queued into parent)
+>                 -> tcp_child_process() (backlog... not)
+>                         -> tcp_rcv_state_process()
+>                                 -> acceptable =3D tcp_ack() > 0;
+>                                 -> if (acceptable) -> sk_state =3D TC=
+P_ESTABLISHED
+>                                         (but if tcp_ack() returned <=3D=
+ 0, state unchanged : TCP_SYN_RECV)
+>=20
+>=20
+> And commit 96e0bf4b5193d0d97d139f99e2dd128763d55521
+> (tcp: Discard segments that ack data not yet sent)
+>=20
+> Did change this area a bit :
+>=20
+> @@ -5632,7 +5639,7 @@ int tcp_rcv_state_process(struct sock *sk, stru=
+ct sk_buff *skb,
+> =20
+>         /* step 5: check the ACK field */
+>         if (th->ack) {
+> -               int acceptable =3D tcp_ack(sk, skb, FLAG_SLOWPATH);
+> +               int acceptable =3D tcp_ack(sk, skb, FLAG_SLOWPATH) > =
+0;
+> =20
+>                 switch (sk->sk_state) {
+>                 case TCP_SYN_RECV:
 
-I'm programming on a version of TCP-AP for the linux-kernel which delays the TCP-Packets so there is a little space inbetween the sent packets... The delaying of the packages is working as expected. Unfortunately I seem to be delaying the packets after the point where the timestamp is set for the calculation of the roundtrip time. Since I also need the correct RTT-values for the packets, I need to fix this problem.
+That test was changed to match a change in the return values of
+tcp_ack().  No logic change was intended.
 
-Until now, I haven't been able to find the point in the TCP-Code where the timestamp for the RTT calculation is set, so I was hoping someone on the Mailinglist could give me a hint which function is setting the timestamp.
+I won't be able to catch up on this thread and take a look at the code
+until this evening, CST.
 
-Thank you for your help!
-
-Tim Schneider
+  --  John
