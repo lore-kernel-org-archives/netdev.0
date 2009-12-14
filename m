@@ -1,167 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: packet_sendmsg_spkt sleeping from invalid context
-Date: Mon, 14 Dec 2009 22:39:38 +0100
-Message-ID: <4B26B09A.7050607@gmail.com>
-References: <20091214175211.GA5102@nowhere> <4B2690E7.4030303@gmail.com> <20091214205231.GB5037@nowhere> <4B26AD65.1020004@gmail.com> <20091214213002.GA5203@nowhere>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] sky2: leave PCI config space writeable
+Date: Mon, 14 Dec 2009 22:49:07 +0100
+Message-ID: <200912142249.07753.rjw@sisk.pl>
+References: <20091214103458.7787e011@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756374AbZLNVjt@vger.kernel.org>
-In-Reply-To: <20091214213002.GA5203@nowhere>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:48810 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758470AbZLNVs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Dec 2009 16:48:57 -0500
+In-Reply-To: <20091214103458.7787e011@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 14/12/2009 22:30, Frederic Weisbecker a =E9crit :
-> On Mon, Dec 14, 2009 at 10:25:57PM +0100, Eric Dumazet wrote:
->> Le 14/12/2009 21:52, Frederic Weisbecker a =E9crit :
->>>
->>> I also wonder. Are you using PREEMPT_RCU ?
->>
->> Not at all :)
->>
->> But yes, this is illegal to do the memcpy_fromiovec() in rcu_read_lo=
-ck() context.
->=20
->=20
-> I've just tested, and with rcu preempt it is mute, no warning :)
->=20
->=20
->>> That may explain why you haven't seen this issue because
->>> might_sleep() doesn't see you are in a rcu read locked
->>> section as preemption is not disabled, but it is illegal to
->>> voluntarily sleep in such area (although it's fine with
->>> preempt rcu) as doing so with non-prempt RCU config would barf.
->>>
->>> I'm trying a patch to handle that.
->>
->> As you want, I also have a patch testing right now :)
->=20
->=20
-> But mine is to teach might_sleep() to handle rcu preempt case,
-> not to fix this net dev thing.
->=20
-> But I'll happily test the fix you have :)
->=20
+On Monday 14 December 2009, Stephen Hemminger wrote:
+> Since power management is done by PCI subsystem as well as driver,
+> don't toggle the bit that disables PCI register writes.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-OK here it is, I tested it with PREEMPT_RCU as well
+Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Thanks !
+> --- a/drivers/net/sky2.c	2009-12-11 11:09:44.856489827 -0800
+> +++ b/drivers/net/sky2.c	2009-12-11 11:09:55.947770545 -0800
+> @@ -644,7 +644,6 @@ static void sky2_phy_power_up(struct sky
+>  {
+>  	u32 reg1;
+>  
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
+>  	reg1 &= ~phy_power[port];
+>  
+> @@ -652,7 +651,6 @@ static void sky2_phy_power_up(struct sky
+>  		reg1 |= coma_mode[port];
+>  
+>  	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  	sky2_pci_read32(hw, PCI_DEV_REG1);
+>  
+>  	if (hw->chip_id == CHIP_ID_YUKON_FE)
+> @@ -709,11 +707,9 @@ static void sky2_phy_power_down(struct s
+>  		gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_PDOWN);
+>  	}
+>  
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
+>  	reg1 |= phy_power[port];		/* set PHY to PowerDown/COMA Mode */
+>  	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  }
+>  
+>  /* Force a renegotiation */
+> @@ -2152,9 +2148,7 @@ static void sky2_qlink_intr(struct sky2_
+>  
+>  	/* reset PHY Link Detect */
+>  	phy = sky2_pci_read16(hw, PSM_CONFIG_REG4);
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  	sky2_pci_write16(hw, PSM_CONFIG_REG4, phy | 1);
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  
+>  	sky2_link_up(sky2);
+>  }
+> @@ -2645,7 +2639,6 @@ static void sky2_hw_intr(struct sky2_hw 
+>  	if (status & (Y2_IS_MST_ERR | Y2_IS_IRQ_STAT)) {
+>  		u16 pci_err;
+>  
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  		pci_err = sky2_pci_read16(hw, PCI_STATUS);
+>  		if (net_ratelimit())
+>  			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
+> @@ -2653,14 +2646,12 @@ static void sky2_hw_intr(struct sky2_hw 
+>  
+>  		sky2_pci_write16(hw, PCI_STATUS,
+>  				      pci_err | PCI_STATUS_ERROR_BITS);
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  	}
+>  
+>  	if (status & Y2_IS_PCI_EXP) {
+>  		/* PCI-Express uncorrectable Error occurred */
+>  		u32 err;
+>  
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  		err = sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
+>  		sky2_write32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS,
+>  			     0xfffffffful);
+> @@ -2668,7 +2659,6 @@ static void sky2_hw_intr(struct sky2_hw 
+>  			dev_err(&pdev->dev, "PCI Express error (0x%x)\n", err);
+>  
+>  		sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  	}
+>  
+>  	if (status & Y2_HWE_L1_MASK)
+> @@ -3047,7 +3037,6 @@ static void sky2_reset(struct sky2_hw *h
+>  	}
+>  
+>  	sky2_power_on(hw);
+> -	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  
+>  	for (i = 0; i < hw->ports; i++) {
+>  		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_SET);
+> @@ -3084,7 +3073,6 @@ static void sky2_reset(struct sky2_hw *h
+>  		reg <<= PSM_CONFIG_REG4_TIMER_PHY_LINK_DETECT_BASE;
+>  
+>  		/* reset PHY Link Detect */
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
+>  		sky2_pci_write16(hw, PSM_CONFIG_REG4,
+>  				 reg | PSM_CONFIG_REG4_RST_PHY_LINK_DETECT);
+>  		sky2_pci_write16(hw, PSM_CONFIG_REG4, reg);
+> @@ -3102,7 +3090,6 @@ static void sky2_reset(struct sky2_hw *h
+>  			/* restore the PCIe Link Control register */
+>  			sky2_pci_write16(hw, cap + PCI_EXP_LNKCTL, reg);
+>  		}
+> -		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+>  
+>  		/* re-enable PEX PM in PEX PHY debug reg. 8 (clear bit 12) */
+>  		sky2_write32(hw, Y2_PEX_PHY_DATA, PEX_DB_ACCESS | (0x08UL << 16));
+> 
+> 
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0205621..bc17351 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -415,7 +415,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, =
-struct socket *sock,
- {
- 	struct sock *sk =3D sock->sk;
- 	struct sockaddr_pkt *saddr =3D (struct sockaddr_pkt *)msg->msg_name;
--	struct sk_buff *skb;
-+	struct sk_buff *skb =3D NULL;
- 	struct net_device *dev;
- 	__be16 proto =3D 0;
- 	int err;
-@@ -437,6 +437,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, =
-struct socket *sock,
- 	 */
-=20
- 	saddr->spkt_device[13] =3D 0;
-+retry:
- 	rcu_read_lock();
- 	dev =3D dev_get_by_name_rcu(sock_net(sk), saddr->spkt_device);
- 	err =3D -ENODEV;
-@@ -456,58 +457,48 @@ static int packet_sendmsg_spkt(struct kiocb *iocb=
-, struct socket *sock,
- 	if (len > dev->mtu + dev->hard_header_len)
- 		goto out_unlock;
-=20
--	err =3D -ENOBUFS;
--	skb =3D sock_wmalloc(sk, len + LL_RESERVED_SPACE(dev), 0, GFP_KERNEL)=
-;
--
--	/*
--	 * If the write buffer is full, then tough. At this level the user
--	 * gets to deal with the problem - do your own algorithmic backoffs.
--	 * That's far more flexible.
--	 */
--
--	if (skb =3D=3D NULL)
--		goto out_unlock;
--
--	/*
--	 *	Fill it in
--	 */
--
--	/* FIXME: Save some space for broken drivers that write a
--	 * hard header at transmission time by themselves. PPP is the
--	 * notable one here. This should really be fixed at the driver level.
--	 */
--	skb_reserve(skb, LL_RESERVED_SPACE(dev));
--	skb_reset_network_header(skb);
--
--	/* Try to align data part correctly */
--	if (dev->header_ops) {
--		skb->data -=3D dev->hard_header_len;
--		skb->tail -=3D dev->hard_header_len;
--		if (len < dev->hard_header_len)
--			skb_reset_network_header(skb);
-+	if (!skb) {
-+		size_t reserved =3D LL_RESERVED_SPACE(dev);
-+		unsigned int hhlen =3D dev->header_ops ? dev->hard_header_len : 0;
-+
-+		rcu_read_unlock();
-+		skb =3D sock_wmalloc(sk, len + reserved, 0, GFP_KERNEL);
-+		if (skb =3D=3D NULL)
-+			return -ENOBUFS;
-+		skb_reserve(skb, reserved);
-+		/* FIXME: Save some space for broken drivers that write a hard
-+		 * header at transmission time by themselves. PPP is the notable
-+		 * one here. This should really be fixed at the driver level.
-+		 */
-+		skb_reset_network_header(skb);
-+
-+		/* Try to align data part correctly */
-+		if (hhlen) {
-+			skb->data -=3D hhlen;
-+			skb->tail -=3D hhlen;
-+			if (len < hhlen)
-+				skb_reset_network_header(skb);
-+		}
-+		err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+		if (err)
-+			goto out_free;
-+		goto retry;
- 	}
-=20
--	/* Returns -EFAULT on error */
--	err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+
- 	skb->protocol =3D proto;
- 	skb->dev =3D dev;
- 	skb->priority =3D sk->sk_priority;
- 	skb->mark =3D sk->sk_mark;
--	if (err)
--		goto out_free;
--
--	/*
--	 *	Now send it
--	 */
-=20
- 	dev_queue_xmit(skb);
- 	rcu_read_unlock();
- 	return len;
-=20
--out_free:
--	kfree_skb(skb);
- out_unlock:
- 	rcu_read_unlock();
-+out_free:
-+	kfree_skb(skb);
- 	return err;
- }
-=20
