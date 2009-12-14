@@ -1,53 +1,41 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net: Fix userspace RTM_NEWLINK notifications.
-Date: Mon, 14 Dec 2009 03:05:36 +0100
-Message-ID: <1260756336.4041.3.camel@localhost.localdomain>
-References: <m1fx7fmgyk.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: restore ip source validation WAS(Re:
+ [tproxy,regression] tproxy broken in 2.6.32
+Date: Sun, 13 Dec 2009 19:10:24 -0800 (PST)
+Message-ID: <20091213.191024.193699730.davem@davemloft.net>
+References: <1260729530.6167.22.camel@bigi>
+	<1260731510.6167.25.camel@bigi>
+	<1260731716.6167.27.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	stable@kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: ja@ssi.bg, hidden@balabit.hu, kaber@trash.net, hidden@sch.bme.hu,
+	aschultz@warp10.net, tproxy@lists.balabit.hu,
+	netdev@vger.kernel.org, rick.jones2@hp.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:52644 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753958AbZLNCFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 21:05:47 -0500
-In-Reply-To: <m1fx7fmgyk.fsf@fess.ebiederm.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37760
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932125AbZLNDKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:10:23 -0500
+In-Reply-To: <1260731716.6167.27.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: jamal <hadi@cyberus.ca>
+Date: Sun, 13 Dec 2009 14:15:16 -0500
 
-> I received some bug reports about userspace programs having problems
-> because after RTM_NEWLINK was received they could not immediate access
-> files under /proc/sys/net/ because they had not been registered yet.
+> On Sun, 2009-12-13 at 14:11 -0500, jamal wrote:
+>> On Sun, 2009-12-13 at 13:38 -0500, jamal wrote:
+>> 
+>> > Of course. I will resend ..
+>> 
+>> Updated. Much thanks Julian.
 > 
-> The original problem was trivially fixed by moving the userspace
-> notification from rtnetlink_event() to the end of
-> register_netdevice().
-> 
-> When testing that change I discovered I was still getting RTM_NEWLINK
-> events before I could access proc and I was also getting RTM_NEWLINK
-> events after I was seeing RTM_DELLINK.  Things practically guaranteed
-> to confuse userspace.
-> 
-> After a little more investigation these extra notifications proved to
-> be from the new notifiers NETDEV_POST_INIT and NETDEV_UNREGISTER_BATCH
-> hitting the default case in rtnetlink_event, and triggering
-> unnecessary RTM_NEWLINK messages.
-> 
-> rtnetlink_event now explicitly handles NETDEV_UNREGISTER_BATCH and
-> NETDEV_POST_INIT to avoid sending the incorrect userspace
-> notifications.
+> Grrr. As a self-proclaimed master craftsman man i insist on blaming some
+> tool. It must be git! Proper patch attached.
 
-the POST_INIT and UNREGISTER_BATCH are not 2.6.32 features. They are
-2.6.33 features and thus you need to create a separate patch for -stable
-if you wanna fix the /proc access issue.
+Don't use binary attachments like that please.
 
-Regards
-
-Marcel
-
-
+It doesn't end up in patchwork properly, and I need that to
+happen in order to track people's work effectively.
