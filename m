@@ -1,65 +1,100 @@
-From: Ryan Raasch <ryan.raasch@gmail.com>
-Subject: Disable pxa dma option for smc911x
-Date: Mon, 14 Dec 2009 14:14:55 +0100
-Message-ID: <4B263A4F.8050302@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Networking-related crash?
+Date: Mon, 14 Dec 2009 14:16:13 +0100
+Message-ID: <4B263A9D.3090102@trash.net>
+References: <608c44bf0912090546s446bf973ne408e99661fdc56f@mail.gmail.com>	 <4B1FBE0A.4040107@redhat.com> <4B200E9E.4020107@gmail.com>	 <4B20D50D.5050403@trash.net> <608c44bf0912100718v42976b4kc6168fc30a8b8ef@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020900060805020700050002"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f192.google.com ([209.85.221.192]:49418 "EHLO
-	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754734AbZLNNPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 08:15:00 -0500
-Received: by qyk30 with SMTP id 30so1526568qyk.33
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2009 05:14:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Avi Kivity <avi@redhat.com>,
+	kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Adam Huffman <adam.huffman@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <608c44bf0912100718v42976b4kc6168fc30a8b8ef@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020900060805020700050002
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Adam Huffman wrote:
+> On Thu, Dec 10, 2009 at 11:01 AM, Patrick McHardy <kaber@trash.net> w=
+rote:
+>> Eric Dumazet wrote:
+>>> Le 09/12/2009 16:11, Avi Kivity a =E9crit :
+>>>> On 12/09/2009 03:46 PM, Adam Huffman wrote:
+>>>>> I've been seeing lots of crashes on a new Dell Precision T7500,
+>>>>> running the KVM in Fedora 12.  Finally managed to capture an Oops=
+,
+>>>>> which is shown below (hand-transcribed):
+>>>>>
+>>>>> BUG: unable to handle kernel paging request at 0000000000200200
+>>>>> IP: [<ffffffff8139aab7>] destroy_conntrack+0x82/0x11f
+>>>>> PGD 332d0e067 PUD 33453c067 PMD 0
+>>>>> RIP: 0010:[<ffffffff8139aab7>]  [<ffffffff8139aab7>]
+>>>>> destroy_conntrack+0x82/0x11f
+>>>>> RSP: 0018:ffffc90000803bf0  EFLAGS: 00010202
+>>>>> RAX: 0000000080000001 RBX: ffffffff816fb1a0 RCX: 000000000000752f
+>>>>> RDX: 0000000000200200 RSI: 0000000000000011 RDI: ffffffff816fb1a0
+>>>>> RBP: ffffc90000803c00 R08: ffff880336699438 R09: 0000000000aaa5e0
+>>>>> R10: 00000002f54189d5 R11: 0000000000000001 R12: ffffffff819a92e0
+>>>>> R13: ffffffffa029adcc R14: 0000000000000000 R15: ffff880632866c38
+>>>>> FS:  00007fdd34b17710(0000) GS:ffffc90000800000(0000)
+>>>>> knlGS:0000000000000000
+>>>>> CS:  0010 DS: 002B ES: 002B CR0: 0000000080050033
+>>>>> CR2: 0000000000200200 CR3: 00000003349c0000 CR4: 00000000000026e0
+>>>>> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>>>>> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>>>>> Process qemu-kvm (pid: 1759, threadinfo ffff88062e9e8000, task
+>>>>> ffff880634945e00)
+>>>>> Stack:
+>>>>>   ffff880632866c00 ffff880634640c30 ffffc90000803c10 ffffffff8139=
+89c2
+>>>>> <0>  ffffc90000803c30 ffffffff81374092 ffffc90000803c30 ffff88063=
+2866c00
+>>>>> <0>  ffffc90000803c50 ffffffff81373dd3 0000000200000000 ffff88063=
+2866c00
+>>>>> Call Trace:
+>>>>>   <IRQ>
+>>>>>   [<ffffffff813989c2>] nf_conntrack_destroy+0x1b/0x1d
+>>>>>   [<ffffffff81374092>] skb_release_head_state+0x95/0xd7
+>>>>>   [<ffffffff81373dd3>] __kfree_skb+0x16/0x81
+>>>>>   [<ffffffff81373ed7>] kfree_skb+0x6a/0x72
+>>>>>   [<ffffffffa029adcc>] ip6_mc_input+0x220/0x230 [ipv6]
+>>>>>   [<ffffffffa029a3d1>] ip6_rcv_finish+0x27/0x2b [ipv6]
+>>>>>   [<ffffffffa029a763>] ipv6_rcv+0x38e/0x3e5 [ipv6]
+>>>>>   [<ffffffff8137bd91>] netif_receive_skb+0x402/0x427
+>>>>>   ...
+>>>>>
+>>> crash in :
+>>>       48 8b 43 08             mov    0x8(%rbx),%rax
+>>>       a8 01                   test   $0x1,%al
+>>>       48 89 02                mov    %rax,(%rdx)  << HERE >> RDX=3D=
+0x200200  (LIST_POISON2)
+>>>       75 04                   jne    1f
+>>>       48 89 50 08             mov    %rdx,0x8(%rax)
+>>> 1:    48 c7 43 10 00 02 20    movq   $0x200200,0x10(%rbx)
+>>>
+>>>       if (!nf_ct_is_confirmed(ct)) {
+>>>               BUG_ON(hlist_nulls_unhashed(&ct->tuplehash[IP_CT_DIR_=
+ORIGINAL].hnnode));
+>>>               hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL=
+].hnnode);  << HERE >>
+>>>       }
+>>>       NF_CT_STAT_INC(net, delete);
+>>
+>> I can't spot the problem. Adam, please send me your .config file.
+>>
+>>
+>=20
+> It's the standard Fedora .config, which is attached.
+>=20
+> As I stated in another message, the oops seems related to VT-d.  With
+> that disabled, the machine has been stable for nearly a day now.
 
-Hello,
-
-Because our system, we have had to disable the dma for our chip :) We 
-don't know why yet...
-
-However, when disabling the DMA, there are a couple of cpp errors, which 
-this patch fixes.
-
-Greetings,
-Ryan
-
---------------020900060805020700050002
-Content-Type: text/x-patch;
- name="fix_smc911x_pxa_dma_disable.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="fix_smc911x_pxa_dma_disable.patch"
-
-diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
-index 05adb6a..e83213a 100644
---- a/drivers/net/smc911x.h
-+++ b/drivers/net/smc911x.h
-@@ -60,7 +60,7 @@
- #define SMC_DYNAMIC_BUS_CONFIG
- #endif
- 
--#ifdef SMC_USE_PXA_DMA
-+#if SMC_USE_PXA_DMA == 1
- #define SMC_USE_DMA
- #endif
- 
-@@ -209,7 +209,7 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
- #endif /* SMC_DYNAMIC_BUS_CONFIG */
- 
- 
--#ifdef SMC_USE_PXA_DMA
-+#if SMC_USE_PXA_DMA == 1
- 
- #include <mach/dma.h>
- 
-
---------------020900060805020700050002--
+That probably only affects the timing of some race. Please also
+send me the IPv6 ruleset used on that machine. Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
