@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] can: Fix data length code handling in rx path
-Date: Sun, 13 Dec 2009 19:47:47 -0800 (PST)
-Message-ID: <20091213.194747.115923333.davem@davemloft.net>
-References: <4B23A501.9000208@hartkopp.net>
-	<4B23DC72.6030307@grandegger.com>
+Subject: Re: [PATCH kernel 2.6.32-git7] 3c574_cs: disable irq before
+ calling el3_interrupt
+Date: Sun, 13 Dec 2009 19:48:15 -0800 (PST)
+Message-ID: <20091213.194815.48517182.davem@davemloft.net>
+References: <20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@hartkopp.net, netdev@vger.kernel.org,
-	socketcan-core@lists.berlios.de
-To: wg@grandegger.com
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50713
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50716
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754491AbZLNDrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:47:45 -0500
-In-Reply-To: <4B23DC72.6030307@grandegger.com>
+	by vger.kernel.org with ESMTP id S1755946AbZLNDsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 22:48:14 -0500
+In-Reply-To: <20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Sat, 12 Dec 2009 19:09:54 +0100
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Sun, 13 Dec 2009 09:44:11 +0900
 
-> Oliver Hartkopp wrote:
->> A valid CAN dataframe can have a data length code (DLC) of 0 .. 8 data bytes.
->> 
->> When reading the CAN controllers register the 4-bit value may contain values
->> from 0 .. 15 which may exceed the reserved space in the socket buffer!
->> 
->> The ISO 11898-1 Chapter 8.4.2.3 (DLC field) says that register values > 8
->> should be reduced to 8 without any error reporting or frame drop.
->> 
->> This patch introduces a new helper macro to cast a given 4-bit data length
->> code (dlc) to __u8 and ensure the DLC value to be max. 8 bytes.
->> 
->> The different handlings in the rx path of the CAN netdevice drivers are fixed.
->> 
->> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 > 
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+> 3c574_cs, 3c589_cs:
+> 	disable irq before calling el3_interrupt
+> 	in the media_check function.
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Applied, thanks everyone.
-
+Applied, thanks.
