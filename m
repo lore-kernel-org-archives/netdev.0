@@ -1,16 +1,18 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH 2/4] mx25: don't force input on FEC pins
-Date: Mon, 14 Dec 2009 12:19:40 +0200
-Message-ID: <a7c4a6919d5687cefa6ad12fb8bf2b08733823da.1260785451.git.baruch@tkos.co.il>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
+Date: Mon, 14 Dec 2009 11:33:48 +0100
+Message-ID: <20091214103348.GV15126@pengutronix.de>
 References: <cover.1260785451.git.baruch@tkos.co.il>
+	<fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Baruch Siach <baruch@tkos.co.il>,
-	linux-arm-kernel@lists.infradead.org
-To: Sascha Hauer <kernel@pengutronix.de>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1260785451.git.baruch@tkos.co.il>
+Content-Disposition: inline
+In-Reply-To: <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
 	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -22,68 +24,90 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- arch/arm/plat-mxc/include/mach/iomux-mx25.h |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+On Mon, Dec 14, 2009 at 12:19:41PM +0200, Baruch Siach wrote:
+> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
+> necessary bits to make the i.MX25 talk RMII.
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> ---
+>  drivers/net/fec.c |   22 ++++++++++++++++++++++
+>  drivers/net/fec.h |    2 ++
+>  2 files changed, 24 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 16a1d58..65c43d3 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -51,6 +51,7 @@
+>  #include "fec.h"
+>  
+>  #ifdef CONFIG_ARCH_MXC
+> +#include <asm/mach-types.h>
+>  #include <mach/hardware.h>
+>  #define FEC_ALIGNMENT	0xf
+>  #else
+> @@ -1722,6 +1723,25 @@ static int fec_enet_init(struct net_device *dev, int index)
+>  	return 0;
+>  }
+>  
+> +static void fec_localhw_setup(struct net_device *dev)
+> +{
+> +	struct fec_enet_private *fep = netdev_priv(dev);
+> +
+> +	if (!machine_is_mx25_3ds())
+> +		return;
 
-diff --git a/arch/arm/plat-mxc/include/mach/iomux-mx25.h b/arch/arm/plat-mxc/include/mach/iomux-mx25.h
-index 9af494f..d7c0dea 100644
---- a/arch/arm/plat-mxc/include/mach/iomux-mx25.h
-+++ b/arch/arm/plat-mxc/include/mach/iomux-mx25.h
-@@ -54,7 +54,7 @@
- #define MX25_PAD_A16__GPIO_2_2		IOMUX_PAD(0x000, 0x018, 0x15, 0, 0, NO_PAD_CTRL)
- 
- #define MX25_PAD_A17__A17		IOMUX_PAD(0x238, 0x01c, 0x10, 0, 0, NO_PAD_CTRL)
--#define MX25_PAD_A17__GPIO_2_3		IOMUX_PAD(0x238, 0x01c, 0x15, 0, 0, NO_PAD_CTRL)
-+#define MX25_PAD_A17__GPIO_2_3		IOMUX_PAD(0x238, 0x01c, 0x05, 0, 0, NO_PAD_CTRL)
- 
- #define MX25_PAD_A18__A18		IOMUX_PAD(0x23c, 0x020, 0x10, 0, 0, NO_PAD_CTRL)
- #define MX25_PAD_A18__GPIO_2_4		IOMUX_PAD(0x23c, 0x020, 0x15, 0, 0, NO_PAD_CTRL)
-@@ -410,35 +410,35 @@
- #define MX25_PAD_KPP_COL3__KPP_COL3	IOMUX_PAD(0x3bc, 0x1c4, 0x10, 0, 0, PAD_CTL_PKE | PAD_CTL_ODE)
- #define MX25_PAD_KPP_COL3__GPIO_3_4	IOMUX_PAD(0x3bc, 0x1c4, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_MDC__FEC_MDC	IOMUX_PAD(0x3c0, 0x1c8, 0x10, 0, 0, NO_PAD_CTRL)
-+#define MX25_PAD_FEC_MDC__FEC_MDC	IOMUX_PAD(0x3c0, 0x1c8, 0x00, 0, 0, NO_PAD_CTRL)
- #define MX25_PAD_FEC_MDC__AUD4_TXD	IOMUX_PAD(0x3c0, 0x1c8, 0x12, 0x464, 1, NO_PAD_CTRL)
- #define MX25_PAD_FEC_MDC__GPIO_3_5	IOMUX_PAD(0x3c0, 0x1c8, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_MDIO__FEC_MDIO	IOMUX_PAD(0x3c4, 0x1cc, 0x10, 0, 0, PAD_CTL_HYS | PAD_CTL_PUS_22K_UP)
-+#define MX25_PAD_FEC_MDIO__FEC_MDIO	IOMUX_PAD(0x3c4, 0x1cc, 0x00, 0, 0, PAD_CTL_HYS | PAD_CTL_PUS_22K_UP)
- #define MX25_PAD_FEC_MDIO__AUD4_RXD	IOMUX_PAD(0x3c4, 0x1cc, 0x12, 0x460, 1, NO_PAD_CTRL)
- #define MX25_PAD_FEC_MDIO__GPIO_3_6	IOMUX_PAD(0x3c4, 0x1cc, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_TDATA0__FEC_TDATA0	IOMUX_PAD(0x3c8, 0x1d0, 0x10, 0, 0, NO_PAD_CTRL)
-+#define MX25_PAD_FEC_TDATA0__FEC_TDATA0	IOMUX_PAD(0x3c8, 0x1d0, 0x00, 0, 0, NO_PAD_CTRL)
- #define MX25_PAD_FEC_TDATA0__GPIO_3_7	IOMUX_PAD(0x3c8, 0x1d0, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_TDATA1__FEC_TDATA1	IOMUX_PAD(0x3cc, 0x1d4, 0x10, 0, 0, NO_PAD_CTRL)
-+#define MX25_PAD_FEC_TDATA1__FEC_TDATA1	IOMUX_PAD(0x3cc, 0x1d4, 0x00, 0, 0, NO_PAD_CTRL)
- #define MX25_PAD_FEC_TDATA1__AUD4_TXFS	IOMUX_PAD(0x3cc, 0x1d4, 0x12, 0x474, 1, NO_PAD_CTRL)
- #define MX25_PAD_FEC_TDATA1__GPIO_3_8	IOMUX_PAD(0x3cc, 0x1d4, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_TX_EN__FEC_TX_EN	IOMUX_PAD(0x3d0, 0x1d8, 0x10, 0, 0, NO_PAD_CTRL)
-+#define MX25_PAD_FEC_TX_EN__FEC_TX_EN	IOMUX_PAD(0x3d0, 0x1d8, 0x00, 0, 0, NO_PAD_CTRL)
- #define MX25_PAD_FEC_TX_EN__GPIO_3_9   	IOMUX_PAD(0x3d0, 0x1d8, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_RDATA0__FEC_RDATA0	IOMUX_PAD(0x3d4, 0x1dc, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
-+#define MX25_PAD_FEC_RDATA0__FEC_RDATA0	IOMUX_PAD(0x3d4, 0x1dc, 0x00, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
- #define MX25_PAD_FEC_RDATA0__GPIO_3_10	IOMUX_PAD(0x3d4, 0x1dc, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_RDATA1__FEC_RDATA1	IOMUX_PAD(0x3d8, 0x1e0, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
-+#define MX25_PAD_FEC_RDATA1__FEC_RDATA1	IOMUX_PAD(0x3d8, 0x1e0, 0x00, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
- #define MX25_PAD_FEC_RDATA1__GPIO_3_11	IOMUX_PAD(0x3d8, 0x1e0, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_RX_DV__FEC_RX_DV	IOMUX_PAD(0x3dc, 0x1e4, 0x10, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
-+#define MX25_PAD_FEC_RX_DV__FEC_RX_DV	IOMUX_PAD(0x3dc, 0x1e4, 0x00, 0, 0, PAD_CTL_PUS_100K_DOWN | NO_PAD_CTRL)
- #define MX25_PAD_FEC_RX_DV__CAN2_RX	IOMUX_PAD(0x3dc, 0x1e4, 0x14, 0x484, 0, PAD_CTL_PUS_22K_UP)
- #define MX25_PAD_FEC_RX_DV__GPIO_3_12	IOMUX_PAD(0x3dc, 0x1e4, 0x15, 0, 0, NO_PAD_CTRL)
- 
--#define MX25_PAD_FEC_TX_CLK__FEC_TX_CLK	IOMUX_PAD(0x3e0, 0x1e8, 0x10, 0, 0, PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN)
-+#define MX25_PAD_FEC_TX_CLK__FEC_TX_CLK	IOMUX_PAD(0x3e0, 0x1e8, 0x00, 0, 0, PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN)
- #define MX25_PAD_FEC_TX_CLK__GPIO_3_13	IOMUX_PAD(0x3e0, 0x1e8, 0x15, 0, 0, NO_PAD_CTRL)
- 
- #define MX25_PAD_RTCK__RTCK		IOMUX_PAD(0x3e4, 0x1ec, 0x10, 0, 0, NO_PAD_CTRL)
+We should add a flag in platform data for this. Unfortunately the fec
+driver has no platform data at all at the moment, so this requires some
+more work.
+
+Sascha
+
+> +
+> +	/* disable the gasket and wait */
+> +	writel(0, fep->hwp + FEC_MIIGSK_ENR);
+> +	while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+> +		udelay(1);
+> +
+> +	/* configure the gasket for RMII, 50 MHz, no loopback, no echo */
+> +	writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> +
+> +	/* re-enable the gasket */
+> +	writel(2, fep->hwp + FEC_MIIGSK_ENR);
+> +}
+> +
+>  /* This function is called to start or restart the FEC during a link
+>   * change.  This only happens when switching between half and full
+>   * duplex.
+> @@ -1810,6 +1830,8 @@ fec_restart(struct net_device *dev, int duplex)
+>  	/* Set MII speed */
+>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+>  
+> +	fec_localhw_setup(dev);
+> +
+>  	/* And last, enable the transmit and receive processing */
+>  	writel(2, fep->hwp + FEC_ECNTRL);
+>  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
+> index cc47f3f..2c48b25 100644
+> --- a/drivers/net/fec.h
+> +++ b/drivers/net/fec.h
+> @@ -43,6 +43,8 @@
+>  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
+>  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
+>  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
+> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+>  
+>  #else
+>  
+> -- 
+> 1.6.5
+> 
+> 
+
 -- 
-1.6.5
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
