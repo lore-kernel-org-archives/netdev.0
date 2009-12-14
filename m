@@ -1,52 +1,37 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v2 2/4] Defer skb allocation -- new skb_set calls & chain pages in virtio_net
-Date: Mon, 14 Dec 2009 17:24:48 +1030
-Message-ID: <200912141724.49034.rusty@rustcorp.com.au>
-References: <1258697359.7416.14.camel@localhost.localdomain> <1260534506.30371.6.camel@localhost.localdomain> <1260535382.30371.20.camel@localhost.localdomain>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: CAN_MCP251X should depend on HAS_DMA
+Date: Mon, 14 Dec 2009 08:34:35 +0100
+Message-ID: <4B25EA8B.1030507@grandegger.com>
+References: <alpine.DEB.2.00.0912132008100.21225@ayla.of.borg>	<4B2552C8.4090105@grandegger.com> <20091213.174020.26980813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753730AbZLNGy5@vger.kernel.org>
-In-Reply-To: <1260535382.30371.20.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: geert@linux-m68k.org, chripell@fsfe.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:55140 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751656AbZLNHf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 02:35:28 -0500
+In-Reply-To: <20091213.174020.26980813.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Dec 2009 11:13:02 pm Shirley Ma wrote:
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+David Miller wrote:
+> From: Wolfgang Grandegger <wg@grandegger.com>
+> Date: Sun, 13 Dec 2009 21:47:04 +0100
+> 
+>> DMA can be selected with the module parameter "mcp251x_enable_dma" and
+>> is *off* by default. Therefore the driver does in principle not depend
+>> on HAS_DMA but I'm not sure if it's worth to handle it with #idef's.
+>> Christian? Any thought?
+> 
+> I still think it's a reasonable dependency.
+> 
+> You're not going to find this device on a s390 system. :-)
 
-I don't think there's a good way of splitting this change across multiple
-patches.  And I don't think this patch will compile; I don't think we can
-get rid of trim_pages yet.
+OK, we could change that on request.
 
-We *could* first split the receive paths into multiple parts as you have
-(eg. add_recvbuf_big etc), then actually rewrite them, but that's too much
-work to refactor the code twice.  
-
-So just roll all the driver changes into one patch; so you will have two
-patches: one which creates the destroy_bufs API for virtio, and one which
-uses it in the virtio_net driver.
-
-> +static struct sk_buff *skb_goodcopy(struct virtnet_info *vi, struct page **page,
-> +				    unsigned int *len)
-
-This actually allocates an skb, and transfers the first page to it (via copy
-and possibly the first fragment).  skb_from_page() perhaps?
-
-> +		hdr_len = sizeof(hdr->hdr);
-> +		offset = sizeof(struct padded_vnet_hdr);
-> +	}
-> +
-> +	memcpy(hdr, p, hdr_len);
-> +
-> +	*len -= hdr_len;
-
-Perhaps you should return NULL here as an error if *len was < hdr_len?
-
-Thanks,
-Rusty.
+Wolfgang.
