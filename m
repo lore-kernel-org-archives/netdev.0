@@ -1,41 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ipvs: fix synchronization on connection close
-Date: Mon, 14 Dec 2009 16:39:32 +0100
-Message-ID: <4B265C34.6070205@trash.net>
-References: <1260434502-14166-1-git-send-email-dfeng@redhat.com> <20091211033542.GA28136@verge.net.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] macvlan: add tap device backend
+Date: Mon, 14 Dec 2009 16:40:13 +0100
+Message-ID: <200912141640.13562.arnd@arndb.de>
+References: <1259862720-28432-1-git-send-email-arnd@arndb.de> <1259862720-28432-3-git-send-email-arnd@arndb.de> <4B26353A.9020005@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Xiaotian Feng <dfeng@redhat.com>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	"David S. Miller" <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20091211033542.GA28136@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"" <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Edge Virtual Bridging <evb@yahoogroups.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:60054 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753700AbZLNPkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 10:40:55 -0500
+In-Reply-To: <4B26353A.9020005@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman wrote:
-> On Thu, Dec 10, 2009 at 04:41:42PM +0800, Xiaotian Feng wrote:
->> commit 9d3a0de makes slaves expire as they would do on the master
->> with much shorter timeouts. But it introduces another problem:
->> When we close a connection, on master server the connection became
->> CLOSE_WAIT/TIME_WAIT, it was synced to slaves, but if master is
->> finished within it's timeouts (CLOSE), it will not be synced to
->> slaves. Then slaves will be kept on CLOSE_WAIT/TIME_WAIT until
->> timeout reaches. Thus we should also sync with CLOSE.
->>
->> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
->> Cc: Wensong Zhang <wensong@linux-vs.org>
->> Cc: Simon Horman <horms@verge.net.au>
->> Cc: Julian Anastasov <ja@ssi.bg>
->> Cc: David S. Miller <davem@davemloft.net>
+On Monday 14 December 2009, Patrick McHardy wrote:
+> > +     classdev = device_create(macvtap_class, &dev->dev, devt,
+> > +                              dev, "tap%d", dev->ifindex);
+> > +     if (IS_ERR(classdev)) {
+> > +             err = PTR_ERR(classdev);
+> > +             macvtap_del_queues(dev);
+> > +             macvlan_dellink(dev, NULL);
 > 
-> This seems reasonable to me.
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
+> I think this may cause a double free since macvlan_dellink() will
+> free the device and rtnl_newlink() will free it again on error.
 
-Applied, thanks.
+Ah, right. I've changed this part a few times now, but I think introduced
+the same bug again in the current version. I'll send out what I have now
+if you want to take another look.
 
+	Arnd
