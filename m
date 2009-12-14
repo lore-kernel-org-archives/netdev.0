@@ -1,71 +1,65 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] macvlan: add tap device backend
-Date: Mon, 14 Dec 2009 13:53:14 +0100
-Message-ID: <4B26353A.9020005@trash.net>
-References: <1259862720-28432-1-git-send-email-arnd@arndb.de> <1259862720-28432-3-git-send-email-arnd@arndb.de>
+From: Ryan Raasch <ryan.raasch@gmail.com>
+Subject: Disable pxa dma option for smc911x
+Date: Mon, 14 Dec 2009 14:14:55 +0100
+Message-ID: <4B263A4F.8050302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: multipart/mixed;
+ boundary="------------020900060805020700050002"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f192.google.com ([209.85.221.192]:49418 "EHLO
+	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754734AbZLNNPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Dec 2009 08:15:00 -0500
+Received: by qyk30 with SMTP id 30so1526568qyk.33
+        for <netdev@vger.kernel.org>; Mon, 14 Dec 2009 05:14:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------020900060805020700050002
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"" <davem@davemloft.net>, "Michael S. Tsirkin" <mst@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@voltaire.com>,
-	"Fischer, Anna" <anna.fischer@hp.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Edge Virtual Bridging <evb@yahoogroups.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756525AbZLNMxU@vger.kernel.org>
-In-Reply-To: <1259862720-28432-3-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann wrote:
-> +static int macvtap_newlink(struct net *src_net,
-> +			   struct net_device *dev,
-> +			   struct nlattr *tb[],
-> +			   struct nlattr *data[])
-> +{
-> +	struct device *classdev;
-> +	dev_t devt;
-> +	int err;
-> +
-> +	err = macvlan_common_newlink(src_net, dev, tb, data,
-> +				     macvtap_receive, macvtap_forward);
-> +	if (err)
-> +		goto out;
-> +
-> +	devt = MKDEV(MAJOR(macvtap_major), dev->ifindex);
-> +
-> +	classdev = device_create(macvtap_class, &dev->dev, devt,
-> +				 dev, "tap%d", dev->ifindex);
-> +	if (IS_ERR(classdev)) {
-> +		err = PTR_ERR(classdev);
-> +		macvtap_del_queues(dev);
-> +		macvlan_dellink(dev, NULL);
+Hello,
 
-I think this may cause a double free since macvlan_dellink() will
-free the device and rtnl_newlink() will free it again on error.
+Because our system, we have had to disable the dma for our chip :) We 
+don't know why yet...
 
-> +	}
-> +
-> +out:
-> +	return err;
-> +}
-> +
-> +static void macvtap_dellink(struct net_device *dev,
-> +			    struct list_head *head)
-> +{
-> +	device_destroy(macvtap_class,
-> +		       MKDEV(MAJOR(macvtap_major), dev->ifindex));
-> +
-> +	macvtap_del_queues(dev);
-> +	macvlan_dellink(dev, head);
-> +}
-> +
-> +static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
-> +	.kind		= "macvtap",
-> +	.newlink	= macvtap_newlink,
-> +	.dellink	= macvtap_dellink,
-> +};
+However, when disabling the DMA, there are a couple of cpp errors, which 
+this patch fixes.
+
+Greetings,
+Ryan
+
+--------------020900060805020700050002
+Content-Type: text/x-patch;
+ name="fix_smc911x_pxa_dma_disable.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fix_smc911x_pxa_dma_disable.patch"
+
+diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+index 05adb6a..e83213a 100644
+--- a/drivers/net/smc911x.h
++++ b/drivers/net/smc911x.h
+@@ -60,7 +60,7 @@
+ #define SMC_DYNAMIC_BUS_CONFIG
+ #endif
+ 
+-#ifdef SMC_USE_PXA_DMA
++#if SMC_USE_PXA_DMA == 1
+ #define SMC_USE_DMA
+ #endif
+ 
+@@ -209,7 +209,7 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
+ #endif /* SMC_DYNAMIC_BUS_CONFIG */
+ 
+ 
+-#ifdef SMC_USE_PXA_DMA
++#if SMC_USE_PXA_DMA == 1
+ 
+ #include <mach/dma.h>
+ 
+
+--------------020900060805020700050002--
