@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can: CAN_MCP251X should depend on HAS_DMA
-Date: Sun, 13 Dec 2009 17:40:20 -0800 (PST)
-Message-ID: <20091213.174020.26980813.davem@davemloft.net>
-References: <alpine.DEB.2.00.0912132008100.21225@ayla.of.borg>
-	<4B2552C8.4090105@grandegger.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] net: Fix userspace RTM_NEWLINK notifications.
+Date: Mon, 14 Dec 2009 03:05:36 +0100
+Message-ID: <1260756336.4041.3.camel@localhost.localdomain>
+References: <m1fx7fmgyk.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, chripell@fsfe.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: wg@grandegger.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45965
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750959AbZLNBkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 20:40:19 -0500
-In-Reply-To: <4B2552C8.4090105@grandegger.com>
+Received: from senator.holtmann.net ([87.106.208.187]:52644 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958AbZLNCFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Dec 2009 21:05:47 -0500
+In-Reply-To: <m1fx7fmgyk.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Sun, 13 Dec 2009 21:47:04 +0100
+Hi Eric,
 
-> DMA can be selected with the module parameter "mcp251x_enable_dma" and
-> is *off* by default. Therefore the driver does in principle not depend
-> on HAS_DMA but I'm not sure if it's worth to handle it with #idef's.
-> Christian? Any thought?
+> I received some bug reports about userspace programs having problems
+> because after RTM_NEWLINK was received they could not immediate access
+> files under /proc/sys/net/ because they had not been registered yet.
+> 
+> The original problem was trivially fixed by moving the userspace
+> notification from rtnetlink_event() to the end of
+> register_netdevice().
+> 
+> When testing that change I discovered I was still getting RTM_NEWLINK
+> events before I could access proc and I was also getting RTM_NEWLINK
+> events after I was seeing RTM_DELLINK.  Things practically guaranteed
+> to confuse userspace.
+> 
+> After a little more investigation these extra notifications proved to
+> be from the new notifiers NETDEV_POST_INIT and NETDEV_UNREGISTER_BATCH
+> hitting the default case in rtnetlink_event, and triggering
+> unnecessary RTM_NEWLINK messages.
+> 
+> rtnetlink_event now explicitly handles NETDEV_UNREGISTER_BATCH and
+> NETDEV_POST_INIT to avoid sending the incorrect userspace
+> notifications.
 
-I still think it's a reasonable dependency.
+the POST_INIT and UNREGISTER_BATCH are not 2.6.32 features. They are
+2.6.33 features and thus you need to create a separate patch for -stable
+if you wanna fix the /proc access issue.
 
-You're not going to find this device on a s390 system. :-)
+Regards
+
+Marcel
+
+
