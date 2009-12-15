@@ -1,58 +1,45 @@
-From: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
-Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
-Date: Tue, 15 Dec 2009 10:21:19 -0700
-Message-ID: <20091215172119.GF20231@esk.cs.usu.edu>
-References: <20091210231103.GA20231@esk.cs.usu.edu>
- <4B218E36.4030808@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH 1/4] net: port mirroring: add tracepoints to
+ appropriate network paths
+Date: Tue, 15 Dec 2009 09:22:22 -0800
+Message-ID: <20091215092222.1cbbee0f@nehalam>
+References: <20091215162956.GB18710@hmsreliant.think-freely.org>
+	<20091215163604.GC18710@hmsreliant.think-freely.org>
+	<20091215084424.291459cb@s6510>
+	<20091215170249.GB20644@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esk.cs.usu.edu ([129.123.28.15]:50069 "EHLO esk.cs.usu.edu"
+Received: from mail.vyatta.com ([76.74.103.46]:56782 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754636AbZLORVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 12:21:20 -0500
-Content-Disposition: inline
-In-Reply-To: <4B218E36.4030808@gmail.com>
+	id S1760656AbZLORX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 12:23:29 -0500
+In-Reply-To: <20091215170249.GB20644@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On  Dec 11  1:11+0100, Eric Dumazet wrote:
-> Le 11/12/2009 00:11, Eldon Koyle a =E9crit :
-> > We have built a firewall with two 10 Gbit interfaces (intel 82598EB=
-) and
-> > are doing some testing.  A simple bridge between the two interfaces=
- acts
-> > as expected with packets being distributed fairly evenly across all=
- of
-> > the rx/tx queues.
-> >=20
-> > We then switched to tagged vlans on both interfaces (10 vlans each,=
- 8
-> > source and 8 dest addresses per vlan) and bridged eth0.N to eth1.N,=
- and
-> > many of our queues (and CPUs) remained idle, and all of our VLAN tr=
-affic
-> > went out on the same tx queue.  Are multiple transmit queues suppor=
-ted
-> > with 802.1q?  How do we figure out what is causing some of our rece=
-ive
-> > queues to be unused?
-> >=20
-> > We are using 2.6.31 (from Debian) and ixgbe-2.0.44.14 .
-> >=20
->=20
-> You need more recent kernel (2.6.32) to get multi queue support on vl=
-ans, sorry.
+On Tue, 15 Dec 2009 12:02:49 -0500
+Neil Horman <nhorman@tuxdriver.com> wrote:
 
-Excellent.  2.6.32 solved half of the problem.  Now, we are using the
-same number of rx and tx queues.  We are still seeing no packets on 3 o=
-f
-our 8 rx queues on each interface, though (no packets on 2, 4 or 6).
-Does the card assign queues in hardware, or is that handled by the
-kernel?
+> On Tue, Dec 15, 2009 at 08:44:24AM -0800, Stephen Hemminger wrote:
+> > On Tue, 15 Dec 2009 11:36:04 -0500
+> > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > 
+> > > Add net_dev_xmit & net_dev_receive tracepoints
+> > > 
+> > > Add tracepoints at the end of the network stack xmit path and the start of the
+> > > stack receive path.  Among other uses, these tracepoints can be used to tap the
+> > > raw input and output streams for any given network device for the purposes of
+> > > mirroring that traffic to other ports.
+> > > 
+> > 
+> > There already is a mirroring solution but people don't know how to use it.
+> > Using mirred on ingress qdisc does that.
+> > 
+> I wish that had been easier to find.  That only appears to mirror inbound frames
+> though, what about outbound frames? can you attach mirred to an outbound qdisc?
 
---=20
-Eldon Koyle
+It works for outbound frames as well.
