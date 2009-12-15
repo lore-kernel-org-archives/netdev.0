@@ -1,58 +1,80 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH 1/4] net: port mirroring: add tracepoints to
-	appropriate network paths
-Date: Tue, 15 Dec 2009 15:41:55 -0500
-Message-ID: <20091215204155.GD20644@hmsreliant.think-freely.org>
-References: <20091215162956.GB18710@hmsreliant.think-freely.org> <20091215163604.GC18710@hmsreliant.think-freely.org> <20091215084424.291459cb@s6510> <20091215170249.GB20644@hmsreliant.think-freely.org> <20091215092222.1cbbee0f@nehalam> <20091215174956.GC20644@hmsreliant.think-freely.org> <20091215095406.135fadbb@s6510>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Add rtnetlink init_rcvwnd to set the TCP initial receive
+ window
+Date: Tue, 15 Dec 2009 22:00:24 +0100
+Message-ID: <4B27F8E8.8040606@gmail.com>
+References: <pvm3a3cx9cd.fsf@chavey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50744 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbZLOUmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 15:42:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20091215095406.135fadbb@s6510>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42403 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760417AbZLOVAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 16:00:34 -0500
+In-Reply-To: <pvm3a3cx9cd.fsf@chavey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2009 at 09:54:06AM -0800, Stephen Hemminger wrote:
-> On Tue, 15 Dec 2009 12:49:56 -0500
-> Neil Horman <nhorman@tuxdriver.com> wrote:
-> 
-> > On Tue, Dec 15, 2009 at 09:22:22AM -0800, Stephen Hemminger wrote:
-> > > On Tue, 15 Dec 2009 12:02:49 -0500
-> > > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > 
-> > > > On Tue, Dec 15, 2009 at 08:44:24AM -0800, Stephen Hemminger wrote:
-> > > > > On Tue, 15 Dec 2009 11:36:04 -0500
-> > > > > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > > > 
-> > > > > > Add net_dev_xmit & net_dev_receive tracepoints
-> > > > > > 
-> > > > > > Add tracepoints at the end of the network stack xmit path and the start of the
-> > > > > > stack receive path.  Among other uses, these tracepoints can be used to tap the
-> > > > > > raw input and output streams for any given network device for the purposes of
-> > > > > > mirroring that traffic to other ports.
-> > > > > > 
-> > > > > 
-> > > > > There already is a mirroring solution but people don't know how to use it.
-> > > > > Using mirred on ingress qdisc does that.
-> > > > > 
-> > > > I wish that had been easier to find.  That only appears to mirror inbound frames
-> > > > though, what about outbound frames? can you attach mirred to an outbound qdisc?
-> > > 
-> > > It works for outbound frames as well.
-> > *Sigh*, well there goes a weeks worth of tinkering.  Stupid of me.  Rescinded
-> > Thanks
-> > Neil
-> 
-> The tracepoints are still useful, and all is not wasted.
-Yeah, but it would be nice to have a recognized feature to go with them, so we
-don't just have random tracepoints laying about.  Can you think of a good
-alternative use for them?
-Regards
-Neil
+Le 15/12/2009 21:37, chavey@google.com a =E9crit :
+> Add rtnetlink init_rcvwnd to set the TCP initial receive window size
+> advertised by passive and active TCP connections.
+> The current Linux TCP implementation limits the advertised TCP initia=
+l
+> receive window to the one prescribed by slow start. For short lived
+> TCP connections used for transaction type of traffic (i.e. http
+> requests), bounding the advertised TCP initial receive window results
+> in increased latency to complete the transaction.
+> Support for setting initial congestion window is already supported
+> using rtnetlink init_cwnd, but the feature is useless without the
+> ability to set a larger TCP initial receive window.
+> The rtnetlink init_rcvwnd allows increasing the TCP initial receive
+> window, allowing TCP connection to advertise larger TCP receive windo=
+w
+> than the ones bounded by slow start.
+>=20
+> Signed-off-by: Laurent Chavey <chavey@google.com>
+> ---
 
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 5a900dd..ac7a116 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -78,21 +78,13 @@ struct dst_entry
+>  	__u32			__pad2;
+>  #endif
+> =20
+> -
+>  	/*
+> -	 * Align __refcnt to a 64 bytes alignment
+> +	 * Align client references, __refcnt to a 64 bytes alignment
+>  	 * (L1_CACHE_SIZE would be too much)
+> -	 */
+> -#ifdef CONFIG_64BIT
+> -	long			__pad_to_align_refcnt[2];
+> -#else
+> -	long			__pad_to_align_refcnt[1];
+> -#endif
+> -	/*
+>  	 * __refcnt wants to be on a different cache line from
+>  	 * input/output/ops or performance tanks badly
+>  	 */
+> -	atomic_t		__refcnt;	/* client references	*/
+> +	atomic_t		__refcnt __attribute__((__aligned__(64)));
+
+Please dont do that.
+
+There is a reason for not hiding holes in this structure.
+
+Next time someone wants to add a new metric... bang... 64 bytes silentl=
+y added...
+
+->
+#ifdef CONFIG_64BIT
+	long			__pad_to_align_refcnt[1];
+#endif
+
+
+Thanks
