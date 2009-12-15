@@ -1,152 +1,178 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: 2.6.31.6 (e1000e): Intel 82574L devices spontaneously dropping
- off PCIe?
-Date: Tue, 15 Dec 2009 12:16:16 -0800
-Message-ID: <4B27EE90.5090609@goop.org>
-References: <4B2550A6.8030705@goop.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
+From: chavey@google.com
+Subject: [PATCH] Add rtnetlink init_rcvwnd to set the TCP initial receive window
+Date: Tue, 15 Dec 2009 12:37:06 -0800
+Message-ID: <pvm3a3cx9cd.fsf@chavey.mtv.corp.google.com>
+Cc: netdev@vger.kernel.org, therbert@google.com, chavey@google.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from claw.goop.org ([74.207.240.146]:39380 "EHLO claw.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933119AbZLOUQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 15:16:21 -0500
-In-Reply-To: <4B2550A6.8030705@goop.org>
+Received: from 216-239-44-51.google.com ([216.239.44.51]:30384 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932998AbZLOUhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 15:37:15 -0500
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id nBFKbEEI008639
+	for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 12:37:14 -0800
+Received: from fxm23 (fxm23.prod.google.com [10.184.13.23])
+	by wpaz33.hot.corp.google.com with ESMTP id nBFKbBKL020947
+	for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 12:37:12 -0800
+Received: by fxm23 with SMTP id 23so322135fxm.18
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 12:37:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2009 12:37 PM, Jeremy Fitzhardinge wrote:
-> I have a Supermicro X8SIL-F system, which has a couple of on-board 
-> 82574L gigabit interfaces.  I'm running the stock F12 kernel on it 
-> (2.6.31.6-166.fc12.x86_64).   This is a new machine, so I'm trying to 
-> work out if this is a hardware problem I should RMA the board for, if 
-> this is some kind of driver bug.
+Add rtnetlink init_rcvwnd to set the TCP initial receive window size
+advertised by passive and active TCP connections.
+The current Linux TCP implementation limits the advertised TCP initial
+receive window to the one prescribed by slow start. For short lived
+TCP connections used for transaction type of traffic (i.e. http
+requests), bounding the advertised TCP initial receive window results
+in increased latency to complete the transaction.
+Support for setting initial congestion window is already supported
+using rtnetlink init_cwnd, but the feature is useless without the
+ability to set a larger TCP initial receive window.
+The rtnetlink init_rcvwnd allows increasing the TCP initial receive
+window, allowing TCP connection to advertise larger TCP receive window
+than the ones bounded by slow start.
 
-I tried the e1000e v1.1.2 driver from the Intel website.  It initially 
-appeared to work better but it ultimately failed the same way.
+Signed-off-by: Laurent Chavey <chavey@google.com>
+---
+ include/linux/rtnetlink.h |    2 ++
+ include/net/dst.h         |   12 ++----------
+ include/net/tcp.h         |    3 ++-
+ net/ipv4/syncookies.c     |    3 ++-
+ net/ipv4/tcp_output.c     |   17 +++++++++++++----
+ net/ipv6/syncookies.c     |    3 ++-
+ 6 files changed, 23 insertions(+), 17 deletions(-)
 
-Thanks,
-     J
-
->
-> The interfaces come up and apparently work fine - for a while.  But 
-> after a bit of load (say, a ~9GB of incoming TCP traffic from another 
-> machine on the same switch) the hardware appears to disappear from 
-> PCIe.  ifconfig starts showing junk:
->
-> eth1      Link encap:Ethernet  HWaddr 00:30:48:DD:EB:67
->           inet6 addr: fe80::230:48ff:fedd:eb67/64 Scope:Link
->           UP BROADCAST MULTICAST  MTU:1500  Metric:1
->           RX packets:7910754 errors:532687613729670 
-> dropped:88781268954945 overruns:0 frame:355125075819780
->           TX packets:4104172 errors:177562537909890 dropped:0 
-> overruns:0 carrier:177562537909890
->           collisions:88781268954945 txqueuelen:1000
->           RX bytes:9589212936 (8.9 GiB)  TX bytes:271851778 (259.2 MiB)
->           Memory:fafe0000-fb000000
->
->
-> and lspci shows that the config space is all 0xff:
->
-> [root@lilith ~]# lspci -s 04:00.0 -x
-> 04:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
-> Connection (rev ff)
-> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->
-> [root@lilith ~]# lspci -s 05:00.0 -x
-> 05:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
-> Connection (rev ff)
-> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
-> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
->
->
-> This seems to happen quietly without the kernel noticing; the only 
-> side-effect is the dev watchdog triggering:
->
-> ------------[ cut here ]------------
-> WARNING: at net/sched/sch_generic.c:246 dev_watchdog+0xf3/0x164() (Not 
-> tainted)
-> Hardware name: X8SIL
-> NETDEV WATCHDOG: eth1 (e1000e): transmit queue 0 timed out
-> Modules linked in: ip6table_filter ip6_tables bridge stp llc sunrpc 
-> xt_physdev ip6t_REJECT nf_conntrack_ipv6 ipv6 cpufreq_ondemand 
-> acpi_cpufreq freq_table dm_multipath kvm_intel kvm uinput 
-> snd_emu10k1_synth snd_emux_synth snd_seq_virmidi snd_seq_midi_event 
-> snd_seq_midi_emul snd_emu10k1 snd_rawmidi snd_ac97_codec ac97_bus 
-> snd_seq snd_pcm snd_seq_device snd_timer snd_page_alloc snd_util_mem 
-> snd_hwdep snd e1000e i2c_i801 soundcore emu10k1_gp gameport i2c_core 
-> joydev cryptd aes_x86_64 aes_generic xts gf128mul dm_crypt raid10 
-> [last unloaded: ip6_tables]
-> Pid: 0, comm: swapper Not tainted 2.6.31.6-166.fc12.x86_64 #1
-> Call Trace:
-> <IRQ>   [<ffffffff810516f4>] warn_slowpath_common+0x84/0x9c
->  [<ffffffff81051763>] warn_slowpath_fmt+0x41/0x43
->  [<ffffffff8138e831>] ? netif_tx_lock+0x44/0x6d
->  [<ffffffff8138e99b>] dev_watchdog+0xf3/0x164
->  [<ffffffff8105bc52>] ? internal_add_timer+0xcf/0xd1
->  [<ffffffff8105bd0b>] ? cascade+0x6a/0x84
->  [<ffffffff8105bec4>] run_timer_softirq+0x19f/0x21c
->  [<ffffffff8106ae47>] ? hrtimer_interrupt+0x13c/0x153
->  [<ffffffff81057614>] __do_softirq+0xdd/0x1ad
->  [<ffffffff81026936>] ? apic_write+0x16/0x18
->  [<ffffffff81012eac>] call_softirq+0x1c/0x30
->  [<ffffffff810143fb>] do_softirq+0x47/0x8d
->  [<ffffffff81057326>] irq_exit+0x44/0x86
->  [<ffffffff8141ecf5>] do_IRQ+0xa5/0xbc
->  [<ffffffff810126d3>] ret_from_intr+0x0/0x11
-> <EOI>   [<ffffffff812679dd>] ? acpi_idle_enter_bm+0x281/0x2b5
->  [<ffffffff812679d6>] ? acpi_idle_enter_bm+0x27a/0x2b5
->  [<ffffffff81353b7f>] ? cpuidle_idle_call+0x99/0xce
->  [<ffffffff81010c60>] ? cpu_idle+0xa6/0xe9
->  [<ffffffff81405db7>] ? rest_init+0x6b/0x6d
->  [<ffffffff81714dc9>] ? start_kernel+0x3ef/0x3fa
->  [<ffffffff817142a1>] ? x86_64_start_reservations+0xac/0xb0
->  [<ffffffff8171439d>] ? x86_64_start_kernel+0xf8/0x107
-> ---[ end trace f271bce88fe9d682 ]---
-> 0000:05:00.0: eth1: Error reading PHY register
-> e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
->
->
-> A reboot seems to recover the devices:
->
-> [root@lilith ~]# lspci -s 04:00.0 -x
-> 04:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
-> Connection
-> 00: 86 80 d3 10 07 04 10 00 00 00 00 02 10 00 00 00
-> 10: 00 00 ee fa 00 00 00 00 01 cc 00 00 00 c0 ed fa
-> 20: 00 00 00 00 00 00 00 00 00 00 00 00 d9 15 05 06
-> 30: 00 00 00 00 c8 00 00 00 00 00 00 00 0a 01 00 00
->
-> [root@lilith ~]# lspci -s 05:00.0 -x
-> 05:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
-> Connection
-> 00: 86 80 d3 10 07 04 10 00 00 00 00 02 10 00 00 00
-> 10: 00 00 fe fa 00 00 00 00 01 dc 00 00 00 c0 fd fa
-> 20: 00 00 00 00 00 00 00 00 00 00 00 00 d9 15 05 06
-> 30: 00 00 00 00 c8 00 00 00 00 00 00 00 0b 01 00 00
->
->
->
->
-> Any clues?
->
-> Thanks,
->     J
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
-
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index adf2068..db6f614 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -371,6 +371,8 @@ enum
+ #define RTAX_FEATURES RTAX_FEATURES
+ 	RTAX_RTO_MIN,
+ #define RTAX_RTO_MIN RTAX_RTO_MIN
++	RTAX_INITRWND,
++#define RTAX_INITRWND RTAX_INITRWND
+ 	__RTAX_MAX
+ };
+ 
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 5a900dd..ac7a116 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -78,21 +78,13 @@ struct dst_entry
+ 	__u32			__pad2;
+ #endif
+ 
+-
+ 	/*
+-	 * Align __refcnt to a 64 bytes alignment
++	 * Align client references, __refcnt to a 64 bytes alignment
+ 	 * (L1_CACHE_SIZE would be too much)
+-	 */
+-#ifdef CONFIG_64BIT
+-	long			__pad_to_align_refcnt[2];
+-#else
+-	long			__pad_to_align_refcnt[1];
+-#endif
+-	/*
+ 	 * __refcnt wants to be on a different cache line from
+ 	 * input/output/ops or performance tanks badly
+ 	 */
+-	atomic_t		__refcnt;	/* client references	*/
++	atomic_t		__refcnt __attribute__((__aligned__(64)));
+ 	int			__use;
+ 	unsigned long		lastuse;
+ 	union {
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 03a49c7..6f95d32 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -972,7 +972,8 @@ static inline void tcp_sack_reset(struct tcp_options_received *rx_opt)
+ /* Determine a window scaling and initial window to offer. */
+ extern void tcp_select_initial_window(int __space, __u32 mss,
+ 				      __u32 *rcv_wnd, __u32 *window_clamp,
+-				      int wscale_ok, __u8 *rcv_wscale);
++				      int wscale_ok, __u8 *rcv_wscale,
++				      __u32 init_rcv_wnd);
+ 
+ static inline int tcp_win_from_space(int space)
+ {
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index a6e0e07..d43173c 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -356,7 +356,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 
+ 	tcp_select_initial_window(tcp_full_space(sk), req->mss,
+ 				  &req->rcv_wnd, &req->window_clamp,
+-				  ireq->wscale_ok, &rcv_wscale);
++				  ireq->wscale_ok, &rcv_wscale,
++				  dst_metric(&rt->u.dst, RTAX_INITRWND));
+ 
+ 	ireq->rcv_wscale  = rcv_wscale;
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index fcd278a..ee42c75 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -179,7 +179,8 @@ static inline void tcp_event_ack_sent(struct sock *sk, unsigned int pkts)
+  */
+ void tcp_select_initial_window(int __space, __u32 mss,
+ 			       __u32 *rcv_wnd, __u32 *window_clamp,
+-			       int wscale_ok, __u8 *rcv_wscale)
++			       int wscale_ok, __u8 *rcv_wscale,
++			       __u32 init_rcv_wnd)
+ {
+ 	unsigned int space = (__space < 0 ? 0 : __space);
+ 
+@@ -228,7 +229,13 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 			init_cwnd = 2;
+ 		else if (mss > 1460)
+ 			init_cwnd = 3;
+-		if (*rcv_wnd > init_cwnd * mss)
++		/* when initializing use the value from init_rcv_wnd
++		 * rather than the default from above
++		 */
++		if (init_rcv_wnd &&
++		    (*rcv_wnd > init_rcv_wnd * mss))
++			*rcv_wnd = init_rcv_wnd * mss;
++		else if (*rcv_wnd > init_cwnd * mss)
+ 			*rcv_wnd = init_cwnd * mss;
+ 	}
+ 
+@@ -2254,7 +2261,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 			&req->rcv_wnd,
+ 			&req->window_clamp,
+ 			ireq->wscale_ok,
+-			&rcv_wscale);
++			&rcv_wscale,
++			dst_metric(dst, RTAX_INITRWND));
+ 		ireq->rcv_wscale = rcv_wscale;
+ 	}
+ 
+@@ -2342,7 +2350,8 @@ static void tcp_connect_init(struct sock *sk)
+ 				  &tp->rcv_wnd,
+ 				  &tp->window_clamp,
+ 				  sysctl_tcp_window_scaling,
+-				  &rcv_wscale);
++				  &rcv_wscale,
++				  dst_metric(dst, RTAX_INITRWND));
+ 
+ 	tp->rx_opt.rcv_wscale = rcv_wscale;
+ 	tp->rcv_ssthresh = tp->rcv_wnd;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 6b6ae91..c8982aa 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -267,7 +267,8 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	req->window_clamp = tp->window_clamp ? :dst_metric(dst, RTAX_WINDOW);
+ 	tcp_select_initial_window(tcp_full_space(sk), req->mss,
+ 				  &req->rcv_wnd, &req->window_clamp,
+-				  ireq->wscale_ok, &rcv_wscale);
++				  ireq->wscale_ok, &rcv_wscale,
++				  dst_metric(dst, RTAX_INITRWND));
+ 
+ 	ireq->rcv_wscale = rcv_wscale;
+ 
