@@ -1,61 +1,66 @@
-From: stefano babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [RFC PATCH v3  4/8] CAIF Protocol Stack
-Date: Tue, 15 Dec 2009 17:47:11 +0100
-Message-ID: <4B27BD8F.5040606@babic.homelinux.org>
-References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com>
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH] bcm63xx_enet: fix compilation failure after get_stats_count removal
+Date: Tue, 15 Dec 2009 17:45:06 +0100
+Message-ID: <200912151745.06131.ffainelli@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
-	kim.xx.lilliestierna@stericsson.com,
-	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
-To: sjur.brandeland@stericsson.com
+Cc: stable@kernel.org, David Miller <davem@davemloft.net>,
+	Maxime Bizon <mbizon@freebox.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout18.attiva.biz ([85.37.16.20]:19725 "EHLO
-	smtpout18.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932384AbZLOQrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 11:47:17 -0500
-In-Reply-To: <1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com>
+Received: from zmc.proxad.net ([212.27.53.206]:58803 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754503AbZLOQwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 11:52:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
-> +struct cfcnfg *cfcnfg_create()
-> +{
-> +	struct cfcnfg *this;
-> +	struct cfctrl_rsp resp;
-> +	/* Initiate response functions */
-> +	resp.enum_rsp = cfctrl_enum_resp;
-> +	resp.linkerror_ind = cfctrl_resp_func;
-> +	resp.linkdestroy_rsp = cncfg_linkdestroy_rsp;
-> +	resp.sleep_rsp = cfctrl_resp_func;
-> +	resp.wake_rsp = cfctrl_resp_func;
-> +	resp.restart_rsp = cfctrl_resp_func;
-> +	resp.radioset_rsp = cfctrl_resp_func;
-> +	resp.linksetup_rsp = cncfg_linkup_rsp;
-> +	resp.reject_rsp = cncfg_reject_rsp;
-> +	/* Initiate this layer */
-> +	this = cfglu_alloc(sizeof(struct cfcnfg));
-> +	memset(this, 0, sizeof(struct cfcnfg));
-> +	this->mux = cfmuxl_create();
-> +	this->ctrl = cfctrl_create();
-> +	this->last_phyid = 1;
-> +	cfctrl_set_respfuncs(this->ctrl, &resp);
+Hi David,
 
-Is this correct ? resp is on the stack of the function and
-cfctrl_set_respfuncs sets only the pointer. After returning from this
-function, the memory used by resp could be reused again. Am I right ?
+This build failure is present in both 2.6.32 and net-next-2.6. Thanks!
+---
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH] bcm63xx_enet: fix compilation failure after get_stats_count removal
 
-> +static void cfctrl_resp_func(void)
-> +{
-> +	CFLOG_ENTER(("cfcnfg: cfctrl_resp_func\n"));
-> +	CFLOG_EXIT(("cfcnfg: cfctrl_resp_func\n"));
-> +}
+This patch converts bcm63xx_enet to uset get_sset_count
+like the other drivers do.
 
-Not really useful..
-
-Stefano
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+Cc: stable@kernel.org
+---
+diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
+index 1f6c548..0bd47d3 100644
+--- a/drivers/net/bcm63xx_enet.c
++++ b/drivers/net/bcm63xx_enet.c
+@@ -1245,9 +1245,15 @@ static void bcm_enet_get_drvinfo(struct net_device *netdev,
+ 	drvinfo->n_stats = BCM_ENET_STATS_LEN;
+ }
+ 
+-static int bcm_enet_get_stats_count(struct net_device *netdev)
++static int bcm_enet_get_sset_count(struct net_device *netdev,
++					int string_set)
+ {
+-	return BCM_ENET_STATS_LEN;
++	switch (string_set) {
++	case ETH_SS_STATS:
++		return BCM_ENET_STATS_LEN;
++	default:
++		return -EINVAL;
++	}
+ }
+ 
+ static void bcm_enet_get_strings(struct net_device *netdev,
+@@ -1473,7 +1479,7 @@ static int bcm_enet_set_pauseparam(struct net_device *dev,
+ 
+ static struct ethtool_ops bcm_enet_ethtool_ops = {
+ 	.get_strings		= bcm_enet_get_strings,
+-	.get_stats_count	= bcm_enet_get_stats_count,
++	.get_sset_count		= bcm_enet_get_sset_count,
+ 	.get_ethtool_stats      = bcm_enet_get_ethtool_stats,
+ 	.get_settings		= bcm_enet_get_settings,
+ 	.set_settings		= bcm_enet_set_settings,
 -- 
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
+1.6.3.3
+
