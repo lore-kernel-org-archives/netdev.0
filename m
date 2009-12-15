@@ -1,52 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
-	function for virtio
-Date: Tue, 15 Dec 2009 12:57:48 +0200
-Message-ID: <20091215105748.GB11525@redhat.com>
-References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260534805.30371.10.camel@localhost.localdomain> <20091213102632.GB6789@redhat.com> <1260821285.8716.7.camel@localhost.localdomain> <20091214202253.GG6150@redhat.com> <1260832942.4387.9.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Shirley Ma <mashirle@us.ibm.com>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] net: sh_eth alignment fix for sh7724 using NET_IP_ALIGN V2
+Date: Tue, 15 Dec 2009 20:03:44 +0900
+Message-ID: <20091215110344.13016.27379.sendpatchset@rxone.opensource.se>
+Cc: Magnus Damm <magnus.damm@gmail.com>, lethal@linux-sh.org,
+	davem@davemloft.net, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1624 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757988AbZLOLAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 06:00:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1260832942.4387.9.camel@localhost.localdomain>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:46433 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757767AbZLOLJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 06:09:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 14, 2009 at 03:22:22PM -0800, Shirley Ma wrote:
-> Hello Michael,
-> 
-> On Mon, 2009-12-14 at 22:22 +0200, Michael S. Tsirkin wrote:
-> > I dont insist, but my idea was
-> > 
-> > for (;;) {
-> >         b = vq->destroy(vq);
-> >         if (!b)
-> >                 break;
-> >         --vi->num;
-> >         put_page(b);
-> > }
-> > 
-> > so we do not have to lose track of the counter.
-> 
-> That's not a bad idea, but to do this, then this fuction will be
-> specific for virtio_net device (vi is virtnet_info) only in a generic
-> virtqueue API.
-> 
-> Thanks
-> Shirley
+From: Magnus Damm <damm@opensource.se>
 
-No, this code would be in virtio net.
-destroy would simply be the virtqueue API that returns
-data pointer.
+Fix sh_eth for sh7724 by adding NET_IP_ALIGN support V2.
+Without this patch the receive data is misaligned.
 
--- 
-MST
+Signed-off-by: Magnus Damm <damm@opensource.se>
+---
+
+ Thanks to Dave Miller for feedback!
+ Tested on sh7724 / Ecovec24.
+
+ Changes since V1:
+ - dropped #ifdef around sh7724 .rpadir and .rpadir_value
+ - removed sh7763 .rpadir
+
+ drivers/net/sh_eth.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+--- 0001/drivers/net/sh_eth.c
++++ work/drivers/net/sh_eth.c	2009-12-15 19:58:55.000000000 +0900
+@@ -84,6 +84,8 @@ static struct sh_eth_cpu_data sh_eth_my_
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+ 	.hw_swap	= 1,
++	.rpadir		= 1,
++	.rpadir_value	= 0x00020000, /* NET_IP_ALIGN assumed to be 2 */
+ };
+ 
+ #elif defined(CONFIG_CPU_SUBTYPE_SH7763)
+@@ -175,7 +177,6 @@ static struct sh_eth_cpu_data sh_eth_my_
+ 	.tpauser	= 1,
+ 	.bculr		= 1,
+ 	.hw_swap	= 1,
+-	.rpadir		= 1,
+ 	.no_trimd	= 1,
+ 	.no_ade		= 1,
+ };
+@@ -501,6 +502,8 @@ static int sh_eth_ring_init(struct net_d
+ 	 */
+ 	mdp->rx_buf_sz = (ndev->mtu <= 1492 ? PKT_BUF_SZ :
+ 			  (((ndev->mtu + 26 + 7) & ~7) + 2 + 16));
++	if (mdp->cd->rpadir)
++		mdp->rx_buf_sz += NET_IP_ALIGN;
+ 
+ 	/* Allocate RX and TX skb rings */
+ 	mdp->rx_skbuff = kmalloc(sizeof(*mdp->rx_skbuff) * RX_RING_SIZE,
+@@ -715,6 +718,8 @@ static int sh_eth_rx(struct net_device *
+ 					pkt_len + 2);
+ 			skb = mdp->rx_skbuff[entry];
+ 			mdp->rx_skbuff[entry] = NULL;
++			if (mdp->cd->rpadir)
++				skb_reserve(skb, NET_IP_ALIGN);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, ndev);
+ 			netif_rx(skb);
