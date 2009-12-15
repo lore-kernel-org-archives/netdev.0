@@ -1,45 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH] Subject: virtio: Add unused buffers detach from
-	vring
-Date: Tue, 15 Dec 2009 23:14:50 +0200
-Message-ID: <20091215211450.GE26712@redhat.com>
-References: <1260534506.30371.6.camel@localhost.localdomain> <1260535613.30371.24.camel@localhost.localdomain> <20091213114320.GC7074@redhat.com> <1260828518.8716.105.camel@localhost.localdomain> <20091215113327.GC13110@redhat.com> <1260894320.4387.64.camel@localhost.localdomain> <20091215163901.GA24015@redhat.com> <1260902573.4387.76.camel@localhost.localdomain> <20091215184740.GD25724@redhat.com> <1260904447.4387.85.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH 1/4] net: port mirroring: add tracepoints to
+ appropriate network paths
+Date: Tue, 15 Dec 2009 13:50:53 -0800
+Message-ID: <20091215135053.345787b1@nehalam>
+References: <20091215162956.GB18710@hmsreliant.think-freely.org>
+	<20091215163604.GC18710@hmsreliant.think-freely.org>
+	<20091215084424.291459cb@s6510>
+	<20091215170249.GB20644@hmsreliant.think-freely.org>
+	<20091215092222.1cbbee0f@nehalam>
+	<20091215174956.GC20644@hmsreliant.think-freely.org>
+	<20091215095406.135fadbb@s6510>
+	<20091215204155.GD20644@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1260904447.4387.85.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42337 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760335AbZLOVvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 16:51:05 -0500
+In-Reply-To: <20091215204155.GD20644@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2009 at 11:14:07AM -0800, Shirley Ma wrote:
-> Hello Michael,
-> 
-> On Tue, 2009-12-15 at 20:47 +0200, Michael S. Tsirkin wrote:
-> > > +                     detach_buf(vq, i);
-> > > +                     END_USE(vq);
-> > > +                     return vq->data[i];
+On Tue, 15 Dec 2009 15:41:55 -0500
+Neil Horman <nhorman@tuxdriver.com> wrote:
+
+> On Tue, Dec 15, 2009 at 09:54:06AM -0800, Stephen Hemminger wrote:
+> > On Tue, 15 Dec 2009 12:49:56 -0500
+> > Neil Horman <nhorman@tuxdriver.com> wrote:
 > > 
-> > In fact, this will return NULL always, won't it?
+> > > On Tue, Dec 15, 2009 at 09:22:22AM -0800, Stephen Hemminger wrote:
+> > > > On Tue, 15 Dec 2009 12:02:49 -0500
+> > > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > > 
+> > > > > On Tue, Dec 15, 2009 at 08:44:24AM -0800, Stephen Hemminger wrote:
+> > > > > > On Tue, 15 Dec 2009 11:36:04 -0500
+> > > > > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > > > > 
+> > > > > > > Add net_dev_xmit & net_dev_receive tracepoints
+> > > > > > > 
+> > > > > > > Add tracepoints at the end of the network stack xmit path and the start of the
+> > > > > > > stack receive path.  Among other uses, these tracepoints can be used to tap the
+> > > > > > > raw input and output streams for any given network device for the purposes of
+> > > > > > > mirroring that traffic to other ports.
+> > > > > > > 
+> > > > > > 
+> > > > > > There already is a mirroring solution but people don't know how to use it.
+> > > > > > Using mirred on ingress qdisc does that.
+> > > > > > 
+> > > > > I wish that had been easier to find.  That only appears to mirror inbound frames
+> > > > > though, what about outbound frames? can you attach mirred to an outbound qdisc?
+> > > > 
+> > > > It works for outbound frames as well.
+> > > *Sigh*, well there goes a weeks worth of tinkering.  Stupid of me.  Rescinded
+> > > Thanks
+> > > Neil
+> > 
+> > The tracepoints are still useful, and all is not wasted.
+> Yeah, but it would be nice to have a recognized feature to go with them, so we
+> don't just have random tracepoints laying about.  Can you think of a good
+> alternative use for them?
+> Regards
+> Neil
 > 
-> Nope, I changed the destroy to detach and return the buffers without
-> destroying them within the call. I thought it might be useful in some
-> other case. 
-> 
-> Maybe I should put destroy call back?
-> 
-> Thanks
-> Shirley
 
-No I think it's good as is, we do not need a callback.
-I was simply saying that detach_buf sets data to NULL,
-so return vq->data[i] after detach does not make sense.
-You need to save data as comment below says.c
+Harald had some stuff with tracking packets through the system that
+seems like a natural for using tracepoints.
 
 -- 
-MST
