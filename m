@@ -1,71 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
-	function for virtio
-Date: Wed, 16 Dec 2009 00:40:02 +0200
-Message-ID: <20091215224002.GA27034@redhat.com>
-References: <1258697359.7416.14.camel@localhost.localdomain> <1260821285.8716.7.camel@localhost.localdomain> <20091214202253.GG6150@redhat.com> <200912160906.12430.rusty@rustcorp.com.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: allow tx of pre-formatted vlan tagged packets
+Date: Tue, 15 Dec 2009 15:00:31 -0800
+Message-ID: <20091215230030.26068.26462.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shirley Ma <mashirle@us.ibm.com>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760524AbZLOWnM@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200912160906.12430.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Gurucharan Shetty <gshetty@riverbed.com>,
+	Arthur Jones <ajones@riverbed.com>,
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:46564 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934346AbZLOXAx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 18:00:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2009 at 09:06:12AM +1030, Rusty Russell wrote:
-> On Tue, 15 Dec 2009 06:52:53 am Michael S. Tsirkin wrote:
-> > On Mon, Dec 14, 2009 at 12:08:05PM -0800, Shirley Ma wrote:
-> > > Hello Michael,
-> > > 
-> > > I agree with the comments (will have two patches instead of 4 based on
-> > > Rusty's comments) except below one.
-> > > 
-> > > On Sun, 2009-12-13 at 12:26 +0200, Michael S. Tsirkin wrote:
-> > > > That said - do we have to use a callback?
-> > > > I think destroy_buf which returns data pointer,
-> > > > and which we call repeatedly until we get NULL
-> > > > or error, would be an a better, more flexible API.
-> > > > This is not critical though.
-> > > 
-> > > The reason to use this is because in virtio_net remove, it has
-> > > BUG_ON(vi->num != 0), which will be consistent with small skb packet. If
-> > > we use NULL, error then we lose the track for vi->num, since we don't
-> > > know how many buffers have been passed to ULPs or still unused.
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > I dont insist, but my idea was
-> > 
-> > for (;;) {
-> > 	b = vq->destroy(vq);
-> > 	if (!b)
-> > 		break;
-> > 	--vi->num;
-> > 	put_page(b);
-> > }
-> 
-> In this case it should be called "get_unused_buf" or something.  But I like
-> Shirley's approach here; destroy (with callback) accurately reflects the only
-> time this can be validly used.
-> 
-> Cheers,
-> Rusty.
+From: Gurucharan Shetty <gshetty@riverbed.com>
 
-I guess the actual requirement is that device must be
-inactive.
+When the 82598 is fed 802.1q packets, it chokes with
+an error of the form:
 
-As I said this is fine with me as well.
-But I think the callback should get vq pointer besides the
-data pointer, so that it can e.g. find the device if it needs to.
-In case of virtio net this makes it possible
-to decrement the outstanding skb counter in the callback.
-Makes sense?
+ixgbe: eth0: ixgbe_tx_csum: partial checksum but proto=81!
 
--- 
-MST
+As the logic there was not smart enough to look into
+the vlan header to pick out the encapsulated protocol.
+
+There are times when we'd like to send these packets
+out without having to configure a vlan on the interface.
+Here we check for the vlan tag and allow the packet to
+go out with the correct hardware checksum.
+
+This patch is a clone of a previously submitted patch by
+Arthur Jones <ajones@riverbed.com> for igb (Commit -
+fa4a7ef36ec834fee1719636b30d2f28f4cb0166).
+
+Signed-off-by: Gurucharan Shetty <gshetty@riverbed.com>
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+Acked-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 22519fa..47c55d2 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5006,7 +5006,18 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 		                    IXGBE_ADVTXD_DTYP_CTXT);
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			switch (skb->protocol) {
++			__be16 protocol;
++
++			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
++				const struct vlan_ethhdr *vhdr =
++					(const struct vlan_ethhdr *)skb->data;
++
++				protocol = vhdr->h_vlan_encapsulated_proto;
++			} else {
++				protocol = skb->protocol;
++			}
++
++			switch (protocol) {
+ 			case cpu_to_be16(ETH_P_IP):
+ 				type_tucmd_mlhl |= IXGBE_ADVTXD_TUCMD_IPV4;
+ 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+
