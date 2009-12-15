@@ -1,64 +1,152 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Tue, 15 Dec 2009 22:11:10 +0200
-Message-ID: <20091215201109.GA2621@tarshish>
-References: <cover.1260785451.git.baruch@tkos.co.il>
- <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
- <20091214103348.GV15126@pengutronix.de>
- <20091215083142.GB18290@jasper.tkos.co.il>
- <4B277878.1050804@snapgear.com>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: 2.6.31.6 (e1000e): Intel 82574L devices spontaneously dropping
+ off PCIe?
+Date: Tue, 15 Dec 2009 12:16:16 -0800
+Message-ID: <4B27EE90.5090609@goop.org>
+References: <4B2550A6.8030705@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Greg Ungerer <gerg@snapgear.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:49702 "EHLO tango.tkos.co.il"
+Received: from claw.goop.org ([74.207.240.146]:39380 "EHLO claw.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932998AbZLOULs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 15:11:48 -0500
-Content-Disposition: inline
-In-Reply-To: <4B277878.1050804@snapgear.com>
+	id S933119AbZLOUQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 15:16:21 -0500
+In-Reply-To: <4B2550A6.8030705@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
+On 12/13/2009 12:37 PM, Jeremy Fitzhardinge wrote:
+> I have a Supermicro X8SIL-F system, which has a couple of on-board 
+> 82574L gigabit interfaces.  I'm running the stock F12 kernel on it 
+> (2.6.31.6-166.fc12.x86_64).   This is a new machine, so I'm trying to 
+> work out if this is a hardware problem I should RMA the board for, if 
+> this is some kind of driver bug.
 
-On Tue, Dec 15, 2009 at 09:52:24PM +1000, Greg Ungerer wrote:
-> On 12/15/2009 06:31 PM, Baruch Siach wrote:
+I tried the e1000e v1.1.2 driver from the Intel website.  It initially 
+appeared to work better but it ultimately failed the same way.
 
-[snip]
+Thanks,
+     J
 
-> >+#ifndef CONFIG_M5272
-> 
-> I would suggest making this conditional on FEC_MIIGSK_ENR.
-> Although the CONFIG_M5272 is the only case here currently,
-> that may change over the years. And using this here may not
-> be obvious to the causual code reader, since the register
-> offset definitions don't explicitly key on CONFIG_M5272.
+>
+> The interfaces come up and apparently work fine - for a while.  But 
+> after a bit of load (say, a ~9GB of incoming TCP traffic from another 
+> machine on the same switch) the hardware appears to disappear from 
+> PCIe.  ifconfig starts showing junk:
+>
+> eth1      Link encap:Ethernet  HWaddr 00:30:48:DD:EB:67
+>           inet6 addr: fe80::230:48ff:fedd:eb67/64 Scope:Link
+>           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+>           RX packets:7910754 errors:532687613729670 
+> dropped:88781268954945 overruns:0 frame:355125075819780
+>           TX packets:4104172 errors:177562537909890 dropped:0 
+> overruns:0 carrier:177562537909890
+>           collisions:88781268954945 txqueuelen:1000
+>           RX bytes:9589212936 (8.9 GiB)  TX bytes:271851778 (259.2 MiB)
+>           Memory:fafe0000-fb000000
+>
+>
+> and lspci shows that the config space is all 0xff:
+>
+> [root@lilith ~]# lspci -s 04:00.0 -x
+> 04:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
+> Connection (rev ff)
+> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+>
+> [root@lilith ~]# lspci -s 05:00.0 -x
+> 05:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
+> Connection (rev ff)
+> 00: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 10: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 20: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+> 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+>
+>
+> This seems to happen quietly without the kernel noticing; the only 
+> side-effect is the dev watchdog triggering:
+>
+> ------------[ cut here ]------------
+> WARNING: at net/sched/sch_generic.c:246 dev_watchdog+0xf3/0x164() (Not 
+> tainted)
+> Hardware name: X8SIL
+> NETDEV WATCHDOG: eth1 (e1000e): transmit queue 0 timed out
+> Modules linked in: ip6table_filter ip6_tables bridge stp llc sunrpc 
+> xt_physdev ip6t_REJECT nf_conntrack_ipv6 ipv6 cpufreq_ondemand 
+> acpi_cpufreq freq_table dm_multipath kvm_intel kvm uinput 
+> snd_emu10k1_synth snd_emux_synth snd_seq_virmidi snd_seq_midi_event 
+> snd_seq_midi_emul snd_emu10k1 snd_rawmidi snd_ac97_codec ac97_bus 
+> snd_seq snd_pcm snd_seq_device snd_timer snd_page_alloc snd_util_mem 
+> snd_hwdep snd e1000e i2c_i801 soundcore emu10k1_gp gameport i2c_core 
+> joydev cryptd aes_x86_64 aes_generic xts gf128mul dm_crypt raid10 
+> [last unloaded: ip6_tables]
+> Pid: 0, comm: swapper Not tainted 2.6.31.6-166.fc12.x86_64 #1
+> Call Trace:
+> <IRQ>   [<ffffffff810516f4>] warn_slowpath_common+0x84/0x9c
+>  [<ffffffff81051763>] warn_slowpath_fmt+0x41/0x43
+>  [<ffffffff8138e831>] ? netif_tx_lock+0x44/0x6d
+>  [<ffffffff8138e99b>] dev_watchdog+0xf3/0x164
+>  [<ffffffff8105bc52>] ? internal_add_timer+0xcf/0xd1
+>  [<ffffffff8105bd0b>] ? cascade+0x6a/0x84
+>  [<ffffffff8105bec4>] run_timer_softirq+0x19f/0x21c
+>  [<ffffffff8106ae47>] ? hrtimer_interrupt+0x13c/0x153
+>  [<ffffffff81057614>] __do_softirq+0xdd/0x1ad
+>  [<ffffffff81026936>] ? apic_write+0x16/0x18
+>  [<ffffffff81012eac>] call_softirq+0x1c/0x30
+>  [<ffffffff810143fb>] do_softirq+0x47/0x8d
+>  [<ffffffff81057326>] irq_exit+0x44/0x86
+>  [<ffffffff8141ecf5>] do_IRQ+0xa5/0xbc
+>  [<ffffffff810126d3>] ret_from_intr+0x0/0x11
+> <EOI>   [<ffffffff812679dd>] ? acpi_idle_enter_bm+0x281/0x2b5
+>  [<ffffffff812679d6>] ? acpi_idle_enter_bm+0x27a/0x2b5
+>  [<ffffffff81353b7f>] ? cpuidle_idle_call+0x99/0xce
+>  [<ffffffff81010c60>] ? cpu_idle+0xa6/0xe9
+>  [<ffffffff81405db7>] ? rest_init+0x6b/0x6d
+>  [<ffffffff81714dc9>] ? start_kernel+0x3ef/0x3fa
+>  [<ffffffff817142a1>] ? x86_64_start_reservations+0xac/0xb0
+>  [<ffffffff8171439d>] ? x86_64_start_kernel+0xf8/0x107
+> ---[ end trace f271bce88fe9d682 ]---
+> 0000:05:00.0: eth1: Error reading PHY register
+> e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+>
+>
+> A reboot seems to recover the devices:
+>
+> [root@lilith ~]# lspci -s 04:00.0 -x
+> 04:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
+> Connection
+> 00: 86 80 d3 10 07 04 10 00 00 00 00 02 10 00 00 00
+> 10: 00 00 ee fa 00 00 00 00 01 cc 00 00 00 c0 ed fa
+> 20: 00 00 00 00 00 00 00 00 00 00 00 00 d9 15 05 06
+> 30: 00 00 00 00 c8 00 00 00 00 00 00 00 0a 01 00 00
+>
+> [root@lilith ~]# lspci -s 05:00.0 -x
+> 05:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network 
+> Connection
+> 00: 86 80 d3 10 07 04 10 00 00 00 00 02 10 00 00 00
+> 10: 00 00 fe fa 00 00 00 00 01 dc 00 00 00 c0 fd fa
+> 20: 00 00 00 00 00 00 00 00 00 00 00 00 d9 15 05 06
+> 30: 00 00 00 00 c8 00 00 00 00 00 00 00 0b 01 00 00
+>
+>
+>
+>
+> Any clues?
+>
+> Thanks,
+>     J
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe 
+> linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
 
-OK, I'll change this conditional.
-
-Can I take this as an Ack from you?
-
-baruch
-
-> 
-> >+	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
-> >+		/* disable the gasket and wait */
-> >+		writel(0, fep->hwp + FEC_MIIGSK_ENR);
-> >+		while (readl(fep->hwp + FEC_MIIGSK_ENR)&  4)
-> >+			udelay(1);
-> >+
-> >+		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
-> >+		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
-> >+
-> >+		/* re-enable the gasket */
-> >+		writel(2, fep->hwp + FEC_MIIGSK_ENR);
-> >+	}
-> >+#endif
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
