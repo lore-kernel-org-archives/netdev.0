@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: ipv6 03/05: reassembly: use seperate reassembly queues for conntrack and local delivery
-Date: Tue, 15 Dec 2009 17:14:30 +0100 (MET)
-Message-ID: <20091215161430.4146.53433.sendpatchset@x2.localnet>
+Subject: ipvs 05/05: zero usvc and udest
+Date: Tue, 15 Dec 2009 17:14:33 +0100 (MET)
+Message-ID: <20091215161432.4146.56195.sendpatchset@x2.localnet>
 References: <20091215161426.4146.55284.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,159 +11,48 @@ In-Reply-To: <20091215161426.4146.55284.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 0b5ccb2ee250136dd7385b1c7da28417d0d4d32d
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Dec 15 16:59:18 2009 +0100
+commit 258c889362aa95d0ab534b38ce8c15d3009705b1
+Author: Simon Horman <horms@verge.net.au>
+Date:   Tue Dec 15 17:01:25 2009 +0100
 
-    ipv6: reassembly: use seperate reassembly queues for conntrack and local delivery
+    ipvs: zero usvc and udest
     
-    Currently the same reassembly queue might be used for packets reassembled
-    by conntrack in different positions in the stack (PREROUTING/LOCAL_OUT),
-    as well as local delivery. This can cause "packet jumps" when the fragment
-    completing a reassembled packet is queued from a different position in the
-    stack than the previous ones.
+    Make sure that any otherwise uninitialised fields of usvc are zero.
     
-    Add a "user" identifier to the reassembly queue key to seperate the queues
-    of each caller, similar to what we do for IPv4.
+    This has been obvserved to cause a problem whereby the port of
+    fwmark services may end up as a non-zero value which causes
+    scheduling of a destination server to fail for persisitent services.
     
+    As observed by Deon van der Merwe <dvdm@truteq.co.za>.
+    This fix suggested by Julian Anastasov <ja@ssi.bg>.
+    
+    For good measure also zero udest.
+    
+    Cc: Deon van der Merwe <dvdm@truteq.co.za>
+    Acked-by: Julian Anastasov <ja@ssi.bg>
+    Signed-off-by: Simon Horman <horms@verge.net.au>
+    Cc: stable@kernel.org
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 92db861..d691603 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -350,8 +350,15 @@ static inline int ipv6_prefix_equal(const struct in6_addr *a1,
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index e55a686..6bde12d 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2714,6 +2714,8 @@ static int ip_vs_genl_parse_service(struct ip_vs_service_user_kern *usvc,
+ 	if (!(nla_af && (nla_fwmark || (nla_port && nla_protocol && nla_addr))))
+ 		return -EINVAL;
  
- struct inet_frag_queue;
- 
-+enum ip6_defrag_users {
-+	IP6_DEFRAG_LOCAL_DELIVER,
-+	IP6_DEFRAG_CONNTRACK_IN,
-+	IP6_DEFRAG_CONNTRACK_OUT,
-+};
++	memset(usvc, 0, sizeof(*usvc));
 +
- struct ip6_create_arg {
- 	__be32 id;
-+	u32 user;
- 	struct in6_addr *src;
- 	struct in6_addr *dst;
- };
-diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-index abc55ad..1ee717e 100644
---- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-@@ -9,7 +9,7 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
+ 	usvc->af = nla_get_u16(nla_af);
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (usvc->af != AF_INET && usvc->af != AF_INET6)
+@@ -2901,6 +2903,8 @@ static int ip_vs_genl_parse_dest(struct ip_vs_dest_user_kern *udest,
+ 	if (!(nla_addr && nla_port))
+ 		return -EINVAL;
  
- extern int nf_ct_frag6_init(void);
- extern void nf_ct_frag6_cleanup(void);
--extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb);
-+extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
- extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 			       struct net_device *in,
- 			       struct net_device *out,
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 5f2ec20..c0a82fe 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -187,6 +187,16 @@ out:
- 	return nf_conntrack_confirm(skb);
- }
- 
-+static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
-+						struct sk_buff *skb)
-+{
-+	if (hooknum == NF_INET_PRE_ROUTING)
-+		return IP6_DEFRAG_CONNTRACK_IN;
-+	else
-+		return IP6_DEFRAG_CONNTRACK_OUT;
++	memset(udest, 0, sizeof(*udest));
 +
-+}
-+
- static unsigned int ipv6_defrag(unsigned int hooknum,
- 				struct sk_buff *skb,
- 				const struct net_device *in,
-@@ -199,8 +209,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- 	if (skb->nfct)
- 		return NF_ACCEPT;
- 
--	reasm = nf_ct_frag6_gather(skb);
--
-+	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
- 	/* queued */
- 	if (reasm == NULL)
- 		return NF_STOLEN;
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index e0b9424..312c20a 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -168,13 +168,14 @@ out:
- /* Creation primitives. */
- 
- static __inline__ struct nf_ct_frag6_queue *
--fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
-+fq_find(__be32 id, u32 user, struct in6_addr *src, struct in6_addr *dst)
- {
- 	struct inet_frag_queue *q;
- 	struct ip6_create_arg arg;
- 	unsigned int hash;
- 
- 	arg.id = id;
-+	arg.user = user;
- 	arg.src = src;
- 	arg.dst = dst;
- 
-@@ -559,7 +560,7 @@ find_prev_fhdr(struct sk_buff *skb, u8 *prevhdrp, int *prevhoff, int *fhoff)
- 	return 0;
- }
- 
--struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
-+struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
- {
- 	struct sk_buff *clone;
- 	struct net_device *dev = skb->dev;
-@@ -605,7 +606,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
- 	if (atomic_read(&nf_init_frags.mem) > nf_init_frags.high_thresh)
- 		nf_ct_frag6_evictor();
- 
--	fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr);
-+	fq = fq_find(fhdr->identification, user, &hdr->saddr, &hdr->daddr);
- 	if (fq == NULL) {
- 		pr_debug("Can't find and can't create new queue\n");
- 		goto ret_orig;
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 4d98549..3b3a956 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -72,6 +72,7 @@ struct frag_queue
- 	struct inet_frag_queue	q;
- 
- 	__be32			id;		/* fragment id		*/
-+	u32			user;
- 	struct in6_addr		saddr;
- 	struct in6_addr		daddr;
- 
-@@ -141,7 +142,7 @@ int ip6_frag_match(struct inet_frag_queue *q, void *a)
- 	struct ip6_create_arg *arg = a;
- 
- 	fq = container_of(q, struct frag_queue, q);
--	return (fq->id == arg->id &&
-+	return (fq->id == arg->id && fq->user == arg->user &&
- 			ipv6_addr_equal(&fq->saddr, arg->src) &&
- 			ipv6_addr_equal(&fq->daddr, arg->dst));
- }
-@@ -163,6 +164,7 @@ void ip6_frag_init(struct inet_frag_queue *q, void *a)
- 	struct ip6_create_arg *arg = a;
- 
- 	fq->id = arg->id;
-+	fq->user = arg->user;
- 	ipv6_addr_copy(&fq->saddr, arg->src);
- 	ipv6_addr_copy(&fq->daddr, arg->dst);
- }
-@@ -243,6 +245,7 @@ fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
- 	unsigned int hash;
- 
- 	arg.id = id;
-+	arg.user = IP6_DEFRAG_LOCAL_DELIVER;
- 	arg.src = src;
- 	arg.dst = dst;
+ 	nla_memcpy(&udest->addr, nla_addr, sizeof(udest->addr));
+ 	udest->port = nla_get_u16(nla_port);
  
