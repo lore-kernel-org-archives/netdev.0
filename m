@@ -1,58 +1,30 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Net-next-2.6 and net-2.6 repos and git-cloning via http
-Date: Tue, 15 Dec 2009 13:42:43 +0000
-Message-ID: <20091215134243.GA9276@ff.dom.local>
-References: <b25312890912150204n1ee8e303xe1d165bd90c7c08c@mail.gmail.com>
+From: Alexander Strakh <strakh@ispras.ru>
+Subject: BUG null dreference in driver drivers/net/hamradio/bpqether.c
+Date: Tue, 15 Dec 2009 17:55:09 +0000
+Message-ID: <200912151755.09515.strakh@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:42925 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128AbZLONmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 08:42:53 -0500
-Received: by fxm21 with SMTP id 21so4372369fxm.21
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 05:42:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <b25312890912150204n1ee8e303xe1d165bd90c7c08c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-12-2009 11:04, Rami Rosen wrote:
-> Hello,
-> Do the net-next-2.6 and net-2.6 repossupport git-clone via http (for
-> cases when git port, 9418, is blocked ?)
+	KERNEL_VERSION: 2.6.32
+	SUBJECT: null derefernce in function  bpq_xmit
+	SUBSCRIBE:
+	In driver drivers/net/hamradio/bpqether.c in function bpq_xmit:
 
-David responded a similar question recently - http is not supported.
+1. if in line 288 after calling function bpq_get_ether_dev variable dev = 
+NULL, then we goto line 289
+2. In line 289:  null dereference of dev - "dev->stats.tx_dropped++"
 
-Jarek P.
+ 288        if ((dev = bpq_get_ether_dev(dev)) == NULL) {
+ 289                dev->stats.tx_dropped++;
+ 290                kfree_skb(skb);
+ 291                return NETDEV_TX_OK;
+ 292        }
 
-> 
-> I am trying:
-> git-clone http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
-> fatal: http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git/info/refs
-> not found: did you run git update-server-info on the server?
-> 
-> also:
-> git-clone http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
-> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
-> gives the same result.
-> 
-> (I just want to add that on some other repos, the info/refs does exist,
-> for example, http://www.kernel.org/pub/scm/virt/kvm/pcbios.git/info/refs,
-> and I can do git-clone with
-> http with them, but I really don't know whether this is the reason or
-> just a wild speculation).
-> 
-> Rgs,
-> Rami
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
-
+Found by Linux Device Drivers Verification Project (Svace Detector)
