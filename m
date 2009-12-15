@@ -1,39 +1,49 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: Re: [PATCH] net: sh_eth alignment fix for sh7724 using NET_IP_ALIGN
-Date: Tue, 15 Dec 2009 16:36:34 +0900
-Message-ID: <aec7e5c30912142336m22558444v1e61328cf2c2ee0b@mail.gmail.com>
-References: <aec7e5c30912142313p111565d4mc0014c581cd431d4@mail.gmail.com>
-	 <20091214.231534.225225771.davem@davemloft.net>
-	 <aec7e5c30912142322w21fb4a1bved19f7344f1cf1a5@mail.gmail.com>
-	 <20091214.233433.191391098.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few
+	minutes of heavy surfing
+Date: Tue, 15 Dec 2009 07:54:52 +0000
+Message-ID: <20091215075452.GA6488@ff.dom.local>
+References: <20091208113645.GA8263@ff.dom.local> <755510.33826.qm@web52905.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20091214.233433.191391098.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Chris Rankin <rankincj@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.153]:24361 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbZLOHzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 02:55:01 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so1826965fgg.1
+        for <netdev@vger.kernel.org>; Mon, 14 Dec 2009 23:55:00 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <755510.33826.qm@web52905.mail.re2.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2009 at 4:34 PM, David Miller <davem@davemloft.net> wrote:
-> From: Magnus Damm <magnus.damm@gmail.com>
-> Date: Tue, 15 Dec 2009 16:22:11 +0900
->
->> On Tue, Dec 15, 2009 at 4:15 PM, David Miller <davem@davemloft.net> wrote:
->>> NET_IP_ALIGN is never != 2 on SUPERH
->>>
->>> SH_ETH depends on SUPERH
->>>
->>> It's a fantasy ifdef, of sorts. :-)
->>
->> Sure, but _maybe_ someone will put the sh_eth hardware block together
->> with MIPS or ARM in the future.
->
-> MIPS and ARM use the default NET_IP_ALIGN of 2 as well.
->
-> Next?
+On Tue, Dec 08, 2009 at 05:35:40AM -0800, Chris Rankin wrote:
+> --- On Tue, 8/12/09, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > Is it the same .config?
+> 
+> Similar, but no. I'll attach the .config to the bug tonight.
 
-I'll just get rid of the #ifdef and make a V2. Thanks! =)
+I can see quite a lot of differences, and some could matter here, e.g.
+like these:
 
-/ magnus
+-# CONFIG_PREEMPT_RCU is not set
++# CONFIG_TREE_RCU is not set
++CONFIG_PREEMPT_RCU=y
+...
+-CONFIG_PREEMPT_VOLUNTARY=y
+-# CONFIG_PREEMPT is not set
++# CONFIG_PREEMPT_VOLUNTARY is not set
++CONFIG_PREEMPT=y
+
+It's hard to guess, but at least this second patch mentioned by you
+(ipv4: additional update of dev_net(dev) to struct *net in
+ip_fragment.c) shouldn't matter here. Anyway, now 2.6.32.1 should be
+preferred for testing (if possible).
+
+Jarek P.
