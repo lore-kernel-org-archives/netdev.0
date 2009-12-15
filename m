@@ -1,159 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: packet_sendmsg_spkt sleeping from invalid context
-Date: Tue, 15 Dec 2009 16:47:03 +0100
-Message-ID: <4B27AF77.7010809@gmail.com>
-References: <20091214175211.GA5102@nowhere> <4B2690E7.4030303@gmail.com> <20091214205231.GB5037@nowhere> <4B26AD65.1020004@gmail.com> <20091214213002.GA5203@nowhere> <4B26B09A.7050607@gmail.com> <20091215151302.GD5833@nowhere>
+From: stefano babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [RFC PATCH v3  3/8] CAIF Protocol Stack
+Date: Tue, 15 Dec 2009 17:00:04 +0100
+Message-ID: <4B27B284.5010009@babic.homelinux.org>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Frederic Weisbecker <fweisbec@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756112AbZLOPrZ@vger.kernel.org>
-In-Reply-To: <20091215151302.GD5833@nowhere>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpout09.attiva.biz ([85.37.16.7]:23836 "EHLO
+	smtpout09.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754389AbZLOQAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 11:00:13 -0500
+In-Reply-To: <1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 15/12/2009 16:13, Frederic Weisbecker a =E9crit :
+sjur.brandeland@stericsson.com wrote:
+> diff --git a/include/net/caif/caif_chr.h b/include/net/caif/caif_chr.h
+> new file mode 100644
+> index 0000000..ebd89f8
+> --- /dev/null
+> +++ b/include/net/caif/caif_chr.h
 
-> Tested-by: Frederic Weisbecker <fweisbec@gmail.com>
->=20
+Only a question of taste, but there is no chr device anymore, maybe
+another name for the file should be more appropriate.
 
-Thanks for testing Frederic, here is the official patch submission then=
- :)
+> +struct caif_service_config;
+> +
+> +enum cf_chr_dev_type {
+> +	CFDEVTYPE_CHR,
+> +	CFDEVTYPE_TTY,
+> +	CFDEVTYPE_NET
+> +};
+> +
+> +extern int serial_use_stx;
+> +extern int (*netdev_mgmt_func) (int action, union caif_action *param);
+> +int caifdev_phy_reg(struct layer *phyif, struct cfcnfg_phy_mgmt *mgmt);
+> +int caifdev_phy_instanciate(struct cfcnfg_phy_config *phy_config);
+> +int caifdev_phy_register(struct layer *phyif,
+> +			 enum cfcnfg_phy_type phy_type,
+> +			 enum cfcnfg_phy_preference phy_pref);
+> +int caifdev_phy_unregister(struct layer *phyif);
+> +int caifdev_phy_loop_register(struct layer *phyif,
+> +			      enum cfcnfg_phy_type phy_type);
+> +int caifdev_phy_spi_xmitlen(struct cfspil *layr);
+> +struct cfpkt *caifdev_phy_spi_getxmitpkt(struct cfspil *layr);
 
+All these functions seem obsolete.
 
-[PATCH] packet: dont call sleeping functions while holding rcu_read_loc=
-k()
+> +int caif_register_chrdev(int (*chrdev_mgmt)
+> +			(int action, union caif_action *param));
+> +void caif_unregister_chrdev(void);
 
-commit 654d1f8a019dfa06d (packet: less dev_put() calls)
-introduced a problem, calling potentially sleeping functions from a
-rcu_read_lock() protected section.
+Obsolete, too.
 
-=46ix this by releasing lock before the sock_wmalloc()/memcpy_fromiovec=
-() calls.
+> diff --git a/include/net/caif/caif_config_util.h b/include/net/caif/caif_config_util.h
+> new file mode 100644
+> index 0000000..cdc1443
+> --- /dev/null
+> +++ b/include/net/caif/caif_config_util.h
+> @@ -0,0 +1,20 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2009
+> + * Author:	Daniel Martensson / Daniel.Martensson@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CAIF_CONFIG_UTIL_H_
+> +#define CAIF_CONFIG_UTIL_H_
+> +
+> +#include <linux/caif/caif_config.h>
+> +#include <linux/caif/caif_ioctl.h>
+> +#include <net/caif/generic/cfcnfg.h>
+> +#include <net/caif/generic/cfctrl.h>
+> +#include <net/caif/caif_actions.h>
+> +
+> +int channel_config_2_link_param(struct cfcnfg *cnfg,
+> +				struct caif_channel_config *s,
+> +				struct cfctrl_link_param *l);
+> +
+> +#endif
 
-After skb allocation and copy from user space, we redo device
-lookup and appropriate tests.
+Do we need an extra-header only to set the prototype of a single
+function ? Probably can we move it into another header file.
 
-Reported-and-tested-by: Frederic Weisbecker <fweisbec@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/packet/af_packet.c |   71 +++++++++++++++++----------------------
- 1 file changed, 31 insertions(+), 40 deletions(-)
+Stefano
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0205621..bc17351 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -415,7 +415,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, =
-struct socket *sock,
- {
- 	struct sock *sk =3D sock->sk;
- 	struct sockaddr_pkt *saddr =3D (struct sockaddr_pkt *)msg->msg_name;
--	struct sk_buff *skb;
-+	struct sk_buff *skb =3D NULL;
- 	struct net_device *dev;
- 	__be16 proto =3D 0;
- 	int err;
-@@ -437,6 +437,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, =
-struct socket *sock,
- 	 */
-=20
- 	saddr->spkt_device[13] =3D 0;
-+retry:
- 	rcu_read_lock();
- 	dev =3D dev_get_by_name_rcu(sock_net(sk), saddr->spkt_device);
- 	err =3D -ENODEV;
-@@ -456,58 +457,48 @@ static int packet_sendmsg_spkt(struct kiocb *iocb=
-, struct socket *sock,
- 	if (len > dev->mtu + dev->hard_header_len)
- 		goto out_unlock;
-=20
--	err =3D -ENOBUFS;
--	skb =3D sock_wmalloc(sk, len + LL_RESERVED_SPACE(dev), 0, GFP_KERNEL)=
-;
--
--	/*
--	 * If the write buffer is full, then tough. At this level the user
--	 * gets to deal with the problem - do your own algorithmic backoffs.
--	 * That's far more flexible.
--	 */
--
--	if (skb =3D=3D NULL)
--		goto out_unlock;
--
--	/*
--	 *	Fill it in
--	 */
--
--	/* FIXME: Save some space for broken drivers that write a
--	 * hard header at transmission time by themselves. PPP is the
--	 * notable one here. This should really be fixed at the driver level.
--	 */
--	skb_reserve(skb, LL_RESERVED_SPACE(dev));
--	skb_reset_network_header(skb);
--
--	/* Try to align data part correctly */
--	if (dev->header_ops) {
--		skb->data -=3D dev->hard_header_len;
--		skb->tail -=3D dev->hard_header_len;
--		if (len < dev->hard_header_len)
--			skb_reset_network_header(skb);
-+	if (!skb) {
-+		size_t reserved =3D LL_RESERVED_SPACE(dev);
-+		unsigned int hhlen =3D dev->header_ops ? dev->hard_header_len : 0;
-+
-+		rcu_read_unlock();
-+		skb =3D sock_wmalloc(sk, len + reserved, 0, GFP_KERNEL);
-+		if (skb =3D=3D NULL)
-+			return -ENOBUFS;
-+		/* FIXME: Save some space for broken drivers that write a hard
-+		 * header at transmission time by themselves. PPP is the notable
-+		 * one here. This should really be fixed at the driver level.
-+		 */
-+		skb_reserve(skb, reserved);
-+		skb_reset_network_header(skb);
-+
-+		/* Try to align data part correctly */
-+		if (hhlen) {
-+			skb->data -=3D hhlen;
-+			skb->tail -=3D hhlen;
-+			if (len < hhlen)
-+				skb_reset_network_header(skb);
-+		}
-+		err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+		if (err)
-+			goto out_free;
-+		goto retry;
- 	}
-=20
--	/* Returns -EFAULT on error */
--	err =3D memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+
- 	skb->protocol =3D proto;
- 	skb->dev =3D dev;
- 	skb->priority =3D sk->sk_priority;
- 	skb->mark =3D sk->sk_mark;
--	if (err)
--		goto out_free;
--
--	/*
--	 *	Now send it
--	 */
-=20
- 	dev_queue_xmit(skb);
- 	rcu_read_unlock();
- 	return len;
-=20
--out_free:
--	kfree_skb(skb);
- out_unlock:
- 	rcu_read_unlock();
-+out_free:
-+	kfree_skb(skb);
- 	return err;
- }
-=20
+-- 
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
