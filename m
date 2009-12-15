@@ -1,68 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
-Date: Tue, 15 Dec 2009 20:33:53 +0100
-Message-ID: <4B27E4A1.4050802@gmail.com>
-References: <20091210231103.GA20231@esk.cs.usu.edu> <4B218E36.4030808@gmail.com> <20091215172119.GF20231@esk.cs.usu.edu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Net-next-2.6 and net-2.6 repos and git-cloning via http
+Date: Tue, 15 Dec 2009 20:49:06 +0100
+Message-ID: <4B27E832.50700@gmail.com>
+References: <b25312890912150204n1ee8e303xe1d165bd90c7c08c@mail.gmail.com> <20091215134243.GA9276@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
+Content-Transfer-Encoding: 7bit
+Cc: Rami Rosen <roszenrami@gmail.com>, Netdev <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49854 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933456AbZLOTeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 14:34:09 -0500
-In-Reply-To: <20091215172119.GF20231@esk.cs.usu.edu>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:49150 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755221AbZLOTtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 14:49:21 -0500
+Received: by fxm21 with SMTP id 21so247677fxm.21
+        for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 11:49:18 -0800 (PST)
+In-Reply-To: <20091215134243.GA9276@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 15/12/2009 18:21, Eldon Koyle a =E9crit :
-> On  Dec 11  1:11+0100, Eric Dumazet wrote:
->> Le 11/12/2009 00:11, Eldon Koyle a =E9crit :
->>> We have built a firewall with two 10 Gbit interfaces (intel 82598EB=
-) and
->>> are doing some testing.  A simple bridge between the two interfaces=
- acts
->>> as expected with packets being distributed fairly evenly across all=
- of
->>> the rx/tx queues.
->>>
->>> We then switched to tagged vlans on both interfaces (10 vlans each,=
- 8
->>> source and 8 dest addresses per vlan) and bridged eth0.N to eth1.N,=
- and
->>> many of our queues (and CPUs) remained idle, and all of our VLAN tr=
-affic
->>> went out on the same tx queue.  Are multiple transmit queues suppor=
-ted
->>> with 802.1q?  How do we figure out what is causing some of our rece=
-ive
->>> queues to be unused?
->>>
->>> We are using 2.6.31 (from Debian) and ixgbe-2.0.44.14 .
->>>
+Jarek Poplawski wrote, On 12/15/2009 02:42 PM:
+
+> On 15-12-2009 11:04, Rami Rosen wrote:
+>> Hello,
+>> Do the net-next-2.6 and net-2.6 repossupport git-clone via http (for
+>> cases when git port, 9418, is blocked ?)
+> 
+> David responded a similar question recently - http is not supported.
+> 
+
+Hmm... Actually, it's not "reliably" supported only; here is the link:
+
+http://www.spinics.net/lists/netdev/msg110984.html
+
+Jarek P.
+
+> 
+>> I am trying:
+>> git-clone http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+>> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
+>> fatal: http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git/info/refs
+>> not found: did you run git update-server-info on the server?
 >>
->> You need more recent kernel (2.6.32) to get multi queue support on v=
-lans, sorry.
->=20
-> Excellent.  2.6.32 solved half of the problem.  Now, we are using the
-> same number of rx and tx queues.  We are still seeing no packets on 3=
- of
-> our 8 rx queues on each interface, though (no packets on 2, 4 or 6).
-> Does the card assign queues in hardware, or is that handled by the
-> kernel?
->=20
+>> also:
+>> git-clone http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+>> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
+>> gives the same result.
+>>
+>> (I just want to add that on some other repos, the info/refs does exist,
+>> for example, http://www.kernel.org/pub/scm/virt/kvm/pcbios.git/info/refs,
+>> and I can do git-clone with
+>> http with them, but I really don't know whether this is the reason or
+>> just a wild speculation).
+>>
+>> Rgs,
+>> Rami
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-When a packet is received (ethernet -> Card), the hardware chooses a RX=
- queue using
-hash function.
 
-Then, in your forwarding setup, we (the kernel) automaticaly use same q=
-ueue to transmit packet.
-
-So if only 5 queues out of 8 receive trafic, it might be because of the=
- flows all map to only 5 queues,
-but you should ask Intel people for details :)
-
-(They usualy read netdev)
