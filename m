@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Badness at net/ipv4/inet_connection_sock.c:293
-Date: Mon, 14 Dec 2009 23:18:40 -0800 (PST)
-Message-ID: <20091214.231840.106434922.davem@davemloft.net>
-References: <20091214.111638.165984790.davem@davemloft.net>
-	<4B2690B4.3030604@gmail.com>
-	<20091214.143522.102450157.davem@davemloft.net>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH] net: sh_eth alignment fix for sh7724 using NET_IP_ALIGN
+Date: Tue, 15 Dec 2009 16:22:11 +0900
+Message-ID: <aec7e5c30912142322w21fb4a1bved19f7344f1cf1a5@mail.gmail.com>
+References: <20091214103443.13082.84079.sendpatchset@rxone.opensource.se>
+	 <20091214.215753.147971281.davem@davemloft.net>
+	 <aec7e5c30912142313p111565d4mc0014c581cd431d4@mail.gmail.com>
+	 <20091214.231534.225225771.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.dykstra1@gmail.com, lists@nerdbynature.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33883
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751628AbZLOHSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 02:18:39 -0500
-In-Reply-To: <20091214.143522.102450157.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20091214.231534.225225771.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 14 Dec 2009 14:35:22 -0800 (PST)
+On Tue, Dec 15, 2009 at 4:15 PM, David Miller <davem@davemloft.net> wrote:
+> NET_IP_ALIGN is never != 2 on SUPERH
+>
+> SH_ETH depends on SUPERH
+>
+> It's a fantasy ifdef, of sorts. :-)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 14 Dec 2009 20:23:32 +0100
-> 
->> If you disable syncookies, I presume you dont have warnings ?
-> 
-> It happens even with syncookies disabled, hmmm...
+Sure, but _maybe_ someone will put the sh_eth hardware block together
+with MIPS or ARM in the future. I guess it makes more sense to just
+use the NET_IP_ALIGN value blindly and not care so much about what is
+known working and what is not...?
 
-FWIW, I'm starting to bisect this.
+Cheers,
+
+/ magnus
