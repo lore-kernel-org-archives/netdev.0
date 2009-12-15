@@ -1,43 +1,52 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination
- for 32byte SSIDs
-Date: Tue, 15 Dec 2009 18:37:14 +0800
-Message-ID: <20091215103714.GK28375@buzzloop.caiaq.de>
-References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
- <20091215.014308.77044043.davem@davemloft.net>
- <1260871411.3692.4.camel@johannes.local>
- <1260871634.3692.6.camel@johannes.local>
- <20091215102035.GJ28375@buzzloop.caiaq.de>
- <1260873083.3692.8.camel@johannes.local>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
+	function for virtio
+Date: Tue, 15 Dec 2009 12:57:48 +0200
+Message-ID: <20091215105748.GB11525@redhat.com>
+References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260534805.30371.10.camel@localhost.localdomain> <20091213102632.GB6789@redhat.com> <1260821285.8716.7.camel@localhost.localdomain> <20091214202253.GG6150@redhat.com> <1260832942.4387.9.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	dcbw@redhat.com, m.hirsch@raumfeld.com, netdev@vger.kernel.org,
-	libertas-dev@lists.infradead.org, stable@kernel.org,
-	linux-wireless@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757726AbZLOKhZ@vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1624 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757988AbZLOLAf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 06:00:35 -0500
 Content-Disposition: inline
-In-Reply-To: <1260873083.3692.8.camel@johannes.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1260832942.4387.9.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2009 at 11:31:23AM +0100, Johannes Berg wrote:
-> On Tue, 2009-12-15 at 18:20 +0800, Daniel Mack wrote:
+On Mon, Dec 14, 2009 at 03:22:22PM -0800, Shirley Ma wrote:
+> Hello Michael,
 > 
-> > > drivers/net/wireless/libertas$ grep lbs_deb_ * | grep ssid|grep '%s'
-> > > assoc.c:	lbs_deb_join("current SSID '%s', ssid length %u\n",
-> > > assoc.c:	lbs_deb_join("requested ssid '%s', ssid length %u\n",
-> > > assoc.c:	lbs_deb_join("ADHOC_START: SSID '%s', ssid length %u\n",
-> > > scan.c:		lbs_deb_wext("set_scan, essid '%s'\n",
+> On Mon, 2009-12-14 at 22:22 +0200, Michael S. Tsirkin wrote:
+> > I dont insist, but my idea was
 > > 
-> > Those macros are stubbed out as nops in my setup, so they can
-> > unfortunately not be the reason. I'll dig deeper :)
+> > for (;;) {
+> >         b = vq->destroy(vq);
+> >         if (!b)
+> >                 break;
+> >         --vi->num;
+> >         put_page(b);
+> > }
+> > 
+> > so we do not have to lose track of the counter.
 > 
-> Well, the stack trace ought to help.
+> That's not a bad idea, but to do this, then this fuction will be
+> specific for virtio_net device (vi is virtnet_info) only in a generic
+> virtqueue API.
+> 
+> Thanks
+> Shirley
 
-It unfortunately doesn't. The site that causes the problem does not
-crash itself. It just corrupts some memory, and the actual crash happens
-much later, which makes it so evil.
+No, this code would be in virtio net.
+destroy would simply be the virtqueue API that returns
+data pointer.
 
-Daniel
+-- 
+MST
