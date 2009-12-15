@@ -1,162 +1,182 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: PATCH v2 3/4] Defer skb allocation -- new recvbuf alloc &
-	receive calls
-Date: Tue, 15 Dec 2009 13:33:27 +0200
-Message-ID: <20091215113327.GC13110@redhat.com>
-References: <1258697359.7416.14.camel@localhost.localdomain> <200911231123.18898.rusty@rustcorp.com.au> <20091208122134.GA17286@redhat.com> <1260534506.30371.6.camel@localhost.localdomain> <1260535613.30371.24.camel@localhost.localdomain> <20091213114320.GC7074@redhat.com> <1260828518.8716.105.camel@localhost.localdomain>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
+Date: Tue, 15 Dec 2009 21:52:24 +1000
+Message-ID: <4B277878.1050804@snapgear.com>
+References: <cover.1260785451.git.baruch@tkos.co.il>	<fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>	<20091214103348.GV15126@pengutronix.de>
+	<20091215083142.GB18290@jasper.tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1260828518.8716.105.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20091215083142.GB18290@jasper.tkos.co.il>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 14, 2009 at 02:08:38PM -0800, Shirley Ma wrote:
-> On Sun, 2009-12-13 at 13:43 +0200, Michael S. Tsirkin wrote:
-> > Interesting. I think skb_goodcopy will sometimes
-> > set *page to NULL. Will the above crash then?
-> 
-> Nope, when *page is NULL, *len is 0.
+Hi Baruch,
 
-Hmm. Yes, I see, it is here:
-+       if (*len) {
-+               *len = skb_set_frag(skb, *page, offset, *len);
-+               *page = (struct page *)(*page)->private;
-+       } else {
-+               give_pages(vi, *page);
-+               *page = NULL;
-+       }
+On 12/15/2009 06:31 PM, Baruch Siach wrote:
+> Hi Sascha,
+>
+> On Mon, Dec 14, 2009 at 11:33:48AM +0100, Sascha Hauer wrote:
+>> On Mon, Dec 14, 2009 at 12:19:41PM +0200, Baruch Siach wrote:
+>>> +	if (!machine_is_mx25_3ds())
+>>> +		return;
+>>
+>> We should add a flag in platform data for this. Unfortunately the fec
+>> driver has no platform data at all at the moment, so this requires some
+>> more work.
+>
+> Here is an updated patch which adds platform data to fec. I've also addressed
+> the comment of Greg. I'll post a patch updating the i.MX25 PDK platform code
+> shortly.
+>
+> baruch
+>
+>> From ff971bbec84501cab714703786dd4058db4a89e4 Mon Sep 17 00:00:00 2001
+> Message-Id:<ff971bbec84501cab714703786dd4058db4a89e4.1260865551.git.baruch@tkos.co.il>
+> From: Baruch Siach<baruch@tkos.co.il>
+> Date: Mon, 14 Dec 2009 10:36:50 +0200
+> Subject: [PATCH] fec: add support for PHY interface platform data
+>
+> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
+> ability to configure RMII, based on platform data.
+>
+> Signed-off-by: Baruch Siach<baruch@tkos.co.il>
+> ---
+>   drivers/net/fec.c   |   22 ++++++++++++++++++++++
+>   drivers/net/fec.h   |    2 ++
+>   include/linux/fec.h |   21 +++++++++++++++++++++
+>   3 files changed, 45 insertions(+), 0 deletions(-)
+>   create mode 100644 include/linux/fec.h
+>
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 16a1d58..b9a5822 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -40,6 +40,7 @@
+>   #include<linux/irq.h>
+>   #include<linux/clk.h>
+>   #include<linux/platform_device.h>
+> +#include<linux/fec.h>
+>
+>   #include<asm/cacheflush.h>
+>
+> @@ -198,6 +199,7 @@ struct fec_enet_private {
+>   	uint	phy_speed;
+>   	phy_info_t const	*phy;
+>   	struct work_struct phy_task;
+> +	phy_interface_t	phy_interface;
+>
+>   	uint	sequence_done;
+>   	uint	mii_phy_task_queued;
+> @@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
+>   	/* Set MII speed */
+>   	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+>
+> +#ifndef CONFIG_M5272
 
-So what I would suggest is, have function
-that just copies part of skb, and have
-caller open-code allocating the skb and free up
-pages as necessary.
+I would suggest making this conditional on FEC_MIIGSK_ENR.
+Although the CONFIG_M5272 is the only case here currently,
+that may change over the years. And using this here may not
+be obvious to the causual code reader, since the register
+offset definitions don't explicitly key on CONFIG_M5272.
 
-> > don't put empty line here. if below is part of same logical block as
-> > skb_goodcopy.
-> Ok.
-> 
-> > Local variable shadows a parameter.
-> > It seems gcc will let you get away with a warning,
-> > but this is not legal C.
-> Ok.
-> 
-> > > +
-> > > +             i = skb_shinfo(skb)->nr_frags;
-> > > +             if (i >= MAX_SKB_FRAGS) {
-> > > +                     pr_debug("%s: packet too long %d\n",
-> > skb->dev->name,
-> > > +                              len);
-> > 
-> > If this happens, we have corrupted memory already.
-> > We do need this check, but please put is before you increment
-> > nr_frags.
-> 
-> It is before increase for mergeable buffer case. Only one page(one frag)
-> per get_buf.
-> 
-> > > +                     skb->dev->stats.rx_length_errors++;
-> > > +                     return skb;
-> > 
-> > This will propagate the error up the stack and corrupt
-> > more memory.
-> 
-> I just copied the code from original code. There might not be a problem
-> for mergeable buffer. I will double check.
-> 
-> > sizeof hdr->hdr
-> Ok.
-> 
-> > > +
-> > > +     skb_to_sgvec(skb, sg+1, 0, skb->len);
-> > 
-> > space around +
-> Ok.
-> 
-> > > +
-> > > +     err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 2, skb);
-> > > +     if (err < 0)
-> > > +             kfree_skb(skb);
-> > > +     else
-> > > +             skb_queue_head(&vi->recv, skb);
-> > 
-> > So why are we queueing this still?
-> This is for small packet. I didn't change that code since it will
-> involve extra copy by using page.
-
-What I am asking is why do we add skb in vi->recv.
-Can't we use vq destoy hack here as well?
-
-> > > +
-> > > +     return err;
-> > > +}
-> > > +
-> > > +static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp, bool
-> > *oom)
-> > > +{
-> > > +     struct scatterlist sg[2 + MAX_SKB_FRAGS];
-> > 
-> > MAX_SKB_FRAGS + 2 will be more readable.
-> > Also, create a macro for this constant and document
-> > why does +2 make sense?
-> 
-> One is for big packet virtio_net_hdr, one is for goodcopy skb.
+Regards
+Greg
 
 
-Maybe put this in a comment then.
 
-> > Again, pls explain *why* do we want 16 byte alignment.
-> > Also this code seems duplicated?
-> > Please put structs at top of file where they
-> > can be found.
-> Ok.
-> 
-> > > +     };
-> > > +
-> > > +     offset = sizeof(struct padded_vnet_hdr);
-> > > +
-> > > +     for (i = total - 1; i > 0; i--) {
-> > 
-> > I prefer --i.
-> Ok.
-> 
-> > Also, total is just a constant.
-> > So simply MAX_SKB_FRAGS + 1 will be clearer.
-> Ok.
-> 
-> > Why do we scan last to first?
-> > If there's reason, please add a comment.
-> We use page private to maintain next page, here there is no scan last to
-> first, just add the new page in list head instead of list tail, which
-> will require scan the list.
+> +	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
+> +		/* disable the gasket and wait */
+> +		writel(0, fep->hwp + FEC_MIIGSK_ENR);
+> +		while (readl(fep->hwp + FEC_MIIGSK_ENR)&  4)
+> +			udelay(1);
+> +
+> +		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
+> +		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> +
+> +		/* re-enable the gasket */
+> +		writel(2, fep->hwp + FEC_MIIGSK_ENR);
+> +	}
+> +#endif
+> +
+>   	/* And last, enable the transmit and receive processing */
+>   	writel(2, fep->hwp + FEC_ECNTRL);
+>   	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+> @@ -1847,6 +1864,7 @@ static int __devinit
+>   fec_probe(struct platform_device *pdev)
+>   {
+>   	struct fec_enet_private *fep;
+> +	struct fec_platform_data *pdata;
+>   	struct net_device *ndev;
+>   	int i, irq, ret = 0;
+>   	struct resource *r;
+> @@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
+>
+>   	platform_set_drvdata(pdev, ndev);
+>
+> +	pdata = pdev->dev.platform_data;
+> +	if (pdata)
+> +		fep->phy_interface = pdata->phy;
+> +
+>   	/* This device has up to three irqs on some platforms */
+>   	for (i = 0; i<  3; i++) {
+>   		irq = platform_get_irq(pdev, i);
+> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
+> index cc47f3f..2c48b25 100644
+> --- a/drivers/net/fec.h
+> +++ b/drivers/net/fec.h
+> @@ -43,6 +43,8 @@
+>   #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
+>   #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
+>   #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
+> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+>
+>   #else
+>
+> diff --git a/include/linux/fec.h b/include/linux/fec.h
+> new file mode 100644
+> index 0000000..5d3523d
+> --- /dev/null
+> +++ b/include/linux/fec.h
+> @@ -0,0 +1,21 @@
+> +/* include/linux/fec.h
+> + *
+> + * Copyright (c) 2009 Orex Computed Radiography
+> + *   Baruch Siach<baruch@tkos.co.il>
+> + *
+> + * Header file for the FEC platform data
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2 as
+> + * published by the Free Software Foundation.
+> + */
+> +#ifndef __LINUX_FEC_H__
+> +#define __LINUX_FEC_H__
+> +
+> +#include<linux/phy.h>
+> +
+> +struct fec_platform_data {
+> +	phy_interface_t phy;
+> +};
+> +
+> +#endif
 
-I mean the for loop: can it be for(i = 0, ..., ++i) just as well?
-Why do you start at the end of buffer and decrement?
-
-> > space around - .
-> Ok.
-> 
-> > All the if (i == 1) handling on exit is really hard to grok.
-> > How about moving common code out of this loop
-> > into a function, and then you can
-> >         for (i = total - 1; i > 1; i--) {
-> >                 handle(i);
-> >         }
-> >         handle(1);
-> >         handle(0);
-> >         add_buf
-> That works.
-> 
-> > do we really need *oom here and below?
-> > We can just set err to ENOMEM, no?
-> We could.
-> 
-> > Please do not return 0 on failure.
-> 
-> Ok.
+-- 
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
+8 Gardner Close,                            FAX:         +61 7 3891 3630
+Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
