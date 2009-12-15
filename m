@@ -1,72 +1,64 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Net-next-2.6 and net-2.6 repos and git-cloning via http
-Date: Tue, 15 Dec 2009 20:49:06 +0100
-Message-ID: <4B27E832.50700@gmail.com>
-References: <b25312890912150204n1ee8e303xe1d165bd90c7c08c@mail.gmail.com> <20091215134243.GA9276@ff.dom.local>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
+Date: Tue, 15 Dec 2009 22:11:10 +0200
+Message-ID: <20091215201109.GA2621@tarshish>
+References: <cover.1260785451.git.baruch@tkos.co.il>
+ <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
+ <20091214103348.GV15126@pengutronix.de>
+ <20091215083142.GB18290@jasper.tkos.co.il>
+ <4B277878.1050804@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <roszenrami@gmail.com>, Netdev <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:49150 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755221AbZLOTtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 14:49:21 -0500
-Received: by fxm21 with SMTP id 21so247677fxm.21
-        for <netdev@vger.kernel.org>; Tue, 15 Dec 2009 11:49:18 -0800 (PST)
-In-Reply-To: <20091215134243.GA9276@ff.dom.local>
+Received: from tango.tkos.co.il ([62.219.50.35]:49702 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932998AbZLOULs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 15:11:48 -0500
+Content-Disposition: inline
+In-Reply-To: <4B277878.1050804@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 12/15/2009 02:42 PM:
+Hi Greg,
 
-> On 15-12-2009 11:04, Rami Rosen wrote:
->> Hello,
->> Do the net-next-2.6 and net-2.6 repossupport git-clone via http (for
->> cases when git port, 9418, is blocked ?)
-> 
-> David responded a similar question recently - http is not supported.
-> 
+On Tue, Dec 15, 2009 at 09:52:24PM +1000, Greg Ungerer wrote:
+> On 12/15/2009 06:31 PM, Baruch Siach wrote:
 
-Hmm... Actually, it's not "reliably" supported only; here is the link:
+[snip]
 
-http://www.spinics.net/lists/netdev/msg110984.html
+> >+#ifndef CONFIG_M5272
+> 
+> I would suggest making this conditional on FEC_MIIGSK_ENR.
+> Although the CONFIG_M5272 is the only case here currently,
+> that may change over the years. And using this here may not
+> be obvious to the causual code reader, since the register
+> offset definitions don't explicitly key on CONFIG_M5272.
 
-Jarek P.
+OK, I'll change this conditional.
+
+Can I take this as an Ack from you?
+
+baruch
 
 > 
->> I am trying:
->> git-clone http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
->> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
->> fatal: http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git/info/refs
->> not found: did you run git update-server-info on the server?
->>
->> also:
->> git-clone http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
->> Initialized empty Git repository in /home/rami/new/net-next-2.6/.git/
->> gives the same result.
->>
->> (I just want to add that on some other repos, the info/refs does exist,
->> for example, http://www.kernel.org/pub/scm/virt/kvm/pcbios.git/info/refs,
->> and I can do git-clone with
->> http with them, but I really don't know whether this is the reason or
->> just a wild speculation).
->>
->> Rgs,
->> Rami
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> >+	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
+> >+		/* disable the gasket and wait */
+> >+		writel(0, fep->hwp + FEC_MIIGSK_ENR);
+> >+		while (readl(fep->hwp + FEC_MIIGSK_ENR)&  4)
+> >+			udelay(1);
+> >+
+> >+		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
+> >+		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> >+
+> >+		/* re-enable the gasket */
+> >+		writel(2, fep->hwp + FEC_MIIGSK_ENR);
+> >+	}
+> >+#endif
 
-
+-- 
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
