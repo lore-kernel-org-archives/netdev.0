@@ -1,107 +1,74 @@
-From: Rakesh Ranjan <rakesh@chelsio.com>
-Subject: [RESEND PATCH 1/1]cxgb3i: Fix a login over vlan issue
-Date: Tue, 15 Dec 2009 12:19:19 +0530 (IST)
-Message-ID: <alpine.LFD.2.00.0912151214230.11944@rakeshpc.asicdesigner.com>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH] net: sh_eth alignment fix for sh7724 using NET_IP_ALIGN
+Date: Tue, 15 Dec 2009 16:13:47 +0900
+Message-ID: <aec7e5c30912142313p111565d4mc0014c581cd431d4@mail.gmail.com>
+References: <20091214103443.13082.84079.sendpatchset@rxone.opensource.se>
+	 <20091214.215753.147971281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	David Miller <davem@davemloft.net>,
-	James Bottomley <james.bottomley@hansenpartnership.com>,
-	Karen Xie <kxie@chelsio.com>,
-	Rakesh Ranjan <rakesh@chelsio.com>
-To: OISCSIML <open-iscsi@googlegroups.com>,
-	LSCSIML <linux-scsi@vger.kernel.org>,
-	LNDML <netdev@vger.kernel.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20091214.215753.147971281.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rakesh Ranjan <rakesh@chelsio.com>
+On Tue, Dec 15, 2009 at 2:57 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Magnus Damm <magnus.damm@gmail.com>
+> Date: Mon, 14 Dec 2009 19:34:43 +0900
+>
+>> From: Magnus Damm <damm@opensource.se>
+>>
+>> Fix sh_eth for sh7724 by adding NET_IP_ALIGN support.
+>> Without this patch the receive data is misaligned.
+>>
+>> Signed-off-by: Magnus Damm <damm@opensource.se>
+>
+> How does this interact with sh_eth_set_receive_align() and
+> why isn't all of the skb_reserve() logic confined to one
+> place?
 
-Fix a target login issue, when parent interface is vlan and we are using cxgb3i sepecific
-private ip address in '/etc/iscsi/ifaces/' iface file.
+It looks like the driver is written to support a few different
+processors, and the alignment requirement varies from processor to
+processor. I assume that the mdp->rx_buf_sz calculation takes care of
+the alignment, but it all looks pretty messy to me.
 
-Acked-by: Karen Xie <kxie@chelsio.com>
-Signed-off-by: Rakesh Ranjan <rakesh@chelsio.com>
----
- drivers/scsi/cxgb3i/cxgb3i_offload.c |   34 +++++++++++++++++++++++++++++++++-
- 1 files changed, 33 insertions(+), 1 deletions(-)
+Some processors support RPADIR and some do not. The processors that do
+support RPADIR can tie in NET_IP_ALIGN support easily. The sh7763
+hardware should support RPADIR, but only a partial software
+implementation seems to be in place without this patch. And I can't
+unfortunately test sh7763 support since I only have sh7724 hardware
+available.
 
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.c b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-index 26ffdcd..15a00e8 100644
---- a/drivers/scsi/cxgb3i/cxgb3i_offload.c
-+++ b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-@@ -1440,6 +1440,10 @@ void cxgb3i_c3cn_release(struct s3_conn *c3cn)
- static int is_cxgb3_dev(struct net_device *dev)
- {
- 	struct cxgb3i_sdev_data *cdata;
-+	struct net_device *ndev = dev;
-+
-+	if (dev->priv_flags & IFF_802_1Q_VLAN)
-+		ndev = vlan_dev_real_dev(dev);
- 
- 	write_lock(&cdata_rwlock);
- 	list_for_each_entry(cdata, &cdata_list, list) {
-@@ -1447,7 +1451,7 @@ static int is_cxgb3_dev(struct net_device *dev)
- 		int i;
- 
- 		for (i = 0; i < ports->nports; i++)
--			if (dev == ports->lldevs[i]) {
-+			if (ndev == ports->lldevs[i]) {
- 				write_unlock(&cdata_rwlock);
- 				return 1;
- 			}
-@@ -1566,6 +1570,26 @@ out_err:
- 	return -EINVAL;
- }
- 
-+/**
-+ * cxgb3i_find_dev - find the interface associated with the given address
-+ * @ipaddr: ip address
-+ */
-+static struct net_device *
-+cxgb3i_find_dev(struct net_device *dev, __be32 ipaddr)
-+{
-+	struct flowi fl;
-+	int err;
-+	struct rtable *rt;
-+
-+	memset(&fl, 0, sizeof(fl));
-+	fl.nl_u.ip4_u.daddr = ipaddr;
-+
-+	err = ip_route_output_key(dev ? dev_net(dev) : &init_net, &rt, &fl);
-+	if (!err)
-+		return (&rt->u.dst)->dev;
-+
-+	return NULL;
-+}
- 
- /**
-  * cxgb3i_c3cn_connect - initiates an iscsi tcp connection to a given address
-@@ -1581,6 +1605,7 @@ int cxgb3i_c3cn_connect(struct net_device *dev, struct s3_conn *c3cn,
- 	struct cxgb3i_sdev_data *cdata;
- 	struct t3cdev *cdev;
- 	__be32 sipv4;
-+	struct net_device *dstdev;
- 	int err;
- 
- 	c3cn_conn_debug("c3cn 0x%p, dev 0x%p.\n", c3cn, dev);
-@@ -1591,6 +1616,13 @@ int cxgb3i_c3cn_connect(struct net_device *dev, struct s3_conn *c3cn,
- 	c3cn->daddr.sin_port = usin->sin_port;
- 	c3cn->daddr.sin_addr.s_addr = usin->sin_addr.s_addr;
- 
-+	dstdev = cxgb3i_find_dev(dev, usin->sin_addr.s_addr);
-+	if (!dstdev || !is_cxgb3_dev(dstdev))
-+		return -ENETUNREACH;
-+
-+	if (dstdev->priv_flags & IFF_802_1Q_VLAN)
-+		dev = dstdev;
-+
- 	rt = find_route(dev, c3cn->saddr.sin_addr.s_addr,
- 			c3cn->daddr.sin_addr.s_addr,
- 			c3cn->saddr.sin_port,
--- 
-1.6.0.6
+That aside, unifying the alignment code and doing a major cleanup
+would be nice, yes.
 
+> The sh7763 sh_eth_my_cpu_data sets rpadir unconditionally,
+> yet your NET_IP_ALIGN behavior is controlled by the new
+> setting of .rpadir for sh7724, is this ok or is it going
+> to break sh7763 or cause it to misbehave?
 
+Good point. It may be better to remove the .rpadir setting from sh7763
+since it looks unused and broken at this point. OTOH, if RPADIR on
+sh7763 does what I suspect then this patch will actually unbreak
+sh7763 using the skb_reserve() hunk.
+
+> Could you possibly generalize this so that you don't
+> need the ifdefs and it doesn't matter what the NET_IP_ALIGN
+> value actually is? =A0That is making this code more confusing
+> than it needs to be.
+
+Sorry about the confusion, but the #ifdef was actually intentional. =3D=
+)
+I can't find any description of the RPADIR register in the sh7724 data
+sheet, but testing shows that the buffers are adjusted properly. So
+since I don't know the register layout I prefer to optimize for the
+known working combination of NET_IP_ALIGN =3D=3D 2 and simply disable
+=2Erpadir usage for other NET_IP_ALIGN cases.
+
+Thanks!
+
+/ magnus
