@@ -1,16 +1,15 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers
- function for virtio
-Date: Mon, 14 Dec 2009 15:22:22 -0800
-Message-ID: <1260832942.4387.9.camel@localhost.localdomain>
+Subject: Re: PATCH v2 3/4] Defer skb allocation -- new recvbuf alloc &
+ receive calls
+Date: Mon, 14 Dec 2009 16:37:15 -0800
+Message-ID: <1260837435.4387.11.camel@localhost.localdomain>
 References: <1258697359.7416.14.camel@localhost.localdomain>
 	 <200911231123.18898.rusty@rustcorp.com.au>
 	 <20091208122134.GA17286@redhat.com>
 	 <1260534506.30371.6.camel@localhost.localdomain>
-	 <1260534805.30371.10.camel@localhost.localdomain>
-	 <20091213102632.GB6789@redhat.com>
-	 <1260821285.8716.7.camel@localhost.localdomain>
-	 <20091214202253.GG6150@redhat.com>
+	 <1260535613.30371.24.camel@localhost.localdomain>
+	 <20091213114320.GC7074@redhat.com>
+	 <1260828518.8716.105.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -19,29 +18,28 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
 	linux-kernel@vger.kernel.org,
 	Anthony Liguori <anthony@codemonkey.ws>
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932925AbZLNXW3@vger.kernel.org>
-In-Reply-To: <20091214202253.GG6150@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1260828518.8716.105.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello Michael,
 
-On Mon, 2009-12-14 at 22:22 +0200, Michael S. Tsirkin wrote:
-> I dont insist, but my idea was
-> 
-> for (;;) {
->         b = vq->destroy(vq);
->         if (!b)
->                 break;
->         --vi->num;
->         put_page(b);
-> }
-> 
-> so we do not have to lose track of the counter.
+On Mon, 2009-12-14 at 14:08 -0800, Shirley Ma wrote:
+> > > +
+> > > +     err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 2, skb);
+> > > +     if (err < 0)
+> > > +             kfree_skb(skb);
+> > > +     else
+> > > +             skb_queue_head(&vi->recv, skb);
+> > 
+> > So why are we queueing this still?
+> This is for small packet. I didn't change that code since it will
+> involve extra copy by using page.
 
-That's not a bad idea, but to do this, then this fuction will be
-specific for virtio_net device (vi is virtnet_info) only in a generic
-virtqueue API.
+I think I can remove skb link for small packet as well by adding
+kfree_skb() in virtio_net_free_bufs for small packet.
 
 Thanks
 Shirley
+
