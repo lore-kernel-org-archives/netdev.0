@@ -1,165 +1,86 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Tue, 15 Dec 2009 10:31:42 +0200
-Message-ID: <20091215083142.GB18290@jasper.tkos.co.il>
-References: <cover.1260785451.git.baruch@tkos.co.il>
- <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
- <20091214103348.GV15126@pengutronix.de>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH v2 4/4] Defer skb allocation -- change allocation &
+ receiving in recv path
+Date: Tue, 15 Dec 2009 00:43:04 -0800
+Message-ID: <1260866584.4387.16.camel@localhost.localdomain>
+References: <1258697359.7416.14.camel@localhost.localdomain>
+	 <200911231123.18898.rusty@rustcorp.com.au>
+	 <20091208122134.GA17286@redhat.com>
+	 <1260534506.30371.6.camel@localhost.localdomain>
+	 <1260535793.30371.27.camel@localhost.localdomain>
+	 <20091213110822.GA7074@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Ungerer <gerg@snapgear.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:37965 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752450AbZLOIcW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 03:32:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20091214103348.GV15126@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20091213110822.GA7074@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sascha,
+On Sun, 2009-12-13 at 13:08 +0200, Michael S. Tsirkin wrote:
+> Do not cast away void*.
+> This initialization above looks very strange: in
+> fact only one of skb, page makes sense.
+> So I think you should either get rid of both page and
+> skb variables (routines such as give_pages get page *
+> so they will accept void* just as happily) or
+> move initialization or even use of these variables to
+> where they are used.
+Ok.
 
-On Mon, Dec 14, 2009 at 11:33:48AM +0100, Sascha Hauer wrote:
-> On Mon, Dec 14, 2009 at 12:19:41PM +0200, Baruch Siach wrote:
-> > +	if (!machine_is_mx25_3ds())
-> > +		return;
+
+> So above you override skb that you initialized
+> at the start of function. It would be better
+> to do in the 3'd case:
+>                 skb = buf;
+> as well. And then it would be clear why
+> " Only for mergeable and big" comment below
+> is true.
+
+Ok.
+
+> > +     }
+> >  
+> > -             err = pskb_trim(skb, len);
+> > -             if (err) {
+> > -                     pr_debug("%s: pskb_trim failed %i %d\n",
+> dev->name,
+> > -                              len, err);
+> > -                     dev->stats.rx_dropped++;
+> > -                     goto drop;
+> > -             }
+> > +     if (unlikely(!skb)) {
+> > +             dev->stats.rx_dropped++;
+> > +             /* only for mergeable buf and big packets */
+> > +             give_pages(vi, page);
+> > +             return;
 > 
-> We should add a flag in platform data for this. Unfortunately the fec
-> driver has no platform data at all at the moment, so this requires some
-> more work.
+> Did you remove drop: label? If no, is it unused now?
 
-Here is an updated patch which adds platform data to fec. I've also addressed 
-the comment of Greg. I'll post a patch updating the i.MX25 PDK platform code 
-shortly.
+The label is used when checking buf len, but I will remove drop in the
+update patch. 
 
-baruch
+> > +     void *buf = NULL;
+> 
+> Does this have to be initialized? If not (as it seems) better not do
+> it.
+I remembered there was a compile warning, I will double check.
 
->From ff971bbec84501cab714703786dd4058db4a89e4 Mon Sep 17 00:00:00 2001
-Message-Id: <ff971bbec84501cab714703786dd4058db4a89e4.1260865551.git.baruch@tkos.co.il>
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Mon, 14 Dec 2009 10:36:50 +0200
-Subject: [PATCH] fec: add support for PHY interface platform data
+> > +     freed = vi->rvq->vq_ops->destroy_bufs(vi->rvq,
+> virtio_net_free_pages);
+> 
+> This looks like double free to me: should not you remove code that
+> does
+> __skb_dequeue on recv above?
 
-The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
-ability to configure RMII, based on platform data.
+Nope, this is not a double free, the queue recv skb is still there for
+small packet size. But I will remove it in the update patch.
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- drivers/net/fec.c   |   22 ++++++++++++++++++++++
- drivers/net/fec.h   |    2 ++
- include/linux/fec.h |   21 +++++++++++++++++++++
- 3 files changed, 45 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/fec.h
+Thanks
+Shirley
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 16a1d58..b9a5822 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -40,6 +40,7 @@
- #include <linux/irq.h>
- #include <linux/clk.h>
- #include <linux/platform_device.h>
-+#include <linux/fec.h>
- 
- #include <asm/cacheflush.h>
- 
-@@ -198,6 +199,7 @@ struct fec_enet_private {
- 	uint	phy_speed;
- 	phy_info_t const	*phy;
- 	struct work_struct phy_task;
-+	phy_interface_t	phy_interface;
- 
- 	uint	sequence_done;
- 	uint	mii_phy_task_queued;
-@@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
- 	/* Set MII speed */
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 
-+#ifndef CONFIG_M5272
-+	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
-+		/* disable the gasket and wait */
-+		writel(0, fep->hwp + FEC_MIIGSK_ENR);
-+		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
-+			udelay(1);
-+
-+		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
-+		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
-+
-+		/* re-enable the gasket */
-+		writel(2, fep->hwp + FEC_MIIGSK_ENR);
-+	}
-+#endif
-+
- 	/* And last, enable the transmit and receive processing */
- 	writel(2, fep->hwp + FEC_ECNTRL);
- 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
-@@ -1847,6 +1864,7 @@ static int __devinit
- fec_probe(struct platform_device *pdev)
- {
- 	struct fec_enet_private *fep;
-+	struct fec_platform_data *pdata;
- 	struct net_device *ndev;
- 	int i, irq, ret = 0;
- 	struct resource *r;
-@@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, ndev);
- 
-+	pdata = pdev->dev.platform_data;
-+	if (pdata)
-+		fep->phy_interface = pdata->phy;
-+
- 	/* This device has up to three irqs on some platforms */
- 	for (i = 0; i < 3; i++) {
- 		irq = platform_get_irq(pdev, i);
-diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-index cc47f3f..2c48b25 100644
---- a/drivers/net/fec.h
-+++ b/drivers/net/fec.h
-@@ -43,6 +43,8 @@
- #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
- #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
- #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
-+#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
-+#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
- 
- #else
- 
-diff --git a/include/linux/fec.h b/include/linux/fec.h
-new file mode 100644
-index 0000000..5d3523d
---- /dev/null
-+++ b/include/linux/fec.h
-@@ -0,0 +1,21 @@
-+/* include/linux/fec.h
-+ *
-+ * Copyright (c) 2009 Orex Computed Radiography
-+ *   Baruch Siach <baruch@tkos.co.il>
-+ *
-+ * Header file for the FEC platform data
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#ifndef __LINUX_FEC_H__
-+#define __LINUX_FEC_H__
-+
-+#include <linux/phy.h>
-+
-+struct fec_platform_data {
-+	phy_interface_t phy;
-+};
-+
-+#endif
--- 
-1.6.5
-
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
