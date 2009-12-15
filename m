@@ -1,42 +1,58 @@
-From: stefano babic <stefano.babic@babic.homelinux.org>
-Subject: Re: [RFC PATCH v3  7/8] CAIF Protocol Stack
-Date: Tue, 15 Dec 2009 18:12:12 +0100
-Message-ID: <4B27C36C.6060204@babic.homelinux.org>
-References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-6-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-7-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-8-git-send-email-sjur.brandeland@stericsson.com>
+From: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
+Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
+Date: Tue, 15 Dec 2009 10:21:19 -0700
+Message-ID: <20091215172119.GF20231@esk.cs.usu.edu>
+References: <20091210231103.GA20231@esk.cs.usu.edu>
+ <4B218E36.4030808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
-	kim.xx.lilliestierna@stericsson.com,
-	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
-To: sjur.brandeland@stericsson.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout23.attiva.biz ([85.37.16.24]:30124 "EHLO
-	smtpout23.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754596AbZLORM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 12:12:28 -0500
-In-Reply-To: <1259593252-2493-8-git-send-email-sjur.brandeland@stericsson.com>
+Received: from esk.cs.usu.edu ([129.123.28.15]:50069 "EHLO esk.cs.usu.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754636AbZLORVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 12:21:20 -0500
+Content-Disposition: inline
+In-Reply-To: <4B218E36.4030808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
+On  Dec 11  1:11+0100, Eric Dumazet wrote:
+> Le 11/12/2009 00:11, Eldon Koyle a =E9crit :
+> > We have built a firewall with two 10 Gbit interfaces (intel 82598EB=
+) and
+> > are doing some testing.  A simple bridge between the two interfaces=
+ acts
+> > as expected with packets being distributed fairly evenly across all=
+ of
+> > the rx/tx queues.
+> >=20
+> > We then switched to tagged vlans on both interfaces (10 vlans each,=
+ 8
+> > source and 8 dest addresses per vlan) and bridged eth0.N to eth1.N,=
+ and
+> > many of our queues (and CPUs) remained idle, and all of our VLAN tr=
+affic
+> > went out on the same tx queue.  Are multiple transmit queues suppor=
+ted
+> > with 802.1q?  How do we figure out what is causing some of our rece=
+ive
+> > queues to be unused?
+> >=20
+> > We are using 2.6.31 (from Debian) and ixgbe-2.0.44.14 .
+> >=20
+>=20
+> You need more recent kernel (2.6.32) to get multi queue support on vl=
+ans, sorry.
 
-> +Linux GPRS Net Device and Character Devices
+Excellent.  2.6.32 solved half of the problem.  Now, we are using the
+same number of rx and tx queues.  We are still seeing no packets on 3 o=
+f
+our 8 rx queues on each interface, though (no packets on 2, 4 or 6).
+Does the card assign queues in hardware, or is that handled by the
+kernel?
 
-We have now only net devices
-
-> +Configuration of Drivers
-> +------------------------
-> +
-> +Configuration is the most complex part of the CAIF protocol.
-> +Configuration is controlled by the Misc device 'caifconfig'
-> +implemented in caif_chr.
-
-This documentation was not updated, you get rid of 'caifconfig'
-
-Stefano
-
--- 
-stefano <stefano.babic@babic.homelinux.org>
-GPG Key: 0x55814DDE
-Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
+--=20
+Eldon Koyle
