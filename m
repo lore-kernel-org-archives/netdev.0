@@ -1,38 +1,26 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: setrlimit(RLIMIT_NETWORK) vs. prctl(???)
-Date: Tue, 15 Dec 2009 00:33:08 -0500
-Message-ID: <20091215053307.GA6837@heat>
-References: <a36005b50912122120n4656b97bx6a6d862a57671e6d@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 1/3] iwmc3200top: clean up fw_download
+Date: Mon, 14 Dec 2009 21:45:53 -0800 (PST)
+Message-ID: <20091214.214553.233095150.davem@davemloft.net>
+References: <1260822623-16480-1-git-send-email-tomas.winkler@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Ulrich Drepper <drepper@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a36005b50912122120n4656b97bx6a6d862a57671e6d@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
+	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	guy.cohen@intel.com, ron.rindjunsky@intel.com
+To: tomas.winkler@intel.com
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <1260822623-16480-1-git-send-email-tomas.winkler@intel.com>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ulrich Drepper wrote:
-> On Sat, Dec 12, 2009 at 21:09, Michael Stone <michael@laptop.org> wrote:
->> That being said, I'm not wedded to the decision. Could you give me some
->> more specific examples of the kinds of changes in low-level userspace code
->> that you're worried about?
-> 
-> As summarized in the paraphrased comment, it's a pain to deal with
-> rlimit extensions.  It's easy enough to do all this using prctl() with
-> the same semantics and without forcing any other code to be modified.
-> I let others more competent to judge the usefulness.  But using rlimit
-> as the interface is just plain wrong.
 
-I still like the rlimit-based interface because I think it gives good intuition
-about how to use the facility and about how it ought to be exposed to high-level
-parts of userland but it certainly can't hurt to cook up a version based on
-prctl() so that we can make a fair comparison of the two. 
+Unless you've been living under a rock, you should know that
+the net-2.6 tree was closed for all non-bugfix changes as of
+more than a week ago.
 
-I'll see what I can come up with.
+Therefore submitting cleanups for net-2.6 is not appropriate.
 
-Regards,
-
-Michael
+Resend your patches when net-next-2.6 opens up, which should be
+shorly after Linus releases 2.6.33-rc1
