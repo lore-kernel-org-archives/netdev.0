@@ -1,66 +1,94 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Tue, 15 Dec 2009 08:08:45 +0200
-Message-ID: <20091215060844.GA18290@jasper.tkos.co.il>
-References: <cover.1260785451.git.baruch@tkos.co.il>
- <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
- <4B26E61F.7030709@snapgear.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Mon, 14 Dec 2009 22:17:04 -0800
+Message-ID: <20091214221704.24c2665f@infradead.org>
+References: <20090930131109.2b3f71b8@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Hauer <kernel@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Greg Ungerer <gerg@snapgear.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:36171 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752808AbZLOGJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 01:09:28 -0500
-Content-Disposition: inline
-In-Reply-To: <4B26E61F.7030709@snapgear.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754097AbZLOGOp@vger.kernel.org>
+In-Reply-To: <20090930131109.2b3f71b8@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+On Wed, 30 Sep 2009 13:11:09 +0200
+Arjan van de Ven <arjan@infradead.org> wrote:
 
-On Tue, Dec 15, 2009 at 11:27:59AM +1000, Greg Ungerer wrote:
-> Hi Baruch,
+ping on the patch below.... the warning is now triggered in mainline
+
+
 > 
-> Baruch Siach wrote:
-> >The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
-> >necessary bits to make the i.MX25 talk RMII.
-> >
-> >Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> >---
-
-[snip]
-
-> >+	/* re-enable the gasket */
-> >+	writel(2, fep->hwp + FEC_MIIGSK_ENR);
->                              ^^^^^^^^^^^^^^
+> >From 761a182f96b3707e1fee44e1079ba227e48745d1 Mon Sep 17 00:00:00
+> >2001
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Date: Wed, 30 Sep 2009 13:05:51 +0200
+> Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
 > 
-> This will not compile for some CPU types that use this driver.
+> The ipvs code has a nifty system for doing the size of ioctl command
+> copies; it defines an array with values into which it indexes the cmd
+> to find the right length.
 > 
-
-[snip]
-
-> >--- a/drivers/net/fec.h
-> >+++ b/drivers/net/fec.h
-> >@@ -43,6 +43,8 @@
-> > #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
-> > #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
-> > #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
-> >+#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
-> >+#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+> Unfortunately, the ipvs code forgot to check if the cmd was in the
+> range that the array provides, allowing for an index outside of the
+> array, which then gives a "garbage" result into the length, which
+> then gets used for copying into a stack buffer.
 > 
-> These are defined in a conditional section for certain CPU types.
-> There is no definitions for the other "#else" section here.
+> Fix this by adding sanity checks on these as well as the copy size.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
+>  1 files changed, 13 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c
+> b/net/netfilter/ipvs/ip_vs_ctl.c index ac624e5..3c52796 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd,
+> void __user *user, unsigned int len) if (!capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> +	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX + 1)
+> +		return -EINVAL;
+> +	if (len < 0 || len >  MAX_ARG_LEN)
+> +		return -EINVAL;
+>  	if (len != set_arglen[SET_CMDID(cmd)]) {
+>  		pr_err("set_ctl: len %u != %u\n",
+>  		       len, set_arglen[SET_CMDID(cmd)]);
+> @@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd,
+> void __user *user, int *len) {
+>  	unsigned char arg[128];
+>  	int ret = 0;
+> +	unsigned int copylen;
+>  
+>  	if (!capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> +	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX + 1)
+> +		return -EINVAL;
+> +
+>  	if (*len < get_arglen[GET_CMDID(cmd)]) {
+>  		pr_err("get_ctl: len %u < %u\n",
+>  		       *len, get_arglen[GET_CMDID(cmd)]);
+>  		return -EINVAL;
+>  	}
+>  
+> -	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) !=
+> 0)
+> +	copylen = get_arglen[GET_CMDID(cmd)];
+> +	if (copylen > 128)
+> +		return -EINVAL;
+> +
+> +	if (copy_from_user(arg, user, copylen) != 0)
+>  		return -EFAULT;
+>  
+>  	if (mutex_lock_interruptible(&__ip_vs_mutex))
 
-So, should I put a bogus #define in the other #else section, or put the 
-FEC_MIIGSK_* code in an #ifdef section? I guess the latter is the way to go.
-
-baruch
 
 -- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
