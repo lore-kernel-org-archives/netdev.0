@@ -1,30 +1,31 @@
 From: Alexander Strakh <strakh@ispras.ru>
-Subject: BUG null dreference in driver drivers/net/hamradio/bpqether.c
-Date: Tue, 15 Dec 2009 17:55:09 +0000
-Message-ID: <200912151755.09515.strakh@ispras.ru>
+Subject: BUG null dereference in driver ./drivers/net/3c507.c
+Date: Tue, 15 Dec 2009 17:55:08 +0000
+Message-ID: <200912151755.08345.strakh@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+To: Donald Becker <becker@scyld.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760232AbZLONty@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 	KERNEL_VERSION: 2.6.32
-	SUBJECT: null derefernce in function  bpq_xmit
-	SUBSCRIBE:
-	In driver drivers/net/hamradio/bpqether.c in function bpq_xmit:
+	SUBJECT: null dereference aftre check
+	DESCRIBE:
+	In driver drivers/net/3c507.c in function Iirqreturn_t el16_interrupt:
 
-1. if in line 288 after calling function bpq_get_ether_dev variable dev = 
-NULL, then we goto line 289
-2. In line 289:  null dereference of dev - "dev->stats.tx_dropped++"
+1. If in line 555 dev = NULL then we goto line 556
+2. In line 556 we have null dereference because pr_err called with dev->name 
+in third parameter.
 
- 288        if ((dev = bpq_get_ether_dev(dev)) == NULL) {
- 289                dev->stats.tx_dropped++;
- 290                kfree_skb(skb);
- 291                return NETDEV_TX_OK;
- 292        }
+ 555        if (dev == NULL) {
+ 556                pr_err("%s: net_interrupt(): irq %d for unknown device.
+\n",
+ 557                        dev->name, irq);
+ 558                return IRQ_NONE;
+ 559        }
 
 Found by Linux Device Drivers Verification Project (Svace Detector)
