@@ -1,46 +1,68 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH] Subject: virtio: Add unused buffers detach from
- vring
-Date: Tue, 15 Dec 2009 11:14:07 -0800
-Message-ID: <1260904447.4387.85.camel@localhost.localdomain>
-References: <200911231123.18898.rusty@rustcorp.com.au>
-	 <20091208122134.GA17286@redhat.com>
-	 <1260534506.30371.6.camel@localhost.localdomain>
-	 <1260535613.30371.24.camel@localhost.localdomain>
-	 <20091213114320.GC7074@redhat.com>
-	 <1260828518.8716.105.camel@localhost.localdomain>
-	 <20091215113327.GC13110@redhat.com>
-	 <1260894320.4387.64.camel@localhost.localdomain>
-	 <20091215163901.GA24015@redhat.com>
-	 <1260902573.4387.76.camel@localhost.localdomain>
-	 <20091215184740.GD25724@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
+Date: Tue, 15 Dec 2009 20:33:53 +0100
+Message-ID: <4B27E4A1.4050802@gmail.com>
+References: <20091210231103.GA20231@esk.cs.usu.edu> <4B218E36.4030808@gmail.com> <20091215172119.GF20231@esk.cs.usu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933410AbZLOTOY@vger.kernel.org>
-In-Reply-To: <20091215184740.GD25724@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49854 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933456AbZLOTeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 14:34:09 -0500
+In-Reply-To: <20091215172119.GF20231@esk.cs.usu.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Michael,
+Le 15/12/2009 18:21, Eldon Koyle a =E9crit :
+> On  Dec 11  1:11+0100, Eric Dumazet wrote:
+>> Le 11/12/2009 00:11, Eldon Koyle a =E9crit :
+>>> We have built a firewall with two 10 Gbit interfaces (intel 82598EB=
+) and
+>>> are doing some testing.  A simple bridge between the two interfaces=
+ acts
+>>> as expected with packets being distributed fairly evenly across all=
+ of
+>>> the rx/tx queues.
+>>>
+>>> We then switched to tagged vlans on both interfaces (10 vlans each,=
+ 8
+>>> source and 8 dest addresses per vlan) and bridged eth0.N to eth1.N,=
+ and
+>>> many of our queues (and CPUs) remained idle, and all of our VLAN tr=
+affic
+>>> went out on the same tx queue.  Are multiple transmit queues suppor=
+ted
+>>> with 802.1q?  How do we figure out what is causing some of our rece=
+ive
+>>> queues to be unused?
+>>>
+>>> We are using 2.6.31 (from Debian) and ixgbe-2.0.44.14 .
+>>>
+>>
+>> You need more recent kernel (2.6.32) to get multi queue support on v=
+lans, sorry.
+>=20
+> Excellent.  2.6.32 solved half of the problem.  Now, we are using the
+> same number of rx and tx queues.  We are still seeing no packets on 3=
+ of
+> our 8 rx queues on each interface, though (no packets on 2, 4 or 6).
+> Does the card assign queues in hardware, or is that handled by the
+> kernel?
+>=20
 
-On Tue, 2009-12-15 at 20:47 +0200, Michael S. Tsirkin wrote:
-> > +                     detach_buf(vq, i);
-> > +                     END_USE(vq);
-> > +                     return vq->data[i];
-> 
-> In fact, this will return NULL always, won't it?
+When a packet is received (ethernet -> Card), the hardware chooses a RX=
+ queue using
+hash function.
 
-Nope, I changed the destroy to detach and return the buffers without
-destroying them within the call. I thought it might be useful in some
-other case. 
+Then, in your forwarding setup, we (the kernel) automaticaly use same q=
+ueue to transmit packet.
 
-Maybe I should put destroy call back?
+So if only 5 queues out of 8 receive trafic, it might be because of the=
+ flows all map to only 5 queues,
+but you should ask Intel people for details :)
 
-Thanks
-Shirley
+(They usualy read netdev)
