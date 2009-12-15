@@ -1,39 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH 1/4] net: port mirroring: add tracepoints to
- appropriate network paths
-Date: Tue, 15 Dec 2009 08:44:24 -0800
-Message-ID: <20091215084424.291459cb@s6510>
-References: <20091215162956.GB18710@hmsreliant.think-freely.org>
-	<20091215163604.GC18710@hmsreliant.think-freely.org>
+From: stefano babic <stefano.babic@babic.homelinux.org>
+Subject: Re: [RFC PATCH v3  4/8] CAIF Protocol Stack
+Date: Tue, 15 Dec 2009 17:47:11 +0100
+Message-ID: <4B27BD8F.5040606@babic.homelinux.org>
+References: <1259593252-2493-1-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-2-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-3-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-4-git-send-email-sjur.brandeland@stericsson.com> <1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	kim.xx.lilliestierna@stericsson.com,
+	christian.bejram@stericsson.com, daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54224 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754548AbZLOQow (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 11:44:52 -0500
-In-Reply-To: <20091215163604.GC18710@hmsreliant.think-freely.org>
+Received: from smtpout18.attiva.biz ([85.37.16.20]:19725 "EHLO
+	smtpout18.attiva.biz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932384AbZLOQrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 11:47:17 -0500
+In-Reply-To: <1259593252-2493-5-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Dec 2009 11:36:04 -0500
-Neil Horman <nhorman@tuxdriver.com> wrote:
+sjur.brandeland@stericsson.com wrote:
+> +struct cfcnfg *cfcnfg_create()
+> +{
+> +	struct cfcnfg *this;
+> +	struct cfctrl_rsp resp;
+> +	/* Initiate response functions */
+> +	resp.enum_rsp = cfctrl_enum_resp;
+> +	resp.linkerror_ind = cfctrl_resp_func;
+> +	resp.linkdestroy_rsp = cncfg_linkdestroy_rsp;
+> +	resp.sleep_rsp = cfctrl_resp_func;
+> +	resp.wake_rsp = cfctrl_resp_func;
+> +	resp.restart_rsp = cfctrl_resp_func;
+> +	resp.radioset_rsp = cfctrl_resp_func;
+> +	resp.linksetup_rsp = cncfg_linkup_rsp;
+> +	resp.reject_rsp = cncfg_reject_rsp;
+> +	/* Initiate this layer */
+> +	this = cfglu_alloc(sizeof(struct cfcnfg));
+> +	memset(this, 0, sizeof(struct cfcnfg));
+> +	this->mux = cfmuxl_create();
+> +	this->ctrl = cfctrl_create();
+> +	this->last_phyid = 1;
+> +	cfctrl_set_respfuncs(this->ctrl, &resp);
 
-> Add net_dev_xmit & net_dev_receive tracepoints
-> 
-> Add tracepoints at the end of the network stack xmit path and the start of the
-> stack receive path.  Among other uses, these tracepoints can be used to tap the
-> raw input and output streams for any given network device for the purposes of
-> mirroring that traffic to other ports.
-> 
+Is this correct ? resp is on the stack of the function and
+cfctrl_set_respfuncs sets only the pointer. After returning from this
+function, the memory used by resp could be reused again. Am I right ?
 
-There already is a mirroring solution but people don't know how to use it.
-Using mirred on ingress qdisc does that.
+> +static void cfctrl_resp_func(void)
+> +{
+> +	CFLOG_ENTER(("cfcnfg: cfctrl_resp_func\n"));
+> +	CFLOG_EXIT(("cfcnfg: cfctrl_resp_func\n"));
+> +}
 
-Why would we want to add another hook to the already complex networking
-code path?
+Not really useful..
 
-https://svn.openfabrics.org/svn/openib/gen2/branches/1.1/src/userspace/ipoibtools/iproute2/doc/actions/mirred-usage
+Stefano
+-- 
+stefano <stefano.babic@babic.homelinux.org>
+GPG Key: 0x55814DDE
+Fingerprint 4E85 2A66 4CBA 497A 2A7B D3BF 5973 F216 5581 4DDE
