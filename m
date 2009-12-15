@@ -1,43 +1,57 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination
- for 32byte SSIDs
-Date: Tue, 15 Dec 2009 08:29:23 -0800
-Message-ID: <1260894563.4041.31.camel@localhost.localdomain>
-References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [RFC PATCH 0/4] net: Add port mirroring support to the kernel
+Date: Tue, 15 Dec 2009 11:29:56 -0500
+Message-ID: <20091215162956.GB18710@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	Michael Hirsch <m.hirsch@raumfeld.com>, netdev@vger.kernel.org,
-	libertas-dev@lists.infradead.org, stable@kernel.org
-To: Daniel Mack <daniel@caiaq.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760584AbZLOQ3o@vger.kernel.org>
-In-Reply-To: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58321 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760553AbZLOQaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 11:30:05 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Hey all-
+	One of the features that many multi-port Networking devices offer as a
+debug facility is port mirroring.  The Linux kernels currently offers this
+feature in only a very limited fashion,  Frames can be mangled and resent out
+various devices using netfilter rules, but the reach of those rules is limited,
+as they are largely protocol specific.  Ebtables is an option, but it applies
+only to devices in a bridge configuration.  I'd like to propose a solution which
+is protocol agnostic, simple to configure, and always available to debug.  by
+doing this we can offer the ability to capture frames on a tertiary device when
+the system under test is too heavily loaded to support capturing the data on a
+network card without adversely affecting the performance or behavior of the
+system
 
-> We've experienced a long standing bug when quickly switching from
-> ad-hoc to managed mode on a hardware using a Libertas chipset.
+My proposed solution is:
 
-I don't know where you get your list of mailing lists from, but not
-sending it to linux-wireless@vger.kernel.org will not really get you
-anywhere. Check MAINTAINERS file first since it has all information
-about it.
+1) Insert tracepoints at the start of the receive path in the network stack
+(netif_receive_skb) and at the end of the send path (dev_hard_start_xmit).  By
+using tracepoints performance impact can be minimized when mirroring is not in
+use, and it lets us avoid adding additional data to the net_device or sk_buff
+structures in support of this feature.
 
-NETWORKING [WIRELESS]
-M:      "John W. Linville" <linville@tuxdriver.com>
-L:      linux-wireless@vger.kernel.org
-T:      git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
-S:      Maintained
-F:      net/mac80211/
-F:      net/rfkill/
-F:      net/wireless/
-F:      include/net/ieee80211*
-F:      include/linux/wireless.h
-F:      drivers/net/wireless/
+2) Add mirroring code which hooks those tracepoints (when activated), and for
+each frame sent or received, inspects a table of configured devices.  matching
+the sent/received skb to each source skb in the table, the buffer is cloned to
+each configured destination device and sent there as well
 
-Regards
+3) Add a sysfs attribute called mirror_to.  This file holds the names of devices
+that the addressed device should mirror skbs to.  eg, this commmand:
+echo -n eth1 > /sys/class/net/eth0/mirror_to
+would cause all frames sent and received on eth0 to be sent out of eth1
+likewise, this command:
+echo -n -eth1 > /sys/class/net/eth0/mirror_to
+would remove eth1 from the mirroring table
 
-Marcel
+I've tested this code out here and it works fairly well.  I think there lots of
+room for optimizations, but this is functional, and IMHO a good stake in the
+ground from which incremental improvements can be made.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
