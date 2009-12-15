@@ -1,61 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v2 1/4] Defer skb allocation -- add destroy buffers function for virtio
-Date: Wed, 16 Dec 2009 09:06:12 +1030
-Message-ID: <200912160906.12430.rusty@rustcorp.com.au>
-References: <1258697359.7416.14.camel@localhost.localdomain> <1260821285.8716.7.camel@localhost.localdomain> <20091214202253.GG6150@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Add initrwnd to iproute2
+Date: Tue, 15 Dec 2009 23:37:58 +0100
+Message-ID: <4B280FC6.7060003@gmail.com>
+References: <pvmws0nricn.fsf@chavey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, therber@google.com
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:40218 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934059AbZLOWgR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 17:36:17 -0500
-In-Reply-To: <20091214202253.GG6150@redhat.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42591 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbZLOWiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 17:38:08 -0500
+In-Reply-To: <pvmws0nricn.fsf@chavey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Dec 2009 06:52:53 am Michael S. Tsirkin wrote:
-> On Mon, Dec 14, 2009 at 12:08:05PM -0800, Shirley Ma wrote:
-> > Hello Michael,
-> > 
-> > I agree with the comments (will have two patches instead of 4 based on
-> > Rusty's comments) except below one.
-> > 
-> > On Sun, 2009-12-13 at 12:26 +0200, Michael S. Tsirkin wrote:
-> > > That said - do we have to use a callback?
-> > > I think destroy_buf which returns data pointer,
-> > > and which we call repeatedly until we get NULL
-> > > or error, would be an a better, more flexible API.
-> > > This is not critical though.
-> > 
-> > The reason to use this is because in virtio_net remove, it has
-> > BUG_ON(vi->num != 0), which will be consistent with small skb packet. If
-> > we use NULL, error then we lose the track for vi->num, since we don't
-> > know how many buffers have been passed to ULPs or still unused.
-> > 
-> > Thanks
-> > Shirley
-> 
-> I dont insist, but my idea was
-> 
-> for (;;) {
-> 	b = vq->destroy(vq);
-> 	if (!b)
-> 		break;
-> 	--vi->num;
-> 	put_page(b);
-> }
+Le 15/12/2009 23:19, chavey@google.com a =E9crit :
+> Add initrwnd option parsing to iproute. This option uses the new
+> rtnetlink init_rcvwnd to set the TCP initial receive window size
+> advertised by passive and active TCP connections.
+>=20
+> Signed-off-by: Laurent Chavey <chavey@google.com>
+> --
+>  doc/ip-cref.tex           |    5 +++++
+>  include/linux/rtnetlink.h |    2 ++
+>  ip/iproute.c              |   13 ++++++++++++-
+>  3 files changed, 19 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
+> index bb4eb78..30503c7 100644
+> --- a/doc/ip-cref.tex
+> +++ b/doc/ip-cref.tex
+> @@ -1324,7 +1324,12 @@ peers are allowed to send to us.
+>      If it is not given, Linux uses the value selected with \verb|sys=
+ctl|
+>      variable \verb|net/ipv4/tcp_reordering|.
+> =20
+> +\item \verb|initrwnd NUMBER|
+> =20
+> +--- [2.5.70+ only] Initial receive window size for connections to=20
+> +    this destination. The actual window size is this value multiplie=
+d
+> +    by the MSS (''Maximal Segment Size'') of the connection. The def=
+ault
+> +    value is zero, meaning to use Slow Start value.
+> =20
 
-In this case it should be called "get_unused_buf" or something.  But I like
-Shirley's approach here; destroy (with callback) accurately reflects the only
-time this can be validly used.
-
-Cheers,
-Rusty.
+Maybe its true with google custom kernels, but for upstream, this is 2.=
+6.33+ :)
