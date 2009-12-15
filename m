@@ -1,84 +1,43 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: Daniel Mack <daniel@caiaq.de>
 Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination
  for 32byte SSIDs
-Date: Tue, 15 Dec 2009 11:35:07 +0100
-Message-ID: <1260873307.3692.10.camel@johannes.local>
+Date: Tue, 15 Dec 2009 18:37:14 +0800
+Message-ID: <20091215103714.GK28375@buzzloop.caiaq.de>
 References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
-	 <1260871411.3692.4.camel@johannes.local>
-	 <1260871634.3692.6.camel@johannes.local>
-	 <200912151130.59103.holgerschurig@gmail.com>
+ <20091215.014308.77044043.davem@davemloft.net>
+ <1260871411.3692.4.camel@johannes.local>
+ <1260871634.3692.6.camel@johannes.local>
+ <20091215102035.GJ28375@buzzloop.caiaq.de>
+ <1260873083.3692.8.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-enmlCh9FePsTAm0KgNKC"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	daniel-rDUAYElUppE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	m.hirsch-5g8ninUHluJWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Holger Schurig <holgerschurig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200912151130.59103.holgerschurig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	dcbw@redhat.com, m.hirsch@raumfeld.com, netdev@vger.kernel.org,
+	libertas-dev@lists.infradead.org, stable@kernel.org,
+	linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757726AbZLOKhZ@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1260873083.3692.8.camel@johannes.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 15, 2009 at 11:31:23AM +0100, Johannes Berg wrote:
+> On Tue, 2009-12-15 at 18:20 +0800, Daniel Mack wrote:
+> 
+> > > drivers/net/wireless/libertas$ grep lbs_deb_ * | grep ssid|grep '%s'
+> > > assoc.c:	lbs_deb_join("current SSID '%s', ssid length %u\n",
+> > > assoc.c:	lbs_deb_join("requested ssid '%s', ssid length %u\n",
+> > > assoc.c:	lbs_deb_join("ADHOC_START: SSID '%s', ssid length %u\n",
+> > > scan.c:		lbs_deb_wext("set_scan, essid '%s'\n",
+> > 
+> > Those macros are stubbed out as nops in my setup, so they can
+> > unfortunately not be the reason. I'll dig deeper :)
+> 
+> Well, the stack trace ought to help.
 
---=-enmlCh9FePsTAm0KgNKC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+It unfortunately doesn't. The site that causes the problem does not
+crash itself. It just corrupts some memory, and the actual crash happens
+much later, which makes it so evil.
 
-On Tue, 2009-12-15 at 11:30 +0100, Holger Schurig wrote:
-> > drivers/net/wireless/libertas$ grep lbs_deb_ * | grep ssid
-> > |grep '%s'=20
-> > assoc.c:	lbs_deb_join("current SSID '%s', ssid length %u\n",
-> > assoc.c:	lbs_deb_join("requested ssid '%s', ssid length %u\n",
-> > assoc.c:	lbs_deb_join("ADHOC_START: SSID '%s', ssid
-> >               length %u\n",=20
-> > scan.c:		lbs_deb_wext("set_scan, essid '%s'\n",
->=20
-> All those lines are gone once my cfg80211 lands.
->=20
-> Do you know any way to make sparse moan about them?
-
-Sorry, no, I don't think that's even possible unless you play dirty with
-tricks like __iomem uses for instance but that'd require a lot of
-casting in otherwise valid uses.
-
-> BTW: the libertas firmware sometimes treat an SSID as a=20
-> zero-terminated string. There are some firmware commands that=20
-> accept just an u8[32] bytes for the SSID, but not an ssid_len,=20
-> e.g. in the CMD_802_11_AD_HOC_START command.
->=20
-> You therefore can't connect to the otherwise legitimate SSID of=20
-> TEST\0\0\0.
-
-Ick! I guess your cfg80211 IBSS join handler needs to check for that
-then and refuse such an SSID.
-
-johannes
-
-
---=-enmlCh9FePsTAm0KgNKC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJLJ2ZXAAoJEODzc/N7+QmaahEP/1NGgdmZvOQkHwhv+HpRjB3W
-kmZn6tcnlmzeUyKXEHAwIKHC8a3qCvlIXEA4uBX14hN+QJZ5UxQkgV32tvtCvnQ2
-6hefyDx/54a/3nfYoQP4AWowjUGHxLa2LVHkzqtL+IT824keG2zvDVeccU5VqBed
-O89bkHESKRKrEbyrAM7AXE853DPou45rIXfcVm4vg+GNR8+su9egRYHp2ZYaJrIa
-zl/N+Vp+jc74XTZ2LgpSXoANoo2kOjoQ79TehrL1ZpBXsfuFGuiP4dQDi9viva9/
-NT9kRo4aA54qBj5OyTwI7M3BZzkpKZOfDDsXcTobgj8K76Y2poG/Aadm9cMIBI4J
-oKuP5QTuY7dFBd5tjUDeqEgrgYJytyUEp+vc0IT7bOuFrNdHswnouZJPH84nyHnP
-SIKw9WE5t5CL0+5Uw9j3md5VaOmQ459AXKcQ6l4W/iBljYxjIMpBYlxHWI72feAd
-fjYpbdcQ8OlXwBJYN1QTTmw4bzHXRpXZdckxsjvlGL+Eih87MCT5FmRT3ye2CPbx
-OnC9iedbQVD3fslgmjLsImCtIsgvJTT6PmhGnTd2hKqG9peSDwWKGantcwbmMuhk
-7hrX2H7d9GInvk8SMbXoSK/RRrx0cvGKB8nBkmxz1hqvKRRsQNqAxzRPqPx4HONi
-ZHodVwpcEJK7X3skWwiy
-=Niwt
------END PGP SIGNATURE-----
-
---=-enmlCh9FePsTAm0KgNKC--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Daniel
