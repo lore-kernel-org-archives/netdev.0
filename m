@@ -1,49 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 14749] New: Kernel locks up after a few
-	minutes of heavy surfing
-Date: Tue, 15 Dec 2009 07:54:52 +0000
-Message-ID: <20091215075452.GA6488@ff.dom.local>
-References: <20091208113645.GA8263@ff.dom.local> <755510.33826.qm@web52905.mail.re2.yahoo.com>
+From: "Winkler, Tomas" <tomas.winkler@intel.com>
+Subject: RE: [net-2.6 1/3] iwmc3200top: clean up fw_download
+Date: Tue, 15 Dec 2009 10:01:19 +0200
+Message-ID: <6F5C1D715B2DA5498A628E6B9C124F04014FCB7206@hasmsx504.ger.corp.intel.com>
+References: <1260822623-16480-1-git-send-email-tomas.winkler@intel.com>
+ <20091214.214553.233095150.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, stable@kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Chris Rankin <rankincj@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:24361 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbZLOHzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 02:55:01 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so1826965fgg.1
-        for <netdev@vger.kernel.org>; Mon, 14 Dec 2009 23:55:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <755510.33826.qm@web52905.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"Zhu, Yi" <yi.zhu@intel.com>,
+	"Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>,
+	"Cohen, Guy" <guy.cohen@intel.com>,
+	"Rindjunsky, Ron" <ron.rindjunsky@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <20091214.214553.233095150.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 08, 2009 at 05:35:40AM -0800, Chris Rankin wrote:
-> --- On Tue, 8/12/09, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > Is it the same .config?
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, December 15, 2009 7:46 AM
+> To: Winkler, Tomas
+> Cc: netdev@vger.kernel.org; linux-mmc@vger.kernel.org; Zhu, Yi; Perez-
+> Gonzalez, Inaky; Cohen, Guy; Rindjunsky, Ron
+> Subject: Re: [net-2.6 1/3] iwmc3200top: clean up fw_download
 > 
-> Similar, but no. I'll attach the .config to the bug tonight.
+> 
+> Unless you've been living under a rock, you should know that
+> the net-2.6 tree was closed for all non-bugfix changes as of
+> more than a week ago.
+> 
+> Therefore submitting cleanups for net-2.6 is not appropriate.
+> 
+> Resend your patches when net-next-2.6 opens up, which should be
+> shorly after Linus releases 2.6.33-rc1
 
-I can see quite a lot of differences, and some could matter here, e.g.
-like these:
+No problem, I was indeed uber busy with the real world, will retag the patches.
 
--# CONFIG_PREEMPT_RCU is not set
-+# CONFIG_TREE_RCU is not set
-+CONFIG_PREEMPT_RCU=y
-...
--CONFIG_PREEMPT_VOLUNTARY=y
--# CONFIG_PREEMPT is not set
-+# CONFIG_PREEMPT_VOLUNTARY is not set
-+CONFIG_PREEMPT=y
+Tomas
+---------------------------------------------------------------------
+Intel Israel (74) Limited
 
-It's hard to guess, but at least this second patch mentioned by you
-(ipv4: additional update of dev_net(dev) to struct *net in
-ip_fragment.c) shouldn't matter here. Anyway, now 2.6.32.1 should be
-preferred for testing (if possible).
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
 
-Jarek P.
