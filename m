@@ -1,50 +1,63 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
-Date: Wed, 16 Dec 2009 15:07:53 +1030
-Message-ID: <200912161507.53805.rusty@rustcorp.com.au>
-References: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com> <20091215144252.GA7465@gondor.apana.org.au> <20091215233226.GA27129@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Badness at net/ipv4/inet_connection_sock.c:293
+Date: Tue, 15 Dec 2009 20:50:55 -0800 (PST)
+Message-ID: <20091215.205055.193693273.davem@davemloft.net>
+References: <4B2690B4.3030604@gmail.com>
+	<20091214.143522.102450157.davem@davemloft.net>
+	<20091214.231840.106434922.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: john.dykstra1@gmail.com, lists@nerdbynature.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gilad@codefidence.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:40095 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761514AbZLPEh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 23:37:58 -0500
-In-Reply-To: <20091215233226.GA27129@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46234
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752272AbZLPEuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 23:50:55 -0500
+In-Reply-To: <20091214.231840.106434922.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Dec 2009 10:02:27 am Michael S. Tsirkin wrote:
-> Right. Hmm. So for this to work we'll need to
-> 1. Free skb upon interrupt instead of
->    waiting for the next xmit call
-> 2. Add API to query free ring capacity
+From: David Miller <davem@davemloft.net>
+Date: Mon, 14 Dec 2009 23:18:40 -0800 (PST)
+
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 14 Dec 2009 14:35:22 -0800 (PST)
 > 
-> Rusty, sounds like a good plan?
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 14 Dec 2009 20:23:32 +0100
+>> 
+>>> If you disable syncookies, I presume you dont have warnings ?
+>> 
+>> It happens even with syncookies disabled, hmmm...
+> 
+> FWIW, I'm starting to bisect this.
 
-Well, the query stuff is not too bad, but I can't completely convince myself
-it's race-free.  We don't want to do locking.
+Ok, it's the patch series that adds all of the per-route
+SACK/DSACK/TIMESTAMP controls.
 
-A NAPI-style solution seems cleaner, and I'm testing that now.
+I hand reverted the entire series and the badness triggers no longer
+occur.  I couldn't bisect through the individual changes because of
+all of the bug fixes that happened at the end of them.
 
-> We could also extend host to delay interrupt
-> until there is sufficient TX capacity
-> but of course we also need to support
-> old hosts as well.
+I'm pretty sure the problem eminates from changing the 'estab'
+parameter passed into tcp_parse_options() from
+tcp_timewait_state_process() and tcp_check_req().
 
-Xen does this, and I rejected it in favor of simple enable/disable
-flags in the original virtio design.  It was probably wrong: while the
-guest can enable on a "few remaining" heuristic, it's going to have
-latency.  The host can do a more timely decision.
+But even if we fix that, this patch series is very fundamentally
+broken.  It takes the 'dst' for the listening socket when creating new
+incoming connections in tcp_check_req() to probe the per-route settings.
 
-There's nothing stopping the Host from doing this heuristic today, of
-course: the DISABLE flag is advisory only.  But let's check the limitations
-of the guest-enable approach first?
+Listening sockets don't have a route.  So this can't ever work
+properly.
 
-Thanks,
-Rusty.
+And getting the route for the child request we're making (the right
+one) can't be done until we setup all of the state and call down into
+the code which emits the SYN+ACK packet and look the route up by hand.
+
+I'm simply going to revert this entire series.  Sorry this didn't work
+out, but we're not adding this feautre this time around.  Maybe you
+can write a working version for the next merge widnow.
