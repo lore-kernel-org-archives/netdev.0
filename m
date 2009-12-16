@@ -1,76 +1,41 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Wed, 16 Dec 2009 09:07:27 +0200
-Message-ID: <20091216070726.GB13160@jasper.tkos.co.il>
-References: <cover.1260785451.git.baruch@tkos.co.il>
- <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
- <20091214103348.GV15126@pengutronix.de>
- <20091215083142.GB18290@jasper.tkos.co.il>
- <4B277878.1050804@snapgear.com>
- <20091215201109.GA2621@tarshish>
- <4B282644.8030104@snapgear.com>
- <20091216063402.GA13160@jasper.tkos.co.il>
- <4B2882FC.6010006@snapgear.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH v2 1/2] ixgbe: Fix
+ tx_restart_queue/non_eop_desc statistics counters
+Date: Tue, 15 Dec 2009 23:16:51 -0800 (PST)
+Message-ID: <20091215.231651.144154754.davem@davemloft.net>
+References: <20091215215636.25793.78144.stgit@localhost.localdomain>
+	<20091215.211354.189718802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Greg Ungerer <gerg@snapgear.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	mallikarjuna.chilakala@intel.com, peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:57093 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933588AbZLPHI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2009 02:08:28 -0500
-Content-Disposition: inline
-In-Reply-To: <4B2882FC.6010006@snapgear.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58034
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933106AbZLPHQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 02:16:51 -0500
+In-Reply-To: <20091215.211354.189718802.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2009 at 04:49:32PM +1000, Greg Ungerer wrote:
-> 
-> Hi Baruch,
-> 
-> Baruch Siach wrote:
-
-[snip]
-
-> >diff --git a/include/linux/fec.h b/include/linux/fec.h
-> >new file mode 100644
-> >index 0000000..5d3523d
-> >--- /dev/null
-> >+++ b/include/linux/fec.h
-> >@@ -0,0 +1,21 @@
-> >+/* include/linux/fec.h
-> >+ *
-> >+ * Copyright (c) 2009 Orex Computed Radiography
-> >+ *   Baruch Siach <baruch@tkos.co.il>
-> >+ *
-> >+ * Header file for the FEC platform data
-> >+ *
-> >+ * This program is free software; you can redistribute it and/or modify
-> >+ * it under the terms of the GNU General Public License version 2 as
-> >+ * published by the Free Software Foundation.
-> >+ */
-> >+#ifndef __LINUX_FEC_H__
-> >+#define __LINUX_FEC_H__
-> >+
-> >+#include <linux/phy.h>
-> >+
-> >+struct fec_platform_data {
-> >+	phy_interface_t phy;
-> >+};
-> >+
-> >+#endif
-> 
-> Can't this go in drivers/net/fec.h with the other fec data structs?
-
-No. The platform code (arch/arm/mach-mx25/mx25pdk.c in my case) must be able 
-to use this struct to pass the necessary information to the driver. See for 
-example include/linux/smsc911x.h, include/linux/smc91*.h, etc.
-
-baruch
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxNSBE
+ZWMgMjAwOSAyMToxMzo1NCAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEplZmYgS2lyc2hlciA8amVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBUdWUsIDE1IERlYyAyMDA5IDEzOjU2
+OjU5IC0wODAwDQo+IA0KPj4gRnJvbTogTWFsbGlrYXJqdW5hIFIgQ2hpbGFrYWxhIDxtYWxsaWth
+cmp1bmEuY2hpbGFrYWxhQGludGVsLmNvbT4NCj4+IA0KPj4gRml4IHRoZSByZXN0YXJ0X3F1ZXVl
+IGFuZCBub25fZW9wX2Rlc2MgY291bnRlcnMgZnJvbSBiZWluZw0KPj4gZG91YmxlLWNvdW50ZWQu
+ICBUaGV5IGFyZSBjdW11bGF0aXZlIGluIGVhY2ggcmluZywgc28gd2UgZG9uJ3Qgd2FudCB0bw0K
+Pj4gYWRkIHRoZW0gdG8gdGhlIGN1bXVsYXRpdmUgcmVzdWx0IGluIHRoZSBhZGFwdGVyJ3MgbWFz
+dGVyIGNvdW50ZXIuDQo+PiBPdGhlcndpc2UsIHRoZSBzdGF0cyB3aWxsIGJlIGluYWNjdXJhdGUN
+Cj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogIE1hbGxpa2FyanVuYSBSIENoaWxha2FsYSA8bWFsbGlr
+YXJqdW5hLmNoaWxha2FsYUBpbnRlbC5jb20+DQo+PiBBY2tlZC1ieTogUGV0ZXIgUCBXYXNraWV3
+aWN6IEpyIDxwZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tPg0KPj4gU2lnbmVkLW9mZi1i
+eTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+IA0KPiBBcHBs
+aWVkLg0KDQpTbyBob3cgZGlkIHlvdSBidWlsZCB0ZXN0IHRoaXM/DQoNCmRyaXZlcnMvbmV0L2l4
+Z2JlL2l4Z2JlX21haW4uYzogSW4gZnVuY3Rpb24goWl4Z2JlX3VwZGF0ZV9zdGF0c6I6DQpkcml2
+ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmM6NDUzMjogZXJyb3I6IGludmFsaWQgdHlwZSBhcmd1
+bWVudCBvZiChLT6iIChoYXZlIKFzdHJ1Y3QgaXhnYmVfcmluZ6IpDQpkcml2ZXJzL25ldC9peGdi
+ZS9peGdiZV9tYWluLmM6NDUzNjogZXJyb3I6IGludmFsaWQgdHlwZSBhcmd1bWVudCBvZiChLT6i
+IChoYXZlIKFzdHJ1Y3QgaXhnYmVfcmluZ6IpDQo=
