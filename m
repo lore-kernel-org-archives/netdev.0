@@ -1,45 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH v2 1/2] ixgbe: Fix
- tx_restart_queue/non_eop_desc statistics counters
-Date: Tue, 15 Dec 2009 23:18:55 -0800 (PST)
-Message-ID: <20091215.231855.107696050.davem@davemloft.net>
-References: <20091215215636.25793.78144.stgit@localhost.localdomain>
-	<20091215.211354.189718802.davem@davemloft.net>
-	<20091215.231651.144154754.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac latest patches  (Dec09)
+Date: Wed, 16 Dec 2009 08:26:04 +0100
+Message-ID: <4B288B8C.3050306@st.com>
+References: <1259836805-7512-1-git-send-email-peppe.cavallaro@st.com> <4B179616.2010907@st.com> <4B20F8FE.90804@st.com> <4B2110D2.9050801@octasic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	mallikarjuna.chilakala@intel.com, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58038
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933747AbZLPHSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 02:18:54 -0500
-In-Reply-To: <20091215.231651.144154754.davem@davemloft.net>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:56951 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933588AbZLPH0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 02:26:15 -0500
+In-Reply-To: <4B2110D2.9050801@octasic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxNSBE
-ZWMgMjAwOSAyMzoxNjo1MSAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2
-ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gRGF0ZTogVHVlLCAxNSBEZWMgMjAwOSAyMToxMzo1NCAtMDgw
-MCAoUFNUKQ0KPiANCj4+IEZyb206IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50
-ZWwuY29tPg0KPj4gRGF0ZTogVHVlLCAxNSBEZWMgMjAwOSAxMzo1Njo1OSAtMDgwMA0KPj4gDQo+
-Pj4gRnJvbTogTWFsbGlrYXJqdW5hIFIgQ2hpbGFrYWxhIDxtYWxsaWthcmp1bmEuY2hpbGFrYWxh
-QGludGVsLmNvbT4NCj4+PiANCj4+PiBGaXggdGhlIHJlc3RhcnRfcXVldWUgYW5kIG5vbl9lb3Bf
-ZGVzYyBjb3VudGVycyBmcm9tIGJlaW5nDQo+Pj4gZG91YmxlLWNvdW50ZWQuICBUaGV5IGFyZSBj
-dW11bGF0aXZlIGluIGVhY2ggcmluZywgc28gd2UgZG9uJ3Qgd2FudCB0bw0KPj4+IGFkZCB0aGVt
-IHRvIHRoZSBjdW11bGF0aXZlIHJlc3VsdCBpbiB0aGUgYWRhcHRlcidzIG1hc3RlciBjb3VudGVy
-Lg0KPj4+IE90aGVyd2lzZSwgdGhlIHN0YXRzIHdpbGwgYmUgaW5hY2N1cmF0ZQ0KPj4+IA0KPj4+
-IFNpZ25lZC1vZmYtYnk6ICBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5j
-aGlsYWthbGFAaW50ZWwuY29tPg0KPj4+IEFja2VkLWJ5OiBQZXRlciBQIFdhc2tpZXdpY3ogSnIg
-PHBldGVyLnAud2Fza2lld2ljei5qckBpbnRlbC5jb20+DQo+Pj4gU2lnbmVkLW9mZi1ieTogSmVm
-ZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+PiANCj4+IEFwcGxpZWQu
-DQo+IA0KPiBTbyBob3cgZGlkIHlvdSBidWlsZCB0ZXN0IHRoaXM/DQo+IA0KPiBkcml2ZXJzL25l
-dC9peGdiZS9peGdiZV9tYWluLmM6IEluIGZ1bmN0aW9uIKFpeGdiZV91cGRhdGVfc3RhdHOiOg0K
-PiBkcml2ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmM6NDUzMjogZXJyb3I6IGludmFsaWQgdHlw
-ZSBhcmd1bWVudCBvZiChLT6iIChoYXZlIKFzdHJ1Y3QgaXhnYmVfcmluZ6IpDQo+IGRyaXZlcnMv
-bmV0L2l4Z2JlL2l4Z2JlX21haW4uYzo0NTM2OiBlcnJvcjogaW52YWxpZCB0eXBlIGFyZ3VtZW50
-IG9mIKEtPqIgKGhhdmUgoXN0cnVjdCBpeGdiZV9yaW5noikNCg0KSSdtIG1ha2luZyB0aGUgb2J2
-aW91cyBmaXggInMvLT4vLi8iLCBidXQgcmVhbGx5Li4uLg0KDQo=
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi Jean,
+Jean-Hugues Deschenes wrote:
+> 
+> 
+> Giuseppe CAVALLARO wrote:
+>> - - [PATCH 1/4] stmmac: thinking about a generic driver for Synopsys
+>> Controllers.
+>>   
+> Looks good to me. This way, the driver architecture will more closely
+
+Many thanks for your prompt feedback! This was the first goal of this patch.
+
+> follow the Synopsys IP architecture.
+>> - - [PATCH 2/4] stmmac: add the new Header file for stmmac platform data
+>> - - [PATCH 3/4] stmmac: use MII_BUS_ID_SIZE instead of  BUS_ID_SIZE
+>> - - [PATCH 4/4] stmmac: convert unicast addr list to list_head
+>>   
+> These 3 basically fix build errors with the newer kernels. great.
+
+Yes, you are right.
+
+- ---
+I'm resending the patches reworked to be applied against the updated
+net-2.6 Git.
+
+Feel free to give me any advice and feedback. Welcome review as usual.
+I think, it's worth having this patch subset on net-2.6 also to help
+other developers to start working on this driver.
+
+Any news about the idea to rename the stmmac as synmac?
+I'm wondering if this could be done for the net-next-2.6 repository.
+Please, David, Eric, what do you think?
+
+Best Regards,
+Giuseppe
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAksoi4QACgkQ2Xo3j31MSSLpfACfWLVrkb4S4dxqkLLvUWwyFmDC
+K7kAnjMEaeC7bxYZFXSwD4MaZq74OAv6
+=i0vU
+-----END PGP SIGNATURE-----
