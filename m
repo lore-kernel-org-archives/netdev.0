@@ -1,81 +1,87 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [RESEND PATCH 4/4] stmmac: convert unicast addr list to list_head
-Date: Wed, 16 Dec 2009 08:26:45 +0100
-Message-ID: <1260948405-28511-4-git-send-email-peppe.cavallaro@st.com>
-References: <1260948405-28511-1-git-send-email-peppe.cavallaro@st.com>
- <1260948405-28511-2-git-send-email-peppe.cavallaro@st.com>
- <1260948405-28511-3-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH] phy: SMSC device Energy Detect power-down mode
+Date: Wed, 16 Dec 2009 08:28:18 +0100
+Message-ID: <1260948498-28544-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:54246 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934635AbZLPH1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 02:27:20 -0500
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:58828 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934637AbZLPH2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 02:28:30 -0500
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4BA4B76
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 07:27:17 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6BA2DE3
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 07:28:27 +0000 (GMT)
 Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1B82B731
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 07:27:17 +0000 (GMT)
-In-Reply-To: <1260948405-28511-3-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3AACB731
+	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 07:28:27 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts unicast address list to standard list_head using
-previously introduced struct netdev_hw_addr.
+SMSC Ethernet Transceivers (LAN88710, LAN8710, LAN8720, LAN8187,
+LAN8700, LAN83C185) provide a mechanism to conserve power when
+the device is not connected to an active link partner
+(Energy Detect Mode).
+So this patch enables the Energy Detect power-down mode
+for these Transceivers.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/dwmac1000_core.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/phy/smsc.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
-index 3752e1e..e109bea 100644
---- a/drivers/net/stmmac/dwmac1000_core.c
-+++ b/drivers/net/stmmac/dwmac1000_core.c
-@@ -83,7 +83,7 @@ static void gmac_set_filter(struct net_device *dev)
- 	unsigned int value = 0;
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 5123bb9..209e4cb 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -25,6 +25,7 @@
  
- 	DBG(KERN_INFO "%s: # mcasts %d, # unicast %d\n",
--	    __func__, dev->mc_count, dev->uc_count);
-+	    __func__, dev->mc_count, dev->uc.count);
+ #define MII_LAN83C185_ISF 29 /* Interrupt Source Flags */
+ #define MII_LAN83C185_IM  30 /* Interrupt Mask */
++#define MII_LAN83C185_CTRL_STATUS	17 /* Mode/Status Register */
  
- 	if (dev->flags & IFF_PROMISC)
- 		value = GMAC_FRAME_FILTER_PR;
-@@ -117,17 +117,16 @@ static void gmac_set_filter(struct net_device *dev)
- 	}
+ #define MII_LAN83C185_ISF_INT1 (1<<1) /* Auto-Negotiation Page Received */
+ #define MII_LAN83C185_ISF_INT2 (1<<2) /* Parallel Detection Fault */
+@@ -37,8 +38,10 @@
+ #define MII_LAN83C185_ISF_INT_ALL (0x0e)
  
- 	/* Handle multiple unicast addresses (perfect filtering)*/
--	if (dev->uc_count > GMAC_MAX_UNICAST_ADDRESSES)
-+	if (dev->uc.count > GMAC_MAX_UNICAST_ADDRESSES)
- 		/* Switch to promiscuous mode is more than 16 addrs
- 		   are required */
- 		value |= GMAC_FRAME_FILTER_PR;
- 	else {
--		int i;
--		struct dev_addr_list *uc_ptr = dev->uc_list;
-+		int i = 0;
-+		struct netdev_hw_addr *ha;
+ #define MII_LAN83C185_ISF_INT_PHYLIB_EVENTS \
+-	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4)
++	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4 | \
++	 MII_LAN83C185_ISF_INT7)
  
--			for (i = 0; i < dev->uc_count; i++) {
--				gmac_set_umac_addr(ioaddr, uc_ptr->da_addr,
--						i + 1);
-+			list_for_each_entry(ha, &dev->uc.list, list) {
-+				gmac_set_umac_addr(ioaddr, ha->addr, i + 1);
++#define MII_LAN83C185_EDPWRDOWN	(1 << 13) /* EDPWRDOWN */
  
- 				DBG(KERN_INFO "\t%d "
- 				"- Unicast addr %02x:%02x:%02x:%02x:%02x:"
-@@ -135,7 +134,8 @@ static void gmac_set_filter(struct net_device *dev)
- 				uc_ptr->da_addr[0], uc_ptr->da_addr[1],
- 				uc_ptr->da_addr[2], uc_ptr->da_addr[3],
- 				uc_ptr->da_addr[4], uc_ptr->da_addr[5]);
--				uc_ptr = uc_ptr->next;
+ static int smsc_phy_config_intr(struct phy_device *phydev)
+ {
+@@ -59,9 +62,18 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
+ 
+ static int smsc_phy_config_init(struct phy_device *phydev)
+ {
++	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
++	/* Enable energy detect mode for this SMSC Transceivers */
++	rc |= MII_LAN83C185_EDPWRDOWN;
++	phy_write(phydev, MII_LAN83C185_CTRL_STATUS, rc);
 +
-+				i++;
- 		}
- 	}
+ 	return smsc_phy_ack_interrupt (phydev);
+ }
  
++static int lan911x_config_init(struct phy_device *phydev)
++{
++	return smsc_phy_ack_interrupt(phydev);
++}
+ 
+ static struct phy_driver lan83c185_driver = {
+ 	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
+@@ -147,7 +159,7 @@ static struct phy_driver lan911x_int_driver = {
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+-	.config_init	= smsc_phy_config_init,
++	.config_init	= lan911x_config_init,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
 -- 
 1.6.0.4
 
