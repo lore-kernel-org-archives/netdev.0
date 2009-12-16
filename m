@@ -1,37 +1,85 @@
-From: Holger Schurig <holgerschurig@gmail.com>
-Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination for  32byte SSIDs
-Date: Wed, 16 Dec 2009 09:26:13 +0100
-Message-ID: <200912160926.14062.holgerschurig@gmail.com>
-References: <1260650850-16163-1-git-send-email-daniel@caiaq.de> <1260873307.3692.10.camel@johannes.local> <787b0d920912152254r4bd3e1e2l14fbe7c1fdf42e60@mail.gmail.com>
+From: Zhiyong Wu <zwu.kernel@gmail.com>
+Subject: Re: net-2.6 build error on powerpc
+Date: Wed, 16 Dec 2009 16:37:44 +0800
+Message-ID: <b1e768440912160037v21cf7ed2s521c0ac1307c583e@mail.gmail.com>
+References: <20091008152044.GA15390@linux-ox1b.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Albert Cahalan <acahalan@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	m.hirsch@raumfeld.com, libertas-dev@lists.infradead.org,
-	dcbw@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org, daniel@caiaq.de,
-	David Miller <davem@davemloft.net>
-To: linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	Herbert Xu <herbert@gondor.apana.org.au>, llim@redhat.com,
+	Zhiyong Wu <zwu.kernel@gmail.com>, Avi Kivity <avi@redhat.com>,
+	agraf@suse.de,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx51.mymxserver.com ([85.199.173.110]:37995 "EHLO
-	mx51.mymxserver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934791AbZLPI1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 03:27:54 -0500
-In-Reply-To: <787b0d920912152254r4bd3e1e2l14fbe7c1fdf42e60@mail.gmail.com>
-Content-Disposition: inline
+Received: from mail-px0-f174.google.com ([209.85.216.174]:56629 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288AbZLPIhp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 03:37:45 -0500
+Received: by pxi4 with SMTP id 4so557454pxi.33
+        for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 00:37:44 -0800 (PST)
+In-Reply-To: <20091008152044.GA15390@linux-ox1b.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> First of all, isn't TEST\0\0\0 simply the wrong length anyway?
-> (that is, a length other than 32 is nonsense AFAIK)
+HI, Ron Mercer
 
-No, the SSID IE in a beacon encodes also a length. So the beacons 
-from SSID of TEST, TEST\0 and TEST\0\0\0 are different.
+In order to succeed in compiling, currently i comment out the line
+that includes the option "Werror" in the file Makefile.
 
-This is because in the beacon, the SSID is *NOT* an u8[32], but 
-an IE, which is struct { u8 type, u8 length, u8 data[] };
+Similiar to :
 
--- 
-http://www.holgerschurig.de
+diff --git a/arch/powerpc/kernel/Makefile b/arch/powerpc/kernel/Makefil=
+e
+index b23664a..0c8a8b0 100644
+--- a/arch/powerpc/kernel/Makefile
++++ b/arch/powerpc/kernel/Makefile
+@@ -4,7 +4,7 @@
+
+ CFLAGS_ptrace.o                +=3D -DUTS_MACHINE=3D'"$(UTS_MACHINE)"'
+
+-subdir-ccflags-$(CONFIG_PPC_WERROR) :=3D -Werror
++#subdir-ccflags-$(CONFIG_PPC_WERROR) :=3D -Werror
+
+ ifeq ($(CONFIG_PPC64),y)
+ CFLAGS_prom_init.o     +=3D -mno-minimal-toc
+
+Can anyone let me know how to fix this issue thoroughly?
+
+
+Cheers,
+
+Zhiyong Wu
+
+
+On Thu, Oct 8, 2009 at 11:20 PM, Ron Mercer <ron.mercer@qlogic.com> wro=
+te:
+> I recently grabbed the latest net-2.6 kernel for a powerpc test box a=
+nd
+> got this compile error.
+>
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/cputable.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/ptrace.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/syscalls.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/irq.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/align.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/signal_32.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/pmc.o
+> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/vdso.o
+> =C2=A0cc1: warnings being treated as errors
+> =C2=A0arch/powerpc/kernel/vdso.c:78: warning: alignment of
+> =C2=A0=C4=81so_data_store=C4=81s greater than maximum object file
+> =C2=A0alignment. =C2=A0Using 32768
+> =C2=A0make[1]: *** [arch/powerpc/kernel/vdso.o] Error 1
+> =C2=A0make: *** [arch/powerpc/kernel] Error 2
+> =C2=A0[root@localhost linux-2.6-net.git]#
+>
+>
+>
+> =C2=A0Any suggestions would be appreciated.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
+>
