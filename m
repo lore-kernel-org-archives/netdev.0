@@ -1,178 +1,65 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Wed, 16 Dec 2009 16:49:32 +1000
-Message-ID: <4B2882FC.6010006@snapgear.com>
-References: <cover.1260785451.git.baruch@tkos.co.il> <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il> <20091214103348.GV15126@pengutronix.de> <20091215083142.GB18290@jasper.tkos.co.il> <4B277878.1050804@snapgear.com> <20091215201109.GA2621@tarshish> <4B282644.8030104@snapgear.com> <20091216063402.GA13160@jasper.tkos.co.il>
+From: Albert Cahalan <acahalan@gmail.com>
+Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination for
+	32byte SSIDs
+Date: Wed, 16 Dec 2009 01:54:26 -0500
+Message-ID: <787b0d920912152254r4bd3e1e2l14fbe7c1fdf42e60@mail.gmail.com>
+References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
+	 <1260871411.3692.4.camel@johannes.local>
+	 <1260871634.3692.6.camel@johannes.local>
+	 <200912151130.59103.holgerschurig@gmail.com>
+	 <1260873307.3692.10.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:41560 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752662AbZLPGux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 01:50:53 -0500
-In-Reply-To: <20091216063402.GA13160@jasper.tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Holger Schurig <holgerschurig@gmail.com>, m.hirsch@raumfeld.com,
+	libertas-dev@lists.infradead.org, dcbw@redhat.com,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org, daniel@caiaq.de,
+	David Miller <davem@davemloft.net>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933506AbZLPGye@vger.kernel.org>
+In-Reply-To: <1260873307.3692.10.camel@johannes.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-Hi Baruch,
-
-Baruch Siach wrote:
-> Hi Greg,
-> 
-> On Wed, Dec 16, 2009 at 10:13:56AM +1000, Greg Ungerer wrote:
->> Baruch Siach wrote:
->>> On Tue, Dec 15, 2009 at 09:52:24PM +1000, Greg Ungerer wrote:
->>>> On 12/15/2009 06:31 PM, Baruch Siach wrote:
->>>>> +#ifndef CONFIG_M5272
->>>> I would suggest making this conditional on FEC_MIIGSK_ENR.
->>>> Although the CONFIG_M5272 is the only case here currently,
->>>> that may change over the years. And using this here may not
->>>> be obvious to the causual code reader, since the register
->>>> offset definitions don't explicitly key on CONFIG_M5272.
->>> OK, I'll change this conditional.
->>>
->>> Can I take this as an Ack from you?
->> With that conditional check changed, sure:
+On Tue, Dec 15, 2009 at 5:35 AM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Tue, 2009-12-15 at 11:30 +0100, Holger Schurig wrote:
+>> > drivers/net/wireless/libertas$ grep lbs_deb_ * | grep ssid
+>> > |grep '%s'
+>> > assoc.c:    lbs_deb_join("current SSID '%s', ssid length %u\n",
+>> > assoc.c:    lbs_deb_join("requested ssid '%s', ssid length %u\n",
+>> > assoc.c:    lbs_deb_join("ADHOC_START: SSID '%s', ssid
+>> >               length %u\n",
+>> > scan.c:             lbs_deb_wext("set_scan, essid '%s'\n",
 >>
->> Acked-by:  Greg Ungerer <gerg@uclinux.org>
-> 
-> Thanks. The updated patch below.
-> 
-> baruch
-> 
->>From 2d0751f868519978603b16baa197bfb9f9ec9e2e Mon Sep 17 00:00:00 2001
-> Message-Id: <2d0751f868519978603b16baa197bfb9f9ec9e2e.1260945080.git.baruch@tkos.co.il>
-> From: Baruch Siach <baruch@tkos.co.il>
-> Date: Mon, 14 Dec 2009 10:36:50 +0200
-> Subject: [PATCH] fec: add support for PHY interface platform data
-> 
-> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
-> ability to configure RMII, based on platform data.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> Acked-by:  Greg Ungerer <gerg@uclinux.org>
-> ---
->  drivers/net/fec.c   |   22 ++++++++++++++++++++++
->  drivers/net/fec.h   |    2 ++
->  include/linux/fec.h |   21 +++++++++++++++++++++
->  3 files changed, 45 insertions(+), 0 deletions(-)
->  create mode 100644 include/linux/fec.h
-> 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 16a1d58..a7cfe0d 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -40,6 +40,7 @@
->  #include <linux/irq.h>
->  #include <linux/clk.h>
->  #include <linux/platform_device.h>
-> +#include <linux/fec.h>
->  
->  #include <asm/cacheflush.h>
->  
-> @@ -198,6 +199,7 @@ struct fec_enet_private {
->  	uint	phy_speed;
->  	phy_info_t const	*phy;
->  	struct work_struct phy_task;
-> +	phy_interface_t	phy_interface;
->  
->  	uint	sequence_done;
->  	uint	mii_phy_task_queued;
-> @@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
->  	/* Set MII speed */
->  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->  
-> +#ifdef FEC_MIIGSK_ENR
-> +	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
-> +		/* disable the gasket and wait */
-> +		writel(0, fep->hwp + FEC_MIIGSK_ENR);
-> +		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
-> +			udelay(1);
-> +
-> +		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
-> +		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
-> +
-> +		/* re-enable the gasket */
-> +		writel(2, fep->hwp + FEC_MIIGSK_ENR);
-> +	}
-> +#endif
-> +
->  	/* And last, enable the transmit and receive processing */
->  	writel(2, fep->hwp + FEC_ECNTRL);
->  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
-> @@ -1847,6 +1864,7 @@ static int __devinit
->  fec_probe(struct platform_device *pdev)
->  {
->  	struct fec_enet_private *fep;
-> +	struct fec_platform_data *pdata;
->  	struct net_device *ndev;
->  	int i, irq, ret = 0;
->  	struct resource *r;
-> @@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
->  
->  	platform_set_drvdata(pdev, ndev);
->  
-> +	pdata = pdev->dev.platform_data;
-> +	if (pdata)
-> +		fep->phy_interface = pdata->phy;
-> +
->  	/* This device has up to three irqs on some platforms */
->  	for (i = 0; i < 3; i++) {
->  		irq = platform_get_irq(pdev, i);
-> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-> index cc47f3f..2c48b25 100644
-> --- a/drivers/net/fec.h
-> +++ b/drivers/net/fec.h
-> @@ -43,6 +43,8 @@
->  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
->  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
->  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
-> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
-> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
->  
->  #else
->  
-> diff --git a/include/linux/fec.h b/include/linux/fec.h
-> new file mode 100644
-> index 0000000..5d3523d
-> --- /dev/null
-> +++ b/include/linux/fec.h
-> @@ -0,0 +1,21 @@
-> +/* include/linux/fec.h
-> + *
-> + * Copyright (c) 2009 Orex Computed Radiography
-> + *   Baruch Siach <baruch@tkos.co.il>
-> + *
-> + * Header file for the FEC platform data
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
-> +#ifndef __LINUX_FEC_H__
-> +#define __LINUX_FEC_H__
-> +
-> +#include <linux/phy.h>
-> +
-> +struct fec_platform_data {
-> +	phy_interface_t phy;
-> +};
-> +
-> +#endif
+>> All those lines are gone once my cfg80211 lands.
+>>
+>> Do you know any way to make sparse moan about them?
+>
+> Sorry, no, I don't think that's even possible unless you play dirty with
+> tricks like __iomem uses for instance but that'd require a lot of
+> casting in otherwise valid uses.
+>
+>> BTW: the libertas firmware sometimes treat an SSID as a
+>> zero-terminated string. There are some firmware commands that
+>> accept just an u8[32] bytes for the SSID, but not an ssid_len,
+>> e.g. in the CMD_802_11_AD_HOC_START command.
+>>
+>> You therefore can't connect to the otherwise legitimate SSID of
+>> TEST\0\0\0.
+>
+> Ick! I guess your cfg80211 IBSS join handler needs to check for that
+> then and refuse such an SSID.
 
-Can't this go in drivers/net/fec.h with the other fec data structs?
+No, pad the SSID out to 32 bytes and let the firmware try.
 
-Regards
-Greg
+First of all, isn't TEST\0\0\0 simply the wrong length anyway?
+(that is, a length other than 32 is nonsense AFAIK)
 
-
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
-8 Gardner Close                             FAX:         +61 7 3217 5323
-Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
+Second of all, even if that is valid, the firmware probably handles
+at least one SSID that starts with TEST and has some number
+of NUL bytes on the end. Since you can't tell what that would be
+with a particular firmware version, you might as well just let the
+firmware try. The worst case failure here is that there is more than
+one SSID of this form and you connect to the wrong one. If you
+have a problem with this kind of trouble then you need ethernet.
