@@ -1,7 +1,7 @@
 From: Michael Stone <michael@laptop.org>
-Subject: [PATCH] Security: Implement prctl(PR_SET_NETWORK, PR_NETWORK_OFF) semantics.
-Date: Wed, 16 Dec 2009 10:32:44 -0500
-Message-ID: <1260977565-2379-2-git-send-email-michael@laptop.org>
+Subject: [PATCH] Security: Document prctl(PR_{GET,SET}_NETWORK).
+Date: Wed, 16 Dec 2009 10:32:45 -0500
+Message-ID: <1260977565-2379-3-git-send-email-michael@laptop.org>
 References: <1260977452-2334-1-git-send-email-michael@laptop.org>
 Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
@@ -18,197 +18,96 @@ Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
 	"Bernie Innocenti" <bernie@codewiz.org>,
 	"Mark Seaborn" <mrs@mythic-beasts.com>
 To: Ulrich Drepper <drepper@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762291AbZLPPbW@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933644AbZLPPbe@vger.kernel.org>
 In-Reply-To: <1260977452-2334-1-git-send-email-michael@laptop.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Return -EPERM any time we try to __sock_create(), sys_connect(), sys_bind(),
-sys_sendmsg(), or __ptrace_may_access() from a process with PR_NETWORK_OFF set
-in current->network unless we're working on a socket which is already connected
-or on a non-abstract AF_UNIX socket.
+Explain the purpose, interface, and semantics of the
+prctl(PR_{GET,SET}_network) facility.
+
+Also reference some example userland clients.
 
 Signed-off-by: Michael Stone <michael@laptop.org>
 ---
- kernel/fork.c      |    2 ++
- kernel/ptrace.c    |    2 ++
- net/socket.c       |   51 ++++++++++++++++++++++++++++++++++++++-------------
- net/unix/af_unix.c |   19 +++++++++++++++++++
- 4 files changed, 61 insertions(+), 13 deletions(-)
+ Documentation/prctl_network.txt |   69 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 69 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/prctl_network.txt
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 9bd9144..01a7644 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -1130,6 +1130,8 @@ static struct task_struct *copy_process(unsigned long clone_flags,
- 
- 	p->bts = NULL;
- 
-+	p->network = current->network;
+diff --git a/Documentation/prctl_network.txt b/Documentation/prctl_network.txt
+new file mode 100644
+index 0000000..bcf2f72
+--- /dev/null
++++ b/Documentation/prctl_network.txt
+@@ -0,0 +1,69 @@
++Purpose
++-------
 +
- 	p->stack_start = stack_start;
- 
- 	/* Perform scheduler related setup. Assign this task to a CPU. */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 23bd09c..5b38db0 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -151,6 +151,8 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
- 		dumpable = get_dumpable(task->mm);
- 	if (!dumpable && !capable(CAP_SYS_PTRACE))
- 		return -EPERM;
-+	if (current->network)
-+		return -EPERM;
- 
- 	return security_ptrace_access_check(task, mode);
- }
-diff --git a/net/socket.c b/net/socket.c
-index b94c3dd..e59f906 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -87,6 +87,7 @@
- #include <linux/wireless.h>
- #include <linux/nsproxy.h>
- #include <linux/magic.h>
-+#include <linux/sched.h>
- 
- #include <asm/uaccess.h>
- #include <asm/unistd.h>
-@@ -576,6 +577,12 @@ static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (err)
- 		return err;
- 
-+	err = -EPERM;
-+	if (sock->sk->sk_family != AF_UNIX &&
-+		current->network &&
-+		(msg->msg_name != NULL || msg->msg_namelen != 0))
-+		return err;
++Daniel Bernstein has observed [1] that security-conscious userland processes
++may benefit from the ability to irrevocably remove their ability to create,
++bind, connect to, or send messages except in the case of previously connected
++sockets or AF_UNIX filesystem sockets.
 +
- 	return sock->ops->sendmsg(iocb, sock, msg, size);
- }
- 
-@@ -1227,6 +1234,9 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
- 	if (err)
- 		return err;
- 
-+	if (family != AF_UNIX && current->network)
-+		return -EPERM;
++This facility is particularly attractive to security platforms like OLPC
++Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4] because:
 +
- 	/*
- 	 *	Allocate the socket and allow the family to set things up. if
- 	 *	the protocol is 0, the family is instructed to select an appropriate
-@@ -1465,19 +1475,29 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
- 	int err, fput_needed;
- 
- 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
--	if (sock) {
--		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
--		if (err >= 0) {
--			err = security_socket_bind(sock,
--						   (struct sockaddr *)&address,
--						   addrlen);
--			if (!err)
--				err = sock->ops->bind(sock,
--						      (struct sockaddr *)
--						      &address, addrlen);
--		}
--		fput_light(sock->file, fput_needed);
--	}
-+	if (!sock)
-+		goto out;
++  * it integrates well with standard techniques for writing privilege-separated
++    Unix programs
 +
-+	err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
-+	if (err < 0)
-+		goto out_fput;
++  * it integrates well with the need to perform limited socket I/O, e.g., when
++    running X clients
 +
-+	err = security_socket_bind(sock,
-+				   (struct sockaddr *)&address,
-+				   addrlen);
-+	if (err)
-+		goto out_fput;
++  * it's available to unprivileged programs
 +
-+	err = (((struct sockaddr *)&address)->sa_family != AF_UNIX &&
-+		current->network) ? -EPERM : 0;
-+	if (err)
-+		goto out_fput;
++  * it's a discretionary feature available to all of distributors,
++    administrators, authors, and users
 +
-+	err = sock->ops->bind(sock, (struct sockaddr *) &address, addrlen);
++  * its effect is entirely local, rather than global (like netfilter)
 +
-+out_fput:
-+	fput_light(sock->file, fput_needed);
-+out:
- 	return err;
- }
- 
-@@ -1639,6 +1659,11 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
- 	if (err)
- 		goto out_put;
- 
-+	err = (((struct sockaddr *)&address)->sa_family != AF_UNIX &&
-+		current->network) ? -EPERM : 0;
-+	if (err)
-+		goto out_put;
++  * it's simple enough to have some hope of being used correctly
 +
- 	err = sock->ops->connect(sock, (struct sockaddr *)&address, addrlen,
- 				 sock->file->f_flags);
- out_put:
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f255119..2d984a9 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -797,6 +797,10 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		goto out;
- 	addr_len = err;
- 
-+	err = (current->network && !sunaddr->sun_path[0]) ? -EPERM : 0;
-+	if (err)
-+		goto out;
++Implementation
++--------------
 +
- 	mutex_lock(&u->readlock);
- 
- 	err = -EINVAL;
-@@ -934,6 +938,10 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
- 			goto out;
- 		alen = err;
- 
-+		err = (current->network && !sunaddr->sun_path[0]) ? -EPERM : 0;
-+		if (err)
-+			goto out;
++After considering implementations based on the Linux Security Module (LSM)
++framework, on SELinux in particular, on network namespaces (CLONE_NEWNET), and
++on direct modification of the kernel syscall and task_struct APIs, we came to
++the conclusion that the best way to implement this feature was to extend the
++prctl() framework with a new pair of options named PR_{GET,SET}_NETWORK. These
++options cause prctl() to read or modify "current->network".
 +
- 		if (test_bit(SOCK_PASSCRED, &sock->flags) &&
- 		    !unix_sk(sk)->addr && (err = unix_autobind(sock)) != 0)
- 			goto out;
-@@ -1033,6 +1041,10 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
- 		goto out;
- 	addr_len = err;
- 
-+	err = (current->network && !sunaddr->sun_path[0]) ? -EPERM : 0;
-+	if (err)
-+		goto out;
++Semantics
++---------
 +
- 	if (test_bit(SOCK_PASSCRED, &sock->flags) && !u->addr &&
- 	    (err = unix_autobind(sock)) != 0)
- 		goto out;
-@@ -1370,6 +1382,10 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		if (err < 0)
- 			goto out;
- 		namelen = err;
++current->network is a flags field which is preserved across all variants of
++fork() and exec().
 +
-+		err = -EPERM;
-+		if (current->network && !sunaddr->sun_path[0])
-+			goto out;
- 	} else {
- 		sunaddr = NULL;
- 		err = -ENOTCONN;
-@@ -1520,6 +1536,9 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (msg->msg_namelen) {
- 		err = sk->sk_state == TCP_ESTABLISHED ? -EISCONN : -EOPNOTSUPP;
- 		goto out_err;
-+		/* prctl(PR_SET_NETWORK) requires no change here since
-+		 * connection-less unix stream sockets are not supported.
-+		 * See Documentation/prctl_network.txt for details. */
- 	} else {
- 		sunaddr = NULL;
- 		err = -ENOTCONN;
++Writes which attempt to clear bits in current->network return -EPERM.
++
++The default value for current->network is named PR_NETWORK_OFF and is defined
++to be 0.
++
++Presently, only one flag is defined: PR_NETWORK_OFF.
++
++More flags may be defined in the future if they become needed.
++
++Attempts to set undefined flags result in -EINVAL.
++
++When PR_NETWORK_OFF is set, implementations of syscalls which may be used by
++the current process to perform autonomous networking will return -EPERM. For
++example, calls to socket(), bind(), connect(), sendmsg(), and ptrace() will
++return -EPERM except for cases we are manipulating an AF_UNIX socket whose name
++does not begin with \0 or, in the case of sendmsg(), unless we are manipulating
++a previously connected socket, i.e. one with
++
++  msg.msg_name == NULL && msg.msg_namelen == 0.
++
++References
++----------
++
++[1]: http://cr.yp.to/unix/disablenetwork.html
++[2]: http://wiki.laptop.org/go/OLPC_Bitfrost
++[3]: http://wiki.laptop.org/go/Rainbow
++[4]: http://plash.beasts.org/
 -- 
 1.5.6.5
