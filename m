@@ -1,33 +1,69 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] ep93xx_eth.c: general cleanup
-Date: Wed, 16 Dec 2009 13:34:55 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200ECE7@mi8nycmail19.Mi8.com> <20091216180132.GL1819@mail.wantstofly.org> <BD79186B4FD85F4B8E60E381CAEE19090200ED01@mi8nycmail19.Mi8.com> <20091216180849.GM1819@mail.wantstofly.org> <BD79186B4FD85F4B8E60E381CAEE19090200ED0C@mi8nycmail19.Mi8.com> <20091216183200.GN1819@mail.wantstofly.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: fixing a timout error due not refreshing TX
+ timers correctly
+Date: Wed, 16 Dec 2009 10:33:30 -0800
+Message-ID: <1260988410.31045.72.camel@nseg_linux_HP1.broadcom.com>
+References: <1260965365-14255-1-git-send-email-leitao@linux.vnet.ibm.com>
+ <1260965365-14255-2-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "kernel list" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "David Miller" <davem@davemloft.net>,
-	"Joe Perches" <joe@perches.com>
-To: "Lennert Buytenhek" <buytenh@wantstofly.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935123AbZLPSe7@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20091216183200.GN1819@mail.wantstofly.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2248 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757948AbZLPSns (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 13:43:48 -0500
+In-Reply-To: <1260965365-14255-2-git-send-email-leitao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
-> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
->
->> V3 - Change pr_fmt() as suggested by Joe Perches
->>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
->>      Don't remove the message in ep93xx_eth_init_module()
->
-> That's not what I meant, but alright, as you prefer.
 
-Guess my parser is off line today.... ;-)
+On Wed, 2009-12-16 at 04:09 -0800, leitao@linux.vnet.ibm.com wrote:
+> When running the following script on an active bnx2 interface:
+> 
+> while(true); do ifconfig ethX mtu 9000; ifconfig ethX mtu 1500; done
+> 
+> A timeout error appears and dumps the following stack:
+> 
+> NETDEV WATCHDOG: eth4 (bnx2): transmit queue 0 timed out
+> ------------[ cut here ]------------
+> Badness at net/sched/sch_generic.c:261
+> <snip>
+> 
+> This patch just fixes the way that ->trans_start is refreshed.
+> 
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 
-What did you mean?
+Thanks.  Acked-by: Michael Chan <mchan@broadcom.com>
 
-Regards,
-Hartley
+> ---
+>  drivers/net/bnx2.c |   10 +++++++++-
+>  1 files changed, 9 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 4bfc808..f81f082 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -655,9 +655,17 @@ bnx2_netif_stop(struct bnx2 *bp)
+>  	bnx2_cnic_stop(bp);
+>  	bnx2_disable_int_sync(bp);
+>  	if (netif_running(bp->dev)) {
+> +		int i;
+> +
+>  		bnx2_napi_disable(bp);
+>  		netif_tx_disable(bp->dev);
+> -		bp->dev->trans_start = jiffies;	/* prevent tx timeout */
+> +		/* prevent tx timeout */
+> +		for (i = 0; i <  bp->dev->num_tx_queues; i++) {
+> +			struct netdev_queue *txq;
+> +
+> +			txq = netdev_get_tx_queue(bp->dev, i);
+> +			txq->trans_start = jiffies;
+> +		}
+>  	}
+>  }
+>  
+
+
