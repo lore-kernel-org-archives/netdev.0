@@ -1,48 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
-	vhost-net
-Date: Wed, 16 Dec 2009 09:58:29 +0800
-Message-ID: <20091216015829.GB13068@gondor.apana.org.au>
-References: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com> <20091213122512.GA17255@gondor.apana.org.au> <20091213234055.GA28340@redhat.com> <20091215144252.GA7465@gondor.apana.org.au> <20091215233226.GA27129@redhat.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
+Date: Wed, 16 Dec 2009 13:11:40 +1030
+Message-ID: <200912161311.40644.rusty@rustcorp.com.au>
+References: <20091213122512.GA17255@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, rusty@rustcorp.com.au,
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, mst@redhat.com,
 	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57759 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933390AbZLPB6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 20:58:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20091215233226.GA27129@redhat.com>
+Received: from ozlabs.org ([203.10.76.45]:54571 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751370AbZLPClp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Dec 2009 21:41:45 -0500
+In-Reply-To: <20091213122512.GA17255@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2009 at 01:32:27AM +0200, Michael S. Tsirkin wrote:
-> 
-> Right. Hmm. So for this to work we'll need to
-> 1. Free skb upon interrupt instead of
->    waiting for the next xmit call
+On Sun, 13 Dec 2009 10:55:12 pm Herbert Xu wrote:
+> Please see what a real Ethernet driver (e.g., tg3 or ixgbe) does
+> for queue management.
 
-No the next xmit call can free the skbs.
+Hi Herbert,
 
-> 2. Add API to query free ring capacity
+   Thanks for the hint.  They seem to use NAPI for xmit cleanup, so that's
+what we should do?  I'll try, but such a rewrite doesn't belong in 2.6.32.
 
-This is all you need.
+Sridhar, if you simply remove the dev_warn() does that restore some
+performance?  I'll work on a proper fix for 2.6.33 now.
 
-> We could also extend host to delay interrupt
-> until there is sufficient TX capacity
-> but of course we also need to support
-> old hosts as well.
-
-Yes that what real hardware does too.  They are able to delay
-the interrupt until the number of free entries exceeds a minimum
-threshold.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Rusty.
