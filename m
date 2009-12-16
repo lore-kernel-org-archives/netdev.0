@@ -1,35 +1,40 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
-Date: Wed, 16 Dec 2009 13:11:40 +1030
-Message-ID: <200912161311.40644.rusty@rustcorp.com.au>
-References: <20091213122512.GA17255@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+	vhost-net
+Date: Wed, 16 Dec 2009 10:53:31 +0800
+Message-ID: <20091216025331.GA13935@gondor.apana.org.au>
+References: <20091213122512.GA17255@gondor.apana.org.au> <200912161311.40644.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Sridhar Samudrala <sri@us.ibm.com>, mst@redhat.com,
 	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:54571 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751370AbZLPClp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Dec 2009 21:41:45 -0500
-In-Reply-To: <20091213122512.GA17255@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:43738 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751370AbZLPCxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Dec 2009 21:53:40 -0500
+Content-Disposition: inline
+In-Reply-To: <200912161311.40644.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Dec 2009 10:55:12 pm Herbert Xu wrote:
-> Please see what a real Ethernet driver (e.g., tg3 or ixgbe) does
-> for queue management.
+On Wed, Dec 16, 2009 at 01:11:40PM +1030, Rusty Russell wrote:
+> 
+>    Thanks for the hint.  They seem to use NAPI for xmit cleanup, so that's
+> what we should do?  I'll try, but such a rewrite doesn't belong in 2.6.32.
 
-Hi Herbert,
+Well it depends.  Real drivers can't touch the hardware so they're
+stuck with whatever the hardware does.  For virtio we do have the
+flexibility of modifying the backend.
 
-   Thanks for the hint.  They seem to use NAPI for xmit cleanup, so that's
-what we should do?  I'll try, but such a rewrite doesn't belong in 2.6.32.
+Having said that, for existing backends that will signal when there
+is just a single free entry on the queue something like NAPI could
+reduce the overhead associated with the IRQs.
 
-Sridhar, if you simply remove the dev_warn() does that restore some
-performance?  I'll work on a proper fix for 2.6.33 now.
-
-Thanks,
-Rusty.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
