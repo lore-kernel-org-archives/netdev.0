@@ -1,45 +1,72 @@
-From: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
-Subject: [PATCH  3/3] gianfar: Fix bit definitions of IMASK_GRSC and IMASK_GTSC
-Date: Wed, 16 Dec 2009 16:45:17 +0530
-Message-ID: <1260962117-16892-1-git-send-email-Sandeep.Kumar@freescale.com>
-Cc: davem@davemloft.net, Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
-To: netdev@vger.kernel.org, avorontsov@ru.mvista.com,
-	eric.dumazet@gmail.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH 1/4] net: port mirroring: add tracepoints to
+	appropriate network paths
+Date: Wed, 16 Dec 2009 07:00:47 -0500
+Message-ID: <20091216120047.GB29609@hmsreliant.think-freely.org>
+References: <20091215162956.GB18710@hmsreliant.think-freely.org> <20091215163604.GC18710@hmsreliant.think-freely.org> <20091215084424.291459cb@s6510> <20091215170249.GB20644@hmsreliant.think-freely.org> <20091215092222.1cbbee0f@nehalam> <20091215174956.GC20644@hmsreliant.think-freely.org> <20091215095406.135fadbb@s6510> <20091215204155.GD20644@hmsreliant.think-freely.org> <20091215135053.345787b1@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:35839 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762043AbZLPLPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 06:15:32 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:32966 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760879AbZLPMAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 07:00:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20091215135053.345787b1@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
----
- drivers/net/gianfar.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Tue, Dec 15, 2009 at 01:50:53PM -0800, Stephen Hemminger wrote:
+> On Tue, 15 Dec 2009 15:41:55 -0500
+> Neil Horman <nhorman@tuxdriver.com> wrote:
+> 
+> > On Tue, Dec 15, 2009 at 09:54:06AM -0800, Stephen Hemminger wrote:
+> > > On Tue, 15 Dec 2009 12:49:56 -0500
+> > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > 
+> > > > On Tue, Dec 15, 2009 at 09:22:22AM -0800, Stephen Hemminger wrote:
+> > > > > On Tue, 15 Dec 2009 12:02:49 -0500
+> > > > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > > > 
+> > > > > > On Tue, Dec 15, 2009 at 08:44:24AM -0800, Stephen Hemminger wrote:
+> > > > > > > On Tue, 15 Dec 2009 11:36:04 -0500
+> > > > > > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > > > > > 
+> > > > > > > > Add net_dev_xmit & net_dev_receive tracepoints
+> > > > > > > > 
+> > > > > > > > Add tracepoints at the end of the network stack xmit path and the start of the
+> > > > > > > > stack receive path.  Among other uses, these tracepoints can be used to tap the
+> > > > > > > > raw input and output streams for any given network device for the purposes of
+> > > > > > > > mirroring that traffic to other ports.
+> > > > > > > > 
+> > > > > > > 
+> > > > > > > There already is a mirroring solution but people don't know how to use it.
+> > > > > > > Using mirred on ingress qdisc does that.
+> > > > > > > 
+> > > > > > I wish that had been easier to find.  That only appears to mirror inbound frames
+> > > > > > though, what about outbound frames? can you attach mirred to an outbound qdisc?
+> > > > > 
+> > > > > It works for outbound frames as well.
+> > > > *Sigh*, well there goes a weeks worth of tinkering.  Stupid of me.  Rescinded
+> > > > Thanks
+> > > > Neil
+> > > 
+> > > The tracepoints are still useful, and all is not wasted.
+> > Yeah, but it would be nice to have a recognized feature to go with them, so we
+> > don't just have random tracepoints laying about.  Can you think of a good
+> > alternative use for them?
+> > Regards
+> > Neil
+> > 
+> 
+> Harald had some stuff with tracking packets through the system that
+> seems like a natural for using tracepoints.
+> 
+That might be a good idea.  Some marking to validate skb integrity might be nice
+too.  Back to the drawing board.....
 
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 4943cbe..3d72dc4 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -333,7 +333,7 @@ extern const char gfar_driver_version[];
- #define IMASK_BSY               0x20000000
- #define IMASK_EBERR             0x10000000
- #define IMASK_MSRO		0x04000000
--#define IMASK_GRSC              0x02000000
-+#define IMASK_GTSC              0x02000000
- #define IMASK_BABT		0x01000000
- #define IMASK_TXC               0x00800000
- #define IMASK_TXEEN		0x00400000
-@@ -344,7 +344,7 @@ extern const char gfar_driver_version[];
- #define IMASK_XFUN		0x00010000
- #define IMASK_RXB0              0x00008000
- #define IMASK_MAG		0x00000800
--#define IMASK_GTSC              0x00000100
-+#define IMASK_GRSC              0x00000100
- #define IMASK_RXFEN0		0x00000080
- #define IMASK_FIR		0x00000008
- #define IMASK_FIQ		0x00000004
--- 
-1.6.5.6
+Thanks!
+Neil
 
