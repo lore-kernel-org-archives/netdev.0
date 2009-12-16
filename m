@@ -1,141 +1,176 @@
-From: Tomas Winkler <tomas.winkler@intel.com>
-Subject: [net-next 3/3] iwmc3200top: simplify imwct_tx
-Date: Wed, 16 Dec 2009 16:26:26 +0200
-Message-ID: <1260973586-10243-3-git-send-email-tomas.winkler@intel.com>
-References: <1260973586-10243-1-git-send-email-tomas.winkler@intel.com>
- <1260973586-10243-2-git-send-email-tomas.winkler@intel.com>
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	guy.cohen@intel.com, ron.rindjunsky@intel.com,
-	Tomas Winkler <tomas.winkler@intel.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1260973586-10243-2-git-send-email-tomas.winkler@intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
+From: Michael Stone <michael@laptop.org>
+Subject: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
+Date: Wed, 16 Dec 2009 10:32:43 -0500
+Message-ID: <1260977565-2379-1-git-send-email-michael@laptop.org>
+References: <1260977452-2334-1-git-send-email-michael@laptop.org>
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	"Andi Kleen" <andi@firstfloor.org>, "David Lang" <david@lang.hm>,
+	"Oliver Hartkopp" <socketcan@hartkopp.net>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Valdis Kletnieks" <Valdis.Kletnieks@vt.edu>,
+	"Bryan Donlan" <bdonlan@gmail.com>,
+	"Evgeniy Polyakov" <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	"James Morris" <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Bernie Innocenti" <bernie@codewiz.org>,
+	"Mark Seaborn" <mrs@mythic-beasts.com>
+To: Ulrich Drepper <drepper@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762276AbZLPPbG@vger.kernel.org>
+In-Reply-To: <1260977452-2334-1-git-send-email-michael@laptop.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1. remove address argument since we use same address IWMC_SDIO_DATA_ADDR in
-    all cases
-2. add __iwmct_tx - non locking tx function for already locked contexts
+Daniel Bernstein has observed [1] that security-conscious userland processes
+may benefit from the ability to irrevocably remove their ability to create,
+bind, connect to, or send messages except in the case of previously connected
+sockets or AF_UNIX filesystem sockets. We provide this facility by implementing
+support for a new prctl(PR_SET_NETWORK) flag named PR_NETWORK_OFF.
 
-Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+This facility is particularly attractive to security platforms like OLPC
+Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4].
+
+[1]: http://cr.yp.to/unix/disablenetwork.html
+[2]: http://wiki.laptop.org/go/OLPC_Bitfrost
+[3]: http://wiki.laptop.org/go/Rainbow
+[4]: http://plash.beasts.org/
+
+Signed-off-by: Michael Stone <michael@laptop.org>
 ---
- drivers/misc/iwmc3200top/fw-download.c |    4 +-
- drivers/misc/iwmc3200top/iwmc3200top.h |    4 +--
- drivers/misc/iwmc3200top/main.c        |   34 +++++++++++++++----------------
- 3 files changed, 19 insertions(+), 23 deletions(-)
+ include/linux/prctl.h         |    7 +++++++
+ include/linux/prctl_network.h |    7 +++++++
+ include/linux/sched.h         |    2 ++
+ kernel/Makefile               |    2 +-
+ kernel/prctl_network.c        |   37 +++++++++++++++++++++++++++++++++++++
+ kernel/sys.c                  |    7 +++++++
+ 6 files changed, 61 insertions(+), 1 deletions(-)
+ create mode 100644 include/linux/prctl_network.h
+ create mode 100644 kernel/prctl_network.c
 
-diff --git a/drivers/misc/iwmc3200top/fw-download.c b/drivers/misc/iwmc3200top/fw-download.c
-index 07055af..9dbaeb5 100644
---- a/drivers/misc/iwmc3200top/fw-download.c
-+++ b/drivers/misc/iwmc3200top/fw-download.c
-@@ -228,7 +228,7 @@ static int iwmct_download_section(struct iwmct_priv *priv, const u8 *p_sec,
- 		hdr->cmd = cpu_to_le32(cmd);
- 		/* send it down */
- 		/* TODO: add more proper sending and error checking */
--		ret = iwmct_tx(priv, 0, parser->buf, trans_size);
-+		ret = iwmct_tx(priv, parser->buf, trans_size);
- 		if (ret != 0) {
- 			LOG_INFO(priv, FW_DOWNLOAD,
- 				"iwmct_tx returned %d\n", ret);
-@@ -280,7 +280,7 @@ static int iwmct_kick_fw(struct iwmct_priv *priv, bool jump)
- 	LOG_HEXDUMP(FW_DOWNLOAD, parser->buf, sizeof(*hdr));
- 	/* send it down */
- 	/* TODO: add more proper sending and error checking */
--	ret = iwmct_tx(priv, 0, parser->buf, IWMC_SDIO_BLK_SIZE);
-+	ret = iwmct_tx(priv, parser->buf, IWMC_SDIO_BLK_SIZE);
- 	if (ret)
- 		LOG_INFO(priv, FW_DOWNLOAD, "iwmct_tx returned %d", ret);
+diff --git a/include/linux/prctl.h b/include/linux/prctl.h
+index a3baeb2..4eb4110 100644
+--- a/include/linux/prctl.h
++++ b/include/linux/prctl.h
+@@ -102,4 +102,11 @@
  
-diff --git a/drivers/misc/iwmc3200top/iwmc3200top.h b/drivers/misc/iwmc3200top/iwmc3200top.h
-index 43bd510..740ff07 100644
---- a/drivers/misc/iwmc3200top/iwmc3200top.h
-+++ b/drivers/misc/iwmc3200top/iwmc3200top.h
-@@ -196,9 +196,7 @@ struct iwmct_priv {
- 	struct list_head read_req_list;
- };
+ #define PR_MCE_KILL_GET 34
  
--extern int iwmct_tx(struct iwmct_priv *priv, unsigned int addr,
--		void *src, int count);
--
-+extern int iwmct_tx(struct iwmct_priv *priv, void *src, int count);
- extern int iwmct_fw_load(struct iwmct_priv *priv);
- 
- extern void iwmct_dbg_init_params(struct iwmct_priv *drv);
-diff --git a/drivers/misc/iwmc3200top/main.c b/drivers/misc/iwmc3200top/main.c
-index 3862794..dd0a391 100644
---- a/drivers/misc/iwmc3200top/main.c
-+++ b/drivers/misc/iwmc3200top/main.c
-@@ -49,6 +49,20 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR(DRIVER_COPYRIGHT);
- MODULE_FIRMWARE(FW_NAME(FW_API_VER));
- 
++/* Get/set process disable-network flags */
++#define PR_SET_NETWORK	35
++#define PR_GET_NETWORK	36
++# define PR_NETWORK_ON        0
++# define PR_NETWORK_OFF       1
++# define PR_NETWORK_ALL_FLAGS 1
 +
-+static inline int __iwmct_tx(struct iwmct_priv *priv, void *src, int count)
+ #endif /* _LINUX_PRCTL_H */
+diff --git a/include/linux/prctl_network.h b/include/linux/prctl_network.h
+new file mode 100644
+index 0000000..2db83eb
+--- /dev/null
++++ b/include/linux/prctl_network.h
+@@ -0,0 +1,7 @@
++#ifndef _LINUX_PRCTL_NETWORK_H
++#define _LINUX_PRCTL_NETWORK_H
++
++extern long prctl_get_network(void);
++extern long prctl_set_network(unsigned long);
++
++#endif /* _LINUX_PRCTL_NETWORK_H */
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 5c858f3..751d372 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1395,6 +1395,8 @@ struct task_struct {
+ 	unsigned int sessionid;
+ #endif
+ 	seccomp_t seccomp;
++/* Flags for limiting networking via prctl(PR_SET_NETWORK). */
++  unsigned long network;
+ 
+ /* Thread group tracking */
+    	u32 parent_exec_id;
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 864ff75..cafbff2 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -10,7 +10,7 @@ obj-y     = sched.o fork.o exec_domain.o panic.o printk.o \
+ 	    kthread.o wait.o kfifo.o sys_ni.o posix-cpu-timers.o mutex.o \
+ 	    hrtimer.o rwsem.o nsproxy.o srcu.o semaphore.o \
+ 	    notifier.o ksysfs.o pm_qos_params.o sched_clock.o cred.o \
+-	    async.o
++	    async.o prctl_network.o
+ obj-y += groups.o
+ 
+ ifdef CONFIG_FUNCTION_TRACER
+diff --git a/kernel/prctl_network.c b/kernel/prctl_network.c
+new file mode 100644
+index 0000000..d173716
+--- /dev/null
++++ b/kernel/prctl_network.c
+@@ -0,0 +1,37 @@
++/*
++ * linux/kernel/prctl_network.c
++ *
++ * Copyright 2009  Michael Stone <michael@laptop.org>
++ *
++ * Turn off a process's ability to access new networks.
++ * See Documentation/prctl_network.txt for details.
++ */
++
++#include <linux/prctl_network.h>
++#include <linux/sched.h>
++#include <linux/prctl.h>
++
++long prctl_get_network(void)
 +{
-+	return sdio_memcpy_toio(priv->func, IWMC_SDIO_DATA_ADDR, src, count);
-+
++	return current->network;
 +}
-+int iwmct_tx(struct iwmct_priv *priv, void *src, int count)
++
++long prctl_set_network(unsigned long network_flags)
 +{
-+	int ret;
-+	sdio_claim_host(priv->func);
-+	ret =  __iwmct_tx(priv, src, count);
-+	sdio_release_host(priv->func);
++	long ret;
++
++	/* only dropping access is permitted */
++	ret = -EPERM;
++        if (current->network & ~network_flags)
++		goto out;
++
++	ret = -EINVAL;
++	if (network_flags & ~PR_NETWORK_ALL_FLAGS)
++		goto out;
++
++	current->network = network_flags;
++	ret = 0;
++
++out:
 +	return ret;
 +}
- /*
-  * This workers main task is to wait for OP_OPR_ALIVE
-  * from TOP FW until ALIVE_MSG_TIMOUT timeout is elapsed.
-@@ -158,27 +172,12 @@ int iwmct_send_hcmd(struct iwmct_priv *priv, u8 *cmd, u16 len)
- 	}
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 20ccfb5..4eccc66 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -35,6 +35,7 @@
+ #include <linux/cpu.h>
+ #include <linux/ptrace.h>
+ #include <linux/fs_struct.h>
++#include <linux/prctl_network.h>
  
- 	memcpy(buf, cmd, len);
--
--	sdio_claim_host(priv->func);
--	ret = sdio_memcpy_toio(priv->func, IWMC_SDIO_DATA_ADDR, buf,
--			       FW_HCMD_BLOCK_SIZE);
--	sdio_release_host(priv->func);
-+	ret = iwmct_tx(priv, buf, FW_HCMD_BLOCK_SIZE);
- 
- 	kfree(buf);
- 	return ret;
- }
- 
--int iwmct_tx(struct iwmct_priv *priv, unsigned int addr,
--	void *src, int count)
--{
--	int ret;
--
--	sdio_claim_host(priv->func);
--	ret = sdio_memcpy_toio(priv->func, addr, src, count);
--	sdio_release_host(priv->func);
--
--	return ret;
--}
- 
- static void iwmct_irq_read_worker(struct work_struct *ws)
- {
-@@ -273,8 +272,7 @@ static void iwmct_irq_read_worker(struct work_struct *ws)
- 
- 		if (barker & BARKER_DNLOAD_SYNC_MSK) {
- 			/* Send the same barker back */
--			ret = sdio_memcpy_toio(priv->func, IWMC_SDIO_DATA_ADDR,
--					       buf, iosize);
-+			ret = __iwmct_tx(priv, buf, iosize);
- 			if (ret) {
- 				LOG_ERROR(priv, IRQ,
- 					 "error %d echoing barker\n", ret);
+ #include <linux/compat.h>
+ #include <linux/syscalls.h>
+@@ -1576,6 +1577,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 			else
+ 				error = PR_MCE_KILL_DEFAULT;
+ 			break;
++		case PR_SET_NETWORK:
++			error = prctl_set_network(arg2);
++			break;
++		case PR_GET_NETWORK:
++			error = prctl_get_network();
++			break;
+ 		default:
+ 			error = -EINVAL;
+ 			break;
 -- 
-1.6.0.6
-
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
-
+1.5.6.5
