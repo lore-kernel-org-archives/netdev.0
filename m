@@ -1,65 +1,76 @@
-From: Albert Cahalan <acahalan@gmail.com>
-Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination for
-	32byte SSIDs
-Date: Wed, 16 Dec 2009 01:54:26 -0500
-Message-ID: <787b0d920912152254r4bd3e1e2l14fbe7c1fdf42e60@mail.gmail.com>
-References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
-	 <1260871411.3692.4.camel@johannes.local>
-	 <1260871634.3692.6.camel@johannes.local>
-	 <200912151130.59103.holgerschurig@gmail.com>
-	 <1260873307.3692.10.camel@johannes.local>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
+Date: Wed, 16 Dec 2009 09:07:27 +0200
+Message-ID: <20091216070726.GB13160@jasper.tkos.co.il>
+References: <cover.1260785451.git.baruch@tkos.co.il>
+ <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
+ <20091214103348.GV15126@pengutronix.de>
+ <20091215083142.GB18290@jasper.tkos.co.il>
+ <4B277878.1050804@snapgear.com>
+ <20091215201109.GA2621@tarshish>
+ <4B282644.8030104@snapgear.com>
+ <20091216063402.GA13160@jasper.tkos.co.il>
+ <4B2882FC.6010006@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Holger Schurig <holgerschurig@gmail.com>, m.hirsch@raumfeld.com,
-	libertas-dev@lists.infradead.org, dcbw@redhat.com,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org, daniel@caiaq.de,
-	David Miller <davem@davemloft.net>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933506AbZLPGye@vger.kernel.org>
-In-Reply-To: <1260873307.3692.10.camel@johannes.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Greg Ungerer <gerg@snapgear.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tango.tkos.co.il ([62.219.50.35]:57093 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933588AbZLPHI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 02:08:28 -0500
+Content-Disposition: inline
+In-Reply-To: <4B2882FC.6010006@snapgear.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 15, 2009 at 5:35 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Tue, 2009-12-15 at 11:30 +0100, Holger Schurig wrote:
->> > drivers/net/wireless/libertas$ grep lbs_deb_ * | grep ssid
->> > |grep '%s'
->> > assoc.c:    lbs_deb_join("current SSID '%s', ssid length %u\n",
->> > assoc.c:    lbs_deb_join("requested ssid '%s', ssid length %u\n",
->> > assoc.c:    lbs_deb_join("ADHOC_START: SSID '%s', ssid
->> >               length %u\n",
->> > scan.c:             lbs_deb_wext("set_scan, essid '%s'\n",
->>
->> All those lines are gone once my cfg80211 lands.
->>
->> Do you know any way to make sparse moan about them?
->
-> Sorry, no, I don't think that's even possible unless you play dirty with
-> tricks like __iomem uses for instance but that'd require a lot of
-> casting in otherwise valid uses.
->
->> BTW: the libertas firmware sometimes treat an SSID as a
->> zero-terminated string. There are some firmware commands that
->> accept just an u8[32] bytes for the SSID, but not an ssid_len,
->> e.g. in the CMD_802_11_AD_HOC_START command.
->>
->> You therefore can't connect to the otherwise legitimate SSID of
->> TEST\0\0\0.
->
-> Ick! I guess your cfg80211 IBSS join handler needs to check for that
-> then and refuse such an SSID.
+On Wed, Dec 16, 2009 at 04:49:32PM +1000, Greg Ungerer wrote:
+> 
+> Hi Baruch,
+> 
+> Baruch Siach wrote:
 
-No, pad the SSID out to 32 bytes and let the firmware try.
+[snip]
 
-First of all, isn't TEST\0\0\0 simply the wrong length anyway?
-(that is, a length other than 32 is nonsense AFAIK)
+> >diff --git a/include/linux/fec.h b/include/linux/fec.h
+> >new file mode 100644
+> >index 0000000..5d3523d
+> >--- /dev/null
+> >+++ b/include/linux/fec.h
+> >@@ -0,0 +1,21 @@
+> >+/* include/linux/fec.h
+> >+ *
+> >+ * Copyright (c) 2009 Orex Computed Radiography
+> >+ *   Baruch Siach <baruch@tkos.co.il>
+> >+ *
+> >+ * Header file for the FEC platform data
+> >+ *
+> >+ * This program is free software; you can redistribute it and/or modify
+> >+ * it under the terms of the GNU General Public License version 2 as
+> >+ * published by the Free Software Foundation.
+> >+ */
+> >+#ifndef __LINUX_FEC_H__
+> >+#define __LINUX_FEC_H__
+> >+
+> >+#include <linux/phy.h>
+> >+
+> >+struct fec_platform_data {
+> >+	phy_interface_t phy;
+> >+};
+> >+
+> >+#endif
+> 
+> Can't this go in drivers/net/fec.h with the other fec data structs?
 
-Second of all, even if that is valid, the firmware probably handles
-at least one SSID that starts with TEST and has some number
-of NUL bytes on the end. Since you can't tell what that would be
-with a particular firmware version, you might as well just let the
-firmware try. The worst case failure here is that there is more than
-one SSID of this form and you connect to the wrong one. If you
-have a problem with this kind of trouble then you need ethernet.
+No. The platform code (arch/arm/mach-mx25/mx25pdk.c in my case) must be able 
+to use this struct to pass the necessary information to the driver. See for 
+example include/linux/smsc911x.h, include/linux/smc91*.h, etc.
+
+baruch
+
+-- 
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
