@@ -1,80 +1,73 @@
-From: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>
-Subject: RE: [net-2.6 PATCH v2 1/2] ixgbe: Fix tx_restart_queue/non_eop_desc
- statistics counters
-Date: Wed, 16 Dec 2009 09:29:05 -0700
-Message-ID: <6A821A2E197F6E4C85FD3440E8AFAD3E61A649CBAA@rrsmsx501.amr.corp.intel.com>
-References: <20091215215636.25793.78144.stgit@localhost.localdomain>
-	<20091215.211354.189718802.davem@davemloft.net>
-	<20091215.231651.144154754.davem@davemloft.net>
- <20091215.231855.107696050.davem@davemloft.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] Libertas: fix buffer overflow in lbs_get_essid()
+Date: Wed, 16 Dec 2009 08:57:47 -0800
+Message-ID: <1260982667.2179.9.camel@localhost.localdomain>
+References: <1260936778-2096-1-git-send-email-daniel@caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Holger Schurig <holgerschurig@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Maithili Hinge <maithili@marvell.com>,
+	Kiran Divekar <dkiran@marvell.com>,
+	Michael Hirsch <m.hirsch@raumfeld.com>, netdev@vger.kernel.org,
+	libertas-dev@lists.infradead.org,
+	linux-wireless@lists.infradead.org, stable@kernel.org
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58652 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7256 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934990AbZLPQ3L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 11:29:11 -0500
-In-Reply-To: <20091215.231855.107696050.davem@davemloft.net>
-Content-Language: en-US
+	id S1751100AbZLPQ6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 11:58:48 -0500
+In-Reply-To: <1260936778-2096-1-git-send-email-daniel@caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2009-12-16 at 05:12 +0100, Daniel Mack wrote:
+> The libertas driver copies the SSID buffer back to the wireless core and
+> appends a trailing NULL character for termination. This is
+> 
+> a) unnecessary because the buffer is allocated with kzalloc and is hence
+>    already NULLed when this function is called, and
+> 
+> b) for priv->curbssparams.ssid_len == 32, it writes back one byte too
+>    much which causes memory corruptions.
+> 
+> Fix this by removing the extra write.
 
+Acked-by: Dan Williams <dcbw@redhat.com>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Tuesday, December 15, 2009 11:19 PM
->To: Kirsher, Jeffrey T
->Cc: netdev@vger.kernel.org; gospo@redhat.com; Chilakala, Mallikarjuna;
->Waskiewicz Jr, Peter P
->Subject: Re: [net-2.6 PATCH v2 1/2] ixgbe: Fix tx_restart_queue/non_eo=
-p_desc
->statistics counters
->
->From: David Miller <davem@davemloft.net>
->Date: Tue, 15 Dec 2009 23:16:51 -0800 (PST)
->
->> From: David Miller <davem@davemloft.net>
->> Date: Tue, 15 Dec 2009 21:13:54 -0800 (PST)
->>
->>> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> Date: Tue, 15 Dec 2009 13:56:59 -0800
->>>
->>>> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
->>>>
->>>> Fix the restart_queue and non_eop_desc counters from being
->>>> double-counted.  They are cumulative in each ring, so we don't wan=
-t to
->>>> add them to the cumulative result in the adapter's master counter.
->>>> Otherwise, the stats will be inaccurate
->>>>
->>>> Signed-off-by:  Mallikarjuna R Chilakala
-><mallikarjuna.chilakala@intel.com>
->>>> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
->>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>>
->>> Applied.
->>
->> So how did you build test this?
->>
->> drivers/net/ixgbe/ixgbe_main.c: In function =A1ixgbe_update_stats=A2=
-:
->> drivers/net/ixgbe/ixgbe_main.c:4532: error: invalid type argument of=
- =A1->=A2
->(have =A1struct ixgbe_ring=A2)
->> drivers/net/ixgbe/ixgbe_main.c:4536: error: invalid type argument of=
- =A1->=A2
->(have =A1struct ixgbe_ring=A2)
->
->I'm making the obvious fix "s/->/./", but really....
+> Signed-off-by: Daniel Mack <daniel@caiaq.de>
+> Cc: Dan Williams <dcbw@redhat.com>
+> Cc: Holger Schurig <holgerschurig@gmail.com>
+> Cc: John W. Linville <linville@tuxdriver.com>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: Maithili Hinge <maithili@marvell.com>
+> Cc: Kiran Divekar <dkiran@marvell.com>
+> Cc: Michael Hirsch <m.hirsch@raumfeld.com>
+> Cc: netdev@vger.kernel.org
+> Cc: libertas-dev@lists.infradead.org
+> Cc: linux-wireless@lists.infradead.org
+> Cc: stable@kernel.org
+> ---
+>  drivers/net/wireless/libertas/wext.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/libertas/wext.c b/drivers/net/wireless/libertas/wext.c
+> index be837a0..01c738b 100644
+> --- a/drivers/net/wireless/libertas/wext.c
+> +++ b/drivers/net/wireless/libertas/wext.c
+> @@ -1953,10 +1953,8 @@ static int lbs_get_essid(struct net_device *dev, struct iw_request_info *info,
+>  	if (priv->connect_status == LBS_CONNECTED) {
+>  		memcpy(extra, priv->curbssparams.ssid,
+>  		       priv->curbssparams.ssid_len);
+> -		extra[priv->curbssparams.ssid_len] = '\0';
+>  	} else {
+>  		memset(extra, 0, 32);
+> -		extra[priv->curbssparams.ssid_len] = '\0';
+>  	}
+>  	/*
+>  	 * If none, we may want to get the one that was set
 
-Thanks Dave for fixing the issue, some changes in Jeff's GIT tree
-has created this merge issue. Most likely the order of patches that wer=
-e
-send out might have created this problem.
