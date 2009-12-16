@@ -1,43 +1,69 @@
-From: Nageswari Srinivasan <nageswari@ti.com>
-Subject: [PATCH] TI DaVinci EMAC: Fix MDIO bus frequency configuration
-Date: Wed, 16 Dec 2009 14:58:59 +0530
-Message-ID: <1260955739-30348-1-git-send-email-nageswari@ti.com>
-Cc: anantgole@ti.com, davinci-linux-open-source@linux.davincidsp.com,
-	davem@davemloft.net, Nageswari Srinivasan <nageswari@ti.com>
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+	vhost-net
+Date: Wed, 16 Dec 2009 12:37:26 +0200
+Message-ID: <20091216103726.GB28541@redhat.com>
+References: <1260312605.19229.8.camel@w-sridhar.beaverton.ibm.com> <20091215144252.GA7465@gondor.apana.org.au> <20091215233226.GA27129@redhat.com> <200912161507.53805.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:42269 "EHLO arroyo.ext.ti.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11001 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753798AbZLPJ3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2009 04:29:12 -0500
+	id S1751348AbZLPKkT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 05:40:19 -0500
+Content-Disposition: inline
+In-Reply-To: <200912161507.53805.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was a typo in "if condition" checking for validity of MDIO
-bus frequency passed as part of platform data. Bitwise AND was
-being used instead of a Logical AND.
+On Wed, Dec 16, 2009 at 03:07:53PM +1030, Rusty Russell wrote:
+> On Wed, 16 Dec 2009 10:02:27 am Michael S. Tsirkin wrote:
+> > Right. Hmm. So for this to work we'll need to
+> > 1. Free skb upon interrupt instead of
+> >    waiting for the next xmit call
+> > 2. Add API to query free ring capacity
+> > 
+> > Rusty, sounds like a good plan?
+> 
+> Well, the query stuff is not too bad, but I can't completely convince myself
+> it's race-free.  We don't want to do locking.
 
-Tested on: DM6467 EVM
+We do not want to lock TX? For performance?
+It might not be a problem: interrupts only start
+to be enabled when we are running out of space on TX,
+so this is a kind of slow path anyway now.
 
-Signed-off-by: Nageswari Srinivasan <nageswari@ti.com>
-Acked-by: Anant Gole <anantgole@ti.com>
----
- drivers/net/davinci_emac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If necessary, we can also only do this range check
+if netif_tx_queue_stopped.
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 65a2d0b..8f8c696 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2276,7 +2276,7 @@ static int emac_mii_reset(struct mii_bus *bus)
- 	unsigned int clk_div;
- 	int mdio_bus_freq = emac_bus_frequency;
- 
--	if (mdio_max_freq & mdio_bus_freq)
-+	if (mdio_max_freq && mdio_bus_freq)
- 		clk_div = ((mdio_bus_freq / mdio_max_freq) - 1);
- 	else
- 		clk_div = 0xFF;
--- 
-1.6.2.4
+> A NAPI-style solution seems cleaner, and I'm testing that now.
 
+Hmm, as you say separately, this might not be 2.6.32 material though.
+Maybe a simply capacity check will be safe enough for 2.6.32.
+
+> > We could also extend host to delay interrupt
+> > until there is sufficient TX capacity
+> > but of course we also need to support
+> > old hosts as well.
+> 
+> Xen does this, and I rejected it in favor of simple enable/disable
+> flags in the original virtio design.  It was probably wrong: while the
+> guest can enable on a "few remaining" heuristic, it's going to have
+> latency.  The host can do a more timely decision.
+> 
+> There's nothing stopping the Host from doing this heuristic today, of
+> course: the DISABLE flag is advisory only.
+
+Heh, but this might hurt performance on guests that do
+assume it's used correctly. A new feature might be cleaner?
+
+>  But let's check the limitations
+> of the guest-enable approach first?
+
+Sure.
+
+> Thanks,
+> Rusty.
