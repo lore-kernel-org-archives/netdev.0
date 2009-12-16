@@ -1,85 +1,71 @@
-From: Zhiyong Wu <zwu.kernel@gmail.com>
-Subject: Re: net-2.6 build error on powerpc
-Date: Wed, 16 Dec 2009 16:37:44 +0800
-Message-ID: <b1e768440912160037v21cf7ed2s521c0ac1307c583e@mail.gmail.com>
-References: <20091008152044.GA15390@linux-ox1b.qlogic.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wireless: wext: allocate space for NULL-termination
+ for 32byte SSIDs
+Date: Wed, 16 Dec 2009 09:20:33 +0100
+Message-ID: <1260951633.10356.61.camel@johannes.local>
+References: <1260650850-16163-1-git-send-email-daniel@caiaq.de>
+	 <20091215.014308.77044043.davem@davemloft.net>
+	 <1260871411.3692.4.camel@johannes.local>
+	 <20091216035844.GN28375@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Herbert Xu <herbert@gondor.apana.org.au>, llim@redhat.com,
-	Zhiyong Wu <zwu.kernel@gmail.com>, Avi Kivity <avi@redhat.com>,
-	agraf@suse.de,
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.216.174]:56629 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbZLPIhp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 03:37:45 -0500
-Received: by pxi4 with SMTP id 4so557454pxi.33
-        for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 00:37:44 -0800 (PST)
-In-Reply-To: <20091008152044.GA15390@linux-ox1b.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-HI, Ron Mercer
-
-In order to succeed in compiling, currently i comment out the line
-that includes the option "Werror" in the file Makefile.
-
-Similiar to :
-
-diff --git a/arch/powerpc/kernel/Makefile b/arch/powerpc/kernel/Makefil=
-e
-index b23664a..0c8a8b0 100644
---- a/arch/powerpc/kernel/Makefile
-+++ b/arch/powerpc/kernel/Makefile
-@@ -4,7 +4,7 @@
-
- CFLAGS_ptrace.o                +=3D -DUTS_MACHINE=3D'"$(UTS_MACHINE)"'
-
--subdir-ccflags-$(CONFIG_PPC_WERROR) :=3D -Werror
-+#subdir-ccflags-$(CONFIG_PPC_WERROR) :=3D -Werror
-
- ifeq ($(CONFIG_PPC64),y)
- CFLAGS_prom_init.o     +=3D -mno-minimal-toc
-
-Can anyone let me know how to fix this issue thoroughly?
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-L/Dl6eEgTCZxlb0x32KY"
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	dcbw@redhat.com, m.hirsch@raumfeld.com, netdev@vger.kernel.org,
+	libertas-dev@lists.infradead.org, stable@kernel.org,
+	linux-wireless@vger.kernel.org
+To: Daniel Mack <daniel@caiaq.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757996AbZLPI4N@vger.kernel.org>
+In-Reply-To: <20091216035844.GN28375@buzzloop.caiaq.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Cheers,
+--=-L/Dl6eEgTCZxlb0x32KY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Zhiyong Wu
+On Wed, 2009-12-16 at 11:58 +0800, Daniel Mack wrote:
 
+> > If this is used in a GET, then it will be filled up to 32 bytes by the
+> > get handler, and the trailing \0 your patch reserves will never be
+> > copied into userspace.
+>=20
+> The problem is the GET case. The libertas driver copies ssid_len
+> characters here and appends a trailing \0, which my patch caught now and
+> which caused memory corruption in before.
+>=20
+> From what I've seen, libertas _does_ treat the extra data correctly
+> at all places, I checked it several times now. (Btw, the %s format
+> string you pointed out all use print_ssid() to properly escape all
+> non-printable characters, so they're rules out, too).
 
-On Thu, Oct 8, 2009 at 11:20 PM, Ron Mercer <ron.mercer@qlogic.com> wro=
-te:
-> I recently grabbed the latest net-2.6 kernel for a powerpc test box a=
-nd
-> got this compile error.
->
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/cputable.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/ptrace.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/syscalls.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/irq.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/align.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/signal_32.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/pmc.o
-> =C2=A0CC =C2=A0 =C2=A0 =C2=A0arch/powerpc/kernel/vdso.o
-> =C2=A0cc1: warnings being treated as errors
-> =C2=A0arch/powerpc/kernel/vdso.c:78: warning: alignment of
-> =C2=A0=C4=81so_data_store=C4=81s greater than maximum object file
-> =C2=A0alignment. =C2=A0Using 32768
-> =C2=A0make[1]: *** [arch/powerpc/kernel/vdso.o] Error 1
-> =C2=A0make: *** [arch/powerpc/kernel] Error 2
-> =C2=A0[root@localhost linux-2.6-net.git]#
->
->
->
-> =C2=A0Any suggestions would be appreciated.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
->
+Oh, ok, print_ssid() is correct of course, it gets the length.
+
+> I'll send a patch to fix the flaw in libertas.
+
+Thanks.
+
+johannes
+
+--=-L/Dl6eEgTCZxlb0x32KY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJLKJhNAAoJEODzc/N7+QmahVwP/jMVe1Xgd0dEbJLXx/u1bOVA
+rBEUz7YVaCaS9DSS7jhb1l3FmPmnQJ1vtryfOikdSCBAVOUyOH2AQAQkkCyZvxPm
+Fvf7nNqsQ+mKiazZT8I/q8TG8Ht3BMmTsw08IW2qrY6L6FtGvKa7u6hVYxwuYTmW
+hzasJKwAhh6y5bpMATQGeByVPWU5VHSOXdmTCEHUJvwx5va4pIJtCiEfoxmJbH62
+4Qkz3dN0TxjvROHg2ADaHTSuD4IMOUtLB9/o2yJ0OQRFWCSoexq942zFRk87m3rv
+hCyXdjuMZGUH01F4CdRLarpIJU9KdScM38yeMt8DiuR2kQYEqaMl12plQElc1RoV
+CNNQorYfNPyOuzS9yGlwx71bIiO/U8aaeXE7ncq60/yE49BzGN61kPJRUvdVkBCO
+4mV54R+KdoRXKwW38FGc3yWIDfKDRjImKVvGCzexEW9CXoyPQj//a3Afd7U8CzxN
+XBeT2OrmEf1qpkbsJc/amYlQWZeQSKSOy+lD+MA2CtClhIzt+MCm6f3OnPpHjSoy
+g9cQAWqyzygZslxcZiidTmYoymRMoTls91uOr++bd2hAXA5G09M5fWdmPE1YQgl9
+lM/PfLN+NQo1g/osG29e7xliRqOhrXsTCzeKaMsGWPgYeEGGokXK0fnrph+4bquE
+v/CC73TaeITP7aiYuYAH
+=SGfL
+-----END PGP SIGNATURE-----
+
+--=-L/Dl6eEgTCZxlb0x32KY--
