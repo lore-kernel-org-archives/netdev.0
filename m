@@ -1,40 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
-	vhost-net
-Date: Wed, 16 Dec 2009 21:48:27 +0800
-Message-ID: <20091216134827.GA18706@gondor.apana.org.au>
-References: <20091213122512.GA17255@gondor.apana.org.au> <200912161311.40644.rusty@rustcorp.com.au> <20091216025331.GA13935@gondor.apana.org.au> <200912162315.38802.rusty@rustcorp.com.au> <20091216132217.GA29494@redhat.com> <20091216133512.GC18327@gondor.apana.org.au> <20091216133806.GB29522@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+Subject: [RFC PATCH] gianfar: update txq->trans_start rather than dev->trans_start
+Date: Wed, 16 Dec 2009 19:34:41 +0530
+Message-ID: <1260972281-20012-1-git-send-email-Sandeep.Kumar@freescale.com>
+Cc: davem@davemloft.net, Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+To: netdev@vger.kernel.org, avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41563 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756201AbZLPNsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 08:48:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20091216133806.GB29522@redhat.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:59180 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933892AbZLPOE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 09:04:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2009 at 03:38:07PM +0200, Michael S. Tsirkin wrote:
-> On Wed, Dec 16, 2009 at 09:35:12PM +0800, Herbert Xu wrote:
-> > On Wed, Dec 16, 2009 at 03:22:18PM +0200, Michael S. Tsirkin wrote:
-> > >
-> > > Doesn't netif_stop_queue include an atomic op?
-> > > If yes, does not atomic imply wmb already?
-> > 
-> > Unfortunately it doesn't.
-> 
-> So do we need an rmb after testing it as well?
+Signed-off-by: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+---
 
-You're right.  We should have an smp_rmb on the other path.
+ *. Please let me know if updating txq->trans_start in gfar_start is
+    alright, although updating txq->trans_start in gfar_start_xmit( )
+    should be done.
+ 
+ drivers/net/gianfar.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-Cheers,
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index e0620d0..f8bcc72 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1665,6 +1665,7 @@ void gfar_start(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	struct netdev_queue *txq;
+ 	u32 tempval;
+ 	int i = 0;
+ 
+@@ -1692,7 +1693,11 @@ void gfar_start(struct net_device *dev)
+ 		gfar_write(&regs->imask, IMASK_DEFAULT);
+ 	}
+ 
+-	dev->trans_start = jiffies;
++	/* Update the trans_start for each queue */
++	for (i = 0; i < priv->num_tx_queues; i++) {
++		txq = netdev_get_tx_queue(dev, i);
++		txq->trans_start = jiffies;
++	}
+ }
+ 
+ void gfar_configure_coalescing(struct gfar_private *priv,
+@@ -2069,7 +2074,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* reduce TxBD free count */
+ 	tx_queue->num_txbdfree -= (nr_frags + 1);
+ 
+-	dev->trans_start = jiffies;
++	txq->trans_start = jiffies;
+ 
+ 	/* If the next BD still needs to be cleaned up, then the bds
+ 	   are full.  We need to tell the kernel to stop sending us stuff. */
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.5.6
+
