@@ -1,61 +1,103 @@
-From: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
-Subject: [RFC PATCH] gianfar: update txq->trans_start rather than dev->trans_start
-Date: Wed, 16 Dec 2009 19:34:41 +0530
-Message-ID: <1260972281-20012-1-git-send-email-Sandeep.Kumar@freescale.com>
-Cc: davem@davemloft.net, Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
-To: netdev@vger.kernel.org, avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:59180 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933892AbZLPOE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 09:04:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tomas Winkler <tomas.winkler@intel.com>
+Subject: [net-next 1/3] iwmc3200top: clean up fw_download
+Date: Wed, 16 Dec 2009 16:26:24 +0200
+Message-ID: <1260973586-10243-1-git-send-email-tomas.winkler@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
+	guy.cohen@intel.com, ron.rindjunsky@intel.com,
+	Tomas Winkler <tomas.winkler@intel.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-mmc@vger.kernel.org
+Return-path: <linux-mmc-owner@vger.kernel.org>
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+1. removed redundant NULL-pointers checks in iwmct_fw_load
+as release_firmware and kfree are NULL pointer friendly
+2. remove redundant memset of the parser since the structure
+is fully initialized in iwmct_fw_parser_init function
+
+Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
 ---
+ drivers/misc/iwmc3200top/fw-download.c |   20 ++++++--------------
+ 1 files changed, 6 insertions(+), 14 deletions(-)
 
- *. Please let me know if updating txq->trans_start in gfar_start is
-    alright, although updating txq->trans_start in gfar_start_xmit( )
-    should be done.
+diff --git a/drivers/misc/iwmc3200top/fw-download.c b/drivers/misc/iwmc3200top/fw-download.c
+index 50d431e..474be92 100644
+--- a/drivers/misc/iwmc3200top/fw-download.c
++++ b/drivers/misc/iwmc3200top/fw-download.c
+@@ -50,8 +50,7 @@ static int iwmct_fw_parser_init(struct iwmct_priv *priv, const u8 *file,
+ 	parser->file = file;
+ 	parser->file_size = file_size;
+ 	parser->cur_pos = 0;
+-	parser->buf = NULL;
+-
++	parser->entry_point = 0;
+ 	parser->buf = kzalloc(block_size, GFP_KERNEL);
+ 	if (!parser->buf) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD, "kzalloc error\n");
+@@ -298,8 +297,6 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 	__le32 addr;
+ 	int ret;
  
- drivers/net/gianfar.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index e0620d0..f8bcc72 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1665,6 +1665,7 @@ void gfar_start(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	struct netdev_queue *txq;
- 	u32 tempval;
- 	int i = 0;
+-	/* clear parser struct */
+-	memset(&priv->parser, 0, sizeof(struct iwmct_parser));
  
-@@ -1692,7 +1693,11 @@ void gfar_start(struct net_device *dev)
- 		gfar_write(&regs->imask, IMASK_DEFAULT);
+ 	/* get the firmware */
+ 	ret = request_firmware(&raw, fw_name, &priv->func->dev);
+@@ -317,6 +314,7 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 
+ 	LOG_INFO(priv, FW_DOWNLOAD, "Read firmware '%s'\n", fw_name);
+ 
++	/* clear parser struct */
+ 	ret = iwmct_fw_parser_init(priv, raw->data, raw->size, priv->trans_len);
+ 	if (ret < 0) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD,
+@@ -324,7 +322,6 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 		goto exit;
  	}
  
--	dev->trans_start = jiffies;
-+	/* Update the trans_start for each queue */
-+	for (i = 0; i < priv->num_tx_queues; i++) {
-+		txq = netdev_get_tx_queue(dev, i);
-+		txq->trans_start = jiffies;
-+	}
+-	/* checksum  */
+ 	if (!iwmct_checksum(priv)) {
+ 		LOG_ERROR(priv, FW_DOWNLOAD, "checksum error\n");
+ 		ret = -EINVAL;
+@@ -333,23 +330,18 @@ int iwmct_fw_load(struct iwmct_priv *priv)
+ 
+ 	/* download firmware to device */
+ 	while (iwmct_parse_next_section(priv, &pdata, &len, &addr)) {
+-		if (iwmct_download_section(priv, pdata, len, addr)) {
++		ret = iwmct_download_section(priv, pdata, len, addr);
++		if (ret) {
+ 			LOG_ERROR(priv, FW_DOWNLOAD,
+ 				  "%s download section failed\n", fw_name);
+-			ret = -EIO;
+ 			goto exit;
+ 		}
+ 	}
+ 
+-	iwmct_kick_fw(priv, !!(priv->barker & BARKER_DNLOAD_JUMP_MSK));
++	ret = iwmct_kick_fw(priv, !!(priv->barker & BARKER_DNLOAD_JUMP_MSK));
+ 
+ exit:
+ 	kfree(priv->parser.buf);
+-
+-	if (raw)
+-		release_firmware(raw);
+-
+-	raw = NULL;
+-
++	release_firmware(raw);
+ 	return ret;
  }
- 
- void gfar_configure_coalescing(struct gfar_private *priv,
-@@ -2069,7 +2074,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* reduce TxBD free count */
- 	tx_queue->num_txbdfree -= (nr_frags + 1);
- 
--	dev->trans_start = jiffies;
-+	txq->trans_start = jiffies;
- 
- 	/* If the next BD still needs to be cleaned up, then the bds
- 	   are full.  We need to tell the kernel to stop sending us stuff. */
 -- 
-1.6.5.6
+1.6.0.6
+
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
 
