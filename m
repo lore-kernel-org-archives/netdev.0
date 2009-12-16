@@ -1,27 +1,33 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] ep93xx_eth.c: general cleanup
-Date: Wed, 16 Dec 2009 19:01:40 +0100
-Message-ID: <20091216180132.GL1819@mail.wantstofly.org>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200ECE7@mi8nycmail19.Mi8.com>
+From: "H Hartley Sweeten" <hartleys@visionengravers.com>
+Subject: RE: [PATCH] ep93xx_eth.c: general cleanup
+Date: Wed, 16 Dec 2009 13:06:10 -0500
+Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200ED01@mi8nycmail19.Mi8.com>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200ECE7@mi8nycmail19.Mi8.com> <20091216180132.GL1819@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: H Hartley Sweeten <hartleys@visionengravers.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:41126 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753491AbZLPSBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 13:01:42 -0500
-Content-Disposition: inline
-In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200ECE7@mi8nycmail19.Mi8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "kernel list" <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "David Miller" <davem@davemloft.net>
+To: "Lennert Buytenhek" <buytenh@wantstofly.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762707AbZLPSGZ@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091216180132.GL1819@mail.wantstofly.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 16, 2009 at 12:29:38PM -0500, H Hartley Sweeten wrote:
+On Wednesday, December 16, 2009 11:02 AM, Lennert Buytenhek wrote:
+> On Wed, Dec 16, 2009 at 12:29:38PM -0500, H Hartley Sweeten wrote:
+>
+>> General cleanup of the ep93xx_eth driver.
+>
+> Apart from keeping DRV_MODULE_NAME and DRV_MODULE_VERSION, I have
+> no strong opinion about this one way or the other.  So I guess that
+> means ACK.
 
-> General cleanup of the ep93xx_eth driver.
+I will add back the DRV_MODULE_NAME and DRV_MODULE_VERSION and repost.
 
-Apart from keeping DRV_MODULE_NAME and DRV_MODULE_VERSION, I have
-no strong opinion about this one way or the other.  So I guess that
-means ACK.
+What about the message in ep93xx_eth_init_module()?  Would you prefer
+that one to stay?
+
+Regards,
+Hartley
