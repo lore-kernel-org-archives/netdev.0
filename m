@@ -1,81 +1,58 @@
-From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Subject: [RFC 2/2] udp: udp_lib_get_port start at a different bucket on different
- processors
-Date: Wed, 16 Dec 2009 21:24:44 +0200
-Message-ID: <4B2933FC.7070306@ixiacom.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: reset_task is crashing the kernel. Fixing it.
+Date: Wed, 16 Dec 2009 11:15:09 -0800
+Message-ID: <1260990909.31045.84.camel@nseg_linux_HP1.broadcom.com>
+References: <1260988830.31045.79.camel@nseg_linux_HP1.broadcom.com>
+ <1260990759-16236-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080401020805040000040102"
-Cc: Octavian Purdila <opurdila@ixiacom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:17012 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S935559AbZLPTYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 14:24:46 -0500
+Received: from mms3.broadcom.com ([216.31.210.19]:3020 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763177AbZLPTZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 14:25:28 -0500
+In-Reply-To: <1260990759-16236-1-git-send-email-leitao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080401020805040000040102
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+
+On Wed, 2009-12-16 at 11:12 -0800, leitao@linux.vnet.ibm.com wrote:
+> If bnx2 schedules a reset via the reset_task, e.g., due to a TX
+> timeout, it's possible for the NIC to be disabled with packets
+> pending for transmit.  In this case, napi_disable will loop forever,
+> eventually crashing the kernel.  This patch moves the disable of
+> the device to after the napi_disable call.
+> 
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
+> ---
+>  drivers/net/bnx2.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index f81f082..65df1de 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -653,7 +653,6 @@ static void
+>  bnx2_netif_stop(struct bnx2 *bp)
+>  {
+>  	bnx2_cnic_stop(bp);
+> -	bnx2_disable_int_sync(bp);
+>  	if (netif_running(bp->dev)) {
+>  		int i;
+>  
+> @@ -667,6 +666,7 @@ bnx2_netif_stop(struct bnx2 *bp)
+>  			txq->trans_start = jiffies;
+>  		}
+>  	}
+> +	bnx2_disable_int_sync(bp);
+>  }
+>  
+>  static void
 
 
-On SMP, when ports are not allocated randomly, using the same starting
-port on all processors will lead to bad performance as all processors
-will try to get the same hashbucket spinlock: only one will succeed,
-the rest will spin madly.
-
-We solve this problem by making each processor start searching from a
-different port. To not skip possibly valid port ranges we renormalize
-the hint value too.
-
-Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
----
-  net/ipv4/udp.c |   12 +++++++++---
-  1 files changed, 9 insertions(+), 3 deletions(-)
-
-
-
---------------080401020805040000040102
-Content-Type: text/x-patch;
- name="0002-udp-udp_lib_get_port-start-at-a-different-bucket-on-.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0002-udp-udp_lib_get_port-start-at-a-different-bucket-on-.pa";
- filename*1="tch"
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f437d9d..5d17c71 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -219,7 +219,9 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 			first = (((u64)rand * remaining) >> 32) + low;
- 		} else {
- 			rand = 1;
--			first = hint;
-+			first = hint + smp_processor_id();
-+			if (first > high)
-+				first = low + (first - low) % remaining;
- 		}
- 		/*
- 		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
-@@ -243,8 +245,12 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 			do {
- 				if (low <= snum && snum <= high &&
- 				    !test_bit(snum >> udptable->log, bitmap)) {
--					if (unlikely(!sysctl_udp_port_randomization))
--						hint = snum;
-+					if (unlikely(!sysctl_udp_port_randomization)) {
-+						int cur_hint = snum - smp_processor_id();
-+						if (cur_hint < low)
-+							cur_hint = high - (low - cur_hint) % remaining;
-+						hint = cur_hint;
-+					}
- 					goto found;
- 				}
- 				snum += rand;
-
-
---------------080401020805040000040102--
