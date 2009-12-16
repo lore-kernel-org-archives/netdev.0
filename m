@@ -1,232 +1,202 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: [PATCH][RESEND 2] IPv6: 6rd iproute2 support
-Date: Wed, 16 Dec 2009 13:38:29 +0100
-Message-ID: <20091216123829.GA3258@lnxos.staff.proxad.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
+Date: Wed, 16 Dec 2009 23:15:38 +1030
+Message-ID: <200912162315.38802.rusty@rustcorp.com.au>
+References: <20091213122512.GA17255@gondor.apana.org.au> <200912161311.40644.rusty@rustcorp.com.au> <20091216025331.GA13935@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, mst@redhat.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:58332 "EHLO smtp2-g21.free.fr"
+Received: from ozlabs.org ([203.10.76.45]:38775 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933319AbZLPMih (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2009 07:38:37 -0500
-Received: from smtp2-g21.free.fr (localhost [127.0.0.1])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id 2318B4B01D0
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 13:38:31 +0100 (CET)
-Received: from mail.lnxos.net (lnxos.staff.proxad.net [213.228.1.83])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id 4AA634B00B3
-	for <netdev@vger.kernel.org>; Wed, 16 Dec 2009 13:38:29 +0100 (CET)
-Content-Disposition: inline
+	id S1751296AbZLPMpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Dec 2009 07:45:44 -0500
+In-Reply-To: <20091216025331.GA13935@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides iproute2 facilities to configure 6rd tunnel. To
-configure a 6rd tunnel, you need to configure a sit tunnel and set
-6rd prefix as following :
+On Wed, 16 Dec 2009 01:23:31 pm Herbert Xu wrote:
+> On Wed, Dec 16, 2009 at 01:11:40PM +1030, Rusty Russell wrote:
+> > 
+> >    Thanks for the hint.  They seem to use NAPI for xmit cleanup, so that's
+> > what we should do?  I'll try, but such a rewrite doesn't belong in 2.6.32.
+> 
+> Well it depends.  Real drivers can't touch the hardware so they're
+> stuck with whatever the hardware does.  For virtio we do have the
+> flexibility of modifying the backend.
+> 
+> Having said that, for existing backends that will signal when there
+> is just a single free entry on the queue something like NAPI could
+> reduce the overhead associated with the IRQs.
 
-  ip tunnel add sit1 mode sit local a.b.c.d ttl 64
-  ip tunnel 6rd dev sit1 6rd-prefix xxxx:yyyy::/z
+OK, this is unfortunately untested, but wanted to send it out tonight:
 
-Optionally you can provide a relay prefix :
+virtio_net: use NAPI for xmit (UNTESTED)
 
-  ip tunnel 6rd dev sit1 6rd-relay_prefix e.f.g.h/i
+This is closer to the way tg3 and ixgbe do it: use the NAPI framework to
+free transmitted packets.  It neatens things a little as well.
 
-Finally you can reset previous tunnel settings :
-
-  ip tunnel 6rd dev sit1 6rd-reset
-
-Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
----
- include/linux/if_tunnel.h |   11 +++++++
- ip/iptunnel.c             |   64 ++++++++++++++++++++++++++++++++++++++++++++-
- ip/tunnel.c               |   17 +++++++++++-
- ip/tunnel.h               |    2 +
- 4 files changed, 92 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 3036cec..fac7be7 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -12,6 +12,10 @@
- #define SIOCADDPRL      (SIOCDEVPRIVATE + 5)
- #define SIOCDELPRL      (SIOCDEVPRIVATE + 6)
- #define SIOCCHGPRL      (SIOCDEVPRIVATE + 7)
-+#define SIOCGET6RD      (SIOCDEVPRIVATE + 8)
-+#define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
-+#define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
-+#define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -47,6 +47,9 @@ struct virtnet_info
+ 	struct napi_struct napi;
+ 	unsigned int status;
  
- #define GRE_CSUM	__cpu_to_be16(0x8000)
- #define GRE_ROUTING	__cpu_to_be16(0x4000)
-@@ -48,6 +52,13 @@ struct ip_tunnel_prl {
- /* PRL flags */
- #define	PRL_DEFAULT		0x0001
- 
-+struct ip_tunnel_6rd {
-+	struct in6_addr		prefix;
-+	__be32			relay_prefix;
-+	__u16			prefixlen;
-+	__u16			relay_prefixlen;
-+};
++	/* We free packets and decide whether to restart xmit here. */
++	struct napi_struct xmit_napi;
 +
- enum
+ 	/* Number of input buffers, and max we've ever had. */
+ 	unsigned int num, max;
+ 
+@@ -60,6 +63,9 @@ struct virtnet_info
+ 	struct sk_buff_head recv;
+ 	struct sk_buff_head send;
+ 
++	/* Capacity left in xmit queue. */
++	unsigned int capacity;
++
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
+ 
+@@ -111,11 +117,8 @@ static void skb_xmit_done(struct virtque
  {
- 	IFLA_GRE_UNSPEC,
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index dcd7ee6..1cd9fbd 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -32,10 +32,11 @@ static void usage(void) __attribute__((noreturn));
+ 	struct virtnet_info *vi = svq->vdev->priv;
  
- static void usage(void)
- {
--	fprintf(stderr, "Usage: ip tunnel { add | change | del | show | prl } [ NAME ]\n");
-+	fprintf(stderr, "Usage: ip tunnel { add | change | del | show | prl | 6rd } [ NAME ]\n");
- 	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]\n");
- 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
- 	fprintf(stderr, "          [ prl-default ADDR ] [ prl-nodefault ADDR ] [ prl-delete ADDR ]\n");
-+	fprintf(stderr, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
- 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: NAME := STRING\n");
-@@ -302,11 +303,13 @@ static int do_del(int argc, char **argv)
+-	/* Suppress further interrupts. */
+-	svq->vq_ops->disable_cb(svq);
+-
+ 	/* We were probably waiting for more output buffers. */
+-	netif_wake_queue(vi->dev);
++	napi_schedule(&vi->xmit_napi);
+ }
  
- static void print_tunnel(struct ip_tunnel_parm *p)
- {
-+	struct ip_tunnel_6rd ip6rd;
- 	char s1[1024];
- 	char s2[1024];
- 	char s3[64];
- 	char s4[64];
+ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+@@ -446,7 +449,7 @@ static unsigned int free_old_xmit_skbs(s
  
-+	memset(&ip6rd, 0, sizeof(ip6rd));
- 	inet_ntop(AF_INET, &p->i_key, s3, sizeof(s3));
- 	inet_ntop(AF_INET, &p->o_key, s4, sizeof(s4));
+ 	while ((skb = vi->svq->vq_ops->get_buf(vi->svq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+-		__skb_unlink(skb, &vi->send);
++		skb_unlink(skb, &vi->send);
+ 		vi->dev->stats.tx_bytes += skb->len;
+ 		vi->dev->stats.tx_packets++;
+ 		tot_sgs += skb_vnet_hdr(skb)->num_sg;
+@@ -455,6 +458,23 @@ static unsigned int free_old_xmit_skbs(s
+ 	return tot_sgs;
+ }
  
-@@ -362,6 +365,17 @@ static void print_tunnel(struct ip_tunnel_parm *p)
- 	if (!(p->iph.frag_off&htons(IP_DF)))
- 		printf(" nopmtudisc");
- 
-+	if (!tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
-+		printf(" 6rd-prefix %s/%u ",
-+		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
-+		       ip6rd.prefixlen);
-+		if (ip6rd.relay_prefix) {
-+			printf("6rd-relay_prefix %s/%u ",
-+			       format_host(AF_INET, 4, &ip6rd.relay_prefix, s1, sizeof(s1)),
-+			       ip6rd.relay_prefixlen);
++static int virtnet_xmit_poll(struct napi_struct *xmit_napi, int budget)
++{
++	struct virtnet_info *vi =
++		container_of(xmit_napi, struct virtnet_info, xmit_napi);
++
++	if (netif_queue_stopped(vi->dev)) {
++		vi->capacity += free_old_xmit_skbs(vi);
++		if (vi->capacity >= 2 + MAX_SKB_FRAGS) {
++			/* Suppress further xmit interrupts. */
++			vi->svq->vq_ops->disable_cb(vi->svq);
++			napi_complete(xmit_napi);
++			netif_wake_queue(vi->dev);
 +		}
 +	}
-+
- 	if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) && p->o_key == p->i_key)
- 		printf(" key %s", s3);
- 	else if ((p->i_flags|p->o_flags)&GRE_KEY) {
-@@ -528,6 +542,52 @@ static int do_prl(int argc, char **argv)
- 	return tnl_prl_ioctl(cmd, medium, &p);
- }
- 
-+static int do_6rd(int argc, char **argv)
-+{
-+	struct ip_tunnel_6rd ip6rd;
-+	int devname = 0;
-+	int cmd = 0;
-+	char medium[IFNAMSIZ];
-+	inet_prefix prefix;
-+
-+	memset(&ip6rd, 0, sizeof(ip6rd));
-+	memset(&medium, 0, sizeof(medium));
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "6rd-prefix") == 0) {
-+			NEXT_ARG();
-+			if (get_prefix(&prefix, *argv, AF_INET6))
-+				invarg("invalid 6rd_prefix\n", *argv);
-+			cmd = SIOCADD6RD;
-+			memcpy(&ip6rd.prefix, prefix.data, 16);
-+			ip6rd.prefixlen = prefix.bitlen;
-+		} else if (strcmp(*argv, "6rd-relay_prefix") == 0) {
-+			NEXT_ARG();
-+			if (get_prefix(&prefix, *argv, AF_INET))
-+				invarg("invalid 6rd-relay_prefix\n", *argv);
-+			cmd = SIOCADD6RD;
-+			memcpy(&ip6rd.relay_prefix, prefix.data, 4);
-+			ip6rd.relay_prefixlen = prefix.bitlen;
-+		} else if (strcmp(*argv, "6rd-reset") == 0) {
-+			cmd = SIOCDEL6RD;
-+		} else if (strcmp(*argv, "dev") == 0) {
-+			NEXT_ARG();
-+			strncpy(medium, *argv, IFNAMSIZ-1);
-+			devname++;
-+		} else {
-+			fprintf(stderr,"%s: Invalid 6RD parameter.\n", *argv);
-+			exit(-1);
-+		}
-+		argc--; argv++;
-+	}
-+	if (devname == 0) {
-+		fprintf(stderr, "Must specify dev.\n");
-+		exit(-1);
-+	}
-+
-+	return tnl_6rd_ioctl(cmd, medium, &ip6rd);
++	return 1;
 +}
 +
- int do_iptunnel(int argc, char **argv)
+ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
  {
- 	switch (preferred_family) {
-@@ -561,6 +621,8 @@ int do_iptunnel(int argc, char **argv)
- 			return do_show(argc-1, argv+1);
- 		if (matches(*argv, "prl") == 0)
- 			return do_prl(argc-1, argv+1);
-+		if (matches(*argv, "6rd") == 0)
-+			return do_6rd(argc-1, argv+1);
- 		if (matches(*argv, "help") == 0)
- 			usage();
- 	} else
-diff --git a/ip/tunnel.c b/ip/tunnel.c
-index d1296e6..d389e86 100644
---- a/ip/tunnel.c
-+++ b/ip/tunnel.c
-@@ -168,7 +168,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
- 	return err;
- }
+ 	struct scatterlist sg[2+MAX_SKB_FRAGS];
+@@ -509,34 +529,22 @@ static netdev_tx_t start_xmit(struct sk_
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int capacity;
  
--int tnl_prl_ioctl(int cmd, const char *name, void *p)
-+static int tnl_gen_ioctl(int cmd, const char *name, void *p)
- {
- 	struct ifreq ifr;
- 	int fd;
-@@ -183,3 +183,18 @@ int tnl_prl_ioctl(int cmd, const char *name, void *p)
- 	close(fd);
- 	return err;
- }
-+
-+int tnl_prl_ioctl(int cmd, const char *name, void *p)
-+{
-+	return tnl_gen_ioctl(cmd, name, p);
-+}
-+
-+int tnl_6rd_ioctl(int cmd, const char *name, void *p)
-+{
-+	return tnl_gen_ioctl(cmd, name, p);
-+}
-+
-+int tnl_ioctl_get_6rd(const char *name, void *p)
-+{
-+	return tnl_gen_ioctl(SIOCGET6RD, name, p);
-+}
-diff --git a/ip/tunnel.h b/ip/tunnel.h
-index 0661e27..ded226b 100644
---- a/ip/tunnel.h
-+++ b/ip/tunnel.h
-@@ -32,5 +32,7 @@ int tnl_get_ioctl(const char *basedev, void *p);
- int tnl_add_ioctl(int cmd, const char *basedev, const char *name, void *p);
- int tnl_del_ioctl(const char *basedev, const char *name, void *p);
- int tnl_prl_ioctl(int cmd, const char *name, void *p);
-+int tnl_6rd_ioctl(int cmd, const char *name, void *p);
-+int tnl_ioctl_get_6rd(const char *name, void *p);
+-again:
+-	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
+-
+ 	/* Try to transmit */
++	skb_queue_head(&vi->send, skb);
+ 	capacity = xmit_skb(vi, skb);
  
- #endif
--- 
-1.6.3.3
-
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
++		skb_unlink(skb, &vi->send);
+ 		netif_stop_queue(dev);
+ 		dev_warn(&dev->dev, "Unexpected full queue\n");
+-		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq))) {
+-			vi->svq->vq_ops->disable_cb(vi->svq);
+-			netif_start_queue(dev);
+-			goto again;
+-		}
++		/* If we missed an interrupt, we let virtnet_xmit_poll deal. */
++		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq)))
++			napi_schedule(&vi->xmit_napi);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 	vi->svq->vq_ops->kick(vi->svq);
+-
+-	/*
+-	 * Put new one in send queue.  You'd expect we'd need this before
+-	 * xmit_skb calls add_buf(), since the callback can be triggered
+-	 * immediately after that.  But since the callback just triggers
+-	 * another call back here, normal network xmit locking prevents the
+-	 * race.
+-	 */
+-	__skb_queue_head(&vi->send, skb);
++	vi->capacity = capacity;
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -544,15 +552,16 @@ again:
+ 
+ 	/* Apparently nice girls don't return TX_BUSY; stop the queue
+ 	 * before it gets out of hand.  Naturally, this wastes entries. */
+-	if (capacity < 2+MAX_SKB_FRAGS) {
+-		netif_stop_queue(dev);
+-		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq))) {
+-			/* More just got used, free them then recheck. */
+-			capacity += free_old_xmit_skbs(vi);
+-			if (capacity >= 2+MAX_SKB_FRAGS) {
+-				netif_start_queue(dev);
+-				vi->svq->vq_ops->disable_cb(vi->svq);
+-			}
++	if (unlikely(capacity < 2+MAX_SKB_FRAGS)) {
++		/* Free old skbs; might make more capacity. */
++		vi->capacity = capacity + free_old_xmit_skbs(vi);
++		if (unlikely(vi->capacity < 2+MAX_SKB_FRAGS)) {
++			/* Make sure virtnet_xmit_poll sees updated capacity */
++			wmb();
++			netif_stop_queue(dev);
++			/* Missed xmit irq? virtnet_xmit_poll will deal. */
++			if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq)))
++				napi_schedule(&vi->xmit_napi);
+ 		}
+ 	}
+ 
+@@ -590,6 +599,7 @@ static int virtnet_open(struct net_devic
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
+ 	napi_enable(&vi->napi);
++	napi_enable(&vi->xmit_napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+ 	 * won't get another interrupt, so process any outstanding packets
+@@ -652,6 +662,7 @@ static int virtnet_close(struct net_devi
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
+ 	napi_disable(&vi->napi);
++	napi_disable(&vi->xmit_napi);
+ 
+ 	return 0;
+ }
+@@ -883,6 +894,7 @@ static int virtnet_probe(struct virtio_d
+ 	/* Set up our device-specific information */
+ 	vi = netdev_priv(dev);
+ 	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
++	netif_napi_add(dev, &vi->xmit_napi, virtnet_xmit_poll, 64);
+ 	vi->dev = dev;
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
