@@ -1,50 +1,44 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] ep93xx_eth.c: general cleanup
-Date: Wed, 16 Dec 2009 12:44:05 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200ECF5@mi8nycmail19.Mi8.com>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200ECDE@mi8nycmail19.Mi8.com> <1260984721.30093.23.camel@Joe-Laptop.home>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 4/7] can/at91: don't check platform_get_irq's return
+ value against zero
+Date: Wed, 16 Dec 2009 17:47:49 +0000
+Message-ID: <20091216174749.277761fe@lxorguk.ukuu.org.uk>
+References: <1260979809-24811-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1260979809-24811-2-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1260979809-24811-3-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1260979809-24811-4-git-send-email-u.kleine-koenig@pengutronix.de>
+	<4B290A57.3010705@grandegger.com>
+	<20091216170802.GA26325@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernel list" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>,
-	"Lennert Buytenhek" <kernel@wantstofly.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Joe Perches" <joe@perches.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	linux-kernel@vger.kernel.org, David Vrabel <dvrabel@arcom.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kurt Van Dijck <kurt.van.dijck@eia.be>,
+	netdev@vger.kernel.org
+To: Uwe =?ISO-8859-14?B?S2xlaW5lLUv2bmln?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6ob113.obsmtp.com ([64.18.1.30]:53503 "HELO psmtp.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1762654AbZLPRoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2009 12:44:10 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <1260984721.30093.23.camel@Joe-Laptop.home>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:54828 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750909AbZLPRsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 12:48:36 -0500
+In-Reply-To: <20091216170802.GA26325@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkbmVzZGF5LCBEZWNlbWJlciAxNiwgMjAwOSAxMDozMiBBTSwgSm9lIFBlcmNoZXMgd3Jv
-dGU6DQoNCkFkZGVkIG5ldGRldiB0byB0aGUgQ2M6IGxpc3QsIGFuZCByZW1vdmVkIE5pY2sgTS4g
-KHVuaW50ZW5kZWQpDQoNCj4gT24gV2VkLCAyMDA5LTEyLTE2IGF0IDEyOjA5IC0wNTAwLCBIIEhh
-cnRsZXkgU3dlZXRlbiB3cm90ZToNCj4+ICsjZGVmaW5lIHByX2ZtdChmbXQpIEtCVUlMRF9NT0RO
-QU1FICI6ICVzOiAiIGZtdCwgX19mdW5jX18NCj4NCj4gSSB0aGluayBLQlVJTERfTU9ETkFNRSAi
-OiVzOiAiIGZtdCwgX19mdW5jX18NCj4gb3IgaXRzIGVxdWl2YWxlbnQgZGlyZWN0IHVzZSBpcyBt
-b3JlIGNvbW1vbi4NCj4gSXQncyBwb3NzaWJseSB1c2VmdWwgdG8gc3RhbmRhcmRpemUuDQoNCkkg
-d2Fzbid0IHN1cmUgYWJvdXQgdGhhdCBhbmQgY291bGQgbm90IGZpbmQgYW55dGhpbmcgInN0YW5k
-YXJkIiBpbiBtYWlubGluZS4NClRoZSBiaWdnZXN0IHVzZXIgb2YgcHJfZm10IHRoYXQgSSBjb3Vs
-ZCBmaW5kIGlzIGluIGRyaXZlcnMvczM5MCBhbmQgdGhhdA0KdXNlcyBhIGxvY2FsIEtNU0dfQ09N
-UE9ORU5UIGRlZmluZSBpbnN0ZWFkIG9mIEtCVUlMRF9NT0ROQU1FLg0KDQo+PiAtI2RlZmluZSBE
-UlZfTU9EVUxFX05BTUUJCSJlcDkzeHgtZXRoIg0KPj4gLSNkZWZpbmUgRFJWX01PRFVMRV9WRVJT
-SU9OCSIwLjEiDQo+PiArI2luY2x1ZGUgPG1hY2gvaGFyZHdhcmUuaD4NCj4NCj4gSSB0aGluayB0
-aGVzZSBzb3J0cyBvZiBkZWZpbmVzIGFyZSBjb21tb24gYW5kIHVzZWZ1bC4NCg0KSSBjYW4gYWRk
-IHRob3NlIGJhY2sgaWYgbmVlZGVkLiAgSnVzdCBzZWVtZWQgYSB3YXN0ZSB0byBoYXZlIHRoZSB0
-d28gZGVmaW5lcw0KYW5kIG9ubHkgdXNlIHRoZW0gaW4gb25lIHBsYWNlLg0KDQo+PiAgc3RhdGlj
-IGludCBfX2luaXQgZXA5M3h4X2V0aF9pbml0X21vZHVsZSh2b2lkKQ0KPj4gIHsNCj4+IC0JcHJp
-bnRrKEtFUk5fSU5GTyBEUlZfTU9EVUxFX05BTUUgIiB2ZXJzaW9uICIgRFJWX01PRFVMRV9WRVJT
-SU9OICIgbG9hZGluZ1xuIik7DQo+DQo+IFdoeSByZW1vdmUgdGhpcyBwcmludGsgY29tcGxldGVs
-eT8NCg0KSW4gbXkgZG1lc2cgaXMganVzdCBsb29rcyBsaWtlIG5vaXNlLg0KDQplcDkzeHgtZXRo
-IHZlcnNpb24gMC4xIGxvYWRpbmcNCmV0aDA6IGVwOTN4eCBvbi1jaGlwIGV0aGVybmV0LCBJUlEg
-MzksIDAwOjIxOmY1OjAwOjAwOjE3DQoNCklmIHRoZSBkcml2ZSBsb2FkcyBjb3JyZWN0bHkgeW91
-IHdpbGwgZ2V0IHRoZSBzZWNvbmQgbGluZS4gIElmIGl0IGVycm9yJ3MgZm9yDQpzb21lIHJlYXNv
-biB5b3Ugd2lsbCBnZXQgb25lIG9mIHRoZSBkZXZfZXJyIG1lc3NhZ2VzLg0KDQpCdXQsIGlmIHRo
-ZSBkZWZpbmVzIGdvIGJhY2sgaW4gSSBjYW4gYWxzbyBhZGQgdGhpcyBtZXNzYWdlIGJhY2suDQoN
-ClJlZ2FyZHMsDQpIYXJ0bGV5DQoNCg0K
+> +       if (!res || irq <= (int)NO_IRQ) {
+> 
+> but this looks too ugly.  (IMHO using NO_IRQ is already ugly.)
+
+No IRQ was a private variable for the drivers/ide stack internally and
+only present in any form on a few odd platforms where it got "borrowed"
+and hasn't yet been eliminated
+
+The absence of an IRQ is zero. A bus IRQ of zero is remapped by the OS.
+
+Alan
