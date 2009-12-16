@@ -1,60 +1,55 @@
-From: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-Subject: Re: e100 REGRESSION in 2.6.32
-Date: Wed, 16 Dec 2009 22:46:49 +0200
-Message-ID: <200912162246.49611.roger.oksanen@cs.helsinki.fi>
-References: <Pine.LNX.4.44L0.0912161447260.2643-100000@iolanthe.rowland.org>
+From: Chetan Loke <chetanloke@gmail.com>
+Subject: Re: Irq architecture for multi-core network driver.
+Date: Wed, 16 Dec 2009 17:08:11 -0500
+Message-ID: <b2f3590f0912161408u73947f6fx6902ebef927caf94@mail.gmail.com>
+References: <4AE0D14B.1070307@caviumnetworks.com> <4AE0D72A.4090607@nortel.com>
+	 <4AE0DB98.1000101@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	Kernel development list <linux-kernel@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.LNX.4.44L0.0912161447260.2643-100000@iolanthe.rowland.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-mips <linux-mips@linux-mips.org>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935800AbZLPWIR@vger.kernel.org>
+In-Reply-To: <4AE0DB98.1000101@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 16 December 2009 21:50:38 Alan Stern wrote:
-> On Wed, 16 Dec 2009, Brandeburg, Jesse wrote:
-> >  Alan thanks for the report, I wonder if 
-> > you can revert 98468efddb101f8a29af974101c17ba513b07be1 and see if that 
-> > fixes it?
-> 
-> It does indeed.  Thanks for the quick response.
-> 
-> > Roger on the To: line made that change, which may have broken e100 for 
-> > your system.
-> 
-> It looks simple enough, but obviously something is wrong with it.
+>>
+>> Does your hardware do flow-based queues? =C2=A0In this model you hav=
+e
+>> multiple rx queues and the hardware hashes incoming packets to a sin=
+gle
+>> queue based on the addresses, ports, etc. This ensures that all the
+>> packets of a single connection always get processed in the order the=
+y
+>> arrived at the net device.
+>>
+>
+> Indeed, this is exactly what we have.
+>
+>
+>> Typically in this model you have as many interrupts as queues
+>> (presumably 16 in your case). =C2=A0Each queue is assigned an interr=
+upt and
+>> that interrupt is affined to a single core.
+>
 
-I'm looking into this. Quite a baffling problem though. I have no idea what
-causes the last 4 bytes  to change slightly (6c 6b 6b a3). Perhaps the patch 
-only changed the timings to uncloak a lurking bug.. 
-struct sk_buff has users as it's last member, so perhaps there is a preempt
-point in dmapool that triggers a race with the rx path.
+> Certainly this is one mode of operation that should be supported, but=
+ I
+> would also like to be able to go for raw throughput and have as many =
+cores
+> as possible reading from a single queue (like I currently have).
+>
+Well, you could let the NIC firmware(f/w) handle this. The f/w would
+know which interrupt was just injected recently.In other words it
+would have a history of which CPU's would be available. So if some
+previously interrupted CPU isn't making good progress then the
+firmware should route the incoming response packets to a different
+queue. This way some other CPU will pick it up.
 
-I'll try to reproduce this..
 
--- 
-Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-http://www.cs.helsinki.fi/u/raoksane
-+358 50 355 1990
-
-------------------------------------------------------------------------------
-This SF.Net email is sponsored by the Verizon Developer Community
-Take advantage of Verizon's best-in-class app development support
-A streamlined, 14 day to market process makes app distribution fast and easy
-Join now and get one step closer to millions of Verizon customers
-http://p.sf.net/sfu/verizon-dev2dev 
+> David Daney
+> --
+Chetan Loke
