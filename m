@@ -1,65 +1,59 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] bnx2: reset_task is crashing the kernel. Fixing it.
-Date: Wed, 16 Dec 2009 10:40:30 -0800
-Message-ID: <1260988830.31045.79.camel@nseg_linux_HP1.broadcom.com>
-References: <1260965365-14255-1-git-send-email-leitao@linux.vnet.ibm.com>
- <1260965365-14255-2-git-send-email-leitao@linux.vnet.ibm.com>
- <1260965365-14255-3-git-send-email-leitao@linux.vnet.ibm.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 4/7] can/at91: don't check platform_get_irq's return	value
+ against zero
+Date: Wed, 16 Dec 2009 19:57:45 +0100
+Message-ID: <4B292DA9.8040009@grandegger.com>
+References: <1260979809-24811-1-git-send-email-u.kleine-koenig@pengutronix.de> <1260979809-24811-2-git-send-email-u.kleine-koenig@pengutronix.de> <1260979809-24811-3-git-send-email-u.kleine-koenig@pengutronix.de> <1260979809-24811-4-git-send-email-u.kleine-koenig@pengutronix.de> <4B290A57.3010705@grandegger.com> <20091216170802.GA26325@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, David Vrabel <dvrabel@arcom.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kurt Van Dijck <kurt.van.dijck@eia.be>,
+	netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3477 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750782AbZLPSun (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Dec 2009 13:50:43 -0500
-In-Reply-To: <1260965365-14255-3-git-send-email-leitao@linux.vnet.ibm.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:50030 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762844AbZLPS6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 13:58:41 -0500
+In-Reply-To: <20091216170802.GA26325@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Uwe Kleine-K=F6nig wrote:
+> On Wed, Dec 16, 2009 at 05:27:03PM +0100, Wolfgang Grandegger wrote:
+>> Uwe Kleine-K=F6nig wrote:
+>>> platform_get_irq returns -ENXIO on failure, so !irq was probably
+>>> always true.  Better use (int)irq <=3D 0.  Note that a return value=
+ of
+>>> zero is still handled as error even though this could mean irq0.
+>> But only on ARM, which is the only platform still using the infamous
+>> NO_IRQ (=3D-1). As this is a driver for ARM hardware, using irq =3D=3D=
+ NO_IRQ
+>> would make sense, though.
+>=20
+> This has nothing to do with NO_IRQ.  You could do:
 
-On Wed, 2009-12-16 at 04:09 -0800, leitao@linux.vnet.ibm.com wrote:
-> Acutally if a BNX2 interface gets time outs, the reset_task is
-> called to restart the interface. But, the NIC is turned off with
-> some packages to transmitt, and this causes the function
-> napi_disable() to loop forever, crashing the kernel.
-> 
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> ---
->  drivers/net/bnx2.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index f81f082..40c883b 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -652,8 +652,6 @@ bnx2_napi_enable(struct bnx2 *bp)
->  static void
->  bnx2_netif_stop(struct bnx2 *bp)
->  {
-> -	bnx2_cnic_stop(bp);
+Right, sorry for the noise.
 
-bnx2_cnic_stop() needs to be done before NAPI is disabled because we
-still need to service events in NAPI while stopping cnic.  So we need to
-keep the call here.
+> -       if (!res || !irq) {
+> +       if (!res || irq <=3D (int)NO_IRQ) {
+>=20
+> but this looks too ugly.  (IMHO using NO_IRQ is already ugly.)
+>=20
+> Still, before my patch platform_get_irq return 0 was an error and if
+> this should be handled as irq0 this is a separate issue that should b=
+e
+> fixed in a separate patch.
 
-> -	bnx2_disable_int_sync(bp);
->  	if (netif_running(bp->dev)) {
->  		int i;
->  
-> @@ -667,6 +665,8 @@ bnx2_netif_stop(struct bnx2 *bp)
->  			txq->trans_start = jiffies;
->  		}
->  	}
-> +	bnx2_cnic_stop(bp);
-> +	bnx2_disable_int_sync(bp);
+"irq <=3D 0" seems then the best solution. Will add my signed-off-by to
+the patch.
 
-Moving bnx2_disable_int_sync() here looks ok.  Thanks.
+Thanks,
 
->  }
->  
->  static void
-
-
+Wolfgang.
