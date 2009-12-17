@@ -1,47 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 2/2] udp: udp_lib_get_port start at a different bucket on
- different processors
-Date: Thu, 17 Dec 2009 15:09:11 +0100
-Message-ID: <4B2A3B87.8020603@gmail.com>
-References: <4B2933FC.7070306@ixiacom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+	vhost-net
+Date: Thu, 17 Dec 2009 22:16:20 +0800
+Message-ID: <20091217141620.GA32534@gondor.apana.org.au>
+References: <OFA4DBC95B.29C84EEB-ON6525768F.0035A704-6525768F.003644A9@in.ibm.com> <20091217112754.GA7755@ff.dom.local> <OF32B8811E.870B9515-ON6525768F.003F57BD-6525768F.0040952B@in.ibm.com> <20091217131708.GC8654@ff.dom.local> <OF36B67DA5.E6556DDD-ON6525768F.00498720-6525768F.004CD7A8@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Octavian Purdila <opurdila@ixiacom.com>
-To: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48431 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757344AbZLQOJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 09:09:55 -0500
-In-Reply-To: <4B2933FC.7070306@ixiacom.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:48684 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760083AbZLQOQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 09:16:29 -0500
+Content-Disposition: inline
+In-Reply-To: <OF36B67DA5.E6556DDD-ON6525768F.00498720-6525768F.004CD7A8@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/12/2009 20:24, Lucian Adrian Grijincu a =C3=A9crit :
->=20
-> On SMP, when ports are not allocated randomly, using the same startin=
-g
-> port on all processors will lead to bad performance as all processors
-> will try to get the same hashbucket spinlock: only one will succeed,
-> the rest will spin madly.
->=20
-> We solve this problem by making each processor start searching from a
-> different port. To not skip possibly valid port ranges we renormalize
-> the hint value too.
->=20
-> Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-> ---
->  net/ipv4/udp.c |   12 +++++++++---
->  1 files changed, 9 insertions(+), 3 deletions(-)
->=20
->=20
+On Thu, Dec 17, 2009 at 07:40:32PM +0530, Krishna Kumar2 wrote:
+> 
+> I took the numbers from Sridhar's mail before the NAPI patch. I think
+> having 280K requeue's in 1 min means that the driver is waking up the
+> queue when it should not. The NAPI patch fixes that, but he still
+> reported seeing requeue's.
 
-This makes no sense. You correct a bad performance issue bringed by you=
-r previous patch ?
+Since we're still in the dark as to why this is happening, it
+would be really helpful if we could test 2.6.31's virtio-net
+under 2.6.32 or vice versa to determine whether it is a driver
+change or a core change that's creating this regression.
 
-Please submit one patch, with no performance regression.
-
-I suggest you use a per_cpu hint if you really want to be fast...
-
-Thanks
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
