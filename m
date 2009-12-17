@@ -1,70 +1,65 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
-Date: Thu, 17 Dec 2009 09:25:20 -0800
-Message-ID: <20091217092520.1f65d2dd.randy.dunlap@oracle.com>
-References: <1260977452-2334-1-git-send-email-michael@laptop.org>
-	<1260977565-2379-1-git-send-email-michael@laptop.org>
-	<20091217092326.484bb318.randy.dunlap@oracle.com>
+From: Mark Seaborn <mrs-ChQETwBkFSdCgCasaBwmdgC/G2K4zDHf@public.gmane.org>
+Subject: Re: Network isolation with RLIMIT_NETWORK, cont'd.
+Date: Thu, 17 Dec 2009 17:31:23 +0000
+Message-ID: <fb69ef3c0912170931l5cbf0e3dh81c88e6502651042@mail.gmail.com>
+References: <m1ljh7jijk.fsf@fess.ebiederm.org> <20091213142149.GB4777@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	"Andi Kleen" <andi@firstfloor.org>, "David Lang" <david@lang.hm>,
-	"Oliver Hartkopp" <socketcan@hartkopp.net>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Valdis Kletnieks" <Valdis.Kletnieks@vt.edu>,
-	"Bryan Donlan" <bdonlan@gmail.com>,
-	"Evgeniy Polyakov" <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	"James Morris" <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Bernie Innocenti" <bernie@codewiz.org>,
-	"Mark Seaborn" <mrs@mythic-beasts.com>
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091217092326.484bb318.randy.dunlap@oracle.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: David Lang <david-gFPdbfVZQbY@public.gmane.org>, Valdis Kletnieks <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "C. Scott Ananian" <cscott-FML+fnLth/WsTnJN9+BGXg@public.gmane.org>,
+        Bernie Innocenti <bernie-+SBua99wBSpAfugRpC6u6w@public.gmane.org>,
+        linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>, Bryan Donlan <bdonlan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        =?ISO-8859-1?Q?R=E9mi_Denis=2DCourmont?= <rdenis-uaTwlBVGafag2h7rfAr7Vg@public.gmane.org>,
+        Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: Michael Stone <michael-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20091213142149.GB4777@heat>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Dec 2009 09:23:26 -0800 Randy Dunlap wrote:
+On Sun, Dec 13, 2009 at 2:21 PM, Michael Stone <michael-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org> wrote:
 
-> On Wed, 16 Dec 2009 10:32:43 -0500 Michael Stone wrote:
-> 
-> 
-> > ---
-> >  include/linux/prctl.h         |    7 +++++++
-> >  include/linux/prctl_network.h |    7 +++++++
-> >  include/linux/sched.h         |    2 ++
-> >  kernel/Makefile               |    2 +-
-> >  kernel/prctl_network.c        |   37 +++++++++++++++++++++++++++++++++++++
-> >  kernel/sys.c                  |    7 +++++++
-> >  6 files changed, 61 insertions(+), 1 deletions(-)
-> >  create mode 100644 include/linux/prctl_network.h
-> >  create mode 100644 kernel/prctl_network.c
-> > 
-> 
-> > diff --git a/kernel/prctl_network.c b/kernel/prctl_network.c
-> > new file mode 100644
-> > index 0000000..d173716
-> > --- /dev/null
-> > +++ b/kernel/prctl_network.c
-> > @@ -0,0 +1,37 @@
-> > +/*
-> > + * linux/kernel/prctl_network.c
-> > + *
-> > + * Copyright 2009  Michael Stone <michael@laptop.org>
-> > + *
-> > + * Turn off a process's ability to access new networks.
-> > + * See Documentation/prctl_network.txt for details.
-> > + */
-> 
-> Where is Documentation/prctl_network.txt ?
-> and it should probably be Documentation/prctl/network.txt .
+> For comparison, I do use CLONE_NEWNS mount namespaces and they've been a
+> real
+> pain because
+>
+>  a) unlike in Plan 9, they're privileged,
+>
+>  b) they greatly complicate debugging the isolated app because you see
+>     different things inside and outside the namespace,
+>
+>  c) there's no good way to manipulate them from userland, and
+>
+>  d) they're poorly documented outside of the mount man page.
+>
 
-gag, I see it.  Sorry about that.
-I think that the file name still needs to be changed.
+Maybe we could try to fix those problems.
 
----
-~Randy
+The reason chroot() and clone()/CLONE_NEWNS are privileged is that they
+provide a way to violate the assumptions of setuid/setgid executables.  If
+we add a per-process flag that prevents a process from exec'ing setuid
+executables, we could allow chroot() and CLONE_NEWNS when that flag is set.
+That fixes (a).
+
+Maybe we could fix (b) by making mount namespaces into first class objects
+that can be named through a file descriptor, so that one process can
+manipulate another process's namespace without itself being subject to the
+namespace.
+
+Cheers,
+Mark
