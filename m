@@ -1,54 +1,197 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
-	vhost-net
-Date: Thu, 17 Dec 2009 22:36:35 +0800
-Message-ID: <20091217143635.GA388@gondor.apana.org.au>
-References: <OFA4DBC95B.29C84EEB-ON6525768F.0035A704-6525768F.003644A9@in.ibm.com> <20091217112754.GA7755@ff.dom.local> <20091217114535.GA30429@gondor.apana.org.au> <20091217114937.GA30503@gondor.apana.org.au> <20091217120856.GA30774@gondor.apana.org.au> <OF4408981E.ACFC27B2-ON6525768F.0042EA92-6525768F.00436345@in.ibm.com> <20091217134408.GB31964@gondor.apana.org.au> <OF6A94FA41.B9EF2995-ON6525768F.004B99AC-6525768F.004F1634@in.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH -stable 01/02]: ipv6: reassembly: use seperate reassembly
+ queues for conntrack and local delivery
+Date: Thu, 17 Dec 2009 16:17:24 +0100
+Message-ID: <4B2A4B84.9070802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>, mst@redhat.com,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37421 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965018AbZLQOgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 09:36:45 -0500
-Content-Disposition: inline
-In-Reply-To: <OF6A94FA41.B9EF2995-ON6525768F.004B99AC-6525768F.004F1634@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------000101010801060701040008"
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: stable@kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 17, 2009 at 08:05:02PM +0530, Krishna Kumar2 wrote:
->
-> I think the bug is in this check:
-> 
-> +     if (vi->capacity >= 2 + MAX_SKB_FRAGS) {
-> +           /* Suppress further xmit interrupts. */
-> +           vi->svq->vq_ops->disable_cb(vi->svq);
-> +           napi_complete(xmit_napi);
-> +
-> +           /* Don't wake it if link is down. */
-> +           if (likely(netif_carrier_ok(vi->vdev)))
-> +                 netif_wake_queue(vi->dev);
-> +     }
-> 
-> We wake up too fast, just enough space for one more skb to be sent
-> before the queue is stopped again. And hence no more messages about
-> queue full, but lot of requeues. The qdisc code is doing the correct
-> thing, but we need to increase the limit here.
-> 
-> Can we try with some big number, 64, 128?
+This is a multi-part message in MIME format.
+--------------000101010801060701040008
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Good point.  Sridhar, could you please test doubling or quadrupling
-the threshold? 128 is probably a bit too much though as the ring
-only has 256 entries.
+The following two patches for -stable fix some defragmentation bugs
+in netfilter which can cause the kernel to crash in the bridge
+netfilter code.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Please apply, thanks.
+
+
+
+--------------000101010801060701040008
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit 04add9d712368c59f8736f954b1e06d3db0661ec
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Thu Dec 17 16:08:02 2009 +0100
+
+    ipv6: reassembly: use seperate reassembly queues for conntrack and local delivery
+    
+    Upstream commit 0b5ccb2:
+    
+    Currently the same reassembly queue might be used for packets reassembled
+    by conntrack in different positions in the stack (PREROUTING/LOCAL_OUT),
+    as well as local delivery. This can cause "packet jumps" when the fragment
+    completing a reassembled packet is queued from a different position in the
+    stack than the previous ones.
+    
+    Add a "user" identifier to the reassembly queue key to seperate the queues
+    of each caller, similar to what we do for IPv4.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8c31d8a..a496499 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -354,8 +354,15 @@ static inline int ipv6_prefix_equal(const struct in6_addr *a1,
+ 
+ struct inet_frag_queue;
+ 
++enum ip6_defrag_users {
++	IP6_DEFRAG_LOCAL_DELIVER,
++	IP6_DEFRAG_CONNTRACK_IN,
++	IP6_DEFRAG_CONNTRACK_OUT,
++};
++
+ struct ip6_create_arg {
+ 	__be32 id;
++	u32 user;
+ 	struct in6_addr *src;
+ 	struct in6_addr *dst;
+ };
+diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+index abc55ad..1ee717e 100644
+--- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+@@ -9,7 +9,7 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
+ 
+ extern int nf_ct_frag6_init(void);
+ extern void nf_ct_frag6_cleanup(void);
+-extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb);
++extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
+ extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
+ 			       struct net_device *in,
+ 			       struct net_device *out,
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 5f2ec20..c0a82fe 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -187,6 +187,16 @@ out:
+ 	return nf_conntrack_confirm(skb);
+ }
+ 
++static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
++						struct sk_buff *skb)
++{
++	if (hooknum == NF_INET_PRE_ROUTING)
++		return IP6_DEFRAG_CONNTRACK_IN;
++	else
++		return IP6_DEFRAG_CONNTRACK_OUT;
++
++}
++
+ static unsigned int ipv6_defrag(unsigned int hooknum,
+ 				struct sk_buff *skb,
+ 				const struct net_device *in,
+@@ -199,8 +209,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ 	if (skb->nfct)
+ 		return NF_ACCEPT;
+ 
+-	reasm = nf_ct_frag6_gather(skb);
+-
++	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
+ 	/* queued */
+ 	if (reasm == NULL)
+ 		return NF_STOLEN;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index f3aba25..4b6a539 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -170,13 +170,14 @@ out:
+ /* Creation primitives. */
+ 
+ static __inline__ struct nf_ct_frag6_queue *
+-fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst)
++fq_find(__be32 id, u32 user, struct in6_addr *src, struct in6_addr *dst)
+ {
+ 	struct inet_frag_queue *q;
+ 	struct ip6_create_arg arg;
+ 	unsigned int hash;
+ 
+ 	arg.id = id;
++	arg.user = user;
+ 	arg.src = src;
+ 	arg.dst = dst;
+ 
+@@ -561,7 +562,7 @@ find_prev_fhdr(struct sk_buff *skb, u8 *prevhdrp, int *prevhoff, int *fhoff)
+ 	return 0;
+ }
+ 
+-struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
++struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ {
+ 	struct sk_buff *clone;
+ 	struct net_device *dev = skb->dev;
+@@ -607,7 +608,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb)
+ 	if (atomic_read(&nf_init_frags.mem) > nf_init_frags.high_thresh)
+ 		nf_ct_frag6_evictor();
+ 
+-	fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr);
++	fq = fq_find(fhdr->identification, user, &hdr->saddr, &hdr->daddr);
+ 	if (fq == NULL) {
+ 		pr_debug("Can't find and can't create new queue\n");
+ 		goto ret_orig;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index da5bd0e..4d18699 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -72,6 +72,7 @@ struct frag_queue
+ 	struct inet_frag_queue	q;
+ 
+ 	__be32			id;		/* fragment id		*/
++	u32			user;
+ 	struct in6_addr		saddr;
+ 	struct in6_addr		daddr;
+ 
+@@ -141,7 +142,7 @@ int ip6_frag_match(struct inet_frag_queue *q, void *a)
+ 	struct ip6_create_arg *arg = a;
+ 
+ 	fq = container_of(q, struct frag_queue, q);
+-	return (fq->id == arg->id &&
++	return (fq->id == arg->id && fq->user == arg->user &&
+ 			ipv6_addr_equal(&fq->saddr, arg->src) &&
+ 			ipv6_addr_equal(&fq->daddr, arg->dst));
+ }
+@@ -163,6 +164,7 @@ void ip6_frag_init(struct inet_frag_queue *q, void *a)
+ 	struct ip6_create_arg *arg = a;
+ 
+ 	fq->id = arg->id;
++	fq->user = arg->user;
+ 	ipv6_addr_copy(&fq->saddr, arg->src);
+ 	ipv6_addr_copy(&fq->daddr, arg->dst);
+ }
+@@ -244,6 +246,7 @@ fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
+ 	unsigned int hash;
+ 
+ 	arg.id = id;
++	arg.user = IP6_DEFRAG_LOCAL_DELIVER;
+ 	arg.src = src;
+ 	arg.dst = dst;
+ 
+
+--------------000101010801060701040008--
