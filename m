@@ -1,72 +1,65 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: e100 REGRESSION in 2.6.32 (PATCH)
-Date: Thu, 17 Dec 2009 10:47:32 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.0912171046070.2645-100000@iolanthe.rowland.org>
-References: <200912171414.16846.roger.oksanen@cs.helsinki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC 1/2] udp: add non-linear uniform port allocation scheme
+ option /proc/sys/net/ipv4/udp_port_randomization
+Date: Thu, 17 Dec 2009 17:00:12 +0100
+Message-ID: <4B2A558C.7080204@gmail.com>
+References: <4B2933EF.9060606@ixiacom.com> <4B2A3B3B.3000308@gmail.com> <200912171716.56066.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>,
+	netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:55663 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S965199AbZLQPre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Dec 2009 10:47:34 -0500
-In-Reply-To: <200912171414.16846.roger.oksanen@cs.helsinki.fi>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53585 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752555AbZLQQBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 11:01:01 -0500
+In-Reply-To: <200912171716.56066.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Dec 2009, Roger Oksanen wrote:
+Le 17/12/2009 16:16, Octavian Purdila a =E9crit :
 
-> e100: Fix broken cbs accounting due to missing memset.
-> 
-> Alan Stern noticed that e100 caused slab corruption.
-> commit 98468efddb101f8a29af974101c17ba513b07be1 changed
-> the allocation of cbs to use dma pools that don't return zeroed memory,
-> especially the cb->status field used to track which cb to clean, causing
-> (the visible) double freeing of skbs and a wrong free cbs count.
-> 
-> Now the cbs are explicitly zeroed at allocation time.
-> 
-> Reported-by: Alan Stern <stern@rowland.harvard.edu>
-> Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-> ---
->  drivers/net/e100.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index d269a68..29a8840 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1815,6 +1815,7 @@ static int e100_alloc_cbs(struct nic *nic)
->  
->  	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
->  				  &nic->cbs_dma_addr);
-> +	memset(nic->cbs, 0, count * sizeof(struct cb));
->  	if (!nic->cbs)
->  		return -ENOMEM;
->  
-> @@ -1825,7 +1826,6 @@ static int e100_alloc_cbs(struct nic *nic)
->  		cb->dma_addr = nic->cbs_dma_addr + i * sizeof(struct cb);
->  		cb->link = cpu_to_le32(nic->cbs_dma_addr +
->  			((i+1) % count) * sizeof(struct cb));
-> -		cb->skb = NULL;
->  	}
->  
->  	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = nic->cbs;
+> Thanks for reviewing Eric. In this thread=20
+>=20
+> http://kerneltrap.org/mailarchive/linux-netdev/2009/5/8/5667204 (port=
+s being=20
+> reused too fast)
+>=20
+> Stephen observed that port randomization effects on same port allocat=
+ion=20
+> frequency are explained by the birthday paradox.=20
 
-Clearly the memset() belongs after the "if" test, not before.  Apart 
-from that, I confirm that this patch fixes the problem in 2.6.32.
+But this was with TCP, not UDP. Without NAT, UDP has no timewait concep=
+t.
 
-Tested-by: Alan Stern <stern@rowland.harvard.edu>
+>=20
+> The RFC suggesting port randomization recognizes this issue and sugge=
+st a way=20
+> to overcome it, but on a first glance it looks expensive.=20
+>=20
+> Adding a sysctl to sequencial port allocation might not be the best o=
+ption,=20
+> but we thought of kicking the discussion about this issue with this p=
+atch.
 
-Alan Stern
+Before sending patches, you might first describe the issue ?
 
+>=20
+>> BTW, net-next-2.6 is not yet open, this is not the right time to sub=
+mit non
+>>  bug fixes patches.
+>=20
+> Yes, we know that, but we are still learning the details. For instanc=
+e, should=20
+> we refrain from sending RFC patches (as in patches we are not sure th=
+at are=20
+> right and want to get early feedback on) as well during the merge win=
+dow?
+
+You always *can* send RFC/patches, but we are pretty busy to correct bu=
+gs,
+and take some free time to rest :=3D)
+
+Thanks
