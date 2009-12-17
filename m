@@ -1,68 +1,83 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
-Date: Wed, 16 Dec 2009 20:25:40 -0500
-Message-ID: <20091217012540.GA2609@heat>
-References: <20091216155938.GG15031@basil.fritz.box>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Michael Stone <michael@laptop.org>,
-	Ulrich Drepper <drepper@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091216155938.GG15031@basil.fritz.box>
-Sender: linux-security-module-owner@vger.kernel.org
+From: Greg KH <gregkh@suse.de>
+Subject: [86/90] net: Fix userspace RTM_NEWLINK notifications.
+Date: Wed, 16 Dec 2009 17:15:37 -0800
+Message-ID: <20091217011609.228623383@mini.kroah.org>
+References: <20091217011835.GA20434@kroah.com>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	netdev@vger.kernel.org, marcel@holtmann.org,
+	"Eric W. Biederman" <ebiederm@aristanetworks.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763805AbZLQBZz@vger.kernel.org>
+In-Reply-To: <20091217011835.GA20434@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> On Wed, Dec 16, 2009 at 10:32:43AM -0500, Michael Stone wrote:
->> Daniel Bernstein has observed [1] that security-conscious userland processes
->> may benefit from the ability to irrevocably remove their ability to create,
->> bind, connect to, or send messages except in the case of previously
->> connected sockets or AF_UNIX filesystem sockets. We provide this facility by
->> implementing support for a new prctl(PR_SET_NETWORK) flag named
->> PR_NETWORK_OFF.
->> 
->> This facility is particularly attractive to security platforms like OLPC
->> Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4].
-> 
-> What would stop them from ptracing someone else running under the same
-> uid who still has the network access? 
+2.6.31-stable review patch.  If anyone has any objections, please let us know.
 
-Just like in the (revised from last year) rlimits version, there's a hunk in
-the prctl_network semantics patch which disables networking-via-ptrace() like
-so:
+------------------
 
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 23bd09c..5b38db0 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -151,6 +151,8 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
-                dumpable = get_dumpable(task->mm);
-        if (!dumpable && !capable(CAP_SYS_PTRACE))
-                return -EPERM;
-+       if (current->network)
-+               return -EPERM;
+commit d90a909e1f3e006a1d57fe11fd417173b6494701 upstream.
 
-        return security_ptrace_access_check(task, mode);
-  }
+I received some bug reports about userspace programs having problems
+because after RTM_NEWLINK was received they could not immeidate
+access files under /proc/sys/net/ because they had not been
+registered yet.
 
-More questions?
+The problem was trivailly fixed by moving the userspace
+notification from rtnetlink_event to the end of register_netdevice.
 
-Regards, and thanks for your interest,
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-Michael
+---
+ net/core/dev.c       |   11 +++++++++++
+ net/core/rtnetlink.c |    4 +---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4808,6 +4808,11 @@ int register_netdevice(struct net_device
+ 		rollback_registered(dev);
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 	}
++	/*
++	 *	Prevent userspace races by waiting until the network
++	 *	device is fully setup before sending notifications.
++	 */
++	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
+ 
+ out:
+ 	return ret;
+@@ -5343,6 +5348,12 @@ int dev_change_net_namespace(struct net_
+ 	/* Notify protocols, that a new device appeared. */
+ 	call_netdevice_notifiers(NETDEV_REGISTER, dev);
+ 
++	/*
++	 *	Prevent userspace races by waiting until the network
++	 *	device is fully setup before sending notifications.
++	 */
++	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
++
+ 	synchronize_net();
+ 	err = 0;
+ out:
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1347,13 +1347,11 @@ static int rtnetlink_event(struct notifi
+ 	case NETDEV_UNREGISTER:
+ 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
+ 		break;
+-	case NETDEV_REGISTER:
+-		rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
+-		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_DOWN:
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+ 		break;
++	case NETDEV_REGISTER:
+ 	case NETDEV_CHANGE:
+ 	case NETDEV_GOING_DOWN:
+ 		break;
