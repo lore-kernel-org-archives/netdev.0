@@ -1,91 +1,76 @@
-From: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-Subject: Re: e100 REGRESSION in 2.6.32 (PATCH)
-Date: Thu, 17 Dec 2009 14:14:16 +0200
-Message-ID: <200912171414.16846.roger.oksanen@cs.helsinki.fi>
-References: <Pine.LNX.4.44L0.0912161447260.2643-100000@iolanthe.rowland.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with	vhost-net
+Date: Thu, 17 Dec 2009 17:57:15 +0530
+Message-ID: <OF4408981E.ACFC27B2-ON6525768F.0042EA92-6525768F.00436345@in.ibm.com>
+References: <OFA4DBC95B.29C84EEB-ON6525768F.0035A704-6525768F.003644A9@in.ibm.com> <20091217112754.GA7755@ff.dom.local> <20091217114535.GA30429@gondor.apana.org.au> <20091217114937.GA30503@gondor.apana.org.au> <20091217120856.GA30774@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46557 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753424AbZLQMPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 07:15:04 -0500
-In-Reply-To: <Pine.LNX.4.44L0.0912161447260.2643-100000@iolanthe.rowland.org>
+Received: from e28smtp09.in.ibm.com ([122.248.162.9]:58688 "EHLO
+	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754341AbZLQMQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 07:16:09 -0500
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp09.in.ibm.com (8.14.3/8.13.1) with ESMTP id nBHBpoiC021089
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 17:21:52 +0530
+Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBHCG6ql3211488
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 17:46:06 +0530
+Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
+	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBHCG4Tr025745
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 17:46:05 +0530
+In-Reply-To: <20091217120856.GA30774@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 16 December 2009 21:50:38 Alan Stern wrote:
-> On Wed, 16 Dec 2009, Brandeburg, Jesse wrote:
-> 
-> > copied the netdev mailing list.
-> 
-> Oops.  With all the other CC's I forgot to include netdev.  Shame, 
-> shame...
-> 
-> >  Alan thanks for the report, I wonder if 
-> > you can revert 98468efddb101f8a29af974101c17ba513b07be1 and see if that 
-> > fixes it?
-> 
-> It does indeed.  Thanks for the quick response.
-> 
-> > Roger on the To: line made that change, which may have broken e100 for 
-> > your system.
-> 
-> It looks simple enough, but obviously something is wrong with it.
+Herbert Xu <herbert@gondor.apana.org.au> wrote on 12/17/2009 05:38:56 PM:
 
-Well it took a while, and it seems that I had missed the undocumented(?) fact
-that pci_alloc_consistent returns zeroed memory (and pci_pool doesn't), and 
-the alloc_cbs doesn't explicitly zero the cb->status field when allocating. So
-here is a patch against v2.6.32:
-(David: 98468efddb101f8a29af974101c17ba513b07be1 should be removed from
-the -stable queue and replaced by a patch that includes this fix)
+> > And indeed, this new requeue behaviour was introduced in 2.6.32.
+>
+> Actually no, it was merely rearranged.  It would appear that this
+> behaviour has been around for over a year.
+>
+> It is even worse than I thought.  Not only would new tx packets
+> trigger this unnecessary queue run, but once it is triggered, it
+> would consume 100% CPU as dev_requeue_skb unconditionally reschedules
+> the queue!
+>
+> Tell me this is not true please...
 
-e100: Fix broken cbs accounting due to missing memset.
+Hi Herbert,
 
-Alan Stern noticed that e100 caused slab corruption.
-commit 98468efddb101f8a29af974101c17ba513b07be1 changed
-the allocation of cbs to use dma pools that don't return zeroed memory,
-especially the cb->status field used to track which cb to clean, causing
-(the visible) double freeing of skbs and a wrong free cbs count.
+I am confused. Isn't dequeue_skb returning NULL for 2nd - nth skbs
+till the queue is restarted, so how is it broken?
 
-Now the cbs are explicitly zeroed at allocation time.
+__dev_xmit_skb calls sch_direct_xmit only once after the device is
+stopped, and this call results in skb being re-queued. Next call to
+__dev_xmit_skb calls qdisc_restart which will always bail out since
+dev_dequeue returns NULL. We also avoid rescheduling the queue after
+the first resched. I also think the resched in requeue is probably
+not required, since the device will call netif_tx_wake_queue anyway.
 
-Reported-by: Alan Stern <stern@rowland.harvard.edu>
-Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
----
- drivers/net/e100.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+dev_dequeue()
+{
+      if (unlikely(skb)) {
+            struct net_device *dev = qdisc_dev(q);
+            struct netdev_queue *txq;
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index d269a68..29a8840 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -1815,6 +1815,7 @@ static int e100_alloc_cbs(struct nic *nic)
- 
- 	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
- 				  &nic->cbs_dma_addr);
-+	memset(nic->cbs, 0, count * sizeof(struct cb));
- 	if (!nic->cbs)
- 		return -ENOMEM;
- 
-@@ -1825,7 +1826,6 @@ static int e100_alloc_cbs(struct nic *nic)
- 		cb->dma_addr = nic->cbs_dma_addr + i * sizeof(struct cb);
- 		cb->link = cpu_to_le32(nic->cbs_dma_addr +
- 			((i+1) % count) * sizeof(struct cb));
--		cb->skb = NULL;
- 	}
- 
- 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = nic->cbs;
+            /* check the reason of requeuing without tx lock first */
+            txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+            if (!netif_tx_queue_stopped(txq) &&
+                !netif_tx_queue_frozen(txq)) {
+                        q->gso_skb = NULL;
+                        q->q.qlen--;
+            } else
+                  skb = NULL;
+}
+
+Thanks,
+
+- KK
+
