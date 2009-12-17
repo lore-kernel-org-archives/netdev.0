@@ -1,76 +1,50 @@
-From: Laurent Chavey <chavey@google.com>
-Subject: Re: [Bonding-devel] [PATCH] bonding: cancel_delayed_work() ->
-	cancel_delayed_work_sync()
-Date: Thu, 17 Dec 2009 10:49:17 -0800
-Message-ID: <97949e3e0912171049x607ded5cgf3b696a5d89129ba@mail.gmail.com>
-References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com>
-	<20091217074930.GA6779@ff.dom.local> <20091217133644.GD8654@ff.dom.local>
-	<1261060259.10356.112.camel@johannes.local> <11218.1261066373@death.nxdomain.ibm.com>
-	<20091217184017.GA2578@ami.dom.local>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Security: Implement prctl(PR_SET_NETWORK, PR_NETWORK_OFF) semantics.
+Date: Thu, 17 Dec 2009 11:18:22 -0800
+Message-ID: <m1pr6dwgsh.fsf@fess.ebiederm.org>
+References: <1260977452-2334-1-git-send-email-michael@laptop.org>
+	<1260977565-2379-2-git-send-email-michael@laptop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Mikhail Markine <markine@google.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net,
-	Petri Gynther <pgynther@google.com>,
-	David Miller <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:50908 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936596AbZLQStk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 13:49:40 -0500
-Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
-	by smtp-out.google.com with ESMTP id nBHIncIU011101
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 10:49:39 -0800
-Received: from pxi40 (pxi40.prod.google.com [10.243.27.40])
-	by kpbe16.cbf.corp.google.com with ESMTP id nBHIn8SK029803
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 10:49:37 -0800
-Received: by pxi40 with SMTP id 40so1703324pxi.21
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 10:49:37 -0800 (PST)
-In-Reply-To: <20091217184017.GA2578@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ulrich Drepper <drepper@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	"Andi Kleen" <andi@firstfloor.org>, "David Lang" <david@lang.hm>,
+	"Oliver Hartkopp" <socketcan@hartkopp.net>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Valdis Kletnieks" <Valdis.Kletnieks@vt.edu>,
+	"Bryan Donlan" <bdonlan@gmail.com>,
+	"Evgeniy Polyakov" <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	"James Morris" <jmorris@namei.org>,
+	"Bernie Innocenti" <bernie@codewiz.org>,
+	"Mark Seaborn" <mrs@mythic-beasts.com>
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1260977565-2379-2-git-send-email-michael@laptop.org> (Michael Stone's message of "Wed\, 16 Dec 2009 10\:32\:44 -0500")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-one instance that could be a problem
+Michael Stone <michael@laptop.org> writes:
 
-__exit bonding_exit(void)
-    bond_free_all()
-      	bond_work_cancel_all(bond);
-        unregister_netdevice(bond_dev)
+> diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+> index 23bd09c..5b38db0 100644
+> --- a/kernel/ptrace.c
+> +++ b/kernel/ptrace.c
+> @@ -151,6 +151,8 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
+>  		dumpable = get_dumpable(task->mm);
+>  	if (!dumpable && !capable(CAP_SYS_PTRACE))
+>  		return -EPERM;
+> +	if (current->network)
+> +		return -EPERM;
 
-could the above result in an invalid pointer when trying
-to use bond-> in one of the timer CB ?
+The principle should be: you gain no privileges by ptracing.
+Therefore this check should be:
 
+	if (current->network && !task->network)
+		return -EPERM;
 
-On Thu, Dec 17, 2009 at 10:40 AM, Jarek Poplawski <jarkao2@gmail.com> w=
-rote:
-> On Thu, Dec 17, 2009 at 08:12:53AM -0800, Jay Vosburgh wrote:
->> =A0 =A0 =A0 There's already logic in the monitors (bond_mii_monitor,=
- et al)
->> to check a sentinel (kill_timers) and do nothing (not acquire rtnl) =
-and
->> return.
->
-> Btw, this check should be repeated if bond->lock is given back and
-> re-acquired. I can't see these kill_timers used in bond_sysfs.c thoug=
-h.
->
->> =A0 =A0 =A0 What exactly is the nature of the race that doing cancel=
-=2E.sync
->> is fixing? =A0The bond_close function sets kill_timers prior to call=
-ing
->> the cancel functions, so the monitor function might run once, but it
->> should do nothing.
->
-> I guess there is a problem with destructions, but I hope Mikhail will
-> give more details.
->
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Which keeps the ptrace logic from being a larger hammer than it needs
+to be.
+
+Eric
