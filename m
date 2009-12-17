@@ -1,107 +1,61 @@
-From: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-Subject: Re: e100 REGRESSION in 2.6.32 (PATCH v2)
-Date: Thu, 17 Dec 2009 18:10:45 +0200
-Message-ID: <200912171810.45575.roger.oksanen@cs.helsinki.fi>
-References: <Pine.LNX.4.44L0.0912171046070.2645-100000@iolanthe.rowland.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752555AbZLQQLg@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.0912171046070.2645-100000@iolanthe.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] [PATCH] bonding: cancel_delayed_work() -> cancel_delayed_work_sync()
+Date: Thu, 17 Dec 2009 08:12:53 -0800
+Message-ID: <11218.1261066373@death.nxdomain.ibm.com>
+References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com> <20091217074930.GA6779@ff.dom.local> <20091217133644.GD8654@ff.dom.local> <1261060259.10356.112.camel@johannes.local>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Mikhail Markine <markine@google.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net,
+	Petri Gynther <pgynther@google.com>,
+	David Miller <davem@davemloft.net>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:40644 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759356AbZLQQNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2009 11:13:15 -0500
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id nBHG4AVS006026
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 11:04:10 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBHGD9BG126586
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 11:13:09 -0500
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBHGD7Wa021660
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 09:13:08 -0700
+In-reply-to: <1261060259.10356.112.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 17 December 2009 17:47:32 Alan Stern wrote:
-> On Thu, 17 Dec 2009, Roger Oksanen wrote:
-> 
-> > e100: Fix broken cbs accounting due to missing memset.
-> > 
-> > Alan Stern noticed that e100 caused slab corruption.
-> > commit 98468efddb101f8a29af974101c17ba513b07be1 changed
-> > the allocation of cbs to use dma pools that don't return zeroed memory,
-> > especially the cb->status field used to track which cb to clean, causing
-> > (the visible) double freeing of skbs and a wrong free cbs count.
-> > 
-> > Now the cbs are explicitly zeroed at allocation time.
-> > 
-> > Reported-by: Alan Stern <stern@rowland.harvard.edu>
-> > Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-> > ---
-> >  drivers/net/e100.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> > index d269a68..29a8840 100644
-> > --- a/drivers/net/e100.c
-> > +++ b/drivers/net/e100.c
-> > @@ -1815,6 +1815,7 @@ static int e100_alloc_cbs(struct nic *nic)
-> >  
-> >  	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
-> >  				  &nic->cbs_dma_addr);
-> > +	memset(nic->cbs, 0, count * sizeof(struct cb));
-> >  	if (!nic->cbs)
-> >  		return -ENOMEM;
-> >  
-> > @@ -1825,7 +1826,6 @@ static int e100_alloc_cbs(struct nic *nic)
-> >  		cb->dma_addr = nic->cbs_dma_addr + i * sizeof(struct cb);
-> >  		cb->link = cpu_to_le32(nic->cbs_dma_addr +
-> >  			((i+1) % count) * sizeof(struct cb));
-> > -		cb->skb = NULL;
-> >  	}
-> >  
-> >  	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = nic->cbs;
-> 
-> Clearly the memset() belongs after the "if" test, not before.  Apart 
-> from that, I confirm that this patch fixes the problem in 2.6.32.
+Johannes Berg <johannes@sipsolutions.net> wrote:
 
-Silly me! Thanks for testing it. 
-Here is the updated patch.
+>On Thu, 2009-12-17 at 13:36 +0000, Jarek Poplawski wrote:
+>> On Thu, Dec 17, 2009 at 02:19:46PM +0100, Johannes Berg wrote:
+>> > Jarek,
+>> > 
+>> > Sorry to mail you directly, but I only saw your reply on gmane and
+>> > didn't want to break up the threading etc.
+>> > 
+>> > cancel_delayed_work_sync() should be ok in this case unless the work
+>> > items themselves used the rtnl,
+>> 
+>> Hmm, I'm not sure I get your point, but e.g. bond_mii_monitor() work
+>> function can get rtnl_lock().
+>
+>Ok in that case you can't cancel_sync() it under rtnl. I was thinking of
+>the case where it's just not ok because of other work. Sorry for the
+>confusion!
 
-e100: Fix broken cbs accounting due to missing memset.
+	There's already logic in the monitors (bond_mii_monitor, et al)
+to check a sentinel (kill_timers) and do nothing (not acquire rtnl) and
+return.
 
-Alan Stern noticed that e100 caused slab corruption.
-commit 98468efddb101f8a29af974101c17ba513b07be1 changed
-the allocation of cbs to use dma pools that don't return zeroed memory,
-especially the cb->status field used to track which cb to clean, causing
-(the visible) double freeing of skbs and a wrong free cbs count.
+	What exactly is the nature of the race that doing cancel..sync
+is fixing?  The bond_close function sets kill_timers prior to calling
+the cancel functions, so the monitor function might run once, but it
+should do nothing.
 
-Now the cbs are explicitly zeroed at allocation time.
+	-J
 
-Reported-by: Alan Stern <stern@rowland.harvard.edu>
-Tested-by: Alan Stern <stern@rowland.harvard.edu>
-Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
 ---
- drivers/net/e100.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index d269a68..0c53c92 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -1817,6 +1817,7 @@ static int e100_alloc_cbs(struct nic *nic)
- 				  &nic->cbs_dma_addr);
- 	if (!nic->cbs)
- 		return -ENOMEM;
-+	memset(nic->cbs, 0, count * sizeof(struct cb));
- 
- 	for (cb = nic->cbs, i = 0; i < count; cb++, i++) {
- 		cb->next = (i + 1 < count) ? cb + 1 : nic->cbs;
-@@ -1825,7 +1826,6 @@ static int e100_alloc_cbs(struct nic *nic)
- 		cb->dma_addr = nic->cbs_dma_addr + i * sizeof(struct cb);
- 		cb->link = cpu_to_le32(nic->cbs_dma_addr +
- 			((i+1) % count) * sizeof(struct cb));
--		cb->skb = NULL;
- 	}
- 
- 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = nic->cbs;
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
