@@ -1,69 +1,68 @@
-From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3] add the driver for Analog
-	Devices Blackfin on-chip CAN controllers
-Date: Wed, 16 Dec 2009 20:20:31 -0500
-Message-ID: <8bd0f97a0912161720o2649dd7eh2725146f4805486d@mail.gmail.com>
-References: <4B20CB82.6060702@grandegger.com>
-	<4B20D214.4050503@grandegger.com>
-	<8bd0f97a0912100258n6896b21er1d9525bb7dbf6aec@mail.gmail.com>
-	<20091210.133729.42872813.davem@davemloft.net>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
+Date: Wed, 16 Dec 2009 20:25:40 -0500
+Message-ID: <20091217012540.GA2609@heat>
+References: <20091216155938.GG15031@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oe-pJ9TYRvN+WE@public.gmane.org,
-        wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <20091210.133729.42872813.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Michael Stone <michael@laptop.org>,
+	Ulrich Drepper <drepper@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091216155938.GG15031@basil.fritz.box>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MjAwOS8xMi8xMCBEYXZpZCBNaWxsZXI6Cj4gRnJvbTogTWlrZSBGcnlzaW5nZXIKPj4gT24gVGh1
-LCBEZWMgMTAsIDIwMDkgYXQgMDU6NDgsIFdvbGZnYW5nIEdyYW5kZWdnZXIgd3JvdGU6Cj4+PiBX
-b2xmZ2FuZyBHcmFuZGVnZ2VyIHdyb3RlOgo+Pj4+IE1pa2UgRnJ5c2luZ2VyIHdyb3RlOgo+Pj4+
-PiBPbiBUaHUsIERlYyAxMCwgMjAwOSBhdCAwNDoxMSwgV29sZmdhbmcgR3JhbmRlZ2dlciB3cm90
-ZToKPj4+Pj4+IFdlbGwsIEknbSBzdGlsbCBub3QgYSBmcmllbmQgb2YgdGhlIGZvbGxvd2luZyBp
-bmxpbmUgZnVuY3Rpb25zLAo+Pj4+Pj4gZXNwZWNpYWxseSB0aGUgKm9uZS1saW5lcnMqIHdoaWNo
-IGFyZSBjYWxsZWQganVzdCAqb25jZSouIFdpdGggdGhlIHVzYWdlCj4+Pj4+PiBvZiBzdHJ1Y3Rz
-IHRoZXkgc2VlbSBldmVuIG1vcmUgdXNlbGVzcy4KPj4+Pj4gc2VlbXMgbGlrZSBpdCB3b3VsZCBt
-YWtlIG1vcmUgc2Vuc2UgdG8gbm90IGV2ZW4gdXNlIHRoZSByZWFkL3dyaXRlCj4+Pj4+IGZ1bmN0
-aW9ucyBlaXRoZXIuIO+/vSxBIGp1c3QgZGVjbGFyZSB0aGUgcmVncyBhcyB2b2xhdGlsZSBhbmQg
-YXNzaWduL3JlYWQKPj4+Pj4gdGhlIHN0cnVjdCBkaXJlY3RseS4KPj4+Pgo+Pj4+IFR3byB0aW1l
-cyBuby4gRG9uJ3QgdXNlIHZvbGF0aWxlIGFuZCBwcm9wZXIgYWNjZXNzb3IgZnVuY3Rpb25zLiBT
-ZWU6Cj4+Pj4KPj4+PiBodHRwOi8vbHhyLmxpbnV4Lm5vLyNsaW51eCt2Mi42LjMyL0RvY3VtZW50
-YXRpb24vdm9sYXRpbGUtY29uc2lkZXJlZC1oYXJtZnVsLnR4dAo+Pj4KPj4+IEkgd2FzIGp1c3Qg
-d29uZGVyaW5nIGlmIGJmaW5fcmVhZC93cml0ZTE2IHdvdWxkIG5vdCBiZSB0aGUgcHJvcGVyCj4+
-PiBhY2Nlc3NvciBmdW5jdGlvbnMuIHJlYWR3L3dyaXRldyBzZWVtcyB0byBiZSBpbXBsZW1lbnRl
-ZCBkaWZmZXJlbnRseToKPj4+Cj4+PiBodHRwOi8vbHhyLmxpbnV4Lm5vLyNsaW51eCt2Mi42LjMy
-L2FyY2gvYmxhY2tmaW4vaW5jbHVkZS9hc20vaW8uaCNMNDQKPj4+Cj4+PiBQdWgsIHRoZXkgZG8g
-YW4gY2xpLG5vcCxub3Asc3luYy4uc3RpIGZvciB0aGUgYWNjZXNzLiBUaGlzIGFsc28gbmljZWx5
-Cj4+PiBzaG93cyB3aHkgYWNjZXNzb3IgZnVuY3Rpb25zIHNob3VsZCBiZSB1c2VkIHRvIGFjY2Vz
-cyBkZXZpY2UgcmVnaXN0ZXJzLgo+Pj4KPj4+IFdlbGwsIGp1c3QgY3VyaW91cy4gSSBkb24ndCBy
-ZWFsbHkga25vdyB0aGUgYmxhY2tmaW4gYXJjaC4KPj4KPj4gdGhlIGNvbW1vbiBJL08gZnVuY3Rp
-b25zIG5lZWQgdG8gYWNjb3VudCBmb3IgaXNzdWVzIHN1cnJvdW5kaW5nIHRoZQo+PiBidXMgdGhh
-dCBoYXMgYXJiaXRyYXJ5IGRldmljZXMgbWVtb3J5IG1hcHBlZCB0byBpdC4gwqBvbi1jaGlwIGRl
-dmljZXMKPj4gKGxpa2Ugd2hhdCB3ZSdyZSB0YWxraW5nIGFib3V0IGhlcmUpIGRvIG5vdCBoYXZl
-IHRoZXNlIGlzc3VlcyBhbmQgc28KPj4gdXNpbmcgdGhlIGNvbW1vbiBmdW5jdGlvbnMgaXMgYXdm
-dWwgb3ZlcmhlYWQuCj4KPiBUaGVuIGNyZWF0ZSBzcGVjaWFsIGFjY2Vzc29ycyAocGVyaGFwcyB3
-aXRoIHRoZSBzYW1lIG5hbWVzIGFzIHRoZQo+IGV4aXN0aW5nIG9uZXMsIGJ1dCB3aXRoICJfXyIg
-cHJlcGVuZGVkKSB0aGF0IGxhY2sgYWxsIG9mIHRoZQo+IGludGVycnVwdCBkaXNhYmxpbmcsIHN5
-bmNzLCBldGMuCj4KPiBSZWFsbHkgaXQgX2lzXyBjbGVhbmVyIGFuZCBtYWtlcyB5b3VyIGRyaXZl
-ciBsb29rIGEgbG90IG5pY2VyLgoKaXQgcmVhbGx5IGlzbnQuICBtb3JlIHJlYXNvbnMgd2h5IGlv
-IGFjY2Vzc29ycyBzdWNrOgogLSBubyB0eXBlIGNoZWNraW5nCiAgIC0gZWFzeSB0byBzY3JldyB1
-cCByZWdpc3RlciBzaXplcyAoOC8xNi8zMikKICAgLSBoYXZlIHRvIGFkZCBzaGltcyBmb3IgZWFj
-aCByZWdpc3RlciB0aGF0IGNoYW5nZXMgc2l6ZXMgYmV0d2VlbiBwYXJ0cwogICAtIG5vIHdheSB0
-byBtYXJrIGEgcmVnaXN0ZXIgcmVhZC1vbmx5IChpLmUuIGNvbnN0KQoKdW5mb3J0dW5hdGVseSwg
-d2UgY2FudCBwdXNoIHRoZSBpc3N1ZSB3aXRoIEJsYWNrZmluIE1NUnMgYmVjYXVzZSBvZiBhCm1p
-bm9yIGFub21hbHkgdGhhdCBleGlzdHMgb24gb2xkZXIgcGFydHMuCi1taWtlCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClVjbGludXgtZGlzdC1kZXZlbCBt
-YWlsaW5nIGxpc3QKVWNsaW51eC1kaXN0LWRldmVsQGJsYWNrZmluLnVjbGludXgub3JnCmh0dHBz
-Oi8vYmxhY2tmaW4udWNsaW51eC5vcmcvbWFpbG1hbi9saXN0aW5mby91Y2xpbnV4LWRpc3QtZGV2
-ZWw=
+Andi Kleen wrote:
+> On Wed, Dec 16, 2009 at 10:32:43AM -0500, Michael Stone wrote:
+>> Daniel Bernstein has observed [1] that security-conscious userland processes
+>> may benefit from the ability to irrevocably remove their ability to create,
+>> bind, connect to, or send messages except in the case of previously
+>> connected sockets or AF_UNIX filesystem sockets. We provide this facility by
+>> implementing support for a new prctl(PR_SET_NETWORK) flag named
+>> PR_NETWORK_OFF.
+>> 
+>> This facility is particularly attractive to security platforms like OLPC
+>> Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4].
+> 
+> What would stop them from ptracing someone else running under the same
+> uid who still has the network access? 
+
+Just like in the (revised from last year) rlimits version, there's a hunk in
+the prctl_network semantics patch which disables networking-via-ptrace() like
+so:
+
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 23bd09c..5b38db0 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -151,6 +151,8 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
+                dumpable = get_dumpable(task->mm);
+        if (!dumpable && !capable(CAP_SYS_PTRACE))
+                return -EPERM;
++       if (current->network)
++               return -EPERM;
+
+        return security_ptrace_access_check(task, mode);
+  }
+
+More questions?
+
+Regards, and thanks for your interest,
+
+Michael
