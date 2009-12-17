@@ -1,57 +1,47 @@
-From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: Still using IPTOS_TOS() in kernel? Really???
-Date: Thu, 17 Dec 2009 11:45:32 -0800
-Message-ID: <4B2A8A5C.9070702@redfish-solutions.com>
-References: <4B298118.2000608@redfish-solutions.com> <200912171724.32711.schmto@hrz.tu-chemnitz.de>
+From: Bryan Donlan <bdonlan@gmail.com>
+Subject: Re: Network isolation with RLIMIT_NETWORK, cont'd.
+Date: Thu, 17 Dec 2009 14:53:00 -0500
+Message-ID: <3e8340490912171153s56e966d6lb76041fefc52e735@mail.gmail.com>
+References: <m1ljh7jijk.fsf@fess.ebiederm.org> <20091213142149.GB4777@heat>
+	<fb69ef3c0912170931l5cbf0e3dh81c88e6502651042@mail.gmail.com>
+	<3e8340490912171024n2120e88q569c69fe7d09140f@mail.gmail.com>
+	<1261078517.4073.32.camel@giskard.codewiz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:54620 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965492AbZLQTpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 14:45:39 -0500
-In-Reply-To: <200912171724.32711.schmto@hrz.tu-chemnitz.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Seaborn <mrs@mythic-beasts.com>,
+	Michael Stone <michael@laptop.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	=?ISO-8859-1?Q?R=E9mi_Denis=2DCourmont?= <rdenis@simphalempin.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Bernie Innocenti <bernie@codewiz.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1261078517.4073.32.camel@giskard.codewiz.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/17/2009 08:24 AM, Torsten Schmidt wrote:
-> Hi Philip,
-> 
-> interesting .. i am on the way to implement a DSCP/CS statistic to the kernel. 
-> We need this for network traffic accounting. The concept is the following: 
-> 
-> We create a virtual file /pro/net/ipdscp , this includes several DSCP/CS 
-> counters. See http://www.iana.org/assignments/dscp-registry/. Every time 
-> ip_rcv_finish() is called, we take a look at the DSCP/CS (iph->tos) value and 
-> increment the related counter. If you're interested in, i will send you a 
-> patch ? ..  
+On Thu, Dec 17, 2009 at 2:35 PM, Bernie Innocenti <bernie@codewiz.org> wrote:
+> On Thu, 2009-12-17 at 13:24 -0500, Bryan Donlan wrote:
+>> Can this be done using openat() and friends currently? It would seem
+>> the natural way to implement this; open /proc/(pid)/root, then
+>> openat() things from there (or even chdir to it and see the mounts
+>> that it sees from there...)
+>
+> Yeah, but /proc/<pid>/root is just a symlink. It's correct for chroots,
+> but I doubt it can be meaningful for per-process namespaces.
 
-That would be great.
-
-> Maybe this is a good starting point for an DSCP/CS implementation. I was also 
-> shocked that the kernel do not really handle DiffServ thinks. 
-
-I think it would also be useful to rework the existing definition of rt_tos2priority() to have a DSCP/CS version that people could then select and build in their kernel via a simple CONFIG_DIFFSERV_COMPLIANT flag.
-
-It could be selectable and default to off until a set cut-over point in the future, then it could become the default.
-
-RFC-2474 is now 11 years old...  Odd that we're still not compliant.
-
--Philip
-
-
->> Assuming my crusade to get various common apps and services (wget, TB, FF,
->>  Sendmail, Cyrus, ProFTPd, etc) to use DSCP/CS marking (very few apps
->>  currently use DSCP or precedence marking), then kernels with the proper
->>  default behavior will need to start shipping, right?  I.e. out-of-the-box
->>  kernels should handle such apps without further configuration, such as
->>  needing to have the DSCP iptables module installed.  They should "just
->>  work".
-> Right. 
-> 
-> Best regards,
-> Torsten
-
+The files in /proc/<pid>/fs are 'just symlinks', but opening them can
+provide access to objects (eg, deleted files) not accessible through
+the normal filesystem namespace. I see no reason, API-wise, why
+/proc/<pid>/root couldn't be extended similarly - but I've not looked
+at the namespaces implementation, so maybe there's some reason it'd be
+difficult to implement...
