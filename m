@@ -1,98 +1,67 @@
-From: =?ISO-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>
-Subject: Re: [Bugme-new] [Bug 14794] New: IP address assigned by DHCP is dropped
- after ~40 seconds
-Date: Thu, 17 Dec 2009 21:53:20 +0100
-Message-ID: <4B2A9A40.90203@freemail.hu>
-References: <bug-14794-10286@http.bugzilla.kernel.org/> <20091216154713.f082e7cf.akpm@linux-foundation.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v4 1/1] rps: core implementation
+Date: Thu, 17 Dec 2009 13:04:01 -0800
+Message-ID: <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>
+	 <20091120154046.67252d23@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Mike Galbraith <efault@gmx.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Ingo Molnar <mingo@elte.hu>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02d.mail.t-online.hu ([84.2.42.7]:53837 "EHLO
-	mail02d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759982AbZLQVDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:03:51 -0500
-In-Reply-To: <20091216154713.f082e7cf.akpm@linux-foundation.org>
+Received: from smtp-out.google.com ([216.239.44.51]:31484 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759982AbZLQVEI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:04:08 -0500
+Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
+	by smtp-out.google.com with ESMTP id nBHL43lq019859
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:04 -0800
+Received: from pxi12 (pxi12.prod.google.com [10.243.27.12])
+	by kpbe17.cbf.corp.google.com with ESMTP id nBHL39B7029902
+	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:03 -0800
+Received: by pxi12 with SMTP id 12so188371pxi.3
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:02 -0800 (PST)
+In-Reply-To: <20091120154046.67252d23@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Nov 20, 2009 at 3:40 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+>
+> On Fri, 20 Nov 2009 15:28:58 -0800
+> Tom Herbert <therbert@google.com> wrote:
+>
+> > +static char *get_token(const char **cp, size_t *len)
+> > +{
+> > + =A0 =A0 const char *bp =3D *cp;
+> > + =A0 =A0 char *start;
+> > +
+> > + =A0 =A0 while (isspace(*bp))
+> > + =A0 =A0 =A0 =A0 =A0 =A0 bp++;
+> > +
+> > + =A0 =A0 start =3D (char *)bp;
+> > + =A0 =A0 while (!isspace(*bp) && *bp !=3D '\0')
+> > + =A0 =A0 =A0 =A0 =A0 =A0 bp++;
+> > +
+> > + =A0 =A0 if (start !=3D bp)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 *len =3D bp - start;
+> > + =A0 =A0 else
+> > + =A0 =A0 =A0 =A0 =A0 =A0 start =3D NULL;
+> > +
+> > + =A0 =A0 *cp =3D bp;
+> > + =A0 =A0 return start;
+> > +}
+>
+>
+> Sysfs is intentionally one value per file. If you need multiple
+> values, then it is the wrong interface.
 
-I bisected the problem, see http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-14794
-for details. Any idea what is the relation between this problem and the=
- found
-patch?
+Are there any good recommendations for a more appropriate interface to
+use?  Would it make sense to expose the NAPI instances in sysfs...
+like eth0/rx-0/, eth0/rx-1/,... which would hopefully be consistent
+with interrupts in /proc/interrupts.
 
-Regards,
-
-	M=E1rton N=E9meth
-
-Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via=
- the
-> bugzilla web interface).
->=20
-> A 2.6.31 -> 2.6.32 regression.
->=20
-> On Sun, 13 Dec 2009 08:59:48 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->=20
->> http://bugzilla.kernel.org/show_bug.cgi?id=3D14794
->>
->>            Summary: IP address assigned by DHCP is dropped after ~40
->>                     seconds
->>            Product: Networking
->>            Version: 2.5
->>     Kernel Version: 2.6.32
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: IPV4
->>         AssignedTo: shemminger@linux-foundation.org
->>         ReportedBy: nm127@freemail.hu
->>         Regression: Yes
->>
->>
->> Created an attachment (id=3D24165)
->>  --> (http://bugzilla.kernel.org/attachment.cgi?id=3D24165)
->> Wireshark log while acquiring IP address
->>
->> The IP address which was assigned by DHCP is dropped and the address
->> 169.254.123.251 is set. This happens on Clevo D4J model D410J with 2=
-=2E6.32, but
->> works correctly with 2.6.31.
->>
->> Steps to reproduce:
->> 1. Boot the system
->> 2. In an xterm window execute the following command to see the actua=
-l IP
->> address settings:
->>    while true; do clear; date; /sbin/ifconfig; sleep 1; done
->> 3. Unplug the network cable for some seconds: the IP address should =
-be gone
->> 4. Plug the network cable.
->> 5. After about 10 seconds the IP address 192.168.1.64 assigned by DH=
-CP is
->> visible
->> 6. After about 50 seconds (counting from the plug of the network cab=
-le) no IP
->> address is assigned
->> 7. After about 65 seconds (counting from the plug of the network cab=
-le) the IP
->> address 169.254.123.251 is assigned. This IP address will not work o=
-n this
->> network.
->>
->> I run Wireshark during the whole process, see the attached log file.
->> Packet 25..28: DHCP address is fetched.
->> Packet 63: DHCP release: this should not happen
+Thanks,
+Tom
