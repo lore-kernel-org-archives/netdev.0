@@ -1,67 +1,74 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v4 1/1] rps: core implementation
-Date: Thu, 17 Dec 2009 13:04:01 -0800
-Message-ID: <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>
-	 <20091120154046.67252d23@nehalam>
+From: Laurent Chavey <chavey@google.com>
+Subject: Re: e100 REGRESSION in 2.6.32 (PATCH v2)
+Date: Thu, 17 Dec 2009 13:15:04 -0800
+Message-ID: <97949e3e0912171315g537903f7m9461ea8399dc018c@mail.gmail.com>
+References: <Pine.LNX.4.44L0.0912171046070.2645-100000@iolanthe.rowland.org>
+	<200912171810.45575.roger.oksanen@cs.helsinki.fi>
+	<alpine.WNT.2.00.0912170919010.2612@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:31484 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759982AbZLQVEI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:04:08 -0500
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id nBHL43lq019859
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:04 -0800
-Received: from pxi12 (pxi12.prod.google.com [10.243.27.12])
-	by kpbe17.cbf.corp.google.com with ESMTP id nBHL39B7029902
-	for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:03 -0800
-Received: by pxi12 with SMTP id 12so188371pxi.3
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:04:02 -0800 (PST)
-In-Reply-To: <20091120154046.67252d23@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>,
+	Kernel development list <linux-kernel@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	Alan Stern <stern@rowland.harvard.edu>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Roger Oksanen <roger.oksanen@cs.helsinki.fi>,
+	David Miller <davem@davemloft.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.WNT.2.00.0912170919010.2612@jbrandeb-desk1.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 20, 2009 at 3:40 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
->
-> On Fri, 20 Nov 2009 15:28:58 -0800
-> Tom Herbert <therbert@google.com> wrote:
->
-> > +static char *get_token(const char **cp, size_t *len)
-> > +{
-> > + =A0 =A0 const char *bp =3D *cp;
-> > + =A0 =A0 char *start;
-> > +
-> > + =A0 =A0 while (isspace(*bp))
-> > + =A0 =A0 =A0 =A0 =A0 =A0 bp++;
-> > +
-> > + =A0 =A0 start =3D (char *)bp;
-> > + =A0 =A0 while (!isspace(*bp) && *bp !=3D '\0')
-> > + =A0 =A0 =A0 =A0 =A0 =A0 bp++;
-> > +
-> > + =A0 =A0 if (start !=3D bp)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 *len =3D bp - start;
-> > + =A0 =A0 else
-> > + =A0 =A0 =A0 =A0 =A0 =A0 start =3D NULL;
-> > +
-> > + =A0 =A0 *cp =3D bp;
-> > + =A0 =A0 return start;
-> > +}
->
->
-> Sysfs is intentionally one value per file. If you need multiple
-> values, then it is the wrong interface.
+when using DMAPOOL_DEBUG, do we really want to
+over-write 	memset(retval, POOL_POISON_ALLOCATED, pool->size);
+set in  dma_pool_alloc.
 
-Are there any good recommendations for a more appropriate interface to
-use?  Would it make sense to expose the NAPI instances in sysfs...
-like eth0/rx-0/, eth0/rx-1/,... which would hopefully be consistent
-with interrupts in /proc/interrupts.
 
-Thanks,
-Tom
+On Thu, Dec 17, 2009 at 9:21 AM, Brandeburg, Jesse
+<jesse.brandeburg@intel.com> wrote:
+>
+> On Thu, 17 Dec 2009, Roger Oksanen wrote:
+>> e100: Fix broken cbs accounting due to missing memset.
+>>
+>> Alan Stern noticed that e100 caused slab corruption.
+>> commit 98468efddb101f8a29af974101c17ba513b07be1 changed
+>> the allocation of cbs to use dma pools that don't return zeroed memory,
+>> especially the cb->status field used to track which cb to clean, causing
+>> (the visible) double freeing of skbs and a wrong free cbs count.
+>>
+>> Now the cbs are explicitly zeroed at allocation time.
+>>
+>> Reported-by: Alan Stern <stern@rowland.harvard.edu>
+>> Tested-by: Alan Stern <stern@rowland.harvard.edu>
+>> Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
+>
+> Change looks reasonable, ACK.
+>
+> should we also consider a followon patch to zero memory allocated with
+> pci_pools? =A0Seems useful.
+>
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+
+---------------------------------------------------------------------------=
+---
+This SF.Net email is sponsored by the Verizon Developer Community
+Take advantage of Verizon's best-in-class app development support
+A streamlined, 14 day to market process makes app distribution fast and easy
+Join now and get one step closer to millions of Verizon customers
+http://p.sf.net/sfu/verizon-dev2dev =
