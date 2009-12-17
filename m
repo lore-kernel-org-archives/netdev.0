@@ -1,41 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
-	vhost-net
-Date: Thu, 17 Dec 2009 11:15:39 +0800
-Message-ID: <20091217031539.GA26087@gondor.apana.org.au>
-References: <20091213122512.GA17255@gondor.apana.org.au> <200912161311.40644.rusty@rustcorp.com.au> <20091216025331.GA13935@gondor.apana.org.au> <200912162315.38802.rusty@rustcorp.com.au> <1261014180.11648.35.camel@w-sridhar.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com,
-	netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59395 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758838AbZLQDPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 22:15:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1261014180.11648.35.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@suse.de>
+Subject: [133/151] net: Fix userspace RTM_NEWLINK notifications.
+Date: Wed, 16 Dec 2009 19:57:10 -0800
+Message-ID: <20091217035700.235380354@mini.kroah.org>
+References: <20091217040208.GA26571@kroah.com>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	netdev@vger.kernel.org, marcel@holtmann.org,
+	"Eric W. Biederman" <ebiederm@aristanetworks.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935576AbZLQEMt@vger.kernel.org>
+In-Reply-To: <20091217040208.GA26571@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 16, 2009 at 05:43:00PM -0800, Sridhar Samudrala wrote:
->
-> I had to change virtnet_xmit_poll() to get it working. See below.
-> With this change, i don't see any 'queue full' warnings, but requeues
-> are still happening at the qdisc level (sch_direct_xmit() finds that
-> tx queue is stopped and does requeues).
+2.6.32-stable review patch.  If anyone has any objections, please let us know.
 
-Actually this makes no sense.  The queue should only be stopped
-at the end of a xmit run, in which case sch_direct_xmit should
-return 0 so we should never see a requeue.
+------------------
 
-So if we're still seeing requeues then it hasn't been fixed
-properly.
+commit d90a909e1f3e006a1d57fe11fd417173b6494701 upstream.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I received some bug reports about userspace programs having problems
+because after RTM_NEWLINK was received they could not immeidate
+access files under /proc/sys/net/ because they had not been
+registered yet.
+
+The problem was trivailly fixed by moving the userspace
+notification from rtnetlink_event to the end of register_netdevice.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ net/core/dev.c       |   11 +++++++++++
+ net/core/rtnetlink.c |    4 +---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4860,6 +4860,11 @@ int register_netdevice(struct net_device
+ 		rollback_registered(dev);
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 	}
++	/*
++	 *	Prevent userspace races by waiting until the network
++	 *	device is fully setup before sending notifications.
++	 */
++	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
+ 
+ out:
+ 	return ret;
+@@ -5398,6 +5403,12 @@ int dev_change_net_namespace(struct net_
+ 	/* Notify protocols, that a new device appeared. */
+ 	call_netdevice_notifiers(NETDEV_REGISTER, dev);
+ 
++	/*
++	 *	Prevent userspace races by waiting until the network
++	 *	device is fully setup before sending notifications.
++	 */
++	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
++
+ 	synchronize_net();
+ 	err = 0;
+ out:
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1334,13 +1334,11 @@ static int rtnetlink_event(struct notifi
+ 	case NETDEV_UNREGISTER:
+ 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
+ 		break;
+-	case NETDEV_REGISTER:
+-		rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
+-		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_DOWN:
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+ 		break;
++	case NETDEV_REGISTER:
+ 	case NETDEV_CHANGE:
+ 	case NETDEV_GOING_DOWN:
+ 		break;
