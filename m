@@ -1,49 +1,45 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
-Date: Thu, 17 Dec 2009 11:28:34 -0500
-Message-ID: <20091217162834.GA3047@heat>
-References: <2375c9f90912170125u6de30803sd80ecddaa332cc6a@mail.gmail.com>
+From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
+Subject: Re: Still using IPTOS_TOS() in kernel? Really???
+Date: Thu, 17 Dec 2009 17:24:32 +0100
+Message-ID: <200912171724.32711.schmto@hrz.tu-chemnitz.de>
+References: <4B298118.2000608@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Stone <michael@laptop.org>,
-	Ulrich Drepper <drepper@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>
-To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2375c9f90912170125u6de30803sd80ecddaa332cc6a@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jack.hrz.tu-chemnitz.de ([134.109.132.46]:60143 "EHLO
+	jack.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751593AbZLQQud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 11:50:33 -0500
+In-Reply-To: <4B298118.2000608@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am=E9rico Wang wrote:
+Hi Philip,
 
-> Any reason why you introdce a new source file?
-> Why not just adding them to kernel/sys.c?
+interesting .. i am on the way to implement a DSCP/CS statistic to the kernel. 
+We need this for network traffic accounting. The concept is the following: 
 
-Modifying kernel/sys.c would be fine too, I think. I'll incorporate thi=
-s
-suggestion into the next revision of the prctl()-based patches.
+We create a virtual file /pro/net/ipdscp , this includes several DSCP/CS 
+counters. See http://www.iana.org/assignments/dscp-registry/. Every time 
+ip_rcv_finish() is called, we take a look at the DSCP/CS (iph->tos) value and 
+increment the related counter. If you're interested in, i will send you a 
+patch ? ..  
 
-Thanks!
+Maybe this is a good starting point for an DSCP/CS implementation. I was also 
+shocked that the kernel do not really handle DiffServ thinks. 
 
-Michael
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Assuming my crusade to get various common apps and services (wget, TB, FF,
+>  Sendmail, Cyrus, ProFTPd, etc) to use DSCP/CS marking (very few apps
+>  currently use DSCP or precedence marking), then kernels with the proper
+>  default behavior will need to start shipping, right?  I.e. out-of-the-box
+>  kernels should handle such apps without further configuration, such as
+>  needing to have the DSCP iptables module installed.  They should "just
+>  work".
+Right. 
+
+Best regards,
+Torsten
