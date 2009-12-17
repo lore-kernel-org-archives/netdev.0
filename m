@@ -1,74 +1,40 @@
-From: Laurent Chavey <chavey@google.com>
-Subject: Re: e100 REGRESSION in 2.6.32 (PATCH v2)
-Date: Thu, 17 Dec 2009 13:15:04 -0800
-Message-ID: <97949e3e0912171315g537903f7m9461ea8399dc018c@mail.gmail.com>
-References: <Pine.LNX.4.44L0.0912171046070.2645-100000@iolanthe.rowland.org>
-	<200912171810.45575.roger.oksanen@cs.helsinki.fi>
-	<alpine.WNT.2.00.0912170919010.2612@jbrandeb-desk1.amr.corp.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bonding-devel] [PATCH] bonding: cancel_delayed_work() ->
+ cancel_delayed_work_sync()
+Date: Thu, 17 Dec 2009 22:16:20 +0100
+Message-ID: <20091217211620.GC2578@ami.dom.local>
+References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com>
+ <20091217074930.GA6779@ff.dom.local>
+ <20091217133644.GD8654@ff.dom.local>
+ <1261060259.10356.112.camel@johannes.local>
+ <11218.1261066373@death.nxdomain.ibm.com>
+ <20091217184017.GA2578@ami.dom.local>
+ <97949e3e0912171049x607ded5cgf3b696a5d89129ba@mail.gmail.com>
+ <29926.1261078662@death.nxdomain.ibm.com>
+ <20091217205617.GB2578@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>,
-	Kernel development list <linux-kernel@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	Alan Stern <stern@rowland.harvard.edu>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Roger Oksanen <roger.oksanen@cs.helsinki.fi>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Laurent Chavey <chavey@google.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Mikhail Markine <markine@google.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net,
+	Petri Gynther <pgynther@google.com>,
 	David Miller <davem@davemloft.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.WNT.2.00.0912170919010.2612@jbrandeb-desk1.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f221.google.com ([209.85.220.221]:57602 "EHLO
+	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765354AbZLQVQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:16:29 -0500
+Received: by fxm21 with SMTP id 21so2307355fxm.21
+        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:16:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20091217205617.GB2578@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-when using DMAPOOL_DEBUG, do we really want to
-over-write 	memset(retval, POOL_POISON_ALLOCATED, pool->size);
-set in  dma_pool_alloc.
+On Thu, Dec 17, 2009 at 09:56:17PM +0100, Jarek Poplawski wrote:
+> loops are tricky (they omit lockdep, plus can hide some hidden
+...hideousness... ;-)
 
-
-On Thu, Dec 17, 2009 at 9:21 AM, Brandeburg, Jesse
-<jesse.brandeburg@intel.com> wrote:
->
-> On Thu, 17 Dec 2009, Roger Oksanen wrote:
->> e100: Fix broken cbs accounting due to missing memset.
->>
->> Alan Stern noticed that e100 caused slab corruption.
->> commit 98468efddb101f8a29af974101c17ba513b07be1 changed
->> the allocation of cbs to use dma pools that don't return zeroed memory,
->> especially the cb->status field used to track which cb to clean, causing
->> (the visible) double freeing of skbs and a wrong free cbs count.
->>
->> Now the cbs are explicitly zeroed at allocation time.
->>
->> Reported-by: Alan Stern <stern@rowland.harvard.edu>
->> Tested-by: Alan Stern <stern@rowland.harvard.edu>
->> Signed-off-by: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
->
-> Change looks reasonable, ACK.
->
-> should we also consider a followon patch to zero memory allocated with
-> pci_pools? =A0Seems useful.
->
-> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
-
----------------------------------------------------------------------------=
----
-This SF.Net email is sponsored by the Verizon Developer Community
-Take advantage of Verizon's best-in-class app development support
-A streamlined, 14 day to market process makes app distribution fast and easy
-Join now and get one step closer to millions of Verizon customers
-http://p.sf.net/sfu/verizon-dev2dev =
+Jarek P.
