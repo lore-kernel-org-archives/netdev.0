@@ -1,58 +1,69 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] Libertas: fix buffer overflow in lbs_get_essid()
-Date: Wed, 16 Dec 2009 20:01:15 -0500
-Message-ID: <20091217010114.GA2913@tuxdriver.com>
-References: <1260936778-2096-1-git-send-email-daniel@caiaq.de>
- <1260982667.2179.9.camel@localhost.localdomain>
- <20091216231508.GX28375@buzzloop.caiaq.de>
+From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] add the driver for Analog
+	Devices Blackfin on-chip CAN controllers
+Date: Wed, 16 Dec 2009 20:20:31 -0500
+Message-ID: <8bd0f97a0912161720o2649dd7eh2725146f4805486d@mail.gmail.com>
+References: <4B20CB82.6060702@grandegger.com>
+	<4B20D214.4050503@grandegger.com>
+	<8bd0f97a0912100258n6896b21er1d9525bb7dbf6aec@mail.gmail.com>
+	<20091210.133729.42872813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
-	Holger Schurig <holgerschurig@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Maithili Hinge <maithili@marvell.com>,
-	Kiran Divekar <dkiran@marvell.com>,
-	Michael Hirsch <m.hirsch@raumfeld.com>, netdev@vger.kernel.org,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	stable@kernel.org
-To: Daniel Mack <daniel@caiaq.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41621 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762760AbZLQBGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Dec 2009 20:06:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20091216231508.GX28375@buzzloop.caiaq.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oe-pJ9TYRvN+WE@public.gmane.org,
+        wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <20091210.133729.42872813.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 17, 2009 at 07:15:08AM +0800, Daniel Mack wrote:
-> On Wed, Dec 16, 2009 at 08:57:47AM -0800, Dan Williams wrote:
-> > On Wed, 2009-12-16 at 05:12 +0100, Daniel Mack wrote:
-> > > The libertas driver copies the SSID buffer back to the wireless c=
-ore and
-> > > appends a trailing NULL character for termination. This is
-> > >=20
-> > > a) unnecessary because the buffer is allocated with kzalloc and i=
-s hence
-> > >    already NULLed when this function is called, and
-> > >=20
-> > > b) for priv->curbssparams.ssid_len =3D=3D 32, it writes back one =
-byte too
-> > >    much which causes memory corruptions.
-> > >=20
-> > > Fix this by removing the extra write.
-> >=20
-> > Acked-by: Dan Williams <dcbw@redhat.com>
->=20
-> Thanks, everyone. Who will care to pick an queue this one?
-
-Is there some reason it wouldn't be me?
-
-John
---=20
-John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world will =
-need a hero, and you
-linville@tuxdriver.com =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be all =
-we have. =A0Be ready.
+MjAwOS8xMi8xMCBEYXZpZCBNaWxsZXI6Cj4gRnJvbTogTWlrZSBGcnlzaW5nZXIKPj4gT24gVGh1
+LCBEZWMgMTAsIDIwMDkgYXQgMDU6NDgsIFdvbGZnYW5nIEdyYW5kZWdnZXIgd3JvdGU6Cj4+PiBX
+b2xmZ2FuZyBHcmFuZGVnZ2VyIHdyb3RlOgo+Pj4+IE1pa2UgRnJ5c2luZ2VyIHdyb3RlOgo+Pj4+
+PiBPbiBUaHUsIERlYyAxMCwgMjAwOSBhdCAwNDoxMSwgV29sZmdhbmcgR3JhbmRlZ2dlciB3cm90
+ZToKPj4+Pj4+IFdlbGwsIEknbSBzdGlsbCBub3QgYSBmcmllbmQgb2YgdGhlIGZvbGxvd2luZyBp
+bmxpbmUgZnVuY3Rpb25zLAo+Pj4+Pj4gZXNwZWNpYWxseSB0aGUgKm9uZS1saW5lcnMqIHdoaWNo
+IGFyZSBjYWxsZWQganVzdCAqb25jZSouIFdpdGggdGhlIHVzYWdlCj4+Pj4+PiBvZiBzdHJ1Y3Rz
+IHRoZXkgc2VlbSBldmVuIG1vcmUgdXNlbGVzcy4KPj4+Pj4gc2VlbXMgbGlrZSBpdCB3b3VsZCBt
+YWtlIG1vcmUgc2Vuc2UgdG8gbm90IGV2ZW4gdXNlIHRoZSByZWFkL3dyaXRlCj4+Pj4+IGZ1bmN0
+aW9ucyBlaXRoZXIuIO+/vSxBIGp1c3QgZGVjbGFyZSB0aGUgcmVncyBhcyB2b2xhdGlsZSBhbmQg
+YXNzaWduL3JlYWQKPj4+Pj4gdGhlIHN0cnVjdCBkaXJlY3RseS4KPj4+Pgo+Pj4+IFR3byB0aW1l
+cyBuby4gRG9uJ3QgdXNlIHZvbGF0aWxlIGFuZCBwcm9wZXIgYWNjZXNzb3IgZnVuY3Rpb25zLiBT
+ZWU6Cj4+Pj4KPj4+PiBodHRwOi8vbHhyLmxpbnV4Lm5vLyNsaW51eCt2Mi42LjMyL0RvY3VtZW50
+YXRpb24vdm9sYXRpbGUtY29uc2lkZXJlZC1oYXJtZnVsLnR4dAo+Pj4KPj4+IEkgd2FzIGp1c3Qg
+d29uZGVyaW5nIGlmIGJmaW5fcmVhZC93cml0ZTE2IHdvdWxkIG5vdCBiZSB0aGUgcHJvcGVyCj4+
+PiBhY2Nlc3NvciBmdW5jdGlvbnMuIHJlYWR3L3dyaXRldyBzZWVtcyB0byBiZSBpbXBsZW1lbnRl
+ZCBkaWZmZXJlbnRseToKPj4+Cj4+PiBodHRwOi8vbHhyLmxpbnV4Lm5vLyNsaW51eCt2Mi42LjMy
+L2FyY2gvYmxhY2tmaW4vaW5jbHVkZS9hc20vaW8uaCNMNDQKPj4+Cj4+PiBQdWgsIHRoZXkgZG8g
+YW4gY2xpLG5vcCxub3Asc3luYy4uc3RpIGZvciB0aGUgYWNjZXNzLiBUaGlzIGFsc28gbmljZWx5
+Cj4+PiBzaG93cyB3aHkgYWNjZXNzb3IgZnVuY3Rpb25zIHNob3VsZCBiZSB1c2VkIHRvIGFjY2Vz
+cyBkZXZpY2UgcmVnaXN0ZXJzLgo+Pj4KPj4+IFdlbGwsIGp1c3QgY3VyaW91cy4gSSBkb24ndCBy
+ZWFsbHkga25vdyB0aGUgYmxhY2tmaW4gYXJjaC4KPj4KPj4gdGhlIGNvbW1vbiBJL08gZnVuY3Rp
+b25zIG5lZWQgdG8gYWNjb3VudCBmb3IgaXNzdWVzIHN1cnJvdW5kaW5nIHRoZQo+PiBidXMgdGhh
+dCBoYXMgYXJiaXRyYXJ5IGRldmljZXMgbWVtb3J5IG1hcHBlZCB0byBpdC4gwqBvbi1jaGlwIGRl
+dmljZXMKPj4gKGxpa2Ugd2hhdCB3ZSdyZSB0YWxraW5nIGFib3V0IGhlcmUpIGRvIG5vdCBoYXZl
+IHRoZXNlIGlzc3VlcyBhbmQgc28KPj4gdXNpbmcgdGhlIGNvbW1vbiBmdW5jdGlvbnMgaXMgYXdm
+dWwgb3ZlcmhlYWQuCj4KPiBUaGVuIGNyZWF0ZSBzcGVjaWFsIGFjY2Vzc29ycyAocGVyaGFwcyB3
+aXRoIHRoZSBzYW1lIG5hbWVzIGFzIHRoZQo+IGV4aXN0aW5nIG9uZXMsIGJ1dCB3aXRoICJfXyIg
+cHJlcGVuZGVkKSB0aGF0IGxhY2sgYWxsIG9mIHRoZQo+IGludGVycnVwdCBkaXNhYmxpbmcsIHN5
+bmNzLCBldGMuCj4KPiBSZWFsbHkgaXQgX2lzXyBjbGVhbmVyIGFuZCBtYWtlcyB5b3VyIGRyaXZl
+ciBsb29rIGEgbG90IG5pY2VyLgoKaXQgcmVhbGx5IGlzbnQuICBtb3JlIHJlYXNvbnMgd2h5IGlv
+IGFjY2Vzc29ycyBzdWNrOgogLSBubyB0eXBlIGNoZWNraW5nCiAgIC0gZWFzeSB0byBzY3JldyB1
+cCByZWdpc3RlciBzaXplcyAoOC8xNi8zMikKICAgLSBoYXZlIHRvIGFkZCBzaGltcyBmb3IgZWFj
+aCByZWdpc3RlciB0aGF0IGNoYW5nZXMgc2l6ZXMgYmV0d2VlbiBwYXJ0cwogICAtIG5vIHdheSB0
+byBtYXJrIGEgcmVnaXN0ZXIgcmVhZC1vbmx5IChpLmUuIGNvbnN0KQoKdW5mb3J0dW5hdGVseSwg
+d2UgY2FudCBwdXNoIHRoZSBpc3N1ZSB3aXRoIEJsYWNrZmluIE1NUnMgYmVjYXVzZSBvZiBhCm1p
+bm9yIGFub21hbHkgdGhhdCBleGlzdHMgb24gb2xkZXIgcGFydHMuCi1taWtlCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClVjbGludXgtZGlzdC1kZXZlbCBt
+YWlsaW5nIGxpc3QKVWNsaW51eC1kaXN0LWRldmVsQGJsYWNrZmluLnVjbGludXgub3JnCmh0dHBz
+Oi8vYmxhY2tmaW4udWNsaW51eC5vcmcvbWFpbG1hbi9saXN0aW5mby91Y2xpbnV4LWRpc3QtZGV2
+ZWw=
