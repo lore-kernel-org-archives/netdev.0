@@ -1,71 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] bonding: cancel_delayed_work() ->
- cancel_delayed_work_sync()
-Date: Thu, 17 Dec 2009 15:30:59 +0100
-Message-ID: <1261060259.10356.112.camel@johannes.local>
-References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com>
-	 <20091217074930.GA6779@ff.dom.local>  <20091217133644.GD8654@ff.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+	vhost-net
+Date: Thu, 17 Dec 2009 22:36:35 +0800
+Message-ID: <20091217143635.GA388@gondor.apana.org.au>
+References: <OFA4DBC95B.29C84EEB-ON6525768F.0035A704-6525768F.003644A9@in.ibm.com> <20091217112754.GA7755@ff.dom.local> <20091217114535.GA30429@gondor.apana.org.au> <20091217114937.GA30503@gondor.apana.org.au> <20091217120856.GA30774@gondor.apana.org.au> <OF4408981E.ACFC27B2-ON6525768F.0042EA92-6525768F.00436345@in.ibm.com> <20091217134408.GB31964@gondor.apana.org.au> <OF6A94FA41.B9EF2995-ON6525768F.004B99AC-6525768F.004F1634@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-+rghXHjc28D2eEExKknC"
-Cc: Mikhail Markine <markine@google.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Petri Gynther <pgynther@google.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:58106 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764807AbZLQObW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 09:31:22 -0500
-In-Reply-To: <20091217133644.GD8654@ff.dom.local>
+Received: from rhun.apana.org.au ([64.62.148.172]:37421 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965018AbZLQOgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 09:36:45 -0500
+Content-Disposition: inline
+In-Reply-To: <OF6A94FA41.B9EF2995-ON6525768F.004B99AC-6525768F.004F1634@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Dec 17, 2009 at 08:05:02PM +0530, Krishna Kumar2 wrote:
+>
+> I think the bug is in this check:
+> 
+> +     if (vi->capacity >= 2 + MAX_SKB_FRAGS) {
+> +           /* Suppress further xmit interrupts. */
+> +           vi->svq->vq_ops->disable_cb(vi->svq);
+> +           napi_complete(xmit_napi);
+> +
+> +           /* Don't wake it if link is down. */
+> +           if (likely(netif_carrier_ok(vi->vdev)))
+> +                 netif_wake_queue(vi->dev);
+> +     }
+> 
+> We wake up too fast, just enough space for one more skb to be sent
+> before the queue is stopped again. And hence no more messages about
+> queue full, but lot of requeues. The qdisc code is doing the correct
+> thing, but we need to increase the limit here.
+> 
+> Can we try with some big number, 64, 128?
 
---=-+rghXHjc28D2eEExKknC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Good point.  Sridhar, could you please test doubling or quadrupling
+the threshold? 128 is probably a bit too much though as the ring
+only has 256 entries.
 
-On Thu, 2009-12-17 at 13:36 +0000, Jarek Poplawski wrote:
-> On Thu, Dec 17, 2009 at 02:19:46PM +0100, Johannes Berg wrote:
-> > Jarek,
-> >=20
-> > Sorry to mail you directly, but I only saw your reply on gmane and
-> > didn't want to break up the threading etc.
-> >=20
-> > cancel_delayed_work_sync() should be ok in this case unless the work
-> > items themselves used the rtnl,
->=20
-> Hmm, I'm not sure I get your point, but e.g. bond_mii_monitor() work
-> function can get rtnl_lock().
-
-Ok in that case you can't cancel_sync() it under rtnl. I was thinking of
-the case where it's just not ok because of other work. Sorry for the
-confusion!
-
-johannes
-
---=-+rghXHjc28D2eEExKknC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJLKkCYAAoJEODzc/N7+QmaGFoP/0n+5YD8fJPy7UeI1sHOWbZ8
-nMxYyLwo1XHamWPn44Dj9jKv/L3VpChp0WJB3NNIdFfj/MDWKl7RfBF9FGcdTNis
-Eor44DJtlUHfYJRb+27p6WfETH4958InZz7wJrdw8uIeo99zT2DBglSDm9AK95pl
-1hwk+JbKvgk2fcq8ng3Q6GYbsFPI9FPJjrcUZeveZ72U3TqtLp60aAmnugI7OCTn
-/+wJ1nfd6KMLiJqr0j0yFtHodtm1rCC8fLB61JL7dWJdgLuifvK3jNI5pNRR0LuJ
-VS0s8kIVJyLhJGQdX4Tu48MvOcWRVPJabAQpZYC0eqLMi1UygzEA22m93MRVt3kO
-w/9iltsGFTPObYr9szIUDb4Bt6sPkr0GQEDuMKIEUKGa74ZiYQ7oFF/5j+UiJTul
-CkFu1AWnnAaUYCuMy74oQouX85a/WiO7StAl9MaqBZDBV2ZnBysILhEqp5nxaQn0
-8fwJ2GWe6W9gdRCkOImC5AMKBSpwUPv2Do0X6g4a7zNfDFtk1NqHFDtbzEqEZlql
-fI2X/rEvj4AsweVhcV0VcGM3L2B6pg64ieaqMX+Bu7Gu6IohSMZv9j9qORQFrAQC
-JC/agQ9LPOhBmJq6yilLUXx7ivAmYhln2s7VOetfFZIB523xqhSFRzVG9SABX7FA
-yr+pICwqw9Ciov9GdMHe
-=1H0P
------END PGP SIGNATURE-----
-
---=-+rghXHjc28D2eEExKknC--
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
