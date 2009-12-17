@@ -1,40 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bonding-devel] [PATCH] bonding: cancel_delayed_work() ->
- cancel_delayed_work_sync()
-Date: Thu, 17 Dec 2009 22:16:20 +0100
-Message-ID: <20091217211620.GC2578@ami.dom.local>
-References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com>
- <20091217074930.GA6779@ff.dom.local>
- <20091217133644.GD8654@ff.dom.local>
- <1261060259.10356.112.camel@johannes.local>
- <11218.1261066373@death.nxdomain.ibm.com>
- <20091217184017.GA2578@ami.dom.local>
- <97949e3e0912171049x607ded5cgf3b696a5d89129ba@mail.gmail.com>
- <29926.1261078662@death.nxdomain.ibm.com>
- <20091217205617.GB2578@ami.dom.local>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [Bugme-new] [Bug 14794] New: IP address assigned by DHCP is
+ dropped after ~40 seconds
+Date: Thu, 17 Dec 2009 22:20:18 +0100
+Message-ID: <1261084818.27920.878.camel@laptop>
+References: <bug-14794-10286@http.bugzilla.kernel.org/>
+	 <20091216154713.f082e7cf.akpm@linux-foundation.org>
+	 <4B2A9A40.90203@freemail.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Laurent Chavey <chavey@google.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Mikhail Markine <markine@google.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net,
-	Petri Gynther <pgynther@google.com>,
-	David Miller <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Mike Galbraith <efault@gmx.de>, Ingo Molnar <mingo@elte.hu>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: =?ISO-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:57602 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765354AbZLQVQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:16:29 -0500
-Received: by fxm21 with SMTP id 21so2307355fxm.21
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 13:16:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20091217205617.GB2578@ami.dom.local>
+Received: from bombadil.infradead.org ([18.85.46.34]:37345 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765355AbZLQVVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 16:21:16 -0500
+In-Reply-To: <4B2A9A40.90203@freemail.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2009 at 09:56:17PM +0100, Jarek Poplawski wrote:
-> loops are tricky (they omit lockdep, plus can hide some hidden
-...hideousness... ;-)
+On Thu, 2009-12-17 at 21:53 +0100, N=C3=A9meth M=C3=A1rton wrote:
+>=20
+> I bisected the problem, see
+> http://bugzilla.kernel.org/show_bug.cgi?id=3D14794
+> for details. Any idea what is the relation between this problem and
+> the found
+> patch?
 
-Jarek P.
+
+If you take 32 and revert just that one patch it works again?
+
