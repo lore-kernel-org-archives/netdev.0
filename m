@@ -1,227 +1,233 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
-Date: Thu, 17 Dec 2009 17:25:53 +0800
-Message-ID: <2375c9f90912170125u6de30803sd80ecddaa332cc6a@mail.gmail.com>
-References: <1260977452-2334-1-git-send-email-michael@laptop.org>
-	 <1260977565-2379-1-git-send-email-michael@laptop.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with
+	vhost-net
+Date: Thu, 17 Dec 2009 11:25:31 +0200
+Message-ID: <20091217092531.GA4905@redhat.com>
+References: <20091213122512.GA17255@gondor.apana.org.au> <200912162315.38802.rusty@rustcorp.com.au> <20091216132217.GA29494@redhat.com> <200912171232.26743.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934830AbZLQJ0K@vger.kernel.org>
-In-Reply-To: <1260977565-2379-1-git-send-email-michael@laptop.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35960 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759208AbZLQJ2c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2009 04:28:32 -0500
+Content-Disposition: inline
+In-Reply-To: <200912171232.26743.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 16, 2009 at 11:32 PM, Michael Stone <michael@laptop.org> wr=
-ote:
-> Daniel Bernstein has observed [1] that security-conscious userland pr=
-ocesses
-> may benefit from the ability to irrevocably remove their ability to c=
-reate,
-> bind, connect to, or send messages except in the case of previously c=
-onnected
-> sockets or AF_UNIX filesystem sockets. We provide this facility by im=
-plementing
-> support for a new prctl(PR_SET_NETWORK) flag named PR_NETWORK_OFF.
->
-> This facility is particularly attractive to security platforms like O=
-LPC
-> Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4]=
-=2E
->
-> [1]: http://cr.yp.to/unix/disablenetwork.html
-> [2]: http://wiki.laptop.org/go/OLPC_Bitfrost
-> [3]: http://wiki.laptop.org/go/Rainbow
-> [4]: http://plash.beasts.org/
->
-> Signed-off-by: Michael Stone <michael@laptop.org>
-> ---
-> =C2=A0include/linux/prctl.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A0=
-7 +++++++
-> =C2=A0include/linux/prctl_network.h | =C2=A0 =C2=A07 +++++++
-> =C2=A0include/linux/sched.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A0=
-2 ++
-> =C2=A0kernel/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- | =C2=A0 =C2=A02 +-
-> =C2=A0kernel/prctl_network.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 37 +=
-++++++++++++++++++++++++++++++++++++
-> =C2=A0kernel/sys.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0| =C2=A0 =C2=A07 +++++++
-> =C2=A06 files changed, 61 insertions(+), 1 deletions(-)
-> =C2=A0create mode 100644 include/linux/prctl_network.h
-> =C2=A0create mode 100644 kernel/prctl_network.c
->
-> diff --git a/include/linux/prctl.h b/include/linux/prctl.h
-> index a3baeb2..4eb4110 100644
-> --- a/include/linux/prctl.h
-> +++ b/include/linux/prctl.h
-> @@ -102,4 +102,11 @@
->
-> =C2=A0#define PR_MCE_KILL_GET 34
->
-> +/* Get/set process disable-network flags */
-> +#define PR_SET_NETWORK 35
-> +#define PR_GET_NETWORK 36
-> +# define PR_NETWORK_ON =C2=A0 =C2=A0 =C2=A0 =C2=A00
-> +# define PR_NETWORK_OFF =C2=A0 =C2=A0 =C2=A0 1
-> +# define PR_NETWORK_ALL_FLAGS 1
+On Thu, Dec 17, 2009 at 12:32:26PM +1030, Rusty Russell wrote:
+> On Wed, 16 Dec 2009 11:52:18 pm Michael S. Tsirkin wrote:
+> > On Wed, Dec 16, 2009 at 11:15:38PM +1030, Rusty Russell wrote:
+> > > +	struct virtnet_info *vi =
+> > > +		container_of(xmit_napi, struct virtnet_info, xmit_napi);
+> > > +
+> > > +	if (netif_queue_stopped(vi->dev)) {
+> > 
+> > I am a bit concerned here: for example, on link down
+> > you do netif_stop_queue, and start on link up.
+> > So is it enough to check netif_queue_stopped
+> > to verify that tx is not running and that this is because
+> > it was out of capacity?
+> > 
+> > It would be very bad if this run in parallel with TX ...
+> 
+> Yeah, I wasn't happy.  This version uses the tx lock (we're single-queued,
+> so I used the __ version)
+> 
+> virtio_net: use NAPI for xmit (UNTESTED)
+> 
+> This is closer to the way tg3 and ixgbe do it: use the NAPI framework to
+> free transmitted packets.  It neatens things a little as well.
+> 
+> Changes since last version:
+> 
+> 1) Use the tx lock for the xmit_poll to synchronize against
+>    start_xmit; it might be overkill, but it's simple.
+> 2) Don't wake queue if the carrier is gone.
+> 
+> (Note: a side effect of this is that we are lazier in freeing old xmit skbs.
+>  This might be a slight win).
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+That's very clean. Some questions below:
+
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -47,6 +47,9 @@ struct virtnet_info
+>  	struct napi_struct napi;
+>  	unsigned int status;
+>  
+> +	/* We free packets and decide whether to restart xmit here. */
+> +	struct napi_struct xmit_napi;
 > +
-> =C2=A0#endif /* _LINUX_PRCTL_H */
-> diff --git a/include/linux/prctl_network.h b/include/linux/prctl_netw=
-ork.h
-> new file mode 100644
-> index 0000000..2db83eb
-> --- /dev/null
-> +++ b/include/linux/prctl_network.h
-> @@ -0,0 +1,7 @@
-> +#ifndef _LINUX_PRCTL_NETWORK_H
-> +#define _LINUX_PRCTL_NETWORK_H
+>  	/* Number of input buffers, and max we've ever had. */
+>  	unsigned int num, max;
+>  
+> @@ -60,6 +63,9 @@ struct virtnet_info
+>  	struct sk_buff_head recv;
+>  	struct sk_buff_head send;
+>  
+> +	/* Capacity left in xmit queue. */
+> +	unsigned int capacity;
 > +
-> +extern long prctl_get_network(void);
-> +extern long prctl_set_network(unsigned long);
-> +
-> +#endif /* _LINUX_PRCTL_NETWORK_H */
-> diff --git a/include/linux/sched.h b/include/linux/sched.h
-> index 5c858f3..751d372 100644
-> --- a/include/linux/sched.h
-> +++ b/include/linux/sched.h
-> @@ -1395,6 +1395,8 @@ struct task_struct {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int sessionid;
-> =C2=A0#endif
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0seccomp_t seccomp;
-> +/* Flags for limiting networking via prctl(PR_SET_NETWORK). */
-> + =C2=A0unsigned long network;
->
-> =C2=A0/* Thread group tracking */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 parent_exec_id;
-> diff --git a/kernel/Makefile b/kernel/Makefile
-> index 864ff75..cafbff2 100644
-> --- a/kernel/Makefile
-> +++ b/kernel/Makefile
-> @@ -10,7 +10,7 @@ obj-y =C2=A0 =C2=A0 =3D sched.o fork.o exec_domain.=
-o panic.o printk.o \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0kthread.o wait.o kfifo.o sys=
-_ni.o posix-cpu-timers.o mutex.o \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0hrtimer.o rwsem.o nsproxy.o =
-srcu.o semaphore.o \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0notifier.o ksysfs.o pm_qos_p=
-arams.o sched_clock.o cred.o \
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 async.o
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 async.o prctl_network.o
-> =C2=A0obj-y +=3D groups.o
->
-> =C2=A0ifdef CONFIG_FUNCTION_TRACER
-> diff --git a/kernel/prctl_network.c b/kernel/prctl_network.c
-> new file mode 100644
-> index 0000000..d173716
-> --- /dev/null
-> +++ b/kernel/prctl_network.c
-> @@ -0,0 +1,37 @@
-> +/*
-> + * linux/kernel/prctl_network.c
-> + *
-> + * Copyright 2009 =C2=A0Michael Stone <michael@laptop.org>
-> + *
-> + * Turn off a process's ability to access new networks.
-> + * See Documentation/prctl_network.txt for details.
-> + */
-> +
-> +#include <linux/prctl_network.h>
-> +#include <linux/sched.h>
-> +#include <linux/prctl.h>
-> +
-> +long prctl_get_network(void)
+>  	/* Work struct for refilling if we run low on memory. */
+>  	struct delayed_work refill;
+>  
+> @@ -111,11 +117,8 @@ static void skb_xmit_done(struct virtque
+>  {
+>  	struct virtnet_info *vi = svq->vdev->priv;
+>  
+> -	/* Suppress further interrupts. */
+> -	svq->vq_ops->disable_cb(svq);
+> -
+>  	/* We were probably waiting for more output buffers. */
+> -	netif_wake_queue(vi->dev);
+> +	napi_schedule(&vi->xmit_napi);
+>  }
+>  
+>  static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+> @@ -455,6 +458,29 @@ static unsigned int free_old_xmit_skbs(s
+>  	return tot_sgs;
+>  }
+>  
+> +static int virtnet_xmit_poll(struct napi_struct *xmit_napi, int budget)
 > +{
-> + =C2=A0 =C2=A0 =C2=A0 return current->network;
+> +	struct virtnet_info *vi =
+> +		container_of(xmit_napi, struct virtnet_info, xmit_napi);
+> +
+> +	/* Don't access vq/capacity at same time as start_xmit. */
+> +	__netif_tx_lock(netdev_get_tx_queue(vi->dev, 0), smp_processor_id());
+
+So now that we are locking, we could build a variant of this
+without NAPI (maybe with trylock: we can't spin on xmit lock from
+from hard irq context, can we?)? Possibly, if we do, that would be
+a small enough change to be applicable in 2.6.32.
+
+> +
+> +	vi->capacity += free_old_xmit_skbs(vi);
+
+Should we build a variant of free_old_xmit_skbs
+that gets budget, to avoid starving others
+while we poll the vq?
+
+> +	if (vi->capacity >= 2 + MAX_SKB_FRAGS) {
+> +		/* Suppress further xmit interrupts. */
+> +		vi->svq->vq_ops->disable_cb(vi->svq);
+> +		napi_complete(xmit_napi);
+> +
+> +		/* Don't wake it if link is down. */
+> +		if (likely(netif_carrier_ok(vi->vdev)))
+> +			netif_wake_queue(vi->dev);
+> +	}
+> +
+> +	__netif_tx_unlock(netdev_get_tx_queue(vi->dev, 0));
+> +	return 1;
 > +}
 > +
-> +long prctl_set_network(unsigned long network_flags)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 long ret;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 /* only dropping access is permitted */
-> + =C2=A0 =C2=A0 =C2=A0 ret =3D -EPERM;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0if (current->network & ~network_flags)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 ret =3D -EINVAL;
-> + =C2=A0 =C2=A0 =C2=A0 if (network_flags & ~PR_NETWORK_ALL_FLAGS)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 current->network =3D network_flags;
-> + =C2=A0 =C2=A0 =C2=A0 ret =3D 0;
-> +
-> +out:
-> + =C2=A0 =C2=A0 =C2=A0 return ret;
-> +}
+>  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+>  {
+>  	struct scatterlist sg[2+MAX_SKB_FRAGS];
+> @@ -509,10 +535,6 @@ static netdev_tx_t start_xmit(struct sk_
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	int capacity;
+>  
+> -again:
+> -	/* Free up any pending old buffers before queueing new ones. */
+> -	free_old_xmit_skbs(vi);
+> -
+>  	/* Try to transmit */
+>  	capacity = xmit_skb(vi, skb);
+>  
+> @@ -520,14 +542,13 @@ again:
+>  	if (unlikely(capacity < 0)) {
+>  		netif_stop_queue(dev);
+>  		dev_warn(&dev->dev, "Unexpected full queue\n");
+> -		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq))) {
+> -			vi->svq->vq_ops->disable_cb(vi->svq);
+> -			netif_start_queue(dev);
+> -			goto again;
+> -		}
+> +		/* If we missed an interrupt, we let virtnet_xmit_poll deal. */
+> +		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq)))
+> +			napi_schedule(&vi->xmit_napi);
+>  		return NETDEV_TX_BUSY;
+>  	}
+>  	vi->svq->vq_ops->kick(vi->svq);
+> +	vi->capacity = capacity;
+>  
+>  	/*
+>  	 * Put new one in send queue.  You'd expect we'd need this before
+> @@ -545,14 +566,13 @@ again:
+>  	/* Apparently nice girls don't return TX_BUSY; stop the queue
+>  	 * before it gets out of hand.  Naturally, this wastes entries. */
+>  	if (capacity < 2+MAX_SKB_FRAGS) {
+> -		netif_stop_queue(dev);
+> -		if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq))) {
+> -			/* More just got used, free them then recheck. */
+> -			capacity += free_old_xmit_skbs(vi);
+> -			if (capacity >= 2+MAX_SKB_FRAGS) {
+> -				netif_start_queue(dev);
+> -				vi->svq->vq_ops->disable_cb(vi->svq);
+> -			}
+> +		/* Free old skbs; might make more capacity. */
+> +		vi->capacity = capacity + free_old_xmit_skbs(vi);
+> +		if (unlikely(vi->capacity < 2+MAX_SKB_FRAGS)) {
+> +			netif_stop_queue(dev);
+> +			/* Missed xmit irq? virtnet_xmit_poll will deal. */
+> +			if (unlikely(!vi->svq->vq_ops->enable_cb(vi->svq)))
+> +				napi_schedule(&vi->xmit_napi);
+>  		}
+>  	}
+>  
+> @@ -590,6 +610,7 @@ static int virtnet_open(struct net_devic
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  
+>  	napi_enable(&vi->napi);
+> +	napi_enable(&vi->xmit_napi);
+>  
+>  	/* If all buffers were filled by other side before we napi_enabled, we
+>  	 * won't get another interrupt, so process any outstanding packets
+> @@ -652,6 +673,7 @@ static int virtnet_close(struct net_devi
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  
+>  	napi_disable(&vi->napi);
+> +	napi_disable(&vi->xmit_napi);
+>  
+>  	return 0;
+>  }
+> @@ -818,9 +840,13 @@ static void virtnet_update_status(struct
+>  
+>  	if (vi->status & VIRTIO_NET_S_LINK_UP) {
+>  		netif_carrier_on(vi->dev);
+> -		netif_wake_queue(vi->dev);
+> +		/* Make sure virtnet_xmit_poll sees carrier enabled. */
+> +		wmb();
 
+I think this should be smp_wmb, we are not synchronising with hardware
+here. Right?
 
-Sorry that I didn't follow the original disscusion.
-Any reason why you introdce a new source file?
-Why not just adding them to kernel/sys.c?
+> +		napi_schedule(&vi->xmit_napi);
+>  	} else {
+>  		netif_carrier_off(vi->dev);
+> +		/* Make sure virtnet_xmit_poll sees carrier disabled. */
+> +		wmb();
 
+And here.
 
-> diff --git a/kernel/sys.c b/kernel/sys.c
-> index 20ccfb5..4eccc66 100644
-> --- a/kernel/sys.c
-> +++ b/kernel/sys.c
-> @@ -35,6 +35,7 @@
-> =C2=A0#include <linux/cpu.h>
-> =C2=A0#include <linux/ptrace.h>
-> =C2=A0#include <linux/fs_struct.h>
-> +#include <linux/prctl_network.h>
->
-> =C2=A0#include <linux/compat.h>
-> =C2=A0#include <linux/syscalls.h>
-> @@ -1576,6 +1577,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned l=
-ong, arg2, unsigned long, arg3,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0else
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0error =3D PR_MCE_KILL_DEFAULT=
-;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0break;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 case PR_SET_NETWOR=
-K:
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 error =3D prctl_set_network(arg2);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 break;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 case PR_GET_NETWOR=
-K:
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 error =3D prctl_get_network();
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 break;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0default:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0error =3D -EINVAL;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0break;
-> --
-> 1.5.6.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
-> Please read the FAQ at =C2=A0http://www.tux.org/lkml/
->
+>  		netif_stop_queue(vi->dev);
+>  	}
+>  }
+> @@ -883,6 +909,7 @@ static int virtnet_probe(struct virtio_d
+>  	/* Set up our device-specific information */
+>  	vi = netdev_priv(dev);
+>  	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
+> +	netif_napi_add(dev, &vi->xmit_napi, virtnet_xmit_poll, 64);
+>  	vi->dev = dev;
+>  	vi->vdev = vdev;
+>  	vdev->priv = vi;
