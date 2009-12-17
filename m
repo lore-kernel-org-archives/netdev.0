@@ -1,47 +1,79 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bonding-devel] [PATCH] bonding: cancel_delayed_work() ->
- cancel_delayed_work_sync()
-Date: Thu, 17 Dec 2009 19:40:17 +0100
-Message-ID: <20091217184017.GA2578@ami.dom.local>
-References: <20091217002808.E44D0254177@hockey.mtv.corp.google.com>
- <20091217074930.GA6779@ff.dom.local>
- <20091217133644.GD8654@ff.dom.local>
- <1261060259.10356.112.camel@johannes.local>
- <11218.1261066373@death.nxdomain.ibm.com>
+From: "Christian P. Schmidt" <schmidt@digadd.de>
+Subject: IP policy routing & rule 0
+Date: Thu, 17 Dec 2009 19:16:51 +0100
+Message-ID: <4B2A7593.4040607@digadd.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Mikhail Markine <markine@google.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net,
-	Petri Gynther <pgynther@google.com>,
-	David Miller <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:62699 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935665AbZLQSkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 13:40:47 -0500
-Received: by fxm21 with SMTP id 21so2167072fxm.21
-        for <netdev@vger.kernel.org>; Thu, 17 Dec 2009 10:40:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <11218.1261066373@death.nxdomain.ibm.com>
+Received: from mx2.digadd.de ([195.47.195.236]:47591 "EHLO mx2.digadd.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936445AbZLQSoc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2009 13:44:32 -0500
+Received: from amsterdam-nat.juniper.net ([193.110.48.4] helo=[192.168.2.36])
+	by mx2.digadd.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.69)
+	(envelope-from <charlie@digadd.de>)
+	id 1NLKuw-0005Je-AK
+	for netdev@vger.kernel.org; Thu, 17 Dec 2009 19:17:38 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2009 at 08:12:53AM -0800, Jay Vosburgh wrote:
-> 	There's already logic in the monitors (bond_mii_monitor, et al)
-> to check a sentinel (kill_timers) and do nothing (not acquire rtnl) and
-> return.
+Hi,
 
-Btw, this check should be repeated if bond->lock is given back and
-re-acquired. I can't see these kill_timers used in bond_sysfs.c though.
+I'm trying to set up a test where I use a single PC to send traffic
+across an external device (router, firewall, etc) and back to the same PC.
 
-> 	What exactly is the nature of the race that doing cancel..sync
-> is fixing?  The bond_close function sets kill_timers prior to calling
-> the cancel functions, so the monitor function might run once, but it
-> should do nothing.
+I am using two VLANs on a single interface, though it in principle
+should not be different from using two physical interface. The setup
+looks like this:
 
-I guess there is a problem with destructions, but I hope Mikhail will
-give more details.
+ip link add link eth0 name eth0.1 type vlan id 1
+ip link add link eth0 name eth0.2 type vlan id 2
 
-Jarek P.
+ip addr add dev eth0.1 10.3.0.2/24
+ip link set dev eth0.1 up
+
+ip addr add dev eth0.2 1.32.0.2/24
+ip link set dev eth0.2 up
+
+ip route del 10.32.0.0/24 dev eth0.1
+ip route add 10.32.0.0/24 table 11 dev eth0.1
+ip route add default table 11 via 10.32.0.1
+ip rule add from 10.32.0.2 table 11
+
+ip route del 1.32.0.0/24 dev eth0.2
+ip route add 1.32.0.0/24 table 12 dev eth0.2
+ip route add default table 12 via 1.32.0.1
+ip rule add from 1.32.0.2 table 12
+
+This works - mostly. I fail to force a packet from 10.3.0.2 to 1.32.0.2
+using the ethernet port, instead it seems to go directly:
+
+[~]>ping 1.32.0.1 -I 10.32.0.2 -c 1
+PING 1.32.0.1 (1.32.0.1) from 10.32.0.2 : 56(84) bytes of data.
+64 bytes from 1.32.0.1: icmp_seq=1 ttl=62 time=1.08 ms
+
+vs.
+
+[~]>ping 1.32.0.2 -I 10.32.0.2 -c 1
+PING 1.32.0.2 (1.32.0.2) from 10.32.0.2 : 56(84) bytes of data.
+64 bytes from 1.32.0.2: icmp_seq=1 ttl=64 time=0.043 ms
+
+I have the feeling this is related to rule 0:
+[~]>ip rule show
+0:	from all lookup local
+32763:	from 1.32.0.2 lookup 12
+32764:	from 10.32.0.2 lookup 11
+32765:	from 192.168.255.30 lookup 10
+32766:	from all lookup main
+32767:	from all lookup default
+
+but deleting the route from the "local" table leads to a completely
+unusable interface.
+
+Is there a way to achieve what I want?
+
+Regards,
+Christian
