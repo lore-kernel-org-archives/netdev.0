@@ -1,43 +1,55 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH -stable 01/02]: ipv6: reassembly: use seperate
- reassembly queues for conntrack and local delivery
-Date: Thu, 17 Dec 2009 08:26:03 -0800
-Message-ID: <20091217162603.GA18720@kroah.com>
-References: <4B2A4B84.9070802@trash.net>
- <20091217161421.GA31911@kroah.com>
- <4B2A59BE.2020208@trash.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+ interface. (v2)
+Date: Fri, 18 Dec 2009 15:46:34 +0000
+Message-ID: <20091218154634.79decdc4@lxorguk.ukuu.org.uk>
+References: <20091218030056.GC3047@heat>
+	<20091218032957.GA23514@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:34940 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753627AbZLRP15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2009 10:27:57 -0500
-Content-Disposition: inline
-In-Reply-To: <4B2A59BE.2020208@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mark Seaborn <mrs@mythic-beasts.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?ISO-8859-14?B?QW3pcmljbw==?= Wang <xiyou.wangcong@gmail.com>,
+	Michael Stone <michael@laptop.org>
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20091218032957.GA23514@heat>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 17, 2009 at 05:18:06PM +0100, Patrick McHardy wrote:
-> Greg KH wrote:
-> > On Thu, Dec 17, 2009 at 04:17:24PM +0100, Patrick McHardy wrote:
-> >> The following two patches for -stable fix some defragmentation bugs
-> >> in netfilter which can cause the kernel to crash in the bridge
-> >> netfilter code.
-> >>
-> >> Please apply, thanks.
-> > 
-> > To which -stable tree?  .32, .31, and/or .27?
-> 
-> The patch is based on .32, but the bug affects all versions of the
-> kernel.
+On Thu, 17 Dec 2009 22:29:57 -0500
+Michael Stone <michael@laptop.org> wrote:
 
-Thanks for letting me know, I'll queue it up for the next round of
-kernels.
+> Daniel Bernstein has observed [1] that security-conscious userland processes
 
-greg k-h
+Dan Bernstein has observed many things .. ;)
+
+> may benefit from the ability to irrevocably remove their ability to create,
+> bind, connect to, or send messages except in the case of previously connected
+> sockets or AF_UNIX filesystem sockets. We provide this facility by implementing
+> support for a new prctl(PR_SET_NETWORK) flag named PR_NETWORK_OFF.
+
+This is a security model, it belongs as a security model using LSM. You
+can already do it with SELinux and the like as far as I can see but
+that's not to say you shouldn't submit it also as a small handy
+standalone security module for people who don't want to load the big
+security modules.
+
+Otherwise you end up putting crap in fast paths that nobody needs but
+everyone pays for and weird tests and hacks for address family and like
+into core network code.
+
+The fact the patches look utterly ugly should be telling you something -
+which is that you are using the wrong hammer
