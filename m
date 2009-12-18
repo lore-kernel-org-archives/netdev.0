@@ -1,235 +1,648 @@
 From: Fabio Ludovici <fabio.ludovici@yahoo.it>
-Subject: Re: [PATCH] netem/iproute2 solving correlated loss issues [4/5]
-Date: Fri, 18 Dec 2009 12:30:07 +0100
-Message-ID: <4B2B67BF.4020409@yahoo.it>
-References: <4B2B5A26.8050400@uniroma2.it>
+Subject: Re: [PATCH] netem/iproute2 solving correlated loss issues [5/5]
+Date: Fri, 18 Dec 2009 12:30:55 +0100
+Message-ID: <4B2B67EF.6030507@yahoo.it>
+References: <4B2B5A26.8050400@uniroma2.it> <4B2B5A65.1060300@uniroma2.it>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080905080808020100000001"
+ boundary="------------010206010607030609050702"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:13000 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.157]:19527 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbZLRLaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 06:30:19 -0500
-Received: by fg-out-1718.google.com with SMTP id 22so1116118fge.1
-        for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 03:30:17 -0800 (PST)
-In-Reply-To: <4B2B5A26.8050400@uniroma2.it>
+	with ESMTP id S1751597AbZLRLa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 06:30:58 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so1329015fgg.1
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 03:30:56 -0800 (PST)
+In-Reply-To: <4B2B5A65.1060300@uniroma2.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------080905080808020100000001
+--------------010206010607030609050702
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-patch 4/5 : iproute2-2.6.29-1/man/man8/tc-netem.8
+patch 5/5 : iproute2-2.6.29-1/tc/q_netem.c
 
---------------080905080808020100000001
+
+--------------010206010607030609050702
 Content-Type: text/plain;
- name="tc_patch_4_of_5"
-Content-Transfer-Encoding: base64
+ name="tc_patch_5_of_5"
+Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
- filename="tc_patch_4_of_5"
+ filename="tc_patch_5_of_5"
 
-ZGlmZiAtdU5yIGlwcm91dGUyLTIuNi4yOS0xL21hbi9tYW44L3RjLW5ldGVtLjggaXByb3V0
-ZTItMi42LjI5LTEtbmV0ZW0vbWFuL21hbjgvdGMtbmV0ZW0uOA0KLS0tIGlwcm91dGUyLTIu
-Ni4yOS0xL21hbi9tYW44L3RjLW5ldGVtLjgJMTk3MC0wMS0wMSAwMTowMDowMC4wMDAwMDAw
-MDAgKzAxMDANCisrKyBpcHJvdXRlMi0yLjYuMjktMS1uZXRlbS9tYW4vbWFuOC90Yy1uZXRl
-bS44CTIwMDktMTItMTEgMTY6NDE6MjUuMTg0MjE5MzM5ICswMTAwDQpAQCAtMCwwICsxLDI1
-OCBAQA0KKy5USCBORVRFTSA4ICIxMSBEZWNlbWJlciAyMDA5IiAiaXByb3V0ZTIiICJMaW51
-eCINCisuU0ggTkFNRQ0KK05ldEVtIFwtIE5ldHdvcmsgRW11bGF0b3INCisuU0ggU1lOT1BT
-SVMNCisuQiB0YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gIFsgbGlt
-aXQgDQorcGFja2V0cw0KKy5CIF0gDQorDQorLkIgdGMgcWRpc2MgLi4uIGRldg0KK2Rldg0K
-Ky5CIF0gYWRkIG5ldGVtIFsgbG9nZ2luZyANCitMRVZFTCBdDQorLkIgXSANCisNCisuQiB0
-YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gWyBkZWxheSANCitUSU1F
-IFsgSklUVEVSIFtDT1JSRUxBVElPTl1dXQ0KKy5CIF0gDQorDQorLkIgdGMgcWRpc2MgLi4u
-IGRldg0KK2Rldg0KKy5CIF0gYWRkIG5ldGVtIFsgZGlzdHJpYnV0aW9uIA0KK3t1bmlmb3Jt
-fG5vcm1hbHxwYXJldG98cGFyZXRvbm9ybWFsfSBdDQorLkIgXSANCisNCisuQiB0YyBxZGlz
-YyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gWyBkcm9wIA0KK1BFUkNFTlQgW0NP
-UlJFTEFUSU9OXV0NCisuQiBdIA0KKw0KKy5CIHRjIHFkaXNjIC4uLiBkZXYNCitkZXYNCisu
-QiBdIGFkZCBuZXRlbSBbIGxvc3MNCitQRVJDRU5UIFtDT1JSRUxBVElPTl1dDQorLkIgXSAN
-CisNCisuQiB0YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gIFsgcXVl
-cnkgDQorXSANCisNCisuQiB0YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0
-ZW0gWyBsb3NzX0dJIA0KK3Bsb3NzIFtidXJzdF9sZW5ndGggW2RlbnNpdHkgW3Bpc29sIFtn
-b29kX2J1cnN0X2xlbmd0aF1dXV0NCisuQiBdIA0KKw0KKy5CIHRjIHFkaXNjIC4uLiBkZXYN
-CitkZXYNCisuQiBdIGFkZCBuZXRlbSBbIGxvc3NfR0lfdHJhbg0KK3AxMyBwMzEgW3AzMiBw
-MjMgW3AxNF1dDQorLkIgXSANCisNCisuQiB0YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIg
-XSBhZGQgbmV0ZW0gIFsgbG9zc19iZXJuIA0KK3AgDQorLkIgXSANCisNCisuQiB0YyBxZGlz
-YyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gIFsgbG9zc19naWxiIA0KK3AgciBb
-MS1oXV0NCisuQiBdDQorDQorLkIgdGMgcWRpc2MgLi4uIGRldg0KK2Rldg0KKy5CIF0gYWRk
-IG5ldGVtICBbIGxvc3NfZ2lsYmVsbCANCitwIHIgWzEtaCBbMS1rXV0NCisuQiBdDQorDQor
-LkIgdGMgcWRpc2MgLi4uIGRldg0KK2Rldg0KKy5CIF0gYWRkIG5ldGVtICBbIGxvc3NfZ2ls
-Yl80cyANCitwIHIgWzEtaF1dDQorDQorDQorLkIgdGMgcWRpc2MgLi4uIGRldg0KK2Rldg0K
-Ky5CIF0gYWRkIG5ldGVtICBbIGxvc3NfZ2lsYmVsbF80cyANCitwIHIgWzEtaCBbMS1rXV0N
-CisuQiBdDQorDQorLkIgdGMgcWRpc2MgLi4uIGRldg0KK2Rldg0KKy5CIF0gYWRkIG5ldGVt
-IFsgbG9zc19wYXR0ZXJuIA0KK0ZJTEVOQU1FIFtSRVBFVElUSU9OU11dDQorLkIgXSANCisN
-CisuQiB0YyBxZGlzYyAuLi4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gIFsgY29ycnVw
-dCANCitQRVJDRU5UIFtDT1JSRUxBVElPTl1dDQorLkIgXSANCisNCisuQiB0YyBxZGlzYyAu
-Li4gZGV2DQorZGV2DQorLkIgXSBhZGQgbmV0ZW0gIFsgZHVwbGljYXRlIA0KK1BFUkNFTlQg
-W0NPUlJFTEFUSU9OXV0NCisuQiBdIA0KKw0KKy5CIHRjIHFkaXNjIC4uLiBkZXYNCitkZXYN
-CisuQiBdIGFkZCBuZXRlbSAgWyByZW9yZGVyIA0KK1BSRUNFTlQgW0NPUlJFTEFUSU9OXSBb
-IGdhcCBESVNUQU5DRSBdXQ0KKy5CIF0gDQorDQorLlNIIERFU0NSSVBUSU9ODQorTmV0RW0g
-aXMgYW4gZW5oYW5jbWVudCBvZiB0aGUgTGludXggdHJhZmZpYyBjb250cm9sIGZhY2lsaXRp
-ZXMgDQordGhhdCBhbGxvdyB0byBhZGQgZGVsYXksIHBhY2tldCBsb3NzLCBkdXBsaWNhdGlv
-biBhbmQgbW9yZSBvdGhlcg0KK2NoYXJhY3RlcmlzdGljcyB0byBwYWNrZXRzIG91dGdvaW5n
-IGZyb20gYSBzZWxlY3RlZCBuZXR3b3JrDQoraW50ZXJmYWNlLiBOZXRFbSBpcyBidWlsZCB1
-c2luZyB0aGUgZXhpc3RpbmcgUXVhbGl0eSBPZiBTZXJ2aWNlIChRT1MpDQorYW5kIERpZmZl
-cmVudGlhdGVkIFNlcnZpY2VzIChkaWZmc2VydikgZmFjaWxpdGllcyBpbiB0aGUgTGludXgN
-CitrZXJuZWwuIA0KKw0KKy5TSCBuZXRlbSBPUFRJT05TDQorbmV0ZW0gaGFzIHRoZSBmb2xs
-b3dpbmcgb3B0aW9uczoNCisNCisuQiBsaW1pdCANCitwYWNrZXRzDQorDQorbGltaXRzIHRo
-ZSBlZmZlY3Qgb2Ygc2VsZWN0ZWQgb3B0aW9ucyB0byB0aGUgaW5kaWNhdGVkIG51bWJlciBv
-ZiBuZXh0IHBhY2tldHMuIA0KKw0KKy5CIGxvZ2dpbmcNCitMRVZFTA0KKw0KK3NldHMgYSBs
-b2dnaW5nIGxldmVsLiBBY3R1YWxseSBpdCB3b3JrcyBmb3IgbG9zc19HSSwgbG9zc19HSV90
-cmFuLCBsb3NzX2Jlcm4sIGxvc3NfZ2lsYiwgbG9zc19naWxiZWxsLCBsb3NzX2dpbGJfNHMs
-IGxvc3NfZ2lsYmVsbF80cywgbG9zc19wYXR0ZXJuIG9wdGlvbnMuIElmIG5vdCBzcGVjaWZp
-ZWQsIGxldmVsIDAgd2lsbCBiZSB1c2VkIHdoaWNoIG1lYW5zIHRoYXQgbm8gZGF0YSB3aWxs
-IGJlIGxvZ2dlZC4gSWYgbG9nZ2luZyBsZXZlbCBpcyAxIGZvciBlYWNoIGxvc3MgZXZlbnRz
-IHRoZSBrZXJuZWwgbG9ncyB3aWxsIGluY2x1ZGUgYSBsaW5lIGxpa2UgIm5ldGVtIGxvc3Mg
-ZXZlbnQgYWxnb3JpdGhtIFt0eXBlXSB4IFJGUExFIHkiIHdoZXJlIFJGUExFIHN0YW5kcyBm
-b3IgIlJlY2VpdmVkIEZyb20gUHJldmlvdXMgTG9zcyBFdmVudCIgYW5kIGl0IGNvdW50cyB0
-aGUgbnVtYmVyIHkgb2YgZ29vZCBwYWNrZXRzIHJlY2VpdmVkIGJldHdlZW4gdHdvIGxvc3Mg
-ZXZlbnRzIHdoaWxlIHggaXMgdGhlIG51bWJlciBvZiBhbGwgbG9zdCBwYWNrZXRzIGFuZCBh
-bGdvcml0aG0gcmVmZXJzIHRvIHRoZSBzZWxlY3RlZCBsb3NzIGdlbmVyYXRpb24gYWxnb3Jp
-dGhtICgNCisuQiBHSQ0KKywgDQorLkIgZ2lsYmVsbCANCitvciANCisuQiBkZXRlcm1pbmlz
-dGljKS4gDQorVGhlIHR5cGUgbGFiZWwgYXBwbGllcyBvbmx5IHRvIHRoZSBHSSBhbGdvcml0
-aG0gYW5kIGNhbiBiZSANCisuQiBidXJzdCANCitvciANCisuQiBpc29sYXRlZC4NCisNCisu
-QiBkZWxheSANCitUSU1FIFsgSklUVEVSIFtDT1JSRUxBVElPTl1dXQ0KKw0KK2FkZHMgdGhl
-IGNob3NlbiBkZWxheSB0byB0aGUgcGFja2V0cyBvdXRnb2luZyB0byBjaG9zZW4gbmV0d29y
-ayBpbnRlcmZhY2UuIFRoZSBvcHRpb25hbCBwYXJhbWV0ZXJzIGFsbG93cyB0byBpbnRyb2R1
-Y2UgYSBkZWxheSB2YXJpYXRpb24gYW5kIGEgY29ycmVsYXRpb24uIERlbGF5IGFuZCBqaXR0
-ZXIgdmFsdWVzIGFyZSBleHByZXNzZWQgaW4gbXMgd2hpbGUgY29ycmVsYXRpb24gaXMgcGVy
-Y2VudGFnZS4gDQorDQorLkIgZGlzdHJpYnV0aW9uIA0KK3t1bmlmb3JtfG5vcm1hbHxwYXJl
-dG98cGFyZXRvbm9ybWFsfSANCisgDQorYWxsb3cgdGhlIGNob29zZSB0aGUgZGVsYXkgZGlz
-dHJpYnV0aW9uLiBJZiBub3Qgc3BlY2lmaWVkLCB0aGUgZGVmYXVsdCBkaXN0cmlidXRpb24g
-aXMgbm9ybWFsLiBBZGRpdGlvbmFsIHBhcmFtZXRlcnMgYWxsb3cgdG8gY29uc2lkZXIgc2l0
-dWF0aW9ucyBpbiB3aGljaCBuZXR3b3JrIGhhcyB2YXJpYWJsZSBkZWxheXMgZGVwZW5kaW5n
-IG9uIHRyYWZmaWMgZmxvd3MgY29uY3VycmluZyBvbiB0aGUgc2FtZSBwYXRoLCB0aGF0IGNh
-dXNlcyBzZXZlcmVhbCBkZWxheSBwZWFrcyBhbmQgYSB0YWlsLiANCisNCisuQiBkcm9wIA0K
-K1BFUkNFTlQgW0NPUlJFTEFUSU9OXQ0KKw0KK09SDQorDQorLkIgbG9zcw0KK1BFUkNFTlQg
-W0NPUlJFTEFUSU9OXQ0KKw0KK3VzaW5nIGRyb3Agb3IgbG9zcyBpcyB0aGUgc2FtZS4gSXQg
-YWRkcyB0aGUgY2hvc2VuIGluZGVwZW5kZW50IGxvc3MgcHJvYmFiaWxpdHkgdG8gcGFja2V0
-cyBvdXRnb2luZyBmcm9tIHRoZSBjaG9zZW4gbmV0d29yayBpbnRlcmZhY2UuIEl0IGlzIGFs
-c28gcG9zc2liaWxlIHRvIGFkZCBhIGNvcnJlbGF0aW9uLCB0aHJvdWdoIHRoZSBwcm9wZXIg
-cGFyYW1ldGVyLiBIb3dldmVyIHRoaXMgb3B0aW9uIGlzIG5vdyBkZXByZWNhdGVkIGR1ZSB0
-byB0aGUgbm90aWNlZCBiYWQgYmVoYXZpb3VyLiBUbyBoYXZlIGludHJvZHVjZSBpbmRlcGVu
-ZGVudCBwYWNrZXQgbG9zc2VzLCB3aGljaCBjb3JyZXNwb25kcyB0byB0aGUgQmVybm91bGxp
-IGxvc3MgbW9kZWwsIHBsZWFzZSB1c2UgdGhlIGxvc3NfYmVybiBvcHRpb24uDQorDQorLkIg
-cXVlcnkNCisNCitlbmFibGVzIHRoZSBxdWVyeSBtb2RlLiBBY3R1YWxseSBpdCB3b3JrcyBm
-b3IgbG9zc19HSSwgbG9zc19HSV90cmFuXCwgbG9zc19iZXJuLCBsb3NzX2dpbGIsIGxvc3Nf
-Z2lsYmVsbC4gV2hlbiB0aGUgcXVlcnkgbW9kZSBpcyBlbmFibGVkIGFuZCBvbmUgb2YgdGhl
-IHN1cHBvcnRlZCBvcHRpb25zIGFyZSBzZWxlY3RlZCwgdGhlIGNvcnJlc3BvbmRlbnQgdHJh
-bnNpdGlvbiBwcm9iYWJpbGl0aWVzIGFuZCBHSSBwYXJhbWV0ZXJzIGFyZSBjYWxjdWxhdGVk
-IGFuZCBwcmludGVkIHRvIHNjcmVlbiB3aXRob3V0IHBhc3NpbmcgdGhlIHBhcmFtZXRlcnMg
-dG8gdGhlIHFkaXNjLiBTbyB0aGlzIG9wdGlvbiB3b3JrcyBsaWtlIGEgcGFyYW1ldGVyIGNv
-bnZlcnRlci4gSWYgdGhlIG9wdGlvbiBpcyBub3Qgc3BlY2lmaWVkIHRoZSBxdWVyeSBtb2Rl
-IGlzIGRpc2FibGVkIHNvIHRoZSBwYXJhbWV0ZXJzIHdpbGwgYmUgcmVndWxhcmx5IHBhc3Nl
-ZCB0byB0aGUgbmV0ZW0gcWRpc2MuIA0KKw0KKy5CIGxvc3NfR0kgDQorcGxvc3MgW2J1cnN0
-X2xlbmd0aCBbZGVuc2l0eSBbcGlzb2wgW2dvb2RfYnVyc3RfbGVuZ3RoXV1dXQ0KKw0KK2lt
-cGxlbWVudHMgdGhlIEdJIChHZW5lcmFsIGFuZCBJbnR1aXRpdmUpIGxvc3MgbW9kZWwsIHdp
-dGggdGhlIHVuZGVybHlpbmcgNC1zdGF0ZSBNYXJrb3YuIFRoZSBwYXJhbWV0ZXIgcGxvc3Mg
-IGlzIG1hbmRhdG9yeSBhbmQgaWYgdXNlZCBhbG9uZSBjb3JyZXNwb25kcyB0byB0aGUgQmVy
-bm91bGxpIG1vZGVsIHdoaWxlIHRoZSBvcHRpb25hbCBwYXJhbWV0ZXJzIGFsbG93cyB0byBl
-eHRlbmQgdGhlIG1vZGVsIHRvIDItc3RhdGUgKGJ1cnN0X2xlbmd0aCksIDMtc3RhdGUgKGRl
-bnNpdHkpLCBhbmQgNC1zdGF0ZSAocGlzb2wpLiBXaXRob3V0IHNwZWNpZmluZyBnb29kX2J1
-cnN0X2xlbmd0aCB0aGUgaHlwaG90ZXNpcyBvZiBzdGF0aXN0aWNhbCBpbmRlcGVuZGVuY2Ug
-Zm9yIHRoZSBsb3NzZXMgd2l0aGluIHRoZSBidXJzdCB3aWxsIGJlIHVzZWQuDQorDQorLkIg
-bG9zc19HSV90cmFuDQorcDEzIHAzMSBbcDMyIHAyMyBbcDE0XV0NCisNCitpbXBsZW1lbnRz
-IHRoZSBHSSAoR2VuZXJhbCBhbmQgSW50dWl0aXZlKSBtb2RlbCB1c2luZyB0aGUgNC1zdGF0
-ZSBNYXJrb3YgdHJhbnNpdGlvbiBwcm9iYWJpbGl0aWVzIGFzIGlucHV0IHBhcmFtZXRlcnMu
-IFRoZSBmaXJzdCB0d28gcGFyYW1ldGVycyBwMTMgYW5kIHAzMSBhcmUgbWFuZGF0b3J5IGFu
-ZCBpZiB1c2VkIGFsb25lIGNvcnJlc3BvbmRzIHRvIGEgMi1zdGF0ZSBtb2RlbCB3aGlsZSB0
-aGUgb3B0aW9uYWwgcGFyYW1ldGVycyBhbGxvd3MgdG8gZXh0ZW5kIHRoZSBtb2RlbCB0byAz
-LXN0YXRlIChwMjMgYW5kIHAzMikgYW5kIDQtc3RhdGUgKHAxNCkuIFN0YXRlIDEgY29ycmVz
-cG9uZHMgdG8gZ29vZCByZWNlcHRpb24sIFN0YXRlIDQgdG8gaW5kZXBlbmRlbnQgbG9zc2Vz
-LCBTdGF0ZSAzIHRvIGJ1cnN0IGxvc3NlcyBhbmQgU3RhdGUgMiB0byBnb29kIHJlY2VwdGlv
-biB3aXRoaW4gYSBidXJzdC4gDQorDQorLkIgbG9zc19iZXJuIA0KK3ANCisNCitpbXBsZW1l
-bnRzIHRoZSBCZXJub3VsbGkgbG9zcyBtb2RlbC4gQWxsb3dzIHRvIGludHJvZHVjZSwgdGhy
-b3VnaCB0aGUgcCBwYXJhbWV0ZXIsIGFuIGluZGVwZW5kZW50IGxvc3MgcHJvYmFiaWxpdHkg
-dG8gcGFja2V0cyBvdXRnb2luZyBmcm9tIGNob3NlbiBuZXR3b3JrIGludGVyZmFjZS4gVGhp
-cyBvcHRpb24gaXMgZXF1aXZhbGVudCB0byB0aGUgb2xkIGFuZCBub3cgZGVwcmVjYXRlZCBk
-cm9wIC8gbG9zcw0KK29wdGlvbiB1c2VkIHdpdGhvdXQgdGhlIGNvcnJlbGF0aW9uIHBhcmFt
-ZXRlci4gDQorDQorLkIgbG9zc19naWxiIA0KK3AgciBbMS1oXQ0KKw0KK2ltcGxlbWVudHMg
-dGhlIEdpbGJlcnQgbG9zcyBtb2RlbCB0aHJvdWdoIHRoZSB0d28gbWFuZGF0b3J5IHBhcmFt
-ZXRlcnMgcCBhbmQgciBhbmQgdGhlIG9wdGlvbmFsIDEtaC4gVGhpcyBtb2RlbCBoYXMgdHdv
-IHN0YXRlczogImdvb2QiIGFuZCAiYmFkIi4gSWYgb25seSB0aGUgbWFuZGF0b3J5IHBhcmFt
-ZXRlcnMgYXJlIHNwZWNpZmllZCwgdGhlIFNpbXBsZSBHaWxiZXJ0IG1vZGVsIHdpbGwgYmUg
-dXNlZCwgd2hpbGUgdG8gdXNlIHRoZSBmdWxsIEdpbGJlcnQgbW9kZWwgaXQgaXMgbmVlZGVk
-IHRvIHNwZWNpZnkgdGhlIHdob2xlIHNldCBvZiB0aHJlZSBwYXJhbWV0ZXJzLg0KKw0KKy5C
-IGxvc3NfZ2lsYmVsbCANCitwIHIgWzEtaCBbMS1rXV0NCisNCitpbXBsZW1lbnRzIHRoZSBH
-aWxiZXJ0LUVsbGlvdCBsb3NzIG1vZGVsIHRocm91Z2ggdGhlIHR3byBtYW5kYXRvcnkgcGFy
-YW1ldGVycyBwIGFuZCByIGFuZCB0aGUgb3B0aW9uYWwgMS1oIGFuZCAxLWsgd2hlcmUgIDEt
-ayBpcyBhbiBpbmRlcGVuZGVudCBsb3NzIHByb2JhYmlsaXR5IGluIHRoZSAiZ29vZCIgc3Rh
-dGUgd2hpbGUgMS1oIGlzIHRoZSBsb3NzIGRlbnNpdHkgd2l0aGluIHRoZSAiYmFkIiBzdGF0
-ZS4gVGhpcyBtb2RlbCBpcyBhbiBlbmhhbmNlZCB2ZXJzaW9uIG9mIHRoZSBHaWxiZXJ0IG1v
-ZGVsLg0KKw0KKy5CIGxvc3NfZ2lsYl80cw0KK3AgciBbMS1oXQ0KKw0KK2ltcGxlbWVudHMg
-dGhlIEdpbGJlcnQtNHMgbG9zcyBtb2RlbCB0aGF0IGlzIHBhcnRpY3VsYXIgdmVyc2lvbiBv
-ZiB0aGUgR0kgbW9kZWwgd2hpY2ggYmVoYXZpb3VyIGlzIHZlcnkgc2ltaWxhciB0byB0aGUg
-R2lsYmVydCdzLiBUaGUgaW5wdXQgcGFyYW1ldGVycyBhcmUgdGhlIHNhbWUgb2YgdGhlIHJl
-YWwgR2lsYmVydCBtb2RlbC4gVGhlIHRyYW5zaXRpb24gcHJvYmFiaWxpdGllcyBhbmQgR0kg
-cGFyYW1ldGVycyB0aGF0IGNvcnJlc3BvbmRzIHRvIHRoZSBHaWxiZXJ0IGlucHV0IHBhcmFt
-ZXRlcnMgYXJlIGNhbGN1bGF0ZWQgYW5kIHByaW50ZWQgdG8gc2NyZWVuLiBUaGlzIG9wdGlv
-biBpcyBpbmNsdWRlZCB0byBzdHVkeSB0aGUgY29ycmVzcG9uZGVuY2UgYmV0d2VlbiBHSSBt
-b2RlbCBhbmQgdGhlIG1vZGVscyBhdmFpbGFibGUgaW4gdGhlIGxpdGVyYXR1cmUsIGl0IGhh
-cyBubyBwcmFjdGljYWwgdXNlIGF0IHRoZSBtb21lbnQuDQorDQorLkIgbG9zc19naWxiZWxs
-XzRzIA0KK3AgciBbMS1oIFsxLWtdXQ0KKw0KK2ltcGxlbWVudHMgdGhlIEdpbGJlcnQtRWxs
-aW90LTRzIGxvc3MgbW9kZWwgdGhhdCBpcyBwYXJ0aWN1bGFyIHZlcnNpb24gb2YgdGhlIEdJ
-IG1vZGVsIHdoaWNoIGJlaGF2aW91ciBpcyB2ZXJ5IHNpbWlsYXIgdG8gdGhlIEdpbGJlcnQt
-RWxsaW90J3MuIFRoZSBpbnB1dCBwYXJhbWV0ZXJzIGFyZSB0aGUgc2FtZSBvZiB0aGUgcmVh
-bCBHaWxiZXJ0IG1vZGVsLiBUaGUgdHJhbnNpdGlvbiBwcm9iYWJpbGl0aWVzIGFuZCBHSSBw
-YXJhbWV0ZXJzIHRoYXQgY29ycmVzcG9uZHMgdG8gdGhlIEdpbGJlcnQtRWxsaW90IGlucHV0
-IHBhcmFtZXRlcnMgYXJlIGNhbGN1bGF0ZWQgYW5kIHByaW50ZWQgdG8gc2NyZWVuLiBUaGlz
-IG9wdGlvbiBpcyBpbmNsdWRlZCB0byBzdHVkeSB0aGUgY29ycmVzcG9uZGVuY2UgYmV0d2Vl
-biBHSSBtb2RlbCBhbmQgdGhlIG1vZGVscyBhdmFpbGFibGUgaW4gdGhlIGxpdGVyYXR1cmUs
-IGl0IGhhcyBubyBwcmFjdGljYWwgdXNlIGF0IHRoZSBtb21lbnQuDQorDQorLkIgbG9zc19w
-YXR0ZXJuIA0KK0ZJTEVOQU1FIFtSRVBFVElUSU9OU10NCisNCitnZW5lcmF0ZXMgYSBkZXRl
-cm1pbmlzdGljIGxvc3MgcGF0dGVybi4gSXQgcmVhZHMgZnJvbSB0aGUgdGV4dCBmaWxlIEZJ
-TEVOQU1FIGEgc2VxdWVuY2Ugb2YgIjEiIGFuZCAiMCIgd2hlcmUgIjEiIGFyZSB0aGUgbG9z
-cyBldmVudHMgYW5kICIwIiBhcmUgdGhlIHJlZ3VsYXIgdHJhbnNtaXNzaW9uIG9mIHBhY2tl
-dHMgLiBUaGUgcGFyYW1ldGVyIHJlcGV0aXRpb25zIGlzIG9wdGlvbmFsIGFuZCBpcyB0aGUg
-bnVtYmVyIG9mICJyZXBsaWNhcyIgb2YgdGhlIGxvc3MgcGF0dGVybiBmaWxlLiBJdCBpcyBv
-cHRpb25hbCBhbmQgYnkgZGVmYXVsdCBpcyAwIHdoaWNoIG1lYW5zIGluZmluaXRlIHJlcGV0
-aXRpb24gb2YgdGhlIGxvc3MgcGF0dGVybi4NCisNCisuQiBjb3JydXB0IA0KK1BFUkNFTlQg
-W0NPUlJFTEFUSU9OXV0NCisNCithbGxvd3MgdGhlIGVtdWxhdGUgdGhlIHJhbmRvbSBub2lz
-ZSBpbnRyb2R1Y2luZyBhbiBlcnJvciBpbiBhIHJhbmRvbSBwb3NpdGlvbiBmb3IgYSBjaG9z
-ZW4gcGVyY2VudCBvZiBwYWNrZXRzLiBJdCBpcyBhbHNvIHBvc3NpYmxlIHRvIGFkZCBhIGNv
-cnJlbGF0aW9uIHRocm91Z2ggdGhlIHByb3BlciBwYXJhbWV0ZXIuDQorDQorLkIgZHVwbGlj
-YXRlIA0KK1BFUkNFTlQgW0NPUlJFTEFUSU9OXV0NCisNCit1c2luZyB0aGlzIG9wdGlvbiB0
-aGUgY2hvc2VuIHBlcmNlbnQgb2YgcGFja2V0cyBpcyBkdXBsaWNhdGVkIGJlZm9yZSBxdWV1
-ZWluZyB0aGVtLiBJdCBpcyBhbHNvIHBvc3NpYmxlIHRvIGFkZCBhIGNvcnJlbGF0aW9uIHRo
-cm91Z2ggdGhlIHByb3BlciBwYXJhbWV0ZXIuDQorDQorLkIgcmVvcmRlciANCitQUkVDRU5U
-IFtDT1JSRUxBVElPTl0gWyBnYXAgRElTVEFOQ0UgXV0NCisNCit0aGVyZSBhcmUgdHdvIHdh
-eXMgdG8gdXNlIHRoaXMgb3B0aW9uOg0KKw0KKy5CIHJlb3JkZXIgDQorZ2FwIDUgMTAgbXMg
-DQorDQoraW4gdGhpcyBmaXJzdCBleGFtcGxlIGV2ZXJ5IDV0aCAoMTB0aCwgMTV0aCkgcGFj
-a2V0IGlzIHNlbnQgaW1tZWRpYXRlbHkgd2hpbGUgb3RoZXIgcGFja2V0cyBhcmUgZGVsYXll
-ZCBieSAxMCBtcyANCisNCisuQiByZW9yZGVyIA0KKzI1JSA1MCUNCisNCitpbiB0aGlzIHNl
-Y29uZCBleGFtcGxlIDI1JSBvZiBwYWNrZXRzIGFyZSBzZW50IGltbWVkaWF0ZWx5ICh3aXRo
-IGNvcnJlbGF0aW9uIG9mIDUwJSkgd2hpbGUgdGhlIG90aGVyIGFyZSBkZWxheWVkIGJ5IDEw
-IG1zLg0KKw0KKy5TSCBMSU1JVEFUSU9OUw0KK1RoZSBtYWluIGtub3duIGxpbWl0YXRpb24g
-b2YgTmV0ZW0gYXJlIHJlbGF0ZWQgdG8gdGltZXIgZ3JhbnVsYXJpdHksIHNpbmNlIExpbnV4
-IGlzIG5vdCBhIHJlYWwtdGltZSBvcGVyYXRpbmcgc3lzdGVtOyB0byB0aGUgY2hvaWNlIG9m
-IFBzZXVkby1SYW5kb20gTnVtYmVyIEdlbmVyYXRvciAoUFJORykgYW5kIHRoZSBvcmlnaW5h
-bCBsb3NzIG1vZGVsLiBUbyBoYXZlIGEgYmV0dGVyIGJlaGF2aW9yIGluIGVtdWxhdGluZyBs
-b3NzZXMsIHRoZSBuZXcgbG9zc19HSV90cmFuLCBsb3NzX0dJLCBsb3NzX2Jlcm4sIGxvc3Nf
-Z2lsYiwgbG9zc19naWxiZWxsLCBsb3NzX2dpbGJfNHMsIGxvc3NfZ2lsYmVsbF80cyBvcHRp
-b25zIHdlcmUgYWRkZWQuDQorDQorDQorLlNIIFNPVVJDRVMNCisuVFANCitvDQorSGVtbWlu
-Z2VyIFMuICwgIk5ldHdvcmsgRW11bGF0aW9uIHdpdGggTmV0RW0iLCBPcGVuIFNvdXJjZSBE
-ZXZlbG9wbWVudCBMYWIsIEFwcmlsIDIwMDUgKGh0dHA6Ly9kZXZyZXNvdXJjZXMubGludXgt
-Zm91bmRhdGlvbi5vcmcvc2hlbW1pbmdlci9uZXRlbS9MQ0EyMDA1X3BhcGVyLnBkZikNCisN
-CisuVFANCitvDQorTmV0ZW0gcGFnZSBmcm9tIExpbnV4IGZvdW5kYXRpb24sIChodHRwOi8v
-d3d3LmxpbnV4Zm91bmRhdGlvbi5vcmcvZW4vTmV0Ok5ldGVtKQ0KKw0KKy5UUA0KK28NCitT
-YWxzYW5vIFMuLCBMdWRvdmljaSBGLiwgT3JkaW5lIEEuLCAiRGVmaW5pdGlvbiBvZiBhIGdl
-bmVyYWwgYW5kIGludHVpdGl2ZSBsb3NzIG1vZGVsIGZvciBwYWNrZXQNCituZXR3b3JrcyBh
-bmQgaXRzIGltcGxlbWVudGF0aW9uIGluIHRoZSBOZXRlbSBtb2R1bGUgaW4gdGhlIExpbnV4
-IGtlcm5lbCIsIA0KK0F1Z3VzdCAyMDA5IChodHRwOi8vbmV0Z3JvdXAudW5pcm9tYTIuaXQv
-dHdpa2kvcHViL01haW4vbmV0ZW0yL1RSLWxvc3MtbmV0ZW0ucGRmKQ0KKw0KKw0KKy5TSCBT
-RUUgQUxTTw0KKy5CUiB0YyAoOCkNCisNCisuU0ggQVVUSE9SDQorTmV0ZW0gd2FzIHdyaXR0
-ZW4gYnkgU3RlcGhlbiBIZW1taW5nZXIgYXQgT1NETCBhbmQgaXMgYmFzZWQgb24gTklTVG5l
-dC4gVGhpcyB2ZXJzaW9uIGluY2x1ZGVzIHRoZSBuZXcgR0kgKEdlbmVyYWwgYW5kIEludHVp
-dGl2ZSkgbG9zcyBnZW5lcmF0b3IsIHRoZSBHaWxiZXJ0LUVsbGlvdCBsb3NzIGdlbmVyYXRv
-ciwgdGhlIGRldGVybWluaXN0aWMgcGF0dGVybiBtb2RlLiBUaGlzIG9wdGlvbnMgd2VyZSBk
-ZXZlbG9wZWQgYnkgTmV0d29ya2luZyBHcm91cCwgVW5pdmVyc2l0eSBvZiBSb21lICJUb3Ig
-VmVyZ2F0YSIgaW52b2x2aW5nIFN0ZWZhbm8gU2Fsc2FubywgRmFiaW8gTHVkb3ZpY2ksIEFs
-ZXNzYW5kcm8gT3JkaW5lLiBUaGlzIG1hbnBhZ2Ugd2FzIGNyZWF0ZWQgYnkgRmFiaW8gTHVk
-b3ZpY2kgPGZhYmlvLmx1ZG92aWNpIEFUIHlhaG9vIERPVCBpdD4uDQorDQor
---------------080905080808020100000001--
+diff -uNr iproute2-2.6.29-1/tc/q_netem.c iproute2-2.6.29-1-netem/tc/q_netem.c
+--- iproute2-2.6.29-1/tc/q_netem.c	2009-03-24 23:40:54.000000000 +0100
++++ iproute2-2.6.29-1-netem/tc/q_netem.c	2009-12-11 16:41:14.766468716 +0100
+@@ -7,7 +7,6 @@
+  *		2 of the License, or (at your option) any later version.
+  *
+  * Authors:	Stephen Hemminger <shemminger@osdl.org>
+- *
+  */
+ 
+ #include <stdio.h>
+@@ -29,9 +28,19 @@
+ {
+ 	fprintf(stderr,
+ "Usage: ... netem [ limit PACKETS ] \n" \
++"                 [ logging LEVEL ] \n" \
++"		  [ query ] \n" \
+ "                 [ delay TIME [ JITTER [CORRELATION]]]\n" \
+ "                 [ distribution {uniform|normal|pareto|paretonormal} ]\n" \
+ "                 [ drop PERCENT [CORRELATION]] \n" \
++"		  [ loss_GI ploss [burst_length [density [pisol [good_burst_length]]]]] \n" \
++"		  [ loss_GI_tran p13 p31 [p32 p23 [p14]]]  \n" \
++"		  [ loss_bern p ] \n" \
++"		  [ loss_gilb_4s p r [1-h]] \n" \
++"		  [ loss_gilbell_4s p r [1-h [1-k]]] \n" \
++"		  [ loss_gilb p r [1-h]] \n" \
++"		  [ loss_gilbell p r [1-h [1-k]]] \n" \
++"                 [ loss_pattern [filename [repetitions]]] \n" \
+ "                 [ corrupt PERCENT [CORRELATION]] \n" \
+ "                 [ duplicate PERCENT [CORRELATION]]\n" \
+ "                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n");
+@@ -138,6 +147,10 @@
+ 
+ 	memset(&opt, 0, sizeof(opt));
+ 	opt.limit = 1000;
++	opt.query = 0; 
++	opt.logging = 0; 
++	opt.pattern_length = 0;
++	opt.pattern_repetitions = 0; 
+ 	memset(&cor, 0, sizeof(cor));
+ 	memset(&reorder, 0, sizeof(reorder));
+ 	memset(&corrupt, 0, sizeof(corrupt));
+@@ -150,6 +163,14 @@
+ 				explain1("limit");
+ 				return -1;
+ 			}
++		} else if (matches(*argv, "logging") == 0) {		
++			NEXT_ARG();
++			if (get_size(&opt.logging, *argv)) {
++				explain1("logging");
++				return -1;
++			}
++		} else if (matches(*argv, "query") == 0) {		
++			opt.query=1;			
+ 		} else if (matches(*argv, "latency") == 0 ||
+ 			   matches(*argv, "delay") == 0) {
+ 			NEXT_ARG();
+@@ -189,6 +210,506 @@
+ 					return -1;
+ 				}
+ 			}
++		} else if (matches(*argv, "loss_GI") == 0)  {		
++			NEXT_ARG();
++
++			double p13=0;
++			double p31=1;
++			double p32=0;
++			double p23=1;
++			double p14=0;
++			double ploss=0;
++			double burst_length=1;
++			double rho=1;
++			double pisol=0;
++			double good_burst_length=0;
++
++			opt.algorithm=0;	//algorithm 0 is GI, 1 is gilbell
++			
++			ploss=strtod(*argv,(char **)NULL)/100;
++
++			if (NEXT_IS_NUMBER()) {			
++			NEXT_ARG();
++			burst_length=strtod(*argv,(char **)NULL);
++			
++			if (NEXT_IS_NUMBER()) {
++			NEXT_ARG();			
++			rho=strtod(*argv,(char **)NULL)/100;
++			
++			if (ploss>rho) {
++			printf("\nError: ploss>density \n");
++			break;
++			}
++			
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			pisol=strtod(*argv,(char **)NULL)/100;
++			
++			if (pisol>ploss) {
++			printf("\nError: pisol>ploss \n");
++			break;
++			}
++
++			if (ploss>(rho-pisol*(rho-1))) {
++			printf("\nError: ploss>density-pisol(density-1) \n");
++			break;
++			}
++			
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			good_burst_length=strtod(*argv,(char **)NULL);
++			if (good_burst_length>burst_length) {printf("\nError: good burst length>burst length \n ");
++			break;
++							}
++						}		
++					}
++				}
++			}
++					
++			if(burst_length==0) {
++			p13=ploss;
++			p31=1-ploss;
++			}
++			
++			else if((burst_length!=0) & (rho==1) & (pisol==0)) {
++			p13=ploss/(burst_length*(1-ploss));
++			p31=1/burst_length;
++			} 
++			
++			else if ((burst_length!=0) & (rho!=1) & (pisol==0)) {
++			p13=(-ploss)/(burst_length*ploss-burst_length*rho);
++			p31=1/(burst_length*rho);
++			}
++			
++			else if ((burst_length!=0) & (rho!=1) & (pisol!=0)) {
++			p13=(pisol-ploss)/(burst_length*(pisol-1)*(rho-ploss));
++			p31=1/(burst_length*rho);
++			p14=pisol/(1-pisol);
++			}
++				
++			if((burst_length!=0) & (rho!=1))	{
++			
++				if(good_burst_length==0)	{
++				p23=(burst_length*rho-1) / (burst_length-1);
++				p32=(1+rho*rho*burst_length-rho-burst_length*rho) / (rho-rho*burst_length);
++							        					}				
++				else	{
++				p23=1/good_burst_length;
++				p32=(1-rho) / (rho*good_burst_length);				
++					}	
++					
++								}
++					
++			if (burst_length==0) burst_length=1/p31;						
++						
++			printf("\nTransition probabilities are:\n ");
++			printf("--------------------------------");
++			printf("\np13 is %.3f%% ", 100*p13);
++			printf("\np31 is %.3f%% ", 100*p31);
++			printf("\np32 is %.3f%% ", 100*p32);
++			printf("\np23 is %.3f%% ", 100*p23);
++			printf("\np14 is %.3f%%\n ", 100*p14);
++			
++			printf("\nGI (General and Intuitive) parameters will be: \n");
++			printf("--------------------------------");
++			printf("\nploss is %.3f%% ", 100*ploss);
++			printf("\nburst length is %.3f", burst_length);
++			printf("\nburst density is %.3f%% ", 100*rho);
++			printf("\nisolated ploss is %.3f%% ", 100*pisol);
++			printf("\ngood burst length is %.3f\n ", good_burst_length);
++
++			if(opt.query==0)	{
++			opt.p13=4294967295u*p13;
++			opt.p31=4294967295u*p31;
++			opt.p32=4294967295u*p32;
++			opt.p23=4294967295u*p23;
++			opt.p14=4294967295u*p14;			
++			}
++			
++			if(opt.query==1) return -1;	
++
++		} else if (matches(*argv, "loss_GI_tran") == 0)  {
++
++			double p13=0;
++			double p31=1;
++			double p32=0;
++			double p23=1;
++			double p14=0;
++			double ploss;
++			double burst_length;
++			double rho;
++			double pisol;
++			double good_burst_length;
++
++			opt.algorithm=0; 	//algorithm 0 is 4-state, 1 is gilbell
++
++			NEXT_ARG();
++			p13=strtod(*argv,(char **)NULL)/100;
++
++			if (NEXT_IS_NUMBER()) {			
++			NEXT_ARG();
++			p31=strtod(*argv,(char **)NULL)/100;
++			if (NEXT_IS_NUMBER()) {
++			NEXT_ARG();
++			p32=strtod(*argv,(char **)NULL)/100;
++			if (NEXT_IS_NUMBER()) {
++			NEXT_ARG();
++			p23=strtod(*argv,(char **)NULL)/100;
++			if (NEXT_IS_NUMBER()) {
++			NEXT_ARG();
++			p14=strtod(*argv,(char **)NULL)/100;
++			}
++			}
++			}
++			}
++
++			else p31=1-p13;
++			
++			printf("\nTransition probabilities are:\n ");
++			printf("--------------------------------");
++			printf("\np13 is %.3f%% ", 100*p13);
++			printf("\np31 is %.3f%% ", 100*p31);
++			printf("\np32 is %.3f%% ", 100*p32);
++			printf("\np23 is %.3f%% ", 100*p23);
++			printf("\np14 is %.3f%%\n ", 100*p14);
++
++			ploss=(p13*p23+p14*p23*p31) / (p13*p23+p23*p31+p14*p23*p31+p13*p32);
++			burst_length=(p32+p23) / (p23*p31);
++			rho=(p13*p23) / (p13*p23+p13*p32);
++			pisol=(p14*p23*p31) / (p14*p23*p31+p23*p31);
++			good_burst_length=1/p23;
++
++			printf("\nGI (General and Intuitive) parameters will be: \n");
++			printf("--------------------------------");
++			printf("\nploss is %.3f%%", 100*ploss);
++			printf("\nburst length is %.3f", burst_length);
++			printf("\nburst density is %.3f%% ", 100*rho);
++			printf("\nisolated ploss is %.3f%% ", 100*pisol);
++			printf("\ngood burst length is %.3f\n ", good_burst_length);
++
++			if(opt.query==0)	{
++			opt.p13=4294967295u*p13;
++			opt.p31=4294967295u*p31;
++			opt.p32=4294967295u*p32;
++			opt.p23=4294967295u*p23;
++			opt.p14=4294967295u*p14;			
++			}
++			
++			if(opt.query==1) return -1;
++			
++		} else if (matches(*argv, "loss_gilb") == 0)  {
++			
++			double p=0;
++			double r=0;
++			double h=0;
++									
++			opt.algorithm=1;	//algorithm 1 is gilbell
++					
++			NEXT_ARG();
++			p=strtod(*argv,(char **)NULL)/100;
++			
++			NEXT_ARG();
++			r=strtod(*argv,(char **)NULL)/100;
++						
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			h=(100-strtod(*argv,(char **)NULL))/100;						
++			}
++
++			printf("\nGilbert parameters will be: \n");
++			printf("--------------------------------");
++			printf("\np is %.3f%% ", 100*p);
++			printf("\nr is %.3f%%", 100*r);
++			printf("\n1-h is %.3f%%\n", 100*(1-h));	
++			
++			opt.gilb_p=4294967295u*p;
++			opt.gilb_r=4294967295u*r;
++			opt.gilb_h=4294967295u*h;
++														
++		} else if (matches(*argv, "loss_gilbell") == 0)  {
++			
++			double p=0;
++			double r=0;
++			double h=0;
++			double k=1;
++			
++			opt.algorithm=1;	//algorithm 1 is gilbell
++					
++			NEXT_ARG();
++			p=strtod(*argv,(char **)NULL)/100;
++			
++			NEXT_ARG();
++			r=strtod(*argv,(char **)NULL)/100;
++						
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			h=(100-strtod(*argv,(char **)NULL))/100;
++						
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			k=(100-strtod(*argv,(char **)NULL))/100;			
++						}
++						}
++
++			printf("\nGilbert-Elliot parameters will be: \n");
++			printf("--------------------------------");
++			printf("\np is %.3f%% ", 100*p);
++			printf("\nr is %.3f%%", 100*r);
++			printf("\n1-h is %.3f%% ", 100*(1-h));
++			printf("\n1-k is %.3f%%\n", 100*(1-k));		
++			
++			opt.gilb_p=4294967295u*p;
++			opt.gilb_r=4294967295u*r;
++			opt.gilb_h=4294967295u*h;
++			opt.gilb_k=4294967295u*k;		
++
++		} else if (matches(*argv, "loss_bern") == 0)  {		
++			
++			double p=0;
++			double r=0;
++			double ploss=0;
++			double burst_length=1;
++			double p13=0;
++			double p31=0;
++			
++			opt.algorithm=0;	//algorithm 0 is 4-state, 1 is gilbell
++					
++			NEXT_ARG();
++			p=strtod(*argv,(char **)NULL)/100;
++			r=1-p;
++			
++			ploss=p/(p+r);
++			burst_length=1/r;
++			
++			p13=p;
++			p31=r;
++
++			printf("\nTransition probabilities are:\n ");
++			printf("--------------------------------");
++			printf("\np13 is %.3f%% ", 100*p13);
++			printf("\np31 is %.3f%% ", 100*p31);
++			printf("\np32 is 0.000%% ");
++			printf("\np23 is 100.000%% ");
++			printf("\np14 is 0.000%%\n ");
++			
++			printf("\nGI (General and Intuitive) parameters will be: \n");
++			printf("--------------------------------");
++			printf("\nploss is %.3f%% ", 100*ploss);
++			printf("\nburst length is %.3f", burst_length);
++			printf("\nburst density is 100.000%% ");
++			printf("\nisolated ploss is 0.000%% ");
++			printf("\ngood burst length is 1.000%%\n "); 
++
++			if(opt.query==0)	{
++			opt.p13=4294967295u*p13;
++			opt.p31=4294967295u*p31;
++			opt.p32=0;
++			opt.p23=4294967295u;
++			opt.p14=0;			
++			}
++			
++			if(opt.query==1) return -1;			
++
++		} else if (matches(*argv, "loss_gilb_4s") == 0)  {
++			double p=0;
++			double r=0;
++			double h=0;
++			double ploss=0;
++			double burst_length=1;
++			double rho=1;
++			double p13=0;
++			double p31=1;
++			double p23=1;
++			double p32=0;
++			
++			opt.algorithm=0;	//algorithm 0 is 4-state, 1 is gilbell
++					
++			NEXT_ARG();
++			p=strtod(*argv,(char **)NULL)/100;
++			
++			NEXT_ARG();
++			r=strtod(*argv,(char **)NULL)/100;						
++			
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			h=(100-strtod(*argv,(char **)NULL))/100;
++						
++						}
++
++			ploss=(r-+p-h*p)/(p+r);
++			burst_length=(1/(r-r*h))*((h*h*(1-h+2*r*h*h-6*r*h+2*r))+(2*h*(1-h)*(1-h+r*h*h-3*h*r+r))+((1-h)*(1-h)*(1-h)));
++			
++			if(h!=0) rho=(1-h)/(r*burst_length);
++			else rho=1;
++	
++			p13=(-ploss)/(burst_length*(-rho+ploss));
++			p31=1/(burst_length*rho);
++
++			if (rho<1)	{	
++        		p32=(1+rho*rho*burst_length-rho-burst_length*rho) / (rho-rho*burst_length);
++			p23=(burst_length*rho-1) / (burst_length-1);			
++			}
++
++			else 	{
++			p32=0;
++			p23=1;
++			}
++
++			printf("\nTransition probabilities are:\n ");
++			printf("--------------------------------");
++			printf("\np13 is %.3f%% ", 100*p13);
++			printf("\np31 is %.3f%% ", 100*p31);
++			printf("\np32 is %.3f%% ", 100*p32);
++			printf("\np23 is %.3f%% ", 100*p23);
++			printf("\np14 is 0.000%%\n");
++			
++			printf("\nGI (General and Intuitive) parameters will be: \n");
++			printf("--------------------------------");
++			printf("\nploss is %.3f%% ", 100*ploss);
++			printf("\nburst length is %.3f", burst_length);
++			printf("\nburst density is %.3f%% ", 100*rho);
++			printf("\nisolated ploss is 0.000%% ");
++			printf("\ngood burst length is %.3f\n ", 1/p23); 
++
++			if(opt.query==0)	{
++			opt.p13=4294967295u*p13;
++			opt.p31=4294967295u*p31;
++			if(rho!=1) {
++			opt.p32=4294967295u*p32;
++			opt.p23=4294967295u*p23;
++			}
++			else {
++			opt.p32=0;
++			opt.p23=4294967295u;
++			}
++						}	
++			
++			if(opt.query==1) return -1;	
++
++		} else if (matches(*argv, "loss_gilbell_4s") == 0)  {
++			
++			double p=0;
++			double r=0;
++			double h=0;
++			double k=1;
++			double ploss=0;
++			double burst_length=1;
++			double rho=1;
++			double pisol=0;	
++			double p13=0;
++			double p31=1;
++			double p23=1;
++			double p32=0;
++			double p14=0;
++
++			opt.algorithm=0;	//algoritnm 1 is gilbell
++					
++			NEXT_ARG();
++			p=strtod(*argv,(char **)NULL)/100;
++			
++			NEXT_ARG();
++			r=strtod(*argv,(char **)NULL)/100;
++						
++			
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			h=(100-strtod(*argv,(char **)NULL))/100;
++						
++			if (NEXT_IS_NUMBER())	{
++			NEXT_ARG();
++			k=(100-strtod(*argv,(char **)NULL))/100;
++			
++						}
++						}
++
++			ploss=(r-k*r+p-h*p)/(p+r);
++			burst_length=(1/(r-r*h))*((h*h*(1-h+2*r*h*h-6*r*h+2*r))+(2*h*(1-h)*(1-h+r*h*h-3*h*r+r))+((1-h)*(1-h)*(1-h)));
++			
++			if(h!=0) rho=(1-h)/(r*burst_length);
++			else rho=1;
++	
++			if(k!=1) pisol=1-k;
++			else pisol=0;
++	
++			p13=(pisol-ploss)/(burst_length*(pisol*(rho-1)-rho+ploss));
++			p31=1/(burst_length*rho);
++
++			if (rho<1)	{	
++        		p32=(1+rho*rho*burst_length-rho-burst_length*rho) / (rho-rho*burst_length);
++			p23=(burst_length*rho-1) / (burst_length-1);			
++			}
++
++			else 	{
++			p32=0;
++			p23=1;
++			}
++
++			if (pisol!=0) p14=(pisol) / (1-pisol);
++			else p14=0;			
++			
++			printf("\nTransition probabilities are:\n ");
++			printf("--------------------------------");
++			printf("\np13 is %.3f%% ", 100*p13);
++			printf("\np31 is %.3f%% ", 100*p31);
++			printf("\np32 is %.3f%% ", 100*p32);
++			printf("\np23 is %.3f%% ", 100*p23);
++			printf("\np14 is %.3f%%\n ", 100*p14);
++			
++			printf("\nGI (General and Intuitive) parameters will be: \n");
++			printf("--------------------------------");
++			printf("\nploss is %.3f%% ", 100*ploss);
++			printf("\nburst length is %.3f", burst_length);
++			printf("\nburst density is %.3f%% ", 100*rho);
++			printf("\nisolated ploss is %.3f%% ", 100*pisol);
++			printf("\ngood burst length is %.3f\n ", 1/p23); 
++
++			if(opt.query==0)	{
++			opt.p13=4294967295u*p13;
++			opt.p31=4294967295u*p31;
++			if(rho!=1) {
++			opt.p32=4294967295u*p32;
++			opt.p23=4294967295u*p23;
++			}
++			else {
++			opt.p32=0;
++			opt.p23=4294967295u;
++			}
++			if(pisol>0) opt.p14=4294967295u*p14;
++			else opt.p14=0;		
++						}
++						
++			if(opt.query==1) return -1;				
++					
++		} else if (matches(*argv, "loss_pattern") == 0)  {	//LOSS PATTERN		
++			NEXT_ARG();
++						
++			int i; 
++					
++			FILE *sequence;
++			
++			sequence=fopen(*argv, "r");
++			
++			if (sequence == NULL) {
++				printf("Could not open the file %s \n", *argv);
++				exit(1);  } 				
++
++			fseek(sequence, 0, SEEK_END);
++			fgetpos(sequence, &opt.pattern_length);
++			rewind(sequence);
++
++			opt.user_pattern=malloc(opt.pattern_length*sizeof(int));
++			opt.pattern_repetitions=0;  			
++
++			for(i=1; i<opt.pattern_length; i++) {
++			if(fgetc(sequence)=='1') opt.user_pattern[i-1]=1;			
++			else opt.user_pattern[i-1]=0; }
++
++  			fclose(sequence);
++   			
++   			if (NEXT_IS_NUMBER()) {			
++			NEXT_ARG();
++			opt.pattern_repetitions=strtod(*argv,(char **)NULL);
++						}
+ 		} else if (matches(*argv, "reorder") == 0) {
+ 			NEXT_ARG();
+ 			present[TCA_NETEM_REORDER] = 1;
+@@ -344,6 +865,46 @@
+ 	}
+ 
+ 	fprintf(f, "limit %d", qopt.limit);
++	if(qopt.logging!=0) fprintf(f, " logging %d", qopt.logging); 
++	if(qopt.pattern_length!=0) fprintf(f, " pattern_length %d", qopt.pattern_length);
++	if(qopt.pattern_repetitions!=0) fprintf(f, " pattern_repetitions %d", qopt.pattern_repetitions);
++	int j;
++	for (j=1; j<qopt.pattern_length; j++) {
++	fprintf(f, " pattern element %d is %d\n", j-1, qopt.user_pattern[j-1]);
++						}
++	
++	if (qopt.latency) {
++		fprintf(f, " delay %s", sprint_ticks(qopt.latency, b1));
++
++		if (qopt.jitter) {
++			fprintf(f, "  %s", sprint_ticks(qopt.jitter, b1));
++			if (cor && cor->delay_corr)
++				fprintf(f, " %s", sprint_percent(cor->delay_corr, b1));
++		}
++	}
++
++	if (qopt.loss) {
++		fprintf(f, " loss %s", sprint_percent(qopt.loss, b1));
++		if (cor && cor->loss_corr)
++			fprintf(f, " %s", sprint_percent(cor->loss_corr, b1));
++	}
++	
++	if (qopt.p13) {								
++		fprintf(f, " p13 %s", sprint_percent(qopt.p13, b1));
++		fprintf(f, " p31 %s", sprint_percent(qopt.p31, b1));
++		fprintf(f, " p32 %s", sprint_percent(qopt.p32, b1));
++		fprintf(f, " p23 %s", sprint_percent(qopt.p23, b1));
++		fprintf(f, " p14 %s", sprint_percent(qopt.p14, b1));
++			}	
++			
++	if (qopt.gilb_p) {								
++		fprintf(f, " p %s", sprint_percent(qopt.gilb_p, b1));
++		fprintf(f, " r %s", sprint_percent(qopt.gilb_r, b1));
++		fprintf(f, " h %s", sprint_percent(qopt.gilb_h, b1));
++		if (qopt.gilb_k) fprintf(f, " k %s", sprint_percent(qopt.gilb_k, b1));
++			}		
++
++	fprintf(f, "limit %d", qopt.limit);
+ 
+ 	if (qopt.latency) {
+ 		fprintf(f, " delay %s", sprint_ticks(qopt.latency, b1));
+
+--------------010206010607030609050702--
