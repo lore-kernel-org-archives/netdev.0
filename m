@@ -1,42 +1,63 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: solutions for forcedeth jumbo rx and order:2 alloc?
-Date: Fri, 18 Dec 2009 12:52:22 -0500
-Message-ID: <1261158742.4932.190.camel@ragnarok>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v2 4/6] net: Add netdev ops for SR-IOV configuration
+Date: Fri, 18 Dec 2009 18:19:21 +0000
+Message-ID: <1261160361.2769.20.camel@achroite.uk.solarflarecom.com>
+References: <20091218013329.4510.25937.stgit@localhost.localdomain>
+	 <20091218013444.4510.33545.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:37431 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932237AbZLRSFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 13:05:38 -0500
-Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
-	(authenticated bits=0)
-	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id nBIHqZ4b006817
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 12:52:36 -0500
+Received: from mail.solarflare.com ([216.237.3.220]:47398 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932382AbZLRSTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 13:19:25 -0500
+In-Reply-To: <20091218013444.4510.33545.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, forcedeth seems to want an order:2 alloc for each frame rx.
-I find this behaviour makes using 9100 byte jumbos somewhat suicidal O.o
-Frequent kernel messages, failure of bridge STP (the goggles, they do
-nothing!) due to missed packets, etc.
+On Thu, 2009-12-17 at 17:34 -0800, Jeff Kirsher wrote:
+> From: Williams, Mitch A <mitch.a.williams@intel.com>
+> 
+> Add netdev ops for configuring SR-IOV VF devices through the PF driver.
 
-I realize that it's a reverse engineered driver, and that changing the
-way hardware descriptors works to use paged SKBs might be very
-difficult, so I'm wondering if the following would work:
+Though this be restricted to VFs, though?
 
-Allocate linear static buffers for use in rx ring descriptors once at
-device init time (ifconfig up), and copy into paged skbs when handing >
-page sized SKBs up to higher layer network stack?  (hmm did i just ask
-to copy every rx packet?)
+It is possible to have virtualised interfaces appear as PFs, so they can
+easily be passed-through to guests with no IOV support.  HP's 'Virtual
+Connect Flex-10' NICs do this, but I'm not sure how they are configured
+and whether it is possible to do so from Linux as opposed to firmware.
+
+Solarstorm controllers also have an on-NIC page table and page-
+segregated queues that can be mapped into PV guests, which could perhaps
+be made configurable in the same way.
+
+[...]
+> @@ -660,6 +668,15 @@ struct net_device_ops {
+>  #define HAVE_NETDEV_POLL
+>  	void                    (*ndo_poll_controller)(struct net_device *dev);
+>  #endif
+> +	int			(*ndo_set_vf_mac)(struct net_device *dev,
+> +						  int queue, u8 *mac);
+> +	int			(*ndo_set_vf_vlan)(struct net_device *dev,
+> +						   int queue, u16 vlan);
+> +	int			(*ndo_set_vf_tx_rate)(struct net_device *dev,
+> +						      int vf, int rate);
+> +	int			(*ndo_get_vf_config)(struct net_device *dev,
+> +						     int vf,
+> +						     struct ifla_vf_info *ivf);
+[...]
+
+If these remain specific to IOV, presumably they should be guarded by
+#ifdef CONFIG_PCI_IOV.
+
+Ben.
 
 -- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
