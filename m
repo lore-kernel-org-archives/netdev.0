@@ -1,29 +1,29 @@
-From: Christian Samsel <csamsel@gmxpro.de>
+From: Christian Samsel <christian.samsel@rwth-aachen.de>
 Subject: Re: [PATCH 1/2] improve netem reorder flexibility
-Date: Fri, 18 Dec 2009 18:56:59 +0100
-Message-ID: <200912181856.59901.csamsel@gmxpro.de>
+Date: Fri, 18 Dec 2009 19:01:28 +0100
+Message-ID: <200912181901.28542.christian.samsel@rwth-aachen.de>
 References: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
  <20091218093240.64ca7d88@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@osdl.org>
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:47046 "EHLO
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:49881 "EHLO
 	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753884AbZLRR5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 12:57:07 -0500
-Received: from ironport-out-2.rz.rwth-aachen.de ([134.130.5.41])
+	by vger.kernel.org with ESMTP id S1755084AbZLRSB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 13:01:27 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
  by mta-1.ms.rz.RWTH-Aachen.de
  (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KUV00ESA0J6PSC0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Fri, 18 Dec 2009 18:57:06 +0100 (CET)
+ with ESMTP id <0KUV00ERE0QEPYC0@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Fri, 18 Dec 2009 19:01:26 +0100 (CET)
 Received: from oxygen-mobile.localnet ([unknown] [80.135.53.190])
  by relay-auth-2.ms.rz.rwth-aachen.de
  (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0KUV009E10IY6O10@relay-auth-2.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Fri, 18 Dec 2009 18:57:06 +0100 (CET)
+ with ESMTPA id <0KUV009FX0QE6O10@relay-auth-2.ms.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Fri, 18 Dec 2009 19:01:26 +0100 (CET)
 In-reply-to: <20091218093240.64ca7d88@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
