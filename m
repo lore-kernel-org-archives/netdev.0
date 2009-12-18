@@ -1,41 +1,48 @@
-From: Evan McNabb <emcnabb@redhat.com>
-Subject: [PATCH] allow nf_tproxy_core module to unload
-Date: Fri, 18 Dec 2009 11:24:40 -0500
-Message-ID: <20091218162440.22480.3383.sendpatchset@localhost.localdomain>
-Cc: Evan McNabb <emcnabb@redhat.com>, sassmann@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4050 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754539AbZLRQYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2009 11:24:41 -0500
-Received: from int-mx04.intmail.prod.int.phx2.redhat.com (int-mx04.intmail.prod.int.phx2.redhat.com [10.5.11.17])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id nBIGOfEM011336
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 11:24:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+Date: Fri, 18 Dec 2009 11:33:48 -0500
+Message-ID: <20091218163348.GA24269@heat>
+References: <20091218154634.79decdc4@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091218154634.79decdc4@lxorguk.ukuu.org.uk>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Evan McNabb <emcnabb@redhat.com>
+Alan Cox wrote:
 
-Include exit function so nf_tproxy_core module can be removed.
+> This is a security model, it belongs as a security model using LSM. 
 
-Signed-off-by: Evan McNabb <emcnabb@redhat.com>
+I'll see what I can cook up for you.
 
-diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
-index 5490fc3..ec6737c 100644
---- a/net/netfilter/nf_tproxy_core.c
-+++ b/net/netfilter/nf_tproxy_core.c
-@@ -89,7 +89,12 @@ static int __init nf_tproxy_init(void)
- 	return 0;
- }
- 
-+static void __exit nf_tproxy_exit(void)
-+{
-+}
-+
- module_init(nf_tproxy_init);
-+module_exit(nf_tproxy_exit);
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Krisztian Kovacs");
+However, please don't be surprised when the resulting cover letter states that
+the LSM-based version *does not* resolve the situation to my satisfaction as a
+userland hacker due to the well-known and long-standing adoption and
+compositionality problems facing small LSMs. ;)
+
+Regards,
+
+Michael
+
+P.S. - Dan is cited in my patch because I wish to honor him for anticipating my
+desires early, clearly, and in writing. However, if you know of an earlier
+citation, then I'll be happy to include that one too.
