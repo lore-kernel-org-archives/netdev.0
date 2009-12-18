@@ -1,166 +1,187 @@
-From: Christian Samsel <christian.samsel@rwth-aachen.de>
-Subject: [PATCH 2/2] improve netem reorder flexibility
-Date: Fri, 18 Dec 2009 14:18:38 +0100
-Message-ID: <1261142318-26249-2-git-send-email-christian.samsel@rwth-aachen.de>
-References: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Christian Samsel <christian.samsel@rwth-aachen.de>
-To: netdev@vger.kernel.org
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
+Date: Fri, 18 Dec 2009 19:16:48 +0530
+Message-ID: <OF8D9C1F06.BEC391A1-ON65257690.003D170F-65257690.004AAB85@in.ibm.com>
+References: <OFA4DBC95B.29C84EEB-ON6525768F.0035A704-6525768F.003644A9@in.ibm.com>	 <20091217112754.GA7755@ff.dom.local>
+	 <20091217114535.GA30429@gondor.apana.org.au>	 <20091217114937.GA30503@gondor.apana.org.au>
+	 <20091217120856.GA30774@gondor.apana.org.au>	 <OF4408981E.ACFC27B2-ON6525768F.0042EA92-6525768F.00436345@in.ibm.com>
+	 <20091217134408.GB31964@gondor.apana.org.au>	 <OF6A94FA41.B9EF2995-ON6525768F.004B99AC-6525768F.004F1634@in.ibm.com>
+	 <20091217143635.GA388@gondor.apana.org.au> <1261086608.26700.149.camel@w-sridhar.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Jarek Poplawski <jarkao2@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:35844 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751467AbZLRNSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 08:18:51 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KUU00MDUNNBBC50@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Fri, 18 Dec 2009 14:18:47 +0100 (CET)
-In-reply-to: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:45484 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbZLRNfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 08:35:42 -0500
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp08.in.ibm.com (8.14.3/8.13.1) with ESMTP id nBID93bS014767
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 18:39:03 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBIDZc3P2629760
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 19:05:38 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBIDZbDJ023365
+	for <netdev@vger.kernel.org>; Sat, 19 Dec 2009 00:35:38 +1100
+In-Reply-To: <1261086608.26700.149.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-supplementary patch for iproute2 to match kernel behavior.
+Sridhar Samudrala <sri@us.ibm.com> wrote on 12/18/2009 03:20:08 AM:
 
-Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
----
- include/linux/pkt_sched.h |   21 +++++++++------
- tc/q_netem.c              |   61 ++++++++++++++++++++++++++++++++------------
- 2 files changed, 56 insertions(+), 26 deletions(-)
+> Increasing the wakeup threshold value reduced the number of requeues, but
+> didn't eliminate them. The throughput improved a little, but the CPU
+> utilization
+> went up.
+> I don't see any 'queue full' warning messages from the driver and
+> hence the driver
+> is not returning NETDEV_TX_BUSY. The requeues are happening in
+> sch_direct_xmit()
+> as it is finding that the tx queue is stopped.
+>
+> I could not get 2.6.31 virtio-net driver to work with 2.6.32 kernel by
+simply
+> replacing virtio-net.c. The compile and build went through fine, butthe
+guest
+> is not seeing the virtio-net device when it comes up.
+> I think it is a driver issue, not a core issue as I am able to get
+> good results
+> by not stopping the queue early in start_xmit() and dropping the skb
+> when xmit_skb()
+> fails even with 2.6.32 kernel. I think this behavior is somewhat
+> similar to 2.6.31
+> virtio-net driver as it caches 1 skb and drops any further skbs when
+> ring is full
+> in its start_xmit routine.
+>
+> 2.6.32 + Rusty's xmit_napi v2 patch
+> -----------------------------------
+> $ ./netperf -c -C -H 192.168.122.1 -t TCP_STREAM  -l60
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.
+> 122.1 (192.168.122.1) port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service
+Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send
+Recv
+> Size   Size    Size     Time     Throughput  local    remote   local
+remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB
+us/KB
+>
+>  87380  16384  16384    60.03      3255.22   87.16    82.57    2.193
+4.156
+> $ tc -s qdisc show dev eth0
+> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1
+> 1 1 1 1 1 1 1
+>  Sent 24524210050 bytes 1482737 pkt (dropped 0, overlimits 0 requeues
+339101)
+>  rate 0bit 0pps backlog 0b 0p requeues 339101
+>
+> 2.6.32 + Rusty's xmit_napi v2 patch + wakeup threshold=64
+> ---------------------------------------------------------
+> $ ./netperf -c -C -H 192.168.122.1 -t TCP_STREAM  -l60
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.
+> 122.1 (192.168.122.1) port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service
+Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send
+Recv
+> Size   Size    Size     Time     Throughput  local    remote   local
+remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB
+us/KB
+>
+>  87380  16384  16384    60.03      3356.71   95.41    89.56    2.329
+4.372
+> [sridhar@localhost ~]$ tc -s qdisc show dev eth0
+> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1
+> 1 1 1 1 1 1 1
+>  Sent 25290227186 bytes 1555119 pkt (dropped 0, overlimits 0 requeues
+78179)
+>  rate 0bit 0pps backlog 0b 0p requeues 78179
+>
+> 2.6.32 + Rusty's xmit_napi v2 patch + wakeup threshold=128
+> ----------------------------------------------------------
+> $./netperf -c -C -H 192.168.122.1 -t TCP_STREAM  -l60
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.
+> 122.1 (192.168.122.1) port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service
+Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send
+Recv
+> Size   Size    Size     Time     Throughput  local    remote   local
+remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB
+us/KB
+>
+>  87380  16384  16384    60.03      3413.79   96.30    89.79    2.311
+4.309
+> [sridhar@localhost ~]$ tc -s qdisc show dev eth0
+> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1
+> 1 1 1 1 1 1 1
+>  Sent 25719585472 bytes 1579448 pkt (dropped 0, overlimits 0 requeues
+40299)
+>  rate 0bit 0pps backlog 0b 0p requeues 40299
+>
+> 2.6.32 + Rusty's xmit_napi v2 patch + don't stop early & drop skb onfail
+patch
+>
+-------------------------------------------------------------------------------
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index d51a2b3..2081195 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -473,19 +473,22 @@ enum
- 
- struct tc_netem_qopt
- {
--	__u32	latency;	/* added delay (us) */
--	__u32   limit;		/* fifo limit (packets) */
--	__u32	loss;		/* random packet loss (0=none ~0=100%) */
--	__u32	gap;		/* re-ordering gap (0 for none) */
--	__u32   duplicate;	/* random packet dup  (0=none ~0=100%) */
--	__u32	jitter;		/* random jitter in latency (us) */
-+	__u32	latency;		/* added delay (us) */
-+	__u32   limit;			/* fifo limit (packets) */
-+	__u32	loss;			/* random packet loss (0=none ~0=100%) */
-+	__u32	gap;			/* minimum re-ordering gap (0 for none) */
-+	__u32   duplicate;		/* random packet dup  (0=none ~0=100%) */
-+	__u32	jitter;			/* random jitter in latency (us) */
-+	__u32   reorderdelay;   	/* delay for reordered packets (us) */
-+	__u32	reorderdelayjitter;	/* random jitter for reordered packets (us) */
- };
- 
- struct tc_netem_corr
- {
--	__u32	delay_corr;	/* delay correlation */
--	__u32	loss_corr;	/* packet loss correlation */
--	__u32	dup_corr;	/* duplicate correlation  */
-+	__u32	delay_corr;		/* delay correlation */
-+	__u32	reorderdelay_corr;	/* reorderdelay correlation */
-+	__u32	loss_corr;		/* packet loss correlation */
-+	__u32	dup_corr;		/* duplicate correlation  */
- };
- 
- struct tc_netem_reorder
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index d06932e..eac9dc5 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -28,13 +28,14 @@
- static void explain(void)
- {
- 	fprintf(stderr,
--"Usage: ... netem [ limit PACKETS ] \n" \
--"                 [ delay TIME [ JITTER [CORRELATION]]]\n" \
--"                 [ distribution {uniform|normal|pareto|paretonormal} ]\n" \
--"                 [ drop PERCENT [CORRELATION]] \n" \
--"                 [ corrupt PERCENT [CORRELATION]] \n" \
--"                 [ duplicate PERCENT [CORRELATION]]\n" \
--"                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n");
-+"Usage: ... netem [ limit PACKETS ]\n" \
-+"                 [ delay TIME [JITTER [CORRELATION]] ]\n" \
-+"                 [ distribution (uniform|normal|pareto|paretonormal) ]\n" \
-+"                 [ drop PERCENT [CORRELATION] ]\n" \
-+"                 [ corrupt PERCENT [CORRELATION] ]\n" \
-+"                 [ duplicate PERCENT [CORRELATION] ]\n" \
-+"                 [ ( reorder PRECENT [CORRELATION] | gap MINDISTANCE ) reorderdelay TIME [JITTER [CORRELATION]] ]\n" \
-+);
- }
- 
- static void explain1(const char *arg)
-@@ -204,6 +205,29 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 					return -1;
- 				}
- 			}
+> $./netperf -c -C -H 192.168.122.1 -t TCP_STREAM  -l60
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.
+> 122.1 (192.168.122.1) port 0 AF_INET
+> Recv   Send    Send                          Utilization       Service
+Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send
+Recv
+> Size   Size    Size     Time     Throughput  local    remote   local
+remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB
+us/KB
+>
+>  87380  16384  16384    60.03      7741.65   70.09    72.84    0.742
+1.542
+> [sridhar@localhost ~]$ tc -s qdisc show dev eth0
+> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0
+1__dev_xmit_skb
+> 1 1 1 1 1 1 1
+>  Sent 58149531018 bytes 897991 pkt (dropped 0, overlimits 0 requeues 1)
+>  rate 0bit 0pps backlog 0b 0p requeues 1
+
+Is the "drop skb" patch doing:
+-                 return NETDEV_TX_BUSY;
 +
-+		} else if  (matches(*argv, "reorderdelay") == 0) {
-+                        NEXT_ARG();
-+                        if (get_ticks(&opt.reorderdelay, *argv)) {
-+                                explain1("reorderdelay");
-+                                return -1;
-+                        }
-+                        if (NEXT_IS_NUMBER()) {
-+                                NEXT_ARG();
-+                                if (get_ticks(&opt.reorderdelayjitter, *argv)) {
-+                                        explain1("reorderdelay");
-+                                        return -1;
-+                                }
-+				if (NEXT_IS_NUMBER()) {
-+                                        NEXT_ARG();
-+                                        ++present[TCA_NETEM_CORR];
-+                                        if (get_percent(&cor.reorderdelay_corr, *argv)) {
-+                                                explain1("reorderdelay");
-+                                                return -1;
-+                                        }
-+                                }
-+			}
-+	
- 		} else if (matches(*argv, "corrupt") == 0) {
- 			NEXT_ARG();
- 			present[TCA_NETEM_CORRUPT] = 1;
-@@ -260,19 +284,18 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 	tail = NLMSG_TAIL(n);
- 
- 	if (reorder.probability) {
--		if (opt.latency == 0) {
--			fprintf(stderr, "reordering not possible without specifying some delay\n");
--		}
- 		if (opt.gap == 0)
--			opt.gap = 1;
--	} else if (opt.gap > 0) {
--		fprintf(stderr, "gap specified without reorder probability\n");
--		explain();
--		return -1;
-+			opt.gap = 1; /* set minimum reorder gap to 1 */
-+	} else {
-+		if ( opt.gap == 0 && opt.reorderdelay > 0) {
-+			fprintf(stderr, "reorderdelay specified without reorder probability or gap\n");
-+			explain();
-+			return -1;
-+		}
- 	}
- 
--	if (dist_data && (opt.latency == 0 || opt.jitter == 0)) {
--		fprintf(stderr, "distribution specified but no latency and jitter values\n");
-+	if (dist_data && opt.jitter == 0 && opt.reorderjitter == 0) {
-+		fprintf(stderr, "distribution specified but no delay or reorderdelay jitter values\n");
- 		explain();
- 		return -1;
- 	}
-@@ -345,6 +368,10 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 
- 	fprintf(f, "limit %d", qopt.limit);
- 
-+	if (qopt.reorderdelay) {
-+		fprintf(f, " reorderdelay %s", sprint_ticks(qopt.reorderdelay, b1) );
-+	}
-+
- 	if (qopt.latency) {
- 		fprintf(f, " delay %s", sprint_ticks(qopt.latency, b1));
- 
--- 
-1.6.4.1
++                 /* drop the skb under stress. */
++                 vi->dev->stats.tx_dropped++;
++                 kfree_skb(skb);
++                 return NETDEV_TX_OK;
+
+Why is dropped count zero in the last test case?
+
+sch_direct_xmit is called from two places, and if it finds
+the txq stopped, it was called from __dev_xmit_skb (where
+the previous sucessful xmit had stopped the queue). This
+means the device is still stopping and restarting 1000's
+of times a min, and each restart fills up the device h/w
+queue with the backlogged skbs resulting in another stop.
+Isn't the txqlen set to 1000 in ether_setup? Can you
+increase the restart limit to a really high value, like
+1/2 or 3/4th of the queue should be empty? Another thing
+to test is to simultaneously set txqueuelen to a big value.
+
+Requeue does not seem to be the reason for BW drop since
+it barely improved when requeue's reduced from 340K to 40K.
+So, as Jarek suggested, GSO could be reason. You could try
+testing with 64K I/O size (with GSO enabled) to get
+comparable results.
+
+thanks,
+
+- KK
 
