@@ -1,55 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
- interface. (v2)
-Date: Fri, 18 Dec 2009 15:46:34 +0000
-Message-ID: <20091218154634.79decdc4@lxorguk.ukuu.org.uk>
-References: <20091218030056.GC3047@heat>
-	<20091218032957.GA23514@heat>
+From: =?ISO-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>
+Subject: Re: [Bugme-new] [Bug 14794] New: IP address assigned by DHCP is	dropped
+ after ~40 seconds
+Date: Fri, 18 Dec 2009 17:17:52 +0100
+Message-ID: <4B2BAB30.3030704@freemail.hu>
+References: <bug-14794-10286@http.bugzilla.kernel.org/> <20091216154713.f082e7cf.akpm@linux-foundation.org> <4B2A9A40.90203@freemail.hu> <20091217132451.b168a796.akpm@linux-foundation.org> <4B2AA64C.50709@gmail.com> <4B2B35B7.6060703@freemail.hu> <adaskb83df6.fsf@roland-alpha.cisco.com> <20091218114123.GA8310@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mark Seaborn <mrs@mythic-beasts.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?ISO-8859-14?B?QW3pcmljbw==?= Wang <xiyou.wangcong@gmail.com>,
-	Michael Stone <michael@laptop.org>
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091218032957.GA23514@heat>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roland Dreier <rdreier@cisco.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mike Galbraith <efault@gmx.de>, Ingo Molnar <mingo@elte.hu>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail01d.mail.t-online.hu ([84.2.42.6]:63031 "EHLO
+	mail01d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932112AbZLRQSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 11:18:04 -0500
+In-Reply-To: <20091218114123.GA8310@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Dec 2009 22:29:57 -0500
-Michael Stone <michael@laptop.org> wrote:
+Jarek Poplawski wrote:
+> Btw, I'm not sure if it matters, but your dmesg doesn't mirror what
+> you described. You mentioned one unplug only, while there are a few
+> link down / link up events visible. So I wonder if bad contact didn't
 
-> Daniel Bernstein has observed [1] that security-conscious userland processes
+You are right, the dmesg I attached contains more plug and unplug event
+because I really plugged and unplugged the network cable several times
+to be sure that the IP address is always dropped. The wireshark log
+contains only one unplug and plug, however.
 
-Dan Bernstein has observed many things .. ;)
+Regards,
 
-> may benefit from the ability to irrevocably remove their ability to create,
-> bind, connect to, or send messages except in the case of previously connected
-> sockets or AF_UNIX filesystem sockets. We provide this facility by implementing
-> support for a new prctl(PR_SET_NETWORK) flag named PR_NETWORK_OFF.
+	M=E1rton N=E9meth
 
-This is a security model, it belongs as a security model using LSM. You
-can already do it with SELinux and the like as far as I can see but
-that's not to say you shouldn't submit it also as a small handy
-standalone security module for people who don't want to load the big
-security modules.
-
-Otherwise you end up putting crap in fast paths that nobody needs but
-everyone pays for and weird tests and hacks for address family and like
-into core network code.
-
-The fact the patches look utterly ugly should be telling you something -
-which is that you are using the wrong hammer
