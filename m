@@ -1,44 +1,35 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iplink: add macvlan options for bridge mode
-Date: Fri, 18 Dec 2009 09:25:47 -0800
-Message-ID: <20091218092547.4ddfde58@nehalam>
-References: <1258497551-25959-1-git-send-email-arnd@arndb.de>
-	<1258497551-25959-5-git-send-email-arnd@arndb.de>
-	<200912181445.07756.arnd@arndb.de>
+Subject: Re: [PATCH 1/2] improve netem reorder flexibility
+Date: Fri, 18 Dec 2009 09:32:40 -0800
+Message-ID: <20091218093240.64ca7d88@nehalam>
+References: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Anna Fischer <anna.fischer@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@linux-foundation.com,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	Christian Samsel <christian.samsel@rwth-aachen.de>
+To: Christian Samsel <christian.samsel@rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34240 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:34586 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752434AbZLRR0M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Dec 2009 12:26:12 -0500
-In-Reply-To: <200912181445.07756.arnd@arndb.de>
+	id S1754951AbZLRRc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Dec 2009 12:32:56 -0500
+In-Reply-To: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Dec 2009 14:45:07 +0100
-Arnd Bergmann <arnd@arndb.de> wrote:
+On Fri, 18 Dec 2009 14:18:37 +0100
+Christian Samsel <christian.samsel@rwth-aachen.de> wrote:
 
-> Ping!
-> 
-> Stephen, I submitted this twice but never heard back from you.
-> The changes to macvlan have been merged in 2.6.33-rc1, so it
-> would be good to have this included as well.
-> 
-> 	Arnd
-> 
+> This patch adds a new feature to netem: The newly introduced parameter 
+> reorderdelay TIME is the time a reordered packet is delayed. It can be used in
+> a combination with delay TIME to enable netem to produce late packets, which is
+> not possible in the standard netem / iproute2. In the standard version 
+> reordered packets are always sent immediately and therefore are always early packets.
 
-iproute gets updated (after patch is in upstream). I haven't started
-on the 2.6.33 version yet.
+I like the idea but is it binary compatible with older kernels/ older iproute2
+utilities?
+
+
+
+-- 
