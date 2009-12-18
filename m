@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC PATCH v2 07/12] ixgbe: Mailbox header and code module
-Date: Fri, 18 Dec 2009 14:52:50 -0800
-Message-ID: <20091218225249.10698.58736.stgit@localhost.localdomain>
+Subject: [RFC PATCH v2 08/12] ixgbe: Add SR-IOV register,
+	structure and bit defines
+Date: Fri, 18 Dec 2009 14:53:07 -0800
+Message-ID: <20091218225307.10698.82409.stgit@localhost.localdomain>
 References: <20091218225043.10698.58897.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,617 +11,250 @@ Cc: gospo@redhat.com, Greg Rose <gregory.v.rose@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:37577
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933197AbZLRWxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 17:53:06 -0500
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:40308
+	"EHLO QMTA13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933222AbZLRWxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 17:53:24 -0500
 In-Reply-To: <20091218225043.10698.58897.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-The 82599 virtual function device and the master 82599 physical function
-device implement a mailbox utility for communication between the devices
-using some SRAM scratch memory and a doorbell/answering mechanism enabled
-via interrupt and/or polling.  This C module and accompanying header
-file implement the base functions for use of this feature.
+This patch adds register definitions, bit definitions and structures used by
+the driver to support SR-IOV features of the 82599 controller.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_mbx.c |  479 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_mbx.h |   96 ++++++++
- 2 files changed, 575 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ixgbe/ixgbe_mbx.c
- create mode 100644 drivers/net/ixgbe/ixgbe_mbx.h
+ drivers/net/ixgbe/ixgbe.h      |   31 ++++++++++++++++++++++-
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ drivers/net/ixgbe/ixgbe_type.h |   53 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_mbx.c b/drivers/net/ixgbe/ixgbe_mbx.c
-new file mode 100644
-index 0000000..d75f914
---- /dev/null
-+++ b/drivers/net/ixgbe/ixgbe_mbx.c
-@@ -0,0 +1,479 @@
-+/*******************************************************************************
-+
-+  Intel 10 Gigabit PCI Express Linux driver
-+  Copyright(c) 1999 - 2009 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#include <linux/pci.h>
-+#include <linux/delay.h>
-+#include "ixgbe_type.h"
-+#include "ixgbe_common.h"
-+#include "ixgbe_mbx.h"
-+
-+/**
-+ *  ixgbe_read_mbx - Reads a message from the mailbox
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @mbx_id: id of mailbox to read
-+ *
-+ *  returns SUCCESS if it successfuly read message from buffer
-+ **/
-+s32 ixgbe_read_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	/* limit read to size of mailbox */
-+	if (size > mbx->size)
-+		size = mbx->size;
-+
-+	if (mbx->ops.read)
-+		ret_val = mbx->ops.read(hw, msg, size, mbx_id);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_write_mbx - Write a message to the mailbox
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @mbx_id: id of mailbox to write
-+ *
-+ *  returns SUCCESS if it successfully copied message into the buffer
-+ **/
-+s32 ixgbe_write_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = 0;
-+
-+	if (size > mbx->size)
-+		ret_val = IXGBE_ERR_MBX;
-+
-+	else if (mbx->ops.write)
-+		ret_val = mbx->ops.write(hw, msg, size, mbx_id);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_msg - checks to see if someone sent us mail
-+ *  @hw: pointer to the HW structure
-+ *  @mbx_id: id of mailbox to check
-+ *
-+ *  returns SUCCESS if the Status bit was found or else ERR_MBX
-+ **/
-+s32 ixgbe_check_for_msg(struct ixgbe_hw *hw, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (mbx->ops.check_for_msg)
-+		ret_val = mbx->ops.check_for_msg(hw, mbx_id);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_ack - checks to see if someone sent us ACK
-+ *  @hw: pointer to the HW structure
-+ *  @mbx_id: id of mailbox to check
-+ *
-+ *  returns SUCCESS if the Status bit was found or else ERR_MBX
-+ **/
-+s32 ixgbe_check_for_ack(struct ixgbe_hw *hw, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (mbx->ops.check_for_ack)
-+		ret_val = mbx->ops.check_for_ack(hw, mbx_id);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_rst - checks to see if other side has reset
-+ *  @hw: pointer to the HW structure
-+ *  @mbx_id: id of mailbox to check
-+ *
-+ *  returns SUCCESS if the Status bit was found or else ERR_MBX
-+ **/
-+s32 ixgbe_check_for_rst(struct ixgbe_hw *hw, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (mbx->ops.check_for_rst)
-+		ret_val = mbx->ops.check_for_rst(hw, mbx_id);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_poll_for_msg - Wait for message notification
-+ *  @hw: pointer to the HW structure
-+ *  @mbx_id: id of mailbox to write
-+ *
-+ *  returns SUCCESS if it successfully received a message notification
-+ **/
-+static s32 ixgbe_poll_for_msg(struct ixgbe_hw *hw, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	int countdown = mbx->timeout;
-+
-+	if (!countdown || !mbx->ops.check_for_msg)
-+		goto out;
-+
-+	while (countdown && mbx->ops.check_for_msg(hw, mbx_id)) {
-+		countdown--;
-+		if (!countdown)
-+			break;
-+		udelay(mbx->usec_delay);
-+	}
-+
-+	/* if we failed, all future posted messages fail until reset */
-+	if (!countdown)
-+		mbx->timeout = 0;
-+out:
-+	return countdown ? 0 : IXGBE_ERR_MBX;
-+}
-+
-+/**
-+ *  ixgbe_poll_for_ack - Wait for message acknowledgement
-+ *  @hw: pointer to the HW structure
-+ *  @mbx_id: id of mailbox to write
-+ *
-+ *  returns SUCCESS if it successfully received a message acknowledgement
-+ **/
-+static s32 ixgbe_poll_for_ack(struct ixgbe_hw *hw, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	int countdown = mbx->timeout;
-+
-+	if (!countdown || !mbx->ops.check_for_ack)
-+		goto out;
-+
-+	while (countdown && mbx->ops.check_for_ack(hw, mbx_id)) {
-+		countdown--;
-+		if (!countdown)
-+			break;
-+		udelay(mbx->usec_delay);
-+	}
-+
-+	/* if we failed, all future posted messages fail until reset */
-+	if (!countdown)
-+		mbx->timeout = 0;
-+out:
-+	return countdown ? 0 : IXGBE_ERR_MBX;
-+}
-+
-+/**
-+ *  ixgbe_read_posted_mbx - Wait for message notification and receive message
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @mbx_id: id of mailbox to write
-+ *
-+ *  returns SUCCESS if it successfully received a message notification and
-+ *  copied it into the receive buffer.
-+ **/
-+s32 ixgbe_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (!mbx->ops.read)
-+		goto out;
-+
-+	ret_val = ixgbe_poll_for_msg(hw, mbx_id);
-+
-+	/* if ack received read message, otherwise we timed out */
-+	if (!ret_val)
-+		ret_val = mbx->ops.read(hw, msg, size, mbx_id);
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_write_posted_mbx - Write a message to the mailbox, wait for ack
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @mbx_id: id of mailbox to write
-+ *
-+ *  returns SUCCESS if it successfully copied message into the buffer and
-+ *  received an ack to that message within delay * timeout period
-+ **/
-+s32 ixgbe_write_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size,
-+                           u16 mbx_id)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	/* exit if either we can't write or there isn't a defined timeout */
-+	if (!mbx->ops.write || !mbx->timeout)
-+		goto out;
-+
-+	/* send msg */
-+	ret_val = mbx->ops.write(hw, msg, size, mbx_id);
-+
-+	/* if msg sent wait until we receive an ack */
-+	if (!ret_val)
-+		ret_val = ixgbe_poll_for_ack(hw, mbx_id);
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_init_mbx_ops_generic - Initialize MB function pointers
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Setup the mailbox read and write message function pointers
-+ **/
-+void ixgbe_init_mbx_ops_generic(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+
-+	mbx->ops.read_posted = ixgbe_read_posted_mbx;
-+	mbx->ops.write_posted = ixgbe_write_posted_mbx;
-+}
-+
-+static s32 ixgbe_check_for_bit_pf(struct ixgbe_hw *hw, u32 mask, s32 index)
-+{
-+	u32 mbvficr = IXGBE_READ_REG(hw, IXGBE_MBVFICR(index));
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (mbvficr & mask) {
-+		ret_val = 0;
-+		IXGBE_WRITE_REG(hw, IXGBE_MBVFICR(index), mask);
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_msg_pf - checks to see if the VF has sent mail
-+ *  @hw: pointer to the HW structure
-+ *  @vf_number: the VF index
-+ *
-+ *  returns SUCCESS if the VF has set the Status bit or else ERR_MBX
-+ **/
-+static s32 ixgbe_check_for_msg_pf(struct ixgbe_hw *hw, u16 vf_number)
-+{
-+	s32 ret_val = IXGBE_ERR_MBX;
-+	s32 index = IXGBE_MBVFICR_INDEX(vf_number);
-+	u32 vf_bit = vf_number % 16;
-+
-+	if (!ixgbe_check_for_bit_pf(hw, IXGBE_MBVFICR_VFREQ_VF1 << vf_bit,
-+	                            index)) {
-+		ret_val = 0;
-+		hw->mbx.stats.reqs++;
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_ack_pf - checks to see if the VF has ACKed
-+ *  @hw: pointer to the HW structure
-+ *  @vf_number: the VF index
-+ *
-+ *  returns SUCCESS if the VF has set the Status bit or else ERR_MBX
-+ **/
-+static s32 ixgbe_check_for_ack_pf(struct ixgbe_hw *hw, u16 vf_number)
-+{
-+	s32 ret_val = IXGBE_ERR_MBX;
-+	s32 index = IXGBE_MBVFICR_INDEX(vf_number);
-+	u32 vf_bit = vf_number % 16;
-+
-+	if (!ixgbe_check_for_bit_pf(hw, IXGBE_MBVFICR_VFACK_VF1 << vf_bit,
-+	                            index)) {
-+		ret_val = 0;
-+		hw->mbx.stats.acks++;
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_check_for_rst_pf - checks to see if the VF has reset
-+ *  @hw: pointer to the HW structure
-+ *  @vf_number: the VF index
-+ *
-+ *  returns SUCCESS if the VF has set the Status bit or else ERR_MBX
-+ **/
-+static s32 ixgbe_check_for_rst_pf(struct ixgbe_hw *hw, u16 vf_number)
-+{
-+	u32 reg_offset = (vf_number < 32) ? 0 : 1;
-+	u32 vf_shift = vf_number % 32;
-+	u32 vflre = 0;
-+	s32 ret_val = IXGBE_ERR_MBX;
-+
-+	if (hw->mac.type == ixgbe_mac_82599EB)
-+		vflre = IXGBE_READ_REG(hw, IXGBE_VFLRE(reg_offset));
-+
-+	if (vflre & (1 << vf_shift)) {
-+		ret_val = 0;
-+		IXGBE_WRITE_REG(hw, IXGBE_VFLREC(reg_offset), (1 << vf_shift));
-+		hw->mbx.stats.rsts++;
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_obtain_mbx_lock_pf - obtain mailbox lock
-+ *  @hw: pointer to the HW structure
-+ *  @vf_number: the VF index
-+ *
-+ *  return SUCCESS if we obtained the mailbox lock
-+ **/
-+static s32 ixgbe_obtain_mbx_lock_pf(struct ixgbe_hw *hw, u16 vf_number)
-+{
-+	s32 ret_val = IXGBE_ERR_MBX;
-+	u32 p2v_mailbox;
-+
-+	/* Take ownership of the buffer */
-+	IXGBE_WRITE_REG(hw, IXGBE_PFMAILBOX(vf_number), IXGBE_PFMAILBOX_PFU);
-+
-+	/* reserve mailbox for vf use */
-+	p2v_mailbox = IXGBE_READ_REG(hw, IXGBE_PFMAILBOX(vf_number));
-+	if (p2v_mailbox & IXGBE_PFMAILBOX_PFU)
-+		ret_val = 0;
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_write_mbx_pf - Places a message in the mailbox
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @vf_number: the VF index
-+ *
-+ *  returns SUCCESS if it successfully copied message into the buffer
-+ **/
-+static s32 ixgbe_write_mbx_pf(struct ixgbe_hw *hw, u32 *msg, u16 size,
-+                              u16 vf_number)
-+{
-+	s32 ret_val;
-+	u16 i;
-+
-+	/* lock the mailbox to prevent pf/vf race condition */
-+	ret_val = ixgbe_obtain_mbx_lock_pf(hw, vf_number);
-+	if (ret_val)
-+		goto out_no_write;
-+
-+	/* flush msg and acks as we are overwriting the message buffer */
-+	ixgbe_check_for_msg_pf(hw, vf_number);
-+	ixgbe_check_for_ack_pf(hw, vf_number);
-+
-+	/* copy the caller specified message to the mailbox memory buffer */
-+	for (i = 0; i < size; i++)
-+		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_PFMBMEM(vf_number), i, msg[i]);
-+
-+	/* Interrupt VF to tell it a message has been sent and release buffer*/
-+	IXGBE_WRITE_REG(hw, IXGBE_PFMAILBOX(vf_number), IXGBE_PFMAILBOX_STS);
-+
-+	/* update stats */
-+	hw->mbx.stats.msgs_tx++;
-+
-+out_no_write:
-+	return ret_val;
-+
-+}
-+
-+/**
-+ *  ixgbe_read_mbx_pf - Read a message from the mailbox
-+ *  @hw: pointer to the HW structure
-+ *  @msg: The message buffer
-+ *  @size: Length of buffer
-+ *  @vf_number: the VF index
-+ *
-+ *  This function copies a message from the mailbox buffer to the caller's
-+ *  memory buffer.  The presumption is that the caller knows that there was
-+ *  a message due to a VF request so no polling for message is needed.
-+ **/
-+static s32 ixgbe_read_mbx_pf(struct ixgbe_hw *hw, u32 *msg, u16 size,
-+                             u16 vf_number)
-+{
-+	s32 ret_val;
-+	u16 i;
-+
-+	/* lock the mailbox to prevent pf/vf race condition */
-+	ret_val = ixgbe_obtain_mbx_lock_pf(hw, vf_number);
-+	if (ret_val)
-+		goto out_no_read;
-+
-+	/* copy the message to the mailbox memory buffer */
-+	for (i = 0; i < size; i++)
-+		msg[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_PFMBMEM(vf_number), i);
-+
-+	/* Acknowledge the message and release buffer */
-+	IXGBE_WRITE_REG(hw, IXGBE_PFMAILBOX(vf_number), IXGBE_PFMAILBOX_ACK);
-+
-+	/* update stats */
-+	hw->mbx.stats.msgs_rx++;
-+
-+out_no_read:
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_init_mbx_params_pf - set initial values for pf mailbox
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Initializes the hw->mbx struct to correct values for pf mailbox
-+ */
-+void ixgbe_init_mbx_params_pf(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_mbx_info *mbx = &hw->mbx;
-+
-+	if (hw->mac.type != ixgbe_mac_82599EB)
-+		return;
-+
-+	mbx->timeout = 0;
-+	mbx->usec_delay = 0;
-+
-+	mbx->size = IXGBE_VFMAILBOX_SIZE;
-+
-+	mbx->stats.msgs_tx = 0;
-+	mbx->stats.msgs_rx = 0;
-+	mbx->stats.reqs = 0;
-+	mbx->stats.acks = 0;
-+	mbx->stats.rsts = 0;
-+}
-+
-+struct ixgbe_mbx_operations mbx_ops_82599 = {
-+	.read                   = ixgbe_read_mbx_pf,
-+	.write                  = ixgbe_write_mbx_pf,
-+	.read_posted            = ixgbe_read_posted_mbx,
-+	.write_posted           = ixgbe_write_posted_mbx,
-+	.check_for_msg          = ixgbe_check_for_msg_pf,
-+	.check_for_ack          = ixgbe_check_for_ack_pf,
-+	.check_for_rst          = ixgbe_check_for_rst_pf,
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 8da8eb5..ed73585 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -98,6 +98,23 @@
+ 
+ #define IXGBE_MAX_RSC_INT_RATE          162760
+ 
++#define IXGBE_MAX_VF_MC_ENTRIES         30
++#define IXGBE_MAX_VF_FUNCTIONS          64
++#define IXGBE_MAX_VFTA_ENTRIES          128
++#define MAX_EMULATION_MAC_ADDRS         16
++#define VMDQ_P(p)   ((p) + adapter->num_vfs)
++
++struct vf_data_storage {
++	unsigned char vf_mac_addresses[ETH_ALEN];
++	u16 vf_mc_hashes[IXGBE_MAX_VF_MC_ENTRIES];
++	u16 num_vf_mc_hashes;
++	u16 default_vf_vlan_id;
++	u16 vlans_enabled;
++	unsigned char em_mac_addresses[MAX_EMULATION_MAC_ADDRS * ETH_ALEN];
++	bool clear_to_send;
++	int rar;
 +};
 +
-diff --git a/drivers/net/ixgbe/ixgbe_mbx.h b/drivers/net/ixgbe/ixgbe_mbx.h
-new file mode 100644
-index 0000000..be7ab33
---- /dev/null
-+++ b/drivers/net/ixgbe/ixgbe_mbx.h
-@@ -0,0 +1,96 @@
-+/*******************************************************************************
+ /* wrapper around a pointer to a socket buffer,
+  * so a DMA handle can be stored along with the buffer */
+ struct ixgbe_tx_buffer {
+@@ -171,7 +188,7 @@ struct ixgbe_ring {
+ enum ixgbe_ring_f_enum {
+ 	RING_F_NONE = 0,
+ 	RING_F_DCB,
+-	RING_F_VMDQ,
++	RING_F_VMDQ,  /* SR-IOV uses the same ring feature */
+ 	RING_F_RSS,
+ 	RING_F_FDIR,
+ #ifdef IXGBE_FCOE
+@@ -183,7 +200,7 @@ enum ixgbe_ring_f_enum {
+ 
+ #define IXGBE_MAX_DCB_INDICES   8
+ #define IXGBE_MAX_RSS_INDICES  16
+-#define IXGBE_MAX_VMDQ_INDICES 16
++#define IXGBE_MAX_VMDQ_INDICES 64
+ #define IXGBE_MAX_FDIR_INDICES 64
+ #ifdef IXGBE_FCOE
+ #define IXGBE_MAX_FCOE_INDICES  8
+@@ -288,6 +305,8 @@ struct ixgbe_adapter {
+ 	/* RX */
+ 	struct ixgbe_ring *rx_ring ____cacheline_aligned_in_smp; /* One per active queue */
+ 	int num_rx_queues;
++	int num_rx_pools;		/* == num_rx_queues in 82598 */
++	int num_rx_queues_per_pool;	/* 1 if 82598, can be many if 82599 */
+ 	u64 hw_csum_rx_error;
+ 	u64 hw_rx_no_dma_resources;
+ 	u64 non_eop_descs;
+@@ -330,6 +349,8 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_FDIR_PERFECT_CAPABLE         (u32)(1 << 27)
+ #define IXGBE_FLAG_FCOE_CAPABLE                 (u32)(1 << 28)
+ #define IXGBE_FLAG_FCOE_ENABLED                 (u32)(1 << 29)
++#define IXGBE_FLAG_SRIOV_CAPABLE                (u32)(1 << 30)
++#define IXGBE_FLAG_SRIOV_ENABLED                (u32)(1 << 31)
+ 
+ 	u32 flags2;
+ #define IXGBE_FLAG2_RSC_CAPABLE                 (u32)(1)
+@@ -379,6 +400,11 @@ struct ixgbe_adapter {
+ 	u64 rsc_total_flush;
+ 	u32 wol;
+ 	u16 eeprom_version;
 +
-+  Intel 10 Gigabit PCI Express Linux driver
-+  Copyright(c) 1999 - 2009 Intel Corporation.
++	/* SR-IOV */
++	DECLARE_BITMAP(active_vfs, IXGBE_MAX_VF_FUNCTIONS);
++	unsigned int num_vfs;
++	struct vf_data_storage *vfinfo;
+ };
+ 
+ enum ixbge_state_t {
+@@ -440,6 +466,7 @@ extern s32 ixgbe_atr_set_flex_byte_82599(struct ixgbe_atr_input *input,
+                                          u16 flex_byte);
+ extern s32 ixgbe_atr_set_l4type_82599(struct ixgbe_atr_input *input,
+                                       u8 l4type);
++extern void ixgbe_set_rx_mode(struct net_device *netdev);
+ #ifdef IXGBE_FCOE
+ extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fso(struct ixgbe_adapter *adapter,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index bd64387..22152c6 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2409,7 +2409,7 @@ static u8 *ixgbe_addr_list_itr(struct ixgbe_hw *hw, u8 **mc_addr_ptr, u32 *vmdq)
+  * responsible for configuring the hardware for proper unicast, multicast and
+  * promiscuous mode.
+  **/
+-static void ixgbe_set_rx_mode(struct net_device *netdev)
++void ixgbe_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 84650c6..ec8ad18 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -277,6 +277,7 @@
+ #define IXGBE_DTXCTL    0x07E00
+ 
+ #define IXGBE_DMATXCTL  0x04A80
++#define IXGBE_PFDTXGSWC     0x08220
+ #define IXGBE_DTXMXSZRQ     0x08100
+ #define IXGBE_DTXTCPFLGL    0x04A88
+ #define IXGBE_DTXTCPFLGH    0x04A8C
+@@ -287,6 +288,8 @@
+ #define IXGBE_DMATXCTL_NS       0x2 /* No Snoop LSO hdr buffer */
+ #define IXGBE_DMATXCTL_GDV      0x8 /* Global Double VLAN */
+ #define IXGBE_DMATXCTL_VT_SHIFT 16  /* VLAN EtherType */
 +
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
++#define IXGBE_PFDTXGSWC_VT_LBEN 0x1 /* Local L2 VT switch enable */
+ #define IXGBE_DCA_TXCTRL(_i)    (0x07200 + ((_i) * 4)) /* 16 of these (0-15) */
+ /* Tx DCA Control register : 128 of these (0-127) */
+ #define IXGBE_DCA_TXCTRL_82599(_i)  (0x0600C + ((_i) * 0x40))
+@@ -497,6 +500,7 @@
+ /* DCB registers */
+ #define IXGBE_RTRPCS      0x02430
+ #define IXGBE_RTTDCS      0x04900
++#define IXGBE_RTTDCS_ARBDIS     0x00000040 /* DCB arbiter disable */
+ #define IXGBE_RTTPCS      0x0CD00
+ #define IXGBE_RTRUP2TC    0x03020
+ #define IXGBE_RTTUP2TC    0x0C800
+@@ -730,6 +734,13 @@
+ #define IXGBE_GCR_CMPL_TMOUT_RESEND     0x00010000
+ #define IXGBE_GCR_CAP_VER2              0x00040000
+ 
++#define IXGBE_GCR_EXT_MSIX_EN           0x80000000
++#define IXGBE_GCR_EXT_VT_MODE_16        0x00000001
++#define IXGBE_GCR_EXT_VT_MODE_32        0x00000002
++#define IXGBE_GCR_EXT_VT_MODE_64        0x00000003
++#define IXGBE_GCR_EXT_SRIOV             (IXGBE_GCR_EXT_MSIX_EN | \
++                                         IXGBE_GCR_EXT_VT_MODE_64)
 +
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
+ /* Time Sync Registers */
+ #define IXGBE_TSYNCRXCTL 0x05188 /* Rx Time Sync Control register - RW */
+ #define IXGBE_TSYNCTXCTL 0x08C00 /* Tx Time Sync Control register - RW */
+@@ -1065,6 +1076,8 @@
+ /* VFRE bitmask */
+ #define IXGBE_VFRE_ENABLE_ALL   0xFFFFFFFF
+ 
++#define IXGBE_VF_INIT_TIMEOUT   200 /* Number of retries to clear RSTI */
 +
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+ /* RDHMPN and TDHMPN bitmasks */
+ #define IXGBE_RDHMPN_RDICADDR       0x007FF800
+ #define IXGBE_RDHMPN_RDICRDREQ      0x00800000
+@@ -1295,6 +1308,7 @@
+ /* VLAN pool filtering masks */
+ #define IXGBE_VLVF_VIEN         0x80000000  /* filter is valid */
+ #define IXGBE_VLVF_ENTRIES      64
++#define IXGBE_VLVF_VLANID_MASK  0x00000FFF
+ 
+ #define IXGBE_ETHERNET_IEEE_VLAN_TYPE 0x8100  /* 802.1q protocol */
+ 
+@@ -1843,6 +1857,12 @@
+ #define IXGBE_RX_DESC_SPECIAL_PRI_SHIFT  0x000D /* Priority in upper 3 of 16 */
+ #define IXGBE_TX_DESC_SPECIAL_PRI_SHIFT  IXGBE_RX_DESC_SPECIAL_PRI_SHIFT
+ 
++/* SR-IOV specific macros */
++#define IXGBE_MBVFICR_INDEX(vf_number)   (vf_number >> 4)
++#define IXGBE_MBVFICR(_i)                (0x00710 + (_i * 4))
++#define IXGBE_VFLRE(_i)                  (((_i & 1) ? 0x001C0 : 0x00600))
++#define IXGBE_VFLREC(_i)                 (0x00700 + (_i * 4))
 +
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
+ /* Little Endian defines */
+ #ifndef __le32
+ #define __le32  u32
+@@ -2463,6 +2483,37 @@ struct ixgbe_phy_info {
+ 	bool                            multispeed_fiber;
+ };
+ 
++#include "ixgbe_mbx.h"
 +
-+  Contact Information:
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++struct ixgbe_mbx_operations {
++	s32 (*init_params)(struct ixgbe_hw *hw);
++	s32 (*read)(struct ixgbe_hw *, u32 *, u16,  u16);
++	s32 (*write)(struct ixgbe_hw *, u32 *, u16, u16);
++	s32 (*read_posted)(struct ixgbe_hw *, u32 *, u16,  u16);
++	s32 (*write_posted)(struct ixgbe_hw *, u32 *, u16, u16);
++	s32 (*check_for_msg)(struct ixgbe_hw *, u16);
++	s32 (*check_for_ack)(struct ixgbe_hw *, u16);
++	s32 (*check_for_rst)(struct ixgbe_hw *, u16);
++};
 +
-+*******************************************************************************/
++struct ixgbe_mbx_stats {
++	u32 msgs_tx;
++	u32 msgs_rx;
 +
-+#ifndef _IXGBE_MBX_H_
-+#define _IXGBE_MBX_H_
++	u32 acks;
++	u32 reqs;
++	u32 rsts;
++};
 +
-+#include "ixgbe_type.h"
++struct ixgbe_mbx_info {
++	struct ixgbe_mbx_operations ops;
++	struct ixgbe_mbx_stats stats;
++	u32 timeout;
++	u32 usec_delay;
++	u32 v2p_mailbox;
++	u16 size;
++};
 +
-+#define IXGBE_VFMAILBOX_SIZE        16 /* 16 32 bit words - 64 bytes */
-+#define IXGBE_ERR_MBX               -100
-+
-+#define IXGBE_VFMAILBOX             0x002FC
-+#define IXGBE_VFMBMEM               0x00200
-+
-+#define IXGBE_PFMAILBOX(x)          (0x04B00 + (4 * x))
-+#define IXGBE_PFMBMEM(vfn)          (0x13000 + (64 * vfn))
-+
-+#define IXGBE_PFMAILBOX_STS   0x00000001 /* Initiate message send to VF */
-+#define IXGBE_PFMAILBOX_ACK   0x00000002 /* Ack message recv'd from VF */
-+#define IXGBE_PFMAILBOX_VFU   0x00000004 /* VF owns the mailbox buffer */
-+#define IXGBE_PFMAILBOX_PFU   0x00000008 /* PF owns the mailbox buffer */
-+#define IXGBE_PFMAILBOX_RVFU  0x00000010 /* Reset VFU - used when VF stuck */
-+
-+#define IXGBE_MBVFICR_VFREQ_MASK 0x0000FFFF /* bits for VF messages */
-+#define IXGBE_MBVFICR_VFREQ_VF1  0x00000001 /* bit for VF 1 message */
-+#define IXGBE_MBVFICR_VFACK_MASK 0xFFFF0000 /* bits for VF acks */
-+#define IXGBE_MBVFICR_VFACK_VF1  0x00010000 /* bit for VF 1 ack */
-+
-+
-+/* If it's a IXGBE_VF_* msg then it originates in the VF and is sent to the
-+ * PF.  The reverse is true if it is IXGBE_PF_*.
-+ * Message ACK's are the value or'd with 0xF0000000
-+ */
-+#define IXGBE_VT_MSGTYPE_ACK      0x80000000  /* Messages below or'd with
-+                                               * this are the ACK */
-+#define IXGBE_VT_MSGTYPE_NACK     0x40000000  /* Messages below or'd with
-+                                               * this are the NACK */
-+#define IXGBE_VT_MSGTYPE_CTS      0x20000000  /* Indicates that VF is still
-+                                                 clear to send requests */
-+#define IXGBE_VT_MSGINFO_SHIFT    16
-+/* bits 23:16 are used for exra info for certain messages */
-+#define IXGBE_VT_MSGINFO_MASK     (0xFF << IXGBE_VT_MSGINFO_SHIFT)
-+
-+#define IXGBE_VF_RESET            0x01 /* VF requests reset */
-+#define IXGBE_VF_SET_MAC_ADDR     0x02 /* VF requests PF to set MAC addr */
-+#define IXGBE_VF_SET_MULTICAST    0x03 /* VF requests PF to set MC addr */
-+#define IXGBE_VF_SET_VLAN         0x04 /* VF requests PF to set VLAN */
-+#define IXGBE_VF_SET_LPE          0x05 /* VF requests PF to set VMOLR.LPE */
-+
-+/* length of permanent address message returned from PF */
-+#define IXGBE_VF_PERMADDR_MSG_LEN 4
-+/* word in permanent address message with the current multicast type */
-+#define IXGBE_VF_MC_TYPE_WORD     3
-+
-+#define IXGBE_PF_CONTROL_MSG      0x0100 /* PF control message */
-+
-+#define IXGBE_VF_MBX_INIT_TIMEOUT 2000 /* number of retries on mailbox */
-+#define IXGBE_VF_MBX_INIT_DELAY   500  /* microseconds between retries */
-+
-+s32 ixgbe_read_mbx(struct ixgbe_hw *, u32 *, u16, u16);
-+s32 ixgbe_write_mbx(struct ixgbe_hw *, u32 *, u16, u16);
-+s32 ixgbe_read_posted_mbx(struct ixgbe_hw *, u32 *, u16, u16);
-+s32 ixgbe_write_posted_mbx(struct ixgbe_hw *, u32 *, u16, u16);
-+s32 ixgbe_check_for_msg(struct ixgbe_hw *, u16);
-+s32 ixgbe_check_for_ack(struct ixgbe_hw *, u16);
-+s32 ixgbe_check_for_rst(struct ixgbe_hw *, u16);
-+void ixgbe_init_mbx_ops_generic(struct ixgbe_hw *hw);
-+void ixgbe_init_mbx_params_pf(struct ixgbe_hw *);
-+
-+extern struct ixgbe_mbx_operations mbx_ops_82599;
-+
-+#endif /* _IXGBE_MBX_H_ */
+ struct ixgbe_hw {
+ 	u8 __iomem			*hw_addr;
+ 	void				*back;
+@@ -2472,6 +2523,7 @@ struct ixgbe_hw {
+ 	struct ixgbe_phy_info		phy;
+ 	struct ixgbe_eeprom_info	eeprom;
+ 	struct ixgbe_bus_info		bus;
++	struct ixgbe_mbx_info		mbx;
+ 	u16				device_id;
+ 	u16				vendor_id;
+ 	u16				subsystem_device_id;
+@@ -2486,6 +2538,7 @@ struct ixgbe_info {
+ 	struct ixgbe_mac_operations	*mac_ops;
+ 	struct ixgbe_eeprom_operations	*eeprom_ops;
+ 	struct ixgbe_phy_operations	*phy_ops;
++	struct ixgbe_mbx_operations	*mbx_ops;
+ };
+ 
+ 
 
