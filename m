@@ -1,56 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: LED settings in EEPROM ignored on 82571 and
-	82572
-Date: Thu, 17 Dec 2009 17:42:15 -0800
-Message-ID: <20091218014214.4948.26355.stgit@localhost.localdomain>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH] Regression in linux 2.6.32 virtio_net seen with vhost-net
+Date: Fri, 18 Dec 2009 12:25:33 +1030
+Message-ID: <200912181225.33936.rusty@rustcorp.com.au>
+References: <20091213122512.GA17255@gondor.apana.org.au> <200912171232.26743.rusty@rustcorp.com.au> <20091217092531.GA4905@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:56725
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755963AbZLRBme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 20:42:34 -0500
+Received: from ozlabs.org ([203.10.76.45]:40480 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750860AbZLRBzm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 20:55:42 -0500
+In-Reply-To: <20091217092531.GA4905@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Thu, 17 Dec 2009 07:55:31 pm Michael S. Tsirkin wrote:
+> > +static int virtnet_xmit_poll(struct napi_struct *xmit_napi, int budget)
+> > +{
+> > +	struct virtnet_info *vi =
+> > +		container_of(xmit_napi, struct virtnet_info, xmit_napi);
+> > +
+> > +	/* Don't access vq/capacity at same time as start_xmit. */
+> > +	__netif_tx_lock(netdev_get_tx_queue(vi->dev, 0), smp_processor_id());
+> 
+> So now that we are locking, we could build a variant of this
+> without NAPI (maybe with trylock: we can't spin on xmit lock from
+> from hard irq context, can we?)? Possibly, if we do, that would be
+> a small enough change to be applicable in 2.6.32.
 
-Do not override the customizable LED configuration set in the EEPROM.
+We'd need a separate lock and irq disable; it's not obvious to me that
+trylock would never cause us to miss a required wakeup.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I'd rather get this right and backport, than introduce YA random change.
+The NAPI change is no more complex that this.
 
- drivers/net/e1000e/82571.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+>From what Sridhar has said, this doesn't even fix the issue.  I'm confused...
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index c1a42cf..b979464 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1290,7 +1290,6 @@ static s32 e1000_setup_link_82571(struct e1000_hw *hw)
- static s32 e1000_setup_copper_link_82571(struct e1000_hw *hw)
- {
- 	u32 ctrl;
--	u32 led_ctrl;
- 	s32 ret_val;
- 
- 	ctrl = er32(CTRL);
-@@ -1305,11 +1304,6 @@ static s32 e1000_setup_copper_link_82571(struct e1000_hw *hw)
- 		break;
- 	case e1000_phy_igp_2:
- 		ret_val = e1000e_copper_link_setup_igp(hw);
--		/* Setup activity LED */
--		led_ctrl = er32(LEDCTL);
--		led_ctrl &= IGP_ACTIVITY_LED_MASK;
--		led_ctrl |= (IGP_ACTIVITY_LED_ENABLE | IGP_LED3_MODE);
--		ew32(LEDCTL, led_ctrl);
- 		break;
- 	default:
- 		return -E1000_ERR_PHY;
-
+Rusty.
