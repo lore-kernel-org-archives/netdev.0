@@ -1,45 +1,42 @@
-From: Christian Samsel <christian.samsel@rwth-aachen.de>
-Subject: Re: [PATCH 1/2] improve netem reorder flexibility
-Date: Fri, 18 Dec 2009 19:01:28 +0100
-Message-ID: <200912181901.28542.christian.samsel@rwth-aachen.de>
-References: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
- <20091218093240.64ca7d88@nehalam>
+From: Jeremy Jackson <jerj@coplanar.net>
+Subject: solutions for forcedeth jumbo rx and order:2 alloc?
+Date: Fri, 18 Dec 2009 12:52:22 -0500
+Message-ID: <1261158742.4932.190.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:49881 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755084AbZLRSB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 13:01:27 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KUV00ERE0QEPYC0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Fri, 18 Dec 2009 19:01:26 +0100 (CET)
-Received: from oxygen-mobile.localnet ([unknown] [80.135.53.190])
- by relay-auth-2.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0KUV009FX0QE6O10@relay-auth-2.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Fri, 18 Dec 2009 19:01:26 +0100 (CET)
-In-reply-to: <20091218093240.64ca7d88@nehalam>
+Received: from titan.coplanar.net ([70.47.139.2]:37431 "EHLO
+	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932237AbZLRSFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 13:05:38 -0500
+Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
+	(authenticated bits=0)
+	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id nBIHqZ4b006817
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 12:52:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 18. Dezember 2009 18:32:40 schrieb Stephen Hemminger:
-> On Fri, 18 Dec 2009 14:18:37 +0100
-> 
-> Christian Samsel <christian.samsel@rwth-aachen.de> wrote:
-> > This patch adds a new feature to netem: The newly introduced parameter
-> > reorderdelay TIME is the time a reordered packet is delayed. It can be
-> > used in a combination with delay TIME to enable netem to produce late
-> > packets, which is not possible in the standard netem / iproute2. In the
-> > standard version reordered packets are always sent immediately and
-> > therefore are always early packets.
-> 
-> I like the idea but is it binary compatible with older kernels/ older
->  iproute2 utilities?
-> 
-Thats a good point. I will test it. So far i think it should work.
+Currently, forcedeth seems to want an order:2 alloc for each frame rx.
+I find this behaviour makes using 9100 byte jumbos somewhat suicidal O.o
+Frequent kernel messages, failure of bridge STP (the goggles, they do
+nothing!) due to missed packets, etc.
+
+I realize that it's a reverse engineered driver, and that changing the
+way hardware descriptors works to use paged SKBs might be very
+difficult, so I'm wondering if the following would work:
+
+Allocate linear static buffers for use in rx ring descriptors once at
+device init time (ifconfig up), and copy into paged skbs when handing >
+page sized SKBs up to higher layer network stack?  (hmm did i just ask
+to copy every rx packet?)
+
+-- 
+Jeremy Jackson
+Coplanar Networks
+(519)489-4903
+http://www.coplanar.net
+jerj@coplanar.net
+
