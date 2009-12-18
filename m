@@ -1,70 +1,77 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] iplink: add macvlan options for bridge mode
-Date: Fri, 18 Dec 2009 14:45:07 +0100
-Message-ID: <200912181445.07756.arnd@arndb.de>
-References: <1258497551-25959-1-git-send-email-arnd@arndb.de> <1258497551-25959-5-git-send-email-arnd@arndb.de>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netns: fix net.ipv6.route.gc_min_interval_ms in netns
+Date: Fri, 18 Dec 2009 16:16:40 +0200
+Message-ID: <b6fcc0a0912180616m54c0d25dn56f008c9d736e505@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Patrick Mullaney <pmullaney@novell.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	bridge@lists.linux-foundation.org,
-	virtualization@linux-foundation.com,
-	Jens Osterkamp <jens@linux.vnet.ibm.com>,
-	Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
-To: linux-kernel@vger.kernel.org, Anna Fischer <anna.fischer@hp.com>
+Content-Type: multipart/mixed; boundary=0015174c37407313cf047b016307
+Cc: netdev@vger.kernel.org, dlezcano@fr.ibm.com,
+	benjamin.thery@bull.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:62614 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868AbZLRNpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 08:45:35 -0500
-In-Reply-To: <1258497551-25959-5-git-send-email-arnd@arndb.de>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:50685 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753572AbZLROQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 09:16:42 -0500
+Received: by bwz27 with SMTP id 27so2174079bwz.21
+        for <netdev@vger.kernel.org>; Fri, 18 Dec 2009 06:16:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ping!
+--0015174c37407313cf047b016307
+Content-Type: text/plain; charset=ISO-8859-1
 
-Stephen, I submitted this twice but never heard back from you.
-The changes to macvlan have been merged in 2.6.33-rc1, so it
-would be good to have this included as well.
+Sorry for attachment, my patch sending facility is defunct right now.
+Copying inline for review.
 
-	Arnd
+commit ee0270199605e58c76294f62ba8fbc0f583ccd3e
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Fri Dec 18 16:08:04 2009 +0200
 
-On Tuesday 17 November 2009, Arnd Bergmann wrote:
-> Macvlan can now optionally support forwarding between its
-> ports, if they are in "bridge" mode. This adds support
-> for this option to "ip link add", "ip link set" and "ip
-> -d link show".
-> 
-> The default mode in the kernel is now "vepa" mode, meaning
-> "virtual ethernet port aggregator". This mode is used
-> together with the "hairpin" mode of an ethernet bridge
-> that the parent of the macvlan device is connected to.
-> All frames still get sent out to the external interface,
-> but the adjacent bridge is able to send them back on
-> the same wire in hairpin mode, so the macvlan ports
-> are able to see each other, which the bridge can be
-> configured to monitor and control traffic between
-> all macvlan instances. Multicast traffic coming in
-> from the external interface is checked for the source
-> MAC address and only delivered to ports that have not
-> yet seen it.
-> 
-> In bridge mode, macvlan will send all multicast traffic
-> to other interfaces that are also in bridge mode but
-> not to those in vepa mode, which get them on the way
-> back from the hairpin.
-> 
-> The third supported mode is "private", which prevents
-> communication between macvlans even if the adjacent
-> bridge is in hairpin mode. This behavior is closer to
-> the original implementation of macvlan but stricly
-> maintains isolation.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+    netns: fix net.ipv6.route.gc_min_interval_ms in netns
 
+    sysctl table was copied, all right, but ->data for
+net.ipv6.route.gc_min_interval_ms
+    was not reinitialized for "!= &init_net" case.
+
+    In init_net everthing works by accident due to correct ->data initialization
+    in source table.
+
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index db3b273..c2bd74c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2630,6 +2630,7 @@ struct ctl_table *ipv6_route_sysctl_init(struct net *net)
+ 		table[6].data = &net->ipv6.sysctl.ip6_rt_gc_elasticity;
+ 		table[7].data = &net->ipv6.sysctl.ip6_rt_mtu_expires;
+ 		table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
++		table[9].data = &net->ipv6.sysctl.ip6_rt_gc_min_interval;
+ 	}
+
+ 	return table;
+
+--0015174c37407313cf047b016307
+Content-Type: text/x-diff; charset=US-ASCII; name="gc-min-interval.patch"
+Content-Disposition: attachment; filename="gc-min-interval.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g3d1kvog0
+
+Y29tbWl0IGVlMDI3MDE5OTYwNWU1OGM3NjI5NGY2MmJhOGZiYzBmNTgzY2NkM2UKQXV0aG9yOiBB
+bGV4ZXkgRG9icml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+CkRhdGU6ICAgRnJpIERlYyAxOCAx
+NjowODowNCAyMDA5ICswMjAwCgogICAgbmV0bnM6IGZpeCBuZXQuaXB2Ni5yb3V0ZS5nY19taW5f
+aW50ZXJ2YWxfbXMgaW4gbmV0bnMKICAgIAogICAgc3lzY3RsIHRhYmxlIHdhcyBjb3BpZWQsIGFs
+bCByaWdodCwgYnV0IC0+ZGF0YSBmb3IgbmV0LmlwdjYucm91dGUuZ2NfbWluX2ludGVydmFsX21z
+CiAgICB3YXMgbm90IHJlaW5pdGlhbGl6ZWQgZm9yICIhPSAmaW5pdF9uZXQiIGNhc2UuCiAgICAK
+ICAgIEluIGluaXRfbmV0IGV2ZXJ0aGluZyB3b3JrcyBieSBhY2NpZGVudCBkdWUgdG8gY29ycmVj
+dCAtPmRhdGEgaW5pdGlhbGl6YXRpb24KICAgIGluIHNvdXJjZSB0YWJsZS4KCiAgICBTaWduZWQt
+b2ZmLWJ5OiBBbGV4ZXkgRG9icml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+CgpkaWZmIC0tZ2l0
+IGEvbmV0L2lwdjYvcm91dGUuYyBiL25ldC9pcHY2L3JvdXRlLmMKaW5kZXggZGIzYjI3My4uYzJi
+ZDc0YyAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvcm91dGUuYworKysgYi9uZXQvaXB2Ni9yb3V0ZS5j
+CkBAIC0yNjMwLDYgKzI2MzAsNyBAQCBzdHJ1Y3QgY3RsX3RhYmxlICppcHY2X3JvdXRlX3N5c2N0
+bF9pbml0KHN0cnVjdCBuZXQgKm5ldCkKIAkJdGFibGVbNl0uZGF0YSA9ICZuZXQtPmlwdjYuc3lz
+Y3RsLmlwNl9ydF9nY19lbGFzdGljaXR5OwogCQl0YWJsZVs3XS5kYXRhID0gJm5ldC0+aXB2Ni5z
+eXNjdGwuaXA2X3J0X210dV9leHBpcmVzOwogCQl0YWJsZVs4XS5kYXRhID0gJm5ldC0+aXB2Ni5z
+eXNjdGwuaXA2X3J0X21pbl9hZHZtc3M7CisJCXRhYmxlWzldLmRhdGEgPSAmbmV0LT5pcHY2LnN5
+c2N0bC5pcDZfcnRfZ2NfbWluX2ludGVydmFsOwogCX0KIAogCXJldHVybiB0YWJsZTsK
+--0015174c37407313cf047b016307--
