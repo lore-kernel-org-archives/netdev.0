@@ -1,41 +1,44 @@
-From: =?ISO-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>
-Subject: Re: [Bugme-new] [Bug 14794] New: IP address assigned by DHCP is
- dropped after ~40 seconds
-Date: Fri, 18 Dec 2009 18:05:35 +0100
-Message-ID: <4B2BB65F.6000703@freemail.hu>
-References: <bug-14794-10286@http.bugzilla.kernel.org/>	<20091216154713.f082e7cf.akpm@linux-foundation.org>	<4B2A9A40.90203@freemail.hu>	<20091217132451.b168a796.akpm@linux-foundation.org>	<4B2AA64C.50709@gmail.com> <4B2B35B7.6060703@freemail.hu> <adaskb83df6.fsf@roland-alpha.cisco.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+Date: Fri, 18 Dec 2009 17:20:54 +0000
+Message-ID: <20091218172054.556de51b@lxorguk.ukuu.org.uk>
+References: <20091218154634.79decdc4@lxorguk.ukuu.org.uk>
+	<20091218163348.GA24269@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mike Galbraith <efault@gmx.de>, Ingo Molnar <mingo@elte.hu>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?ISO-8859-14?B?QW3pcmljbw==?= Wang <xiyou.wangcong@gmail.com>
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01a.mail.t-online.hu ([84.2.40.6]:53667 "EHLO
-	mail01a.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752767AbZLRRFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 12:05:40 -0500
-In-Reply-To: <adaskb83df6.fsf@roland-alpha.cisco.com>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:37861 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751873AbZLRRUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 12:20:35 -0500
+In-Reply-To: <20091218163348.GA24269@heat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
->  > Unfortunately reverting the commit 61cbe54d9479ad98283b2dda686deae=
-4c34b2d59 on
->  > top of 2.6.32 does not solve the problem.
->=20
-> Is there any possibility that one of the steps of the bisection was
-> wrong?  Could you possibly have accidentally marked a "bad" kernel as
-> "good"?
+> the LSM-based version *does not* resolve the situation to my satisfaction as a
+> userland hacker due to the well-known and long-standing adoption and
+> compositionality problems facing small LSMs. ;)
 
-I am afraid that I might need to repeat the whole "git bisect" process =
-because
-reverting the found patch have not solved the problem...
+For things like Fedora it's probably an "interesting idea, perhaps we
+should do it using SELinux" sort of problem, but a config option for a
+magic network prctl is also going to be hard to adopt without producing a
+good use case - and avoiding that by dumping crap into everyones kernel
+fast paths isn't a good idea either.
 
-Regards,
-
-	M=E1rton N=E9meth
