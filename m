@@ -1,12 +1,12 @@
-From: Michael Stone <michael@laptop.org>
-Subject: [PATCH 3/3] Security: Document prctl(PR_{GET,SET}_NETWORK). (v2)
-Date: Thu, 17 Dec 2009 22:32:01 -0500
-Message-ID: <20091218033201.GC23514@heat>
-References: <20091218030056.GC3047@heat>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2/3] Security: Implement prctl(PR_SET_NETWORK, PR_NETWORK_OFF) semantics. (v2)
+Date: Thu, 17 Dec 2009 19:57:09 -0800
+Message-ID: <m16385vsru.fsf@fess.ebiederm.org>
+References: <20091218030056.GC3047@heat> <20091218033128.GB23514@heat>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
+Cc: Mark Seaborn <mrs@mythic-beasts.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
@@ -16,107 +16,32 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	"C. Scott Ananian" <cscott@cscott.net>,
 	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Michael Stone <michael@laptop.org>
-To: Mark Seaborn <mrs@mythic-beasts.com>
+	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+To: Michael Stone <michael@laptop.org>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091218030056.GC3047@heat>
+In-Reply-To: <20091218033128.GB23514@heat> (Michael Stone's message of "Thu\, 17 Dec 2009 22\:31\:28 -0500")
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Explain the purpose, interface, and semantics of the
-prctl(PR_{GET,SET}_network) facility.
+Michael Stone <michael@laptop.org> writes:
 
-Also reference some example userland clients.
+> Return -EPERM any time we try to __sock_create(), sys_connect(), sys_bind(),
+> sys_sendmsg(), or __ptrace_may_access() from a process with PR_NETWORK_OFF set
+> in current->network unless we're working on a socket which is already connected
+> or on a non-abstract AF_UNIX socket.
 
-Signed-off-by: Michael Stone <michael@laptop.org>
----
-  Documentation/prctl/network.txt |   72 +++++++++++++++++++++++++++++++++++++++
-  1 files changed, 72 insertions(+), 0 deletions(-)
-  create mode 100644 Documentation/prctl/network.txt
+It appears to me that the current security hooks are sufficient for what
+you are doing.
 
-diff --git a/Documentation/prctl/network.txt b/Documentation/prctl/network.txt
-new file mode 100644
-index 0000000..b337722
---- /dev/null
-+++ b/Documentation/prctl/network.txt
-@@ -0,0 +1,72 @@
-+Purpose
-+-------
-+
-+Daniel Bernstein has observed [1] that security-conscious userland processes
-+may benefit from the ability to irrevocably remove their ability to create,
-+bind, connect to, or send messages except in the case of previously connected
-+sockets or AF_UNIX filesystem sockets.
-+
-+This facility is particularly attractive to security platforms like OLPC
-+Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4] because:
-+
-+  * it integrates well with standard techniques for writing privilege-separated
-+    Unix programs
-+
-+  * it integrates well with the need to perform limited socket I/O, e.g., when
-+    running X clients
-+
-+  * it's available to unprivileged programs
-+
-+  * it's a discretionary feature available to all of distributors,
-+    administrators, authors, and users
-+
-+  * its effect is entirely local, rather than global (like netfilter)
-+
-+  * it's simple enough to have some hope of being used correctly
-+
-+Implementation
-+--------------
-+
-+After considering implementations based on the Linux Security Module (LSM)
-+framework, on SELinux in particular, on network namespaces (CLONE_NEWNET), and
-+on direct modification of the kernel syscall and task_struct APIs, we came to
-+the conclusion that the best way to implement this feature was to extend the
-+prctl() framework with a new pair of options named PR_{GET,SET}_NETWORK. These
-+options cause prctl() to read or modify "current->network".
-+
-+Semantics
-+---------
-+
-+current->network is a flags field which is preserved across all variants of
-+fork() and exec().
-+
-+Writes which attempt to clear bits in current->network return -EPERM.
-+
-+The default value for current->network is named PR_NETWORK_OFF and is defined
-+to be 0.
-+
-+Presently, only one flag is defined: PR_NETWORK_OFF.
-+
-+More flags may be defined in the future if they become needed.
-+
-+Attempts to set undefined flags result in -EINVAL.
-+
-+When PR_NETWORK_OFF is set, implementations of syscalls which may be used by
-+the current process to perform autonomous networking will return -EPERM. For
-+example, calls to socket(), bind(), connect(), sendmsg(), and ptrace() will
-+return -EPERM except for cases we are manipulating an AF_UNIX socket whose name
-+does not begin with \0 or, in the case of sendmsg(), unless we are manipulating
-+a previously connected socket, i.e. one with
-+
-+  msg.msg_name == NULL && msg.msg_namelen == 0
-+
-+or, in the case of ptrace(), we are ptracing() a process which has all of our
-+own networking restriction flags set.
-+
-+References
-+----------
-+
-+[1]: http://cr.yp.to/unix/disablenetwork.html
-+[2]: http://wiki.laptop.org/go/OLPC_Bitfrost
-+[3]: http://wiki.laptop.org/go/Rainbow
-+[4]: http://plash.beasts.org/
--- 
-1.6.6.rc1
+The one true security module business prevents you from actually using the
+security hooks, but could you create wrappers for the network security
+hooks so the logic of the network stack does not need to change.
+
+At the very least the huge separation of the test for AF_UNIX and
+the test to see if it is a an anonymous AF_UNIX socket is pretty
+large.  Structuring the code in such a way as to keep that together would
+be nice.
+
+Eric
