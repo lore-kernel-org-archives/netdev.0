@@ -1,132 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC iproute2 PATCH 3/3] iproute: Add support to 'ip' for SR-IOV
-	virtual function link paramters
-Date: Thu, 17 Dec 2009 17:37:59 -0800
-Message-ID: <20091218013759.4663.32221.stgit@localhost.localdomain>
-References: <20091218013727.4663.86820.stgit@localhost.localdomain>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] broadcom: bcm54xx_shadow_read() errors ignored in
+ bcm54xx_adjust_rxrefclk()
+Date: Thu, 17 Dec 2009 17:41:39 -0800
+Message-ID: <20091218014138.GA22080@xw6200.broadcom.net>
+References: <4B28DA62.40909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gospo@redhat.com, Mitch Williams <mitch.a.williams@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Roel Kluin" <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:60471
-	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755848AbZLRBiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 20:38:14 -0500
-In-Reply-To: <20091218013727.4663.86820.stgit@localhost.localdomain>
+Received: from mms3.broadcom.com ([216.31.210.19]:1798 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751003AbZLRBls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Dec 2009 20:41:48 -0500
+In-Reply-To: <4B28DA62.40909@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Williams, Mitch A <mitch.a.williams@intel.com>
+On Wed, Dec 16, 2009 at 05:02:26AM -0800, Roel Kluin wrote:
+> If not signed read errors are ignored.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-Adds support for setting and showing SR-IOV virtual function link parameters.
+Acked-by: Matt Carlson <mcarlson@broadcom.com>
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- ip/ipaddress.c |   23 +++++++++++++++++++++++
- ip/iplink.c    |   39 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 62 insertions(+), 0 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index f0add80..edc60af 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -330,6 +330,29 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 				);
- 		}
- 	}
-+	if (do_link && tb[IFLA_VFINFO] && tb[IFLA_NUM_VF]) {
-+		SPRINT_BUF(b1);
-+		struct rtattr *rta = tb[IFLA_VFINFO];
-+		struct ifla_vf_info *ivi;
-+		int i;
-+		for (i = 0; i < *(int *)RTA_DATA(tb[IFLA_NUM_VF]); i++) {
-+			if (rta->rta_type != IFLA_VFINFO) {
-+				fprintf(stderr, "BUG: rta type is %d\n", rta->rta_type);
-+				break;
-+			}
-+			ivi = RTA_DATA(rta);
-+			fprintf(fp, "\n    vf %d: MAC %s",
-+				ivi->vf,
-+				ll_addr_n2a((unsigned char *)&ivi->mac,
-+					    ETH_ALEN, 0, b1, sizeof(b1)));
-+				if (ivi->vlan)
-+					fprintf(fp, ", vlan %d", ivi->vlan);
-+				if (ivi->tx_rate)
-+					fprintf(fp, ", tx rate %d (Mbps_",
-+						ivi->tx_rate);
-+			rta = (struct rtattr *)((char *)rta + RTA_ALIGN(rta->rta_len));
-+		}
-+	}
- 	fprintf(fp, "\n");
- 	fflush(fp);
- 	return 0;
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 32cce24..88a5606 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -68,6 +68,9 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                  [ mtu MTU ]\n");
- 	fprintf(stderr, "	                  [ netns PID ]\n");
- 	fprintf(stderr, "			  [ alias NAME ]\n");
-+	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
-+	fprintf(stderr, "				   [ vlan VLANID ] ] \n");
-+	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
- 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
- 
- 	if (iplink_have_newlink()) {
-@@ -181,6 +184,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 	int qlen = -1;
- 	int mtu = -1;
- 	int netns = -1;
-+	int vf = -1;
- 
- 	ret = argc;
- 
-@@ -278,6 +282,41 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				req->i.ifi_flags |= IFF_NOARP;
- 			} else
- 				return on_off("noarp");
-+		} else if (strcmp(*argv, "vf") == 0) {
-+			NEXT_ARG();
-+			if (get_integer(&vf,  *argv, 0)) {
-+				invarg("Invalid \"vf\" value\n", *argv);
-+			}
-+		} else if (matches(*argv, "mac") == 0) {
-+			struct ifla_vf_mac ivm;
-+			NEXT_ARG();
-+			if (vf < 0)
-+				missarg("vf");
-+			ivm.vf = vf;
-+			len = ll_addr_a2n((char *)ivm.mac, 32, *argv);
-+			if (len < 0)
-+				return -1;
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_MAC, &ivm, sizeof(ivm));
-+		} else if (matches(*argv, "vlan") == 0) {
-+			struct ifla_vf_vlan ivv;
-+			NEXT_ARG();
-+			if (vf < 0)
-+				missarg("vf");
-+			if (get_integer(&ivv.vlan, *argv, 0)) {
-+				invarg("Invalid \"vlan\" value\n", *argv);
-+			}
-+			ivv.vf = vf;
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_VLAN, &ivv, sizeof(ivv));
-+		} else if (matches(*argv, "rate") == 0) {
-+			struct ifla_vf_tx_rate ivt;
-+			NEXT_ARG();
-+			if (vf < 0)
-+				missarg("vf");
-+			if (get_unsigned(&ivt.rate, *argv, 0)) {
-+				invarg("Invalid \"rate\" value\n", *argv);
-+			}
-+			ivt.vf = vf;
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
- #ifdef IFF_DYNAMIC
- 		} else if (matches(*argv, "dynamic") == 0) {
- 			NEXT_ARG();
+> ---
+> Found using coccinelle: http://coccinelle.lip6.fr/
+> 
+> diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+> index f63c96a..c13cf64 100644
+> --- a/drivers/net/phy/broadcom.c
+> +++ b/drivers/net/phy/broadcom.c
+> @@ -326,7 +326,8 @@ error:
+>  
+>  static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
+>  {
+> -	u32 val, orig;
+> +	u32 orig;
+> +	int val;
+>  	bool clk125en = true;
+>  
+>  	/* Abort if we are using an untested phy. */
+> 
 
