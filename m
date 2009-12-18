@@ -1,65 +1,82 @@
-From: Mark Seaborn <mrs@mythic-beasts.com>
-Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
-Date: Thu, 17 Dec 2009 22:58:56 +0000 (GMT)
-Message-ID: <20091217.225856.145758950057800056.mrs@deli>
-References: <20091217012540.GA2609@heat>
-	<fb69ef3c0912170906t291a37c4r6c4758ddc7dd300b@mail.gmail.com>
-	<20091217171447.GJ9804@basil.fritz.box>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [RFC PATCH v2 1/6] pci: Add pci_num_vf function
+Date: Thu, 17 Dec 2009 17:33:53 -0800
+Message-ID: <20091218013329.4510.25937.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: michael@laptop.org, drepper@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, david@lang.hm,
-	socketcan@hartkopp.net, alan@lxorguk.ukuu.org.uk,
-	herbert@gondor.apana.org.au, Valdis.Kletnieks@vt.edu,
-	bdonlan@gmail.com, zbr@ioremap.net, cscott@cscott.net,
-	jmorris@namei.org, ebiederm@xmission.com, bernie@codewiz.org
-To: andi@firstfloor.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755156AbZLQXii@vger.kernel.org>
-In-Reply-To: <20091217171447.GJ9804@basil.fritz.box>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gospo@redhat.com, Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta12.westchester.pa.mail.comcast.net ([76.96.59.227]:34492
+	"EHLO QMTA12.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751118AbZLRBeM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Dec 2009 20:34:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen <andi@firstfloor.org> wrote:
+From: Williams, Mitch A <mitch.a.williams@intel.com>
 
-> > This is not very good because in some situations it is useful to disable
-> > connect() and bind() while still allowing ptracing of other processes.  For
-> > example, Plash creates a new UID for each sandbox and it is possible to use
-> > strace and gdb inside a sandbox.  Currently Plash is not able to block
-> > network access or allow only limited network access.  If you treat ptrace()
-> > this way we won't have the ability to use strace and gdb while limiting
-> > network access.
-> 
-> No that's not what the hunk does. I first thought the same. But it actually
-> just limits these processes from initiating ptracing themselves. You can still
-> attach gdb/strace to them.
+Add and export pci_num_vf to allow other subsystems to determine how many
+virtual function devices are associated with an SR-IOV physical function
+device.
 
-No, I specifically mean running gdb/strace *inside* the sandbox so
-that sandboxed processes can initiate ptrace on other processes inside
-the same sandbox.  At the moment you can create a Plash sandbox and
-run strace inside it with a command like the following, and strace
-will successfully ptrace the subprocess that it spawns:
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-pola-run -B -e strace echo foo
+ drivers/pci/iov.c   |   15 +++++++++++++++
+ include/linux/pci.h |    5 +++++
+ 2 files changed, 20 insertions(+), 0 deletions(-)
 
-I wouldn't want this to stop working just because the "disable
-networking" flag has been set for all processes in the sandbox.
+diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+index b2a448e..52ee6d3 100644
+--- a/drivers/pci/iov.c
++++ b/drivers/pci/iov.c
+@@ -706,6 +706,21 @@ irqreturn_t pci_sriov_migration(struct pci_dev *dev)
+ }
+ EXPORT_SYMBOL_GPL(pci_sriov_migration);
+ 
++/**
++ * pci_num_vf - return number of VFs associated with a PF device_release_driver
++ * @dev: the PCI device
++ *
++ * Returns number of VFs, or 0 if SR-IOV is not enabled.
++ */
++int pci_num_vf(struct pci_dev *dev)
++{
++	if (!dev->is_physfn)
++		return 0;
++	else
++		return dev->sriov->nr_virtfn;
++}
++EXPORT_SYMBOL_GPL(pci_num_vf);
++
+ static int ats_alloc_one(struct pci_dev *dev, int ps)
+ {
+ 	int pos;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 04771b9..c44d6e0 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1282,6 +1282,7 @@ void __iomem *pci_ioremap_bar(struct pci_dev *pdev, int bar);
+ extern int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
+ extern void pci_disable_sriov(struct pci_dev *dev);
+ extern irqreturn_t pci_sriov_migration(struct pci_dev *dev);
++extern int pci_num_vf(struct pci_dev *dev);
+ #else
+ static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
+ {
+@@ -1294,6 +1295,10 @@ static inline irqreturn_t pci_sriov_migration(struct pci_dev *dev)
+ {
+ 	return IRQ_NONE;
+ }
++static inline int pci_num_vf(struct pci_dev *dev)
++{
++	return 0;
++}
+ #endif
+ 
+ #if defined(CONFIG_HOTPLUG_PCI) || defined(CONFIG_HOTPLUG_PCI_MODULE)
 
-In practice Plash would set "disable networking" for all sandboxed
-processes and then selectively enable limited network access by
-passing file descriptors into the sandboxed processes via a socket.
-
-
-> Now I'm not sure if that's closing all holes, but at least I can't come
-> up with any obvious ones currently. I think I would still prefer a more
-> general security container in general.
-
-Well, yeah, adding a boolean just for network access seems pretty ad-hoc.
-
-It sets alarm bells ringing if "disable networking" also functions as
-"disable initiating ptrace()".  Isn't there a way of doing the latter
-independently?
-
-Cheers,
-Mark
