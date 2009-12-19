@@ -1,54 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] allow nf_tproxy_core module to unload
-Date: Fri, 18 Dec 2009 19:41:46 -0800 (PST)
-Message-ID: <20091218.194146.104066031.davem@davemloft.net>
-References: <20091218162440.22480.3383.sendpatchset@localhost.localdomain>
+Subject: Re: [PATCH 1/2] improve netem reorder flexibility
+Date: Fri, 18 Dec 2009 19:59:07 -0800 (PST)
+Message-ID: <20091218.195907.189689401.davem@davemloft.net>
+References: <1261142318-26249-1-git-send-email-christian.samsel@rwth-aachen.de>
+	<20091218093240.64ca7d88@nehalam>
+	<200912181901.28542.christian.samsel@rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sassmann@redhat.com,
-	netfilter-devel@vger.kernel.org
-To: emcnabb@redhat.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: christian.samsel@rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39618
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42863
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753210AbZLSDlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 22:41:45 -0500
-In-Reply-To: <20091218162440.22480.3383.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753998AbZLSD7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 22:59:06 -0500
+In-Reply-To: <200912181901.28542.christian.samsel@rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evan McNabb <emcnabb@redhat.com>
-Date: Fri, 18 Dec 2009 11:24:40 -0500
+From: Christian Samsel <christian.samsel@rwth-aachen.de>
+Date: Fri, 18 Dec 2009 19:01:28 +0100
 
-> From: Evan McNabb <emcnabb@redhat.com>
-> 
-> Include exit function so nf_tproxy_core module can be removed.
-> 
-> Signed-off-by: Evan McNabb <emcnabb@redhat.com>
+> Am Freitag, 18. Dezember 2009 18:32:40 schrieb Stephen Hemminger:
+>> On Fri, 18 Dec 2009 14:18:37 +0100
+>> 
+>> Christian Samsel <christian.samsel@rwth-aachen.de> wrote:
+>> > This patch adds a new feature to netem: The newly introduced parameter
+>> > reorderdelay TIME is the time a reordered packet is delayed. It can be
+>> > used in a combination with delay TIME to enable netem to produce late
+>> > packets, which is not possible in the standard netem / iproute2. In the
+>> > standard version reordered packets are always sent immediately and
+>> > therefore are always early packets.
+>> 
+>> I like the idea but is it binary compatible with older kernels/ older
+>>  iproute2 utilities?
+>> 
+> Thats a good point. I will test it. So far i think it should work.
 
-netfilter-devel is the best place to CC: netfilter
-patches, added...
+It won't work.
 
-> 
-> diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
-> index 5490fc3..ec6737c 100644
-> --- a/net/netfilter/nf_tproxy_core.c
-> +++ b/net/netfilter/nf_tproxy_core.c
-> @@ -89,7 +89,12 @@ static int __init nf_tproxy_init(void)
->  	return 0;
->  }
->  
-> +static void __exit nf_tproxy_exit(void)
-> +{
-> +}
-> +
->  module_init(nf_tproxy_init);
-> +module_exit(nf_tproxy_exit);
->  
->  MODULE_LICENSE("GPL");
->  MODULE_AUTHOR("Krisztian Kovacs");
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you change the size of the tc_netem_qopt, older kernels will
+reject because the size is different from what the kernel expects.
+
+So newer iproute2 will not work with older kernels.
+
+You can't change these structures, add new netlink attributes
+to pass the new data instead.
