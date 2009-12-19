@@ -1,48 +1,69 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 14794] New: IP address assigned by DHCP is
- dropped after ~40 seconds
-Date: Sat, 19 Dec 2009 14:48:06 +0100
-Message-ID: <20091219134805.GA2612@ami.dom.local>
-References: <bug-14794-10286@http.bugzilla.kernel.org/>
- <20091216154713.f082e7cf.akpm@linux-foundation.org>
- <4B2A9A40.90203@freemail.hu>
- <20091217132451.b168a796.akpm@linux-foundation.org>
- <4B2AA64C.50709@gmail.com>
- <4B2B35B7.6060703@freemail.hu>
- <4B2BB27D.5050609@freemail.hu>
- <20091218200906.GA2604@ami.dom.local>
- <4B2CAA56.8030605@freemail.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH 1/6] enic: Bug fix: use safe queue shutdown in
+ dev->stop
+Date: Sat, 19 Dec 2009 15:34:59 +0000
+Message-ID: <1261236899.2418.93.camel@localhost>
+References: <20091219020758.2745.85264.stgit@savbu-pc100.cisco.com>
+	 <20091219020941.2745.47459.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mike Galbraith <efault@gmx.de>, Ingo Molnar <mingo@elte.hu>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: =?iso-8859-1?Q?N=E9meth_M=E1rton?= <nm127@freemail.hu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f221.google.com ([209.85.220.221]:34144 "EHLO
-	mail-fx0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbZLSNsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 08:48:17 -0500
-Received: by fxm21 with SMTP id 21so3564683fxm.21
-        for <netdev@vger.kernel.org>; Sat, 19 Dec 2009 05:48:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4B2CAA56.8030605@freemail.hu>
+Received: from exchange.solarflare.com ([216.237.3.220]:36082 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbZLSPfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 10:35:04 -0500
+In-Reply-To: <20091219020941.2745.47459.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 19, 2009 at 11:26:30AM +0100, N=E9meth M=E1rton wrote:
-> I upgraded the Debian package "network-manager" from 0.6.6-3 to 0.7.2=
--2.
-> The problem seems to be solved: the IP address is not dropped in 2.6.=
-32
-> and in 2.6.31. The conclusion is for me that a user-space program cau=
-sed
-> the problem, thanks for the hint.
+On Fri, 2009-12-18 at 18:09 -0800, Scott Feldman wrote:
+> enic: Bug fix: use safe queue shutdown in dev->stop
+> 
+> Fix dev->stop shutdown bug where driver was stopping xmit queue and then
+> disabling intrs.  Fix is to disable intrs first and then stop the xmit
+> queue, otherwise an interrupt could cause the queue to be rewoken.  Also,
+> no need to explicitly do queue servicing because queues are cleaned and
+> reset back to initial state at end of dev->stop.  Servicing queues also
+> had the side-effect of also rewakening the xmit queue, which is not what
+> we want.
+[...]
+> @@ -1409,16 +1382,18 @@ static int enic_stop(struct net_device *netdev)
+>  	unsigned int i;
+>  	int err;
+>  
+> +	for (i = 0; i < enic->intr_count; i++)
+> +		vnic_intr_mask(&enic->intr[i]);
+> +
 
-Yes, Debian often fixes our bugs on time! ;-)
+I think you need to use synchronize_irq() after this.
 
-Thanks,
-Jarek P.
+>  	del_timer_sync(&enic->notify_timer);
+>  
+>  	spin_lock(&enic->devcmd_lock);
+>  	vnic_dev_disable(enic->vdev);
+>  	spin_unlock(&enic->devcmd_lock);
+>  	napi_disable(&enic->napi);
+> -	netif_stop_queue(netdev);
+> -
+> -	for (i = 0; i < enic->intr_count; i++)
+> -		vnic_intr_mask(&enic->intr[i]);
+> +	netif_tx_disable(netdev);
+> +	msleep(10);
+
+This sleep is suspicious.
+
+> +	netif_carrier_off(netdev);
+[...]
+
+And this should be unnecessary.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
