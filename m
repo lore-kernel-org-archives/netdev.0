@@ -1,93 +1,78 @@
 From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next PATCH 2/6] enic: Bug fix: try harder to fill Rx ring on
- skb allocation failures
-Date: Sat, 19 Dec 2009 12:39:03 -0800
-Message-ID: <C75279E7.1B001%scofeldm@cisco.com>
-References: <20091219104128.GB20743@verge.net.au>
+Subject: Re: [net-next PATCH 1/6] enic: Bug fix: use safe queue shutdown in
+ dev->stop
+Date: Sat, 19 Dec 2009 12:44:19 -0800
+Message-ID: <C7527B23.1B005%scofeldm@cisco.com>
+References: <1261236899.2418.93.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:58249 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbZLSUjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 15:39:10 -0500
-In-Reply-To: <20091219104128.GB20743@verge.net.au>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:42526 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750832AbZLSUoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 15:44:22 -0500
+In-Reply-To: <1261236899.2418.93.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/19/09 2:41 AM, "Simon Horman" <horms@verge.net.au> wrote:
+On 12/19/09 7:34 AM, "Ben Hutchings" <bhutchings@solarflare.com> wrote:
 
-> On Fri, Dec 18, 2009 at 06:09:46PM -0800, Scott Feldman wrote:
->> enic: Bug fix: try harder to fill Rx ring on skb allocation failures
+> On Fri, 2009-12-18 at 18:09 -0800, Scott Feldman wrote:
+>> enic: Bug fix: use safe queue shutdown in dev->stop
 >> 
->> During probe(), make sure we get at least one skb on the Rx ring.
->> Otherwise abort the interface load.  Also, if we get skb allocation
->> failures in NAPI poll while trying to replenish the ring, try again
->> later so we don't end up starving out the Rx ring completely.
->> 
->> @@ -1115,16 +1116,19 @@ static int enic_poll(struct napi_struct *napi, int
->> budget)
->> 0 /* don't unmask intr */,
->> 0 /* don't reset intr timer */);
+>> Fix dev->stop shutdown bug where driver was stopping xmit queue and then
+>> disabling intrs.  Fix is to disable intrs first and then stop the xmit
+>> queue, otherwise an interrupt could cause the queue to be rewoken.  Also,
+>> no need to explicitly do queue servicing because queues are cleaned and
+>> reset back to initial state at end of dev->stop.  Servicing queues also
+>> had the side-effect of also rewakening the xmit queue, which is not what
+>> we want.
+> [...]
+>> @@ -1409,16 +1382,18 @@ static int enic_stop(struct net_device *netdev)
+>> unsigned int i;
+>> int err;
 >>  
->> - if (rq_work_done > 0) {
->> + err = vnic_rq_fill(&enic->rq[0], enic->rq_alloc_buf);
->>  
->> -  /* Replenish RQ
->> -   */
->> + /* Buffer allocation failed. Stay in polling
->> +  * mode so we can try to fill the ring again.
->> +  */
->>  
->> -  vnic_rq_fill(&enic->rq[0], enic->rq_alloc_buf);
->> + if (err)
->> +  rq_work_done = rq_work_to_do;
+>> + for (i = 0; i < enic->intr_count; i++)
+>> +  vnic_intr_mask(&enic->intr[i]);
+>> +
 > 
-> Is it intentional for rq_work_done = rq_work_to_do to become the
-> return value?
+> I think you need to use synchronize_irq() after this.
 
-That was intentional.  If the replacement skb allocation fails, we're
-returning like we did a full budget's worth of work so we stay scheduled and
-hopefully the next polling pass we'll get the allocations.  Before this fix,
-there is a corner case which isn't covered: if hw has used all descs and
-gens an intr and we get into polling and the replacement alloc fails, then
-Rx is hung.  Hw is desc starved and we're not going to get any more intrs:
-game over.
+I think you're right.  That's what I want: all intrs masked and no IRQs
+running.  I also need to add a PIO read to flush the PIO write to mask.
 
-I was looking at tg3.c and it looks like it does napi_schedule() if the
-allocation fails.  Would this be a better option than setting work_done =
-budget?
+I want intrs shut down from here on.
  
->> @@ -1333,11 +1343,13 @@ static int enic_open(struct net_device *netdev)
->> }
+>> del_timer_sync(&enic->notify_timer);
 >>  
->> for (i = 0; i < enic->rq_count; i++) {
->> -  err = vnic_rq_fill(&enic->rq[i], enic->rq_alloc_buf);
->> -  if (err) {
->> +  vnic_rq_fill(&enic->rq[i], enic->rq_alloc_buf);
->> +  /* Need at least one buffer on ring to get going */
->> +  if (vnic_rq_desc_used(&enic->rq[i]) == 0) {
->> printk(KERN_ERR PFX
->> "%s: Unable to alloc receive buffers.\n",
->> netdev->name);
->> +   err = -ENOMEM;
->> goto err_out_notify_unset;
->> }
->> }
+>> spin_lock(&enic->devcmd_lock);
+>> vnic_dev_disable(enic->vdev);
+>> spin_unlock(&enic->devcmd_lock);
+>> napi_disable(&enic->napi);
+>> - netif_stop_queue(netdev);
+>> -
+>> - for (i = 0; i < enic->intr_count; i++)
+>> -  vnic_intr_mask(&enic->intr[i]);
+>> + netif_tx_disable(netdev);
+>> + msleep(10);
 > 
-> My brain may well have switched off for the day,
-> but its unclear to me how &enic->rq[i] could ever be NULL.
+> This sleep is suspicious.
 
-You missed a ")"
+Ya, that can go.  Netif_tx_disable grabs netif_tx_lock, so we should be
+synced with xmit_hard_start.  Forgot to delete that when we had
+netif_stop_queue.
  
-> Also, in the case where a failure occurs for i > 0,
-> it it necessary to unwind the previous rq allocations?
+>> + netif_carrier_off(netdev);
+> [...]
+> 
+> And this should be unnecessary.
 
-Yes, good catch.  We'll fix that.
+We don't have any way to get true link status when the interface is down, so
+this forces us to always report link status down when the interface is down.
 
 -scott
 
