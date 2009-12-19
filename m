@@ -1,33 +1,28 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
-Date: Sat, 19 Dec 2009 02:02:25 +0000
-Message-ID: <1261188145.2418.69.camel@localhost>
-References: <200912190128.nBJ1SZuw015428@blc-10-2.brocade.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [net-next PATCH 0/6] enic: updates to version 1.1.0.241
+Date: Fri, 18 Dec 2009 18:09:36 -0800
+Message-ID: <20091219020758.2745.85264.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: Debashis Dutt <ddutt@brocade.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:13571 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755955AbZLSCCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 21:02:32 -0500
-In-Reply-To: <200912190128.nBJ1SZuw015428@blc-10-2.brocade.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:17430 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755960AbZLSCJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 21:09:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-12-18 at 17:28 -0800, Debashis Dutt wrote:
-[...]
-> We are working on addressing rest of the comments.
+The following series implements enic driver updates:
 
-What is the point of re-posting this without addressing the other
-comments?
+1/6 - Bug fix: use safe queue shutdown in dev->stop
+2/6 - Bug fix: try harder to fill Rx ring on skb allocation failures
+3/6 - minimize pkt filter updates to firmware
+4/6 - Bug fix: align desc ring sizes to 32 descs
+5/6 - feature add: add ethtool -c/C support
+6/6 - whitespace cleanup; #define cleanup; more verbose err msg
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
