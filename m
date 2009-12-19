@@ -1,38 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Subject: [PATCH 1/6] bna: Brocade 10Gb Ethernet device driver
-Date: Fri, 18 Dec 2009 23:14:52 -0800
-Message-ID: <1261206893.30458.65.camel@Joe-Laptop.home>
-References: <200912190128.nBJ1SZww015431@blc-10-2.brocade.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 3/7] drivers/net/cxgb3: Use kzalloc for allocating only one
+ thing
+Date: Sat, 19 Dec 2009 08:16:52 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0912190816340.30546@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: Debashis Dutt <ddutt@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1294 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbZLSHOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Dec 2009 02:14:55 -0500
-In-Reply-To: <200912190128.nBJ1SZww015431@blc-10-2.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752089AbZLSHRA@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-12-18 at 17:28 -0800, Debashis Dutt wrote:
-> +static void bnad_hw_error(struct bnad *bnad, u8 status)
-> +{
-> +	char message[BNA_MESSAGE_SIZE];
-[]
-> +			sprintf(message, "Disabling Mbox IRQ %d for port %d",
-> +				irq, bnad->bna_id);
-> +		pr_info("%s",
-> +				message);
+From: Julia Lawall <julia@diku.dk>
 
-All of the char message[BNA_MESSAGE_SIZE] declarations
-are not necessary.
+Use kzalloc rather than kcalloc(1,...)
 
-These messages are also missing trailing '\n' newlines.
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
-It's better to not indirect via a buffer and simply use:
+// <smpl>
+@@
+@@
 
-	pr_<level>("fmt\n", args);
+- kcalloc(1,
++ kzalloc(
+          ...)
+// </smpl>
 
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/cxgb3/cxgb3_offload.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -u -p a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+--- a/drivers/net/cxgb3/cxgb3_offload.c 2009-09-14 14:55:49.000000000 +0200
++++ b/drivers/net/cxgb3/cxgb3_offload.c 2009-12-19 07:52:52.000000000 +0100
+@@ -1252,7 +1252,7 @@ int cxgb3_offload_activate(struct adapte
+ 	struct mtutab mtutab;
+ 	unsigned int l2t_capacity;
+ 
+-	t = kcalloc(1, sizeof(*t), GFP_KERNEL);
++	t = kzalloc(sizeof(*t), GFP_KERNEL);
+ 	if (!t)
+ 		return -ENOMEM;
+ 
