@@ -1,97 +1,96 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [net-next PATCH 6/6] enic: whitespace cleanup; #define cleanup;
-	more verbose err msg
-Date: Fri, 18 Dec 2009 18:10:07 -0800
-Message-ID: <20091219021007.2745.62436.stgit@savbu-pc100.cisco.com>
-References: <20091219020758.2745.85264.stgit@savbu-pc100.cisco.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Subject: [PATCH 2/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sat, 19 Dec 2009 02:19:09 +0000
+Message-ID: <1261189149.2418.82.camel@localhost>
+References: <200912190128.nBJ1SZBw015434@blc-10-2.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
+To: Debashis Dutt <ddutt@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:41794 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932717AbZLSCKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 21:10:08 -0500
-In-Reply-To: <20091219020758.2745.85264.stgit@savbu-pc100.cisco.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:14221 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755592AbZLSCTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 21:19:14 -0500
+In-Reply-To: <200912190128.nBJ1SZBw015434@blc-10-2.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enic: whitespace cleanup; #define cleanup; more verbose err msg
+On Fri, 2009-12-18 at 17:28 -0800, Debashis Dutt wrote:
+[...]
+> diff -ruP net-next-2.6-orig/drivers/net/bna/bfad_fwimg.c net-next-2.6-mod/drivers/net/bna/bfad_fwimg.c
+> --- net-next-2.6-orig/drivers/net/bna/bfad_fwimg.c      1969-12-31 16:00:00.000000000 -0800
+> +++ net-next-2.6-mod/drivers/net/bna/bfad_fwimg.c       2009-12-18 16:53:40.000000000 -0800
+[...]
+> +u32 bfi_image_ct_size;
+> +u32 bfi_image_cb_size;
+> +u32 *bfi_image_ct;
+> +u32 *bfi_image_cb;
+> +
+> +#define	BFAD_FW_FILE_CT	"ctfw.bin"
+> +#define	BFAD_FW_FILE_CB	"cbfw.bin"
 
-Some misc changes to cleanup whitespace issues and fix/remove some #define
-HW defintions.
+You should also use the MODULE_FIRMWARE() macro to add references to
+these files in the module.  That enables distribution scripts to tell
+which firmware files need to be installed on the system or included in
+an initramfs.
 
-1) fix some whitespace issues
-2) more verbose err msg when resources aren't available to configure vnic
-3) remove unused #define
-4) fix RSS #define rss hash types
+> +u32 *
+> +bfad_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
+> +			u32 *bfi_image_size, char *fw_name)
+> +{
+> +	const struct firmware *fw;
+> +
+> +	if (request_firmware(&fw, fw_name, &pdev->dev)) {
+> +		printk(KERN_ALERT "Can't locate firmware %s\n", fw_name);
+> +		goto error;
+> +	}
+> +
+> +	*bfi_image = vmalloc(fw->size);
+> +	if (NULL == *bfi_image) {
+> +		printk(KERN_ALERT "Fail to allocate buffer for fw image "
+> +			"size=%x!\n", (u32) fw->size);
+> +		goto error;
+> +	}
+> +
+> +	memcpy(*bfi_image, fw->data, fw->size);
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
----
- drivers/net/enic/enic_main.c |    5 +++--
- drivers/net/enic/vnic_dev.c  |    1 -
- drivers/net/enic/vnic_nic.h  |   12 ++++++------
- 3 files changed, 9 insertions(+), 9 deletions(-)
+What is the point of making a copy?
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 664d132..0ef3ab3 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -750,7 +750,7 @@ static inline void enic_queue_wq_skb(struct enic *enic,
- 
- /* netif_tx_lock held, process context with BHs disabled, or BH */
- static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
--					      struct net_device *netdev)
-+	struct net_device *netdev)
- {
- 	struct enic *enic = netdev_priv(netdev);
- 	struct vnic_wq *wq = &enic->wq[0];
-@@ -1824,7 +1824,8 @@ int enic_dev_init(struct enic *enic)
- 	err = enic_set_intr_mode(enic);
- 	if (err) {
- 		printk(KERN_ERR PFX
--			"Failed to set intr mode, aborting.\n");
-+			"Failed to set intr mode based on resource "
-+			"counts and system capabilities, aborting.\n");
- 		return err;
- 	}
- 
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-index 29a48e8..69b9b70 100644
---- a/drivers/net/enic/vnic_dev.c
-+++ b/drivers/net/enic/vnic_dev.c
-@@ -36,7 +36,6 @@ struct vnic_res {
- };
- 
- #define VNIC_DEV_CAP_INIT	0x0001
--#define VNIC_DEV_CAP_PERBI	0x0002
- 
- struct vnic_dev {
- 	void *priv;
-diff --git a/drivers/net/enic/vnic_nic.h b/drivers/net/enic/vnic_nic.h
-index eeaf329..cf80ab4 100644
---- a/drivers/net/enic/vnic_nic.h
-+++ b/drivers/net/enic/vnic_nic.h
-@@ -41,12 +41,12 @@
- #define NIC_CFG_IG_VLAN_STRIP_EN_MASK_FIELD	1UL
- #define NIC_CFG_IG_VLAN_STRIP_EN_SHIFT		24
- 
--#define NIC_CFG_RSS_HASH_TYPE_IPV4		(1 << 0)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV4		(1 << 1)
--#define NIC_CFG_RSS_HASH_TYPE_IPV6		(1 << 2)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6		(1 << 3)
--#define NIC_CFG_RSS_HASH_TYPE_IPV6_EX		(1 << 4)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX	(1 << 5)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV4		(1 << 1)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV4		(1 << 2)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV6		(1 << 3)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6		(1 << 4)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV6_EX		(1 << 5)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX	(1 << 6)
- 
- static inline void vnic_set_nic_cfg(u32 *nic_cfg,
- 	u8 rss_default_cpu, u8 rss_hash_type,
+> +	*bfi_image_size = fw->size/sizeof(u32);
+> +
+> +	return *bfi_image;
+> +
+> +error:
+> +	return NULL;
+> +}
+
+Are you ever going to free any of these firmware images?
+
+> +u32 *
+> +bfad_get_firmware_buf(struct pci_dev *pdev)
+> +{
+> +	if (pdev->device == BFA_PCI_DEVICE_ID_CT) {
+> +		if (bfi_image_ct_size == 0)
+> +			bfad_read_firmware(pdev, &bfi_image_ct,
+> +				&bfi_image_ct_size, BFAD_FW_FILE_CT);
+> +		return bfi_image_ct;
+> +	} else {
+> +		if (bfi_image_cb_size == 0)
+> +			bfad_read_firmware(pdev, &bfi_image_cb,
+> +				&bfi_image_cb_size, BFAD_FW_FILE_CB);
+> +		return bfi_image_cb;
+> +	}
+> +}
+[...]
+
+PCI devices can be probed in parallel, so this must use a mutex.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
