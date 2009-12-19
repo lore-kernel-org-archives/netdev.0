@@ -1,18 +1,30 @@
-From: OFFICE OF THE SENATE <charlotte@communityhh.net>
-Subject: RE:
-Date: Sat, 19 Dec 2009 08:03:13 -0800 (PST)
-Message-ID: <28453.96845.qm@web1116.biz.mail.sk1.yahoo.com>
-Reply-To: mr.william_davison@yahoo.com.hk
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: kernel BUG at kernel/timer.c:951!
+Date: Sat, 19 Dec 2009 18:40:53 +0100
+Message-ID: <4B2D1025.1020106@gmail.com>
+References: <4B2CD772.1030106@upmc.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web1116.biz.mail.sk1.yahoo.com ([74.6.114.48]:44789 "HELO
-	web1116.biz.mail.sk1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752160AbZLSQDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 11:03:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Bernard Pidoux <bpidoux@free.fr>
+To: Bernard Pidoux <bernard.pidoux@upmc.fr>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753214AbZLSRlZ@vger.kernel.org>
+In-Reply-To: <4B2CD772.1030106@upmc.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Bernard Pidoux wrote, On 12/19/2009 02:38 PM:
 
-To celebrate the 30th anniversary celebration,We are giving out a yearly donation of The ATM Card Value is $6.8 million USD to 2 lucky recipients,as New Year promotion from the W.H.O,UN, and the EU in accordance with the enabling act of Parliament. back with: Names: Address: Sex:
+> I am experiencing a few kernel panics on my Linux system using 2.6.32 and 2.6.32.1 kernels
+> with nosmp. 
+
+Some of these oopses look similarly to those:
+http://markmail.org/message/scjov36zm2wf2ytv
+
+How about this patch I sent you for testing?:
+http://markmail.org/message/nymi7xyd5c43hyfu
+
+Jarek P.
