@@ -1,39 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/7] can/at91: don't check platform_get_irq's return
- value against zero
-Date: Fri, 18 Dec 2009 20:32:09 -0800 (PST)
-Message-ID: <20091218.203209.229747361.davem@davemloft.net>
-References: <1260979809-24811-3-git-send-email-u.kleine-koenig@pengutronix.de>
-	<1260979809-24811-4-git-send-email-u.kleine-koenig@pengutronix.de>
-	<4B292DDE.6080906@grandegger.com>
+Subject: Re: [PATCH] bnx2: fixing a timout error due not refreshing TX
+ timers correctly
+Date: Fri, 18 Dec 2009 20:35:45 -0800 (PST)
+Message-ID: <20091218.203545.35041581.davem@davemloft.net>
+References: <1260965365-14255-1-git-send-email-leitao@linux.vnet.ibm.com>
+	<1260965365-14255-2-git-send-email-leitao@linux.vnet.ibm.com>
+	<1260988410.31045.72.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: u.kleine-koenig@pengutronix.de, linux-kernel@vger.kernel.org,
-	dvrabel@arcom.com, gregkh@suse.de, urs.thuermann@volkswagen.de,
-	oliver.hartkopp@volkswagen.de, kurt.van.dijck@eia.be,
-	netdev@vger.kernel.org
-To: wg@grandegger.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756131AbZLSEcN@vger.kernel.org>
-In-Reply-To: <4B292DDE.6080906@grandegger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35091
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756091AbZLSEfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:35:44 -0500
+In-Reply-To: <1260988410.31045.72.camel@nseg_linux_HP1.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Wolfgang Grandegger <wg@grandegger.com>
-Date: Wed, 16 Dec 2009 19:58:38 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 16 Dec 2009 10:33:30 -0800
 
-> Uwe Kleine-K=F6nig wrote:
->> platform_get_irq returns -ENXIO on failure, so !irq was probably
->> always true.  Better use (int)irq <=3D 0.  Note that a return value =
-of
->> zero is still handled as error even though this could mean irq0.
->>=20
->> This is a followup to 305b3228f9ff4d59f49e6d34a7034d44ee8ce2f0 that
->> changed the return value of platform_get_irq from 0 to -ENXIO on err=
-or.
->>=20
->> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->=20
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+> 
+> On Wed, 2009-12-16 at 04:09 -0800, leitao@linux.vnet.ibm.com wrote:
+>> When running the following script on an active bnx2 interface:
+>> 
+>> while(true); do ifconfig ethX mtu 9000; ifconfig ethX mtu 1500; done
+>> 
+>> A timeout error appears and dumps the following stack:
+>> 
+>> NETDEV WATCHDOG: eth4 (bnx2): transmit queue 0 timed out
+>> ------------[ cut here ]------------
+>> Badness at net/sched/sch_generic.c:261
+>> <snip>
+>> 
+>> This patch just fixes the way that ->trans_start is refreshed.
+>> 
+>> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> 
+> Thanks.  Acked-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks.
+Applied, thanks everyone.
