@@ -1,41 +1,56 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Compat-wireless releases for 2.6.33-rc1 and 2.6.32.2
-Date: Sat, 19 Dec 2009 00:59:36 -0800
-Message-ID: <43e72e890912190059k3347887crfb7ded226c7a8d4b@mail.gmail.com>
+From: Stefano Salsano <stefano.salsano@uniroma2.it>
+Subject: Re: [PATCH] netem/iproute2 solving correlated loss issues [0/5]
+Date: Sat, 19 Dec 2009 10:45:32 +0100
+Message-ID: <4B2CA0BC.5080905@uniroma2.it>
+References: <4B2B5BD1.7040602@uniroma2.it> <20091218.200406.183057577.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fabio.ludovici@yahoo.it,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.uniroma2.it ([160.80.6.16]:57208 "EHLO smtp.uniroma2.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750760AbZLSJpj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Dec 2009 04:45:39 -0500
+In-Reply-To: <20091218.200406.183057577.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2.6.33-rc1 went out yesterday so today we get the respective backport
-code now with 802.11 and bluetooth combined on the compat-wireless
-package [1]. At this point only bug fixes are welcomed for that
-package. At the last minute I decided to add Atheros Ethernet drivers
-atlx, atl1e and atl1c. For wireless specific updates refer to wireless
-2.6.33-rc1 ChangeLog [2]. If there are any bugs please report them
-through linux-wireless. I've tested ath5k on 2.6.27.41 on x86_64 and
-send this e-mail out through it. I should note
-./scripts/drivers-select is busted as I never got a chance to update
-it based on the latest changes.
+David Miller wrote:
+>> The patch is backward compatible, we have not removed the previous...
+> 
+> To heck it is!
+> The changed version of iproute2 will not work without the kernel
+> changes installed.  The kernel validates the size of the structures
+> passed in, you can't change the user visible interface like this.
 
-While at it 2.6.32.2 got released today so I just updated a release
-for that so users can benefit from the few fixes [3], you can check
-the ChangeLog for that on the wireless for details on the changes [4].
+David Miller wrote:
+ > Furthermore it is fundamentally flawed in it's implementation
+ > in that the user exported data structures cannot be changed,
+ > you cannot change the layout and you absolutely cannot
+ > change the size of these things or else various tool and
+ > kernel combinations stop working.
 
-For more details and sha1 checksums you can refer to the wireless wiki
-compat-wireless stable page [5].
+thank you for raising these fundamental issues !
+we will address them and resubmit the patch when done...
 
-[1] http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.33/compat-wireless-2.6.33-rc1.tar.bz2
-[2] http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.33/ChangeLog-2.6.33-rc1-wireless
-[3] http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.32/compat-wireless-2.6.32.2.tar.bz2
-[4] http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.32/ChangeLog-2.6.32.2-wireless
-[5] http://wireless.kernel.org/en/users/Download/stable
+ > Add new netlink attributes to extend things, that's the "real"
+ > backwards compatible way to make changes to netlink interfaces.
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+point taken
+
+-- 
+*******************************************************************
+Stefano Salsano
+Dipartimento Ingegneria Elettronica
+Universita' di Roma "Tor Vergata"
+Via del Politecnico, 1 - 00133 Roma - ITALY
+
+http://netgroup.uniroma2.it/Stefano_Salsano/
+
+E-mail  : stefano.salsano@uniroma2.it
+Cell.   : +39 320 4307310
+Office  : (Tel.) +39 06 72597770  (Fax.) +39 06 72597435
+*******************************************************************
