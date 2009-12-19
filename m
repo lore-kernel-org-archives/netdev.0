@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: fix net.ipv6.route.gc_min_interval_ms in netns
-Date: Fri, 18 Dec 2009 20:11:30 -0800 (PST)
-Message-ID: <20091218.201130.115932989.davem@davemloft.net>
-References: <b6fcc0a0912180616m54c0d25dn56f008c9d736e505@mail.gmail.com>
+Subject: Re: NetXen crash in sysfs_create_file
+Date: Fri, 18 Dec 2009 20:14:00 -0800 (PST)
+Message-ID: <20091218.201400.260092381.davem@davemloft.net>
+References: <200912181324.29906.bjorn.helgaas@hp.com>
+	<20091218162054.7b19d98f@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlezcano@fr.ibm.com,
-	benjamin.thery@bull.net
-To: adobriyan@gmail.com
+Cc: bjorn.helgaas@hp.com, amit.salecha@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33213
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33226
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754614AbZLSEL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:11:28 -0500
-In-Reply-To: <b6fcc0a0912180616m54c0d25dn56f008c9d736e505@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1755025AbZLSEN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:13:59 -0500
+In-Reply-To: <20091218162054.7b19d98f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Fri, 18 Dec 2009 16:16:40 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 18 Dec 2009 16:20:54 -0800
 
->     netns: fix net.ipv6.route.gc_min_interval_ms in netns
+> Subject: [PATCH] netxen: use module parameter correctly
 > 
->     sysctl table was copied, all right, but ->data for
-> net.ipv6.route.gc_min_interval_ms
->     was not reinitialized for "!= &init_net" case.
+> Netxen driver is doing this bogus thing to create a control file.
+> This fails if device doesn't exist, and overall is a bad way to do
+> the module parameter. Rather than fix borked code, just rewrite.
+> Just using a writeable module parameter of 0/1 is the correct way
 > 
->     In init_net everthing works by accident due to correct ->data initialization
->     in source table.
-> 
->     Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thank you.
+Applied, thanks Stephen.
