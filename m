@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: reset_task is crashing the kernel. Fixing it.
-Date: Fri, 18 Dec 2009 20:29:19 -0800 (PST)
-Message-ID: <20091218.202919.70193968.davem@davemloft.net>
-References: <1260988830.31045.79.camel@nseg_linux_HP1.broadcom.com>
-	<1260990759-16236-1-git-send-email-leitao@linux.vnet.ibm.com>
-	<1260990909.31045.84.camel@nseg_linux_HP1.broadcom.com>
+Subject: Re: [PATCH 4/7] can/at91: don't check platform_get_irq's return
+ value against zero
+Date: Fri, 18 Dec 2009 20:32:09 -0800 (PST)
+Message-ID: <20091218.203209.229747361.davem@davemloft.net>
+References: <1260979809-24811-3-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1260979809-24811-4-git-send-email-u.kleine-koenig@pengutronix.de>
+	<4B292DDE.6080906@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47569
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754397AbZLSE3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:29:18 -0500
-In-Reply-To: <1260990909.31045.84.camel@nseg_linux_HP1.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: u.kleine-koenig@pengutronix.de, linux-kernel@vger.kernel.org,
+	dvrabel@arcom.com, gregkh@suse.de, urs.thuermann@volkswagen.de,
+	oliver.hartkopp@volkswagen.de, kurt.van.dijck@eia.be,
+	netdev@vger.kernel.org
+To: wg@grandegger.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756131AbZLSEcN@vger.kernel.org>
+In-Reply-To: <4B292DDE.6080906@grandegger.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 16 Dec 2009 11:15:09 -0800
+=46rom: Wolfgang Grandegger <wg@grandegger.com>
+Date: Wed, 16 Dec 2009 19:58:38 +0100
 
-> 
-> On Wed, 2009-12-16 at 11:12 -0800, leitao@linux.vnet.ibm.com wrote:
->> If bnx2 schedules a reset via the reset_task, e.g., due to a TX
->> timeout, it's possible for the NIC to be disabled with packets
->> pending for transmit.  In this case, napi_disable will loop forever,
->> eventually crashing the kernel.  This patch moves the disable of
->> the device to after the napi_disable call.
->> 
->> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> 
-> Acked-by: Michael Chan <mchan@broadcom.com>
+> Uwe Kleine-K=F6nig wrote:
+>> platform_get_irq returns -ENXIO on failure, so !irq was probably
+>> always true.  Better use (int)irq <=3D 0.  Note that a return value =
+of
+>> zero is still handled as error even though this could mean irq0.
+>>=20
+>> This is a followup to 305b3228f9ff4d59f49e6d34a7034d44ee8ce2f0 that
+>> changed the return value of platform_get_irq from 0 to -ENXIO on err=
+or.
+>>=20
+>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>=20
+> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
 
 Applied, thanks.
