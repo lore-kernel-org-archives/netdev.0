@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NetXen crash in sysfs_create_file
-Date: Fri, 18 Dec 2009 20:14:00 -0800 (PST)
-Message-ID: <20091218.201400.260092381.davem@davemloft.net>
-References: <200912181324.29906.bjorn.helgaas@hp.com>
-	<20091218162054.7b19d98f@nehalam>
+Subject: Re: [net-2.6 PATCH] e1000e: LED settings in EEPROM ignored on
+ 82571 and 82572
+Date: Fri, 18 Dec 2009 20:15:08 -0800 (PST)
+Message-ID: <20091218.201508.246530153.davem@davemloft.net>
+References: <20091218014214.4948.26355.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjorn.helgaas@hp.com, amit.salecha@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33226
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33230
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755025AbZLSEN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:13:59 -0500
-In-Reply-To: <20091218162054.7b19d98f@nehalam>
+	by vger.kernel.org with ESMTP id S1755960AbZLSEPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Dec 2009 23:15:06 -0500
+In-Reply-To: <20091218014214.4948.26355.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 18 Dec 2009 16:20:54 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 17 Dec 2009 17:42:15 -0800
 
-> Subject: [PATCH] netxen: use module parameter correctly
+> From: Bruce Allan <bruce.w.allan@intel.com>
 > 
-> Netxen driver is doing this bogus thing to create a control file.
-> This fails if device doesn't exist, and overall is a bad way to do
-> the module parameter. Rather than fix borked code, just rewrite.
-> Just using a writeable module parameter of 0/1 is the correct way
+> Do not override the customizable LED configuration set in the EEPROM.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks Stephen.
+Applied, thanks.
