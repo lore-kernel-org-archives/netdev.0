@@ -1,45 +1,51 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: Re: kernel BUG at kernel/timer.c:951!
-Date: Sun, 20 Dec 2009 19:04:25 +0100
-Message-ID: <4B2E6729.1090102@free.fr>
-References: <4B2CD772.1030106@upmc.fr> <4B2D1025.1020106@gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] bnx2: Fix bnx2_netif_stop() merge error.
+Date: Sun, 20 Dec 2009 10:30:47 -0800
+Message-ID: <1261333847-15334-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755928AbZLTSEk@vger.kernel.org>
-In-Reply-To: <4B2D1025.1020106@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4779 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751116AbZLTSXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2009 13:23:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jarek,
+The error was introduced while merging:
 
-Your patch seemed to be working well until 2.6.31.6 kernel.
-I did not apply your patch to kernel 2.6.32.
-I agree that this may explain why these kernel panics are back.
-I will apply this patch to 2.6.32.2 and will report the results soon.
-Thanks.
+commit 4529819c45161e4a119134f56ef504e69420bc98
+bnx2: reset_task is crashing the kernel. Fixing it.
 
-Bernard Pidoux
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Jarek Poplawski a =E9crit :
-> Bernard Pidoux wrote, On 12/19/2009 02:38 PM:
->=20
->> I am experiencing a few kernel panics on my Linux system using 2.6.3=
-2 and 2.6.32.1 kernels
->> with nosmp.=20
->=20
-> Some of these oopses look similarly to those:
-> http://markmail.org/message/scjov36zm2wf2ytv
->=20
-> How about this patch I sent you for testing?:
-> http://markmail.org/message/nymi7xyd5c43hyfu
->=20
-> Jarek P.
->=20
->=20
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index f38764e..65df1de 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -666,6 +666,7 @@ bnx2_netif_stop(struct bnx2 *bp)
+ 			txq->trans_start = jiffies;
+ 		}
+ 	}
++	bnx2_disable_int_sync(bp);
+ }
+ 
+ static void
+@@ -679,7 +680,6 @@ bnx2_netif_start(struct bnx2 *bp)
+ 			bnx2_cnic_start(bp);
+ 		}
+ 	}
+-	bnx2_disable_int_sync(bp);
+ }
+ 
+ static void
+-- 
+1.6.4.GIT
+
+
