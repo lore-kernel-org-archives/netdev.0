@@ -1,101 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] virtio: Add detach unused buffer from vring
-Date: Sun, 20 Dec 2009 13:24:05 +0200
-Message-ID: <20091220112405.GA11168@redhat.com>
-References: <1261122090.4148.24.camel@localhost.localdomain> <1261122230.4148.26.camel@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-2.6 2009-12-18
+Date: Sun, 20 Dec 2009 08:38:00 -0500
+Message-ID: <20091220133800.GA4700@tuxdriver.com>
+References: <20091218211945.GC2828@tuxdriver.com> <20091220.001736.189688434.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62730 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbZLTL1G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2009 06:27:06 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52013 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754792AbZLTNp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2009 08:45:26 -0500
 Content-Disposition: inline
-In-Reply-To: <1261122230.4148.26.camel@localhost.localdomain>
+In-Reply-To: <20091220.001736.189688434.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 17, 2009 at 11:43:50PM -0800, Shirley Ma wrote:
-> There's currently no way for a virtio driver to ask for unused
-> buffers, so it has to keep a list itself to reclaim them at shutdown.
-> This is redundant, since virtio_ring stores that information.  So
-> add a new hook to do this: virtio_net will be the first user.
+On Sun, Dec 20, 2009 at 12:17:36AM -0800, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Fri, 18 Dec 2009 16:19:45 -0500
 > 
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> > Please let me know if there are problems!
+> 
+> Your tree is based upon Linus's not net-2.6
+> so when I pulled I got a lot of unrelated
+> commits.
+> 
+> Please fix this, thanks.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+It's based on 2.6.33-rc1.  Are you not going to pull that into net-2.6?
 
-> --- 
->  drivers/virtio/virtio_ring.c |   25 +++++++++++++++++++++++++
->  include/linux/virtio.h       |    4 ++++
->  2 files changed, 29 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index fbd2ecd..71929ee 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -334,6 +334,30 @@ static bool vring_enable_cb(struct virtqueue *_vq)
->  	return true;
->  }
->  
-> +static void *vring_detach_unused_buf(struct virtqueue *_vq)
-> +{
-> +	struct vring_virtqueue *vq = to_vvq(_vq);
-> +	unsigned int i;
-> +	void *buf;
-> +
-> +	START_USE(vq);
-> +
-> +	for (i = 0; i < vq->vring.num; i++) {
-> +		if (!vq->data[i])
-> +			continue;
-> +		/* detach_buf clears data, so grab it now. */
-> +		buf = vq->data[i];
-> +		detach_buf(vq, i);
-> +		END_USE(vq);
-> +		return buf;
-> +	}
-> +	/* That should have freed everything. */
-> +	BUG_ON(vq->num_free != vq->vring.num);
-> +
-> +	END_USE(vq);
-> +	return NULL;
-> +}
-> +
->  irqreturn_t vring_interrupt(int irq, void *_vq)
->  {
->  	struct vring_virtqueue *vq = to_vvq(_vq);
-> @@ -360,6 +384,7 @@ static struct virtqueue_ops vring_vq_ops = {
->  	.kick = vring_kick,
->  	.disable_cb = vring_disable_cb,
->  	.enable_cb = vring_enable_cb,
-> +	.detach_unused_buf = vring_detach_unused_buf,
->  };
->  
->  struct virtqueue *vring_new_virtqueue(unsigned int num,
-> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-> index 057a2e0..f508c65 100644
-> --- a/include/linux/virtio.h
-> +++ b/include/linux/virtio.h
-> @@ -51,6 +51,9 @@ struct virtqueue {
->   *	This re-enables callbacks; it returns "false" if there are pending
->   *	buffers in the queue, to detect a possible race between the driver
->   *	checking for more work, and enabling callbacks.
-> + * @detach_unused_buf: detach first unused buffer
-> + * 	vq: the struct virtqueue we're talking about.
-> + * 	Returns NULL or the "data" token handed to add_buf
->   *
->   * Locking rules are straightforward: the driver is responsible for
->   * locking.  No two operations may be invoked simultaneously, with the exception
-> @@ -71,6 +74,7 @@ struct virtqueue_ops {
->  
->  	void (*disable_cb)(struct virtqueue *vq);
->  	bool (*enable_cb)(struct virtqueue *vq);
-> +	void *(*detach_unused_buf)(struct virtqueue *vq);
->  };
->  
->  /**
-> 
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
