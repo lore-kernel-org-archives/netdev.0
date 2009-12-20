@@ -1,86 +1,46 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [net-next PATCH 5/6] enic: feature add: add ethtool -c/C
- support
-Date: Sun, 20 Dec 2009 12:15:27 +1100
-Message-ID: <20091220011526.GB12578@verge.net.au>
-References: <20091219101050.GA20743@verge.net.au>
- <C7526AA2.1AFF9%scofeldm@cisco.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [net-next PATCH 2/6] enic: Bug fix: try harder to fill Rx ring on
+ skb allocation failures
+Date: Sat, 19 Dec 2009 17:29:43 -0800
+Message-ID: <C752BE07.1B019%scofeldm@cisco.com>
+References: <20091220011500.GA12578@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60920 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754887AbZLTBP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 20:15:28 -0500
-Content-Disposition: inline
-In-Reply-To: <C7526AA2.1AFF9%scofeldm@cisco.com>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:23544 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754607AbZLTB3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Dec 2009 20:29:46 -0500
+In-Reply-To: <20091220011500.GA12578@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 19, 2009 at 11:33:54AM -0800, Scott Feldman wrote:
-> Thanks for the review comments Simon.
-> 
-> On 12/19/09 2:10 AM, "Simon Horman" <horms@verge.net.au> wrote:
-> 
-> > On Fri, Dec 18, 2009 at 06:10:02PM -0800, Scott Feldman wrote:
-> >> + /* Only rx-usecs and tx-usecs can be set */
-> >> + if (ecmd->rx_max_coalesced_frames || ecmd->rx_coalesce_usecs_irq ||
-> >> +     ecmd->rx_max_coalesced_frames_irq ||
-> >> +     ecmd->tx_max_coalesced_frames || ecmd->tx_coalesce_usecs_irq ||
-> >> +     ecmd->tx_max_coalesced_frames_irq ||
-> >> +     ecmd->stats_block_coalesce_usecs ||
-> >> +     ecmd->use_adaptive_rx_coalesce || ecmd->use_adaptive_tx_coalesce ||
-> >> +     ecmd->pkt_rate_low ||
-> >> +     ecmd->rx_coalesce_usecs_low || ecmd->rx_max_coalesced_frames_low ||
-> >> +     ecmd->tx_coalesce_usecs_low || ecmd->tx_max_coalesced_frames_low ||
-> >> +     ecmd->pkt_rate_high ||
-> >> +     ecmd->rx_coalesce_usecs_high ||
-> >> +     ecmd->rx_max_coalesced_frames_high ||
-> >> +     ecmd->tx_coalesce_usecs_high ||
-> >> +     ecmd->tx_max_coalesced_frames_high ||
-> >> +     ecmd->rate_sample_interval)
-> >> +  return -EINVAL;
-> > 
-> > This seems rather verbose.  Does it really matter if there is junk in other
-> > ecmd fields?  They seem to be otherwise ignored. Removing the check above
-> > would seem to be consistent with other enic_set_*() functions.
-> 
-> Ya, we can do that.
->  
-> >> if (mtu && mtu != enic->port_mtu) {
-> >> +  enic->port_mtu = mtu;
-> >> if (mtu < enic->netdev->mtu)
-> >> printk(KERN_WARNING PFX
-> >> "%s: interface MTU (%d) set higher "
-> >> "than switch port MTU (%d)\n",
-> >> enic->netdev->name, enic->netdev->mtu, mtu);
-> >> -  enic->port_mtu = mtu;
-> >> }
-> >>  }
-> > 
-> > This hunk seems unrelated to the rest of the patch.
-> > Am I missing something?
-> 
-> Oops, that change snuck in there.  That line got moved due to some backward
-> compat changes, which have been stripped away, so it looks like that line is
-> moving for no reason.  It's a benign change so let's make the change to be
-> consistent with our internal code base.
+On 12/19/09 5:15 PM, "Simon Horman" <horms@verge.net.au> wrote:
 
-Sure, it doesn't seem to be doing any harm.
+> On Sat, Dec 19, 2009 at 12:39:03PM -0800, Scott Feldman wrote:
+>>>> +  rq_work_done = rq_work_to_do;
+>>> 
+>>> Is it intentional for rq_work_done = rq_work_to_do to become the
+>>> return value?
+>> 
+>> That was intentional.  If the replacement skb allocation fails, we're
+>> returning like we did a full budget's worth of work so we stay scheduled and
+>> hopefully the next polling pass we'll get the allocations.  Before this fix,
+>> there is a corner case which isn't covered: if hw has used all descs and
+>> gens an intr and we get into polling and the replacement alloc fails, then
+>> Rx is hung.  Hw is desc starved and we're not going to get any more intrs:
+>> game over.
+> 
+> Ok, understood. Though doesn't this fix just narrow the scope for that
+> failure? It seems that it could still occur in a pathological case.
 
-> >> + enic->tx_coalesce_usecs = enic->config.intr_timer_usec;
-> >> + enic->rx_coalesce_usecs =  enic->tx_coalesce_usecs;
-> >> +
-> > 
-> > It looks like there is an space after =
-> 
-> Got it.
-> 
-> -scott
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Oh!  The intention was to fix it absolutely.  Please expand on the
+pathological case your thinking about.  We need this 100% solved, but now
+you've got me worried...  ;)
+
+-scott
+
