@@ -1,76 +1,85 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: Re: tg3: link is permanently down after ifdown and ifup
-Date: Sun, 20 Dec 2009 18:44:46 +0200
-Message-ID: <4B2E547E.3040806@embedded-sol.com>
-References: <4B056158.5060104@embedded-sol.com> <4B056D85.5010904@embedded-sol.com> <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com> <4B1F631E.5030908@embedded-sol.com> <20091210011931.GA30802@xw6200.broadcom.net>
+From: Mark Seaborn <mrs@mythic-beasts.com>
+Subject: Re: [PATCH] Security: Add prctl(PR_{GET,SET}_NETWORK) interface.
+Date: Sun, 20 Dec 2009 17:53:58 +0000
+Message-ID: <fb69ef3c0912200953x2546f03cs5a88c9a54fd750ee@mail.gmail.com>
+References: <20091217.225856.145758950057800056.mrs@deli>
+	 <20091218030056.GC3047@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:52777 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755373AbZLTQos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2009 11:44:48 -0500
-In-Reply-To: <20091210011931.GA30802@xw6200.broadcom.net>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:52678 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755634AbZLTRyA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2009 12:54:00 -0500
+In-Reply-To: <20091218030056.GC3047@heat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Matt
+On Fri, Dec 18, 2009 at 3:00 AM, Michael Stone <michael@laptop.org> wro=
+te:
 
-Matt Carlson wrote:
-> I understand the problem now.  The problem is that tg3_set_power_state()
-> puts the phy into a low-power mode when it releases the device.  When
-> the phy is reacquired, a phy reset is missing to take the device back
-> out of the low-power mode.
+> @Eric, Mark: regarding ptrace()-ing from network-disabled processes: =
+I agree
+> that this functionality is critical and I have altered the
+> __ptrace_may_access() check to support it.
+> The new rule I propose is equivalent to the rule I used in ptrace_set=
+_network()
+> and is similar to the rule that Eric proposed earlier this afternoon.=
+ I now
+> propose:
 >
-> The patch at the bottom of this email is the fix I'm currently testing.
-> If you wish, you can try it out.
+> =A0"You may ptrace() any process that has all the network restriction=
+s you do."
 >
->
-> [PATCH] tg3: Fix 57780 connectivity problems
->
-> When management firmware is not present, and WOL is disabled, the driver
-> will put the phy into a low-power mode when shutting down.  To get out
-> of low-power mode, the operation must be reversed or the phy must be
-> reset.
->
-> In the past, the phylib reset the phy from either phy_start() or
-> phy_start_aneg().  This phy reset has been removed from more recent
-> kernels.  The tg3 driver already has phy reset code in place which is
-> called when it assumes control of the device.  It is bypassed if phylib
-> is enabled though.
->
-> This patch removes the phylib exception.
-> ---
->  drivers/net/tg3.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 3a74d21..c0a3080 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -7523,8 +7523,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
->  		tg3_abort_hw(tp, 1);
->  	}
->  
-> -	if (reset_phy &&
-> -	    !(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB))
-> +	if (reset_phy)
->  		tg3_phy_reset(tp);
->  
->  	err = tg3_chip_reset(tp);
->   
-I can confirm that this patch fixes the problem I had. Thanks a lot for 
-the fix.
+> This should take care of your use of strace without bending anything =
+else into
+> an unnatural shape.
 
-There was another problem in 2.6.32 that I reported, namely kernel soft 
-lockup
-when link is synchronized at 100Mbit/sec and tg3 with 57780 goes down . Were
-you able to reproduce it ?
+I am in two minds about this.=A0 On the one hand, it adds the
+flexibility that I asked for.=A0 On the other hand, it is a more
+complicated rule to have fixed in the kernel.
 
-Thanks a lot for your help.
+It still seems wrong to me that the disable-networking flag should
+affect ptrace() at all.
 
-Felix.
+The reason is that the disable-networking flag is not useful on its
+own.=A0 Anyone who uses it will use it in combination with some other
+authority-limiting mechanism.=A0 They will already have a story for how
+to prevent sandboxed processes with interfering with other processes
+via ptrace(), kill(), writing to ~/.bashrc, etc.=A0 There's no point in
+disabling network access for a process if it has full access to your
+home directory and can cause programs to be run with your full
+authority as a user.
+
+So if there is already a way to control access to ptrace(), we
+shouldn't add another check to the kernel's access control rules.
+They are complicated enough already.
+
+
+On ad-hocness: I am very much in favour of providing unprivileged
+mechanisms for switching off sources of ambient authority.=A0 But it
+does not seem very useful to provide an unprivileged mechanism to
+switch off network access if there is no unprivileged mechanism for
+switching off access to the filesystem namespace, which is usually a
+more important source of authority.  Maybe we should solve both
+problems?
+
+Cheers,
+Mark
