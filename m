@@ -1,51 +1,48 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] bnx2: Fix bnx2_netif_stop() merge error.
-Date: Sun, 20 Dec 2009 10:30:47 -0800
-Message-ID: <1261333847-15334-1-git-send-email-mchan@broadcom.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] ethtool: Do not report link partner advertising flags if
+ set to 0
+Date: Sun, 20 Dec 2009 19:12:30 +0000
+Message-ID: <1261336350.25157.200.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Kurt Roeckx <kurt@roeckx.be>, 561843@bugs.debian.org,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4779 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751116AbZLTSXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Dec 2009 13:23:31 -0500
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35511 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754557AbZLTTMj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Dec 2009 14:12:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The error was introduced while merging:
+Only some drivers (and none before kernel version 2.6.31) currently
+set these flags.  When the flags are equal to 0 and so we don't know
+what the link partner advertised, don't report anything.
 
-commit 4529819c45161e4a119134f56ef504e69420bc98
-bnx2: reset_task is crashing the kernel. Fixing it.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- drivers/net/bnx2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ ethtool.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index f38764e..65df1de 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -666,6 +666,7 @@ bnx2_netif_stop(struct bnx2 *bp)
- 			txq->trans_start = jiffies;
- 		}
- 	}
-+	bnx2_disable_int_sync(bp);
- }
+diff --git a/ethtool.c b/ethtool.c
+index 10dfc80..298b690 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -948,7 +948,9 @@ static int dump_ecmd(struct ethtool_cmd *ep)
  
- static void
-@@ -679,7 +680,6 @@ bnx2_netif_start(struct bnx2 *bp)
- 			bnx2_cnic_start(bp);
- 		}
- 	}
--	bnx2_disable_int_sync(bp);
- }
+ 	dump_supported(ep);
+ 	dump_advertised(ep, "Advertised", ep->advertising);
+-	dump_advertised(ep, "Link partner advertised", ep->lp_advertising);
++	if (ep->lp_advertising)
++		dump_advertised(ep, "Link partner advertised",
++				ep->lp_advertising);
  
- static void
+ 	fprintf(stdout, "	Speed: ");
+ 	speed = ethtool_cmd_speed(ep);
 -- 
-1.6.4.GIT
+1.6.5.7
 
 
