@@ -1,102 +1,191 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH 2/2] mx25: pdk: add platform code for FEC support
-Date: Mon, 21 Dec 2009 13:44:32 +0200
-Message-ID: <e03d8ad82b7f1e889d68cd8b916c3d76bb9ef8ec.1261395135.git.baruch@tkos.co.il>
-References: <20091221110807.GE15126@pengutronix.de>
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Baruch Siach <baruch@tkos.co.il>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.33-rc1] pcnet_cs: add cis of KTI PE520 pcmcia
+ network card
+Date: Mon, 21 Dec 2009 20:58:49 +0900
+Message-ID: <20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:53366 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754807AbZLULpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Dec 2009 06:45:55 -0500
-In-Reply-To: <20091221110807.GE15126@pengutronix.de>
-In-Reply-To: <97e6c149bb27754075241fc672985c5a2ecef4b6.1261395135.git.baruch@tkos.co.il>
-References: <97e6c149bb27754075241fc672985c5a2ecef4b6.1261395135.git.baruch@tkos.co.il>
+Received: from userg508.nifty.com ([202.248.238.88]:37714 "EHLO
+	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbZLUL7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 06:59:31 -0500
+Received: from localhost.localdomain (eaoska193037.adsl.ppp.infoweb.ne.jp [220.145.30.37])by userg508.nifty.com with SMTP id nBLBxNSn010459
+	for <netdev@vger.kernel.org>; Mon, 21 Dec 2009 20:59:23 +0900
+In-Reply-To: <20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
+pcnet_cs,serial_cs:
+
+add cis of KTI PE520 pcmcia network card,
+and some serial card(GLOBETROTTER, Sierra Wireless AC860).
+
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+
 ---
- arch/arm/mach-mx25/mx25pdk.c |   46 ++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 44 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/mach-mx25/mx25pdk.c b/arch/arm/mach-mx25/mx25pdk.c
-index d23ae57..921bc99 100644
---- a/arch/arm/mach-mx25/mx25pdk.c
-+++ b/arch/arm/mach-mx25/mx25pdk.c
-@@ -18,10 +18,11 @@
- 
- #include <linux/types.h>
- #include <linux/init.h>
-+#include <linux/delay.h>
- #include <linux/clk.h>
- #include <linux/irq.h>
- #include <linux/gpio.h>
--#include <linux/smsc911x.h>
-+#include <linux/fec.h>
- #include <linux/platform_device.h>
- 
- #include <mach/hardware.h>
-@@ -35,16 +36,57 @@
- #include <mach/mx25.h>
- #include <mach/mxc_nand.h>
- #include "devices.h"
--#include <mach/iomux-v3.h>
-+#include <mach/iomux.h>
- 
- static struct imxuart_platform_data uart_pdata = {
- 	.flags = IMXUART_HAVE_RTSCTS,
+ drivers/net/pcmcia/pcnet_cs.c      |    4 ++--
+ drivers/serial/serial_cs.c         |   16 +++++++++++++++-
+ firmware/Makefile                  |    5 +++--
+ firmware/WHENCE                    |   11 +++++++++++
+ firmware/cis/GLOBETROTTER.cis.ihex |   15 +++++++++++++++
+ firmware/cis/PE520.cis.ihex        |    9 +++++++++
+ 6 files changed, 55 insertions(+), 5 deletions(-)
+
+diff -uprN linux-2.6.33-rc1.orig/drivers/net/pcmcia/pcnet_cs.c linux-2.6.33-rc1/drivers/net/pcmcia/pcnet_cs.c
+--- linux-2.6.33-rc1.orig/drivers/net/pcmcia/pcnet_cs.c	2009-12-20 18:17:04.000000000 +0900
++++ linux-2.6.33-rc1/drivers/net/pcmcia/pcnet_cs.c	2009-12-20 18:30:54.000000000 +0900
+@@ -1741,7 +1741,7 @@ static struct pcmcia_device_id pcnet_ids
+ 	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(0, "NSC MF LAN/Modem", 0x58fc6056, "cis/DP83903.cis"),
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(0, 0x0175, 0x0000, "cis/DP83903.cis"),
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "cis/LA-PCM.cis"),
+-	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "PE520.cis"),
++	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "cis/PE520.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "cis/NE2K.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "cis/PE-200.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "cis/tamarack.cis"),
+@@ -1754,7 +1754,7 @@ MODULE_DEVICE_TABLE(pcmcia, pcnet_ids);
+ MODULE_FIRMWARE("cis/PCMLM28.cis");
+ MODULE_FIRMWARE("cis/DP83903.cis");
+ MODULE_FIRMWARE("cis/LA-PCM.cis");
+-MODULE_FIRMWARE("PE520.cis");
++MODULE_FIRMWARE("cis/PE520.cis");
+ MODULE_FIRMWARE("cis/NE2K.cis");
+ MODULE_FIRMWARE("cis/PE-200.cis");
+ MODULE_FIRMWARE("cis/tamarack.cis");
+diff -uprN linux-2.6.33-rc1.orig/drivers/serial/serial_cs.c linux-2.6.33-rc1/drivers/serial/serial_cs.c
+--- linux-2.6.33-rc1.orig/drivers/serial/serial_cs.c	2009-12-20 18:17:05.000000000 +0900
++++ linux-2.6.33-rc1/drivers/serial/serial_cs.c	2009-12-20 18:39:23.000000000 +0900
+@@ -819,6 +819,7 @@ static struct pcmcia_device_id serial_id
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x0035, "cis/3CXEM556.cis"),
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x003d, "cis/3CXEM556.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC850", 0xd85f6206, 0x42a2c018, "cis/SW_8xx_SER.cis"), /* Sierra Wireless AC850 3G Network Adapter R1 */
++	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC860", 0xd85f6206, 0x698f93db, "cis/SW_8xx_SER.cis"), /* Sierra Wireless AC860 3G Network Adapter R1 */
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC710/AC750", 0xd85f6206, 0x761b11e0, "cis/SW_7xx_SER.cis"),  /* Sierra Wireless AC710/AC750 GPRS Network Adapter R1 */
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- pre update */
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0x013f, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- post update */
+@@ -827,7 +828,7 @@ static struct pcmcia_device_id serial_id
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-4", 0x96913a85, 0xcec8f102, "cis/COMpad4.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID123("ADVANTECH", "COMpad-32/85", "1.0", 0x96913a85, 0x8fbe92ae, 0x0877b627, "cis/COMpad2.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID2("RS-COM 2P", 0xad20b156, "cis/RS-COM-2P.cis"),
+-	PCMCIA_DEVICE_CIS_MANF_CARD(0x0013, 0x0000, "GLOBETROTTER.cis"),
++	PCMCIA_DEVICE_CIS_MANF_CARD(0x0013, 0x0000, "cis/GLOBETROTTER.cis"),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL100  1.00.",0x19ca78af,0xf964f42b),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL100",0x19ca78af,0x71d98e83),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL232  1.00.",0x19ca78af,0x69fb7490),
+@@ -861,6 +862,19 @@ static struct pcmcia_device_id serial_id
  };
+ MODULE_DEVICE_TABLE(pcmcia, serial_ids);
  
-+static struct pad_desc mx25pdk_pads[] = {
-+	MX25_PAD_FEC_MDC__FEC_MDC,
-+	MX25_PAD_FEC_MDIO__FEC_MDIO,
-+	MX25_PAD_FEC_TDATA0__FEC_TDATA0,
-+	MX25_PAD_FEC_TDATA1__FEC_TDATA1,
-+	MX25_PAD_FEC_TX_EN__FEC_TX_EN,
-+	MX25_PAD_FEC_RDATA0__FEC_RDATA0,
-+	MX25_PAD_FEC_RDATA1__FEC_RDATA1,
-+	MX25_PAD_FEC_RX_DV__FEC_RX_DV,
-+	MX25_PAD_FEC_TX_CLK__FEC_TX_CLK,
-+	MX25_PAD_A17__GPIO_2_3, /* FEC_EN, GPIO 35 */
-+	MX25_PAD_D12__GPIO_4_8, /* FEC_RESET_B, GPIO 104 */
-+};
++MODULE_FIRMWARE("cis/PCMLM28.cis");
++MODULE_FIRMWARE("cis/DP83903.cis");
++MODULE_FIRMWARE("cis/3CCFEM556.cis");
++MODULE_FIRMWARE("cis/3CXEM556.cis");
++MODULE_FIRMWARE("cis/SW_8xx_SER.cis");
++MODULE_FIRMWARE("cis/SW_7xx_SER.cis");
++MODULE_FIRMWARE("cis/SW_555_SER.cis");
++MODULE_FIRMWARE("cis/MT5634ZLX.cis");
++MODULE_FIRMWARE("cis/COMpad2.cis");
++MODULE_FIRMWARE("cis/COMpad4.cis");
++MODULE_FIRMWARE("cis/RS-COM-2P.cis");
++MODULE_FIRMWARE("cis/GLOBETROTTER.cis");
 +
-+static struct fec_platform_data mx25_fec_pdata = {
-+        .phy    = PHY_INTERFACE_MODE_RMII,
-+};
-+
-+#define FEC_ENABLE_GPIO		35
-+#define FEC_RESET_B_GPIO	104
-+
-+static void __init mx25pdk_fec_reset(void)
-+{
-+	gpio_request(FEC_ENABLE_GPIO, "FEC PHY enable");
-+	gpio_request(FEC_RESET_B_GPIO, "FEC PHY reset");
-+
-+	gpio_direction_output(FEC_ENABLE_GPIO, 0);  /* drop PHY power */
-+	gpio_direction_output(FEC_RESET_B_GPIO, 0); /* assert reset */
-+	udelay(2);
-+
-+	/* turn on PHY power and lift reset */
-+	gpio_set_value(FEC_ENABLE_GPIO, 1);
-+	gpio_set_value(FEC_RESET_B_GPIO, 1);
-+}
-+
- static void __init mx25pdk_init(void)
- {
-+	mxc_iomux_v3_setup_multiple_pads(mx25pdk_pads,
-+			ARRAY_SIZE(mx25pdk_pads));
-+
- 	mxc_register_device(&mxc_uart_device0, &uart_pdata);
- 	mxc_register_device(&mxc_usbh2, NULL);
-+
-+	mx25pdk_fec_reset();
-+	mxc_register_device(&mx25_fec_device, &mx25_fec_pdata);
- }
+ static struct pcmcia_driver serial_cs_driver = {
+ 	.owner		= THIS_MODULE,
+ 	.drv		= {
+diff -uprN linux-2.6.33-rc1.orig/firmware/Makefile linux-2.6.33-rc1/firmware/Makefile
+--- linux-2.6.33-rc1.orig/firmware/Makefile	2009-12-20 18:17:07.000000000 +0900
++++ linux-2.6.33-rc1/firmware/Makefile	2009-12-20 18:20:29.000000000 +0900
+@@ -69,13 +69,14 @@ fw-shipped-$(CONFIG_E100) += e100/d101m_
+ fw-shipped-$(CONFIG_MYRI_SBUS) += myricom/lanai.bin
+ fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis cis/PCMLM28.cis \
+ 				     cis/DP83903.cis cis/NE2K.cis \
+-				     cis/tamarack.cis cis/PE-200.cis
++				     cis/tamarack.cis cis/PE-200.cis \
++				     cis/PE520.cis
+ fw-shipped-$(CONFIG_PCMCIA_3C589) += cis/3CXEM556.cis
+ fw-shipped-$(CONFIG_PCMCIA_3C574) += cis/3CCFEM556.cis
+ fw-shipped-$(CONFIG_SERIAL_8250_CS) += cis/MT5634ZLX.cis cis/RS-COM-2P.cis \
+ 				       cis/COMpad2.cis cis/COMpad4.cis \
+ 				       cis/SW_555_SER.cis cis/SW_7xx_SER.cis \
+-				       cis/SW_8xx_SER.cis
++				       cis/SW_8xx_SER.cis cis/GLOBETROTTER.cis
+ fw-shipped-$(CONFIG_PCMCIA_SMC91C92) += ositech/Xilinx7OD.bin
+ fw-shipped-$(CONFIG_SCSI_ADVANSYS) += advansys/mcode.bin advansys/38C1600.bin \
+ 				      advansys/3550.bin advansys/38C0800.bin
+diff -uprN linux-2.6.33-rc1.orig/firmware/WHENCE linux-2.6.33-rc1/firmware/WHENCE
+--- linux-2.6.33-rc1.orig/firmware/WHENCE	2009-12-20 18:17:07.000000000 +0900
++++ linux-2.6.33-rc1/firmware/WHENCE	2009-12-20 18:29:39.000000000 +0900
+@@ -601,6 +601,7 @@ File: cis/LA-PCM.cis
+       cis/NE2K.cis
+       cis/tamarack.cis
+       cis/PE-200.cis
++      cis/PE520.cis
  
- static void __init mx25pdk_timer_init(void)
--- 
-1.6.5
-
+ Licence: GPL
+ 
+@@ -630,6 +631,7 @@ Originally developed by the pcmcia-cs pr
+ 
+ Driver: SERIAL_8250_CS - Serial PCMCIA adapter
+ 
++(1)
+ File: cis/MT5634ZLX.cis
+       cis/RS-COM-2P.cis
+       cis/COMpad2.cis
+@@ -642,6 +644,15 @@ Licence: GPL
+ 
+ Originally developed by the pcmcia-cs project
+ 
++(2)
++File: cis/GLOBETROTTER.cis
++
++License: AS IS
++
++This file is Option's intellectual property,
++and developed by Paul at pharscape.org.
++http://www.pharscape.org/
++
+ --------------------------------------------------------------------------
+ 
+ Driver: PCMCIA_SMC91C92 - SMC 91Cxx PCMCIA
+diff -uprN linux-2.6.33-rc1.orig/firmware/cis/GLOBETROTTER.cis.ihex linux-2.6.33-rc1/firmware/cis/GLOBETROTTER.cis.ihex
+--- linux-2.6.33-rc1.orig/firmware/cis/GLOBETROTTER.cis.ihex	1970-01-01 09:00:00.000000000 +0900
++++ linux-2.6.33-rc1/firmware/cis/GLOBETROTTER.cis.ihex	2009-12-20 18:17:54.000000000 +0900
+@@ -0,0 +1,15 @@
++:1000000001030000FF153404014F7074696F6E2006
++:10001000496E7465726E6174696F6E616C004753EE
++:100020004D2F4750525320476C6F626554726F7466
++:1000300074657200303031004100FF20041300006D
++:1000400000210202001A0501270004011B0BE00138
++:10005000190184A060F80307241B09A10118A060FE
++:10006000F80207231B09A20118A060E80307241B5C
++:1000700009A30118A060E80207231B0BE401190182
++:1000800055A060F80307241B09A50118A060F80219
++:1000900007231B09A60118A060E80307241B09A772
++:0C00A0000118A060E80207231400FF0014
++:00000001FF
++#
++# Replacement CIS for GLOBETROTTER
++#
+diff -uprN linux-2.6.33-rc1.orig/firmware/cis/PE520.cis.ihex linux-2.6.33-rc1/firmware/cis/PE520.cis.ihex
+--- linux-2.6.33-rc1.orig/firmware/cis/PE520.cis.ihex	1970-01-01 09:00:00.000000000 +0900
++++ linux-2.6.33-rc1/firmware/cis/PE520.cis.ihex	2009-12-20 18:41:05.000000000 +0900
+@@ -0,0 +1,9 @@
++:1000000001030000FF152304014B544900504535FE
++:10001000323020504C55530050434D434941204508
++:10002000746865726E65740000FF20046101100041
++:10003000210206001A050101D00F0B1B09C101198D
++:0A00400001556530FFFF1400FF00BA
++:00000001FF
++#
++# Replacement CIS for PE520 ethernet card
++#
