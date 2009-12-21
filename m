@@ -1,40 +1,54 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [RFC PATCH v2 2/6] net: Add netif_num_vf function
-Date: Mon, 21 Dec 2009 11:34:05 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FD558B2F7@rrsmsx501.amr.corp.intel.com>
-References: <20091218013329.4510.25937.stgit@localhost.localdomain>
-	<20091218013410.4510.40263.stgit@localhost.localdomain>
- <20091218.200551.39189145.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v2 01/12] ixgbevf: Macros, data structures, useful
+	defines and registers
+Date: Mon, 21 Dec 2009 18:38:22 +0000
+Message-ID: <1261420702.2782.3.camel@achroite.uk.solarflarecom.com>
+References: <20091218225043.10698.58897.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32806 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750834AbZLUSeJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 13:34:09 -0500
-In-Reply-To: <20091218.200551.39189145.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:20247 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbZLUSi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 13:38:26 -0500
+In-Reply-To: <20091218225043.10698.58897.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Subject: Re: [RFC PATCH v2 2/6] net: Add netif_num_vf function
->
->
->Well, first of all this won't build without CONFIG_PCI
->defined.
->
->Second of all, we're not putting PCI crap into netdevice.h
->
->Create a generic device layer abstraction by which you can
->fetch these values.
->
->Thanks.
+On Fri, 2009-12-18 at 14:51 -0800, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> These two headers define the commonly used macros, data structures,
+> register bits and register offsets used by the ixgbevf driver on the
+> 82599 virtual function device
+> 
+[...]
+> diff --git a/drivers/net/ixgbevf/defines.h b/drivers/net/ixgbevf/defines.h
+> new file mode 100644
+> index 0000000..b111771
+> --- /dev/null
+> +++ b/drivers/net/ixgbevf/defines.h
+[...]
+> +/* Check whether address is multicast.  This is little-endian specific check.*/
+> +#define IXGBE_IS_MULTICAST(Address) \
+> +	(bool)(((u8 *)(Address))[0] & ((u8)0x01))
+> +
+> +/* Check whether an address is broadcast. */
+> +#define IXGBE_IS_BROADCAST(Address)              \
+> +	((((u8 *)(Address))[0] == ((u8)0xFF)) && \
+> +	 (((u8 *)(Address))[1] == ((u8)0xFF)))
+[...]
 
-OK, I'll respin this and resubmit after the new year.
+Why not use is_multicast_ether_addr() and  is_broadcast_ether_addr()?
 
--Mitch
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
