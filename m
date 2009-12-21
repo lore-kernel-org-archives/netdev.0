@@ -1,86 +1,70 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Mon, 21 Dec 2009 11:46:13 -0500
-Message-ID: <4B2FA655.6030205@gmail.com>
-References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com> <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] 3c507.c: remove unused NULL pointer check
+Date: Mon, 21 Dec 2009 17:56:39 +0100
+Message-ID: <4B2FA8C7.3010509@hartkopp.net>
+References: <200912211923.58735.strakh@ispras.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigF6EF3FBD5F225B60CBED56A8"
-Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756846AbZLUQqV@vger.kernel.org>
-In-Reply-To: <4B2FA42F.3070408@codemonkey.ws>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Donald Becker <becker@scyld.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Strakh <strakh@ispras.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:32026 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754825AbZLUQ4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 11:56:43 -0500
+In-Reply-To: <200912211923.58735.strakh@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF6EF3FBD5F225B60CBED56A8
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Alexander Strakh wrote:
+> 	In driver drivers/net/3c507.c in function Iirqreturn_t el16_interrupt:
+> 1. If in line 555 dev = NULL then we goto line 556
+> 2. In line 556 we have null dereference because pr_err called with dev->name 
+> in third parameter.
+>  555        if (dev == NULL) {
+>  556                pr_err("%s: net_interrupt(): irq %d for unknown device.
+> \n",
+>  557                        dev->name, irq);
+>  558                return IRQ_NONE;
+>  559        }
+> 
+> Found by Linux Device Drivers Verification (Svace detector)
+> 
+> Remove unused NULL pointer check.
 
-On 12/21/09 11:37 AM, Anthony Liguori wrote:
-> On 12/21/2009 10:04 AM, Gregory Haskins wrote:
->> No, B and C definitely are, but A is lacking.  And the performance
->> suffers as a result in my testing (vhost-net still throws a ton of exi=
-ts
->> as its limited by virtio-pci and only adds about 1Gb/s to virtio-u, fa=
-r
->> behind venet even with things like zero-copy turned off).
->>   =20
->=20
-> How does virtio-pci limit vhost-net?  The only time exits should occur
-> are when the guest notifies the host that something has been placed on
-> the ring.  Since vhost-net has no tx mitigation scheme right now, the
-> result may be that it's taking an io exit on every single packet but
-> this is orthogonal to virtio-pci.
->=20
-> Since virtio-pci supports MSI-X, there should be no IO exits on
-> host->guest notification other than EOI in the virtual APIC.
+You are obviously doing more than that ...
 
-The very best you can hope to achieve is 1:1 EOI per signal (though
-today virtio-pci is even worse than that).  As I indicated above, I can
-eliminate more than 50% of even the EOIs in trivial examples, and even
-more as we scale up the number of devices or the IO load (or both).
+> 
+> Signed-off-by: Alexander Strakh <strakh@ispras.ru>
+> 
+> ---
+> diff --git a/./0000/drivers/net/3c507.c b/./moder/drivers/net/3c507.c
+> index fbc2311..3bfb3dd 100644
+> --- a/./0000/drivers/net/3c507.c
+> +++ b/./moder/drivers/net/3c507.c
+> @@ -552,12 +552,6 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
+>  	ushort ack_cmd = 0;
+>  	void __iomem *shmem;
+>  
+> -	if (dev == NULL) {
+> -		pr_err("%s: net_interrupt(): irq %d for unknown device.\n",
+> -			dev->name, irq);
 
-> This is a
-> light weight exit today and will likely disappear entirely with newer
-> hardware.
+You are changing real funcionality here!
 
-By that argument, this is all moot.  New hardware will likely obsolete
-the need for venet or virtio-net anyway.  The goal of my work is to
-provide an easy to use framework for maximizing the IO transport _in
-lieu_ of hardware acceleration.  Software will always be leading here,
-so we don't want to get into a pattern of waiting for new hardware to
-cover poor software engineering.  Its simply not necessary in most
-cases.  A little smart software design and a framework that allows it to
-be easily exploited/reused is the best step forward, IMO.
+If you want to fix it, fix the pr_err() but do not remove the "return
+IRQ_NONE" entirely.
 
-Kind Regards,
--Greg
+This looks like an introduction of a bug.
+
+Regards,
+Oliver
 
 
+> -		return IRQ_NONE;
+> -	}
+> -
 
-
-
---------------enigF6EF3FBD5F225B60CBED56A8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksvplUACgkQP5K2CMvXmqEr4gCcD77IW07qp4uZvo3sFrMNKxgp
-KKcAoIPUd2xPt5G57TydRznBMp5v4PWd
-=mOYF
------END PGP SIGNATURE-----
-
---------------enigF6EF3FBD5F225B60CBED56A8--
