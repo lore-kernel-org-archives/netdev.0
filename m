@@ -1,70 +1,84 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] 3c507.c: remove unused NULL pointer check
-Date: Mon, 21 Dec 2009 17:56:39 +0100
-Message-ID: <4B2FA8C7.3010509@hartkopp.net>
-References: <200912211923.58735.strakh@ispras.ru>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Mon, 21 Dec 2009 11:56:52 -0500
+Message-ID: <4B2FA8D4.3050206@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com> <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws> <4B2FA4F2.8000401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Donald Becker <becker@scyld.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Strakh <strakh@ispras.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:32026 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754825AbZLUQ4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 11:56:43 -0500
-In-Reply-To: <200912211923.58735.strakh@ispras.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigC7301845D4EE6557F3C7FF88"
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756864AbZLUQ5M@vger.kernel.org>
+In-Reply-To: <4B2FA4F2.8000401@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexander Strakh wrote:
-> 	In driver drivers/net/3c507.c in function Iirqreturn_t el16_interrupt:
-> 1. If in line 555 dev = NULL then we goto line 556
-> 2. In line 556 we have null dereference because pr_err called with dev->name 
-> in third parameter.
->  555        if (dev == NULL) {
->  556                pr_err("%s: net_interrupt(): irq %d for unknown device.
-> \n",
->  557                        dev->name, irq);
->  558                return IRQ_NONE;
->  559        }
-> 
-> Found by Linux Device Drivers Verification (Svace detector)
-> 
-> Remove unused NULL pointer check.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigC7301845D4EE6557F3C7FF88
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-You are obviously doing more than that ...
+On 12/21/09 11:40 AM, Avi Kivity wrote:
+> On 12/21/2009 06:37 PM, Anthony Liguori wrote:
+>> Since virtio-pci supports MSI-X, there should be no IO exits on
+>> host->guest notification other than EOI in the virtual APIC.  This is
+>> a light weight exit today and will likely disappear entirely with
+>> newer hardware.
+>=20
+> I'm working on disappearing EOI exits on older hardware as well.  Same
+> idea as the old TPR patching, without most of the magic.
+>=20
 
-> 
-> Signed-off-by: Alexander Strakh <strakh@ispras.ru>
-> 
-> ---
-> diff --git a/./0000/drivers/net/3c507.c b/./moder/drivers/net/3c507.c
-> index fbc2311..3bfb3dd 100644
-> --- a/./0000/drivers/net/3c507.c
-> +++ b/./moder/drivers/net/3c507.c
-> @@ -552,12 +552,6 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
->  	ushort ack_cmd = 0;
->  	void __iomem *shmem;
->  
-> -	if (dev == NULL) {
-> -		pr_err("%s: net_interrupt(): irq %d for unknown device.\n",
-> -			dev->name, irq);
+While I applaud any engineering effort that results in more optimal
+execution, if you are talking about what we have discussed in the past
+its not quite in the same league as my proposal.
 
-You are changing real funcionality here!
+You are talking about the ability to optimize the final EOI if there are
+no pending interrupts remaining, right?  The problem with this approach
+is it addresses the wrong side of the curve: That is, it optimizes the
+code as its about to go io-idle.  You still have to take an extra exit
+for each injection during the heat of battle, which is when you actually
+need it most.
 
-If you want to fix it, fix the pr_err() but do not remove the "return
-IRQ_NONE" entirely.
+To that front, what I have done is re-used the lockless shared-memory
+concept for even "interrupt injection".  Lockless shared-memory rings
+have the property that both producer and consumer can simultaneously
+manipulate the ring.  So what we do in alacrityvm is deliver shm-signals
+(shm-signal =3D=3D "interrupt" in vbus) over a ring so that the host can
+inject a signal to a running vcpu and a vcpu can complete an
+ack/re-inject cycle directly from vcpu context.  Therefore, we only need
+a physical IDT injection when the vcpu is io-idle transitioning to
+io-busy, and remain completely in parallel guest/host context until we
+go idle again.
 
-This looks like an introduction of a bug.
+That said, your suggestion would play nicely with the above mentioned
+scheme, so I look forward to seeing it in the tree.  Feel free to send
+me patches for testing.
 
-Regards,
-Oliver
+Kind Regards,
+-Greg
 
 
-> -		return IRQ_NONE;
-> -	}
-> -
+--------------enigC7301845D4EE6557F3C7FF88
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksvqNQACgkQP5K2CMvXmqG5awCeOuLFbi2MEgrRDRqh1mitBPXn
+HcMAnjSTCWIGaQHXyxAOr5XJZ/yw47mr
+=Y2Zz
+-----END PGP SIGNATURE-----
+
+--------------enigC7301845D4EE6557F3C7FF88--
