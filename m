@@ -1,92 +1,64 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH v2 04/12] ixgbevf: Driver main and ethool interface
- module and main header
-Date: Mon, 21 Dec 2009 10:18:22 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F07559A2588F2@orsmsx508.amr.corp.intel.com>
-References: <20091218225043.10698.58897.stgit@localhost.localdomain>
- <20091218225158.10698.67726.stgit@localhost.localdomain>
- <20091221075951.GD21782@verge.net.au>
+From: Andrey Rahmatullin <wrar@altlinux.org>
+Subject: Re: via_rhine kernel crashes in 2.6.32
+Date: Mon, 21 Dec 2009 23:18:40 +0500
+Message-ID: <20091221181839.GA5232@wrars-comp.wrarsdomain>
+References: <20091219111206.GA5307@wrars-comp.wrarsdomain>
+ <20091220200343.GA5427@wrars-comp.wrarsdomain>
+ <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Simon Horman <horms@verge.net.au>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8859 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbZLUSSZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 13:18:25 -0500
-In-Reply-To: <20091221075951.GD21782@verge.net.au>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="0OAP2g/MAC+5xKAE"
+Cc: LKML <linux-kernel@vger.kernel.org>, Roger Luethi <rl@hellgate.ch>,
+	netdev@vger.kernel.org
+To: Christian Kujau <lists@nerdbynature.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756238AbZLUSSq@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------Original Message-----
-From: Simon Horman [mailto:horms@verge.net.au] 
-Sent: Monday, December 21, 2009 12:00 AM
-To: Kirsher, Jeffrey T
-Cc: netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V
-Subject: Re: [RFC PATCH v2 04/12] ixgbevf: Driver main and ethool interface module and main header
 
-> +
-> +	if (new_rx_count != adapter->rx_ring_count) {
-> +		memcpy(rx_ring, adapter->rx_ring,
-> +		       adapter->num_rx_queues * sizeof(struct ixgbevf_ring));
-> +		for (i = 0; i < adapter->num_rx_queues; i++) {
-> +			rx_ring[i].count = new_rx_count;
-> +			err = ixgbevf_setup_rx_resources(adapter,
-> +							 &rx_ring[i]);
-> +			if (err) {
-> +				while (i) {
-> +					i--;
-> +					ixgbevf_free_rx_resources(adapter,
-> +								  &rx_ring[i]);
-> +				}
-> +				goto err_setup;
+--0OAP2g/MAC+5xKAE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-				Are some calls to ixgbevf_free_tx_resources()
-				needed here? Perhaps the ones for
-				on rx_ring failure could be moved down
-				to an err_tx_clear or similar?
-				(sorry for the shoddy name)
+On Mon, Dec 21, 2009 at 04:03:06AM -0800, Christian Kujau wrote:
+> In the .jpgs one can see something along the lines of=20
+> schedule_timeout, napi_disable, rhine_tx_timeout - the only patch I could=
+=20
+> find touching these things [1] altogether is rather old, from 2.6.24. Is=
+=20
+> 2.6.29 working for you?=20
+I've installed 2.6.27, the earliest kernel supported by udev 149. I
+started to download two large files to my second machine (maybe 700 or
+1000 Kbyte/s combined). Nothing happened. I stopped the downloads and
+started deluged. The kernel showed "netdev watchdog timeout", but nothing
+else happened. deluged opened something like 100 TCP connections and
+started to upload some data at ~20 Kbyte/s. Nothing happened. I resumed
+one of downloads, waited for some time, nothing happened. I resumed the
+second download, the kernel crashed into an endless stream of backtraces
+(did 2.6.27 support pause_on_oops?), containing "whatever from the idle
+thread", or smth like that, which was also in other crash logs.
 
-Let me have a look at it and see what I can (or should) do with it.
+--=20
+WBR, wRAR (ALT Linux Team)
 
-> +			}
-> +			rx_ring[i].v_idx = adapter->rx_ring[i].v_idx;
-> +		}
-> +		need_update = true;
-> +	}
-> +
-> +	/* if rings need to be updated, here's the place to do it in one shot */
-> +	if (need_update) {
-> +		if (netif_running(netdev))
-> +			ixgbevf_down(adapter);
-> +
-> +		/* tx */
-> +		if (new_tx_count != adapter->tx_ring_count) {
-> +			kfree(adapter->tx_ring);
-> +			adapter->tx_ring = tx_ring;
-> +			tx_ring = NULL;
-> +			adapter->tx_ring_count = new_tx_count;
-> +		}
-> +
-> +		/* rx */
-> +		if (new_rx_count != adapter->rx_ring_count) {
-> +			kfree(adapter->rx_ring);
-> +			adapter->rx_ring = rx_ring;
-> +			rx_ring = NULL;
-> +			adapter->rx_ring_count = new_rx_count;
-> +		}
-> +	}
+--0OAP2g/MAC+5xKAE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-	Can tx_ring and rx_ring leak here?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-Maybe?  Let me look at it a bit closer and see.
+iQEcBAEBCAAGBQJLL7v/AAoJEOih81koZvPB8gUIAJmID1m6CAMCbowGQusATYdc
+yGMQCXw8XXpzbH25vRwpWBMTiGVrsF/Wfnuk/bq6pHf2vMw4xFuOcIsJoWagb5Pn
+p0bRspYFV9lltRyE/5b1hNjhAljnfXjO0znL2Wrx5ylYzc5reNKhw5pH/IzVNT8E
+af62iJbxiEdIyHmr8lYBDAQIE8H7ThYYFQXSRYbu06CDGHDPQ7azgAkB88GFI1ls
+DxlKJFqNzeqOy3sG+63Gf/3GNRXZjGsTPBBDo9aJ10fJLK3hti8FU/Xem510xc8n
+DP36wIZqJzk1U5W9MHCthvX0NbUj+4hL39VN+kJsKILyBlqf6w9kZJRpLmC5bpw=
+=I4vV
+-----END PGP SIGNATURE-----
 
-I've also looked at your comments to 2/12 and will see what I can do to incorporate your suggestions there.  I appreciate the close review of the code.
-
-- Greg
-
+--0OAP2g/MAC+5xKAE--
