@@ -1,101 +1,113 @@
 From: Gregory Haskins <gregory.haskins@gmail.com>
 Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Mon, 21 Dec 2009 12:24:35 -0500
-Message-ID: <4B2FAF53.2080601@gmail.com>
-References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com> <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws> <4B2FA4F2.8000401@redhat.com> <4B2FA8D4.3050206@gmail.com> <4B2FAAC2.4080007@redhat.com>
+Date: Mon, 21 Dec 2009 12:44:17 -0500
+Message-ID: <4B2FB3F1.5080808@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com> <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws> <4B2FA655.6030205@gmail.com> <4B2FAE7B.9030005@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig7DB66DFC581A71169F230928"
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
+ boundary="------------enigB62B8801782B5A8A07FEA861"
+Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	torvalds@linux-foundation.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	"alacrityvm-devel@lists.sourceforge.net"
 	<alacrityvm-devel@lists.sourceforge.net>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4B2FAAC2.4080007@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754067AbZLURo0@vger.kernel.org>
+In-Reply-To: <4B2FAE7B.9030005@codemonkey.ws>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7DB66DFC581A71169F230928
+--------------enigB62B8801782B5A8A07FEA861
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-On 12/21/09 12:05 PM, Avi Kivity wrote:
-> On 12/21/2009 06:56 PM, Gregory Haskins wrote:
->>> I'm working on disappearing EOI exits on older hardware as well.  Sam=
-e
->>> idea as the old TPR patching, without most of the magic.
->>>
+On 12/21/09 12:20 PM, Anthony Liguori wrote:
+> On 12/21/2009 10:46 AM, Gregory Haskins wrote:
+>> The very best you can hope to achieve is 1:1 EOI per signal (though
+>> today virtio-pci is even worse than that).  As I indicated above, I ca=
+n
+>> eliminate more than 50% of even the EOIs in trivial examples, and even=
+
+>> more as we scale up the number of devices or the IO load (or both).
+>>   =20
+>=20
+> If optimizing EOI is the main technical advantage of vbus, then surely
+> we could paravirtualize EOI access and get that benefit in KVM without
+> introducing a whole new infrastructure, no?
+
+No, because I never claimed optimizing EOI was the main/only advantage.
+ The feature set has all been covered in extensive detail in the lists,
+however, so I will defer you to google for the archives for your reading
+pleasure.
+
+>=20
+>>> This is a
+>>> light weight exit today and will likely disappear entirely with newer=
+
+>>> hardware.
 >>>     =20
->> While I applaud any engineering effort that results in more optimal
->> execution, if you are talking about what we have discussed in the past=
+>> By that argument, this is all moot.  New hardware will likely obsolete=
 
->> its not quite in the same league as my proposal.
->>   =20
+>> the need for venet or virtio-net anyway.
 >=20
-> I don't doubt this for a minute.
->=20
->> You are talking about the ability to optimize the final EOI if there a=
-re
->> no pending interrupts remaining, right?  The problem with this approac=
-h
->> is it addresses the wrong side of the curve: That is, it optimizes the=
+> Not at all.
 
->> code as its about to go io-idle.  You still have to take an extra exit=
+Well, surely something like SR-IOV is moving in that direction, no?
 
->> for each injection during the heat of battle, which is when you actual=
-ly
->> need it most.
->>   =20
->=20
-> No, it's completely orthogonal.  An interrupt is injected, the handler
-> disables further interrupts and EOIs, then schedules the rest of the
-> handling code.  So long as there as packets in the ring interrupts won'=
-t
-> be enabled and hence there won't be any reinjections.
+> But let's focus on concrete data.  For a given workload,
+> how many exits do you see due to EOI?
 
-I meant inter-vector "next-interrupt" injects.  For lack of a better
-term, I called it reinject, but I realize in retrospect that this is
-ambiguous.
+Its of course highly workload dependent, and I've published these
+details in the past, I believe.  Off the top of my head, I recall that
+virtio-pci tends to throw about 65k exits per second, vs about 32k/s for
+venet on a 10GE box, but I don't recall what ratio of those exits are
+EOI.  To be perfectly honest, I don't care.  I do not discriminate
+against the exit type...I want to eliminate as many as possible,
+regardless of the type.  That's how you go fast and yet use less CPU.
 
->=20
-> Different interrupt sources still need different interrupts, but as all=
+>  They should be relatively rare
+> because obtaining good receive batching is pretty easy.
 
-> of your tests have been single-interface, this can't be the reason for
-> your performance.
->=20
+Batching is poor mans throughput (its easy when you dont care about
+latency), so we generally avoid as much as possible.
 
-Actually I have tested both single and multi-homed setups, but it
-doesn't matter.  Even a single device can benefit, as even single
-devices may have multiple vector sources that are highly probably to
-generate coincident events.  For instance, consider that even a basic
-ethernet may have separate vectors for "rx" and "tx-complete".  A simple
-ping is likely to generate both vectors at approximately the same time,
-given how the host side resources often work.
+> Considering
+> these are lightweight exits (on the order of 1-2us),
 
-Trying to condense multiple vectors into one means its up to the driver
-to implement any type of prioritization on its own (or worse, it just
-suffers from PI).  Likewise, implementing them as unique vectors means
-you are likely to have coincident events for certain workloads.
+APIC EOIs on x86 are MMIO based, so they are generally much heavier than
+that.  I measure at least 4-5us just for the MMIO exit on my Woodcrest,
+never mind executing the locking/apic-emulation code.
 
-What alacrityvm tries to do is recognize these points and optimize for
-both cases.  It means we still retain framework-managed prioritized
-callbacks, yet optimize away extraneous IO for coincident signals.  IOW:
-best of both worlds.
+> you need an awfully
+> large amount of interrupts before you get really significant performanc=
+e
+> impact.  You would think NAPI would kick in at this point anyway.
+>
+
+Whether NAPI can kick in or not is workload dependent, and it also does
+not address coincident events.  But on that topic, you can think of
+AlacrityVM's interrupt controller as "NAPI for interrupts", because it
+operates on the same principle.  For what its worth, it also operates on
+a "NAPI for hypercalls" concept too.
+
+> Do you have data demonstrating the advantage of EOI mitigation?
+
+I have non-scientifically gathered numbers in my notebook that put it on
+average of about 55%-60% reduction in EOIs for inbound netperf runs, for
+instance.  I don't have time to gather more in the near term, but its
+typically in that range for a chatty enough workload, and it goes up as
+you add devices.  I would certainly formally generate those numbers when
+I make another merge request in the future, but I don't have them now.
 
 Kind Regards,
 -Greg
 
 
-
-
---------------enig7DB66DFC581A71169F230928
+--------------enigB62B8801782B5A8A07FEA861
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -104,9 +116,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAksvr1MACgkQP5K2CMvXmqFBcACeOvRNnYLTTOrAF4ruBwa/8+FW
-cJsAoIohTHET9ppV/I69WdKWvdnsXiQo
-=LNja
+iEYEARECAAYFAksvs/IACgkQP5K2CMvXmqE3lACfU/MB++J44MGGilA1v+0/jVGN
+D7YAoI1ohE5cdr5/MZJpsQFS7nPki1FW
+=WA19
 -----END PGP SIGNATURE-----
 
---------------enig7DB66DFC581A71169F230928--
+--------------enigB62B8801782B5A8A07FEA861--
