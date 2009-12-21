@@ -1,46 +1,41 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Mon, 21 Dec 2009 10:37:03 -0600
-Message-ID: <4B2FA42F.3070408@codemonkey.ws>
-References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com> <4B2F9C85.7070202@gmail.com>
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: [BUG] 2.6.33-rc1 gianfar error message
+Date: Mon, 21 Dec 2009 17:38:43 +0100
+Message-ID: <20091221163843.GB3529@gibson.comsick.at>
+References: <20091220214447.GA10233@trillian.comsick.at>
+ <9F4C7D19E8361D4C94921B95BE08B81BA08F3B@zin33exm22.fsl.freescale.net>
+ <20091221072704.GA12110@gibson.comsick.at>
+ <9F4C7D19E8361D4C94921B95BE08B81BA08F83@zin33exm22.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Kumar Gopalpet-B05799 <B05799@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.211.182]:44496 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbZLUQhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 11:37:13 -0500
-In-Reply-To: <4B2F9C85.7070202@gmail.com>
+Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:43344
+	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750779AbZLUQiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 11:38:50 -0500
+Content-Disposition: inline
+In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81BA08F83@zin33exm22.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/21/2009 10:04 AM, Gregory Haskins wrote:
-> No, B and C definitely are, but A is lacking.  And the performance
-> suffers as a result in my testing (vhost-net still throws a ton of exits
-> as its limited by virtio-pci and only adds about 1Gb/s to virtio-u, far
-> behind venet even with things like zero-copy turned off).
->    
+On 21 Dec 09 14:19, Kumar Gopalpet-B05799 wrote:
+> Michael, 
+> 
+> Kindly try the following changes at your side and let me know the
+> results. I couldn't test this
+> as I don't have any TSEC device with me.
+<snip>
 
-How does virtio-pci limit vhost-net?  The only time exits should occur 
-are when the guest notifies the host that something has been placed on 
-the ring.  Since vhost-net has no tx mitigation scheme right now, the 
-result may be that it's taking an io exit on every single packet but 
-this is orthogonal to virtio-pci.
+Your patch did not apply to vanilla 2.6.32-rc1 at all. I patched the
+code myself and up to now I do not see any error messages. Uptime is at
+33 minutes, without the patch the error message appeared immediately
+after booting.
 
-Since virtio-pci supports MSI-X, there should be no IO exits on 
-host->guest notification other than EOI in the virtual APIC.  This is a 
-light weight exit today and will likely disappear entirely with newer 
-hardware.
+Just for my understanding. Is the first diff part of the fix as well?
+With this change the FCB is only removed if there are padded bytes, why
+would this make a difference here?
 
-Regards,
-
-Anthony Liguori
+Kind regards,
+Michael
