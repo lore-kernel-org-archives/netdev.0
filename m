@@ -1,63 +1,50 @@
-From: Andrey Rahmatullin <wrar@altlinux.org>
-Subject: Re: via_rhine kernel crashes in 2.6.32
-Date: Mon, 21 Dec 2009 17:36:48 +0500
-Message-ID: <20091221123648.GC5269@wrars-comp.wrarsdomain>
-References: <20091219111206.GA5307@wrars-comp.wrarsdomain>
- <20091220200343.GA5427@wrars-comp.wrarsdomain>
- <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
+From: Alexander Strakh <strakh@ispras.ru>
+Subject: [PATCH] 3c507.c: remove unused NULL pointer check
+Date: Mon, 21 Dec 2009 19:23:58 +0000
+Message-ID: <200912211923.58735.strakh@ispras.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="JWEK1jqKZ6MHAcjA"
-Cc: LKML <linux-kernel@vger.kernel.org>, Roger Luethi <rl@hellgate.ch>,
-	netdev@vger.kernel.org
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756726AbZLUMhM@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Donald Becker <becker@scyld.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753368AbZLUPSw@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+	In driver drivers/net/3c507.c in function Iirqreturn_t el16_interrupt:
+1. If in line 555 dev = NULL then we goto line 556
+2. In line 556 we have null dereference because pr_err called with dev->name 
+in third parameter.
+ 555        if (dev == NULL) {
+ 556                pr_err("%s: net_interrupt(): irq %d for unknown device.
+\n",
+ 557                        dev->name, irq);
+ 558                return IRQ_NONE;
+ 559        }
 
---JWEK1jqKZ6MHAcjA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Found by Linux Device Drivers Verification (Svace detector)
 
-On Mon, Dec 21, 2009 at 04:03:06AM -0800, Christian Kujau wrote:
-> Wow, I had to rotate my laptop here. In you first posting [0] you said yo=
-u=20
-> "upgraded to .32" but had crashes in .30 too. What was the last working=
-=20
-> kernel?
-It was 2.6.31, but as I've already said I'm not sure it was because of
-kernel version alone.
+Remove unused NULL pointer check.
 
-> In the .jpgs one can see something along the lines of=20
-> schedule_timeout, napi_disable, rhine_tx_timeout - the only patch I could=
-=20
-> find touching these things [1] altogether is rather old, from 2.6.24. Is=
-=20
-> 2.6.29 working for you?=20
-Well, I can try some old versions.
+Signed-off-by: Alexander Strakh <strakh@ispras.ru>
 
---=20
-WBR, wRAR (ALT Linux Team)
-
---JWEK1jqKZ6MHAcjA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBCAAGBQJLL2vfAAoJEOih81koZvPBIWQH/1mhgrqs4xdI9eyp3Tec5Q4s
-GigXo6Mr+mLyCOkBZZI9eqeiQL0+bEsGKDQOgTwn4rRMaz8dUGv0T2dBZTdm03Ab
-Nf7Ud4niI+GmKJxllWpdNcsNhoMqv4Ne+01feFsoXzmjf2Sfb/kCFTxlhXixglSI
-qPaDBIK6JwvwqI62MsEA0MskpT5sMkaj0PuO2p41lV8V5SWiZv1BUDolxdu1+9bY
-yf95HNr4w/89NSfqv0Nap/tplXpfeHg7lGrMLqnry7Jl1Genaggiwgz9dTiaiyMo
-xK6+xMCd79W1vyWb1lStn+DsmDwg0Ha1w6UbbsadgT9upDZJ433g5klH7JgIraM=
-=4Q1K
------END PGP SIGNATURE-----
-
---JWEK1jqKZ6MHAcjA--
+---
+diff --git a/./0000/drivers/net/3c507.c b/./moder/drivers/net/3c507.c
+index fbc2311..3bfb3dd 100644
+--- a/./0000/drivers/net/3c507.c
++++ b/./moder/drivers/net/3c507.c
+@@ -552,12 +552,6 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
+ 	ushort ack_cmd = 0;
+ 	void __iomem *shmem;
+ 
+-	if (dev == NULL) {
+-		pr_err("%s: net_interrupt(): irq %d for unknown device.\n",
+-			dev->name, irq);
+-		return IRQ_NONE;
+-	}
+-
+ 	ioaddr = dev->base_addr;
+ 	lp = netdev_priv(dev);
+ 	shmem = lp->base;
