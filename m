@@ -1,62 +1,98 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] 3c507.c: remove unused NULL pointer check
-Date: Mon, 21 Dec 2009 21:46:23 +0100
-Message-ID: <4B2FDE9F.1070108@hartkopp.net>
-References: <200912211923.58735.strakh@ispras.ru>	<4B2FA8C7.3010509@hartkopp.net> <20091221123111.4498b17c@nehalam>
+From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
+Subject: Re: Still using IPTOS_TOS() in kernel? Really???
+Date: Mon, 21 Dec 2009 21:50:34 +0100
+Message-ID: <200912212150.34727.schmto@hrz.tu-chemnitz.de>
+References: <4B298118.2000608@redfish-solutions.com> <200912171724.32711.schmto@hrz.tu-chemnitz.de> <4B2A8A5C.9070702@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Strakh <strakh@ispras.ru>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Donald Becker <becker@scyld.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_a+9LLMdRAstRRLs"
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:43820 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757118AbZLUUqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 15:46:24 -0500
-In-Reply-To: <20091221123111.4498b17c@nehalam>
+Received: from jack.hrz.tu-chemnitz.de ([134.109.132.46]:56710 "EHLO
+	jack.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752080AbZLUUuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 15:50:39 -0500
+In-Reply-To: <4B2A8A5C.9070702@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Mon, 21 Dec 2009 17:56:39 +0100
-> Oliver Hartkopp <socketcan@hartkopp.net> wrote:
-> 
->> Alexander Strakh wrote:
->>> 	In driver drivers/net/3c507.c in function Iirqreturn_t el16_interrupt:
->>> 1. If in line 555 dev = NULL then we goto line 556
->>> 2. In line 556 we have null dereference because pr_err called with dev->name 
->>> in third parameter.
->>>  555        if (dev == NULL) {
->>>  556                pr_err("%s: net_interrupt(): irq %d for unknown device.
->>> \n",
->>>  557                        dev->name, irq);
->>>  558                return IRQ_NONE;
->>>  559        }
->>>
->>> Found by Linux Device Drivers Verification (Svace detector)
->>>
->>> Remove unused NULL pointer check.
+--Boundary-00=_a+9LLMdRAstRRLs
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 
-> 
-> Interrupts will never be called with third parameter of NULL. It is really
-> bogus impossible to reach code.
-> 
+Hi Philip,
 
-You're right! I just did not verify the direct assignment of dev = dev_id ...
+here a second PATCH to add the missing DSCP classes to 
+ipv4_dscp_stat(), also tested against 2.6.32. 
 
-Btw. the description for the reason of this patch remains unsuitably as the
-problem is not the potential dereferencing of dev->name in pr_err() here.
-
-It should better be something like this (partly stolen from your answer):
-
-   Interrupts will never be called with dev_id parameter of NULL.
-   This patch removes the obsolete, unreachable code.
-
-Regards,
-Oliver
+Next step is to add IN / OUT statistic to DSCP. Maybe 
+/proc/net/ipdscp will look like:
+CS0	in	out
+CS1	in	out
+...
+EF	in	out
 
 
+any comments ?
+Torsten
 
+--Boundary-00=_a+9LLMdRAstRRLs
+Content-Type: text/x-patch;
+  charset="UTF-8";
+  name="0002-ipv4-add-missing-DSCP-classes.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="0002-ipv4-add-missing-DSCP-classes.patch"
+
+=46rom 58a2a79f4083fa614637cab13fe7df99b92b6fcf Mon Sep 17 00:00:00 2001
+=46rom: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
+Date: Mon, 21 Dec 2009 21:30:44 +0100
+Subject: [PATCH 2/2] ipv4: add missing DSCP classes
+
+This patch adds the missing IANA DSCP registry entries to ipv4 DSCP
+statistic counter. See /proc/net/ipdscp
+
+Signed-off-by: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
+=2D--
+ include/net/ipdscp.h |   20 +++++++++++++++++++-
+ 1 files changed, 19 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/ipdscp.h b/include/net/ipdscp.h
+index d5bce81..14cc8a6 100644
+=2D-- a/include/net/ipdscp.h
++++ b/include/net/ipdscp.h
+@@ -58,7 +58,25 @@ static inline void ipv4_dscp_stat(struct net *net, __u8 =
+dsfield)
+ 	switch (dsfield >> 2) {
+ 	case IP_DSCP_CS0:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS0);break;
+ 	case IP_DSCP_EF:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_EF);break;
+=2D	/* add new entrys here ... */
++	case IP_DSCP_CS1:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS1);break;
++	case IP_DSCP_CS2:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS2);break;
++	case IP_DSCP_CS3:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS3);break;
++	case IP_DSCP_CS4:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS4);break;
++	case IP_DSCP_CS5:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS5);break;
++	case IP_DSCP_CS6:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS6);break;
++	case IP_DSCP_CS7:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_CS7);break;
++	case IP_DSCP_AF11:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF11);break;
++	case IP_DSCP_AF12:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF12);break;
++	case IP_DSCP_AF13:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF13);break;
++	case IP_DSCP_AF21:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF21);break;
++	case IP_DSCP_AF22:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF22);break;
++	case IP_DSCP_AF23:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF23);break;
++	case IP_DSCP_AF31:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF31);break;
++	case IP_DSCP_AF32:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF32);break;
++	case IP_DSCP_AF33:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF33);break;
++	case IP_DSCP_AF41:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF41);break;
++	case IP_DSCP_AF42:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF42);break;
++	case IP_DSCP_AF43:	IP_DSCP_INC_STATS_BH(net, LINUX_MIB_IPDSCP_AF43);break;
+ 	}
+ }
+=20
+=2D-=20
+1.6.3.3
+
+
+--Boundary-00=_a+9LLMdRAstRRLs--
