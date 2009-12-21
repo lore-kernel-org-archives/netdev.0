@@ -1,96 +1,102 @@
 From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH 1/2] mx25: add support for FEC on i.MX25
-Date: Mon, 21 Dec 2009 13:44:31 +0200
-Message-ID: <97e6c149bb27754075241fc672985c5a2ecef4b6.1261395135.git.baruch@tkos.co.il>
+Subject: [PATCH 2/2] mx25: pdk: add platform code for FEC support
+Date: Mon, 21 Dec 2009 13:44:32 +0200
+Message-ID: <e03d8ad82b7f1e889d68cd8b916c3d76bb9ef8ec.1261395135.git.baruch@tkos.co.il>
 References: <20091221110807.GE15126@pengutronix.de>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	Baruch Siach <baruch@tkos.co.il>
 To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:53363 "EHLO tango.tkos.co.il"
+Received: from tango.tkos.co.il ([62.219.50.35]:53366 "EHLO tango.tkos.co.il"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753032AbZLULpy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Dec 2009 06:45:54 -0500
+	id S1754807AbZLULpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Dec 2009 06:45:55 -0500
 In-Reply-To: <20091221110807.GE15126@pengutronix.de>
+In-Reply-To: <97e6c149bb27754075241fc672985c5a2ecef4b6.1261395135.git.baruch@tkos.co.il>
+References: <97e6c149bb27754075241fc672985c5a2ecef4b6.1261395135.git.baruch@tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 ---
- arch/arm/mach-mx25/clock.c            |    2 ++
- arch/arm/mach-mx25/devices.c          |   19 +++++++++++++++++++
- arch/arm/mach-mx25/devices.h          |    1 +
- arch/arm/plat-mxc/include/mach/mx25.h |    4 ++++
- 4 files changed, 26 insertions(+), 0 deletions(-)
+ arch/arm/mach-mx25/mx25pdk.c |   46 ++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 44 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/mach-mx25/clock.c b/arch/arm/mach-mx25/clock.c
-index dbbbcc6..ea8c3da 100644
---- a/arch/arm/mach-mx25/clock.c
-+++ b/arch/arm/mach-mx25/clock.c
-@@ -173,6 +173,7 @@ DEFINE_CLOCK(pwm4_clk,	 0, CCM_CGCR2,  2, get_rate_ipg, NULL);
- DEFINE_CLOCK(kpp_clk,	 0, CCM_CGCR1, 28, get_rate_ipg, NULL);
- DEFINE_CLOCK(tsc_clk,	 0, CCM_CGCR2, 13, get_rate_ipg, NULL);
- DEFINE_CLOCK(i2c_clk,	 0, CCM_CGCR0,  6, get_rate_i2c, NULL);
-+DEFINE_CLOCK(fec_clk,	 0, CCM_CGCR0, 23, get_rate_ipg, NULL);
+diff --git a/arch/arm/mach-mx25/mx25pdk.c b/arch/arm/mach-mx25/mx25pdk.c
+index d23ae57..921bc99 100644
+--- a/arch/arm/mach-mx25/mx25pdk.c
++++ b/arch/arm/mach-mx25/mx25pdk.c
+@@ -18,10 +18,11 @@
  
- #define _REGISTER_CLOCK(d, n, c)	\
- 	{				\
-@@ -204,6 +205,7 @@ static struct clk_lookup lookups[] = {
- 	_REGISTER_CLOCK("imx-i2c.0", NULL, i2c_clk)
- 	_REGISTER_CLOCK("imx-i2c.1", NULL, i2c_clk)
- 	_REGISTER_CLOCK("imx-i2c.2", NULL, i2c_clk)
-+	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+ #include <linux/types.h>
+ #include <linux/init.h>
++#include <linux/delay.h>
+ #include <linux/clk.h>
+ #include <linux/irq.h>
+ #include <linux/gpio.h>
+-#include <linux/smsc911x.h>
++#include <linux/fec.h>
+ #include <linux/platform_device.h>
+ 
+ #include <mach/hardware.h>
+@@ -35,16 +36,57 @@
+ #include <mach/mx25.h>
+ #include <mach/mxc_nand.h>
+ #include "devices.h"
+-#include <mach/iomux-v3.h>
++#include <mach/iomux.h>
+ 
+ static struct imxuart_platform_data uart_pdata = {
+ 	.flags = IMXUART_HAVE_RTSCTS,
  };
  
- int __init mx25_clocks_init(unsigned long fref)
-diff --git a/arch/arm/mach-mx25/devices.c b/arch/arm/mach-mx25/devices.c
-index 63511de..9fdeea1 100644
---- a/arch/arm/mach-mx25/devices.c
-+++ b/arch/arm/mach-mx25/devices.c
-@@ -419,3 +419,22 @@ int __init mxc_register_gpios(void)
- 	return mxc_gpio_init(imx_gpio_ports, ARRAY_SIZE(imx_gpio_ports));
++static struct pad_desc mx25pdk_pads[] = {
++	MX25_PAD_FEC_MDC__FEC_MDC,
++	MX25_PAD_FEC_MDIO__FEC_MDIO,
++	MX25_PAD_FEC_TDATA0__FEC_TDATA0,
++	MX25_PAD_FEC_TDATA1__FEC_TDATA1,
++	MX25_PAD_FEC_TX_EN__FEC_TX_EN,
++	MX25_PAD_FEC_RDATA0__FEC_RDATA0,
++	MX25_PAD_FEC_RDATA1__FEC_RDATA1,
++	MX25_PAD_FEC_RX_DV__FEC_RX_DV,
++	MX25_PAD_FEC_TX_CLK__FEC_TX_CLK,
++	MX25_PAD_A17__GPIO_2_3, /* FEC_EN, GPIO 35 */
++	MX25_PAD_D12__GPIO_4_8, /* FEC_RESET_B, GPIO 104 */
++};
++
++static struct fec_platform_data mx25_fec_pdata = {
++        .phy    = PHY_INTERFACE_MODE_RMII,
++};
++
++#define FEC_ENABLE_GPIO		35
++#define FEC_RESET_B_GPIO	104
++
++static void __init mx25pdk_fec_reset(void)
++{
++	gpio_request(FEC_ENABLE_GPIO, "FEC PHY enable");
++	gpio_request(FEC_RESET_B_GPIO, "FEC PHY reset");
++
++	gpio_direction_output(FEC_ENABLE_GPIO, 0);  /* drop PHY power */
++	gpio_direction_output(FEC_RESET_B_GPIO, 0); /* assert reset */
++	udelay(2);
++
++	/* turn on PHY power and lift reset */
++	gpio_set_value(FEC_ENABLE_GPIO, 1);
++	gpio_set_value(FEC_RESET_B_GPIO, 1);
++}
++
+ static void __init mx25pdk_init(void)
+ {
++	mxc_iomux_v3_setup_multiple_pads(mx25pdk_pads,
++			ARRAY_SIZE(mx25pdk_pads));
++
+ 	mxc_register_device(&mxc_uart_device0, &uart_pdata);
+ 	mxc_register_device(&mxc_usbh2, NULL);
++
++	mx25pdk_fec_reset();
++	mxc_register_device(&mx25_fec_device, &mx25_fec_pdata);
  }
  
-+static struct resource mx25_fec_resources[] = {
-+	{
-+		.start	= MX25_FEC_BASE_ADDR,
-+		.end	= MX25_FEC_BASE_ADDR + 0xfff,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+	{
-+		.start	= MX25_INT_FEC,
-+		.end	= MX25_INT_FEC,
-+		.flags	= IORESOURCE_IRQ,
-+	},
-+};
-+
-+struct platform_device mx25_fec_device = {
-+	.name	= "fec",
-+	.id	= 0,
-+	.num_resources	= ARRAY_SIZE(mx25_fec_resources),
-+	.resource	= mx25_fec_resources,
-+};
-diff --git a/arch/arm/mach-mx25/devices.h b/arch/arm/mach-mx25/devices.h
-index fe6bf88..fe5420f 100644
---- a/arch/arm/mach-mx25/devices.h
-+++ b/arch/arm/mach-mx25/devices.h
-@@ -17,3 +17,4 @@ extern struct platform_device mxc_keypad_device;
- extern struct platform_device mxc_i2c_device0;
- extern struct platform_device mxc_i2c_device1;
- extern struct platform_device mxc_i2c_device2;
-+extern struct platform_device mx25_fec_device;
-diff --git a/arch/arm/plat-mxc/include/mach/mx25.h b/arch/arm/plat-mxc/include/mach/mx25.h
-index ec64bd9..106f651 100644
---- a/arch/arm/plat-mxc/include/mach/mx25.h
-+++ b/arch/arm/plat-mxc/include/mach/mx25.h
-@@ -41,4 +41,8 @@
- #define UART1_BASE_ADDR			0x43f90000
- #define UART2_BASE_ADDR			0x43f94000
- 
-+#define MX25_FEC_BASE_ADDR		0x50038000
-+
-+#define MX25_INT_FEC	57
-+
- #endif /* __MACH_MX25_H__ */
+ static void __init mx25pdk_timer_init(void)
 -- 
 1.6.5
 
