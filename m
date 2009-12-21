@@ -1,91 +1,183 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: [BUG] 2.6.33-rc1 gianfar error message
-Date: Mon, 21 Dec 2009 09:58:17 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA08F3B@zin33exm22.fsl.freescale.net>
-References: <20091220214447.GA10233@trillian.comsick.at>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH v2 02/12] ixgbevf: 82599 Virtual Function core
+ functions and header
+Date: Mon, 21 Dec 2009 16:03:42 +1100
+Message-ID: <20091221050341.GA22037@verge.net.au>
+References: <20091218225043.10698.58897.stgit@localhost.localdomain>
+ <20091218225123.10698.8625.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Michael Guntsche" <mike@it-loops.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:59562 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbZLUE2b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Dec 2009 23:28:31 -0500
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nBL4SKoQ020809
-	for <netdev@vger.kernel.org>; Sun, 20 Dec 2009 21:28:20 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id nBL4Woax002891
-	for <netdev@vger.kernel.org>; Sun, 20 Dec 2009 22:32:51 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20091220214447.GA10233@trillian.comsick.at>
+Received: from kirsty.vergenet.net ([202.4.237.240]:58743 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbZLUFDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 00:03:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20091218225123.10698.8625.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
->I recently installed 2.6.33-rc1 on my Routerboard RB600a to 
->give it a quick test. After rebooting with 2.6.33-rc1 I got an 
->almost immediate error message in my logs.
->
->Sorry for not being able to get more debug info. But with this 
->board I have a limit on the kernel size.
->
->wan selects TX queue 66, but real number of TX queues is 1 
->------------[ cut here ]------------ Badness at c01d846c 
-[...]
+On Fri, Dec 18, 2009 at 02:51:23PM -0800, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> This module and header file contain the core functions for the 82599
+> virtual function device.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  drivers/net/ixgbevf/vf.c |  410 ++++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/ixgbevf/vf.h |  168 +++++++++++++++++++
+>  2 files changed, 578 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/ixgbevf/vf.c
+>  create mode 100644 drivers/net/ixgbevf/vf.h
+> 
+> diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
+> new file mode 100644
+> index 0000000..38784eb
+> --- /dev/null
+> +++ b/drivers/net/ixgbevf/vf.c
+> @@ -0,0 +1,410 @@
 
->3c60c032 7f64db78 lan selects TX queue 66, but real number of 
->TX queues is 1 ------------[ cut here ]------------ Badness at 
->c01d846c [verbose debug info unavailable]
-[...]
->Both NICs continue to work but the messages continue to appear 
->in the log with the number (66) varying a little bit every now 
->and then.
->
->I had a look at the recent changes and started testing the 
->different commits. I found out that I start getting the errors 
->with commmit
->
->fba4ed030cfae7efdb6b79a57b0c5a9d72c9de83
->gianfar: Add Multiple Queue Support
->
->Relevant dmesg output:
->eth0: Gianfar Ethernet Controller Version 1.2, 00:0c:42:28:de:4e
->eth0: Running with NAPI enabled
->eth0: :RX BD ring size for Q[0]: 256
->eth0:TX BD ring size for Q[0]: 256
->  alloc irq_desc for 32 on node 0
->  alloc kstat_irqs on node 0
->irq: irq 32 on host /soc8343@e0000000/pic@700 mapped to virtual irq 32
->  alloc irq_desc for 33 on node 0
->  alloc kstat_irqs on node 0
->irq: irq 33 on host /soc8343@e0000000/pic@700 mapped to virtual irq 33
->  alloc irq_desc for 34 on node 0[    0.546127]   alloc 
->kstat_irqs on node 0
->irq: irq 34 on host /soc8343@e0000000/pic@700 mapped to virtual irq 34
->eth1: Gianfar Ethernet Controller Version 1.2, 00:0c:42:28:de:4f
->eth1: Running with NAPI enabled
->eth1: :RX BD ring size for Q[0]: 256
->eth1:TX BD ring size for Q[0]: 256
->Freescale PowerQUICC MII Bus: probed
->Freescale PowerQUICC MII Bus: probed
->
->If you need any more information please tell me.
->
+[snip]
 
-Hi Michael,
+> +
+> +#include "vf.h"
+> +
+> +static s32 ixgbevf_init_hw_vf(struct ixgbe_hw *hw);
+> +static s32 ixgbevf_start_hw_vf(struct ixgbe_hw *hw);
+> +static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw);
+> +static s32 ixgbevf_stop_hw_vf(struct ixgbe_hw *hw);
+> +static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr);
+> +static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
+> +				   ixgbe_link_speed speed, bool autoneg,
+> +				   bool autoneg_wait_to_complete);
+> +static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
+> +				   ixgbe_link_speed *speed,
+> +				   bool *link_up,
+> +				   bool autoneg_wait_to_complete);
+> +static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
+> +			      u32 vmdq);
+> +static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
+> +					u32 mc_addr_count, ixgbe_mc_addr_itr);
+> +static s32 ixgbevf_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
+> +			     bool vlan_on);
 
-It looks like even we are enabling only single tx queue, some how it is
-trying to pick up tx queue 66. 
+It seems that if the definition of ixgbevf_get_mac_addr_vf() was moved to
+before ixgbevf_set_rar_vf() then all of the above static declarations could
+be removed.
 
-Can you please let me know what is your test setup and, please give me
-the location from where you cloned this kernel. 
-Can you also share the dts file you were using ?
+[snip]
 
---
+> +/**
+> + *  ixgbevf_reset_hw_vf - Performs hardware reset
+> + *  @hw: pointer to hardware structure
+> + *
+> + *  Resets the hardware by reseting the transmit and receive units, masks and
+> + *  clears all interrupts.
+> + **/
+> +static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+> +{
+> +	struct ixgbe_mbx_info *mbx = &hw->mbx;
+> +	u32 timeout = IXGBE_VF_INIT_TIMEOUT;
+> +	s32 ret_val = IXGBE_ERR_INVALID_MAC_ADDR;
+> +	u32 msgbuf[IXGBE_VF_PERMADDR_MSG_LEN];
+> +	u8 *addr = (u8 *)(&msgbuf[1]);
+> +
+> +	/* Call adapter stop to disable tx/rx and clear interrupts */
+> +	hw->mac.ops.stop_adapter(hw);
+> +
+> +	IXGBE_WRITE_REG(hw, IXGBE_VFCTRL, IXGBE_CTRL_RST);
+> +	IXGBE_WRITE_FLUSH(hw);
+> +
+> +	/* we cannot reset while the RSTI / RSTD bits are asserted */
+> +	while (!mbx->ops.check_for_rst(hw) && timeout) {
+> +		timeout--;
+> +		udelay(5);
+> +	}
+> +
+> +	if (timeout) {
+> +		/* mailbox timeout can now become active */
+> +		mbx->timeout = IXGBE_VF_MBX_INIT_TIMEOUT;
+> +
+> +		msgbuf[0] = IXGBE_VF_RESET;
+> +		mbx->ops.write_posted(hw, msgbuf, 1);
+> +
+> +		msleep(10);
+> +
+> +		/* set our "perm_addr" based on info provided by PF */
+> +		/* also set up the mc_filter_type which is piggy backed
+> +		 * on the mac address in word 3 */
+> +		ret_val = mbx->ops.read_posted(hw, msgbuf,
+> +					       IXGBE_VF_PERMADDR_MSG_LEN);
+> +		if (!ret_val) {
+> +			if (msgbuf[0] == (IXGBE_VF_RESET |
+> +					  IXGBE_VT_MSGTYPE_ACK)) {
+> +				memcpy(hw->mac.perm_addr, addr,
+> +				       IXGBE_ETH_LENGTH_OF_ADDRESS);
+> +				hw->mac.mc_filter_type =
+> +					msgbuf[IXGBE_VF_MC_TYPE_WORD];
+> +			} else {
+> +				ret_val = IXGBE_ERR_INVALID_MAC_ADDR;
+> +			}
+> +		}
+> +	}
+> +
+> +	return ret_val;
+> +}
 
-Thanks
-Sandeep 
+I wonder if it would be easier to follow the flow of ixgbevf_reset_hw_vf()
+if it was written as:
+
+static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+{
+	struct ixgbe_mbx_info *mbx = &hw->mbx;
+	u32 timeout = IXGBE_VF_INIT_TIMEOUT;
+	s32 ret_val;
+	u32 msgbuf[IXGBE_VF_PERMADDR_MSG_LEN];
+	u8 *addr = (u8 *)(&msgbuf[1]);
+
+	/* Call adapter stop to disable tx/rx and clear interrupts */
+	hw->mac.ops.stop_adapter(hw);
+
+	IXGBE_WRITE_REG(hw, IXGBE_VFCTRL, IXGBE_CTRL_RST);
+	IXGBE_WRITE_FLUSH(hw);
+
+	/* we cannot reset while the RSTI / RSTD bits are asserted */
+	while (!mbx->ops.check_for_rst(hw) && timeout) {
+		timeout--;
+		udelay(5);
+	}
+
+	if (!timeout)
+		return IXGBE_ERR_INVALID_MAC_ADDR;
+
+	/* mailbox timeout can now become active */
+	mbx->timeout = IXGBE_VF_MBX_INIT_TIMEOUT;
+
+	msgbuf[0] = IXGBE_VF_RESET;
+	mbx->ops.write_posted(hw, msgbuf, 1);
+
+	msleep(10);
+
+	/* Set our "perm_addr" based on info provided by PF.
+	 * Also set up the mc_filter_type which is piggy backed
+	 * on the mac address in word 3
+	 */
+	ret_val = mbx->ops.read_posted(hw, msgbuf, IXGBE_VF_PERMADDR_MSG_LEN);
+	if (ret_val)
+		return ret_val;
+
+	if (msgbuf[0] != (IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_ACK))
+		return IXGBE_ERR_INVALID_MAC_ADDR;
+
+	memcpy(hw->mac.perm_addr, addr, IXGBE_ETH_LENGTH_OF_ADDRESS);
+	hw->mac.mc_filter_type = msgbuf[IXGBE_VF_MC_TYPE_WORD];
+
+	return 0;
+}
+
