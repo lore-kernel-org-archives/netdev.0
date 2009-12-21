@@ -1,64 +1,87 @@
-From: Andrey Rahmatullin <wrar@altlinux.org>
-Subject: Re: via_rhine kernel crashes in 2.6.32
-Date: Mon, 21 Dec 2009 23:18:40 +0500
-Message-ID: <20091221181839.GA5232@wrars-comp.wrarsdomain>
-References: <20091219111206.GA5307@wrars-comp.wrarsdomain>
- <20091220200343.GA5427@wrars-comp.wrarsdomain>
- <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3: link is permanently down after ifdown and ifup
+Date: Mon, 21 Dec 2009 10:19:19 -0800
+Message-ID: <20091221181919.GB23940@xw6200.broadcom.net>
+References: <4B056158.5060104@embedded-sol.com>
+ <4B056D85.5010904@embedded-sol.com>
+ <1258671053.14964.20.camel@nseg_linux_HP1.broadcom.com>
+ <4B1F631E.5030908@embedded-sol.com>
+ <20091210011931.GA30802@xw6200.broadcom.net>
+ <4B2E547E.3040806@embedded-sol.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="0OAP2g/MAC+5xKAE"
-Cc: LKML <linux-kernel@vger.kernel.org>, Roger Luethi <rl@hellgate.ch>,
-	netdev@vger.kernel.org
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756238AbZLUSSq@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Felix Radensky" <felix@embedded-sol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3055 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756200AbZLUSTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Dec 2009 13:19:49 -0500
+In-Reply-To: <4B2E547E.3040806@embedded-sol.com>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.01.0912210352200.3483@bogon.housecafe.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Dec 20, 2009 at 08:44:46AM -0800, Felix Radensky wrote:
+> Hi, Matt
+> 
+> Matt Carlson wrote:
+> > I understand the problem now.  The problem is that tg3_set_power_state()
+> > puts the phy into a low-power mode when it releases the device.  When
+> > the phy is reacquired, a phy reset is missing to take the device back
+> > out of the low-power mode.
+> >
+> > The patch at the bottom of this email is the fix I'm currently testing.
+> > If you wish, you can try it out.
+> >
+> >
+> > [PATCH] tg3: Fix 57780 connectivity problems
+> >
+> > When management firmware is not present, and WOL is disabled, the driver
+> > will put the phy into a low-power mode when shutting down.  To get out
+> > of low-power mode, the operation must be reversed or the phy must be
+> > reset.
+> >
+> > In the past, the phylib reset the phy from either phy_start() or
+> > phy_start_aneg().  This phy reset has been removed from more recent
+> > kernels.  The tg3 driver already has phy reset code in place which is
+> > called when it assumes control of the device.  It is bypassed if phylib
+> > is enabled though.
+> >
+> > This patch removes the phylib exception.
+> > ---
+> >  drivers/net/tg3.c |    3 +--
+> >  1 files changed, 1 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > index 3a74d21..c0a3080 100644
+> > --- a/drivers/net/tg3.c
+> > +++ b/drivers/net/tg3.c
+> > @@ -7523,8 +7523,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+> >  		tg3_abort_hw(tp, 1);
+> >  	}
+> >  
+> > -	if (reset_phy &&
+> > -	    !(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB))
+> > +	if (reset_phy)
+> >  		tg3_phy_reset(tp);
+> >  
+> >  	err = tg3_chip_reset(tp);
+> >   
+> I can confirm that this patch fixes the problem I had. Thanks a lot for 
+> the fix.
+> 
+> There was another problem in 2.6.32 that I reported, namely kernel soft 
+> lockup
+> when link is synchronized at 100Mbit/sec and tg3 with 57780 goes down . Were
+> you able to reproduce it ?
 
---0OAP2g/MAC+5xKAE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+No, but perhaps I don't understand the problem well enough.  Are you
+saying that you encounter the problem when you run
+'ifconfig bcm57780 down', or is it that losing link itself causes the
+problem?
 
-On Mon, Dec 21, 2009 at 04:03:06AM -0800, Christian Kujau wrote:
-> In the .jpgs one can see something along the lines of=20
-> schedule_timeout, napi_disable, rhine_tx_timeout - the only patch I could=
-=20
-> find touching these things [1] altogether is rather old, from 2.6.24. Is=
-=20
-> 2.6.29 working for you?=20
-I've installed 2.6.27, the earliest kernel supported by udev 149. I
-started to download two large files to my second machine (maybe 700 or
-1000 Kbyte/s combined). Nothing happened. I stopped the downloads and
-started deluged. The kernel showed "netdev watchdog timeout", but nothing
-else happened. deluged opened something like 100 TCP connections and
-started to upload some data at ~20 Kbyte/s. Nothing happened. I resumed
-one of downloads, waited for some time, nothing happened. I resumed the
-second download, the kernel crashed into an endless stream of backtraces
-(did 2.6.27 support pause_on_oops?), containing "whatever from the idle
-thread", or smth like that, which was also in other crash logs.
-
---=20
-WBR, wRAR (ALT Linux Team)
-
---0OAP2g/MAC+5xKAE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBCAAGBQJLL7v/AAoJEOih81koZvPB8gUIAJmID1m6CAMCbowGQusATYdc
-yGMQCXw8XXpzbH25vRwpWBMTiGVrsF/Wfnuk/bq6pHf2vMw4xFuOcIsJoWagb5Pn
-p0bRspYFV9lltRyE/5b1hNjhAljnfXjO0znL2Wrx5ylYzc5reNKhw5pH/IzVNT8E
-af62iJbxiEdIyHmr8lYBDAQIE8H7ThYYFQXSRYbu06CDGHDPQ7azgAkB88GFI1ls
-DxlKJFqNzeqOy3sG+63Gf/3GNRXZjGsTPBBDo9aJ10fJLK3hti8FU/Xem510xc8n
-DP36wIZqJzk1U5W9MHCthvX0NbUj+4hL39VN+kJsKILyBlqf6w9kZJRpLmC5bpw=
-=I4vV
------END PGP SIGNATURE-----
-
---0OAP2g/MAC+5xKAE--
