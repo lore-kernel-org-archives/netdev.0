@@ -1,7 +1,7 @@
 From: Anton Vorontsov <cbouatmailru@gmail.com>
-Subject: [PATCH 2/3] phylib: Properly reinitialize PHYs after hibernation
-Date: Wed, 23 Dec 2009 01:14:51 +0300
-Message-ID: <20091222221451.GB9268@oksana.dev.rtsoft.ru>
+Subject: [PATCH 3/3] ucc_geth: Fix netdev watchdog triggering on suspend
+Date: Wed, 23 Dec 2009 01:15:04 +0300
+Message-ID: <20091222221504.GC9268@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,157 +21,51 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Since hibernation assumes power loss, we should fully reinitialize
-PHYs (including platform fixups), as if PHYs were just attached.
+Sometimes ucc_geth fails to suspend with the following trace:
 
-This patch factors phy_init_hw() out of phy_attach_direct(), then
-converts mdio_bus to dev_pm_ops and adds an appropriate restore()
-callback.
+ ucc_geth e0103000.ucc: suspend
+ ucc_geth e0102000.ucc: suspend
+ NETDEV WATCHDOG: eth0 (ucc_geth): transmit queue 0 timed out
+ ------------[ cut here ]------------
+ Badness at net/sched/sch_generic.c:255
+ NIP: c021cb5c LR: c021cb5c CTR: c01ab4b4
+ [...]
+ NIP [c021cb5c] dev_watchdog+0x298/0x2a8
+ LR [c021cb5c] dev_watchdog+0x298/0x2a8
+ Call Trace:
+ [c0389da0] [c021cb5c] dev_watchdog+0x298/0x2a8 (unreliable)
+ [c0389e00] [c0031ed8] run_timer_softirq+0x16c/0x1dc
+ [c0389e50] [c002c638] __do_softirq+0xa4/0x11c
+ [...]
+
+This patch fixes the issue by properly detaching the device on
+suspend, and attaching it back on resume.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/phy/mdio_bus.c   |   50 ++++++++++++++++++++++++++++++++++++------
- drivers/net/phy/phy_device.c |   30 ++++++++++++------------
- include/linux/phy.h          |    1 +
- 3 files changed, 59 insertions(+), 22 deletions(-)
+ drivers/net/ucc_geth.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 49252d3..667fc09 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -295,10 +295,9 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
- 	return true;
- }
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index afaf088..7225d5d 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3601,6 +3601,7 @@ static int ucc_geth_suspend(struct of_device *ofdev, pm_message_t state)
+ 	if (!netif_running(ndev))
+ 		return 0;
  
--/* Suspend and resume.  Copied from platform_suspend and
-- * platform_resume
-- */
--static int mdio_bus_suspend(struct device * dev, pm_message_t state)
-+#ifdef CONFIG_PM
-+
-+static int mdio_bus_suspend(struct device *dev)
- {
- 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
- 	struct phy_device *phydev = to_phy_device(dev);
-@@ -318,7 +317,7 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
- 	return phydrv->suspend(phydev);
- }
++	netif_device_detach(ndev);
+ 	napi_disable(&ugeth->napi);
  
--static int mdio_bus_resume(struct device * dev)
-+static int mdio_bus_resume(struct device *dev)
- {
- 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
- 	struct phy_device *phydev = to_phy_device(dev);
-@@ -338,11 +337,48 @@ no_resume:
+ 	/*
+@@ -3659,7 +3660,7 @@ static int ucc_geth_resume(struct of_device *ofdev)
+ 	phy_start(ugeth->phydev);
+ 
+ 	napi_enable(&ugeth->napi);
+-	netif_start_queue(ndev);
++	netif_device_attach(ndev);
+ 
  	return 0;
  }
- 
-+static int mdio_bus_restore(struct device *dev)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+	struct net_device *netdev = phydev->attached_dev;
-+	int ret;
-+
-+	if (!netdev)
-+		return 0;
-+
-+	ret = phy_init_hw(phydev);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* The PHY needs to renegotiate. */
-+	phydev->link = 0;
-+	phydev->state = PHY_UP;
-+
-+	phy_start_machine(phydev, NULL);
-+
-+	return 0;
-+}
-+
-+static struct dev_pm_ops mdio_bus_pm_ops = {
-+	.suspend = mdio_bus_suspend,
-+	.resume = mdio_bus_resume,
-+	.freeze = mdio_bus_suspend,
-+	.thaw = mdio_bus_resume,
-+	.restore = mdio_bus_restore,
-+};
-+
-+#define MDIO_BUS_PM_OPS (&mdio_bus_pm_ops)
-+
-+#else
-+
-+#define MDIO_BUS_PM_OPS NULL
-+
-+#endif /* CONFIG_PM */
-+
- struct bus_type mdio_bus_type = {
- 	.name		= "mdio_bus",
- 	.match		= mdio_bus_match,
--	.suspend	= mdio_bus_suspend,
--	.resume		= mdio_bus_resume,
-+	.pm		= MDIO_BUS_PM_OPS,
- };
- EXPORT_SYMBOL(mdio_bus_type);
- 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index b10fedd..8212b2b 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -378,6 +378,20 @@ void phy_disconnect(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(phy_disconnect);
- 
-+int phy_init_hw(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	if (!phydev->drv || !phydev->drv->config_init)
-+		return 0;
-+
-+	ret = phy_scan_fixups(phydev);
-+	if (ret < 0)
-+		return ret;
-+
-+	return phydev->drv->config_init(phydev);
-+}
-+
- /**
-  * phy_attach_direct - attach a network device to a given PHY device pointer
-  * @dev: network device to attach
-@@ -425,21 +439,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 	/* Do initial configuration here, now that
- 	 * we have certain key parameters
- 	 * (dev_flags and interface) */
--	if (phydev->drv->config_init) {
--		int err;
--
--		err = phy_scan_fixups(phydev);
--
--		if (err < 0)
--			return err;
--
--		err = phydev->drv->config_init(phydev);
--
--		if (err < 0)
--			return err;
--	}
--
--	return 0;
-+	return phy_init_hw(phydev);
- }
- EXPORT_SYMBOL(phy_attach_direct);
- 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index b1368b8..7968def 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -447,6 +447,7 @@ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
- int phy_device_register(struct phy_device *phy);
- int phy_clear_interrupt(struct phy_device *phydev);
- int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
-+int phy_init_hw(struct phy_device *phydev);
- int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		u32 flags, phy_interface_t interface);
- struct phy_device * phy_attach(struct net_device *dev,
 -- 
 1.6.3.3
