@@ -1,51 +1,78 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Deadlock in IPv6 code while garbage collection on the rwlock
- protecting the routing tree.
-Date: Tue, 22 Dec 2009 14:36:38 -0800
-Message-ID: <20091222143638.37513a94@nehalam>
-References: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14839] New: Trying to use a TUN device fir
+ IPv6 traffic, cannot set destination address.
+Date: Tue, 22 Dec 2009 15:12:38 -0800
+Message-ID: <20091222151238.e7e44e36.akpm@linux-foundation.org>
+References: <bug-14839-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"Johnson, David" <djohnson@starentnetworks.com>
-To: "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, mcisho@yahoo.com
+To: netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59243 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753056AbZLVWhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Dec 2009 17:37:09 -0500
-In-Reply-To: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59524 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752792AbZLVXNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 18:13:30 -0500
+In-Reply-To: <bug-14839-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Dec 2009 16:57:05 -0500
-"Akkipeddi, Srinivas" <sakkiped@starentnetworks.com> wrote:
 
-> I came across a deadlock scenario in the latest IPv6 code. I am trying
-> to fix this and any inputs are really appreciated. 
-> 
-> The deadlock happens when ROUTER-PREF is configured. This happens when
-> trying to do a write_lock_bh on the rwlock protecting the routing tree
-> during garbage collection.
-> 
-> The routing tree is read protected (read_lock_bh(&table->tb6_lock))
-> using the rwlock when performing a ip6_route_input or  ip6_route_output
-> ( "ip6_pol_route"). During route selection (rt6_select), if a neighbor
-> solicit is sent (ndisc_send_ns), a dst_entry is allocated
-> (icmp6_dst_alloc calls dst_alloc). 
-> The garbage collection (fib6_run_gc) will be triggered if the number of
-> dst-entries is more than the threshold (dst_alloc). During garbage
-> collection, all the routing trees are cleaned up (fib6_clean_all). Here
-> we try to take write protect each routing tree (
-> write_lock_bh(&table->tb6_lock)). But one of the trees is already read
-> protected. 
-> 
-> The garbage collection is anyways triggered from "icmp6_dst_alloc" with
-> the call to fib6_force_start_gc. Since it is triggered, we might not
-> want to call the "fib6_run_gc" from dst_alloc for this case but there is
-> no way to figure this out in the "dst_alloc" routine.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Might just be easier to convert to spinlock and RCU.
+On Sat, 19 Dec 2009 10:35:18 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
--- 
+> http://bugzilla.kernel.org/show_bug.cgi?id=14839
+> 
+>            Summary: Trying to use a TUN device fir IPv6 traffic, cannot
+>                     set destination address.
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.31.6
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: mcisho@yahoo.com
+>         Regression: No
+> 
+> 
+> I am modifying a program that uses a TUN device for IPv4 traffic so that the
+> same TUN device can also be used for IPv6 traffic. Using ioctl SIOCSIFADDR will
+> add an IPv6 address but ioctl SIOCSDSTADDR to add an IPv6 destination address
+> always results in error ENODEV (19 No such device).
+> 
+> I searched around the source and found addrconf_set_dstaddr in addrconf.c which
+> seems to be the routine called to set the destination address. However, the
+> routine only sets a destination address for a SIT device, otherwise if returns
+> ENODEV.
+> 
+> Below is the ifconfig output for the TUN device:-
+> $ ifconfig tun3
+> tun3      Link encap:UNSPEC  HWaddr
+> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  
+>           inet addr:192.168.3.235  P-t-P:192.168.250.235  Mask:255.255.255.255
+>           inet6 addr: fd00::3:235/128 Scope:Global
+>           UP POINTOPOINT RUNNING  MTU:1344  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:500 
+>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+> 
+> BTW, ifconfig cannot add an IPv6 destination address either, the code has a
+> comment saying that the support needs to be written.
+> 
+> Can a TUN device be used for IPv6 traffic? I cannot find a definitive answer,
+> only 'should'. Or is that nobody has ever wanted to use a TUN device for IPv6
+> traffic, and so the kernel support has not been written? Or am I doing
+> something wrong?
+> 
+
