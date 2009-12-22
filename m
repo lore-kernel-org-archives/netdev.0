@@ -1,54 +1,123 @@
-From: "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com>
-Subject: Deadlock in IPv6 code while garbage collection on the rwlock protecting the routing tree.
-Date: Tue, 22 Dec 2009 16:57:05 -0500
-Message-ID: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Subject: [PATCH 1/3] phylib: Fix deadlock on resume
+Date: Wed, 23 Dec 2009 01:14:47 +0300
+Message-ID: <20091222221447.GA9268@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Johnson, David" <djohnson@starentnetworks.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.starentnetworks.com ([63.118.244.150]:36158 "EHLO
-	mx1.starentnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbZLVV5J convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 16:57:09 -0500
-Received: from exchtewks1.starentnetworks.com (exchtewks1.starentnetworks.com [10.2.4.28]) by mx1.starentnetworks.com with ESMTP id oNBzdsoWFSFHoSdU for <netdev@vger.kernel.org>; Tue, 22 Dec 2009 16:57:06 -0500 (EST)
-Content-Class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	Andy Fleming <afleming@freescale.com>, linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-I came across a deadlock scenario in the latest IPv6 code. I am trying
-to fix this and any inputs are really appreciated. 
+Sometimes kernel hangs on resume with the following trace:
 
-The deadlock happens when ROUTER-PREF is configured. This happens when
-trying to do a write_lock_bh on the rwlock protecting the routing tree
-during garbage collection.
+ ucc_geth e0102000.ucc: resume
+ INFO: task bash:1764 blocked for more than 120 seconds.
+ "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+ bash          D 0fecf43c     0  1764   1763 0x00000000
+ Call Trace:
+ [cf9a7c10] [c0012868] ret_from_except+0x0/0x14 (unreliable)
+ --- Exception: cf9a7ce0 at __switch_to+0x4c/0x6c
+     LR = 0xcf9a7cc0
+ [cf9a7cd0] [c0008c14] __switch_to+0x4c/0x6c (unreliable)
+ [cf9a7ce0] [c028bcfc] schedule+0x158/0x260
+ [cf9a7d10] [c028c720] __mutex_lock_slowpath+0x80/0xd8
+ [cf9a7d40] [c01cf388] phy_stop+0x20/0x70
+ [cf9a7d50] [c01d514c] ugeth_resume+0x6c/0x13c
+ [...]
 
-The routing tree is read protected (read_lock_bh(&table->tb6_lock))
-using the rwlock when performing a ip6_route_input or  ip6_route_output
-( "ip6_pol_route"). During route selection (rt6_select), if a neighbor
-solicit is sent (ndisc_send_ns), a dst_entry is allocated
-(icmp6_dst_alloc calls dst_alloc). 
-The garbage collection (fib6_run_gc) will be triggered if the number of
-dst-entries is more than the threshold (dst_alloc). During garbage
-collection, all the routing trees are cleaned up (fib6_clean_all). Here
-we try to take write protect each routing tree (
-write_lock_bh(&table->tb6_lock)). But one of the trees is already read
-protected. 
+Here is why.
 
-The garbage collection is anyways triggered from "icmp6_dst_alloc" with
-the call to fib6_force_start_gc. Since it is triggered, we might not
-want to call the "fib6_run_gc" from dst_alloc for this case but there is
-no way to figure this out in the "dst_alloc" routine.
+On suspend:
 
+- PM core starts suspending devices, ucc_geth_suspend gets called;
 
-Thanks
-Srinivas
+- ucc_geth calls phy_stop() on suspend. Note that phy_stop() is
+  mostly asynchronous so it doesn't block ucc_geth's suspend routine,
+  it just sets PHY_HALTED state and disables PHY's interrupts;
 
+- Suddenly the state machine gets scheduled, it grabs the phydev->lock
+  mutex and tries to process the PHY_HALTED state, so it calls
+  phydev->adjust_link(phydev->attached_dev). In ucc_geth case
+  adjust_link() calls msleep(), which reschedules the code flow back to
+  PM core, which now finishes suspend and so we end up sleeping with
+  phydev->lock mutex held.
+
+On resume:
+
+- PM core starts resuming devices (notice that nobody rescheduled
+  the state machine yet, so the mutex is still held), the core calls
+  ucc_geth's resume routine;
+
+- ucc_geth_resume restarts the PHY with phy_stop()/phy_start()
+  sequence, and the phy_*() calls are trying to grab the phydev->lock
+  mutex. Here comes the deadlock.
+
+This patch fixes the issue by stopping the state machine on suspend
+and starting it again on resume.
+
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/phy/mdio_bus.c |   24 ++++++++++++++++++++++--
+ 1 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index bd4e8d7..49252d3 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -303,8 +303,18 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
+ 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
+ 	struct phy_device *phydev = to_phy_device(dev);
  
-
-
-
-This email and any attachments may contain legally privileged and/or confidential information of Starent Networks, Corp. and is intended only for the individual or entity named in the message.  The information transmitted may not be used to create or change any contractual obligations of Starent Networks, Corp.  Any review, retransmission, dissemination or other use of, or taking of any action in reliance upon this e-mail and its attachments by persons or entities other than the intended recipient is prohibited. If you are not the intended recipient, please notify the sender immediately -- by replying to this message or by sending an email to postmaster@starentnetworks.com -- and destroy all copies of this message and any attachments without reading or disclosing their contents. Thank you.
++	/*
++	 * We must stop the state machine manually, otherwise it stops out of
++	 * control, possibly with the phydev->lock held. Upon resume, netdev
++	 * may call phy routines that try to grab the same lock, and that may
++	 * lead to a deadlock.
++	 */
++	if (phydev->attached_dev)
++		phy_stop_machine(phydev);
++
+ 	if (!mdio_bus_phy_may_suspend(phydev))
+ 		return 0;
++
+ 	return phydrv->suspend(phydev);
+ }
  
+@@ -312,10 +322,20 @@ static int mdio_bus_resume(struct device * dev)
+ {
+ 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
+ 	struct phy_device *phydev = to_phy_device(dev);
++	int ret;
+ 
+ 	if (!mdio_bus_phy_may_suspend(phydev))
+-		return 0;
+-	return phydrv->resume(phydev);
++		goto no_resume;
++
++	ret = phydrv->resume(phydev);
++	if (ret < 0)
++		return ret;
++
++no_resume:
++	if (phydev->attached_dev)
++		phy_start_machine(phydev, NULL);
++
++	return 0;
+ }
+ 
+ struct bus_type mdio_bus_type = {
+-- 
+1.6.3.3
