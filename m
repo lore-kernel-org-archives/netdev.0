@@ -1,85 +1,54 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Tue, 22 Dec 2009 15:14:18 -0600
-Message-ID: <4B3136AA.50204@codemonkey.ws>
-References: <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws> <4B2FA655.6030205@gmail.com> <4B2FAE7B.9030005@codemonkey.ws> <4B2FB3F1.5080808@gmail.com> <4B300EF8.8010602@codemonkey.ws> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <20091222162110.GG10314@basil.fritz.box> <4B30F375.6050103@codemonkey.ws> <20091222173326.GH10314@basil.fritz.box>
+From: "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com>
+Subject: Deadlock in IPv6 code while garbage collection on the rwlock protecting the routing tree.
+Date: Tue, 22 Dec 2009 16:57:05 -0500
+Message-ID: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Johnson, David" <djohnson@starentnetworks.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f194.google.com ([209.85.221.194]:41976 "EHLO
-	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752613AbZLVVOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 16:14:24 -0500
-In-Reply-To: <20091222173326.GH10314@basil.fritz.box>
+Received: from mx1.starentnetworks.com ([63.118.244.150]:36158 "EHLO
+	mx1.starentnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbZLVV5J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 16:57:09 -0500
+Received: from exchtewks1.starentnetworks.com (exchtewks1.starentnetworks.com [10.2.4.28]) by mx1.starentnetworks.com with ESMTP id oNBzdsoWFSFHoSdU for <netdev@vger.kernel.org>; Tue, 22 Dec 2009 16:57:06 -0500 (EST)
+Content-Class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/22/2009 11:33 AM, Andi Kleen wrote:
->> We're not talking about vaporware.  vhost-net exists.
->>      
-> Is it as fast as the alacrityvm setup then e.g. for network traffic?
->
-> Last I heard the first could do wirespeed 10Gbit/s on standard hardware.
->    
+I came across a deadlock scenario in the latest IPv6 code. I am trying
+to fix this and any inputs are really appreciated. 
 
-I'm very wary of any such claims.  As far as I know, no one has done an 
-exhaustive study of vbus and published the results.  This is why it's so 
-important to understand why the results are what they are when we see 
-numbers posted.
+The deadlock happens when ROUTER-PREF is configured. This happens when
+trying to do a write_lock_bh on the rwlock protecting the routing tree
+during garbage collection.
 
-For instance, check out 
-http://www.redhat.com/f/pdf/summit/cwright_11_open_source_virt.pdf slide 32.
+The routing tree is read protected (read_lock_bh(&table->tb6_lock))
+using the rwlock when performing a ip6_route_input or  ip6_route_output
+( "ip6_pol_route"). During route selection (rt6_select), if a neighbor
+solicit is sent (ndisc_send_ns), a dst_entry is allocated
+(icmp6_dst_alloc calls dst_alloc). 
+The garbage collection (fib6_run_gc) will be triggered if the number of
+dst-entries is more than the threshold (dst_alloc). During garbage
+collection, all the routing trees are cleaned up (fib6_clean_all). Here
+we try to take write protect each routing tree (
+write_lock_bh(&table->tb6_lock)). But one of the trees is already read
+protected. 
 
-These benchmarks show KVM without vhost-net pretty closely pacing 
-native.  With large message sizes, it's awfully close to line rate.
+The garbage collection is anyways triggered from "icmp6_dst_alloc" with
+the call to fib6_force_start_gc. Since it is triggered, we might not
+want to call the "fib6_run_gc" from dst_alloc for this case but there is
+no way to figure this out in the "dst_alloc" routine.
 
-Comparatively speaking, consider 
-http://developer.novell.com/wiki/index.php/AlacrityVM/Results
 
-vbus here is pretty far off of native and virtio-net is ridiculus.
+Thanks
+Srinivas
 
-Why are the results so different?  Because benchmarking is fickle and 
-networking performance is complicated.  No one benchmarking scenario is 
-going to give you a very good picture overall.  It's also relatively 
-easy to stack the cards in favor of one approach verses another.  The 
-virtio-net setup probably made extensive use of pinning and other tricks 
-to make things faster than a normal user would see them.  It ends up 
-creating a perfect combination of batching which is pretty much just 
-cooking the mitigation schemes to do extremely well for one benchmark.
+ 
 
-This is why it's so important to look at vbus from the perspective of 
-critically asking, what precisely makes it better than virtio.  A couple 
-benchmarks on a single piece of hardware does not constitute an 
-existence proof that it's better overall.
 
-There are a ton of differences between virtio and vbus because vbus was 
-written in a vacuum wrt virtio.  I'm not saying we are totally committed 
-to virtio no matter what, but it should take a whole lot more than a 
-couple netperf runs on a single piece of hardware for a single kind of 
-driver to justify replacing it.
 
-> Can vhost-net do the same thing?
-
-I think the fundamentally question is, what makes vbus better than 
-vhost-net?  vhost-net exists and is further along upstream than vbus is 
-at the moment.  If that question cannot be answered with technical facts 
-and numbers to back them up, then we're just arguing for the sake of 
-arguing.
-
-Regards,
-
-Anthony Liguori
-
-> -Andi
->    
-
+This email and any attachments may contain legally privileged and/or confidential information of Starent Networks, Corp. and is intended only for the individual or entity named in the message.  The information transmitted may not be used to create or change any contractual obligations of Starent Networks, Corp.  Any review, retransmission, dissemination or other use of, or taking of any action in reliance upon this e-mail and its attachments by persons or entities other than the intended recipient is prohibited. If you are not the intended recipient, please notify the sender immediately -- by replying to this message or by sending an email to postmaster@starentnetworks.com -- and destroy all copies of this message and any attachments without reading or disclosing their contents. Thank you.
+ 
