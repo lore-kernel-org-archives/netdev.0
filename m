@@ -1,52 +1,66 @@
-From: Davide Libenzi <davidel@xmailserver.org>
+From: Gregory Haskins <gregory.haskins@gmail.com>
 Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Tue, 22 Dec 2009 11:39:55 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.0912221137380.29381@makko.or.mcafeemobile.com>
-References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu> <4B3103B4.4070708@gmail.com> <4B3115C1.4070303@redhat.com> <4B311ADA.4000700@gmail.com>
+Date: Tue, 22 Dec 2009 14:41:22 -0500
+Message-ID: <4B3120E2.7070307@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu> <4B3103B4.4070708@gmail.com> <4B3115C1.4070303@redhat.com> <4B311ADA.4000700@gmail.com> <4B311D20.7020400@redhat.com> <4B311ECB.6040205@gmail.com> <4B312042.7010804@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig50247FF784F95F3FF76E2066"
+Cc: Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
 	torvalds@linux-foundation.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	"alacrityvm-devel@lists.sourceforge.net"
 	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754815AbZLVTkH@vger.kernel.org>
-In-Reply-To: <4B311ADA.4000700@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:41910 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754478AbZLVTl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 14:41:26 -0500
+In-Reply-To: <4B312042.7010804@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Dec 2009, Gregory Haskins wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig50247FF784F95F3FF76E2066
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> On 12/22/09 1:53 PM, Avi Kivity wrote:
-> > I asked why the irqfd/ioeventfd mechanisms are insufficient, and you did not reply.
-> > 
-> 
-> BTW: the ioeventfd issue just fell through the cracks, so sorry about
-> that.  Note that I have no specific issue with irqfd ever since the
-> lockless IRQ injection code was added.
-> 
-> ioeventfd turned out to be suboptimal for me in the fast path for two
-> reasons:
-> 
-> 1) the underlying eventfd is called in atomic context.  I had posted
-> patches to Davide to address that limitation, but I believe he rejected
-> them on the grounds that they are only relevant to KVM.
+On 12/22/09 2:38 PM, Avi Kivity wrote:
+> On 12/22/2009 09:32 PM, Gregory Haskins wrote:
+>> xinterface, as it turns out, is a great KVM interface for me and easy =
+to
+>> extend, all without conflicting with the changes in upstream.  The old=
 
-I thought we addressed this already, in the few hundreds of email we 
-exchanged back then :)
+>> way was via the kvm ioctl interface, but that sucked as the ABI was
+>> always moving.  Where is the problem?  ioeventfd still works fine as
+>> it is.
+>>   =20
+>=20
+> It means that kvm locking suddenly affects more of the kernel.
+>=20
 
+Thats ok.  This would only be w.r.t. devices that are bound to the KVM
+instance anyway, so they better know what they are doing (and they do).
 
-
-> 2) it cannot retain the data field passed in the PIO.  I wanted to have
-> one vector that could tell me what value was written, and this cannot be
-> expressed in ioeventfd.
-
-Like might have hinted in his reply, couldn't you add data support to the 
-ioeventfd bits in KVM, instead of leaking them into mainline eventfd?
-
+-Greg
 
 
-- Davide
+--------------enig50247FF784F95F3FF76E2066
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksxIOIACgkQP5K2CMvXmqGQegCeJFYZWuAUJyCQ8FQwFIUMc7at
+p7UAn2M2HWKIw9trJq0ZxH65DCFPX6xM
+=bw6e
+-----END PGP SIGNATURE-----
+
+--------------enig50247FF784F95F3FF76E2066--
