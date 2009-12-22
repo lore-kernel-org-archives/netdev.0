@@ -1,42 +1,42 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: via_rhine kernel crashes in 2.6.32
-Date: Tue, 22 Dec 2009 13:21:07 +0000
-Message-ID: <20091222132107.GA9060@ff.dom.local>
-References: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de> <20091222123211.GA8546@ff.dom.local>
+Date: Tue, 22 Dec 2009 13:38:17 +0000
+Message-ID: <20091222133817.GA9208@ff.dom.local>
+References: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de> <20091222123211.GA8546@ff.dom.local> <20091222132107.GA9060@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Andrey Rahmatullin <wrar@altlinux.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org
 To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:34426 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbZLVNVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 08:21:15 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753397AbZLVNi3@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20091222123211.GA8546@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20091222132107.GA9060@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 22, 2009 at 12:32:11PM +0000, Jarek Poplawski wrote:
-> It looks like napi_disable() should be illegal in ndo_tx_timeout().
-> Here is a patch which moves most of the timeout work to a workqueue,
-> similarly to tg3 etc. It should prevent at least one of reported
-> bugs. Alas I can't even check-compile it at the moment, so let me
-> know on any problems.
+On Tue, Dec 22, 2009 at 01:21:07PM +0000, Jarek Poplawski wrote:
+> On Tue, Dec 22, 2009 at 12:32:11PM +0000, Jarek Poplawski wrote:
+> > It looks like napi_disable() should be illegal in ndo_tx_timeout().
+> > Here is a patch which moves most of the timeout work to a workqueue,
+> > similarly to tg3 etc. It should prevent at least one of reported
+> > bugs. Alas I can't even check-compile it at the moment, so let me
+> > know on any problems.
+> 
+> It seems I needlessly changed locking btw, so here it is again.
 
-It seems I needlessly changed locking btw, so here it is again.
+Hmm... On the other hand, it definitely needs at least _bh now...
 
+Sorry,
 Jarek P.
+ 
+--- (take 3)
 
---- (take 2)
-
- drivers/net/via-rhine.c |   37 ++++++++++++++++++++++++++-----------
- 1 files changed, 26 insertions(+), 11 deletions(-)
+ drivers/net/via-rhine.c |   41 ++++++++++++++++++++++++++++-------------
+ 1 files changed, 28 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 593e01f..15a4063 100644
+index 593e01f..125406b 100644
 --- a/drivers/net/via-rhine.c
 +++ b/drivers/net/via-rhine.c
 @@ -102,6 +102,7 @@ static const int multicast_filter_limit = 32;
@@ -72,7 +72,7 @@ index 593e01f..15a4063 100644
  	rp->mii_if.dev = dev;
  	rp->mii_if.mdio_read = mdio_read;
  	rp->mii_if.mdio_write = mdio_write;
-@@ -1179,15 +1184,11 @@ static int rhine_open(struct net_device *dev)
+@@ -1179,22 +1184,18 @@ static int rhine_open(struct net_device *dev)
  	return 0;
  }
  
@@ -92,6 +92,23 @@ index 593e01f..15a4063 100644
  
  	/* protect against concurrent rx interrupts */
  	disable_irq(rp->pdev->irq);
+ 
+ 	napi_disable(&rp->napi);
+ 
+-	spin_lock(&rp->lock);
++	spin_lock_bh(&rp->lock);
+ 
+ 	/* clear all descriptors */
+ 	free_tbufs(dev);
+@@ -1206,7 +1207,7 @@ static void rhine_tx_timeout(struct net_device *dev)
+ 	rhine_chip_reset(dev);
+ 	init_registers(dev);
+ 
+-	spin_unlock(&rp->lock);
++	spin_unlock_bh(&rp->lock);
+ 	enable_irq(rp->pdev->irq);
+ 
+ 	dev->trans_start = jiffies;
 @@ -1214,6 +1215,19 @@ static void rhine_tx_timeout(struct net_device *dev)
  	netif_wake_queue(dev);
  }
