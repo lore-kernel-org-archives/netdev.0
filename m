@@ -1,94 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH] wireless: adf702x: new driver for ADF7020/21 parts
-Date: Tue, 22 Dec 2009 16:02:09 +0000
-Message-ID: <1261497729.2845.8.camel@achroite.uk.solarflarecom.com>
-References: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
-	 <1261453449.25157.367.camel@localhost>
-	 <8A42379416420646B9BFAC9682273B6D0EF11F8A@limkexm3.ad.analog.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Tue, 22 Dec 2009 17:01:56 +0100
+Message-ID: <200912221701.56840.bzolnier@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: "Hennerich, Michael" <Michael.Hennerich@analog.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:10790 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753477AbZLVQCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 11:02:13 -0500
-In-Reply-To: <8A42379416420646B9BFAC9682273B6D0EF11F8A@limkexm3.ad.analog.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753910AbZLVQE7@vger.kernel.org>
+In-Reply-To: <4B30E654.40702@codemonkey.ws>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-12-22 at 11:46 +0000, Hennerich, Michael wrote:
-[...]
-> >
-> >> +	unsigned rx:1;
-> >> +	unsigned rx_size;
-> >> +	u32 *rx_buf;
-> >> +	u32 *tx_buf;
-> >> +
-> >> +	/* Base reg base of SPORT controller */
-> >> +	volatile struct sport_register *sport;
-> >
-> >MMIO pointers should normally be declared like:
-> >
-> >	struct sport_register __iomem *sport;
-> >
-> >and used with readl, writel etc.
+On Tuesday 22 December 2009 04:31:32 pm Anthony Liguori wrote:
+
+> I think the comparison would be if someone submitted a second e1000 
+> driver that happened to do better on one netperf test than the current 
+> e1000 driver.
 > 
-> Well SPORT is a SoC peripheral it's mapped into Blackfin System MMR space.
-> Our versions of readX writeX are implemented for off-chip peripherals.
-> If you take a look at Blackfin io.h you will notice that we disable global interrupts, 
-> to avoid killed and reissued reads. This is not necessary for the System MMR space.   
+> You can argue, hey, choice is good, let's let a user choose if they want 
+> to use the faster e1000 driver.  But surely, the best thing for a user 
+> is to figure out why the second e1000 driver is better on that one test, 
+> integrate that change into the current e1000 driver, or decided that the 
+
+Even though this is "Won't somebody please think of the users?" argument
+such work would be much welcomed.  Sending patches would be a great start..
+
+> new e1000 driver is more superior in architecture and do the required 
+> work to make the new e1000 driver a full replacement for the old one.
+
+Right, like everyone actually does things this way..
+
+I wonder why do we have OSS, old Firewire and IDE stacks still around then?
+
+> Regards,
 > 
-> Preferably I like to keep this as is, but I could also change it to use the 
-> Blackfin MMR accessor functions bfin_read{32,16} bfin_write{32,16}  
-
-I don't know any specifics of the Blackfin architecture, so you should
-probably do what you think best!
-
-[...]
-> >> +static irqreturn_t adf702x_rx_interrupt(int irq, void *dev_id)
-> >> +{
-> >[...]
-> >> +			lp->rx_size = adf702x_getrxsize(lp, offset);
-> >> +			if (offset == 1) {
-> >> +				set_dma_x_count(lp->dma_ch_rx, lp->rx_size);
-> >> +				set_dma_start_addr(lp->dma_ch_rx,
-> >> +					(unsigned long)lp->rx_buf);
-> >> +			} else {
-> >> +				lp->rx_buf[0] = lp->rx_buf[3];
-> >> +				set_dma_x_count(lp->dma_ch_rx, lp->rx_size - 1);
-> >> +				set_dma_start_addr(lp->dma_ch_rx,
-> >> +					(unsigned long)&lp->rx_buf[1]);
-> >> +			}
-> >> +			enable_dma(lp->dma_ch_rx);
-> >> +			SSYNC();
+> Anthony Liguori
+> 
+> > Unwritten code tends to always sound nicer, but it remains to be seen
+> > if it can deliver what it promises.
 > >
-> >Is this some odd kind of memory barrier?
-> 
-> Well - it's an instruction that ensures that the write buffers are flushed and all instructions executed. 
-
-I suspect you only need a write memory barrier here (wmb()) not a
-pipeline flush.
-
-[...]
-> >> +	ndev->mtu = 576;
+> >  From a abstract stand point having efficient paravirtual IO interfaces
+> > seem attractive.
 > >
-> >Even though you use Ethernet frames?
-> 
-> We could stick with the default MTU - but it would worsen the overall response time.
-[...]
+> > I also personally don't see a big problem in having another set of
+> > virtual drivers -- Linux already has plenty (vmware, xen, virtio, power,
+> > s390-vm, ...) and it's not that they would be a particular maintenance
+> > burden impacting the kernel core.
 
-Do what you think is best; I was just checking that you have a good
-reason for this.
+Exactly, I also don't see any problem here, especially since AlacrityVM
+drivers have much cleaner design / internal architecture than some of their
+competitors..
 
-Ben,
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--
+Bartlomiej Zolnierkiewicz
