@@ -1,53 +1,41 @@
-From: Michael Guntsche <mike@it-loops.com>
-Subject: Re: [BUG] 2.6.33-rc1 gianfar error message
-Date: Tue, 22 Dec 2009 19:27:57 +0100
-Message-ID: <20091222182756.GA71759@trillian.comsick.at>
-References: <20091220214447.GA10233@trillian.comsick.at>
- <9F4C7D19E8361D4C94921B95BE08B81BA08F3B@zin33exm22.fsl.freescale.net>
- <20091221072704.GA12110@gibson.comsick.at>
- <9F4C7D19E8361D4C94921B95BE08B81BA08F83@zin33exm22.fsl.freescale.net>
- <20091221163843.GB3529@gibson.comsick.at>
- <9F4C7D19E8361D4C94921B95BE08B81BA08FCA@zin33exm22.fsl.freescale.net>
- <20091222181000.GA71727@trillian.comsick.at>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Tue, 22 Dec 2009 20:53:53 +0200
+Message-ID: <4B3115C1.4070303@redhat.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu> <4B3103B4.4070708@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Kumar Gopalpet-B05799 <B05799@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:57697
-	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751475AbZLVS2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 13:28:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20091222181000.GA71727@trillian.comsick.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754636AbZLVSzM@vger.kernel.org>
+In-Reply-To: <4B3103B4.4070708@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2009.12.22 19:10:00 , Michael Guntsche wrote:
-> Since you said that the first patch is not needed
-> 
-> @@ -2470,10 +2470,11 @@ static int gfar_process_frame(struct net_device
->         fcb = (struct rxfcb *)skb->data;
-> 
->         /* Remove the FCB from the skb */
-> -       skb_set_queue_mapping(skb, fcb->rq);
->         /* Remove the padded bytes, if there are any */
-> -       if (amount_pull)
-> +       if (amount_pull) {
-> +               skb_set_queue_mapping(skb, fcb->rq);
->                 skb_pull(skb, amount_pull);
-> +       }
-> 
->         if (priv->rx_csum_enable)
->                 gfar_rx_checksum(skb, fcb);
-> 
-> I only applied the second one and tested again. Right after the reboot
-> I got an error so apparently this change IS required as well. 
+On 12/22/2009 07:36 PM, Gregory Haskins wrote:
+>
+>> Gregory, it would be nice if you worked _much_ harder with the KVM folks
+>> before giving up.
+>>      
+> I think the 5+ months that I politely tried to convince the KVM folks
+> that this was a good idea was pretty generous of my employer.  The KVM
+> maintainers have ultimately made it clear they are not interested in
+> directly supporting this concept (which is their prerogative), but are
+> perhaps willing to support the peripheral logic needed to allow it to
+> easily interface with KVM.  I can accept that, and thus AlacrityVM was born.
+>    
 
-I tested this now in the opposite direction and apparently ONLY this
-patch is needed. I commented out the second diff and did not get any
-errors so far. Sorry for not testing this before sending my previous
-mail.
+Review pointed out locking issues with xinterface which I have not seen 
+addressed.  I asked why the irqfd/ioeventfd mechanisms are insufficient, 
+and you did not reply.
 
-Kind regards,
-Michael
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
