@@ -1,97 +1,52 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [net-next PATCH 6/6] enic: whitespace cleanup; #define cleanup;
-	more verbose err msg
-Date: Mon, 21 Dec 2009 18:21:52 -0800
-Message-ID: <20091222022152.30220.72892.stgit@savbu-pc100.cisco.com>
-References: <20091222021857.30220.51795.stgit@savbu-pc100.cisco.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] wireless: adf702x: new driver for ADF7020/21 parts
+Date: Mon, 21 Dec 2009 19:05:02 -0800
+Message-ID: <1261451102.4041.170.camel@localhost.localdomain>
+References: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Michael Hennerich <michael.hennerich@analog.com>
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:17686 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752783AbZLVCVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 21:21:55 -0500
-In-Reply-To: <20091222021857.30220.51795.stgit@savbu-pc100.cisco.com>
+Received: from senator.holtmann.net ([87.106.208.187]:40613 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbZLVDF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 22:05:29 -0500
+In-Reply-To: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
+Hi Mike,
 
-Some misc changes to cleanup whitespace issues and fix/remove some #define
-HW defintions.
+> This is a driver for Analog Devices series of ADF702x Narrow-Band
+> Short-Range Radio Transceiver chipsets, including the ADF7021 and
+> the ADF7025.  This Ethernet like driver implements a custom
+> software PHY.
 
-1) fix some whitespace issues
-2) more verbose err msg when resources aren't available to configure vnic
-3) remove unused #define
-4) fix RSS #define rss hash types
+while it might be a little bit confusing, but the wireless directory
+normally only contains Wireless LAN (aka 802.11 and alike) drivers.
 
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
----
- drivers/net/enic/enic_main.c |    5 +++--
- drivers/net/enic/vnic_dev.c  |    1 -
- drivers/net/enic/vnic_nic.h  |   12 ++++++------
- 3 files changed, 9 insertions(+), 9 deletions(-)
+If this implements some sort of Ethernet driver, then it might be better
+to just put it under drivers/net/ to not intermix and confuse it with
+actually 802.11 drivers.
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 81cc68d..978af6c 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -731,7 +731,7 @@ static inline void enic_queue_wq_skb(struct enic *enic,
- 
- /* netif_tx_lock held, process context with BHs disabled, or BH */
- static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
--					      struct net_device *netdev)
-+	struct net_device *netdev)
- {
- 	struct enic *enic = netdev_priv(netdev);
- 	struct vnic_wq *wq = &enic->wq[0];
-@@ -1824,7 +1824,8 @@ int enic_dev_init(struct enic *enic)
- 	err = enic_set_intr_mode(enic);
- 	if (err) {
- 		printk(KERN_ERR PFX
--			"Failed to set intr mode, aborting.\n");
-+			"Failed to set intr mode based on resource "
-+			"counts and system capabilities, aborting.\n");
- 		return err;
- 	}
- 
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-index 29a48e8..69b9b70 100644
---- a/drivers/net/enic/vnic_dev.c
-+++ b/drivers/net/enic/vnic_dev.c
-@@ -36,7 +36,6 @@ struct vnic_res {
- };
- 
- #define VNIC_DEV_CAP_INIT	0x0001
--#define VNIC_DEV_CAP_PERBI	0x0002
- 
- struct vnic_dev {
- 	void *priv;
-diff --git a/drivers/net/enic/vnic_nic.h b/drivers/net/enic/vnic_nic.h
-index eeaf329..cf80ab4 100644
---- a/drivers/net/enic/vnic_nic.h
-+++ b/drivers/net/enic/vnic_nic.h
-@@ -41,12 +41,12 @@
- #define NIC_CFG_IG_VLAN_STRIP_EN_MASK_FIELD	1UL
- #define NIC_CFG_IG_VLAN_STRIP_EN_SHIFT		24
- 
--#define NIC_CFG_RSS_HASH_TYPE_IPV4		(1 << 0)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV4		(1 << 1)
--#define NIC_CFG_RSS_HASH_TYPE_IPV6		(1 << 2)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6		(1 << 3)
--#define NIC_CFG_RSS_HASH_TYPE_IPV6_EX		(1 << 4)
--#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX	(1 << 5)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV4		(1 << 1)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV4		(1 << 2)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV6		(1 << 3)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6		(1 << 4)
-+#define NIC_CFG_RSS_HASH_TYPE_IPV6_EX		(1 << 5)
-+#define NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX	(1 << 6)
- 
- static inline void vnic_set_nic_cfg(u32 *nic_cfg,
- 	u8 rss_default_cpu, u8 rss_hash_type,
+>  drivers/net/wireless/Kconfig   |   11 +
+>  drivers/net/wireless/Makefile  |    2 +
+>  drivers/net/wireless/adf702x.c |  788 ++++++++++++++++++++++++++++++++++++++++
+>  include/linux/spi/adf702x.h    |   33 ++
+>  4 files changed, 834 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/wireless/adf702x.c
+>  create mode 100644 include/linux/spi/adf702x.h
+
+And why is the header file under SPI includes. It could be as easily in
+the same directory as the driver *.c file itself. No reason to spread it
+over the whole tree if nothing else includes it.
+
+Regards
+
+Marcel
+
 
