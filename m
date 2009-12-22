@@ -1,55 +1,129 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH] wireless: adf702x: new driver for
-	ADF7020/21 parts
-Date: Tue, 22 Dec 2009 08:09:43 -0500
-Message-ID: <8bd0f97a0912220509w641a4e2cv615bc6d690cabab0@mail.gmail.com>
-References: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
-	<1261451102.4041.170.camel@localhost.localdomain> <8A42379416420646B9BFAC9682273B6D0EF11EC1@limkexm3.ad.analog.com>
-	<1261486016.609.4.camel@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: via_rhine kernel crashes in 2.6.32
+Date: Tue, 22 Dec 2009 13:21:07 +0000
+Message-ID: <20091222132107.GA9060@ff.dom.local>
+References: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de> <20091222123211.GA8546@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Hennerich, Michael" <Michael.Hennerich@analog.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Rahmatullin <wrar@altlinux.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org
+To: Christian Kujau <lists@nerdbynature.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:64677 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbZLVNKE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 08:10:04 -0500
-Received: by yxe17 with SMTP id 17so5804122yxe.33
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2009 05:10:03 -0800 (PST)
-In-Reply-To: <1261486016.609.4.camel@localhost.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.158]:34426 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbZLVNVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 08:21:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20091222123211.GA8546@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 22, 2009 at 07:46, Marcel Holtmann wrote:
->> >> =C2=A0drivers/net/wireless/Kconfig =C2=A0 | =C2=A0 11 +
->> >> =C2=A0drivers/net/wireless/Makefile =C2=A0| =C2=A0 =C2=A02 +
->> >> =C2=A0drivers/net/wireless/adf702x.c | =C2=A0788
->> >> =C2=A0include/linux/spi/adf702x.h =C2=A0 =C2=A0| =C2=A0 33 ++
->> >> =C2=A04 files changed, 834 insertions(+), 0 deletions(-)
->> >> =C2=A0create mode 100644 drivers/net/wireless/adf702x.c
->> >> =C2=A0create mode 100644 include/linux/spi/adf702x.h
->> >
->> >And why is the header file under SPI includes. It could be as easil=
-y in
->> >the same directory as the driver *.c file itself. No reason to spre=
-ad it
->> >over the whole tree if nothing else includes it.
->>
->> It under include/linux/spi/ because it includes platform data which =
-is used by board support files.
->
-> that is no argument to move it there. It is a driver specific header =
-and
-> so keep it in the same location as the driver itself.
+On Tue, Dec 22, 2009 at 12:32:11PM +0000, Jarek Poplawski wrote:
+> It looks like napi_disable() should be illegal in ndo_tx_timeout().
+> Here is a patch which moves most of the timeout work to a workqueue,
+> similarly to tg3 etc. It should prevent at least one of reported
+> bugs. Alas I can't even check-compile it at the moment, so let me
+> know on any problems.
 
-that is incorrect.  for devices that need platform resources, the
-structure is in a header in the include/ tree.  it cannot be in
-drivers/net/ where boards are unable to include it.
+It seems I needlessly changed locking btw, so here it is again.
 
-whether it goes in linux/spi/ or linux/net/ or somewhere else we dont
-really care.  linux/spi/ seems to be the best match so far.
--mike
+Jarek P.
+
+--- (take 2)
+
+ drivers/net/via-rhine.c |   37 ++++++++++++++++++++++++++-----------
+ 1 files changed, 26 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 593e01f..15a4063 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -102,6 +102,7 @@ static const int multicast_filter_limit = 32;
+ #include <linux/ethtool.h>
+ #include <linux/crc32.h>
+ #include <linux/bitops.h>
++#include <linux/workqueue.h>
+ #include <asm/processor.h>	/* Processor type for cache alignment. */
+ #include <asm/io.h>
+ #include <asm/irq.h>
+@@ -389,6 +390,7 @@ struct rhine_private {
+ 	struct net_device *dev;
+ 	struct napi_struct napi;
+ 	spinlock_t lock;
++	struct work_struct reset_task;
+ 
+ 	/* Frequently used values: keep some adjacent for cache effect. */
+ 	u32 quirks;
+@@ -407,6 +409,7 @@ struct rhine_private {
+ static int  mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
+ static int  rhine_open(struct net_device *dev);
++static void rhine_reset_task(struct work_struct *work);
+ static void rhine_tx_timeout(struct net_device *dev);
+ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+ 				  struct net_device *dev);
+@@ -775,6 +778,8 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
+ 	dev->irq = pdev->irq;
+ 
+ 	spin_lock_init(&rp->lock);
++	INIT_WORK(&rp->reset_task, rhine_reset_task);
++
+ 	rp->mii_if.dev = dev;
+ 	rp->mii_if.mdio_read = mdio_read;
+ 	rp->mii_if.mdio_write = mdio_write;
+@@ -1179,15 +1184,11 @@ static int rhine_open(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static void rhine_tx_timeout(struct net_device *dev)
++static void rhine_reset_task(struct work_struct *work)
+ {
+-	struct rhine_private *rp = netdev_priv(dev);
+-	void __iomem *ioaddr = rp->base;
+-
+-	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
+-	       "%4.4x, resetting...\n",
+-	       dev->name, ioread16(ioaddr + IntrStatus),
+-	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
++	struct rhine_private *rp = container_of(work, struct rhine_private,
++					        reset_task);
++	struct net_device *dev = rp->dev;
+ 
+ 	/* protect against concurrent rx interrupts */
+ 	disable_irq(rp->pdev->irq);
+@@ -1214,6 +1215,19 @@ static void rhine_tx_timeout(struct net_device *dev)
+ 	netif_wake_queue(dev);
+ }
+ 
++static void rhine_tx_timeout(struct net_device *dev)
++{
++	struct rhine_private *rp = netdev_priv(dev);
++	void __iomem *ioaddr = rp->base;
++
++	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
++	       "%4.4x, resetting...\n",
++	       dev->name, ioread16(ioaddr + IntrStatus),
++	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
++
++	schedule_work(&rp->reset_task);
++}
++
+ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+ 				  struct net_device *dev)
+ {
+@@ -1830,10 +1844,11 @@ static int rhine_close(struct net_device *dev)
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	void __iomem *ioaddr = rp->base;
+ 
+-	spin_lock_irq(&rp->lock);
+-
+-	netif_stop_queue(dev);
+ 	napi_disable(&rp->napi);
++	cancel_work_sync(&rp->reset_task);
++	netif_stop_queue(dev);
++
++	spin_lock_irq(&rp->lock);
+ 
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
