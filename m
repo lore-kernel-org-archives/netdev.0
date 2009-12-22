@@ -1,121 +1,94 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Tue, 22 Dec 2009 09:31:32 -0600
-Message-ID: <4B30E654.40702@codemonkey.ws>
-References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu>	<4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com>	<4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws>	<4B2FA655.6030205@gmail.com> <4B2FAE7B.9030005@codemonkey.ws>	<4B2FB3F1.5080808@gmail.com> <4B300EF8.8010602@codemonkey.ws> <87637zdy9g.fsf@basil.nowhere.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH] wireless: adf702x: new driver for ADF7020/21 parts
+Date: Tue, 22 Dec 2009 16:02:09 +0000
+Message-ID: <1261497729.2845.8.camel@achroite.uk.solarflarecom.com>
+References: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
+	 <1261453449.25157.367.camel@localhost>
+	 <8A42379416420646B9BFAC9682273B6D0EF11F8A@limkexm3.ad.analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <87637zdy9g.fsf@basil.nowhere.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: "Hennerich, Michael" <Michael.Hennerich@analog.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:10790 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753477AbZLVQCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 11:02:13 -0500
+In-Reply-To: <8A42379416420646B9BFAC9682273B6D0EF11F8A@limkexm3.ad.analog.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/22/2009 05:49 AM, Andi Kleen wrote:
-> Anthony Liguori<anthony@codemonkey.ws>  writes:
->    
->> On a modern Nehalem, I would be surprised if an MMIO exit handled in
->> the kernel was muck more than 2us.  The hardware is getting very, very
->> fast.  The trends here are very important to consider when we're
->> looking at architectures that we potentially are going to support for
->> a long time.
->>      
-> When you talk about trends the trend for IO is also to get faster.
->
-> An exit will be always more expensive than passing something from
-> another CPU in shared memory. An exit is much more work,
-> with lots of saved context and fundamentally synchronous,
-> even with all the tricks hardware can do.  And then there's the
-> in kernel handler too.
->    
+On Tue, 2009-12-22 at 11:46 +0000, Hennerich, Michael wrote:
+[...]
+> >
+> >> +	unsigned rx:1;
+> >> +	unsigned rx_size;
+> >> +	u32 *rx_buf;
+> >> +	u32 *tx_buf;
+> >> +
+> >> +	/* Base reg base of SPORT controller */
+> >> +	volatile struct sport_register *sport;
+> >
+> >MMIO pointers should normally be declared like:
+> >
+> >	struct sport_register __iomem *sport;
+> >
+> >and used with readl, writel etc.
+> 
+> Well SPORT is a SoC peripheral it's mapped into Blackfin System MMR space.
+> Our versions of readX writeX are implemented for off-chip peripherals.
+> If you take a look at Blackfin io.h you will notice that we disable global interrupts, 
+> to avoid killed and reissued reads. This is not necessary for the System MMR space.   
+> 
+> Preferably I like to keep this as is, but I could also change it to use the 
+> Blackfin MMR accessor functions bfin_read{32,16} bfin_write{32,16}  
 
-Noone is advocating avoiding shared memory and doing more exits in the 
-IO path :-)
+I don't know any specifics of the Blackfin architecture, so you should
+probably do what you think best!
 
-Whether it's x2apic support or whether it's more sophisicated hardware 
-apic virtualization support, the point remains that taking an exit due 
-to EOI is likely to not be required in the near term future.
+[...]
+> >> +static irqreturn_t adf702x_rx_interrupt(int irq, void *dev_id)
+> >> +{
+> >[...]
+> >> +			lp->rx_size = adf702x_getrxsize(lp, offset);
+> >> +			if (offset == 1) {
+> >> +				set_dma_x_count(lp->dma_ch_rx, lp->rx_size);
+> >> +				set_dma_start_addr(lp->dma_ch_rx,
+> >> +					(unsigned long)lp->rx_buf);
+> >> +			} else {
+> >> +				lp->rx_buf[0] = lp->rx_buf[3];
+> >> +				set_dma_x_count(lp->dma_ch_rx, lp->rx_size - 1);
+> >> +				set_dma_start_addr(lp->dma_ch_rx,
+> >> +					(unsigned long)&lp->rx_buf[1]);
+> >> +			}
+> >> +			enable_dma(lp->dma_ch_rx);
+> >> +			SSYNC();
+> >
+> >Is this some odd kind of memory barrier?
+> 
+> Well - it's an instruction that ensures that the write buffers are flushed and all instructions executed. 
 
-So far, the only actual technical advantage I've seen is that vbus 
-avoids EOI exits.  My response is that I don't think that that's so 
-important especially when you consider that it's going to not matter so 
-much in the future and that Avi has some ideas about how to eliminate 
-some of them even on older hardware.  I'm also suspicious that EOI exits 
-alone would result in a huge performance differiental between the two 
-architectures.
+I suspect you only need a write memory barrier here (wmb()) not a
+pipeline flush.
 
-We think we understand why vbus does better than the current userspace 
-virtio backend.  That's why we're building vhost-net.  It's not done 
-yet, but our expectation is that it will do just as well if not better.
+[...]
+> >> +	ndev->mtu = 576;
+> >
+> >Even though you use Ethernet frames?
+> 
+> We could stick with the default MTU - but it would worsen the overall response time.
+[...]
 
-> Shared memory passing from another CPU is a much cheaper
-> operation and more likely to scale with IO rate improvements.
->
-> The basic problem in this discussion seems to be the usual
-> disconnect between working code (I understand Gregory has working
-> code that demonstrates the performance advances he's claiming)
-> versus unwritten optimizations.
->    
+Do what you think is best; I was just checking that you have a good
+reason for this.
 
-vbus has one driver (networking) that supports one guest (very new Linux 
-kernels).  It supports one hypervisor (KVM) on one architecture (x86).
+Ben,
 
-On the other hand, virtio has six upstream drivers (console, network, 
-block, rng, balloon, 9p) with at least as many in development.  It 
-supports kernels going back to at least 2.6.18, almost all versions of 
-Windows, and has experimental drivers for other OSes.  It supports KVM, 
-lguest, VirtualBox, with support for additional hypervisors under 
-development.  It supports at least five architectures (x86, ppc, s390, 
-ia64, arm).
-
-You are correct, vbus has better numbers than virtio today.  But so far, 
-it's hardly an apples-to-apples comparison.  Our backend networking 
-driver has been implemented entirely in userspace up until very 
-recently.  There really isn't any good performance data comparing vbus 
-to vhost-net largely because vhost-net is still under active development.
-
-The most important point though, is that so far, I don't think Greg has 
-been able to articulate _why_ vbus would perform better than vhost-net.
-
-If that can be articulated in a way that we all agree vbus has a 
-technical advantage over vhost-net, then I'm absolutely in agreement 
-that it should be merged.
-
-I think the comparison would be if someone submitted a second e1000 
-driver that happened to do better on one netperf test than the current 
-e1000 driver.
-
-You can argue, hey, choice is good, let's let a user choose if they want 
-to use the faster e1000 driver.  But surely, the best thing for a user 
-is to figure out why the second e1000 driver is better on that one test, 
-integrate that change into the current e1000 driver, or decided that the 
-new e1000 driver is more superior in architecture and do the required 
-work to make the new e1000 driver a full replacement for the old one.
-
-Regards,
-
-Anthony Liguori
-
-> Unwritten code tends to always sound nicer, but it remains to be seen
-> if it can deliver what it promises.
->
->  From a abstract stand point having efficient paravirtual IO interfaces
-> seem attractive.
->
-> I also personally don't see a big problem in having another set of
-> virtual drivers -- Linux already has plenty (vmware, xen, virtio, power,
-> s390-vm, ...) and it's not that they would be a particular maintenance
-> burden impacting the kernel core.
->
-> -Andi
->    
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
