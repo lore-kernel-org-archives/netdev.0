@@ -1,57 +1,85 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] ixgbe: fix Need to call pci_save_state after
-	pci_restore_state
-Date: Tue, 22 Dec 2009 12:45:20 -0800
-Message-ID: <20091222204456.14196.63456.stgit@localhost.localdomain>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Tue, 22 Dec 2009 15:14:18 -0600
+Message-ID: <4B3136AA.50204@codemonkey.ws>
+References: <4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws> <4B2FA655.6030205@gmail.com> <4B2FAE7B.9030005@codemonkey.ws> <4B2FB3F1.5080808@gmail.com> <4B300EF8.8010602@codemonkey.ws> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <20091222162110.GG10314@basil.fritz.box> <4B30F375.6050103@codemonkey.ws> <20091222173326.GH10314@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:53236
-	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751402AbZLVUpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 15:45:42 -0500
+Received: from mail-qy0-f194.google.com ([209.85.221.194]:41976 "EHLO
+	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613AbZLVVOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 16:14:24 -0500
+In-Reply-To: <20091222173326.GH10314@basil.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On 12/22/2009 11:33 AM, Andi Kleen wrote:
+>> We're not talking about vaporware.  vhost-net exists.
+>>      
+> Is it as fast as the alacrityvm setup then e.g. for network traffic?
+>
+> Last I heard the first could do wirespeed 10Gbit/s on standard hardware.
+>    
 
-This patch adds a pci_save_state() call in ixgbe_resume() after
-pci_restore_state(). A similar change was made in ixgbe_io_slot_reset()
-that accommodates pci_restore_state() new behavior. This change makes
-pci_restore_state() clear the saved_state flag This is necessary due
-to a resent kernel change to pci_restore_state() so that it now clears
-the saved_state flag of the device right after the device.s standard
-configuration registers have been poplulated with the previously saved
-values.
+I'm very wary of any such claims.  As far as I know, no one has done an 
+exhaustive study of vbus and published the results.  This is why it's so 
+important to understand why the results are what they are when we see 
+numbers posted.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+For instance, check out 
+http://www.redhat.com/f/pdf/summit/cwright_11_open_source_virt.pdf slide 32.
 
- drivers/net/ixgbe/ixgbe_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+These benchmarks show KVM without vhost-net pretty closely pacing 
+native.  With large message sizes, it's awfully close to line rate.
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index bd64387..1a2ea62 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4373,6 +4373,11 @@ static int ixgbe_resume(struct pci_dev *pdev)
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
-+	/*
-+	 * pci_restore_state clears dev->state_saved so call
-+	 * pci_save_state to restore it.
-+	 */
-+	pci_save_state(pdev);
- 
- 	err = pci_enable_device_mem(pdev);
- 	if (err) {
+Comparatively speaking, consider 
+http://developer.novell.com/wiki/index.php/AlacrityVM/Results
+
+vbus here is pretty far off of native and virtio-net is ridiculus.
+
+Why are the results so different?  Because benchmarking is fickle and 
+networking performance is complicated.  No one benchmarking scenario is 
+going to give you a very good picture overall.  It's also relatively 
+easy to stack the cards in favor of one approach verses another.  The 
+virtio-net setup probably made extensive use of pinning and other tricks 
+to make things faster than a normal user would see them.  It ends up 
+creating a perfect combination of batching which is pretty much just 
+cooking the mitigation schemes to do extremely well for one benchmark.
+
+This is why it's so important to look at vbus from the perspective of 
+critically asking, what precisely makes it better than virtio.  A couple 
+benchmarks on a single piece of hardware does not constitute an 
+existence proof that it's better overall.
+
+There are a ton of differences between virtio and vbus because vbus was 
+written in a vacuum wrt virtio.  I'm not saying we are totally committed 
+to virtio no matter what, but it should take a whole lot more than a 
+couple netperf runs on a single piece of hardware for a single kind of 
+driver to justify replacing it.
+
+> Can vhost-net do the same thing?
+
+I think the fundamentally question is, what makes vbus better than 
+vhost-net?  vhost-net exists and is further along upstream than vbus is 
+at the moment.  If that question cannot be answered with technical facts 
+and numbers to back them up, then we're just arguing for the sake of 
+arguing.
+
+Regards,
+
+Anthony Liguori
+
+> -Andi
+>    
 
