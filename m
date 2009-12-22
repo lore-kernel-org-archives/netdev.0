@@ -1,55 +1,55 @@
-From: "Hennerich, Michael" <Michael.Hennerich@analog.com>
-Subject: RE: [PATCH] wireless: adf702x: new driver for ADF7020/21 parts
-Date: Tue, 22 Dec 2009 12:56:06 +0000
-Message-ID: <8A42379416420646B9BFAC9682273B6D0EF12026@limkexm3.ad.analog.com>
-References: <1261447929-17106-1-git-send-email-vapier@gentoo.org> <1261451102.4041.170.camel@localhost.localdomain> <8A42379416420646B9BFAC9682273B6D0EF11EC1@limkexm3.ad.analog.com> <1261486016.609.4.camel@localhost.localdomain>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH] wireless: adf702x: new driver for
+	ADF7020/21 parts
+Date: Tue, 22 Dec 2009 08:09:43 -0500
+Message-ID: <8bd0f97a0912220509w641a4e2cv615bc6d690cabab0@mail.gmail.com>
+References: <1261447929-17106-1-git-send-email-vapier@gentoo.org>
+	<1261451102.4041.170.camel@localhost.localdomain> <8A42379416420646B9BFAC9682273B6D0EF11EC1@limkexm3.ad.analog.com>
+	<1261486016.609.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Mike Frysinger" <vapier@gentoo.org>, <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	<uclinux-dist-devel@blackfin.uclinux.org>
-To: "Marcel Holtmann" <marcel@holtmann.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Hennerich, Michael" <Michael.Hennerich@analog.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail11.analog.com ([137.71.25.57]:15761 "EHLO
-	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752529AbZLVM43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 07:56:29 -0500
-Content-Class: urn:content-classes:message
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:64677 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbZLVNKE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 08:10:04 -0500
+Received: by yxe17 with SMTP id 17so5804122yxe.33
+        for <netdev@vger.kernel.org>; Tue, 22 Dec 2009 05:10:03 -0800 (PST)
 In-Reply-To: <1261486016.609.4.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpIaSBNYXJjZWwsDQoNCj5Gcm9tOiBNYXJjZWwgSG9sdG1hbm4gW21haWx0bzptYXJjZWxAaG9s
-dG1hbm4ub3JnXQ0KPg0KPkhpIE1pY2hhZWwsDQo+DQo+PiA+PiBUaGlzIGlzIGEgZHJpdmVyIGZv
-ciBBbmFsb2cgRGV2aWNlcyBzZXJpZXMgb2YgQURGNzAyeCBOYXJyb3ctQmFuZA0KPj4gPj4gU2hv
-cnQtUmFuZ2UgUmFkaW8gVHJhbnNjZWl2ZXIgY2hpcHNldHMsIGluY2x1ZGluZyB0aGUgQURGNzAy
-MSBhbmQNCj4+ID4+IHRoZSBBREY3MDI1LiAgVGhpcyBFdGhlcm5ldCBsaWtlIGRyaXZlciBpbXBs
-ZW1lbnRzIGEgY3VzdG9tDQo+PiA+PiBzb2Z0d2FyZSBQSFkuDQo+PiA+DQo+PiA+d2hpbGUgaXQg
-bWlnaHQgYmUgYSBsaXR0bGUgYml0IGNvbmZ1c2luZywgYnV0IHRoZSB3aXJlbGVzcyBkaXJlY3Rv
-cnkNCj4+ID5ub3JtYWxseSBvbmx5IGNvbnRhaW5zIFdpcmVsZXNzIExBTiAoYWthIDgwMi4xMSBh
-bmQgYWxpa2UpIGRyaXZlcnMuDQo+PiA+DQo+PiA+SWYgdGhpcyBpbXBsZW1lbnRzIHNvbWUgc29y
-dCBvZiBFdGhlcm5ldCBkcml2ZXIsIHRoZW4gaXQgbWlnaHQgYmUNCj5iZXR0ZXINCj4+ID50byBq
-dXN0IHB1dCBpdCB1bmRlciBkcml2ZXJzL25ldC8gdG8gbm90IGludGVybWl4IGFuZCBjb25mdXNl
-IGl0IHdpdGgNCj4+ID5hY3R1YWxseSA4MDIuMTEgZHJpdmVycy4NCj4+DQo+PiBObyBwcm9ibGVt
-IHdlIGNhbiByZWxvY2F0ZQ0KPj4NCj4+ID4NCj4+ID4+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9L
-Y29uZmlnICAgfCAgIDExICsNCj4+ID4+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9NYWtlZmlsZSAg
-fCAgICAyICsNCj4+ID4+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9hZGY3MDJ4LmMgfCAgNzg4DQo+
-PiA+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPj4gPj4gIGluY2x1
-ZGUvbGludXgvc3BpL2FkZjcwMnguaCAgICB8ICAgMzMgKysNCj4+ID4+ICA0IGZpbGVzIGNoYW5n
-ZWQsIDgzNCBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KPj4gPj4gIGNyZWF0ZSBtb2Rl
-IDEwMDY0NCBkcml2ZXJzL25ldC93aXJlbGVzcy9hZGY3MDJ4LmMNCj4+ID4+ICBjcmVhdGUgbW9k
-ZSAxMDA2NDQgaW5jbHVkZS9saW51eC9zcGkvYWRmNzAyeC5oDQo+PiA+DQo+PiA+QW5kIHdoeSBp
-cyB0aGUgaGVhZGVyIGZpbGUgdW5kZXIgU1BJIGluY2x1ZGVzLiBJdCBjb3VsZCBiZSBhcyBlYXNp
-bHkNCj5pbg0KPj4gPnRoZSBzYW1lIGRpcmVjdG9yeSBhcyB0aGUgZHJpdmVyICouYyBmaWxlIGl0
-c2VsZi4gTm8gcmVhc29uIHRvIHNwcmVhZA0KPml0DQo+PiA+b3ZlciB0aGUgd2hvbGUgdHJlZSBp
-ZiBub3RoaW5nIGVsc2UgaW5jbHVkZXMgaXQuDQo+Pg0KPj4gSXQgdW5kZXIgaW5jbHVkZS9saW51
-eC9zcGkvIGJlY2F1c2UgaXQgaW5jbHVkZXMgcGxhdGZvcm0gZGF0YSB3aGljaCBpcw0KPnVzZWQg
-YnkgYm9hcmQgc3VwcG9ydCBmaWxlcy4NCj4NCj50aGF0IGlzIG5vIGFyZ3VtZW50IHRvIG1vdmUg
-aXQgdGhlcmUuIEl0IGlzIGEgZHJpdmVyIHNwZWNpZmljIGhlYWRlciBhbmQNCj5zbyBrZWVwIGl0
-IGluIHRoZSBzYW1lIGxvY2F0aW9uIGFzIHRoZSBkcml2ZXIgaXRzZWxmLg0KPg0KPlJlZ2FyZHMN
-Cj4NCj5NYXJjZWwNCj4NCg0KTW9zdCBvZiB0aGUgb3RoZXIgaW5jbHVkZSBmaWxlcyB1bmRlciBp
-bmNsdWRlL3NwaSwgaW5jbHVkZS9pMmMsIGluY2x1ZGUvbWZkLCBpbmNsdWRlL2lucHV0IGFyZSB0
-aGVyZSBmb3IgZXhhY3RseSB0aGUgc2FtZSByZWFzb24uDQpJIGNvbnNpZGVyIGl0IGNvbW1vbiBw
-cmFjdGljZSB0byBsb2NhdGUgc3RydWN0IHBsYXRmb3JtIGRhdGEgaW4gdGhlIGluY2x1ZGVzIGFu
-ZCBub3QgaW4gdGhlIGRyaXZlcnMuDQoNCi1NaWNoYWVsDQoNCg==
+On Tue, Dec 22, 2009 at 07:46, Marcel Holtmann wrote:
+>> >> =C2=A0drivers/net/wireless/Kconfig =C2=A0 | =C2=A0 11 +
+>> >> =C2=A0drivers/net/wireless/Makefile =C2=A0| =C2=A0 =C2=A02 +
+>> >> =C2=A0drivers/net/wireless/adf702x.c | =C2=A0788
+>> >> =C2=A0include/linux/spi/adf702x.h =C2=A0 =C2=A0| =C2=A0 33 ++
+>> >> =C2=A04 files changed, 834 insertions(+), 0 deletions(-)
+>> >> =C2=A0create mode 100644 drivers/net/wireless/adf702x.c
+>> >> =C2=A0create mode 100644 include/linux/spi/adf702x.h
+>> >
+>> >And why is the header file under SPI includes. It could be as easil=
+y in
+>> >the same directory as the driver *.c file itself. No reason to spre=
+ad it
+>> >over the whole tree if nothing else includes it.
+>>
+>> It under include/linux/spi/ because it includes platform data which =
+is used by board support files.
+>
+> that is no argument to move it there. It is a driver specific header =
+and
+> so keep it in the same location as the driver itself.
+
+that is incorrect.  for devices that need platform resources, the
+structure is in a header in the include/ tree.  it cannot be in
+drivers/net/ where boards are unable to include it.
+
+whether it goes in linux/spi/ or linux/net/ or somewhere else we dont
+really care.  linux/spi/ seems to be the best match so far.
+-mike
