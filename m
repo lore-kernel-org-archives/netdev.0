@@ -1,236 +1,162 @@
-From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
-Subject: Re: Still using IPTOS_TOS() in kernel? Really???
-Date: Tue, 22 Dec 2009 13:28:56 +0100
-Message-ID: <200912221328.56573.schmto@hrz.tu-chemnitz.de>
-References: <4B298118.2000608@redfish-solutions.com> <200912212150.34727.schmto@hrz.tu-chemnitz.de> <4B2FE882.3080207@redfish-solutions.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: via_rhine kernel crashes in 2.6.32
+Date: Tue, 22 Dec 2009 12:32:11 +0000
+Message-ID: <20091222123211.GA8546@ff.dom.local>
+References: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_IuLMLyCJc+qewmg"
-To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Rahmatullin <wrar@altlinux.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org
+To: Christian Kujau <lists@nerdbynature.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jack.hrz.tu-chemnitz.de ([134.109.132.46]:38385 "EHLO
-	jack.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbZLVM27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 07:28:59 -0500
-In-Reply-To: <4B2FE882.3080207@redfish-solutions.com>
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:36685 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801AbZLVMcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 07:32:19 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_IuLMLyCJc+qewmg
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+On 21-12-2009 20:32, Christian Kujau wrote:
+> On Mon, 21 Dec 2009 at 23:18, Andrey Rahmatullin wrote:
+>> I've installed 2.6.27, the earliest kernel supported by udev 149. I
+> [...]
+>> one of downloads, waited for some time, nothing happened. I resumed the
+>> second download, the kernel crashed into an endless stream of backtraces
+>> (did 2.6.27 support pause_on_oops?), containing "whatever from the idle
+>> thread", or smth like that, which was also in other crash logs.
+> 
+> So, 2.6.27 crashed as well. Was the backtrace similar to those on 2.6.30? 
+> I know it's a long shot, but since you seem to be able to reproduce this 
+> pretty reliably, can you try 2.6.23? Or at least something before 
+> bea3348eef27e6044b6161fd04c3152215f96411 [0]?
+> 
+> Christian.
+> 
+> [0] I'm *really* guessing here, if some netdev guru has some better
+>     understanding of the backtraces Andrey sent, please step forward.
 
-> I'll poke around and see if I can figure out how that works...
-> 
-> Looking at include/linux/pkt_sched.h:
-> 
-> #define TC_PRIO_BESTEFFORT              0
-> #define TC_PRIO_FILLER                  1
-> #define TC_PRIO_BULK                    2
-> #define TC_PRIO_INTERACTIVE_BULK        4
-> #define TC_PRIO_INTERACTIVE             6
-> #define TC_PRIO_CONTROL                 7
-> 
-> it seems that these TC priorities are just random, unrelated buckets and
->  their ordinality has no relation to their priority.  Is that correct?
-No.
+It looks like napi_disable() should be illegal in ndo_tx_timeout().
+Here is a patch which moves most of the timeout work to a workqueue,
+similarly to tg3 etc. It should prevent at least one of reported
+bugs. Alas I can't even check-compile it at the moment, so let me
+know on any problems.
+
+Jarek P.
+
+---
+
+ drivers/net/via-rhine.c |   41 ++++++++++++++++++++++++++++-------------
+ 1 files changed, 28 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 593e01f..125406b 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -102,6 +102,7 @@ static const int multicast_filter_limit = 32;
+ #include <linux/ethtool.h>
+ #include <linux/crc32.h>
+ #include <linux/bitops.h>
++#include <linux/workqueue.h>
+ #include <asm/processor.h>	/* Processor type for cache alignment. */
+ #include <asm/io.h>
+ #include <asm/irq.h>
+@@ -389,6 +390,7 @@ struct rhine_private {
+ 	struct net_device *dev;
+ 	struct napi_struct napi;
+ 	spinlock_t lock;
++	struct work_struct reset_task;
  
-1.Type Of Service Field is defined in RFC 791:
-Bits 0-2:  Precedence.
-Bit    3:  0 = Normal Delay,      1 = Low Delay.
-Bit    4:  0 = Normal Throughput, 1 = High Throughput.
-Bit    5:  0 = Normal Reliability, 1 = High Reliability.
-Bits 6-7:  ECN (RFC 3168). ECN-ECT, ECN-CE
-
-2. include/net/route.h
-static inline char rt_tos2priority(u8 tos)
-{
-	return ip_tos2prio[IPTOS_TOS(tos)>>1];
-}
-
-- IPTOS_TOS(tos), masks 0001.1110 
-  (from left: Delay, Throughput, Reliability, ECN-ECT)
-- IPTOS_TOS(tos)>>1, generates: 0000.1111
-  value range: 0 .. 15.
-- ip_tos2prio [ IPTOS_TOS(tos)>>1 ], 
-  lookup table:
-
-3. net/ipv4/route.c 
-const __u8 ip_tos2prio[16] = {
-	TC_PRIO_BESTEFFORT,
-	ECN_OR_COST(FILLER),
-	TC_PRIO_BESTEFFORT,
-	ECN_OR_COST(BESTEFFORT),
-	TC_PRIO_BULK,
-	ECN_OR_COST(BULK),
-	TC_PRIO_BULK,
-	ECN_OR_COST(BULK),
-	TC_PRIO_INTERACTIVE,
-	ECN_OR_COST(INTERACTIVE),
-	TC_PRIO_INTERACTIVE,
-	ECN_OR_COST(INTERACTIVE),
-	TC_PRIO_INTERACTIVE_BULK,
-	ECN_OR_COST(INTERACTIVE_BULK),
-	TC_PRIO_INTERACTIVE_BULK,
-	ECN_OR_COST(INTERACTIVE_BULK)
-};
-
-with resolved defines it would look like:
-const __u8 ip_tos2prio[16] = {0 1 0 0  2 2 2 2  6 6 6 6  4 4 4 4 };
-
-So y = rt_tos2priority(x) maps:
-- - - - - - - - - - -
-x	y	bin(x)
-0	0	0000
-1	1	0001	-> ECN - ECT bit set
-2	0	0010	-> High Reliability bit set
-3	0	0011
-4	2	0100	-> High Throughput bit set
-5	2	0101
-6	2	0110
-7	2	0111
-8	6	1000	-> Low Delay bit set
-9	6	1001
-10	6	1010
-11	6	1011
-12	4	1100
-13	4	1101
-14	4	1110
-15	4	1111
-
-4. 
-High Reliability gets priority 0.
-High Throughput gets priority 2.
-Low Delay gets highest priority 6.
-
-priority:
--> Low Delay (6), High Throughput (2), High Reliability (0) !
-
-5.
-> If that's the case, then you *can't* just do:
-> static inline char rt_dscp2priority(u8 tos)
-> {
-> 	return IPTOS_PREC(tos)>>5;
-> }
-> 
-> for instance.  No, that would be too easy.  :-)
-No, thats right. You map:
-
-y = rt_dscp2priority(x)
-y	x
-- - - - - - - -
-0	CS0
-1	CS1
-2	CS2
-3	CS3
-4	CS4
-5	CS5
-6	CS6
-7	CS7
-
-This IMHO is compliant to RFC 2474. 
-
-6. So we simply need to do:
-static inline char rt_tos2priority(u8 tos)
-{
-#ifdef CONFIG_IP_DIFFSERV_COMPLIANT
-	return tos >> 5;
-#else
-	return ip_tos2prio[IPTOS_TOS(tos)>>1];
-#endif
-}
-
-7. -> See [PATCH]: ipv4: add DiffServ priority based routing
-    
-    Enables IPv4 Differentiated Services support for IP priority based
-    routing. Notice that the IP TOS field was redefined 1998 to DiffServ
-    (RFC 2474). Type Of Service is deprecated since 1998 !
-    
-    This patch adds a compliant flag to net/ipv4/Kconfig, which allows
-    the user to select DiffServ ore TOS priority based routing. Default
-    answer is TOS.
-    
-    Signed-off-by: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
-
-
-Torsten
-
-
-
---Boundary-00=_IuLMLyCJc+qewmg
-Content-Type: text/x-patch;
-  charset="UTF-8";
-  name="0001-ipv4-add-DiffServ-priority-based-routing.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="0001-ipv4-add-DiffServ-priority-based-routing.patch"
-
-=46rom e7539f1d3620286559d298b81dc5ca1672af4733 Mon Sep 17 00:00:00 2001
-=46rom: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
-Date: Tue, 22 Dec 2009 12:49:54 +0100
-Subject: [PATCH] ipv4: add DiffServ priority based routing
-
-Enables IPv4 Differentiated Services support for IP priority based
-routing. Notice that the IP TOS field was redefined 1998 to DiffServ
-(RFC 2474). Type Of Service is deprecated since 1998 !
-
-This patch adds a compliant flag to net/ipv4/Kconfig, which allows
-the user to select DiffServ ore TOS priority based routing. Default
-answer is TOS.
-
-Signed-off-by: Torsten Schmidt <schmto@hrz.tu-chemnitz.de>
-=2D--
- include/net/route.h |    4 ++++
- net/ipv4/Kconfig    |   15 +++++++++++++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index 40f6346..8bf43a5 100644
-=2D-- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -141,7 +141,11 @@ extern const __u8 ip_tos2prio[16];
-=20
- static inline char rt_tos2priority(u8 tos)
- {
-+#ifdef CONFIG_IP_DIFFSERV_COMPLIANT
-+	return tos >> 5;
-+#else
- 	return ip_tos2prio[IPTOS_TOS(tos)>>1];
-+#endif
+ 	/* Frequently used values: keep some adjacent for cache effect. */
+ 	u32 quirks;
+@@ -407,6 +409,7 @@ struct rhine_private {
+ static int  mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
+ static int  rhine_open(struct net_device *dev);
++static void rhine_reset_task(struct work_struct *work);
+ static void rhine_tx_timeout(struct net_device *dev);
+ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+ 				  struct net_device *dev);
+@@ -775,6 +778,8 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
+ 	dev->irq = pdev->irq;
+ 
+ 	spin_lock_init(&rp->lock);
++	INIT_WORK(&rp->reset_task, rhine_reset_task);
++
+ 	rp->mii_if.dev = dev;
+ 	rp->mii_if.mdio_read = mdio_read;
+ 	rp->mii_if.mdio_write = mdio_write;
+@@ -1179,22 +1184,18 @@ static int rhine_open(struct net_device *dev)
+ 	return 0;
  }
-=20
- static inline int ip_route_connect(struct rtable **rp, __be32 dst,
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index b0d3cef..b2a79e5 100644
-=2D-- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -272,6 +272,21 @@ config IP_PIMSM_V2
- 	  gated-5). This routing protocol is not used widely, so say N unless
- 	  you want to play with it.
-=20
-+config IP_DIFFSERV_COMPLIANT
-+	bool "IP: DiffServ priority routing"
-+	default n
-+	help
-+	  Enables IPv4 Differentiated Services support for IP priority based
-+	  routing. If you say YES here, TOS priority based routing is disabled.
-+	  Notice that the IP TOS field was redefined 1998 to DiffServ (RFC 2474).=
-=20
-+	  Type Of Service is deprecated since 1998 ! So in future default answer
-+	  should be YES.=20
+ 
+-static void rhine_tx_timeout(struct net_device *dev)
++static void rhine_reset_task(struct work_struct *work)
+ {
+-	struct rhine_private *rp = netdev_priv(dev);
+-	void __iomem *ioaddr = rp->base;
+-
+-	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
+-	       "%4.4x, resetting...\n",
+-	       dev->name, ioread16(ioaddr + IntrStatus),
+-	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
++	struct rhine_private *rp = container_of(work, struct rhine_private,
++					        reset_task);
++	struct net_device *dev = rp->dev;
+ 
+ 	/* protect against concurrent rx interrupts */
+ 	disable_irq(rp->pdev->irq);
+ 
+ 	napi_disable(&rp->napi);
+ 
+-	spin_lock(&rp->lock);
++	spin_lock_irq(&rp->lock);
+ 
+ 	/* clear all descriptors */
+ 	free_tbufs(dev);
+@@ -1206,7 +1207,7 @@ static void rhine_tx_timeout(struct net_device *dev)
+ 	rhine_chip_reset(dev);
+ 	init_registers(dev);
+ 
+-	spin_unlock(&rp->lock);
++	spin_unlock_irq(&rp->lock);
+ 	enable_irq(rp->pdev->irq);
+ 
+ 	dev->trans_start = jiffies;
+@@ -1214,6 +1215,19 @@ static void rhine_tx_timeout(struct net_device *dev)
+ 	netif_wake_queue(dev);
+ }
+ 
++static void rhine_tx_timeout(struct net_device *dev)
++{
++	struct rhine_private *rp = netdev_priv(dev);
++	void __iomem *ioaddr = rp->base;
 +
-+	    Y: DiffServ
-+	    N: Type Of Service
++	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
++	       "%4.4x, resetting...\n",
++	       dev->name, ioread16(ioaddr + IntrStatus),
++	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
 +
-+	  If unsure, say N.
++	schedule_work(&rp->reset_task);
++}
 +
- config IP_DSCP_STAT
- 	bool "IP: DSCP statistic"
- 	help
-=2D-=20
-1.6.3.3
-
-
---Boundary-00=_IuLMLyCJc+qewmg--
+ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+ 				  struct net_device *dev)
+ {
+@@ -1830,10 +1844,11 @@ static int rhine_close(struct net_device *dev)
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	void __iomem *ioaddr = rp->base;
+ 
+-	spin_lock_irq(&rp->lock);
+-
+-	netif_stop_queue(dev);
+ 	napi_disable(&rp->napi);
++	cancel_work_sync(&rp->reset_task);
++	netif_stop_queue(dev);
++
++	spin_lock_irq(&rp->lock);
+ 
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
