@@ -1,78 +1,67 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: Kernel Panics in the network stack
-Date: Tue, 22 Dec 2009 11:48:53 +0000
-Message-ID: <1261482533.29570.31.camel@pc1117.cambridge.arm.com>
-References: <20091222112505.GA11410@n2100.arm.linux.org.uk>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Tue, 22 Dec 2009 12:49:31 +0100
+Message-ID: <87637zdy9g.fsf@basil.nowhere.org>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu>
+	<4B2F9582.5000002@gmail.com> <4B2F978D.7010602@redhat.com>
+	<4B2F9C85.7070202@gmail.com> <4B2FA42F.3070408@codemonkey.ws>
+	<4B2FA655.6030205@gmail.com> <4B2FAE7B.9030005@codemonkey.ws>
+	<4B2FB3F1.5080808@gmail.com> <4B300EF8.8010602@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Kevin Constantine <kevin.constantine@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:35013 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750937AbZLVLtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 06:49:01 -0500
-In-Reply-To: <20091222112505.GA11410@n2100.arm.linux.org.uk>
+Received: from one.firstfloor.org ([213.235.205.2]:56993 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbZLVLtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Dec 2009 06:49:36 -0500
+In-Reply-To: <4B300EF8.8010602@codemonkey.ws> (Anthony Liguori's message of "Mon, 21 Dec 2009 18:12:40 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-12-22 at 11:25 +0000, Russell King - ARM Linux wrote:
-> On Tue, Dec 22, 2009 at 11:08:25AM +0000, Catalin Marinas wrote:
-> > On Tue, 2009-12-22 at 10:09 +0000, Eric Dumazet wrote:
-> > > I found an old commit mentioning a problem with LDM instruction that
-> > > could be interrupted/ restarted with a base register already changed
-> > > -> we load registers with garbage.
-> > [...]
-> > > If the low interrupt latency mode is enabled for the CPU (from ARMv6
-> > > onwards), the ldm/stm instructions are no longer atomic. An ldm instruction
-> > > restoring the sp and pc registers can be interrupted immediately after sp
-> > > was updated but before the pc. If this happens, the CPU restores the base
-> > > register to the value before the ldm instruction but if the base register
-> > > is not sp, the interrupt routine will corrupt the stack and the restarted
-> > > ldm instruction will load garbage.
-> > [...]
-> > > I found one instance of LDM instruction in 2.6.30 that could have same problem :
-> > >
-> > > __switch_to:
-> > >
-> > > ...
-> > >         ldm r4, {r4, r5, r6, r7, r8, r9, sl, fp, sp, pc}
-> >
-> > It looks to me like it is possible to get an interrupt after SP was
-> > loaded but before PC, the stack could be corrupted and PC would be
-> > loaded with garbage. One instance of your oops messages looks like PC
-> > corruption but the other may be caused by something else. What ARM CPU
-> > are you using?
-> >
-> > I'm cc'ing Russell as well, it's strange that we haven't got any issue
-> > with this so far.
-> 
-> We don't see the issue because we explicitly disable low latency
-> interrupt mode.
+Anthony Liguori <anthony@codemonkey.ws> writes:
+>
+> On a modern Nehalem, I would be surprised if an MMIO exit handled in
+> the kernel was muck more than 2us.  The hardware is getting very, very
+> fast.  The trends here are very important to consider when we're
+> looking at architectures that we potentially are going to support for
+> a long time.
 
-I think there are some processors where this is always on (but I think
-the no-MMU ones).
+When you talk about trends the trend for IO is also to get faster.
 
-But looking at this again, I don't think it actually matters since R4
-doesn't point to the current stack but to the cpu_context in
-thread_info. Even if interrupt occurs after SP was loaded and before PC,
-it doesn't corrupt the thread_info structure and what the LDM re-reads.
-> 
-> > You could try #undef'ing __ARCH_WANT_INTERRUPTS_ON_CTXSW in
-> > arch/arm/include/asm/system.h as a sanity check for your aborts.
-> 
-> Unfortunately, we can't do that for older ARM architectures without
-> severely impacting the interrupt latency there.  Not only that, but
-> the interrupt latency will be increased during any context switch.
+An exit will be always more expensive than passing something from
+another CPU in shared memory. An exit is much more work,
+with lots of saved context and fundamentally synchronous, 
+even with all the tricks hardware can do.  And then there's the
+in kernel handler too.
 
-I didn't say we should have this all the time, just as a check for
-Eric's problem. But I don't think it's even needed.
+Shared memory passing from another CPU is a much cheaper 
+operation and more likely to scale with IO rate improvements.
 
+The basic problem in this discussion seems to be the usual
+disconnect between working code (I understand Gregory has working
+code that demonstrates the performance advances he's claiming)
+versus unwritten optimizations.
+
+Unwritten code tends to always sound nicer, but it remains to be seen
+if it can deliver what it promises.
+
+>From a abstract stand point having efficient paravirtual IO interfaces
+seem attractive.
+
+I also personally don't see a big problem in having another set of
+virtual drivers -- Linux already has plenty (vmware, xen, virtio, power,
+s390-vm, ...) and it's not that they would be a particular maintenance
+burden impacting the kernel core.
+
+-Andi
 -- 
-Catalin
-
+ak@linux.intel.com -- Speaking for myself only.
