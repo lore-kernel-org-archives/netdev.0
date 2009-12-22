@@ -1,46 +1,58 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/1] net/sctp/socket.c: squish warning
-Date: Mon, 21 Dec 2009 16:25:06 -0800
-Message-ID: <200912220025.nBM0P6iQ005122@imap1.linux-foundation.org>
+Subject: [patch 2/2] drivers/isdn: eliminate duplicated test
+Date: Mon, 21 Dec 2009 16:25:32 -0800
+Message-ID: <200912220025.nBM0PWwQ005143@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	andrei@iptel.org, vladislav.yasevich@hp.com
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk
+To: isdn@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60096 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55385 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751041AbZLVAZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 19:25:33 -0500
+	by vger.kernel.org with ESMTP id S1751041AbZLVAZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Dec 2009 19:25:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Julia Lawall <julia@diku.dk>
 
-net/sctp/socket.c: In function 'sctp_setsockopt_autoclose':
-net/sctp/socket.c:2090: warning: comparison is always false due to limited range of data type
+The code checked slot_rx twice.  Check slot_tx by analogy with the bank
+case.
 
-Cc: Andrei Pelinescu-Onciul <andrei@iptel.org>
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression E;
+@@
+
+(
+*E && E
+|
+*E || E
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+Cc: Karsten Keil <isdn@linux-pingi.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/sctp/socket.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/isdn/hardware/mISDN/hfcmulti.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/sctp/socket.c~net-sctp-socketc-squish-warning net/sctp/socket.c
---- a/net/sctp/socket.c~net-sctp-socketc-squish-warning
-+++ a/net/sctp/socket.c
-@@ -2087,8 +2087,7 @@ static int sctp_setsockopt_autoclose(str
- 	if (copy_from_user(&sp->autoclose, optval, optlen))
- 		return -EFAULT;
- 	/* make sure it won't exceed MAX_SCHEDULE_TIMEOUT */
--	if (sp->autoclose > (MAX_SCHEDULE_TIMEOUT / HZ) )
--		sp->autoclose = (__u32)(MAX_SCHEDULE_TIMEOUT / HZ) ;
-+	sp->autoclose = min_t(long, sp->autoclose, MAX_SCHEDULE_TIMEOUT / HZ);
- 
- 	return 0;
- }
+diff -puN drivers/isdn/hardware/mISDN/hfcmulti.c~drivers-isdn-eliminate-duplicated-test drivers/isdn/hardware/mISDN/hfcmulti.c
+--- a/drivers/isdn/hardware/mISDN/hfcmulti.c~drivers-isdn-eliminate-duplicated-test
++++ a/drivers/isdn/hardware/mISDN/hfcmulti.c
+@@ -3152,7 +3152,7 @@ static void
+ hfcmulti_pcm(struct hfc_multi *hc, int ch, int slot_tx, int bank_tx,
+     int slot_rx, int bank_rx)
+ {
+-	if (slot_rx < 0 || slot_rx < 0 || bank_tx < 0 || bank_rx < 0) {
++	if (slot_tx < 0 || slot_rx < 0 || bank_tx < 0 || bank_rx < 0) {
+ 		/* disable PCM */
+ 		mode_hfcmulti(hc, ch, hc->chan[ch].protocol, -1, 0, -1, 0);
+ 		return;
 _
