@@ -1,174 +1,200 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] net/via-rhine: Fix scheduling while atomic bugs
-Date: Tue, 22 Dec 2009 18:36:42 +0100
-Message-ID: <20091222173641.GA3093@del.dom.local>
-References: <alpine.DEB.2.01.0912211040100.3483@bogon.housecafe.de>
- <20091222123211.GA8546@ff.dom.local>
- <20091222132107.GA9060@ff.dom.local>
- <20091222133817.GA9208@ff.dom.local>
- <20091222150045.GA5355@wrars-comp.wrarsdomain>
- <20091222152658.GA16043@core.hellgate.ch>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Tue, 22 Dec 2009 12:36:52 -0500
+Message-ID: <4B3103B4.4070708@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Luethi <rl@hellgate.ch>,
-	Andrey Rahmatullin <wrar@altlinux.org>,
-	Christian Kujau <lists@nerdbynature.de>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754529AbZLVRgz@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091222152658.GA16043@core.hellgate.ch>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig8551EF63152946F7DFEB1E80"
+Cc: Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754372AbZLVRhN@vger.kernel.org>
+In-Reply-To: <20091222075742.GB26467@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 22, 2009 at 04:26:59PM +0100, Roger Luethi wrote:
-> On Tue, 22 Dec 2009 20:00:45 +0500, Andrey Rahmatullin wrote:
-> > On Tue, Dec 22, 2009 at 01:38:17PM +0000, Jarek Poplawski wrote:
-> > > > > It looks like napi_disable() should be illegal in ndo_tx_timeout().
-> > > > > Here is a patch which moves most of the timeout work to a workqueue,
-> > > > > similarly to tg3 etc. It should prevent at least one of reported
-> > > > > bugs. Alas I can't even check-compile it at the moment, so let me
-> > > > > know on any problems.
-> > > > It seems I needlessly changed locking btw, so here it is again.
-> > > Hmm... On the other hand, it definitely needs at least _bh now...
-> > I've tried this patch. There are lots of "Transmit timed out", but no
-> > crashes.
-> 
-> ACK. Looks like you guys tracked down the crashing and fixed it (thanks!).
-> I suspect we shouldn't have to reset due to timeouts that often, but that's
-> another story.
-> 
-> Roger
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig8551EF63152946F7DFEB1E80
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Thanks everybody,
-Jarek P.
-------------------->
+On 12/22/09 2:57 AM, Ingo Molnar wrote:
+>=20
+> * Gregory Haskins <gregory.haskins@gmail.com> wrote:
+>=20
+>> On 12/18/09 4:51 PM, Ingo Molnar wrote:
+>>>
+>>> * Gregory Haskins <gregory.haskins@gmail.com> wrote:
+>>>
+>>>> Hi Linus,
+>>>>
+>>>> Please pull AlacrityVM guest support for 2.6.33 from:
+>>>>
+>>>> git://git.kernel.org/pub/scm/linux/kernel/git/ghaskins/alacrityvm/li=
+nux-2.6.git
+>>>> for-linus
+>>>>
+>>>> All of these patches have stewed in linux-next for quite a while now=
+:
+>>>>
+>>>> Gregory Haskins (26):
+>>>
+>>> I think it would be fair to point out that these patches have been ob=
+jected to=20
+>>> by the KVM folks quite extensively,
+>>
+>> Actually, these patches have nothing to do with the KVM folks. [...]
+>=20
+> That claim is curious to me - the AlacrityVM host
 
-There are BUGs "scheduling while atomic" triggered by the timer
-rhine_tx_timeout(). They are caused by calling napi_disable() (with
-msleep()). This patch fixes it by moving most of the timer content to
-the workqueue function (similarly to other drivers, like tg3), with
-spin_lock() changed to BH version.
+It's quite simple, really.  These drivers support accessing vbus, and
+vbus is hypervisor agnostic.  In fact, vbus isn't necessarily even
+hypervisor related.  It may be used anywhere where a Linux kernel is the
+"io backend", which includes hypervisors like AlacrityVM, but also
+userspace apps, and interconnected physical systems as well.
 
-Additionally, there is spin_lock_irq() moved in rhine_close() to
-exclude napi_disable() etc., also tg3's way.
+The vbus-core on the backend, and the drivers on the frontend operate
+completely independent of the underlying hypervisor.  A glue piece
+called a "connector" ties them together, and any "hypervisor" specific
+details are encapsulated in the connector module.  In this case, the
+connector surfaces to the guest side as a pci-bridge, so even that is
+not hypervisor specific per se.  It will work with any pci-bridge that
+exposes a compatible ABI, which conceivably could be actual hardware.
 
-Reported-by: Andrey Rahmatullin <wrar@altlinux.org>
-Tested-by: Andrey Rahmatullin <wrar@altlinux.org>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Cc: Christian Kujau <lists@nerdbynature.de>
-Cc: Roger Luethi <rl@hellgate.ch>
----
+The AlacrityVM project just so happens to be the primary consumer, and
+is therefore the most convenient way to package them up at the moment.
 
- drivers/net/via-rhine.c |   41 ++++++++++++++++++++++++++++-------------
- 1 files changed, 28 insertions(+), 13 deletions(-)
+> is 90% based on KVM code, so=20
+> how can it not be about KVM? I just checked, most of the changes that=20
+> AlacrityVM host does to KVM is in adding the host side interfaces for t=
+hese=20
+> guest drivers:
+>=20
+>  virt/kvm/Kconfig          |   11 +
+>  virt/kvm/coalesced_mmio.c |   65 +++---
+>  virt/kvm/coalesced_mmio.h |    1 +
+>  virt/kvm/eventfd.c        |  599 +++++++++++++++++++++++++++++++++++++=
+++++++++
+>  virt/kvm/ioapic.c         |  118 +++++++--
+>  virt/kvm/ioapic.h         |    5 +
+>  virt/kvm/iodev.h          |   55 +++--
+>  virt/kvm/irq_comm.c       |  267 ++++++++++++++-------
+>  virt/kvm/kvm_main.c       |  127 ++++++++--
+>  virt/kvm/xinterface.c     |  587 +++++++++++++++++++++++++++++++++++++=
++++++++
+>  10 files changed, 1649 insertions(+), 186 deletions(-)
+>=20
+>  [ stat for virt/kvm/ taken as of today, AlacrityVM host tree commit 84=
+afcc7 ]
+>=20
+> So as far as kernel code modifications of AlacrityVM goes, it's very mu=
+ch=20
+> about KVM.
 
-diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 593e01f..125406b 100644
---- a/drivers/net/via-rhine.c
-+++ b/drivers/net/via-rhine.c
-@@ -102,6 +102,7 @@ static const int multicast_filter_limit = 32;
- #include <linux/ethtool.h>
- #include <linux/crc32.h>
- #include <linux/bitops.h>
-+#include <linux/workqueue.h>
- #include <asm/processor.h>	/* Processor type for cache alignment. */
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -389,6 +390,7 @@ struct rhine_private {
- 	struct net_device *dev;
- 	struct napi_struct napi;
- 	spinlock_t lock;
-+	struct work_struct reset_task;
- 
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	u32 quirks;
-@@ -407,6 +409,7 @@ struct rhine_private {
- static int  mdio_read(struct net_device *dev, int phy_id, int location);
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
- static int  rhine_open(struct net_device *dev);
-+static void rhine_reset_task(struct work_struct *work);
- static void rhine_tx_timeout(struct net_device *dev);
- static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 				  struct net_device *dev);
-@@ -775,6 +778,8 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
- 	dev->irq = pdev->irq;
- 
- 	spin_lock_init(&rp->lock);
-+	INIT_WORK(&rp->reset_task, rhine_reset_task);
-+
- 	rp->mii_if.dev = dev;
- 	rp->mii_if.mdio_read = mdio_read;
- 	rp->mii_if.mdio_write = mdio_write;
-@@ -1179,22 +1184,18 @@ static int rhine_open(struct net_device *dev)
- 	return 0;
- }
- 
--static void rhine_tx_timeout(struct net_device *dev)
-+static void rhine_reset_task(struct work_struct *work)
- {
--	struct rhine_private *rp = netdev_priv(dev);
--	void __iomem *ioaddr = rp->base;
--
--	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
--	       "%4.4x, resetting...\n",
--	       dev->name, ioread16(ioaddr + IntrStatus),
--	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
-+	struct rhine_private *rp = container_of(work, struct rhine_private,
-+						reset_task);
-+	struct net_device *dev = rp->dev;
- 
- 	/* protect against concurrent rx interrupts */
- 	disable_irq(rp->pdev->irq);
- 
- 	napi_disable(&rp->napi);
- 
--	spin_lock(&rp->lock);
-+	spin_lock_bh(&rp->lock);
- 
- 	/* clear all descriptors */
- 	free_tbufs(dev);
-@@ -1206,7 +1207,7 @@ static void rhine_tx_timeout(struct net_device *dev)
- 	rhine_chip_reset(dev);
- 	init_registers(dev);
- 
--	spin_unlock(&rp->lock);
-+	spin_unlock_bh(&rp->lock);
- 	enable_irq(rp->pdev->irq);
- 
- 	dev->trans_start = jiffies;
-@@ -1214,6 +1215,19 @@ static void rhine_tx_timeout(struct net_device *dev)
- 	netif_wake_queue(dev);
- }
- 
-+static void rhine_tx_timeout(struct net_device *dev)
-+{
-+	struct rhine_private *rp = netdev_priv(dev);
-+	void __iomem *ioaddr = rp->base;
-+
-+	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
-+	       "%4.4x, resetting...\n",
-+	       dev->name, ioread16(ioaddr + IntrStatus),
-+	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
-+
-+	schedule_work(&rp->reset_task);
-+}
-+
- static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 				  struct net_device *dev)
- {
-@@ -1830,10 +1844,11 @@ static int rhine_close(struct net_device *dev)
- 	struct rhine_private *rp = netdev_priv(dev);
- 	void __iomem *ioaddr = rp->base;
- 
--	spin_lock_irq(&rp->lock);
--
--	netif_stop_queue(dev);
- 	napi_disable(&rp->napi);
-+	cancel_work_sync(&rp->reset_task);
-+	netif_stop_queue(dev);
-+
-+	spin_lock_irq(&rp->lock);
- 
- 	if (debug > 1)
- 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
+I think you are confused.  Even if we entertained the notion that the
+host side diffstat were somehow relevant here, you are probably
+comparing the kvm.git backports that are in my tree.  The only real KVM
+specific change that is in my tree is the 587 lines for the xinterface.c
+module, which is about ~4%, not 90%.  Also note that I have pushed this
+xinterface logic upstream already, but it just hasn't been accepted yet.
+
+If I wanted to be extremely generous, you could include the entire "KVM
+connector" code that bridges vbus-core to kvm-core, but even that tops
+out at a total of ~17% of the changes in my tree.  So I am still not
+seeing the 90% nor how it is relevant.
+
+>=20
+>> [...]  You are perhaps confusing this with the hypervisor-side discuss=
+ion,=20
+>> of which there is indeed much disagreement.
+>=20
+> Are the guest drivers living in a vacuum? The whole purpose of the Alac=
+rityVM=20
+> guest drivers is to ... enable AlacrityVM support, right?
+
+More specifically, the purpose of the drivers, like any driver, is to
+enable support for the underlying device in which it is related to.  In
+this case, the devices are vbus based devices.  Of those, AlacrityVM is
+the only available platform that exposes them.  However, that is a
+maturity/adoption detail, not a technical limitation.  Simply
+implementing a new connector would bridge these drivers to other
+environments as well.  There are community members working on these as
+we speak, as a matter of fact.
+
+> So how can it be not about KVM?
+
+Because AlacrityVM is a hypervisor that supports VBUS for PV IO, and KVM
+is not.  In addition, the presence of these drivers in no way alters,
+interferes with, or diminishes features found in KVM today.  So it is,
+and never will be about KVM until upstream KVM decides that they want to
+support VBUS based PV-IO.
+
+If you want to talk about the host side, then I have +587 lines that
+hang in the balance that affect KVM, yes.  But that isn't what $subject
+was about.
+
+>=20
+> Gregory, it would be nice if you worked _much_ harder with the KVM folk=
+s=20
+> before giving up.
+
+I think the 5+ months that I politely tried to convince the KVM folks
+that this was a good idea was pretty generous of my employer.  The KVM
+maintainers have ultimately made it clear they are not interested in
+directly supporting this concept (which is their prerogative), but are
+perhaps willing to support the peripheral logic needed to allow it to
+easily interface with KVM.  I can accept that, and thus AlacrityVM was bo=
+rn.
+
+Note that upstream KVM are also only a subset of the mindshare needed
+for this project anyway, since most of the core is independent of KVM.
+Perhaps the KVM folks will reconsider if/when other community members
+start to see the merit in the work.  Perhaps not.  It's out of my
+control at this point.
+
+> It's not like there's much valid technical disagreement that=20
+> i can identify in any of the threads
+
+While I am sorry to hear that, it should be noted that this doesn't mean
+that your perception is accurate, either.  It was quite a long and
+fragmented set of threads over those 5+ months, so absorbing the gist of
+the vision from casual observation is not likely trivial.
+
+> - the strongest one i could identify was:=20
+> "I want to fork KVM so please let me do it, nobody is harmed, choice is=
+ good".
+
+Everyone is of course entitled to an opinion, but I would respectfully
+disagree with your statement (as I did last time you made the same
+claim, as well).  I have now, nor ever, wanted a fork.  But I also
+believe in the work I am doing, so I won't roll over and die just
+because a certain group doesn't share the vision per se either, sorry.
+I get the impression that you would not either if you were in a similar
+situation, so perhaps you can respect that.
+
+Kind Regards,
+-Greg
+
+
+--------------enig8551EF63152946F7DFEB1E80
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksxA7QACgkQP5K2CMvXmqE31gCfQ1O8MYtLDN73ydXStDDawlj/
+KTYAn1azIOCX8UJB7vw4qZCpbxAcWsIt
+=eh30
+-----END PGP SIGNATURE-----
+
+--------------enig8551EF63152946F7DFEB1E80--
