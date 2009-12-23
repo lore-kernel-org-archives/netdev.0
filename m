@@ -1,62 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 19:51:50 +0100
-Message-ID: <20091223185150.GA9587@elte.hu>
-References: <4B1D4F29.8020309@gmail.com>
- <87637zdy9g.fsf@basil.nowhere.org>
- <4B30E654.40702@codemonkey.ws>
- <200912221701.56840.bzolnier@gmail.com>
- <4B30F214.80206@codemonkey.ws>
- <20091223065129.GA19600@elte.hu>
- <20091223101340.GC20539@basil.fritz.box>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [net-next PATCH 5/6] enic: feature add: add ethtool -c/C support
+Date: Wed, 23 Dec 2009 11:15:00 -0800
+Message-ID: <C757AC34.1B4BB%scofeldm@cisco.com>
+References: <1261591999.2782.41.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752037AbZLWSwd@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091223101340.GC20539@basil.fritz.box>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:63084 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753576AbZLWTPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 14:15:07 -0500
+In-Reply-To: <1261591999.2782.41.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 12/23/09 10:13 AM, "Ben Hutchings" <bhutchings@solarflare.com> wrote:
 
-* Andi Kleen <andi@firstfloor.org> wrote:
-
-> > - Are a pure software concept and any compatibility mismatch is                                      
-> >   self-inflicted. The patches are in fact breaking the ABI to KVM                                                
+> On Mon, 2009-12-21 at 18:21 -0800, Scott Feldman wrote:
+>> From: Scott Feldman <scofeldm@cisco.com>
+>> 
+>> Only rx_usec and tx_usec options for ethtool -C are settable as those
+>> are the only settings that make sense to HW.  Adds driver reporting of
+>> intr coalescing timer value in usec units rather than HW units.
+> [...]
+>> diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+>> index 019b148..81cc68d 100644
+>> --- a/drivers/net/enic/enic_main.c
+>> +++ b/drivers/net/enic/enic_main.c
+>> @@ -261,7 +261,63 @@ static void enic_set_msglevel(struct net_device *netdev,
+>> u32 value)
+>> enic->msg_enable = value;
+>>  }
+>>  
+>> -static const struct ethtool_ops enic_ethtool_ops = {
+> [...]
+>> +static struct ethtool_ops enic_ethtool_ops = {
+> [...]
 > 
-> In practice, especially considering older kernel releases, VMs behave like 
-> hardware, with all its quirks, compatibility requirements, sometimes not 
-> fully understood, etc.
+> I don't see any reason to remove the const here.  Is that an accidental
+> change?
 
-I stopped reading your reply here. That's not actually fully true of KVM, at 
-all.
+That was a mistake.  Sigh.  Let me resend patch set without that change...
 
-Virtualization isnt voodoo magic with some hidden souce in some magic hardware 
-component that no-one can understand fully. This isnt some mystic hardware 
-vendor coming up with some code and going away in the next quarter, with 
-barely anything documented and thousands of users left with hardware 
-components which we need to support under Linux somehow.
+[I'll wait a while in case there are any more review comments]
 
-This is Linux virtualization, where _both_ the host and the guest source code 
-is fully known, and bugs (if any) can be found with a high degree of 
-determinism. This is Linux where the players dont just vanish overnight, and 
-are expected to do a proper job.
+-scott
 
-Yes, there's (obviously) compatibility requirements and artifacts and past 
-mistakes (as with any software interface), but you need to admit it to 
-yourself that your "virtualization is sloppy just like hardware" claim is just 
-a cheap excuse to not do a proper job of interface engineering.
-
-Thanks,
-
-	Ingo
