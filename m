@@ -1,49 +1,58 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH] bnx2x: Initialize cnic status block during chip reset
-Date: Wed, 23 Dec 2009 16:02:45 +0200
-Message-ID: <1261576965.15524.42.camel@lb-tlvb-eilong>
-Reply-To: eilong@broadcom.com
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Wed, 23 Dec 2009 15:08:25 +0100
+Message-ID: <200912231508.25355.bzolnier@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <200912231407.20130.bzolnier@gmail.com> <4B321B9F.6030707@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Andi Kleen <andi@firstfloor.org>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4737 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753345AbZLWOCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2009 09:02:40 -0500
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:63071 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755322AbZLWOKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:10:43 -0500
+In-Reply-To: <4B321B9F.6030707@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <mchan@broadcom.com>
+On Wednesday 23 December 2009 02:31:11 pm Avi Kivity wrote:
+> On 12/23/2009 03:07 PM, Bartlomiej Zolnierkiewicz wrote:
+> >
+> >> That is a very different situation from the AlacrityVM patches, which:
+> >>
+> >>   - Are a pure software concept and any compatibility mismatch is
+> >>     self-inflicted. The patches are in fact breaking the ABI to KVM
+> >>     intentionally (for better or worse).
+> >>      
+> > Care to explain the 'breakage' and why KVM is more special in this regard
+> > than other parts of the kernel (where we don't keep any such requirements)?
+> >    
+> 
+> The device model is exposed to the guest.  If you change it, the guest 
+> breaks.
 
-When the device is reset during MTU change, ring size change, or self
-test, etc, the cnic status block needs to be properly initialized if
-cnic is registered.
+Huh?  Shouldn't non-vbus aware guests continue to work just fine?
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> > I certainly missed the time when KVM became officially part of core ABI..
+> >    
+> 
+> It's more akin to the hardware interface.  We don't change the hardware 
+> underneath the guest.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 77ba135..306c2b8 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -7593,6 +7593,8 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 		if (bp->cnic_eth_dev.drv_state & CNIC_DRV_STATE_REGD) {
- 			bnx2x_set_iscsi_eth_mac_addr(bp, 1);
- 			bp->cnic_flags |= BNX2X_CNIC_FLAG_MAC_SET;
-+			bnx2x_init_sb(bp, bp->cnic_sb, bp->cnic_sb_mapping,
-+				      CNIC_SB_ID(bp));
- 		}
- 		mutex_unlock(&bp->cnic_mutex);
- #endif
--- 
-1.5.4.3
+As far as my limited understanding of things go vbus is completely opt-in
+so it is like adding new real hardware to host.  Where is the problem?
 
-
-
-
+--
+Bartlomiej Zolnierkiewicz
