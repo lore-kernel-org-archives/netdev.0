@@ -1,181 +1,107 @@
 From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: [net-2.6 PATCH 2/3] be2net: Bug fix to config NIC appropriately
- before loopback test
-Date: Wed, 23 Dec 2009 20:11:44 +0530
-Message-ID: <20091223144134.GA23401@serverengines.com>
+Subject: [net-2.6 PATCH 3/3] be2net: Bug fix to return correct values in
+ ethtool get_settings.
+Date: Wed, 23 Dec 2009 20:12:51 +0530
+Message-ID: <20091223144241.GA23415@serverengines.com>
 Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:11466 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:11782 "EHLO
 	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756036AbZLWOli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:41:38 -0500
+	by vger.kernel.org with ESMTP id S1751669AbZLWOmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:42:44 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NIC controller has to be set to an appropriate mode before doing a loopback 
-test. Test will fail otherwise.
+Changes to return correct values for transceiver and supported in
+ethtool get_settings function.
 
 Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 ---
- drivers/net/benet/be_cmds.c    |   35 +++++++++++++++++++++++++++++++++++
- drivers/net/benet/be_cmds.h    |   16 ++++++++++++++++
- drivers/net/benet/be_ethtool.c |   37 +++++++++++++++++++++++--------------
- 3 files changed, 74 insertions(+), 14 deletions(-)
+ drivers/net/benet/be.h         |    1 +
+ drivers/net/benet/be_ethtool.c |   40 +++++++++++++++++++++++++++++++---------
+ 2 files changed, 32 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index a27fdb3..102ade1 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1479,6 +1479,41 @@ err:
- 	return status;
- }
- 
-+int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
-+			u8 loopback_type, u8 enable)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_set_lmode *req;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0,
-+				OPCODE_LOWLEVEL_SET_LOOPBACK_MODE);
-+
-+	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_LOWLEVEL,
-+			OPCODE_LOWLEVEL_SET_LOOPBACK_MODE,
-+			sizeof(*req));
-+
-+	req->src_port = port_num;
-+	req->dest_port = port_num;
-+	req->loopback_type = loopback_type;
-+	req->loopback_state = enable;
-+
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- int be_cmd_loopback_test(struct be_adapter *adapter, u32 port_num,
- 		u32 loopback_type, u32 pkt_size, u32 num_pkts, u64 pattern)
- {
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index 92b87ef..c002b83 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -155,6 +155,7 @@ #define OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG
- 
- #define OPCODE_LOWLEVEL_HOST_DDR_DMA                    17
- #define OPCODE_LOWLEVEL_LOOPBACK_TEST                   18
-+#define OPCODE_LOWLEVEL_SET_LOOPBACK_MODE		19
- 
- struct be_cmd_req_hdr {
- 	u8 opcode;		/* dword 0 */
-@@ -821,6 +822,19 @@ struct be_cmd_resp_loopback_test {
- 	u32    ticks_compl;
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 9e56014..9fd8e5e 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -275,6 +275,7 @@ struct be_adapter {
+ 	u32 tx_fc;		/* Tx flow control */
+ 	int link_speed;
+ 	u8 port_type;
++	u8 transceiver;
  };
  
-+struct be_cmd_req_set_lmode {
-+	struct be_cmd_req_hdr hdr;
-+	u8 src_port;
-+	u8 dest_port;
-+	u8 loopback_type;
-+	u8 loopback_state;
-+};
-+
-+struct be_cmd_resp_set_lmode {
-+	struct be_cmd_resp_hdr resp_hdr;
-+	u8 rsvd0[4];
-+};
-+
- /********************** DDR DMA test *********************/
- struct be_cmd_req_ddrdma_test {
- 	struct be_cmd_req_hdr hdr;
-@@ -912,3 +926,5 @@ extern int be_cmd_loopback_test(struct b
- 				u32 num_pkts, u64 pattern);
- extern int be_cmd_ddr_dma_test(struct be_adapter *adapter, u64 pattern,
- 			u32 byte_cnt, struct be_dma_mem *cmd);
-+extern int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
-+				u8 loopback_type, u8 enable);
+ extern const struct ethtool_ops be_ethtool_ops;
 diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 298b92c..da66d15 100644
+index da66d15..5d001c4 100644
 --- a/drivers/net/benet/be_ethtool.c
 +++ b/drivers/net/benet/be_ethtool.c
-@@ -118,6 +118,7 @@ #define ETHTOOL_TESTS_NUM ARRAY_SIZE(et_
- #define BE_MAC_LOOPBACK 0x0
- #define BE_PHY_LOOPBACK 0x1
- #define BE_ONE_PORT_EXT_LOOPBACK 0x2
-+#define BE_NO_LOOPBACK 0xff
+@@ -340,28 +340,50 @@ static int be_get_settings(struct net_de
  
- static void
- be_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
-@@ -489,6 +490,19 @@ err:
- 	return ret;
+ 		status = be_cmd_read_port_type(adapter, adapter->port_num,
+ 						&connector);
+-		switch (connector) {
+-		case 7:
+-			ecmd->port = PORT_FIBRE;
+-			break;
+-		default:
+-			ecmd->port = PORT_TP;
+-			break;
++		if (!status) {
++			switch (connector) {
++			case 7:
++				ecmd->port = PORT_FIBRE;
++				ecmd->transceiver = XCVR_EXTERNAL;
++				break;
++			case 0:
++				ecmd->port = PORT_TP;
++				ecmd->transceiver = XCVR_EXTERNAL;
++				break;
++			default:
++				ecmd->port = PORT_TP;
++				ecmd->transceiver = XCVR_INTERNAL;
++				break;
++			}
++		} else {
++			ecmd->port = PORT_AUI;
++			ecmd->transceiver = XCVR_INTERNAL;
+ 		}
+ 
+ 		/* Save for future use */
+ 		adapter->link_speed = ecmd->speed;
+ 		adapter->port_type = ecmd->port;
++		adapter->transceiver = ecmd->transceiver;
+ 	} else {
+ 		ecmd->speed = adapter->link_speed;
+ 		ecmd->port = adapter->port_type;
++		ecmd->transceiver = adapter->transceiver;
+ 	}
+ 
+ 	ecmd->duplex = DUPLEX_FULL;
+ 	ecmd->autoneg = AUTONEG_DISABLE;
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_TP);
+ 	ecmd->phy_address = adapter->port_num;
+-	ecmd->transceiver = XCVR_INTERNAL;
++	switch (ecmd->port) {
++	case PORT_FIBRE:
++		ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
++		break;
++	case PORT_TP:
++		ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_TP);
++		break;
++	case PORT_AUI:
++		ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_AUI);
++		break;
++	}
+ 
+ 	return 0;
  }
- 
-+static u64 be_loopback_test(struct be_adapter *adapter, u8 loopback_type,
-+				u64 *status)
-+{
-+	be_cmd_set_loopback(adapter, adapter->port_num,
-+				loopback_type, 1);
-+	*status = be_cmd_loopback_test(adapter, adapter->port_num,
-+				loopback_type, 1500,
-+				2, 0xabc);
-+	be_cmd_set_loopback(adapter, adapter->port_num,
-+				BE_NO_LOOPBACK, 1);
-+	return *status;
-+}
-+
- static void
- be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- {
-@@ -497,23 +511,18 @@ be_self_test(struct net_device *netdev, 
- 	memset(data, 0, sizeof(u64) * ETHTOOL_TESTS_NUM);
- 
- 	if (test->flags & ETH_TEST_FL_OFFLINE) {
--		data[0] = be_cmd_loopback_test(adapter, adapter->port_num,
--						BE_MAC_LOOPBACK, 1500,
--						2, 0xabc);
--		if (data[0] != 0)
-+		if (be_loopback_test(adapter, BE_MAC_LOOPBACK,
-+						&data[0]) != 0) {
- 			test->flags |= ETH_TEST_FL_FAILED;
--
--		data[1] = be_cmd_loopback_test(adapter, adapter->port_num,
--						BE_PHY_LOOPBACK, 1500,
--						2, 0xabc);
--		if (data[1] != 0)
-+		}
-+		if (be_loopback_test(adapter, BE_PHY_LOOPBACK,
-+						&data[1]) != 0) {
- 			test->flags |= ETH_TEST_FL_FAILED;
--
--		data[2] = be_cmd_loopback_test(adapter, adapter->port_num,
--						BE_ONE_PORT_EXT_LOOPBACK,
--						1500, 2, 0xabc);
--		if (data[2] != 0)
-+		}
-+		if (be_loopback_test(adapter, BE_ONE_PORT_EXT_LOOPBACK,
-+						&data[2]) != 0) {
- 			test->flags |= ETH_TEST_FL_FAILED;
-+		}
- 
- 		data[3] = be_test_ddr_dma(adapter);
- 		if (data[3] != 0)
 -- 
 1.4.0
 
