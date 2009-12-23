@@ -1,58 +1,71 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 15:08:25 +0100
-Message-ID: <200912231508.25355.bzolnier@gmail.com>
-References: <4B1D4F29.8020309@gmail.com> <200912231407.20130.bzolnier@gmail.com> <4B321B9F.6030707@redhat.com>
+From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
+Subject: RE: [BUG] 2.6.33-rc1 gianfar error message
+Date: Wed, 23 Dec 2009 19:45:10 +0530
+Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA09039@zin33exm22.fsl.freescale.net>
+References: <20091220214447.GA10233@trillian.comsick.at> <9F4C7D19E8361D4C94921B95BE08B81BA08F3B@zin33exm22.fsl.freescale.net> <20091221072704.GA12110@gibson.comsick.at> <9F4C7D19E8361D4C94921B95BE08B81BA08F83@zin33exm22.fsl.freescale.net> <20091221163843.GB3529@gibson.comsick.at> <9F4C7D19E8361D4C94921B95BE08B81BA08FCA@zin33exm22.fsl.freescale.net> <20091222181000.GA71727@trillian.comsick.at> <20091222182756.GA71759@trillian.comsick.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Avi Kivity <avi@redhat.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "Michael Guntsche" <mike@it-loops.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f219.google.com ([209.85.219.219]:63071 "EHLO
-	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbZLWOKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:10:43 -0500
-In-Reply-To: <4B321B9F.6030707@redhat.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:45428 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753144AbZLWOPP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:15:15 -0500
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nBNEFECV001920
+	for <netdev@vger.kernel.org>; Wed, 23 Dec 2009 07:15:14 -0700 (MST)
+Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id nBNEKlgc018767
+	for <netdev@vger.kernel.org>; Wed, 23 Dec 2009 08:20:48 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20091222182756.GA71759@trillian.comsick.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 December 2009 02:31:11 pm Avi Kivity wrote:
-> On 12/23/2009 03:07 PM, Bartlomiej Zolnierkiewicz wrote:
-> >
-> >> That is a very different situation from the AlacrityVM patches, which:
-> >>
-> >>   - Are a pure software concept and any compatibility mismatch is
-> >>     self-inflicted. The patches are in fact breaking the ABI to KVM
-> >>     intentionally (for better or worse).
-> >>      
-> > Care to explain the 'breakage' and why KVM is more special in this regard
-> > than other parts of the kernel (where we don't keep any such requirements)?
-> >    
-> 
-> The device model is exposed to the guest.  If you change it, the guest 
-> breaks.
+ 
 
-Huh?  Shouldn't non-vbus aware guests continue to work just fine?
+>-----Original Message-----
+>From: Michael Guntsche [mailto:mike@it-loops.com] 
+>Sent: Tuesday, December 22, 2009 11:58 PM
+>To: Kumar Gopalpet-B05799
+>Cc: netdev
+>Subject: Re: [BUG] 2.6.33-rc1 gianfar error message
+>
+>On 2009.12.22 19:10:00 , Michael Guntsche wrote:
+>> Since you said that the first patch is not needed
+>> 
+>> @@ -2470,10 +2470,11 @@ static int gfar_process_frame(struct 
+>net_device
+>>         fcb = (struct rxfcb *)skb->data;
+>> 
+>>         /* Remove the FCB from the skb */
+>> -       skb_set_queue_mapping(skb, fcb->rq);
+>>         /* Remove the padded bytes, if there are any */
+>> -       if (amount_pull)
+>> +       if (amount_pull) {
+>> +               skb_set_queue_mapping(skb, fcb->rq);
+>>                 skb_pull(skb, amount_pull);
+>> +       }
+>> 
+>>         if (priv->rx_csum_enable)
+>>                 gfar_rx_checksum(skb, fcb);
+>> 
+>> I only applied the second one and tested again. Right after 
+>the reboot 
+>> I got an error so apparently this change IS required as well.
+>
+>I tested this now in the opposite direction and apparently 
+>ONLY this patch is needed. I commented out the second diff and 
+>did not get any errors so far. Sorry for not testing this 
+>before sending my previous mail.
+>
 
-> > I certainly missed the time when KVM became officially part of core ABI..
-> >    
-> 
-> It's more akin to the hardware interface.  We don't change the hardware 
-> underneath the guest.
+Ok. Thanks !
 
-As far as my limited understanding of things go vbus is completely opt-in
-so it is like adding new real hardware to host.  Where is the problem?
-
---
-Bartlomiej Zolnierkiewicz
+>Kind regards,
+>Michael
+>
+>
