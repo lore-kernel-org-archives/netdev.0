@@ -1,110 +1,199 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 4/8] sfc: QT2025C: Work around PHY bug
-Date: Wed, 23 Dec 2009 23:47:37 +0000
-Message-ID: <1261612057.2782.94.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 5/8] sfc: QT2025C: Switch into self-configure mode when not
+	in loopback
+Date: Wed, 23 Dec 2009 23:48:04 +0000
+Message-ID: <1261612084.2782.96.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:28235 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:28250 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755850AbZLWXrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:47:40 -0500
+	with ESMTP id S1756131AbZLWXsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:48:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Slattery <mslattery@solarflare.com>
 
-If we see the PHY remaining stuck in a link-down state due to PCS being
-down while PMA/PMD is up, we briefly switch to PMA/PMD loopback and back,
-which usually unsticks it.
+The PHY boots in a mode which is not necessarily optimal.  This change
+switches it to self-configure mode (except when in loopback, which
+won't work in that mode if an SFP+ module is not present) by rebooting
+the PHY's microcontroller, and replicating the sequence of configuration
+writes from the boot EEPROM with the appropriate changes.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/qt202x_phy.c |   42 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 42 insertions(+), 0 deletions(-)
+ drivers/net/sfc/qt202x_phy.c |  119 ++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 119 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index 7450e3a..e4590fb 100644
+index e4590fb..0cd6eed 100644
 --- a/drivers/net/sfc/qt202x_phy.c
 +++ b/drivers/net/sfc/qt202x_phy.c
-@@ -52,11 +52,15 @@ void falcon_qt202x_set_led(struct efx_nic *p, int led, int mode)
- 
- struct qt202x_phy_data {
+@@ -33,6 +33,9 @@
+ #define PCS_FW_HEARTBEAT_REG	0xd7ee
+ #define PCS_FW_HEARTB_LBN	0
+ #define PCS_FW_HEARTB_WIDTH	8
++#define PCS_FW_PRODUCT_CODE_1	0xd7f0
++#define PCS_FW_VERSION_1	0xd7f3
++#define PCS_FW_BUILD_1		0xd7f6
+ #define PCS_UC8051_STATUS_REG	0xd7fd
+ #define PCS_UC_STATUS_LBN	0
+ #define PCS_UC_STATUS_WIDTH	8
+@@ -54,6 +57,7 @@ struct qt202x_phy_data {
  	enum efx_phy_mode phy_mode;
-+	bool bug17190_in_bad_state;
-+	unsigned long bug17190_timer;
+ 	bool bug17190_in_bad_state;
+ 	unsigned long bug17190_timer;
++	u32 firmware_ver;
  };
  
  #define QT2022C2_MAX_RESET_TIME 500
- #define QT2022C2_RESET_WAIT 10
- 
-+#define BUG17190_INTERVAL (2 * HZ)
-+
- static int qt2025c_wait_reset(struct efx_nic *efx)
- {
- 	unsigned long timeout = jiffies + 10 * HZ;
-@@ -96,6 +100,39 @@ static int qt2025c_wait_reset(struct efx_nic *efx)
+@@ -100,6 +104,25 @@ static int qt2025c_wait_reset(struct efx_nic *efx)
  	return 0;
  }
  
-+static void qt2025c_bug17190_workaround(struct efx_nic *efx)
++static void qt2025c_firmware_id(struct efx_nic *efx)
 +{
 +	struct qt202x_phy_data *phy_data = efx->phy_data;
++	u8 firmware_id[9];
++	size_t i;
 +
-+	/* The PHY can get stuck in a state where it reports PHY_XS and PMA/PMD
-+	 * layers up, but PCS down (no block_lock).  If we notice this state
-+	 * persisting for a couple of seconds, we switch PMA/PMD loopback
-+	 * briefly on and then off again, which is normally sufficient to
-+	 * recover it.
-+	 */
-+	if (efx->link_state.up ||
-+	    !efx_mdio_links_ok(efx, MDIO_DEVS_PMAPMD | MDIO_DEVS_PHYXS)) {
-+		phy_data->bug17190_in_bad_state = false;
-+		return;
++	for (i = 0; i < sizeof(firmware_id); i++)
++		firmware_id[i] = efx_mdio_read(efx, MDIO_MMD_PCS,
++					       PCS_FW_PRODUCT_CODE_1 + i);
++	EFX_INFO(efx, "QT2025C firmware %xr%d v%d.%d.%d.%d [20%02d-%02d-%02d]\n",
++		 (firmware_id[0] << 8) | firmware_id[1], firmware_id[2],
++		 firmware_id[3] >> 4, firmware_id[3] & 0xf,
++		 firmware_id[4], firmware_id[5],
++		 firmware_id[6], firmware_id[7], firmware_id[8]);
++	phy_data->firmware_ver = ((firmware_id[3] & 0xf0) << 20) |
++				 ((firmware_id[3] & 0x0f) << 16) |
++				 (firmware_id[4] << 8) | firmware_id[5];
++}
++
+ static void qt2025c_bug17190_workaround(struct efx_nic *efx)
+ {
+ 	struct qt202x_phy_data *phy_data = efx->phy_data;
+@@ -133,6 +156,95 @@ static void qt2025c_bug17190_workaround(struct efx_nic *efx)
+ 	}
+ }
+ 
++static int qt2025c_select_phy_mode(struct efx_nic *efx)
++{
++	struct qt202x_phy_data *phy_data = efx->phy_data;
++	struct falcon_board *board = falcon_board(efx);
++	int reg, rc, i;
++	uint16_t phy_op_mode;
++
++	/* Only 2.0.1.0+ PHY firmware supports the more optimal SFP+
++	 * Self-Configure mode.  Don't attempt any switching if we encounter
++	 * older firmware. */
++	if (phy_data->firmware_ver < 0x02000100)
++		return 0;
++
++	/* In general we will get optimal behaviour in "SFP+ Self-Configure"
++	 * mode; however, that powers down most of the PHY when no module is
++	 * present, so we must use a different mode (any fixed mode will do)
++	 * to be sure that loopbacks will work. */
++	phy_op_mode = (efx->loopback_mode == LOOPBACK_NONE) ? 0x0038 : 0x0020;
++
++	/* Only change mode if really necessary */
++	reg = efx_mdio_read(efx, 1, 0xc319);
++	if ((reg & 0x0038) == phy_op_mode)
++		return 0;
++	EFX_LOG(efx, "Switching PHY to mode 0x%04x\n", phy_op_mode);
++
++	/* This sequence replicates the register writes configured in the boot
++	 * EEPROM (including the differences between board revisions), except
++	 * that the operating mode is changed, and the PHY is prevented from
++	 * unnecessarily reloading the main firmware image again. */
++	efx_mdio_write(efx, 1, 0xc300, 0x0000);
++	/* (Note: this portion of the boot EEPROM sequence, which bit-bashes 9
++	 * STOPs onto the firmware/module I2C bus to reset it, varies across
++	 * board revisions, as the bus is connected to different GPIO/LED
++	 * outputs on the PHY.) */
++	if (board->major == 0 && board->minor < 2) {
++		efx_mdio_write(efx, 1, 0xc303, 0x4498);
++		for (i = 0; i < 9; i++) {
++			efx_mdio_write(efx, 1, 0xc303, 0x4488);
++			efx_mdio_write(efx, 1, 0xc303, 0x4480);
++			efx_mdio_write(efx, 1, 0xc303, 0x4490);
++			efx_mdio_write(efx, 1, 0xc303, 0x4498);
++		}
++	} else {
++		efx_mdio_write(efx, 1, 0xc303, 0x0920);
++		efx_mdio_write(efx, 1, 0xd008, 0x0004);
++		for (i = 0; i < 9; i++) {
++			efx_mdio_write(efx, 1, 0xc303, 0x0900);
++			efx_mdio_write(efx, 1, 0xd008, 0x0005);
++			efx_mdio_write(efx, 1, 0xc303, 0x0920);
++			efx_mdio_write(efx, 1, 0xd008, 0x0004);
++		}
++		efx_mdio_write(efx, 1, 0xc303, 0x4900);
++	}
++	efx_mdio_write(efx, 1, 0xc303, 0x4900);
++	efx_mdio_write(efx, 1, 0xc302, 0x0004);
++	efx_mdio_write(efx, 1, 0xc316, 0x0013);
++	efx_mdio_write(efx, 1, 0xc318, 0x0054);
++	efx_mdio_write(efx, 1, 0xc319, phy_op_mode);
++	efx_mdio_write(efx, 1, 0xc31a, 0x0098);
++	efx_mdio_write(efx, 3, 0x0026, 0x0e00);
++	efx_mdio_write(efx, 3, 0x0027, 0x0013);
++	efx_mdio_write(efx, 3, 0x0028, 0xa528);
++	efx_mdio_write(efx, 1, 0xd006, 0x000a);
++	efx_mdio_write(efx, 1, 0xd007, 0x0009);
++	efx_mdio_write(efx, 1, 0xd008, 0x0004);
++	/* This additional write is not present in the boot EEPROM.  It
++	 * prevents the PHY's internal boot ROM doing another pointless (and
++	 * slow) reload of the firmware image (the microcontroller's code
++	 * memory is not affected by the microcontroller reset). */
++	efx_mdio_write(efx, 1, 0xc317, 0x00ff);
++	efx_mdio_write(efx, 1, 0xc300, 0x0002);
++	msleep(20);
++
++	/* Restart microcontroller execution from RAM */
++	efx_mdio_write(efx, 3, 0xe854, 0x00c0);
++	efx_mdio_write(efx, 3, 0xe854, 0x0040);
++	msleep(50);
++
++	/* Wait for the microcontroller to be ready again */
++	rc = qt2025c_wait_reset(efx);
++	if (rc < 0) {
++		EFX_ERR(efx, "PHY microcontroller reset during mode switch "
++				"timed out\n");
++		return rc;
 +	}
 +
-+	if (!phy_data->bug17190_in_bad_state) {
-+		phy_data->bug17190_in_bad_state = true;
-+		phy_data->bug17190_timer = jiffies + BUG17190_INTERVAL;
-+		return;
-+	}
-+
-+	if (time_after_eq(jiffies, phy_data->bug17190_timer)) {
-+		EFX_LOG(efx, "bashing QT2025C PMA/PMD\n");
-+		efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1,
-+				  MDIO_PMA_CTRL1_LOOPBACK, true);
-+		msleep(100);
-+		efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1,
-+				  MDIO_PMA_CTRL1_LOOPBACK, false);
-+		phy_data->bug17190_timer = jiffies + BUG17190_INTERVAL;
-+	}
++	return 0;
 +}
 +
  static int qt202x_reset_phy(struct efx_nic *efx)
  {
  	int rc;
-@@ -144,6 +181,8 @@ static int qt202x_phy_probe(struct efx_nic *efx)
- 		return -ENOMEM;
- 	efx->phy_data = phy_data;
- 	phy_data->phy_mode = efx->phy_mode;
-+	phy_data->bug17190_in_bad_state = false;
-+	phy_data->bug17190_timer = 0;
- 
- 	efx->mdio.mmds = QT202X_REQUIRED_DEVS;
- 	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-@@ -184,6 +223,9 @@ static bool qt202x_phy_poll(struct efx_nic *efx)
- 	efx->link_state.fd = true;
- 	efx->link_state.fc = efx->wanted_fc;
+@@ -206,6 +318,9 @@ static int qt202x_phy_init(struct efx_nic *efx)
+ 		 devid, efx_mdio_id_oui(devid), efx_mdio_id_model(devid),
+ 		 efx_mdio_id_rev(devid));
  
 +	if (efx->phy_type == PHY_TYPE_QT2025C)
-+		qt2025c_bug17190_workaround(efx);
++		qt2025c_firmware_id(efx);
 +
- 	return efx->link_state.up != was_up;
+ 	return 0;
  }
  
+@@ -234,6 +349,10 @@ static int qt202x_phy_reconfigure(struct efx_nic *efx)
+ 	struct qt202x_phy_data *phy_data = efx->phy_data;
+ 
+ 	if (efx->phy_type == PHY_TYPE_QT2025C) {
++		int rc = qt2025c_select_phy_mode(efx);
++		if (rc)
++			return rc;
++
+ 		/* There are several different register bits which can
+ 		 * disable TX (and save power) on direct-attach cables
+ 		 * or optical transceivers, varying somewhat between
 -- 
 1.5.5
 
