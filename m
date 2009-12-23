@@ -1,46 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Deadlock in IPv6 code while garbage collection on the rwlock
- protecting the routing tree.
-Date: Wed, 23 Dec 2009 10:13:09 -0800
-Message-ID: <20091223101309.08974d02@nehalam>
-References: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
-	<20091222143638.37513a94@nehalam>
-	<19250.22271.876068.511246@zeus.eng.starentnetworks.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH 5/6] enic: feature add: add ethtool -c/C
+	support
+Date: Wed, 23 Dec 2009 18:13:19 +0000
+Message-ID: <1261591999.2782.41.camel@achroite.uk.solarflarecom.com>
+References: <20091222021857.30220.51795.stgit@savbu-pc100.cisco.com>
+	 <20091222022147.30220.42433.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com>,
-	<netdev@vger.kernel.org>
-To: Dave Johnson <djohnson@starentnetworks.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47728 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756657AbZLWSNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2009 13:13:20 -0500
-In-Reply-To: <19250.22271.876068.511246@zeus.eng.starentnetworks.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:14499 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756676AbZLWSNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 13:13:23 -0500
+In-Reply-To: <20091222022147.30220.42433.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Dec 2009 12:44:31 -0500
-Dave Johnson <djohnson@starentnetworks.com> wrote:
+On Mon, 2009-12-21 at 18:21 -0800, Scott Feldman wrote:
+> From: Scott Feldman <scofeldm@cisco.com>
+> 
+> Only rx_usec and tx_usec options for ethtool -C are settable as those
+> are the only settings that make sense to HW.  Adds driver reporting of 
+> intr coalescing timer value in usec units rather than HW units.
+[...]
+> diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+> index 019b148..81cc68d 100644
+> --- a/drivers/net/enic/enic_main.c
+> +++ b/drivers/net/enic/enic_main.c
+> @@ -261,7 +261,63 @@ static void enic_set_msglevel(struct net_device *netdev, u32 value)
+>  	enic->msg_enable = value;
+>  }
+>  
+> -static const struct ethtool_ops enic_ethtool_ops = {
+[...]
+> +static struct ethtool_ops enic_ethtool_ops = {
+[...]
 
-> I don't think that would help.  You would still have a writer
-> contained within a reader issue.  This would also likely involve quite
-> a bit of copying given the amount of data the existing rwlock is
-> protecting and how frequent write locks may be needed.
+I don't see any reason to remove the const here.  Is that an accidental
+change?
 
-With RCU, you can safely acquire a spinlock inside rcu_read_lock
-section.  The only issue is that the entry being modified might already
-be in process of being deleted (ie. modifying a dead route).
-
-Probably simpler to just get rid of rwlock entirely, go with a spinlock
-for now.  Reader/writer locks are slower than spin locks and even if
-lock is highly read contended, it is not held for long.
-
-IPV6 routing table is using much simpler algorithms on the assumption
-that IPV6 was going to solve the CIDR address explosion problem. That
-assumption will probably not hold up, and having a trie (TRASH) version
-of IPV6 routing table with RCU would be a good research project for
-some graduate student.
+Ben.
 
 -- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
