@@ -1,29 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 3/3] iwmc3200top: simplify imwct_tx
-Date: Wed, 23 Dec 2009 14:16:50 -0800 (PST)
-Message-ID: <20091223.141650.246536138.davem@davemloft.net>
-References: <1260973586-10243-1-git-send-email-tomas.winkler@intel.com>
-	<1260973586-10243-2-git-send-email-tomas.winkler@intel.com>
-	<1260973586-10243-3-git-send-email-tomas.winkler@intel.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: ucc_geth broken in 2.6.32 by
+	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
+Date: Thu, 24 Dec 2009 01:21:16 +0300
+Message-ID: <20091223222116.GA851@oksana.dev.rtsoft.ru>
+References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
+	<20091223180415.GA12987@oksana.dev.rtsoft.ru>
+	<20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
+	<20091223202226.GA8185@oksana.dev.rtsoft.ru>
+	<20091223221047.GH760@caffeine.csclub.uwaterloo.ca>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
-	yi.zhu@intel.com, inaky.perez-gonzalez@intel.com,
-	guy.cohen@intel.com, ron.rindjunsky@intel.com
-To: tomas.winkler@intel.com
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1260973586-10243-3-git-send-email-tomas.winkler@intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20091223221047.GH760@caffeine.csclub.uwaterloo.ca>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Tomas Winkler <tomas.winkler@intel.com>
-Date: Wed, 16 Dec 2009 16:26:26 +0200
+On Wed, Dec 23, 2009 at 05:10:47PM -0500, Lennart Sorensen wrote:
+[...]
+> That seems to be it.  It works now.  No more crashes.
+> Those two patches together seem to do the trick.
 
-> 1. remove address argument since we use same address IWMC_SDIO_DATA_ADDR in
->     all cases
-> 2. add __iwmct_tx - non locking tx function for already locked contexts
-> 
-> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+Great!
 
-Applied.
+> I really hope they
+> can go into 2.6.32-stable then, since this is a regression over 2.6.31
+> and is hopefully an obvious fix.
+
+Yep, will try to get them there.
+
+Thanks a lot for helping to track this down,
+
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
