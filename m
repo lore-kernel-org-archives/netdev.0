@@ -1,7 +1,7 @@
 From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [net-next PATCH v2 9/9] llc: remove unused APIs (which should be private anyway)
-Date: Thu, 24 Dec 2009 01:45:34 +0200
-Message-ID: <1261611934-24348-10-git-send-email-opurdila@ixiacom.com>
+Subject: [net-next PATCH v2 5/9] llc: optimize multicast delivery
+Date: Thu, 24 Dec 2009 01:45:30 +0200
+Message-ID: <1261611934-24348-6-git-send-email-opurdila@ixiacom.com>
 References: <1261611934-24348-1-git-send-email-opurdila@ixiacom.com>
 Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -10,56 +10,85 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:23684 "EHLO
 	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757544AbZLWXtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:49:13 -0500
+	with ESMTP id S1757548AbZLWXtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:49:12 -0500
 In-Reply-To: <1261611934-24348-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the list & lock from the exported API - it is not used anywhere
-in the tree and most operations should be covered by llc_sap_open(),
-llc_sap_close() and llc_sap_find().
+Optimize multicast delivery by doing the actual delivery without
+holding the lock. Based on the same approach used in UDP code.
 
 Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- include/net/llc.h  |    1 -
- net/llc/llc_core.c |    4 +---
- 2 files changed, 1 insertions(+), 4 deletions(-)
+ net/llc/llc_sap.c |   36 ++++++++++++++++++++++++++++--------
+ 1 files changed, 28 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/llc.h b/include/net/llc.h
-index aee826d..7b9528b 100644
---- a/include/net/llc.h
-+++ b/include/net/llc.h
-@@ -92,7 +92,6 @@ struct hlist_nulls_head *llc_sk_laddr_hash(struct llc_sap *sap,
- #define LLC_DEST_CONN            2      /* Type 2 goes here */
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index f154ab5..6a06b89 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -355,6 +355,24 @@ static inline bool llc_mcast_match(const struct llc_sap *sap,
+ 	  llc->dev == skb->dev;
+ }
  
- extern struct list_head llc_sap_list;
--extern spinlock_t llc_sap_list_lock;
- 
- extern int llc_rcv(struct sk_buff *skb, struct net_device *dev,
- 		   struct packet_type *pt, struct net_device *orig_dev);
-diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
-index 21fe87e..3f4e85b 100644
---- a/net/llc/llc_core.c
-+++ b/net/llc/llc_core.c
-@@ -23,7 +23,7 @@
- #include <net/llc.h>
- 
- LIST_HEAD(llc_sap_list);
--DEFINE_SPINLOCK(llc_sap_list_lock);
-+static DEFINE_SPINLOCK(llc_sap_list_lock);
- 
++static void llc_do_mcast(struct llc_sap *sap, struct sk_buff *skb,
++			 struct sock **stack, int count)
++{
++	struct sk_buff *skb1;
++	int i;
++
++	for (i = 0; i < count; i++) {
++		skb1 = skb_clone(skb, GFP_ATOMIC);
++		if (!skb1) {
++			sock_put(stack[i]);
++			continue;
++		}
++
++		llc_sap_rcv(sap, skb1, stack[i]);
++		sock_put(stack[i]);
++	}
++}
++
  /**
-  *	llc_sap_alloc - allocates and initializes sap.
-@@ -160,8 +160,6 @@ static void __exit llc_exit(void)
- module_init(llc_init);
- module_exit(llc_exit);
+  * 	llc_sap_mcast - Deliver multicast PDU's to all matching datagram sockets.
+  *	@sap: SAP
+@@ -367,25 +385,27 @@ static void llc_sap_mcast(struct llc_sap *sap,
+ 			  const struct llc_addr *laddr,
+ 			  struct sk_buff *skb)
+ {
+-	struct sock *sk;
++	int i = 0, count = 256 / sizeof(struct sock *);
++	struct sock *sk, *stack[count];
+ 	struct hlist_nulls_node *node;
  
--EXPORT_SYMBOL(llc_sap_list);
--EXPORT_SYMBOL(llc_sap_list_lock);
- EXPORT_SYMBOL(llc_sap_find);
- EXPORT_SYMBOL(llc_sap_open);
- EXPORT_SYMBOL(llc_sap_close);
+ 	spin_lock_bh(&sap->sk_lock);
+ 	sk_nulls_for_each_rcu(sk, node, &sap->sk_list) {
+-		struct sk_buff *skb1;
+ 
+ 		if (!llc_mcast_match(sap, laddr, skb, sk))
+ 			continue;
+ 
+-		skb1 = skb_clone(skb, GFP_ATOMIC);
+-		if (!skb1)
+-			break;
+-
+ 		sock_hold(sk);
+-		llc_sap_rcv(sap, skb1, sk);
+-		sock_put(sk);
++		if (i < count)
++			stack[i++] = sk;
++		else {
++			llc_do_mcast(sap, skb, stack, i);
++			i = 0;
++		}
+ 	}
+ 	spin_unlock_bh(&sap->sk_lock);
++
++	llc_do_mcast(sap, skb, stack, i);
+ }
+ 
+ 
 -- 
 1.5.6.5
 
