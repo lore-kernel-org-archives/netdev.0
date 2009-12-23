@@ -1,291 +1,154 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
+From: Chris Wright <chrisw@redhat.com>
 Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 11:44:41 -0500
-Message-ID: <4B3248F9.5030504@gmail.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu>
+Date: Wed, 23 Dec 2009 09:00:17 -0800
+Message-ID: <20091223170017.GB31132@x200.localdomain>
+References: <4B1D4F29.8020309@gmail.com>
+ <87637zdy9g.fsf@basil.nowhere.org>
+ <4B30E654.40702@codemonkey.ws>
+ <200912221701.56840.bzolnier@gmail.com>
+ <4B30F214.80206@codemonkey.ws>
+ <20091223065129.GA19600@elte.hu>
+ <20091223101340.GC20539@basil.fritz.box>
+ <4B31EF65.6070000@redhat.com>
+ <20091223121431.GF20539@basil.fritz.box>
+ <4B3211A3.1090202@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig84F1A320DEC7CEDD009FC772"
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>,
+	Anthony Liguori <anthony@codemonkey.ws>,
 	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, Avi Kivity <avi@redhat.com>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
 	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	torvalds@linux-foundation.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20091223065129.GA19600@elte.hu>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	<alacrityvm-devel@lists.sourceforge.net>,
+	Chris Wright <chrisw@redhat.com>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30607 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750899AbZLWRA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2009 12:00:57 -0500
+Content-Disposition: inline
+In-Reply-To: <4B3211A3.1090202@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig84F1A320DEC7CEDD009FC772
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+* Avi Kivity (avi@redhat.com) wrote:
+> On 12/23/2009 02:14 PM, Andi Kleen wrote:
+> >>http://www.redhat.com/f/pdf/summit/cwright_11_open_source_virt.pdf
+> >>
+> >>See slide 32.  This is without vhost-net.
+> >Thanks. Do you also have latency numbers?
+> 
+> No.  Copying Chris.  This was with the tx mitigation timer disabled,
+> so you won't see the usual atrocious userspace virtio latencies, but
+> it won't be as good as a host kernel implementation since we take a
+> heavyweight exit and qemu is pretty unoptimized.
 
-On 12/23/09 1:51 AM, Ingo Molnar wrote:
->=20
-> * Anthony Liguori <anthony@codemonkey.ws> wrote:
->=20
->> On 12/22/2009 10:01 AM, Bartlomiej Zolnierkiewicz wrote:
->>>> new e1000 driver is more superior in architecture and do the require=
-d
->>>> work to make the new e1000 driver a full replacement for the old one=
-=2E
->>> Right, like everyone actually does things this way..
->>>
->>> I wonder why do we have OSS, old Firewire and IDE stacks still around=
- then?
->>
->> And it's always a source of pain, isn't it.
->=20
-> Even putting aside the fact that such overlap sucks and is a pain to us=
-ers=20
-> (and that 98% of driver and subsystem version transitions are done comp=
-letely=20
-> seemlessly to users - the examples that were cited were the odd ones ou=
-t of=20
-> 150K commits in the past 4 years, 149K+ of which are seemless), the com=
-parison=20
-> does not even apply really.
->=20
-> e1000, OSS, old Firewire and IDE are hardware stacks, where hardware is=
- a not=20
-> fully understood externality, with its inevitable set of compatibility =
-voes.=20
-> There's often situations where one piece of hardware still works better=
- with=20
-> the old driver, for some odd (or not so odd) reason.
->=20
-> Also, note that the 'new' hw drivers are generally intended and are mai=
-ntained=20
-> as clear replacements for the old ones, and do so with minimal ABI chan=
-ges -=20
-> or preferably with no ABI changes at all. Most driver developers just s=
-witch=20
-> from old to new and the old bits are left around and are phased out. We=
- phased=20
-> out old OSS recently.
->=20
-> That is a very different situation from the AlacrityVM patches, which:
->=20
->  - Are a pure software concept
+Those numbers don't show cpu cycles per packet nor do they show latencies.
+You won't see the timer based latency, because the tx mitigation scheme
+is not timer based for those numbers.  Below are some numbers comparing
+bare metal, an assigned device, and virtio (not vhost-net, so we are still
+doing a heavy-weight exit to qemu and syscalls to deliver to tap device).
 
-By design.  In fact, I would describe it as "software to software
-optimized" as opposed to trying to shoehorn into something that was
-designed as a software-to-hardware interface (and therefore has
-assumptions about the constraints in that environment that are not
-applicable in software-only).
+> >It seems like there's definitely still potential for improvement
+> >with messages<4K. But for the large messages they indeed
+> >look rather good.
 
-> and any compatibility mismatch is self-inflicted.
+You are misreading the graph.  At <4K it is tracking bare metal (the
+green and yellow lines are bare metal, the red and blue bars are virtio).
+At >4k we start to drop off (esp. on RX).
 
-=2E. because the old model is not great for the intended use cases and ha=
-s
-issues.  I've already covered the reasons why adnauseam.
+This (slide 9) shows AMQP latencies for bare metal, an assigned device,
+and virtio.  
+http://www.redhat.com/f/pdf/summit/bche_320_red_hat_enterprise_mrg.pdf
 
->  The patches are in fact breaking the ABI to KVM intentionally (for bet=
-ter or worse).
+Similarly, here's some much rawer latency numbers from netpipe, all done
+in usecs.
 
-No, at the very worst they are _augmenting_ the ABI, as evident from the
-fact that AlacrityVM is a superset of the entire KVM ABI.
-
->=20
->  - Gregory claims that the AlacricityVM patches are not a replacement f=
-or KVM.
->    I.e. there's no intention to phase out any 'old stuff'=20
-
-There's no reason to phase anything out, except perhaps the virtio-pci
-transport.  This is one more transport, plugging into virtio underneath
-(just like virtio-pci, virtio-lguest, and virtio-s390).  I am not even
-suggesting that the old transport has to go away, per se.  It is the KVM
-maintainers who insist on it being all or nothing.  For me, I do not see
-the big deal in having one more "model" option in the qemu cmd-line, but
-that is just my opinion.  If the maintainers were really so adamant that
-choice is pure evil, I am not sure why we don't see patches for removing
-everything but one model type in each IO category.  But I digress.
-
-> and it splits the pool of driver developers.
-
-=2E.it these dumb threads that are splitting driver developers with
-ignorant statements, irrelevant numbers, and dubious "facts".  I
-actually tried many many times to ask others to join the effort, and
-instead _they_ forked off and made vhost-net with a "sorry, not
-interested in working with you"(and based the design largely on the
-ideas proposed in my framework, I might add).  Thats fine, and it's
-their prerogative.  I can easily maintain my project out of tree if
-upstream is not interested.  But do not turn around and try to blame me
-for the current state of affairs.
-
->=20
-> i.e. it has all the makings of a stupid, avoidable, permanent fork. The=
- thing=20
-> is, if AlacricityVM is better, and KVM developers are not willing to fi=
-x their=20
-> stuff, replace KVM with it.
->=20
-> It's a bit as if someone found a performance problem with sys_open() an=
-d came=20
-> up with sys_open_v2() and claimed that he wants to work with the VFS=20
-> developers while not really doing so but advances sys_open_v2() all the=
- time.
-
-No, its more like if I suggested sys_open_vbus() to augment
-sys_open_pci(), sys_open_lguest(), sys_open_s390() because our
-fictitious glibc natively supported modular open() implementations.  And
-I tried to work for a very long time convincing the VFS developers that
-this new transport was a good idea to add because it was optimized for
-the problem space, made it easy for API callers to reuse the important
-elements of the design (e.g. built in "tx-mitigation" instead of waiting
-for someone to write it for each device), had new features like the
-ability to prioritize signals, create/route signal paths arbitrarily,
-implement raw shared memory for idempotent updates, and didn't require
-the massive and useless PCI/APIC emulation logic to function like
-sys_open_pci() (e.g. easier to port around).
-
-Ultimately, the "VFS developers" said "I know we let other transports in
-in the past, but now all transports must be sys_open_pci() based going
-forward".  Game over, since sys_open_pci cannot support the features I
-need, and/or it makes incredibly easy things complex when they don't
-need to be so its a poor choice.
-
->=20
-> Do we allow sys_open_v2() upstream, in the name of openness and diversi=
-ty,=20
-> letting some apps use that syscall while other apps still use sys_open(=
-)?
-
-s/sys_open_v2/sys_open_vbus to portray it accurately, and sure, why not?
- There is plenty of precedent already.  Its just the top-edge IO ABI.
-You can chose realtek, e1000, virtio-net 802.x ABIs today for instance.
- This is one more, and despite attempts at painting it duplicative, it
-is indeed an evolutionary upgrade IMO especially when you glance beyond
-the 802.x world and look at the actual device model presented.
-
-And its moot, anyway, as I have already retracted my one outstanding
-pull request based on Linus' observation.  So at this time, I am not
-advocating _anything_ for upstream inclusion.  And I am contemplating
-_never_ doing so again.  It's not worth _this_.
-
-> Or do we say "enough is enough of this stupidity,
-
-I certainly agree that this thread has indeed introduced a significant
-degree of stupidity, yes.
-
-> come up with some strong=20
-> reasons to replace sys_open, and if so, replace the thing and be done w=
-ith the=20
-> pain!".
->
-
-I am open to this, but powerless to control the decision in the upstream
-variant other than to describe what I did, and rebut FUD against it to
-make sure the record is straight.
-
-
-> Overlap and forking can still be done in special circumstances, when a =
-project=20
-> splits and a hostile fork is inevitable due to prolongued and irreconci=
-lable=20
-> differences between the parties
-
-You are certainly a contributing factor in pushing things in that directi=
-on.
-
-> and if there's no strong technical advantage
-> on either side.  I havent seen evidence of this yet though: Gregory
-claims that
-> he wants to 'work with the community'
-
-Well, I sincerely did in the beginning in the spirit of FOSS.  I have to
-admit that the desire is constantly eroded after dealing with the likes
-of you. So if I have seemed more standoffish as of late, that is the
-reason.  If that was your goal, congratulations:  You have irritated me
-into submission.  And no, I don't expect you to care.
-
-> and the KVM guys seem to agree violently=20
-> that performance can be improved - and are doing so (and are asking Gre=
-gory to=20
-> take part in that effort).
-
-And as I indicated to you in my first reply to this thread: the
-performance aspects are but one goal here.  Some of the performance
-aspects cannot be achieved with their approach (like EIO mitigation as
-an example), and some of the other feature based aspects cannot be
-achieved either (interrupt priority, dynamic signals, etc).  That is why
-the calls to unify behind virtio-pci have gone unanswered by me: That
-approach is orthogonal to the vbus project goals.  Their ability to
-understand or agree with that difference has no bearing on whether there
-is any technical merit here.  I think this is what you are failing to gra=
-sp.
-
-There will be people that will say "Well, we can do a PV-APIC and get
-EOI mitigation in PCI too".  THAT IS WHAT VBUS IS FOR!!!   Implementing
-linux-kernel backed, shared-memory, high performance devices.  Something
-like a shared-memory based interrupt controller would be exactly the
-kind of thing I envision here.  We can also do other things, like high
-performance timers, scheduler coordinators, etc.  I don't know how many
-different ways to describe it in a way that will be understood.  I
-started with 802.x because its easy to show the performance gains.  If I
-knew that the entire community would get bent around the axle on 802.x
-when I started, I never would have broached the subject like this.  Se
-la vie.
-
->=20
-> The main difference is that Gregory claims that improved performance is=
- not=20
-> possible within the existing KVM framework, while the KVM developers di=
-sagree.=20
-> The good news is that this is a hard, testable fact.
-
-Yes, I encourage a bakeoff and have code/instructions available to
-anyone interested.  I also encourage people to think about the other
-facilities that are being introduced in addition to performance
-enhancements for simple 802.x, or even KVM.  This is about building a
-modular framework that encompasses both sides of the links (guest AND
-host), and implements "best practices" for optimized PV IO ingrained in
-its DNA.  It tries to do this in such a way that we don't need to write
-new backends for every environment that comes along, or rely on
-unnecessary emulation layers (PCI/APIC) to achieve it.  It's about
-extending Linux as a "io-visor" much as it is for userspace apps for any
-environments, using a tried and true shared-memory based approach.
-
->=20
-> I think we should try _much_ harder before giving up and forking the AB=
-I of a=20
-> healthy project and intentionally inflicting pain on our users.
->=20
-> And, at minimum, such kinds of things _have to_ be pointed out in pull =
-
-> requests, because it's like utterly important. In fact i couldnt list a=
-ny more=20
-> important thing to point out in a pull request.
-
-Mea Culpa.  Since I've already established that the pull request didn't
-directly relate to the controversy, I didn't think to mention that at
-the time.  These were just a few more drivers to join the ranks of 1000s
-more within Linux.  In retrospect, I probably should have so I apologize
-for that.  It was my first pull request to Linus, so I was bound to
-screw something up.
-
--Greg
-
-
---------------enig84F1A320DEC7CEDD009FC772
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAksySPkACgkQP5K2CMvXmqFpbQCZATBvQlI/mBqqPagGYtUfjFy8
-xPcAn0u2lj6wc5BEXInjlD2HoaIhegRc
-=JloZ
------END PGP SIGNATURE-----
-
---------------enig84F1A320DEC7CEDD009FC772--
+                bare    assigned
+                metal   PCI NIC virtio
+                (usecs) (usecs) (usecs)
+                -----   -----   -----
+    1 bytes	22.20	36.16	53.19
+    2 bytes	22.21	35.98	53.23
+    3 bytes	22.22	36.18	53.29
+    4 bytes	22.25	33.77	53.43
+    6 bytes	22.33	36.33	53.48
+    8 bytes	22.32	36.24	53.27
+   12 bytes	22.25	35.97	53.33
+   13 bytes	22.40	35.94	53.54
+   16 bytes	22.36	35.98	53.60
+   19 bytes	22.40	35.95	53.51
+   21 bytes	22.42	35.94	53.76
+   24 bytes	22.32	36.18	53.45
+   27 bytes	22.34	36.08	53.48
+   29 bytes	22.36	36.02	53.42
+   32 bytes	22.46	36.15	53.23
+   35 bytes	22.36	36.23	53.13
+   45 bytes	26.32	36.17	53.29
+   48 bytes	26.24	35.94	53.50
+   51 bytes	26.44	36.01	53.66
+   61 bytes	26.43	33.66	53.28
+   64 bytes	26.66	36.32	53.17
+   67 bytes	26.35	36.21	53.53
+   93 bytes	26.59	36.49	45.75
+   96 bytes	26.48	36.28	45.72
+   99 bytes	26.51	36.47	45.72
+  125 bytes	26.74	36.48	45.99
+  128 bytes	26.44	36.52	45.69
+  131 bytes	26.52	35.71	45.80
+  189 bytes	26.77	36.99	46.78
+  192 bytes	26.96	37.45	47.00
+  195 bytes	26.96	37.45	47.10
+  253 bytes	27.01	38.03	47.36
+  256 bytes	27.09	37.85	47.23
+  259 bytes	26.98	37.82	47.28
+  381 bytes	26.61	38.38	47.84
+  384 bytes	26.72	38.54	48.01
+  387 bytes	26.76	38.65	47.80
+  509 bytes	25.13	39.19	48.30
+  512 bytes	25.13	36.69	56.05
+  515 bytes	25.15	37.42	55.70
+  765 bytes	25.29	40.31	57.26
+  768 bytes	25.25	39.76	57.32
+  771 bytes	25.26	40.33	57.06
+ 1021 bytes	49.27	57.00	63.73
+ 1024 bytes	49.33	57.09	63.70
+ 1027 bytes	49.07	57.25	63.70
+ 1533 bytes	50.11	58.98	70.57
+ 1536 bytes	50.09	59.30	70.22
+ 1539 bytes	50.18	59.27	70.35
+ 2045 bytes	50.44	59.42	74.31
+ 2048 bytes	50.33	59.29	75.31
+ 2051 bytes	50.32	59.14	74.02
+ 3069 bytes	62.71	64.20	96.87
+ 3072 bytes	62.78	64.94	96.84
+ 3075 bytes	62.83	65.13	96.62
+ 4093 bytes	62.56	64.78	99.63
+ 4096 bytes	62.46	65.04	99.54
+ 4099 bytes	62.47	65.87	99.65
+ 6141 bytes	63.35	65.39	104.03
+ 6144 bytes	63.59	66.16	104.66
+ 6147 bytes	63.74	66.04	104.61
+ 8189 bytes	63.65	66.52	107.75
+ 8192 bytes	63.64	66.71	108.17
+ 8195 bytes	63.66	67.08	109.11
+12285 bytes	63.26	84.58	114.13
+12288 bytes	63.28	85.38	114.55
+12291 bytes	63.22	83.71	114.40
+16381 bytes	62.87	98.19	120.48
+16384 bytes	63.12	97.96	122.19
+16387 bytes	63.48	98.48	121.68
+24573 bytes	93.26	108.93	152.67
+24576 bytes	94.40	109.42	152.14
+24579 bytes	93.37	108.86	153.51
+32765 bytes	102.84	115.46	169.04
+32768 bytes	100.01	114.62	166.19
+32771 bytes	102.61	115.97	167.96
+49149 bytes	125.46	144.78	209.99
+49152 bytes	123.76	139.70	187.17
+49155 bytes	125.13	137.97	185.44
