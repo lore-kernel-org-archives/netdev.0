@@ -1,90 +1,50 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: ucc_geth broken in 2.6.32 by
-	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
-Date: Wed, 23 Dec 2009 17:10:47 -0500
-Message-ID: <20091223221047.GH760@caffeine.csclub.uwaterloo.ca>
-References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
-	<20091223180415.GA12987@oksana.dev.rtsoft.ru>
-	<20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
-	<20091223202226.GA8185@oksana.dev.rtsoft.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ethtool: add support for at76c50x-usb driver
+Date: Wed, 23 Dec 2009 17:12:15 -0500
+Message-ID: <4B3295BF.6030809@garzik.org>
+References: <1261578587-3547-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20091223202226.GA8185@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Kalle Valo <kalle.valo@iki.fi>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:40809 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754157AbZLWWMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 17:12:17 -0500
+Received: by yxe17 with SMTP id 17so7177260yxe.33
+        for <netdev@vger.kernel.org>; Wed, 23 Dec 2009 14:12:17 -0800 (PST)
+In-Reply-To: <1261578587-3547-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 23, 2009 at 11:22:26PM +0300, Anton Vorontsov wrote:
-> On Wed, Dec 23, 2009 at 03:09:48PM -0500, Lennart Sorensen wrote:
-> [...]
-> > So there result is:
-> > 
-> > Unable to handle kernel paging request for data at address 0x00000058
-> > Faulting instruction address: 0xc024f2fc
-> > Oops: Kernel access of bad area, sig: 11 [#1]
-> > RC8360 CM
-> > Modules linked in: rclibapi xeno_native max6369_wdt ucc_geth_driver spi_mpc8xxx ltc4215 lm75
-> > NIP: c024f2fc LR: e30aa0a4 CTR: c024f2e8
-> > REGS: df857ca0 TRAP: 0300   Not tainted  (2.6.32-trunk-8360e)
-> > MSR: 00009032 <EE,ME,IR,DR>  CR: 44042088  XER: 00000000
-> > DAR: 00000058, DSISR: 20000000
-> > TASK = df848c90[4] 'events/0' THREAD: df856000
-> > GPR00: e30aa0a4 df857d50 df848c90 00000000 00000640 00000001 c0428df4 dfa40b80
-> > GPR08: 000000c8 e30ad2b8 df084360 c024f2e8 44042082 1001af90 e30ad2b8 00000000
-> > GPR16: 00000048 00000001 00000000 00000000 df08436c df08440c 00000190 df08455c
-> > GPR24: df0844ec df0842c0 df084000 180005ea dfa40b80 00000000 df0842c0 00000000
-> > NIP [c024f2fc] skb_recycle_check+0x14/0x100
-> > LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
-> > Call Trace:
-> > [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
-> > [df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
-> 
-> This I can reproduce. It seems it's a long standing bug that
-> becomes easily reproducible with quiesce/activate sequence.
-> The driver doesn't handle empty queue correctly, i.e. it ignores
-> the empty queue check if netdev queue is stopped, which makes no
-> sense.
-> 
-> Can you try this patch in addition to previous (i.e. both should
-> be applied)?
-> 
-> Thanks!
-> 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index 2f73e3f..b22de51 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -3275,7 +3275,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
->  		/* Handle the transmitted buffer and release */
->  		/* the BD to be used with the current frame  */
->  
-> -		if ((bd == ugeth->txBd[txQ]) && (netif_queue_stopped(dev) == 0))
-> +		if (bd == ugeth->txBd[txQ]) /* queue empty? */
->  			break;
->  
->  		dev->stats.tx_packets++;
+On 12/23/2009 09:29 AM, John W. Linville wrote:
+> Signed-off-by: John W. Linville<linville@tuxdriver.com>
+> ---
+>   Makefile.am    |    2 +-
+>   at76c50x-usb.c |   32 ++++++++++++++++++++++++++++++++
+>   ethtool-util.h |    2 ++
+>   ethtool.c      |    1 +
+>   4 files changed, 36 insertions(+), 1 deletions(-)
+>   create mode 100644 at76c50x-usb.c
 
-That seems to be it.  It works now.  No more crashes.
+> +at76c50x_usb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+> +{
+> +	u8 version = (u8)(regs->version>>  24);
+> +	u8 rev_id = (u8)(regs->version);
+> +	char *ver_string;
+> +
+> +	if (version != 0)
+> +		return -1;
+> +
+> +	ver_string = hw_versions[rev_id];
+> +	fprintf(stdout,
+> +		"Hardware Version                    %s\n",
+> +		ver_string);
+> +
+> +	return 0;
 
-Those two patches together seem to do the trick.  I really hope they
-can go into 2.6.32-stable then, since this is a regression over 2.6.31
-and is hopefully an obvious fix.
+applied...  don't forget to update 'version', should the register dump 
+data passed to userspace ever change.
 
-Now if only my mdio-gpio bitbang one line fix would be accepted.
-
--- 
-Len Sorensen
