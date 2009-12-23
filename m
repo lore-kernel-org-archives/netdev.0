@@ -1,82 +1,75 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: ucc_geth broken in 2.6.32 by
-	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
-Date: Wed, 23 Dec 2009 21:04:15 +0300
-Message-ID: <20091223180415.GA12987@oksana.dev.rtsoft.ru>
-References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
-Reply-To: avorontsov@ru.mvista.com
+From: Dave Johnson <djohnson@starentnetworks.com>
+Subject: Re: Deadlock in IPv6 code while garbage collection on the rwlock
+ protecting the routing tree.
+Date: Wed, 23 Dec 2009 12:44:31 -0500
+Message-ID: <19250.22271.876068.511246@zeus.eng.starentnetworks.com>
+References: <4D35478224365146822AE9E3AD4A26660E89A49E@exchtewks3.starentnetworks.com>
+	<20091222143638.37513a94@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com>,
+	<netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.starentnetworks.com ([12.38.223.203]:50796 "EHLO
+	mx0.starentnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989AbZLWSH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 13:07:58 -0500
+In-Reply-To: <20091222143638.37513a94@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 23, 2009 at 12:40:19PM -0500, Lennart Sorensen wrote:
-> We use the ucc_geth for 6 ports (4 100Mbit and 2 Gbit ports) on an
-> mpc8360e.  Up to 2.6.31 this worked fine.  2.6.32 on the other hand
-> crashes very quickly after boot.
-
-Hm. Just curious, what CPU revision you use? So that I could try
-to reproduce the issue... I have MPC8360E-MDS boards, rev 2.0 and
-rev rev 2.1 CPUs, Marvell PHYs. I also have MPC8360E-RDK (rev 2.1).
-And I didn't see any issues with this patch.
-
-> I managed to see the same crash when I was selectively trying to add newer
-> ucc_geth patches to the 2.6.31 kernel a couple of months ago, and the same
-> patch that caused a crash then seems suspect.  If I revert the patch the
-> system runs completely stable.  Amusingly, the excact error message the
-> patch claims to fix is in fact the error it causes to happen in my case.
+Stephen Hemminger writes:
+> On Tue, 22 Dec 2009 16:57:05 -0500
+> "Akkipeddi, Srinivas" <sakkiped@starentnetworks.com> wrote:
 > 
-> So preferably 864fdf884e82bacbe8ca5e93bd43393a61d2e2b4 could be reverted
+> > I came across a deadlock scenario in the latest IPv6 code. I am trying
+> > to fix this and any inputs are really appreciated. 
+> > 
+> > The deadlock happens when ROUTER-PREF is configured. This happens when
+> > trying to do a write_lock_bh on the rwlock protecting the routing tree
+> > during garbage collection.
+> > 
+> > The routing tree is read protected (read_lock_bh(&table->tb6_lock))
+> > using the rwlock when performing a ip6_route_input or  ip6_route_output
+> > ( "ip6_pol_route"). During route selection (rt6_select), if a neighbor
+> > solicit is sent (ndisc_send_ns), a dst_entry is allocated
+> > (icmp6_dst_alloc calls dst_alloc). 
+> > The garbage collection (fib6_run_gc) will be triggered if the number of
+> > dst-entries is more than the threshold (dst_alloc). During garbage
+> > collection, all the routing trees are cleaned up (fib6_clean_all). Here
+> > we try to take write protect each routing tree (
+> > write_lock_bh(&table->tb6_lock)). But one of the trees is already read
+> > protected. 
+> > 
+> > The garbage collection is anyways triggered from "icmp6_dst_alloc" with
+> > the call to fib6_force_start_gc. Since it is triggered, we might not
+> > want to call the "fib6_run_gc" from dst_alloc for this case but there is
+> > no way to figure this out in the "dst_alloc" routine.
+> 
+> Might just be easier to convert to spinlock and RCU.
 
-I don't see any point in reverting, because it will surely break my boards.
-So, we need to fix this, not just hide.
+I don't think that would help.  You would still have a writer
+contained within a reader issue.  This would also likely involve quite
+a bit of copying given the amount of data the existing rwlock is
+protecting and how frequent write locks may be needed.
 
-> unless someone can fix it.
+The syncronize_rcu() call would have to be done from another thread
+otherwise it would just stall forever because it would have been
+called from a code path that holds a rcu read lock.
 
-Well, I'm ready to help you with debugging.
+The area of uncertainty about how to fix this is because of the large
+number of paths into the garbage collection code, one of which we hit
+and resulted in this writer within reader deadlock.
 
-> Now I must add that I run with the xenomai/adeos-ipipe patches as well,
-> which do change interrupt handling a little,
+It seems like the garbage collection cannot be done from within this
+path and should only be done from an isolated path where it is
+guaranteed to be called from a reader-free source.
 
-It could be that it takes too long to stop the UCC, and xenomai
-makes the timings worse, so the watchdog triggers.
+Another possibility is to change the garbage collection to use a write
+try lock and just not garbage collect from any tables it can't obtain.
 
-Can you try the following patch?
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index afaf088..2f73e3f 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1563,6 +1563,8 @@ static int ugeth_disable(struct ucc_geth_private *ugeth, enum comm_dir mode)
- 
- static void ugeth_quiesce(struct ucc_geth_private *ugeth)
- {
-+	netif_device_detach(ugeth->ndev);
-+
- 	/* Wait for and prevent any further xmits. */
- 	netif_tx_disable(ugeth->ndev);
- 
-@@ -1577,7 +1579,7 @@ static void ugeth_activate(struct ucc_geth_private *ugeth)
- {
- 	napi_enable(&ugeth->napi);
- 	enable_irq(ugeth->ug_info->uf_info.irq);
--	netif_tx_wake_all_queues(ugeth->ndev);
-+	netif_device_attach(ugeth->ndev);
- }
- 
- /* Called every time the controller might need to be made
+-- 
+Dave Johnson
+Starent Networks
