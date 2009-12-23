@@ -1,87 +1,77 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [Alacrityvm-devel] [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 22:20:32 +0200
-Message-ID: <4B327B90.2050403@redhat.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org>	<4B30E654.40702@codemonkey.ws>	<200912221701.56840.bzolnier@gmail.com>	<4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu>	<20091223101340.GC20539@basil.fritz.box> <4B31EF65.6070000@redhat.com> <4B325E33.8060407@gmail.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: ucc_geth broken in 2.6.32 by
+	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
+Date: Wed, 23 Dec 2009 23:22:26 +0300
+Message-ID: <20091223202226.GA8185@oksana.dev.rtsoft.ru>
+References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
+	<20091223180415.GA12987@oksana.dev.rtsoft.ru>
+	<20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, kvm@vger.kernel.org,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>, torvalds@linux-foundation.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47068 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbZLWUVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Dec 2009 15:21:16 -0500
-In-Reply-To: <4B325E33.8060407@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2009 08:15 PM, Gregory Haskins wrote:
-> On 12/23/09 5:22 AM, Avi Kivity wrote:
->
->    
->> There was no attempt by Gregory to improve virtio-net.
->>      
-> If you truly do not understand why your statement is utterly wrong at
-> this point in the discussion, I feel sorry for you.  If you are trying
-> to be purposely disingenuous, you should be ashamed of yourself.  In any
-> case, your statement is demonstrably bogus, but you should already know
-> this given that we talked about at least several times.
->    
+On Wed, Dec 23, 2009 at 03:09:48PM -0500, Lennart Sorensen wrote:
+[...]
+> So there result is:
+> 
+> Unable to handle kernel paging request for data at address 0x00000058
+> Faulting instruction address: 0xc024f2fc
+> Oops: Kernel access of bad area, sig: 11 [#1]
+> RC8360 CM
+> Modules linked in: rclibapi xeno_native max6369_wdt ucc_geth_driver spi_mpc8xxx ltc4215 lm75
+> NIP: c024f2fc LR: e30aa0a4 CTR: c024f2e8
+> REGS: df857ca0 TRAP: 0300   Not tainted  (2.6.32-trunk-8360e)
+> MSR: 00009032 <EE,ME,IR,DR>  CR: 44042088  XER: 00000000
+> DAR: 00000058, DSISR: 20000000
+> TASK = df848c90[4] 'events/0' THREAD: df856000
+> GPR00: e30aa0a4 df857d50 df848c90 00000000 00000640 00000001 c0428df4 dfa40b80
+> GPR08: 000000c8 e30ad2b8 df084360 c024f2e8 44042082 1001af90 e30ad2b8 00000000
+> GPR16: 00000048 00000001 00000000 00000000 df08436c df08440c 00000190 df08455c
+> GPR24: df0844ec df0842c0 df084000 180005ea dfa40b80 00000000 df0842c0 00000000
+> NIP [c024f2fc] skb_recycle_check+0x14/0x100
+> LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
+> Call Trace:
+> [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
+> [df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
 
-There's no need to feel sorry for me, thanks.  There's no reason for me 
-to be ashamed, either.  And there's no need to take the discussion to 
-personal levels.  Please keep it technical.
+This I can reproduce. It seems it's a long standing bug that
+becomes easily reproducible with quiesce/activate sequence.
+The driver doesn't handle empty queue correctly, i.e. it ignores
+the empty queue check if netdev queue is stopped, which makes no
+sense.
 
+Can you try this patch in addition to previous (i.e. both should
+be applied)?
 
-> To refresh your memory: http://patchwork.kernel.org/patch/17428/
->    
+Thanks!
 
-This is not an attempt to improve virtio-net, it's an attempt to push 
-vbus.  With this, virtio-net doesn't become any faster, since the 
-greatest bottleneck is not removed, it remains in userspace.
-
-If you wanted to improve virtio-net, you would port venet-host to the 
-virtio-net guest/host interface, and port any secret sauce in 
-venet(-guest) to virtio-net.  After that we could judge what vbus' 
-contribution to the equation is.
-
-> In case its not blatantly clear, which I would hope it would be to
-> anyone that understands the problem space:  What that patch would do is
-> allow an unmodified virtio-net to bridge to a vbus based virtio-net
-> backend.  (Also note that this predates vhost-net by months (the date in
-> that thread is 4/9/2009) in case you are next going to try to argue that
-> it does nothing over vhost-net).
->    
-
-Without the backend, it is useless.  It demonstrates vbus' flexibility 
-quite well, but does nothing for virtio-net or its users, at least 
-without a lot more work.
-
-> This would mean that virtio-net would gain most of the benefits I have
-> been advocating (fewer exits, cheaper exits, concurrent execution, etc).
->   So this would very much improve virtio-net indeed, given how poorly the
-> current backend was performing.  I tried to convince the team to help me
-> build it out to completion on multiple occasions, but that request was
-> answered with "sorry, we are doing our own thing instead".  You can say
-> that you didn't like my approach, since that is a subjective opinion.
-> But to say that I didn't attempt to improve it is a flat out wrong, and
-> I do not appreciate it.
->    
-
-Cutting down on the rhetoric is more important than cutting down exits 
-at this point in time.
-
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 2f73e3f..b22de51 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3275,7 +3275,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+ 		/* Handle the transmitted buffer and release */
+ 		/* the BD to be used with the current frame  */
+ 
+-		if ((bd == ugeth->txBd[txQ]) && (netif_queue_stopped(dev) == 0))
++		if (bd == ugeth->txBd[txQ]) /* queue empty? */
+ 			break;
+ 
+ 		dev->stats.tx_packets++;
