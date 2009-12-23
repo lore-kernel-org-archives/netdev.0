@@ -1,149 +1,154 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 11:28:08 -0800
-Message-ID: <20091223192808.GA30700@ovro.caltech.edu>
-References: <4B1D4F29.8020309@gmail.com>
- <20091218215107.GA14946@elte.hu>
- <4B2F9582.5000002@gmail.com>
- <20091222075742.GB26467@elte.hu>
- <4B3103B4.4070708@gmail.com>
- <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com>
- <4B3254B4.2080602@gmail.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH 0/3] increase skb size to prevent dma over skb boundary
+Date: Wed, 23 Dec 2009 11:43:40 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.0912231040560.4616@jbrandeb-desk1.amr.corp.intel.com>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org> <EA929A9653AAE14F841771FB1DE5A1365FA93CD0DD@rrsmsx501.amr.corp.intel.com> <20091209152312.GA11983@hmsreliant.think-freely.org> <EA929A9653AAE14F841771FB1DE5A1365FA9463CD1@rrsmsx501.amr.corp.intel.com>
+ <20091223064725.GB12439@jenkins.home.ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kyle Moffett <kyle@moffetthome.net>, Ingo Molnar <mingo@elte.hu>,
-	Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756651AbZLWT2N@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B3254B4.2080602@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Brandon Philips <brandon@ifup.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:13854 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751889AbZLWTnl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2009 14:43:41 -0500
+In-Reply-To: <20091223064725.GB12439@jenkins.home.ifup.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 23, 2009 at 12:34:44PM -0500, Gregory Haskins wrote:
-> On 12/23/09 1:15 AM, Kyle Moffett wrote:
-> > On Tue, Dec 22, 2009 at 12:36, Gregory Haskins
-> > <gregory.haskins@gmail.com> wrote:
-> >> On 12/22/09 2:57 AM, Ingo Molnar wrote:
-> >>> * Gregory Haskins <gregory.haskins@gmail.com> wrote:
-> >>>> Actually, these patches have nothing to do with the KVM folks. [...]
-> >>>
-> >>> That claim is curious to me - the AlacrityVM host
-> >>
-> >> It's quite simple, really.  These drivers support accessing vbus, and
-> >> vbus is hypervisor agnostic.  In fact, vbus isn't necessarily even
-> >> hypervisor related.  It may be used anywhere where a Linux kernel is the
-> >> "io backend", which includes hypervisors like AlacrityVM, but also
-> >> userspace apps, and interconnected physical systems as well.
-> >>
-> >> The vbus-core on the backend, and the drivers on the frontend operate
-> >> completely independent of the underlying hypervisor.  A glue piece
-> >> called a "connector" ties them together, and any "hypervisor" specific
-> >> details are encapsulated in the connector module.  In this case, the
-> >> connector surfaces to the guest side as a pci-bridge, so even that is
-> >> not hypervisor specific per se.  It will work with any pci-bridge that
-> >> exposes a compatible ABI, which conceivably could be actual hardware.
-> > 
-> > This is actually something that is of particular interest to me.  I
-> > have a few prototype boards right now with programmable PCI-E
-> > host/device links on them; one of my long-term plans is to finagle
-> > vbus into providing multiple "virtual" devices across that single
-> > PCI-E interface.
-> > 
-> > Specifically, I want to be able to provide virtual NIC(s), serial
-> > ports and serial consoles, virtual block storage, and possibly other
-> > kinds of interfaces.  My big problem with existing virtio right now
-> > (although I would be happy to be proven wrong) is that it seems to
-> > need some sort of out-of-band communication channel for setting up
-> > devices, not to mention it seems to need one PCI device per virtual
-> > device.
-> > 
-
-Greg, thanks for CC'ing me.
-
-Hello Kyle,
-
-I've got a similar situation here. I've got many PCI agents (devices)
-plugged into a PCI backplane. I want to use the network to communicate
-from the agents to the PCI master (host system).
-
-At the moment, I'm using a custom driver, heavily based on the PCINet
-driver posted on the linux-netdev mailing list. David Miller rejected
-this approach, and suggested I use virtio instead.
-
-My first approach with virtio was to create a "crossed-wires" driver,
-which connected two virtio-net drivers together. While this worked, it
-doesn't support feature negotiation properly, and so it was scrapped.
-You can find this posted on linux-netdev with the title
-"virtio-over-PCI".
-
-I started writing a "virtio-phys" layer which creates the appropriate
-distinction between frontend (guest driver) and backend (kvm, qemu,
-etc.). This effort has been put on hold for lack of time, and because
-there is no example code which shows how to create an interface from
-virtio rings to TUN/TAP. The vhost-net driver is supposed to fill this
-role, but I haven't seen any test code for that either. The developers
-haven't been especially helpful answering questions like: how would I
-use vhost-net with a DMA engine.
-
-(You'll quickly find that you must use DMA to transfer data across PCI.
-AFAIK, CPU's cannot do burst accesses to the PCI bus. I get a 10+ times
-speedup using DMA.)
-
-The virtio-phys work is mostly lacking a backend for virtio-net. It is
-still incomplete, but at least devices can be registered, etc. It is
-available at:
-http://www.mmarray.org/~iws/virtio-phys/
-
-Another thing you'll notice about virtio-net (and vbus' venet) is that
-they DO NOT specify endianness. This means that they cannot be used with
-a big-endian guest and a little-endian host, or vice versa. This means
-they will not work in certain QEMU setups today.
-
-Another problem with virtio is that you'll need to invent your own bus
-model. QEMU/KVM has their bus model, lguest uses a different one, and
-s390 uses yet another, IIRC. At least vbus provides a standardized bus
-model.
-
-All in all, I've written a lot of virtio code, and it has pretty much
-all been shot down. It isn't very encouraging.
-
-> > So I would love to be able to port something like vbus to my nify PCI
-> > hardware and write some backend drivers... then my PCI-E connected
-> > systems would dynamically provide a list of highly-efficient "virtual"
-> > devices to each other, with only one 4-lane PCI-E bus.
-
-I've written some IOQ test code, all of which is posted on the
-alacrityvm-devel mailing list. If we can figure out how to make IOQ use
-the proper ioread32()/iowrite32() accessors for accessing ioremap()ed
-PCI BARs, then I can pretty easily write the rest of a "vbus-phys"
-connector.
-
+On Tue, 22 Dec 2009, Brandon Philips wrote:
+> On 11:20 Thu 10 Dec 2009, Tantilov, Emil S wrote:
+> > >> I am trying to test the patches you submitted (thanks btw) and so
+> > >> far am not able to reproduce the panic you described. When MTU is at
+> > >> 1500 RCTL.LPE (bit 5) is set to 0 and the HW will not allow the
+> > >> reception of large packets (>1522 bytes, which is what rx_buffer_len
+> > >> is set to). This is basically what I am seeing in my tests - packets
+> > >> are discarded by the HW.     
 > 
-> Hi Kyle,
-> 
-> We indeed have others that are doing something similar.  I have CC'd Ira
-> who may be able to provide you more details.  I would also point you at
-> the canonical example for what you would need to write to tie your
-> systems together.  Its the "null connector", which you can find here:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/ghaskins/alacrityvm/linux-2.6.git;a=blob;f=kernel/vbus/connectors/null.c;h=b6d16cb68b7e49e07528278bc9f5b73e1dac0c2f;hb=HEAD
-> 
-> Do not hesitate to ask any questions, though you may want to take the
-> conversation to the alacrityvm-devel list as to not annoy the current CC
-> list any further than I already have ;)
-> 
+> I have a memory dump from an SLE10 SP3 machine that seems to reproduce
+> this issue. The testing environment was netperf with the MTU being
+> switched every minute from 9000 -> 1500 and it took 40 hours to hit
+> the bug. So, an overnight test, as you tried, may not be enough.
 
-IMO, they should at least see the issues here. They can reply back if
-they want to be removed.
+Thanks for testing Brandon, I think your test (with e1000e 1.0.2.5) is 
+significantly different than the test that Neil started with.  That said I 
+think it is a valuable test and we are going to start a test today that 
+uses pktgen on two machines to send 64 byte and 9014 byte packets to a 
+host that is changing its MTU every 5-10 seconds.
+ 
+> In the memory dump there are 6 skb's in the ring that have memory
+> overwritten from skb->data to skb->data + 2048. The machine ended up
+> oopsing in skb_release_data() from e1000_clean_all_rx_rings() from
+> e1000_change_mtu().
 
-I hope it helps. Feel free to contact me off-list with any other
-questions.
+I think we should put a patch like the below into the kernel and actually 
+*catch* any overrun DMAs even on a production machine.  At that point we 
+could even leak that skb memory to prevent the corrupted memory from 
+making its way into the general environment.
+ 
+> 35:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
 
-Ira
+what kind of system is this that had such a high bus number? PPC64?
+
+>         Subsystem: Intel Corporation PRO/1000 PT Quad Port LP Server Adapter
+>         Kernel driver in use: e1000
+>         Kernel modules: e1000
+
+e1000_change_mtu could possibly have a race that would allow corruption if 
+all receives were not completed in the time we waited (10 millseconds) for 
+some reason, but only if LPE was cleared already.  I still think your test 
+is significantly different and maybe showing a different (but similar) 
+edge case bug than Neil.
+
+shouldn't IOMMU systems be catching this too when it was occuring?  we 
+only call pci_map_* with buffer_info->length which is assigned 
+rx_buffer_len.
+
+e1000/e1000e: check rx length for overruns
+
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+it has been reported that some tests can cause DMA overruns resulting in
+corrupted memory.  If the hardware writes more data to memory than we had
+allocated this is something we can check for.
+
+For now, WARN_ON, with the future capability of doing something like leaking
+the memory rather than returning a known corrupt buffer to userspace.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: brandon@ifup.org
+CC: nhorman@tuxdriver.com
+---
+
+ drivers/net/e1000/e1000_main.c |    3 +++
+ drivers/net/e1000e/netdev.c    |    4 ++++
+ 2 files changed, 7 insertions(+), 0 deletions(-)
+
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 7e855f9..911258b 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3666,6 +3666,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 		buffer_info->dma = 0;
+ 
+ 		length = le16_to_cpu(rx_desc->length);
++		WARN_ON(length > buffer_info->length);
+ 
+ 		/* errors is only valid for DD + EOP descriptors */
+ 		if (unlikely((status & E1000_RXD_STAT_EOP) &&
+@@ -3849,6 +3850,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 		buffer_info->dma = 0;
+ 
+ 		length = le16_to_cpu(rx_desc->length);
++		WARN_ON(length > buffer_info->length);
++
+ 		/* !EOP means multiple descriptors were used to store a single
+ 		 * packet, also make sure the frame isn't just CRC only */
+ 		if (unlikely(!(status & E1000_RXD_STAT_EOP) || (length <= 4))) {
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 762b697..394c2dc 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -449,6 +449,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 		buffer_info->dma = 0;
+ 
+ 		length = le16_to_cpu(rx_desc->length);
++		WARN_ON(length > adapter->rx_buffer_len);
+ 
+ 		/* !EOP means multiple descriptors were used to store a single
+ 		 * packet, also make sure the frame isn't just CRC only */
+@@ -758,6 +759,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
+ 		}
+ 
+ 		length = le16_to_cpu(rx_desc->wb.middle.length0);
++		WARN_ON(length > adapter->rx_ps_bsize0);
+ 
+ 		if (!length) {
+ 			e_dbg("Last part of the packet spanning multiple "
+@@ -814,6 +816,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
+ 			if (!length)
+ 				break;
+ 
++			WARN_ON(length > PAGE_SIZE);
+ 			ps_page = &buffer_info->ps_pages[j];
+ 			pci_unmap_page(pdev, ps_page->dma, PAGE_SIZE,
+ 				       PCI_DMA_FROMDEVICE);
+@@ -939,6 +942,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 		buffer_info->dma = 0;
+ 
+ 		length = le16_to_cpu(rx_desc->length);
++		WARN_ON(length > PAGE_SIZE);
+ 
+ 		/* errors is only valid for DD + EOP descriptors */
+ 		if (unlikely((status & E1000_RXD_STAT_EOP) &&
