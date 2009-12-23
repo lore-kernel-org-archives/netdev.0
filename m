@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ep93xx_eth.c: general cleanup
-Date: Wed, 23 Dec 2009 14:14:58 -0800 (PST)
-Message-ID: <20091223.141458.193725880.davem@davemloft.net>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200ED0C@mi8nycmail19.Mi8.com>
-	<20091216183200.GN1819@mail.wantstofly.org>
-	<BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com>
+Subject: Re: [PATCH NEXT 1/4] netxen: minor suspend resume fixes
+Date: Wed, 23 Dec 2009 14:15:15 -0800 (PST)
+Message-ID: <20091223.141515.226761280.davem@davemloft.net>
+References: <1260340857-11487-1-git-send-email-amit.salecha@qlogic.com>
+	<1260340857-11487-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, joe@perches.com
-To: hartleys@visionengravers.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757391AbZLWWPA@vger.kernel.org>
-In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42899
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757429AbZLWWPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 17:15:13 -0500
+In-Reply-To: <1260340857-11487-2-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Date: Wed, 16 Dec 2009 13:34:55 -0500
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Tue,  8 Dec 2009 22:40:54 -0800
 
-> Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
->> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
->>
->>> V3 - Change pr_fmt() as suggested by Joe Perches
->>>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
->>>      Don't remove the message in ep93xx_eth_init_module()
->>
->> That's not what I meant, but alright, as you prefer.
+> o pci device should be disable at the end and it should be enable first.
+> o Interface should be attached(netif_device_attach()) irrespective
+>   of its state.
 > 
-> Guess my parser is off line today.... ;-)
-> 
-> What did you mean?
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-This patch also doesn't apply to current sources, so if you
-could also please respin this once you've resolved the feedback
-that would be great.
-
-Thanks.
+Applied.
