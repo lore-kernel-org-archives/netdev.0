@@ -1,50 +1,45 @@
-From: Thomas Loo <tloo@saltstorm.net>
-Subject: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
-Date: Wed, 23 Dec 2009 21:56:47 +0100
-Message-ID: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
-Cc: Thomas Loo <tloo@saltstorm.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TCP]: min_t/max_t confusion in tcp_select_initial_window()?
+Date: Wed, 23 Dec 2009 13:15:26 -0800 (PST)
+Message-ID: <20091223.131526.193724825.davem@davemloft.net>
+References: <4B3179B8.5000403@gmail.com>
+	<20091222.194747.193724694.davem@davemloft.net>
+	<alpine.DEB.2.00.0912232140500.10866@melkinpaasi.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roel.kluin@gmail.com, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x380.saltstorm.net ([217.198.148.170]:43347 "EHLO
-	mail.saltstorm.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755121AbZLWVEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:04:50 -0500
-Received: from localhost.localdomain
-	by mail.saltstorm.net with [XMail 1.26 ESMTP Server]
-	id <S17BA3B> for <netdev@vger.kernel.org> from <tloo@saltstorm.net>;
-	Wed, 23 Dec 2009 21:56:31 +0100
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43920
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751165AbZLWVPZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2009 16:15:25 -0500
+In-Reply-To: <alpine.DEB.2.00.0912232140500.10866@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the Sony Ericsson J105i (Naite)
-mobile phone to the cdc_ether device whitelist,
-enabling access to the modem.
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 23 Dec 2009 21:45:57 +0200 (EET)
 
-I would think more SE models of this generation
-(2009Q3) with builtin HSDPA modules also needs
-to be added to this list.
+> On Tue, 22 Dec 2009, David Miller wrote:
+>=20
+>> From: Roel Kluin <roel.kluin@gmail.com>
+>> Date: Wed, 23 Dec 2009 03:00:24 +0100
+>>=20
+>> > I could be confused, but in net/ipv4/tcp_output.c:217:
+>> >=20
+>> >                 space =3D max_t(u32, sysctl_tcp_rmem[2], sysctl_rm=
+em_max);
+>> >                 space =3D min_t(u32, space, *window_clamp);
+>> > ------------------------^^^^^
+ ...
+>=20
+> I don't understand how window_clamp line could be changed to max_t.
+> ...I guess min in both would seem the most reasonable one?
 
-Signed-off-by: Thomas Loo <tloo@saltstorm.net>
----
- drivers/net/usb/cdc_ether.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+Nope, the first one must be max.  Since I'm pretty sure we let the
+dynamic RX buffer resizing exceed sysctl_rmem_max if necessary.
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 21e183a..833ba5a 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -584,6 +584,11 @@ static const struct usb_device_id	products [] = {
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &mbm_info,
- }, {
-+	/* Sony Ericsson J105i (Naite) */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0fce, 0xd12d, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &mbm_info,
-+}, {
- 	/* Toshiba F3507g */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--- 
-1.6.5.5
-
+And that's what is controlled by sysctl_tcp_rmem[2]
