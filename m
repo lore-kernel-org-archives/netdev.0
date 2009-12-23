@@ -1,53 +1,83 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: via_rhine kernel crashes in 2.6.32
-Date: Wed, 23 Dec 2009 09:52:03 +0000
-Message-ID: <20091223095203.GA7824@ff.dom.local>
-References: <20091222152658.GA16043@core.hellgate.ch>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Wed, 23 Dec 2009 11:13:40 +0100
+Message-ID: <20091223101340.GC20539@basil.fritz.box>
+References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Rahmatullin <wrar@altlinux.org>,
-	Christian Kujau <lists@nerdbynature.de>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Roger Luethi <rl@hellgate.ch>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754663AbZLWJwQ@vger.kernel.org>
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:50790 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812AbZLWKNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 05:13:42 -0500
 Content-Disposition: inline
-In-Reply-To: <20091222152658.GA16043@core.hellgate.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091223065129.GA19600@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22-12-2009 16:26, Roger Luethi wrote:
-> On Tue, 22 Dec 2009 20:00:45 +0500, Andrey Rahmatullin wrote:
->> On Tue, Dec 22, 2009 at 01:38:17PM +0000, Jarek Poplawski wrote:
->>>>> It looks like napi_disable() should be illegal in ndo_tx_timeout().
->>>>> Here is a patch which moves most of the timeout work to a workqueue,
->>>>> similarly to tg3 etc. It should prevent at least one of reported
->>>>> bugs. Alas I can't even check-compile it at the moment, so let me
->>>>> know on any problems.
->>>> It seems I needlessly changed locking btw, so here it is again.
->>> Hmm... On the other hand, it definitely needs at least _bh now...
->> I've tried this patch. There are lots of "Transmit timed out", but no
->> crashes.
+> i.e. it has all the makings of a stupid, avoidable, permanent fork. The thing 
+
+Nearly. There was no equivalent of a kernel based virtual driver host
+before.
+
+> - Are a pure software concept and any compatibility mismatch is                                      
+>   self-inflicted. The patches are in fact breaking the ABI to KVM                                                
+
+In practice, especially considering older kernel releases, VMs 
+behave like hardware, with all its quirks, compatibility requirements,
+sometimes not fully understood, etc.
+
+> is, if AlacricityVM is better, and KVM developers are not willing to fix their 
+> stuff, replace KVM with it.
+
+In the end the driver model is only a very small part of KVM though.
+
 > 
-> ACK. Looks like you guys tracked down the crashing and fixed it (thanks!).
-> I suspect we shouldn't have to reset due to timeouts that often, but that's
-> another story.
+> It's a bit as if someone found a performance problem with sys_open() and came 
+> up with sys_open_v2() and claimed that he wants to work with the VFS 
+> developers while not really doing so but advances sys_open_v2() all the time. 
 
-BTW, it seems a change in 2.6.31 might trigger these timeouts more
-often than before. Andrey, could you try if this matters here?
+AFAIK Gregory tried for several months to work with the KVM maintainers,
+but failed at their NIH filter.
 
-Thanks,
-Jarek P.
+> 
+> Do we allow sys_open_v2() upstream, in the name of openness and diversity, 
+> letting some apps use that syscall while other apps still use sys_open()? Or 
+> do we say "enough is enough of this stupidity, come up with some strong 
+> reasons to replace sys_open, and if so, replace the thing and be done with the 
+> pain!".
 
---- (on top of net-2.6 with the previous "Fix scheduling..." patch)
+I thought the published benchmark numbers were strong reasons.
+I certainly haven't seen similarly convincing numbers for vhost-net.
 
-diff -Nurp a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
---- a/drivers/net/via-rhine.c	2009-12-23 09:28:25.000000000 +0000
-+++ b/drivers/net/via-rhine.c	2009-12-23 09:33:57.000000000 +0000
-@@ -1226,6 +1226,7 @@ static void rhine_tx_timeout(struct net_
- 	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
- 
- 	schedule_work(&rp->reset_task);
-+	netdev_get_tx_queue(dev, 0)->trans_start = jiffies;
- }
- 
- static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
+> The main difference is that Gregory claims that improved performance is not 
+> possible within the existing KVM framework, while the KVM developers disagree. 
+> The good news is that this is a hard, testable fact.
+
+Yes clearly the onus at this point is on the vhost-net developers/
+"pci is all that is ever needed for PV" proponents to show similar numbers
+with their current code.
+
+If they can show the same performance there's really no need for
+the alacrityvm model (or at least I haven't seen a convincing reason
+other than performance so far to have a separate model)
+
+I heard claims earlier from one side to the other that some benchmarks
+were not fair. Apart from such accusations not being very constructive
+(I don't think anyone is trying to intentionally mislead others here), 
+but even if that's the case surely the other side can do similar 
+benchmarks and demonstrate they are as fast.
+
+-Andi
