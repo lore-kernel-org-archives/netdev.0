@@ -1,77 +1,196 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: ucc_geth broken in 2.6.32 by
-	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
-Date: Wed, 23 Dec 2009 23:22:26 +0300
-Message-ID: <20091223202226.GA8185@oksana.dev.rtsoft.ru>
-References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
-	<20091223180415.GA12987@oksana.dev.rtsoft.ru>
-	<20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
-Reply-To: avorontsov@ru.mvista.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v2 02/12] ixgbevf: 82599 Virtual Function core
+	functions and header
+Date: Wed, 23 Dec 2009 20:22:26 +0000
+Message-ID: <1261599746.2782.66.camel@achroite.uk.solarflarecom.com>
+References: <20091218225043.10698.58897.stgit@localhost.localdomain>
+	 <20091218225123.10698.8625.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:20146 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757027AbZLWUWa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 15:22:30 -0500
+In-Reply-To: <20091218225123.10698.8625.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 23, 2009 at 03:09:48PM -0500, Lennart Sorensen wrote:
+On Fri, 2009-12-18 at 14:51 -0800, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+>=20
+> This module and header file contain the core functions for the 82599
+> virtual function device.
 [...]
-> So there result is:
-> 
-> Unable to handle kernel paging request for data at address 0x00000058
-> Faulting instruction address: 0xc024f2fc
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> RC8360 CM
-> Modules linked in: rclibapi xeno_native max6369_wdt ucc_geth_driver spi_mpc8xxx ltc4215 lm75
-> NIP: c024f2fc LR: e30aa0a4 CTR: c024f2e8
-> REGS: df857ca0 TRAP: 0300   Not tainted  (2.6.32-trunk-8360e)
-> MSR: 00009032 <EE,ME,IR,DR>  CR: 44042088  XER: 00000000
-> DAR: 00000058, DSISR: 20000000
-> TASK = df848c90[4] 'events/0' THREAD: df856000
-> GPR00: e30aa0a4 df857d50 df848c90 00000000 00000640 00000001 c0428df4 dfa40b80
-> GPR08: 000000c8 e30ad2b8 df084360 c024f2e8 44042082 1001af90 e30ad2b8 00000000
-> GPR16: 00000048 00000001 00000000 00000000 df08436c df08440c 00000190 df08455c
-> GPR24: df0844ec df0842c0 df084000 180005ea dfa40b80 00000000 df0842c0 00000000
-> NIP [c024f2fc] skb_recycle_check+0x14/0x100
-> LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
-> Call Trace:
-> [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
-> [df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
+> diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
+> new file mode 100644
+> index 0000000..38784eb
+> --- /dev/null
+> +++ b/drivers/net/ixgbevf/vf.c
+[...]
+> +/**
+> + *  ixgbevf_set_rar_vf - set device MAC address
+> + *  @hw: pointer to hardware structure
+> + *  @index: Receive address register to write
+> + *  @addr: Address to put into receive address register
+> + *  @vmdq: VMDq "set" or "pool" index
+> + **/
+> +static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *ad=
+dr,
+> +			      u32 vmdq)
+> +{
+> +	struct ixgbe_mbx_info *mbx =3D &hw->mbx;
+> +	u32 msgbuf[3];
+> +	u8 *msg_addr =3D (u8 *)(&msgbuf[1]);
+> +	s32 ret_val;
+> +
+> +	memset(msgbuf, 0, 12);
 
-This I can reproduce. It seems it's a long standing bug that
-becomes easily reproducible with quiesce/activate sequence.
-The driver doesn't handle empty queue correctly, i.e. it ignores
-the empty queue check if netdev queue is stopped, which makes no
-sense.
+Seems like it would be clearer to write sizeof(msgbuf) rather than 12.
+But does it even matter that you clear the padding bytes?
 
-Can you try this patch in addition to previous (i.e. both should
-be applied)?
+[...]
+> +/**
+> + *  ixgbevf_update_mc_addr_list_vf - Update Multicast addresses
+> + *  @hw: pointer to the HW structure
+> + *  @mc_addr_list: array of multicast addresses to program
+> + *  @mc_addr_count: number of multicast addresses to program
+> + *  @next: caller supplied function to return next address in list
+> + *
+> + *  Updates the Multicast Table Array.
+> + **/
+> +static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *m=
+c_addr_list,
+> +					u32 mc_addr_count,
+> +					ixgbe_mc_addr_itr next)
+> +{
+> +	struct ixgbe_mbx_info *mbx =3D &hw->mbx;
+> +	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+> +	u16 *vector_list =3D (u16 *)&msgbuf[1];
+> +	u32 vector;
+> +	u32 cnt, i;
+> +	u32 vmdq;
+> +
+> +	/* Each entry in the list uses 1 16 bit word.  We have 30
+> +	 * 16 bit words available in our HW msg buffer (minus 1 for the
+> +	 * msg type).  That's 30 hash values if we pack 'em right.  If
+> +	 * there are more than 30 MC addresses to add then punt the
+> +	 * extras for now and then add code to handle more than 30 later.
+> +	 * It would be unusual for a server to request that many multi-cast
+> +	 * addresses except for in large enterprise network environments.
+> +	 */
+> +	cnt =3D (mc_addr_count > 30) ? 30 : mc_addr_count;
 
-Thanks!
+What, you don't want to support large enterprise networks now? ;-)
+You should switch to all-multicast behaviour rather than dropping
+multicast addresses.
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 2f73e3f..b22de51 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3275,7 +3275,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
- 		/* Handle the transmitted buffer and release */
- 		/* the BD to be used with the current frame  */
- 
--		if ((bd == ugeth->txBd[txQ]) && (netif_queue_stopped(dev) == 0))
-+		if (bd == ugeth->txBd[txQ]) /* queue empty? */
- 			break;
- 
- 		dev->stats.tx_packets++;
+[...]
+> +/**
+> + *  ixgbevf_get_mac_addr_vf - Read device MAC address
+> + *  @hw: pointer to the HW structure
+
+The mac_addr parameter is missing.
+
+> + **/
+> +static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr=
+)
+> +{
+> +	int i;
+> +
+> +	for (i =3D 0; i < IXGBE_ETH_LENGTH_OF_ADDRESS; i++)
+> +		mac_addr[i] =3D hw->mac.perm_addr[i];
+
+memcpy()?
+
+[...]
+> +/**
+> + *  ixgbevf_setup_mac_link_vf - Setup MAC link settings
+> + *  @hw: pointer to hardware structure
+> + *  @speed: new link speed
+> + *  @autoneg: true if autonegotiation enabled
+> + *  @autoneg_wait_to_complete: true when waiting for completion is n=
+eeded
+> + *
+> + *  Set the link speed in the AUTOC register and restarts link.
+> + **/
+=EF=BB=BF
+This description is obviously not correct.
+
+> +static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
+> +				     ixgbe_link_speed speed, bool autoneg,
+> +				     bool autoneg_wait_to_complete)
+> +{
+> +	return 0;
+> +}
+[...]
+> diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ixgbevf/vf.h
+> new file mode 100644
+> index 0000000..799600e
+> --- /dev/null
+> +++ b/drivers/net/ixgbevf/vf.h
+[...]
+> +struct ixgbe_mac_operations {
+> +	s32 (*init_hw)(struct ixgbe_hw *);
+> +	s32 (*reset_hw)(struct ixgbe_hw *);
+> +	s32 (*start_hw)(struct ixgbe_hw *);
+> +	s32 (*clear_hw_cntrs)(struct ixgbe_hw *);
+> +	enum ixgbe_media_type (*get_media_type)(struct ixgbe_hw *);
+> +	u32 (*get_supported_physical_layer)(struct ixgbe_hw *);
+> +	s32 (*get_mac_addr)(struct ixgbe_hw *, u8 *);
+> +	s32 (*stop_adapter)(struct ixgbe_hw *);
+> +	s32 (*get_bus_info)(struct ixgbe_hw *);
+> +
+> +	/* Link */
+> +	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool, bool);
+> +	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *, bo=
+ol);
+> +	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
+> +				     bool *);
+> +
+> +	/* RAR, Multicast, VLAN */
+> +	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32);
+> +	s32 (*init_rx_addrs)(struct ixgbe_hw *);
+> +	s32 (*update_mc_addr_list)(struct ixgbe_hw *, u8 *, u32,
+> +				   ixgbe_mc_addr_itr);
+> +	s32 (*enable_mc)(struct ixgbe_hw *);
+> +	s32 (*disable_mc)(struct ixgbe_hw *);
+> +	s32 (*clear_vfta)(struct ixgbe_hw *);
+> +	s32 (*set_vfta)(struct ixgbe_hw *, u32, u32, bool);
+> +};
+> +
+> +enum ixgbe_mac_type {
+> +	ixgbe_mac_unknown =3D 0,
+> +	ixgbe_mac_82599_vf,
+> +	ixgbe_num_macs
+> +};
+
+Is this abstraction really justified, given you have only one
+implementation?
+
+[...]
+> +struct ixgbe_mbx_operations {
+> +	s32 (*init_params)(struct ixgbe_hw *hw);
+> +	s32 (*read)(struct ixgbe_hw *, u32 *, u16);
+> +	s32 (*write)(struct ixgbe_hw *, u32 *, u16);
+> +	s32 (*read_posted)(struct ixgbe_hw *, u32 *, u16);
+> +	s32 (*write_posted)(struct ixgbe_hw *, u32 *, u16);
+> +	s32 (*check_for_msg)(struct ixgbe_hw *);
+> +	s32 (*check_for_ack)(struct ixgbe_hw *);
+> +	s32 (*check_for_rst)(struct ixgbe_hw *);
+> +};
+[...]
+
+Ditto for this.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
