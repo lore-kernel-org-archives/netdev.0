@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/4] igb: do not force retry count to 1 on 82580 phy
-Date: Wed, 23 Dec 2009 15:21:07 -0800
-Message-ID: <20091223232107.16146.15573.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 3/4] igb: correctly offset 82575 flow control
+	watermarks by 16 bytes
+Date: Wed, 23 Dec 2009 15:21:27 -0800
+Message-ID: <20091223232126.16146.13862.stgit@localhost.localdomain>
 References: <20091223232047.16146.35264.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,47 +12,45 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:35064
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753422AbZLWXV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:21:26 -0500
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:37889
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755394AbZLWXVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:21:45 -0500
 In-Reply-To: <20091223232047.16146.35264.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change resolves an issue seen in some configurations where the link
-may drop to 100Mb/s even though the link itself supports 1000Mb/s.  The
-issue was root caused to the fact that we were only trying the link once.
-Now instead we will try up to 5 attempts on a faulty cable before
-downshifting to 100Mb/s.
+The watermark values for the 82575 were not being set correctly.  As a
+result the high and low watermark values were set to the same value which
+can lead to excess xon/xoff packets being generated.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_phy.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+ drivers/net/igb/igb_main.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/igb/e1000_phy.c
-index 5c9d73e..3670a66 100644
---- a/drivers/net/igb/e1000_phy.c
-+++ b/drivers/net/igb/e1000_phy.c
-@@ -457,15 +457,6 @@ s32 igb_copper_link_setup_82580(struct e1000_hw *hw)
- 	phy_data |= I82580_CFG_ENABLE_DOWNSHIFT;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 78963a0..933c64f 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1306,13 +1306,8 @@ void igb_reset(struct igb_adapter *adapter)
+ 	hwm = min(((pba << 10) * 9 / 10),
+ 			((pba << 10) - 2 * adapter->max_frame_size));
  
- 	ret_val = phy->ops.write_reg(hw, I82580_CFG_REG, phy_data);
--	if (ret_val)
--		goto out;
--
--	/* Set number of link attempts before downshift */
--	ret_val = phy->ops.read_reg(hw, I82580_CTRL_REG, &phy_data);
--	if (ret_val)
--		goto out;
--	phy_data &= ~I82580_CTRL_DOWNSHIFT_MASK;
--	ret_val = phy->ops.write_reg(hw, I82580_CTRL_REG, phy_data);
- 
- out:
- 	return ret_val;
+-	if (mac->type < e1000_82576) {
+-		fc->high_water = hwm & 0xFFF8;	/* 8-byte granularity */
+-		fc->low_water = fc->high_water - 8;
+-	} else {
+-		fc->high_water = hwm & 0xFFF0;	/* 16-byte granularity */
+-		fc->low_water = fc->high_water - 16;
+-	}
++	fc->high_water = hwm & 0xFFF0;	/* 16-byte granularity */
++	fc->low_water = fc->high_water - 16;
+ 	fc->pause_time = 0xFFFF;
+ 	fc->send_xon = 1;
+ 	fc->current_mode = fc->requested_mode;
 
