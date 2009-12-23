@@ -1,57 +1,50 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 23:01:41 +0200
-Message-ID: <4B328535.5040105@redhat.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu> <4B3248F9.5030504@gmail.com> <4B327F3A.9020101@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4B327F3A.9020101@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Loo <tloo@saltstorm.net>
+Subject: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
+Date: Wed, 23 Dec 2009 21:56:47 +0100
+Message-ID: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
+Cc: Thomas Loo <tloo@saltstorm.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from x380.saltstorm.net ([217.198.148.170]:43347 "EHLO
+	mail.saltstorm.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755121AbZLWVEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:04:50 -0500
+Received: from localhost.localdomain
+	by mail.saltstorm.net with [XMail 1.26 ESMTP Server]
+	id <S17BA3B> for <netdev@vger.kernel.org> from <tloo@saltstorm.net>;
+	Wed, 23 Dec 2009 21:56:31 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/23/2009 10:36 PM, Avi Kivity wrote:
-> On 12/23/2009 06:44 PM, Gregory Haskins wrote:
->>
->>>   - Are a pure software concept
->> By design.  In fact, I would describe it as "software to software
->> optimized" as opposed to trying to shoehorn into something that was
->> designed as a software-to-hardware interface (and therefore has
->> assumptions about the constraints in that environment that are not
->> applicable in software-only).
->>
->
-> And that's the biggest mistake you can make.  Look at Xen, for 
-> instance.  The paravirtualized the fork out of everything that moved 
-> in order to get x86 virt going.  And where are they now? x86_64 
-> syscalls are slow since they have to trap to the hypervisor and 
-> (partially) flush the tlb.  With npt or ept capable hosts performance 
-> is better for many workloads on fullvirt.  And paravirt doesn't 
-> support Windows.  Their unsung hero Jeremy is still trying to upstream 
-> dom0 Xen support.  And they get to support it forever.
->
-> VMware stuck with the hardware defined interfaces.  Sure they had to 
-> implement binary translation to get there, but as a result, they only 
-> have to support one interface, all guests support it, and they can 
-> drop it on newer hosts where it doesn't give them anything.
+This patch adds the Sony Ericsson J105i (Naite)
+mobile phone to the cdc_ether device whitelist,
+enabling access to the modem.
 
-As a twist on this, the VMware paravirt driver interface is so 
-hardware-like that they're getting hardware vendors to supply cards that 
-implement it.  Try that with a pure software approach.
+I would think more SE models of this generation
+(2009Q3) with builtin HSDPA modules also needs
+to be added to this list.
 
+Signed-off-by: Thomas Loo <tloo@saltstorm.net>
+---
+ drivers/net/usb/cdc_ether.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 21e183a..833ba5a 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -584,6 +584,11 @@ static const struct usb_device_id	products [] = {
+ 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long) &mbm_info,
+ }, {
++	/* Sony Ericsson J105i (Naite) */
++	USB_DEVICE_AND_INTERFACE_INFO(0x0fce, 0xd12d, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &mbm_info,
++}, {
+ 	/* Toshiba F3507g */
+ 	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
+ 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+1.6.5.5
 
