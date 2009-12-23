@@ -1,86 +1,105 @@
-From: Brandon Philips <brandon@ifup.org>
-Subject: Re: [PATCH 0/3] increase skb size to prevent dma over skb boundary
-Date: Tue, 22 Dec 2009 22:47:26 -0800
-Message-ID: <20091223064725.GB12439@jenkins.home.ifup.org>
-References: <20091207144623.GA8073@hmsreliant.think-freely.org>
- <EA929A9653AAE14F841771FB1DE5A1365FA93CD0DD@rrsmsx501.amr.corp.intel.com>
- <20091209152312.GA11983@hmsreliant.think-freely.org>
- <EA929A9653AAE14F841771FB1DE5A1365FA9463CD1@rrsmsx501.amr.corp.intel.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Wed, 23 Dec 2009 07:51:29 +0100
+Message-ID: <20091223065129.GA19600@elte.hu>
+References: <4B1D4F29.8020309@gmail.com>
+ <87637zdy9g.fsf@basil.nowhere.org>
+ <4B30E654.40702@codemonkey.ws>
+ <200912221701.56840.bzolnier@gmail.com>
+ <4B30F214.80206@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f211.google.com ([209.85.217.211]:38983 "EHLO
-	mail-gx0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbZLWGsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 01:48:00 -0500
-Received: by gxk3 with SMTP id 3so1170783gxk.1
-        for <netdev@vger.kernel.org>; Tue, 22 Dec 2009 22:47:59 -0800 (PST)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:48823 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752266AbZLWGvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Dec 2009 01:51:53 -0500
 Content-Disposition: inline
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FA9463CD1@rrsmsx501.amr.corp.intel.com>
+In-Reply-To: <4B30F214.80206@codemonkey.ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11:20 Thu 10 Dec 2009, Tantilov, Emil S wrote:
-> >> I am trying to test the patches you submitted (thanks btw) and so
-> >> far am not able to reproduce the panic you described. When MTU is at
-> >> 1500 RCTL.LPE (bit 5) is set to 0 and the HW will not allow the
-> >> reception of large packets (>1522 bytes, which is what rx_buffer_len
-> >> is set to). This is basically what I am seeing in my tests - packets
-> >> are discarded by the HW.     
 
-I have a memory dump from an SLE10 SP3 machine that seems to reproduce
-this issue. The testing environment was netperf with the MTU being
-switched every minute from 9000 -> 1500 and it took 40 hours to hit
-the bug. So, an overnight test, as you tried, may not be enough.
+* Anthony Liguori <anthony@codemonkey.ws> wrote:
 
-In the memory dump there are 6 skb's in the ring that have memory
-overwritten from skb->data to skb->data + 2048. The machine ended up
-oopsing in skb_release_data() from e1000_clean_all_rx_rings() from
-e1000_change_mtu().
+> On 12/22/2009 10:01 AM, Bartlomiej Zolnierkiewicz wrote:
+> >>new e1000 driver is more superior in architecture and do the required
+> >>work to make the new e1000 driver a full replacement for the old one.
+> >Right, like everyone actually does things this way..
+> >
+> >I wonder why do we have OSS, old Firewire and IDE stacks still around then?
+> 
+> And it's always a source of pain, isn't it.
 
-I will let you know if this patch ended up helping.
+Even putting aside the fact that such overlap sucks and is a pain to users 
+(and that 98% of driver and subsystem version transitions are done completely 
+seemlessly to users - the examples that were cited were the odd ones out of 
+150K commits in the past 4 years, 149K+ of which are seemless), the comparison 
+does not even apply really.
 
-Cheers,
+e1000, OSS, old Firewire and IDE are hardware stacks, where hardware is a not 
+fully understood externality, with its inevitable set of compatibility voes. 
+There's often situations where one piece of hardware still works better with 
+the old driver, for some odd (or not so odd) reason.
 
-	Brandon
+Also, note that the 'new' hw drivers are generally intended and are maintained 
+as clear replacements for the old ones, and do so with minimal ABI changes - 
+or preferably with no ABI changes at all. Most driver developers just switch 
+from old to new and the old bits are left around and are phased out. We phased 
+out old OSS recently.
 
-35:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
-        Subsystem: Intel Corporation PRO/1000 PT Quad Port LP Server Adapter
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0, Cache Line Size: 64 bytes
-        Interrupt: pin A routed to IRQ 91
-        Region 0: Memory at c9120000 (32-bit, non-prefetchable) [size=128K]
-        Region 1: Memory at c9100000 (32-bit, non-prefetchable) [size=128K]
-        Region 2: I/O ports at <unassigned>
-        Expansion ROM at fda20000 [disabled] [size=128K]
-        Capabilities: [c8] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [d0] MSI: Mask- 64bit+ Count=1/1 Enable+
-                Address: 00000000fee1d000  Data: 405b
-        Capabilities: [e0] Express (v1) Endpoint, MSI 00
-                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-                DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
-                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                        MaxPayload 128 bytes, MaxReadReq 512 bytes
-                DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-                LnkCap: Port #2, Speed 2.5GT/s, Width x4, ASPM L0s, Latency L0 <4us, L1 <64us
-                        ClockPM- Surprise- LLActRep- BwNot-
-                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
-                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-        Kernel driver in use: e1000
-        Kernel modules: e1000
+That is a very different situation from the AlacrityVM patches, which:
+
+ - Are a pure software concept and any compatibility mismatch is
+   self-inflicted. The patches are in fact breaking the ABI to KVM 
+   intentionally (for better or worse).
+
+ - Gregory claims that the AlacricityVM patches are not a replacement for KVM.
+   I.e. there's no intention to phase out any 'old stuff' and it splits the 
+   pool of driver developers.
+
+i.e. it has all the makings of a stupid, avoidable, permanent fork. The thing 
+is, if AlacricityVM is better, and KVM developers are not willing to fix their 
+stuff, replace KVM with it.
+
+It's a bit as if someone found a performance problem with sys_open() and came 
+up with sys_open_v2() and claimed that he wants to work with the VFS 
+developers while not really doing so but advances sys_open_v2() all the time. 
+
+Do we allow sys_open_v2() upstream, in the name of openness and diversity, 
+letting some apps use that syscall while other apps still use sys_open()? Or 
+do we say "enough is enough of this stupidity, come up with some strong 
+reasons to replace sys_open, and if so, replace the thing and be done with the 
+pain!".
+
+Overlap and forking can still be done in special circumstances, when a project 
+splits and a hostile fork is inevitable due to prolongued and irreconcilable 
+differences between the parties and if there's no strong technical advantage 
+on either side. I havent seen evidence of this yet though: Gregory claims that 
+he wants to 'work with the community' and the KVM guys seem to agree violently 
+that performance can be improved - and are doing so (and are asking Gregory to 
+take part in that effort).
+
+The main difference is that Gregory claims that improved performance is not 
+possible within the existing KVM framework, while the KVM developers disagree. 
+The good news is that this is a hard, testable fact.
+
+I think we should try _much_ harder before giving up and forking the ABI of a 
+healthy project and intentionally inflicting pain on our users.
+
+And, at minimum, such kinds of things _have to_ be pointed out in pull 
+requests, because it's like utterly important. In fact i couldnt list any more 
+important thing to point out in a pull request.
+
+	Ingo
