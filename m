@@ -1,82 +1,41 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH v2 03/12] ixgbevf: Mailbox communication
-Date: Wed, 23 Dec 2009 13:38:47 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F07559A5CD827@orsmsx508.amr.corp.intel.com>
-References: <20091218225043.10698.58897.stgit@localhost.localdomain>
-	 <20091218225140.10698.50205.stgit@localhost.localdomain>
- <1261600088.2782.72.camel@achroite.uk.solarflarecom.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
+Date: Wed, 23 Dec 2009 13:48:26 -0800
+Message-ID: <1261604906.609.106.camel@localhost.localdomain>
+References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Loo <tloo@saltstorm.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25009 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751686AbZLWVit convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:38:49 -0500
-In-Reply-To: <1261600088.2782.72.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from senator.holtmann.net ([87.106.208.187]:55600 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753554AbZLWVtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:49:00 -0500
+In-Reply-To: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Ben Hutchings [mailto:bhutchings@solarflare.com]
->Sent: Wednesday, December 23, 2009 12:28 PM
->To: Kirsher, Jeffrey T
->Cc: netdev@vger.kernel.org; gospo@redhat.com; Rose, Gregory V
->Subject: Re: [RFC PATCH v2 03/12] ixgbevf: Mailbox communication
->
->On Fri, 2009-12-18 at 14:51 -0800, Jeff Kirsher wrote:
->> From: Greg Rose <gregory.v.rose@intel.com>
->>
->> The 82599 virtual function device and the master 82599 physical
->function
->> device implement a mailbox utility for communication between the
->devices
->> using some SRAM scratch memory and a doorbell/answering mechanism
->enabled
->> via interrupt and/or polling.  This C module and accompanying header
->> file implement the base functions for use of this feature.
->[...]
->> diff --git a/drivers/net/ixgbevf/mbx.c b/drivers/net/ixgbevf/mbx.c
->> new file mode 100644
->> index 0000000..a6e81fe
->> --- /dev/null
->> +++ b/drivers/net/ixgbevf/mbx.c
->[...]
->> +/**
->> + *  ixgbevf_poll_for_msg - Wait for message notification
->> + *  @hw: pointer to the HW structure
->> + *
->> + *  returns 0 if it successfully received a message notification
->> + **/
->> +static s32 ixgbevf_poll_for_msg(struct ixgbe_hw *hw)
->> +{
->> +	struct ixgbe_mbx_info *mbx = &hw->mbx;
->> +	int countdown = mbx->timeout;
->> +
->> +	if (!mbx->ops.check_for_msg)
->> +		goto out;
->[...]
->
->Can this ever be true?
+Hi Thomas,
 
-In this case no.
+> This patch adds the Sony Ericsson J105i (Naite)
+> mobile phone to the cdc_ether device whitelist,
+> enabling access to the modem.
+> 
+> I would think more SE models of this generation
+> (2009Q3) with builtin HSDPA modules also needs
+> to be added to this list.
 
->Wouldn't that be a bug?
+I do prefer if we NOT use the mbm_info details for this since they are
+clearly for mobile broadband cards with FLAG_WWAN.
 
-Most definitely.
+Since this is a phone where the setup of the connection is done via the
+phone. And you just treat this as an Ethernet device and run DHCP, then
+please create a se_info or similar with FLAG_ETHER.
 
->
->There are several similar, apparently unnecessary, tests in the
->following functions.
+Regards
 
-Yeah, the code was derived from a more general purpose code base.  I'll remove these unnecessary tests from the kernel driver.
+Marcel
 
-Regards,
-
-- Greg
 
