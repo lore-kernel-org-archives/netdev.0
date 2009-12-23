@@ -1,76 +1,43 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH] cfg80211: fix error path in cfg80211_wext_siwscan
-Date: Wed, 23 Dec 2009 15:33:35 +0100
-Message-ID: <1261578815.7304.7.camel@johannes.local>
-References: <20091223132937.GG17923@bicker>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [net-2.6 PATCH 1/3] be2net: Bug fix to avoid soft lockup in
+ loopback test.
+Date: Wed, 23 Dec 2009 20:10:36 +0530
+Message-ID: <20091223144026.GA23383@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091223132937.GG17923@bicker>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:11196 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750986AbZLWOkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 09:40:31 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If there's an invalid channel or SSID, the code leaks
-the scan request. Always free the scan request, unless
-it was successfully given to the driver.
+This change ensures that loopback test command gives up after 4 seconds when 
+the hardware is not responsive. This could happen if the ports are connected 
+properly in loopback mode.
 
-Reported-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 ---
-I kinda prefer this, thoughts?
+ drivers/net/benet/be_cmds.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
- net/wireless/scan.c |   13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
---- wireless-testing.orig/net/wireless/scan.c	2009-12-23 15:27:20.000000000 +0100
-+++ wireless-testing/net/wireless/scan.c	2009-12-23 15:32:52.000000000 +0100
-@@ -601,7 +601,7 @@ int cfg80211_wext_siwscan(struct net_dev
- 	struct cfg80211_registered_device *rdev;
- 	struct wiphy *wiphy;
- 	struct iw_scan_req *wreq = NULL;
--	struct cfg80211_scan_request *creq;
-+	struct cfg80211_scan_request *creq = NULL;
- 	int i, err, n_channels = 0;
- 	enum ieee80211_band band;
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 1b68bd9..a27fdb3 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1501,6 +1501,7 @@ int be_cmd_loopback_test(struct be_adapt
  
-@@ -694,8 +694,10 @@ int cfg80211_wext_siwscan(struct net_dev
- 	/* translate "Scan for SSID" request */
- 	if (wreq) {
- 		if (wrqu->data.flags & IW_SCAN_THIS_ESSID) {
--			if (wreq->essid_len > IEEE80211_MAX_SSID_LEN)
--				return -EINVAL;
-+			if (wreq->essid_len > IEEE80211_MAX_SSID_LEN) {
-+				err = -EINVAL;
-+				goto out;
-+			}
- 			memcpy(creq->ssids[0].ssid, wreq->essid, wreq->essid_len);
- 			creq->ssids[0].ssid_len = wreq->essid_len;
- 		}
-@@ -707,12 +709,15 @@ int cfg80211_wext_siwscan(struct net_dev
- 	err = rdev->ops->scan(wiphy, dev, creq);
- 	if (err) {
- 		rdev->scan_req = NULL;
--		kfree(creq);
-+		/* creq will be freed below */
- 	} else {
- 		nl80211_send_scan_start(rdev, dev);
-+		/* creq now owned by driver */
-+		creq = NULL;
- 		dev_hold(dev);
- 	}
-  out:
-+	kfree(creq);
- 	cfg80211_unlock_rdev(rdev);
- 	return err;
- }
+ 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_LOWLEVEL,
+ 			OPCODE_LOWLEVEL_LOOPBACK_TEST, sizeof(*req));
++	req->hdr.timeout = 4;
+ 
+ 	req->pattern = cpu_to_le64(pattern);
+ 	req->src_port = cpu_to_le32(port_num);
+-- 
+1.4.0
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
