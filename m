@@ -1,51 +1,108 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Gregory Haskins <gregory.haskins@gmail.com>
 Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 18:33:39 +0100
-Message-ID: <20091223173339.GL20539@basil.fritz.box>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu> <4B3248F9.5030504@gmail.com> <20091223171052.GI20539@basil.fritz.box> <4B3250BC.50203@gmail.com>
+Date: Wed, 23 Dec 2009 12:34:44 -0500
+Message-ID: <4B3254B4.2080602@gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> 	<4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu> 	<4B3103B4.4070708@gmail.com> <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Avi Kivity <avi@redhat.com>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig8D89DAD9F03F2957BA21E5D8"
+Cc: Ingo Molnar <mingo@elte.hu>, Avi Kivity <avi@redhat.com>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	torvalds@linux-foundation.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
+	<alacrityvm-devel@lists.sourceforge.net>,
+	"Ira W. Snyder" <iws@ovro.caltech.edu>
+To: Kyle Moffett <kyle@moffetthome.net>
 Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B3250BC.50203@gmail.com>
+In-Reply-To: <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 23, 2009 at 12:17:48PM -0500, Gregory Haskins wrote:
-> On 12/23/09 12:10 PM, Andi Kleen wrote:
-> >> And its moot, anyway, as I have already retracted my one outstanding
-> >> pull request based on Linus' observation.  So at this time, I am not
-> >> advocating _anything_ for upstream inclusion.  And I am contemplating
-> >> _never_ doing so again.  It's not worth _this_.
-> > 
-> > That certainly sounds like the wrong reaction. Out of tree drivers
-> > are typically a pain to use.
-> 
-> Well, to Linus' point, it shouldn't go in until a critical mass of users
-> have expressed desire to see it in tree, which seems reasonable to me.
-> For the admittedly small group that are using it today, modern tools
-> like the opensuse-build-service ease the deployment as a KMP, so that
-> can suffice for now.  Its actually what most of the alacrityvm community
-> uses today anyway (as opposed to using a merged tree in the guest)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig8D89DAD9F03F2957BA21E5D8
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-It would be probably also good to have some more exhaustive data 
-showing any performance improvements.
+On 12/23/09 1:15 AM, Kyle Moffett wrote:
+> On Tue, Dec 22, 2009 at 12:36, Gregory Haskins
+> <gregory.haskins@gmail.com> wrote:
+>> On 12/22/09 2:57 AM, Ingo Molnar wrote:
+>>> * Gregory Haskins <gregory.haskins@gmail.com> wrote:
+>>>> Actually, these patches have nothing to do with the KVM folks. [...]=
 
-Your numbers are very hard to compare to Chris' numbers and not
-as comprehensive (e.g. no latencies)
+>>>
+>>> That claim is curious to me - the AlacrityVM host
+>>
+>> It's quite simple, really.  These drivers support accessing vbus, and
+>> vbus is hypervisor agnostic.  In fact, vbus isn't necessarily even
+>> hypervisor related.  It may be used anywhere where a Linux kernel is t=
+he
+>> "io backend", which includes hypervisors like AlacrityVM, but also
+>> userspace apps, and interconnected physical systems as well.
+>>
+>> The vbus-core on the backend, and the drivers on the frontend operate
+>> completely independent of the underlying hypervisor.  A glue piece
+>> called a "connector" ties them together, and any "hypervisor" specific=
 
--Andi
+>> details are encapsulated in the connector module.  In this case, the
+>> connector surfaces to the guest side as a pci-bridge, so even that is
+>> not hypervisor specific per se.  It will work with any pci-bridge that=
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+>> exposes a compatible ABI, which conceivably could be actual hardware.
+>=20
+> This is actually something that is of particular interest to me.  I
+> have a few prototype boards right now with programmable PCI-E
+> host/device links on them; one of my long-term plans is to finagle
+> vbus into providing multiple "virtual" devices across that single
+> PCI-E interface.
+>=20
+> Specifically, I want to be able to provide virtual NIC(s), serial
+> ports and serial consoles, virtual block storage, and possibly other
+> kinds of interfaces.  My big problem with existing virtio right now
+> (although I would be happy to be proven wrong) is that it seems to
+> need some sort of out-of-band communication channel for setting up
+> devices, not to mention it seems to need one PCI device per virtual
+> device.
+>=20
+> So I would love to be able to port something like vbus to my nify PCI
+> hardware and write some backend drivers... then my PCI-E connected
+> systems would dynamically provide a list of highly-efficient "virtual"
+> devices to each other, with only one 4-lane PCI-E bus.
+
+Hi Kyle,
+
+We indeed have others that are doing something similar.  I have CC'd Ira
+who may be able to provide you more details.  I would also point you at
+the canonical example for what you would need to write to tie your
+systems together.  Its the "null connector", which you can find here:
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/alacrityvm/linux-2.6=
+=2Egit;a=3Dblob;f=3Dkernel/vbus/connectors/null.c;h=3Db6d16cb68b7e49e0752=
+8278bc9f5b73e1dac0c2f;hb=3DHEAD
+
+Do not hesitate to ask any questions, though you may want to take the
+conversation to the alacrityvm-devel list as to not annoy the current CC
+list any further than I already have ;)
+
+Kind Regards,
+-Greg
+
+
+--------------enig8D89DAD9F03F2957BA21E5D8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAksyVLQACgkQP5K2CMvXmqGUDgCfZxDJeTqKiX3y9Fpz3RURVy1v
+YrcAnRdSSj3nnbmYYnC/PH4jk67Gl4GL
+=XpWp
+-----END PGP SIGNATURE-----
+
+--------------enig8D89DAD9F03F2957BA21E5D8--
