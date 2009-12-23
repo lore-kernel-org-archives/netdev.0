@@ -1,133 +1,49 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 6/8] sfc: QT2025C: Work around PHY firmware initialisation
-	bug
-Date: Wed, 23 Dec 2009 23:48:32 +0000
-Message-ID: <1261612112.2782.98.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 7/8] sfc: QT2025C: Add error message for suspected bad SFP+
+	cables
+Date: Wed, 23 Dec 2009 23:48:42 +0000
+Message-ID: <1261612122.2782.100.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28270 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:28288 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757517AbZLWXsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:48:35 -0500
+	with ESMTP id S1757509AbZLWXso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 18:48:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Slattery <mslattery@solarflare.com>
-
-The PHY's firmware very occasionally appears to lock up very early, but
-with the heartbeat update still running.  Rebooting the microcontroller
-core seems to be sufficient to recover.
+Some cables have EEPROMs that conflict with the PHY's on-board EEPROM
+so it cannot load firmware.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/qt202x_phy.c |   59 ++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 51 insertions(+), 8 deletions(-)
+ drivers/net/sfc/qt202x_phy.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index 0cd6eed..326ffa4 100644
+index 326ffa4..ff8f0a4 100644
 --- a/drivers/net/sfc/qt202x_phy.c
 +++ b/drivers/net/sfc/qt202x_phy.c
-@@ -63,11 +63,16 @@ struct qt202x_phy_data {
- #define QT2022C2_MAX_RESET_TIME 500
- #define QT2022C2_RESET_WAIT 10
- 
-+#define QT2025C_MAX_HEARTB_TIME (5 * HZ)
-+#define QT2025C_HEARTB_WAIT 100
-+#define QT2025C_MAX_FWSTART_TIME (25 * HZ / 10)
-+#define QT2025C_FWSTART_WAIT 100
-+
- #define BUG17190_INTERVAL (2 * HZ)
- 
--static int qt2025c_wait_reset(struct efx_nic *efx)
-+static int qt2025c_wait_heartbeat(struct efx_nic *efx)
- {
--	unsigned long timeout = jiffies + 10 * HZ;
-+	unsigned long timeout = jiffies + QT2025C_MAX_HEARTB_TIME;
- 	int reg, old_counter = 0;
- 
- 	/* Wait for firmware heartbeat to start */
-@@ -84,9 +89,17 @@ static int qt2025c_wait_reset(struct efx_nic *efx)
+@@ -87,8 +87,14 @@ static int qt2025c_wait_heartbeat(struct efx_nic *efx)
+ 			old_counter = counter;
+ 		else if (counter != old_counter)
  			break;
- 		if (time_after(jiffies, timeout))
+-		if (time_after(jiffies, timeout))
++		if (time_after(jiffies, timeout)) {
++			/* Some cables have EEPROMs that conflict with the
++			 * PHY's on-board EEPROM so it cannot load firmware */
++			EFX_ERR(efx, "If an SFP+ direct attach cable is"
++				" connected, please check that it complies"
++				" with the SFP+ specification\n");
  			return -ETIMEDOUT;
--		msleep(10);
-+		msleep(QT2025C_HEARTB_WAIT);
++		}
+ 		msleep(QT2025C_HEARTB_WAIT);
  	}
  
-+	return 0;
-+}
-+
-+static int qt2025c_wait_fw_status_good(struct efx_nic *efx)
-+{
-+	unsigned long timeout = jiffies + QT2025C_MAX_FWSTART_TIME;
-+	int reg;
-+
- 	/* Wait for firmware status to look good */
- 	for (;;) {
- 		reg = efx_mdio_read(efx, MDIO_MMD_PCS, PCS_UC8051_STATUS_REG);
-@@ -98,12 +111,44 @@ static int qt2025c_wait_reset(struct efx_nic *efx)
- 			break;
- 		if (time_after(jiffies, timeout))
- 			return -ETIMEDOUT;
--		msleep(100);
-+		msleep(QT2025C_FWSTART_WAIT);
- 	}
- 
- 	return 0;
- }
- 
-+static void qt2025c_restart_firmware(struct efx_nic *efx)
-+{
-+	/* Restart microcontroller execution of firmware from RAM */
-+	efx_mdio_write(efx, 3, 0xe854, 0x00c0);
-+	efx_mdio_write(efx, 3, 0xe854, 0x0040);
-+	msleep(50);
-+}
-+
-+static int qt2025c_wait_reset(struct efx_nic *efx)
-+{
-+	int rc;
-+
-+	rc = qt2025c_wait_heartbeat(efx);
-+	if (rc != 0)
-+		return rc;
-+
-+	rc = qt2025c_wait_fw_status_good(efx);
-+	if (rc == -ETIMEDOUT) {
-+		/* Bug 17689: occasionally heartbeat starts but firmware status
-+		 * code never progresses beyond 0x00.  Try again, once, after
-+		 * restarting execution of the firmware image. */
-+		EFX_LOG(efx, "bashing QT2025C microcontroller\n");
-+		qt2025c_restart_firmware(efx);
-+		rc = qt2025c_wait_heartbeat(efx);
-+		if (rc != 0)
-+			return rc;
-+		rc = qt2025c_wait_fw_status_good(efx);
-+	}
-+
-+	return rc;
-+}
-+
- static void qt2025c_firmware_id(struct efx_nic *efx)
- {
- 	struct qt202x_phy_data *phy_data = efx->phy_data;
-@@ -229,10 +274,8 @@ static int qt2025c_select_phy_mode(struct efx_nic *efx)
- 	efx_mdio_write(efx, 1, 0xc300, 0x0002);
- 	msleep(20);
- 
--	/* Restart microcontroller execution from RAM */
--	efx_mdio_write(efx, 3, 0xe854, 0x00c0);
--	efx_mdio_write(efx, 3, 0xe854, 0x0040);
--	msleep(50);
-+	/* Restart microcontroller execution of firmware from RAM */
-+	qt2025c_restart_firmware(efx);
- 
- 	/* Wait for the microcontroller to be ready again */
- 	rc = qt2025c_wait_reset(efx);
 -- 
 1.5.5
 
