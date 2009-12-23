@@ -1,50 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool: add support for at76c50x-usb driver
-Date: Wed, 23 Dec 2009 17:12:15 -0500
-Message-ID: <4B3295BF.6030809@garzik.org>
-References: <1261578587-3547-1-git-send-email-linville@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ep93xx_eth.c: general cleanup
+Date: Wed, 23 Dec 2009 14:14:58 -0800 (PST)
+Message-ID: <20091223.141458.193725880.davem@davemloft.net>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200ED0C@mi8nycmail19.Mi8.com>
+	<20091216183200.GN1819@mail.wantstofly.org>
+	<BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kalle Valo <kalle.valo@iki.fi>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:40809 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754157AbZLWWMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 17:12:17 -0500
-Received: by yxe17 with SMTP id 17so7177260yxe.33
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2009 14:12:17 -0800 (PST)
-In-Reply-To: <1261578587-3547-1-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: buytenh@wantstofly.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, joe@perches.com
+To: hartleys@visionengravers.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757391AbZLWWPA@vger.kernel.org>
+In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/23/2009 09:29 AM, John W. Linville wrote:
-> Signed-off-by: John W. Linville<linville@tuxdriver.com>
-> ---
->   Makefile.am    |    2 +-
->   at76c50x-usb.c |   32 ++++++++++++++++++++++++++++++++
->   ethtool-util.h |    2 ++
->   ethtool.c      |    1 +
->   4 files changed, 36 insertions(+), 1 deletions(-)
->   create mode 100644 at76c50x-usb.c
+From: "H Hartley Sweeten" <hartleys@visionengravers.com>
+Date: Wed, 16 Dec 2009 13:34:55 -0500
 
-> +at76c50x_usb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-> +{
-> +	u8 version = (u8)(regs->version>>  24);
-> +	u8 rev_id = (u8)(regs->version);
-> +	char *ver_string;
-> +
-> +	if (version != 0)
-> +		return -1;
-> +
-> +	ver_string = hw_versions[rev_id];
-> +	fprintf(stdout,
-> +		"Hardware Version                    %s\n",
-> +		ver_string);
-> +
-> +	return 0;
+> Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
+>> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
+>>
+>>> V3 - Change pr_fmt() as suggested by Joe Perches
+>>>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
+>>>      Don't remove the message in ep93xx_eth_init_module()
+>>
+>> That's not what I meant, but alright, as you prefer.
+> 
+> Guess my parser is off line today.... ;-)
+> 
+> What did you mean?
 
-applied...  don't forget to update 'version', should the register dump 
-data passed to userspace ever change.
+This patch also doesn't apply to current sources, so if you
+could also please respin this once you've resolved the feedback
+that would be great.
 
+Thanks.
