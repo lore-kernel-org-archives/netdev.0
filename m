@@ -1,76 +1,51 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Wed, 23 Dec 2009 12:22:29 +0200
-Message-ID: <4B31EF65.6070000@redhat.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu> <20091223101340.GC20539@basil.fritz.box>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH] can/netlink: add CAN_CTRLMODE_ONE_SHOT
+Date: Wed, 23 Dec 2009 12:27:48 +0100
+Message-ID: <1261567668-21692-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755754AbZLWKXo@vger.kernel.org>
-In-Reply-To: <20091223101340.GC20539@basil.fritz.box>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/23/2009 12:13 PM, Andi Kleen wrote:
->> i.e. it has all the makings of a stupid, avoidable, permanent fork. The thing
->>      
-> Nearly. There was no equivalent of a kernel based virtual driver host
-> before.
->    
+This patch adds the flag CAN_CTRLMODE_ONE_SHOT. It is used as mask
+or flag in the "struct can_ctrlmode".
 
-These are guest drivers.  We have virtio drivers, and Xen drivers (which 
-are Xen-specific).
+It allows userspace via netlink to set a CAN controller into the special
+"one-shot" mode. In this mode, if supported by the CAN controller, it
+tries only once to deliver a CAN frame and aborts it if an error
+(e.g.: arbitration lost) happens.
 
->> - Are a pure software concept and any compatibility mismatch is
->>    self-inflicted. The patches are in fact breaking the ABI to KVM
->>      
-> In practice, especially considering older kernel releases, VMs
-> behave like hardware, with all its quirks, compatibility requirements,
-> sometimes not fully understood, etc.
->    
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+---
+ include/linux/can/netlink.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-There was no attempt by Gregory to improve virtio-net.
-
->> It's a bit as if someone found a performance problem with sys_open() and came
->> up with sys_open_v2() and claimed that he wants to work with the VFS
->> developers while not really doing so but advances sys_open_v2() all the time.
->>      
-> AFAIK Gregory tried for several months to work with the KVM maintainers,
-> but failed at their NIH filter.
->    
-
-It was the backwards compatibility, live migration, unneeded complexity, 
-and scalability filters from where I sit.  vbus fails on all four.
-
->> The main difference is that Gregory claims that improved performance is not
->> possible within the existing KVM framework, while the KVM developers disagree.
->> The good news is that this is a hard, testable fact.
->>      
-> Yes clearly the onus at this point is on the vhost-net developers/
-> "pci is all that is ever needed for PV" proponents to show similar numbers
-> with their current code.
->
-> If they can show the same performance there's really no need for
-> the alacrityvm model (or at least I haven't seen a convincing reason
-> other than performance so far to have a separate model)
->    
-
-Anthony posted this:
-
-http://www.redhat.com/f/pdf/summit/cwright_11_open_source_virt.pdf
-
-See slide 32.  This is without vhost-net.
-
+diff --git a/include/linux/can/netlink.h b/include/linux/can/netlink.h
+index 9ecbb78..c818335 100644
+--- a/include/linux/can/netlink.h
++++ b/include/linux/can/netlink.h
+@@ -80,6 +80,7 @@ struct can_ctrlmode {
+ #define CAN_CTRLMODE_LOOPBACK	0x1	/* Loopback mode */
+ #define CAN_CTRLMODE_LISTENONLY	0x2 	/* Listen-only mode */
+ #define CAN_CTRLMODE_3_SAMPLES	0x4	/* Triple sampling mode */
++#define CAN_CTRLMODE_ONE_SHOT	0x8	/* One-Shot mode */
+ 
+ /*
+  * CAN device statistics
 -- 
-error compiling committee.c: too many arguments to function
+1.6.5.7
