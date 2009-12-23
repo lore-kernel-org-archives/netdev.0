@@ -1,58 +1,107 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [TCP]: min_t/max_t confusion in tcp_select_initial_window()?
-Date: Wed, 23 Dec 2009 23:23:11 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.0912232321090.10866@melkinpaasi.cs.helsinki.fi>
-References: <4B3179B8.5000403@gmail.com> <20091222.194747.193724694.davem@davemloft.net> <alpine.DEB.2.00.0912232140500.10866@melkinpaasi.cs.helsinki.fi> <20091223.131526.193724825.davem@davemloft.net>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [Alacrityvm-devel] [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Wed, 23 Dec 2009 16:21:37 -0500
+Message-ID: <b233dd490912231321p5e09946at5ea63cb0d0fa1489@mail.gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org>
+	 <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com>
+	 <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu>
+	 <20091223101340.GC20539@basil.fritz.box> <4B31EF65.6070000@redhat.com>
+	 <4B325E33.8060407@gmail.com> <4B327B90.2050403@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696230645-1345756015-1261603295=:10866"
-Cc: roel.kluin@gmail.com, Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Avi Kivity <avi@redhat.com>, Andi Kleen <andi@firstfloor.org>,
+	kvm@vger.kernel.org,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56746 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757237AbZLWVXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:23:14 -0500
-In-Reply-To: <20091223.131526.193724825.davem@davemloft.net>
-Content-ID: <alpine.DEB.2.00.0912232322550.10866@melkinpaasi.cs.helsinki.fi>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:45857 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756355AbZLWVVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:21:40 -0500
+In-Reply-To: <4B327B90.2050403@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+(Sorry for top post...on a mobile)
 
----696230645-1345756015-1261603295=:10866
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.0912232321481.10866@melkinpaasi.cs.helsinki.fi>
+When someone repeatedly makes a claim you believe to be wrong and you
+correct them, you start to wonder if that person has a less than
+honorable agenda.  In any case, I overreacted.  For that, I apologize.
 
-On Wed, 23 Dec 2009, David Miller wrote:
+That said, you are still incorrect.  With what I proposed, the model
+will run as an in-kernel vbus device, and no longer run in userspace.
+It would therefore improve virtio-net as I stated, much in the same
+way vhost-net or venet-tap do today.
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Wed, 23 Dec 2009 21:45:57 +0200 (EET)
-> 
-> > On Tue, 22 Dec 2009, David Miller wrote:
-> > 
-> >> From: Roel Kluin <roel.kluin@gmail.com>
-> >> Date: Wed, 23 Dec 2009 03:00:24 +0100
-> >> 
-> >> > I could be confused, but in net/ipv4/tcp_output.c:217:
-> >> > 
-> >> >                 space = max_t(u32, sysctl_tcp_rmem[2], sysctl_rmem_max);
-> >> >                 space = min_t(u32, space, *window_clamp);
-> >> > ------------------------^^^^^
->  ...
-> > 
-> > I don't understand how window_clamp line could be changed to max_t.
-> > ...I guess min in both would seem the most reasonable one?
-> 
-> Nope, the first one must be max.  Since I'm pretty sure we let the
-> dynamic RX buffer resizing exceed sysctl_rmem_max if necessary.
-> 
-> And that's what is controlled by sysctl_tcp_rmem[2]
+FYI  I am about to log out for the long holiday, so will be
+unresponsive for a bit.
 
-Yeah, I'm wrong, and besides misread your "It looks correct" to mean the 
-proposed change rather than the current code.
+Kind Regards,
+-Greg
+
+On 12/23/09, Avi Kivity <avi@redhat.com> wrote:
+> On 12/23/2009 08:15 PM, Gregory Haskins wrote:
+>> On 12/23/09 5:22 AM, Avi Kivity wrote:
+>>
+>>
+>>> There was no attempt by Gregory to improve virtio-net.
+>>>
+>> If you truly do not understand why your statement is utterly wrong at
+>> this point in the discussion, I feel sorry for you.  If you are trying
+>> to be purposely disingenuous, you should be ashamed of yourself.  In any
+>> case, your statement is demonstrably bogus, but you should already know
+>> this given that we talked about at least several times.
+>>
+>
+> There's no need to feel sorry for me, thanks.  There's no reason for me
+> to be ashamed, either.  And there's no need to take the discussion to
+> personal levels.  Please keep it technical.
+>
+>
+>> To refresh your memory: http://patchwork.kernel.org/patch/17428/
+>>
+>
+> This is not an attempt to improve virtio-net, it's an attempt to push
+> vbus.  With this, virtio-net doesn't become any faster, since the
+> greatest bottleneck is not removed, it remains in userspace.
+>
+> If you wanted to improve virtio-net, you would port venet-host to the
+> virtio-net guest/host interface, and port any secret sauce in
+> venet(-guest) to virtio-net.  After that we could judge what vbus'
+> contribution to the equation is.
+>
+>> In case its not blatantly clear, which I would hope it would be to
+>> anyone that understands the problem space:  What that patch would do is
+>> allow an unmodified virtio-net to bridge to a vbus based virtio-net
+>> backend.  (Also note that this predates vhost-net by months (the date in
+>> that thread is 4/9/2009) in case you are next going to try to argue that
+>> it does nothing over vhost-net).
+>>
+>
+> Without the backend, it is useless.  It demonstrates vbus' flexibility
+> quite well, but does nothing for virtio-net or its users, at least
+> without a lot more work.
+>
+>> This would mean that virtio-net would gain most of the benefits I have
+>> been advocating (fewer exits, cheaper exits, concurrent execution, etc).
+>>   So this would very much improve virtio-net indeed, given how poorly the
+>> current backend was performing.  I tried to convince the team to help me
+>> build it out to completion on multiple occasions, but that request was
+>> answered with "sorry, we are doing our own thing instead".  You can say
+>> that you didn't like my approach, since that is a subjective opinion.
+>> But to say that I didn't attempt to improve it is a flat out wrong, and
+>> I do not appreciate it.
+>>
+>
+> Cutting down on the rhetoric is more important than cutting down exits
+> at this point in time.
+>
+> --
+> I have a truly marvellous patch that fixes the bug which this
+> signature is too narrow to contain.
+>
+>
 
 -- 
- i.
----696230645-1345756015-1261603295=:10866--
+Sent from my mobile device
