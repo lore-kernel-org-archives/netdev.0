@@ -1,61 +1,90 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool PATCH] ethtool: Can't parse ints with stroul()
-Date: Wed, 23 Dec 2009 13:58:16 -0800
-Message-ID: <9929d2390912231358o23ceb94qe3480723a60d44ec@mail.gmail.com>
-References: <20091208173240.19917.99052.stgit@localhost.localdomain>
-	 <9929d2390912091712g6d0543e9y170f21712b9efb7@mail.gmail.com>
-	 <4B329127.8020002@garzik.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: ucc_geth broken in 2.6.32 by
+	864fdf884e82bacbe8ca5e93bd43393a61d2e2b4
+Date: Wed, 23 Dec 2009 17:10:47 -0500
+Message-ID: <20091223221047.GH760@caffeine.csclub.uwaterloo.ca>
+References: <20091223174019.GB762@caffeine.csclub.uwaterloo.ca>
+	<20091223180415.GA12987@oksana.dev.rtsoft.ru>
+	<20091223200948.GF760@caffeine.csclub.uwaterloo.ca>
+	<20091223202226.GA8185@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:42019 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752654AbZLWV6V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Dec 2009 16:58:21 -0500
-Received: by pxi27 with SMTP id 27so3558090pxi.4
-        for <netdev@vger.kernel.org>; Wed, 23 Dec 2009 13:58:21 -0800 (PST)
-In-Reply-To: <4B329127.8020002@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20091223202226.GA8185@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 23, 2009 at 13:52, Jeff Garzik <jeff@garzik.org> wrote:
-> On 12/09/2009 08:12 PM, Jeff Kirsher wrote:
->>
->> On Tue, Dec 8, 2009 at 09:32, Jeff Kirsher<jeffrey.t.kirsher@intel.c=
-om>
->> =C2=A0wrote:
->>>
->>> From: PJ Waskiewicz<peter.p.waskiewicz.jr@intel.com>
->>>
->>> A recent change to how int's were being parsed from the command
->>> line had them being read in with an unsigned int string operator.
->>> This didn't allow signed numbers from being read in correctly.
->>> This patch adds a get_uint() routine, and fixes the get_int()
->>> routine to read in signed values.
->>>
->>> Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.co=
-m>
->>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->>> ---
->>>
->>
->> Jeff G. - hold off on this patch. =C2=A0We have a version 2 in the w=
-orks,
->> because we found if the sign bit was set on a uint, this would fail
->> parsing.
->
-> Was version 2 ever posted? =C2=A0I never saw it...
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Jeff
->
+On Wed, Dec 23, 2009 at 11:22:26PM +0300, Anton Vorontsov wrote:
+> On Wed, Dec 23, 2009 at 03:09:48PM -0500, Lennart Sorensen wrote:
+> [...]
+> > So there result is:
+> > 
+> > Unable to handle kernel paging request for data at address 0x00000058
+> > Faulting instruction address: 0xc024f2fc
+> > Oops: Kernel access of bad area, sig: 11 [#1]
+> > RC8360 CM
+> > Modules linked in: rclibapi xeno_native max6369_wdt ucc_geth_driver spi_mpc8xxx ltc4215 lm75
+> > NIP: c024f2fc LR: e30aa0a4 CTR: c024f2e8
+> > REGS: df857ca0 TRAP: 0300   Not tainted  (2.6.32-trunk-8360e)
+> > MSR: 00009032 <EE,ME,IR,DR>  CR: 44042088  XER: 00000000
+> > DAR: 00000058, DSISR: 20000000
+> > TASK = df848c90[4] 'events/0' THREAD: df856000
+> > GPR00: e30aa0a4 df857d50 df848c90 00000000 00000640 00000001 c0428df4 dfa40b80
+> > GPR08: 000000c8 e30ad2b8 df084360 c024f2e8 44042082 1001af90 e30ad2b8 00000000
+> > GPR16: 00000048 00000001 00000000 00000000 df08436c df08440c 00000190 df08455c
+> > GPR24: df0844ec df0842c0 df084000 180005ea dfa40b80 00000000 df0842c0 00000000
+> > NIP [c024f2fc] skb_recycle_check+0x14/0x100
+> > LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
+> > Call Trace:
+> > [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
+> > [df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
+> 
+> This I can reproduce. It seems it's a long standing bug that
+> becomes easily reproducible with quiesce/activate sequence.
+> The driver doesn't handle empty queue correctly, i.e. it ignores
+> the empty queue check if netdev queue is stopped, which makes no
+> sense.
+> 
+> Can you try this patch in addition to previous (i.e. both should
+> be applied)?
+> 
+> Thanks!
+> 
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 2f73e3f..b22de51 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -3275,7 +3275,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+>  		/* Handle the transmitted buffer and release */
+>  		/* the BD to be used with the current frame  */
+>  
+> -		if ((bd == ugeth->txBd[txQ]) && (netif_queue_stopped(dev) == 0))
+> +		if (bd == ugeth->txBd[txQ]) /* queue empty? */
+>  			break;
+>  
+>  		dev->stats.tx_packets++;
 
-Not yet, version 2 of the patch is in test right now.  I should have
-it sent out either later tonight or tomorrow.
+That seems to be it.  It works now.  No more crashes.
 
---=20
-Cheers,
-Jeff
+Those two patches together seem to do the trick.  I really hope they
+can go into 2.6.32-stable then, since this is a regression over 2.6.31
+and is hopefully an obvious fix.
+
+Now if only my mdio-gpio bitbang one line fix would be accepted.
+
+-- 
+Len Sorensen
