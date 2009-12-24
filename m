@@ -1,94 +1,28 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
-Date: Thu, 24 Dec 2009 04:37:41 -0800
-Message-ID: <m1r5qkim3u.fsf@fess.ebiederm.org>
-References: <20091224061322.GB24396@heat>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [net-2.6 PATCH 1/3] be2net: Bug fix to avoid soft lockup in loopback
+ test.
+Date: Thu, 24 Dec 2009 14:28:53 +0100
+Message-ID: <4B336C95.2050808@computer.org>
+References: <20091223144026.GA23383@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091224061322.GB24396@heat> (Michael Stone's message of "Thu\, 24 Dec 2009 01\:13\:23 -0500")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay008.isp.belgacom.be ([195.238.6.174]:62791 "EHLO
+	mailrelay008.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750998AbZLXNda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 08:33:30 -0500
+In-Reply-To: <20091223144026.GA23383@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Stone <michael@laptop.org> writes:
+Sarveshwar Bandi wrote:
+> This change ensures that loopback test command gives up after 4 seconds when 
+> the hardware is not responsive. This could happen if the ports are connected 
+> properly in loopback mode.
 
->> Eric Biederman writes:
->>> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
->>>> Michael Stone writes:
->>>>> the LSM-based version *does not* resolve the situation to my satisfaction as a
->>>>> userland hacker due to the well-known and long-standing adoption and
->>>>> compositionality problems facing small LSMs. ;)
->>>>
->>>> For things like Fedora it's probably an "interesting idea, perhaps we
->>>> should do it using SELinux" sort of problem, but a config option for a
->>>> magic network prctl is also going to be hard to adopt without producing a
->>>> good use case - and avoiding that by dumping crap into everyones kernel
->>>> fast paths isn't a good idea either.
->>
->>If I understand the problem the goal is to disable access to ipc
->>mechanism that don't have the usual unix permissions.  To get
->>something that is usable for non-root processes, and to get something
->>that is widely deployed so you don't have to jump through hoops in
->>end user applications to use it.
->
-> Eric,
->
-> You understand correctly. Thank you for this cogent restatement.
->
->>We have widely deployed mechanisms that are what you want or nearly
->>what you want already in the form of the various namespaces built for
->>containers.
->
-> It's true that your work is closer to what I want than anything else that I've
-> seen so far...
->
->> I propose you introduce a permanent disable of executing suid applications. 
->
-> I'm open to the idea but I don't understand the need that motivates it yet.
-> Could you please explain further? (or point me to an existing explanation?)
+I don't understand the 2nd sentence, did you mean to say that this could happen if the ports are *not* connected properly in loopback mode?
 
-With namespaces it is possible to masquarade as a trusted source,
-of information to a suid program such as /etc/passwd or a NIS server.
-
-A one-way removal of the ability to exec suid programs is generally
-simple and handy like chroot, and removes the need for CAP_SYS_ADMIN
-in most cases.
-
-Plan 9 did not support suid executables and supported an unprivileged
-equivalent of unshare(NEWNS).
-
-I need the full unprivileged unshare of USERNS for my primary
-uses today as I need to perform normally root only activities
-like mounting loopback devices, and setting up networking. Your
-uses of limiting of ipc do not appear to require that.
-
->>After which point it is another trivial patch to allow unsharing of
->>the network namespace if executing suid applications are disabled.
->
-> How do you propose to address the problem with the Unix sockets?
-
-Careful code review of the patch to allow talking between network
-namespaces with unix domain sockets.  This is a feature that we
-simply have not merged yet.  Semantically it is fine today. It is
-simply no one has answered the question what other implications
-could there be.  Now that I know of 2 or 3 compelling use
-cases and most of the rest of the work done.  It seems time to
-relax the restriction.
-
-Eric
+Thanks, Jan
