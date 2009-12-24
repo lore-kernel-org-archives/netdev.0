@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/via-rhine: Fix scheduling while atomic bugs
-Date: Wed, 23 Dec 2009 21:54:48 -0800 (PST)
-Message-ID: <20091223.215448.241930752.davem@davemloft.net>
-References: <20091222150045.GA5355@wrars-comp.wrarsdomain>
-	<20091222152658.GA16043@core.hellgate.ch>
-	<20091222173641.GA3093@del.dom.local>
+Subject: Re: [net-2.6 PATCH] pktgen: ndo_start_xmit can return NET_XMIT_xxx
+ values
+Date: Wed, 23 Dec 2009 22:03:09 -0800 (PST)
+Message-ID: <20091223.220309.98892207.davem@davemloft.net>
+References: <20091223233951.17072.93304.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, wrar@altlinux.org, lists@nerdbynature.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755333AbZLXFys@vger.kernel.org>
-In-Reply-To: <20091222173641.GA3093@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: robert@herjulf.net, netdev@vger.kernel.org, gospo@redhat.com,
+	john.r.fastabend@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47293
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751457AbZLXGDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 01:03:10 -0500
+In-Reply-To: <20091223233951.17072.93304.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 22 Dec 2009 18:36:42 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 23 Dec 2009 15:39:52 -0800
 
-> There are BUGs "scheduling while atomic" triggered by the timer
-> rhine_tx_timeout(). They are caused by calling napi_disable() (with
-> msleep()). This patch fixes it by moving most of the timer content to
-> the workqueue function (similarly to other drivers, like tg3), with
-> spin_lock() changed to BH version.
+> From: John Fastabend <john.r.fastabend@intel.com>
 > 
-> Additionally, there is spin_lock_irq() moved in rhine_close() to
-> exclude napi_disable() etc., also tg3's way.
+> This updates pktgen so that it does not decrement skb->users
+> when it receives valid NET_XMIT_xxx values.  These are now
+> valid return values from ndo_start_xmit in net-next-2.6.
+> They also indicate the skb has been consumed.
 > 
-> Reported-by: Andrey Rahmatullin <wrar@altlinux.org>
-> Tested-by: Andrey Rahmatullin <wrar@altlinux.org>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> This fixes pktgen to work correctly with vlan devices.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks!
+Applied, thanks.
