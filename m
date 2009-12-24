@@ -1,141 +1,140 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Thu, 24 Dec 2009 15:16:48 +1100
-Message-ID: <20091224041646.GC2814@verge.net.au>
-References: <20090930131109.2b3f71b8@infradead.org>
- <20091214221704.24c2665f@infradead.org>
- <20091215063201.GA24634@verge.net.au>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: [Alacrityvm-devel] [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Wed, 23 Dec 2009 23:52:28 -0500
+Message-ID: <f73f7ab80912232052u5248c652h8e6d0637897cd5af@mail.gmail.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu>
+	<4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu>
+	<4B3103B4.4070708@gmail.com> <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com>
+	<4B3232A1.8050505@codemonkey.ws> <20091223195413.GB30700@ovro.caltech.edu>
+	<4B32A09D.30400@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
-To: Arjan van de Ven <arjan@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755618AbZLXEQx@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091215063201.GA24634@verge.net.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>,
+	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	torvalds@linux-foundation.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg KH <gregkh@suse.de>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4B32A09D.30400@codemonkey.ws>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 15, 2009 at 05:32:01PM +1100, Simon Horman wrote:
-> On Mon, Dec 14, 2009 at 10:17:04PM -0800, Arjan van de Ven wrote:
-> > On Wed, 30 Sep 2009 13:11:09 +0200
-> > Arjan van de Ven <arjan@infradead.org> wrote:
-> > 
-> > ping on the patch below.... the warning is now triggered in mainline
-> 
-> Hi Arjan,
-> 
-> could you address the comments Julian made about this?
-> http://lkml.indiana.edu/hypermail/linux/kernel/0910.0/00852.html
-> 
-> 	OK, you can add my signed-off line after changing
-> 	'cmd > ...MAX + 1' to 'cmd > ...MAX' at both
-> 	places, nf_sockopt_ops ranges are [optmin ... optmax)
-> 
-> 	May be comments should be changed because:
-> 
-> 	- i'm not the author but after ispection we do not see any holes,
-> 	we do not want users to upgrade just for this change
-> 	- the cmd checks are just to help code checking tools
-> 	- the len checks should help programmers (may be BUG_ON is
-> 	better, user does not deserve EINVAL for wrong set_arglen/get_arglen).
-> 	Checks for *len and len are not needed.
-> 
-> 	For example, for len checks this should be enough, before
-> 	copy_from_user():
-> 
-> 	in do_ip_vs_get_ctl check can be
-> 	BUG_ON(get_arglen[GET_CMDID(cmd)] > sizeof(arg));
-> 
-> 	in do_ip_vs_set_ctl check can be
-> 	BUG_ON(set_arglen[SET_CMDID(cmd)] > sizeof(arg));
-> 
-> 	Acked-by: Julian Anastasov <ja@ssi.bg>
+On Wed, Dec 23, 2009 at 17:58, Anthony Liguori <anthony@codemonkey.ws> =
+wrote:
+> On 12/23/2009 01:54 PM, Ira W. Snyder wrote:
+>> On Wed, Dec 23, 2009 at 09:09:21AM -0600, Anthony Liguori wrote:
+>>> But both virtio-lguest and virtio-s390 use in-band enumeration and
+>>> discovery since they do not have support for PCI on either platform=
+=2E
+>>
+>> I'm interested in the same thing, just over PCI. The only PCI agent
+>> systems I've used are not capable of manipulating the PCI configurat=
+ion
+>> space in such a way that virtio-pci is usable on them.
+>
+> virtio-pci is the wrong place to start if you want to use a PCI *devi=
+ce* as
+> the virtio bus. virtio-pci is meant to use the PCI bus as the virtio =
+bus.
+> =C2=A0That's a very important requirement for us because it maintains=
+ the
+> relationship of each device looking like a normal PCI device.
+>
+>> This means
+>> creating your own enumeration mechanism. Which sucks.
+>
+> I don't think it sucks. =C2=A0The idea is that we don't want to unnec=
+essarily
+> reinvent things.
+>
+> Of course, the key feature of virtio is that it makes it possible for=
+ you to
+> create your own enumeration mechanism if you're so inclined.
 
-Ping.
+See... the thing is... a lot of us random embedded board developers
+don't *want* to create our own enumeration mechanisms.  I see a huge
+amount of value in vbus as a common zero-copy DMA-capable
+virtual-device interface, especially over miscellaneous non-PCI-bus
+interconnects.  I mentioned my PCI-E boards earlier, but I would also
+personally be interested in using infiniband with RDMA as a virtual
+device bus.
 
-While I agree with Julian that the patch you suggest below
-ought not to be necessary, I'm also happy with it if
-cmd > IP_VS_SO_SET_MAX + 1 is changed to cmd > IP_VS_SO_SET_MAX.
+Basically, what it comes down to is vbus is practically useful as a
+generic way to provide a large number of hotpluggable virtual devices
+across an arbitrary interconnect.  I agree that virtio works fine if
+you have some out-of-band enumeration and hotplug transport (like
+emulated PCI), but if you *don't* have that, it's pretty much faster
+to write your own set of paired network drivers than it is to write a
+whole enumeration and transport stack for virtio.
 
-> > > >From 761a182f96b3707e1fee44e1079ba227e48745d1 Mon Sep 17 00:00:00
-> > > >2001
-> > > From: Arjan van de Ven <arjan@linux.intel.com>
-> > > Date: Wed, 30 Sep 2009 13:05:51 +0200
-> > > Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
-> > > 
-> > > The ipvs code has a nifty system for doing the size of ioctl command
-> > > copies; it defines an array with values into which it indexes the cmd
-> > > to find the right length.
-> > > 
-> > > Unfortunately, the ipvs code forgot to check if the cmd was in the
-> > > range that the array provides, allowing for an index outside of the
-> > > array, which then gives a "garbage" result into the length, which
-> > > then gets used for copying into a stack buffer.
-> > > 
-> > > Fix this by adding sanity checks on these as well as the copy size.
-> > > 
-> > > Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-> > > ---
-> > >  net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
-> > >  1 files changed, 13 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c
-> > > b/net/netfilter/ipvs/ip_vs_ctl.c index ac624e5..3c52796 100644
-> > > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > > @@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd,
-> > > void __user *user, unsigned int len) if (!capable(CAP_NET_ADMIN))
-> > >  		return -EPERM;
-> > >  
-> > > +	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX + 1)
-> > > +		return -EINVAL;
-> > > +	if (len < 0 || len >  MAX_ARG_LEN)
-> > > +		return -EINVAL;
-> > >  	if (len != set_arglen[SET_CMDID(cmd)]) {
-> > >  		pr_err("set_ctl: len %u != %u\n",
-> > >  		       len, set_arglen[SET_CMDID(cmd)]);
-> > > @@ -2353,17 +2357,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd,
-> > > void __user *user, int *len) {
-> > >  	unsigned char arg[128];
-> > >  	int ret = 0;
-> > > +	unsigned int copylen;
-> > >  
-> > >  	if (!capable(CAP_NET_ADMIN))
-> > >  		return -EPERM;
-> > >  
-> > > +	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX + 1)
-> > > +		return -EINVAL;
-> > > +
-> > >  	if (*len < get_arglen[GET_CMDID(cmd)]) {
-> > >  		pr_err("get_ctl: len %u < %u\n",
-> > >  		       *len, get_arglen[GET_CMDID(cmd)]);
-> > >  		return -EINVAL;
-> > >  	}
-> > >  
-> > > -	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) !=
-> > > 0)
-> > > +	copylen = get_arglen[GET_CMDID(cmd)];
-> > > +	if (copylen > 128)
-> > > +		return -EINVAL;
-> > > +
-> > > +	if (copy_from_user(arg, user, copylen) != 0)
-> > >  		return -EFAULT;
-> > >  
-> > >  	if (mutex_lock_interruptible(&__ip_vs_mutex))
-> > 
-> > 
-> > -- 
-> > Arjan van de Ven 	Intel Open Source Technology Centre
-> > For development, discussion and tips for power savings, 
-> > visit http://www.lesswatts.org
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > Please read the FAQ at  http://www.tux.org/lkml/
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+On top of *that*, with the virtio approach I would need to write a
+whole bunch of tools to manage the set of virtual devices on my custom
+hardware.  With vbus that management interface would be entirely
+common code across a potentially large number of virtualized physical
+transports.
+
+If vbus actually gets merged I will most likely be able to spend the
+time to get the PCI-E crosslinks on my boards talking vbus, otherwise
+it's liable to get completely shelved as "not worth the effort" to
+write all the glue to make virtio work.
+
+>> See my virtio-phys
+>> code (http://www.mmarray.org/~iws/virtio-phys/) for an example of ho=
+w I
+>> did it. It was modeled on lguest. Help is appreciated.
+>
+> If it were me, I'd take a much different approach. =C2=A0I would use =
+a very
+> simple device with a single transmit and receive queue. =C2=A0I'd cre=
+ate a
+> standard header, and the implement a command protocol on top of it. Y=
+ou'll
+> be able to support zero copy I/O (although you'll have a fixed number=
+ of
+> outstanding requests). =C2=A0You would need a single large ring.
+
+That's basically about as much work as writing entirely new network
+and serial drivers over PCI.  Not only that, but I   The beauty of
+vbus for me is that I could write a fairly simple logical-to-physical
+glue driver which lets vbus talk over my PCI-E or infiniband link and
+then I'm basically done.
+
+Not only that, but the tools for adding new virtual devices (ethernet,
+serial, block, etc) over vbus would be the same no matter what the
+underlying transport.
+
+> But then again, I have no idea what your requirements are. =C2=A0You =
+could
+> probably get far treating the thing as a network device and just doin=
+g ATAoE
+> or something like that.
+
+<sarcasm>Oh... yes... clearly the right solution is to forgo the whole
+zero-copy direct DMA of block writes and instead shuffle the whole
+thing into 16kB ATAoE packets.  That would obviously be much faster on
+my little 1GHz PowerPC boards </sarcasm>
+
+Sorry for the rant, but I really do think vbus is a valuable
+technology and it's a damn shame to see Gregory Haskins being put
+through this whole hassle.  While most everybody else was griping
+about problems he sat down and wrote some very nice clean maintainable
+code to do what he needed.  Not only that, but he designed a good
+enough model that it could be ported to run over almost everything
+from a single PCI-E link to an infiniband network.
+
+I personally would love to see vbus merged, into staging at the very
+least.  I would definitely spend some time trying to make it work
+across PCI-E on my *very* *real* embedded boards.  Look at vbus not as
+another virtualization ABI, but as a multiprotocol high-level device
+abstraction API that already has one well-implemented and
+high-performance user.
+
+Cheers,
+Kyle Moffett
