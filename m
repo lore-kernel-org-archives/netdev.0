@@ -1,104 +1,51 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Thu, 24 Dec 2009 04:36:30 -0500
-Message-ID: <4B33361E.3000605@gmail.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu> <4B3248F9.5030504@gmail.com> <4B327F3A.9020101@redhat.com> <4B328535.5040105@redhat.com>
+Date: Thu, 24 Dec 2009 12:01:59 +0200
+Message-ID: <20091224100159.GA26152@redhat.com>
+References: <4B1D4F29.8020309@gmail.com> <20091218215107.GA14946@elte.hu> <4B2F9582.5000002@gmail.com> <20091222075742.GB26467@elte.hu> <4B3103B4.4070708@gmail.com> <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com> <4B3254B4.2080602@gmail.com> <20091223192808.GA30700@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig24B2B51B00B69B2008494E7A"
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	Kyle Moffett <kyle@moffetthome.net>,
+	Ingo Molnar <mingo@elte.hu>, Avi Kivity <avi@redhat.com>,
+	kvm@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	torvalds@linux-foundation.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	"alacrityvm-devel@lists.sourceforge.net"
 	<alacrityvm-devel@lists.sourceforge.net>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.26]:14918 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884AbZLXJge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 04:36:34 -0500
-In-Reply-To: <4B328535.5040105@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756667AbZLXKHA@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091223192808.GA30700@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig24B2B51B00B69B2008494E7A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Wed, Dec 23, 2009 at 11:28:08AM -0800, Ira W. Snyder wrote:
+> On Wed, Dec 23, 2009 at 12:34:44PM -0500, Gregory Haskins wrote:
+> > On 12/23/09 1:15 AM, Kyle Moffett wrote:
+> > > On Tue, Dec 22, 2009 at 12:36, Gregory Haskins
+> > > <gregory.haskins@gmail.com> wrote:
+> > >> On 12/22/09 2:57 AM, Ingo Molnar wrote:
+> > >>> * Gregory Haskins <gregory.haskins@gmail.com> wrote:
+> > >>>> Actually, these patches have nothing to do with the KVM folks. [...]
+> > >>>
+> > >>> That claim is curious to me - the AlacrityVM host
+> > >>
+> > >> It's quite simple, really.  These drivers support accessing vbus, and
+> > >> vbus is hypervisor agnostic.  In fact, vbus isn't necessarily even
+> > >> hypervisor related.  It may be used anywhere where a Linux kernel is the
+> > >> "io backend", which includes hypervisors like AlacrityVM, but also
+> > >> userspace apps, and interconnected physical systems as well.
 
-On 12/23/09 4:01 PM, Avi Kivity wrote:
-> On 12/23/2009 10:36 PM, Avi Kivity wrote:
->> On 12/23/2009 06:44 PM, Gregory Haskins wrote:
->>>
->>>>   - Are a pure software concept
->>> By design.  In fact, I would describe it as "software to software
->>> optimized" as opposed to trying to shoehorn into something that was
->>> designed as a software-to-hardware interface (and therefore has
->>> assumptions about the constraints in that environment that are not
->>> applicable in software-only).
->>>
->>
->> And that's the biggest mistake you can make.  Look at Xen, for
->> instance.  The paravirtualized the fork out of everything that moved
->> in order to get x86 virt going.  And where are they now? x86_64
->> syscalls are slow since they have to trap to the hypervisor and
->> (partially) flush the tlb.  With npt or ept capable hosts performance
->> is better for many workloads on fullvirt.  And paravirt doesn't
->> support Windows.  Their unsung hero Jeremy is still trying to upstream=
+So focus on interconnecting physical systems I think would be one way
+for vbus to stop conflicting with KVM. If drivers for such systems
+appear I expect that relevant (hypervisor-agnostic) vbus bits would be
+very uncontroversial.
 
->> dom0 Xen support.  And they get to support it forever.
->>
->> VMware stuck with the hardware defined interfaces.  Sure they had to
->> implement binary translation to get there, but as a result, they only
->> have to support one interface, all guests support it, and they can
->> drop it on newer hosts where it doesn't give them anything.
->=20
-> As a twist on this, the VMware paravirt driver interface is so
-> hardware-like that they're getting hardware vendors to supply cards tha=
-t
-> implement it.  Try that with a pure software approach.
+This would not be the first technology to make the jump from attempting
+to be a PCI replacement to being an interconnect btw, I think infiniband
+did this as well.
 
-Any hardware engineer (myself included) will tell you that, generally
-speaking, what you can do in hardware you can do in software (think of
-what QEMU does today, for instance).  It's purely a cost/performance
-tradeoff.
-
-I can at least tell you that is true of vbus.  Anything on the vbus side
-would be equally eligible for a hardware implementation, though there is
-not reason to do this today since we have equivalent functionality in
-baremetal already.  The only motiviation is if you wanted to preserve
-ABI etc, which is what vmware is presumably after.  However, I am not
-advocating this as necessary at this juncture.
-
-So sorry, your statement is not relevant.
-
--Greg
-
-
-
-
->=20
-
-
-
---------------enig24B2B51B00B69B2008494E7A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkszNh4ACgkQP5K2CMvXmqH1iQCePJc5KaloVUoUe1VbwPUwuIO7
-V/sAniQm/2DWWxyIv3xGAB7ntfZj4w1W
-=RFQj
------END PGP SIGNATURE-----
-
---------------enig24B2B51B00B69B2008494E7A--
+-- 
+MST
