@@ -1,8 +1,7 @@
 From: Michael Stone <michael@laptop.org>
-Subject: [PATCH 2/3] Security: Implement prctl(PR_SET_NETWORK,
-	PR_NETWORK_OFF) semantics. (v3)
-Date: Wed, 23 Dec 2009 20:45:13 -0500
-Message-ID: <20091224014513.GA24178@heat>
+Subject: [PATCH 3/3] Security: Document prctl(PR_{GET,SET}_NETWORK). (v3)
+Date: Wed, 23 Dec 2009 20:45:29 -0500
+Message-ID: <20091224014529.GA24195@heat>
 References: <20091224014258.GA24115@heat>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -23,175 +22,102 @@ Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
 	Randy Dunlap <randy.dunlap@oracle.com>,
 	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
 To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757589AbZLXBnR@vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20091224014258.GA24115@heat>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement security_* hooks for socket_create, socket_bind, socket_connect,
-socket_sendmsg, and ptrace_access_check which return -EPERM when called from a
-process with networking restrictions. Exempt AF_UNIX sockets.
+Explain the purpose, interface, and semantics of the
+prctl(PR_{GET,SET}_network) facility and LSM.
+
+Also reference some example userland clients.
 
 Signed-off-by: Michael Stone <michael@laptop.org>
 ---
-  security/Kconfig         |   13 +++++
-  security/Makefile        |    1 +
-  security/prctl_network.c |  110 ++++++++++++++++++++++++++++++++++++++++++++++
-  3 files changed, 124 insertions(+), 0 deletions(-)
-  create mode 100644 security/prctl_network.c
+  Documentation/prctl/network.txt |   74 +++++++++++++++++++++++++++++++++++++++
+  1 files changed, 74 insertions(+), 0 deletions(-)
+  create mode 100644 Documentation/prctl/network.txt
 
-diff --git a/security/Kconfig b/security/Kconfig
-index 226b955..740a7fe 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -137,6 +137,19 @@ config LSM_MMAP_MIN_ADDR
-  	  this low address space will need the permission specific to the
-  	  systems running LSM.
-  
-+config SECURITY_PRCTL_NETWORK
-+	tristate "prctl(PR_{GET,SET}_NETWORK) support"
-+	depends on SECURITY_NETWORK
-+	help
-+    This enables processes to drop networking privileges via
-+    prctl(PR_SET_NETWORK, PR_NETWORK_OFF), which is used by OLPC's isolation
-+    shell, <http://wiki.laptop.org/go/Rainbow> to implement discretionary
-+    network isolation.
-+
-+    See Documentation/prctl/network.txt for more information about this LSM.
-+
-+	  If you are unsure how to answer this question, answer N.
-+
-  source security/selinux/Kconfig
-  source security/smack/Kconfig
-  source security/tomoyo/Kconfig
-diff --git a/security/Makefile b/security/Makefile
-index da20a19..92ce65d 100644
---- a/security/Makefile
-+++ b/security/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_SECURITY_SMACK)		+= smack/built-in.o
-  obj-$(CONFIG_AUDIT)			+= lsm_audit.o
-  obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/built-in.o
-  obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
-+obj-$(CONFIG_SECURITY_PRCTL_NETWORK)	+= prctl_network.o
-  
-  # Object integrity file lists
-  subdir-$(CONFIG_IMA)			+= integrity/ima
-diff --git a/security/prctl_network.c b/security/prctl_network.c
+diff --git a/Documentation/prctl/network.txt b/Documentation/prctl/network.txt
 new file mode 100644
-index 0000000..2da6051
+index 0000000..8b45d23
 --- /dev/null
-+++ b/security/prctl_network.c
-@@ -0,0 +1,110 @@
-+/*
-+ * prctl_network LSM.
-+ *
-+ * Copyright (C) 2008-2009 Michael Stone <michael@laptop.org>
-+ * Based on sample code from security/root_plug.c, (C) 2002 Greg Kroah-Hartman.
-+ *
-+ * Implements the prctl(PR_SET_NETWORK, PR_NETWORK_OFF) syscall.
-+ *
-+ * See Documentation/prctl/network.txt for more information about this code.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation, version 2 of the
-+ * License.
-+ */
++++ b/Documentation/prctl/network.txt
+@@ -0,0 +1,74 @@
++Purpose
++-------
 +
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/sched.h>
-+#include <net/sock.h>
-+#include <linux/socket.h>
-+#include <linux/security.h>
++Daniel Bernstein has observed [1] that security-conscious userland processes
++may benefit from the ability to irrevocably remove their ability to create,
++bind, connect to, or send messages except in the case of previously connected
++sockets or AF_UNIX filesystem sockets.
 +
-+static inline int maybe_allow(void)
-+{
-+	if (current->network)
-+		return -EPERM;
-+	return 0;
-+}
++This facility is particularly attractive to security platforms like OLPC
++Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4] because:
 +
-+static inline int prctl_network_socket_create_hook (int family, int type,
-+						int protocol, int kern)
-+{
-+	if (family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
++  * it integrates well with standard techniques for writing privilege-separated
++    Unix programs
 +
-+static inline int prctl_network_socket_bind_hook(struct socket * sock,
-+					     struct sockaddr * address,
-+					     int addrlen)
-+{
-+	if (address->sa_family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
++  * it integrates well with the need to perform limited socket I/O, e.g., when
++    running X clients
 +
-+static inline int prctl_network_socket_connect_hook(struct socket * sock,
-+						struct sockaddr * address,
-+						int addrlen)
-+{
-+	if (address->sa_family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
++  * it's available to unprivileged programs
 +
-+static inline int prctl_network_socket_sendmsg_hook(struct socket * sock,
-+						struct msghdr * msg, int size)
-+{
-+	if (sock->sk->sk_family != PF_UNIX &&
-+		current->network &&
-+		(msg->msg_name != NULL || msg->msg_namelen != 0))
-+		return -EPERM;
-+	return 0;
-+}
++  * it's a discretionary feature available to all of distributors,
++    administrators, authors, and users
 +
-+static inline int prctl_network_ptrace_access_check_hook(struct task_struct *child, unsigned int mode)
-+{
-+	/* does current have networking restrictions not shared by child? */
-+	if (current->network & ~child->network)
-+		return -EPERM;
-+	return 0;
-+}
++  * its effect is entirely local, rather than global (like netfilter)
 +
-+/* static inline int prctl_network_ptrace_traceme(struct task_struct *parent) ? */
++  * it's simple enough to have some hope of being used correctly
 +
-+static struct security_operations prctl_network_security_ops = {
-+	.name                   = "prctl_net",
-+	.socket_create		= prctl_network_socket_create_hook,
-+	.socket_bind		= prctl_network_socket_bind_hook,
-+	.socket_connect		= prctl_network_socket_connect_hook,
-+	.socket_sendmsg		= prctl_network_socket_sendmsg_hook,
-+	.ptrace_access_check	= prctl_network_ptrace_access_check_hook,
-+};
++Implementation
++--------------
 +
-+static int __init prctl_network_security_init (void)
-+{
-+	if (!security_module_enable(&prctl_network_security_ops)) {
-+		printk (KERN_INFO
-+			"Failure enabling prctl_network_lsm.\n");
-+		return 0;
-+	}
++After considering implementations based on the Linux Security Module (LSM)
++framework, on SELinux, on network namespaces (CLONE_NEWNET), on direct
++modification of the kernel syscall and task_struct APIs and after seeking
++advice from members of LKML, we came to the conclusion that the best way to
++implement this feature was to extend the prctl() framework with a new pair of
++options named PR_{GET,SET}_NETWORK and to write an LSM to implement the
++resulting PR_NETWORK_OFF semantics. These options cause prctl() to read or
++modify "current->network".
 +
-+	/* register ourselves with the security framework */
-+	if (register_security (&prctl_network_security_ops)) {
-+		printk (KERN_INFO
-+			"Failure registering prctl_network_lsm with the kernel\n");
-+		return 0;
-+	}
++Semantics
++---------
 +
-+	printk (KERN_INFO "prctl_network_lsm initialized\n");
++current->network is a flags field which is preserved across all variants of
++fork() and exec().
 +
-+	return 0;
-+}
++Writes which attempt to clear bits in current->network return -EPERM.
 +
-+security_initcall (prctl_network_security_init);
++The default value for current->network is named PR_NETWORK_ON and is defined
++to be 0.
 +
-+MODULE_DESCRIPTION("prctl_network LSM; implementing prctl(PR_SET_NETWORK, PR_NETWORK_OFF).");
-+MODULE_LICENSE("GPL");
++Presently, only one flag is defined: PR_NETWORK_OFF.
++
++More flags may be defined in the future if they become needed.
++
++Attempts to set undefined flags result in -EINVAL.
++
++When PR_NETWORK_OFF is set, implementations of syscalls which may be used by
++the current process to perform autonomous networking will return -EPERM. For
++example, calls to socket(), bind(), connect(), sendmsg(), and ptrace() will
++return -EPERM except for cases we are manipulating an AF_UNIX socket or, in the
++case of sendmsg(), unless we are manipulating a previously connected socket,
++i.e. one with
++
++  msg.msg_name == NULL && msg.msg_namelen == 0
++
++or, in the case of ptrace(), unless we are ptracing() a process which has all
++of our own networking restriction flags set.
++
++References
++----------
++
++[1]: http://cr.yp.to/unix/disablenetwork.html
++[2]: http://wiki.laptop.org/go/OLPC_Bitfrost
++[3]: http://wiki.laptop.org/go/Rainbow
++[4]: http://plash.beasts.org/
 -- 
 1.6.6.rc1
