@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: fix Need to call pci_save_state after
- pci_restore_state
-Date: Wed, 23 Dec 2009 21:19:34 -0800 (PST)
-Message-ID: <20091223.211934.27812242.davem@davemloft.net>
-References: <20091222204456.14196.63456.stgit@localhost.localdomain>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+	interface. (v3)
+Date: Thu, 24 Dec 2009 00:44:00 -0500
+Message-ID: <20091224054359.GA24396@heat>
+References: <m2pr653s1l.fsf@ssh.synack.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	donald.c.skidmore@intel.com, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60654
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751265AbZLXFTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 00:19:32 -0500
-In-Reply-To: <20091222204456.14196.63456.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m2pr653s1l.fsf@ssh.synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 22 Dec 2009 12:45:20 -0800
+> I think this is unnecessary, as LSM module, you should use the
+> void* security member of the structure cred. 
 
-> From: Don Skidmore <donald.c.skidmore@intel.com>
-> 
-> This patch adds a pci_save_state() call in ixgbe_resume() after
-> pci_restore_state(). A similar change was made in ixgbe_io_slot_reset()
-> that accommodates pci_restore_state() new behavior. This change makes
-> pci_restore_state() clear the saved_state flag This is necessary due
-> to a resent kernel change to pci_restore_state() so that it now clears
-> the saved_state flag of the device right after the device.s standard
-> configuration registers have been poplulated with the previously saved
-> values.
-> 
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+The change you propose is easily made but I'm having trouble seeing how making
+it would help my purpose: the field you name is already in use by other parts
+of the kernel which my functionality is intended to complement.
 
-Applied, thanks.
+That being said, I'd be very happy to prepare a version of the patch using the
+strategy you suggest if it would be directly useful to you or if you can show
+me how it would contribute to my goals.
+
+Regards, and thanks for your comment,
+
+Michael
+
+P.S. - Perhaps a reasonable alternative would be to the definition of the field
+conditional on CONFIGURE_SECURITY_PRCTL_NETWORK?
