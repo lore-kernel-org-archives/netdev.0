@@ -1,50 +1,44 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK) interface. (v3)
-Date: Thu, 24 Dec 2009 05:38:30 +0100
-Message-ID: <m2pr653s1l.fsf@ssh.synack.fr>
-References: <20091224014454.GA24161@heat>
+From: David Miller <davem@davemloft.net>
+Subject: gianfar select_queue bogosity (was Re: ixgbe warning)
+Date: Wed, 23 Dec 2009 21:11:57 -0800 (PST)
+Message-ID: <20091223.211157.68124463.davem@davemloft.net>
+References: <86802c440912222100j1c23f3d9xfb734a6e52fa2ec9@mail.gmail.com>
+	<OF748A4720.94B5A869-ON65257695.00267BA3-65257695.0027EDC4@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-15?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091224014454.GA24161@heat> (Michael Stone's message of "Wed,
-	23 Dec 2009 20:44:54 -0500")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yinghai@kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	avorontsov@ru.mvista.com, Sandeep.Kumar@freescale.com,
+	galak@kernel.crashing.org
+To: krkumar2@in.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42935
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751428AbZLXFLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 00:11:55 -0500
+In-Reply-To: <OF748A4720.94B5A869-ON65257695.00267BA3-65257695.0027EDC4@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Stone <michael@laptop.org> writes:
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Wed, 23 Dec 2009 12:57:26 +0530
 
-> diff --git a/include/linux/sched.h b/include/linux/sched.h
-> index f2f842d..0c65c55 100644
-> --- a/include/linux/sched.h
-> +++ b/include/linux/sched.h
-> @@ -1402,6 +1402,8 @@ struct task_struct {
->   	unsigned int sessionid;
->   #endif
->   	seccomp_t seccomp;
-> +/* Flags for limiting networking via prctl(PR_SET_NETWORK). */
-> +  unsigned long network;
->   
->   /* Thread group tracking */
->      	u32 parent_exec_id;
+> Also, I was looking at other providers of select_queue and found:
+> 
+> u16 gfar_select_queue(struct net_device *dev, struct sk_buff *skb)
+> {
+>         return skb_get_queue_mapping(skb);
+> }
+> 
+> How can this be correct (driver supports upto 8 txq's). Unless txq=0 for
+> xmits of all locally
+> generated packets is fine.
 
-I think this is unnecessary, as LSM module, you should use the
-void* security member of the structure cred. 
+This must be fixed.  As you note the queue mapping is only set
+for forwarding/bridging cases.
 
-this member allows you to mark task_struct as you which, it's a kind of
-abstraction provided to all security modules.
+There is zero reason for this driver to have it's own select_queue
+function, so the fix seems to simply remove this thing altogether.
+
+Some gianfar developer please prepare such a patch, thanks.
