@@ -1,77 +1,76 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: gianfar select_queue bogosity (was Re: ixgbe warning)
-Date: Thu, 24 Dec 2009 11:34:23 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA0904E@zin33exm22.fsl.freescale.net>
-References: <86802c440912222100j1c23f3d9xfb734a6e52fa2ec9@mail.gmail.com><OF748A4720.94B5A869-ON65257695.00267BA3-65257695.0027EDC4@in.ibm.com> <20091223.211157.68124463.davem@davemloft.net>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+Date: Thu, 24 Dec 2009 01:13:23 -0500
+Message-ID: <20091224061322.GB24396@heat>
+References: <m13a38uqc4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <yinghai@kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <netdev-owner@vger.kernel.org>,
-	<avorontsov@ru.mvista.com>, <galak@kernel.crashing.org>
-To: "David Miller" <davem@davemloft.net>, <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:54717 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751572AbZLXGEi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 01:04:38 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20091223.211157.68124463.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Michael Stone <michael@laptop.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m13a38uqc4.fsf@fess.ebiederm.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net] 
->Sent: Thursday, December 24, 2009 10:42 AM
->To: krkumar2@in.ibm.com
->Cc: yinghai@kernel.org; e1000-devel@lists.sourceforge.net; 
->netdev@vger.kernel.org; netdev-owner@vger.kernel.org; 
->avorontsov@ru.mvista.com; Kumar Gopalpet-B05799; 
->galak@kernel.crashing.org
->Subject: gianfar select_queue bogosity (was Re: ixgbe warning)
+> Eric Biederman writes:
+>> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
+>>> Michael Stone writes:
+>>>> the LSM-based version *does not* resolve the situation to my satisfaction as a
+>>>> userland hacker due to the well-known and long-standing adoption and
+>>>> compositionality problems facing small LSMs. ;)
+>>>
+>>> For things like Fedora it's probably an "interesting idea, perhaps we
+>>> should do it using SELinux" sort of problem, but a config option for a
+>>> magic network prctl is also going to be hard to adopt without producing a
+>>> good use case - and avoiding that by dumping crap into everyones kernel
+>>> fast paths isn't a good idea either.
 >
->From: Krishna Kumar2 <krkumar2@in.ibm.com>
->Date: Wed, 23 Dec 2009 12:57:26 +0530
->
->> Also, I was looking at other providers of select_queue and found:
->> 
->> u16 gfar_select_queue(struct net_device *dev, struct sk_buff *skb) {
->>         return skb_get_queue_mapping(skb); }
->> 
->> How can this be correct (driver supports upto 8 txq's). Unless txq=0 
->> for xmits of all locally generated packets is fine.
->
->This must be fixed.  As you note the queue mapping is only set 
->for forwarding/bridging cases.
->
+>If I understand the problem the goal is to disable access to ipc
+>mechanism that don't have the usual unix permissions.  To get
+>something that is usable for non-root processes, and to get something
+>that is widely deployed so you don't have to jump through hoops in
+>end user applications to use it.
 
-Yes, the queue_mapping is set for forwarding/bridginh applications.
+Eric,
 
->There is zero reason for this driver to have it's own 
->select_queue function, so the fix seems to simply remove this 
->thing altogether.
->
-What if I want to maintaing a 1-1 mapping b/w the Rx/Tx queues.
-For eg., I want a packet received on queue-1 on eth0 to be forwarded on
-to queue-1 on eth1.
+You understand correctly. Thank you for this cogent restatement.
 
-Is there some way where we can handle both kinds of applications i.e.,
-forwarding/bridging and
-locally  generated packets.
+>We have widely deployed mechanisms that are what you want or nearly
+>what you want already in the form of the various namespaces built for
+>containers.
 
->Some gianfar developer please prepare such a patch, thanks.
+It's true that your work is closer to what I want than anything else that I've
+seen so far...
 
-If you want gfar_select_queue( ) function to be removed for now, I will
-do that.
-But, I would also want to maintain the above explained scenario to be
-handled for forwarding/bridging applications.
+>I propose you introduce a permanent disable of executing suid 
+>applications. 
 
-Please provide your inputs
+I'm open to the idea but I don't understand the need that motivates it yet.
 
---
+Could you please explain further? (or point me to an existing explanation?)
 
-Thanks
-Sandeep
+>After which point it is another trivial patch to allow unsharing of
+>the network namespace if executing suid applications are disabled.
+
+How do you propose to address the problem with the Unix sockets?
+
+Regards,
+
+Michael
