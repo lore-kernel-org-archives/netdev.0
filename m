@@ -1,41 +1,77 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [ethtool PATCH] ethtool: Can't parse ints with stroul()
-Date: Thu, 24 Dec 2009 03:29:38 -0500
-Message-ID: <4B332672.7050101@garzik.org>
-References: <20091224072208.19670.30391.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v2] llc enhancements
+Date: Thu, 24 Dec 2009 09:35:31 +0100
+Message-ID: <4B3327D3.7080704@gmail.com>
+References: <1261611934-24348-1-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:32929 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422AbZLXI3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 03:29:41 -0500
-Received: by yxe17 with SMTP id 17so7463188yxe.33
-        for <netdev@vger.kernel.org>; Thu, 24 Dec 2009 00:29:40 -0800 (PST)
-In-Reply-To: <20091224072208.19670.30391.stgit@localhost.localdomain>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54703 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754737AbZLXIfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 03:35:38 -0500
+In-Reply-To: <1261611934-24348-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/24/2009 02:22 AM, Jeff Kirsher wrote:
-> From: PJ Waskiewicz<peter.p.waskiewicz.jr@intel.com>
->
-> A recent change to how int's were being parsed from the command
-> line had them being read in with an unsigned int string operator.
-> This didn't allow signed numbers from being read in correctly.
-> This patch adds a get_uint() routine, and fixes the get_int()
-> routine to read in signed values.
->
-> Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> ---
->
->   ethtool.c |   23 +++++++++++++++++++++--
->   1 files changed, 21 insertions(+), 2 deletions(-)
+Le 24/12/2009 00:45, Octavian Purdila a =E9crit :
+> This patch modifies the LLC code to scale the socket lookup code for =
+a
+> large number of interfaces and large number of sockets bound to the
+> same SAP. We use it for STP traffic generation from a large number of
+> virtual STP ports, via virtual network interfaces.
+>=20
+> In the process we converted the socket lookup code and sap list to us=
+e
+> RCU. It also contains some general cleanups (use dev_hard_header
+> instead of handcrafting the headers) and enhancements (LLC_OPT_PKTINF=
+O).
+>=20
+> This is the 2nd version. Changes from the previous version:
+>=20
+> - added SO_BINDTODEVICE support for faster bind operations
+> - converted the socket lookup code and sap list to RCU
+> - optimized multicast delivery ala Eric
+> - remove some unused APIs (which should be private anyway)
+>=20
+> Many thanks to Eric Dumazet for his continuous guidance and to Jarek
+> Poplawski for spotting a locking bug in the previous version.
+>=20
+>=20
 
-applied
+Pretty impressive work Octavian !
 
+My only concerns (before drinking my coffee, I might be wrong...) are :
 
+1) Patch 7/9 : __llc_lookup_established()
+   Checking slot number is not enough I am afraid. A socket can be free=
+d,
+   re-allocated, inserted in another sap hash list on _same_ slot numbe=
+r.
+   We dont have this problem with UDP/TCP since we have only
+   one hash table on machine, but with llc, we might have many sap hash=
+ tables.
+
+   So before if (llc_estab_match(sap, daddr, laddr, rc)) test, you prob=
+ably
+   need to check if we found a socket hashed on a different hash table =
+and
+   restart the lookup.
+
+2) the WARN_ON() removal in patch 7/9 :
+
+ void llc_sap_close(struct llc_sap *sap)
+ {
+-	WARN_ON(!hlist_nulls_empty(&sap->sk_list));
+ 	llc_del_sap(sap);
+ 	kfree(sap);
+ }
+
+I believe we should keep the sanity test some time, converted to sk_lad=
+dr_hash[] variant.
+
+Thanks
