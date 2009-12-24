@@ -1,28 +1,32 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [net-2.6 PATCH 1/3] be2net: Bug fix to avoid soft lockup in loopback
- test.
-Date: Thu, 24 Dec 2009 14:28:53 +0100
-Message-ID: <4B336C95.2050808@computer.org>
-References: <20091223144026.GA23383@serverengines.com>
+From: Amit Shah <amit.shah@redhat.com>
+Subject: Re: [PATCH 1/2] virtio: Add detach unused buffer from vring
+Date: Thu, 24 Dec 2009 19:05:44 +0530
+Message-ID: <20091224133544.GA2855@amit-x200.redhat.com>
+References: <1261122090.4148.24.camel@localhost.localdomain> <1261122230.4148.26.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay008.isp.belgacom.be ([195.238.6.174]:62791 "EHLO
-	mailrelay008.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750998AbZLXNda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 08:33:30 -0500
-In-Reply-To: <20091223144026.GA23383@serverengines.com>
+Received: from mx1.redhat.com ([209.132.183.28]:28042 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750959AbZLXNgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Dec 2009 08:36:48 -0500
+Content-Disposition: inline
+In-Reply-To: <1261122230.4148.26.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sarveshwar Bandi wrote:
-> This change ensures that loopback test command gives up after 4 seconds when 
-> the hardware is not responsive. This could happen if the ports are connected 
-> properly in loopback mode.
+On (Thu) Dec 17 2009 [23:43:50], Shirley Ma wrote:
+> There's currently no way for a virtio driver to ask for unused
+> buffers, so it has to keep a list itself to reclaim them at shutdown.
+> This is redundant, since virtio_ring stores that information.  So
+> add a new hook to do this: virtio_net will be the first user.
+> 
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
 
-I don't understand the 2nd sentence, did you mean to say that this could happen if the ports are *not* connected properly in loopback mode?
+Acked-By: Amit Shah <amit.shah@redhat.com>
 
-Thanks, Jan
+		Amit
