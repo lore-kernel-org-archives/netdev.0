@@ -1,42 +1,71 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-12-24
-Date: Thu, 24 Dec 2009 13:53:14 -0800 (PST)
-Message-ID: <20091224.135314.193725771.davem@davemloft.net>
-References: <20091224204722.GA678@tuxdriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load
+Date: Thu, 24 Dec 2009 14:21:46 -0800
+Message-ID: <20091224142146.700e4ac8@nehalam>
+References: <4B300A2A.8040305@gmail.com>
+	<20091223225855.4a7d00af.akpm@linux-foundation.org>
+	<4B3390EC.5060408@gmail.com>
+	<200912241128.57599.dhazelton@enter.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091224204722.GA678-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Berck Nash <flyboy@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Daniel Hazelton <dhazelton@enter.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:54276 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752191AbZLXWWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Dec 2009 17:22:14 -0500
+In-Reply-To: <200912241128.57599.dhazelton@enter.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 24 Dec 2009 15:47:22 -0500
+On Thu, 24 Dec 2009 11:28:57 -0500
+Daniel Hazelton <dhazelton@enter.net> wrote:
 
-> Dave,
+> On Thursday 24 December 2009 11:03:56 am Berck Nash wrote:
+> > Andrew Morton wrote:
+> > > On Mon, 21 Dec 2009 16:52:10 -0700 "Berck E. Nash" <flyboy@gmail.com> 
+> wrote:
+> > >> Since 2.6.32, I've been getting kernel panics under heavy network load
+> > >> (bittorrent usage).
+> > >
+> > > Let's cc the right list and developer.
+> > >
+> > > This is a 2.6.31->2.6.32 regression?
+> > 
+> > I believe so.  Since it's intermittent and difficult to reproduce, it's
+> > possible (but unlikely) that I simply never triggered it under 2.6.31.
 > 
-> Here is the usual first batch of pent-up wireless patches after the
-> merge window.  It is the usual collection of various driver updates
-> along with a dozen or so mac80211/infrastructure changes.  There is
-> still more, but lots/most of what remains is dependent not only on this
-> batch but also on the fixes that only recently made it into net-next-2.6
-> (and which are not yet in wireless-next-2.6).  So, something to look
-> forward to... :-)
+> This is far from new. I have seen this under 2.6.27 when at least one botnet 
+> has been pointed at a server of mine and told to gain access. It has happened 
+> four times in the last six to eight months - and I have no easy way to capture 
+> the logs. But the oops that was posted looks very, very similar to what I've 
+> seen.
 > 
-> Please let me know if there are problems!
+> It's always an allocation error in the transmit path that leads to the panic. 
+> Because this is a production machine that I do not have a way to take down and 
+> do testing with I've not reported the problem before.
+> 
 
-Let me know when it builds :-)
+Even though I wrote/maintain the sky driver, I don't work for SysKonnect, and
+only have access to a limited set of information:
+the technical manuals (under NDA), and the vendor sk98lin driver. The sky2 driver
+imitates the receiver timeout of the sk98lin driver; other people have told me
+that the FIFO hardware implementation is buggy and when it gets full, it gets
+stuck. Probably the equivalent of a software FIFO where the developer forgets to
+reserve a slot so that head == tail can mean both empty and full!
 
-awk: /home/davem/src/GIT/net-next-2.6/net/wireless/genregdb.awk: line 29: regular expression compile failed (missing operand)
-* Ignore *
-awk: /home/davem/src/GIT/net-next-2.6/net/wireless/genregdb.awk: line 33: regular expression compile failed (missing operand)
-* Ignore *
-make[2]: *** [net/wireless/regdb.c] Error 2
-make[2]: *** Waiting for unfinished jobs....
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The workaround with a timer is prone to errors when traffic keeps going, also
+the vendor doesn't really provide clear instructions on how to unlock it. I do
+not have access to the hardware errata describing the problem. If I did a more
+minimal solution would be possible.
+
+The easiest advice is avoid sky2 chips with FIFO for any heavy traffic, the next
+advice is make sure receive flow control is enabled so that receiver doesn't
+get overrun. If tx timeouts are an issue use a rate limiter like TBF. Do not use
+the chip with 10 or 100 mbit since the transmitter is more prone to get overrun.
+
