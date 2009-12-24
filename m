@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: gianfar select_queue bogosity (was Re: ixgbe warning)
-Date: Wed, 23 Dec 2009 21:11:57 -0800 (PST)
-Message-ID: <20091223.211157.68124463.davem@davemloft.net>
-References: <86802c440912222100j1c23f3d9xfb734a6e52fa2ec9@mail.gmail.com>
-	<OF748A4720.94B5A869-ON65257695.00267BA3-65257695.0027EDC4@in.ibm.com>
+Subject: Re: [net-2.6 PATCH] ixgbe: fix Need to call pci_save_state after
+ pci_restore_state
+Date: Wed, 23 Dec 2009 21:19:34 -0800 (PST)
+Message-ID: <20091223.211934.27812242.davem@davemloft.net>
+References: <20091222204456.14196.63456.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yinghai@kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	avorontsov@ru.mvista.com, Sandeep.Kumar@freescale.com,
-	galak@kernel.crashing.org
-To: krkumar2@in.ibm.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	donald.c.skidmore@intel.com, peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42935
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60654
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751428AbZLXFLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 00:11:55 -0500
-In-Reply-To: <OF748A4720.94B5A869-ON65257695.00267BA3-65257695.0027EDC4@in.ibm.com>
+	by vger.kernel.org with ESMTP id S1751265AbZLXFTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 00:19:32 -0500
+In-Reply-To: <20091222204456.14196.63456.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Wed, 23 Dec 2009 12:57:26 +0530
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 22 Dec 2009 12:45:20 -0800
 
-> Also, I was looking at other providers of select_queue and found:
+> From: Don Skidmore <donald.c.skidmore@intel.com>
 > 
-> u16 gfar_select_queue(struct net_device *dev, struct sk_buff *skb)
-> {
->         return skb_get_queue_mapping(skb);
-> }
+> This patch adds a pci_save_state() call in ixgbe_resume() after
+> pci_restore_state(). A similar change was made in ixgbe_io_slot_reset()
+> that accommodates pci_restore_state() new behavior. This change makes
+> pci_restore_state() clear the saved_state flag This is necessary due
+> to a resent kernel change to pci_restore_state() so that it now clears
+> the saved_state flag of the device right after the device.s standard
+> configuration registers have been poplulated with the previously saved
+> values.
 > 
-> How can this be correct (driver supports upto 8 txq's). Unless txq=0 for
-> xmits of all locally
-> generated packets is fine.
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-This must be fixed.  As you note the queue mapping is only set
-for forwarding/bridging cases.
-
-There is zero reason for this driver to have it's own select_queue
-function, so the fix seems to simply remove this thing altogether.
-
-Some gianfar developer please prepare such a patch, thanks.
+Applied, thanks.
