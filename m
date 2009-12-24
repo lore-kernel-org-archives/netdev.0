@@ -1,71 +1,41 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load
-Date: Thu, 24 Dec 2009 14:21:46 -0800
-Message-ID: <20091224142146.700e4ac8@nehalam>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Thu, 24 Dec 2009 14:27:12 -0800
+Message-ID: <20091224142712.1e5c46d2@nehalam>
 References: <4B300A2A.8040305@gmail.com>
-	<20091223225855.4a7d00af.akpm@linux-foundation.org>
-	<4B3390EC.5060408@gmail.com>
-	<200912241128.57599.dhazelton@enter.net>
+	<4B300E30.9090707@majjas.com>
+	<4B3114E3.1070602@majjas.com>
+	<4B329FA3.9090904@majjas.com>
+	<20091223230102.4bb0100e.akpm@linux-foundation.org>
+	<4B33BE74.3030704@majjas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Berck Nash <flyboy@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Daniel Hazelton <dhazelton@enter.net>
+To: Michael Breuer <mbreuer@majjas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54276 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:54452 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752191AbZLXWWO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Dec 2009 17:22:14 -0500
-In-Reply-To: <200912241128.57599.dhazelton@enter.net>
+	id S1755046AbZLXW1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Dec 2009 17:27:34 -0500
+In-Reply-To: <4B33BE74.3030704@majjas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Dec 2009 11:28:57 -0500
-Daniel Hazelton <dhazelton@enter.net> wrote:
+On Thu, 24 Dec 2009 14:18:12 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-> On Thursday 24 December 2009 11:03:56 am Berck Nash wrote:
-> > Andrew Morton wrote:
-> > > On Mon, 21 Dec 2009 16:52:10 -0700 "Berck E. Nash" <flyboy@gmail.com> 
-> wrote:
-> > >> Since 2.6.32, I've been getting kernel panics under heavy network load
-> > >> (bittorrent usage).
-> > >
-> > > Let's cc the right list and developer.
-> > >
-> > > This is a 2.6.31->2.6.32 regression?
-> > 
-> > I believe so.  Since it's intermittent and difficult to reproduce, it's
-> > possible (but unlikely) that I simply never triggered it under 2.6.31.
-> 
-> This is far from new. I have seen this under 2.6.27 when at least one botnet 
-> has been pointed at a server of mine and told to gain access. It has happened 
-> four times in the last six to eight months - and I have no easy way to capture 
-> the logs. But the oops that was posted looks very, very similar to what I've 
-> seen.
-> 
-> It's always an allocation error in the transmit path that leads to the panic. 
-> Because this is a production machine that I do not have a way to take down and 
-> do testing with I've not reported the problem before.
-> 
+> I'll be the first to admit I don't know much about network drivers... 
+> but I am wondering why __free_page(frag->page); is called in 
+> skb_put_frags when the fragment length is zero. I don't see why that 
+> page pointer wouldn't potentially be reused afterwords.
 
-Even though I wrote/maintain the sky driver, I don't work for SysKonnect, and
-only have access to a limited set of information:
-the technical manuals (under NDA), and the vendor sk98lin driver. The sky2 driver
-imitates the receiver timeout of the sk98lin driver; other people have told me
-that the FIFO hardware implementation is buggy and when it gets full, it gets
-stuck. Probably the equivalent of a software FIFO where the developer forgets to
-reserve a slot so that head == tail can mean both empty and full!
+When using Jumbo frames, the sky2 driver allocates pages to hold
+the larger part of the frame. With 9K MTU it will allocate 2 * 4K pages
+and then 1K for start of frame. Then if frame is <= 1K it will drop
+the extra pages.  Not sure why this broke now, I am not a VM expert.
 
-The workaround with a timer is prone to errors when traffic keeps going, also
-the vendor doesn't really provide clear instructions on how to unlock it. I do
-not have access to the hardware errata describing the problem. If I did a more
-minimal solution would be possible.
-
-The easiest advice is avoid sky2 chips with FIFO for any heavy traffic, the next
-advice is make sure receive flow control is enabled so that receiver doesn't
-get overrun. If tx timeouts are an issue use a rate limiter like TBF. Do not use
-the chip with 10 or 100 mbit since the transmitter is more prone to get overrun.
-
+-- 
