@@ -1,108 +1,94 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [net-next PATCH v2] llc enhancements
-Date: Thu, 24 Dec 2009 14:17:02 +0200
-Message-ID: <200912241417.03003.opurdila@ixiacom.com>
-References: <1261611934-24348-1-git-send-email-opurdila@ixiacom.com> <4B3327D3.7080704@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] Security: Add prctl(PR_{GET,SET}_NETWORK)
+Date: Thu, 24 Dec 2009 04:37:41 -0800
+Message-ID: <m1r5qkim3u.fsf@fess.ebiederm.org>
+References: <20091224061322.GB24396@heat>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:12311 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751498AbZLXMUW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 07:20:22 -0500
-In-Reply-To: <4B3327D3.7080704@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20091224061322.GB24396@heat> (Michael Stone's message of "Thu\, 24 Dec 2009 01\:13\:23 -0500")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 24 December 2009 10:35:31 you wrote:
-> Le 24/12/2009 00:45, Octavian Purdila a =E9crit :
-> > This patch modifies the LLC code to scale the socket lookup code fo=
-r a
-> > large number of interfaces and large number of sockets bound to the
-> > same SAP. We use it for STP traffic generation from a large number =
-of
-> > virtual STP ports, via virtual network interfaces.
-> >
-> > In the process we converted the socket lookup code and sap list to =
-use
-> > RCU. It also contains some general cleanups (use dev_hard_header
-> > instead of handcrafting the headers) and enhancements (LLC_OPT_PKTI=
-NFO).
-> >
-> > This is the 2nd version. Changes from the previous version:
-> >
-> > - added SO_BINDTODEVICE support for faster bind operations
-> > - converted the socket lookup code and sap list to RCU
-> > - optimized multicast delivery ala Eric
-> > - remove some unused APIs (which should be private anyway)
-> >
-> > Many thanks to Eric Dumazet for his continuous guidance and to Jare=
-k
-> > Poplawski for spotting a locking bug in the previous version.
->=20
-> Pretty impressive work Octavian !
->=20
-> My only concerns (before drinking my coffee, I might be wrong...) are=
- :
->=20
-> 1) Patch 7/9 : __llc_lookup_established()
->    Checking slot number is not enough I am afraid. A socket can be fr=
-eed,
->    re-allocated, inserted in another sap hash list on _same_ slot num=
-ber.
->    We dont have this problem with UDP/TCP since we have only
->    one hash table on machine, but with llc, we might have many sap ha=
-sh
->  tables.
->=20
->    So before if (llc_estab_match(sap, daddr, laddr, rc)) test, you pr=
-obably
->    need to check if we found a socket hashed on a different hash tabl=
-e and
->    restart the lookup.
->=20
+Michael Stone <michael@laptop.org> writes:
 
-Woudn't the sap check after the the atomic_inc check take care of this?
+>> Eric Biederman writes:
+>>> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
+>>>> Michael Stone writes:
+>>>>> the LSM-based version *does not* resolve the situation to my satisfaction as a
+>>>>> userland hacker due to the well-known and long-standing adoption and
+>>>>> compositionality problems facing small LSMs. ;)
+>>>>
+>>>> For things like Fedora it's probably an "interesting idea, perhaps we
+>>>> should do it using SELinux" sort of problem, but a config option for a
+>>>> magic network prctl is also going to be hard to adopt without producing a
+>>>> good use case - and avoiding that by dumping crap into everyones kernel
+>>>> fast paths isn't a good idea either.
+>>
+>>If I understand the problem the goal is to disable access to ipc
+>>mechanism that don't have the usual unix permissions.  To get
+>>something that is usable for non-root processes, and to get something
+>>that is widely deployed so you don't have to jump through hoops in
+>>end user applications to use it.
+>
+> Eric,
+>
+> You understand correctly. Thank you for this cogent restatement.
+>
+>>We have widely deployed mechanisms that are what you want or nearly
+>>what you want already in the form of the various namespaces built for
+>>containers.
+>
+> It's true that your work is closer to what I want than anything else that I've
+> seen so far...
+>
+>> I propose you introduce a permanent disable of executing suid applications. 
+>
+> I'm open to the idea but I don't understand the need that motivates it yet.
+> Could you please explain further? (or point me to an existing explanation?)
 
-        rcu_read_lock();
-again:
-        sk_nulls_for_each_rcu(rc, node, laddr_hb) {
-                if (llc_estab_match(sap, daddr, laddr, rc)) {
-                        /* Extra checks required by SLAB_DESTROY_BY_RCU=
- */
-                        if (unlikely(!atomic_inc_not_zero(&rc->sk_refcn=
-t) ||
-                                     llc_sk(rc)->sap !=3D sap))
-                                goto again;
-                        if (unlikely(!llc_estab_match(sap, daddr, laddr=
-, rc))) {
-                                sock_put(rc);
-                                continue;
-                        }
-                        goto found;
-                }
-        }
+With namespaces it is possible to masquarade as a trusted source,
+of information to a suid program such as /etc/passwd or a NIS server.
 
-But, I found a leak issue: if the sap check fails we should sock_put th=
-e socket before trying again !=20
+A one-way removal of the ability to exec suid programs is generally
+simple and handy like chroot, and removes the need for CAP_SYS_ADMIN
+in most cases.
 
-> 2) the WARN_ON() removal in patch 7/9 :
->=20
->  void llc_sap_close(struct llc_sap *sap)
->  {
-> -	WARN_ON(!hlist_nulls_empty(&sap->sk_list));
->  	llc_del_sap(sap);
->  	kfree(sap);
->  }
->=20
-> I believe we should keep the sanity test some time, converted to
->  sk_laddr_hash[] variant.
+Plan 9 did not support suid executables and supported an unprivileged
+equivalent of unshare(NEWNS).
 
-I think adding counter would be necessary for this - to avoid iterating=
- over all the hash buckets. Does that sound ok?
+I need the full unprivileged unshare of USERNS for my primary
+uses today as I need to perform normally root only activities
+like mounting loopback devices, and setting up networking. Your
+uses of limiting of ipc do not appear to require that.
 
-Thanks !
+>>After which point it is another trivial patch to allow unsharing of
+>>the network namespace if executing suid applications are disabled.
+>
+> How do you propose to address the problem with the Unix sockets?
+
+Careful code review of the patch to allow talking between network
+namespaces with unix domain sockets.  This is a feature that we
+simply have not merged yet.  Semantically it is fine today. It is
+simply no one has answered the question what other implications
+could there be.  Now that I know of 2 or 3 compelling use
+cases and most of the rest of the work done.  It seems time to
+relax the restriction.
+
+Eric
