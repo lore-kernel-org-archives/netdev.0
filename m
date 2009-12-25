@@ -1,57 +1,67 @@
-From: Vitaliy Gusev <vgusev@openvz.org>
-Subject: [PATCH] tun: use tun_sk instead container_of
-Date: Fri, 25 Dec 2009 20:17:43 +0300
-Message-ID: <200912252017.43998.vgusev@openvz.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Fri, 25 Dec 2009 15:22:00 -0800
+Message-ID: <20091225152200.1cf11dfe@nehalam>
+References: <4B300A2A.8040305@gmail.com>
+	<4B300E30.9090707@majjas.com>
+	<4B3114E3.1070602@majjas.com>
+	<4B329FA3.9090904@majjas.com>
+	<20091223230102.4bb0100e.akpm@linux-foundation.org>
+	<4B34E847.8010809@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:2805 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756540AbZLYRO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Dec 2009 12:14:26 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757383AbZLYXXK@vger.kernel.org>
+In-Reply-To: <4B34E847.8010809@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using macro tun_sk is more clear and shorter. However tun.c has tun_sk,
-but doesn't use it. 
+On Fri, 25 Dec 2009 11:28:55 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
+>   More data points - I'm able to reliably recreate this now.
+> While I thought it was coincidence, each and every time I hit this issue 
+> there is a DHCP renew event immediately before the first error.
+> The crash occurs while under load - in my case seems that the traffic is 
+> actually IPV6 (hadn't noticed that before).
+> I ran nethogs on a remote display - the reported rx rate on the IPV6 smb 
+> connection at the time of the lockup was 33889.688 KB/sec on a 1gbit 
+> nic. I've got two events like this - don't recall if the earlier one was 
+> the exact same # - but it was in the ballpark.
+> 
+> On 12/24/2009 2:01 AM, Andrew Morton wrote:
+> > cc's added again.
+> >
+> > On Wed, 23 Dec 2009 17:54:27 -0500 Michael Breuer<mbreuer@majjas.com>  wrote:
+> >
+> >    
+> >> Ok - not the firmware.  Ran another Windows backup and sky2 went down.
+> >>
+> >> Nothing in dmesg.old - have oops in syslog. System became unresponsive
+> >> and watchdog kicked in after a minute.
+> >>
+> >> Also note that I have a similar oops with VT-D disabled (posted here on
+> >> 12/5). I'm attaching the oops from that below this oops for comparison.
+> >> That also happened under similar load.
+> >>
+> >> On the assumption that I can recreate this (although it takes a while)
+> >> please let me know how I can help.
+> >>
+> >> What's in my log (starting with an smbd error about 2 min before the
+> >> oops (note: the dchpd is not the system doing the backup).
+> >>      
+> > This (nastily wordwrapped) oops appers to be quite different from
+> > Berck's one.
+> >
+> >
 
----
- drivers/net/tun.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+What is the MTU?
+> 
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 01e99f2..2834a01 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -849,13 +849,13 @@ static void tun_sock_write_space(struct sock *sk)
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
- 		wake_up_interruptible_sync(sk->sk_sleep);
- 
--	tun = container_of(sk, struct tun_sock, sk)->tun;
-+	tun = tun_sk(sk)->tun;
- 	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
- }
- 
- static void tun_sock_destruct(struct sock *sk)
- {
--	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
-+	free_netdev(tun_sk(sk)->tun->dev);
- }
- 
- static struct proto tun_proto = {
-@@ -990,7 +990,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		sk->sk_write_space = tun_sock_write_space;
- 		sk->sk_sndbuf = INT_MAX;
- 
--		container_of(sk, struct tun_sock, sk)->tun = tun;
-+		tun_sk(sk)->tun = tun;
- 
- 		security_tun_dev_post_create(sk);
- 
+
+-- 
