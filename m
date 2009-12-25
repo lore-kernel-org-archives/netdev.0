@@ -1,146 +1,100 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [Alacrityvm-devel] [GIT PULL] AlacrityVM guest drivers for
- 2.6.33
-Date: Thu, 24 Dec 2009 16:38:39 -0800
-Message-ID: <20091225003839.GA802@ovro.caltech.edu>
-References: <20091218215107.GA14946@elte.hu>
- <4B2F9582.5000002@gmail.com>
- <20091222075742.GB26467@elte.hu>
- <4B3103B4.4070708@gmail.com>
- <f73f7ab80912222215i39ba865dv95764f95fd57bd96@mail.gmail.com>
- <4B3232A1.8050505@codemonkey.ws>
- <20091223195413.GB30700@ovro.caltech.edu>
- <4B32A09D.30400@codemonkey.ws>
- <20091223234256.GC30700@ovro.caltech.edu>
- <4B33A053.9090009@codemonkey.ws>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 0/3] increase skb size to prevent dma over skb boundary
+Date: Thu, 24 Dec 2009 20:31:37 -0500
+Message-ID: <20091225013137.GA12068@localhost.localdomain>
+References: <20091207144623.GA8073@hmsreliant.think-freely.org> <EA929A9653AAE14F841771FB1DE5A1365FA93CD0DD@rrsmsx501.amr.corp.intel.com> <20091209152312.GA11983@hmsreliant.think-freely.org> <EA929A9653AAE14F841771FB1DE5A1365FA9463CD1@rrsmsx501.amr.corp.intel.com> <20091223064725.GB12439@jenkins.home.ifup.org> <alpine.WNT.2.00.0912231040560.4616@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kyle Moffett <kyle@moffetthome.net>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>,
-	Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	torvalds@linux-foundation.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: Brandon Philips <brandon@ifup.org>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36549 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbZLYBbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Dec 2009 20:31:44 -0500
 Content-Disposition: inline
-In-Reply-To: <4B33A053.9090009@codemonkey.ws>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <alpine.WNT.2.00.0912231040560.4616@jbrandeb-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 24, 2009 at 11:09:39AM -0600, Anthony Liguori wrote:
-> On 12/23/2009 05:42 PM, Ira W. Snyder wrote:
-> >
-> > I've got a single PCI Host (master) with ~20 PCI slots. Physically, it
-> > is a backplane in a cPCI chassis, but the form factor is irrelevant. It
-> > is regular PCI from a software perspective.
-> >
-> > Into this backplane, I plug up to 20 PCI Agents (slaves). They are
-> > powerpc computers, almost identical to the Freescale MPC8349EMDS board.
-> > They're full-featured powerpc computers, with CPU, RAM, etc. They can
-> > run standalone.
-> >
-> > I want to use the PCI backplane as a data transport. Specifically, I
-> > want to transport ethernet over the backplane, so I can have the powerpc
-> > boards mount their rootfs via NFS, etc. Everyone knows how to write
-> > network daemons. It is a good and very well known way to transport data
-> > between systems.
-> >
-> > On the PCI bus, the powerpc systems expose 3 PCI BAR's. The size is
-> > configureable, as is the memory location at which they point. What I
-> > cannot do is get notified when a read/write hits the BAR. There is a
-> > feature on the board which allows me to generate interrupts in either
-> > direction: agent->master (PCI INTX) and master->agent (via an MMIO
-> > register). The PCI vendor ID and device ID are not configureable.
-> >
-> > One thing I cannot assume is that the PCI master system is capable of
-> > performing DMA. In my system, it is a Pentium3 class x86 machine, which
-> > has no DMA engine. However, the PowerPC systems do have DMA engines. In
-> > virtio terms, it was suggested to make the powerpc systems the "virtio
-> > hosts" (running the backends) and make the x86 (PCI master) the "virtio
-> > guest" (running virtio-net, etc.).
+On Wed, Dec 23, 2009 at 11:43:40AM -0800, Brandeburg, Jesse wrote:
+> On Tue, 22 Dec 2009, Brandon Philips wrote:
+> > On 11:20 Thu 10 Dec 2009, Tantilov, Emil S wrote:
+> > > >> I am trying to test the patches you submitted (thanks btw) and so
+> > > >> far am not able to reproduce the panic you described. When MTU is at
+> > > >> 1500 RCTL.LPE (bit 5) is set to 0 and the HW will not allow the
+> > > >> reception of large packets (>1522 bytes, which is what rx_buffer_len
+> > > >> is set to). This is basically what I am seeing in my tests - packets
+> > > >> are discarded by the HW.     
+> > 
+> > I have a memory dump from an SLE10 SP3 machine that seems to reproduce
+> > this issue. The testing environment was netperf with the MTU being
+> > switched every minute from 9000 -> 1500 and it took 40 hours to hit
+> > the bug. So, an overnight test, as you tried, may not be enough.
 > 
-> IMHO, virtio and vbus are both the wrong model for what you're doing. 
-> The key reason why is that virtio and vbus are generally designed around 
-> the concept that there is shared cache coherent memory from which you 
-> can use lock-less ring queues to implement efficient I/O.
+> Thanks for testing Brandon, I think your test (with e1000e 1.0.2.5) is 
+> significantly different than the test that Neil started with.  That said I 
+> think it is a valuable test and we are going to start a test today that 
+> uses pktgen on two machines to send 64 byte and 9014 byte packets to a 
+> host that is changing its MTU every 5-10 seconds.
+>  
+> > In the memory dump there are 6 skb's in the ring that have memory
+> > overwritten from skb->data to skb->data + 2048. The machine ended up
+> > oopsing in skb_release_data() from e1000_clean_all_rx_rings() from
+> > e1000_change_mtu().
 > 
-> In your architecture, you do not have cache coherent shared memory. 
-> Instead, you have two systems connected via a PCI backplace with 
-> non-coherent shared memory.
+> I think we should put a patch like the below into the kernel and actually 
+> *catch* any overrun DMAs even on a production machine.  At that point we 
+> could even leak that skb memory to prevent the corrupted memory from 
+> making its way into the general environment.
+>  
+> > 35:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
 > 
-> You probably need to use the shared memory as a bounce buffer and 
-> implement a driver on top of that.
+> what kind of system is this that had such a high bus number? PPC64?
 > 
-> > I'm not sure what you're suggesting in the paragraph above. I want to
-> > use virtio-net as the transport, I do not want to write my own
-> > virtual-network driver. Can you please clarify?
+> >         Subsystem: Intel Corporation PRO/1000 PT Quad Port LP Server Adapter
+> >         Kernel driver in use: e1000
+> >         Kernel modules: e1000
 > 
-> virtio-net and vbus are going to be overly painful for you to use 
-> because no one end can access arbitrary memory in the other end.
+> e1000_change_mtu could possibly have a race that would allow corruption if 
+> all receives were not completed in the time we waited (10 millseconds) for 
+> some reason, but only if LPE was cleared already.  I still think your test 
+> is significantly different and maybe showing a different (but similar) 
+> edge case bug than Neil.
 > 
-
-The PCI Agents (powerpc's) can access the lowest 4GB of the PCI Master's
-memory. Not all at the same time, but I have a 1GB movable window into
-PCI address space. I hunch Kyle's setup is similar.
-
-I've proved that virtio can work via my "crossed-wires" driver, hooking
-two virtio-net's together. With a proper in-kernel backend, I think the
-issues would be gone, and things would work great.
-
-> > Hopefully that explains what I'm trying to do. I'd love someone to help
-> > guide me in the right direction here. I want something to fill this need
-> > in mainline.
+> shouldn't IOMMU systems be catching this too when it was occuring?  we 
+> only call pci_map_* with buffer_info->length which is assigned 
+> rx_buffer_len.
 > 
-> If I were you, I would write a custom network driver.  virtio-net is 
-> awfully small (just a few hundred lines).  I'd use that as a basis but I 
-> would not tie into virtio or vbus.  The paradigms don't match.
+> e1000/e1000e: check rx length for overruns
 > 
-
-This is exactly what I did first. I proposed it for mainline, and David
-Miller shot it down, saying: you're creating your own virtualization
-scheme, use virtio instead. Arnd Bergmann is maintaining a driver
-out-of-tree for some IBM cell boards which is very similar, IIRC.
-
-In my driver, I used the PCI Agent's PCI BAR's to contain ring
-descriptors. The PCI Agent actually handles all data transfer (via the
-onboard DMA engine). It works great. I'll gladly post it if you'd like
-to see it.
-
-In my driver, I had to use 64K MTU to get acceptable performance. I'm
-not entirely sure how to implement a driver that can handle
-scatter/gather (fragmented skb's). It clearly isn't that easy to tune a
-network driver for good performance. For reference, my "crossed-wires"
-virtio drivers achieved excellent performance (10x better than my custom
-driver) with 1500 byte MTU.
-
-> > I've been contacted seperately by 10+ people also looking
-> > for a similar solution. I hunch most of them end up doing what I did:
-> > write a quick-and-dirty network driver. I've been working on this for a
-> > year, just to give an idea.
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> The whole architecture of having multiple heterogenous systems on a 
-> common high speed backplane is what IBM refers to as "hybrid computing". 
->   It's a model that I think will be come a lot more common in the 
-> future.  I think there are typically two types of hybrid models 
-> depending on whether the memory sharing is cache coherent or not.  If 
-> you have coherent shared memory, the problem looks an awfully lot like 
-> virtualization.  If you don't have coherent shared memory, then the 
-> shared memory basically becomes a pool to bounce into and out-of.
+> it has been reported that some tests can cause DMA overruns resulting in
+> corrupted memory.  If the hardware writes more data to memory than we had
+> allocated this is something we can check for.
 > 
+> For now, WARN_ON, with the future capability of doing something like leaking
+> the memory rather than returning a known corrupt buffer to userspace.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: brandon@ifup.org
+> CC: nhorman@tuxdriver.com
 
-Let's say I could get David Miller to accept a driver as described
-above. Would you really want 10+ seperate but extremely similar drivers
-for similar boards? Such as mine, Arnd's, Kyle's, etc. It is definitely
-a niche that Linux is lacking support for. And as you say, it is
-growing.
+I think this seems like a reasonable idea.  Additionally (or perhaps
+alternatively), it might be a good idea to (when allocating buffers in the
+default setup path), expand the allocation size by a word, that we write a
+cannary value into.  Then we can check that cannary on the napi poll should the
+hardware dma past the end of the skb.
+Neil
 
-It seems that no matter what I try, everyone says: no, go do this other
-thing instead. Before I go and write the 5th iteration of this, I'll be
-looking for a maintainer who says: this is the correct thing to be
-doing, I'll help you push this towards mainline. It's been frustrating.
-
-Ira
+> 
