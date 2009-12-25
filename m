@@ -1,60 +1,38 @@
-From: Bernie Innocenti <bernie@codewiz.org>
-Subject: Re: ath9k: DMA failed to stop in 10 ms AR_CR=0x00000024
- AR_DIAG_SW=0x00000020
-Date: Fri, 25 Dec 2009 08:38:39 -0800
-Message-ID: <1261759119.7700.3.camel@giskard>
-References: <9c8bade79e471eb0576625586eef7d31.squirrel@vimassive.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-12-24
+Date: Fri, 25 Dec 2009 11:38:01 -0500
+Message-ID: <20091225163801.GA4481@tuxdriver.com>
+References: <20091224204722.GA678@tuxdriver.com> <20091224.135314.193725771.davem@davemloft.net> <20091225044759.GA11186@tuxdriver.com> <20091225005142.ixwgpr0dcg4cc48w-cebfxv@webmail.spamcop.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andy@vimassive.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from trinity.develer.com ([83.149.158.210]:55828 "EHLO
-	trinity.develer.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252AbZLYQit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 11:38:49 -0500
-In-Reply-To: <9c8bade79e471eb0576625586eef7d31.squirrel@vimassive.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20091225005142.ixwgpr0dcg4cc48w-cebfxv-2RFepEojUI3Rd1RZctBqVdHuzzzSOjJt@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-12-25 at 10:52 -0500, Andy Gussie wrote:
-> I am having this same issue with a ACER 5517-5086 labtop computer. It
-> seems like when I start downloading files (high network utilization)
-> the network connection drops and network manager keeps requesting
-> reconnection password.
-> has any one been able to figure out what is causing this issue? Is
-> there a fix?
+On Fri, Dec 25, 2009 at 12:51:42AM -0500, Pavel Roskin wrote:
+> Quoting "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+>
+>> Hmm...well, I'm at a loss.  It certainly works here. :-)
+>
+> You may want to see this discussion in LKML:
+> http://thread.gmane.org/gmane.linux.kernel/928654/
+>
+> The error messages look differently though.  Anyway, genregdb.awk  
+> appears to require gawk.
 
-I installed an updated ath9k driver from compat-wireless-2.6.32-rc7, and
-the problem disappeared. Now I've been running for a few weeks without
-any issue.
+Perhaps, but not intentionally.  Hopefully the patch I posted is
+sufficient to get things working for non-gawk users...?
 
-The fix, whatever it is, does not seem to have made it to the official
-2.6.32 or the Fedora kernel.
-
-
-> Dmesg
-> ath9k: DMA failed to stop in 10 ms AR_CR=0x00000024
-> AR_DIAG_SW=0x00000020
-> 
-> lspci -vnn
-> 
-> 02:00.0 Network controller [0280]: Atheros Communications Inc. AR9285
-> Wireless Network Adapter (PCI-Express) [168c:002b] (rev 01)
-> 	Subsystem: Foxconn International, Inc. Device [105b:e016]
-> 	Flags: bus master, fast devsel, latency 0, IRQ 16
-> 	Memory at 91100000 (64-bit, non-prefetchable) [size=64K]
-> 	Capabilities: <access denied>
-> 	Kernel driver in use: ath9k
-> 	Kernel modules: ath9k
-> 
-> ubuntu 9.10
-> 
-> uname -a
-> Linux sheba 2.6.31-16-generic #53-Ubuntu SMP Tue Dec 8 04:01:29 UTC 2009 i686 GNU/Linux
-
+John
 -- 
-   // Bernie Innocenti - http://codewiz.org/
- \X/  Sugar Labs       - http://sugarlabs.org/
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
