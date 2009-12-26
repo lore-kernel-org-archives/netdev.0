@@ -1,57 +1,136 @@
-From: "Kumar Gopalpet-B05799" <B05799@freescale.com>
-Subject: RE: [RFC PATCH] gianfar: update txq->trans_start rather than dev->trans_start
-Date: Sat, 26 Dec 2009 11:07:33 +0530
-Message-ID: <9F4C7D19E8361D4C94921B95BE08B81BA09075@zin33exm22.fsl.freescale.net>
-References: <1260972281-20012-1-git-send-email-Sandeep.Kumar@freescale.com> <20091225.184503.28832017.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] Fix MAC address access in 3c507, ibmlana, pcnet32 and
+ libertas
+Date: Sat, 26 Dec 2009 09:16:35 +0100
+Message-ID: <20091226081635.GA2506@psychotron.redhat.com>
+References: <20091224181125.162AC9D400D@zog.reactivated.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <avorontsov@ru.mvista.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, pcnet32@verizon.net,
+	dcbw@redhat.com
+To: Daniel Drake <dsd@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:33629 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769AbZLZFhi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 00:37:38 -0500
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id nBQ5baoh025886
-	for <netdev@vger.kernel.org>; Fri, 25 Dec 2009 22:37:36 -0700 (MST)
-Received: from zin33exm22.fsl.freescale.net (zin33exm22.ap.freescale.net [10.232.192.20])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id nBQ5bboS006137
-	for <netdev@vger.kernel.org>; Fri, 25 Dec 2009 23:37:38 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20091225.184503.28832017.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:30731 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751089AbZLZIQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Dec 2009 03:16:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20091224181125.162AC9D400D@zog.reactivated.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+Thu, Dec 24, 2009 at 07:11:24PM CET, dsd@laptop.org wrote:
+>Commit f001fde5eadd915f4858d22ed70d7040f48767cf changed
+>net_device.dev_addr from a 32-byte array to a pointer.
+>
+>I found 4 ethernet drivers which rely on sizeof(dev_addr), which are now
+>only copying 4 bytes of the address information on 32bit systems.
+>
+>Fix them to use ETH_ALEN.
+>
+>Signed-off-by: Daniel Drake <dsd@laptop.org>
+>---
+>
+>Fix tested and confirmed on libertas, review of the other 3 drivers
+>would be appreciated.
+>
+> drivers/net/3c507.c                  |    4 ++--
+> drivers/net/ibmlana.c                |    3 ++-
+> drivers/net/pcnet32.c                |    3 ++-
+> drivers/net/wireless/libertas/mesh.c |    4 ++--
+> 4 files changed, 8 insertions(+), 6 deletions(-)
+>
+>diff --git a/drivers/net/3c507.c b/drivers/net/3c507.c
+>index fbc2311..77cf090 100644
+>--- a/drivers/net/3c507.c
+>+++ b/drivers/net/3c507.c
+>@@ -56,6 +56,7 @@ static const char version[] =
+> #include <linux/errno.h>
+> #include <linux/netdevice.h>
+> #include <linux/etherdevice.h>
+>+#include <linux/if_ether.h>
+> #include <linux/skbuff.h>
+> #include <linux/slab.h>
+> #include <linux/init.h>
+>@@ -734,8 +735,7 @@ static void init_82586_mem(struct net_device *dev)
+> 	memcpy_toio(lp->base, init_words + 5, sizeof(init_words) - 10);
+> 
+> 	/* Fill in the station address. */
+>-	memcpy_toio(lp->base+SA_OFFSET, dev->dev_addr,
+>-		   sizeof(dev->dev_addr));
+>+	memcpy_toio(lp->base+SA_OFFSET, dev->dev_addr, ETH_ALEN);
+> 
+> 	/* The Tx-block list is written as needed.  We just set up the values. */
+> 	lp->tx_cmd_link = IDLELOOP + 4;
+>diff --git a/drivers/net/ibmlana.c b/drivers/net/ibmlana.c
+>index 090a6d3..052c740 100644
+>--- a/drivers/net/ibmlana.c
+>+++ b/drivers/net/ibmlana.c
+>@@ -87,6 +87,7 @@ History:
+> #include <linux/module.h>
+> #include <linux/netdevice.h>
+> #include <linux/etherdevice.h>
+>+#include <linux/if_ether.h>
+> #include <linux/skbuff.h>
+> #include <linux/bitops.h>
+> 
+>@@ -988,7 +989,7 @@ static int __devinit ibmlana_init_one(struct device *kdev)
+> 
+> 	/* copy out MAC address */
+> 
+>-	for (z = 0; z < sizeof(dev->dev_addr); z++)
+>+	for (z = 0; z < ETH_ALEN; z++)
+> 		dev->dev_addr[z] = inb(dev->base_addr + MACADDRPROM + z);
+> 
+> 	/* print config */
+>diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+>index dcc67a3..e154677 100644
+>--- a/drivers/net/pcnet32.c
+>+++ b/drivers/net/pcnet32.c
+>@@ -45,6 +45,7 @@ static const char *const version =
+> #include <linux/crc32.h>
+> #include <linux/netdevice.h>
+> #include <linux/etherdevice.h>
+>+#include <linux/if_ether.h>
+> #include <linux/skbuff.h>
+> #include <linux/spinlock.h>
+> #include <linux/moduleparam.h>
+>@@ -1765,7 +1766,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+> 
+> 	/* if the ethernet address is not valid, force to 00:00:00:00:00:00 */
+> 	if (!is_valid_ether_addr(dev->perm_addr))
+>-		memset(dev->dev_addr, 0, sizeof(dev->dev_addr));
+>+		memset(dev->dev_addr, 0, ETH_ALEN);
+> 
+> 	if (pcnet32_debug & NETIF_MSG_PROBE) {
+> 		printk(" %pM", dev->dev_addr);
+>diff --git a/drivers/net/wireless/libertas/mesh.c b/drivers/net/wireless/libertas/mesh.c
+>index 2f91c9b..92b7a35 100644
+>--- a/drivers/net/wireless/libertas/mesh.c
+>+++ b/drivers/net/wireless/libertas/mesh.c
+>@@ -2,6 +2,7 @@
+> #include <linux/delay.h>
+> #include <linux/etherdevice.h>
+> #include <linux/netdevice.h>
+>+#include <linux/if_ether.h>
+> #include <linux/if_arp.h>
+> #include <linux/kthread.h>
+> #include <linux/kfifo.h>
+>@@ -351,8 +352,7 @@ int lbs_add_mesh(struct lbs_private *priv)
+> 
+> 	mesh_dev->netdev_ops = &mesh_netdev_ops;
+> 	mesh_dev->ethtool_ops = &lbs_ethtool_ops;
+>-	memcpy(mesh_dev->dev_addr, priv->dev->dev_addr,
+>-			sizeof(priv->dev->dev_addr));
+>+	memcpy(mesh_dev->dev_addr, priv->dev->dev_addr, ETH_ALEN);
+> 
+> 	SET_NETDEV_DEV(priv->mesh_dev, priv->dev->dev.parent);
+> 
+>-- 
+>1.6.2.5
+>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net] 
->Sent: Saturday, December 26, 2009 8:15 AM
->To: Kumar Gopalpet-B05799
->Cc: netdev@vger.kernel.org; avorontsov@ru.mvista.com
->Subject: Re: [RFC PATCH] gianfar: update txq->trans_start 
->rather than dev->trans_start
->
->From: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
->Date: Wed, 16 Dec 2009 19:34:41 +0530
->
->> Signed-off-by: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
->> ---
->> 
->>  *. Please let me know if updating txq->trans_start in gfar_start is
->>     alright, although updating txq->trans_start in gfar_start_xmit( )
->>     should be done.
->
->See commit 08baf561083bc27a953aa087dd8a664bb2b88e8e, you don't 
->have to update *->trans_start at all, the generic code will do 
->it for you.
->
+Looks good to me.
 
-OK. Thanks David. 
+Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
->For example, this is why you won't be able to find any 
->trans_start references in drivers such as ixgbe
->
