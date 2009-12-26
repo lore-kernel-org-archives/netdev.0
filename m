@@ -1,39 +1,36 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] NET: XFRM: Fix spelling of neighbour.
-Date: Sat, 26 Dec 2009 10:30:02 +0100
-Message-ID: <20091226093002.GA5021@linux-mips.org>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] hamradio: avoid null deref v2
+Date: Sat, 26 Dec 2009 14:38:12 +0200
+Message-ID: <20091226123812.GB6075@bicker>
+References: <20091223132550.GD17923@bicker> <4B3257C2.2050500@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:57885 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbZLZJaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 04:30:08 -0500
-Received: from localhost.localdomain ([127.0.0.1]:36627 "EHLO h5.dl5rb.org.uk"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S1491000AbZLZJaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 26 Dec 2009 10:30:07 +0100
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753073AbZLZMiy@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4B3257C2.2050500@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Bump the stats on the original dev not on the newly assigned NULL version of
+dev.
 
- net/xfrm/xfrm_policy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index cb81ca3..4725a54 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1445,7 +1445,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	if (!dev)
- 		goto free_dst;
+--- orig/drivers/net/hamradio/bpqether.c	2009-12-22 23:58:56.000000000 +0200
++++ devel/drivers/net/hamradio/bpqether.c	2009-12-25 19:49:05.000000000 +0200
+@@ -282,11 +282,12 @@ static netdev_tx_t bpq_xmit(struct sk_bu
  
--	/* Copy neighbout for reachability confirmation */
-+	/* Copy neighbour for reachability confirmation */
- 	dst0->neighbour = neigh_clone(dst->neighbour);
+ 	bpq = netdev_priv(dev);
  
- 	xfrm_init_path((struct xfrm_dst *)dst0, dst, nfheader_len);
+-	if ((dev = bpq_get_ether_dev(dev)) == NULL) {
++	if (!bpq->ethdev) {
+ 		dev->stats.tx_dropped++;
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
++	dev = bpq_get_ether_dev(dev);
+ 
+ 	skb->protocol = ax25_type_trans(skb, dev);
+ 	skb_reset_network_header(skb);
