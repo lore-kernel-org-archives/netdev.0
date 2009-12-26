@@ -1,38 +1,172 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] net: restore ip source validation WAS(Re:
- [tproxy,regression] tproxy broken in 2.6.32
-Date: Sat, 26 Dec 2009 10:05:14 -0500
-Message-ID: <1261839914.3540.0.camel@bigi>
-References: <1260731716.6167.27.camel@bigi>
-	 <20091213.191024.193699730.davem@davemloft.net>
-	 <1260785985.6167.29.camel@bigi>
-	 <20091225.173042.189687657.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Crazy TCP bug (keepalive flood?) in 2.6.32?
+Date: Sat, 26 Dec 2009 17:03:49 +0200
+Message-ID: <200912261703.49067.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, hidden@balabit.hu, kaber@trash.net, hidden@sch.bme.hu,
-	aschultz@warp10.net, tproxy@lists.balabit.hu,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: David Miller <davem@davemloft.net>
+To: "Ilpo =?iso-8859-15?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f192.google.com ([209.85.221.192]:60785 "EHLO
-	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbZLZPFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 10:05:25 -0500
-Received: by qyk30 with SMTP id 30so4313435qyk.33
-        for <netdev@vger.kernel.org>; Sat, 26 Dec 2009 07:05:24 -0800 (PST)
-In-Reply-To: <20091225.173042.189687657.davem@davemloft.net>
+Received: from hosting.visp.net.lb ([194.146.153.11]:58608 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbZLZPDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 10:03:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-12-25 at 17:30 -0800, David Miller wrote:
+Few more dumps. I notice:
+1)Ack always equal 1
+2)It is usually first segment of data sent (?)
 
-> I hope this puts the tproxy regression to rest :-)
+Maybe some value not initialised properly?
 
-It should. The only open question is whether this is considered
-a "bug fix" and needs to be propagated to -stable.
 
-cheers,
-jamal
+17:03:50.406118 IP (tos 0x0, ttl 64, id 57958, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.199.39.1472: Flags [.], seq 0:1452, ack 1, 
+win 7479, length 1452
+17:03:50.407413 IP (tos 0x0, ttl 64, id 57959, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.199.39.1472: Flags [.], seq 0:1452, ack 1, 
+win 7479, length 1452
+17:03:50.408516 IP (tos 0x0, ttl 64, id 57960, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.199.39.1472: Flags [.], seq 0:1452, ack 1, 
+win 7479, length 1452
+17:03:50.409553 IP (tos 0x0, ttl 64, id 57961, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.199.39.1472: Flags [.], seq 0:1452, ack 1, 
+win 7479, length 1452
+17:03:50.410424 IP (tos 0x0, ttl 64, id 57962, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.199.39.1472: Flags [.], seq 0:1452, ack 1, 
+win 7479, length 1452
 
+
+
+17:04:39.801149 IP (tos 0x0, ttl 64, id 19431, offset 0, flags [DF], proto TCP 
+(6), length 517)
+    194.146.153.114.8080 > 172.16.107.14.1405: Flags [P.], cksum 0x51c6 
+(correct), seq 0:477, ack 1, win 8730, length 477
+17:04:39.802538 IP (tos 0x0, ttl 64, id 19432, offset 0, flags [DF], proto TCP 
+(6), length 517)
+    194.146.153.114.8080 > 172.16.107.14.1405: Flags [P.], cksum 0x51c6 
+(correct), seq 0:477, ack 1, win 8730, length 477
+17:04:39.803438 IP (tos 0x0, ttl 64, id 19433, offset 0, flags [DF], proto TCP 
+(6), length 517)
+    194.146.153.114.8080 > 172.16.107.14.1405: Flags [P.], cksum 0x51c6 
+(correct), seq 0:477, ack 1, win 8730, length 477
+17:04:39.804251 IP (tos 0x0, ttl 64, id 19434, offset 0, flags [DF], proto TCP 
+(6), length 517)
+    194.146.153.114.8080 > 172.16.107.14.1405: Flags [P.], cksum 0x51c6 
+(correct), seq 0:477, ack 1, win 8730, length 477
+17:04:39.805050 IP (tos 0x0, ttl 64, id 19435, offset 0, flags [DF], proto TCP 
+(6), length 517)
+    194.146.153.114.8080 > 172.16.107.14.1405: Flags [P.], cksum 0x51c6 
+(correct), seq 0:477, ack 1, win 8730, length 477
+
+17:06:22.123862 IP (tos 0x0, ttl 64, id 25912, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.180.148.50101: Flags [.], seq 0:1452, ack 1, 
+win 108, length 1452
+17:06:22.124440 IP (tos 0x0, ttl 64, id 25913, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.180.148.50101: Flags [.], seq 0:1452, ack 1, 
+win 108, length 1452
+17:06:22.125600 IP (tos 0x0, ttl 64, id 25914, offset 0, flags [DF], proto TCP 
+(6), length 1492)
+    194.146.153.114.8080 > 172.16.180.148.50101: Flags [.], seq 0:1452, ack 1, 
+win 108, length 1452
+^C17:06:22.126243 IP (tos 0x0, ttl 64, id 25915, offset 0, flags [DF], proto 
+TCP (6), length 1492)
+    194.146.153.114.8080 > 172.16.180.148.50101: Flags [.], seq 0:1452, ack 1, 
+win 108, length 1452
+
+
+
+17:06:43.404279 IP (tos 0x0, ttl 64, id 10279, offset 0, flags [DF], proto TCP 
+(6), length 768)
+    194.146.153.114.8080 > 172.16.199.151.49404: Flags [FP.], cksum 0x4ac3 
+(correct), seq 0:728, ack 1, win 9816, length 728
+17:06:43.405819 IP (tos 0x0, ttl 64, id 10281, offset 0, flags [DF], proto TCP 
+(6), length 768)
+    194.146.153.114.8080 > 172.16.199.151.49404: Flags [FP.], cksum 0x4ac3 
+(correct), seq 0:728, ack 1, win 9816, length 728
+17:06:43.406670 IP (tos 0x0, ttl 64, id 10282, offset 0, flags [DF], proto TCP 
+(6), length 768)
+    194.146.153.114.8080 > 172.16.199.151.49404: Flags [FP.], cksum 0x4ac3 
+(correct), seq 0:728, ack 1, win 9816, length 728
+17:06:43.407821 IP (tos 0x0, ttl 64, id 10283, offset 0, flags [DF], proto TCP 
+(6), length 768)
+    194.146.153.114.8080 > 172.16.199.151.49404: Flags [FP.], cksum 0x4ac3 
+(correct), seq 0:728, ack 1, win 9816, length 728
+
+
+17:07:09.933303 IP (tos 0x0, ttl 64, id 41731, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+17:07:09.934305 IP (tos 0x0, ttl 64, id 41732, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+17:07:09.935076 IP (tos 0x0, ttl 64, id 41733, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+17:07:09.935887 IP (tos 0x0, ttl 64, id 41734, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+17:07:09.937096 IP (tos 0x0, ttl 64, id 41735, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+17:07:09.938083 IP (tos 0x0, ttl 64, id 41736, offset 0, flags [DF], proto TCP 
+(6), length 555)
+    194.146.153.114.8080 > 172.16.175.130.1692: Flags [P.], cksum 0x7d98 
+(correct), seq 0:515, ack 1, win 6432, length 515
+
+17:09:21.672761 IP (tos 0x0, ttl 64, id 48515, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+17:09:21.673756 IP (tos 0x0, ttl 64, id 48516, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+17:09:21.674574 IP (tos 0x0, ttl 64, id 48517, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+17:09:21.675440 IP (tos 0x0, ttl 64, id 48518, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+17:09:21.676625 IP (tos 0x0, ttl 64, id 48519, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+17:09:21.678963 IP (tos 0x0, ttl 64, id 48521, offset 0, flags [DF], proto TCP 
+(6), length 412)
+    194.146.153.114.8080 > 172.16.163.219.47653: Flags [P.], cksum 0x584c 
+(correct), seq 0:372, ack 1, win 181, length 372
+
+17:11:12.032679 IP (tos 0x0, ttl 64, id 39699, offset 0, flags [DF], proto TCP 
+(6), length 552)
+    194.146.153.114.8080 > 172.16.15.13.63145: Flags [P.], cksum 0x1559 
+(correct), seq 0:512, ack 1, win 6432, length 512
+17:11:12.033882 IP (tos 0x0, ttl 64, id 39700, offset 0, flags [DF], proto TCP 
+(6), length 552)
+    194.146.153.114.8080 > 172.16.15.13.63145: Flags [P.], cksum 0x1559 
+(correct), seq 0:512, ack 1, win 6432, length 512
+17:11:12.034835 IP (tos 0x0, ttl 64, id 39701, offset 0, flags [DF], proto TCP 
+(6), length 552)
+    194.146.153.114.8080 > 172.16.15.13.63145: Flags [P.], cksum 0x1559 
+(correct), seq 0:512, ack 1, win 6432, length 512
+17:11:12.035720 IP (tos 0x0, ttl 64, id 39702, offset 0, flags [DF], proto TCP 
+(6), length 552)
+    194.146.153.114.8080 > 172.16.15.13.63145: Flags [P.], cksum 0x1559 
+(correct), seq 0:512, ack 1, win 6432, length 512
