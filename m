@@ -1,33 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-12-24
-Date: Fri, 25 Dec 2009 17:10:29 -0800 (PST)
-Message-ID: <20091225.171029.193718771.davem@davemloft.net>
-References: <20091225044759.GA11186@tuxdriver.com>
-	<20091225005142.ixwgpr0dcg4cc48w-cebfxv@webmail.spamcop.net>
-	<20091225163801.GA4481@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2x: Initialize cnic status block during chip reset
+Date: Fri, 25 Dec 2009 17:14:07 -0800 (PST)
+Message-ID: <20091225.171407.71125891.davem@davemloft.net>
+References: <1261576965.15524.42.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: proski-mXXj517/zsQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20091225163801.GA4481-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37923
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754482AbZLZBOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 20:14:05 -0500
+In-Reply-To: <1261576965.15524.42.camel@lb-tlvb-eilong>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 25 Dec 2009 11:38:01 -0500
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 23 Dec 2009 16:02:45 +0200
 
-> Perhaps, but not intentionally.  Hopefully the patch I posted is
-> sufficient to get things working for non-gawk users...?
+> From: Michael Chan <mchan@broadcom.com>
+> 
+> When the device is reset during MTU change, ring size change, or self
+> test, etc, the cnic status block needs to be properly initialized if
+> cnic is registered.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-It worked here, so I applied it on top
-of your pull request and pushed back out
-to net-next-2.6
-
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
