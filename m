@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND,1/1] cxgb3i: Fix a login over vlan issue
-Date: Fri, 25 Dec 2009 18:32:38 -0800 (PST)
-Message-ID: <20091225.183238.48491982.davem@davemloft.net>
+Subject: Re: [PATCH] phy: SMSC device Energy Detect power-down mode
+Date: Fri, 25 Dec 2009 18:38:29 -0800 (PST)
+Message-ID: <20091225.183829.246551084.davem@davemloft.net>
+References: <1260948498-28544-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: rakesh@chelsio.com
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52392
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47195
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752095AbZLZCck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:32:40 -0500
+	by vger.kernel.org with ESMTP id S1756630AbZLZCi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:38:27 -0500
+In-Reply-To: <1260948498-28544-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Wed, 16 Dec 2009 08:28:18 +0100
 
-This doesn't apply cleanly to current net-2.6, please
-respin.  Thanks.
+> SMSC Ethernet Transceivers (LAN88710, LAN8710, LAN8720, LAN8187,
+> LAN8700, LAN83C185) provide a mechanism to conserve power when
+> the device is not connected to an active link partner
+> (Energy Detect Mode).
+> So this patch enables the Energy Detect power-down mode
+> for these Transceivers.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-davem@sunset:~/src/GIT/net-2.6$ git am --signoff RESEND-1-1-cxgb3i-Fix-a-login-over-vlan-issue.patch 
-Applying: cxgb3i: Fix a login over vlan issue
-error: patch failed: drivers/scsi/cxgb3i/cxgb3i_offload.c:1566
-error: drivers/scsi/cxgb3i/cxgb3i_offload.c: patch does not apply
-Patch failed at 0001 cxgb3i: Fix a login over vlan issue
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-davem@sunset:~/src/GIT/net-2.6$ git am --abort
+Both phy_read() and phy_write() can return errors, you must check
+for them.  The rest of this driver does this properly.
+
