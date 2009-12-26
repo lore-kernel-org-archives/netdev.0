@@ -1,28 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxge: use DMA_BIT_MASK instead of plain values.
-Date: Fri, 25 Dec 2009 18:48:43 -0800 (PST)
-Message-ID: <20091225.184843.102540395.davem@davemloft.net>
-References: <20091216201016.GA9532@coldcone>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Fri, 25 Dec 2009 22:23:51 -0500
+Message-ID: <4B3581C7.8000702@majjas.com>
+References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
+ <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
+ <20091223230102.4bb0100e.akpm@linux-foundation.org>
+ <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "kirjanov@gmail.com"@sunset.davemloft.net.davemloft.net,
-	kirjanov@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40865
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757564AbZLZCsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:48:41 -0500
-In-Reply-To: <20091216201016.GA9532@coldcone>
+Received: from mta4.srv.hcvlny.cv.net ([167.206.4.199]:39931 "EHLO
+	mta4.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757613AbZLZDXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 22:23:40 -0500
+In-reply-to: <20091225152200.1cf11dfe@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Date: Wed, 16 Dec 2009 23:10:16 +0300
+On 12/25/2009 6:22 PM, Stephen Hemminger wrote:
+> On Fri, 25 Dec 2009 11:28:55 -0500
+> Michael Breuer<mbreuer@majjas.com>  wrote:
+>
+>    
+>>    More data points - I'm able to reliably recreate this now.
+>> While I thought it was coincidence, each and every time I hit this issue
+>> there is a DHCP renew event immediately before the first error.
+>> The crash occurs while under load - in my case seems that the traffic is
+>> actually IPV6 (hadn't noticed that before).
+>> I ran nethogs on a remote display - the reported rx rate on the IPV6 smb
+>> connection at the time of the lockup was 33889.688 KB/sec on a 1gbit
+>> nic. I've got two events like this - don't recall if the earlier one was
+>> the exact same # - but it was in the ballpark.
+>>
+>> On 12/24/2009 2:01 AM, Andrew Morton wrote:
+>>      
+>>> cc's added again.
+>>>
+>>> On Wed, 23 Dec 2009 17:54:27 -0500 Michael Breuer<mbreuer@majjas.com>   wrote:
+>>>
+>>>
+>>>        
+>>>> Ok - not the firmware.  Ran another Windows backup and sky2 went down.
+>>>>
+>>>> Nothing in dmesg.old - have oops in syslog. System became unresponsive
+>>>> and watchdog kicked in after a minute.
+>>>>
+>>>> Also note that I have a similar oops with VT-D disabled (posted here on
+>>>> 12/5). I'm attaching the oops from that below this oops for comparison.
+>>>> That also happened under similar load.
+>>>>
+>>>> On the assumption that I can recreate this (although it takes a while)
+>>>> please let me know how I can help.
+>>>>
+>>>> What's in my log (starting with an smbd error about 2 min before the
+>>>> oops (note: the dchpd is not the system doing the backup).
+>>>>
+>>>>          
+>>> This (nastily wordwrapped) oops appers to be quite different from
+>>> Berck's one.
+>>>
+>>>
+>>>        
+> What is the MTU?
+>    
+1500
+>>      
+>
+>    
 
-> Use DMA_BIT_MASK instead of plain values.
-> 
-> Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
-
-Applied, thanks.
