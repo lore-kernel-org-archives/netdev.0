@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v4] bonding: allow arp_ip_targets on
- separate vlans to use arp validation
-Date: Fri, 25 Dec 2009 18:22:30 -0800 (PST)
-Message-ID: <20091225.182230.183058983.davem@davemloft.net>
-References: <20091209220131.GO1639@gospo.rdu.redhat.com>
-	<32269.1260508632@death.nxdomain.ibm.com>
-	<20091214204858.GP1639@gospo.rdu.redhat.com>
+Subject: Re: [PATCH] via-velocity: Give RX descriptors to the NIC later on
+ open or MTU change
+Date: Fri, 25 Dec 2009 18:21:02 -0800 (PST)
+Message-ID: <20091225.182102.112589642.davem@davemloft.net>
+References: <1260842710.4532.691.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: andy@greyhouse.net
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	508527@bugs.debian.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41396
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50965
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756630AbZLZCW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:22:28 -0500
-In-Reply-To: <20091214204858.GP1639@gospo.rdu.redhat.com>
+	by vger.kernel.org with ESMTP id S1756451AbZLZCVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:21:01 -0500
+In-Reply-To: <1260842710.4532.691.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Mon, 14 Dec 2009 15:48:58 -0500
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Tue, 15 Dec 2009 02:05:09 +0000
 
-> [PATCH net-next-2.6 v4] bonding: allow arp_ip_targets on separate vlans to use arp validation
- ...
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> velocity_open() calls velocity_give_many_rx_descs(), which gives RX
+> descriptors to the NIC, before installing an interrupt handler or
+> calling velocity_init_registers().  I think this is very unsafe and it
+> appears to explain the bug report <http://bugs.debian.org/508527>.
+> 
+> On MTU change, velocity_give_many_rx_descs() is again called before
+> velocity_init_registers().  I'm not sure whether this is unsafe but
+> it does look wrong.
+> 
+> Therefore, move the calls to velocity_give_many_rx_descs() after
+> request_irq() and velocity_init_registers().
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+> This is untested; I don't have this hardware.
 
-What is the status of this patch?
+Although this patch looks fine to me, I don't want to apply
+it until someone tests it.
