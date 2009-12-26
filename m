@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-velocity: Give RX descriptors to the NIC later on
- open or MTU change
-Date: Fri, 25 Dec 2009 18:21:02 -0800 (PST)
-Message-ID: <20091225.182102.112589642.davem@davemloft.net>
-References: <1260842710.4532.691.camel@localhost>
+Subject: Re: [RESEND PATCH 2/4] stmmac: add the new Header file for stmmac
+ platform data
+Date: Fri, 25 Dec 2009 18:25:01 -0800 (PST)
+Message-ID: <20091225.182501.39194553.davem@davemloft.net>
+References: <1260948405-28511-1-git-send-email-peppe.cavallaro@st.com>
+	<1260948405-28511-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	508527@bugs.debian.org
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50965
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41402
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756451AbZLZCVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:21:01 -0500
-In-Reply-To: <1260842710.4532.691.camel@localhost>
+	by vger.kernel.org with ESMTP id S1752095AbZLZCY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Dec 2009 21:24:59 -0500
+In-Reply-To: <1260948405-28511-2-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Tue, 15 Dec 2009 02:05:09 +0000
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Wed, 16 Dec 2009 08:26:43 +0100
 
-> velocity_open() calls velocity_give_many_rx_descs(), which gives RX
-> descriptors to the NIC, before installing an interrupt handler or
-> calling velocity_init_registers().  I think this is very unsafe and it
-> appears to explain the bug report <http://bugs.debian.org/508527>.
-> 
-> On MTU change, velocity_give_many_rx_descs() is again called before
-> velocity_init_registers().  I'm not sure whether this is unsafe but
-> it does look wrong.
-> 
-> Therefore, move the calls to velocity_give_many_rx_descs() after
-> request_irq() and velocity_init_registers().
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> This is untested; I don't have this hardware.
+> +#define __STMMAC_PLATFORM_DATA __FILE__
 
-Although this patch looks fine to me, I don't want to apply
-it until someone tests it.
+Why is this defining this to __FILE__?  An empty
+definition is colloquial and sufficient.
