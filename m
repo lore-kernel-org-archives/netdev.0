@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add initrwnd to iproute2
-Date: Sat, 26 Dec 2009 13:44:20 -0800 (PST)
-Message-ID: <20091226.134420.245381671.davem@davemloft.net>
-References: <pvm8wd3alec.fsf@chavey.mtv.corp.google.com>
-	<20091226110855.6f43bcb4@nehalam>
+Subject: Re: [PATCH] net: restore ip source validation WAS(Re:
+ [tproxy,regression] tproxy broken in 2.6.32
+Date: Sat, 26 Dec 2009 13:45:18 -0800 (PST)
+Message-ID: <20091226.134518.70179923.davem@davemloft.net>
+References: <1260785985.6167.29.camel@bigi>
+	<20091225.173042.189687657.davem@davemloft.net>
+	<1261839914.3540.0.camel@bigi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chavey@google.com, netdev@vger.kernel.org, therbert@google.com,
-	eric.dumazet@gmail.com
-To: shemminger@vyatta.com
+Cc: ja@ssi.bg, hidden@balabit.hu, kaber@trash.net, hidden@sch.bme.hu,
+	aschultz@warp10.net, tproxy@lists.balabit.hu,
+	netdev@vger.kernel.org, rick.jones2@hp.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39596
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39601
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752299AbZLZVoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 16:44:19 -0500
-In-Reply-To: <20091226110855.6f43bcb4@nehalam>
+	by vger.kernel.org with ESMTP id S1752215AbZLZVpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 16:45:16 -0500
+In-Reply-To: <1261839914.3540.0.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 26 Dec 2009 11:08:55 -0800
+From: jamal <hadi@cyberus.ca>
+Date: Sat, 26 Dec 2009 10:05:14 -0500
 
-> On Tue, 15 Dec 2009 15:05:15 -0800
-> chavey@google.com wrote:
+> On Fri, 2009-12-25 at 17:30 -0800, David Miller wrote:
 > 
->> Add initrwnd option parsing to iproute. This option uses the new
->> rtnetlink init_rcvwnd to set the TCP initial receive window size
->> advertised by passive and active TCP connections.
+>> I hope this puts the tproxy regression to rest :-)
 > 
-> Holding off iproute2 change until kernel change is accepted
-> and merged
+> It should. The only open question is whether this is considered
+> a "bug fix" and needs to be propagated to -stable.
 
-It is in net-next-2.6 already, so please add his patch to
-your iproute2-next tree.
+I do intend to send it there, so I do consider it a bug fix.
