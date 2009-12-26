@@ -1,35 +1,31 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] iproute2 skbedit: Add support to mark packets
-Date: Sat, 26 Dec 2009 11:08:19 -0800
-Message-ID: <20091226110819.1040b9cd@nehalam>
-References: <1259847168.3766.40.camel@bigi>
+Subject: Re: [PATCH] Add initrwnd to iproute2
+Date: Sat, 26 Dec 2009 11:08:55 -0800
+Message-ID: <20091226110855.6f43bcb4@nehalam>
+References: <pvm8wd3alec.fsf@chavey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org, therbert@google.com, chavey@google.com,
+	eric.dumazet@gmail.com
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58145 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:58193 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753458AbZLZTIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Dec 2009 14:08:35 -0500
-In-Reply-To: <1259847168.3766.40.camel@bigi>
+	id S1752873AbZLZTJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Dec 2009 14:09:27 -0500
+In-Reply-To: <pvm8wd3alec.fsf@chavey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 03 Dec 2009 08:32:48 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Tue, 15 Dec 2009 15:05:15 -0800
+chavey@google.com wrote:
 
-> I did this originally because i was getting too many support
-> questions on ipt with mark. It still makes sense since skbedit
-> seems to be the mother action of skb metadata (should probably
-> have been called skbmeta).
-> 
-> cheers,
-> jamal
+> Add initrwnd option parsing to iproute. This option uses the new
+> rtnetlink init_rcvwnd to set the TCP initial receive window size
+> advertised by passive and active TCP connections.
 
-applied to repository for next version (header changes for 2.6.33
-already done)
+Holding off iproute2 change until kernel change is accepted
+and merged
 
 -- 
