@@ -1,57 +1,83 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [GIT PULL] AlacrityVM guest drivers for 2.6.33
-Date: Sun, 27 Dec 2009 11:33:33 +0200
-Message-ID: <4B3729ED.50006@redhat.com>
-References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org> <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com> <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu> <4B3248F9.5030504@gmail.com> <4B327F3A.9020101@redhat.com> <4B328535.5040105@redhat.com> <4B33361E.3000605@gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Sun, 27 Dec 2009 06:23:40 -0500
+Message-ID: <23459.1261913020@localhost>
+References: <20091227010441.GA12077@heat>
+            <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1261913020_3923P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, kvm@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	torvalds@linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"alacrityvm-devel@lists.sourceforge.net"
-	<alacrityvm-devel@lists.sourceforge.net>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60970 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750872AbZL0JeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Dec 2009 04:34:19 -0500
-In-Reply-To: <4B33361E.3000605@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: michael@laptop.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	andi@firstfloor.org, david@lang.hm, socketcan@hartkopp.net,
+	alan@lxorguk.ukuu.org.uk, herbert@gondor.apana.org.au,
+	bdonlan@gmail.com, zbr@ioremap.net, cscott@cscott.net,
+	jmorris@namei.org, ebiederm@xmission.com, bernie@codewiz.org,
+	mrs@mythic-beasts.com, randy.dunlap@oracle.com,
+	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
+	serue@us.ibm.com, pavel@ucw.cz
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: Your message of "Sun, 27 Dec 2009 17:36:48 +0900."
+             <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/24/2009 11:36 AM, Gregory Haskins wrote:
->> As a twist on this, the VMware paravirt driver interface is so
->> hardware-like that they're getting hardware vendors to supply cards that
->> implement it.  Try that with a pure software approach.
->>      
-> Any hardware engineer (myself included) will tell you that, generally
-> speaking, what you can do in hardware you can do in software (think of
-> what QEMU does today, for instance).  It's purely a cost/performance
-> tradeoff.
->
-> I can at least tell you that is true of vbus.  Anything on the vbus side
-> would be equally eligible for a hardware implementation, though there is
-> not reason to do this today since we have equivalent functionality in
-> baremetal already.
+--==_Exmh_1261913020_3923P
+Content-Type: text/plain; charset=us-ascii
 
-There's a huge difference in the probability of vmware getting cards to 
-their spec, or x86 vendors improving interrupt delivery to guests, 
-compared to vbus being implemented in hardware.
+On Sun, 27 Dec 2009 17:36:48 +0900, Tetsuo Handa said:
 
-> The only motiviation is if you wanted to preserve
-> ABI etc, which is what vmware is presumably after.  However, I am not
-> advocating this as necessary at this juncture.
->    
+> What about defining two types of masks, one is applied throughout the rest of
+> the task_struct's lifetime (inheritable mask), the other is cleared when
+> execve() succeeds (local mask)?
 
-Maybe AlacrityVM users don't care about compatibility, but my users do.
+A mask of permitted syscalls. You've re-invented SECCOMP. ;)
 
--- 
-error compiling committee.c: too many arguments to function
+> When an application is sure that "I know I don't need to call execve()" or
+
+OK, you *might* know that. Or more likely you just *think* you know that - ever
+had a library routine do an execve() call behind your back?).  Or glibc
+decides to do a clone2() call behind your back instead of execve(),
+except on ARM where it does either a clone_nommu47() or clone_backflip() :)
+
+> "I know execve()d programs need not to call ...()"
+
+Unless you've done a code review of the exec'ed program, you don't know.
+
+The big problem is that it's *not* sufficient to just run an strace or two
+of normal runs and proclaim "this is the set of syscalls I need" - you need
+to check all the error paths in all the shared libraries too.  It's no fun
+when a program errors out, tries to do a syslog() of the fact - and then
+*that* errors out too, causing the program to go into an infinite loop trying
+to report the previous syslog() call just failed...
+
+> "I want execve()d programs not to call ...()", 
+
+Congrats - you just re-invented the Sendmail capabilities bug. ;)
+
+This stuff is harder than it looks, especially when you realize that
+syscall-granularity is almost certainly not the right security model.
+
+> Application writers know better what syscalls the application will call than
+> application users.
+
+But the application user will know better than the writer what *actual*
+security constraints need to be applied.  "I don't care *what* syscalls the
+program uses, it's not allowed to access resource XYZ".
+
+--==_Exmh_1261913020_3923P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFLN0O8cC3lWbTT17ARApdcAKCbYH1wxDbBMnf92J5M+dErCGa9IQCaAr6c
+1kDgjnIe+3GW1XJwa6A4Zl8=
+=WCw8
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1261913020_3923P--
 
