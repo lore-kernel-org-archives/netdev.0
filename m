@@ -1,43 +1,58 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Sun, 27 Dec 2009 10:22:38 -0800
-Message-ID: <20091227102238.0df149f9@nehalam>
-References: <4B300A2A.8040305@gmail.com>
-	<4B300E30.9090707@majjas.com>
-	<4B3114E3.1070602@majjas.com>
-	<4B329FA3.9090904@majjas.com>
-	<20091223230102.4bb0100e.akpm@linux-foundation.org>
-	<4B34E847.8010809@majjas.com>
-	<20091225152200.1cf11dfe@nehalam>
-	<4B3581C7.8000702@majjas.com>
-	<20091226095723.7ac82b18@nehalam>
-	<4B367409.5060202@majjas.com>
-	<4B379378.4000102@majjas.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Sun, 27 Dec 2009 20:08:02 +0100
+Message-ID: <20091227190802.GH11737@elf.ucw.cz>
+References: <20091227010441.GA12077@heat>
+ <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
+ <20091227083857.GC11737@elf.ucw.cz>
+ <200912272049.FIB35755.OMFFOOJQtVLFSH@I-love.SAKURA.ne.jp>
+ <20091227150300.GB19414@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751047AbZL0SXl@vger.kernel.org>
-In-Reply-To: <4B379378.4000102@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	viro@ZenIV.linux.org.uk, michael@laptop.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, andi@firstfloor.org,
+	david@lang.hm, socketcan@hartkopp.net, alan@lxorguk.ukuu.org.uk,
+	herbert@gondor.apana.org.au, Valdis.Kletnieks@vt.edu,
+	bdonlan@gmail.com, zbr@ioremap.net, cscott@cscott.net,
+	jmorris@namei.org, ebiederm@xmission.com, bernie@codewiz.org,
+	mrs@mythic-beasts.com, randy.dunlap@oracle.com,
+	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
+	serue@us.ibm.com
+To: "Serge E. Hallyn" <serge@hallyn.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091227150300.GB19414@hallyn.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Dec 2009 12:03:52 -0500
-Michael Breuer <mbreuer@majjas.com> wrote:
+Hi!
 
-> Just an FYI - I left stuff running overnight and saw lots of this this 
-> AM... ans one from last night:
-> Dec 26 21:39:54 mail kernel: sky2 0000:06:00.0: error interrupt 
-> status=0x40000008
-> Dec 27 05:09:39 mail kernel: sky2 0000:06:00.0: error interrupt 
-> status=0x40000008
+> > I think seccomp() is too much restricted to apply for general applications.
+> > Most applications will need some other syscalls in addition to exit(), read()
+> > and write(). Most applications cannot use seccomp().
+> > 
+> > What I want to do is similar to seccomp(), but allows userland process to
+> > forbid some syscalls like execve(), mount(), chroot(), link(), unlink(),
+> > socket(), bind(), listen() etc. selectively.
+> 
+> The nice thing about the disablenetwork module is that (AFAICS so far)
+> it actually is safe for an unprivileged user to do.  I can't think of
+> any setuid-root software which, if started with restricted-network by
+> an unprivileged user, would become unsafe rather than simply
+> failing.
 
-You have hardware/firmware problem, that is beyond the driver.
-That status indicates:
-  Parity Error/MAC - "This interrupt is intended to indicate a panic event (hardware fault)"
+"I can't see" is not strong enough test, I'd say.
 
-What is your hardware configuration (lspci, kernel config, memory, cpu)?
+For example, I can easily imagine something like pam falling back to
+local authentication when network is unavailable. If you disable
+network for su...
+
+It would be also extremely easy to DoS something like sendmail -- if
+it forks into background and then serves other users' requests.
+
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
