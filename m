@@ -1,75 +1,81 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: Re: querying TOS/DSCP at accept() time?
-Date: Sun, 27 Dec 2009 11:05:05 -0500
-Message-ID: <1261929905.8193.24.camel@ragnarok>
-References: <1261925852.8193.9.camel@ragnarok>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH 3/3] Security: Document disablenetwork. (v4)
+Date: Sun, 27 Dec 2009 11:25:03 -0500
+Message-ID: <20091227162502.GC12645@heat>
+References: <200912271039.DHG51586.FMFFHOJSLVQtOO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:59181 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005AbZL0QFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 11:05:15 -0500
-Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
-	(authenticated bits=0)
-	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id nBRG5DOg029759
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 27 Dec 2009 11:05:14 -0500
-In-Reply-To: <1261925852.8193.9.camel@ragnarok>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
+	Michael Stone <michael@laptop.org>
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200912271039.DHG51586.FMFFHOJSLVQtOO@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It seems this question was asked before in 2001:
-
-http://www.squid-cache.org/mail-archive/squid-dev/200103/0035.html
-
-http://lkml.indiana.edu/hypermail/linux/kernel/0103.0/1211.html
-
-And apparently Squid developers made a kernel patch
-
-http://zph.bratcheda.org/tos_marking_with_tos_preserving.htm
-http://zph.bratcheda.org/
-
-It seems like this is generally useful to a number of applications,
-perhaps it should be included in mainstream kernel?
-
-I see there's a structure member added, which will likely be frowned
-upon, but perhaps it could be reworked to use the existing TOS byte
-captured 
-
-net/ipv4/tcp_ipv4.c:1645
-     TCP_SKB_CB(skb)->flags   = iph->tos;
-
-Cheers,
-
-Jeremy
-
-The kernel patch adds 
-On Sun, 2009-12-27 at 09:57 -0500, Jeremy Jackson wrote:
-> I would like to allow clients connecting to webserver to choose TOS/DSCP
-> value they want in reply packets, based on TOS setting received by
-> webserver in initial SYN-SYN/ACK-ACK exchange.  Linux samples the TOS
-> byte of the ACK that moves the state to CONNECTED, presumably to use for
-> later ECN processing, but I cannot find a way to get this from
-> userspace.
+Tetsuo Handa wrote:
+> Michael Stone wrote:
+>> +Exceptions are made for
+>> +  * processes calling sendmsg() on a previously connected socket
+>> +      (i.e. one with msg.msg_name == NULL && msg.msg_namelen == 0) or
 > 
-> net/ipv4/tcp_ipv4.c:1645
->     TCP_SKB_CB(skb)->flags   = iph->tos;
+> What should we do for non connection oriented protocols (e.g. UDP)
+> but destination is already configured by previous connect() request?
 > 
-> 
-> Am I missing something in getsockopt(TCP_INFO perhaps?) or accept(), or
-> is this currently not possible?
-> 
-> 
-> 
+> struct sockaddr_in addr = { ... };
+> int fd2 = socket(PF_INET, SOCK_DGRAM, 0);
+> connect(fd2, (struct sockadr *) &addr, sizeof(addr));
+> prctl( ... );
+> sendto(fd2, buffer, len, 0, NULL, 0); /* Should we allow this? */
 
+This call should be allowed. man 2 send states that this call is equivalent to
 
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
+   send(fd2, buffer, len, 0)
 
+and, since the flags field is 0, to
+
+   write(fd2, buffer, len)
+
+which are both clearly permitted.
+
+> sendto(fd2, buffer, len, 0, (struct sockadr *) &addr, sizeof(addr)); /* Should we reject this? */
+
+It is reasonable to reject this call because it is not required to be
+equivalent to a send() or write() call. 
+
+(In fact, the current UDP implementation unconditionally uses the addr argument
+passed to sendmsg in favor of the socket addr whenever it exists.)
+
+However, it might also be reasonable to permit the send when the call would be
+equivalent to a permitted send() or write() call: for example, when the socket
+destination address exists and matches the message destination address.
+
+Unfortunately, I don't think that we have an appropriate generic address
+comparison function for deciding this equivalence. Am I mistaken?
+
+Regards, and thanks for your questions,
+
+Michael
+
+P.S. - I would be happy to include a brief explanatory comment in the code
+defining this test since this is by far the most complex test in the patch. Any
+suggestions on what it might say?
