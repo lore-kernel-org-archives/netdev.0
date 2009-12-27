@@ -1,43 +1,36 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Sun, 27 Dec 2009 08:51:13 +0000
-Message-ID: <20091227085113.GX18217@ZenIV.linux.org.uk>
-References: <20091227010441.GA12077@heat> <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [Alacrityvm-devel] [GIT PULL] AlacrityVM guest drivers for 2.6.33
+Date: Sun, 27 Dec 2009 11:15:58 +0200
+Message-ID: <4B3725CE.8040004@redhat.com>
+References: <4B1D4F29.8020309@gmail.com> <87637zdy9g.fsf@basil.nowhere.org>	 <4B30E654.40702@codemonkey.ws> <200912221701.56840.bzolnier@gmail.com>	 <4B30F214.80206@codemonkey.ws> <20091223065129.GA19600@elte.hu>	 <20091223101340.GC20539@basil.fritz.box> <4B31EF65.6070000@redhat.com>	 <4B325E33.8060407@gmail.com> <4B327B90.2050403@redhat.com> <b233dd490912231321p5e09946at5ea63cb0d0fa1489@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: michael@laptop.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	andi@firstfloor.org, david@lang.hm, socketcan@hartkopp.net,
-	alan@lxorguk.ukuu.org.uk, herbert@gondor.apana.org.au,
-	Valdis.Kletnieks@vt.edu, bdonlan@gmail.com, zbr@ioremap.net,
-	cscott@cscott.net, jmorris@namei.org, ebiederm@xmission.com,
-	bernie@codewiz.org, mrs@mythic-beasts.com, randy.dunlap@oracle.com,
-	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
-	serue@us.ibm.com, pavel@ucw.cz
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:58771 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbZL0IvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 03:51:25 -0500
-Content-Disposition: inline
-In-Reply-To: <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>, kvm@vger.kernel.org,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"alacrityvm-devel@lists.sourceforge.net"
+	<alacrityvm-devel@lists.sourceforge.net>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>, torvalds@linux-foundation.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751490AbZL0JQt@vger.kernel.org>
+In-Reply-To: <b233dd490912231321p5e09946at5ea63cb0d0fa1489@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 27, 2009 at 05:36:48PM +0900, Tetsuo Handa wrote:
+On 12/23/2009 11:21 PM, Gregory Haskins wrote:
+> That said, you are still incorrect.  With what I proposed, the model
+> will run as an in-kernel vbus device, and no longer run in userspace.
+> It would therefore improve virtio-net as I stated, much in the same
+> way vhost-net or venet-tap do today.
+>    
 
-> Application writers know better what syscalls the application will call than
-> application users.
+That can't work.  virtio-net has its own ABI on top of virtio, for 
+example it prepends a header for TSO information.  Maybe if you disable 
+all features it becomes compatible with venet, but that cripples it.
 
-Aren't you forgetting about libc?  Seriously, any interface along the
-lines of "pass a set of syscall numbers to kernel" is DOA:
-	* syscall numbers are architecture-dependent
-	* there are socketcall-style multiplexors (sys_ipc, anyone?)
-	* libc is free to substitute one for another
-	* libc is free to do so in arch-specific manner
-	* libc is free to do so in kernel-revision-specific manner
-	* libc is free to do so in libc-revision-specific manner
-(... and does all of the above)
-	* new syscalls get added
-	* e.g. on sparc64 32bit task can issue 64bit syscalls
+-- 
+error compiling committee.c: too many arguments to function
