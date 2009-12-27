@@ -1,30 +1,36 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: lockdep possible recursive lock in slab parent->list->rlock in
-	rc2
-Date: Sun, 27 Dec 2009 13:43:28 +0100
-Message-ID: <20091227124328.GA10661@basil.fritz.box>
-References: <20091227120622.GA480@basil.fritz.box> <1261917194.5933.2.camel@penberg-laptop>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Sun, 27 Dec 2009 13:45:07 +0100
+Message-ID: <20091227124507.GB10661@basil.fritz.box>
+References: <20091227010441.GA12077@heat> <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	a.p.zijlstra@chello.nl, cl@linux-foundation.org,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:37555 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744AbZL0Mn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 07:43:29 -0500
+Cc: michael@laptop.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	andi@firstfloor.org, david@lang.hm, socketcan@hartkopp.net,
+	alan@lxorguk.ukuu.org.uk, herbert@gondor.apana.org.au,
+	Valdis.Kletnieks@vt.edu, bdonlan@gmail.com, zbr@ioremap.net,
+	cscott@cscott.net, jmorris@namei.org, ebiederm@xmission.com,
+	bernie@codewiz.org, mrs@mythic-beasts.com, randy.dunlap@oracle.com,
+	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
+	serue@us.ibm.com, pavel@ucw.cz
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1261917194.5933.2.camel@penberg-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I broke the lockdep annotations in commit
-> ce79ddc8e2376a9a93c7d42daf89bfcbb9187e62 ("SLAB: Fix lockdep annotations
-> for CPU hotplug"). Does this fix things for you? Heiko, the following
-> patch should fix it for you too.
+On Sun, Dec 27, 2009 at 05:36:48PM +0900, Tetsuo Handa wrote:
+> Michael Stone wrote:
+> > Further suggestions?
+> 
+> I expect that the future figure of this "disablenetwork" functionality becomes
+> "disablesyscall" functionality.
 
-Yes that patch fixes it. Thanks.
+That's basically apparmor. I believe it has been re-submitted 
+recently.
+
 -Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
