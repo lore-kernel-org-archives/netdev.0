@@ -1,36 +1,39 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Sun, 27 Dec 2009 13:45:07 +0100
-Message-ID: <20091227124507.GB10661@basil.fritz.box>
-References: <20091227010441.GA12077@heat> <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
+From: Dan Carpenter <error27@gmail.com>
+Subject: off by one in update_nl_seq()
+Date: Sun, 27 Dec 2009 15:12:30 +0200
+Message-ID: <20091227131229.GH6075@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: michael@laptop.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	andi@firstfloor.org, david@lang.hm, socketcan@hartkopp.net,
-	alan@lxorguk.ukuu.org.uk, herbert@gondor.apana.org.au,
-	Valdis.Kletnieks@vt.edu, bdonlan@gmail.com, zbr@ioremap.net,
-	cscott@cscott.net, jmorris@namei.org, ebiederm@xmission.com,
-	bernie@codewiz.org, mrs@mythic-beasts.com, randy.dunlap@oracle.com,
-	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
-	serue@us.ibm.com, pavel@ucw.cz
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 27, 2009 at 05:36:48PM +0900, Tetsuo Handa wrote:
-> Michael Stone wrote:
-> > Further suggestions?
-> 
-> I expect that the future figure of this "disablenetwork" functionality becomes
-> "disablesyscall" functionality.
+net/netfilter/nf_conntrack_ftp.c
+   321  /* We don't update if it's older than what we have. */
+   322  static void update_nl_seq(struct nf_conn *ct, u32 nl_seq,
+   323                            struct nf_ct_ftp_master *info, int dir,
+   324                            struct sk_buff *skb)
+   325  {
+   326          unsigned int i, oldest = NUM_SEQ_TO_REMEMBER;
 
-That's basically apparmor. I believe it has been re-submitted 
-recently.
+Should this be oldest = NUM_SEQ_TO_REMEMBER - 1;?  The array is 
+defined as:
+u_int32_t seq_aft_nl[IP_CT_DIR_MAX][NUM_SEQ_TO_REMEMBER];
 
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
+   327
+   328          /* Look for oldest: if we find exact match, we're done. */
+   329          for (i = 0; i < info->seq_aft_nl_num[dir]; i++) {
+   330                  if (info->seq_aft_nl[dir][i] == nl_seq)
+   331                          return;
+   332
+   333                  if (oldest == info->seq_aft_nl_num[dir] ||
+   334                      before(info->seq_aft_nl[dir][i],
+   335                             info->seq_aft_nl[dir][oldest]))  
+
+Line 335 has the possible array out of bounds I am concerned about. 
+
+regards,
+dan carpenter
