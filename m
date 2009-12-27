@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: use tun_sk instead container_of
-Date: Sat, 26 Dec 2009 20:26:12 -0800 (PST)
-Message-ID: <20091226.202612.212674239.davem@davemloft.net>
-References: <200912252017.43998.vgusev@openvz.org>
+Subject: Re: [patch] bond_3ad.c avoid possible null deref
+Date: Sat, 26 Dec 2009 20:26:21 -0800 (PST)
+Message-ID: <20091226.202621.258102628.davem@davemloft.net>
+References: <20091223132710.GE17923@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: vgusev@openvz.org
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58536
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42791
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753570AbZL0E0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 23:26:10 -0500
-In-Reply-To: <200912252017.43998.vgusev@openvz.org>
+	by vger.kernel.org with ESMTP id S1753867AbZL0E0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Dec 2009 23:26:19 -0500
+In-Reply-To: <20091223132710.GE17923@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vitaliy Gusev <vgusev@openvz.org>
-Date: Fri, 25 Dec 2009 20:17:43 +0300
+From: Dan Carpenter <error27@gmail.com>
+Date: Wed, 23 Dec 2009 15:27:10 +0200
 
-> Using macro tun_sk is more clear and shorter. However tun.c has tun_sk,
-> but doesn't use it. 
+> A few lines earlier we assume that best->slave could be either null or non-null so 
+> we should check it here as well.
 > 
-> Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks.
+Applied.
