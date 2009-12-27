@@ -1,33 +1,68 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Sun, 27 Dec 2009 12:18:49 +0000
-Message-ID: <20091227121849.GY18217@ZenIV.linux.org.uk>
-References: <20091227010441.GA12077@heat> <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp> <20091227083857.GC11737@elf.ucw.cz> <200912272049.FIB35755.OMFFOOJQtVLFSH@I-love.SAKURA.ne.jp>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: lockdep possible recursive lock in slab parent->list->rlock in
+ rc2
+Date: Sun, 27 Dec 2009 14:33:14 +0200
+Message-ID: <1261917194.5933.2.camel@penberg-laptop>
+References: <20091227120622.GA480@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pavel@ucw.cz, michael@laptop.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	andi@firstfloor.org, david@lang.hm, socketcan@hartkopp.net,
-	alan@lxorguk.ukuu.org.uk, herbert@gondor.apana.org.au,
-	Valdis.Kletnieks@vt.edu, bdonlan@gmail.com, zbr@ioremap.net,
-	cscott@cscott.net, jmorris@namei.org, ebiederm@xmission.com,
-	bernie@codewiz.org, mrs@mythic-beasts.com, randy.dunlap@oracle.com,
-	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
-	serue@us.ibm.com
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200912272049.FIB35755.OMFFOOJQtVLFSH@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com, a.p.zijlstra@chello.nl,
+	cl@linux-foundation.org, Heiko Carstens <heiko.carstens@de.ibm.com>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42526 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751559AbZL0MdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 07:33:16 -0500
+In-Reply-To: <20091227120622.GA480@basil.fritz.box>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 27, 2009 at 08:49:17PM +0900, Tetsuo Handa wrote:
+Hi Andi,
 
-> We can determine what syscalls we need from application's code and libc's code,
-> can't we?
+On Sun, 2009-12-27 at 13:06 +0100, Andi Kleen wrote:
+> Get this on a NFS root system while booting
+> This must be a recent change in the last week, 
+> I didn't see it in a post rc1 git* from last week
+> (I haven't done a exact bisect)
+> 
+> It's triggered by the r8169 driver close function, 
+> but looks more like a slab problem?
+> 
+> I haven't checked it in detail if the locks are 
+> really different or just lockdep not knowing 
+> enough classes.
 
-_Which_ libc?  And no, I'm not talking about other implementations; even
-glibc is more than enough.  It changes and it *does* change the set of
-syscalls used to implement given function.
+I broke the lockdep annotations in commit
+ce79ddc8e2376a9a93c7d42daf89bfcbb9187e62 ("SLAB: Fix lockdep annotations
+for CPU hotplug"). Does this fix things for you? Heiko, the following
+patch should fix it for you too.
 
-I'm not disagreeing about what's seccomp worth, BTW.
+			Pekka
+
+diff --git a/mm/slab.c b/mm/slab.c
+index 7d41f15..7451bda 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -654,7 +654,7 @@ static void init_node_lock_keys(int q)
+ 
+ 		l3 = s->cs_cachep->nodelists[q];
+ 		if (!l3 || OFF_SLAB(s->cs_cachep))
+-			return;
++			continue;
+ 		lockdep_set_class(&l3->list_lock, &on_slab_l3_key);
+ 		alc = l3->alien;
+ 		/*
+@@ -665,7 +665,7 @@ static void init_node_lock_keys(int q)
+ 		 * for alloc_alien_cache,
+ 		 */
+ 		if (!alc || (unsigned long)alc == BAD_ALIEN_MAGIC)
+-			return;
++			continue;
+ 		for_each_node(r) {
+ 			if (alc[r])
+ 				lockdep_set_class(&alc[r]->lock,
+
+
