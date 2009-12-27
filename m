@@ -1,7 +1,7 @@
 From: Michael Stone <michael@laptop.org>
-Subject: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Sat, 26 Dec 2009 20:06:50 -0500
-Message-ID: <20091227010650.GA12190@heat>
+Subject: [PATCH 3/3] Security: Document disablenetwork. (v4)
+Date: Sat, 26 Dec 2009 20:07:08 -0500
+Message-ID: <20091227010708.GA12216@heat>
 References: <20091227010441.GA12077@heat>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -32,257 +32,106 @@ In-Reply-To: <20091227010441.GA12077@heat>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement security_* hooks for socket_create, socket_bind, socket_connect,
-socket_sendmsg, and ptrace_access_check which return -EPERM when called from a
-process with networking restrictions. Exempt AF_UNIX sockets.
+Explain the purpose, implementation, and semantics of the disablenetwork
+facility.
+
+Also reference some example userland clients.
 
 Signed-off-by: Michael Stone <michael@laptop.org>
 ---
-  include/linux/disablenetwork.h |   22 +++++++++++
-  security/Makefile              |    1 +
-  security/disablenetwork.c      |   73 ++++++++++++++++++++++++++++++++++++++
-  security/security.c            |   76 +++++++++++++++++++++++++++++++++++++---
-  4 files changed, 167 insertions(+), 5 deletions(-)
-  create mode 100644 include/linux/disablenetwork.h
-  create mode 100644 security/disablenetwork.c
+  Documentation/disablenetwork.txt |   84 ++++++++++++++++++++++++++++++++++++++
+  1 files changed, 84 insertions(+), 0 deletions(-)
+  create mode 100644 Documentation/disablenetwork.txt
 
-diff --git a/include/linux/disablenetwork.h b/include/linux/disablenetwork.h
+diff --git a/Documentation/disablenetwork.txt b/Documentation/disablenetwork.txt
 new file mode 100644
-index 0000000..8a7bcc2
+index 0000000..c885502
 --- /dev/null
-+++ b/include/linux/disablenetwork.h
-@@ -0,0 +1,22 @@
-+#ifndef __LINUX_DISABLENETWORK_H
-+#define __LINUX_DISABLENETWORK_H
++++ b/Documentation/disablenetwork.txt
+@@ -0,0 +1,84 @@
++Disablenetwork Purpose
++----------------------
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
++Daniel Bernstein has observed [1] that security-conscious userland processes
++may benefit from the ability to irrevocably remove their ability to create,
++bind, connect to, or send messages except in the case of previously connected
++sockets or AF_UNIX filesystem sockets.
 +
-+int disablenetwork_security_socket_create(int family, int type,
-+					  int protocol, int kern);
-+int disablenetwork_security_socket_bind(struct socket *sock,
-+				        struct sockaddr *address,
-+				        int addrlen);
-+int disablenetwork_security_socket_connect(struct socket *sock,
-+				           struct sockaddr *address,
-+					   int addrlen);
-+int disablenetwork_security_socket_sendmsg(struct socket *sock,
-+					   struct msghdr *msg,
-+					   int size);
-+int disablenetwork_security_ptrace_access_check(struct task_struct *child,
-+					        unsigned int mode);
++This facility is particularly attractive to security platforms like OLPC
++Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4] because:
 +
-+#endif /* CONFIG_SECURITY_DISABLENETWORK */
++  * it integrates well with standard techniques for writing privilege-separated
++    Unix programs
 +
-+#endif /* ! __LINUX_DISABLENETWORK_H */
-diff --git a/security/Makefile b/security/Makefile
-index da20a19..2f23b60 100644
---- a/security/Makefile
-+++ b/security/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_SECURITY_SMACK)		+= smack/built-in.o
-  obj-$(CONFIG_AUDIT)			+= lsm_audit.o
-  obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/built-in.o
-  obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
-+obj-$(CONFIG_SECURITY_DISABLENETWORK)	+= disablenetwork.o
-  
-  # Object integrity file lists
-  subdir-$(CONFIG_IMA)			+= integrity/ima
-diff --git a/security/disablenetwork.c b/security/disablenetwork.c
-new file mode 100644
-index 0000000..f45ddfc
---- /dev/null
-+++ b/security/disablenetwork.c
-@@ -0,0 +1,73 @@
-+/*
-+ * disablenetwork security hooks.
-+ *
-+ * Copyright (C) 2008-2009 Michael Stone <michael@laptop.org>
-+ *
-+ * Implements the disablenetwork discretionary access control logic underlying
-+ * the prctl(PRCTL_SET_NETWORK, PR_NETWORK_OFF) interface.
-+ *
-+ * See Documentation/disablenetwork.txt for more information.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation, version 2 of the
-+ * License.
-+ */
++  * it integrates well with the need to perform limited socket I/O, e.g., when
++    running X clients
 +
-+#include <linux/errno.h>
-+#include <linux/sched.h>
-+#include <net/sock.h>
-+#include <linux/socket.h>
-+#include <linux/disablenetwork.h>
++  * it's available to unprivileged programs
 +
-+static inline int maybe_allow(void)
-+{
-+	if (current->network)
-+		return -EPERM;
-+	return 0;
-+}
++  * it's a discretionary feature available to all of distributors,
++    administrators, authors, and users
 +
-+int disablenetwork_security_socket_create(int family, int type,
-+					  int protocol, int kern)
-+{
-+	if (family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
++  * its effect is entirely local, rather than global (like netfilter)
 +
-+int disablenetwork_security_socket_bind(struct socket * sock,
-+					struct sockaddr * address,
-+					int addrlen)
-+{
-+	if (address->sa_family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
++  * it's simple enough to have some hope of being used correctly
 +
-+int disablenetwork_security_socket_connect(struct socket * sock,
-+					   struct sockaddr * address,
-+					   int addrlen)
-+{
-+	if (address->sa_family == AF_UNIX)
-+		return 0;
-+	return maybe_allow();
-+}
 +
-+int disablenetwork_security_socket_sendmsg(struct socket * sock,
-+					   struct msghdr * msg, int size)
-+{
-+	if (sock->sk->sk_family != PF_UNIX &&
-+		current->network &&
-+		(msg->msg_name != NULL || msg->msg_namelen != 0))
-+		return -EPERM;
-+	return 0;
-+}
++Implementation
++--------------
 +
-+int disablenetwork_security_ptrace_access_check(struct task_struct *child,
-+                                                unsigned int mode)
-+{
-+	/* does current have networking restrictions not shared by child? */
-+	if (current->network & ~child->network)
-+		return -EPERM;
-+	return 0;
-+}
-diff --git a/security/security.c b/security/security.c
-index 24e060b..40ac615 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -17,6 +17,7 @@
-  #include <linux/kernel.h>
-  #include <linux/security.h>
-  #include <linux/ima.h>
-+#include <linux/disablenetwork.h>
-  
-  /* Boot-time LSM user choice */
-  static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1] =
-@@ -130,7 +131,20 @@ int register_security(struct security_operations *ops)
-  
-  int security_ptrace_access_check(struct task_struct *child, unsigned int mode)
-  {
--	return security_ops->ptrace_access_check(child, mode);
-+	int ret = 0;
++The initial userland interface for accessing the disablenetwork functionality
++is provided through the prctl() framework via a new pair of options named
++PR_{GET,SET}_NETWORK and a new flag named PR_NETWORK_OFF.
 +
-+	ret = security_ops->ptrace_access_check(child, mode);
-+	if (ret)
-+		goto out;
++The PR_{GET,SET}_NETWORK options access and modify a new (conditionally
++compiled) task_struct flags field named "network".
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
-+	ret = disablenetwork_security_ptrace_access_check(child, mode);
-+	if (ret)
-+		goto out;
-+#endif
++Finally, the pre-existing
 +
-+out:
-+	return ret;
-  }
-  
-  int security_ptrace_traceme(struct task_struct *parent)
-@@ -1054,7 +1068,20 @@ EXPORT_SYMBOL(security_unix_may_send);
-  
-  int security_socket_create(int family, int type, int protocol, int kern)
-  {
--	return security_ops->socket_create(family, type, protocol, kern);
-+	int ret = 0;
++  security_socket_create(),
++  security_socket_bind(),
++  security_socket_connect(),
++  security_socket_sendmsg(), and
++  security_ptrace_access_check()
 +
-+	ret = security_ops->socket_create(family, type, protocol, kern);
-+	if (ret)
-+		goto out;
++security hooks are modified to call the corresponding disablenetwork_*
++discretionary access control functions. These functions return -EPERM or 0 as
++described below.
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
-+	ret = disablenetwork_security_socket_create(family, type, protocol, kern);
-+	if (ret)
-+		goto out;
-+#endif
++Semantics
++---------
 +
-+out:
-+	return ret;
-  }
-  
-  int security_socket_post_create(struct socket *sock, int family,
-@@ -1066,12 +1093,38 @@ int security_socket_post_create(struct socket *sock, int family,
-  
-  int security_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
-  {
--	return security_ops->socket_bind(sock, address, addrlen);
-+	int ret = 0;
++current->network is a task_struct flags field which is preserved across all
++variants of fork() and exec().
 +
-+	ret = security_ops->socket_bind(sock, address, addrlen);
-+	if (ret)
-+		goto out;
++Writes which attempt to clear bits in current->network return -EPERM.
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
-+	ret = disablenetwork_security_socket_bind(sock, address, addrlen);
-+	if (ret)
-+		goto out;
-+#endif
++The default value for current->network is named PR_NETWORK_ON and is defined
++to be 0.
 +
-+out:
-+	return ret;
-  }
-  
-  int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen)
-  {
--	return security_ops->socket_connect(sock, address, addrlen);
-+	int ret = 0;
++Presently, only one flag is defined: PR_NETWORK_OFF.
 +
-+	ret = security_ops->socket_connect(sock, address, addrlen);
-+	if (ret)
-+		goto out;
++More flags may be defined in the future if they become needed.
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
-+	ret = disablenetwork_security_socket_connect(sock, address, addrlen);
-+	if (ret)
-+		goto out;
-+#endif
++Attempts to set undefined flags result in -EINVAL.
 +
-+out:
-+	return ret;
-  }
-  
-  int security_socket_listen(struct socket *sock, int backlog)
-@@ -1086,7 +1139,20 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
-  
-  int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
-  {
--	return security_ops->socket_sendmsg(sock, msg, size);
-+	int ret = 0;
++When PR_NETWORK_OFF is set, the disablenetwork security hooks for socket(),
++bind(), connect(), sendmsg(), and ptrace() will return -EPERM or 0.
 +
-+	ret = security_ops->socket_sendmsg(sock, msg, size);
-+	if (ret)
-+		goto out;
++Exceptions are made for
 +
-+#ifdef CONFIG_SECURITY_DISABLENETWORK
-+	ret = disablenetwork_security_socket_sendmsg(sock, msg, size);
-+	if (ret)
-+		goto out;
-+#endif
++  * processes manipulating an AF_UNIX socket or,
++  * processes calling sendmsg() on a previously connected socket
++      (i.e. one with msg.msg_name == NULL && msg.msg_namelen == 0) or
++  * processes calling ptrace() on a target process which shares every
++    networking restriction flag set in current->network.
 +
-+out:
-+	return ret;
-  }
-  
-  int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
++References
++----------
++
++[1]: http://cr.yp.to/unix/disablenetwork.html
++[2]: http://wiki.laptop.org/go/OLPC_Bitfrost
++[3]: http://wiki.laptop.org/go/Rainbow
++[4]: http://plash.beasts.org/
 -- 
 1.6.6.rc2
