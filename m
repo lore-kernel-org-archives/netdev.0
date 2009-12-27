@@ -1,44 +1,72 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: querying TOS/DSCP at accept() time?
-Date: Sun, 27 Dec 2009 09:57:32 -0500
-Message-ID: <1261925852.8193.9.camel@ragnarok>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Sun, 27 Dec 2009 10:47:47 -0500
+Message-ID: <20091227154747.GA12645@heat>
+References: <20091227150300.GB19414@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:46673 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751991AbZL0O5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 09:57:42 -0500
-Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
-	(authenticated bits=0)
-	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id nBREveHE025399
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 27 Dec 2009 09:57:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Michael Stone <michael@laptop.org>
+To: "Serge E. Hallyn" <serge@hallyn.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091227150300.GB19414@hallyn.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I would like to allow clients connecting to webserver to choose TOS/DSCP
-value they want in reply packets, based on TOS setting received by
-webserver in initial SYN-SYN/ACK-ACK exchange.  Linux samples the TOS
-byte of the ACK that moves the state to CONNECTED, presumably to use for
-later ECN processing, but I cannot find a way to get this from
-userspace.
+Serge Hallyn writes:
 
-net/ipv4/tcp_ipv4.c:1645
-    TCP_SKB_CB(skb)->flags   = iph->tos;
+> Michael Stone, without looking back over the patches, do you also
+> restrict opening netlink sockets?  
 
+The current version of the patch restricts netlink sockets which were not bound
+to an address before calling disablenetwork(). It does so primarily on the
+grounds of "fail safe", due to the following sorts of discussions and
+observations:
 
-Am I missing something in getsockopt(TCP_INFO perhaps?) or accept(), or
-is this currently not possible?
+   http://kerneltrap.org/mailarchive/linux-kernel/2007/12/7/493793/thread
+   http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2006-5461
+   http://marc.info/?l=linux-kernel&m=125448727130301&w=2
 
+I would be willing to entertain an argument that some kind of exemption for
+AF_NETLINK ought to be introduced but I'd need to hear some more details before
+I could implement it and before I could satisfy myself that the result was
+sound.
 
+> Should we worry about preventing an error message from being sent to the
+> audit daemon?
 
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
+I've considered the matter and I don't see much to worry about at this time. 
 
+The first reason why I'm not too worried is that anyone in a position to use
+disablenetwork for nefarious purposes is also probably able to use ptrace(),
+kill(), and/or LD_PRELOAD to similar ends.
+
+The second reason why I'm not too worried is that I believe it to be
+straightforward to use the pre-existing MAC frameworks to prevent individually
+important processes from dropping networking privileges.
+
+Do you have a specific concern in mind not addressed by either of these
+observations?
+
+Regards,
+
+Michael
