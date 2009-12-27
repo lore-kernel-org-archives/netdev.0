@@ -1,45 +1,57 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] usbnet: test off by one
-Date: Sun, 27 Dec 2009 22:22:08 +0100
-Message-ID: <4B37D000.6070009@gmail.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 4/5] drivers/net/can: Correct NULL test
+Date: Sun, 27 Dec 2009 22:27:44 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Petko Manolov <petkan@users.sourceforge.net>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751418AbZL0VTT@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751548AbZL0V1x@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With `while (i++ < MII_TIMEOUT)' i reaches MII_TIMEOUT + 1 after the loop
-This is probably unlikely a problem in practice.
+From: Julia Lawall <julia@diku.dk>
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Test the just-allocated value for NULL rather than some other value.
+
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression x,y;
+statement S;
+@@
+
+x = \(kmalloc\|kcalloc\|kzalloc\)(...);
+(
+if ((x) == NULL) S
+|
+if (
+-   y
++   x
+       == NULL)
+ S
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
- drivers/net/usb/rtl8150.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/can/mcp251x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index f14d225..fd19db0 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -270,7 +270,7 @@ static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
- 		get_registers(dev, PHYCNT, 1, data);
- 	} while ((data[0] & PHY_GO) && (i++ < MII_TIMEOUT));
- 
--	if (i < MII_TIMEOUT) {
-+	if (i <= MII_TIMEOUT) {
- 		get_registers(dev, PHYDAT, 2, data);
- 		*reg = data[0] | (data[1] << 8);
- 		return 0;
-@@ -295,7 +295,7 @@ static int write_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 reg)
- 		get_registers(dev, PHYCNT, 1, data);
- 	} while ((data[0] & PHY_GO) && (i++ < MII_TIMEOUT));
- 
--	if (i < MII_TIMEOUT)
-+	if (i <= MII_TIMEOUT)
- 		return 0;
- 	else
- 		return 1;
+diff -u -p a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -990,7 +990,7 @@ static int __devinit mcp251x_can_probe(s
+ 			goto error_tx_buf;
+ 		}
+ 		priv->spi_rx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
+-		if (!priv->spi_tx_buf) {
++		if (!priv->spi_rx_buf) {
+ 			ret = -ENOMEM;
+ 			goto error_rx_buf;
+ 		}
