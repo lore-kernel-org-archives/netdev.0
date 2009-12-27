@@ -1,54 +1,44 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Sun, 27 Dec 2009 09:03:00 -0600
-Message-ID: <20091227150300.GB19414@hallyn.com>
-References: <20091227010441.GA12077@heat> <200912271736.GDB17180.OFJHOOQStMFLVF@I-love.SAKURA.ne.jp> <20091227083857.GC11737@elf.ucw.cz> <200912272049.FIB35755.OMFFOOJQtVLFSH@I-love.SAKURA.ne.jp>
+From: Jeremy Jackson <jerj@coplanar.net>
+Subject: querying TOS/DSCP at accept() time?
+Date: Sun, 27 Dec 2009 09:57:32 -0500
+Message-ID: <1261925852.8193.9.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pavel@ucw.cz, viro@ZenIV.linux.org.uk, michael@laptop.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, andi@firstfloor.org,
-	david@lang.hm, socketcan@hartkopp.net, alan@lxorguk.ukuu.org.uk,
-	herbert@gondor.apana.org.au, Valdis.Kletnieks@vt.edu,
-	bdonlan@gmail.com, zbr@ioremap.net, cscott@cscott.net,
-	jmorris@namei.org, ebiederm@xmission.com, bernie@codewiz.org,
-	mrs@mythic-beasts.com, randy.dunlap@oracle.com,
-	xiyou.wangcong@gmail.com, sam@synack.fr, casey@schaufler-ca.com,
-	serue@us.ibm.com
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200912272049.FIB35755.OMFFOOJQtVLFSH@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from titan.coplanar.net ([70.47.139.2]:46673 "EHLO
+	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991AbZL0O5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 09:57:42 -0500
+Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
+	(authenticated bits=0)
+	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id nBREveHE025399
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 27 Dec 2009 09:57:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Tetsuo Handa (penguin-kernel@I-love.SAKURA.ne.jp):
-> Pavel Machek wrote:
-> > Syscalls are very wrong granularity for security system. But easy to
-> > implement, see seccomp.
-> 
-> Quoting from http://en.wikipedia.org/wiki/Seccomp
-> > It allows a process to make a one-way transition into a "secure" state where
-> > it cannot make any system calls except exit(), read() and write() to
-> > already-open file descriptors. 
-> 
-> I think seccomp() is too much restricted to apply for general applications.
-> Most applications will need some other syscalls in addition to exit(), read()
-> and write(). Most applications cannot use seccomp().
-> 
-> What I want to do is similar to seccomp(), but allows userland process to
-> forbid some syscalls like execve(), mount(), chroot(), link(), unlink(),
-> socket(), bind(), listen() etc. selectively.
+I would like to allow clients connecting to webserver to choose TOS/DSCP
+value they want in reply packets, based on TOS setting received by
+webserver in initial SYN-SYN/ACK-ACK exchange.  Linux samples the TOS
+byte of the ACK that moves the state to CONNECTED, presumably to use for
+later ECN processing, but I cannot find a way to get this from
+userspace.
 
-The nice thing about the disablenetwork module is that (AFAICS so far)
-it actually is safe for an unprivileged user to do.  I can't think of
-any setuid-root software which, if started with restricted-network by
-an unprivileged user, would become unsafe rather than simply failing (*1).
+net/ipv4/tcp_ipv4.c:1645
+    TCP_SKB_CB(skb)->flags   = iph->tos;
 
-Adding syscalls becomes much scarier.
 
--serge
+Am I missing something in getsockopt(TCP_INFO perhaps?) or accept(), or
+is this currently not possible?
 
-*1 - Michael Stone, without looking back over the patches, do you also
-restrict opening netlink sockets?  Should we worry about preventing
-an error message from being sent to the audit daemon?
+
+
+-- 
+Jeremy Jackson
+Coplanar Networks
+(519)489-4903
+http://www.coplanar.net
+jerj@coplanar.net
+
