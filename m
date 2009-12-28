@@ -1,91 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] e1000: enhance frame fragment detection
-Date: Mon, 28 Dec 2009 15:10:05 -0500
-Message-ID: <20091228201005.GC18422@hmsreliant.think-freely.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Mon, 28 Dec 2009 21:55:11 +0100
+Message-ID: <20091228205511.GD1637@ucw.cz>
+References: <20091227190802.GH11737@elf.ucw.cz> <20091228060759.GB13266@heat> <20091228101006.GA19984@elf.ucw.cz> <8817.1262011044@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, nhorman@tuxdriver.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Am?rico Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50190 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbZL1UKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 15:10:09 -0500
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:55408 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbZL1UzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 15:55:23 -0500
 Content-Disposition: inline
+In-Reply-To: <8817.1262011044@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all-
-	A security discussion was recently given:
-http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
-And a patch that I submitted awhile back was brought up.  Apparently some of
-their testing revealed that they were able to force a buffer fragment in e1000
-in which the trailing fragment was greater than 4 bytes.  As a result the
-fragment check I introduced failed to detect the fragement and a partial invalid
-frame was passed up into the network stack.  I've written this patch to correct
-it.  I'm in the process of testing it now, but it makes good logical sense to
-me.  Effectively it maintains a per-adapter state variable which detects a
-non-EOP frame, and discards it and subsequent non-EOP frames leading up to _and_
-_including_ the next positive-EOP frame (as it is by definition the last
-fragment).  This should prevent any and all partial frames from entering the
-network stack from e1000
-
-Regards
-Neil
+On Mon 2009-12-28 09:37:24, Valdis.Kletnieks@vt.edu wrote:
+> On Mon, 28 Dec 2009 11:10:06 +0100, Pavel Machek said:
+> 
+> > a) make disablenetwork reset to "enablenetwork" during setuid exec
+> 
+> That won't work either.  If you only make it 'setuid==0' binaries, you still
+> break 'setuid-FOO' binaries that require the net. If you just check the setuid
+> bit, it allows a trivial escape by creating a setuid-yourself binary and using
+> that to exec something else (now with network access, because we apparently
+> don't have a way to remember the previous setting).
 
 
- e1000.h      |    3 ++-
- e1000_main.c |   14 ++++++++++++--
- 2 files changed, 14 insertions(+), 3 deletions(-)
+it is really only required for binaries setuid to someone else, but
+that would be too ugly. (Plus, as someone said, ping is great for
+leaking data out.)
 
-
-diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-index 2a567df..3d421ab 100644
---- a/drivers/net/e1000/e1000.h
-+++ b/drivers/net/e1000/e1000.h
-@@ -331,7 +331,8 @@ struct e1000_adapter {
- enum e1000_state_t {
- 	__E1000_TESTING,
- 	__E1000_RESETTING,
--	__E1000_DOWN
-+	__E1000_DOWN,
-+	__E1000_DISCARDING
- };
- 
- extern char e1000_driver_name[];
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 7e855f9..0731779 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3850,16 +3850,26 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 
- 		length = le16_to_cpu(rx_desc->length);
- 		/* !EOP means multiple descriptors were used to store a single
--		 * packet, also make sure the frame isn't just CRC only */
--		if (unlikely(!(status & E1000_RXD_STAT_EOP) || (length <= 4))) {
-+		 * packet, if thats the case we need to toss it.  In fact, we
-+		 * to toss every packet with the EOP bit clear and the next
-+		 * frame that _does_ have the EOP bit set, as it is by
-+		 * definition only a frame fragment
-+		 */
-+		if (unlikely(!(status & E1000_RXD_STAT_EOP)))
-+			set_bit(__E1000_DISCARDING, &adapter->flags);
-+
-+		if (test_bit(__E1000_DISCARDING, &adapter->flags)) {
- 			/* All receives must fit into a single buffer */
- 			E1000_DBG("%s: Receive packet consumed multiple"
- 				  " buffers\n", netdev->name);
- 			/* recycle */
- 			buffer_info->skb = skb;
-+			if (status & E1000_RXD_STAT_EOP)
-+				clear_bit(__E1000_DISCARDING, &adapter->flags);
- 			goto next_desc;
- 		}
- 
-+
- 		if (unlikely(rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK)) {
- 			u8 last_byte = *(skb->data + length - 1);
- 			if (TBI_ACCEPT(hw, status, rx_desc->errors, length,
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
