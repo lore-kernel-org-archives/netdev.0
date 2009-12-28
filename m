@@ -1,102 +1,108 @@
-From: Mark Bergsma <mark@wikimedia.org>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Mon, 28 Dec 2009 19:49:38 +0100
-Message-ID: <4B38FDC2.9000507@wikimedia.org>
-References: <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>	<20081202.145129.06176881.davem@davemloft.net>	<49597.86.34.32.157.1228259764.squirrel@mail.embedromix.ro> <20081202.163729.158874214.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH RFC] r8169: straighten out overlength frame detection
+Date: Mon, 28 Dec 2009 14:48:34 -0500
+Message-ID: <20091228194834.GA18422@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tilia.nedworks.org ([82.94.225.218]:49395 "EHLO
-	tilia.nedworks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751253AbZL1Tae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 14:30:34 -0500
-Received: from 35-19-ftth.onsnetstudenten.nl ([145.120.19.35]:60122 helo=[192.168.20.11])
-	by tilia.nedworks.org with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44389 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbZL1Tsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 14:48:38 -0500
+Received: from cpe-065-190-031-109.nc.res.rr.com ([65.190.31.109] helo=localhost)
+	by smtp.tuxdriver.com with esmtpsa (TLSv1:AES128-SHA:128)
 	(Exim 4.63)
-	(envelope-from <mark@wikimedia.org>)
-	id 1NPKex-0007rY-3k
-	for netdev@vger.kernel.org; Mon, 28 Dec 2009 19:49:39 +0100
-In-Reply-To: <20081202.163729.158874214.davem@davemloft.net>
+	(envelope-from <nhorman@tuxdriver.com>)
+	id 1NPLZz-0004JK-Qk
+	for netdev@vger.kernel.org; Mon, 28 Dec 2009 14:48:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03-12-08 01:37, David Miller wrote:
-> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-> Date: Tue, 2 Dec 2008 16:16:04 -0700 (MST)
->> I was looking for anything that could get me past of 88.000 request per
->> seconds.
->> The help text told me to raise that value if I have big number of
->> connections. I just needed an easy way to test.
-> 
-> You're just repeating what I said, you "think" it should be
-> changed and as a result you are wasting everyones time.
-> 
-> You don't actually "know", you're just guessing using random
-> snippets from documentation rather than good hard evidence of
-> a need.
+Hey all-
+	A while back Eric submitted a patch for r8169 in which the proper
+allocated frame size was written to RXMaxSize to prevent the NIC from dmaing too
+much data.  This was done in commit fdd7b4c3302c93f6833e338903ea77245eb510b4.  A
+long time prior to that however, Francois posted
+126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c, which expiclitly disabled the MaxSize
+setting due to the fact that the hardware behaved in odd ways when overlong
+frames were received on NIC's supported by this driver.  This was mentioned in a
+security conference recently:
+http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
 
-Hello,
+It seems that if we can't enable frame size filtering, then, as Eric correctly
+noticed, we can find ourselves DMA-ing too much data to a buffer, causing
+corruption.  As a result is seems that we are forced to allocate a frame which
+is ready to handle a maximally sized receive.
 
-I just found this year-old thread about a patch allowing the IPVS
-connection hash table size to be set at load time by a module parameter.
-Apparently the conclusion reached was that allowing this configuration
-setting to be changed would be useless, and that the poster's
-performance problems would likely lie elsewhere, since he had no
-evidence it was caused by the hash table size.
+I've not tested the below patch at all, and clearly it stinks to have to do.
+But I thought it would be worth posting to solicit comments on it.
 
-We do however run into the same problem with the default setting (2^12 =
-4096 entries), as most of our LVS balancers handle around a million
-connections/SLAB entries at any point in time (around 100-150 kpps
-load). With only 4096 hash table entries this implies that each entry
-consists of a linked list of 256 connections *on average*.
+Thanks & Regards
+Neil
 
-To provide some statistics, I did an oprofile run on an 2.6.31 kernel,
-with both the default 4096 table size, and the same kernel recompiled
-with IP_VS_CONN_TAB_BITS set to 18 (2^18 = 262144 entries). I built a
-quick test setup with a part of Wikimedia/Wikipedia's live traffic
-mirrored by the switch to the test host.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-With the default setting, at ~ 120 kpps packet load we saw a typical %si
-CPU usage of around 30-35%, and oprofile reported a hot spot in
-ip_vs_conn_in_get:
 
-samples  %        image name               app name
-symbol name
-1719761  42.3741  ip_vs.ko                 ip_vs.ko
-ip_vs_conn_in_get
-302577    7.4554  bnx2                     bnx2                     /bnx2
-181984    4.4840  vmlinux                  vmlinux
-__ticket_spin_lock
-128636    3.1695  vmlinux                  vmlinux
-ip_route_input
-74345     1.8318  ip_vs.ko                 ip_vs.ko
-ip_vs_conn_out_get
-68482     1.6874  vmlinux                  vmlinux
-mwait_idle
+ r8169.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-After loading the recompiled kernel with 2^18 entries, %si CPU usage
-dropped in half to around 12-18%, and oprofile looks much healthier,
-with only 7% spent in ip_vs_conn_in_get:
 
-samples  %        image name               app name
-symbol name
-265641   14.4616  bnx2                     bnx2                     /bnx2
-143251    7.7986  vmlinux                  vmlinux
-__ticket_spin_lock
-140661    7.6576  ip_vs.ko                 ip_vs.ko
-ip_vs_conn_in_get
-94364     5.1372  vmlinux                  vmlinux
-mwait_idle
-86267     4.6964  vmlinux                  vmlinux
-ip_route_input
-
-So yes, having the table size as an ip_vs module parameter would be
-*very* welcome. Perhaps not as convenient as a dynamically resizing
-table, but it would be a lot less work and much more maintainable in
-production than compiling a kernel with every security update...
-
--- 
-Mark Bergsma <mark@wikimedia.org>
-Operations Engineer, Wikimedia Foundation
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 60f96c4..42e3b22 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -63,6 +63,7 @@ static const int multicast_filter_limit = 32;
+ #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define EarlyTxThld	0x3F	/* 0x3F means NO early transmit */
++#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC... */
+ #define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+ 
+@@ -3383,7 +3384,7 @@ static u16 rtl_rw_cpluscmd(void __iomem *ioaddr)
+ static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_buf_sz)
+ {
+ 	/* Low hurts. Let's disable the filtering. */
+-	RTL_W16(RxMaxSize, rx_buf_sz + 1);
++	RTL_W16(RxMaxSize, 16383);
+ }
+ 
+ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+@@ -3430,7 +3431,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr);
+ 
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+@@ -3691,7 +3692,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr);
+ 
+ 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+ 
+@@ -3871,7 +3872,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr);
+ 
+ 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+ 
+@@ -3972,7 +3973,7 @@ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
+ 
+ 	pad = align ? align : NET_IP_ALIGN;
+ 
+-	skb = netdev_alloc_skb(dev, rx_buf_sz + pad);
++	skb = netdev_alloc_skb(dev, 16383 + pad);
+ 	if (!skb)
+ 		goto err_out;
+ 
