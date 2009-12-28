@@ -1,57 +1,45 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 4/5] drivers/net/can: Correct NULL test
-Date: Sun, 27 Dec 2009 22:27:44 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
+From: Matthew Burgess <matthew@linuxfromscratch.org>
+Subject: Compilation issues using netlink.h
+Date: Mon, 28 Dec 2009 00:32:51 +0000
+Message-ID: <4B37FCB3.9000800@linuxfromscratch.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751548AbZL0V1x@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ben@decadent.org.uk,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp823.mail.ird.yahoo.com ([217.146.188.233]:48763 "HELO
+	smtp823.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751192AbZL1Ajn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Dec 2009 19:39:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hi,
 
-Test the just-allocated value for NULL rather than some other value.
+The test case below simplifies a failure I see when trying to compile 
+strace using kernel headers from Linux-2.6.32.2:
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+#include <linux/netlink.h>
+struct sockaddr_nl nl;
+int main() {
+   return 0;
+}
 
-// <smpl>
-@@
-expression x,y;
-statement S;
-@@
+$ gcc -o test test.c
+In file included from test.c:1:
+/usr/include/linux/netlink.h:34: error: expected 
+specifier-qualifier-list before 'sa_family_t'
 
-x = \(kmalloc\|kcalloc\|kzalloc\)(...);
-(
-if ((x) == NULL) S
-|
-if (
--   y
-+   x
-       == NULL)
- S
-)
-// </smpl>
+The comment in netlink.h suggests that 'sa_family_t' is expected to be 
+found in linux/socket.h, but since commit 9c501935a3 ("net: Support 
+inclusion of <linux/socket.h> before <sys/socket.h>") that appears to 
+not be true anymore, it's now in sys/socket.h.  Sure enough, if I change 
+the include in netlink.h to pull in sys/socket.h instead of 
+linux/socket.h, that enables the test case (and strace) to compile 
+again, but I wasn't sure if it was really the right thing to do.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+Thanks,
 
----
- drivers/net/can/mcp251x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -u -p a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -990,7 +990,7 @@ static int __devinit mcp251x_can_probe(s
- 			goto error_tx_buf;
- 		}
- 		priv->spi_rx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
--		if (!priv->spi_tx_buf) {
-+		if (!priv->spi_rx_buf) {
- 			ret = -ENOMEM;
- 			goto error_rx_buf;
- 		}
+Matt.
