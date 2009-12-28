@@ -1,62 +1,59 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Mon, 28 Dec 2009 16:28:01 -0500
-Message-ID: <14362.1262035681@localhost>
-References: <20091227190802.GH11737@elf.ucw.cz> <20091228060759.GB13266@heat> <20091228101006.GA19984@elf.ucw.cz> <8817.1262011044@localhost>
-            <20091228205511.GD1637@ucw.cz>
+From: =?iso-8859-1?Q?Fran=E7ois?= romieu <romieu@zoreil.com>
+Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
+Date: Mon, 28 Dec 2009 22:31:14 +0100
+Message-ID: <20091228213114.GA24285@zoreil.com>
+References: <20091228194834.GA18422@hmsreliant.think-freely.org> <20091228195053.GB18422@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1262035681_4431P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: Your message of "Mon, 28 Dec 2009 21:55:11 +0100."
-             <20091228205511.GD1637@ucw.cz>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---==_Exmh_1262035681_4431P
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, nhorman@redhat.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pulsar.zoreil.com ([83.167.33.49]:51523 "EHLO pulsar.zoreil.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751919AbZL1VbU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2009 16:31:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20091228195053.GB18422@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Dec 2009 21:55:11 +0100, Pavel Machek said:
+(I'm back)
 
-> it is really only required for binaries setuid to someone else, but
-> that would be too ugly. (Plus, as someone said, ping is great for
-> leaking data out.)
+The Mon, Dec 28, 2009 at 02:50:53PM -0500, Neil Horman wrote :
+[...]
+> frames were received on NIC's supported by this driver.  This was mentioned in a
+> security conference recently:
+> http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
 
-Hmm... How is it "too ugly"?  It's just a 'euid != uid' comparison? Or
-am I missing some contortion required?
+Is there a paper ?
 
---==_Exmh_1262035681_4431P
-Content-Type: application/pgp-signature
+> It seems that if we can't enable frame size filtering, then, as Eric correctly
+> noticed, we can find ourselves DMA-ing too much data to a buffer, causing
+> corruption.  As a result is seems that we are forced to allocate a frame which
+> is ready to handle a maximally sized receive.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+Either that or the switch does not allow jumbo frames.
 
-iD8DBQFLOSLhcC3lWbTT17ARAg/ZAJ9NYXYgMgDeFldLbAEUOl3ERXBbFgCgphiL
-RBooQz2/zh8w6oXPl9jHmII=
-=4Hwy
------END PGP SIGNATURE-----
+> I've not tested the below patch at all, and clearly it stinks to have to do.
+> But I thought it would be worth posting to solicit comments on it.
+[...]
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 60f96c4..42e3b22 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -3972,7 +3973,7 @@ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
+>  
+>  	pad = align ? align : NET_IP_ALIGN;
+>  
+> -	skb = netdev_alloc_skb(dev, rx_buf_sz + pad);
+> +	skb = netdev_alloc_skb(dev, 16383 + pad);
 
---==_Exmh_1262035681_4431P--
+I doubt that we will be able to allocate that much memory reliably for long.
 
+I'd rather go for static buffers + copy (+ src mac address of our new friend).
+
+Is it enough if I write it in a pair of evening ?
+
+-- 
+Ueimor
