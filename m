@@ -1,56 +1,84 @@
-From: "Kristian Evensen" <kristian.evensen@gmail.com>
-Subject: Strange TCP behavior over HSDPA
-Date: Mon, 28 Dec 2009 13:56:22 +0100
-Message-ID: <4b38aaf7.0f67f10a.0624.6a06@mx.google.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 4/5] drivers/net/can: Correct NULL test
+Date: Mon, 28 Dec 2009 14:49:58 +0100
+Message-ID: <4B38B786.9020609@hartkopp.net>
+References: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, chri <chripell@gmail.com>,
+	chripell@evolware.org
+To: Julia Lawall <julia@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f219.google.com ([209.85.219.219]:51278 "EHLO
-	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322AbZL1M4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 07:56:25 -0500
-Received: by ewy19 with SMTP id 19so1746559ewy.21
-        for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 04:56:24 -0800 (PST)
-Content-Language: no
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:26106 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbZL1NuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 08:50:04 -0500
+In-Reply-To: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
 
-I have a laptop running Ubuntu 9.04 with the 2.6.32.2-kernel and the machine
-connects to the internet using HSDPA. When transferring files (from the same
-server) using TCP I notice that the connection often experience severe drops
-in throughput. Often, it takes over a second for the (fast) retransmission
-to arrive.
+Thanks Julia!
 
-First I thought this might be due to poor network conditions, but when
-testing tunnels (L2TP and PPTP) I noticed that the throughput was more
-stable and the average higher. It seems like the retransmission is sent and
-arrives quicker than without tunnels. The drops last for a shorter period of
-time and does not affect the performance that much. Based on my
-understanding of the tunneling protocols, they offer no reliability for data
-and according to my ISP UDP and TCP packets are treated equally.
+I added Christian Pellegrin who is the author of this driver in CC.
 
-I have performed several experiments (adjusting the MTU, MSS and running the
-tests from different places) trying to figure out why tunnels perform better
-than without tunnels, but I have not been able to come up with an answer.
-The different experiments all give the same result. So my question is, has
-anyone experienced anything similar or have an idea as to why the tunnels
-perform better?
+An obvious copy/paste error :-)
 
-The HSDPA-modems I have used are the Huawei E220 and Sierra Wireless Aircard
-880u. If anyone is interested in looking at the packet dumps, they can be
-found here [1] and here [2]. [1] is without tunnels and a typical packet
-loss is shown at packet 1705, while [2] is without tunnels and a typical
-packet loss is shown at 3381.
+Regards,
+Oliver
 
-Thanks in advance for any help,
-Kristian
+Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-[1] - http://heim.ifi.uio.no/~kristrev/hsdpa-captures/loss_hsdpa.pcap 
-[2] - http://heim.ifi.uio.no/~kristrev/hsdpa-captures/loss_hsdpa_tunnel.pcap
-
+> 
+> Test the just-allocated value for NULL rather than some other value.
+> 
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @@
+> expression x,y;
+> statement S;
+> @@
+> 
+> x = \(kmalloc\|kcalloc\|kzalloc\)(...);
+> (
+> if ((x) == NULL) S
+> |
+> if (
+> -   y
+> +   x
+>        == NULL)
+>  S
+> )
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+>  drivers/net/can/mcp251x.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -u -p a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+> --- a/drivers/net/can/mcp251x.c
+> +++ b/drivers/net/can/mcp251x.c
+> @@ -990,7 +990,7 @@ static int __devinit mcp251x_can_probe(s
+>  			goto error_tx_buf;
+>  		}
+>  		priv->spi_rx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
+> -		if (!priv->spi_tx_buf) {
+> +		if (!priv->spi_rx_buf) {
+>  			ret = -ENOMEM;
+>  			goto error_rx_buf;
+>  		}
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
