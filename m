@@ -1,42 +1,56 @@
-From: Ben Blum <bblum@andrew.cmu.edu>
-Subject: Re: [PATCH 3/4] cgroups: net_cls as module
-Date: Mon, 28 Dec 2009 07:37:34 -0500
-Message-ID: <20091228123734.GA4824@andrew.cmu.edu>
-References: <20091221203253.GA5683@andrew.cmu.edu> <20091221203704.GD5683@andrew.cmu.edu> <4B385164.9070704@cn.fujitsu.com>
+From: "Kristian Evensen" <kristian.evensen@gmail.com>
+Subject: Strange TCP behavior over HSDPA
+Date: Mon, 28 Dec 2009 13:56:22 +0100
+Message-ID: <4b38aaf7.0f67f10a.0624.6a06@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org, akpm@linux-foundation.org,
-	menage@google.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bblum@andrew.cmu.edu
-To: Li Zefan <lizf@cn.fujitsu.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from RELAY.ANDREW.CMU.EDU ([128.2.10.85]:60020 "EHLO
-	relay.andrew.cmu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbZL1MiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 07:38:00 -0500
-Content-Disposition: inline
-In-Reply-To: <4B385164.9070704@cn.fujitsu.com>
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:51278 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbZL1M4Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 07:56:25 -0500
+Received: by ewy19 with SMTP id 19so1746559ewy.21
+        for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 04:56:24 -0800 (PST)
+Content-Language: no
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 28, 2009 at 02:34:12PM +0800, Li Zefan wrote:
-> > Allows the net_cls cgroup subsystem to be compiled as a module
-> > 
-> > From: Ben Blum <bblum@andrew.cmu.edu>
-> > 
-> > This patch modifies net/sched/cls_cgroup.c to allow the net_cls subsystem to
-> > be optionally compiled as a module instead of builtin. The cgroup_subsys
-> > struct is moved around a bit to allow the subsys_id to be either declared as a
-> > compile-time constant by the cgroup_subsys.h include in cgroup.h, or, if it's
-> > a module, initialized within the struct by cgroup_load_subsys.
-> > 
-> > Signed-off-by: Ben Blum <bblum@andrew.cmu.edu>
-> 
-> Acked-by: Li Zefan <lizf@cn.fujitsu.com>
-> 
-> But can we reorder this patch as the last patch?
+Hello,
 
-that does make a bit more sense, saving the unloading patch from having
-to touch cls_cgroup.c to add an unload_subsys() call. will do.
+I have a laptop running Ubuntu 9.04 with the 2.6.32.2-kernel and the machine
+connects to the internet using HSDPA. When transferring files (from the same
+server) using TCP I notice that the connection often experience severe drops
+in throughput. Often, it takes over a second for the (fast) retransmission
+to arrive.
+
+First I thought this might be due to poor network conditions, but when
+testing tunnels (L2TP and PPTP) I noticed that the throughput was more
+stable and the average higher. It seems like the retransmission is sent and
+arrives quicker than without tunnels. The drops last for a shorter period of
+time and does not affect the performance that much. Based on my
+understanding of the tunneling protocols, they offer no reliability for data
+and according to my ISP UDP and TCP packets are treated equally.
+
+I have performed several experiments (adjusting the MTU, MSS and running the
+tests from different places) trying to figure out why tunnels perform better
+than without tunnels, but I have not been able to come up with an answer.
+The different experiments all give the same result. So my question is, has
+anyone experienced anything similar or have an idea as to why the tunnels
+perform better?
+
+The HSDPA-modems I have used are the Huawei E220 and Sierra Wireless Aircard
+880u. If anyone is interested in looking at the packet dumps, they can be
+found here [1] and here [2]. [1] is without tunnels and a typical packet
+loss is shown at packet 1705, while [2] is without tunnels and a typical
+packet loss is shown at 3381.
+
+Thanks in advance for any help,
+Kristian
+
+[1] - http://heim.ifi.uio.no/~kristrev/hsdpa-captures/loss_hsdpa.pcap 
+[2] - http://heim.ifi.uio.no/~kristrev/hsdpa-captures/loss_hsdpa_tunnel.pcap
+
+
