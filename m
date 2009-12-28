@@ -1,87 +1,39 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Mon, 28 Dec 2009 01:07:59 -0500
-Message-ID: <20091228060759.GB13266@heat>
-References: <20091227190802.GH11737@elf.ucw.cz>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: [PATCH 3/4] cgroups: net_cls as module
+Date: Mon, 28 Dec 2009 14:34:12 +0800
+Message-ID: <4B385164.9070704@cn.fujitsu.com>
+References: <20091221203253.GA5683@andrew.cmu.edu> <20091221203704.GD5683@andrew.cmu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Michael Stone <michael@lapt
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20091227190802.GH11737@elf.ucw.cz>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	containers@lists.linux-foundation.org, akpm@linux-foundation.org,
+	menage@google.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Blum <bblum@andrew.cmu.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:55970 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751198AbZL1GeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2009 01:34:19 -0500
+In-Reply-To: <20091221203704.GD5683@andrew.cmu.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pavel Machek wrote:
-> "I can't see" is not strong enough test, I'd say.
+> Allows the net_cls cgroup subsystem to be compiled as a module
 > 
-> For example, I can easily imagine something like pam falling back to
-> local authentication when network is unavailable. If you disable
-> network for su...
+> From: Ben Blum <bblum@andrew.cmu.edu>
 > 
-> It would be also extremely easy to DoS something like sendmail -- if
-> it forks into background and then serves other users' requests.
+> This patch modifies net/sched/cls_cgroup.c to allow the net_cls subsystem to
+> be optionally compiled as a module instead of builtin. The cgroup_subsys
+> struct is moved around a bit to allow the subsys_id to be either declared as a
+> compile-time constant by the cgroup_subsys.h include in cgroup.h, or, if it's
+> a module, initialized within the struct by cgroup_load_subsys.
+> 
+> Signed-off-by: Ben Blum <bblum@andrew.cmu.edu>
 
-Pavel,
+Acked-by: Li Zefan <lizf@cn.fujitsu.com>
 
-I spent some time this afternoon reflecting on the scenarios that you sketched
-above. This reflection resulted in three concrete responses:
+But can we reorder this patch as the last patch?
 
-   1. Anyone depending on their network for authentication already has to deal
-      with availability faults. disablenetwork doesn't change anything
-      fundamental there.
 
-   2. Anyone able to use disablenetwork to block a privilege escalation via su
-      or to influence sendmail will be able to disrupt the privilege escalation
-      or mail transfer by manipulating the ancestors of su or sendmail in plenty
-      of other ways including, for example, via ptrace(), kill(), manipulation
-      of PATH, manipulation of X11 events and IPC, manipulation of TTYs, and so
-      on. 
-
-   3. As I pointed out before, disablenetwork _is_ controlled by a build-time
-      configuration option, its use _is_ still subject to any existing MAC
-      policy, and it _is_ easy to control for simply by talking to a
-      known-unrestricted process over an unrestricted IPC channel like a Unix
-      socket.
-
-and a short meta-response:
-
-   As I see it, the whole point of isolation facilities like disablenetwork is
-   to convert _nasty_ faults like secrecy and integrity faults into _local_
-   availability faults. Consequently, it is completely unsurprising that we
-   can't meet stringent availability goals via isolation without either relaxing
-   our other security goals or falling back to strong assumptions about the
-   state of our initial environment.
-
-   However, we should not therefore ignore the bottom line which is that
-   the additional isolation enabled by disablenetwork represents an excellent
-   security risk/reward tradeoff for many people and should be made more widely
-   available to these people on these grounds.
-
-Regards,
-
-Michael
-
-P.S. - Thanks again for your assistance in thinking through these scenarios and
-in refining the security case for the disablenetwork feature.
