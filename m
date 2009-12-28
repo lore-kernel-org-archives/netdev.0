@@ -1,16 +1,20 @@
 From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: [PATCH] drivers/net/via-velocity.c: use %pM to shown MAC address
-Date: Mon, 28 Dec 2009 18:30:08 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F4CD@mi8nycmail19.Mi8.com>
+Subject: [PATCH] drivers/net/xilinx_emaclite.c: use %pM to shown MAC address
+Date: Mon, 28 Dec 2009 18:33:35 -0500
+Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F4CE@mi8nycmail19.Mi8.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 Cc: "David Miller" <davem@davemloft.net>
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752533AbZL1XaH@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og115.obsmtp.com ([64.18.1.35]:40761 "HELO
+	exprod6og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751364AbZL1Xdb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 18:33:31 -0500
 Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Use the %pM kernel extension to display the MAC address.
 
@@ -19,20 +23,20 @@ Cc: David S. Miller <davem@davemloft.net>
 
 ---
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 4ceb441..cee8fa2 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -2702,10 +2702,8 @@ static void __devinit velocity_print_info(struct velocity_info *vptr)
- 	struct net_device *dev = vptr->dev;
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index 8c777ba..f7fe1aa 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -925,11 +925,7 @@ static int __devinit xemaclite_of_probe(struct of_device *ofdev,
+ 	/* Set the MAC address in the EmacLite device */
+ 	xemaclite_set_mac_address(lp, ndev->dev_addr);
  
- 	printk(KERN_INFO "%s: %s\n", dev->name, get_chip_name(vptr->chip_id));
--	printk(KERN_INFO "%s: Ethernet Address: %2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X\n",
--		dev->name,
--		dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
--		dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
-+	printk(KERN_INFO "%s: Ethernet Address: %pM\n",
-+		dev->name, dev->dev_addr);
- }
+-	dev_info(dev,
+-		 "MAC address is now %2x:%2x:%2x:%2x:%2x:%2x\n",
+-		 ndev->dev_addr[0], ndev->dev_addr[1],
+-		 ndev->dev_addr[2], ndev->dev_addr[3],
+-		 ndev->dev_addr[4], ndev->dev_addr[5]);
++	dev_info(dev, "MAC address is now %pM\n", ndev->dev_addr);
  
- static u32 velocity_get_link(struct net_device *dev) 
+ 	ndev->netdev_ops = &xemaclite_netdev_ops;
+ 	ndev->flags &= ~IFF_MULTICAST; 
