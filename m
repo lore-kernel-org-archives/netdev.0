@@ -1,101 +1,102 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [Bugme-new] [Bug 14839] New: Trying to use a TUN device fir IPv6
- traffic, cannot set destination address.
-Date: Mon, 28 Dec 2009 11:00:06 -0800
-Message-ID: <4B390036.90300@qualcomm.com>
-References: <bug-14839-10286@http.bugzilla.kernel.org/> <20091222151238.e7e44e36.akpm@linux-foundation.org>
+From: Mark Bergsma <mark@wikimedia.org>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Mon, 28 Dec 2009 19:49:38 +0100
+Message-ID: <4B38FDC2.9000507@wikimedia.org>
+References: <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>	<20081202.145129.06176881.davem@davemloft.net>	<49597.86.34.32.157.1228259764.squirrel@mail.embedromix.ro> <20081202.163729.158874214.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"mcisho@yahoo.com" <mcisho@yahoo.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:36715 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbZL1TAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 14:00:07 -0500
-Received: from ironrogue.qualcomm.com (ironrogue.qualcomm.com [129.46.61.164])
-	by numenor.qualcomm.com (8.14.2/8.14.2/1.0) with ESMTP id nBSJ06GN001593
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 11:00:07 -0800
-In-Reply-To: <20091222151238.e7e44e36.akpm@linux-foundation.org>
+Received: from tilia.nedworks.org ([82.94.225.218]:49395 "EHLO
+	tilia.nedworks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751253AbZL1Tae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 14:30:34 -0500
+Received: from 35-19-ftth.onsnetstudenten.nl ([145.120.19.35]:60122 helo=[192.168.20.11])
+	by tilia.nedworks.org with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.63)
+	(envelope-from <mark@wikimedia.org>)
+	id 1NPKex-0007rY-3k
+	for netdev@vger.kernel.org; Mon, 28 Dec 2009 19:49:39 +0100
+In-Reply-To: <20081202.163729.158874214.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
+On 03-12-08 01:37, David Miller wrote:
+> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+> Date: Tue, 2 Dec 2008 16:16:04 -0700 (MST)
+>> I was looking for anything that could get me past of 88.000 request per
+>> seconds.
+>> The help text told me to raise that value if I have big number of
+>> connections. I just needed an easy way to test.
 > 
-> On Sat, 19 Dec 2009 10:35:18 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
+> You're just repeating what I said, you "think" it should be
+> changed and as a result you are wasting everyones time.
 > 
->> http://bugzilla.kernel.org/show_bug.cgi?id=14839
->>
->>            Summary: Trying to use a TUN device fir IPv6 traffic, cannot
->>                     set destination address.
->>            Product: Networking
->>            Version: 2.5
->>     Kernel Version: 2.6.31.6
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: IPV6
->>         AssignedTo: yoshfuji@linux-ipv6.org
->>         ReportedBy: mcisho@yahoo.com
->>         Regression: No
->>
->>
->> I am modifying a program that uses a TUN device for IPv4 traffic so that the
->> same TUN device can also be used for IPv6 traffic. Using ioctl SIOCSIFADDR will
->> add an IPv6 address but ioctl SIOCSDSTADDR to add an IPv6 destination address
->> always results in error ENODEV (19 No such device).
->>
->> I searched around the source and found addrconf_set_dstaddr in addrconf.c which
->> seems to be the routine called to set the destination address. However, the
->> routine only sets a destination address for a SIT device, otherwise if returns
->> ENODEV.
->>
->> Below is the ifconfig output for the TUN device:-
->> $ ifconfig tun3
->> tun3      Link encap:UNSPEC  HWaddr
->> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  
->>           inet addr:192.168.3.235  P-t-P:192.168.250.235  Mask:255.255.255.255
->>           inet6 addr: fd00::3:235/128 Scope:Global
->>           UP POINTOPOINT RUNNING  MTU:1344  Metric:1
->>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->>           collisions:0 txqueuelen:500 
->>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
->>
->> BTW, ifconfig cannot add an IPv6 destination address either, the code has a
->> comment saying that the support needs to be written.
->>
->> Can a TUN device be used for IPv6 traffic? I cannot find a definitive answer,
->> only 'should'. Or is that nobody has ever wanted to use a TUN device for IPv6
->> traffic, and so the kernel support has not been written? Or am I doing
->> something wrong?
+> You don't actually "know", you're just guessing using random
+> snippets from documentation rather than good hard evidence of
+> a need.
 
-Sorry for the delay guys. I was under the impression that things like OpenVPN
-work just fine with IPv6 (OpenVPN uses TUN device).
+Hello,
 
-Here is a quote from OpenVPN FAQ
---
-Point-to-point IPv6 tunnels are supported on OSes which have IPv6 TUN driver
-support (this includes Linux and the BSDs). IPv6 over TAP is always supported
-as is any other protocol which can run over Ethernet.
---
+I just found this year-old thread about a patch allowing the IPVS
+connection hash table size to be set at load time by a module parameter.
+Apparently the conclusion reached was that allowing this configuration
+setting to be changed would be useless, and that the poster's
+performance problems would likely lie elsewhere, since he had no
+evidence it was caused by the hash table size.
 
-So. I'd suggest looking at the OpenVPN code. AFAIK all the kernel plumbing is
-fine.
+We do however run into the same problem with the default setting (2^12 =
+4096 entries), as most of our LVS balancers handle around a million
+connections/SLAB entries at any point in time (around 100-150 kpps
+load). With only 4096 hash table entries this implies that each entry
+consists of a linked list of 256 connections *on average*.
 
-Max
+To provide some statistics, I did an oprofile run on an 2.6.31 kernel,
+with both the default 4096 table size, and the same kernel recompiled
+with IP_VS_CONN_TAB_BITS set to 18 (2^18 = 262144 entries). I built a
+quick test setup with a part of Wikimedia/Wikipedia's live traffic
+mirrored by the switch to the test host.
 
+With the default setting, at ~ 120 kpps packet load we saw a typical %si
+CPU usage of around 30-35%, and oprofile reported a hot spot in
+ip_vs_conn_in_get:
 
+samples  %        image name               app name
+symbol name
+1719761  42.3741  ip_vs.ko                 ip_vs.ko
+ip_vs_conn_in_get
+302577    7.4554  bnx2                     bnx2                     /bnx2
+181984    4.4840  vmlinux                  vmlinux
+__ticket_spin_lock
+128636    3.1695  vmlinux                  vmlinux
+ip_route_input
+74345     1.8318  ip_vs.ko                 ip_vs.ko
+ip_vs_conn_out_get
+68482     1.6874  vmlinux                  vmlinux
+mwait_idle
 
+After loading the recompiled kernel with 2^18 entries, %si CPU usage
+dropped in half to around 12-18%, and oprofile looks much healthier,
+with only 7% spent in ip_vs_conn_in_get:
+
+samples  %        image name               app name
+symbol name
+265641   14.4616  bnx2                     bnx2                     /bnx2
+143251    7.7986  vmlinux                  vmlinux
+__ticket_spin_lock
+140661    7.6576  ip_vs.ko                 ip_vs.ko
+ip_vs_conn_in_get
+94364     5.1372  vmlinux                  vmlinux
+mwait_idle
+86267     4.6964  vmlinux                  vmlinux
+ip_route_input
+
+So yes, having the table size as an ip_vs module parameter would be
+*very* welcome. Perhaps not as convenient as a dynamically resizing
+table, but it would be a lot less work and much more maintainable in
+production than compiling a kernel with every security update...
+
+-- 
+Mark Bergsma <mark@wikimedia.org>
+Operations Engineer, Wikimedia Foundation
