@@ -1,84 +1,68 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 4/5] drivers/net/can: Correct NULL test
-Date: Mon, 28 Dec 2009 14:49:58 +0100
-Message-ID: <4B38B786.9020609@hartkopp.net>
-References: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Mon, 28 Dec 2009 09:37:24 -0500
+Message-ID: <8817.1262011044@localhost>
+References: <20091227190802.GH11737@elf.ucw.cz> <20091228060759.GB13266@heat>
+            <20091228101006.GA19984@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1262011044_3923P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, chri <chripell@gmail.com>,
-	chripell@evolware.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:26106 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbZL1NuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 08:50:04 -0500
-In-Reply-To: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: Your message of "Mon, 28 Dec 2009 11:10:06 +0100."
+             <20091228101006.GA19984@elf.ucw.cz>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
+--==_Exmh_1262011044_3923P
+Content-Type: text/plain; charset=us-ascii
 
-Thanks Julia!
+On Mon, 28 Dec 2009 11:10:06 +0100, Pavel Machek said:
 
-I added Christian Pellegrin who is the author of this driver in CC.
+> a) make disablenetwork reset to "enablenetwork" during setuid exec
 
-An obvious copy/paste error :-)
+That won't work either.  If you only make it 'setuid==0' binaries, you still
+break 'setuid-FOO' binaries that require the net. If you just check the setuid
+bit, it allows a trivial escape by creating a setuid-yourself binary and using
+that to exec something else (now with network access, because we apparently
+don't have a way to remember the previous setting).
 
-Regards,
-Oliver
+> b) disallow setuid execs for tasks that have network disabled.
 
-Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
+This is probably safer...
 
-> 
-> Test the just-allocated value for NULL rather than some other value.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression x,y;
-> statement S;
-> @@
-> 
-> x = \(kmalloc\|kcalloc\|kzalloc\)(...);
-> (
-> if ((x) == NULL) S
-> |
-> if (
-> -   y
-> +   x
->        == NULL)
->  S
-> )
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> 
-> ---
->  drivers/net/can/mcp251x.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -u -p a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-> --- a/drivers/net/can/mcp251x.c
-> +++ b/drivers/net/can/mcp251x.c
-> @@ -990,7 +990,7 @@ static int __devinit mcp251x_can_probe(s
->  			goto error_tx_buf;
->  		}
->  		priv->spi_rx_buf = kmalloc(SPI_TRANSFER_BUF_LEN, GFP_KERNEL);
-> -		if (!priv->spi_tx_buf) {
-> +		if (!priv->spi_rx_buf) {
->  			ret = -ENOMEM;
->  			goto error_rx_buf;
->  		}
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--==_Exmh_1262011044_3923P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFLOMKkcC3lWbTT17ARAuXQAKDKSD04p/kzwOlcGrzMWIaZi0zdewCfYouK
+fKvx9SgRred/XVHfSlWkL2U=
+=oN+p
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1262011044_3923P--
 
