@@ -1,23 +1,43 @@
-From: Rose_Anderson5@ecunet.org
-Subject: Hello,
-Date: Mon, 28 Dec 2009 05:51:07 -0500
-Message-ID: <200912281051.nBSAp6hH005656__6082.76951029456$1261997679$gmane$org@ecunet-web-1.ecunet.org>
+From: WEB ADMIN <webmaster_team125@mail2webmaster.com>
+Subject: Dear Web User
+Date: Mon, 28 Dec 2009 19:10:23 +0800
+Message-ID: <web-234071278__11387.0667097673$1261998657$gmane$org@octa4.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="EUC-KR"; format="flowed"
+Content-Transfer-Encoding: 8bit
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ecunet.org ([72.250.175.188]:36281 "EHLO mail2.ecunet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752084AbZL1KyP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Dec 2009 05:54:15 -0500
+Received: from communigate.iinet.net.au ([203.59.2.44]:41408 "EHLO
+	octa4.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752256AbZL1LKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2009 06:10:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-How are you,hope you are doing well,am rose andersona a lovely girl, and  i beleive we can get
-aquainted,so if it interests you,pls reach me back here okay for further communications okay.i stop here awaiting your respond.
+
+Dear Web User,
+
+The Web management is happy to notify you about our email 
+services upgrade. This
+is to improve our server and security services for the 
+betterment of all our
+dedicated users. This is important for all subscribers.
+
+We need the following for your email profile upgrade:
+
+Full Name :
+Email Username:
+Email Password:
+
+You have limited time to supply the above details for 
+effective services by
+replying to this email and any delay or incorrect username 
+or password, may
+cause our server to automatically log you out from our 
+system.
+
+Thank you.
+
 Regards,
-Miss rose
-(rose_20v1@ayhoo.com)
-Please contact me direct with  my email address for me to send my picture and further communications
-
-(rose_20v1@ayhoo.com)
+Web  Support Team.
