@@ -1,96 +1,57 @@
-From: Bryan Donlan <bdonlan@gmail.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Mon, 28 Dec 2009 16:33:52 -0500
-Message-ID: <3e8340490912281333l1459f769yf621a36ad1ed6482@mail.gmail.com>
-References: <20091227190802.GH11737@elf.ucw.cz> <20091228060759.GB13266@heat>
-	<20091228101006.GA19984@elf.ucw.cz> <8817.1262011044@localhost>
-	<20091228205511.GD1637@ucw.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Valdis.Kletnieks@vt.edu, Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	"Am?rico Wang" <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091228205511.GD1637@ucw.cz>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6 v4] bonding: allow arp_ip_targets on separate vlans to use arp validation
+Date: Mon, 28 Dec 2009 13:55:33 -0800
+Message-ID: <13580.1262037333@death.nxdomain.ibm.com>
+References: <20091214204858.GP1639@gospo.rdu.redhat.com> <20091225.182230.183058983.davem@davemloft.net> <20091228152632.GA6490@gospo.rdu.redhat.com> <20091228.073308.112591206.davem@davemloft.net>
+Cc: andy@greyhouse.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:50371 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654AbZL1Vzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 16:55:52 -0500
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id nBSLn0ca013101
+	for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 14:49:00 -0700
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id nBSLtn4Y173942
+	for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 14:55:49 -0700
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id nBSLvjeA000628
+	for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 14:57:46 -0700
+In-reply-to: <20091228.073308.112591206.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 28, 2009 at 3:55 PM, Pavel Machek <pavel@ucw.cz> wrote:
-> On Mon 2009-12-28 09:37:24, Valdis.Kletnieks@vt.edu wrote:
->> On Mon, 28 Dec 2009 11:10:06 +0100, Pavel Machek said:
->>
->> > a) make disablenetwork reset to "enablenetwork" during setuid exec
->>
->> That won't work either. =A0If you only make it 'setuid=3D=3D0' binar=
-ies, you still
->> break 'setuid-FOO' binaries that require the net. If you just check =
-the setuid
->> bit, it allows a trivial escape by creating a setuid-yourself binary=
- and using
->> that to exec something else (now with network access, because we app=
-arently
->> don't have a way to remember the previous setting).
+David Miller <davem@davemloft.net> wrote:
+
+>From: Andy Gospodarek <andy@greyhouse.net>
+>Date: Mon, 28 Dec 2009 10:26:32 -0500
 >
+>> This patch should be ready for inclusion.
 >
-> it is really only required for binaries setuid to someone else, but
-> that would be too ugly. (Plus, as someone said, ping is great for
-> leaking data out.)
+>Yes, but I haven't seen ACK's from Jay or Eric.
 
-No, this is not sufficient; one needs only to find a setuid process
-that can be convinced to run a program with the original (pre-suid)
-privileges. For example, one could invoke gpg (older versions setuid
-so it can lock memory, executes user code for the passphrase input
-agent) or pulseaudio (in some cases setuid to go realtime, loads user
-plugins) or screen (setuid for sharing sessions, obviously executes
-user programs) or at/cron (did you remember to deny access to these?)
-=2E..
+	I was testing with the final patch just before my personal
+holiday adventures began, and was having one problem: the ARP monitor
+part worked fine on the VLAN (the slaves were up) but regular traffic on
+that same VLAN, e.g., ping, was dropped on receive at the bond.  The
+peer (without bonding) saw the traffic, and responded, but it appeared
+that ARP replies from the peer (again, over the VLAN) weren't making it
+to the ARP table (at the bond end), so everything that depended on the
+ARP table wasn't working.
 
-Or one can target a non-root setuid program that may have security
-holes - how about nethack?
+	I'm willing to believe this is a personal problem at my end, but
+I haven't determined the cause, and won't have the opportunity until
+next week (after my house has drained of relatives).
 
-While in modern distros these uses of setuid may be rare, they can
-exist, and under the old security model they were safe. Not so
-anymore. As such, re-enabling network access upon executing a setuid
-program is not acceptable.
+	If Andy isn't seeing the above misbehavior, I'm fine with
+assuming it's my problem and applying the patch; if I find something
+actually wrong with the patch next week we can address it then.
 
-That said, I do feel this is a separate issue. The process should
-first drop its ability to suid; then it can freely apply additional
-restrictions without there being any risk of breaking setuid
-applications.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-In short, how does this sound:
-* Add an API to allow processes to permanently revoke their own
-ability to gain privileges from setuid-exec
-* Add this disablenetwork facility, conditional on dropping
-setuid-exec abilities
+	-J
 
-This also paves the way for:
-* Allow processes that have dropped said suid ability to freely create
-new namespaces (and chroot)
-
-Which, combined with doing whatever audits are necessary to allow
-cross-network-namespace uses of unix domain sockets, actually
-eliminates the need for the disablenetwork API. :)
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
