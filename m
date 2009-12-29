@@ -1,66 +1,91 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Strange TCP behavior over HSDPA
-Date: Tue, 29 Dec 2009 19:31:13 +0100
-Message-ID: <20091229183113.GA3081@del.dom.local>
-References: <20091229083050.GA7209@ff.dom.local>
- <4B39D30F.8090006@gmail.com>
- <20091229105748.GB7209@ff.dom.local>
- <20091229121624.GC7209@ff.dom.local>
- <20091229133620.GA9552@ff.dom.local>
- <4B3A1284.2030101@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 10:36:31 -0800
+Message-ID: <m1fx6ty6ds.fsf@fess.ebiederm.org>
+References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
+	<20091229151146.GA32153@us.ibm.com>
+	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<20091229163939.GA6984@us.ibm.com>
+	<3e8340490912290901y60d7daf2w5778c25f44972955@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:46953 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751571AbZL2SbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 13:31:21 -0500
-Received: by fxm25 with SMTP id 25so5451572fxm.21
-        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 10:31:19 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4B3A1284.2030101@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@zeniv.linux.org.uk>
+To: Bryan Donlan <bdonlan@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <3e8340490912290901y60d7daf2w5778c25f44972955@mail.gmail.com> (Bryan Donlan's message of "Tue\, 29 Dec 2009 12\:01\:39 -0500")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 29, 2009 at 03:30:28PM +0100, Kristian Evensen wrote:
-> Den 29.12.2009 14:36, skrev Jarek Poplawski:
-> >On Tue, Dec 29, 2009 at 12:16:24PM +0000, Jarek Poplawski wrote:
-> >>On Tue, Dec 29, 2009 at 10:57:48AM +0000, Jarek Poplawski wrote:
-> >>>Did you try to turn off TCP window scaling btw? Anyway, under the
-> >>>tunnel ([2]), when SACK worked, it saved you a lot of retransmits.
-> >>Hmm... Actually, after re-checking, there weren't much more of those
-> >>retransmits at all. In [1] there was one more packet lost, so it took
-> >>a bit longer. In [2] (with SACK) the retransmit started earlier and
-> >>the rcv window was unchanged. So, it rather looks like differences
-> >>in timing of TCP recovery techniques.
-> >Hmm#2... On the other hand, I can imagine cases with a larger data
-> >loss, where working SACK should really save on retransmits.
-> >
-> >Jarek P.
-> Thanks for all your comments. I have not tried to disable window
-> scaling, but will try that as soon as possible. I also noticed the
-> second packet loss in [1], but I don't think it affected the
-> situation to much. In similar packet captures, the transfer without
-> the tunnel has only lost one packet and the throughput drop has been
-> just as significant as in [1]. It rather seems to be, as you point
-> out, differences in timing of the recovery techniques, probably
-> between this accelerator and the server.
+Bryan Donlan <bdonlan@gmail.com> writes:
 
-Then disabling window scaling seems too radical; maybe you should try
-with lower tcp_rmem max etc.
+> On Tue, Dec 29, 2009 at 11:39 AM, Serge E. Hallyn <serue@us.ibm.com> =
+wrote:
+>> Quoting Bryan Donlan (bdonlan@gmail.com):
+>>> On Tue, Dec 29, 2009 at 10:11 AM, Serge E. Hallyn <serue@us.ibm.com=
+> wrote:
+>>> > Eric, let me specifically point out a 'disable setuid-root'
+>>> > problem on linux: root still owns most of the system even when
+>>> > it's not privileged. =A0So does "disable setuid-root" mean
+>>> > we don't allow exec of setuid-root binaries at all, or that
+>>> > we don't setuid to root, or that we just don't raise privileges
+>>> > for setuid-root?
+>>>
+>>> I, for one, think it would be best to handle it exactly like the
+>>> nosuid mount option - that is, pretend the file doesn't have any
+>>> setuid bits set. There's no reason to deny execution; if the proces=
+s
+>>> would otherwise be able to execute it, it can also copy the file to
+>>> make a non-suid version and execute that instead. And some programs
+>>> can operate with reduced function without setuid. For example, scre=
+en
+>>> comes to mind; it needs root to share screen sessions between multi=
+ple
+>>> users, but can operate for a single user just fine without root, an=
+d
+>>> indeed the latter is usually the default configuration.
+>>
+>> That's fine with me, seems safe for a fully unprivileged program to
+>> use, and would make sense to do through one of the securebits set
+>> with prctl(PR_SET_SECUREBITS).
+>>
+>> In addition, I assume we would also refuse to honor file capabilitie=
+s?
+>
+> Yes - essentially a one-time switch saying "never allow me to gain
+> capabilities again".
 
-> 
-> However, I find it a bit strange the dupAcks are sent back to the
-> server. Based on my, I must admit limited, knowledge of
-> accelerators, they will buffer and ACK packets if they for example
-> are responsible for retransmissions. But again, maybe it uses the
-> dupAcks to tell the server to slow down and then simply discards the
-> retransmitted packet.
+That is what I was thinking.  Does setresuid case problems?  Assuming
+the application that drop permissions could have successfully
+called setresuid?
 
-I'm not a TCP expert, but IMHO you don't need much knowledge to assess
-quality of this accelerator, if you get better results when omitting
-it (partly) with a tunnel ;-)
+Ignoring the bits instead of honoring them when execing an executable
+makes sense as that is the existing precedent.
 
-Jarek P.
+If it works prctl appears to be a fine interface.
+
+Eric
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
