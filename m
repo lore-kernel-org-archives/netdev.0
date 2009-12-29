@@ -1,62 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
-Date: Mon, 28 Dec 2009 20:16:09 -0500
-Message-ID: <20091229011608.GC7037@localhost.localdomain>
-References: <20091228194834.GA18422@hmsreliant.think-freely.org>
- <20091228195053.GB18422@hmsreliant.think-freely.org>
- <20091228213114.GA24285@zoreil.com>
- <20091229005152.GV2721@decadent.org.uk>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.33-rc2] axnet_cs: remove unnecessary
+ spin_unlock_irqrestore
+Date: Tue, 29 Dec 2009 10:17:24 +0900
+Message-ID: <20091229101724.7a077507.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?Q?Fran=E7ois?= romieu <romieu@zoreil.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, nhorman@redhat.com
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56348 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbZL2BQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 20:16:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20091229005152.GV2721@decadent.org.uk>
+Received: from userg508.nifty.com ([202.248.238.88]:26650 "EHLO
+	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061AbZL2BR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 20:17:57 -0500
+Received: from localhost.localdomain (eaoska169128.adsl.ppp.infoweb.ne.jp [219.116.18.128])by userg508.nifty.com with SMTP id nBT1HhiG018121
+	for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 10:17:43 +0900
+In-Reply-To: <20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 29, 2009 at 12:51:52AM +0000, Ben Hutchings wrote:
-> On Mon, 2009-12-28 at 22:31 +0100, Fran=E7ois romieu wrote:
-> > (I'm back)
-> >=20
-> > The Mon, Dec 28, 2009 at 02:50:53PM -0500, Neil Horman wrote :
-> > [...]
-> > > frames were received on NIC's supported by this driver.  This was=
- mentioned in a
-> > > security conference recently:
-> > > http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
-> >=20
-> > Is there a paper ?
-> [...]
->=20
-> I was present in the session and emailed you and Neil about this
-> yesterday; did you not get the message?  The slides are now linked fr=
-om
-> the above page; see pages 74-87.  I suggest you ask the speaker if yo=
-u
-> need any more details.
->=20
-> Ben.
->=20
-I'm sorry, Ben, I don't think I received this note (although I admit I'=
-ve not
-been checking to closely over the holidays).  I jumped on this after I =
-got a
-phone call about it today.  I'll make sure to look for your note shortl=
-y.
-Neil
 
-> --=20
-> Ben Hutchings
-> Always try to do things in chronological order;
-> it's less confusing that way.
+axnet_cs:
+    remove unnecessary spin_unlock_irqrestore,spin_lock_irqsave.
 
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
+---
+
+--- linux-2.6.33-rc2/drivers/net/pcmcia/axnet_cs.c.orig	2009-12-27 18:21:59.000000000 +0900
++++ linux-2.6.33-rc2/drivers/net/pcmcia/axnet_cs.c	2009-12-27 18:22:38.000000000 +0900
+@@ -1065,14 +1065,11 @@ static netdev_tx_t axnet_start_xmit(stru
+ 	   
+ 	spin_lock_irqsave(&ei_local->page_lock, flags);
+ 	outb_p(0x00, e8390_base + EN0_IMR);
+-	spin_unlock_irqrestore(&ei_local->page_lock, flags);
+ 	
+ 	/*
+ 	 *	Slow phase with lock held.
+ 	 */
+ 	 
+-	spin_lock_irqsave(&ei_local->page_lock, flags);
+-	
+ 	ei_local->irqlock = 1;
+ 
+ 	send_length = max(length, ETH_ZLEN);
