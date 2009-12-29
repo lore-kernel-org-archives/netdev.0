@@ -1,63 +1,52 @@
-From: Bryan Donlan <bdonlan@gmail.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 15:43:52 -0500
-Message-ID: <3e8340490912291243q7ba43fd9v266835ebbda9315b@mail.gmail.com>
-References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
-	<20091229151146.GA32153@us.ibm.com> <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
-	<m3oclhzgm4.fsf@ursa.amorsen.dk> <m17hs5y0mg.fsf@fess.ebiederm.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.33-rc2: Reported regressions from 2.6.32
+Date: Tue, 29 Dec 2009 21:46:35 +0100
+Message-ID: <200912292146.35119.rjw@sisk.pl>
+References: <LptzGUUXbTK.A.MSF.ymhOLB@chimera> <b170af450912291200r73a56d55n5e9a68043a503907@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>,
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752667AbZL2UoS@vger.kernel.org>
-In-Reply-To: <m17hs5y0mg.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: =?utf-8?q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Greg KH <gregkh@suse.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <b170af450912291200r73a56d55n5e9a68043a503907@mail.gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 29, 2009 at 3:40 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Benny Amorsen <benny+usenet@amorsen.dk> writes:
->
->> Bryan Donlan <bdonlan@gmail.com> writes:
->>
->>> I, for one, think it would be best to handle it exactly like the
->>> nosuid mount option - that is, pretend the file doesn't have any
->>> setuid bits set. There's no reason to deny execution; if the process
->>> would otherwise be able to execute it, it can also copy the file to
->>> make a non-suid version and execute that instead.
->>
->> Execute != read. The executable file may contain secrets which must not
->> be available to the user running the setuid program. If you fail the
->> setuid, the user will be able to ptrace() and then the secret is
->> revealed.
->>
->> It's amazing how many security holes appear from what seems like a very
->> simple request.
->
-> Do we have a security hole in nosuid mount option?
+On Tuesday 29 December 2009, Rafa=C5=82 Mi=C5=82ecki wrote:
+> 2009/12/29 Rafael J. Wysocki <rjw@sisk.pl>:
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D1491=
+0
+> > Subject         : Stable version 2.6.32.2 broke my KMS Radeon setup
+> > Submitter       : Ruud Linders <kernelml@xs4all.nl>
+> > Date            : 2009-12-20 12:02 (10 days old)
+> > References      : http://marc.info/?l=3Dlinux-kernel&m=3D1261311056=
+08871&w=3D4
+>=20
+> Has patch (I think it was even submitted to Linus).
 
-Looks like it:
-$ /tmp/m/sudo
-sudo: must be setuid root
-$ ls -l /tmp/m/sudo
--rwsr-x--x 1 root root 123448 2009-06-22 12:14 /tmp/m/sudo
+This is a -stable only issue in fact, so I'm not going to track it from=
+ now on.
+
+Please watch the next -stable announcement from Greg and remind him abo=
+ut this
+issue if the patch isn't there.
+
+Rafael
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
