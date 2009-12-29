@@ -1,114 +1,82 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Tue, 29 Dec 2009 11:49:38 -0800
-Message-ID: <20091229114938.1f4d1c5c@nehalam>
-References: <4B300A2A.8040305@gmail.com>
-	<4B300E30.9090707@majjas.com>
-	<4B3114E3.1070602@majjas.com>
-	<4B329FA3.9090904@majjas.com>
-	<20091223230102.4bb0100e.akpm@linux-foundation.org>
-	<4B34E847.8010809@majjas.com>
-	<20091225152200.1cf11dfe@nehalam>
-	<4B3581C7.8000702@majjas.com>
-	<20091226095723.7ac82b18@nehalam>
-	<4B367409.5060202@majjas.com>
-	<4B379378.4000102@majjas.com>
-	<20091227102238.0df149f9@nehalam>
-	<4B37B7E2.5070307@majjas.com>
-	<20091229093023.3ad24786@nehalam>
-	<4B3A5048.9090700@majjas.com>
+From: Fabio Ludovici <fabio.ludovici@yahoo.it>
+Subject: [RESEND PATCH 0/3] netem/iproute2 solving correlated loss issue
+Date: Tue, 29 Dec 2009 20:59:00 +0100
+Message-ID: <4B3A5F84.4050603@yahoo.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38966 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751683AbZL2Ttu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2009 14:49:50 -0500
-In-Reply-To: <4B3A5048.9090700@majjas.com>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:52856 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752080AbZL2T7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 14:59:04 -0500
+Received: by fxm25 with SMTP id 25so5509274fxm.21
+        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 11:59:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch will dump more info in case of hardware error.
+Dear all,
 
---- a/drivers/net/sky2.c	2009-12-29 11:30:06.441137685 -0800
-+++ b/drivers/net/sky2.c	2009-12-29 11:46:37.389262922 -0800
-@@ -2629,12 +2625,71 @@ static void sky2_hw_error(struct sky2_hw
- 	}
- }
- 
-+static void dump_txring(struct sky2_hw *hw, unsigned port)
-+{
-+	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
-+	int sop = 1;
-+	unsigned idx;
-+
-+	printk(KERN_INFO PFX "Tx ring pending=%u...%u report=%d done=%d\n",
-+		   sky2->tx_cons, sky2->tx_prod,
-+		   sky2_read16(hw, port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
-+		   sky2_read16(hw, Q_ADDR(txqaddr[port], Q_DONE)));
-+
-+	/* Dump contents of tx ring */
-+	for (idx = sky2->tx_next;
-+	     idx != sky2->tx_prod && idx < sky2->tx_ring_size;
-+	     idx = RING_NEXT(idx, sky2->tx_ring_size)) {
-+		const struct sky2_tx_le *le = sky2->tx_le + idx;
-+		u32 a = le32_to_cpu(le->addr);
-+
-+		if (sop)
-+			printk(KERN_DEBUG "%u:", idx);
-+		sop = 0;
-+
-+		switch(le->opcode & ~HW_OWNER) {
-+		case OP_ADDR64:
-+			printk(" %#x:", a);
-+			break;
-+		case OP_LRGLEN:
-+			printk(" mtu=%d", a);
-+			break;
-+		case OP_VLAN:
-+			printk(" vlan=%d", be16_to_cpu(le->length));
-+			break;
-+		case OP_TCPLISW:
-+			printk(" csum=%#x", a);
-+			break;
-+		case OP_LARGESEND:
-+			printk(" tso=%#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		case OP_PACKET:
-+			printk(" %#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		case OP_BUFFER:
-+			printk(" frag=%#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		default:
-+			printk(" op=%#x,%#x(%d)", le->opcode, a,
-+			       le16_to_cpu(le->length));
-+		}
-+
-+		if (le->ctrl & EOP) {
-+			printk("\n");
-+			sop = 1;
-+		}
-+	}
-+}
-+
- static void sky2_hw_intr(struct sky2_hw *hw)
- {
- 	struct pci_dev *pdev = hw->pdev;
- 	u32 status = sky2_read32(hw, B0_HWE_ISRC);
- 	u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
- 
-+	printk(KERN_DEBUG PFX "hardware interrupt status %#x\n", status);
-+	dump_txring(hw, 0);
-+
- 	status &= hwmsk;
- 
- 	if (status & Y2_IS_TIST_OV)
+following the comments we have received from Stefan Hemmminger and David 
+Miller we are resending the patch that enhances netem module and the 
+iproute2 utilities as follows:
 
--- 
+- add deterministic loss generation according to a pattern that can be 
+specified in a file in the iproute2 command line
+- new statistical models for generation of correlated loss (the existing 
+model does not work), including loss models commonly used in literature 
+(bernoulli, Gilbert, Gilbert Elliot) and the new GI (General and 
+Intuitive model)
+- enhanced logging functionality for loss events in dmesg
+
+The patch should now be backward compatible, we have not changed the 
+existing structure for iproute2 to kernel communication (tc_netem_qopt), 
+but where needed we have added new structures (same approach used in the 
+"reorder" patch at 
+http://www.opensubscriber.com/message/netdev@oss.sgi.com/1362582.html)
+
+Additional information on the motivations for this work and additional 
+details can also be found at: 
+http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetEm2
+
+Examples of new iproute2 syntax is reported hereafter (full info in the 
+man page).
+
+1) generate loss according to a deterministic pattern:
+
+tc qdisc add/change dev eth0 root netem loss_pattern filename
+
+2) generate loss according to different loss models including the ones 
+commonly used in the literature (bernoulli, gilbert, gilbert-elliot) and 
+the new GI (General and Intuitive) model:
+
+tc qdisc add/change dev eth0 root netem2 loss_GI ploss [burst_length 
+[density [pisol [good_burst_length]]]]
+tc qdisc add/change dev eth0 root netem2 loss_GI_tran p13 p31 [p32 p23 
+[p14]]
+tc qdisc add/change dev eth0 root netem2 loss_bern p
+tc qdisc add/change dev eth0 root netem2 loss_gilb p r [1-h]
+tc qdisc add/change dev eth0 root netem2 loss_gilbell p r [1-h [1-k]]
+
+3) convert parameters between intuitive and Markov transition 
+probabilities (query mode)
+
+this applies to loss_GI and loss_GI_tran options. If the query label is 
+specified before the model label the transition probabilities or the GI 
+parameters that corresponds to the specified input parameters are 
+calculated and printed to screen, but no operation is done on the qdisc. 
+In this way the user can understands what he would obtain with certain 
+input parameters without necessarily make changes to the network's 
+behaviour.
+
+4) enable enhanced logging in dmesg:
+
+tc qdisc add/change dev eth0 root netem logging 1 loss_GI 5 10
+
+for each loss event the kernel logs will include a line like "netem2 
+loss event loss_GI 30 RFPLE 15" where RFPLE stands for "Received From 
+Previous Loss Event" and it counts the number y of good packets received 
+between two loss events while x is the number of all lost packets
+
+Stefano Salsano and Fabio Ludovici
