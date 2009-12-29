@@ -1,94 +1,122 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Tue, 29 Dec 2009 12:39:05 -0500
-Message-ID: <4B3A3EB9.9070008@majjas.com>
-References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
- <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
- <20091223230102.4bb0100e.akpm@linux-foundation.org>
- <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
- <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
- <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
- <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
- <20091229093023.3ad24786@nehalam>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 10:03:57 -0800
+Message-ID: <m1pr5xy7w2.fsf@fess.ebiederm.org>
+References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
+	<20091229151146.GA32153@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751488AbZL2Rjl@vger.kernel.org>
-In-reply-to: <20091229093023.3ad24786@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20091229151146.GA32153@us.ibm.com> (Serge E. Hallyn's message of "Tue\, 29 Dec 2009 09\:11\:46 -0600")
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ok - I can also try with VT-D disabled for another data point.
-On 12/29/2009 12:30 PM, Stephen Hemminger wrote:
-> There could be DMA problems, either because chip isn't remembering
-> upper address, or because of lack of wires from chip to memory controller;
-> there have been problems on motherboards where I/O devices couldn't access
-> all of memory.
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
 >
-> Try this, it forces each transmit to have full 64 bit address. It drops an
-> optimization that was done to reduce the number of transmit descriptors
-> used.
+> I have two comments on the idea:
 >
-> --- a/drivers/net/sky2.c	2009-12-29 09:23:37.114074275 -0800
-> +++ b/drivers/net/sky2.c	2009-12-29 09:26:38.699912035 -0800
-> @@ -1038,10 +1038,11 @@ static void tx_init(struct sky2_port *sk
->   	sky2->tx_tcpsum = 0;
->   	sky2->tx_last_mss = 0;
+> 1. We don't want to complicate the current capabilities
+>    concepts and API, so if we do something like this,
+>    we should make sure not to try to store these
+>    unprivileged capabilities with the current privilege
+>    capabilities.
+
+I was afraid there might be a complication like that.
+Then the user interface side of what I am proposing
+needs some more thought.
+
+> In my last email last night I detailed a way to use regular
+> capabilities to make the prctl(PR_SET_NETWORK, PR_DROP_NET)
+> safer.
+
+Yes.  I missed that earlier my apologies.
+
+>> I can see one of two possible reasons you are avoiding the
+>> suggestion to disable setuid root.
+>> - You have a use for setuid root executables in your contained
+>>   environment.  If you do what is that use?
 >
-> -	le = get_tx_le(sky2,&sky2->tx_prod);
-> -	le->addr = 0;
-> -	le->opcode = OP_ADDR64 | HW_OWNER;
-> -	sky2->tx_last_upper = 0;
-> +	if (sizeof(dma_addr_t) == sizeof(u32)) {
-> +		le = get_tx_le(sky2,&sky2->tx_prod);
-> +		le->addr = 0;
-> +		le->opcode = OP_ADDR64 | HW_OWNER;
-> +	}
->   }
+> I don't think Michael was avoiding that.  Rather, we haven't quite
+> spelled out what it means to disable setuid root, and we haven't
+> (to my satisfaction) detailed how setuid root would undo the
+> prctl(PR_SET_NETWORK, PR_DROP_NET) - i.e. is it only on a
+> privilege-granting setuid-root, or all setuids?
+
+Michael finds suid-root granting network access incompatible
+with what he is trying to achieve.  The practical example is
+network denied applications may communicate with the outside
+world by calling ping.
+
+> Eric, let me specifically point out a 'disable setuid-root'
+> problem on linux: root still owns most of the system even when
+> it's not privileged.  So does "disable setuid-root" mean
+> we don't allow exec of setuid-root binaries at all, or that
+> we don't setuid to root, or that we just don't raise privileges
+> for setuid-root?
+
+The semantics I am suggesting under the title "disable suid exec" are
+to flag a process such that, that process and any future children may
+not increase their kernel enforced privileges.  In practice this means
+attempts to exec any suid binaries will fail.  Likewise attempting to
+exec a binary flagged with in the filesystem to gain capabilities will
+also fail.
+
+This would appear to require denying of ptracing applications
+with other/more privileges, failing attempts to raise the
+capabilities on one of the processes, and I think failing
+all setuid/setgid calls.
+
+In my conception this is a useful subset of unshare(USERNS) that can
+be easily implemented now.
+
+>> - Disabling suid root executables is an indirect path to your
+>>   goal.
+>> 
+>> The problem with the disable_network semantics you want
+>> is that they allow you to perform a denial of service attack
+>> on privileged users.  An unprivileged DOS attack is unsuitable
+>> for a general purpose feature in a general purpose kernel.
 >
->   /* Update chip's next pointer */
-> @@ -1669,10 +1670,9 @@ static netdev_tx_t sky2_xmit_frame(struc
->
->   	/* Send high bits if needed */
->   	upper = upper_32_bits(mapping);
-> -	if (upper != sky2->tx_last_upper) {
-> +	if (sizeof(mapping)>  sizeof(u32)) {
->   		le = get_tx_le(sky2,&slot);
->   		le->addr = cpu_to_le32(upper);
-> -		sky2->tx_last_upper = upper;
->   		le->opcode = OP_ADDR64 | HW_OWNER;
->   	}
->
-> @@ -1762,10 +1762,9 @@ static netdev_tx_t sky2_xmit_frame(struc
->   			goto mapping_unwind;
->
->   		upper = upper_32_bits(mapping);
-> -		if (upper != sky2->tx_last_upper) {
-> +		if (sizeof(mapping)>  sizeof(u32)) {
->   			le = get_tx_le(sky2,&slot);
->   			le->addr = cpu_to_le32(upper);
-> -			sky2->tx_last_upper = upper;
->   			le->opcode = OP_ADDR64 | HW_OWNER;
->   		}
->
-> --- a/drivers/net/sky2.h	2009-12-29 09:23:37.164072886 -0800
-> +++ b/drivers/net/sky2.h	2009-12-29 09:25:15.302197993 -0800
-> @@ -2191,7 +2191,6 @@ struct sky2_port {
->
->   	u16		     tx_pending;
->   	u16		     tx_last_mss;
-> -	u32		     tx_last_upper;
->   	u32		     tx_tcpsum;
->
->   	struct rx_ring_info  *rx_ring ____cacheline_aligned_in_smp;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->    
+> Though to be honest I'm still unconvinced that the disablenetwork
+> is dangerous.  I think long-term a more general solution like what
+> I outlined above might be good, but short-term a sysctl that
+> turns on or off the ability to drop network would suffice imo.
+
+I have seen the following arguments put forth.
+  - Certain kinds of logging are broken from suid executables.
+  - Certain questionable but existing user space authentication
+    policies will be broken.
+
+That is enough for me to strongly suspect someone with a more
+devious mind than myself could find something worse.  I know
+it took me over a year to figure out how someone could exploit
+unshare(NETNS).
+
+The goal is to find something that unprivileged applications can use
+safely, and can be available by default in distro kernels.
+
+A syscall that removes the ability to exec suid executables appears to
+meet that goal, as well as be the necessary prerequisite for enabling
+other forms of isolation without causing security problems.
+
+Eric
