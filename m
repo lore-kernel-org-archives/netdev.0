@@ -1,16 +1,20 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 13:29:06 -0800
-Message-ID: <m1iqbpwjtp.fsf@fess.ebiederm.org>
-References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
+Date: Tue, 29 Dec 2009 21:35:19 +0000
+Message-ID: <20091229213519.09644bf9@lxorguk.ukuu.org.uk>
+References: <20091229050114.GC14362@heat>
+	<m1y6km11lj.fsf@fess.ebiederm.org>
 	<20091229151146.GA32153@us.ibm.com>
 	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
-	<m3oclhzgm4.fsf@ursa.amorsen.dk> <m17hs5y0mg.fsf@fess.ebiederm.org>
+	<m3oclhzgm4.fsf@ursa.amorsen.dk>
+	<m17hs5y0mg.fsf@fess.ebiederm.org>
 	<20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
+	<3e8340490912291314m5e1b72e6s6e394d0a8cf95d00@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
-	Bryan Donlan <bdonlan@gmail.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Benny Amorsen <benny+usenet@amorsen.dk>,
 	"Serge E. Hallyn" <serue@us.ibm.com>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -25,42 +29,34 @@ Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	=?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091229211139.0732a0c1@lxorguk.ukuu.org.uk> (Alan Cox's message of "Tue\, 29 Dec 2009 21\:11\:39 +0000")
-Sender: linux-security-module-owner@vger.kernel.org
+	Pavel Machek <pavel@ucw
+To: Bryan Donlan <bdonlan@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752865AbZL2Vdw@vger.kernel.org>
+In-Reply-To: <3e8340490912291314m5e1b72e6s6e394d0a8cf95d00@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
+> The security hole is that secrets in a setuid application with
+> other-exec but no other-read permission can be read when the
+> filesystem is mounted nosuid.
 
->> > Execute != read. The executable file may contain secrets which must not
->> > be available to the user running the setuid program. If you fail the
->> > setuid, the user will be able to ptrace() and then the secret is
->> > revealed.
->> >
->> > It's amazing how many security holes appear from what seems like a very
->> > simple request.
->> 
->> Do we have a security hole in nosuid mount option?
->> Can someone write a patch to fix it?
->
-> If a setuid app can read a key when its erroneously not set setuid then
-> the user can read it too.
->
-> Anything you can do with ptrace you can do yourself !
+Erm no
 
-Now that I think about it this is really something completely separate
-from setuid.  This is about being able to read the text segment with
-ptrace when you on have execute permissions on the file.
+We enforce the following anyway to prevent execution being permitted to
+make file copies. Most Unixen do although its historical value is
+primarily to prevent people "stealing valuable proprietary intellectual
+software assets".
 
-I just skimmed through fs/exec.c and we set the undumpable process
-flag in that case so ptrace should not work in that case.
 
-So short of a bug in the implementation we have no security hole.
+      } else if (file_permission(bprm->file, MAY_READ) ||
+                    bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP)
+      { 
+             set_dumpable(current->mm, suid_dumpable);
+      }
 
-Eric
+There does appear to be a small race in modern versions of that code
+which wants swatting.
