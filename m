@@ -1,51 +1,111 @@
-From: Gertjan van Wingerde <gwingerde@gmail.com>
-Subject: Re: 2.6.33-rc2: Reported regressions 2.6.31 -> 2.6.32
-Date: Tue, 29 Dec 2009 16:47:35 +0100
-Message-ID: <4B3A2497.1030506@gmail.com>
-References: <oBElxfTZdhL.A.bx.-vhOLB@chimera>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 11:06:20 -0500
+Message-ID: <20091229160620.GB14668@heat>
+References: <m1y6km11lj.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753204AbZL2Prl@vger.kernel.org>
-In-Reply-To: <oBElxfTZdhL.A.bx.-vhOLB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Michael
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1y6km11lj.fsf@fess.ebiederm.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rafael,
+Eric Biederman writes:
+> Serge,
+>
+> Michael Stone <michael@laptop.org> writes:
+>> I think that Pavel's point, at its strongest and most general, could be
+>> rephrased as:
+>>
+>>   "Adding *any* interesting isolation facility to the kernel breaks backwards
+>>    compatibility for *some* program [in a way that violates security goals]."
+>
+>*some* privileged program.
 
-On 12/29/09 16:26, Rafael J. Wysocki wrote:
+Your amendment is a good one; it makes the statement better reflect your and
+Pavel's concern. Thanks.
+
+>> The reason is the one that I identified in my previous note:
+>>
+>>   "The purpose of isolation facilities is to create membranes inside which
+>>    grievous security faults are converted into availability faults."
+>>
+>> The question then is simply:
+>>
+>>   "How do we want to deal with the compatibility-breaking changes created by
+>>    introducing new isolation facilities?"
+
+> You have a very peculiar taxonomy of the suggestions,
+> that fails to capture the concerns.
+
+Do you agree with my assessment that this is fundamentally a
+backwards-compatibility problem with security consequences?
+
+> I strongly recommend working out a way to disable
+> setuid exec.  Ideally we would use capabilities to
+> achieve this.  
 > 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14896
-> Subject		: REGRESSION for RT2561/RT61 in 2.6.32, related to power saving
-> Submitter	: Alan Stern <stern@rowland.harvard.edu>
-> Date		: 2009-12-06 22:12 (24 days old)
-> References	: http://marc.info/?l=linux-kernel&m=126013756829691&w=4
-> Handled-By	: Gertjan van Wingerde <gwingerde@gmail.com>
+> ...
 > 
+> I can see one of two possible reasons you are avoiding the
+> suggestion to disable setuid root...
 
-This one is fixed via a patch that is queued to be merged into 2.6.33. Is submitted
-for stable as well.
-See http://marc.info/?l=linux-wireless&m=126090994909576&w=2
+Heard and understood. I'll start thinking about how to do it (and about what
+the consequences might be). However, those aren't my reasons for wariness.
 
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=14731
-> Subject		: rt61pci regression
-> Submitter	: tim blechmann <tim@klingt.org>
-> Date		: 2009-12-04 09:33 (26 days old)
-> 
+My reasons have to do with history, preparation, and logic: 
 
-I believe this problem to be the same as the previous one, and the fix indicated above
-should fix this as well.
-Note however that the submitter had presumably unrelated issues that caused him not to 
-be able to validate the workaround of disabling powersaving.
+   1. I first began playing with disablenetwork about two years ago and I missed
+      both the need to restrict ptrace and the fact that the interaction with
+      privileged executables would be a problem for other people.
 
----
-Gertjan.
+   2. With disablenetwork, I was already building on clear (if slightly
+      incomplete) design by djb. We have none of that prep work here.
+
+   3. We have definite reasons, laid out by my argument above about the general
+      compatibility cost of isolation facilities, to suspect that disablesuid
+      in any form will break at least one other interesting use case. I don't
+      know what that use case is yet but I'm fairly sure that it exists.
+
+> The problem with the disable_network semantics you want
+> is that they allow you to perform a denial of service attack
+> on privileged users. An unprivileged DOS attack is unsuitable
+> for a general purpose feature in a general purpose kernel.
+
+Then where did rlimits come from? rlimits *can* DoS privileged processes and
+people are pretty much okay with the idea. People who are concerned can raise
+the rlimits in their privileged processes and get on with life.
+
+Second, as you point out, I am willing to audit and to modify my setuid
+executables *in exchange* for having a kernel that changes in useful ways.
+Obviously, not everyone is willing to pay this upkeep.
+
+At any rate, I hope all this helps make my position clearer. I'll think more
+about your suggestions.
+
+Regards,
+
+Michael
