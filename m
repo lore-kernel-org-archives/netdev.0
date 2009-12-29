@@ -1,41 +1,114 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.33-rc2: Reported regressions 2.6.31 -> 2.6.32
-Date: Tue, 29 Dec 2009 20:42:58 +0100
-Message-ID: <4B3A5BC2.10207@gmail.com>
-References: <oBElxfTZdhL.A.bx.-vhOLB@chimera>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Tue, 29 Dec 2009 11:49:38 -0800
+Message-ID: <20091229114938.1f4d1c5c@nehalam>
+References: <4B300A2A.8040305@gmail.com>
+	<4B300E30.9090707@majjas.com>
+	<4B3114E3.1070602@majjas.com>
+	<4B329FA3.9090904@majjas.com>
+	<20091223230102.4bb0100e.akpm@linux-foundation.org>
+	<4B34E847.8010809@majjas.com>
+	<20091225152200.1cf11dfe@nehalam>
+	<4B3581C7.8000702@majjas.com>
+	<20091226095723.7ac82b18@nehalam>
+	<4B367409.5060202@majjas.com>
+	<4B379378.4000102@majjas.com>
+	<20091227102238.0df149f9@nehalam>
+	<4B37B7E2.5070307@majjas.com>
+	<20091229093023.3ad24786@nehalam>
+	<4B3A5048.9090700@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	=?UTF-8?B?TcOhcnRvbiBOw6ltZXRo?= <nm127-Y8qEzhMunLyT9ig0jae3mg@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <oBElxfTZdhL.A.bx.-vhOLB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38966 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751683AbZL2Ttu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2009 14:49:50 -0500
+In-Reply-To: <4B3A5048.9090700@majjas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki wrote, On 12/29/2009 04:26 PM:
+This patch will dump more info in case of hardware error.
 
-=2E..
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14794
-> Subject		: IP address assigned by DHCP is dropped after ~40 seconds
-> Submitter	: M=C3=A1rton N=C3=A9meth <nm127-Y8qEzhMunLyT9ig0jae3mg@public.gmane.org>
-> Date		: 2009-12-13 08:59 (17 days old)
->=20
+--- a/drivers/net/sky2.c	2009-12-29 11:30:06.441137685 -0800
++++ b/drivers/net/sky2.c	2009-12-29 11:46:37.389262922 -0800
+@@ -2629,12 +2625,71 @@ static void sky2_hw_error(struct sky2_hw
+ 	}
+ }
+ 
++static void dump_txring(struct sky2_hw *hw, unsigned port)
++{
++	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
++	int sop = 1;
++	unsigned idx;
++
++	printk(KERN_INFO PFX "Tx ring pending=%u...%u report=%d done=%d\n",
++		   sky2->tx_cons, sky2->tx_prod,
++		   sky2_read16(hw, port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
++		   sky2_read16(hw, Q_ADDR(txqaddr[port], Q_DONE)));
++
++	/* Dump contents of tx ring */
++	for (idx = sky2->tx_next;
++	     idx != sky2->tx_prod && idx < sky2->tx_ring_size;
++	     idx = RING_NEXT(idx, sky2->tx_ring_size)) {
++		const struct sky2_tx_le *le = sky2->tx_le + idx;
++		u32 a = le32_to_cpu(le->addr);
++
++		if (sop)
++			printk(KERN_DEBUG "%u:", idx);
++		sop = 0;
++
++		switch(le->opcode & ~HW_OWNER) {
++		case OP_ADDR64:
++			printk(" %#x:", a);
++			break;
++		case OP_LRGLEN:
++			printk(" mtu=%d", a);
++			break;
++		case OP_VLAN:
++			printk(" vlan=%d", be16_to_cpu(le->length));
++			break;
++		case OP_TCPLISW:
++			printk(" csum=%#x", a);
++			break;
++		case OP_LARGESEND:
++			printk(" tso=%#x(%d)", a, le16_to_cpu(le->length));
++			break;
++		case OP_PACKET:
++			printk(" %#x(%d)", a, le16_to_cpu(le->length));
++			break;
++		case OP_BUFFER:
++			printk(" frag=%#x(%d)", a, le16_to_cpu(le->length));
++			break;
++		default:
++			printk(" op=%#x,%#x(%d)", le->opcode, a,
++			       le16_to_cpu(le->length));
++		}
++
++		if (le->ctrl & EOP) {
++			printk("\n");
++			sop = 1;
++		}
++	}
++}
++
+ static void sky2_hw_intr(struct sky2_hw *hw)
+ {
+ 	struct pci_dev *pdev = hw->pdev;
+ 	u32 status = sky2_read32(hw, B0_HWE_ISRC);
+ 	u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
+ 
++	printk(KERN_DEBUG PFX "hardware interrupt status %#x\n", status);
++	dump_txring(hw, 0);
++
+ 	status &= hwmsk;
+ 
+ 	if (status & Y2_IS_TIST_OV)
 
-
-IMHO this bug might be considered as fixed by updating a userspace tool
-(KNetworkManager) - unless somebody wants to seek for the exact reason.=
-=2E.
-
-Jarek P.
+-- 
