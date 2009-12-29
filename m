@@ -1,107 +1,72 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: lockdep possible recursive lock in slab parent->list->rlock in
-	rc2
-Date: Mon, 28 Dec 2009 17:11:37 -0800
-Message-ID: <20091229011137.GA8469@linux.vnet.ibm.com>
-References: <20091227120622.GA480@basil.fritz.box> <1261917194.5933.2.camel@penberg-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] e1000: enhance frame fragment detection
+Date: Mon, 28 Dec 2009 20:14:39 -0500
+Message-ID: <20091229011439.GB7037@localhost.localdomain>
+References: <20091228201005.GC18422@hmsreliant.think-freely.org>
+ <9929d2390912281642o964617kbee6e8a2b9f6c75f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
-	cl@linux-foundation.org, Heiko Carstens <heiko.carstens@de.ibm.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:51808 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936AbZL2BLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Dec 2009 20:11:33 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56335 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752283AbZL2BOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 20:14:44 -0500
 Content-Disposition: inline
-In-Reply-To: <1261917194.5933.2.camel@penberg-laptop>
+In-Reply-To: <9929d2390912281642o964617kbee6e8a2b9f6c75f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 27, 2009 at 02:33:14PM +0200, Pekka Enberg wrote:
-> Hi Andi,
-> 
-> On Sun, 2009-12-27 at 13:06 +0100, Andi Kleen wrote:
-> > Get this on a NFS root system while booting
-> > This must be a recent change in the last week, 
-> > I didn't see it in a post rc1 git* from last week
-> > (I haven't done a exact bisect)
-> > 
-> > It's triggered by the r8169 driver close function, 
-> > but looks more like a slab problem?
-> > 
-> > I haven't checked it in detail if the locks are 
-> > really different or just lockdep not knowing 
-> > enough classes.
-> 
-> I broke the lockdep annotations in commit
-> ce79ddc8e2376a9a93c7d42daf89bfcbb9187e62 ("SLAB: Fix lockdep annotations
-> for CPU hotplug"). Does this fix things for you? Heiko, the following
-> patch should fix it for you too.
+On Mon, Dec 28, 2009 at 04:42:09PM -0800, Jeff Kirsher wrote:
+> On Mon, Dec 28, 2009 at 12:10, Neil Horman <nhorman@tuxdriver.com> wr=
+ote:
+> > Hey all-
+> > =A0 =A0 =A0 =A0A security discussion was recently given:
+> > http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+> > And a patch that I submitted awhile back was brought up. =A0Apparen=
+tly some of
+> > their testing revealed that they were able to force a buffer fragme=
+nt in e1000
+> > in which the trailing fragment was greater than 4 bytes. =A0As a re=
+sult the
+> > fragment check I introduced failed to detect the fragement and a pa=
+rtial invalid
+> > frame was passed up into the network stack. =A0I've written this pa=
+tch to correct
+> > it. =A0I'm in the process of testing it now, but it makes good logi=
+cal sense to
+> > me. =A0Effectively it maintains a per-adapter state variable which =
+detects a
+> > non-EOP frame, and discards it and subsequent non-EOP frames leadin=
+g up to _and_
+> > _including_ the next positive-EOP frame (as it is by definition the=
+ last
+> > fragment). =A0This should prevent any and all partial frames from e=
+ntering the
+> > network stack from e1000
+> >
+> > Regards
+> > Neil
+> >
+> >
+> > =A0e1000.h =A0 =A0 =A0| =A0 =A03 ++-
+> > =A0e1000_main.c | =A0 14 ++++++++++++--
+> > =A02 files changed, 14 insertions(+), 3 deletions(-)
+> >
+> >
+>=20
+> Thanks Neil.  I have add the patch to my queue of patches.
+>=20
+> --=20
+> Cheers,
+> Jeff
+>=20
+Thanks jeff, much appreciated
+Happy Holidays
+Neil
 
-And no lockdep warnings here, either.  I did get the following
-new-to-me preempt_count underflow, but doubt that it is related.
-
-							Thanx, Paul
-
-Badness at kernel/sched.c:5350
-NIP: c0000000005b2e58 LR: c0000000005b2e3c CTR: c000000000025f0c
-REGS: c000000042893b30 TRAP: 0700   Not tainted  (2.6.33-rc2-autokern1)
-MSR: 8000000000029032 <EE,ME,CE,IR,DR>  CR: 22000082  XER: 0000000c
-TASK = c00000007d8737e0[0] 'swapper' THREAD: c000000042890000 CPU: 2
-GPR00: 0000000000000000 c000000042893db0 c0000000009c07f8 0000000000000001 
-GPR04: 0000000000000001 0000000000000006 0000000000000001 000000000000004a 
-GPR08: 0000000000000000 c00000000128adb8 c00000000088aa20 c000000000a0da08 
-GPR12: 0000000000000002 c0000000009df880 0000000000000000 0000000000c00020 
-GPR16: 0000000000000002 0000000000000000 0000000000000000 0000000000000000 
-GPR20: 0000000000000000 c0000000009e24b0 0000000000000001 c0000000009df480 
-GPR24: 0000000000000000 c0000000009d8628 c0000000009df880 0000000000000002 
-GPR28: c0000000009e2068 c0000000009d8628 c00000000093c000 c000000042890000 
-NIP [c0000000005b2e58] .sub_preempt_count+0x58/0xc8
-LR [c0000000005b2e3c] .sub_preempt_count+0x3c/0xc8
-Call Trace:
-[c000000042893db0] [c000000042893e30] 0xc000000042893e30 (unreliable)
-[c000000042893e30] [c000000000014d38] .cpu_idle+0x1f0/0x20c
-[c000000042893ec0] [c0000000005ba678] .start_secondary+0x380/0x3c4
-[c000000042893f90] [c000000000008264] .start_secondary_prolog+0x10/0x14
-Instruction dump:
-78290464 80090014 7f801800 40bc0074 4bd45745 60000000 2fa30000 419e0070 
-e93e8a08 80090000 2f800000 409e0060 <0fe00000> 48000058 78000620 2fa00000 
-BUG: scheduling while atomic: swapper/0/0x00000000
-INFO: lockdep is turned off.
-Modules linked in: ehea
-Call Trace:
-[c000000042897bf0] [c0000000000123b0] .show_stack+0x70/0x184 (unreliable)
-[c000000042897ca0] [c00000000005eaa0] .__schedule_bug+0xa4/0xc4
-[c000000042897d30] [c0000000005abe4c] .schedule+0xd8/0xa8c
-[c000000042897e30] [c000000000014d40] .cpu_idle+0x1f8/0x20c
-[c000000042897ec0] [c0000000005ba678] .start_secondary+0x380/0x3c4
-[c000000042897f90] [c000000000008264] .start_secondary_prolog+0x10/0x14
-
-> diff --git a/mm/slab.c b/mm/slab.c
-> index 7d41f15..7451bda 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -654,7 +654,7 @@ static void init_node_lock_keys(int q)
-> 
->  		l3 = s->cs_cachep->nodelists[q];
->  		if (!l3 || OFF_SLAB(s->cs_cachep))
-> -			return;
-> +			continue;
->  		lockdep_set_class(&l3->list_lock, &on_slab_l3_key);
->  		alc = l3->alien;
->  		/*
-> @@ -665,7 +665,7 @@ static void init_node_lock_keys(int q)
->  		 * for alloc_alien_cache,
->  		 */
->  		if (!alc || (unsigned long)alc == BAD_ALIEN_MAGIC)
-> -			return;
-> +			continue;
->  		for_each_node(r) {
->  			if (alc[r])
->  				lockdep_set_class(&alc[r]->lock,
-> 
-> 
