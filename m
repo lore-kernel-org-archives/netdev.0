@@ -1,26 +1,80 @@
-From: thomas yang <lampsu@gmail.com>
-Subject: Ethernet CRC questions
-Date: Wed, 30 Dec 2009 01:17:57 +0800
-Message-ID: <f4f837ab0912290917h626bcfecy34fe095a878e733c@mail.gmail.com>
+From: =?UTF-8?B?0JLQmtC+0L3RgtCw0LrRgtC1LtGA0YM=?= <admin@vkontakte.ru>
+Subject: =?UTF-8?B?0JjRgNC40L3QsCDQn9C+0YLQsNC/0L7QstCwINC00L7QsdCw0LLQuNC70LAg?=
+ =?UTF-8?B?0JLQsNGBINCyINC00YDRg9C30YzRjyDQvdCwINGB0LDQudGC0LUg0JLQmtC+?=
+ =?UTF-8?B?0L3RgtCw0LrRgtC1LtGA0YM=?=
+Date: Tue, 29 Dec 2009 06:02:03 +0300
+Message-ID: <5d6c0158c5d3b5ac01fe84364487cc87@localhost.localdomain>
+Reply-To: "Pavel Durov, inContact.ru Admin" <admin@vkontakte.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?B?0JfQtNGA0LDQstGB0YLQstGD0LnRgtC1?=
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:41934 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbZL2RR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 12:17:58 -0500
-Received: by pwj9 with SMTP id 9so6900240pwj.21
-        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 09:17:57 -0800 (PST)
+Received: from cs01.vkontakte.ru ([93.186.224.1]:34681 "EHLO vkontakte.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751570AbZL2RTz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Dec 2009 12:19:55 -0500
+Received: from localhost ([127.0.0.1] helo=localhost.localdomain)
+	by vkontakte.ru with esmtp (Exim 4.63)
+	(envelope-from <admin@vkontakte.ru>)
+	id 1NPSLT-0007kN-52
+	for netdev@vger.kernel.org; Tue, 29 Dec 2009 06:02:03 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-How does Linux  generate Ethernet CRC ?
-by the hardware (Ethernet controller)  or  use crc32_le() /
-crc32_be()     ( lib/crc32.c )  ?
+=D0=97=D0=B4=D1=80=D0=B0=D0=B2=D1=81=D1=82=D0=B2=D1=83=D0=B9=D1=82=D0=B5=
+,
 
-P.S.   my  network card is  rtl8139d  , use  8139too driver
+=D0=98=D1=80=D0=B8=D0=BD=D0=B0 =D0=9F=D0=BE=D1=82=D0=B0=D0=BF=D0=BE=D0=B2=
+=D0=B0 =D0=B4=D0=BE=D0=B1=D0=B0=D0=B2=D0=B8=D0=BB=D0=B0 =D0=92=D0=B0=D1=
+=81 =D0=B2 =D0=B4=D1=80=D1=83=D0=B7=D1=8C=D1=8F =D0=BD=D0=B0 =D1=81=D0=B0=
+=D0=B9=D1=82=D0=B5 =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5=
+=2E=D1=80=D1=83
+
+=D0=92=D1=8B =D0=BC=D0=BE=D0=B6=D0=B5=D1=82=D0=B5 =D0=B7=D0=B0=D0=B9=D1=
+=82=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B0=D0=B9=D1=82 =D0=B8 =D0=BF=D1=80=D0=BE=
+=D1=81=D0=BC=D0=BE=D1=82=D1=80=D0=B5=D1=82=D1=8C =D1=81=D1=82=D1=80=D0=B0=
+=D0=BD=D0=B8=D1=86=D1=8B =D0=92=D0=B0=D1=88=D0=B8=D1=85 =D0=B4=D1=80=D1=
+=83=D0=B7=D0=B5=D0=B9, =D0=B8=D1=81=D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D1=83=
+=D1=8F
+=D0=92=D0=B0=D1=88 e-mail =D0=B8 =D0=B0=D0=B2=D1=82=D0=BE=D0=BC=D0=B0=D1=
+=82=D0=B8=D1=87=D0=B5=D1=81=D0=BA=D0=B8 =D1=81=D0=BE=D0=B7=D0=B4=D0=B0=D0=
+=BD=D0=BD=D1=8B=D0=B9 =D0=BF=D0=B0=D1=80=D0=BE=D0=BB=D1=8C: 6rPlLFPb
+
+=D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=83 - =D1=
+=81=D0=B0=D0=B9=D1=82, =D0=BA=D0=BE=D1=82=D0=BE=D1=80=D1=8B=D0=B9 =D0=B5=
+=D0=B6=D0=B5=D0=B4=D0=BD=D0=B5=D0=B2=D0=BD=D0=BE =D0=BF=D0=BE=D0=B7=D0=B2=
+=D0=BE=D0=BB=D1=8F=D0=B5=D1=82 =D0=B4=D0=B5=D1=81=D1=8F=D1=82=D0=BA=D0=B0=
+=D0=BC =D0=BC=D0=B8=D0=BB=D0=BB=D0=B8=D0=BE=D0=BD=D0=BE=D0=B2 =D0=BB=D1=
+=8E=D0=B4=D0=B5=D0=B9 =D0=BD=D0=B0=D1=85=D0=BE=D0=B4=D0=B8=D1=82=D1=8C =
+=D1=81=D1=82=D0=B0=D1=80=D1=8B=D1=85 =D0=B4=D1=80=D1=83=D0=B7=D0=B5=D0=B9=
+ =D0=B8 =D0=BE=D1=81=D1=82=D0=B0=D0=B2=D0=B0=D1=82=D1=8C=D1=81=D1=8F =D1=
+=81 =D0=BD=D0=B8=D0=BC=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B2=D1=8F=D0=B7=D0=B8=
+, =D0=B4=D0=B5=D0=BB=D0=B8=D1=82=D1=8C=D1=81=D1=8F =D1=84=D0=BE=D1=82=D0=
+=BE=D0=B3=D1=80=D0=B0=D1=84=D0=B8=D1=8F=D0=BC=D0=B8
+=D0=B8 =D1=81=D0=BE=D0=B1=D1=8B=D1=82=D0=B8=D1=8F=D0=BC=D0=B8 =D0=B8=D0=
+=B7 =D0=B6=D0=B8=D0=B7=D0=BD=D0=B8.
+
+=D0=A7=D1=82=D0=BE=D0=B1=D1=8B =D0=B2=D0=BE=D0=B9=D1=82=D0=B8 =D0=BD=D0=
+=B0 =D1=81=D0=B0=D0=B9=D1=82, =D0=BF=D1=80=D0=BE=D0=B9=D0=B4=D0=B8=D1=82=
+=D0=B5 =D0=BF=D0=BE =D1=81=D1=81=D1=8B=D0=BB=D0=BA=D0=B5:
+http://vkontakte.ru/login.php?regemail=3Dnetdev@vger.kernel.org#6rPlLFP=
+b
+
+=D0=92=D0=BD=D0=B8=D0=BC=D0=B0=D0=BD=D0=B8=D0=B5: =D0=92=D0=B0=D1=88=D0=
+=B0 =D1=80=D0=B5=D0=B3=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=D1=8F =
+=D0=BD=D0=B5 =D0=B1=D1=83=D0=B4=D0=B5=D1=82 =D0=B0=D0=BA=D1=82=D0=B8=D0=
+=B2=D0=B8=D1=80=D0=BE=D0=B2=D0=B0=D0=BD=D0=B0, =D0=B5=D1=81=D0=BB=D0=B8=
+ =D0=92=D1=8B =D0=BF=D1=80=D0=BE=D0=B8=D0=B3=D0=BD=D0=BE=D1=80=D0=B8=D1=
+=80=D1=83=D0=B5=D1=82=D0=B5
+=D1=8D=D1=82=D0=BE =D0=BF=D1=80=D0=B8=D0=B3=D0=BB=D0=B0=D1=88=D0=B5=D0=BD=
+=D0=B8=D0=B5.
+
+=D0=96=D0=B5=D0=BB=D0=B0=D0=B5=D0=BC =D1=83=D0=B4=D0=B0=D1=87=D0=B8!
+=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
+=D0=90=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=
+=D1=8F =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=
+=83
 
 
---
-thomas
