@@ -1,86 +1,85 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 16:36:31 -0600
-Message-ID: <20091229223631.GB22578@us.ibm.com>
-References: <20091229050114.GC14362@heat>
- <m1y6km11lj.fsf@fess.ebiederm.org>
- <20091229151146.GA32153@us.ibm.com>
- <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
- <m3oclhzgm4.fsf@ursa.amorsen.dk>
- <m17hs5y0mg.fsf@fess.ebiederm.org>
- <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
- <m1iqbpwjtp.fsf@fess.ebiederm.org>
+From: Abhijit Karmarkar <awk@google.com>
+Subject: Re: ipsec performance
+Date: Tue, 29 Dec 2009 14:55:13 -0800
+Message-ID: <88cc3e770912291455w240d543atadbcbdd22746c@mail.gmail.com>
+References: <f5327b860912291309g701d6345k6517a4eb75830faf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al V
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: schuldei@spotify.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:48397 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752600AbZL2Wge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 17:36:34 -0500
-Content-Disposition: inline
-In-Reply-To: <m1iqbpwjtp.fsf@fess.ebiederm.org>
+Received: from smtp-out.google.com ([216.239.33.17]:47671 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752742AbZL2WzR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 17:55:17 -0500
+Received: from wpaz24.hot.corp.google.com (wpaz24.hot.corp.google.com [172.24.198.88])
+	by smtp-out.google.com with ESMTP id nBTMtEVW001821
+	for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 22:55:15 GMT
+Received: from pxi32 (pxi32.prod.google.com [10.243.27.32])
+	by wpaz24.hot.corp.google.com with ESMTP id nBTMssGs009239
+	for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 14:55:13 -0800
+Received: by pxi32 with SMTP id 32so7612335pxi.15
+        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 14:55:13 -0800 (PST)
+In-Reply-To: <f5327b860912291309g701d6345k6517a4eb75830faf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
-> 
-> >> > Execute != read. The executable file may contain secrets which must not
-> >> > be available to the user running the setuid program. If you fail the
-> >> > setuid, the user will be able to ptrace() and then the secret is
-> >> > revealed.
-> >> >
-> >> > It's amazing how many security holes appear from what seems like a very
-> >> > simple request.
-> >> 
-> >> Do we have a security hole in nosuid mount option?
-> >> Can someone write a patch to fix it?
-> >
-> > If a setuid app can read a key when its erroneously not set setuid then
-> > the user can read it too.
-> >
-> > Anything you can do with ptrace you can do yourself !
-> 
-> Now that I think about it this is really something completely separate
-> from setuid.  This is about being able to read the text segment with
-> ptrace when you on have execute permissions on the file.
-> 
-> I just skimmed through fs/exec.c and we set the undumpable process
-> flag in that case so ptrace should not work in that case.
+On Tue, Dec 29, 2009 at 1:09 PM, Andreas Schuldei <schuldei@spotify.com=
+> wrote:
+> hi!
+>
+> i experience performance issues with ipsec transport mode with debian
+> lenny and strongswan, on a stock debian kernel 2.6.26-2-amd64.
+>
+> the goal is to set up a full mash of several hundred hosts, talking
+> ipsec with each other, in order to be able to skip firewalls and to b=
+e
+> able to let the hosts be spread out over several sites in a
+> transparent fashion.
+>
+> regardless of the cipher (i tried aes and blowfish) the bandwidth
+> maxes out at about 0.5-0.25 of the expected (unencrypted) value,
+> without hitting obvious bottlenecks like cpu, disk, or ram.
 
-And in fact you can't do a new ptrace_attach, but if you're already
-tracing the task when it execs the unreadable-but-executable file,
-then the ptrace can continue.
+you may want try Steffen Klassert's parallel crypto patches (nice work!=
+):
 
-Just looking at the code, it appears 2.2 was the same way (though I
-could be missing where it used to enforce that).
+  http://marc.info/?l=3Dlinux-kernel&m=3D126155699817914&w=3D2
 
-So, is that intended?  What exactly would we do about it if not?
-Just refuse exec of a unreadable-but-executable file if we're
-being traced?
+the numbers are impressive. i plan to try them sometime this (or next w=
+eek).
 
-> So short of a bug in the implementation we have no security hole.
-> 
-> Eric
+yes, on the current kernels, the ipsec throughput numbers are around
+50% of the non-ipsec case. for me.
+
+
+>
+> tcpdump shows packages below the MTU (which is 1500):
+>
+> 20:25:03.313469 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a87), length 1332
+> 20:25:03.313514 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a88), length 1476
+> 20:25:03.313529 IP 78.31.14.93 > 78.31.14.86:
+> ESP(spi=3D0xc4967810,seq=3D0x7bcd1), length 68
+> 20:25:03.313557 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a89), length 1476
+> 20:25:03.313603 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a8a), length 1332
+> 20:25:03.313605 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a8a), length 1332
+> 20:25:03.313606 IP 78.31.14.93 > 78.31.14.86:
+> ESP(spi=3D0xc4967810,seq=3D0x7bcd2), length 68
+> 20:25:03.313649 IP 78.31.14.86 > 78.31.14.93:
+> ESP(spi=3D0xc929dbe8,seq=3D0x100a8b), length 1476
+>
+> how can i inspect window size, fragmentation etc? are there useful
+> files in /proc or /sys or enlightening ip commands?
+>
+> /andreas
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
