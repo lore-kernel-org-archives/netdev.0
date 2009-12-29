@@ -1,56 +1,54 @@
-From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
-Subject: Re: 2.6.33-rc2: Reported regressions 2.6.31 -> 2.6.32
-Date: Tue, 29 Dec 2009 21:55:13 +0100
-Message-ID: <4B3A6CB1.3030305@freemail.hu>
-References: <oBElxfTZdhL.A.bx.-vhOLB@chimera> <4B3A5BC2.10207@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 12:56:44 -0800
+Message-ID: <m1ws05wlbn.fsf@fess.ebiederm.org>
+References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
+	<20091229151146.GA32153@us.ibm.com>
+	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<20091229163939.GA6984@us.ibm.com>
+	<3e8340490912290901y60d7daf2w5778c25f44972955@mail.gmail.com>
+	<m1fx6ty6ds.fsf@fess.ebiederm.org>
+	<3e8340490912291108t7e000e75p8264fa585f831464@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01d.mail.t-online.hu ([84.2.42.6]:64791 "EHLO
-	mail01d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbZL2UzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 15:55:23 -0500
-In-Reply-To: <4B3A5BC2.10207@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@zeniv.linux.org.uk>
+To: Bryan Donlan <bdonlan@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <3e8340490912291108t7e000e75p8264fa585f831464@mail.gmail.com> (Bryan Donlan's message of "Tue\, 29 Dec 2009 14\:08\:30 -0500")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> Rafael J. Wysocki wrote, On 12/29/2009 04:26 PM:
->=20
-> ...
->> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14794
->> Subject		: IP address assigned by DHCP is dropped after ~40 seconds
->> Submitter	: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
->> Date		: 2009-12-13 08:59 (17 days old)
->>
->=20
->=20
-> IMHO this bug might be considered as fixed by updating a userspace to=
-ol
-> (KNetworkManager) - unless somebody wants to seek for the exact reaso=
-n...
+Bryan Donlan <bdonlan@gmail.com> writes:
 
-=46or me (I am the reporter) the problem was solved by upgrading a user=
-space
-tool, so I think the bug filed against the kernel can be closed marking
-that this was not really a kernel bug.
+> It's probably reasonable to require that real == effective == saved ==
+> fs UID (and same for GID); anything else brings up sticky issues of
+> "which UID is a higher capability?"
+> If a process does this call, it's effectively saying that the only way
+> it's going to be accessing resources beyond its current UID and
+> capabilities is by talking to another process over a (unix domain)
+> socket.
 
-Regards,
+Makes sense.  Especially for the initial implementation,
+and it keeps the code size small.
 
-	M=C3=A1rton N=C3=A9meth
-
+Eric
 
