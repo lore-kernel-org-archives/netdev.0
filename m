@@ -1,66 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000: enhance frame fragment detection
-Date: Mon, 28 Dec 2009 16:42:09 -0800
-Message-ID: <9929d2390912281642o964617kbee6e8a2b9f6c75f@mail.gmail.com>
-References: <20091228201005.GC18422@hmsreliant.think-freely.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6 v4] bonding: allow arp_ip_targets on
+	separate vlans to use arp validation
+Date: Mon, 28 Dec 2009 19:51:45 -0500
+Message-ID: <20091229005145.GB6490@gospo.rdu.redhat.com>
+References: <20091214204858.GP1639@gospo.rdu.redhat.com> <20091225.182230.183058983.davem@davemloft.net> <20091228152632.GA6490@gospo.rdu.redhat.com> <20091228.073308.112591206.davem@davemloft.net> <13580.1262037333@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:37771 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbZL2AmK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 19:42:10 -0500
-Received: by pxi27 with SMTP id 27so5887471pxi.4
-        for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 16:42:10 -0800 (PST)
-In-Reply-To: <20091228201005.GC18422@hmsreliant.think-freely.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23015 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751088AbZL2Av4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2009 19:51:56 -0500
+Content-Disposition: inline
+In-Reply-To: <13580.1262037333@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 28, 2009 at 12:10, Neil Horman <nhorman@tuxdriver.com> wrot=
-e:
-> Hey all-
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0A security discussion was recently given:
-> http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
-> And a patch that I submitted awhile back was brought up. =C2=A0Appare=
-ntly some of
-> their testing revealed that they were able to force a buffer fragment=
- in e1000
-> in which the trailing fragment was greater than 4 bytes. =C2=A0As a r=
-esult the
-> fragment check I introduced failed to detect the fragement and a part=
-ial invalid
-> frame was passed up into the network stack. =C2=A0I've written this p=
-atch to correct
-> it. =C2=A0I'm in the process of testing it now, but it makes good log=
-ical sense to
-> me. =C2=A0Effectively it maintains a per-adapter state variable which=
- detects a
-> non-EOP frame, and discards it and subsequent non-EOP frames leading =
-up to _and_
-> _including_ the next positive-EOP frame (as it is by definition the l=
-ast
-> fragment). =C2=A0This should prevent any and all partial frames from =
-entering the
-> network stack from e1000
->
-> Regards
-> Neil
->
->
-> =C2=A0e1000.h =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A03 ++-
-> =C2=A0e1000_main.c | =C2=A0 14 ++++++++++++--
-> =C2=A02 files changed, 14 insertions(+), 3 deletions(-)
->
->
+On Mon, Dec 28, 2009 at 01:55:33PM -0800, Jay Vosburgh wrote:
+> David Miller <davem@davemloft.net> wrote:
+> 
+> >From: Andy Gospodarek <andy@greyhouse.net>
+> >Date: Mon, 28 Dec 2009 10:26:32 -0500
+> >
+> >> This patch should be ready for inclusion.
+> >
+> >Yes, but I haven't seen ACK's from Jay or Eric.
+> 
+> 	I was testing with the final patch just before my personal
+> holiday adventures began, and was having one problem: the ARP monitor
+> part worked fine on the VLAN (the slaves were up) but regular traffic on
+> that same VLAN, e.g., ping, was dropped on receive at the bond.  The
+> peer (without bonding) saw the traffic, and responded, but it appeared
+> that ARP replies from the peer (again, over the VLAN) weren't making it
+> to the ARP table (at the bond end), so everything that depended on the
+> ARP table wasn't working.
+> 
+> 	I'm willing to believe this is a personal problem at my end, but
+> I haven't determined the cause, and won't have the opportunity until
+> next week (after my house has drained of relatives).
+> 
+> 	If Andy isn't seeing the above misbehavior, I'm fine with
+> assuming it's my problem and applying the patch; if I find something
+> actually wrong with the patch next week we can address it then.
+> 
 
-Thanks Neil.  I have add the patch to my queue of patches.
+>From time to time, I would see something similar would be if I was
+testing without VLANs and ended up with a stale entry in the remote
+hosts ARP table that would cause the response traffic to get sent
+without a VLAN tag.
 
---=20
-Cheers,
-Jeff
+I was able to pass tagged traffic when the bond was up and always made
+sure to scp my tested patches over that link to the machine that would
+post them.  It seems like good practice to exercise the changes I'm
+making during the posting process. :)
+
