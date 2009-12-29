@@ -1,99 +1,130 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Tue, 29 Dec 2009 12:58:22 +1100
-Message-ID: <20091229015822.GF10172@verge.net.au>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 00:01:14 -0500
+Message-ID: <20091229050114.GC14362@heat>
+References: <20091228181316.GA16277@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
+	M
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lists.laptop.org ([18.85.2.145]:37203 "EHLO mail.laptop.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751711AbZL2E71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Dec 2009 23:59:27 -0500
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20091228181316.GA16277@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arjan van de Ven <arjan@linux.intel.com>
+Serge,
 
-ipvs: Add boundary check on ioctl arguments
+I think that Pavel's point, at its strongest and most general, could be
+rephrased as:
 
-The ipvs code has a nifty system for doing the size of ioctl command
-copies; it defines an array with values into which it indexes the cmd
-to find the right length.
+   "Adding *any* interesting isolation facility to the kernel breaks backwards
+    compatibility for *some* program [in a way that violates security goals]."
 
-Unfortunately, the ipvs code forgot to check if the cmd was in the
-range that the array provides, allowing for an index outside of the
-array, which then gives a "garbage" result into the length, which
-then gets used for copying into a stack buffer.
+The reason is the one that I identified in my previous note:
 
-Fix this by adding sanity checks on these as well as the copy size.
+   "The purpose of isolation facilities is to create membranes inside which
+    grievous security faults are converted into availability faults."
 
-[ horms@verge.net.au: adjusted limit to IP_VS_SO_GET_MAX ]
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The question then is simply:
 
----
+   "How do we want to deal with the compatibility-breaking changes created by
+    introducing new isolation facilities?"
 
- net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
+So far, I've seen the following suggestions:
 
-Hi Arjen,
+   a) setuid restores pre-isolation semantics
 
-this is the 4th response to your patch. I am guessing the previous
-ones didn't reach you for some reason. And I guess this one wont
-for the same reason.
+         - Doesn't work for me because it violates the security guarantee of the
+           isolation primitive 
 
-I agree with Julian's assessment that your patch shouldn't be
-necessary, but on the other hand I think that the checks are
-reasonable. Your original patch made checks of the form of
-"cmd > IP_VS_SO_GET_MAX + 1". I have updated this to
-"cmd > IP_VS_SO_GET_MAX", as suggested by Julian, as the optmax
-elements of struct nf_sockopt_ops set a non-inclusive range.
+   b) setuid is an escape-hatch
 
-http://lkml.indiana.edu/hypermail/linux/kernel/0910.0/00852.html
+         - Probably the cleanest in the long-run
 
-Index: net-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c
-===================================================================
---- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_ctl.c	2009-12-29 12:39:40.000000000 +1100
-+++ net-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c	2009-12-29 12:46:47.000000000 +1100
-@@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cm
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
-+		return -EINVAL;
-+	if (len < 0 || len >  MAX_ARG_LEN)
-+		return -EINVAL;
- 	if (len != set_arglen[SET_CMDID(cmd)]) {
- 		pr_err("set_ctl: len %u != %u\n",
- 		       len, set_arglen[SET_CMDID(cmd)]);
-@@ -2352,17 +2356,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cm
- {
- 	unsigned char arg[128];
- 	int ret = 0;
-+	unsigned int copylen;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
-+		return -EINVAL;
-+
- 	if (*len < get_arglen[GET_CMDID(cmd)]) {
- 		pr_err("get_ctl: len %u < %u\n",
- 		       *len, get_arglen[GET_CMDID(cmd)]);
- 		return -EINVAL;
- 	}
- 
--	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) != 0)
-+	copylen = get_arglen[GET_CMDID(cmd)];
-+	if (copylen > 128)
-+		return -EINVAL;
-+
-+	if (copy_from_user(arg, user, copylen) != 0)
- 		return -EFAULT;
- 
- 	if (mutex_lock_interruptible(&__ip_vs_mutex))
+         - Doesn't, by itself, suffice for Pavel since it violates backwards
+           compatibility
+
+   c) signal to the kernel through a privileged mechanism that
+      backwards-incompatible isolation may or may not be used
+
+         - No problems seen so far.
+
+I would be happy with (c), assuming we can agree on an appropriate signalling
+mechanism and default.
+
+So far, two defaults have been proposed:
+
+   default-deny incompatible isolation (Pavel)
+   default-permit incompatible isolation (Michael)
+
+So far, several signalling mechanisms have been proposed:
+
+   1) enabling a kernel config option implies default-permit
+
+         - My favorite; apparently insufficient for Pavel?
+
+   2) default-deny; disablesuid grants disablenetwork
+
+         - "disablesuid" is my name for the idea of dropping the privilege of
+           exec'ing setuid binaries
+
+         - Suggested by Pavel and supported by several others. 
+
+         - I think it has the same backwards-compatibility problem as
+           disablenetwork: disablesuid is an isolation primitive.
+
+   3) default-deny; dropping a capability from the bounding set grants "permit"
+
+         - Suggested by Serge; seems nicely fine-grained but rather indirect
+
+   4) default-deny; setting a sysctl implies permit
+
+         - Suggested by Serge; works fine for me
+
+   5) default-deny; setting a kernel boot argument implies permit
+
+         - Suggested by Serge; I like the sysctl better.
+
+I am happiest with (1) and, if (1) isn't good enough, with (4).
+
+Pavel, what do you think of (4)?
+
+Regards,
+
+Michael
+
+P.S. - I'd be happy to know more about existing precedent on introducing
+compatibility-breaking changes if any comes to mind. (For example, how were the
+Linux-specific rlimits handled?)
+
+P.P.S. - On a completely unrelated note: imagine trying to use SELinux (or your
+favorite MAC framework) to restrict the use of prctl(PR_SET_NETWORK,
+PR_NETWORK_OFF). Am I right that sys_prctl() contains a
+time-of-check-to-time-of-use (TOCTTOU) race (with security_task_prctl() as the
+check and with prctl_set_network() as the use) as a result of the actual
+argument being passed by address rather than by value?
