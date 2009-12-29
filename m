@@ -1,49 +1,66 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
-Date: Mon, 28 Dec 2009 19:24:51 -0500
-Message-ID: <1262046291.8998.6.camel@obelisk.thedillows.org>
-References: <20091228194834.GA18422@hmsreliant.think-freely.org>
-	 <20091228195053.GB18422@hmsreliant.think-freely.org>
-	 <20091228213114.GA24285@zoreil.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: enhance frame fragment detection
+Date: Mon, 28 Dec 2009 16:42:09 -0800
+Message-ID: <9929d2390912281642o964617kbee6e8a2b9f6c75f@mail.gmail.com>
+References: <20091228201005.GC18422@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, eric.dumazet@gmail.com, nhorman@redhat.com
-To: =?ISO-8859-1?Q?Fran=E7ois?= romieu <romieu@zoreil.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	e1000-devel@lists.sourceforge.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:50255 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752078AbZL2AY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Dec 2009 19:24:58 -0500
-In-Reply-To: <20091228213114.GA24285@zoreil.com>
+Received: from mail-px0-f189.google.com ([209.85.216.189]:37771 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbZL2AmK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Dec 2009 19:42:10 -0500
+Received: by pxi27 with SMTP id 27so5887471pxi.4
+        for <netdev@vger.kernel.org>; Mon, 28 Dec 2009 16:42:10 -0800 (PST)
+In-Reply-To: <20091228201005.GC18422@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-12-28 at 22:31 +0100, Fran=C3=A7ois romieu wrote:
-> (I'm back)
->=20
-> The Mon, Dec 28, 2009 at 02:50:53PM -0500, Neil Horman wrote :
-> [...]
-> I doubt that we will be able to allocate that much memory reliably fo=
-r long.
->=20
-> I'd rather go for static buffers + copy (+ src mac address of our new=
- friend).
+On Mon, Dec 28, 2009 at 12:10, Neil Horman <nhorman@tuxdriver.com> wrot=
+e:
+> Hey all-
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0A security discussion was recently given:
+> http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+> And a patch that I submitted awhile back was brought up. =C2=A0Appare=
+ntly some of
+> their testing revealed that they were able to force a buffer fragment=
+ in e1000
+> in which the trailing fragment was greater than 4 bytes. =C2=A0As a r=
+esult the
+> fragment check I introduced failed to detect the fragement and a part=
+ial invalid
+> frame was passed up into the network stack. =C2=A0I've written this p=
+atch to correct
+> it. =C2=A0I'm in the process of testing it now, but it makes good log=
+ical sense to
+> me. =C2=A0Effectively it maintains a per-adapter state variable which=
+ detects a
+> non-EOP frame, and discards it and subsequent non-EOP frames leading =
+up to _and_
+> _including_ the next positive-EOP frame (as it is by definition the l=
+ast
+> fragment). =C2=A0This should prevent any and all partial frames from =
+entering the
+> network stack from e1000
+>
+> Regards
+> Neil
+>
+>
+> =C2=A0e1000.h =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A03 ++-
+> =C2=A0e1000_main.c | =C2=A0 14 ++++++++++++--
+> =C2=A02 files changed, 14 insertions(+), 3 deletions(-)
+>
+>
 
-The driver doesn't support fragmented receives, but it seems like the H=
-W
-does -- is this known to work on the different revisions? Or
-alternatively, is it known to be broken on any of them? It seems like i=
-t
-would be preferable to implement this and use RxMaxSize to tell the NIC
-how big the allocated buffer fragments are.
+Thanks Neil.  I have add the patch to my queue of patches.
 
-Or I'm misreading the capabilities of the NIC?
-
-In any event, I'm probably not going to have time to write/test it on
-the HW I have anytime soon, so perhaps the static buffers/copy is the
-safest option for now, albeit non-optimal.
-
-Dave
-
+--=20
+Cheers,
+Jeff
