@@ -1,22 +1,26 @@
-From: Michael Stone <michael@laptop.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
 Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 11:31:04 -0500
-Message-ID: <20091229163104.GC14668@heat>
-References: <20091229055653.GB23714@us.ibm.com>
+Date: Tue, 29 Dec 2009 10:39:39 -0600
+Message-ID: <20091229163939.GA6984@us.ibm.com>
+References: <20091229050114.GC14362@heat>
+ <m1y6km11lj.fsf@fess.ebiederm.org>
+ <20091229151146.GA32153@us.ibm.com>
+ <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org,
 	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	"C. Scott Ananian" <cscott@cscott.net>,
 	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
@@ -24,130 +28,44 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
-	M
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.laptop.org ([18.85.2.145]:33653 "EHLO mail.laptop.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752918AbZL2Q26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2009 11:28:58 -0500
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@zeniv.linux.org.uk>
+To: Bryan Donlan <bdonlan@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20091229055653.GB23714@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Serge Hallyn writes:
-> Quoting Michael Stone (michael@laptop.org):
-> So far, two defaults have been proposed:
-> 
->   default-deny incompatible isolation (Pavel)
->   default-permit incompatible isolation (Michael)
-> 
-> So far, several signalling mechanisms have been proposed:
-> 
->>   1) enabling a kernel config option implies default-permit
->> 
->>         - My favorite; apparently insufficient for Pavel?
->
-> default under what conditions?  any setuid?  setuid-root?
+Quoting Bryan Donlan (bdonlan@gmail.com):
+> On Tue, Dec 29, 2009 at 10:11 AM, Serge E. Hallyn <serue@us.ibm.com> =
+wrote:
+> > Eric, let me specifically point out a 'disable setuid-root'
+> > problem on linux: root still owns most of the system even when
+> > it's not privileged. =A0So does "disable setuid-root" mean
+> > we don't allow exec of setuid-root binaries at all, or that
+> > we don't setuid to root, or that we just don't raise privileges
+> > for setuid-root?
+>=20
+> I, for one, think it would be best to handle it exactly like the
+> nosuid mount option - that is, pretend the file doesn't have any
+> setuid bits set. There's no reason to deny execution; if the process
+> would otherwise be able to execute it, it can also copy the file to
+> make a non-suid version and execute that instead. And some programs
+> can operate with reduced function without setuid. For example, screen
+> comes to mind; it needs root to share screen sessions between multipl=
+e
+> users, but can operate for a single user just fine without root, and
+> indeed the latter is usually the default configuration.
 
-My favorite option is that CONFIGURE_SECURITY_DISABLENETWORK causes
-disablenetwork to function like djb describes: unprivileged and irrevocable.
+That's fine with me, seems safe for a fully unprivileged program to
+use, and would make sense to do through one of the securebits set
+with prctl(PR_SET_SECUREBITS).
 
-(I don't have any setuid executables that I'm worried about breaking; only ones
-that I think /should/ be broken and aren't, like ping.)
+In addition, I assume we would also refuse to honor file capabilities?
 
->   2) default-deny; disablesuid grants disablenetwork
-> 
->         - "disablesuid" is my name for the idea of dropping the privilege of
->           exec'ing setuid binaries
-> 
->         - Suggested by Pavel and supported by several others.
-> 
->         - I think it has the same backwards-compatibility problem as
->           disablenetwork: disablesuid is an isolation primitive.
-> 
->   3) default-deny; dropping a capability from the bounding set grants "permit"
-> 
->         - Suggested by Serge; seems nicely fine-grained but rather indirect
-> 
-> Actually I think it's the opposite of what you said here:  so long as the
-> capability is in pE, you can regain network.  So it would require a privileged
-> process early on (like init or login) to remove the capability from the
-> bounding set (bc doing so requires CAP_SETPCAP), but once that was done,
-> the resulting process and it's children could not require the capability,
-> and, without the capability, could not regain network.  Point being that
-> privileged userspace had to actively allow userspace to trap a setuid root
-> binary without networking.
-
-What I wrote accurately (if confusingly; sorry!) reflects what you suggest: by
-default, the kernel should deny processes from irrevocably dropping networking
-privilege until signalled that this is acceptable by the privileged mechanism
-of dropping your cap from the bounding set.
-
-> I think during exec we can simply check for this capability in pE, and
-> if present then re-enable network if turned off.  Then setuid-root binaries
-> will raise that bit (if it's in the bounding set) automatically.  Now,
-> that means setuid-nonroot binaries will not reset network.  Though you
-> could make that happen by doing setcap cap_net_allownet+pe /the/file.
-> Does that suffice?
-
-I think I could live with it.
-
-I find it weird that, if I call disablenetwork on a system *without* dropping
-your capability, sendto(...) will fail but execve(['/bin/ping', '...']) will
-succeed. 
-
-Still, it will do what I need.
-
->>   4) default-deny; setting a sysctl implies permit
->> 
->>         - Suggested by Serge; works fine for me
->
->That still leaves the question of when we re-allow network.  Any
->setuid?
-
-My intention was that prctl(PR_SET_NETWORK, PR_NETWORK_OFF) would return
--ENOTSUP or similar until the sysctl was enabled, at which point it would work
-as I specified.
-
-("As I specified" means one of "irrevocable" or "like rlimits; can be relaxed
-by explicit action by privileged processes")
-
->> P.P.S. - On a completely unrelated note: imagine trying to use SELinux (or your
->> favorite MAC framework) to restrict the use of prctl(PR_SET_NETWORK,
->> PR_NETWORK_OFF). Am I right that sys_prctl() contains a
->> time-of-check-to-time-of-use (TOCTTOU) race (with security_task_prctl() as the
->> check and with prctl_set_network() as the use) as a result of the actual
->> argument being passed by address rather than by value?
->
-> I'm probably misunderstanding your question, but just in case I'm not:  the
-> answer is that you wouldn't use the prctl interface anyway.  You would strictly
-> use domain transitions.  Instead of doing prctl(PR_SET_NETWORK, PR_NETWORK_OFF)
-> you would move yourself from the user_u:user_r:network_allowed domain to the
-> user_u:user_r:network_disallowed domain.
-
-You misunderstood; sorry I wasn't more clear. :)
-
-I was really saying:
-
-   Suppose process A and process B create a share a memory segment containing an
-   unsigned long pointed to by.
-
-   unsigned long *flags;
-
-   Can't process A call prctl(PR_SET_NETWORK, flags) while, on another
-   processor, process B is twiddling bits in *flags so that
-
-     security_task_prctl() sees the bits that process A wrote and
-     prctl_set_network() sees the bits that process B wrote?
-
-   i.e. isn't there a TOCTTOU race [1] here in every prctl option that uses a
-   pointer argument? if not, what stops the race?
-
-Regards,
-
-Michael
-
-[1]: http://en.wikipedia.org/wiki/Time-of-check-to-time-of-use
+-serge
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
