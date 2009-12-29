@@ -1,55 +1,55 @@
-From: Andreas Schuldei <schuldei@spotify.com>
-Subject: ipsec performance
-Date: Tue, 29 Dec 2009 22:09:19 +0100
-Message-ID: <f5327b860912291309g701d6345k6517a4eb75830faf@mail.gmail.com>
-Reply-To: schuldei@spotify.com
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 21:11:39 +0000
+Message-ID: <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
+References: <20091229050114.GC14362@heat>
+	<m1y6km11lj.fsf@fess.ebiederm.org>
+	<20091229151146.GA32153@us.ibm.com>
+	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<m3oclhzgm4.fsf@ursa.amorsen.dk>
+	<m17hs5y0mg.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:49989 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934AbZL2VJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 16:09:21 -0500
-Received: by fxm25 with SMTP id 25so5551462fxm.21
-        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 13:09:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Vi
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <m17hs5y0mg.fsf@fess.ebiederm.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi!
+> > Execute != read. The executable file may contain secrets which must not
+> > be available to the user running the setuid program. If you fail the
+> > setuid, the user will be able to ptrace() and then the secret is
+> > revealed.
+> >
+> > It's amazing how many security holes appear from what seems like a very
+> > simple request.
+> 
+> Do we have a security hole in nosuid mount option?
+> Can someone write a patch to fix it?
 
-i experience performance issues with ipsec transport mode with debian
-lenny and strongswan, on a stock debian kernel 2.6.26-2-amd64.
+If a setuid app can read a key when its erroneously not set setuid then
+the user can read it too.
 
-the goal is to set up a full mash of several hundred hosts, talking
-ipsec with each other, in order to be able to skip firewalls and to be
-able to let the hosts be spread out over several sites in a
-transparent fashion.
-
-regardless of the cipher (i tried aes and blowfish) the bandwidth
-maxes out at about 0.5-0.25 of the expected (unencrypted) value,
-without hitting obvious bottlenecks like cpu, disk, or ram.
-
-tcpdump shows packages below the MTU (which is 1500):
-
-20:25:03.313469 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a87), length 1332
-20:25:03.313514 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a88), length 1476
-20:25:03.313529 IP 78.31.14.93 > 78.31.14.86:
-ESP(spi=0xc4967810,seq=0x7bcd1), length 68
-20:25:03.313557 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a89), length 1476
-20:25:03.313603 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a8a), length 1332
-20:25:03.313605 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a8a), length 1332
-20:25:03.313606 IP 78.31.14.93 > 78.31.14.86:
-ESP(spi=0xc4967810,seq=0x7bcd2), length 68
-20:25:03.313649 IP 78.31.14.86 > 78.31.14.93:
-ESP(spi=0xc929dbe8,seq=0x100a8b), length 1476
-
-how can i inspect window size, fragmentation etc? are there useful
-files in /proc or /sys or enlightening ip commands?
-
-/andreas
+Anything you can do with ptrace you can do yourself !
