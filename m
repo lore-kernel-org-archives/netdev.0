@@ -1,122 +1,105 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 00:08:15 -0600
-Message-ID: <20091229060815.GA25125@us.ibm.com>
-References: <20091227190802.GH11737@elf.ucw.cz>
- <20091228060759.GB13266@heat>
- <20091228101006.GA19984@elf.ucw.cz>
- <8817.1262011044@localhost>
- <20091228205511.GD1637@ucw.cz>
- <3e8340490912281333l1459f769yf621a36ad1ed6482@mail.gmail.com>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: BNX2: Kernel crashes with 2.6.31 and 2.6.31.9
+Date: Tue, 29 Dec 2009 08:49:29 +0100
+Message-ID: <20091229084929.54912c0c@pluto.restena.lu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Machek <pavel@ucw.cz>, Valdis.Kletnieks@vt.edu,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Bryan Donlan <bdonlan@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752223AbZL2GIT@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3e8340490912281333l1459f769yf621a36ad1ed6482@mail.gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752696AbZL2IA1@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Bryan Donlan (bdonlan@gmail.com):
-> On Mon, Dec 28, 2009 at 3:55 PM, Pavel Machek <pavel@ucw.cz> wrote:
-> > On Mon 2009-12-28 09:37:24, Valdis.Kletnieks@vt.edu wrote:
-> >> On Mon, 28 Dec 2009 11:10:06 +0100, Pavel Machek said:
-> >>
-> >> > a) make disablenetwork reset to "enablenetwork" during setuid ex=
-ec
-> >>
-> >> That won't work either. =A0If you only make it 'setuid=3D=3D0' bin=
-aries, you still
-> >> break 'setuid-FOO' binaries that require the net. If you just chec=
-k the setuid
-> >> bit, it allows a trivial escape by creating a setuid-yourself bina=
-ry and using
-> >> that to exec something else (now with network access, because we a=
-pparently
-> >> don't have a way to remember the previous setting).
-> >
-> >
-> > it is really only required for binaries setuid to someone else, but
-> > that would be too ugly. (Plus, as someone said, ping is great for
-> > leaking data out.)
->=20
-> No, this is not sufficient; one needs only to find a setuid process
-> that can be convinced to run a program with the original (pre-suid)
-> privileges. For example, one could invoke gpg (older versions setuid
-> so it can lock memory, executes user code for the passphrase input
-> agent) or pulseaudio (in some cases setuid to go realtime, loads user
-> plugins) or screen (setuid for sharing sessions, obviously executes
-> user programs) or at/cron (did you remember to deny access to these?)
-> ...
->=20
-> Or one can target a non-root setuid program that may have security
-> holes - how about nethack?
->=20
-> While in modern distros these uses of setuid may be rare, they can
-> exist, and under the old security model they were safe. Not so
-> anymore. As such, re-enabling network access upon executing a setuid
-> program is not acceptable.
->=20
-> That said, I do feel this is a separate issue. The process should
-> first drop its ability to suid; then it can freely apply additional
-> restrictions without there being any risk of breaking setuid
-> applications.
->=20
-> In short, how does this sound:
-> * Add an API to allow processes to permanently revoke their own
-> ability to gain privileges from setuid-exec
+On a system that was running 2.6.31 since last September I got two
+crashes this December at night (cause unknown), yesterday after second
+crash I updated kernel to 2.6.31.9 and enabled netconsole in the hope
+to get some information about the cause of the crash.
 
-Well, this is possible now, but requires privilege:  Remove
-any bit not in pP from the bounding set.
+Today system crashed once again and all I got is the following
+incomplete trace on the receiving side of netconsole:
 
-Removing the requirement for privilege to do so has some conerns.  Do w=
-e
-force a task to then run with absolutely no capabilities, or can it jus=
-t
-stop itself from gaining new ones?  If the latter, then we are close to
-re-raising the sendmail-capabilities bug.  The main difference would be
-that you must already have the capbilities you want to keep, but I'm
-not convinced that's sufficient.
+[24701.841185] BUG: unable to handle kernel NULL pointer dereference at (null)
+[24701.841188] IP: [<ffffffffa00610fc>] bnx2_poll_work+0x2c/0x12d0 [bnx2]
+[24701.841197] PGD 16509067 PUD 4e776067 PMD 0
+[24701.841199] Oops: 0000 [#1] SMP
+[24701.841202] last sysfs file: /sys/kernel/uevent_seqnum
+[24701.841204] CPU 0
+[24701.841205] Modules linked in: ipmi_devintf squashfs ext2
+zlib_inflate netconsole configfs loop dm_round_robin scsi_dh_rdac
+dm_multipath scsi_dh dm_mod sg sr_mod cdrom ata_piix i pmi_si
+ipmi_msghandler qla2xxx ahci bnx2 hpwdt uhci_hcd ehci_hcd libata
+[24701.841218] Pid: 11273, comm: php-cgi Not tainted 2.6.31.9-x86_64 #1 ProLiant DL360 G5
+[24701.841220] RIP: 0010:[<ffffffffa00610fc>]  [<ffffffffa00610fc>] bnx2_poll_work+0x2c/0x12d0 [bnx2]
 
-A function which can be called without privilege, which empties out
-all capability sets and the bounding set, that may be safe.  Still migh=
-t
-cause a setuid-root app which is running as root but with no privilege
-to be confused and mess up the system...
 
-> * Add this disablenetwork facility, conditional on dropping
-> setuid-exec abilities
->=20
-> This also paves the way for:
-> * Allow processes that have dropped said suid ability to freely creat=
-e
-> new namespaces (and chroot)
->=20
-> Which, combined with doing whatever audits are necessary to allow
-> cross-network-namespace uses of unix domain sockets, actually
-> eliminates the need for the disablenetwork API. :)
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-secur=
-ity-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Running objdump on the bnx2.ko module I get the following:
+000000000000a0d0 <bnx2_poll_work>:
+    a0d0:       41 57                   push   %r15
+    a0d2:       41 56                   push   %r14
+    a0d4:       41 55                   push   %r13
+    a0d6:       41 54                   push   %r12
+    a0d8:       55                      push   %rbp
+    a0d9:       53                      push   %rbx
+    a0da:       48 81 ec 28 01 00 00    sub    $0x128,%rsp
+    a0e1:       48 89 7c 24 18          mov    %rdi,0x18(%rsp)
+    a0e6:       48 89 74 24 10          mov    %rsi,0x10(%rsp)
+    a0eb:       89 54 24 0c             mov    %edx,0xc(%rsp)
+    a0ef:       89 4c 24 08             mov    %ecx,0x8(%rsp)
+    a0f3:       48 8b 54 24 10          mov    0x10(%rsp),%rdx
+    a0f8:       48 8b 42 70             mov    0x70(%rdx),%rax
+    a0fc:       0f b7 10                movzwl (%rax),%edx
+    a0ff:       31 c0                   xor    %eax,%eax
+    a101:       48 8b 4c 24 10          mov    0x10(%rsp),%rcx
+    a106:       80 fa ff                cmp    $0xff,%dl
+    a109:       0f 94 c0                sete   %al
+    a10c:       01 c2                   add    %eax,%edx
+    a10e:       66 39 91 1a 02 00 00    cmp    %dx,0x21a(%rcx)
+    a115:       0f 84 78 01 00 00       je     a293 <bnx2_poll_work+0x1c3>
+    a11b:       48 8b 57 08             mov    0x8(%rdi),%rdx
+    a11f:       48 89 f8                mov    %rdi,%rax
+    a122:       48 8b 9a 00 03 00 00    mov    0x300(%rdx),%rbx
+    a129:       48 83 c0 40             add    $0x40,%rax
+    a12d:       48 29 c1                sub    %rax,%rcx
+    a130:       48 89 c8                mov    %rcx,%rax
+    a133:       48 c1 f8 06             sar    $0x6,%rax
+    a137:       69 c0 39 8e e3 38       imul   $0x38e38e39,%eax,%eax
+    a13d:       48 c1 e0 07             shl    $0x7,%rax
+    a141:       48 01 d8                add    %rbx,%rax
+    a144:       48 89 44 24 20          mov    %rax,0x20(%rsp)
+    a149:       48 8b 7c 24 10          mov    0x10(%rsp),%rdi
+    a14e:       48 8b 47 70             mov    0x70(%rdi),%rax
+    a152:       44 0f b7 30             movzwl (%rax),%r14d
+    a156:       31 c0                   xor    %eax,%eax
+    a158:       0f b7 9f 18 02 00 00    movzwl 0x218(%rdi),%ebx
+    a15f:       41 80 fe ff             cmp    $0xff,%r14b
+    a163:       0f 94 c0                sete   %al
+    a166:       45 31 ff                xor    %r15d,%r15d
+    a169:       41 01 c6                add    %eax,%r14d
+    a16c:       66 44 39 f3             cmp    %r14w,%bx
+    a170:       0f 84 ee 00 00 00       je     a264 <bnx2_poll_work+0x194>
+    a176:       66 2e 0f 1f 84 00 00    nopw   %cs:0x0(%rax,%rax,1)
+    a17d:       00 00 00 
+    a180:       0f b6 cb                movzbl %bl,%ecx
+    a183:       48 8b 44 24 10          mov    0x10(%rsp),%rax
+    a188:       44 0f b7 e1             movzwl %cx,%r12d
+    a18c:       49 c1 e4 04             shl    $0x4,%r12
+    a190:       4c 03 a0 10 02 00 00    add    0x210(%rax),%r12
+    a197:       4d 8b 2c 24             mov    (%r12),%r13
+    a19b:       66 41 83 7c 24 08 00    cmpw   $0x0,0x8(%r12)
+    a1a2:       41 0f 18 8d bc 00 00    prefetcht0 0xbc(%r13)
+    a1a9:       00 
+                ...
+
+
+Kernel is compiled on Gentoo (64bit):
+  Linux version 2.6.31.9-x86_64 () (gcc version 4.3.4 (Gentoo 4.3.4 p1.0, pie-10.1.5) ) #1 SMP Mon Dec 28 15:49:16 CET 2009
+The affected server (HP DL360 G5) is running OpenSuSE-11.1,
+32bit userspace
+
+Any idea if there is a recent patch that could fix this issue? At the
+crashing time the server was not specifically loaded and had around
+200 packets/s network traffic.
+
+Regards,
+Bruno
