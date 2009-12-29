@@ -1,14 +1,15 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 21:10:11 +0100
-Message-ID: <m3oclhzgm4.fsf@ursa.amorsen.dk>
+Date: Tue, 29 Dec 2009 12:40:55 -0800
+Message-ID: <m17hs5y0mg.fsf@fess.ebiederm.org>
 References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
 	<20091229151146.GA32153@us.ibm.com>
 	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<m3oclhzgm4.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
+Cc: Bryan Donlan <bdonlan@gmail.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org,
@@ -23,38 +24,36 @@ Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>
-To: Bryan Donlan <bdonlan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.ipvision.dk ([94.127.49.2]:59040 "EHLO gate1.ipvision.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752409AbZL2UfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Dec 2009 15:35:14 -0500
-In-Reply-To: <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
-	(Bryan Donlan's message of "Tue, 29 Dec 2009 11:05:09 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Pavel Machek <pavel@ucw.cz>, Al Viro
+To: Benny Amorsen <benny+usenet@amorsen.dk>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <m3oclhzgm4.fsf@ursa.amorsen.dk> (Benny Amorsen's message of "Tue\, 29 Dec 2009 21\:10\:11 +0100")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bryan Donlan <bdonlan@gmail.com> writes:
+Benny Amorsen <benny+usenet@amorsen.dk> writes:
 
-> I, for one, think it would be best to handle it exactly like the
-> nosuid mount option - that is, pretend the file doesn't have any
-> setuid bits set. There's no reason to deny execution; if the process
-> would otherwise be able to execute it, it can also copy the file to
-> make a non-suid version and execute that instead.
+> Bryan Donlan <bdonlan@gmail.com> writes:
+>
+>> I, for one, think it would be best to handle it exactly like the
+>> nosuid mount option - that is, pretend the file doesn't have any
+>> setuid bits set. There's no reason to deny execution; if the process
+>> would otherwise be able to execute it, it can also copy the file to
+>> make a non-suid version and execute that instead.
+>
+> Execute != read. The executable file may contain secrets which must not
+> be available to the user running the setuid program. If you fail the
+> setuid, the user will be able to ptrace() and then the secret is
+> revealed.
+>
+> It's amazing how many security holes appear from what seems like a very
+> simple request.
 
-Execute != read. The executable file may contain secrets which must not
-be available to the user running the setuid program. If you fail the
-setuid, the user will be able to ptrace() and then the secret is
-revealed.
+Do we have a security hole in nosuid mount option?
+Can someone write a patch to fix it?
 
-It's amazing how many security holes appear from what seems like a very
-simple request.
-
-
-/Benny
-
+Eric
