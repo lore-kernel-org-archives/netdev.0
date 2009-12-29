@@ -1,9 +1,9 @@
 From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 1/3] Security: Add disablenetwork interface. (v4)
-Date: Mon, 28 Dec 2009 23:26:18 -0600
-Message-ID: <20091229052618.GA23714@us.ibm.com>
-References: <20091228181357.GB16277@us.ibm.com>
- <20091229012158.GA14362@heat>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Mon, 28 Dec 2009 23:56:53 -0600
+Message-ID: <20091229055653.GB23714@us.ibm.com>
+References: <20091228181316.GA16277@us.ibm.com>
+ <20091229050114.GC14362@heat>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -25,30 +25,132 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>
 To: Michael Stone <michael@laptop.org>
 Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20091229012158.GA14362@heat>
+In-Reply-To: <20091229050114.GC14362@heat>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Quoting Michael Stone (michael@laptop.org):
-> Serge Hallyn wrote:
-> >Is there any reason not to handle these in
-> >  disablenetwork_security_prctl()
-> >?
+> Serge,
 > 
-> I'm afraid that I don't understand what you're asking here. Are you just saying
-> that you'd like me to rename the functions that implement the interface logic
-> to something that begins with "disablenetwork_"?
+> I think that Pavel's point, at its strongest and most general, could be
+> rephrased as:
+> 
+>   "Adding *any* interesting isolation facility to the kernel breaks backwards
+>    compatibility for *some* program [in a way that violates security goals]."
+> 
+> The reason is the one that I identified in my previous note:
+> 
+>   "The purpose of isolation facilities is to create membranes inside which
+>    grievous security faults are converted into availability faults."
+> 
+> The question then is simply:
+> 
+>   "How do we want to deal with the compatibility-breaking changes created by
+>    introducing new isolation facilities?"
+> 
+> So far, I've seen the following suggestions:
+> 
+>   a) setuid restores pre-isolation semantics
+> 
+>         - Doesn't work for me because it violates the security guarantee of the
+>           isolation primitive
+> 
+>   b) setuid is an escape-hatch
+> 
+>         - Probably the cleanest in the long-run
+> 
+>         - Doesn't, by itself, suffice for Pavel since it violates backwards
+>           compatibility
+> 
+>   c) signal to the kernel through a privileged mechanism that
+>      backwards-incompatible isolation may or may not be used
+> 
+>         - No problems seen so far.
+> 
+> I would be happy with (c), assuming we can agree on an appropriate signalling
+> mechanism and default.
+> 
+> So far, two defaults have been proposed:
+> 
+>   default-deny incompatible isolation (Pavel)
+>   default-permit incompatible isolation (Michael)
+> 
+> So far, several signalling mechanisms have been proposed:
+> 
+>   1) enabling a kernel config option implies default-permit
+> 
+>         - My favorite; apparently insufficient for Pavel?
 
-Sorry, for some reason I was thinking you still had a
-security_operations *disablenetwork_ops.  But you don't, so
-my comment is silly.  Please ignore.
+default under what conditions?  any setuid?  setuid-root?
 
-> Regards, and thanks for all your help,
+>   2) default-deny; disablesuid grants disablenetwork
+> 
+>         - "disablesuid" is my name for the idea of dropping the privilege of
+>           exec'ing setuid binaries
+> 
+>         - Suggested by Pavel and supported by several others.
+> 
+>         - I think it has the same backwards-compatibility problem as
+>           disablenetwork: disablesuid is an isolation primitive.
+> 
+>   3) default-deny; dropping a capability from the bounding set grants "permit"
+> 
+>         - Suggested by Serge; seems nicely fine-grained but rather indirect
 
-My pleasure, and thanks for the patience.
+Actually I think it's the opposite of what you said here:  so long as the
+capability is in pE, you can regain network.  So it would require a privileged
+process early on (like init or login) to remove the capability from the
+bounding set (bc doing so requires CAP_SETPCAP), but once that was done,
+the resulting process and it's children could not require the capability,
+and, without the capability, could not regain network.  Point being that
+privileged userspace had to actively allow userspace to trap a setuid root
+binary without networking.
+
+I think during exec we can simply check for this capability in pE, and
+if present then re-enable network if turned off.  Then setuid-root binaries
+will raise that bit (if it's in the bounding set) automatically.  Now,
+that means setuid-nonroot binaries will not reset network.  Though you
+could make that happen by doing setcap cap_net_allownet+pe /the/file.
+Does that suffice?
+
+>   4) default-deny; setting a sysctl implies permit
+> 
+>         - Suggested by Serge; works fine for me
+
+That still leaves the question of when we re-allow network.  Any
+setuid?
+
+>   5) default-deny; setting a kernel boot argument implies permit
+> 
+>         - Suggested by Serge; I like the sysctl better.
+> 
+> I am happiest with (1) and, if (1) isn't good enough, with (4).
+> 
+> Pavel, what do you think of (4)?
+> 
+> Regards,
+> 
+> Michael
+> 
+> P.S. - I'd be happy to know more about existing precedent on introducing
+> compatibility-breaking changes if any comes to mind. (For example, how were the
+> Linux-specific rlimits handled?)
+> 
+> P.P.S. - On a completely unrelated note: imagine trying to use SELinux (or your
+> favorite MAC framework) to restrict the use of prctl(PR_SET_NETWORK,
+> PR_NETWORK_OFF). Am I right that sys_prctl() contains a
+> time-of-check-to-time-of-use (TOCTTOU) race (with security_task_prctl() as the
+> check and with prctl_set_network() as the use) as a result of the actual
+> argument being passed by address rather than by value?
+
+I'm probably misunderstanding your question, but just in case I'm not:  the
+answer is that you wouldn't use the prctl interface anyway.  You would strictly
+use domain transitions.  Instead of doing prctl(PR_SET_NETWORK, PR_NETWORK_OFF)
+you would move yourself from the user_u:user_r:network_allowed domain to the
+user_u:user_r:network_disallowed domain.
 
 -serge
