@@ -1,82 +1,45 @@
-From: Fabio Ludovici <fabio.ludovici@yahoo.it>
-Subject: [RESEND PATCH 0/3] netem/iproute2 solving correlated loss issue
-Date: Tue, 29 Dec 2009 20:59:00 +0100
-Message-ID: <4B3A5F84.4050603@yahoo.it>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: 2.6.33-rc2: Reported regressions from 2.6.32
+Date: Tue, 29 Dec 2009 21:00:35 +0100
+Message-ID: <b170af450912291200r73a56d55n5e9a68043a503907@mail.gmail.com>
+References: <LptzGUUXbTK.A.MSF.ymhOLB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:52856 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752080AbZL2T7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 14:59:04 -0500
-Received: by fxm25 with SMTP id 25so5509274fxm.21
-        for <netdev@vger.kernel.org>; Tue, 29 Dec 2009 11:59:02 -0800 (PST)
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:56300 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbZL2UAi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 15:00:38 -0500
+In-Reply-To: <LptzGUUXbTK.A.MSF.ymhOLB@chimera>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear all,
+2009/12/29 Rafael J. Wysocki <rjw@sisk.pl>:
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D14910
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Stable version 2.6.32.2 broke m=
+y KMS Radeon setup
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Ruud Linders <kernelml@xs4all.nl>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-12-20 12:02 (10 =
+days old)
+> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
+=3D126131105608871&w=3D4
 
-following the comments we have received from Stefan Hemmminger and David 
-Miller we are resending the patch that enhances netem module and the 
-iproute2 utilities as follows:
+Has patch (I think it was even submitted to Linus).
 
-- add deterministic loss generation according to a pattern that can be 
-specified in a file in the iproute2 command line
-- new statistical models for generation of correlated loss (the existing 
-model does not work), including loss models commonly used in literature 
-(bernoulli, Gilbert, Gilbert Elliot) and the new GI (General and 
-Intuitive model)
-- enhanced logging functionality for loss events in dmesg
-
-The patch should now be backward compatible, we have not changed the 
-existing structure for iproute2 to kernel communication (tc_netem_qopt), 
-but where needed we have added new structures (same approach used in the 
-"reorder" patch at 
-http://www.opensubscriber.com/message/netdev@oss.sgi.com/1362582.html)
-
-Additional information on the motivations for this work and additional 
-details can also be found at: 
-http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetEm2
-
-Examples of new iproute2 syntax is reported hereafter (full info in the 
-man page).
-
-1) generate loss according to a deterministic pattern:
-
-tc qdisc add/change dev eth0 root netem loss_pattern filename
-
-2) generate loss according to different loss models including the ones 
-commonly used in the literature (bernoulli, gilbert, gilbert-elliot) and 
-the new GI (General and Intuitive) model:
-
-tc qdisc add/change dev eth0 root netem2 loss_GI ploss [burst_length 
-[density [pisol [good_burst_length]]]]
-tc qdisc add/change dev eth0 root netem2 loss_GI_tran p13 p31 [p32 p23 
-[p14]]
-tc qdisc add/change dev eth0 root netem2 loss_bern p
-tc qdisc add/change dev eth0 root netem2 loss_gilb p r [1-h]
-tc qdisc add/change dev eth0 root netem2 loss_gilbell p r [1-h [1-k]]
-
-3) convert parameters between intuitive and Markov transition 
-probabilities (query mode)
-
-this applies to loss_GI and loss_GI_tran options. If the query label is 
-specified before the model label the transition probabilities or the GI 
-parameters that corresponds to the specified input parameters are 
-calculated and printed to screen, but no operation is done on the qdisc. 
-In this way the user can understands what he would obtain with certain 
-input parameters without necessarily make changes to the network's 
-behaviour.
-
-4) enable enhanced logging in dmesg:
-
-tc qdisc add/change dev eth0 root netem logging 1 loss_GI 5 10
-
-for each loss event the kernel logs will include a line like "netem2 
-loss event loss_GI 30 RFPLE 15" where RFPLE stands for "Received From 
-Previous Loss Event" and it counts the number y of good packets received 
-between two loss events while x is the number of all lost packets
-
-Stefano Salsano and Fabio Ludovici
+--=20
+Rafa=C5=82
