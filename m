@@ -1,28 +1,27 @@
 From: "Serge E. Hallyn" <serue@us.ibm.com>
 Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Tue, 29 Dec 2009 16:16:28 -0600
-Message-ID: <20091229221628.GA22578@us.ibm.com>
+Date: Tue, 29 Dec 2009 16:36:31 -0600
+Message-ID: <20091229223631.GB22578@us.ibm.com>
 References: <20091229050114.GC14362@heat>
  <m1y6km11lj.fsf@fess.ebiederm.org>
  <20091229151146.GA32153@us.ibm.com>
  <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
- <20091229163939.GA6984@us.ibm.com>
- <3e8340490912290901y60d7daf2w5778c25f44972955@mail.gmail.com>
- <m1fx6ty6ds.fsf@fess.ebiederm.org>
- <3e8340490912291108t7e000e75p8264fa585f831464@mail.gmail.com>
- <20091229212722.GA20178@us.ibm.com>
- <17290.1262123182@localhost>
+ <m3oclhzgm4.fsf@ursa.amorsen.dk>
+ <m17hs5y0mg.fsf@fess.ebiederm.org>
+ <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
+ <m1iqbpwjtp.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bryan Donlan <bdonlan@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Benny Amorsen <benny+usenet@amorsen.dk>,
+	Bryan Donlan <bdonlan@gmail.com>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org,
 	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
 	"C. Scott Ananian" <cscott@cscott.net>,
 	James Morris <jmorris@namei.org>,
@@ -33,45 +32,55 @@ Cc: Bryan Donlan <bdonlan@gmail.com>,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@zeniv.linux.org.uk>
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-security-module-owner@vger.kernel.org>
+	Pavel Machek <pavel@ucw.cz>, Al V
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:48397 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752600AbZL2Wge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Dec 2009 17:36:34 -0500
 Content-Disposition: inline
-In-Reply-To: <17290.1262123182@localhost>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <m1iqbpwjtp.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Valdis.Kletnieks@vt.edu (Valdis.Kletnieks@vt.edu):
-> On Tue, 29 Dec 2009 15:27:22 CST, "Serge E. Hallyn" said:
-> > I think i disagree.  A uid is just a uid (or should be).  One day we may
-> > have a way for a factotum-style daemon to grant the ability to an unpriv
-> > task to setuid without CAP_SETUID.  I think slingling uids and gids
-> > around that you already have access to should be fine.
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 > 
-> Yes, but not doing the clear and obvious simple thing now for a "one day
-> we may have" consideration seems a poor engineering tradeoff.
+> >> > Execute != read. The executable file may contain secrets which must not
+> >> > be available to the user running the setuid program. If you fail the
+> >> > setuid, the user will be able to ptrace() and then the secret is
+> >> > revealed.
+> >> >
+> >> > It's amazing how many security holes appear from what seems like a very
+> >> > simple request.
+> >> 
+> >> Do we have a security hole in nosuid mount option?
+> >> Can someone write a patch to fix it?
+> >
+> > If a setuid app can read a key when its erroneously not set setuid then
+> > the user can read it too.
+> >
+> > Anything you can do with ptrace you can do yourself !
 > 
-> Yes, slinging uids and gids around *would* be nice.  But first we need a clear
-> plan for making /usr/bin/newgrp a shell builtin - once that happens, *then*
-> we can re-address this code. ;)
+> Now that I think about it this is really something completely separate
+> from setuid.  This is about being able to read the text segment with
+> ptrace when you on have execute permissions on the file.
+> 
+> I just skimmed through fs/exec.c and we set the undumpable process
+> flag in that case so ptrace should not work in that case.
 
-Absolutely agreed with the principle, but conflicted on the application.
+And in fact you can't do a new ptrace_attach, but if you're already
+tracing the task when it execs the unreadable-but-executable file,
+then the ptrace can continue.
 
-I know earlier in the thread I said uid 0 even when unprivileged is
-actually privileged merely by owning most of the system files.  But
-in fact I think it helps to think more clearly when we separately
-consider the cases of (a) changing uid, and (b) enhancing privilege.
+Just looking at the code, it appears 2.2 was the same way (though I
+could be missing where it used to enforce that).
 
-That's why I was recommending implementation through securebits - what
-we're basically saying is the task should never gain privilege.  And
-effectively, since it won't have CAP_SETUID (unless it has and keeps it
-in pI) it wont' be able to change uids.  But if we right off the bat
-confuse changing uids with gaining privilege, I'm afraid we might end
-up making some poor decisions.
+So, is that intended?  What exactly would we do about it if not?
+Just refuse exec of a unreadable-but-executable file if we're
+being traced?
 
-Still, I won't say no to a check to refuse dropping the ability to
-setuid to ensure that ruid=euid=suid and pP=pE=pI=empty.  It may
-come back to bite us, but like I say I'm conflicted - willing to
-go either way.
-
--serge
+> So short of a bug in the implementation we have no security hole.
+> 
+> Eric
