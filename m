@@ -1,61 +1,134 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: Ethernet CRC questions
-Date: Wed, 30 Dec 2009 08:43:24 +0200
-Message-ID: <20091230064324.GJ3486@mea-ext.zmailer.org>
-References: <f4f837ab0912290917h626bcfecy34fe095a878e733c@mail.gmail.com>
- <1262108376.5941.5.camel@localhost>
- <f4f837ab0912292153l7086b631o6e0012d9049eecdb@mail.gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Wed, 30 Dec 2009 02:23:20 -0500
+Message-ID: <4B3AFFE8.3060409@majjas.com>
+References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
+ <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
+ <20091223230102.4bb0100e.akpm@linux-foundation.org>
+ <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
+ <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
+ <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
+ <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
+ <20091229093023.3ad24786@nehalam> <4B3A5048.9090700@majjas.com>
+ <20091229114938.1f4d1c5c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: thomas yang <lampsu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:49360 "EHLO mea-ext"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751982AbZL3Gnb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Dec 2009 01:43:31 -0500
-Received: (mea@mea-ext) by mail.zmailer.org id S2263366AbZL3GnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 08:43:24 +0200
-Content-Disposition: inline
-In-Reply-To: <f4f837ab0912292153l7086b631o6e0012d9049eecdb@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752353AbZL3HYI@vger.kernel.org>
+In-reply-to: <20091229114938.1f4d1c5c@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 30, 2009 at 01:53:09PM +0800, thomas yang wrote:
-> 2009/12/30 Ben Hutchings <bhutchings@solarflare.com>:
-> > On Wed, 2009-12-30 at 01:17 +0800, thomas yang wrote:
-> >> How does Linux =A0generate Ethernet CRC ?
-> >> by the hardware (Ethernet controller) =A0or =A0use crc32_le() /
-> >> crc32_be() =A0 =A0 ( lib/crc32.c ) =A0?
-> >>
-> >> P.S. =A0 my =A0network card is =A0rtl8139d =A0, use =A08139too dri=
-ver
-> >
-> > The Ethernet frame CRC is normally generated and verified in hardwa=
-re.
-> > These library functions are needed for the few MACs that don't, or =
-where
-> > the same CRC function is used for some other purpose (e.g. as a has=
-h
-> > function for multicast filtering).
->=20
-> Does the Ethernet frame CRC (generate and verify in hardware)  make
-> the TX / RX  rate  a little smaller , and a longer end-to-end  delay =
-?
->  Could I disable CRC appending / verifying  in the network card drive=
-r
->   on all of my nodes (machines) ?
+Ok - I called dump_txring from sky2_net_intr:
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2725,8 +2791,10 @@ static void sky2_watchdog(unsigned long arg)
+  /* Hardware/software error handling */
+  static void sky2_err_intr(struct sky2_hw *hw, u32 status)
+  {
+-       if (net_ratelimit())
++       if (net_ratelimit()) {
+                 dev_warn(&hw->pdev->dev, "error interrupt 
+status=%#x\n", status);
++               dump_txring(hw, 0);
++       }
 
-You would need to similarly disable the checking and generating at your
-network switches as well.  It really is not worthwhile.
+         if (status & Y2_IS_HW_ERR)
+                 sky2_hw_intr(hw);
 
-You are better to use multiple links in between the machines in paralle=
-l,
-and bond them together as load-sharing link.  Or go to 10G.
-(We used to do that kind of things with quad fast-ethernet cards, but
-with gigaethers we did not bother anymore.)
+And got this:
+Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt 
+status=0x40000008
+Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt 
+status=0x40000008
+Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
+Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
+Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
+Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
 
-> Thanks.
-
-Best Regards,  Matti Aarnio
+On 12/29/2009 02:49 PM, Stephen Hemminger wrote:
+> This patch will dump more info in case of hardware error.
+>
+> --- a/drivers/net/sky2.c	2009-12-29 11:30:06.441137685 -0800
+> +++ b/drivers/net/sky2.c	2009-12-29 11:46:37.389262922 -0800
+> @@ -2629,12 +2625,71 @@ static void sky2_hw_error(struct sky2_hw
+>   	}
+>   }
+>
+> +static void dump_txring(struct sky2_hw *hw, unsigned port)
+> +{
+> +	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
+> +	int sop = 1;
+> +	unsigned idx;
+> +
+> +	printk(KERN_INFO PFX "Tx ring pending=%u...%u report=%d done=%d\n",
+> +		   sky2->tx_cons, sky2->tx_prod,
+> +		   sky2_read16(hw, port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
+> +		   sky2_read16(hw, Q_ADDR(txqaddr[port], Q_DONE)));
+> +
+> +	/* Dump contents of tx ring */
+> +	for (idx = sky2->tx_next;
+> +	     idx != sky2->tx_prod&&  idx<  sky2->tx_ring_size;
+> +	     idx = RING_NEXT(idx, sky2->tx_ring_size)) {
+> +		const struct sky2_tx_le *le = sky2->tx_le + idx;
+> +		u32 a = le32_to_cpu(le->addr);
+> +
+> +		if (sop)
+> +			printk(KERN_DEBUG "%u:", idx);
+> +		sop = 0;
+> +
+> +		switch(le->opcode&  ~HW_OWNER) {
+> +		case OP_ADDR64:
+> +			printk(" %#x:", a);
+> +			break;
+> +		case OP_LRGLEN:
+> +			printk(" mtu=%d", a);
+> +			break;
+> +		case OP_VLAN:
+> +			printk(" vlan=%d", be16_to_cpu(le->length));
+> +			break;
+> +		case OP_TCPLISW:
+> +			printk(" csum=%#x", a);
+> +			break;
+> +		case OP_LARGESEND:
+> +			printk(" tso=%#x(%d)", a, le16_to_cpu(le->length));
+> +			break;
+> +		case OP_PACKET:
+> +			printk(" %#x(%d)", a, le16_to_cpu(le->length));
+> +			break;
+> +		case OP_BUFFER:
+> +			printk(" frag=%#x(%d)", a, le16_to_cpu(le->length));
+> +			break;
+> +		default:
+> +			printk(" op=%#x,%#x(%d)", le->opcode, a,
+> +			       le16_to_cpu(le->length));
+> +		}
+> +
+> +		if (le->ctrl&  EOP) {
+> +			printk("\n");
+> +			sop = 1;
+> +		}
+> +	}
+> +}
+> +
+>   static void sky2_hw_intr(struct sky2_hw *hw)
+>   {
+>   	struct pci_dev *pdev = hw->pdev;
+>   	u32 status = sky2_read32(hw, B0_HWE_ISRC);
+>   	u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
+>
+> +	printk(KERN_DEBUG PFX "hardware interrupt status %#x\n", status);
+> +	dump_txring(hw, 0);
+> +
+>   	status&= hwmsk;
+>
+>   	if (status&  Y2_IS_TIST_OV)
+>
+>    
