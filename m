@@ -1,71 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Wed, 30 Dec 2009 10:10:46 -0800
-Message-ID: <20091230101046.2816d545@nehalam>
-References: <4B300A2A.8040305@gmail.com>
-	<4B300E30.9090707@majjas.com>
-	<4B3114E3.1070602@majjas.com>
-	<4B329FA3.9090904@majjas.com>
-	<20091223230102.4bb0100e.akpm@linux-foundation.org>
-	<4B34E847.8010809@majjas.com>
-	<20091225152200.1cf11dfe@nehalam>
-	<4B3581C7.8000702@majjas.com>
-	<20091226095723.7ac82b18@nehalam>
-	<4B367409.5060202@majjas.com>
-	<4B379378.4000102@majjas.com>
-	<20091227102238.0df149f9@nehalam>
-	<4B37B7E2.5070307@majjas.com>
-	<20091229093023.3ad24786@nehalam>
-	<4B3A5048.9090700@majjas.com>
-	<20091229114938.1f4d1c5c@nehalam>
-	<4B3AFFE8.3060409@majjas.com>
-	<20091229235942.51bf733d@nehalam>
-	<4B3B7488.6080503@majjas.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: net: Assorted fixes
+Date: Wed, 30 Dec 2009 21:21:46 +0300
+Message-ID: <20091230182146.GA4515@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753222AbZL3SK7@vger.kernel.org>
-In-Reply-To: <4B3B7488.6080503@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, afleming@freescale.com, linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Dec 2009 10:40:56 -0500
-Michael Breuer <mbreuer@majjas.com> wrote:
-
-> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
-> status=0x40000008
-> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=31...40 report=35 done=35
-> Dec 30 10:37:14 mail kernel: 30: 0x0: 0xeb50c0ca(9014)
-> Dec 30 10:37:14 mail kernel: 32: 0x0: 0xeb5080ca(9014)
-> Dec 30 10:37:14 mail kernel: 34: 0x0: 0xeb5040ca(9014)
-> Dec 30 10:37:14 mail kernel: 36: 0x0: 0xeb5000ca(9014)
-> Dec 30 10:37:14 mail kernel: 38: 0x0: 0xeb4fc0ca(9014)
-
-You must be using 9K MTU.  Do you see the problem with smaller
-MTU?
-
-> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
-> status=0x40000008
-> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=87...92 report=89 done=91
-> Dec 30 10:37:14 mail kernel: 86: 0x0: 0xeafd80ca(9014)
-> Dec 30 10:37:14 mail kernel: 88: 0x0: 0xeafd40ca(9014)
-> Dec 30 10:37:14 mail kernel: 90: 0x0: 0xeafd00ca(9014)
-> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
-> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=39...42 report=39 done=41
-> Dec 30 10:37:15 mail kernel: 38: 0x0: 0xe5fec0ca(9014)
-> Dec 30 10:37:15 mail kernel: 40: 0x0: 0xe5fe80ca(9014)
-> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt 
-> status=0x40000008
-> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=117...124 report=119 
-> done=119
-> Dec 30 10:37:15 mail kernel: 116: 0x0: 0xe5d6c0ca(9014)
-> Dec 30 10:37:15 mail kernel: 118: 0x0: 0xe5d680ca(9014)
-> Dec 30 10:37:15 mail kernel: 120: 0x0: 0xe5d660ca(5938)
-> Dec 30 10:37:15 mail kernel: 122: 0x0: 0xe5d640ca(4213)
-
--- 
+T24gU3VuLCBEZWMgMjcsIDIwMDkgYXQgMDk6NTc6MzZQTSAtMDgwMCwgRGF2aWQgTWlsbGVyIHdy
+b3RlOgo+IEFjdHVhbGx5IEknbSByZXZlcnRpbmcgYm90aCBwYXRjaGVzOgo+IAo+IGRyaXZlcnMv
+bmV0L3BoeS9tZGlvX2J1cy5jOjI2ODogd2FybmluZzog4oCYbWRpb19idXNfcGh5X21heV9zdXNw
+ZW5k4oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkCj4gCj4gUGxlYXNlIHJlc3VibWl0IHRoZXNlIHR3
+byBwYXRjaGVzIHdpdGggdGhpcyB3YXJuaW5nIGZpeGVkLgo+IAo+IENPTkZJR19QTSBpcyBub3Qg
+YWx3YXlzIGVuYWJsZWQgOi0pCgpVZ2gsIHNvcnJ5IGFib3V0IHRoYXQsIGFuZCB0aGFua3MgZm9y
+IGNhdGNoaW5nIQoKSGVyZSBhcmUgdGhlIGFtZW5kZWQgcGF0Y2hlcyArIG9uZSBtb3JlIGZpeC4K
+ClRoYW5rcywKCi0tIApBbnRvbiBWb3JvbnRzb3YKZW1haWw6IGNib3VhdG1haWxydUBnbWFpbC5j
+b20KaXJjOi8vaXJjLmZyZWVub2RlLm5ldC9iZDIKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1k
+ZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGlu
+dXhwcGMtZGV2
