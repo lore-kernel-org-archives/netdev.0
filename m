@@ -1,125 +1,183 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 1/4] phylib: Fix deadlock on resume
-Date: Wed, 30 Dec 2009 21:23:28 +0300
-Message-ID: <20091230182328.GA13162@oksana.dev.rtsoft.ru>
+Subject: [PATCH 2/4] phylib: Properly reinitialize PHYs after hibernation
+Date: Wed, 30 Dec 2009 21:23:30 +0300
+Message-ID: <20091230182330.GB13162@oksana.dev.rtsoft.ru>
 References: <20091230182146.GA4515@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+Content-Type: text/plain; charset=utf-8
+Cc: Andy Fleming <afleming@freescale.com>,
+	Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
 	linuxppc-dev@ozlabs.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:43753 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752640AbZL3SXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 13:23:32 -0500
 Content-Disposition: inline
 In-Reply-To: <20091230182146.GA4515@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sometimes kernel hangs on resume with the following trace:
+Since hibernation assumes power loss, we should fully reinitialize
+PHYs (including platform fixups), as if PHYs were just attached.
 
- ucc_geth e0102000.ucc: resume
- INFO: task bash:1764 blocked for more than 120 seconds.
- "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
- bash          D 0fecf43c     0  1764   1763 0x00000000
- Call Trace:
- [cf9a7c10] [c0012868] ret_from_except+0x0/0x14 (unreliable)
- --- Exception: cf9a7ce0 at __switch_to+0x4c/0x6c
-     LR = 0xcf9a7cc0
- [cf9a7cd0] [c0008c14] __switch_to+0x4c/0x6c (unreliable)
- [cf9a7ce0] [c028bcfc] schedule+0x158/0x260
- [cf9a7d10] [c028c720] __mutex_lock_slowpath+0x80/0xd8
- [cf9a7d40] [c01cf388] phy_stop+0x20/0x70
- [cf9a7d50] [c01d514c] ugeth_resume+0x6c/0x13c
- [...]
-
-Here is why.
-
-On suspend:
-
-- PM core starts suspending devices, ucc_geth_suspend gets called;
-
-- ucc_geth calls phy_stop() on suspend. Note that phy_stop() is
-  mostly asynchronous so it doesn't block ucc_geth's suspend routine,
-  it just sets PHY_HALTED state and disables PHY's interrupts;
-
-- Suddenly the state machine gets scheduled, it grabs the phydev->lock
-  mutex and tries to process the PHY_HALTED state, so it calls
-  phydev->adjust_link(phydev->attached_dev). In ucc_geth case
-  adjust_link() calls msleep(), which reschedules the code flow back to
-  PM core, which now finishes suspend and so we end up sleeping with
-  phydev->lock mutex held.
-
-On resume:
-
-- PM core starts resuming devices (notice that nobody rescheduled
-  the state machine yet, so the mutex is still held), the core calls
-  ucc_geth's resume routine;
-
-- ucc_geth_resume restarts the PHY with phy_stop()/phy_start()
-  sequence, and the phy_*() calls are trying to grab the phydev->lock
-  mutex. Here comes the deadlock.
-
-This patch fixes the issue by stopping the state machine on suspend
-and starting it again on resume.
+This patch factors phy_init_hw() out of phy_attach_direct(), then
+converts mdio_bus to dev_pm_ops and adds an appropriate restore()
+callback.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/phy/mdio_bus.c |   24 ++++++++++++++++++++++--
- 1 files changed, 22 insertions(+), 2 deletions(-)
+ drivers/net/phy/mdio_bus.c   |   50 ++++++++++++++++++++++++++++++++++++------
+ drivers/net/phy/phy_device.c |   30 ++++++++++++------------
+ include/linux/phy.h          |    1 +
+ 3 files changed, 59 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index bd4e8d7..49252d3 100644
+index 49252d3..e17b702 100644
 --- a/drivers/net/phy/mdio_bus.c
 +++ b/drivers/net/phy/mdio_bus.c
-@@ -303,8 +303,18 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
- 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
- 	struct phy_device *phydev = to_phy_device(dev);
- 
-+	/*
-+	 * We must stop the state machine manually, otherwise it stops out of
-+	 * control, possibly with the phydev->lock held. Upon resume, netdev
-+	 * may call phy routines that try to grab the same lock, and that may
-+	 * lead to a deadlock.
-+	 */
-+	if (phydev->attached_dev)
-+		phy_stop_machine(phydev);
-+
- 	if (!mdio_bus_phy_may_suspend(phydev))
- 		return 0;
-+
- 	return phydrv->suspend(phydev);
+@@ -264,6 +264,8 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
+ 		(phydev->phy_id & phydrv->phy_id_mask));
  }
  
-@@ -312,10 +322,20 @@ static int mdio_bus_resume(struct device * dev)
++#ifdef CONFIG_PM
++
+ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
+ {
+ 	struct device_driver *drv = phydev->dev.driver;
+@@ -295,10 +297,7 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
+ 	return true;
+ }
+ 
+-/* Suspend and resume.  Copied from platform_suspend and
+- * platform_resume
+- */
+-static int mdio_bus_suspend(struct device * dev, pm_message_t state)
++static int mdio_bus_suspend(struct device *dev)
  {
  	struct phy_driver *phydrv = to_phy_driver(dev->driver);
  	struct phy_device *phydev = to_phy_device(dev);
-+	int ret;
+@@ -318,7 +317,7 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
+ 	return phydrv->suspend(phydev);
+ }
  
- 	if (!mdio_bus_phy_may_suspend(phydev))
--		return 0;
--	return phydrv->resume(phydev);
-+		goto no_resume;
+-static int mdio_bus_resume(struct device * dev)
++static int mdio_bus_resume(struct device *dev)
+ {
+ 	struct phy_driver *phydrv = to_phy_driver(dev->driver);
+ 	struct phy_device *phydev = to_phy_device(dev);
+@@ -338,11 +337,48 @@ no_resume:
+ 	return 0;
+ }
+ 
++static int mdio_bus_restore(struct device *dev)
++{
++	struct phy_device *phydev = to_phy_device(dev);
++	struct net_device *netdev = phydev->attached_dev;
++	int ret;
 +
-+	ret = phydrv->resume(phydev);
++	if (!netdev)
++		return 0;
++
++	ret = phy_init_hw(phydev);
 +	if (ret < 0)
 +		return ret;
 +
-+no_resume:
-+	if (phydev->attached_dev)
-+		phy_start_machine(phydev, NULL);
++	/* The PHY needs to renegotiate. */
++	phydev->link = 0;
++	phydev->state = PHY_UP;
++
++	phy_start_machine(phydev, NULL);
 +
 +	return 0;
- }
- 
++}
++
++static struct dev_pm_ops mdio_bus_pm_ops = {
++	.suspend = mdio_bus_suspend,
++	.resume = mdio_bus_resume,
++	.freeze = mdio_bus_suspend,
++	.thaw = mdio_bus_resume,
++	.restore = mdio_bus_restore,
++};
++
++#define MDIO_BUS_PM_OPS (&mdio_bus_pm_ops)
++
++#else
++
++#define MDIO_BUS_PM_OPS NULL
++
++#endif /* CONFIG_PM */
++
  struct bus_type mdio_bus_type = {
+ 	.name		= "mdio_bus",
+ 	.match		= mdio_bus_match,
+-	.suspend	= mdio_bus_suspend,
+-	.resume		= mdio_bus_resume,
++	.pm		= MDIO_BUS_PM_OPS,
+ };
+ EXPORT_SYMBOL(mdio_bus_type);
+ 
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index b10fedd..8212b2b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -378,6 +378,20 @@ void phy_disconnect(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_disconnect);
+ 
++int phy_init_hw(struct phy_device *phydev)
++{
++	int ret;
++
++	if (!phydev->drv || !phydev->drv->config_init)
++		return 0;
++
++	ret = phy_scan_fixups(phydev);
++	if (ret < 0)
++		return ret;
++
++	return phydev->drv->config_init(phydev);
++}
++
+ /**
+  * phy_attach_direct - attach a network device to a given PHY device pointer
+  * @dev: network device to attach
+@@ -425,21 +439,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	/* Do initial configuration here, now that
+ 	 * we have certain key parameters
+ 	 * (dev_flags and interface) */
+-	if (phydev->drv->config_init) {
+-		int err;
+-
+-		err = phy_scan_fixups(phydev);
+-
+-		if (err < 0)
+-			return err;
+-
+-		err = phydev->drv->config_init(phydev);
+-
+-		if (err < 0)
+-			return err;
+-	}
+-
+-	return 0;
++	return phy_init_hw(phydev);
+ }
+ EXPORT_SYMBOL(phy_attach_direct);
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index b1368b8..7968def 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -447,6 +447,7 @@ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
+ int phy_device_register(struct phy_device *phy);
+ int phy_clear_interrupt(struct phy_device *phydev);
+ int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
++int phy_init_hw(struct phy_device *phydev);
+ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		u32 flags, phy_interface_t interface);
+ struct phy_device * phy_attach(struct net_device *dev,
 -- 
 1.6.5.7
+
