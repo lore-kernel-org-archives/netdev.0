@@ -1,7 +1,7 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Wed, 30 Dec 2009 21:29:31 +0000
-Message-ID: <20091230212931.233003b9@lxorguk.ukuu.org.uk>
+Date: Wed, 30 Dec 2009 13:36:57 -0800
+Message-ID: <m1skasrvnq.fsf@fess.ebiederm.org>
 References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
 	<20091229223631.GB22578@us.ibm.com>
 	<m1aax1uoa3.fsf_-_@fess.ebiederm.org>
@@ -10,13 +10,12 @@ References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
 	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
 	<m1d41w62zc.fsf_-_@fess.ebiederm.org>
 	<551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	<20091230183513.GC14493@us.ibm.com>
-	<m1fx6suswz.fsf@fess.ebiederm.org>
+	<20091230183513.GC14493@us.ibm.com> <m1fx6suswz.fsf@fess.ebiederm.org>
 	<20091230201712.GA23999@us.ibm.com>
 	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
+	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
 	"Andrew G. Morgan" <morgan@kernel.org>,
 	Bryan Donlan <bdonlan@gmail.com>,
@@ -34,23 +33,28 @@ Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
+	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
 	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753816AbZL3V3P@vger.kernel.org>
-In-Reply-To: <m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751470AbZL3VhG@vger.kernel.org>
+In-Reply-To: <20091230212931.233003b9@lxorguk.ukuu.org.uk> (Alan Cox's message of "Wed\, 30 Dec 2009 21\:29\:31 +0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Added bprm->nosuid to make remove the need to add
-> duplicate error prone checks.  This ensures that
-> the disabling of suid executables is exactly the
-> same as MNT_NOSUID.
+Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 
-Another fine example of why we have security hooks so that we don't get a
-kernel full of other "random security idea of the day" hacks.
+>> Added bprm->nosuid to make remove the need to add
+>> duplicate error prone checks.  This ensures that
+>> the disabling of suid executables is exactly the
+>> same as MNT_NOSUID.
+>
+> Another fine example of why we have security hooks so that we don't get a
+> kernel full of other "random security idea of the day" hacks.
 
+Well it comes from plan 9.  Except there they just simply did not
+implement suid.  What causes you to think dropping the ability
+to execute suid executables is a random security idea of the day?
 
-Alan
+Eric
