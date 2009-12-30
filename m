@@ -1,13 +1,13 @@
 From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: [PATCH] drivers/net/wimax/i2400m/driver.c: use %pM to show MAC address
-Date: Wed, 30 Dec 2009 15:24:44 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F675@mi8nycmail19.Mi8.com>
+Subject: [PATCH] drivers/net/wimax/i2400m/fw.c: use %pM to show MAC address
+Date: Wed, 30 Dec 2009 15:27:36 -0500
+Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F677@mi8nycmail19.Mi8.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 Cc: "David Miller" <davem@davemloft.net>
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753477AbZL3UYp@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753538AbZL3U1j@vger.kernel.org>
 Content-class: urn:content-classes:message
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -19,36 +19,31 @@ Cc: David S. Miller <davem@davemloft.net>
 
 ---
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 96a615f..6cead32 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -301,24 +301,15 @@ int i2400m_check_mac_addr(struct i2400m *i2400m)
- 	/* Extract MAC addresss */
- 	ddi = (void *) skb->data;
- 	BUILD_BUG_ON(ETH_ALEN != sizeof(ddi->mac_address));
--	d_printf(2, dev, "GET DEVICE INFO: mac addr "
--		 "%02x:%02x:%02x:%02x:%02x:%02x\n",
--		 ddi->mac_address[0], ddi->mac_address[1],
--		 ddi->mac_address[2], ddi->mac_address[3],
--		 ddi->mac_address[4], ddi->mac_address[5]);
-+	d_printf(2, dev, "GET DEVICE INFO: mac addr %pM\n",
-+		 ddi->mac_address);
- 	if (!memcmp(net_dev->perm_addr, ddi->mac_address,
- 		   sizeof(ddi->mac_address)))
- 		goto ok;
- 	dev_warn(dev, "warning: device reports a different MAC address "
- 		 "to that of boot mode's\n");
--	dev_warn(dev, "device reports     %02x:%02x:%02x:%02x:%02x:%02x\n",
--		 ddi->mac_address[0], ddi->mac_address[1],
--		 ddi->mac_address[2], ddi->mac_address[3],
--		 ddi->mac_address[4], ddi->mac_address[5]);
--	dev_warn(dev, "boot mode reported %02x:%02x:%02x:%02x:%02x:%02x\n",
--		 net_dev->perm_addr[0], net_dev->perm_addr[1],
--		 net_dev->perm_addr[2], net_dev->perm_addr[3],
--		 net_dev->perm_addr[4], net_dev->perm_addr[5]);
-+	dev_warn(dev, "device reports     %pM\n", ddi->mac_address);
-+	dev_warn(dev, "boot mode reported %pM\n", net_dev->perm_addr);
- 	if (!memcmp(zeromac, ddi->mac_address, sizeof(zeromac)))
- 		dev_err(dev, "device reports an invalid MAC address, "
- 			"not updating\n"); 
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 64cdfeb..e803a7d 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -1041,21 +1041,14 @@ int i2400m_read_mac_addr(struct i2400m *i2400m)
+ 		dev_err(dev, "BM: read mac addr failed: %d\n", result);
+ 		goto error_read_mac;
+ 	}
+-	d_printf(2, dev,
+-		 "mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		 ack_buf.ack_pl[0], ack_buf.ack_pl[1],
+-		 ack_buf.ack_pl[2], ack_buf.ack_pl[3],
+-		 ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
++	d_printf(2, dev, "mac addr is %pM\n", ack_buf.ack_pl);
+ 	if (i2400m->bus_bm_mac_addr_impaired == 1) {
+ 		ack_buf.ack_pl[0] = 0x00;
+ 		ack_buf.ack_pl[1] = 0x16;
+ 		ack_buf.ack_pl[2] = 0xd3;
+ 		get_random_bytes(&ack_buf.ack_pl[3], 3);
+ 		dev_err(dev, "BM is MAC addr impaired, faking MAC addr to "
+-			"mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
+-			ack_buf.ack_pl[0], ack_buf.ack_pl[1],
+-			ack_buf.ack_pl[2], ack_buf.ack_pl[3],
+-			ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
++			"mac addr is %pM\n", ack_buf.ack_pl);
+ 		result = 0;
+ 	}
+ 	net_dev->addr_len = ETH_ALEN; 
