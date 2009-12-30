@@ -1,72 +1,68 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: RFC: disablenetwork facility. (v4)
-Date: Wed, 30 Dec 2009 12:00:45 -0600
-Message-ID: <20091230180045.GA14493@us.ibm.com>
-References: <20091229151146.GA32153@us.ibm.com>
- <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
- <m3oclhzgm4.fsf@ursa.amorsen.dk>
- <m17hs5y0mg.fsf@fess.ebiederm.org>
- <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
- <m1iqbpwjtp.fsf@fess.ebiederm.org>
- <20091229223631.GB22578@us.ibm.com>
- <m1zl51uoqd.fsf@fess.ebiederm.org>
- <20091230035008.GA6819@us.ibm.com>
- <m11vidulsq.fsf@fess.ebiederm.org>
+From: "H Hartley Sweeten" <hartleys@visionengravers.com>
+Subject: RE: [PATCH] ep93xx_eth.c: general cleanup
+Date: Wed, 30 Dec 2009 13:03:00 -0500
+Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F635@mi8nycmail19.Mi8.com>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200ED0C@mi8nycmail19.Mi8.com><20091216183200.GN1819@mail.wantstofly.org><BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com> <20091223.141458.193725880.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al V
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m11vidulsq.fsf@fess.ebiederm.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<joe@perches.com>
+To: "Lennert Buytenhek" <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og107.obsmtp.com ([64.18.1.208]:42021 "HELO
+	exprod6og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752486AbZL3SDC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 13:03:02 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20091223.141458.193725880.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> "Serge E. Hallyn" <serue@us.ibm.com> writes:
-> 
-> >> In common cap we drop the new capabilities if we are being ptraced.
-> >> Look for brm->unsafe.
-> >
-> > Yes - that isn't the issue.
-> 
-> Right.  Sorry.  I saw that we set unsafe and totally
-> missed that we don't act on it in that case.
-> 
-> > It goes back to finding a way to figure out what is inside the
-> > file when the installer obviously thought we shouldn't be able
-> > to read the file.
-> >
-> > Do we care?  <shrug>
-> 
-> <shrug>
-> 
-> I expect two lines of testing bprm->unsafe and failing
-> at the right point would solve that. 
+On Wednesday, December 23, 2009 3:15 PM, David Miller wrote:
+> From: "H Hartley Sweeten" <hartleys@visionengravers.com>
+> Date: Wed, 16 Dec 2009 13:34:55 -0500
+>
+>> Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
+>>> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
+>>>
+>>>> V3 - Change pr_fmt() as suggested by Joe Perches
+>>>>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
+>>>>      Don't remove the message in ep93xx_eth_init_module()
+>>>
+>>> That's not what I meant, but alright, as you prefer.
+>> 
+>> Guess my parser is off line today.... ;-)
+>> 
+>> What did you mean?
+>
+> This patch also doesn't apply to current sources, so if you
+> could also please respin this once you've resolved the feedback
+> that would be great.
 
-But what is the right response?  Prevent excecution?  Stop the
-tracer?  Enter some one-shot mode where the whole exec appears
-as one step, but tracing continues if execution continues on a
-dumpable file?
+Lennert,
 
--serge
+Since I need to respin this patch what did you mean by this comment?
+
+On Wednesday, December 16, 2009 11:09 AM, Lennert Buytenhek wrote:
+> On Wed, Dec 16, 2009 at 01:06:10PM -0500, H Hartley Sweeten wrote:
+>
+>>>> General cleanup of the ep93xx_eth driver.
+>>>
+>>> Apart from keeping DRV_MODULE_NAME and DRV_MODULE_VERSION, I have
+>>> no strong opinion about this one way or the other.  So I guess that
+>>> means ACK.
+>> 
+>> I will add back the DRV_MODULE_NAME and DRV_MODULE_VERSION and repost.
+>> 
+>> What about the message in ep93xx_eth_init_module()?  Would you prefer
+>> that one to stay?
+>
+> Most drivers I'm familiar with print a version message when they are
+> first instantiated -- perhaps that makes more sense.
+
+I will wait for your reply before updating the patch.
+
+Thanks,
+Hartley
