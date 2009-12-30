@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Tue, 29 Dec 2009 23:58:35 -0800
-Message-ID: <20091229235835.1f260eb0@nehalam>
+Date: Tue, 29 Dec 2009 23:59:42 -0800
+Message-ID: <20091229235942.51bf733d@nehalam>
 References: <4B300A2A.8040305@gmail.com>
 	<4B300E30.9090707@majjas.com>
 	<4B3114E3.1070602@majjas.com>
@@ -27,31 +27,18 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
 To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752472AbZL3H67@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35956 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751510AbZL3H77 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Dec 2009 02:59:59 -0500
 In-Reply-To: <4B3AFFE8.3060409@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Wed, 30 Dec 2009 02:23:20 -0500
 Michael Breuer <mbreuer@majjas.com> wrote:
 
-> Ok - I called dump_txring from sky2_net_intr:
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -2725,8 +2791,10 @@ static void sky2_watchdog(unsigned long arg)
->   /* Hardware/software error handling */
->   static void sky2_err_intr(struct sky2_hw *hw, u32 status)
->   {
-> -       if (net_ratelimit())
-> +       if (net_ratelimit()) {
->                  dev_warn(&hw->pdev->dev, "error interrupt 
-> status=%#x\n", status);
-> +               dump_txring(hw, 0);
-> +       }
-> 
->          if (status & Y2_IS_HW_ERR)
->                  sky2_hw_intr(hw);
-> 
 > And got this:
 > Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt 
 > status=0x40000008
@@ -63,9 +50,8 @@ Michael Breuer <mbreuer@majjas.com> wrote:
 > Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
 > Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
 > Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
-> 
 
-I notice that you have NOUVEAU Nvidia drivers loaded? The one difference in HW
-between your board and mine is that I have ATI video card.
+The interesting bits are only output at DEBUG level.  So either change kernel
+log level or syslog.
 
 -- 
