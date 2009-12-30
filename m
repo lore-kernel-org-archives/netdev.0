@@ -1,45 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Wed, 30 Dec 2009 00:07:24 -0800
-Message-ID: <20091230000724.4083e7dd@nehalam>
-References: <4B300A2A.8040305@gmail.com>
-	<4B300E30.9090707@majjas.com>
-	<4B3114E3.1070602@majjas.com>
-	<4B329FA3.9090904@majjas.com>
-	<20091223230102.4bb0100e.akpm@linux-foundation.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/3] Security: Add disablenetwork interface. (v4)
+Date: Wed, 30 Dec 2009 11:09:35 +0100
+Message-ID: <20091230100935.GA32700@atrey.karlin.mff.cuni.cz>
+References: <20091227075335.GA11737@elf.ucw.cz> <20091229012523.GB14362@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752522AbZL3II4@vger.kernel.org>
-In-Reply-To: <20091223230102.4bb0100e.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-2?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20091229012523.GB14362@heat>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Dec 2009 23:01:02 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
 
-> > Dec 23 17:32:58 mail kernel: DRHD: handling fault status reg 2
-> > Dec 23 17:32:58 mail kernel: DMAR:[DMA Read] Request device [06:00.0] 
-> > fault addr fff8423fe000
-> > Dec 23 17:32:58 mail kernel: DMAR:[fault reason 06] PTE Read access is 
-> > not set
-> > Dec 23 17:32:58 mail kernel: sky2 0000:06:00.0: error interrupt 
-> > status=0x80000000
-> > Dec 23 17:32:58 mail kernel: sky2 0000:06:00.0: PCI hardware error (0x2010)
-> > Dec 23 17:33:06 mail kernel: ------------[ cut here ]------------
-> > Dec 23 17:33:06 mail kernel: WARNING: at net/sched/sch_generic.c:255 
-> > dev_watchdog+0xf3/0x161()
-> > Dec 23 17:33:06 mail kernel: Hardware name: System Product Name
-> > Dec 23 17:33:06 mail kernel: NETDEV WATCHDOG: eth0 (sky2): transmit 
+> Pavel Machek wrote:
+> >>index 26a6b73..b48f021 100644
+> >>--- a/kernel/sys.c
+> >>+++ b/kernel/sys.c
+> >>@@ -35,6 +35,7 @@
+> >>  #include <linux/cpu.h>
+> >>  #include <linux/ptrace.h>
+> >>  #include <linux/fs_struct.h>
+> >>+#include <linux/prctl_network.h>
+> >>  
+> >>  #include <linux/compat.h>
+> >>  #include <linux/syscalls.h>
+> >
+> >Something seems to be wrong with whitespace here. Damaged patch?
+> 
+> Nope; kernel/sys.c has a newline there:
+> 
+>   http://repo.or.cz/w/linux-2.6.git/blob/HEAD:/kernel/sys.c#l36
+> 
+> Shall I remove it?
 
-Just to reiterate, these are consistent with a DMA error on transmit.
-Since is 4 seconds after the DHCPACK, they probably are not related, except
-that when DHCP renew may have caused more traffic.
+notice two spaces before include. something was definitely wrong there.
 
-Are you using something like network console or kgdb, or anything that could
-be using some unusual network I/O?
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
