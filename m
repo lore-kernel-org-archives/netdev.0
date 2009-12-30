@@ -1,34 +1,97 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] drivers/s390/net/qeth_l2_main.c: use %pM to shown MAC address
-Date: Wed, 30 Dec 2009 12:39:25 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F62D@mi8nycmail19.Mi8.com>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200F4CF@mi8nycmail19.Mi8.com> <20091230.091643.246513654.davem@davemloft.net>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Wed, 30 Dec 2009 12:49:44 -0500
+Message-ID: <4B3B92B8.7010208@majjas.com>
+References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
+ <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
+ <20091223230102.4bb0100e.akpm@linux-foundation.org>
+ <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
+ <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
+ <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
+ <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
+ <20091229093023.3ad24786@nehalam> <4B3A5048.9090700@majjas.com>
+ <20091229114938.1f4d1c5c@nehalam> <4B3AFFE8.3060409@majjas.com>
+ <20091229235835.1f260eb0@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>, <blaschka@linux.vnet.ibm.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og110.obsmtp.com ([64.18.1.25]:33582 "HELO
-	exprod6og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752525AbZL3Rj1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 12:39:27 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20091230.091643.246513654.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752950AbZL3RuW@vger.kernel.org>
+In-reply-to: <20091229235835.1f260eb0@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, December 30, 2009 10:17 AM, wrote:
-> From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-> Date: Mon, 28 Dec 2009 18:39:26 -0500
-> 
->> Use the %pM kernel extension to display the MAC address.
->> 
->> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+On 12/30/2009 2:58 AM, Stephen Hemminger wrote:
+> On Wed, 30 Dec 2009 02:23:20 -0500
+> Michael Breuer<mbreuer@majjas.com>  wrote:
 >
-> Applied.
+>    
+>> Ok - I called dump_txring from sky2_net_intr:
+>> --- a/drivers/net/sky2.c
+>> +++ b/drivers/net/sky2.c
+>> @@ -2725,8 +2791,10 @@ static void sky2_watchdog(unsigned long arg)
+>>    /* Hardware/software error handling */
+>>    static void sky2_err_intr(struct sky2_hw *hw, u32 status)
+>>    {
+>> -       if (net_ratelimit())
+>> +       if (net_ratelimit()) {
+>>                   dev_warn(&hw->pdev->dev, "error interrupt
+>> status=%#x\n", status);
+>> +               dump_txring(hw, 0);
+>> +       }
+>>
+>>           if (status&  Y2_IS_HW_ERR)
+>>                   sky2_hw_intr(hw);
+>>
+>> And got this:
+>> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt
+>> status=0x40000008
+>> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt
+>> status=0x40000008
+>> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
+>> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
+>> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+>> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+>> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
+>> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
+>>
+>>      
+> I notice that you have NOUVEAU Nvidia drivers loaded? The one difference in HW
+> between your board and mine is that I have ATI video card.
+>
+>    
+Seems the problem is linked to auditd and X11 (but not nouveau).
 
-Thanks for this one and the others.
+Today, I ran a bunch of scenarios. I first determined that the problem 
+only manifest in runlevel 5. Next, this occurred with or without KMS and 
+with or without nouveau. This happened whether or not I was logged in 
+(local or remote), and regardless of window manager (xdm, gdm, kdm). I 
+then checked to see what else was different between runlevel 3 and 5 - 
+only thing was auditd. I disabled auditd and reran - no errors.
 
-Hartley
+Now for the odd stuff:
+
+The errors only manifest if the high throughput data transfer is 
+initiated when the system is in runlevel 5 and auditd was started by 
+init when transitioning from runlevel 3 to 5. For example, the following 
+scenarios do not cause the errors to manifest:
+
+runlevel3; start auditd runlevel 5; start transfer
+runlevel3; chkconfig auditd off; runlevel5; start auditd; start transfer
+runlevel3; start transfer (note: errors do not occur if I transition to 
+runlevel 5 after the high bandwidth transfer has started)
+runlevel3; startx; start transfer
+
+The only way I get the problem to manifest is transition to runlevel 5 
+with chkconfig auditd on (level 5 only) and then initate the windows 
+backup.
+
+I'm guessing that there is some sort of race condition happening between 
+X (xdm/gdm/kdm/greeter?) and auditd that is somehow corrupting 
+something. I'd hazard a more or less obvious guess that whatever's being 
+corrupted differs when there is already a high throughput transfer under 
+way.
