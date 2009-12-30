@@ -1,89 +1,95 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH] netxen: fix ethtool link test
-Date: Wed, 30 Dec 2009 04:39:18 -0800
-Message-ID: <1262176758-17803-3-git-send-email-amit.salecha@qlogic.com>
-References: <1262176758-17803-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:32550 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751326AbZL3MjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Dec 2009 07:39:22 -0500
-In-Reply-To: <1262176758-17803-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] Unprivileged: Disable acquisition of privileges
+Date: Wed, 30 Dec 2009 04:47:02 -0800
+Message-ID: <m1k4w4633t.fsf@fess.ebiederm.org>
+References: <20091229050114.GC14362@heat>
+	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<m3oclhzgm4.fsf@ursa.amorsen.dk> <m17hs5y0mg.fsf@fess.ebiederm.org>
+	<20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
+	<m1iqbpwjtp.fsf@fess.ebiederm.org> <20091229223631.GB22578@us.ibm.com>
+	<m1aax1uoa3.fsf_-_@fess.ebiederm.org>
+	<3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
+	<m1r5qdt721.fsf@fess.ebiederm.org>
+	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Benny Amorsen <benny+usenet@amorsen.dk>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>,
+To: Bryan Donlan <bdonlan@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752383AbZL3Mrc@vger.kernel.org>
+In-Reply-To: <3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com> (Bryan Donlan's message of "Tue\, 29 Dec 2009 23\:57\:50 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Bryan Donlan <bdonlan@gmail.com> writes:
 
-o Fix ethtool link test for NX3031 chip.
-o Remove unused code from phy interrupt callback
+> On Tue, Dec 29, 2009 at 11:33 PM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>> Bryan Donlan <bdonlan@gmail.com> writes:
+>>
+>>> Is this sufficient for other security models such as selinux or
+>>> TOMOYO? Can processes in these models gain privileges through means
+>>> not restricted here?
+>>
+>> The LSM is primarily about returning -EPERM more often.
+>> Except for the prctl and the capability hooks I am not aware
+>> of anywhere a LSM can increase a processes capabilities.
+>
+> I'm more concerned about a case where a privilege that the LSM
+> currently denies is lifted by execing some executable - this is still
+> an increase in privilege, even though the LSM only adds additional
+> restrictions. That is:
+>
+> 1) Initial state: LSM denies access to /somefile (although normal
+> POSIX permissions would permit access)
+> 2) Disable capability-gaining
+> 3) Disable network access with proposed API
+> 4) Exec some application, which is labeled in a way that permits
+> access to /somefile
+> 5) Application fails to access the network, then does something to /somefile
+>
+> I'm not entirely sure if step 4) can happen in any of the currently
+> existing LSMs - if it's not possible to gain privileges in them via a
+> suid-like mechanism, this isn't a problem, but it's something that
+> needs to be checked for.
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_ethtool.c |   23 ++++++++---------------
- drivers/net/netxen/netxen_nic_main.c    |    8 ++------
- 2 files changed, 10 insertions(+), 21 deletions(-)
+A reasonable concern.  When the glitches get worked out of this patch
+I intend to allow much more dangerous things like unprivileged unsharing
+of all of the namespaces, and unprivileged mounts.
 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index e5af8b2..6f94c59 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -381,25 +381,18 @@ netxen_nic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- static u32 netxen_nic_test_link(struct net_device *dev)
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
--	__u32 status;
--	int val;
-+	u32 val, port;
- 
--	/* read which mode */
--	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
--		if (adapter->phy_read &&
--		    adapter->phy_read(adapter,
--				      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--				      &status) != 0)
--			return -EIO;
--		else {
--			val = netxen_get_phy_link(status);
--			return !val;
--		}
--	} else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
-+	port = adapter->physical_port;
-+	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
-+		val = NXRD32(adapter, CRB_XG_STATE_P3);
-+		val = XG_LINK_STATE_P3(adapter->ahw.pci_func, val);
-+		return (val == XG_LINK_UP_P3) ? 0 : 1;
-+	} else {
- 		val = NXRD32(adapter, CRB_XG_STATE);
-+		val = (val >> port*8) & 0xff;
- 		return (val == XG_LINK_UP) ? 0 : 1;
- 	}
--	return -EIO;
- }
- 
- static int
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 6cae26a..880fcd0 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1898,12 +1898,8 @@ static void netxen_nic_handle_phy_intr(struct netxen_adapter *adapter)
- 		linkup = (val == XG_LINK_UP_P3);
- 	} else {
- 		val = NXRD32(adapter, CRB_XG_STATE);
--		if (adapter->ahw.port_type == NETXEN_NIC_GBE)
--			linkup = (val >> port) & 1;
--		else {
--			val = (val >> port*8) & 0xff;
--			linkup = (val == XG_LINK_UP);
--		}
-+		val = (val >> port*8) & 0xff;
-+		linkup = (val == XG_LINK_UP);
- 	}
- 
- 	netxen_advert_link_change(adapter, linkup);
--- 
-1.6.0.2
+It appears I missed a place where MNT_NOSUID was handled in selinux.
+So I will be adding a bprm->nosuid field so I don't have to duplicate
+the MNT_NOSUID check everywhere it is used.
 
+I don't understand TOMOYO  I think it is file based access control,
+which suggests there is not a suid like mechanism.
+
+Smack and selinux are label based.  Selinux at least can switch labels
+on exec, but it handles NOSUID already.
+
+Looking a little farther if I assume that lsm implementations that
+implement the set_creds hook need attention.  Only selinux has
+an interesting set_creds implementation and it handles nosuid already.
+
+So I think we are ok.
+
+Eric
