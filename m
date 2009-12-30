@@ -1,22 +1,19 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH v2] Unprivileged: Disable raising of privileges
-Date: Wed, 30 Dec 2009 12:45:41 -0800
-Message-ID: <m1vdfotclm.fsf@fess.ebiederm.org>
-References: <m3oclhzgm4.fsf@ursa.amorsen.dk>
-	<m17hs5y0mg.fsf@fess.ebiederm.org>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Wed, 30 Dec 2009 13:12:33 -0800
+Message-ID: <m1my10tbcu.fsf@fess.ebiederm.org>
+References: <20091229151146.GA32153@us.ibm.com>
+	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+	<m3oclhzgm4.fsf@ursa.amorsen.dk> <m17hs5y0mg.fsf@fess.ebiederm.org>
 	<20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
 	<m1iqbpwjtp.fsf@fess.ebiederm.org> <20091229223631.GB22578@us.ibm.com>
-	<m1aax1uoa3.fsf_-_@fess.ebiederm.org>
-	<3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
-	<m1r5qdt721.fsf@fess.ebiederm.org>
-	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
-	<m1d41w62zc.fsf_-_@fess.ebiederm.org>
-	<20091230182933.GB14493@us.ibm.com>
+	<m1zl51uoqd.fsf@fess.ebiederm.org> <20091230035008.GA6819@us.ibm.com>
+	<m11vidulsq.fsf@fess.ebiederm.org> <20091230180045.GA14493@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bryan Donlan <bdonlan@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Benny Amorsen <benny+usenet@amorsen.dk>,
+	Bryan Donlan <bdonlan@gmail.com>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org,
@@ -37,54 +34,44 @@ Cc: Bryan Donlan <bdonlan@gmail.com>,
 	Pavel Machek <pavel@ucw.cz>, Al Vir
 To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091230182933.GB14493@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 30 Dec 2009 12\:29\:33 -0600")
+In-Reply-To: <20091230180045.GA14493@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 30 Dec 2009 12\:00\:45 -0600")
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 "Serge E. Hallyn" <serue@us.ibm.com> writes:
 
->> @@ -869,6 +869,18 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
->>  			new->securebits &= ~issecure_mask(SECURE_KEEP_CAPS);
->>  		goto changed;
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> "Serge E. Hallyn" <serue@us.ibm.com> writes:
 >> 
->> +	case PR_SET_NOSUID:
->> +	{
->> +		const struct cred *cred = current->cred;
->> +		error = -EINVAL;
->
-> Should this be -EPERM?  not sure...
-
-I intended -EINVAL to say it is simply a set of initial conditions
-that are not supported today.  But could be supported if someone
-does the audit, and found there are no security issues.
-
->> +		/* Perform the capabilities checks */
->> +		if (!cap_isclear(cred->cap_permitted) ||
->> +		    !cap_isclear(cred->cap_effective))
->
-> No need to check cap_effective, as no bits can be there which are not
-> in cap_permitted.
->
-> To be honest, I don't think there is much reason to not have this
-> check done in the main sys_prctl(0 - capabilities themselves are not
-> optional in the kernel, while cap_task_prctl() is.  So you are setting
-> us up to have cases where say an apparmor user can call this with uid
-> 0 and/or active capabilities.
-
-Sounds fine to me.  I had noticed all of the capabilities checks were
-off in their own file, so I had tried to maintain that.  But you are
-right we can't remove capabilities so splitting the code like this only
-obfuscates it.
-
->> @@ -2147,7 +2147,7 @@ static int selinux_bprm_set_creds(struct linux_binprm *bprm)
->>  	COMMON_AUDIT_DATA_INIT(&ad, FS);
->>  	ad.u.fs.path = bprm->file->f_path;
+>> >> In common cap we drop the new capabilities if we are being ptraced.
+>> >> Look for brm->unsafe.
+>> >
+>> > Yes - that isn't the issue.
 >> 
->> -	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
->> +	if (bprm->nosid)
+>> Right.  Sorry.  I saw that we set unsafe and totally
+>> missed that we don't act on it in that case.
+>> 
+>> > It goes back to finding a way to figure out what is inside the
+>> > file when the installer obviously thought we shouldn't be able
+>> > to read the file.
+>> >
+>> > Do we care?  <shrug>
+>> 
+>> <shrug>
+>> 
+>> I expect two lines of testing bprm->unsafe and failing
+>> at the right point would solve that. 
 >
-> typo - nosuid?
+> But what is the right response?  Prevent excecution?  Stop the
+> tracer?  Enter some one-shot mode where the whole exec appears
+> as one step, but tracing continues if execution continues on a
+> dumpable file?
 
-Yep.
+The whole exec should already appear as one step.
+
+The right response is to either fail the exec or disable
+the tracer.  Since the other case drops privs.  I expect
+failing the exec is the simplest and most consistent thing
+we can do.
 
 Eric
