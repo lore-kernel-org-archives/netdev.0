@@ -1,53 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Ethernet CRC questions
-Date: Wed, 30 Dec 2009 11:37:13 +0100
-Message-ID: <1262169433.2247.15.camel@localhost>
-References: <f4f837ab0912290917h626bcfecy34fe095a878e733c@mail.gmail.com>
-	 <1262108376.5941.5.camel@localhost>
-	 <f4f837ab0912292153l7086b631o6e0012d9049eecdb@mail.gmail.com>
+From: VK <admin@vkontakte.ru>
+Subject: =?UTF-8?Q?=D0=90=D0=BD=D1=82=D0=BE=D0=BD_StiXy_=D0=9A=D0=BE=D0=B7=D0=BB?=
+ =?UTF-8?Q?=D0=BE=D0=B2_has_added_you_as_a_friend_on_the_website_VK.com?=
+Date: Wed, 30 Dec 2009 13:46:38 +0300
+Message-ID: <872933d9f41d1f82444473a6b69360fb@localhost.localdomain>
+Reply-To: "Pavel Durov, inContact.ru Admin" <admin@vkontakte.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas yang <lampsu@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:31143 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530AbZL3KhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 05:37:18 -0500
-In-Reply-To: <f4f837ab0912292153l7086b631o6e0012d9049eecdb@mail.gmail.com>
+Received: from cs07.vkontakte.ru ([93.186.224.7]:54587 "EHLO vkontakte.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752158AbZL3Kql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Dec 2009 05:46:41 -0500
+Received: from localhost
+	([127.0.0.1] helo=localhost.localdomain ident=www-data)
+	by vkontakte.ru with esmtp (Exim 4.63)
+	(envelope-from <admin@vkontakte.ru>)
+	id 1NPw4c-0001fB-8O
+	for netdev@vger.kernel.org; Wed, 30 Dec 2009 13:46:38 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-12-30 at 13:53 +0800, thomas yang wrote:
-> 2009/12/30 Ben Hutchings <bhutchings@solarflare.com>:
-> > On Wed, 2009-12-30 at 01:17 +0800, thomas yang wrote:
-> >> How does Linux  generate Ethernet CRC ?
-> >> by the hardware (Ethernet controller)  or  use crc32_le() /
-> >> crc32_be()     ( lib/crc32.c )  ?
-> >>
-> >> P.S.   my  network card is  rtl8139d  , use  8139too driver
-> >
-> > The Ethernet frame CRC is normally generated and verified in hardware.
-> > These library functions are needed for the few MACs that don't, or where
-> > the same CRC function is used for some other purpose (e.g. as a hash
-> > function for multicast filtering).
-> >
-> 
-> Does the Ethernet frame CRC (generate and verify in hardware)  make
-> the TX / RX  rate  a little smaller , and a longer end-to-end  delay ?
+netdev,
 
-Relative to what?
+=D0=90=D0=BD=D1=82=D0=BE=D0=BD StiXy =D0=9A=D0=BE=D0=B7=D0=BB=D0=BE=D0=B2=
+ has added you as a friend on the website VK.com
 
->  Could I disable CRC appending / verifying  in the network card driver
->   on all of my nodes (machines) ?
+You can log in and view your friends` pages using your email and automa=
+tically created password: 49DAYITF
 
-Maybe if you want switches to discard everything you send...
+VK.com is a website that helps dozens of millions of people find their =
+old friends, share photos and events and always stay in touch.
 
-Ben.
+To log in, please follow this link:
+http://vkontakte.ru/login.php?regemail=3Dnetdev@vger.kernel.org#49DAYIT=
+=46
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You can change your password in Settings.
+
+Attention: If you ignore this invitation, your registration will not be=
+ activated.
+
+Good luck!Best regards,
+VK Administration
+
 
