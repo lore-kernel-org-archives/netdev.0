@@ -1,68 +1,71 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] ep93xx_eth.c: general cleanup
-Date: Wed, 30 Dec 2009 13:03:00 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090200F635@mi8nycmail19.Mi8.com>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200ED0C@mi8nycmail19.Mi8.com><20091216183200.GN1819@mail.wantstofly.org><BD79186B4FD85F4B8E60E381CAEE19090200ED18@mi8nycmail19.Mi8.com> <20091223.141458.193725880.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Wed, 30 Dec 2009 10:10:46 -0800
+Message-ID: <20091230101046.2816d545@nehalam>
+References: <4B300A2A.8040305@gmail.com>
+	<4B300E30.9090707@majjas.com>
+	<4B3114E3.1070602@majjas.com>
+	<4B329FA3.9090904@majjas.com>
+	<20091223230102.4bb0100e.akpm@linux-foundation.org>
+	<4B34E847.8010809@majjas.com>
+	<20091225152200.1cf11dfe@nehalam>
+	<4B3581C7.8000702@majjas.com>
+	<20091226095723.7ac82b18@nehalam>
+	<4B367409.5060202@majjas.com>
+	<4B379378.4000102@majjas.com>
+	<20091227102238.0df149f9@nehalam>
+	<4B37B7E2.5070307@majjas.com>
+	<20091229093023.3ad24786@nehalam>
+	<4B3A5048.9090700@majjas.com>
+	<20091229114938.1f4d1c5c@nehalam>
+	<4B3AFFE8.3060409@majjas.com>
+	<20091229235942.51bf733d@nehalam>
+	<4B3B7488.6080503@majjas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<joe@perches.com>
-To: "Lennert Buytenhek" <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og107.obsmtp.com ([64.18.1.208]:42021 "HELO
-	exprod6og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752486AbZL3SDC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 13:03:02 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20091223.141458.193725880.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753222AbZL3SK7@vger.kernel.org>
+In-Reply-To: <4B3B7488.6080503@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, December 23, 2009 3:15 PM, David Miller wrote:
-> From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-> Date: Wed, 16 Dec 2009 13:34:55 -0500
->
->> Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
->>> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
->>>
->>>> V3 - Change pr_fmt() as suggested by Joe Perches
->>>>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
->>>>      Don't remove the message in ep93xx_eth_init_module()
->>>
->>> That's not what I meant, but alright, as you prefer.
->> 
->> Guess my parser is off line today.... ;-)
->> 
->> What did you mean?
->
-> This patch also doesn't apply to current sources, so if you
-> could also please respin this once you've resolved the feedback
-> that would be great.
+On Wed, 30 Dec 2009 10:40:56 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-Lennert,
+> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
+> status=0x40000008
+> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=31...40 report=35 done=35
+> Dec 30 10:37:14 mail kernel: 30: 0x0: 0xeb50c0ca(9014)
+> Dec 30 10:37:14 mail kernel: 32: 0x0: 0xeb5080ca(9014)
+> Dec 30 10:37:14 mail kernel: 34: 0x0: 0xeb5040ca(9014)
+> Dec 30 10:37:14 mail kernel: 36: 0x0: 0xeb5000ca(9014)
+> Dec 30 10:37:14 mail kernel: 38: 0x0: 0xeb4fc0ca(9014)
 
-Since I need to respin this patch what did you mean by this comment?
+You must be using 9K MTU.  Do you see the problem with smaller
+MTU?
 
-On Wednesday, December 16, 2009 11:09 AM, Lennert Buytenhek wrote:
-> On Wed, Dec 16, 2009 at 01:06:10PM -0500, H Hartley Sweeten wrote:
->
->>>> General cleanup of the ep93xx_eth driver.
->>>
->>> Apart from keeping DRV_MODULE_NAME and DRV_MODULE_VERSION, I have
->>> no strong opinion about this one way or the other.  So I guess that
->>> means ACK.
->> 
->> I will add back the DRV_MODULE_NAME and DRV_MODULE_VERSION and repost.
->> 
->> What about the message in ep93xx_eth_init_module()?  Would you prefer
->> that one to stay?
->
-> Most drivers I'm familiar with print a version message when they are
-> first instantiated -- perhaps that makes more sense.
+> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
+> status=0x40000008
+> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=87...92 report=89 done=91
+> Dec 30 10:37:14 mail kernel: 86: 0x0: 0xeafd80ca(9014)
+> Dec 30 10:37:14 mail kernel: 88: 0x0: 0xeafd40ca(9014)
+> Dec 30 10:37:14 mail kernel: 90: 0x0: 0xeafd00ca(9014)
+> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=39...42 report=39 done=41
+> Dec 30 10:37:15 mail kernel: 38: 0x0: 0xe5fec0ca(9014)
+> Dec 30 10:37:15 mail kernel: 40: 0x0: 0xe5fe80ca(9014)
+> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt 
+> status=0x40000008
+> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=117...124 report=119 
+> done=119
+> Dec 30 10:37:15 mail kernel: 116: 0x0: 0xe5d6c0ca(9014)
+> Dec 30 10:37:15 mail kernel: 118: 0x0: 0xe5d680ca(9014)
+> Dec 30 10:37:15 mail kernel: 120: 0x0: 0xe5d660ca(5938)
+> Dec 30 10:37:15 mail kernel: 122: 0x0: 0xe5d640ca(4213)
 
-I will wait for your reply before updating the patch.
-
-Thanks,
-Hartley
+-- 
