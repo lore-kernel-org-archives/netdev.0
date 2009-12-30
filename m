@@ -1,70 +1,68 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC][PATCH v2] Unprivileged: Disable raising of privileges
-Date: Wed, 30 Dec 2009 12:35:13 -0600
-Message-ID: <20091230183513.GC14493@us.ibm.com>
-References: <m17hs5y0mg.fsf@fess.ebiederm.org>
- <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
- <m1iqbpwjtp.fsf@fess.ebiederm.org>
- <20091229223631.GB22578@us.ibm.com>
- <m1aax1uoa3.fsf_-_@fess.ebiederm.org>
- <3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
- <m1r5qdt721.fsf@fess.ebiederm.org>
- <3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
- <m1d41w62zc.fsf_-_@fess.ebiederm.org>
- <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
+Date: Wed, 30 Dec 2009 13:37:35 -0500
+Message-ID: <4B3B9DEF.3090006@majjas.com>
+References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
+ <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
+ <20091223230102.4bb0100e.akpm@linux-foundation.org>
+ <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
+ <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
+ <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
+ <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
+ <20091229093023.3ad24786@nehalam> <4B3A5048.9090700@majjas.com>
+ <20091229114938.1f4d1c5c@nehalam> <4B3AFFE8.3060409@majjas.com>
+ <20091229235942.51bf733d@nehalam> <4B3B7488.6080503@majjas.com>
+ <20091230101046.2816d545@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufl
-To: "Andrew G. Morgan" <morgan@kernel.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753281AbZL3SiK@vger.kernel.org>
+In-reply-to: <20091230101046.2816d545@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Andrew G. Morgan (morgan@kernel.org):
-> Eric,
-> 
-> I'm not clear why capabilities need to be manipulated by this feature
-> (the pure capability support already has a feature for disabling
-> privilege and blocking unsafe, or insufficient privilege, execution).
-
-Not entirely - this option would also prevent file capabilities from
-being honored.
-
-> Perhaps I'm just unclear what features can be more safely enabled with
-> this in effect - that is, your description suggests that this is why
-> you are doing this, but leaves it unclear what they are. Could you
-> take a few moments to enumerate some of them?
-
-There are two desirable features which are at the moment unsafe for
-unprivileged users, because it allows them to fool privileged (setuid
-or bearing file capabilities) programs.  One is to unconditionally
-restrict privilege to yourself and all your descendents.  The recent
-disablenetwork patchset is one example.  The other is the ability to
-make substantial changes to your environment in a private namespace.
-A private namespace can protect already-running privileged program,
-but cannot protect privilege-bearing binaries.  Unless we prevent
-them from bearing privilege.  Which is what this patch does.
-
--serge
+On 12/30/2009 1:10 PM, Stephen Hemminger wrote:
+> On Wed, 30 Dec 2009 10:40:56 -0500
+> Michael Breuer<mbreuer@majjas.com>  wrote:
+>
+>    
+>> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt
+>> status=0x40000008
+>> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=31...40 report=35 done=35
+>> Dec 30 10:37:14 mail kernel: 30: 0x0: 0xeb50c0ca(9014)
+>> Dec 30 10:37:14 mail kernel: 32: 0x0: 0xeb5080ca(9014)
+>> Dec 30 10:37:14 mail kernel: 34: 0x0: 0xeb5040ca(9014)
+>> Dec 30 10:37:14 mail kernel: 36: 0x0: 0xeb5000ca(9014)
+>> Dec 30 10:37:14 mail kernel: 38: 0x0: 0xeb4fc0ca(9014)
+>>      
+> You must be using 9K MTU.  Do you see the problem with smaller
+> MTU?
+>    
+Yes - decided to try 9k in the past day or so. Can redo with smaller 
+again & debug if it would be helpful.
+>    
+>> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt
+>> status=0x40000008
+>> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=87...92 report=89 done=91
+>> Dec 30 10:37:14 mail kernel: 86: 0x0: 0xeafd80ca(9014)
+>> Dec 30 10:37:14 mail kernel: 88: 0x0: 0xeafd40ca(9014)
+>> Dec 30 10:37:14 mail kernel: 90: 0x0: 0xeafd00ca(9014)
+>> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
+>> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=39...42 report=39 done=41
+>> Dec 30 10:37:15 mail kernel: 38: 0x0: 0xe5fec0ca(9014)
+>> Dec 30 10:37:15 mail kernel: 40: 0x0: 0xe5fe80ca(9014)
+>> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt
+>> status=0x40000008
+>> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=117...124 report=119
+>> done=119
+>> Dec 30 10:37:15 mail kernel: 116: 0x0: 0xe5d6c0ca(9014)
+>> Dec 30 10:37:15 mail kernel: 118: 0x0: 0xe5d680ca(9014)
+>> Dec 30 10:37:15 mail kernel: 120: 0x0: 0xe5d660ca(5938)
+>> Dec 30 10:37:15 mail kernel: 122: 0x0: 0xe5d640ca(4213)
+>>      
+>    
