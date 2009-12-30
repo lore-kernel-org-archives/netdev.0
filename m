@@ -1,13 +1,17 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [RFC][PATCH] Unprivileged: Disable acquisition of privileges
-Date: Tue, 29 Dec 2009 19:35:48 -0800
-Message-ID: <m1aax1uoa3.fsf_-_@fess.ebiederm.org>
-References: <20091229050114.GC14362@heat> <m1y6km11lj.fsf@fess.ebiederm.org>
-	<20091229151146.GA32153@us.ibm.com>
-	<3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
-	<m3oclhzgm4.fsf@ursa.amorsen.dk> <m17hs5y0mg.fsf@fess.ebiederm.org>
-	<20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
-	<m1iqbpwjtp.fsf@fess.ebiederm.org> <20091229223631.GB22578@us.ibm.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: RFC: disablenetwork facility. (v4)
+Date: Tue, 29 Dec 2009 21:50:08 -0600
+Message-ID: <20091230035008.GA6819@us.ibm.com>
+References: <20091229050114.GC14362@heat>
+ <m1y6km11lj.fsf@fess.ebiederm.org>
+ <20091229151146.GA32153@us.ibm.com>
+ <3e8340490912290805s103fb789y13acea4a84669b20@mail.gmail.com>
+ <m3oclhzgm4.fsf@ursa.amorsen.dk>
+ <m17hs5y0mg.fsf@fess.ebiederm.org>
+ <20091229211139.0732a0c1@lxorguk.ukuu.org.uk>
+ <m1iqbpwjtp.fsf@fess.ebiederm.org>
+ <20091229223631.GB22578@us.ibm.com>
+ <m1zl51uoqd.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
@@ -31,167 +35,70 @@ Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Samir Bellabes <sam@synack.fr>,
 	Casey Schaufler <casey@schaufler-ca.com>,
 	Pavel Machek <pavel@ucw.cz>, Al V
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751624AbZL3Df7@vger.kernel.org>
-In-Reply-To: <20091229223631.GB22578@us.ibm.com> (Serge E. Hallyn's message of "Tue\, 29 Dec 2009 16\:36\:31 -0600")
-Sender: linux-kernel-owner@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1zl51uoqd.fsf@fess.ebiederm.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+> 
+> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
+> >> 
+> >> >> > Execute != read. The executable file may contain secrets which must not
+> >> >> > be available to the user running the setuid program. If you fail the
+> >> >> > setuid, the user will be able to ptrace() and then the secret is
+> >> >> > revealed.
+> >> >> >
+> >> >> > It's amazing how many security holes appear from what seems like a very
+> >> >> > simple request.
+> >> >> 
+> >> >> Do we have a security hole in nosuid mount option?
+> >> >> Can someone write a patch to fix it?
+> >> >
+> >> > If a setuid app can read a key when its erroneously not set setuid then
+> >> > the user can read it too.
+> >> >
+> >> > Anything you can do with ptrace you can do yourself !
+> >> 
+> >> Now that I think about it this is really something completely separate
+> >> from setuid.  This is about being able to read the text segment with
+> >> ptrace when you on have execute permissions on the file.
+> >> 
+> >> I just skimmed through fs/exec.c and we set the undumpable process
+> >> flag in that case so ptrace should not work in that case.
+> >
+> > And in fact you can't do a new ptrace_attach, but if you're already
+> > tracing the task when it execs the unreadable-but-executable file,
+> > then the ptrace can continue.
+> >
+> > Just looking at the code, it appears 2.2 was the same way (though I
+> > could be missing where it used to enforce that).
+> >
+> > So, is that intended?  What exactly would we do about it if not?
+> > Just refuse exec of a unreadable-but-executable file if we're
+> > being traced?
+> 
+> In common cap we drop the new capabilities if we are being ptraced.
+> Look for brm->unsafe.
 
-If we can know that a process will never raise it's priveleges we can
-enable a lot of features that otherwise would be unsafe, because they
-could break assumptions of existing suid executables.
+Yes - that isn't the issue.  The issue is with a file to which
+we have execute permission but not read.  If user hallyn has two
+terminals open, and terminal one does ./foo then terminal two
+cannot do strace -f -p `pidof foo`.  But user hallyn can do
+strace -f -p ./foo and succeed.
 
-To allow this to be used as a sand boxing feature also disable
-ptracing other executables without this new restriction.
+So we refuse ptrace_attach to an existing process with dumpable
+turned off, but a pre-existing ptrace attach isn't affected by
+executing a file which causes dumpable to be unset.
 
-For the moment I have used a per thread flag because we are out of per
-process flags.
+It goes back to finding a way to figure out what is inside the
+file when the installer obviously thought we shouldn't be able
+to read the file.
 
-To ensure all descendants get this flag I rely on the default copying
-of procss structures.
+Do we care?  <shrug>
 
-The disabling of suid executables is exactly the same as MNT_NOSUID.
-
-This should be what we have been talking about in for disabling of
-suid exec.  I choose not to use securebits as that interface requires
-privilege and assumes capabilities.  This implementation is more basic
-than capabilities and only adds additional sanity checks when
-linux capabilities are not present.
-
-I attempt to ensure there are no mixed priveleges present, when we
-perform the disable so I don't need to handle or think about
-interactions with setreuid or capabilities in this code.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- arch/x86/include/asm/thread_info.h |    2 ++
- fs/exec.c                          |    3 ++-
- include/linux/prctl.h              |    2 ++
- kernel/ptrace.c                    |    4 ++++
- kernel/sys.c                       |   16 ++++++++++++++++
- security/commoncap.c               |   15 +++++++++++++++
- 6 files changed, 41 insertions(+), 1 deletions(-)
-
-diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 375c917..e716203 100644
---- a/arch/x86/include/asm/thread_info.h
-+++ b/arch/x86/include/asm/thread_info.h
-@@ -82,6 +82,7 @@ struct thread_info {
- #define TIF_SYSCALL_EMU		6	/* syscall emulation active */
- #define TIF_SYSCALL_AUDIT	7	/* syscall auditing active */
- #define TIF_SECCOMP		8	/* secure computing */
-+#define TIF_NOSUID		9	/* suid exec permanently disabled */
- #define TIF_MCE_NOTIFY		10	/* notify userspace of an MCE */
- #define TIF_USER_RETURN_NOTIFY	11	/* notify kernel of userspace return */
- #define TIF_NOTSC		16	/* TSC is not accessible in userland */
-@@ -107,6 +108,7 @@ struct thread_info {
- #define _TIF_SYSCALL_EMU	(1 << TIF_SYSCALL_EMU)
- #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
- #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
-+#define _TIF_NOSUID		(1 << TIF_NOSUID)
- #define _TIF_MCE_NOTIFY		(1 << TIF_MCE_NOTIFY)
- #define _TIF_USER_RETURN_NOTIFY	(1 << TIF_USER_RETURN_NOTIFY)
- #define _TIF_NOTSC		(1 << TIF_NOTSC)
-diff --git a/fs/exec.c b/fs/exec.c
-index 632b02e..e6c9bc5 100644
---- a/fs/exec.c
-+++ b/fs/exec.c
-@@ -1132,7 +1132,8 @@ int prepare_binprm(struct linux_binprm *bprm)
- 	bprm->cred->euid = current_euid();
- 	bprm->cred->egid = current_egid();
- 
--	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)) {
-+	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID) &&
-+	    !test_tsk_thread_flag(current, TIF_NOSUID)) {
- 		/* Set-uid? */
- 		if (mode & S_ISUID) {
- 			bprm->per_clear |= PER_CLEAR_ON_SETID;
-diff --git a/include/linux/prctl.h b/include/linux/prctl.h
-index a3baeb2..acb3516 100644
---- a/include/linux/prctl.h
-+++ b/include/linux/prctl.h
-@@ -102,4 +102,6 @@
- 
- #define PR_MCE_KILL_GET 34
- 
-+#define PR_SET_NOSUID	35
-+
- #endif /* _LINUX_PRCTL_H */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 23bd09c..4b2643c 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -152,6 +152,10 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
- 	if (!dumpable && !capable(CAP_SYS_PTRACE))
- 		return -EPERM;
- 
-+	if (test_tsk_thread_flag(current, TIF_NOSUID) &&
-+	    !test_tsk_thread_flag(current, TIF_NOSUID))
-+		return -EPERM;
-+
- 	return security_ptrace_access_check(task, mode);
- }
- 
-diff --git a/kernel/sys.c b/kernel/sys.c
-index 26a6b73..1d1902a 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -1578,6 +1578,22 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
- 			else
- 				error = PR_MCE_KILL_DEFAULT;
- 			break;
-+		case PR_SET_NOSUID:
-+		{
-+			const struct cred *cred = current->cred;
-+			error = -EINVAL;
-+			if (	(cred->uid != cred->suid) ||
-+				(cred->uid != cred->euid) ||
-+				(cred->uid != cred->fsuid) ||
-+				(cred->gid != cred->sgid) ||
-+				(cred->gid != cred->egid) ||
-+				(cred->gid != cred->fsgid) ||
-+				(atomic_read(&current->signal->count) != 1))
-+				break;
-+			error = 0;
-+			set_tsk_thread_flag(current, TIF_NOSUID);
-+			break;
-+		}
- 		default:
- 			error = -EINVAL;
- 			break;
-diff --git a/security/commoncap.c b/security/commoncap.c
-index f800fdb..8abd3dc 100644
---- a/security/commoncap.c
-+++ b/security/commoncap.c
-@@ -392,6 +392,9 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective)
- 	if (bprm->file->f_vfsmnt->mnt_flags & MNT_NOSUID)
- 		return 0;
- 
-+	if (test_tsk_thread_flag(current, TIF_NOSUID))
-+		return 0;
-+
- 	dentry = dget(bprm->file->f_dentry);
- 
- 	rc = get_vfs_caps_from_disk(dentry, &vcaps);
-@@ -869,6 +872,18 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
- 			new->securebits &= ~issecure_mask(SECURE_KEEP_CAPS);
- 		goto changed;
- 
-+	case PR_SET_NOSUID:
-+	{
-+		const struct cred *cred = current->cred;
-+		error = -EINVAL;
-+		// Perform the capabilities checks
-+		if (!cap_isclear(cred->cap_permitted) ||
-+		    !cap_isclear(cred->cap_effective))
-+			goto error;
-+		// Have the default perform the rest of the work.
-+		error = -ENOSYS;
-+		goto error;
-+	}
- 	default:
- 		/* No functionality available - continue with default */
- 		error = -ENOSYS;
--- 
-1.6.5.2.143.g8cc62
+-serge
