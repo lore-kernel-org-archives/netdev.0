@@ -1,77 +1,37 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Wed, 30 Dec 2009 23:00:42 +0000
-Message-ID: <20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
-References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
-	<20091229223631.GB22578@us.ibm.com>
-	<m1aax1uoa3.fsf_-_@fess.ebiederm.org>
-	<3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
-	<m1r5qdt721.fsf@fess.ebiederm.org>
-	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
-	<m1d41w62zc.fsf_-_@fess.ebiederm.org>
-	<551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	<20091230183513.GC14493@us.ibm.com>
-	<m1fx6suswz.fsf@fess.ebiederm.org>
-	<20091230201712.GA23999@us.ibm.com>
-	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
-	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
-	<m1skasrvnq.fsf@fess.ebiederm.org>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: [PATCH] drivers/atm/lanai.c: use %pM to show MAC address
+Date: Wed, 30 Dec 2009 21:56:59 -0200
+Message-ID: <20091230235659.GH18722@khazad-dum.debian.net>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200F645@mi8nycmail19.Mi8.com>
+ <1262199586.2545.43.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	"Andrew G. Morgan" <morgan@kernel.org>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Michael Stone <michael@laptop.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: H Hartley Sweeten <hartleys@visionengravers.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <m1skasrvnq.fsf@fess.ebiederm.org>
-Sender: linux-security-module-owner@vger.kernel.org
+	David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752191AbZL3X5I@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1262199586.2545.43.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Dec 2009 13:36:57 -0800
-ebiederm@xmission.com (Eric W. Biederman) wrote:
-
-> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
+On Wed, 30 Dec 2009, Joe Perches wrote:
+> > +		return sprintf(page, "EEPROM ESI: %pM\n",
+> > +		    &lanai->eeprom[EEPROM_MAC]);
 > 
-> >> Added bprm->nosuid to make remove the need to add
-> >> duplicate error prone checks.  This ensures that
-> >> the disabling of suid executables is exactly the
-> >> same as MNT_NOSUID.
-> >
-> > Another fine example of why we have security hooks so that we don't get a
-> > kernel full of other "random security idea of the day" hacks.
-> 
-> Well it comes from plan 9.  Except there they just simply did not
-> implement suid.  What causes you to think dropping the ability
-> to execute suid executables is a random security idea of the day?
+> This is a user-visible change from upper case to lower case.
+> Probably doesn't matter, but maybe...
 
-Well to be fair its random regurgitated security idea of every year or
-two.
+Something would need to be _really_ broken to:
 
-More to the point - we have security_* hooks so this kind of continuous
-security proposal turdstream can stay out of the main part of the kernel.
+1. Parse the kernel log after MACs in the first place
+2. Be case-sensitive about it
 
-Cleaning up the mechanism by which NOSUID is handled in kernel seems a
-good idea. Adding wacky new prctls and gunk for it doesn't, and belongs
-in whatever security model you are using via the security hooks.
+If it breaks anything, it is a breakage well deserved...
 
-
-
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
