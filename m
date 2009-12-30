@@ -1,83 +1,52 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Wed, 30 Dec 2009 10:40:56 -0500
-Message-ID: <4B3B7488.6080503@majjas.com>
-References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
- <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
- <20091223230102.4bb0100e.akpm@linux-foundation.org>
- <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
- <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
- <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
- <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
- <20091229093023.3ad24786@nehalam> <4B3A5048.9090700@majjas.com>
- <20091229114938.1f4d1c5c@nehalam> <4B3AFFE8.3060409@majjas.com>
- <20091229235942.51bf733d@nehalam>
+From: thomas yang <lampsu@gmail.com>
+Subject: Re: Ethernet CRC questions
+Date: Thu, 31 Dec 2009 00:19:45 +0800
+Message-ID: <f4f837ab0912300819i5fd35ee4o3e0ff4b16362ba0b@mail.gmail.com>
+References: <f4f837ab0912290917h626bcfecy34fe095a878e733c@mail.gmail.com>
+	 <1262108376.5941.5.camel@localhost>
+	 <f4f837ab0912292153l7086b631o6e0012d9049eecdb@mail.gmail.com>
+	 <1262169433.2247.15.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta1.srv.hcvlny.cv.net ([167.206.4.196]:38591 "EHLO
-	mta1.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbZL3Plq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 10:41:46 -0500
-In-reply-to: <20091229235942.51bf733d@nehalam>
+Received: from mail-px0-f189.google.com ([209.85.216.189]:46147 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506AbZL3QTq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Dec 2009 11:19:46 -0500
+Received: by pxi27 with SMTP id 27so6931976pxi.4
+        for <netdev@vger.kernel.org>; Wed, 30 Dec 2009 08:19:45 -0800 (PST)
+In-Reply-To: <1262169433.2247.15.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok - reran:
-
-Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
-status=0x40000008
-Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=31...40 report=35 done=35
-Dec 30 10:37:14 mail kernel: 30: 0x0: 0xeb50c0ca(9014)
-Dec 30 10:37:14 mail kernel: 32: 0x0: 0xeb5080ca(9014)
-Dec 30 10:37:14 mail kernel: 34: 0x0: 0xeb5040ca(9014)
-Dec 30 10:37:14 mail kernel: 36: 0x0: 0xeb5000ca(9014)
-Dec 30 10:37:14 mail kernel: 38: 0x0: 0xeb4fc0ca(9014)
-Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt 
-status=0x40000008
-Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=87...92 report=89 done=91
-Dec 30 10:37:14 mail kernel: 86: 0x0: 0xeafd80ca(9014)
-Dec 30 10:37:14 mail kernel: 88: 0x0: 0xeafd40ca(9014)
-Dec 30 10:37:14 mail kernel: 90: 0x0: 0xeafd00ca(9014)
-Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
-Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=39...42 report=39 done=41
-Dec 30 10:37:15 mail kernel: 38: 0x0: 0xe5fec0ca(9014)
-Dec 30 10:37:15 mail kernel: 40: 0x0: 0xe5fe80ca(9014)
-Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt 
-status=0x40000008
-Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=117...124 report=119 
-done=119
-Dec 30 10:37:15 mail kernel: 116: 0x0: 0xe5d6c0ca(9014)
-Dec 30 10:37:15 mail kernel: 118: 0x0: 0xe5d680ca(9014)
-Dec 30 10:37:15 mail kernel: 120: 0x0: 0xe5d660ca(5938)
-Dec 30 10:37:15 mail kernel: 122: 0x0: 0xe5d640ca(4213)
-
-continues on like this - but this is the start.
-On 12/30/2009 02:59 AM, Stephen Hemminger wrote:
-> On Wed, 30 Dec 2009 02:23:20 -0500
-> Michael Breuer<mbreuer@majjas.com>  wrote:
+>>
+>> Does the Ethernet frame CRC (generate and verify in hardware) =A0mak=
+e
+>> the TX / RX =A0rate =A0a little smaller , and a longer end-to-end =A0=
+delay ?
 >
->    
->> And got this:
->> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt
->> status=0x40000008
->> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt
->> status=0x40000008
->> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
->> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=28...30 report=29 done=29
->> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
->> Dec 30 02:17:23 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
->> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
->> Dec 30 02:17:23 mail kernel: sky2 Tx ring pending=30...32 report=30 done=31
->>      
-> The interesting bits are only output at DEBUG level.  So either change kernel
-> log level or syslog.
+> Relative to what?
 >
->    
 
+Relative to the Ethernet frame without CRC appending / verifying .
+
+
+In IEEE 802.3 standard, all network devices should append/verify CRC?
+
+>> =A0Could I disable CRC appending / verifying =A0in the network card =
+driver
+>> =A0 on all of my nodes (machines) ?
+>
+> Maybe if you want switches to discard everything you send...
+>
+
+So, I should disable CRC appending / verifying on all kinds of network
+devices in my network?
+In this way I will  TX/RX packets more faster ?
+
+
+--
+Thomas
