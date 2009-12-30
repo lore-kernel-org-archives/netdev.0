@@ -1,225 +1,156 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 1/2] netxen: fix ethtool register dump
-Date: Wed, 30 Dec 2009 04:52:08 -0800
-Message-ID: <1262177529-18223-2-git-send-email-amit.salecha@qlogic.com>
-References: <1262177529-18223-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: davem@davemloft.net
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH] igmp: fix ip_mc_sf_allow race
+Date: Wed, 30 Dec 2009 12:23:25 -0200
+Message-ID: <1262183005-28406-1-git-send-email-fleitner@redhat.com>
+Cc: Flavio Leitner <fleitner@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:33119 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752597AbZL3MwM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Dec 2009 07:52:12 -0500
-In-Reply-To: <1262177529-18223-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50759 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751529AbZL3OXl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Dec 2009 09:23:41 -0500
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id nBUENfBt001152
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 30 Dec 2009 09:23:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Almost all igmp functions accessing inet->mc_list are protected by
+rtnl_lock(), but there is one exception which is ip_mc_sf_allow(),
+so there is a chance of either ip_mc_drop_socket or ip_mc_leave_group
+remove an entry while ip_mc_sf_allow is running causing a crash.
 
-o Dump registers such as tx ring and rx ring counter, firmware state,
-  factory mac address, etc. which can be useful for debugging purpose.
-
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 ---
- drivers/net/netxen/netxen_nic_ethtool.c |  166 ++++++++++---------------------
- 1 files changed, 55 insertions(+), 111 deletions(-)
+ net/ipv4/igmp.c |   56 +++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 files changed, 44 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index ddd704a..e5af8b2 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -66,7 +66,7 @@ static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 76c0840..d1e2a0c 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1799,7 +1799,7 @@ int ip_mc_join_group(struct sock *sk , struct ip_mreqn *imr)
+ 	iml->next = inet->mc_list;
+ 	iml->sflist = NULL;
+ 	iml->sfmode = MCAST_EXCLUDE;
+-	inet->mc_list = iml;
++	rcu_assign_pointer(inet->mc_list, iml);
+ 	ip_mc_inc_group(in_dev, addr);
+ 	err = 0;
+ done:
+@@ -1854,11 +1854,12 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
  
- #define NETXEN_NIC_TEST_LEN	ARRAY_SIZE(netxen_nic_gstrings_test)
+ 		(void) ip_mc_leave_src(sk, iml, in_dev);
  
--#define NETXEN_NIC_REGS_COUNT 42
-+#define NETXEN_NIC_REGS_COUNT 25
- #define NETXEN_NIC_REGS_LEN (NETXEN_NIC_REGS_COUNT * sizeof(__le32))
- #define NETXEN_MAX_EEPROM_LEN   1024
+-		*imlp = iml->next;
++		rcu_assign_pointer(*imlp, iml->next);
  
-@@ -312,126 +312,70 @@ static int netxen_nic_get_regs_len(struct net_device *dev)
- 	return NETXEN_NIC_REGS_LEN;
- }
- 
--struct netxen_niu_regs {
--	__u32 reg[NETXEN_NIC_REGS_COUNT];
--};
--
--static struct netxen_niu_regs niu_registers[] = {
--	{
--	 /* GB Mode */
--	 {
--	  NETXEN_NIU_GB_SERDES_RESET,
--	  NETXEN_NIU_GB0_MII_MODE,
--	  NETXEN_NIU_GB1_MII_MODE,
--	  NETXEN_NIU_GB2_MII_MODE,
--	  NETXEN_NIU_GB3_MII_MODE,
--	  NETXEN_NIU_GB0_GMII_MODE,
--	  NETXEN_NIU_GB1_GMII_MODE,
--	  NETXEN_NIU_GB2_GMII_MODE,
--	  NETXEN_NIU_GB3_GMII_MODE,
--	  NETXEN_NIU_REMOTE_LOOPBACK,
--	  NETXEN_NIU_GB0_HALF_DUPLEX,
--	  NETXEN_NIU_GB1_HALF_DUPLEX,
--	  NETXEN_NIU_RESET_SYS_FIFOS,
--	  NETXEN_NIU_GB_CRC_DROP,
--	  NETXEN_NIU_GB_DROP_WRONGADDR,
--	  NETXEN_NIU_TEST_MUX_CTL,
--
--	  NETXEN_NIU_GB_MAC_CONFIG_0(0),
--	  NETXEN_NIU_GB_MAC_CONFIG_1(0),
--	  NETXEN_NIU_GB_HALF_DUPLEX_CTRL(0),
--	  NETXEN_NIU_GB_MAX_FRAME_SIZE(0),
--	  NETXEN_NIU_GB_TEST_REG(0),
--	  NETXEN_NIU_GB_MII_MGMT_CONFIG(0),
--	  NETXEN_NIU_GB_MII_MGMT_COMMAND(0),
--	  NETXEN_NIU_GB_MII_MGMT_ADDR(0),
--	  NETXEN_NIU_GB_MII_MGMT_CTRL(0),
--	  NETXEN_NIU_GB_MII_MGMT_STATUS(0),
--	  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
--	  NETXEN_NIU_GB_INTERFACE_CTRL(0),
--	  NETXEN_NIU_GB_INTERFACE_STATUS(0),
--	  NETXEN_NIU_GB_STATION_ADDR_0(0),
--	  NETXEN_NIU_GB_STATION_ADDR_1(0),
--	  -1,
--	  }
--	 },
--	{
--	 /* XG Mode */
--	 {
--	  NETXEN_NIU_XG_SINGLE_TERM,
--	  NETXEN_NIU_XG_DRIVE_HI,
--	  NETXEN_NIU_XG_DRIVE_LO,
--	  NETXEN_NIU_XG_DTX,
--	  NETXEN_NIU_XG_DEQ,
--	  NETXEN_NIU_XG_WORD_ALIGN,
--	  NETXEN_NIU_XG_RESET,
--	  NETXEN_NIU_XG_POWER_DOWN,
--	  NETXEN_NIU_XG_RESET_PLL,
--	  NETXEN_NIU_XG_SERDES_LOOPBACK,
--	  NETXEN_NIU_XG_DO_BYTE_ALIGN,
--	  NETXEN_NIU_XG_TX_ENABLE,
--	  NETXEN_NIU_XG_RX_ENABLE,
--	  NETXEN_NIU_XG_STATUS,
--	  NETXEN_NIU_XG_PAUSE_THRESHOLD,
--	  NETXEN_NIU_XGE_CONFIG_0,
--	  NETXEN_NIU_XGE_CONFIG_1,
--	  NETXEN_NIU_XGE_IPG,
--	  NETXEN_NIU_XGE_STATION_ADDR_0_HI,
--	  NETXEN_NIU_XGE_STATION_ADDR_0_1,
--	  NETXEN_NIU_XGE_STATION_ADDR_1_LO,
--	  NETXEN_NIU_XGE_STATUS,
--	  NETXEN_NIU_XGE_MAX_FRAME_SIZE,
--	  NETXEN_NIU_XGE_PAUSE_FRAME_VALUE,
--	  NETXEN_NIU_XGE_TX_BYTE_CNT,
--	  NETXEN_NIU_XGE_TX_FRAME_CNT,
--	  NETXEN_NIU_XGE_RX_BYTE_CNT,
--	  NETXEN_NIU_XGE_RX_FRAME_CNT,
--	  NETXEN_NIU_XGE_AGGR_ERROR_CNT,
--	  NETXEN_NIU_XGE_MULTICAST_FRAME_CNT,
--	  NETXEN_NIU_XGE_UNICAST_FRAME_CNT,
--	  NETXEN_NIU_XGE_CRC_ERROR_CNT,
--	  NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
--	  NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
--	  NETXEN_NIU_XGE_LOCAL_ERROR_CNT,
--	  NETXEN_NIU_XGE_REMOTE_ERROR_CNT,
--	  NETXEN_NIU_XGE_CONTROL_CHAR_CNT,
--	  NETXEN_NIU_XGE_PAUSE_FRAME_CNT,
--	  -1,
--	  }
--	 }
--};
--
- static void
- netxen_nic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
--	__u32 mode, *regs_buff = p;
--	int i, window;
-+	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
-+	struct nx_host_sds_ring *sds_ring;
-+	u32 port = adapter->physical_port;
-+	u32 *regs_buff = p;
-+	u64 mac_addr;
-+	int ring, i = 0;
-+	u32 val;
- 
- 	memset(p, 0, NETXEN_NIC_REGS_LEN);
-+
- 	regs->version = (1 << 24) | (adapter->ahw.revision_id << 16) |
- 	    (adapter->pdev)->device;
--	/* which mode */
--	regs_buff[0] = NXRD32(adapter, NETXEN_NIU_MODE);
--	mode = regs_buff[0];
--
--	/* Common registers to all the modes */
--	regs_buff[2] = NXRD32(adapter, NETXEN_NIU_STRAP_VALUE_SAVE_HIGHER);
--	/* GB/XGB Mode */
--	mode = (mode / 2) - 1;
--	window = 0;
--	if (mode <= 1) {
--		for (i = 3; niu_registers[mode].reg[i - 3] != -1; i++) {
--			/* GB: port specific registers */
--			if (mode == 0 && i >= 19)
--				window = adapter->physical_port *
--					NETXEN_NIC_PORT_WINDOW;
--
--			regs_buff[i] = NXRD32(adapter,
--				niu_registers[mode].reg[i - 3] + window);
--		}
- 
-+	regs_buff[i++] = NXRD32(adapter, CRB_CMDPEG_STATE);
-+	regs_buff[i++] = NXRD32(adapter, CRB_RCVPEG_STATE);
-+	regs_buff[i++] = NXRD32(adapter, CRB_FW_CAPABILITIES_1);
-+	regs_buff[i++] = NXRD32(adapter, NX_CRB_DEV_REF_COUNT);
-+	regs_buff[i++] = NXRD32(adapter, NX_CRB_DEV_STATE);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_PEG_ALIVE_COUNTER);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_PEG_HALT_STATUS1);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_PEG_HALT_STATUS2);
-+
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_CRB_PEG_NET_0+0x3c);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_CRB_PEG_NET_1+0x3c);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_CRB_PEG_NET_2+0x3c);
-+	regs_buff[i++] = NXRD32(adapter, NETXEN_CRB_PEG_NET_3+0x3c);
-+
-+	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
-+
-+		regs_buff[i++] = NXRD32(adapter, NETXEN_CRB_PEG_NET_4+0x3c);
-+		regs_buff[i++] = NXRD32(adapter, CRB_XG_STATE_P3);
-+		regs_buff[i++] = le32_to_cpu(*(adapter->tx_ring->hw_consumer));
-+
-+		netxen_p3_get_mac_addr(adapter, &mac_addr);
-+	} else {
-+		i++;
-+
-+		regs_buff[i++] = NXRD32(adapter, CRB_XG_STATE);
-+		regs_buff[i++] = NXRDIO(adapter,
-+				 adapter->tx_ring->crb_cmd_consumer);
-+		netxen_get_flash_mac_addr(adapter, &mac_addr);
-+	}
-+	regs_buff[i++] = NXRDIO(adapter, adapter->tx_ring->crb_cmd_producer);
-+
-+	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
-+		sds_ring = &(recv_ctx->sds_rings[ring]);
-+		regs_buff[i++] = NXRDIO(adapter,
-+					sds_ring->crb_sts_consumer);
+ 		if (in_dev)
+ 			ip_mc_dec_group(in_dev, group);
+ 		rtnl_unlock();
++		synchronize_rcu();
+ 		sock_kfree_s(sk, iml, sizeof(*iml));
+ 		return 0;
  	}
-+
-+	regs_buff[i++] = NXRDIO(adapter,
-+			 recv_ctx->rds_rings[0].crb_rcv_producer);
-+	regs_buff[i++] = NXRDIO(adapter,
-+			 recv_ctx->rds_rings[1].crb_rcv_producer);
-+
-+	regs_buff[i++] = NXRDIO(adapter, adapter->crb_int_state_reg);
-+
-+	regs_buff[i++] = mac_addr;
-+	regs_buff[i++] = mac_addr >> 32;
-+
+@@ -2209,30 +2210,40 @@ int ip_mc_sf_allow(struct sock *sk, __be32 loc_addr, __be32 rmt_addr, int dif)
+ 	struct ip_mc_socklist *pmc;
+ 	struct ip_sf_socklist *psl;
+ 	int i;
++	int ret;
+ 
++	ret = 1;
+ 	if (!ipv4_is_multicast(loc_addr))
+-		return 1;
++		goto out;
+ 
+-	for (pmc=inet->mc_list; pmc; pmc=pmc->next) {
++	rcu_read_lock();
++	for (pmc=rcu_dereference(inet->mc_list); pmc; pmc=rcu_dereference(pmc->next)) {
+ 		if (pmc->multi.imr_multiaddr.s_addr == loc_addr &&
+ 		    pmc->multi.imr_ifindex == dif)
+ 			break;
+ 	}
++	ret = inet->mc_all;
+ 	if (!pmc)
+-		return inet->mc_all;
++		goto unlock;
+ 	psl = pmc->sflist;
++	ret = (pmc->sfmode == MCAST_EXCLUDE);
+ 	if (!psl)
+-		return pmc->sfmode == MCAST_EXCLUDE;
++		goto unlock;
+ 
+ 	for (i=0; i<psl->sl_count; i++) {
+ 		if (psl->sl_addr[i] == rmt_addr)
+ 			break;
+ 	}
++	ret = 0;
+ 	if (pmc->sfmode == MCAST_INCLUDE && i >= psl->sl_count)
+-		return 0;
++		goto unlock;
+ 	if (pmc->sfmode == MCAST_EXCLUDE && i < psl->sl_count)
+-		return 0;
+-	return 1;
++		goto unlock;
++	ret = 1;
++unlock:
++	rcu_read_unlock();
++out:
++	return ret;
  }
  
- static u32 netxen_nic_test_link(struct net_device *dev)
+ /*
+@@ -2243,15 +2254,21 @@ void ip_mc_drop_socket(struct sock *sk)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct ip_mc_socklist *iml;
++	struct ip_mc_socklist *rmlist;
+ 	struct net *net = sock_net(sk);
+ 
+-	if (inet->mc_list == NULL)
++	rcu_read_lock();
++	if (rcu_dereference(inet->mc_list) == NULL) {
++		rcu_read_unlock();
+ 		return;
++	}
++	rcu_read_unlock();
+ 
+ 	rtnl_lock();
++	rmlist = NULL;
+ 	while ((iml = inet->mc_list) != NULL) {
+ 		struct in_device *in_dev;
+-		inet->mc_list = iml->next;
++		rcu_assign_pointer(inet->mc_list, iml->next);
+ 
+ 		in_dev = inetdev_by_index(net, iml->multi.imr_ifindex);
+ 		(void) ip_mc_leave_src(sk, iml, in_dev);
+@@ -2259,9 +2276,24 @@ void ip_mc_drop_socket(struct sock *sk)
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+ 			in_dev_put(in_dev);
+ 		}
+-		sock_kfree_s(sk, iml, sizeof(*iml));
++		if (rmlist == NULL)  {
++			iml->next = NULL;
++			rmlist = iml;
++		}
++		else {
++			iml->next = rmlist->next;
++			rmlist->next = iml;
++		}
+ 	}
+ 	rtnl_unlock();
++
++	synchronize_rcu();
++
++	while (rmlist != NULL) {
++		iml = rmlist;
++		rmlist = iml->next;
++		sock_kfree_s(sk, iml, sizeof(*iml));
++	}
+ }
+ 
+ int ip_check_mc(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u16 proto)
 -- 
-1.6.0.2
+1.6.5.2
 
