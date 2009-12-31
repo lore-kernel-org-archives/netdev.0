@@ -1,89 +1,160 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] ep93xx_eth.c: general cleanup
-Date: Thu, 31 Dec 2009 10:11:22 +0100
-Message-ID: <20091231091122.GP1735@mail.wantstofly.org>
-References: <20091223.141458.193725880.davem@davemloft.net> <BD79186B4FD85F4B8E60E381CAEE19090200F635@mi8nycmail19.Mi8.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Refactor sky2_get_regs into two functions
+Date: Thu, 31 Dec 2009 19:49:43 +0900
+Message-ID: <4B3C81C7.9040108@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, joe@perches.com
-To: H Hartley Sweeten <hartleys@visionengravers.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:54308 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443AbZLaJLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 04:11:24 -0500
-Content-Disposition: inline
-In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200F635@mi8nycmail19.Mi8.com>
+Received: from mail-px0-f189.google.com ([209.85.216.189]:44203 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752134AbZLaKxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 05:53:17 -0500
+Received: by pxi27 with SMTP id 27so7422088pxi.4
+        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 02:53:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 30, 2009 at 01:03:00PM -0500, H Hartley Sweeten wrote:
 
-> >> Wednesday, December 16, 2009 11:32 AM, Lennert Buytenhek wrote:
-> >>> On Wed, Dec 16, 2009 at 01:18:13PM -0500, H Hartley Sweeten wrote:
-> >>>
-> >>>> V3 - Change pr_fmt() as suggested by Joe Perches
-> >>>>      Don't remove DRV_MODULE_NAME and DRV_MODULE_VERSION
-> >>>>      Don't remove the message in ep93xx_eth_init_module()
-> >>>
-> >>> That's not what I meant, but alright, as you prefer.
-> >> 
-> >> Guess my parser is off line today.... ;-)
-> >> 
-> >> What did you mean?
-> >
-> > This patch also doesn't apply to current sources, so if you
-> > could also please respin this once you've resolved the feedback
-> > that would be great.
-> 
-> Lennert,
+Hi Stephen, Dave,
 
-Hi Hartley,
+Apologies for the delay in resubmitting this with the sign-off (over a month).  It still applies to the latest net-2.6 branch, so let me know if there's any objections..
+
+thanks,
+
+Mike
 
 
-> Since I need to respin this patch what did you mean by this comment?
-> 
-> On Wednesday, December 16, 2009 11:09 AM, Lennert Buytenhek wrote:
-> > On Wed, Dec 16, 2009 at 01:06:10PM -0500, H Hartley Sweeten wrote:
-> >
-> >>>> General cleanup of the ep93xx_eth driver.
-> >>>
-> >>> Apart from keeping DRV_MODULE_NAME and DRV_MODULE_VERSION, I have
-> >>> no strong opinion about this one way or the other.  So I guess that
-> >>> means ACK.
-> >> 
-> >> I will add back the DRV_MODULE_NAME and DRV_MODULE_VERSION and repost.
-> >> 
-> >> What about the message in ep93xx_eth_init_module()?  Would you prefer
-> >> that one to stay?
-> >
-> > Most drivers I'm familiar with print a version message when they are
-> > first instantiated -- perhaps that makes more sense.
-> 
-> I will wait for your reply before updating the patch.
 
-What I meant was, most drivers seem to print a message at probe
-time, i.e. when they are attached to an actual device for the first
-time.
+Subject: [PATCH] sky2: Refactor sky2_get_regs into two functions
 
-Grepping for 'printed_version' in drivers/net/* actually turns up
-two variants:
-- Print the version message on the first probe.  (e.g. 3c59x)
-- Print the version message at module load time if we were built as
-  a module, while if we were built into the kernel, only print a
-  version message on the first probe.  (e.g. 8139too)
+Separate code deciding which registers can be accessed out of sky2_get_regs
+ in preparation for adding more conditions into it.
 
-At least in the case of ep93xx_eth, you can't even have it enabled if
-you're not building a kernel specifically for the ep93xx ARM SoC, and
-if you are building for the ep93xx, as far as I know we don't support
-any boards that don't have the ethernet brought out and so you're very
-likely to have ep93xx_eth enabled then, so whether you do it
-unconditionally at driver init time or at probe time will make no
-effective difference for the majority of cases.
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+ drivers/net/sky2.c |   94 ++++++++++++++++++++++++++-------------------------
+ 1 files changed, 48 insertions(+), 46 deletions(-)
 
-I.e. I can't really say I care much either way.
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 1c01b96..faa4841 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -3837,6 +3837,50 @@ static int sky2_get_regs_len(struct net_device *dev)
+ 	return 0x4000;
+ }
+ 
++static int sky2_reg_access_ok(struct sky2_hw *hw, unsigned int b)
++{
++	/* This complicated switch statement is to make sure and
++	 * only access regions that are unreserved.
++	 * Some blocks are only valid on dual port cards.
++	 */
++	switch (b) {
++	/* second port */
++	case 5:		/* Tx Arbiter 2 */
++	case 9:		/* RX2 */
++	case 14 ... 15:	/* TX2 */
++	case 17: case 19: /* Ram Buffer 2 */
++	case 22 ... 23: /* Tx Ram Buffer 2 */
++	case 25:	/* Rx MAC Fifo 1 */
++	case 27:	/* Tx MAC Fifo 2 */
++	case 31:	/* GPHY 2 */
++	case 40 ... 47: /* Pattern Ram 2 */
++	case 52: case 54: /* TCP Segmentation 2 */
++	case 112 ... 116: /* GMAC 2 */
++		return hw->ports > 1;
++
++	case 0:		/* Control */
++	case 2:		/* Mac address */
++	case 4:		/* Tx Arbiter 1 */
++	case 7:		/* PCI express reg */
++	case 8:		/* RX1 */
++	case 12 ... 13: /* TX1 */
++	case 16: case 18:/* Rx Ram Buffer 1 */
++	case 20 ... 21: /* Tx Ram Buffer 1 */
++	case 24:	/* Rx MAC Fifo 1 */
++	case 26:	/* Tx MAC Fifo 1 */
++	case 28 ... 29: /* Descriptor and status unit */
++	case 30:	/* GPHY 1*/
++	case 32 ... 39: /* Pattern Ram 1 */
++	case 48: case 50: /* TCP Segmentation 1 */
++	case 56 ... 60:	/* PCI space */
++	case 80 ... 84:	/* GMAC 1 */
++		return 1;
++
++	default:
++		return 0;
++	}
++}
++
+ /*
+  * Returns copy of control register region
+  * Note: ethtool_get_regs always provides full size (16k) buffer
+@@ -3851,55 +3895,13 @@ static void sky2_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	regs->version = 1;
+ 
+ 	for (b = 0; b < 128; b++) {
+-		/* This complicated switch statement is to make sure and
+-		 * only access regions that are unreserved.
+-		 * Some blocks are only valid on dual port cards.
+-		 * and block 3 has some special diagnostic registers that
+-		 * are poison.
+-		 */
+-		switch (b) {
+-		case 3:
+-			/* skip diagnostic ram region */
++		/* skip poisonous diagnostic ram region in block 3 */
++		if (b == 3)
+ 			memcpy_fromio(p + 0x10, io + 0x10, 128 - 0x10);
+-			break;
+-
+-		/* dual port cards only */
+-		case 5:		/* Tx Arbiter 2 */
+-		case 9: 	/* RX2 */
+-		case 14 ... 15:	/* TX2 */
+-		case 17: case 19: /* Ram Buffer 2 */
+-		case 22 ... 23: /* Tx Ram Buffer 2 */
+-		case 25: 	/* Rx MAC Fifo 1 */
+-		case 27: 	/* Tx MAC Fifo 2 */
+-		case 31:	/* GPHY 2 */
+-		case 40 ... 47: /* Pattern Ram 2 */
+-		case 52: case 54: /* TCP Segmentation 2 */
+-		case 112 ... 116: /* GMAC 2 */
+-			if (sky2->hw->ports == 1)
+-				goto reserved;
+-			/* fall through */
+-		case 0:		/* Control */
+-		case 2:		/* Mac address */
+-		case 4:		/* Tx Arbiter 1 */
+-		case 7:		/* PCI express reg */
+-		case 8:		/* RX1 */
+-		case 12 ... 13: /* TX1 */
+-		case 16: case 18:/* Rx Ram Buffer 1 */
+-		case 20 ... 21: /* Tx Ram Buffer 1 */
+-		case 24: 	/* Rx MAC Fifo 1 */
+-		case 26: 	/* Tx MAC Fifo 1 */
+-		case 28 ... 29: /* Descriptor and status unit */
+-		case 30:	/* GPHY 1*/
+-		case 32 ... 39: /* Pattern Ram 1 */
+-		case 48: case 50: /* TCP Segmentation 1 */
+-		case 56 ... 60:	/* PCI space */
+-		case 80 ... 84:	/* GMAC 1 */
++		else if (sky2_reg_access_ok(sky2->hw, b))
+ 			memcpy_fromio(p, io, 128);
+-			break;
+-		default:
+-reserved:
++		else
+ 			memset(p, 0, 128);
+-		}
+ 
+ 		p += 128;
+ 		io += 128;
+-- 
+1.5.6.5
 
 
-cheers,
-Lennert
