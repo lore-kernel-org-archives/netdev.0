@@ -1,128 +1,30 @@
-From: Ben Blum <bblum@andrew.cmu.edu>
-Subject: [PATCH v4 4/4] cgroups: net_cls as module
-Date: Thu, 31 Dec 2009 00:15:03 -0500
-Message-ID: <20091231051503.GE714@andrew.cmu.edu>
-References: <20091231051050.GA714@andrew.cmu.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: Assorted fixes
+Date: Wed, 30 Dec 2009 22:04:03 -0800 (PST)
+Message-ID: <20091230.220403.71104815.davem@davemloft.net>
+References: <20091230182146.GA4515@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org, lizf@cn.fujitsu.com,
-	akpm@linux-foundation.org, menage@google.com, bblum@andrew.cmu.edu
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: afleming@freescale.com, leoli@freescale.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from RELAY-02.ANDREW.CMU.EDU ([128.2.10.85]:49513 "EHLO
-	relay.andrew.cmu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbZLaFPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 00:15:25 -0500
-Content-Disposition: attachment; filename="cgroups-net_cls-as-module.patch"
-In-Reply-To: <20091231051050.GA714@andrew.cmu.edu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34879
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750764AbZLaGEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 01:04:00 -0500
+In-Reply-To: <20091230182146.GA4515@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows the net_cls cgroup subsystem to be compiled as a module
-
-From: Ben Blum <bblum@andrew.cmu.edu>
-
-This patch modifies net/sched/cls_cgroup.c to allow the net_cls subsystem to
-be optionally compiled as a module instead of builtin. The cgroup_subsys
-struct is moved around a bit to allow the subsys_id to be either declared as a
-compile-time constant by the cgroup_subsys.h include in cgroup.h, or, if it's
-a module, initialized within the struct by cgroup_load_subsys.
-
-Signed-off-by: Ben Blum <bblum@andrew.cmu.edu>
-Acked-by: Li Zefan <lizf@cn.fujitsu.com>
----
-
- net/sched/Kconfig      |    5 ++++-
- net/sched/cls_cgroup.c |   36 +++++++++++++++++++++++++++---------
- 2 files changed, 31 insertions(+), 10 deletions(-)
-
-
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 929218a..08ff9bc 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -328,13 +328,16 @@ config NET_CLS_FLOW
- 	  module will be called cls_flow.
- 
- config NET_CLS_CGROUP
--	bool "Control Group Classifier"
-+	tristate "Control Group Classifier"
- 	select NET_CLS
- 	depends on CGROUPS
- 	---help---
- 	  Say Y here if you want to classify packets based on the control
- 	  cgroup of their process.
- 
-+	  To compile this code as a module, choose M here: the
-+	  module will be called cls_cgroup.
-+
- config NET_EMATCH
- 	bool "Extended Matches"
- 	select NET_CLS
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index e4877ca..7f27d2c 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -24,6 +24,25 @@ struct cgroup_cls_state
- 	u32 classid;
- };
- 
-+static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
-+					       struct cgroup *cgrp);
-+static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp);
-+static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp);
-+
-+struct cgroup_subsys net_cls_subsys = {
-+	.name		= "net_cls",
-+	.create		= cgrp_create,
-+	.destroy	= cgrp_destroy,
-+	.populate	= cgrp_populate,
-+#ifdef CONFIG_NET_CLS_CGROUP
-+	.subsys_id	= net_cls_subsys_id,
-+#else
-+#define net_cls_subsys_id net_cls_subsys.subsys_id
-+#endif
-+	.module		= THIS_MODULE,
-+};
-+
-+
- static inline struct cgroup_cls_state *cgrp_cls_state(struct cgroup *cgrp)
- {
- 	return container_of(cgroup_subsys_state(cgrp, net_cls_subsys_id),
-@@ -79,14 +98,6 @@ static int cgrp_populate(struct cgroup_subsys *ss, struct cgroup *cgrp)
- 	return cgroup_add_files(cgrp, ss, ss_files, ARRAY_SIZE(ss_files));
- }
- 
--struct cgroup_subsys net_cls_subsys = {
--	.name		= "net_cls",
--	.create		= cgrp_create,
--	.destroy	= cgrp_destroy,
--	.populate	= cgrp_populate,
--	.subsys_id	= net_cls_subsys_id,
--};
--
- struct cls_cgroup_head
- {
- 	u32			handle;
-@@ -277,12 +288,19 @@ static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
- 
- static int __init init_cgroup_cls(void)
- {
--	return register_tcf_proto_ops(&cls_cgroup_ops);
-+	int ret = register_tcf_proto_ops(&cls_cgroup_ops);
-+	if (ret)
-+		return ret;
-+	ret = cgroup_load_subsys(&net_cls_subsys);
-+	if (ret)
-+		unregister_tcf_proto_ops(&cls_cgroup_ops);
-+	return ret;
- }
- 
- static void __exit exit_cgroup_cls(void)
- {
- 	unregister_tcf_proto_ops(&cls_cgroup_ops);
-+	cgroup_unload_subsys(&net_cls_subsys);
- }
- 
- module_init(init_cgroup_cls);
+RnJvbTogQW50b24gVm9yb250c292IDxhdm9yb250c292QHJ1Lm12aXN0YS5jb20+DQpEYXRlOiBX
+ZWQsIDMwIERlYyAyMDA5IDIxOjIxOjQ2ICswMzAwDQoNCj4gT24gU3VuLCBEZWMgMjcsIDIwMDkg
+YXQgMDk6NTc6MzZQTSAtMDgwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4gQWN0dWFsbHkgSSdt
+IHJldmVydGluZyBib3RoIHBhdGNoZXM6DQo+PiANCj4+IGRyaXZlcnMvbmV0L3BoeS9tZGlvX2J1
+cy5jOjI2ODogd2FybmluZzogoW1kaW9fYnVzX3BoeV9tYXlfc3VzcGVuZKIgZGVmaW5lZCBidXQg
+bm90IHVzZWQNCj4+IA0KPj4gUGxlYXNlIHJlc3VibWl0IHRoZXNlIHR3byBwYXRjaGVzIHdpdGgg
+dGhpcyB3YXJuaW5nIGZpeGVkLg0KPj4gDQo+PiBDT05GSUdfUE0gaXMgbm90IGFsd2F5cyBlbmFi
+bGVkIDotKQ0KPiANCj4gVWdoLCBzb3JyeSBhYm91dCB0aGF0LCBhbmQgdGhhbmtzIGZvciBjYXRj
+aGluZyENCj4gDQo+IEhlcmUgYXJlIHRoZSBhbWVuZGVkIHBhdGNoZXMgKyBvbmUgbW9yZSBmaXgu
+DQoNCkFsbCBhcHBsaWVkLCB0aGFua3MuDQo=
