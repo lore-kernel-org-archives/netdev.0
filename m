@@ -1,268 +1,201 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v2 RFC 4/5] TCPCT part 2d: cleanup tcp_parse_options
-Date: Thu, 31 Dec 2009 14:58:18 -0500
-Message-ID: <4B3D025A.4010006@gmail.com>
+Subject: [PATCH v2 RFC 5/5] TCPCT part 2e: parse cookie pair and 64-bit timestamp
+Date: Thu, 31 Dec 2009 15:06:05 -0500
+Message-ID: <4B3D042D.20307@gmail.com>
 References: <4B3CFC73.3070204@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010803080907080105020905"
+ boundary="------------050508060207080400010206"
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:42682 "EHLO
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:34076 "EHLO
 	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbZLaT6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 14:58:22 -0500
-Received: by yxe17 with SMTP id 17so11808425yxe.33
-        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 11:58:20 -0800 (PST)
+	with ESMTP id S1751129AbZLaUGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 15:06:07 -0500
+Received: by yxe17 with SMTP id 17so11813067yxe.33
+        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 12:06:07 -0800 (PST)
 In-Reply-To: <4B3CFC73.3070204@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------010803080907080105020905
+--------------050508060207080400010206
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Split switch, shift cases to the left, fix most lines beyond column 80.
+Parse cookie pair extended option (previously defined).
+
+Define and parse 64-bit timestamp extended option (and minor cleanup).
+However, only 32-bits are used at this time.
 
 Requires:
-   TCPCT part 1g: Responder Cookie => Initiator
    TCPCT part 2a: TCP header pointer functions
+   TCPCT part 2d: cleanup tcp_parse_options
 
 Signed-off-by: William.Allen.Simpson@gmail.com
 ---
-  net/ipv4/tcp_input.c |  191 +++++++++++++++++++++++++++----------------------
-  1 files changed, 105 insertions(+), 86 deletions(-)
+  include/linux/tcp.h  |   10 +++++++++-
+  include/net/tcp.h    |   15 ++++++++-------
+  net/ipv4/tcp_input.c |   45 +++++++++++++++++++++++++++++++++++++++++++--
+  3 files changed, 60 insertions(+), 10 deletions(-)
 
---------------010803080907080105020905
+--------------050508060207080400010206
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="522A6368";
- name="TCPCT+2d2.patch"
+ name="TCPCT+2e2.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+2d2.patch"
+ filename="TCPCT+2e2.patch"
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 78604bd..7f8c6ac 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3729,12 +3729,12 @@ old_ack:
- void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
- 		       u8 **hvpp, int estab)
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 74728f7..a14639a 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -260,13 +260,21 @@ struct tcp_options_received {
+ 	u8	num_sacks;	/* Number of SACK blocks		*/
+ 	u16	user_mss;	/* mss requested by user in ioctl	*/
+ 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
++
++	/* When the options are extended beyond the maximum 40 bytes,
++	 * then this holds the additional data offset (in bytes,
++	 * the least significant 2 bits are always zero).
++	 */
++	u16	extended:14,	/* Up to 13 (40/3) by 255 by 4 bytes	*/
++		tstamp64:1,	/* Seen on recent packet		*/
++		tstamp64_ok:1;	/* Verified with cookie pair		*/
+ };
+ 
+ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
  {
--	unsigned char *ptr;
- 	struct tcphdr *th = tcp_hdr(skb);
--	int length = (th->doff * 4) - sizeof(struct tcphdr);
-+	unsigned char *ptr = (unsigned char *)(th + 1);
-+	int length = tcp_option_len_th(th);
- 
--	ptr = (unsigned char *)(th + 1);
--	opt_rx->saw_tstamp = 0;
-+	opt_rx->cookie_plus = 0;
-+	opt_rx->saw_tstamp = 0; /* false */
- 
- 	while (length > 0) {
- 		int opcode = *ptr++;
-@@ -3747,98 +3747,117 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
- 			length--;
- 			continue;
- 		default:
--			opsize = *ptr++;
--			if (opsize < 2) /* "silly options" */
--				return;
--			if (opsize > length)
--				return;	/* don't parse partial options */
--			switch (opcode) {
--			case TCPOPT_MSS:
--				if (opsize == TCPOLEN_MSS && th->syn && !estab) {
--					u16 in_mss = get_unaligned_be16(ptr);
--					if (in_mss) {
--						if (opt_rx->user_mss &&
--						    opt_rx->user_mss < in_mss)
--							in_mss = opt_rx->user_mss;
--						opt_rx->mss_clamp = in_mss;
--					}
--				}
--				break;
--			case TCPOPT_WINDOW:
--				if (opsize == TCPOLEN_WINDOW && th->syn &&
--				    !estab && sysctl_tcp_window_scaling) {
--					__u8 snd_wscale = *(__u8 *)ptr;
--					opt_rx->wscale_ok = 1;
--					if (snd_wscale > 14) {
--						if (net_ratelimit())
--							printk(KERN_INFO "tcp_parse_options: Illegal window "
--							       "scaling value %d >14 received.\n",
--							       snd_wscale);
--						snd_wscale = 14;
--					}
--					opt_rx->snd_wscale = snd_wscale;
--				}
--				break;
--			case TCPOPT_TIMESTAMP:
--				if ((opsize == TCPOLEN_TIMESTAMP) &&
--				    ((estab && opt_rx->tstamp_ok) ||
--				     (!estab && sysctl_tcp_timestamps))) {
--					opt_rx->saw_tstamp = 1;
--					opt_rx->rcv_tsval = get_unaligned_be32(ptr);
--					opt_rx->rcv_tsecr = get_unaligned_be32(ptr + 4);
--				}
--				break;
--			case TCPOPT_SACK_PERM:
--				if (opsize == TCPOLEN_SACK_PERM && th->syn &&
--				    !estab && sysctl_tcp_sack) {
--					opt_rx->sack_ok = 1;
--					tcp_sack_reset(opt_rx);
-+			/* fallthru */
-+			break;
-+		};
-+
-+		opsize = *ptr++;
-+		if (opsize < 2) /* "silly options" */
-+			return;
-+		if (opsize > length)
-+			return;	/* don't parse partial options */
-+
-+		switch (opcode) {
-+		case TCPOPT_MSS:
-+			if (opsize == TCPOLEN_MSS && th->syn && !estab) {
-+				u16 in_mss = get_unaligned_be16(ptr);
-+				if (in_mss) {
-+					if (opt_rx->user_mss &&
-+					    opt_rx->user_mss < in_mss)
-+						in_mss = opt_rx->user_mss;
-+					opt_rx->mss_clamp = in_mss;
- 				}
--				break;
-+			}
-+			break;
- 
--			case TCPOPT_SACK:
--				if ((opsize >= (TCPOLEN_SACK_BASE + TCPOLEN_SACK_PERBLOCK)) &&
--				   !((opsize - TCPOLEN_SACK_BASE) % TCPOLEN_SACK_PERBLOCK) &&
--				   opt_rx->sack_ok) {
--					TCP_SKB_CB(skb)->sacked = (ptr - 2) - (unsigned char *)th;
-+		case TCPOPT_WINDOW:
-+			if (opsize == TCPOLEN_WINDOW && th->syn &&
-+			    !estab && sysctl_tcp_window_scaling) {
-+				__u8 snd_wscale = *(__u8 *)ptr;
-+				opt_rx->wscale_ok = 1;
-+				if (snd_wscale > 14) {
-+					if (net_ratelimit())
-+						printk(KERN_INFO
-+						       "tcp_parse_options: "
-+						       "window scaling value "
-+						       "%d > 14 received.\n",
-+						       snd_wscale);
-+					snd_wscale = 14;
- 				}
--				break;
-+				opt_rx->snd_wscale = snd_wscale;
-+			}
-+			break;
-+
-+		case TCPOPT_SACK_PERM:
-+			if (opsize == TCPOLEN_SACK_PERM && th->syn &&
-+			    !estab && sysctl_tcp_sack) {
-+				opt_rx->sack_ok = 1;
-+				tcp_sack_reset(opt_rx);
-+			}
-+			break;
-+
-+		case TCPOPT_SACK:
-+			if ((opsize >= (TCPOLEN_SACK_BASE + TCPOLEN_SACK_PERBLOCK)) &&
-+			    !((opsize - TCPOLEN_SACK_BASE) % TCPOLEN_SACK_PERBLOCK) &&
-+			    opt_rx->sack_ok) {
-+				TCP_SKB_CB(skb)->sacked = (ptr - 2)
-+							- (unsigned char *)th;
-+			}
-+			break;
-+
-+		case TCPOPT_TIMESTAMP:
-+			if ((opsize == TCPOLEN_TIMESTAMP) &&
-+			    ((estab && opt_rx->tstamp_ok) ||
-+			     (!estab && sysctl_tcp_timestamps))) {
-+				opt_rx->saw_tstamp = 1;
-+				opt_rx->rcv_tsval = get_unaligned_be32(ptr);
-+				opt_rx->rcv_tsecr = get_unaligned_be32(ptr + 4);
-+			}
-+			break;
- #ifdef CONFIG_TCP_MD5SIG
--			case TCPOPT_MD5SIG:
--				/*
--				 * The MD5 Hash has already been
--				 * checked (see tcp_v{4,6}_do_rcv()).
--				 */
--				break;
-+		case TCPOPT_MD5SIG:
-+			/*
-+			 * The MD5 Hash has already been
-+			 * checked (see tcp_v{4,6}_do_rcv()).
-+			 */
-+			break;
- #endif
--			case TCPOPT_COOKIE:
--				/* This option is variable length.
--				 */
--				switch (opsize) {
--				case TCPOLEN_COOKIE_BASE:
--					/* not yet implemented */
--					break;
--				case TCPOLEN_COOKIE_PAIR:
--					/* not yet implemented */
--					break;
--				case TCPOLEN_COOKIE_MIN+0:
--				case TCPOLEN_COOKIE_MIN+2:
--				case TCPOLEN_COOKIE_MIN+4:
--				case TCPOLEN_COOKIE_MIN+6:
--				case TCPOLEN_COOKIE_MAX:
--					/* 16-bit multiple */
-+		case TCPOPT_COOKIE:
-+			/* This option is variable length.
-+			 */
-+			switch (opsize) {
-+			case TCPOLEN_COOKIE_BASE:
-+				/* not yet implemented */
-+				break;
-+			case TCPOLEN_COOKIE_PAIR:
-+				/* not yet implemented */
-+				break;
-+			case TCPOLEN_COOKIE_MIN+0:
-+			case TCPOLEN_COOKIE_MIN+2:
-+			case TCPOLEN_COOKIE_MIN+4:
-+			case TCPOLEN_COOKIE_MIN+6:
-+			case TCPOLEN_COOKIE_MAX:
-+				/* 16-bit multiple */
-+				if (opt_rx->cookie_plus == 0 &&
-+				    opt_rx->saw_tstamp &&
-+				    th->syn) {
- 					opt_rx->cookie_plus = opsize;
- 					*hvpp = ptr;
--				default:
--					/* ignore option */
--					break;
--				};
-+				}
-+				break;
-+			default:
-+				/* ignore option */
- 				break;
- 			};
-+			break;
- 
--			ptr += opsize-2;
--			length -= opsize;
--		}
-+		default:
-+			/* skip unrecognized options */
-+			break;
-+		};
-+
-+		ptr += opsize - 2;
-+		length -= opsize;
- 	}
+ 	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
+ 	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
+-	rx_opt->cookie_plus = 0;
++	rx_opt->tstamp64_ok = 0;
  }
  
+ /* This is the max number of SACKS that we'll generate and process. It's safe
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 34f5cc2..ed0ef2b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -156,21 +156,20 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ /*
+  *	TCP option
+  */
+- 
+-#define TCPOPT_NOP		1	/* Padding */
+ #define TCPOPT_EOL		0	/* End of options */
++#define TCPOPT_NOP		1	/* Padding */
+ #define TCPOPT_MSS		2	/* Segment size negotiating */
+ #define TCPOPT_WINDOW		3	/* Window scaling */
+ #define TCPOPT_SACK_PERM        4       /* SACK Permitted */
+ #define TCPOPT_SACK             5       /* SACK Block */
+ #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
+ #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
+-#define TCPOPT_COOKIE		253	/* Cookie extension (experimental) */
++#define TCPOPT_COOKIE		31	/* Cookie extension (experimental) */
++#define TCPOPT_TSTAMP64		32	/* 64-bit extension (experimental) */
+ 
+ /*
+- *     TCP option lengths
++ *	TCP option lengths (same order as above)
+  */
+-
+ #define TCPOLEN_MSS            4
+ #define TCPOLEN_WINDOW         3
+ #define TCPOLEN_SACK_PERM      2
+@@ -180,16 +179,18 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
+ #define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
+ #define TCPOLEN_COOKIE_MAX     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MAX)
++#define TCPOLEN_TSTAMP64       3
+ 
+ /* But this is what stacks really send out. */
+-#define TCPOLEN_TSTAMP_ALIGNED		12
++#define TCPOLEN_MSS_ALIGNED		4
+ #define TCPOLEN_WSCALE_ALIGNED		4
+ #define TCPOLEN_SACKPERM_ALIGNED	4
+ #define TCPOLEN_SACK_BASE		2
+ #define TCPOLEN_SACK_BASE_ALIGNED	4
+ #define TCPOLEN_SACK_PERBLOCK		8
++#define TCPOLEN_TSTAMP_ALIGNED		12
+ #define TCPOLEN_MD5SIG_ALIGNED		20
+-#define TCPOLEN_MSS_ALIGNED		4
++#define TCPOLEN_TSTAMP64_EXTEND		16
+ 
+ /* Flags in tp->nonagle */
+ #define TCP_NAGLE_OFF		1	/* Nagle's algo is disabled */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 7f8c6ac..6b9eabe 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3734,6 +3734,8 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+ 	int length = tcp_option_len_th(th);
+ 
+ 	opt_rx->cookie_plus = 0;
++	opt_rx->extended = 0;
++	opt_rx->tstamp64 = 0; /* false */
+ 	opt_rx->saw_tstamp = 0; /* false */
+ 
+ 	while (length > 0) {
+@@ -3829,9 +3831,23 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+ 			case TCPOLEN_COOKIE_BASE:
+ 				/* not yet implemented */
+ 				break;
+-			case TCPOLEN_COOKIE_PAIR:
+-				/* not yet implemented */
++			case TCPOLEN_COOKIE_PAIR: {
++				int extend = *ptr * 4;
++
++				if (extend >= TCPOLEN_COOKIE_MIN &&
++				    extend <= TCPOLEN_COOKIE_MAX &&
++				    opt_rx->cookie_plus == 0 &&
++				    opt_rx->saw_tstamp &&
++				    !th->syn) {
++					opt_rx->cookie_plus =
++						TCPOLEN_COOKIE_BASE + extend;
++					*hvpp = (u8 *)th
++					      + tcp_header_len_th(th)
++					      + opt_rx->extended;
++				}
++				opt_rx->extended += extend;
+ 				break;
++			}
+ 			case TCPOLEN_COOKIE_MIN+0:
+ 			case TCPOLEN_COOKIE_MIN+2:
+ 			case TCPOLEN_COOKIE_MIN+4:
+@@ -3851,6 +3867,31 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+ 			};
+ 			break;
+ 
++		case TCPOPT_TSTAMP64:
++			if (opsize == TCPOLEN_TSTAMP64) {
++				int extend = *ptr * 4;
++
++				if (extend == TCPOLEN_TSTAMP64_EXTEND &&
++				    opt_rx->extended == 0 &&
++				    !opt_rx->saw_tstamp &&
++				    !th->syn) {
++					u8 *tsp = (u8 *)(th)
++						+ tcp_header_len_th(th)
++						+ 4; /* low 32-bits */
++
++					opt_rx->tstamp64 = 1; /* true */
++					opt_rx->saw_tstamp = 1; /* true */
++
++					/* 64-bits not yet implemented */
++					opt_rx->rcv_tsval =
++						get_unaligned_be32(tsp);
++					opt_rx->rcv_tsecr =
++						get_unaligned_be32(tsp + 8);
++				}
++				opt_rx->extended += extend;
++			}
++			break;
++
+ 		default:
+ 			/* skip unrecognized options */
+ 			break;
 -- 
 1.6.3.3
 
---------------010803080907080105020905--
+--------------050508060207080400010206--
