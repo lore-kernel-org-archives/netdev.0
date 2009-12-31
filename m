@@ -1,265 +1,118 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH v2 RFC 2/5] TCPCT part 2b: remove old tcp_optlen function
-Date: Thu, 31 Dec 2009 14:44:21 -0500
-Message-ID: <4B3CFF15.7070308@gmail.com>
+Subject: [PATCH v2 RFC 3/5] TCPCT part 2c: accept SYNACK data
+Date: Thu, 31 Dec 2009 14:52:25 -0500
+Message-ID: <4B3D00F9.7050808@gmail.com>
 References: <4B3CFC73.3070204@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050905000508050405080005"
-Cc: Michael Chan <mchan@broadcom.com>
+ boundary="------------040401090002060406080602"
 To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.211.176]:63819 "EHLO
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:49395 "EHLO
 	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbZLaToY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 14:44:24 -0500
-Received: by ywh6 with SMTP id 6so13106475ywh.4
-        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 11:44:23 -0800 (PST)
+	with ESMTP id S1751336AbZLaTw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 14:52:29 -0500
+Received: by ywh6 with SMTP id 6so13110653ywh.4
+        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 11:52:29 -0800 (PST)
 In-Reply-To: <4B3CFC73.3070204@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------050905000508050405080005
+--------------040401090002060406080602
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-In the only two existing files using the old tcp_optlen() function,
-clean up confusing and inconsistent mixing of both byte and word
-offsets.  Document assumptions.
+When accompanied by cookie option, Initiator (client) queues incoming
+SYNACK transaction data.
 
-No semantic changes.  The drivers should function exactly as existing.
-Untested.  No response from testers in 9+ weeks.
+This is a straightforward re-implementation of an earlier (year-old)
+patch that no longer applies cleanly, with permission of the original
+author (Adam Langley).  The patch was previously reviewed:
+
+    http://thread.gmane.org/gmane.linux.network/102586
+
+This function will also be used in subsequent patches that implement
+additional features.
 
 Requires:
+   TCPCT part 1g: Responder Cookie => Initiator
    TCPCT part 2a: TCP header pointer functions
 
 Signed-off-by: William.Allen.Simpson@gmail.com
-CC: Michael Chan <mchan@broadcom.com>
 ---
-  drivers/net/bnx2.c  |   26 +++++++++++++--------
-  drivers/net/tg3.c   |   59 ++++++++++++++++++++++++++-------------------------
-  include/linux/tcp.h |    5 ----
-  3 files changed, 46 insertions(+), 44 deletions(-)
+  net/ipv4/tcp_input.c |   25 ++++++++++++++++++++++++-
+  1 files changed, 24 insertions(+), 1 deletions(-)
 
---------------050905000508050405080005
+--------------040401090002060406080602
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="522A6368";
- name="TCPCT+2b2.patch"
+ name="TCPCT+2c2.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+2b2.patch"
+ filename="TCPCT+2c2.patch"
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 65df1de..3fc4912 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6352,6 +6352,11 @@ bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
- /* Called with netif_tx_lock.
-  * bnx2_tx_int() runs without netif_tx_lock unless it needs to call
-  * netif_wake_queue().
-+ *
-+ * Quoth David Miller:
-+ * This is transmit, and the packets can only come from the Linux TCP stack,
-+ * not some external entity. ... adding [length] checks to drivers would be
-+ * just a lot of rediculious bloat. [sic]
-  */
- static netdev_tx_t
- bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -6397,18 +6402,17 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- #endif
- 	if ((mss = skb_shinfo(skb)->gso_size)) {
--		u32 tcp_opt_len;
--		struct iphdr *iph;
-+		struct tcphdr *th = tcp_hdr(skb);
-+		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
-+		/* assumes positive tcp_opt_words without checking */
- 
- 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
- 
--		tcp_opt_len = tcp_optlen(skb);
--
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
- 			u32 tcp_off = skb_transport_offset(skb) -
- 				      sizeof(struct ipv6hdr) - ETH_HLEN;
- 
--			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
-+			vlan_tag_flags |= (tcp_opt_words << 8) |
- 					  TX_BD_FLAGS_SW_FLAGS;
- 			if (likely(tcp_off == 0))
- 				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
-@@ -6421,11 +6425,13 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
- 			}
- 		} else {
--			iph = ip_hdr(skb);
--			if (tcp_opt_len || (iph->ihl > 5)) {
--				vlan_tag_flags |= ((iph->ihl - 5) +
--						   (tcp_opt_len >> 2)) << 8;
--			}
-+			struct iphdr *iph = ip_hdr(skb);
-+			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
-+			/* assumes positive ip_opt_words without checking */
-+			int opt_words = ip_opt_words + tcp_opt_words;
-+
-+			if (opt_words > 0)
-+				vlan_tag_flags |= opt_words << 8;
- 		}
- 	} else
- 		mss = 0;
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 3a74d21..31179db 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5421,6 +5421,11 @@ static void tg3_set_txd(struct tg3_napi *tnapi, int entry,
- 
- /* hard_start_xmit for devices that don't have any bugs and
-  * support TG3_FLG2_HW_TSO_2 and TG3_FLG2_HW_TSO_3 only.
-+ *
-+ * Quoth David Miller:
-+ * This is transmit, and the packets can only come from the Linux TCP stack,
-+ * not some external entity. ... adding [length] checks to drivers would be
-+ * just a lot of rediculious bloat. [sic]
-  */
- static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 				  struct net_device *dev)
-@@ -5458,7 +5463,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 	base_flags = 0;
- 	mss = 0;
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
--		int tcp_opt_len, ip_tcp_len;
-+		struct tcphdr *th;
- 		u32 hdrlen;
- 
- 		if (skb_header_cloned(skb) &&
-@@ -5466,18 +5471,16 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 			dev_kfree_skb(skb);
- 			goto out_unlock;
- 		}
-+		th = tcp_hdr(skb);
- 
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
- 			hdrlen = skb_headlen(skb) - ETH_HLEN;
- 		else {
- 			struct iphdr *iph = ip_hdr(skb);
- 
--			tcp_opt_len = tcp_optlen(skb);
--			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
--
-+			hdrlen = ip_hdrlen(skb) + tcp_header_len_th(th);
-+			iph->tot_len = htons(mss + hdrlen);
- 			iph->check = 0;
--			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
--			hdrlen = ip_tcp_len + tcp_opt_len;
- 		}
- 
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_3) {
-@@ -5491,7 +5494,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
- 			       TXD_FLAG_CPU_POST_DMA);
- 
--		tcp_hdr(skb)->check = 0;
-+		th->check = 0;
- 
- 	}
- 	else if (skb->ip_summed == CHECKSUM_PARTIAL)
-@@ -5624,6 +5627,11 @@ tg3_tso_bug_end:
- 
- /* hard_start_xmit for devices that have the 4G bug and/or 40-bit bug and
-  * support TG3_FLG2_HW_TSO_1 or firmware TSO only.
-+ *
-+ * Quoth David Miller:
-+ * This is transmit, and the packets can only come from the Linux TCP stack,
-+ * not some external entity. ... adding [length] checks to drivers would be
-+ * just a lot of rediculious bloat. [sic]
-  */
- static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 					  struct net_device *dev)
-@@ -5665,18 +5673,18 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
- 		struct iphdr *iph;
--		u32 tcp_opt_len, ip_tcp_len, hdr_len;
-+		struct tcphdr *th;
-+		u32 hdr_len;
-+		int opt_bytes;
- 
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
- 			dev_kfree_skb(skb);
- 			goto out_unlock;
- 		}
-+		th = tcp_hdr(skb);
-+		hdr_len = ip_hdrlen(skb) + tcp_header_len_th(th);
- 
--		tcp_opt_len = tcp_optlen(skb);
--		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
--
--		hdr_len = ip_tcp_len + tcp_opt_len;
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
- 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
- 			return (tg3_tso_bug(tp, skb));
-@@ -5688,13 +5696,14 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 		iph->check = 0;
- 		iph->tot_len = htons(mss + hdr_len);
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
--			tcp_hdr(skb)->check = 0;
-+			th->check = 0;
- 			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
- 		} else
--			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--								 iph->daddr, 0,
--								 IPPROTO_TCP,
--								 0);
-+			th->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-+						       0, IPPROTO_TCP, 0);
-+
-+		opt_bytes = hdr_len - sizeof(*iph) - sizeof(*th);
-+		/* assumes positive opt_bytes without checking */
- 
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_3) {
- 			mss |= (hdr_len & 0xc) << 12;
-@@ -5705,19 +5714,11 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 			mss |= hdr_len << 9;
- 		else if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_1) ||
- 			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				mss |= (tsflags << 11);
--			}
-+			if (opt_bytes > 0)
-+				mss |= opt_bytes << (11 - 2);
- 		} else {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				base_flags |= tsflags << 12;
--			}
-+			if (opt_bytes > 0)
-+				base_flags |= opt_bytes << (12 - 2);
- 		}
- 	}
- #if TG3_VLAN_TAG_USED
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d0133cf..74728f7 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -218,11 +218,6 @@ static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
- 	return tcp_hdr(skb)->doff * 4;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 28e0296..78604bd 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5415,6 +5415,12 @@ discard:
+ 	return 0;
  }
  
--static inline unsigned int tcp_optlen(const struct sk_buff *skb)
--{
--	return (tcp_hdr(skb)->doff - 5) * 4;
--}
--
- /* Length of fixed header plus standard options. */
- static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
++/*
++ * Returns:
++ *	+1 on reset,
++ *	0 success and/or SYNACK data,
++ *	-1 on discard.
++ */
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 					 struct tcphdr *th, unsigned len)
  {
+@@ -5423,6 +5429,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_cookie_values *cvp = tp->cookie_values;
+ 	int saved_clamp = tp->rx_opt.mss_clamp;
++	int queued = 0;
+ 
+ 	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0);
+ 
+@@ -5544,6 +5551,19 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 				       hash_location, cookie_size);
+ 				cvp->cookie_pair_size = cookie_pair_size;
+ 			}
++
++			queued = skb->len - tcp_header_len_th(th);
++			if (queued > 0) {
++				/* Queue incoming transaction data. */
++				__skb_pull(skb, tcp_header_len_th(th));
++				__skb_queue_tail(&sk->sk_receive_queue, skb);
++				skb_set_owner_r(skb, sk);
++				sk->sk_data_ready(sk, 0);
++				cvp->s_data_in = 1; /* true */
++				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
++				tp->rcv_wup = TCP_SKB_CB(skb)->end_seq;
++				tp->copied_seq = TCP_SKB_CB(skb)->seq + 1;
++			}
+ 		}
+ 
+ 		smp_mb();
+@@ -5597,11 +5617,14 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 						  TCP_DELACK_MAX, TCP_RTO_MAX);
+ 
+ discard:
+-			__kfree_skb(skb);
++			if (queued <= 0)
++				__kfree_skb(skb);
+ 			return 0;
+ 		} else {
+ 			tcp_send_ack(sk);
+ 		}
++		if (queued > 0)
++			return 0;
+ 		return -1;
+ 	}
+ 
 -- 
 1.6.3.3
 
---------------050905000508050405080005--
+--------------040401090002060406080602--
