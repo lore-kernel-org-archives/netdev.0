@@ -1,23 +1,22 @@
-From: Peter Dolding <oiaohm@gmail.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
 Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Fri, 1 Jan 2010 00:08:44 +1000
-Message-ID: <e7d8f83e0912310608j2c52acabxbd57d24e2b3073ca@mail.gmail.com>
-References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
-	 <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	 <20091230183513.GC14493@us.ibm.com> <m1fx6suswz.fsf@fess.ebiederm.org>
-	 <20091230201712.GA23999@us.ibm.com>
-	 <m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
-	 <20091230212931.233003b9@lxorguk.ukuu.org.uk>
-	 <m1skasrvnq.fsf@fess.ebiederm.org>
-	 <20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
-	 <m2bphfti1u.fsf@ssh.synack.fr>
+Date: Thu, 31 Dec 2009 09:25:23 -0600
+Message-ID: <20091231152523.GA12969@us.ibm.com>
+References: <m1aax1uoa3.fsf_-_@fess.ebiederm.org>
+ <3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
+ <m1r5qdt721.fsf@fess.ebiederm.org>
+ <3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
+ <m1d41w62zc.fsf_-_@fess.ebiederm.org>
+ <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
+ <20091230183513.GC14493@us.ibm.com>
+ <m1fx6suswz.fsf@fess.ebiederm.org>
+ <20091230201712.GA23999@us.ibm.com>
+ <m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	"Andrew G. Morgan" <morgan@kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Andrew G. Morgan" <morgan@kernel.org>,
 	Bryan Donlan <bdonlan@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Benny Amorsen <benny+usenet@amorsen.dk>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -32,46 +31,211 @@ Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <m2bphfti1u.fsf@ssh.synack.fr>
-Sender: linux-security-module-owner@vger.kernel.org
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752590AbZLaPZo@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 31, 2009 at 11:00 PM, Samir Bellabes <sam@synack.fr> wrote:
-> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
->
->> Well to be fair its random regurgitated security idea of every year or
->> two.
->
-> true, last year the same kind of discussion occurs with the 'personal
-> firewall' aka a network MAC.
-> http://marc.info/?t=123247387500003&r=3&w=2
-> http://marc.info/?t=123187029200001&r=2&w=2
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> 
+> If we can know that a process will never raise
+> it's priveleges we can enable a lot of features
+> without privilege (such as unsharing namespaces
+> and unprivileged mounts) that otherwise would be unsafe,
+> because they could break assumptions of existing
+> suid executables.
+> 
+> To allow this to be used as a sand boxing feature
+> also disable ptracing other executables without
+> this new restriction.
+> 
+> For the moment I have used a per thread flag because
+> we are out of per process flags.
+> 
+> To ensure all descendants get this flag I rely on
+> the default copying of procss structures.
+> 
+> Added bprm->nosuid to make remove the need to add
+> duplicate error prone checks.  This ensures that
+> the disabling of suid executables is exactly the
+> same as MNT_NOSUID.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  arch/x86/include/asm/thread_info.h |    2 ++
+>  fs/exec.c                          |    6 ++++--
+>  include/linux/binfmts.h            |    1 +
+>  include/linux/prctl.h              |    3 +++
+>  kernel/ptrace.c                    |    4 ++++
+>  kernel/sys.c                       |   21 +++++++++++++++++++++
+>  security/commoncap.c               |    3 +--
+>  security/selinux/hooks.c           |    2 +-
+>  8 files changed, 37 insertions(+), 5 deletions(-)
+> 
+> diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
+> index 375c917..e716203 100644
+> --- a/arch/x86/include/asm/thread_info.h
+> +++ b/arch/x86/include/asm/thread_info.h
+> @@ -82,6 +82,7 @@ struct thread_info {
+>  #define TIF_SYSCALL_EMU		6	/* syscall emulation active */
+>  #define TIF_SYSCALL_AUDIT	7	/* syscall auditing active */
+>  #define TIF_SECCOMP		8	/* secure computing */
+> +#define TIF_NOSUID		9	/* suid exec permanently disabled */
+>  #define TIF_MCE_NOTIFY		10	/* notify userspace of an MCE */
+>  #define TIF_USER_RETURN_NOTIFY	11	/* notify kernel of userspace return */
+>  #define TIF_NOTSC		16	/* TSC is not accessible in userland */
+> @@ -107,6 +108,7 @@ struct thread_info {
+>  #define _TIF_SYSCALL_EMU	(1 << TIF_SYSCALL_EMU)
+>  #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+>  #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
+> +#define _TIF_NOSUID		(1 << TIF_NOSUID)
+>  #define _TIF_MCE_NOTIFY		(1 << TIF_MCE_NOTIFY)
+>  #define _TIF_USER_RETURN_NOTIFY	(1 << TIF_USER_RETURN_NOTIFY)
+>  #define _TIF_NOTSC		(1 << TIF_NOTSC)
+> diff --git a/fs/exec.c b/fs/exec.c
+> index 632b02e..5cba5ac 100644
+> --- a/fs/exec.c
+> +++ b/fs/exec.c
+> @@ -1131,8 +1131,10 @@ int prepare_binprm(struct linux_binprm *bprm)
+>  	/* clear any previous set[ug]id data from a previous binary */
+>  	bprm->cred->euid = current_euid();
+>  	bprm->cred->egid = current_egid();
+> -
+> -	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)) {
+> +	bprm->nosuid =
+> +		(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID) ||
+> +		test_tsk_thread_flag(current, TIF_NOSUID);
+> +	if (bprm->nosuid) {
+>  		/* Set-uid? */
+>  		if (mode & S_ISUID) {
+>  			bprm->per_clear |= PER_CLEAR_ON_SETID;
+> diff --git a/include/linux/binfmts.h b/include/linux/binfmts.h
+> index cd4349b..c3b5a30 100644
+> --- a/include/linux/binfmts.h
+> +++ b/include/linux/binfmts.h
+> @@ -44,6 +44,7 @@ struct linux_binprm{
+>  #ifdef __alpha__
+>  	unsigned int taso:1;
+>  #endif
+> +	unsigned int nosuid:1;	/* True if suid bits are ignored */
+>  	unsigned int recursion_depth;
+>  	struct file * file;
+>  	struct cred *cred;	/* new credentials */
+> diff --git a/include/linux/prctl.h b/include/linux/prctl.h
+> index a3baeb2..8adc517 100644
+> --- a/include/linux/prctl.h
+> +++ b/include/linux/prctl.h
+> @@ -102,4 +102,7 @@
+> 
+>  #define PR_MCE_KILL_GET 34
+> 
+> +#define PR_SET_NOSUID	35
+> +#define PR_GET_NOSUID	36
+> +
+>  #endif /* _LINUX_PRCTL_H */
+> diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+> index 23bd09c..b91040c 100644
+> --- a/kernel/ptrace.c
+> +++ b/kernel/ptrace.c
+> @@ -152,6 +152,10 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
+>  	if (!dumpable && !capable(CAP_SYS_PTRACE))
+>  		return -EPERM;
+> 
+> +	if (test_tsk_thread_flag(current, TIF_NOSUID) &&
+> +	    !test_tsk_thread_flag(task, TIF_NOSUID))
+> +		return -EPERM;
+> +
+>  	return security_ptrace_access_check(task, mode);
+>  }
+> 
+> diff --git a/kernel/sys.c b/kernel/sys.c
+> index 26a6b73..8731f2a 100644
+> --- a/kernel/sys.c
+> +++ b/kernel/sys.c
+> @@ -1578,6 +1578,27 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+>  			else
+>  				error = PR_MCE_KILL_DEFAULT;
+>  			break;
+> +		case PR_SET_NOSUID:
+> +		{
+> +			const struct cred *cred = current->cred;
+> +			error = -EINVAL;
+> +			/* Don't support cases that could be unsafe */
+> +			if (	(cred->uid != cred->suid) ||
+> +				(cred->uid != cred->euid) ||
+> +				(cred->uid != cred->fsuid) ||
+> +				(cred->gid != cred->sgid) ||
+> +				(cred->gid != cred->egid) ||
+> +				(cred->gid != cred->fsgid) ||
+> +				!cap_isclear(cred->cap_permitted) ||
+> +				(atomic_read(&current->signal->count) != 1))
+> +				break;
+> +			error = 0;
+> +			set_tsk_thread_flag(current, TIF_NOSUID);
+> +			break;
+> +		}
+> +		case PR_GET_NOSUID:
+> +			error = !!test_tsk_thread_flag(current, TIF_NOSUID);
+> +			break;
+>  		default:
+>  			error = -EINVAL;
+>  			break;
+> diff --git a/security/commoncap.c b/security/commoncap.c
+> index f800fdb..34500e3 100644
+> --- a/security/commoncap.c
+> +++ b/security/commoncap.c
+> @@ -389,7 +389,7 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective)
+>  	if (!file_caps_enabled)
+>  		return 0;
+> 
+> -	if (bprm->file->f_vfsmnt->mnt_flags & MNT_NOSUID)
+> +	if (bprm->nosuid)
+>  		return 0;
 
-Lets step back for a moment.  What is the common issue with both.
+I'm sorry, this may actually not be sufficient.
 
-The issue is simple.  "How to I generically tell the secuirty system
-want particular restrictions."
+Could you try the following test on a kernel with this patch? :
 
-There is no generic LSM API for application or users to talk to the
-LSM and say I want the following restricted.   Of course the
-restrictions have to be tighter than what the profiles already say.
+1. become root
+2. do prctl(PR_SET_NOSUID);
+3. run bash, and examine your capabilities in /proc/self/status
 
-To control the LSM the applications are expected to know what the LSM.
- This has caused items like chrome major issues.
+I think the code in security/commoncap.c:457-458 will re-raise your
+capabilities.
 
-Also by providing a generic LSM API there would be a base set of
-requirements for a LSM to provide to meet the requirements of the
-generic interfaces.
-
-Basically until a generic interface to talk to LSM module is provided
-these requests are going to keep coming.  Maybe assign secuirty ops
-string values that applications can say disable the following secuirty
-operations from me.
-
-Application does not need to be informed what is disabled from it.
-
-Peter Dolding
+> 
+>  	dentry = dget(bprm->file->f_dentry);
+> @@ -868,7 +868,6 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
+>  		else
+>  			new->securebits &= ~issecure_mask(SECURE_KEEP_CAPS);
+>  		goto changed;
+> -
+>  	default:
+>  		/* No functionality available - continue with default */
+>  		error = -ENOSYS;
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 7a374c2..bd77a2b 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -2147,7 +2147,7 @@ static int selinux_bprm_set_creds(struct linux_binprm *bprm)
+>  	COMMON_AUDIT_DATA_INIT(&ad, FS);
+>  	ad.u.fs.path = bprm->file->f_path;
+> 
+> -	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
+> +	if (bprm->nosuid)
+>  		new_tsec->sid = old_tsec->sid;
+> 
+>  	if (new_tsec->sid == old_tsec->sid) {
+> -- 
+> 1.6.5.2.143.g8cc62
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
