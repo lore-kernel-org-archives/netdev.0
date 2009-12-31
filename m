@@ -1,22 +1,26 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Thu, 31 Dec 2009 08:48:45 -0800
-Message-ID: <m18wcjnl76.fsf@fess.ebiederm.org>
-References: <m1aax1uoa3.fsf_-_@fess.ebiederm.org>
-	<3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
-	<m1r5qdt721.fsf@fess.ebiederm.org>
-	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
-	<m1d41w62zc.fsf_-_@fess.ebiederm.org>
+Date: Thu, 31 Dec 2009 17:06:41 +0000
+Message-ID: <20091231170641.6dd46c6e@lxorguk.ukuu.org.uk>
+References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
 	<551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	<20091230183513.GC14493@us.ibm.com> <m1fx6suswz.fsf@fess.ebiederm.org>
+	<20091230183513.GC14493@us.ibm.com>
+	<m1fx6suswz.fsf@fess.ebiederm.org>
 	<20091230201712.GA23999@us.ibm.com>
 	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
-	<20091231152523.GA12969@us.ibm.com>
+	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
+	<m1skasrvnq.fsf@fess.ebiederm.org>
+	<20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
+	<m2bphfti1u.fsf@ssh.synack.fr>
+	<e7d8f83e0912310608j2c52acabxbd57d24e2b3073ca@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Andrew G. Morgan" <morgan@kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Samir Bellabes <sam@synack.fr>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	"Andrew G. Morgan" <morgan@kernel.org>,
 	Bryan Donlan <bdonlan@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	Benny Amorsen <benny+usenet@amorsen.dk>,
 	Michael Stone <michael@laptop.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -31,50 +35,43 @@ Cc: "Andrew G. Morgan" <morgan@kernel.org>,
 	Bernie Innocenti <bernie@codewiz.org>,
 	Mark Seaborn <mrs@mythic-beasts.com>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.c
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091231152523.GA12969@us.ibm.com> (Serge E. Hallyn's message of "Thu\, 31 Dec 2009 09\:25\:23 -0600")
-Sender: linux-security-module-owner@vger.kernel.org
+	=?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura
+To: Peter Dolding <oiaohm@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752832AbZLaRGN@vger.kernel.org>
+In-Reply-To: <e7d8f83e0912310608j2c52acabxbd57d24e2b3073ca@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+> Lets step back for a moment.  What is the common issue with both.
+> 
+> The issue is simple.  "How to I generically tell the secuirty system
+> want particular restrictions."
 
->> diff --git a/security/commoncap.c b/security/commoncap.c
->> index f800fdb..34500e3 100644
->> --- a/security/commoncap.c
->> +++ b/security/commoncap.c
->> @@ -389,7 +389,7 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective)
->>  	if (!file_caps_enabled)
->>  		return 0;
->> 
->> -	if (bprm->file->f_vfsmnt->mnt_flags & MNT_NOSUID)
->> +	if (bprm->nosuid)
->>  		return 0;
->
-> I'm sorry, this may actually not be sufficient.
->
-> Could you try the following test on a kernel with this patch? :
->
-> 1. become root
-> 2. do prctl(PR_SET_NOSUID);
-> 3. run bash, and examine your capabilities in /proc/self/status
->
-> I think the code in security/commoncap.c:457-458 will re-raise your
-> capabilities.
+You don't. It's not "the security system", its a whole collection of
+completely different models of security and differing tools.
 
-Right.  That is a legitimate issue.
-I almost guard against it with my test against with my start condition test
-of cap_isclear(cred->cap_permitted).
+> There is no generic LSM API for application or users to talk to the
+> LSM and say I want the following restricted.
 
-Which causes this to fail for root in most situations.  I will add a
-test for the securebits, and deny this to root unless the securebits
-are such that root cannot gain privilege.
+That's a meaningless observation I think because security doesn't work
+that way. Removing specific features from a specific piece of code
+generally isn't a security feature - its only meaningful in the context
+of a more general policy and that policy expression isn't generic.
 
-Thanks for catching this.  I figured I might need a uid == 0 exclusion.
-Where the test was split when I wrote it I wasn't certain where to put it.
+> To control the LSM the applications are expected to know what the LSM.
+>  This has caused items like chrome major issues.
 
-Eric
+..
+
+> Application does not need to be informed what is disabled from it.
+
+So why does it cause chrome problems ?
+
+
+There are multiple security models because nobody can agree on what they
+should look like, just like multiple desktops. Each of them is based on a
+totally different conceptual model so the idea of a single interface to
+them is a bit meaningless.
+
+Alan
