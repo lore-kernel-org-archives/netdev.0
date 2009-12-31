@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Thu, 31 Dec 2009 10:32:47 -0800
-Message-ID: <m1aawzm1tc.fsf@fess.ebiederm.org>
+Date: Thu, 31 Dec 2009 10:41:08 -0800
+Message-ID: <m1oclfkmuz.fsf@fess.ebiederm.org>
 References: <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
 	<m1fx6suswz.fsf@fess.ebiederm.org> <20091230201712.GA23999@us.ibm.com>
 	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
@@ -43,34 +43,20 @@ List-Id: netdev.vger.kernel.org
 
 "Andrew G. Morgan" <morgan@kernel.org> writes:
 
-> Why not implement this as another securebit? So far as I can see the
-> whole thing can be implemented in the capability LSM.
->
-> What is less clear to me is whether per-process 'disabling of setuid
-> bits on files' should force mandatory disabling of file capabilities.
-> It seems as if disabling the transition of one luser to another luser
-> through a setuid executable is something distinct from privilege
-> escalation.
->
 > Since there is already independent support for disabling file
 > capabilities (the privilege escalation part), I see these two
 > mechanisms as separable.
 
-The goal is to disable privilege escalation.
+I guess there is something that resembles support for disabling
+privilege escalation.  The problem is that it requires privilege to
+use it.
 
-The anatomy of the sendmail capabilities bug as I understand it was:
+I have no problem with expressing this in a fine grained manner internally
+to the kernel but the user space interface needs to be atomic so that
+we can enable this all without privilege.
 
-- unprivileged process took action to prevent gaining a capability.
-- exec'd suid sendmail.
-- sendmail took action as root because it could not become someone else.
-
-I would like to trivially stop that entire class of exploit by making
-execing a suid ( or equivalent ) executable impossible.
-
-Once that hole is closed we can enable things like chroot without
-privilege.
-
-If there is a way to express this with capabilities today I would be
-more than happy to.
+Further I may be off but I think the implementation would be more
+challenging than what I have already posted.  That doesn't mean it
+won't be more useful long term.
 
 Eric
