@@ -1,45 +1,76 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (new oops)
-Date: Thu, 31 Dec 2009 10:24:41 -0800
-Message-ID: <20091231102441.6e81598a@nehalam>
-References: <4B300A2A.8040305@gmail.com>
-	<4B300E30.9090707@majjas.com>
-	<4B3114E3.1070602@majjas.com>
-	<4B329FA3.9090904@majjas.com>
-	<20091223230102.4bb0100e.akpm@linux-foundation.org>
-	<4B34E847.8010809@majjas.com>
-	<20091225152200.1cf11dfe@nehalam>
-	<4B3581C7.8000702@majjas.com>
-	<20091226095723.7ac82b18@nehalam>
-	<4B367409.5060202@majjas.com>
-	<4B379378.4000102@majjas.com>
-	<20091227102238.0df149f9@nehalam>
-	<4B37B7E2.5070307@majjas.com>
-	<20091229093023.3ad24786@nehalam>
-	<4B3A5048.9090700@majjas.com>
-	<20091229114938.1f4d1c5c@nehalam>
-	<4B3AFFE8.3060409@majjas.com>
-	<20091229235942.51bf733d@nehalam>
-	<4B3B7488.6080503@majjas.com>
-	<20091230101046.2816d545@nehalam>
-	<4B3CE8CA.5050003@majjas.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
+Date: Thu, 31 Dec 2009 10:32:47 -0800
+Message-ID: <m1aawzm1tc.fsf@fess.ebiederm.org>
+References: <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
+	<m1fx6suswz.fsf@fess.ebiederm.org> <20091230201712.GA23999@us.ibm.com>
+	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
+	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
+	<m1skasrvnq.fsf@fess.ebiederm.org>
+	<20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
+	<3e8340490912301844p4fddaf57ke58ceeba9582e0fa@mail.gmail.com>
+	<20091231173334.5e3d7557@lxorguk.ukuu.org.uk>
+	<20091231175257.GA7210@us.ibm.com>
+	<551280e50912311020x2bdc5b1o699a601f67b91662@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752668AbZLaSZG@vger.kernel.org>
-In-Reply-To: <4B3CE8CA.5050003@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Benny Amorsen <benny+usenet@amorsen.dk>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com
+To: "Andrew G. Morgan" <morgan@kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <551280e50912311020x2bdc5b1o699a601f67b91662@mail.gmail.com> (Andrew G. Morgan's message of "Thu\, 31 Dec 2009 10\:20\:18 -0800")
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have similar motherboards and ACPI is having issues with parsing
-the tables, probably not related but see:
+"Andrew G. Morgan" <morgan@kernel.org> writes:
 
-  http://bugzilla.kernel.org/show_bug.cgi?id=14954
+> Why not implement this as another securebit? So far as I can see the
+> whole thing can be implemented in the capability LSM.
+>
+> What is less clear to me is whether per-process 'disabling of setuid
+> bits on files' should force mandatory disabling of file capabilities.
+> It seems as if disabling the transition of one luser to another luser
+> through a setuid executable is something distinct from privilege
+> escalation.
+>
+> Since there is already independent support for disabling file
+> capabilities (the privilege escalation part), I see these two
+> mechanisms as separable.
 
+The goal is to disable privilege escalation.
 
--- 
+The anatomy of the sendmail capabilities bug as I understand it was:
+
+- unprivileged process took action to prevent gaining a capability.
+- exec'd suid sendmail.
+- sendmail took action as root because it could not become someone else.
+
+I would like to trivially stop that entire class of exploit by making
+execing a suid ( or equivalent ) executable impossible.
+
+Once that hole is closed we can enable things like chroot without
+privilege.
+
+If there is a way to express this with capabilities today I would be
+more than happy to.
+
+Eric
