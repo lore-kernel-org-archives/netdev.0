@@ -1,62 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Thu, 31 Dec 2009 10:41:08 -0800
-Message-ID: <m1oclfkmuz.fsf@fess.ebiederm.org>
-References: <551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	<m1fx6suswz.fsf@fess.ebiederm.org> <20091230201712.GA23999@us.ibm.com>
-	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
-	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
-	<m1skasrvnq.fsf@fess.ebiederm.org>
-	<20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
-	<3e8340490912301844p4fddaf57ke58ceeba9582e0fa@mail.gmail.com>
-	<20091231173334.5e3d7557@lxorguk.ukuu.org.uk>
-	<20091231175257.GA7210@us.ibm.com>
-	<551280e50912311020x2bdc5b1o699a601f67b91662@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sky2: Lock transmit queue while disabling device
+Date: Thu, 31 Dec 2009 19:51:48 +0100
+Message-ID: <4B3CF2C4.5070203@gmail.com>
+References: <4B3C8323.1080301@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com
-To: "Andrew G. Morgan" <morgan@kernel.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <551280e50912311020x2bdc5b1o699a601f67b91662@mail.gmail.com> (Andrew G. Morgan's message of "Thu\, 31 Dec 2009 10\:20\:18 -0800")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	flyboy@gmail.com, dhazelton@enter.net, mbreuer@majjas.com,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:47904 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbZLaSv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 13:51:57 -0500
+Received: by fxm25 with SMTP id 25so6869451fxm.21
+        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 10:51:55 -0800 (PST)
+In-Reply-To: <4B3C8323.1080301@ring3k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Andrew G. Morgan" <morgan@kernel.org> writes:
+Mike McCormack wrote, On 12/31/2009 11:55 AM:
 
-> Since there is already independent support for disabling file
-> capabilities (the privilege escalation part), I see these two
-> mechanisms as separable.
+> netif_device_detach() does not take the tx_lock, so it's
+>  possible that a call to sky2_xmit_frame is still in
+>  progress after netif_device_detach() is complete.
+> 
+> Take netif_tx_lock() to make sure all transmits have
+>  stopped while we're disabling the devices and that
+>  no other CPU is still transmitting a frame after
+>  we've disabling the device.
+> 
+> Proposed fix for "sky2 panic under load" reported by Berck E. Nash.
 
-I guess there is something that resembles support for disabling
-privilege escalation.  The problem is that it requires privilege to
-use it.
+Could you give some scenario of the oops/fix?
+Btw, even if it worked, you should use netif_tx_lock_bh
+version considering sky2_detach use contexts, I guess.
 
-I have no problem with expressing this in a fine grained manner internally
-to the kernel but the user space interface needs to be atomic so that
-we can enable this all without privilege.
+Jarek P.
 
-Further I may be off but I think the implementation would be more
-challenging than what I have already posted.  That doesn't mean it
-won't be more useful long term.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index faa4841..8ae8520 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -3176,7 +3176,9 @@ static void sky2_reset(struct sky2_hw *hw)
+>  static void sky2_detach(struct net_device *dev)
+>  {
+>  	if (netif_running(dev)) {
+> +		netif_tx_lock(dev);
+>  		netif_device_detach(dev);	/* stop txq */
+> +		netif_tx_unlock(dev);
+>  		sky2_down(dev);
+>  	}
+>  }
 
-Eric
+
