@@ -1,103 +1,58 @@
-From: Bryan Donlan <bdonlan@gmail.com>
-Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
-Date: Wed, 30 Dec 2009 21:44:05 -0500
-Message-ID: <3e8340490912301844p4fddaf57ke58ceeba9582e0fa@mail.gmail.com>
-References: <m1iqbpwjtp.fsf@fess.ebiederm.org> <m1d41w62zc.fsf_-_@fess.ebiederm.org>
-	<551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
-	<20091230183513.GC14493@us.ibm.com> <m1fx6suswz.fsf@fess.ebiederm.org>
-	<20091230201712.GA23999@us.ibm.com> <m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
-	<20091230212931.233003b9@lxorguk.ukuu.org.uk> <m1skasrvnq.fsf@fess.ebiederm.org>
-	<20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	"Andrew G. Morgan" <morgan@kernel.org>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
-Sender: linux-security-module-owner@vger.kernel.org
+From: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] sunrpc: fix peername failed on closed listener
+Date: Thu, 31 Dec 2009 10:52:36 +0800
+Message-ID: <1262227956-21470-1-git-send-email-dfeng@redhat.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 30, 2009 at 6:00 PM, Alan Cox <alan@lxorguk.ukuu.org.uk> wr=
-ote:
-> On Wed, 30 Dec 2009 13:36:57 -0800
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
->> Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
->>
->> >> Added bprm->nosuid to make remove the need to add
->> >> duplicate error prone checks. =A0This ensures that
->> >> the disabling of suid executables is exactly the
->> >> same as MNT_NOSUID.
->> >
->> > Another fine example of why we have security hooks so that we don'=
-t get a
->> > kernel full of other "random security idea of the day" hacks.
->>
->> Well it comes from plan 9. =A0Except there they just simply did not
->> implement suid. =A0What causes you to think dropping the ability
->> to execute suid executables is a random security idea of the day?
->
-> Well to be fair its random regurgitated security idea of every year o=
-r
-> two.
->
-> More to the point - we have security_* hooks so this kind of continuo=
-us
-> security proposal turdstream can stay out of the main part of the ker=
-nel.
->
-> Cleaning up the mechanism by which NOSUID is handled in kernel seems =
-a
-> good idea. Adding wacky new prctls and gunk for it doesn't, and belon=
-gs
-> in whatever security model you are using via the security hooks.
+There're some warnings of "nfsd: peername failed (err 107)!"
+socket error -107 means Transport endpoint is not connected.
+This warning message was outputed by svc_tcp_accept() [net/sunrpc/svcsock.c],
+when kernel_getpeername returns -107. This means socket might be CLOSED.
 
-I see this as being a security-model agnostic API - the reason being,
-the application is specifying a policy for itself that has meaning in
-all existing security models, and which does not require administrator
-intervention to configure. Rather than reimplementing this for each
-security model, it's far better to do it just once. Moreover, by
-having a single, common API, the application can state the general
-policy "I will never need to gain priviliges over exec" without
-needing to know what LSM is in use.
+And svc_tcp_accept was called by svc_recv() [net/sunrpc/svc_xprt.c]
 
-The future goal of this API is to allow us to relax restrictions on
-creating new namespaces, chrooting, and otherwise altering the task's
-environment in ways that may confuse privileged applications. Since
-security hooks are all about making the existing security restrictions
-_stricter_, it's not easy to later relax these using the security hook
-model. And once we put in the general requirement that "this task
-shall never gain privilege", it should be safe to relax these
-restrictions for _all_ security models.
+        if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
+        <snip>
+                newxpt = xprt->xpt_ops->xpo_accept(xprt);
+        <snip>
 
-In short, this is something which is meaningful for all existing LSMs
-and should be implemented in a central point, it will make things
-easier for the namespace folks, and since it will lead to relaxing
-restrictions later, it doesn't make sense to put it in a LSM as they
-stand now.
+So this might happen when xprt->xpt_flags has both XPT_LISTENER and XPT_CLOSE.
+
+Let's take a look at commit b0401d72, this commit has moved the close
+processing after do recvfrom method, but this commit also introduces this
+warnings, if the xpt_flags has both XPT_LISTENER and XPT_CLOSED, we should
+close it, not accpet then close.
+
+Signed-off-by: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+---
+diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+index 1c924ee..187f0f4 100644
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -699,7 +699,8 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
+ 	spin_unlock_bh(&pool->sp_lock);
+ 
+ 	len = 0;
+-	if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
++	if (test_bit(XPT_LISTENER, &xprt->xpt_flags) &&
++	    !test_bit(XPT_CLOSE, &xprt->xpt_flags)) {
+ 		struct svc_xprt *newxpt;
+ 		newxpt = xprt->xpt_ops->xpo_accept(xprt);
+ 		if (newxpt) {
 --
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
