@@ -1,54 +1,96 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Lock transmit queue while disabling device
-Date: Thu, 31 Dec 2009 19:55:31 +0900
-Message-ID: <4B3C8323.1080301@ring3k.org>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC][PATCH v3] Unprivileged: Disable raising of privileges
+Date: Thu, 31 Dec 2009 14:00:13 +0100
+Message-ID: <m2bphfti1u.fsf@ssh.synack.fr>
+References: <m1iqbpwjtp.fsf@fess.ebiederm.org>
+	<20091229223631.GB22578@us.ibm.com>
+	<m1aax1uoa3.fsf_-_@fess.ebiederm.org>
+	<3e8340490912291954v5a837a26p64bd776102d281d7@mail.gmail.com>
+	<m1r5qdt721.fsf@fess.ebiederm.org>
+	<3e8340490912292057g3e87eaabn115f85b78af2b08c@mail.gmail.com>
+	<m1d41w62zc.fsf_-_@fess.ebiederm.org>
+	<551280e50912300652r1007dee0j8de750bf33af9b3c@mail.gmail.com>
+	<20091230183513.GC14493@us.ibm.com> <m1fx6suswz.fsf@fess.ebiederm.org>
+	<20091230201712.GA23999@us.ibm.com>
+	<m1hbr8tb8q.fsf_-_@fess.ebiederm.org>
+	<20091230212931.233003b9@lxorguk.ukuu.org.uk>
+	<m1skasrvnq.fsf@fess.ebiederm.org>
+	<20091230230042.5d2e78ac@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, flyboy@gmail.com, dhazelton@enter.net,
-	mbreuer@majjas.com, "netdev@vger.kernel.org"@ogre.sisk.pl
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f171.google.com ([209.85.222.171]:37756 "EHLO
-	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbZLaK65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Dec 2009 05:58:57 -0500
-Received: by pzk1 with SMTP id 1so674854pzk.33
-        for <netdev@vger.kernel.org>; Thu, 31 Dec 2009 02:58:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ebiederm@xmission.com (Eric W. Biederman),
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	"Andrew G. Morgan" <morgan@kernel.org>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Benny Amorsen <benny+usenet@amorsen.dk>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-15?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Casey Schaufler <casey
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751905AbZLaNAT@vger.kernel.org>
+In-Reply-To: <20091230230042.5d2e78ac@lxorguk.ukuu.org.uk> (Alan Cox's message
+	of "Wed, 30 Dec 2009 23:00:42 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 
-netif_device_detach() does not take the tx_lock, so it's
- possible that a call to sky2_xmit_frame is still in
- progress after netif_device_detach() is complete.
+> Well to be fair its random regurgitated security idea of every year or
+> two.
 
-Take netif_tx_lock() to make sure all transmits have
- stopped while we're disabling the devices and that
- no other CPU is still transmitting a frame after
- we've disabling the device.
+true, last year the same kind of discussion occurs with the 'personal
+firewall' aka a network MAC.
+http://marc.info/?t=123247387500003&r=3&w=2
+http://marc.info/?t=123187029200001&r=2&w=2
 
-Proposed fix for "sky2 panic under load" reported by Berck E. Nash.
+> More to the point - we have security_* hooks so this kind of continuous
+> security proposal turdstream can stay out of the main part of the kernel.
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+indeed, LSM framework was design to be the abstraction tool. the 3
+design rules were : 
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index faa4841..8ae8520 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -3176,7 +3176,9 @@ static void sky2_reset(struct sky2_hw *hw)
- static void sky2_detach(struct net_device *dev)
+0. truly generic, where using a different security model is merely a
+   matter of loading a different kernel module;
+1. conceptually simple, minimally invasive, and efficient; and
+2. able to support the existing POSIX.1e capabilities logic as an
+   optional security module.
+
+so, 'minimally invasive' is keyword. what's why I don't understand the
+purpose of this kind of patch, even if I see the goal to achieve:
+
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen)
  {
- 	if (netif_running(dev)) {
-+		netif_tx_lock(dev);
- 		netif_device_detach(dev);	/* stop txq */
-+		netif_tx_unlock(dev);
- 		sky2_down(dev);
- 	}
+-	return security_ops->socket_connect(sock, address, addrlen);
++	int ret = 0;
++
++	ret = security_ops->socket_connect(sock, address, addrlen);
++	if (ret)
++		goto out;
++
++#ifdef CONFIG_SECURITY_DISABLENETWORK
++	ret = disablenetwork_security_socket_connect(sock, address, addrlen);
++	if (ret)
++		goto out;
++#endif
++
++out:
++	return ret;
  }
--- 
-1.5.6.5
 
+This really seems to be a kind of stacking, but it's not. So are we
+going to move LSM framework to support stacking, or are we respecting
+the rules of LSM framework (respecting the abstract hooks) ?
+This change makes LSM framework no more generic at all.
