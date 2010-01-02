@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC 4/9] snet: introduce snet_core.c and snet.h
-Date: Sat,  2 Jan 2010 14:04:11 +0100
-Message-ID: <1262437456-24476-5-git-send-email-sam@synack.fr>
+Subject: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
+Date: Sat,  2 Jan 2010 14:04:12 +0100
+Message-ID: <1262437456-24476-6-git-send-email-sam@synack.fr>
 References: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Cc: Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
@@ -13,140 +13,284 @@ In-Reply-To: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this patch introduce snet_core.c, which provides main functions to start and
-stop snet's subsystems :
-	- snet_hooks	: LSM hooks
-	- snet_netlink	: kernel-user communication (genetlink)
-	- snet_event	: manages the table of protected syscalls
-	- snet_verdict	: provides a wait queue for syscalls and manage verdicts
-			  from userspace
+This patch adds the snet's subsystem responsive of managing events
+
+snet is using the word 'event' for a couple of values [syscall, protocol]. For
+example, [listen, tcp] or [sendmsg, dccp] are events.
+This patch introduces a hastable 'event_hash' and operations (add/remove/search..)
+in order to manage which events have to be protected.
+With the help of the communication's subsystem, managing orders are coming from
+userspace.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/include/snet.h |   29 ++++++++++++++++
- security/snet/snet_core.c    |   77 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 106 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/include/snet.h
- create mode 100644 security/snet/snet_core.c
+ security/snet/include/snet_event.h |   20 +++
+ security/snet/snet_event.c         |  229 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 249 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/include/snet_event.h
+ create mode 100644 security/snet/snet_event.c
 
-diff --git a/security/snet/include/snet.h b/security/snet/include/snet.h
+diff --git a/security/snet/include/snet_event.h b/security/snet/include/snet_event.h
 new file mode 100644
-index 0000000..b664a47
+index 0000000..2c71ca7
 --- /dev/null
-+++ b/security/snet/include/snet.h
-@@ -0,0 +1,29 @@
-+#ifndef _SNET_H
-+#define _SNET_H
++++ b/security/snet/include/snet_event.h
+@@ -0,0 +1,20 @@
++#ifndef _SNET_EVENT_H
++#define _SNET_EVENT_H
++#include <linux/skbuff.h>
 +
-+#include "snet_hooks.h"
++extern unsigned int event_hash_size;
 +
-+#define SNET_VERSION	0x1
-+#define SNET_NAME	"snet"
++/* manipulate the events hash table */
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb);
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol);
++void snet_event_flush(void);
++void snet_event_dumpall(void);
 +
-+#define SNET_PRINTK(enable, fmt, arg...)			\
-+	do {							\
-+		if (enable)					\
-+			printk(KERN_INFO "%s: %s: " fmt ,	\
-+				SNET_NAME , __func__ ,		\
-+				## arg);			\
-+	} while (0)
++/* init function */
++int snet_event_init(void);
++/* exit funtion */
++int snet_event_exit(void);
 +
-+#ifdef CONFIG_SECURITY_SNET_DEBUG
-+extern unsigned int snet_debug;
-+#define snet_dbg(fmt, arg...)	SNET_PRINTK(snet_debug, fmt, ##arg)
-+#else
-+#define snet_dbg(fmt, arg...)
-+#endif
-+
-+struct snet_event {
-+	enum snet_syscall syscall;
-+	u8 protocol;
-+} __attribute__ ((packed));
-+
-+#endif /* _SNET_H */
-diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
++#endif /* _SNET_EVENT_H */
+diff --git a/security/snet/snet_event.c b/security/snet/snet_event.c
 new file mode 100644
-index 0000000..34b61e9
+index 0000000..6ac5646
 --- /dev/null
-+++ b/security/snet/snet_core.c
-@@ -0,0 +1,77 @@
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <net/genetlink.h>
++++ b/security/snet/snet_event.c
+@@ -0,0 +1,229 @@
++#include <linux/spinlock.h>
++#include <linux/list.h>
++#include <linux/jhash.h>
++#include <linux/slab.h>
++#include <linux/netlink.h>
 +
 +#include "snet.h"
-+#include "snet_hooks.h"
-+#include "snet_netlink.h"
 +#include "snet_event.h"
-+#include "snet_verdict.h"
-+#include "snet_utils.h"
++#include "snet_netlink.h"
 +
-+unsigned int event_hash_size = 16;
-+module_param(event_hash_size, uint, 0600);
-+MODULE_PARM_DESC(event_hash_size, "Set the size of the event hash table");
++static struct list_head *event_hash;
++static rwlock_t event_hash_lock = __RW_LOCK_UNLOCKED();
 +
-+unsigned int verdict_hash_size = 16;
-+module_param(verdict_hash_size, uint, 0600);
-+MODULE_PARM_DESC(verdict_hash_size, "Set the size of the verdict hash table");
++struct snet_event_entry {
++	struct list_head list;
++	struct snet_event se;
++};
 +
-+unsigned int snet_verdict_delay = 5;
-+module_param(snet_verdict_delay, uint, 0600);
-+MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
-+
-+unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
-+module_param(snet_verdict_policy, uint, 0600);
-+MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
-+
-+#ifdef CONFIG_SECURITY_SNET_DEBUG
-+unsigned int snet_debug;
-+EXPORT_SYMBOL_GPL(snet_debug);
-+module_param(snet_debug, bool, 0644);
-+MODULE_PARM_DESC(snet_debug, "Enable debug messages");
-+#endif
-+
-+void snet_core_exit(void)
++/* lookup for a event_hash - before using this function, lock event_hash_lock */
++static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
++						   const u8 protocol)
 +{
-+	snet_netlink_exit();
-+	snet_event_exit();
-+	snet_hooks_exit();
-+	snet_verdict_exit();
-+	snet_dbg("stopped\n");
++	unsigned int h = 0;
++	struct list_head *l;
++	struct snet_event_entry *s;
++	struct snet_event t;
++
++	if (!event_hash)
++		return NULL;
++
++	/* building the element to look for */
++	t.syscall = syscall;
++	t.protocol = protocol;
++
++	/* computing its hash value */
++	h = jhash(&t, sizeof(struct snet_event), 0) % event_hash_size;
++	l = &event_hash[h];
++
++	list_for_each_entry(s, l, list) {
++		if ((s->se.protocol == protocol) &&
++		    (s->se.syscall == syscall)) {
++			return s;
++		}
++	}
++	return NULL;
 +}
 +
-+static __init int snet_init(void)
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
 +{
-+	int ret;
++	unsigned int i = 0, n = 0;
++	int ret = -1;
++	unsigned hashs_to_skip = cb->args[0];
++	unsigned events_to_skip = cb->args[1];
++	struct list_head *l;
++	struct snet_event_entry *s;
 +
-+	snet_dbg("initializing: event_hash_size=%u "
-+		 "verdict_hash_size=%u verdict_delay=%usecs "
-+		 "default_policy=%s\n",
-+		 event_hash_size, verdict_hash_size, snet_verdict_delay,
-+		 snet_verdict_name(snet_verdict_policy));
++	read_lock_bh(&event_hash_lock);
 +
-+	ret = snet_event_init();
-+	if (ret < 0)
-+		goto exit;
++	if (!event_hash)
++		goto errout;
 +
-+	ret = snet_verdict_init();
-+	if (ret < 0)
-+		goto exit;
++	for (i = 0; i < event_hash_size; i++) {
++		if (i < hashs_to_skip)
++			continue;
++		l = &event_hash[i];
++		n = 0;
++		list_for_each_entry(s, l, list) {
++			if (++n < events_to_skip)
++				continue;
++			ret = snet_nl_list_fill_info(skb,
++						     NETLINK_CB(cb->skb).pid,
++						     cb->nlh->nlmsg_seq,
++						     NLM_F_MULTI,
++						     s->se.protocol,
++						     s->se.syscall);
++			if (ret < 0)
++				goto errout;
++		}
++	}
 +
-+	ret = snet_hooks_init();
-+	if (ret < 0)
-+		goto exit;
++errout:
++	read_unlock_bh(&event_hash_lock);
 +
-+	snet_dbg("started\n");
-+	return 0;
-+exit:
-+	snet_core_exit();
++	cb->args[0] = i;
++	cb->args[1] = n;
++	return skb->len;
++}
++
++/* void snet_event_dumpall() */
++/* { */
++/*	unsigned int i = 0; */
++/*	struct list_head *l; */
++/*	struct snet_event_entry *s; */
++
++/*	snet_dbg("entering\n"); */
++/*	read_lock_bh(&event_hash_lock); */
++/*	for (i = 0; i < (event_hash_size - 1); i++) { */
++/*		l = &hash[i]; */
++/*		list_for_each_entry(s, l, list) { */
++/*			snet_dbg("[%d, %d, %d]\n", i, */
++/*				 s->se.protocol, s->se.syscall); */
++/*		} */
++/*	} */
++/*	read_unlock_bh(&event_hash_lock); */
++/*	snet_dbg("exiting\n"); */
++/*	return; */
++/* } */
++
++/*
++ * check if a event is registered or not
++ * return 1 if event is registered, 0 if not
++ */
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
++{
++	int ret = 0;
++
++	read_lock_bh(&event_hash_lock);
++	if (__snet_event_lookup(syscall, protocol) != NULL)
++		ret = 1;
++	read_unlock_bh(&event_hash_lock);
 +	return ret;
 +}
 +
-+security_initcall(snet_init);
++/* adding a event */
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++	unsigned int h = 0;
 +
-+MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
++	data = kzalloc(sizeof(struct snet_event_entry), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	write_lock_bh(&event_hash_lock);
++	/* check if event is already registered */
++	if (!event_hash || __snet_event_lookup(syscall, protocol) != NULL) {
++		write_unlock_bh(&event_hash_lock);
++		kfree(data);
++		return -EINVAL;
++	}
++
++	data->se.syscall = syscall;
++	data->se.protocol = protocol;
++	INIT_LIST_HEAD(&(data->list));
++	h = jhash(&(data->se), sizeof(struct snet_event), 0) % event_hash_size;
++	list_add_tail(&data->list, &event_hash[h]);
++	write_unlock_bh(&event_hash_lock);
++
++	return 0;
++}
++
++/* removing a event */
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++
++	write_lock_bh(&event_hash_lock);
++	data = __snet_event_lookup(syscall, protocol);
++	if (data == NULL) {
++		write_unlock_bh(&event_hash_lock);
++		return -EINVAL;
++	}
++
++	list_del(&data->list);
++	write_unlock_bh(&event_hash_lock);
++	kfree(data);
++	return 0;
++}
++
++/* flushing all events */
++void __snet_event_flush(void)
++{
++	struct snet_event_entry *data = NULL;
++	unsigned int i = 0;
++
++	for (i = 0; i < event_hash_size; i++) {
++		while (!list_empty(&event_hash[i])) {
++			data = list_entry(event_hash[i].next,
++					  struct snet_event_entry, list);
++			list_del(&data->list);
++			kfree(data);
++		}
++	}
++	return;
++}
++
++void snet_event_flush(void)
++{
++	write_lock_bh(&event_hash_lock);
++	if (event_hash)
++		__snet_event_flush();
++	write_unlock_bh(&event_hash_lock);
++	return;
++}
++
++/* init function */
++int snet_event_init(void)
++{
++	int err = 0, i = 0;
++
++	event_hash = kzalloc(sizeof(struct list_head) * event_hash_size,
++			     GFP_KERNEL);
++	if (!event_hash) {
++		printk(KERN_WARNING
++		       "snet: can't alloc memory for event_hash\n");
++		err = -ENOMEM;
++		goto out;
++	}
++
++	for (i = 0; i < event_hash_size; i++)
++		INIT_LIST_HEAD(&(event_hash[i]));
++
++out:
++	return err;
++}
++
++/* exit function */
++int snet_event_exit(void)
++{
++	write_lock_bh(&event_hash_lock);
++	if (event_hash) {
++		__snet_event_flush();
++		kfree(event_hash);
++		event_hash = NULL;
++	}
++	write_unlock_bh(&event_hash_lock);
++
++	return 0;
++}
 -- 
 1.6.3.3
 
