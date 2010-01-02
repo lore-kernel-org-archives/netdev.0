@@ -1,69 +1,156 @@
-From: Gregory Petrosyan <gregory.petrosyan@gmail.com>
-Subject: sky2: unsupported chip type 0xff failure
-Date: Sun, 3 Jan 2010 01:48:58 +0300
-Message-ID: <20100102224858.GA17023@gregory-laptop>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
+Date: Sun, 03 Jan 2010 00:38:21 +0100
+Message-ID: <m2ws00oz6a.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-6-git-send-email-sam@synack.fr>
+	<20100102200900.GA27402@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: stephen hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:57389 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022Ab0ABWtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2010 17:49:18 -0500
-Received: by fxm25 with SMTP id 25so7849902fxm.21
-        for <netdev@vger.kernel.org>; Sat, 02 Jan 2010 14:49:16 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100102200900.GA27402@ioremap.net> (Evgeniy Polyakov's message
+	of "Sat, 2 Jan 2010 23:09:00 +0300")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've got an HP ProBook 5310m laptop with Marvell Ethernet controller. sky2 reports
+Hello Evgeniy,
 
-[14252.318867] sky2 driver version 1.23
-[14252.318904] sky2 0000:03:00.0: setting latency timer to 64
-[14252.318951] sky2 0000:03:00.0: unsupported chip type 0xff
-[14252.318960] sky2: probe of 0000:03:00.0 failed with error -95
+Evgeniy Polyakov <zbr@ioremap.net> writes:
+>> +
+>> +extern unsigned int event_hash_size;
+>> +
+>
+>> +
+>> +static struct list_head *event_hash;
+>> +static rwlock_t event_hash_lock = __RW_LOCK_UNLOCKED();
+>> +
+>
+> Those are way too generic names, please use snet_ prefix as you did in
+> other places.
 
-(this is captured after 'modprobe -r' + 'modprobe') and I've seen it working
-only 1 time (probably after a reboot).
+done. thank you
 
-lspci -vvv:
+> I believe snet should be converted to RCU instead of rw locks.
 
-03:00.0 Ethernet controller: Marvell Technology Group Ltd. Device 436c (rev 10)
-	Subsystem: Hewlett-Packard Company Device 3634
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR+ <PERR- INTx-
-	Latency: 0, Cache Line Size: 1020 bytes
-	Interrupt: pin A routed to IRQ 17
-	Region 0: Memory at 90600000 (64-bit, non-prefetchable) [size=16K]
-	Region 2: I/O ports at 2000 [size=256]
-	Expansion ROM at 90a00000 [size=128K]
-	Capabilities: [48] Power Management version 3
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [50] Vital Product Data <?>
-	Capabilities: [5c] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable-
-		Address: 0000000000000000  Data: 0000
-	Capabilities: [c0] Express (v2) Legacy Endpoint, MSI 00
-		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s unlimited, L1 unlimited
-			ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-			MaxPayload 128 bytes, MaxReadReq 128 bytes
-		DevSta:	CorrErr+ UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-		LnkCap:	Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0 <256ns, L1 unlimited
-			ClockPM+ Suprise- LLActRep- BwNot-
-		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
-			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-	Capabilities: [100] Advanced Error Reporting <?>
-	Capabilities: [130] Device Serial Number 00-26-22-ff-ff-a4-f7-9d
-	Kernel modules: sky2
+I see, I will investigated this idea.
 
-What can I do to make it work?
+>> +/* lookup for a event_hash - before using this function, lock event_hash_lock */
+>> +static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
+>> +						   const u8 protocol)
+>> +{
+>> +	unsigned int h = 0;
+>> +	struct list_head *l;
+>> +	struct snet_event_entry *s;
+>> +	struct snet_event t;
+>> +
+>> +	if (!event_hash)
+>> +		return NULL;
+>> +
+>> +	/* building the element to look for */
+>> +	t.syscall = syscall;
+>> +	t.protocol = protocol;
+>> +
+>> +	/* computing its hash value */
+>> +	h = jhash(&t, sizeof(struct snet_event), 0) % event_hash_size;
+>
+> You can have better distribution if not simply cut off the remainder.
+> Also it is a rather expensive operation.
 
-Note: similar issue has been reported previously [1].
+true, I replaced the modulo operation to a bitmask operations.
 
-[1] http://lkml.indiana.edu/hypermail/linux/kernel/0806.0/0026.html
+>> +	l = &event_hash[h];
+>> +
+>> +	list_for_each_entry(s, l, list) {
+>> +		if ((s->se.protocol == protocol) &&
+>> +		    (s->se.syscall == syscall)) {
+>> +			return s;
+>> +		}
+>> +	}
+>> +	return NULL;
+>> +}
+>
+> Below comments looks a little bit weird, was it generated automatically
+> by editor?
 
-	Gregory
+no, it's was a unused debug function. I deleted this comment.
+
+>> +/* void snet_event_dumpall() */
+>> +/* { */
+>> +/*	unsigned int i = 0; */
+>> +/*	struct list_head *l; */
+>> +/*	struct snet_event_entry *s; */
+>> +
+>> +/*	snet_dbg("entering\n"); */
+>> +/*	read_lock_bh(&event_hash_lock); */
+>> +/*	for (i = 0; i < (event_hash_size - 1); i++) { */
+>> +/*		l = &hash[i]; */
+>> +/*		list_for_each_entry(s, l, list) { */
+>> +/*			snet_dbg("[%d, %d, %d]\n", i, */
+>> +/*				 s->se.protocol, s->se.syscall); */
+>> +/*		} */
+>> +/*	} */
+>> +/*	read_unlock_bh(&event_hash_lock); */
+>> +/*	snet_dbg("exiting\n"); */
+>> +/*	return; */
+>> +/* } */
+>
+>> +int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
+>> +{
+>> +	struct snet_event_entry *data = NULL;
+>> +	unsigned int h = 0;
+>> +
+>> +	data = kzalloc(sizeof(struct snet_event_entry), GFP_KERNEL);
+>> +	if (!data)
+>> +		return -ENOMEM;
+>> +
+>> +	write_lock_bh(&event_hash_lock);
+>> +	/* check if event is already registered */
+>> +	if (!event_hash || __snet_event_lookup(syscall, protocol) != NULL) {
+>> +		write_unlock_bh(&event_hash_lock);
+>> +		kfree(data);
+>> +		return -EINVAL;
+>> +	}
+>
+> What about single error exiting point?
+
+done, thanks
+
+>> +
+>> +	data->se.syscall = syscall;
+>> +	data->se.protocol = protocol;
+>> +	INIT_LIST_HEAD(&(data->list));
+>> +	h = jhash(&(data->se), sizeof(struct snet_event), 0) % event_hash_size;
+>> +	list_add_tail(&data->list, &event_hash[h]);
+>> +	write_unlock_bh(&event_hash_lock);
+>> +
+>> +	return 0;
+>> +}
+>
+>> +/* init function */
+>> +int snet_event_init(void)
+>> +{
+>> +	int err = 0, i = 0;
+>> +
+>> +	event_hash = kzalloc(sizeof(struct list_head) * event_hash_size,
+>> +			     GFP_KERNEL);
+>> +	if (!event_hash) {
+>> +		printk(KERN_WARNING
+>> +		       "snet: can't alloc memory for event_hash\n");
+>> +		err = -ENOMEM;
+>> +		goto out;
+>> +	}
+>> +
+>> +	for (i = 0; i < event_hash_size; i++)
+>> +		INIT_LIST_HEAD(&(event_hash[i]));
+>
+> No need for double braces.
+
+again fixed.
+
+thanks for your time Evgeniy,
+sam
