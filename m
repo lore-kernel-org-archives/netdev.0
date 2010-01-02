@@ -1,379 +1,69 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: sky2 panic in 2.6.32.1 under load (tty NULL write)
-Date: Sat, 02 Jan 2010 16:42:22 -0500
-Message-ID: <4B3FBDBE.6040202@majjas.com>
-References: <4B300A2A.8040305@gmail.com> <4B300E30.9090707@majjas.com>
- <4B3114E3.1070602@majjas.com> <4B329FA3.9090904@majjas.com>
- <20091223230102.4bb0100e.akpm@linux-foundation.org>
- <4B34E847.8010809@majjas.com> <20091225152200.1cf11dfe@nehalam>
- <4B3581C7.8000702@majjas.com> <20091226095723.7ac82b18@nehalam>
- <4B367409.5060202@majjas.com> <4B379378.4000102@majjas.com>
- <20091227102238.0df149f9@nehalam> <4B37B7E2.5070307@majjas.com>
- <20091229093023.3ad24786@nehalam> <4B3A5048.9090700@majjas.com>
- <20091229114938.1f4d1c5c@nehalam> <4B3AFFE8.3060409@majjas.com>
- <20091229235942.51bf733d@nehalam> <4B3B7488.6080503@majjas.com>
- <20091230101046.2816d545@nehalam> <4B3CE8CA.5050003@majjas.com>
- <4B3E33EC.1060703@majjas.com> <4B3E4C7D.2040802@majjas.com>
- <4B3E5C49.9010409@majjas.com>
+From: Gregory Petrosyan <gregory.petrosyan@gmail.com>
+Subject: sky2: unsupported chip type 0xff failure
+Date: Sun, 3 Jan 2010 01:48:58 +0300
+Message-ID: <20100102224858.GA17023@gregory-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752462Ab0ABVmy@vger.kernel.org>
-In-reply-to: <4B3E5C49.9010409@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: stephen hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:57389 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751022Ab0ABWtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2010 17:49:18 -0500
+Received: by fxm25 with SMTP id 25so7849902fxm.21
+        for <netdev@vger.kernel.org>; Sat, 02 Jan 2010 14:49:16 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Made some more progress - hopefully someone can point me in the right 
-direction....
-Put extra debugging printk's into tty_io.c and learned that when init 
-starts the mingetty's, tty_release_dev is called for ptm0, and the tty 
-structure is freed (according to the debug log message) - but up to this 
-point, it had never been allocated. It looks like this is happening as 
-the result of vhangup for pts0 being invoked while in the middle of 
-closing (tty_release_dev) several tty1's. I'm guessing that's where 
-something is being stepped on, but haven't tracked it down quite yet. 
-Regardless, it's after this that I can generate sky2 network errors, and 
-not before. This does not seem to happen if I remove /etc/events.d/tty1 
-before boot.
+I've got an HP ProBook 5310m laptop with Marvell Ethernet controller. sky2 reports
 
+[14252.318867] sky2 driver version 1.23
+[14252.318904] sky2 0000:03:00.0: setting latency timer to 64
+[14252.318951] sky2 0000:03:00.0: unsupported chip type 0xff
+[14252.318960] sky2: probe of 0000:03:00.0 failed with error -95
 
-On 1/1/2010 3:34 PM, Michael Breuer wrote:
-> In single user mode:
->
-> Looks like the first attempt to run mingetty on tty1 triggers a 
-> vhangup of more than tty1. Also, the initial console (shell, etc) were 
-> open on tty1 when I started mingetty on tty1. Looks like the 
-> subsequent vhangup is what broke things. Also, the vhangup issued from 
-> mingetty seems to have resulted in tty2 activity as well, although I 
-> don't see why it should have.
->
-> Scenario:
->
-> Started in single user mode.
-> did initctl start tty2 and then switched to tty2 and logged in:
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty2 vhangup...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=1)...
-> Jan  1 15:11:42 mail kernel: freeing tty structure...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty2 vhangup...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=2)...
->
-> Then (and note that time should have advanced, but didn't): initctl 
-> start tty1 (previously, the initial shell from single user mode was up):
->
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty1 vhangup...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: tty1 vhangup...
-> Jan  1 15:11:42 mail kernel: error attempted to write to tty 
-> [0x(null)] = NULL
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=3)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=4)...
->
-> While I was doing this, I was watching dmesg, not /var/log/message. 
-> Didn't notice time was stuck...
-> Then, I did telinit 5:
-> Jan  1 15:11:42 mail kernel: sky2 eth1: enabling interface
-> Jan  1 15:11:42 mail kernel: ADDRCONF(NETDEV_UP): eth1: link is not ready
-> Jan  1 15:11:42 mail kernel: sky2 eth1: Link is up at 100 Mbps, full 
-> duplex, flow control rx
-> Jan  1 15:11:42 mail kernel: ADDRCONF(NETDEV_CHANGE): eth1: link 
-> becomes ready
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=4)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: IPv6 over IPv4 tunneling driver
-> Jan  1 15:11:42 mail kernel: sit0: Disabled Privacy Extensions
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: SELinux: initialized (dev cgroup, type 
-> cgroup), uses genfs_contexts
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'dhclient_t' is invalid
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'mcstransd_t' is invalid
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'samba_t' is invalid
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'dhclient_t' is invalid
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'mcstransd_t' is invalid
-> Jan  1 15:11:42 mail kernel: audit rule for LSM 'samba_t' is invalid
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty2...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty2 (tty count=4)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail cpuspeed: Enabling ondemand cpu frequency scaling 
-> governor
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:42 mail kdump: kexec: loaded kdump kernel
-> Jan  1 15:11:42 mail kdump: started up
-> Jan  1 15:11:42 mail kernel: tty_release_dev of tty1 (tty count=2)...
-> Jan  1 15:11:42 mail kernel: opening tty1...
-> Jan  1 15:11:43 mail kernel: tty_release_dev of tty1 (tty count=2)...
->
-> This is when time increments again ... time jumped ahead and was OK by 
-> the time ntp started. Looks like system time was OK, but syslog was 
-> backlogged.
->
-> On 01/01/2010 02:26 PM, Michael Breuer wrote:
->> Running with TTY_DEBUG_HANGUP:
->>
->> On boot - lots of stuff opening and closing tty1. Once up and stable 
->> (runlevel 3), I did initctl stop tty1, and then initctl start tty1. 
->> This is what was logged:
->>
->> Jan  1 14:03:21 mail root: close mingetty1
->> Jan  1 14:03:21 mail kernel: tty_release_dev of tty1 (tty count=6)...
->> Jan  1 14:03:21 mail kernel: tty_release_dev of tty1 (tty count=5)...
->> Jan  1 14:03:21 mail kernel: tty1 vhangup...
->> Jan  1 14:03:21 mail init: tty1 main process (6031) killed by TERM 
->> signal
->> Jan  1 14:03:36 mail root: start mingetty1
->> Jan  1 14:03:36 mail kernel: error attempted to write to tty 
->> [0x(null)] = NULL
->> Jan  1 14:03:36 mail kernel: opening tty1...
->> Jan  1 14:03:36 mail kernel: tty1 vhangup...
->> Jan  1 14:03:36 mail kernel: tty_release_dev of tty1 (tty count=5)...
->>
->> Start/stop of mingetty on other ttys does not get the NULL write 
->> error. I am always getting the NULL error when starting mingetty on 
->> tty1.
->>
->> For example:
->> Jan  1 14:04:11 mail root: restart mingetty2
->> Jan  1 14:04:11 mail init: tty2 main process (6029) killed by TERM 
->> signal
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty7 (tty count=2)...
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty2 (tty count=1)...
->> Jan  1 14:04:11 mail kernel: freeing tty structure...
->> Jan  1 14:04:11 mail kernel: opening tty2...
->> Jan  1 14:04:11 mail kernel: tty2 vhangup...
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty2 (tty count=1)...
->> Jan  1 14:04:11 mail kernel: freeing tty structure...
->>
->> While starting/stopping tty2 and X was coming up, I also got this:
->>
->> Jan  1 14:04:11 mail root: restart mingetty2
->> Jan  1 14:04:11 mail init: tty2 main process (6029) killed by TERM 
->> signal
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty7 (tty count=2)...
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty2 (tty count=1)...
->> Jan  1 14:04:11 mail kernel: freeing tty structure...
->> Jan  1 14:04:11 mail kernel: opening tty2...
->> Jan  1 14:04:11 mail kernel: tty2 vhangup...
->> Jan  1 14:04:11 mail kernel: tty_release_dev of tty2 (tty count=1)...
->> Jan  1 14:04:11 mail kernel: freeing tty structure...
->> Jan  1 14:04:17 mail gnome-session[6832]: WARNING: Could not parse 
->> desktop file 
->> /home/mbreuer/.config/autostart/xfce4-tips-autostart.desktop: Key 
->> file does not have key 'Name'
->> Jan  1 14:04:17 mail gnome-session[6832]: WARNING: could not read 
->> /home/mbreuer/.config/autostart/xfce4-tips-autostart.desktop
->> Jan  1 14:04:19 mail pulseaudio[7002]: pid.c: Stale PID file, 
->> overwriting.
->> Jan  1 14:04:20 mail kernel: opening tty2...
->> Jan  1 14:04:20 mail kernel: opening pts2...
->> Jan  1 14:04:20 mail kernel: opening pts2...
->> Jan  1 14:04:20 mail kernel: tty_release_dev of pts2 (tty count=3)...
->> Jan  1 14:04:20 mail kernel: opening pts2...
->> Jan  1 14:04:20 mail kernel: tty_release_dev of pts2 (tty count=3)...
->> Jan  1 14:04:20 mail kernel: opening pts3...
->> Jan  1 14:04:20 mail kernel: opening pts3...
->> Jan  1 14:04:20 mail kernel: tty_release_dev of pts3 (tty count=3)...
->> Jan  1 14:04:20 mail kernel: opening pts3...
->> Jan  1 14:04:20 mail kernel: tty_release_dev of pts3 (tty count=3)...
->> Jan  1 14:04:20 mail kernel: opening pts4...
->> Jan  1 14:04:20 mail kernel: opening pts4...
->> Jan  1 14:04:20 mail kernel: tty_release_dev of pts4 (tty count=3)...
->> Jan  1 14:04:20 mail kernel: opening pts4...
->> Jan  1 14:04:21 mail kernel: tty_release_dev of pts4 (tty count=3)...
->> Jan  1 14:04:21 mail kernel: DMA-API: debugging out of memory - 
->> disabling
->> Jan  1 14:04:23 mail pulseaudio[7417]: pid.c: Daemon already running.
->> Jan  1 14:04:24 mail kernel: sky2 0000:06:00.0: error interrupt 
->> status=0x8
->> Jan  1 14:04:24 mail kernel: sky2 Tx ring pending=45...52 report=45 
->> done=47
->> Jan  1 14:04:24 mail kernel: 44: 0x0: 0xf26a40be(9014)
->> Jan  1 14:04:24 mail kernel: 46: 0x0: 0xf26a00be(9014)
->> Jan  1 14:04:24 mail kernel: 48: 0x0: 0xf269c0be(9014)
->> Jan  1 14:04:24 mail kernel: 50: 0x0: 0xf26980be(9014)
->> Jan  1 14:04:24 mail kernel: sky2 0000:06:00.0: error interrupt 
->> status=0x8
->> Jan  1 14:04:24 mail kernel: sky2 Tx ring pending=47...52 report=47 
->> done=49
->> Jan  1 14:04:24 mail kernel: 46: 0x0: 0xf26a00be(9014)
->> Jan  1 14:04:24 mail kernel: 48: 0x0: 0xf269c0be(9014)
->> Jan  1 14:04:24 mail kernel: 50: 0x0: 0xf26980be(9014)
->>
->> Note the sky2 errors (this time not under load).
->>
->> It looks like there is something bad going on with the tty driver.
->>
->>
->> On 01/01/2010 12:42 PM, Michael Breuer wrote:
->>> More results... Seems that this is related to the tty (or maybe vt 
->>> or maybe console) driver. I had disabled mingetty on tty1 as a 
->>> workaround to a Fedora/KDE issue. When I reenabled it, I was then 
->>> able to recreate this problem (sky2) in runlevel 3.
->>>
->>> Retesting, it seems that the following conditions must be met in 
->>> order for the interrupt errors to happen:
->>>
->>> 1) mingetty running on tty1 before the start of the test run
->>> 2) High sustained incoming load - 25MB/sec or more (as reported by 
->>> nethogs)
->>> 3) I've only been able to recreate this using samba & a Windows 7 
->>> backup - but there could be other triggers
->>>
->>> As it happens, much of my other data all came down to mingetty 
->>> starting or not starting on tty1 at specific points of test 
->>> preparation. At this point I can recreate 100% of the time if I 
->>> ensure that there is a mingetty running on tty1, regardless of 
->>> runlevel; and I can not recreate 100% of the time when there is no 
->>> mingetty running on tty1 at the start of the test. The results do 
->>> not change if I start or stop mingetty on tty1 during the test. It's 
->>> possible that X running on tty1 may also trigger the issue, but I 
->>> haven't tested that. Note that running mingetty on the other tty's 
->>> does not affect the outcome of the test. The test is also unaffected 
->>> if I chvt to or away from tty1 before the test. I do not have to be 
->>> logged in at the console (on any vt) to trigger the issue.
->>>
->>> In a nutshell, to recreate: make sure there is a mingetty running on 
->>> tty1, blast traffic into the system on eth0 (sky2).
->>>
->>>
->>>
->>>
->>> On 12/31/2009 1:09 PM, Michael Breuer wrote:
->>>> Did some more digging today... Haven't nailed it, but there's 
->>>> something going on with X and tty...
->>>>
->>>> Among other things, when I telinit 3 && telinit 5 the tty keeps 
->>>> switching between 7 and 8 (nothing else running on either tty). It 
->>>> would appear that somehow the tty deallocation isn't complete when 
->>>> X restarts. Also, X grabbing a tty seems to be a requisite step in 
->>>> recreating the sky2 issue.
->>>>
->>>> On 12/30/2009 1:10 PM, Stephen Hemminger wrote:
->>>>> On Wed, 30 Dec 2009 10:40:56 -0500
->>>>> Michael Breuer<mbreuer@majjas.com>  wrote:
->>>>>
->>>>>> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt
->>>>>> status=0x40000008
->>>>>> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=31...40 
->>>>>> report=35 done=35
->>>>>> Dec 30 10:37:14 mail kernel: 30: 0x0: 0xeb50c0ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 32: 0x0: 0xeb5080ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 34: 0x0: 0xeb5040ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 36: 0x0: 0xeb5000ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 38: 0x0: 0xeb4fc0ca(9014)
->>>>> You must be using 9K MTU.  Do you see the problem with smaller
->>>>> MTU?
->>>>>
->>>>>> Dec 30 10:37:14 mail kernel: sky2 0000:06:00.0: error interrupt
->>>>>> status=0x40000008
->>>>>> Dec 30 10:37:14 mail kernel: sky2 Tx ring pending=87...92 
->>>>>> report=89 done=91
->>>>>> Dec 30 10:37:14 mail kernel: 86: 0x0: 0xeafd80ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 88: 0x0: 0xeafd40ca(9014)
->>>>>> Dec 30 10:37:14 mail kernel: 90: 0x0: 0xeafd00ca(9014)
->>>>>> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt 
->>>>>> status=0x8
->>>>>> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=39...42 
->>>>>> report=39 done=41
->>>>>> Dec 30 10:37:15 mail kernel: 38: 0x0: 0xe5fec0ca(9014)
->>>>>> Dec 30 10:37:15 mail kernel: 40: 0x0: 0xe5fe80ca(9014)
->>>>>> Dec 30 10:37:15 mail kernel: sky2 0000:06:00.0: error interrupt
->>>>>> status=0x40000008
->>>>>> Dec 30 10:37:15 mail kernel: sky2 Tx ring pending=117...124 
->>>>>> report=119
->>>>>> done=119
->>>>>> Dec 30 10:37:15 mail kernel: 116: 0x0: 0xe5d6c0ca(9014)
->>>>>> Dec 30 10:37:15 mail kernel: 118: 0x0: 0xe5d680ca(9014)
->>>>>> Dec 30 10:37:15 mail kernel: 120: 0x0: 0xe5d660ca(5938)
->>>>>> Dec 30 10:37:15 mail kernel: 122: 0x0: 0xe5d640ca(4213)
->>>>
->>>
->>> -- 
->>> To unsubscribe from this list: send the line "unsubscribe 
->>> linux-kernel" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>> Please read the FAQ at  http://www.tux.org/lkml/
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe 
->> linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->
+(this is captured after 'modprobe -r' + 'modprobe') and I've seen it working
+only 1 time (probably after a reboot).
+
+lspci -vvv:
+
+03:00.0 Ethernet controller: Marvell Technology Group Ltd. Device 436c (rev 10)
+	Subsystem: Hewlett-Packard Company Device 3634
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR+ <PERR- INTx-
+	Latency: 0, Cache Line Size: 1020 bytes
+	Interrupt: pin A routed to IRQ 17
+	Region 0: Memory at 90600000 (64-bit, non-prefetchable) [size=16K]
+	Region 2: I/O ports at 2000 [size=256]
+	Expansion ROM at 90a00000 [size=128K]
+	Capabilities: [48] Power Management version 3
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [50] Vital Product Data <?>
+	Capabilities: [5c] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable-
+		Address: 0000000000000000  Data: 0000
+	Capabilities: [c0] Express (v2) Legacy Endpoint, MSI 00
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s unlimited, L1 unlimited
+			ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+			MaxPayload 128 bytes, MaxReadReq 128 bytes
+		DevSta:	CorrErr+ UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
+		LnkCap:	Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0 <256ns, L1 unlimited
+			ClockPM+ Suprise- LLActRep- BwNot-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+	Capabilities: [100] Advanced Error Reporting <?>
+	Capabilities: [130] Device Serial Number 00-26-22-ff-ff-a4-f7-9d
+	Kernel modules: sky2
+
+What can I do to make it work?
+
+Note: similar issue has been reported previously [1].
+
+[1] http://lkml.indiana.edu/hypermail/linux/kernel/0806.0/0026.html
+
+	Gregory
