@@ -1,133 +1,31 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next 2/3] can: mscan-mpc5xxx: add support for the
-	MPC521x processor
-Date: Sat, 02 Jan 2010 17:08:11 +0100
-Message-ID: <4B3F6F6B.5070004@grandegger.com>
-References: <1262420274-16586-1-git-send-email-wg@grandegger.com>	<1262420274-16586-2-git-send-email-wg@grandegger.com>	<1262420274-16586-3-git-send-email-wg@grandegger.com>
-	<20100102135734.GC2239@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
-To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100102135734.GC2239-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: jasmine_awa1@ecunet.org
+Subject: Hello Happy new year
+Date: Sat, 2 Jan 2010 12:18:25 -0500
+Message-ID: <201001021718.o02HIPOP005512@ecunet-web-1.ecunet.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.ecunet.org ([72.250.175.188]:52116 "EHLO mail2.ecunet.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752755Ab0ABRSo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Jan 2010 12:18:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfram Sang wrote:
-> On Sat, Jan 02, 2010 at 09:17:53AM +0100, Wolfgang Grandegger wrote:
->> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
->>
->> The main differences compared to the MSCAN on the MPC5200 are:
->>
->> - More flexibility in choosing the CAN source clock and frequency:
->>
->>   Three different clock sources can be selected: "ip", "ref" or "sys".
->>   For the latter two, a clock divider can be defined as well. If the
->>   clock source is not specified by the device tree, we first try to
->>   find an optimal CAN source clock based on the system clock. If that
->>   is not possible, the reference clock will be used.
->>
->> - The behavior of bus-off recovery is configurable:
->>
->>   To comply with the usual handling of Socket-CAN bus-off recovery,
->>   "recovery on request" is selected (instead of automatic recovery).
->>
->> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
->> ---
->>  drivers/net/can/mscan/Kconfig       |    2 +-
->>  drivers/net/can/mscan/mpc5xxx_can.c |  234 +++++++++++++++++++++++++++++------
->>  drivers/net/can/mscan/mscan.c       |   41 +++++--
->>  drivers/net/can/mscan/mscan.h       |   81 ++++++------
->>  4 files changed, 271 insertions(+), 87 deletions(-)
->>
-[snip]
+Hello Hello dear,
+Happy new year, My name is Miss Jasmine in search of a nice and caring man who understands love as trust and faith rather seeing it as a way of fun but a matured man with good sense of humor. i found your email address while surfing the net and i derive interest on you so reply me, so we can know each other, i believe we can start from here,
 
->> +#else /* !CONFIG_PPC_MPC5200 */
->> +static u32 __devinit mpc52xx_can_get_clock(struct of_device *ofdev,
->> +					   const char *clock_name,
->> +					   int *mscan_clksrc)
->> +{
->> +	return 0;
->> +}
->> +#endif /* CONFIG_PPC_MPC5200 */
-> 
-> Hmmm, I don't really like those empty functions. I once used the data-field of
-> struct of_device_id, which carried a function pointer to a specific
-> init-function for the matched device. What do you think about such an approach?
+waiting your urgent reply so i can send pictures for further introductions
 
-Often the problem is that the function will not compile on the other MPC
-arch. This is not true here. So, the main reason for the #ifdefs is
-space saving. Your approach will not help in both cases.
+kisses 
+Jasmine
 
->> +
->> +#ifdef CONFIG_PPC_MPC512x
->> +struct mpc512x_clockctl {
->> +	u32 spmr;		/* System PLL Mode Reg */
->> +	u32 sccr[2];		/* System Clk Ctrl Reg 1 & 2 */
->> +	u32 scfr1;		/* System Clk Freq Reg 1 */
->> +	u32 scfr2;		/* System Clk Freq Reg 2 */
->> +	u32 reserved;
->> +	u32 bcr;		/* Bread Crumb Reg */
->> +	u32 pccr[12];		/* PSC Clk Ctrl Reg 0-11 */
->> +	u32 spccr;		/* SPDIF Clk Ctrl Reg */
->> +	u32 cccr;		/* CFM Clk Ctrl Reg */
->> +	u32 dccr;		/* DIU Clk Cnfg Reg */
->> +	u32 mccr[4];		/* MSCAN Clk Ctrl Reg 1-3 */
->> +};
->> +
->> +static struct of_device_id mpc512x_clock_ids[] __devinitdata = {
->> +	{ .compatible = "fsl,mpc5121-clock", },
->> +	{}
->> +};
->> +
->> +static u32  __devinit mpc512x_can_get_clock(struct of_device *ofdev,
->> +					    const char *clock_name,
->> +					    int *mscan_clksrc,
->> +					    ssize_t mscan_addr)
->> +{
->> +	struct mpc512x_clockctl __iomem *clockctl;
->> +	struct device_node *np_clock;
->> +	struct clk *sys_clk, *ref_clk;
->> +	int plen, clockidx, clocksrc = -1;
->> +	u32 sys_freq, val, clockdiv = 1, freq = 0;
->> +	const u32 *pval;
->> +
->> +	np_clock = of_find_matching_node(NULL, mpc512x_clock_ids);
->> +	if (!np_clock) {
->> +		dev_err(&ofdev->dev, "couldn't find clock node\n");
->> +		return -ENODEV;
->> +	}
->> +	clockctl = of_iomap(np_clock, 0);
->> +	if (!clockctl) {
->> +		dev_err(&ofdev->dev, "couldn't map clock registers\n");
->> +		return 0;
->> +	}
->> +
->> +	/* Determine the MSCAN device index from the physical address */
->> +	clockidx = (mscan_addr & 0x80) ? 1 : 0;
->> +	if (mscan_addr & 0x2000)
->> +		clockidx += 2;
-> 
-> The PSCs use 'cell-index', here we use mscan_addr to derive the index. This is
-> not consistent, but should be IMHO. Now, which is the preferred way? I think
-> I'd go for 'cell-index', as other processors might have mscan_addr shuffled.
-> Also, we could use 'of_iomap' again in the probe_routine.
+&#1605;&#1585;&#1581;&#1576;&#1575; &#1605;&#1585;&#1581;&#1576;&#1575; &#1593;&#1586;&#1610;&#1586;&#1578;&#1610; &#1548;
+&#1587;&#1606;&#1577; &#1580;&#1583;&#1610;&#1583;&#1577; &#1587;&#1593;&#1610;&#1583;&#1577; &#1548; &#1575;&#1587;&#1605;&#1610; &#1575;&#1604;&#1570;&#1606;&#1587;&#1577; &#1610;&#1575;&#1587;&#1605;&#1610;&#1606; &#1601;&#1610; &#1575;&#1604;&#1576;&#1581;&#1579; &#1593;&#1606; &#1585;&#1580;&#1604; &#1604;&#1591;&#1610;&#1601; &#1608;&#1575;&#1604;&#1575;&#1607;&#1578;&#1605;&#1575;&#1605; &#1575;&#1604;&#1584;&#1610; &#1610;&#1601;&#1607;&#1605; &#1575;&#1604;&#1581;&#1576; &#1608;&#1575;&#1604;&#1579;&#1602;&#1577; &#1608;&#1575;&#1604;&#1575;&#1610;&#1605;&#1575;&#1606; &#1604;&#1575; &#1610;&#1606;&#1592;&#1585; &#1575;&#1604;&#1610;&#1607;&#1575; &#1593;&#1604;&#1609; &#1571;&#1606;&#1607;&#1575; &#1608;&#1587;&#1610;&#1604;&#1577; &#1604;&#1604;&#1605;&#1578;&#1593;&#1577; &#160
+ 8;&#1604;&#1603;&#1606; &#1606;&#1590;&#1580;&#1578; &#1605;&#1593; &#1585;&#1580;&#1604; &#1610;&#1605;&#1604;&#1603; &#1585;&#1608;&#1581; &#1575;&#1604;&#1583;&#1593;&#1575;&#1576;&#1577!
+ ;. &#1604;&#1602;&#1583; &#1608;&#1580;&#1583;&#1578; &#1593;&#1606;&#1608;&#1575;&#1606; &#1576;&#1585;&#1610;&#1583;&#1603; &#1575;&#1604;&#1575;&#1604;&#1603;&#1578;&#1585;&#1608;&#1606;&#1610; &#1571;&#1579;&#1606;&#1575;&#1569; &#1578;&#1589;&#1601;&#1581; &#1588;&#1576;&#1603;&#1577; &#1575;&#1604;&#1575;&#1606;&#1578;&#1585;&#1606;&#1578; &#1608;&#1571;&#1606;&#1575; &#1580;&#1606;&#1610; &#1575;&#1604;&#1601;&#1575;&#1574;&#1583;&#1577; &#1593;&#1604;&#1609; &#1575;&#1604;&#1585;&#1583; &#1581;&#1578;&#1609; &#1603;&#1606;&#1578; &#1604;&#1610; &#1548; &#1581;&#1578;&#1609; &#1606;&#1578;&#1605;&#1603;&#1606; &#1605;&#1606; &#1605;&#1593;&#1585;&#1601;&#1577; &#1576;&#1593;&#1590;&#1607;&#1605;&#1575; &#1575;&#1604;&#1576;&#1593;&#1590; &#1548; &#1608;&#1571;&#1593;&#1578;&#1602;&
+ #1583; &#1571;&#1606;&#1606;&#1575; &#1610;&#1605;&#1603;&#1606; &#1571;&#1606; &#1606;&#1576;&#1583;&#1571; &#1605;&#1606; &#1607;&#1606;&#1575; &#1548;
 
-I understood that "cell-index" is deprecated and it has been removed
-from many nodes. That's why I used the address to derive the index.
+&#1601;&#1610; &#1575;&#1606;&#1578;&#1592;&#1575;&#1585; &#1585;&#1583;&#1603;&#1605; &#1575;&#1604;&#1593;&#1575;&#1580;&#1604; &#1581;&#1578;&#1609; &#1571;&#1578;&#1605;&#1603;&#1606; &#1605;&#1606; &#1573;&#1585;&#1587;&#1575;&#1604; &#1589;&#1608;&#1585; &#1604;&#1573;&#1583;&#1582;&#1575;&#1604; &#1605;&#1586;&#1610;&#1583; &#1605;&#1606;
 
-I will fix all other issues.
-
-Wolfgang.
+&#1602;&#1576;&#1604;&#1575;&#1578;
+&#1575;&#1604;&#1610;&#1575;&#1587;&#1605;&#1610;&#1606;
