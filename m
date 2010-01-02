@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC 1/9] lsm: add security_socket_closed()
-Date: Sat,  2 Jan 2010 14:04:08 +0100
-Message-ID: <1262437456-24476-2-git-send-email-sam@synack.fr>
+Subject: [RFC 2/9] Revert "lsm: Remove the socket_post_accept() hook"
+Date: Sat,  2 Jan 2010 14:04:09 +0100
+Message-ID: <1262437456-24476-3-git-send-email-sam@synack.fr>
 References: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Cc: Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
@@ -13,109 +13,116 @@ In-Reply-To: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow a module to update security informations when a socket is closed.
+This reverts commit 8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
+
+snet needs to reintroduce this hook, as it was designed to be: a hook for
+updating security informations on objects.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- include/linux/security.h |   10 ++++++++++
- net/socket.c             |    1 +
+ include/linux/security.h |   13 +++++++++++++
+ net/socket.c             |    2 ++
  security/capability.c    |    5 +++++
  security/security.c      |    5 +++++
- 4 files changed, 21 insertions(+), 0 deletions(-)
+ 4 files changed, 25 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/security.h b/include/linux/security.h
-index 466cbad..275dd04 100644
+index 275dd04..c12a286 100644
 --- a/include/linux/security.h
 +++ b/include/linux/security.h
-@@ -974,6 +974,9 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	@sock contains the socket structure.
-  *	@how contains the flag indicating how future sends and receives are handled.
+@@ -931,6 +931,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
   *	Return 0 if permission is granted.
-+ * @socket_close:
-+ *	Allow a module to update security informations when a socket is closed
-+ *	@sock is closed.
-  * @socket_sock_rcv_skb:
-  *	Check permissions on incoming network packets.  This hook is distinct
-  *	from Netfilter's IP input hooks since it is the first time that the
-@@ -1673,6 +1676,7 @@ struct security_operations {
- 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
- 	int (*socket_setsockopt) (struct socket *sock, int level, int optname);
- 	int (*socket_shutdown) (struct socket *sock, int how);
-+	void (*socket_close) (struct socket *sock);
- 	int (*socket_sock_rcv_skb) (struct sock *sk, struct sk_buff *skb);
- 	int (*socket_getpeersec_stream) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
- 	int (*socket_getpeersec_dgram) (struct socket *sock, struct sk_buff *skb, u32 *secid);
-@@ -2693,6 +2697,7 @@ int security_socket_getpeername(struct socket *sock);
- int security_socket_getsockopt(struct socket *sock, int level, int optname);
- int security_socket_setsockopt(struct socket *sock, int level, int optname);
- int security_socket_shutdown(struct socket *sock, int how);
-+void security_socket_close(struct socket *sock);
- int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb);
- int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
- 				      int __user *optlen, unsigned len);
-@@ -2805,6 +2810,11 @@ static inline int security_socket_shutdown(struct socket *sock, int how)
- {
++ * @socket_post_accept:
++ *	This hook allows a security module to copy security
++ *	information into the newly created socket's inode.
++ *	@sock contains the listening socket structure.
++ *	@newsock contains the newly created server socket for connection.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -1667,6 +1672,8 @@ struct security_operations {
+ 			       struct sockaddr *address, int addrlen);
+ 	int (*socket_listen) (struct socket *sock, int backlog);
+ 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
++	void (*socket_post_accept) (struct socket *sock,
++				    struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+@@ -2689,6 +2696,7 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
++void security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
+@@ -2771,6 +2779,11 @@ static inline int security_socket_accept(struct socket *sock,
  	return 0;
  }
-+
-+static inline void security_socket_close(struct socket *sock)
+ 
++static inline void security_socket_post_accept(struct socket *sock,
++					       struct socket *newsock)
 +{
 +}
 +
- static inline int security_sock_rcv_skb(struct sock *sk,
- 					struct sk_buff *skb)
+ static inline int security_socket_sendmsg(struct socket *sock,
+ 					  struct msghdr *msg, int size)
  {
 diff --git a/net/socket.c b/net/socket.c
-index dbfdfa9..8984973 100644
+index 8984973..fcd4f2b 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -1074,6 +1074,7 @@ static int sock_close(struct inode *inode, struct file *filp)
- 		printk(KERN_DEBUG "sock_close: NULL inode\n");
- 		return 0;
- 	}
-+	security_socket_close(SOCKET_I(inode));
- 	sock_release(SOCKET_I(inode));
- 	return 0;
- }
+@@ -1557,6 +1557,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	fd_install(newfd, newfile);
+ 	err = newfd;
+ 
++	security_socket_post_accept(sock, newsock);
++
+ out_put:
+ 	fput_light(sock->file, fput_needed);
+ out:
 diff --git a/security/capability.c b/security/capability.c
-index 5c700e1..a9810dc 100644
+index a9810dc..61eae40 100644
 --- a/security/capability.c
 +++ b/security/capability.c
-@@ -677,6 +677,10 @@ static int cap_socket_shutdown(struct socket *sock, int how)
+@@ -641,6 +641,10 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
  	return 0;
  }
  
-+static void cap_socket_close(struct socket *sock)
++static void cap_socket_post_accept(struct socket *sock, struct socket *newsock)
 +{
 +}
 +
- static int cap_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
  {
  	return 0;
-@@ -1084,6 +1088,7 @@ void security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, socket_setsockopt);
- 	set_to_cap_if_null(ops, socket_getsockopt);
- 	set_to_cap_if_null(ops, socket_shutdown);
-+	set_to_cap_if_null(ops, socket_close);
- 	set_to_cap_if_null(ops, socket_sock_rcv_skb);
- 	set_to_cap_if_null(ops, socket_getpeersec_stream);
- 	set_to_cap_if_null(ops, socket_getpeersec_dgram);
+@@ -1081,6 +1085,7 @@ void security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_connect);
+ 	set_to_cap_if_null(ops, socket_listen);
+ 	set_to_cap_if_null(ops, socket_accept);
++	set_to_cap_if_null(ops, socket_post_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
+ 	set_to_cap_if_null(ops, socket_getsockname);
 diff --git a/security/security.c b/security/security.c
-index 24e060b..7457ed5 100644
+index 7457ed5..20ae0b8 100644
 --- a/security/security.c
 +++ b/security/security.c
-@@ -1120,6 +1120,11 @@ int security_socket_shutdown(struct socket *sock, int how)
- 	return security_ops->socket_shutdown(sock, how);
+@@ -1084,6 +1084,11 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return security_ops->socket_accept(sock, newsock);
  }
  
-+void security_socket_close(struct socket *sock)
++void security_socket_post_accept(struct socket *sock, struct socket *newsock)
 +{
-+	return security_ops->socket_close(sock);
++	security_ops->socket_post_accept(sock, newsock);
 +}
 +
- int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
  {
- 	return security_ops->socket_sock_rcv_skb(sk, skb);
+ 	return security_ops->socket_sendmsg(sock, msg, size);
 -- 
 1.6.3.3
 
