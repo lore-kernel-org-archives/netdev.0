@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC 3/9] snet: introduce security/snet, Makefile and Kconfig changes
-Date: Sat,  2 Jan 2010 14:04:10 +0100
-Message-ID: <1262437456-24476-4-git-send-email-sam@synack.fr>
+Subject: [RFC 4/9] snet: introduce snet_core.c and snet.h
+Date: Sat,  2 Jan 2010 14:04:11 +0100
+Message-ID: <1262437456-24476-5-git-send-email-sam@synack.fr>
 References: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Cc: Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
@@ -13,97 +13,140 @@ In-Reply-To: <1262437456-24476-1-git-send-email-sam@synack.fr>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this patch creates a entry in folder security/ and adds Kconfig and Makefile
+this patch introduce snet_core.c, which provides main functions to start and
+stop snet's subsystems :
+	- snet_hooks	: LSM hooks
+	- snet_netlink	: kernel-user communication (genetlink)
+	- snet_event	: manages the table of protected syscalls
+	- snet_verdict	: provides a wait queue for syscalls and manage verdicts
+			  from userspace
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/Kconfig       |    1 +
- security/Makefile      |    2 ++
- security/snet/Kconfig  |   22 ++++++++++++++++++++++
- security/snet/Makefile |   13 +++++++++++++
- 4 files changed, 38 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/Kconfig
- create mode 100644 security/snet/Makefile
+ security/snet/include/snet.h |   29 ++++++++++++++++
+ security/snet/snet_core.c    |   77 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 106 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/include/snet.h
+ create mode 100644 security/snet/snet_core.c
 
-diff --git a/security/Kconfig b/security/Kconfig
-index 226b955..48e8fee 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -140,6 +140,7 @@ config LSM_MMAP_MIN_ADDR
- source security/selinux/Kconfig
- source security/smack/Kconfig
- source security/tomoyo/Kconfig
-+source security/snet/Kconfig
- 
- source security/integrity/ima/Kconfig
- 
-diff --git a/security/Makefile b/security/Makefile
-index bb44e35..0870dd0 100644
---- a/security/Makefile
-+++ b/security/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_KEYS)			+= keys/
- subdir-$(CONFIG_SECURITY_SELINUX)	+= selinux
- subdir-$(CONFIG_SECURITY_SMACK)		+= smack
- subdir-$(CONFIG_SECURITY_TOMOYO)        += tomoyo
-+subdir-$(CONFIG_SECURITY_SNET)		+= snet
- 
- # always enable default capabilities
- obj-y		+= commoncap.o min_addr.o
-@@ -18,6 +19,7 @@ obj-$(CONFIG_SECURITY_SELINUX)		+= selinux/built-in.o
- obj-$(CONFIG_SECURITY_SMACK)		+= smack/built-in.o
- obj-$(CONFIG_AUDIT)			+= lsm_audit.o
- obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/built-in.o
-+obj-$(CONFIG_SECURITY_SNET)		+= snet/built-in.o
- obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
- 
- # Object integrity file lists
-diff --git a/security/snet/Kconfig b/security/snet/Kconfig
+diff --git a/security/snet/include/snet.h b/security/snet/include/snet.h
 new file mode 100644
-index 0000000..e1516a1
+index 0000000..b664a47
 --- /dev/null
-+++ b/security/snet/Kconfig
-@@ -0,0 +1,22 @@
-+#
-+# snet
-+#
++++ b/security/snet/include/snet.h
+@@ -0,0 +1,29 @@
++#ifndef _SNET_H
++#define _SNET_H
 +
-+config SECURITY_SNET
-+	bool "snet - Security for NETwork syscalls"
-+	depends on SECURITY_NETWORK && IPV6
-+	default n
-+	---help---
-+	Provide a generic netlink that reports networking's syscalls
-+	to userspace
++#include "snet_hooks.h"
 +
-+config SECURITY_SNET_DEBUG
-+       bool "snet debug messages"
-+       depends on SECURITY_SNET
-+       ---help---
-+       Only use if you are hacking snet.
++#define SNET_VERSION	0x1
++#define SNET_NAME	"snet"
 +
-+       This toggles the debugging outputs, by setting the parameter snet_debug
-+       to 0 or 1 at boot.
++#define SNET_PRINTK(enable, fmt, arg...)			\
++	do {							\
++		if (enable)					\
++			printk(KERN_INFO "%s: %s: " fmt ,	\
++				SNET_NAME , __func__ ,		\
++				## arg);			\
++	} while (0)
 +
-+       Just say N
-diff --git a/security/snet/Makefile b/security/snet/Makefile
++#ifdef CONFIG_SECURITY_SNET_DEBUG
++extern unsigned int snet_debug;
++#define snet_dbg(fmt, arg...)	SNET_PRINTK(snet_debug, fmt, ##arg)
++#else
++#define snet_dbg(fmt, arg...)
++#endif
++
++struct snet_event {
++	enum snet_syscall syscall;
++	u8 protocol;
++} __attribute__ ((packed));
++
++#endif /* _SNET_H */
+diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
 new file mode 100644
-index 0000000..ee6bd83
+index 0000000..34b61e9
 --- /dev/null
-+++ b/security/snet/Makefile
-@@ -0,0 +1,13 @@
-+#
-+# Makefile for building the Security Network Events module.
-+#
-+obj-$(CONFIG_SECURITY_SNET) :=  snet.o
++++ b/security/snet/snet_core.c
+@@ -0,0 +1,77 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <net/genetlink.h>
 +
-+snet-y := snet_event.o \
-+	  snet_netlink.o \
-+	  snet_verdict.o \
-+	  snet_hooks.o \
-+	  snet_core.o \
-+	  snet_utils.o
++#include "snet.h"
++#include "snet_hooks.h"
++#include "snet_netlink.h"
++#include "snet_event.h"
++#include "snet_verdict.h"
++#include "snet_utils.h"
 +
-+EXTRA_CFLAGS += -Isecurity/snet/include
++unsigned int event_hash_size = 16;
++module_param(event_hash_size, uint, 0600);
++MODULE_PARM_DESC(event_hash_size, "Set the size of the event hash table");
++
++unsigned int verdict_hash_size = 16;
++module_param(verdict_hash_size, uint, 0600);
++MODULE_PARM_DESC(verdict_hash_size, "Set the size of the verdict hash table");
++
++unsigned int snet_verdict_delay = 5;
++module_param(snet_verdict_delay, uint, 0600);
++MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
++
++unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
++module_param(snet_verdict_policy, uint, 0600);
++MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
++
++#ifdef CONFIG_SECURITY_SNET_DEBUG
++unsigned int snet_debug;
++EXPORT_SYMBOL_GPL(snet_debug);
++module_param(snet_debug, bool, 0644);
++MODULE_PARM_DESC(snet_debug, "Enable debug messages");
++#endif
++
++void snet_core_exit(void)
++{
++	snet_netlink_exit();
++	snet_event_exit();
++	snet_hooks_exit();
++	snet_verdict_exit();
++	snet_dbg("stopped\n");
++}
++
++static __init int snet_init(void)
++{
++	int ret;
++
++	snet_dbg("initializing: event_hash_size=%u "
++		 "verdict_hash_size=%u verdict_delay=%usecs "
++		 "default_policy=%s\n",
++		 event_hash_size, verdict_hash_size, snet_verdict_delay,
++		 snet_verdict_name(snet_verdict_policy));
++
++	ret = snet_event_init();
++	if (ret < 0)
++		goto exit;
++
++	ret = snet_verdict_init();
++	if (ret < 0)
++		goto exit;
++
++	ret = snet_hooks_init();
++	if (ret < 0)
++		goto exit;
++
++	snet_dbg("started\n");
++	return 0;
++exit:
++	snet_core_exit();
++	return ret;
++}
++
++security_initcall(snet_init);
++
++MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
 -- 
 1.6.3.3
 
