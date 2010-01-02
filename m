@@ -1,31 +1,155 @@
-From: jasmine_awa1@ecunet.org
-Subject: Hello Happy new year
-Date: Sat, 2 Jan 2010 12:18:25 -0500
-Message-ID: <201001021718.o02HIPOP005512@ecunet-web-1.ecunet.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ecunet.org ([72.250.175.188]:52116 "EHLO mail2.ecunet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755Ab0ABRSo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jan 2010 12:18:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
+Date: Sat, 2 Jan 2010 23:09:00 +0300
+Message-ID: <20100102200900.GA27402@ioremap.net>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr> <1262437456-24476-6-git-send-email-sam@synack.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1262437456-24476-6-git-send-email-sam@synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Hello dear,
-Happy new year, My name is Miss Jasmine in search of a nice and caring man who understands love as trust and faith rather seeing it as a way of fun but a matured man with good sense of humor. i found your email address while surfing the net and i derive interest on you so reply me, so we can know each other, i believe we can start from here,
+Hi.
 
-waiting your urgent reply so i can send pictures for further introductions
+On Sat, Jan 02, 2010 at 02:04:12PM +0100, Samir Bellabes (sam@synack.fr) wrote:
+> This patch adds the snet's subsystem responsive of managing events
+> 
+> snet is using the word 'event' for a couple of values [syscall, protocol]. For
+> example, [listen, tcp] or [sendmsg, dccp] are events.
+> This patch introduces a hastable 'event_hash' and operations (add/remove/search..)
+> in order to manage which events have to be protected.
+> With the help of the communication's subsystem, managing orders are coming from
+> userspace.
+> 
+> Signed-off-by: Samir Bellabes <sam@synack.fr>
+> ---
 
-kisses 
-Jasmine
+> +
+> +extern unsigned int event_hash_size;
+> +
 
-&#1605;&#1585;&#1581;&#1576;&#1575; &#1605;&#1585;&#1581;&#1576;&#1575; &#1593;&#1586;&#1610;&#1586;&#1578;&#1610; &#1548;
-&#1587;&#1606;&#1577; &#1580;&#1583;&#1610;&#1583;&#1577; &#1587;&#1593;&#1610;&#1583;&#1577; &#1548; &#1575;&#1587;&#1605;&#1610; &#1575;&#1604;&#1570;&#1606;&#1587;&#1577; &#1610;&#1575;&#1587;&#1605;&#1610;&#1606; &#1601;&#1610; &#1575;&#1604;&#1576;&#1581;&#1579; &#1593;&#1606; &#1585;&#1580;&#1604; &#1604;&#1591;&#1610;&#1601; &#1608;&#1575;&#1604;&#1575;&#1607;&#1578;&#1605;&#1575;&#1605; &#1575;&#1604;&#1584;&#1610; &#1610;&#1601;&#1607;&#1605; &#1575;&#1604;&#1581;&#1576; &#1608;&#1575;&#1604;&#1579;&#1602;&#1577; &#1608;&#1575;&#1604;&#1575;&#1610;&#1605;&#1575;&#1606; &#1604;&#1575; &#1610;&#1606;&#1592;&#1585; &#1575;&#1604;&#1610;&#1607;&#1575; &#1593;&#1604;&#1609; &#1571;&#1606;&#1607;&#1575; &#1608;&#1587;&#1610;&#1604;&#1577; &#1604;&#1604;&#1605;&#1578;&#1593;&#1577; &#160
- 8;&#1604;&#1603;&#1606; &#1606;&#1590;&#1580;&#1578; &#1605;&#1593; &#1585;&#1580;&#1604; &#1610;&#1605;&#1604;&#1603; &#1585;&#1608;&#1581; &#1575;&#1604;&#1583;&#1593;&#1575;&#1576;&#1577!
- ;. &#1604;&#1602;&#1583; &#1608;&#1580;&#1583;&#1578; &#1593;&#1606;&#1608;&#1575;&#1606; &#1576;&#1585;&#1610;&#1583;&#1603; &#1575;&#1604;&#1575;&#1604;&#1603;&#1578;&#1585;&#1608;&#1606;&#1610; &#1571;&#1579;&#1606;&#1575;&#1569; &#1578;&#1589;&#1601;&#1581; &#1588;&#1576;&#1603;&#1577; &#1575;&#1604;&#1575;&#1606;&#1578;&#1585;&#1606;&#1578; &#1608;&#1571;&#1606;&#1575; &#1580;&#1606;&#1610; &#1575;&#1604;&#1601;&#1575;&#1574;&#1583;&#1577; &#1593;&#1604;&#1609; &#1575;&#1604;&#1585;&#1583; &#1581;&#1578;&#1609; &#1603;&#1606;&#1578; &#1604;&#1610; &#1548; &#1581;&#1578;&#1609; &#1606;&#1578;&#1605;&#1603;&#1606; &#1605;&#1606; &#1605;&#1593;&#1585;&#1601;&#1577; &#1576;&#1593;&#1590;&#1607;&#1605;&#1575; &#1575;&#1604;&#1576;&#1593;&#1590; &#1548; &#1608;&#1571;&#1593;&#1578;&#1602;&
- #1583; &#1571;&#1606;&#1606;&#1575; &#1610;&#1605;&#1603;&#1606; &#1571;&#1606; &#1606;&#1576;&#1583;&#1571; &#1605;&#1606; &#1607;&#1606;&#1575; &#1548;
+> +
+> +static struct list_head *event_hash;
+> +static rwlock_t event_hash_lock = __RW_LOCK_UNLOCKED();
+> +
 
-&#1601;&#1610; &#1575;&#1606;&#1578;&#1592;&#1575;&#1585; &#1585;&#1583;&#1603;&#1605; &#1575;&#1604;&#1593;&#1575;&#1580;&#1604; &#1581;&#1578;&#1609; &#1571;&#1578;&#1605;&#1603;&#1606; &#1605;&#1606; &#1573;&#1585;&#1587;&#1575;&#1604; &#1589;&#1608;&#1585; &#1604;&#1573;&#1583;&#1582;&#1575;&#1604; &#1605;&#1586;&#1610;&#1583; &#1605;&#1606;
+Those are way too generic names, please use snet_ prefix as you did in
+other places.
 
-&#1602;&#1576;&#1604;&#1575;&#1578;
-&#1575;&#1604;&#1610;&#1575;&#1587;&#1605;&#1610;&#1606;
+
+I believe snet should be converted to RCU instead of rw locks.
+
+> +/* lookup for a event_hash - before using this function, lock event_hash_lock */
+> +static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
+> +						   const u8 protocol)
+> +{
+> +	unsigned int h = 0;
+> +	struct list_head *l;
+> +	struct snet_event_entry *s;
+> +	struct snet_event t;
+> +
+> +	if (!event_hash)
+> +		return NULL;
+> +
+> +	/* building the element to look for */
+> +	t.syscall = syscall;
+> +	t.protocol = protocol;
+> +
+> +	/* computing its hash value */
+> +	h = jhash(&t, sizeof(struct snet_event), 0) % event_hash_size;
+
+You can have better distribution if not simply cut off the remainder.
+Also it is a rather expensive operation.
+
+> +	l = &event_hash[h];
+> +
+> +	list_for_each_entry(s, l, list) {
+> +		if ((s->se.protocol == protocol) &&
+> +		    (s->se.syscall == syscall)) {
+> +			return s;
+> +		}
+> +	}
+> +	return NULL;
+> +}
+
+Below comments looks a little bit weird, was it generated automatically
+by editor?
+
+> +/* void snet_event_dumpall() */
+> +/* { */
+> +/*	unsigned int i = 0; */
+> +/*	struct list_head *l; */
+> +/*	struct snet_event_entry *s; */
+> +
+> +/*	snet_dbg("entering\n"); */
+> +/*	read_lock_bh(&event_hash_lock); */
+> +/*	for (i = 0; i < (event_hash_size - 1); i++) { */
+> +/*		l = &hash[i]; */
+> +/*		list_for_each_entry(s, l, list) { */
+> +/*			snet_dbg("[%d, %d, %d]\n", i, */
+> +/*				 s->se.protocol, s->se.syscall); */
+> +/*		} */
+> +/*	} */
+> +/*	read_unlock_bh(&event_hash_lock); */
+> +/*	snet_dbg("exiting\n"); */
+> +/*	return; */
+> +/* } */
+
+> +int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
+> +{
+> +	struct snet_event_entry *data = NULL;
+> +	unsigned int h = 0;
+> +
+> +	data = kzalloc(sizeof(struct snet_event_entry), GFP_KERNEL);
+> +	if (!data)
+> +		return -ENOMEM;
+> +
+> +	write_lock_bh(&event_hash_lock);
+> +	/* check if event is already registered */
+> +	if (!event_hash || __snet_event_lookup(syscall, protocol) != NULL) {
+> +		write_unlock_bh(&event_hash_lock);
+> +		kfree(data);
+> +		return -EINVAL;
+> +	}
+
+What about single error exiting point?
+
+> +
+> +	data->se.syscall = syscall;
+> +	data->se.protocol = protocol;
+> +	INIT_LIST_HEAD(&(data->list));
+> +	h = jhash(&(data->se), sizeof(struct snet_event), 0) % event_hash_size;
+> +	list_add_tail(&data->list, &event_hash[h]);
+> +	write_unlock_bh(&event_hash_lock);
+> +
+> +	return 0;
+> +}
+
+> +/* init function */
+> +int snet_event_init(void)
+> +{
+> +	int err = 0, i = 0;
+> +
+> +	event_hash = kzalloc(sizeof(struct list_head) * event_hash_size,
+> +			     GFP_KERNEL);
+> +	if (!event_hash) {
+> +		printk(KERN_WARNING
+> +		       "snet: can't alloc memory for event_hash\n");
+> +		err = -ENOMEM;
+> +		goto out;
+> +	}
+> +
+> +	for (i = 0; i < event_hash_size; i++)
+> +		INIT_LIST_HEAD(&(event_hash[i]));
+
+No need for double braces.
+
+-- 
+	Evgeniy Polyakov
