@@ -1,17 +1,25 @@
-From: Amy_Saabiq_Need_friend@ecunet.org
-Subject: Hello Dear,
-Date: Sat, 2 Jan 2010 15:27:38 -0500
-Message-ID: <201001022027.o02KRcWo002009@ecunet-web-1.ecunet.org>
-To: unlisted-recipients:; (no To-header on input)
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 0/3] qlge: Performance changes for qlge.
+Date: Sat,  2 Jan 2010 12:37:41 -0800
+Message-ID: <1262464664-14996-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ecunet.org ([72.250.175.188]:59958 "EHLO mail2.ecunet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486Ab0ABU2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jan 2010 15:28:13 -0500
+Received: from avexch1.qlogic.com ([198.70.193.115]:37005 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912Ab0ABUp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jan 2010 15:45:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dear,
 
-Its really a pleaseure to come along your profile in this site , My name is Amy Muzzammil Saabiq 24years old good looking young girl and in search of a friend.This is why i have decided to contact you on this site so that we can establish a good relationship and also get to know each other.Your age,race and religion is never a problem to me,all that matters is true love.Kindly contact me on my e mail amymsaabiq83@yahoo.com so that i can tell you more about my self. Hope to hear from you soonest Lovely,
-Amy Muzzammil Saabiq
+Currently qlge splits headers into a separate buffer so they can
+be re-aligned on a 2-byte boundary.  This is done to avoid
+exceptions thrown on certain platforms when headers are processed.
+To avoid the overhead of re-aligning headers, we turn on the split 
+header/realign configuration only when the platform requires it.
+This allows usage of the gro-frags interface on platforms that do
+not require 32 bit aligned headers.
+
+
+
