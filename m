@@ -1,36 +1,123 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: potential overflow in de4x5.c
-Date: Sun, 3 Jan 2010 12:13:56 +0200
-Message-ID: <20100103101356.GA13023@bicker>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 6/9] snet: introduce snet_hooks.c and snet_hook.h
+Date: Sun, 03 Jan 2010 12:10:53 +0100
+Message-ID: <m2skanphoi.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-7-git-send-email-sam@synack.fr>
+	<20100102201303.GB27402@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:62622 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994Ab0ACKOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2010 05:14:25 -0500
-Received: by fxm25 with SMTP id 25so8007135fxm.21
-        for <netdev@vger.kernel.org>; Sun, 03 Jan 2010 02:14:24 -0800 (PST)
-Content-Disposition: inline
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:43934 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814Ab0ACLK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2010 06:10:56 -0500
+In-Reply-To: <20100102201303.GB27402@ioremap.net> (Evgeniy Polyakov's message
+	of "Sat, 2 Jan 2010 23:13:03 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi I found this using smatch (http://repo.or.cz/w/smatch.git).
+hello Evgeniy
 
-drivers/net/tulip/de4x5.c
-  4772          lp->active = *p++;
-  4773          if (MOTO_SROM_BUG) lp->active = 0;
-  4774          lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
+Evgeniy Polyakov <zbr@ioremap.net> writes:
 
-lp->phy is an array of size 8.
+> Hi.
+>
+> On Sat, Jan 02, 2010 at 02:04:13PM +0100, Samir Bellabes (sam@synack.fr) wrote:
+>> This patch adds the snet LSM's subsystem
+>> 
+>> snet_hooks provides the security hook's functions and the security_operations
+>> structure. Currently hook functions are only related to network stack.
+>> 
+>> For each hook function, there is a generic mecanism:
+>>  0. check if the event [syscall, protocol] is registered
+>>  1. prepare informations for userspace
+>>  2. send informations to userspace (snet_netlink)
+>>  3. wait for verdict from userspace (snet_verdict)
+>>  4. apply verdict for the syscall
+>> 
+>> steps 3 and 4 are only valid for LSM hooks which are returning a value (a way to
+>> 'filter' the syscall). For hooks returning 'void', steps 3 and 4 don't exist,
+>> but snet sends security informations to userspace (step 2) to update the global
+>> security policy.
+>> 
+>> Signed-off-by: Samir Bellabes <sam@synack.fr>
+>> ---
+>
+>> +#define SNET_DBG_V4()							\
+>> +	snet_dbg("%u.%u.%u.%u:%u->%u.%u.%u.%u:%u\n",			\
+>> +		 NIPQUAD(info.src.u3.ip), info.src.u.port,		\
+>> +		 NIPQUAD(info.dst.u3.ip), info.dst.u.port)
+>> +
+>> +#define SNET_DBG_V6()							\
+>> +	snet_dbg("%pI6:%u->%pI6:%u\n",					\
+>> +		 &info.src.u3.ip, info.src.u.port,			\
+>> +		 &info.dst.u3.ip, info.dst.u.port)
+>> +
+>
+> There are cool %pi4 and %pi6 format modifiers for IP addresses.
 
-MOTO_SROM_BUG is defined like this. 
+I moved %u.%u.%u.%u to %pI4
+thanks
 
-#define MOTO_SROM_BUG    (lp->active == 8 && (get_unaligned_le32(dev->dev_addr) & 0x00ffffff) == 0x3e0008)
+>> +#define SNET_CHECK_LISTENERS()						\
+>> +do {									\
+>> +	if (atomic_read(&snet_num_listeners) < 0) {			\
+>> +		snet_dbg("number of listeners is negative\n");		\
+>> +		verdict = SNET_VERDICT_GRANT;				\
+>> +		goto out;						\
+>> +	} else if (atomic_read(&snet_num_listeners) == 0) {		\
+>> +		verdict = SNET_VERDICT_GRANT;				\
+>> +		goto out;						\
+>> +	}								\
+>> +} while (0)
+>> +
+>> +#define SNET_DO_VERDICT(sys, family)					\
+>> +do {									\
+>> +	if (verdict_id == 0)						\
+>> +		goto skip_send_wait;					\
+>> +	/* sending networking informations to userspace */		\
+>> +	snet_nl_send_event(verdict_id, sys, protocol,			\
+>> +			   family, (void *)&info,			\
+>> +			   sizeof(struct snet_sock_info));		\
+>> +	/* waiting for userspace reply or timeout */			\
+>> +	verdict = snet_verdict_wait(verdict_id);			\
+>> +		/* removing verdict */					\
+>> +	snet_verdict_remove(verdict_id);				\
+>> +} while (0)
+>> +
+>> +#define SNET_CHECK_LISTENERS_NOVERDICT()				\
+>> +do {									\
+>> +	if (atomic_read(&snet_num_listeners) < 0) {			\
+>> +		snet_dbg("number of listeners is negative\n");		\
+>> +		goto out;						\
+>> +	} else if (atomic_read(&snet_num_listeners) == 0) {		\
+>> +		goto out;						\
+>> +	}								\
+>> +} while (0)
+>> +
+>> +#define SNET_DO_SEND_EVENT(sys, family)					\
+>> +do {									\
+>> +	/* sending networking informations to userspace */		\
+>> +	snet_nl_send_event(0, sys, protocol,				\
+>> +			   family, (void *)&info,			\
+>> +			   sizeof(struct snet_sock_info));		\
+>> +} while (0)
+>> +
+>
+> Why do you need those ugly macroses which reference external objects?
+> Can it be refactored into some inline function with common error value
+> instead?
 
-If lp->active == 8 then we have a buffer overflow.
+I know it's ugly, but code in security hooks are duplicated.
+functions (inline or not), which replace this macros, will resulte of
+having lots of parameters. macros with external object seems to be the
+most simple at this point.
 
-regards,
-dan carpenter
+thanks for your time Evgeniy.
+sam
