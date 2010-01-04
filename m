@@ -1,53 +1,54 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: potential overflow in de4x5.c
-Date: Mon, 4 Jan 2010 00:35:14 -0700
-Message-ID: <20100104073514.GA987@lackof.org>
-References: <20100103101356.GA13023@bicker> <20100104072844.GB518@lackof.org>
+From: Jae-Hyun Hwang <jhhwang@os.korea.ac.kr>
+Subject: [PATCH] tcp: for tcp westwood
+Date: Mon, 4 Jan 2010 17:18:49 +0900
+Message-ID: <alpine.WNT.2.00.1001041709170.3252@jhhwang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <error27@gmail.com>,
-	Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:56412 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753145Ab0ADHfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 02:35:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20100104072844.GB518@lackof.org>
+Received: from os.korea.ac.kr ([163.152.39.64]:40487 "EHLO os.korea.ac.kr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753301Ab0ADITC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 03:19:02 -0500
+Received: from jhhwang ([163.152.41.60])
+	by os.korea.ac.kr (8.13.8/8.13.8) with ESMTP id o048J0jK024713
+	for <netdev@vger.kernel.org>; Mon, 4 Jan 2010 17:19:00 +0900
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 04, 2010 at 12:28:44AM -0700, Grant Grundler wrote:
-> On Sun, Jan 03, 2010 at 12:13:56PM +0200, Dan Carpenter wrote:
-> > Hi I found this using smatch (http://repo.or.cz/w/smatch.git).
-> > 
-> > drivers/net/tulip/de4x5.c
-> >   4772          lp->active = *p++;
-> >   4773          if (MOTO_SROM_BUG) lp->active = 0;
-> >   4774          lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
-> > 
-> > lp->phy is an array of size 8.
-> > 
-> > MOTO_SROM_BUG is defined like this. 
-> > 
-> > #define MOTO_SROM_BUG    (lp->active == 8 && (get_unaligned_le32(dev->dev_addr) & 0x00ffffff) == 0x3e0008)
-> > 
-> > If lp->active == 8 then we have a buffer overflow.
-> 
-> Dan,
-> When does the overflow actually occur?
-> 
-> That code is reseting the value to work around a specific SROM bug:
->    http://lists.ozlabs.org/pipermail/linuxppc-dev/1999-March/001421.html
-> 
-> If you want to make the "input validation" more robust, that would be fine with me.
-> But smatch hasn't convinced me there is a bug here.
+From: Jae-Hyun Hwang <jhhwang@os.korea.ac.kr>
 
-BTW, someone suggested to fix up this same bit of code before:
-   http://www.mail-archive.com/netdev@vger.kernel.org/msg09838.html
+Current net/ipv4/tcp_westwood.c seems to be unnatural when compared with Westwood papers.
+Since Linux TCP calls '.ssthresh' interface whenever packet loss is 
+detected, it is more natural that the interface points to 'tcp_westwood_bw_rttmin' function, not Reno's function.
+This patch also enables Westwood to perform its algorithm when CA_EVENT_LOSS event is generated as explained in the papers.
 
-And I'm not sure why that patch wasn't accepted then either. Patch looks fine to me.
+Signed-off-by: Jae-Hyun Hwang <jhhwang@os.korea.ac.kr>
 
-thanks,
-grant
+--- linux-2.6.32.2/net/ipv4/tcp_westwood.c.orig	2009-12-28 13:35:42.000000000 +0900
++++ linux-2.6.32.2/net/ipv4/tcp_westwood.c	2009-12-28 13:36:54.000000000 +0900
+@@ -232,12 +232,7 @@ static void tcp_westwood_event(struct so
+ 		westwood_fast_bw(sk);
+ 		break;
+ 
+-	case CA_EVENT_COMPLETE_CWR:
+-		tp->snd_cwnd = tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
+-		break;
+-
+ 	case CA_EVENT_FRTO:
+-		tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
+ 		/* Update RTT_min when next ack arrives */
+ 		w->reset_rtt_min = 1;
+ 		break;
+@@ -274,9 +269,8 @@ static void tcp_westwood_info(struct soc
+ 
+ static struct tcp_congestion_ops tcp_westwood = {
+ 	.init		= tcp_westwood_init,
+-	.ssthresh	= tcp_reno_ssthresh,
++	.ssthresh	= tcp_westwood_bw_rttmin,
+ 	.cong_avoid	= tcp_reno_cong_avoid,
+-	.min_cwnd	= tcp_westwood_bw_rttmin,
+ 	.cwnd_event	= tcp_westwood_event,
+ 	.get_info	= tcp_westwood_info,
+ 	.pkts_acked	= tcp_westwood_pkts_acked,
+--
