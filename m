@@ -1,51 +1,170 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 10:40:47 -0800
-Message-ID: <4B42362F.7040302@kernel.org>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org> <m1aawtlu6y.fsf@fess.ebiederm.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC 4/9] snet: introduce snet_core.c and snet.h
+Date: Mon, 4 Jan 2010 12:42:41 -0600
+Message-ID: <20100104184241.GC6034@us.ibm.com>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+ <1262437456-24476-5-git-send-email-sam@synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Samir Bellabes <sam@synack.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:52926 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751883Ab0ADSmb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2010 13:42:31 -0500
-In-Reply-To: <m1aawtlu6y.fsf@fess.ebiederm.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:58396 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441Ab0ADSmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 13:42:55 -0500
+Content-Disposition: inline
+In-Reply-To: <1262437456-24476-5-git-send-email-sam@synack.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2010 08:18 AM, Eric W. Biederman wrote:
-> Yinghai Lu <yinghai@kernel.org> writes:
+Quoting Samir Bellabes (sam@synack.fr):
+> this patch introduce snet_core.c, which provides main functions to start and
+> stop snet's subsystems :
+> 	- snet_hooks	: LSM hooks
+> 	- snet_netlink	: kernel-user communication (genetlink)
+> 	- snet_event	: manages the table of protected syscalls
+> 	- snet_verdict	: provides a wait queue for syscalls and manage verdicts
+> 			  from userspace
 > 
-> This patch is wrong.
+> Signed-off-by: Samir Bellabes <sam@synack.fr>
+> ---
+>  security/snet/include/snet.h |   29 ++++++++++++++++
+>  security/snet/snet_core.c    |   77 ++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 106 insertions(+), 0 deletions(-)
+>  create mode 100644 security/snet/include/snet.h
+>  create mode 100644 security/snet/snet_core.c
 > 
->> between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
->>
->> for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
-> 
-> We can not use any of 0x20 - 0x2f for ioapic irqs.  We need the entire
-> priority level to ensure that the irq move cleanup ipi is of a lower
-> priority.
-> 
->> also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
-> 
-> There may be a point with 0x30 to 0x3f as I recall when those irqs come through a legacy
-> pic we need to reserve those vectors on all cpus.
+> diff --git a/security/snet/include/snet.h b/security/snet/include/snet.h
+> new file mode 100644
+> index 0000000..b664a47
+> --- /dev/null
+> +++ b/security/snet/include/snet.h
+> @@ -0,0 +1,29 @@
+> +#ifndef _SNET_H
+> +#define _SNET_H
+> +
+> +#include "snet_hooks.h"
+> +
+> +#define SNET_VERSION	0x1
+> +#define SNET_NAME	"snet"
+> +
+> +#define SNET_PRINTK(enable, fmt, arg...)			\
+> +	do {							\
+> +		if (enable)					\
+> +			printk(KERN_INFO "%s: %s: " fmt ,	\
+> +				SNET_NAME , __func__ ,		\
+> +				## arg);			\
+> +	} while (0)
+> +
+> +#ifdef CONFIG_SECURITY_SNET_DEBUG
+> +extern unsigned int snet_debug;
+> +#define snet_dbg(fmt, arg...)	SNET_PRINTK(snet_debug, fmt, ##arg)
+> +#else
+> +#define snet_dbg(fmt, arg...)
+> +#endif
+> +
+> +struct snet_event {
+> +	enum snet_syscall syscall;
+> +	u8 protocol;
+> +} __attribute__ ((packed));
+> +
+> +#endif /* _SNET_H */
+> diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
+> new file mode 100644
+> index 0000000..34b61e9
+> --- /dev/null
+> +++ b/security/snet/snet_core.c
+> @@ -0,0 +1,77 @@
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <net/genetlink.h>
+> +
+> +#include "snet.h"
+> +#include "snet_hooks.h"
+> +#include "snet_netlink.h"
+> +#include "snet_event.h"
+> +#include "snet_verdict.h"
+> +#include "snet_utils.h"
+> +
+> +unsigned int event_hash_size = 16;
+> +module_param(event_hash_size, uint, 0600);
+> +MODULE_PARM_DESC(event_hash_size, "Set the size of the event hash table");
+> +
+> +unsigned int verdict_hash_size = 16;
+> +module_param(verdict_hash_size, uint, 0600);
+> +MODULE_PARM_DESC(verdict_hash_size, "Set the size of the verdict hash table");
+> +
+> +unsigned int snet_verdict_delay = 5;
+> +module_param(snet_verdict_delay, uint, 0600);
+> +MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
+> +
+> +unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
+> +module_param(snet_verdict_policy, uint, 0600);
+> +MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
+> +
+> +#ifdef CONFIG_SECURITY_SNET_DEBUG
+> +unsigned int snet_debug;
+> +EXPORT_SYMBOL_GPL(snet_debug);
+> +module_param(snet_debug, bool, 0644);
+> +MODULE_PARM_DESC(snet_debug, "Enable debug messages");
+> +#endif
+> +
+> +void snet_core_exit(void)
+> +{
+> +	snet_netlink_exit();
+> +	snet_event_exit();
+> +	snet_hooks_exit();
+> +	snet_verdict_exit();
+> +	snet_dbg("stopped\n");
+> +}
+> +
+> +static __init int snet_init(void)
+> +{
+> +	int ret;
+> +
+> +	snet_dbg("initializing: event_hash_size=%u "
+> +		 "verdict_hash_size=%u verdict_delay=%usecs "
+> +		 "default_policy=%s\n",
+> +		 event_hash_size, verdict_hash_size, snet_verdict_delay,
+> +		 snet_verdict_name(snet_verdict_policy));
+> +
+> +	ret = snet_event_init();
+> +	if (ret < 0)
+> +		goto exit;
+> +
+> +	ret = snet_verdict_init();
+> +	if (ret < 0)
+> +		goto exit;
+> +
+> +	ret = snet_hooks_init();
+> +	if (ret < 0)
+> +		goto exit;
+> +
+> +	snet_dbg("started\n");
+> +	return 0;
+> +exit:
+> +	snet_core_exit();
+> +	return ret;
+> +}
+> +
+> +security_initcall(snet_init);
+> +
+> +MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
 
-ok, I see.
+Would 'usnet' or 'ucsnet' - userspace-controlled security for
+network syscalls - be more informative?
 
-any reason that we can not use 0x40?
-
-Thanks
-
-Yinghai
+> +MODULE_LICENSE("GPL");
+> +MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
+> -- 
+> 1.6.3.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
