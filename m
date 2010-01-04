@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] rrunner: fix buffer overflow
-Date: Sun, 03 Jan 2010 22:06:29 -0800 (PST)
-Message-ID: <20100103.220629.71174384.davem@davemloft.net>
-References: <20100102140846.GA5076@bicker>
+Subject: Re: [PATCHv2 1/2] netxen: fix ethtool register dump
+Date: Sun, 03 Jan 2010 22:06:41 -0800 (PST)
+Message-ID: <20100103.220641.125555401.davem@davemloft.net>
+References: <1262438719-21095-1-git-send-email-amit.salecha@qlogic.com>
+	<1262438719-21095-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: error27@gmail.com
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
+	sucheta.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49718
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49722
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753001Ab0ADGGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:06:25 -0500
-In-Reply-To: <20100102140846.GA5076@bicker>
+	by vger.kernel.org with ESMTP id S1750778Ab0ADGGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:06:38 -0500
+In-Reply-To: <1262438719-21095-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Sat, 2 Jan 2010 16:08:46 +0200
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Sat,  2 Jan 2010 05:25:18 -0800
 
-> tx_skbuff is define as:
->         struct sk_buff          *tx_skbuff[TX_RING_ENTRIES];
+> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 > 
-> EVT_RING_ENTRIES is 64 and TX_RING_ENTRIES is 32.
+> o Dump registers such as tx ring and rx ring counter, firmware state,
+>   niu regs, etc. which can be useful for debugging purpose.
 > 
-> This function is in a error path so that's why it wasn't noticed.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
 Applied.
