@@ -1,170 +1,78 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC 4/9] snet: introduce snet_core.c and snet.h
-Date: Mon, 4 Jan 2010 12:42:41 -0600
-Message-ID: <20100104184241.GC6034@us.ibm.com>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
- <1262437456-24476-5-git-send-email-sam@synack.fr>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH v2] sky2: Fix oops in sky2_xmit_frame() after TX timeout
+Date: Mon, 4 Jan 2010 19:48:41 +0100
+Message-ID: <20100104184841.GA3106@del.dom.local>
+References: <4B3C8323.1080301@ring3k.org>
+ <4B3CF2C4.5070203@gmail.com>
+ <4B3D38FB.40105@ring3k.org>
+ <20100101183155.GA8519@del.dom.local>
+ <4B41560C.4040500@gmail.com>
+ <20100104134904.GA18583@ff.dom.local>
+ <20100104102637.16734638@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
+Cc: David Miller <davem@davemloft.net>,
+	"Berck E. Nash" <flyboy@gmail.com>,
+	Mike McCormack <mikem@ring3k.org>, netdev@vger.kernel.org,
+	dhazelton@enter.net, mbreuer@majjas.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:58396 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441Ab0ADSmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 13:42:55 -0500
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:48560 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417Ab0ADSst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 13:48:49 -0500
+Received: by fxm25 with SMTP id 25so9016155fxm.21
+        for <netdev@vger.kernel.org>; Mon, 04 Jan 2010 10:48:47 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1262437456-24476-5-git-send-email-sam@synack.fr>
+In-Reply-To: <20100104102637.16734638@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Samir Bellabes (sam@synack.fr):
-> this patch introduce snet_core.c, which provides main functions to start and
-> stop snet's subsystems :
-> 	- snet_hooks	: LSM hooks
-> 	- snet_netlink	: kernel-user communication (genetlink)
-> 	- snet_event	: manages the table of protected syscalls
-> 	- snet_verdict	: provides a wait queue for syscalls and manage verdicts
-> 			  from userspace
+On Mon, Jan 04, 2010 at 10:26:37AM -0800, Stephen Hemminger wrote:
+> > -	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
+> > +	/* Wake unless it's detached, and called e.g. from sky2_down() */
+> > +	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4 &&
+> > +	    likely(netif_device_present(dev)))
+> >  		netif_wake_queue(dev);
+> >  }
+> >
 > 
-> Signed-off-by: Samir Bellabes <sam@synack.fr>
-> ---
->  security/snet/include/snet.h |   29 ++++++++++++++++
->  security/snet/snet_core.c    |   77 ++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 106 insertions(+), 0 deletions(-)
->  create mode 100644 security/snet/include/snet.h
->  create mode 100644 security/snet/snet_core.c
-> 
-> diff --git a/security/snet/include/snet.h b/security/snet/include/snet.h
-> new file mode 100644
-> index 0000000..b664a47
-> --- /dev/null
-> +++ b/security/snet/include/snet.h
-> @@ -0,0 +1,29 @@
-> +#ifndef _SNET_H
-> +#define _SNET_H
-> +
-> +#include "snet_hooks.h"
-> +
-> +#define SNET_VERSION	0x1
-> +#define SNET_NAME	"snet"
-> +
-> +#define SNET_PRINTK(enable, fmt, arg...)			\
-> +	do {							\
-> +		if (enable)					\
-> +			printk(KERN_INFO "%s: %s: " fmt ,	\
-> +				SNET_NAME , __func__ ,		\
-> +				## arg);			\
-> +	} while (0)
-> +
-> +#ifdef CONFIG_SECURITY_SNET_DEBUG
-> +extern unsigned int snet_debug;
-> +#define snet_dbg(fmt, arg...)	SNET_PRINTK(snet_debug, fmt, ##arg)
-> +#else
-> +#define snet_dbg(fmt, arg...)
-> +#endif
-> +
-> +struct snet_event {
-> +	enum snet_syscall syscall;
-> +	u8 protocol;
-> +} __attribute__ ((packed));
-> +
-> +#endif /* _SNET_H */
-> diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
-> new file mode 100644
-> index 0000000..34b61e9
-> --- /dev/null
-> +++ b/security/snet/snet_core.c
-> @@ -0,0 +1,77 @@
-> +#include <linux/module.h>
-> +#include <linux/kernel.h>
-> +#include <net/genetlink.h>
-> +
-> +#include "snet.h"
-> +#include "snet_hooks.h"
-> +#include "snet_netlink.h"
-> +#include "snet_event.h"
-> +#include "snet_verdict.h"
-> +#include "snet_utils.h"
-> +
-> +unsigned int event_hash_size = 16;
-> +module_param(event_hash_size, uint, 0600);
-> +MODULE_PARM_DESC(event_hash_size, "Set the size of the event hash table");
-> +
-> +unsigned int verdict_hash_size = 16;
-> +module_param(verdict_hash_size, uint, 0600);
-> +MODULE_PARM_DESC(verdict_hash_size, "Set the size of the verdict hash table");
-> +
-> +unsigned int snet_verdict_delay = 5;
-> +module_param(snet_verdict_delay, uint, 0600);
-> +MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
-> +
-> +unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
-> +module_param(snet_verdict_policy, uint, 0600);
-> +MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
-> +
-> +#ifdef CONFIG_SECURITY_SNET_DEBUG
-> +unsigned int snet_debug;
-> +EXPORT_SYMBOL_GPL(snet_debug);
-> +module_param(snet_debug, bool, 0644);
-> +MODULE_PARM_DESC(snet_debug, "Enable debug messages");
-> +#endif
-> +
-> +void snet_core_exit(void)
-> +{
-> +	snet_netlink_exit();
-> +	snet_event_exit();
-> +	snet_hooks_exit();
-> +	snet_verdict_exit();
-> +	snet_dbg("stopped\n");
-> +}
-> +
-> +static __init int snet_init(void)
-> +{
-> +	int ret;
-> +
-> +	snet_dbg("initializing: event_hash_size=%u "
-> +		 "verdict_hash_size=%u verdict_delay=%usecs "
-> +		 "default_policy=%s\n",
-> +		 event_hash_size, verdict_hash_size, snet_verdict_delay,
-> +		 snet_verdict_name(snet_verdict_policy));
-> +
-> +	ret = snet_event_init();
-> +	if (ret < 0)
-> +		goto exit;
-> +
-> +	ret = snet_verdict_init();
-> +	if (ret < 0)
-> +		goto exit;
-> +
-> +	ret = snet_hooks_init();
-> +	if (ret < 0)
-> +		goto exit;
-> +
-> +	snet_dbg("started\n");
-> +	return 0;
-> +exit:
-> +	snet_core_exit();
-> +	return ret;
-> +}
-> +
-> +security_initcall(snet_init);
-> +
-> +MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
+> The likely() seems unnecessary noise here. It can't possibly matter that
+> much.
 
-Would 'usnet' or 'ucsnet' - userspace-controlled security for
-network syscalls - be more informative?
+OK. Thanks,
+Jarek P.
+------------> (take 2)
 
-> +MODULE_LICENSE("GPL");
-> +MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
-> -- 
-> 1.6.3.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+During TX timeout procedure dev could be awoken too early, e.g. by
+sky2_complete_tx() called from sky2_down(). Then sky2_xmit_frame()
+can run while buffers are freed causing an oops. This patch fixes it
+by adding netif_device_present() test in sky2_tx_complete().
+
+Fixes: http://bugzilla.kernel.org/show_bug.cgi?id=14925
+
+With debugging by: Mike McCormack <mikem@ring3k.org>
+
+Reported-by: Berck E. Nash <flyboy@gmail.com>
+Tested-by: Berck E. Nash <flyboy@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+ drivers/net/sky2.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 1c01b96..7650f73 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1844,7 +1844,8 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
+ 	sky2->tx_cons = idx;
+ 	smp_mb();
+ 
+-	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
++	/* Wake unless it's detached, and called e.g. from sky2_down() */
++	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4 && netif_device_present(dev))
+ 		netif_wake_queue(dev);
+ }
+ 
