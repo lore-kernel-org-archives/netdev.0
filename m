@@ -1,57 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race
-Date: Mon, 04 Jan 2010 14:07:03 +0100
-Message-ID: <4B41E7F7.2030003@gmail.com>
-References: <1262183005-28406-1-git-send-email-fleitner@redhat.com> <20100103.215441.43026709.davem@davemloft.net> <20100104112957.GA2573@sysclose.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Flavio Leitner <fbl@sysclose.org>
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 1/1] [PATCH] claw: use "claw" as root device name
+Date: Mon, 04 Jan 2010 14:14:45 +0100
+Message-ID: <20100104131934.142015000@linux.vnet.ibm.com>
+References: <20100104131444.770415000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:42528 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860Ab0ADNHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 08:07:10 -0500
-In-Reply-To: <20100104112957.GA2573@sysclose.org>
+Received: from mtagate1.de.ibm.com ([195.212.17.161]:49673 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750738Ab0ADNTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 08:19:36 -0500
+Content-Disposition: inline; filename=604-claw-root-device.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 04/01/2010 12:29, Flavio Leitner a =E9crit :
-=20
-> Then, I tried using call_rcu() to avoid the problem you are saying,
-> but when you stop the reproducer, sk_free() will warn printing=20
-> "optmem leakage.." because the rcu callback didn't run yet.
->=20
->=20
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-This is probably because your call_rcu() callback was trying to call so=
-ck_kfree_s() ?
+Claw module cannot be loaded together with qeth, because "qeth" has
+been errorneously used as root device name. It is changed into "claw".
 
- 		rtnl_unlock();
-		call_rcu(&iml->lock, callback_func)
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
 
-callback_func()
-{
-	sock_kfree_s(sk, iml, sizeof(*iml));
-}
+ drivers/s390/net/claw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-
-Take a look at sock_kfree_s() definition :
-
-void sock_kfree_s(struct sock *sk, void *mem, int size)
-{
-        kfree(mem);
-        atomic_sub(size, &sk->sk_omem_alloc);
-}
-
-
-You can certainly try :
-
-	rtnl_unlock();
-	atomic_sub(sizeof(*iml), sk->sk_omem_alloc);
-	call_rcu(&iml->rcu, kfree);
-
-(immediate sk_omem_alloc handling, but deferred kfree())
+diff -urpN linux-2.6/drivers/s390/net/claw.c linux-2.6-patched/drivers/s390/net/claw.c
+--- linux-2.6/drivers/s390/net/claw.c	2010-01-04 09:04:44.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/claw.c	2010-01-04 09:04:54.000000000 +0100
+@@ -3398,7 +3398,7 @@ claw_init(void)
+ 		goto out_err;
+ 	}
+ 	CLAW_DBF_TEXT(2, setup, "init_mod");
+-	claw_root_dev = root_device_register("qeth");
++	claw_root_dev = root_device_register("claw");
+ 	ret = IS_ERR(claw_root_dev) ? PTR_ERR(claw_root_dev) : 0;
+ 	if (ret)
+ 		goto register_err;
 
