@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] broadcom: Fix &&/|| confusion in
- bcm54xx_adjust_rxrefclk()
-Date: Sun, 03 Jan 2010 22:01:54 -0800 (PST)
-Message-ID: <20100103.220154.226474085.davem@davemloft.net>
-References: <4B3B831A.507@gmail.com>
+Subject: Re: [patch] rrunner: fix buffer overflow
+Date: Sun, 03 Jan 2010 22:06:29 -0800 (PST)
+Message-ID: <20100103.220629.71174384.davem@davemloft.net>
+References: <20100102140846.GA5076@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, mcarlson@broadcom.com
-To: roel.kluin@gmail.com
+Cc: netdev@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43535
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49718
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751487Ab0ADGBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:01:51 -0500
-In-Reply-To: <4B3B831A.507@gmail.com>
+	by vger.kernel.org with ESMTP id S1753001Ab0ADGGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:06:25 -0500
+In-Reply-To: <20100102140846.GA5076@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Wed, 30 Dec 2009 17:43:06 +0100
+From: Dan Carpenter <error27@gmail.com>
+Date: Sat, 2 Jan 2010 16:08:46 +0200
 
-> This always evaluates to true.
+> tx_skbuff is define as:
+>         struct sk_buff          *tx_skbuff[TX_RING_ENTRIES];
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> EVT_RING_ENTRIES is 64 and TX_RING_ENTRIES is 32.
+> 
+> This function is in a error path so that's why it wasn't noticed.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks Roel.
+Applied.
