@@ -1,117 +1,128 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-Subject: [PATCH 2/3] Phonet: zero-copy GPRS TX
-Date: Mon,  4 Jan 2010 14:02:48 +0200
-Message-ID: <1262606569-3021-2-git-send-email-remi@remlab.net>
-References: <1262606569-3021-1-git-send-email-remi@remlab.net>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net-next 2/3] can: mscan-mpc5xxx: add support for the
+ MPC521x processor
+Date: Mon, 04 Jan 2010 13:49:10 +0100
+Message-ID: <4B41E3C6.9060306@grandegger.com>
+References: <1262420274-16586-1-git-send-email-wg@grandegger.com>	<1262420274-16586-2-git-send-email-wg@grandegger.com>	<1262420274-16586-3-git-send-email-wg@grandegger.com>	<20100102135734.GC2239@pengutronix.de> <4B3F6F6B.5070004@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core@lists.berlios.de, Netdev@vger.kernel.org,
+	Devicetree-discuss@lists.ozlabs.org, Linuxppc-dev@lists.ozlabs.org,
+	Wolfgang Grandegger <wg@denx.de>
+To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:50112 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751096Ab0ADMJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2010 07:09:26 -0500
-In-Reply-To: <1262606569-3021-1-git-send-email-remi@remlab.net>
+In-Reply-To: <4B3F6F6B.5070004@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Wolfgang Grandegger wrote:
+> Wolfram Sang wrote:
+>> On Sat, Jan 02, 2010 at 09:17:53AM +0100, Wolfgang Grandegger wrote:
+>>> From: Wolfgang Grandegger <wg@denx.de>
+>>>
+>>> The main differences compared to the MSCAN on the MPC5200 are:
+>>>
+>>> - More flexibility in choosing the CAN source clock and frequency:
+>>>
+>>>   Three different clock sources can be selected: "ip", "ref" or "sys".
+>>>   For the latter two, a clock divider can be defined as well. If the
+>>>   clock source is not specified by the device tree, we first try to
+>>>   find an optimal CAN source clock based on the system clock. If that
+>>>   is not possible, the reference clock will be used.
+>>>
+>>> - The behavior of bus-off recovery is configurable:
+>>>
+>>>   To comply with the usual handling of Socket-CAN bus-off recovery,
+>>>   "recovery on request" is selected (instead of automatic recovery).
+>>>
+>>> Signed-off-by: Wolfgang Grandegger <wg@denx.de>
+>>> ---
+>>>  drivers/net/can/mscan/Kconfig       |    2 +-
+>>>  drivers/net/can/mscan/mpc5xxx_can.c |  234 +++++++++++++++++++++++++++++------
+>>>  drivers/net/can/mscan/mscan.c       |   41 +++++--
+>>>  drivers/net/can/mscan/mscan.h       |   81 ++++++------
+>>>  4 files changed, 271 insertions(+), 87 deletions(-)
+>>>
+> [snip]
+> 
+>>> +#else /* !CONFIG_PPC_MPC5200 */
+>>> +static u32 __devinit mpc52xx_can_get_clock(struct of_device *ofdev,
+>>> +					   const char *clock_name,
+>>> +					   int *mscan_clksrc)
+>>> +{
+>>> +	return 0;
+>>> +}
+>>> +#endif /* CONFIG_PPC_MPC5200 */
+>> Hmmm, I don't really like those empty functions. I once used the data-field of
+>> struct of_device_id, which carried a function pointer to a specific
+>> init-function for the matched device. What do you think about such an approach?
+> 
+> Often the problem is that the function will not compile on the other MPC
+> arch. This is not true here. So, the main reason for the #ifdefs is
+> space saving. Your approach will not help in both cases.
+> 
+>>> +
+>>> +#ifdef CONFIG_PPC_MPC512x
+>>> +struct mpc512x_clockctl {
+>>> +	u32 spmr;		/* System PLL Mode Reg */
+>>> +	u32 sccr[2];		/* System Clk Ctrl Reg 1 & 2 */
+>>> +	u32 scfr1;		/* System Clk Freq Reg 1 */
+>>> +	u32 scfr2;		/* System Clk Freq Reg 2 */
+>>> +	u32 reserved;
+>>> +	u32 bcr;		/* Bread Crumb Reg */
+>>> +	u32 pccr[12];		/* PSC Clk Ctrl Reg 0-11 */
+>>> +	u32 spccr;		/* SPDIF Clk Ctrl Reg */
+>>> +	u32 cccr;		/* CFM Clk Ctrl Reg */
+>>> +	u32 dccr;		/* DIU Clk Cnfg Reg */
+>>> +	u32 mccr[4];		/* MSCAN Clk Ctrl Reg 1-3 */
+>>> +};
+>>> +
+>>> +static struct of_device_id mpc512x_clock_ids[] __devinitdata = {
+>>> +	{ .compatible = "fsl,mpc5121-clock", },
+>>> +	{}
+>>> +};
+>>> +
+>>> +static u32  __devinit mpc512x_can_get_clock(struct of_device *ofdev,
+>>> +					    const char *clock_name,
+>>> +					    int *mscan_clksrc,
+>>> +					    ssize_t mscan_addr)
+>>> +{
+>>> +	struct mpc512x_clockctl __iomem *clockctl;
+>>> +	struct device_node *np_clock;
+>>> +	struct clk *sys_clk, *ref_clk;
+>>> +	int plen, clockidx, clocksrc = -1;
+>>> +	u32 sys_freq, val, clockdiv = 1, freq = 0;
+>>> +	const u32 *pval;
+>>> +
+>>> +	np_clock = of_find_matching_node(NULL, mpc512x_clock_ids);
+>>> +	if (!np_clock) {
+>>> +		dev_err(&ofdev->dev, "couldn't find clock node\n");
+>>> +		return -ENODEV;
+>>> +	}
+>>> +	clockctl = of_iomap(np_clock, 0);
+>>> +	if (!clockctl) {
+>>> +		dev_err(&ofdev->dev, "couldn't map clock registers\n");
+>>> +		return 0;
+>>> +	}
+>>> +
+>>> +	/* Determine the MSCAN device index from the physical address */
+>>> +	clockidx = (mscan_addr & 0x80) ? 1 : 0;
+>>> +	if (mscan_addr & 0x2000)
+>>> +		clockidx += 2;
+>> The PSCs use 'cell-index', here we use mscan_addr to derive the index. This is
+>> not consistent, but should be IMHO. Now, which is the preferred way? I think
+>> I'd go for 'cell-index', as other processors might have mscan_addr shuffled.
+>> Also, we could use 'of_iomap' again in the probe_routine.
+> 
+> I understood that "cell-index" is deprecated and it has been removed
+> from many nodes. That's why I used the address to derive the index.
 
-Send aligned pipe payload if requested to do so. Then, the socket buffe=
-r
-needs not be fragmented anymore.
+So more thoughts: I still find inspecting the regs less error prune than
+defining cell-index and it should work fine for "fsl,mpc5121_mscan".
+Other processor variants might handle a different register layout with
+another appropriate compatibility string. But I could retrieve the
+"regs" property inside mpc512x_can_get_clock() to use of_iomap() as before.
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- include/net/phonet/pep.h |    2 ++
- net/phonet/pep.c         |   16 ++++++++++++++--
- 2 files changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
-index c371625..35672b1 100644
---- a/include/net/phonet/pep.h
-+++ b/include/net/phonet/pep.h
-@@ -44,6 +44,7 @@ struct pep_sock {
- 	u8			rx_fc;	/* RX flow control */
- 	u8			tx_fc;	/* TX flow control */
- 	u8			init_enable;	/* auto-enable at creation */
-+	u8			aligned;
- };
-=20
- static inline struct pep_sock *pep_sk(struct sock *sk)
-@@ -139,6 +140,7 @@ enum {
- 	PN_PIPE_SB_NEGOTIATED_FC,
- 	PN_PIPE_SB_REQUIRED_FC_TX,
- 	PN_PIPE_SB_PREFERRED_FC_RX,
-+	PN_PIPE_SB_ALIGNED_DATA,
- };
-=20
- /* Phonet pipe flow control models */
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index e23e309..72db27e 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -444,6 +444,7 @@ static int pep_connreq_rcv(struct sock *sk, struct =
-sk_buff *skb)
- 	struct sockaddr_pn dst;
- 	u16 peer_type;
- 	u8 pipe_handle, enabled, n_sb;
-+	u8 aligned =3D 0;
-=20
- 	if (!pskb_pull(skb, sizeof(*hdr) + 4))
- 		return -EINVAL;
-@@ -482,6 +483,9 @@ static int pep_connreq_rcv(struct sock *sk, struct =
-sk_buff *skb)
- 				return -EINVAL;
- 			peer_type =3D (peer_type & 0xff00) | data[0];
- 			break;
-+		case PN_PIPE_SB_ALIGNED_DATA:
-+			aligned =3D data[0] !=3D 0;
-+			break;
- 		}
- 		n_sb--;
- 	}
-@@ -513,6 +517,7 @@ static int pep_connreq_rcv(struct sock *sk, struct =
-sk_buff *skb)
- 	newpn->rx_credits =3D 0;
- 	newpn->rx_fc =3D newpn->tx_fc =3D PN_LEGACY_FLOW_CONTROL;
- 	newpn->init_enable =3D enabled;
-+	newpn->aligned =3D aligned;
-=20
- 	BUG_ON(!skb_queue_empty(&newsk->sk_receive_queue));
- 	skb_queue_head(&newsk->sk_receive_queue, skb);
-@@ -832,11 +837,15 @@ static int pipe_skb_send(struct sock *sk, struct =
-sk_buff *skb)
- 		return -ENOBUFS;
- 	}
-=20
--	skb_push(skb, 3);
-+	skb_push(skb, 3 + pn->aligned);
- 	skb_reset_transport_header(skb);
- 	ph =3D pnp_hdr(skb);
- 	ph->utid =3D 0;
--	ph->message_id =3D PNS_PIPE_DATA;
-+	if (pn->aligned) {
-+		ph->message_id =3D PNS_PIPE_ALIGNED_DATA;
-+		ph->data[0] =3D 0; /* padding */
-+	} else
-+		ph->message_id =3D PNS_PIPE_DATA;
- 	ph->pipe_handle =3D pn->pipe_handle;
-=20
- 	return pn_skb_send(sk, skb, &pipe_srv);
-@@ -930,6 +939,9 @@ int pep_write(struct sock *sk, struct sk_buff *skb)
- 	struct sk_buff *rskb, *fs;
- 	int flen =3D 0;
-=20
-+	if (pep_sk(sk)->aligned)
-+		return pipe_skb_send(sk, skb);
-+
- 	rskb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_ATOMIC);
- 	if (!rskb) {
- 		kfree_skb(skb);
---=20
-1.6.3.3
+Wolfgang.
 
