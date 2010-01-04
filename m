@@ -1,9 +1,7 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
-Subject: [PATCH 3/3] Phonet: reject unsupported sendmsg/recvmsg flags
-Date: Mon,  4 Jan 2010 14:02:49 +0200
-Message-ID: <1262606569-3021-3-git-send-email-remi@remlab.net>
-References: <1262606569-3021-1-git-send-email-remi@remlab.net>
- <1262606569-3021-2-git-send-email-remi@remlab.net>
+Subject: [PATCH 1/3] Phonet: zero-copy aligned GPRS RX
+Date: Mon,  4 Jan 2010 14:02:47 +0200
+Message-ID: <1262606569-3021-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,86 +9,72 @@ Cc: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:50113 "EHLO yop.chewa.net"
+Received: from yop.chewa.net ([91.121.105.214]:50114 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751536Ab0ADMJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751694Ab0ADMJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 4 Jan 2010 07:09:26 -0500
-In-Reply-To: <1262606569-3021-2-git-send-email-remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
+Newer Nokia cellular modems can use aligned payload for their GPRS pipe=
+=2E
+
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- net/phonet/datagram.c |    6 ++++--
- net/phonet/pep.c      |   10 +++++++++-
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ include/net/phonet/pep.h |    1 +
+ net/phonet/pep-gprs.c    |    4 ++--
+ net/phonet/pep.c         |    3 +++
+ 3 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
-index 67f072e..387197b 100644
---- a/net/phonet/datagram.c
-+++ b/net/phonet/datagram.c
-@@ -75,7 +75,8 @@ static int pn_sendmsg(struct kiocb *iocb, struct sock=
- *sk,
- 	struct sk_buff *skb;
- 	int err;
+diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
+index 4c61cdc..c371625 100644
+--- a/include/net/phonet/pep.h
++++ b/include/net/phonet/pep.h
+@@ -77,6 +77,7 @@ static inline struct pnpipehdr *pnp_hdr(struct sk_buf=
+f *skb)
 =20
--	if (msg->msg_flags & MSG_OOB)
-+	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_NOSIGNAL|
-+				MSG_CMSG_COMPAT))
- 		return -EOPNOTSUPP;
+ enum {
+ 	PNS_PIPE_DATA =3D 0x20,
++	PNS_PIPE_ALIGNED_DATA,
 =20
- 	if (msg->msg_name =3D=3D NULL)
-@@ -119,7 +120,8 @@ static int pn_recvmsg(struct kiocb *iocb, struct so=
-ck *sk,
- 	int rval =3D -EOPNOTSUPP;
- 	int copylen;
+ 	PNS_PEP_CONNECT_REQ =3D 0x40,
+ 	PNS_PEP_CONNECT_RESP,
+diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
+index d183509..d012089 100644
+--- a/net/phonet/pep-gprs.c
++++ b/net/phonet/pep-gprs.c
+@@ -96,11 +96,11 @@ static int gprs_recv(struct gprs_dev *gp, struct sk=
+_buff *skb)
+ 		goto drop;
+ 	}
 =20
--	if (flags & MSG_OOB)
-+	if (flags & ~(MSG_PEEK|MSG_TRUNC|MSG_DONTWAIT|MSG_NOSIGNAL|
-+			MSG_CMSG_COMPAT))
- 		goto out_nofree;
+-	if (likely(skb_headroom(skb) & 3)) {
++	if (skb_headroom(skb) & 3) {
+ 		struct sk_buff *rskb, *fs;
+ 		int flen =3D 0;
 =20
- 	if (addr_len)
+-		/* Phonet Pipe data header is misaligned (3 bytes),
++		/* Phonet Pipe data header may be misaligned (3 bytes),
+ 		 * so wrap the IP packet as a single fragment of an head-less
+ 		 * socket buffer. The network stack will pull what it needs,
+ 		 * but at least, the whole IP payload is not memcpy'd. */
 diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 72db27e..360cf37 100644
+index b6356f3..e23e309 100644
 --- a/net/phonet/pep.c
 +++ b/net/phonet/pep.c
-@@ -860,7 +860,9 @@ static int pep_sendmsg(struct kiocb *iocb, struct s=
-ock *sk,
- 	int flags =3D msg->msg_flags;
- 	int err, done;
+@@ -354,6 +354,9 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
+uff *skb)
+ 		queue =3D &pn->ctrlreq_queue;
+ 		goto queue;
 =20
--	if (msg->msg_flags & MSG_OOB || !(msg->msg_flags & MSG_EOR))
-+	if ((msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_NOSIGNAL|
-+				MSG_CMSG_COMPAT)) ||
-+			!(msg->msg_flags & MSG_EOR))
- 		return -EOPNOTSUPP;
-=20
- 	skb =3D sock_alloc_send_skb(sk, MAX_PNPIPE_HEADER + len,
-@@ -981,6 +983,10 @@ static int pep_recvmsg(struct kiocb *iocb, struct =
-sock *sk,
- 	struct sk_buff *skb;
- 	int err;
-=20
-+	if (flags & ~(MSG_OOB|MSG_PEEK|MSG_TRUNC|MSG_DONTWAIT|MSG_WAITALL|
-+			MSG_NOSIGNAL|MSG_CMSG_COMPAT))
-+		return -EOPNOTSUPP;
-+
- 	if (unlikely(1 << sk->sk_state & (TCPF_LISTEN | TCPF_CLOSE)))
- 		return -ENOTCONN;
-=20
-@@ -988,6 +994,8 @@ static int pep_recvmsg(struct kiocb *iocb, struct s=
-ock *sk,
- 		/* Dequeue and acknowledge control request */
- 		struct pep_sock *pn =3D pep_sk(sk);
-=20
-+		if (flags & MSG_PEEK)
-+			return -EOPNOTSUPP;
- 		skb =3D skb_dequeue(&pn->ctrlreq_queue);
- 		if (skb) {
- 			pep_ctrlreq_error(sk, skb, PN_PIPE_NO_ERROR,
++	case PNS_PIPE_ALIGNED_DATA:
++		__skb_pull(skb, 1);
++		/* fall through */
+ 	case PNS_PIPE_DATA:
+ 		__skb_pull(skb, 3); /* Pipe data header */
+ 		if (!pn_flow_safe(pn->rx_fc)) {
 --=20
 1.6.3.3
 
