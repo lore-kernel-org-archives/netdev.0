@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: test off by one
-Date: Sun, 03 Jan 2010 21:43:37 -0800 (PST)
-Message-ID: <20100103.214337.226743566.davem@davemloft.net>
-References: <4B37D000.6070009@gmail.com>
+Subject: Re: [PATCH] net: Test off by one in sh_eth_reset()
+Date: Sun, 03 Jan 2010 21:43:44 -0800 (PST)
+Message-ID: <20100103.214344.55841020.davem@davemloft.net>
+References: <4B3B3CF1.6060107@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: petkan@users.sourceforge.net, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
 	linux-kernel@vger.kernel.org
 To: roel.kluin@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753233Ab0ADFnn@vger.kernel.org>
-In-Reply-To: <4B37D000.6070009@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51837
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753229Ab0ADFnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:43:40 -0500
+In-Reply-To: <4B3B3CF1.6060107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sun, 27 Dec 2009 22:22:08 +0100
+Date: Wed, 30 Dec 2009 12:43:45 +0100
 
-> With `while (i++ < MII_TIMEOUT)' i reaches MII_TIMEOUT + 1 after the loop
-> This is probably unlikely a problem in practice.
+> If no break occurred, cnt reaches 0 after the loop.
 > 
 > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
