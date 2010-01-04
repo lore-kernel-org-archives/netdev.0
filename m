@@ -1,84 +1,134 @@
-From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
-Subject: [PATCH] 8139too: make PCI device ids constant
-Date: Tue, 05 Jan 2010 00:03:02 +0100
-Message-ID: <4B4273A6.4020102@freemail.hu>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 15:03:48 -0800
+Message-ID: <4B4273D4.2080709@zytor.com>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	<m1my0thelq.fsf@fess.ebiederm.org> <4B424305.7050803@kernel.org>	<4B4245FC.7070902@zytor.com> <4B424A5C.7080309@kernel.org> <m1y6kdbpad.fsf@fess.ebiederm.org> <4B425085.5040103@kernel.org> <4B42595E.9010404@zytor.com> <4B425BB7.90501@kernel.org> <4B425EB5.5080504@zytor.com> <4B426550.6000209@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Julia Lawall <julia@diku.dk>, cocci@diku.dk
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02d.mail.t-online.hu ([84.2.42.7]:53624 "EHLO
-	mail02d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753025Ab0ADXDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 18:03:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------070704020001030904050005"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Suresh Siddha <suresh.b.siddha@intel.com>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753993Ab0ADXEy@vger.kernel.org>
+In-Reply-To: <4B426550.6000209@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+This is a multi-part message in MIME format.
+--------------070704020001030904050005
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-The id_table field of the struct pci_driver is constant in <linux/pci.h=
->
-so it is worth to make pci_device_id also constant.
+On 01/04/2010 02:01 PM, Yinghai Lu wrote:
+>>
+>>>  /*
+>>> + * First APIC vector available to drivers: (vectors 0x30-0xee) we
+>>> + * start at 0x31 to spread out vectors evenly between priority
+>>> + * levels. (0x80 is the syscall vector)
+>>> + */
+>>> +#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
+>>> +
+>>
+>> We really should fix that so we can do +1 here instead of +2; that
+>> presumably means fixing the logic so we do something smarter than just
+>> jump over 0x80.
+> 
+> we already use used_vectors to skip 0x80. so we could change that to +1?
+> 
 
-The semantic match that finds this kind of pattern is as follows:
-(http://coccinelle.lip6.fr/)
+Yes, but the problem is that we *skip* 0x80, which leads to suboptimal
+allocation on systems with only a handful of vectors.
 
-// <smpl>
-@r@
-identifier I1, I2, x;
-@@
-	struct I1 {
-	  ...
-	  const struct I2 *x;
-	  ...
-	};
-@s@
-identifier r.I1, y;
-identifier r.x, E;
-@@
-	struct I1 y =3D {
-	  .x =3D E,
-	};
-@c@
-identifier r.I2;
-identifier s.E;
-@@
-	const struct I2 E[] =3D ... ;
-@depends on !c@
-identifier r.I2;
-identifier s.E;
-@@
-+	const
-	struct I2 E[] =3D ...;
-// </smpl>
+The easy solution to accomplishing what we want without wasting vector
+0x30 is obviously to start allocation at 0x31, but not by artificially
+limiting the vector space; see the attached patch.
 
-Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
-Cc: Julia Lawall <julia@diku.dk>
-Cc: cocci@diku.dk
+For what it's worth, this code(__assign_irq_vector() in
+arch/x86/kernel/apic/io_apic.c) has me somewhat confused about the use
+of the constant 8:
+
+		vector += 8;
+
+The only justification that I can immediately think of is to try to
+assign exactly two sources to each priority level (since early APICs
+started losing interrupts with more than two sources per priority level.)
+
+This is ancient code -- predates not just the git but the bk history --
+and as such I would assume that that is the motivation.
+
+	-hpa
+
+--------------070704020001030904050005
+Content-Type: text/x-patch;
+ name="0001-x86-irq-Don-t-waste-a-vector-to-improve-vector-sprea.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-x86-irq-Don-t-waste-a-vector-to-improve-vector-sprea.pa";
+ filename*1="tch"
+
+>From 6e586d7d1da44360b16d2c0ac2bea623c1fcfa6e Mon Sep 17 00:00:00 2001
+From: H. Peter Anvin <hpa@zytor.com>
+Date: Mon, 4 Jan 2010 15:00:57 -0800
+Subject: [PATCH] x86, irq: Don't waste a vector to improve vector spread
+
+We want to use a vector-assignment sequence that avoids stumbling onto
+0x80 earlier in the sequence, in order to improve the spread of
+vectors across priority levels on machines with a small number of
+interrupt sources.  Right now, this is done by simply making the first
+vector (0x31 or 0x41) completely unusable.  This is unnecessary; all
+we need is to start assignment at a +1 offset, we don't actually need
+to prohibit the usage of this vector once we have wrapped around.
+
+Signed-off-by: H. Peter Anvin <hpa@zytor.com>
 ---
-diff -u -p a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
---- a/drivers/net/pci-skeleton.c 2009-12-27 12:20:35.000000000 +0100
-+++ b/drivers/net/pci-skeleton.c 2010-01-03 21:08:03.000000000 +0100
-@@ -211,7 +211,7 @@ static struct {
- };
+ arch/x86/include/asm/irq_vectors.h |    9 +++++----
+ arch/x86/kernel/apic/io_apic.c     |    3 ++-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/include/asm/irq_vectors.h b/arch/x86/include/asm/irq_vectors.h
+index 4611f08..718dcdd 100644
+--- a/arch/x86/include/asm/irq_vectors.h
++++ b/arch/x86/include/asm/irq_vectors.h
+@@ -121,11 +121,12 @@
+ #define MCE_SELF_VECTOR			0xeb
+ 
+ /*
+- * First APIC vector available to drivers: (vectors 0x30-0xee) we
+- * start at 0x31(0x41) to spread out vectors evenly between priority
+- * levels. (0x80 is the syscall vector)
++ * First APIC vector available to drivers: (vectors 0x30-0xee).  We
++ * start allocating at 0x31(0x41) to spread out vectors evenly between
++ * priority levels. (0x80 is the syscall vector)
+  */
+-#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
++#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 1)
++#define VECTOR_OFFSET_START		1
+ 
+ #define NR_VECTORS			 256
+ 
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index de00c46..e289148 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -1162,7 +1162,8 @@ __assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
+ 	 * Also, we've got to be careful not to trash gate
+ 	 * 0x80, because int 0x80 is hm, kind of importantish. ;)
+ 	 */
+-	static int current_vector = FIRST_DEVICE_VECTOR, current_offset = 0;
++	static int current_vector = FIRST_DEVICE_VECTOR + VECTOR_OFFSET_START;
++	static int current_offset = VECTOR_OFFSET_START % 8;
+ 	unsigned int old_vector;
+ 	int cpu, err;
+ 	cpumask_var_t tmp_mask;
+-- 
+1.6.5.2
 
 
--static struct pci_device_id netdrv_pci_tbl[] =3D {
-+static const struct pci_device_id netdrv_pci_tbl[] =3D {
- 	{0x10ec, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x10ec, 0x8138, PCI_ANY_ID, PCI_ANY_ID, 0, 0, NETDRV_CB },
- 	{0x1113, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SMC1211TX },
-diff -u -p a/drivers/net/8139too.c b/drivers/net/8139too.c
---- a/drivers/net/8139too.c 2009-12-27 12:20:30.000000000 +0100
-+++ b/drivers/net/8139too.c 2010-01-03 21:25:05.000000000 +0100
-@@ -231,7 +231,7 @@ static const struct {
- };
-
-
--static struct pci_device_id rtl8139_pci_tbl[] =3D {
-+static const struct pci_device_id rtl8139_pci_tbl[] =3D {
- 	{0x10ec, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x10ec, 0x8138, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x1113, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
+--------------070704020001030904050005--
