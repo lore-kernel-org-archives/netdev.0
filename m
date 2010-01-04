@@ -1,92 +1,123 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [RESEND PATCH] phy: SMSC device Energy Detect power-down mode
-Date: Mon,  4 Jan 2010 11:44:33 +0100
-Message-ID: <1262601873-7105-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH] ip: fix mc_loop checks for tunnels with multicast outer addresses
+Date: Mon, 4 Jan 2010 12:48:25 +0200
+Message-ID: <201001041248.26095.opurdila@ixiacom.com>
+References: <200912302201.37735.opurdila@ixiacom.com> <20100103.215855.267134875.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:45924 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753184Ab0ADKoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 05:44:46 -0500
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6806927B
-	for <netdev@vger.kernel.org>; Mon,  4 Jan 2010 10:44:43 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E466B1019
-	for <netdev@vger.kernel.org>; Mon,  4 Jan 2010 10:44:42 +0000 (GMT)
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:15986 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753286Ab0ADKvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 05:51:51 -0500
+In-Reply-To: <20100103.215855.267134875.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SMSC Ethernet Transceivers (LAN88710, LAN8710, LAN8720, LAN8187,
-LAN8700, LAN83C185) provide a mechanism to conserve power when
-the device is not connected to an active link partner
-(Energy Detect Mode).
-So this patch enables the Energy Detect power-down mode
-for these Transceivers.
+On Monday 04 January 2010 07:58:55 you wrote:
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Wed, 30 Dec 2009 22:01:37 +0200
+> 
+> > +	switch (sk->sk_family) {
+> > +	case AF_INET:
+> > +		return inet_sk(sk)->mc_loop;
+> > +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> > +	case AF_INET6:
+> > +		return inet6_sk(sk)->mc_loop;
+> > +	}
+> > +#endif
+> > +	__WARN();
+> > +	return 1;
+> > +}
+> > +
+> 
+> This won't compile with IPV6 disabled.  Switch closing brace is
+> erroneously inside of the ifdef test.
+> 
+
+Oops... Here is a new version:
+
+[PATCH] ip: fix mc_loop checks for tunnels with multicast outer addresses
+
+When we have L3 tunnels with different inner/outer families
+(i.e. IPV4/IPV6) which use a multicast address as the outer tunnel
+destination address, multicast packets will be loopbacked back to the
+sending socket even if IP*_MULTICAST_LOOP is set to disabled.
+
+The mc_loop flag is present in the family specific part of the socket
+(e.g. the IPv4 or IPv4 specific part).  setsockopt sets the inner
+family mc_loop flag. When the packet is pushed through the L3 tunnel
+it will eventually be processed by the outer family which if different
+will check the flag in a different part of the socket then it was set.
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- drivers/net/phy/smsc.c |   21 +++++++++++++++++++--
- 1 files changed, 19 insertions(+), 2 deletions(-)
+ include/net/ip.h      |   16 ++++++++++++++++
+ net/ipv4/ip_output.c  |    2 +-
+ net/ipv6/ip6_output.c |    3 +--
+ 3 files changed, 18 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 5123bb9..ed2644a 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -25,6 +25,7 @@
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 85108cf..d9a0e74 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -326,6 +326,22 @@ static __inline__ void inet_reset_saddr(struct sock *sk)
  
- #define MII_LAN83C185_ISF 29 /* Interrupt Source Flags */
- #define MII_LAN83C185_IM  30 /* Interrupt Mask */
-+#define MII_LAN83C185_CTRL_STATUS 17 /* Mode/Status Register */
+ #endif
  
- #define MII_LAN83C185_ISF_INT1 (1<<1) /* Auto-Negotiation Page Received */
- #define MII_LAN83C185_ISF_INT2 (1<<2) /* Parallel Detection Fault */
-@@ -37,8 +38,10 @@
- #define MII_LAN83C185_ISF_INT_ALL (0x0e)
- 
- #define MII_LAN83C185_ISF_INT_PHYLIB_EVENTS \
--	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4)
-+	(MII_LAN83C185_ISF_INT6 | MII_LAN83C185_ISF_INT4 | \
-+	 MII_LAN83C185_ISF_INT7)
- 
-+#define MII_LAN83C185_EDPWRDOWN	(1 << 13) /* EDPWRDOWN */
- 
- static int smsc_phy_config_intr(struct phy_device *phydev)
- {
-@@ -59,9 +62,23 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
- 
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
-+	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+	if (rc < 0)
-+		return rc;
-+
-+	/* Enable energy detect mode for this SMSC Transceivers */
-+	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+		       rc | MII_LAN83C185_EDPWRDOWN);
-+	if (rc < 0)
-+		return rc;
-+
- 	return smsc_phy_ack_interrupt (phydev);
- }
- 
-+static int lan911x_config_init(struct phy_device *phydev)
++static inline int sk_mc_loop(struct sock *sk)
 +{
-+	return smsc_phy_ack_interrupt(phydev);
++	if (!sk)
++		return 1;
++	switch (sk->sk_family) {
++	case AF_INET:
++		return inet_sk(sk)->mc_loop;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case AF_INET6:
++		return inet6_sk(sk)->mc_loop;
++#endif
++	}
++	__WARN();
++	return 1;
 +}
++
+ extern int	ip_call_ra_chain(struct sk_buff *skb);
  
- static struct phy_driver lan83c185_driver = {
- 	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
-@@ -147,7 +164,7 @@ static struct phy_driver lan911x_int_driver = {
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
--	.config_init	= smsc_phy_config_init,
-+	.config_init	= lan911x_config_init,
+ /*
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index e34013a..3451799 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -254,7 +254,7 @@ int ip_mc_output(struct sk_buff *skb)
+ 	 */
  
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	if (rt->rt_flags&RTCF_MULTICAST) {
+-		if ((!sk || inet_sk(sk)->mc_loop)
++		if (sk_mc_loop(sk)
+ #ifdef CONFIG_IP_MROUTE
+ 		/* Small optimization: do not loopback not local frames,
+ 		   which returned after forwarding; they will be  dropped
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index cd48801..eb6d097 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -121,10 +121,9 @@ static int ip6_output2(struct sk_buff *skb)
+ 	skb->dev = dev;
+ 
+ 	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr)) {
+-		struct ipv6_pinfo* np = skb->sk ? inet6_sk(skb->sk) : NULL;
+ 		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
+ 
+-		if (!(dev->flags & IFF_LOOPBACK) && (!np || np->mc_loop) &&
++		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(skb->sk) &&
+ 		    ((mroute6_socket(dev_net(dev)) &&
+ 		     !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
+ 		     ipv6_chk_mcast_addr(dev, &ipv6_hdr(skb)->daddr,
 -- 
-1.6.0.4
+1.5.6.5
 
