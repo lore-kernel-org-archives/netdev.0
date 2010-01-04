@@ -1,62 +1,706 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
-Date: Mon, 04 Jan 2010 15:50:22 +0100
-Message-ID: <878wcdx6tt.fsf@nemi.mork.no>
-References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
-	<1261604906.609.106.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
+Date: Mon, 04 Jan 2010 16:08:20 +0100
+Message-ID: <4B420464.3040301@trash.net>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr> <1262437456-24476-8-git-send-email-sam@synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:49986 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753459Ab0ADOxM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2010 09:53:12 -0500
-Received: from list by lo.gmane.org with local (Exim 4.50)
-	id 1NRoIM-0005qY-DF
-	for netdev@vger.kernel.org; Mon, 04 Jan 2010 15:52:34 +0100
-Received: from 193.160.199.2 ([193.160.199.2])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2010 15:52:34 +0100
-Received: from bjorn by 193.160.199.2 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2010 15:52:34 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1262437456-24476-8-git-send-email-sam@synack.fr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marcel Holtmann <marcel@holtmann.org> writes:
+Samir Bellabes wrote:
+> +++ b/security/snet/include/snet_netlink.h
+> @@ -0,0 +1,201 @@
+> +#ifndef _SNET_NETLINK_H
+> +#define _SNET_NETLINK_H
+> +
+> +#include <linux/in6.h>
+> +#include "snet_hooks.h"
+> +
+> +extern unsigned int snet_verdict_delay;
 
->> This patch adds the Sony Ericsson J105i (Naite)
->> mobile phone to the cdc_ether device whitelist,
->> enabling access to the modem.
->>=20
->> I would think more SE models of this generation
->> (2009Q3) with builtin HSDPA modules also needs
->> to be added to this list.
->
-> I do prefer if we NOT use the mbm_info details for this since they ar=
-e
-> clearly for mobile broadband cards with FLAG_WWAN.
+As this file defines the userspace interface, it probably shouldn't
+contain declarations of kernel-internal variables (same for
+snet_hooks.h). It would also be better placed in include/linux as
+the other netlink API definitions.
 
-Assuming that these devices can be configured just like the WWAN cards
-by sending commands to the associated ACM* or WDM* interfaces, why woul=
-d
-you treat them differently?  Because they've got a keyboard and a
-display?
+> +
+> +/* commands */
+> +enum {
+> +	SNET_C_UNSPEC,
+> +	SNET_C_VERSION,
+> +	SNET_C_REGISTER,
+> +	SNET_C_UNREGISTER,
+> +	SNET_C_INSERT,
+> +	SNET_C_REMOVE,
+> +	SNET_C_FLUSH,
+> +	SNET_C_LIST,
+> +	SNET_C_VERDICT,
+> +	SNET_C_VERDICT_DELAY,
+> +	__SNET_C_MAX,
+> +};
+> +
+> +#define SNET_C_MAX (__SNET_C_MAX - 1)
+> +
+> +/* attributes */
+> +enum {
+> +	SNET_A_UNSPEC,
+> +	SNET_A_VERSION,		/* (NLA_U32) the snet protocol version	*/
 
-> Since this is a phone where the setup of the connection is done via t=
-he
-> phone. And you just treat this as an Ethernet device and run DHCP, th=
-en
-> please create a se_info or similar with FLAG_ETHER.
+You're using this to check for a "compliant protocol version" below.
+This shouldn't be needed as any protocol changes need to be done
+in a compatible fashion.
 
-Why would anyone want to setup the connection via the phone?  That seem=
-s
-unnecessary cumbersome. I'd prefer such devices to be auto-configured
-just like any other WWAN device.
+> +	SNET_A_SYSCALL,		/* (NLA_U8)  a syscall identifier	*/
 
+We're already using 299 syscalls on x86, so perhaps a larger type
+would be better suited.
 
-Bj=C3=B8rn
+> +	SNET_A_PROTOCOL,	/* (NLA_U8)  a protocol identifier	*/
+> +	SNET_A_INSERTED,
+> +	SNET_A_REMOVED,
+> +	SNET_A_FLUSHED,
+> +	SNET_A_REGISTERED,
+> +	SNET_A_UNREGISTERED,
+> +	SNET_A_VERDICT_ID,
+> +	SNET_A_FAMILY,
+> +	SNET_A_UID,
+> +	SNET_A_PID,
+> +	SNET_A_VERDICT,
+> +	SNET_A_DATA_EXT,
+> +	SNET_A_VERDICT_DELAY,
+> +	SNET_A_VERDICT_DELAYED,
+> +	__SNET_A_MAX,
+> +};
+> +
+> +#define SNET_A_MAX (__SNET_A_MAX - 1)
+> +
+> +#define SNET_GENL_NAME		"SNET"
+> +#define SNET_GENL_VERSION	SNET_VERSION
+> +
+> +int snet_nl_send_event(const u32 verdict_id, const enum snet_syscall syscall,
+> +		       const u8 protocol, const u8 family, void *data,
+> +		       const unsigned int len);
+> +
+> +int snet_nl_list_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
+> +			   u32 flags, u8 protocol, enum snet_syscall syscall);
+> +
+> +void snet_netlink_exit(void);
+> +
+> +struct snet_sock_half {
+> +	struct {
+> +		union {
+> +			__be32 ip;
+> +			struct in6_addr ip6;
+> +		};
+> +	} u3;
+> +	struct {
+> +		__be16 port;
+> +	} u;
+> +};
+> +
+> +struct snet_sock_info {
+> +	struct snet_sock_half src;
+> +	struct snet_sock_half dst;
+> +	int type;
+> +};
+
+How about using a struct sockaddr or encoding the values within
+netlink attributes? That would provide a bit more flexibility in
+case you want to support more protocols in the future.
+
+> +
+> +#endif /* _SNET_NETLINK_H */
+> diff --git a/security/snet/snet_netlink.c b/security/snet/snet_netlink.c
+> new file mode 100644
+> index 0000000..cc21d6c
+> --- /dev/null
+> +++ b/security/snet/snet_netlink.c
+> @@ -0,0 +1,541 @@
+> +#include <linux/sched.h>
+> +#include <net/genetlink.h>
+> +#include <linux/in6.h>
+> +
+> +#include "snet.h"
+> +#include "snet_netlink.h"
+> +#include "snet_verdict.h"
+> +#include "snet_event.h"
+> +#include <snet_utils.h>
+> +
+> +atomic_t snet_nl_seq = ATOMIC_INIT(0);
+> +static uint32_t snet_nl_pid;
+> +static struct genl_family snet_genl_family;
+> +atomic_t snet_num_listeners = ATOMIC_INIT(0);
+
+The num_listeners seem to be redundant as you only support a
+single listener anyways, whose presence is indicated by
+snet_nl_pid != 0.
+
+> +
+> +/*
+> + * snet genetlink
+> + */
+> +int snet_nl_send_event(const u32 verdict_id, const enum snet_syscall syscall,
+> +		       const u8 protocol, const u8 family, void *data,
+> +		       const unsigned int len)
+> +{
+> +	struct sk_buff *skb_rsp;
+> +	void *msg_head;
+> +	int ret = -ENOMEM;
+> +
+> +	skb_rsp = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+> +	if (skb_rsp == NULL)
+> +		return 0;
+
+You could decrease the chance of rcvqueue overflow by using a smaller
+allocation size.
+
+> +
+> +	msg_head = genlmsg_put(skb_rsp, snet_nl_pid,
+> +			       atomic_inc_return(&snet_nl_seq),
+> +			       &snet_genl_family, 0, SNET_C_VERDICT);
+> +	if (msg_head == NULL)
+> +		goto send_event_failure;
+> +
+> +	snet_dbg("verdict_id=0x%x syscall=%s protocol=%u "
+> +		 "family=%u uid=%u pid=%u\n",
+> +		 verdict_id, snet_syscall_name(syscall),
+> +		 protocol, family, current_uid(), current->pid);
+> +
+> +	if (verdict_id) {
+> +		ret = nla_put_u32(skb_rsp, SNET_A_VERDICT_ID, verdict_id);
+> +		if (ret != 0)
+> +			goto send_event_failure;
+> +	}
+> +	ret = nla_put_u8(skb_rsp, SNET_A_SYSCALL, syscall);
+> +	if (ret != 0)
+> +		goto send_event_failure;
+> +	ret = nla_put_u8(skb_rsp, SNET_A_PROTOCOL, protocol);
+> +	if (ret != 0)
+> +		goto send_event_failure;
+> +	ret = nla_put_u8(skb_rsp, SNET_A_FAMILY, family);
+> +	if (ret != 0)
+> +		goto send_event_failure;
+> +	ret = nla_put_u32(skb_rsp, SNET_A_UID, current_uid());
+> +	if (ret != 0)
+> +		goto send_event_failure;
+> +	ret = nla_put_u32(skb_rsp, SNET_A_PID, current->pid);
+> +	if (ret != 0)
+> +		goto send_event_failure;
+> +	ret = nla_put(skb_rsp, SNET_A_DATA_EXT, len, data);
+> +	if (ret != 0)
+> +		goto send_event_failure;
+
+I guess its a matter of taste, but the NLA_PUT macros already take
+care of exception handling and keep the code smaller.
+
+> +
+> +	ret = genlmsg_end(skb_rsp, msg_head);
+> +	if (ret < 0)
+> +		goto send_event_failure;
+> +
+> +	genlmsg_unicast(&init_net, skb_rsp, snet_nl_pid);
+> +	return 0;
+> +
+> +send_event_failure:
+> +	kfree_skb(skb_rsp);
+> +	return 0;
+
+Shouldn't this error be returned to the caller to avoid waiting
+for the timeout to occur (same question for the return value of
+genlmsg_unicast, which can also fail).
+
+> +}
+> +
+> +/*
+> + * snet genetlink helper functions
+> + */
+> +static int snet_nl_response_flag(struct genl_info *info,
+> +				 struct genl_family *family,
+> +				 u8 cmd, int attrtype, u8 set_resp_flag)
+> +{
+> +	int ret = -EINVAL;
+> +	struct sk_buff *skb_rsp = NULL;
+> +	void *msg_head;
+> +
+> +	skb_rsp = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+> +	if (skb_rsp == NULL)
+> +		return -ENOMEM;
+> +	msg_head = genlmsg_put_reply(skb_rsp, info, family, 0, cmd);
+> +	if (msg_head == NULL)
+> +		goto response_failure;
+> +
+> +	/* we put flag only if it is asked */
+> +	if (set_resp_flag) {
+> +		ret = nla_put_flag(skb_rsp, attrtype);
+> +		if (ret != 0)
+> +			goto response_failure;
+> +	}
+> +
+> +	genlmsg_end(skb_rsp, msg_head);
+> +	ret = genlmsg_reply(skb_rsp, info);
+> +	if (ret != 0)
+> +		goto response_failure;
+> +	return 0;
+> +
+> +response_failure:
+> +	kfree_skb(skb_rsp);
+> +	return ret;
+> +}
+> +
+> +/*
+> + * snet genetlink functions
+> + */
+> +
+> +static struct genl_family snet_genl_family = {
+> +	.id		= GENL_ID_GENERATE,
+> +	.hdrsize	= 0,
+> +	.name		= SNET_GENL_NAME,
+> +	.version	= SNET_GENL_VERSION,
+> +	.maxattr	= SNET_A_MAX,
+> +};
+> +
+> +static const struct nla_policy snet_genl_policy[SNET_A_MAX + 1]
+> +__read_mostly = {
+
+You don't need __read_mostly for const. If I recall correctly, it even
+causes an error with certain compiler or linker versions.
+
+> +	[SNET_A_VERSION]		= { .type = NLA_U32 },
+> +	[SNET_A_SYSCALL]		= { .type = NLA_U8 },
+> +	[SNET_A_PROTOCOL]		= { .type = NLA_U8 },
+> +	[SNET_A_INSERTED]		= { .type = NLA_FLAG },
+> +	[SNET_A_REMOVED]		= { .type = NLA_FLAG },
+> +	[SNET_A_FLUSHED]		= { .type = NLA_FLAG },
+> +	[SNET_A_REGISTERED]		= { .type = NLA_FLAG },
+> +	[SNET_A_UNREGISTERED]		= { .type = NLA_FLAG },
+> +	[SNET_A_VERDICT_ID]		= { .type = NLA_U32 },
+> +	[SNET_A_FAMILY]			= { .type = NLA_U8 },
+> +	[SNET_A_UID]			= { .type = NLA_U32 },
+> +	[SNET_A_PID]			= { .type = NLA_U32 },
+> +	[SNET_A_VERDICT]		= { .type = NLA_U8 },
+> +	[SNET_A_DATA_EXT]		= { .type = NLA_BINARY,
+> +					    .len = sizeof(struct snet_sock_info) },
+> +	[SNET_A_VERDICT_DELAY]		= { .type = NLA_U32 },
+> +	[SNET_A_VERDICT_DELAYED]	= { .type = NLA_FLAG },
+> +};
+> +
+> +/**
+> + * snet_nl_version - Handle a VERSION message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Process a user generated VERSION message and respond accordingly.
+> + * Returns zero on success, negative values on failure.
+> + */
+> +static int snet_nl_version(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret = -ENOMEM;
+> +	struct sk_buff *skb_rsp = NULL;
+> +	void *msg_head;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+
+In all these checks for listeners, I think it would make sense to
+provide an error to userspace if it hasn't registered properly,
+perhaps ENOTCONN or something like that.
+
+> +
+> +	skb_rsp = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+> +	if (skb_rsp == NULL)
+> +		return -ENOMEM;
+> +	msg_head = genlmsg_put_reply(skb_rsp, info, &snet_genl_family,
+> +				     0, SNET_C_VERSION);
+> +	if (msg_head == NULL)
+> +		goto version_failure;
+> +
+> +	ret = nla_put_u32(skb_rsp, SNET_A_VERSION, SNET_VERSION);
+> +	if (ret != 0)
+> +		goto version_failure;
+> +
+> +	genlmsg_end(skb_rsp, msg_head);
+> +
+> +	ret = genlmsg_reply(skb_rsp, info);
+> +	if (ret != 0)
+> +		goto version_failure;
+> +	return 0;
+> +
+> +version_failure:
+> +	kfree_skb(skb_rsp);
+> +	return ret;
+> +}
+> +
+> +/**
+> + * snet_nl_register - Handle a REGISTER message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Notify the kernel that an application is listening for events.
+> + * Returns zero on success, negative values on failure.
+> + */
+> +static int snet_nl_register(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret = -EINVAL;
+> +	u32 version = 0;
+> +	u8 set_resp_flag = 0;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (!info->attrs[SNET_A_VERSION])
+> +		return -EINVAL;
+> +	version = nla_get_u32(info->attrs[SNET_A_VERSION]);
+> +
+> +	if (version == SNET_VERSION) {	/* version is compliant */
+> +		atomic_inc(&snet_num_listeners);
+> +		set_resp_flag = 1;
+> +	}
+> +
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_REGISTER, SNET_A_REGISTERED,
+> +				    set_resp_flag);
+
+Is this really needed? A return value of 0 should already tell userspace
+that the command was successful. If it really wants a seperate success
+message, it can use NLM_F_ACK. This will also automatically take care
+of using the proper sequence number, so the snet_nl_seq handling isn't
+required anymore. Same for all similar cases below.
+
+> +
+> +	snet_nl_pid = info->snd_pid;
+> +	snet_dbg("pid=%u num_listeners=%d\n",
+> +		 snet_nl_pid, atomic_read(&snet_num_listeners));
+> +	return ret;
+> +}
+> +
+> +/**
+> + * snet_nl_unregister - Handle a UNREGISTER message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Notify the kernel that the application is no more listening for events.
+> + * Returns zero on success, negative values on failure.
+> + */
+> +static int snet_nl_unregister(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret = -EINVAL;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners))
+> +		atomic_dec(&snet_num_listeners);
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_UNREGISTER, SNET_A_UNREGISTERED, 1);
+> +	snet_dbg("pid=%u num_listeners=%d\n",
+> +		 snet_nl_pid, atomic_read(&snet_num_listeners));
+> +	return ret;
+> +}
+> +
+> +/**
+> + * snet_nl_insert - Handle a INSERT message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Insert a new event to the events' hashtable. Returns zero on success,
+> + * negative values on failure.
+> + */
+> +static int snet_nl_insert(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret_event = -EINVAL, ret = -EINVAL;
+> +	enum snet_syscall syscall;
+> +	u8 protocol;
+> +	u8 set_resp_flag = 0;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+> +
+> +	if (!info->attrs[SNET_A_SYSCALL] || !info->attrs[SNET_A_PROTOCOL])
+> +		return -EINVAL;
+> +
+> +	syscall = nla_get_u8(info->attrs[SNET_A_SYSCALL]);
+> +	protocol = nla_get_u8(info->attrs[SNET_A_PROTOCOL]);
+> +	ret_event = snet_event_insert(syscall, protocol);
+> +	snet_dbg("syscall=%s protocol=%u insert=%s\n",
+> +		 snet_syscall_name(syscall), protocol,
+> +		 (ret_event == 0) ? "success" : "failed");
+> +
+> +	if (ret_event == 0)
+> +		set_resp_flag = 1;
+> +
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_INSERT, SNET_A_INSERTED,
+> +				    set_resp_flag);
+> +	return ret;
+> +}
+> +
+> +/**
+> + * snet_nl_remove - Handle a REMOVE message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Remove a event from the events' hastable. Returns zero on success,
+> + * negative values on failure.
+> + */
+> +static int snet_nl_remove(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret_event = -EINVAL, ret = -EINVAL;
+> +	enum snet_syscall syscall;
+> +	u8 protocol;
+> +	u8 set_resp_flag = 0;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+> +
+> +	if (!info->attrs[SNET_A_SYSCALL] || !info->attrs[SNET_A_PROTOCOL])
+> +		return -EINVAL;
+> +
+> +	syscall = nla_get_u8(info->attrs[SNET_A_SYSCALL]);
+> +	protocol = nla_get_u8(info->attrs[SNET_A_PROTOCOL]);
+> +	ret_event = snet_event_remove(syscall, protocol);
+> +	snet_dbg("syscall=%s protocol=%u remove=%s\n",
+> +		 snet_syscall_name(syscall), protocol,
+> +		 (ret_event == 0) ? "success" : "failed");
+> +
+> +	if (ret_event == 0)
+> +		set_resp_flag = 1;
+> +
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_REMOVE, SNET_A_REMOVED,
+> +				    set_resp_flag);
+> +	return ret;
+> +}
+> +
+> +/**
+> + * snet_nl_flush - Handle a FLUSH message
+> + * @skb: the NETLINK buffer
+> + * @info: the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Remove all events from the hashtable. Returns zero on success,
+> + * negative values on failure.
+> + */
+> +static int snet_nl_flush(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int ret = -EINVAL;
+> +	u8 set_resp_flag = 0;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+> +
+> +	snet_event_flush();
+> +
+> +	set_resp_flag = 1;
+> +
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_FLUSH, SNET_A_FLUSHED,
+> +				    set_resp_flag);
+> +	return ret;
+> +}
+> +
+> +int snet_nl_list_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
+> +			   u32 flags, u8 protocol, enum snet_syscall syscall)
+> +{
+> +	void *hdr;
+> +	int ret = -1;
+> +
+> +	hdr = genlmsg_put(skb, pid, seq, &snet_genl_family, flags, SNET_C_LIST);
+> +	if (hdr == NULL)
+> +		return -1;
+> +
+> +	ret = nla_put_u8(skb, SNET_A_SYSCALL, syscall);
+> +	if (ret != 0)
+> +		goto list_failure;
+> +
+> +	ret = nla_put_u8(skb, SNET_A_PROTOCOL, protocol);
+> +	if (ret != 0)
+> +		goto list_failure;
+> +
+> +	return genlmsg_end(skb, hdr);
+> +
+> +list_failure:
+> +	genlmsg_cancel(skb, hdr);
+> +	return 0;
+> +}
+> +/**
+> + * snet_nl_list - Handle a LIST message
+> + * @skb: the NETLINK buffer
+> + * @cb:
+> + *
+> + * Description:
+> + * Process a user LIST message and respond. Returns zero on success,
+> + * and negative values on error.
+> + */
+> +static int snet_nl_list(struct sk_buff *skb, struct netlink_callback *cb)
+> +{
+> +	unsigned int len = 0;
+> +
+> +	atomic_set(&snet_nl_seq, cb->nlh->nlmsg_seq);
+> +	len = snet_event_fill_info(skb, cb);
+> +	return len;
+> +}
+> +
+> +/**
+> + * snet_nl_verdict - Handle a VERDICT message
+> + * @skb: the NETLINK buffer
+> + * @info the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Provides userspace with a VERDICT message, ie we are sending informations
+> + * with this command. Userspace is sending the appropriate verdict for the
+> + * event. Returns zero on success,and negative values on error.
+> + */
+> +static int snet_nl_verdict(struct sk_buff *skb,
+> +			   struct genl_info *info)
+> +{
+> +	u32 verdict_id;
+> +	enum snet_verdict verdict;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+> +
+> +	if (!info->attrs[SNET_A_VERDICT_ID] || !info->attrs[SNET_A_VERDICT])
+> +		return -EINVAL;
+> +
+> +	verdict_id = nla_get_u32(info->attrs[SNET_A_VERDICT_ID]);
+> +	verdict = nla_get_u8(info->attrs[SNET_A_VERDICT]);
+> +	snet_verdict_set(verdict_id, verdict);
+> +	return 0;
+> +}
+> +
+> +/**
+> + * snet_nl_verdict_delay - Handle a VERDICT_DELAY message
+> + * @skb: the NETLINK buffer
+> + * @info the Generic NETLINK info block
+> + *
+> + * Description:
+> + * Provides userspace with a VERDICT_DELAY message, ie userspace application
+> + * is able to set the value of the timeout for verdicts
+> + * Returns zero on success, and negative values on error.
+> + */
+> +static int snet_nl_verdict_delay(struct sk_buff *skb,
+> +				 struct genl_info *info)
+> +{
+> +	int ret = -EINVAL;
+> +
+> +	atomic_set(&snet_nl_seq, info->snd_seq);
+> +
+> +	if (atomic_read(&snet_num_listeners) <= 0)
+> +		return 0;
+> +
+> +	if (!info->attrs[SNET_A_VERDICT_DELAY])
+> +		return -EINVAL;
+> +
+> +	snet_verdict_delay = nla_get_u32(info->attrs[SNET_A_VERDICT_DELAY]);
+> +	/* FIXME: do something */
+> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+> +				    SNET_C_VERDICT_DELAY, SNET_A_VERDICT_DELAYED,
+> +				    1);
+> +	return ret;
+> +}
+> +
+> +static struct genl_ops snet_genl_ops[] = {
+> +	{
+> +		.cmd		= SNET_C_VERSION,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_version,
+> +		.dumpit		= NULL,
+
+The NULL initializations aren't neccessary.
+
+> +	},
+> +	{
+> +		.cmd		= SNET_C_REGISTER,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_register,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_UNREGISTER,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_unregister,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_INSERT,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_insert,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_REMOVE,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_remove,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_FLUSH,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_flush,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_LIST,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= NULL,
+> +		.dumpit		= snet_nl_list,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_VERDICT,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_verdict,
+> +		.dumpit		= NULL,
+> +	},
+> +	{
+> +		.cmd		= SNET_C_VERDICT_DELAY,
+> +		.flags		= GENL_ADMIN_PERM,
+> +		.policy		= snet_genl_policy,
+> +		.doit		= snet_nl_verdict_delay,
+> +		.dumpit		= NULL,
+> +	},
+> +};
+> +
+> +static __init int snet_netlink_init(void)
+> +{
+> +	return genl_register_family_with_ops(&snet_genl_family,
+> +					     snet_genl_ops,
+> +					     ARRAY_SIZE(snet_genl_ops));
+> +}
+> +
+> +void snet_netlink_exit(void)
+> +{
+> +	genl_unregister_family(&snet_genl_family);
+> +}
+> +
+> +__initcall(snet_netlink_init);
 
