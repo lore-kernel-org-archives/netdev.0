@@ -1,49 +1,68 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Tue, 5 Jan 2010 10:25:33 +1100
-Message-ID: <20100104232533.GD2554@verge.net.au>
-References: <20091229015822.GF10172@verge.net.au>
- <4B41F453.1090802@trash.net>
- <4B420A89.2010907@linux.intel.com>
- <4B420B97.5000302@trash.net>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 15:32:28 -0800
+Message-ID: <4B427A8C.1040902@kernel.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	<m1my0thelq.fsf@fess.ebiederm.org> <4B424305.7050803@kernel.org>	<4B4245FC.7070902@zytor.com> <4B424A5C.7080309@kernel.org> <m1y6kdbpad.fsf@fess.ebiederm.org> <4B425085.5040103@kernel.org> <4B42595E.9010404@zytor.com> <4B425BB7.90501@kernel.org> <4B425EB5.5080504@zytor.com> <4B426550.6000209@kernel.org> <4B4273D4.2080709@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B420B97.5000302@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Suresh Siddha <suresh.b.siddha@intel.com>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:58502 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753756Ab0ADXd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 18:33:58 -0500
+In-Reply-To: <4B4273D4.2080709@zytor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 04, 2010 at 04:39:03PM +0100, Patrick McHardy wrote:
-> Arjan van de Ven wrote:
-> > On 1/4/2010 5:59, Patrick McHardy wrote:
-> > 
-> > [sorry for the late response, just got back from a good holiday, which
-> > means no work email access ;-) ]
-> > 
-> >> Simon Horman wrote:
-> > 
-> >>> I agree with Julian's assessment that your patch shouldn't be
-> >>> necessary, but on the other hand I think that the checks are
-> >>> reasonable. Your original patch made checks of the form of
-> >>> "cmd>  IP_VS_SO_GET_MAX + 1". I have updated this to
-> >>> "cmd>  IP_VS_SO_GET_MAX", as suggested by Julian, as the optmax
-> >>> elements of struct nf_sockopt_ops set a non-inclusive range.
-> >>>
-> >>> http://lkml.indiana.edu/hypermail/linux/kernel/0910.0/00852.html
-> >>>
-> >>> Index: net-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c
-> >>
-> >> As a bugfix, this seems more appropriate for net-2.6.git. Please let
-> >> me know which tree you want me to apply this to.
-> > 
-> > this really ought to go into 2.6.33.....
+On 01/04/2010 03:03 PM, H. Peter Anvin wrote:
+> On 01/04/2010 02:01 PM, Yinghai Lu wrote:
+>>>
+>>>>  /*
+>>>> + * First APIC vector available to drivers: (vectors 0x30-0xee) we
+>>>> + * start at 0x31 to spread out vectors evenly between priority
+>>>> + * levels. (0x80 is the syscall vector)
+>>>> + */
+>>>> +#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
+>>>> +
+>>>
+>>> We really should fix that so we can do +1 here instead of +2; that
+>>> presumably means fixing the logic so we do something smarter than just
+>>> jump over 0x80.
+>>
+>> we already use used_vectors to skip 0x80. so we could change that to +1?
+>>
 > 
-> Thanks, applied and will send it upstream soon.
+> Yes, but the problem is that we *skip* 0x80, which leads to suboptimal
+> allocation on systems with only a handful of vectors.
+> 
+> The easy solution to accomplishing what we want without wasting vector
+> 0x30 is obviously to start allocation at 0x31, but not by artificially
+> limiting the vector space; see the attached patch.
+> 
+> For what it's worth, this code(__assign_irq_vector() in
+> arch/x86/kernel/apic/io_apic.c) has me somewhat confused about the use
+> of the constant 8:
+> 
+> 		vector += 8;
+> 
+> The only justification that I can immediately think of is to try to
+> assign exactly two sources to each priority level (since early APICs
+> started losing interrupts with more than two sources per priority level.)
+> 
+> This is ancient code -- predates not just the git but the bk history --
+> and as such I would assume that that is the motivation.
 
-Thanks
+yes the patch get back 0x30, 0x38, 0x40, 0x48 etc back.
+
+YH
