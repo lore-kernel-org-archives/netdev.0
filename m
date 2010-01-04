@@ -1,72 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] 1/1 net: packet: Keep 802.1Q VLAN tag in packet on SOCK_DGRAM
- socket - resend
-Date: Mon, 04 Jan 2010 17:29:57 +0100
-Message-ID: <4B421785.6090403@trash.net>
-References: <001801ca8d1d$90c68de0$b253a9a0$@name> <4B41F292.8080908@trash.net> <001b01ca8d52$817d07d0$84771770$@name>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: make sure ethernet header is in transmit skb
+Date: Mon, 4 Jan 2010 08:40:49 -0800
+Message-ID: <20100104084049.4d9cd0e4@nehalam>
+References: <20091226140544.5600b3d1@nehalam>
+	<20091226.194418.229766965.davem@davemloft.net>
+	<20091226.201107.35060733.davem@davemloft.net>
+	<20100103.213258.263977883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: uaca@alumni.uv.es, johann.baudy@gnu-log.net,
+Cc: mbreuer@majjas.com, akpm@linux-foundation.org, flyboy@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Milan Dadok <milan@dadok.name>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37530 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346Ab0ADQ37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 11:29:59 -0500
-In-Reply-To: <001b01ca8d52$817d07d0$84771770$@name>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753595Ab0ADQlz@vger.kernel.org>
+In-Reply-To: <20100103.213258.263977883.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Milan Dadok wrote:
-> Patrick McHardy wrote:
-> 
->> Milan Dadok wrote:
->>> Keep 802.1Q VLAN tag on non HW vlan accelerated network card received to SOCK_DGRAM socket.
-> 
->> So not including the link layer header for SOCK_DGRAM sockets
->> seems to be the intended behaviour.
-> 
->>From my point of view i have question
-> Is 802.1Q encapsulation (or another type of encapsulation (IPSec?)) part of link level header or part of data packet?
-> 
-> Currently pseudo-header contains for OUTGOING packet on physical card (vlan10@eth1)
-> a) HW accelarated network card  
-> protocol = ethertype IPv4 (0x0800)
-> tci = vlan number = 10
-> and data starts with 4500 0028
-> 
-> b) non HW accelerated network card 
-> protocol = ethertype 802.1Q (0x8100)
-> tci = 0
-> and data starts with 4500 0028
-> vlan tci and real protocol number (ARP,IPV4,IPV6) of data is lost 
+On Sun, 03 Jan 2010 21:32:58 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-As mentioned in the text I quoted, this is apparently what is
-intended for SOCK_DGRAM packet sockets. The accelerated case is
-inconsistent and vlan_tci should be cleared I guess.
+> From: David Miller <davem@davemloft.net>
+> Date: Sat, 26 Dec 2009 20:11:07 -0800 (PST)
+> 
+> > From: David Miller <davem@davemloft.net>
+> > Date: Sat, 26 Dec 2009 19:44:18 -0800 (PST)
+> > 
+> >> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> >> Date: Sat, 26 Dec 2009 14:05:44 -0800
+> >> 
+> >>> Other drivers may have same problem, I really think this ought
+> >>> to be done at higher level.
+> >> 
+> >> I tend to agree with you, and I thought we had handled all
+> >> cases.  Let's simply make AF_PACKET linearize the link
+> >> level header before sending things out to the transmit path.
+> >> 
+> >> I can work on this if you want.
+> > 
+> > Actually Stephen, I took a look and I can't see how AF_PACKET
+> > can create this situation.
+> > 
+> > It always copies into the linear area of the SKB it allocates
+> > for sendmsg() processing.  Whether the data comes from sendmsg
+> > data or the mmap() ring buffer.
+> 
+> Stephen can you get a backtrace of the code path which triggers
+> this?  I want to fix it at a higher level too, but I can't
+> do that until I know where it actually happens.
 
-I agree that sll_protocol should reflect the network protocol
-in this case however.
-
-> And with more nested vlans it is getting worse
-> for example
-> 
-> vlan1010@vlan10@eth1
-> 
-> a) HW accelarated network card  
-> protocol = ethertype IPv4 (0x8100)
-> tci = 10
-> and data starts with 4500 0028
-> 
-> the 4 bytes of real packet 03f2 0800 is lost too
-> 
-> b) non HW accelarated network card  
-> 4 words of data packet are lost ...
-> 
-> I have no problems with received packets, only outgoing packet have problem.
-> I think that out packet on SOCK_DGRAM sockets MUST BE in same format as in (received) packet on same interface.
-> Can we agree on this?
-
-Yes, agreed.
+Ignore it, the problem is outside the sky2 driver in some other
+place causing corrupt skb's. I never reproduced this (with added BUG_ON
+and WARN_ON), only seen by Michael.
