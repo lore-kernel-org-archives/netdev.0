@@ -1,64 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-current tree with the
- scsi-rc-fixes tree
-Date: Mon, 04 Jan 2010 14:37:05 -0800 (PST)
-Message-ID: <20100104.143705.179916049.davem@davemloft.net>
-References: <20100105085613.0a04d952.sfr@canb.auug.org.au>
+From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
+Subject: [PATCH] 8139too: make PCI device ids constant
+Date: Tue, 05 Jan 2010 00:03:02 +0100
+Message-ID: <4B4273A6.4020102@freemail.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rakesh@chelsio.com,
-	James.Bottomley@HansenPartnership.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100105085613.0a04d952.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Julia Lawall <julia@diku.dk>, cocci@diku.dk
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Network Development <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail02d.mail.t-online.hu ([84.2.42.7]:53624 "EHLO
+	mail02d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753025Ab0ADXDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 18:03:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 5 Jan 2010 08:56:13 +1100
+=46rom: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
 
-> Today's linux-next merge of the net-current tree got a conflict in
-> drivers/scsi/cxgb3i/cxgb3i_offload.c between commit
-> 44214ab474671e1ab5a860954db413bce52f7e04 ("[SCSI] cxgb3i: Fix a login
-> over vlan issue") from the scsi-rc-fixes tree and commit
-> 52ee264bca378835decb827d18b1d90b709ca4c9 ("cxgb3i: Fix a login over vlan
-> issue") from the net-current tree.
-> 
-> These seem to be different version of the same change.  The version in
-> the net-current tree looks wrong - it contains
-> 
-> if (dev->priv_flags && IFF_802_1Q_VLAN)
-> 
-> but it presumably should be
-> 
-> if (dev->priv_flags & IFF_802_1Q_VLAN)
-> 
-> as in the scsi-rc-fixes version.
+The id_table field of the struct pci_driver is constant in <linux/pci.h=
+>
+so it is worth to make pci_device_id also constant.
 
-I checked the following into my tree so it should all work out.
+The semantic match that finds this kind of pattern is as follows:
+(http://coccinelle.lip6.fr/)
 
-commit d3af9dd04f8795dc2761ecfa56632e4d0df0dae2
-Author: David S. Miller <davem@davemloft.net>
-Date:   Mon Jan 4 14:36:40 2010 -0800
+// <smpl>
+@r@
+identifier I1, I2, x;
+@@
+	struct I1 {
+	  ...
+	  const struct I2 *x;
+	  ...
+	};
+@s@
+identifier r.I1, y;
+identifier r.x, E;
+@@
+	struct I1 y =3D {
+	  .x =3D E,
+	};
+@c@
+identifier r.I2;
+identifier s.E;
+@@
+	const struct I2 E[] =3D ... ;
+@depends on !c@
+identifier r.I2;
+identifier s.E;
+@@
++	const
+	struct I2 E[] =3D ...;
+// </smpl>
 
-    cxgb3i: Fix flags test.
-    
-    As noticed by Stephen Rothwell.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+Cc: Julia Lawall <julia@diku.dk>
+Cc: cocci@diku.dk
+---
+diff -u -p a/drivers/net/pci-skeleton.c b/drivers/net/pci-skeleton.c
+--- a/drivers/net/pci-skeleton.c 2009-12-27 12:20:35.000000000 +0100
++++ b/drivers/net/pci-skeleton.c 2010-01-03 21:08:03.000000000 +0100
+@@ -211,7 +211,7 @@ static struct {
+ };
 
-diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.c b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-index 4b8a513..7449d46 100644
---- a/drivers/scsi/cxgb3i/cxgb3i_offload.c
-+++ b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-@@ -1442,7 +1442,7 @@ static int is_cxgb3_dev(struct net_device *dev)
- 	struct cxgb3i_sdev_data *cdata;
- 	struct net_device *ndev = dev;
- 
--	if (dev->priv_flags && IFF_802_1Q_VLAN)
-+	if (dev->priv_flags & IFF_802_1Q_VLAN)
- 		ndev = vlan_dev_real_dev(dev);
- 
- 	write_lock(&cdata_rwlock);
+
+-static struct pci_device_id netdrv_pci_tbl[] =3D {
++static const struct pci_device_id netdrv_pci_tbl[] =3D {
+ 	{0x10ec, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
+ 	{0x10ec, 0x8138, PCI_ANY_ID, PCI_ANY_ID, 0, 0, NETDRV_CB },
+ 	{0x1113, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SMC1211TX },
+diff -u -p a/drivers/net/8139too.c b/drivers/net/8139too.c
+--- a/drivers/net/8139too.c 2009-12-27 12:20:30.000000000 +0100
++++ b/drivers/net/8139too.c 2010-01-03 21:25:05.000000000 +0100
+@@ -231,7 +231,7 @@ static const struct {
+ };
+
+
+-static struct pci_device_id rtl8139_pci_tbl[] =3D {
++static const struct pci_device_id rtl8139_pci_tbl[] =3D {
+ 	{0x10ec, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
+ 	{0x10ec, 0x8138, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
+ 	{0x1113, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
