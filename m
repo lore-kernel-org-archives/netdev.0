@@ -1,128 +1,57 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next 2/3] can: mscan-mpc5xxx: add support for the
- MPC521x processor
-Date: Mon, 04 Jan 2010 13:49:10 +0100
-Message-ID: <4B41E3C6.9060306@grandegger.com>
-References: <1262420274-16586-1-git-send-email-wg@grandegger.com>	<1262420274-16586-2-git-send-email-wg@grandegger.com>	<1262420274-16586-3-git-send-email-wg@grandegger.com>	<20100102135734.GC2239@pengutronix.de> <4B3F6F6B.5070004@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race
+Date: Mon, 04 Jan 2010 14:07:03 +0100
+Message-ID: <4B41E7F7.2030003@gmail.com>
+References: <1262183005-28406-1-git-send-email-fleitner@redhat.com> <20100103.215441.43026709.davem@davemloft.net> <20100104112957.GA2573@sysclose.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core@lists.berlios.de, Netdev@vger.kernel.org,
-	Devicetree-discuss@lists.ozlabs.org, Linuxppc-dev@lists.ozlabs.org,
-	Wolfgang Grandegger <wg@denx.de>
-To: Wolfram Sang <w.sang@pengutronix.de>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@sysclose.org>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4B3F6F6B.5070004@grandegger.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42528 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860Ab0ADNHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 08:07:10 -0500
+In-Reply-To: <20100104112957.GA2573@sysclose.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Wolfram Sang wrote:
->> On Sat, Jan 02, 2010 at 09:17:53AM +0100, Wolfgang Grandegger wrote:
->>> From: Wolfgang Grandegger <wg@denx.de>
->>>
->>> The main differences compared to the MSCAN on the MPC5200 are:
->>>
->>> - More flexibility in choosing the CAN source clock and frequency:
->>>
->>>   Three different clock sources can be selected: "ip", "ref" or "sys".
->>>   For the latter two, a clock divider can be defined as well. If the
->>>   clock source is not specified by the device tree, we first try to
->>>   find an optimal CAN source clock based on the system clock. If that
->>>   is not possible, the reference clock will be used.
->>>
->>> - The behavior of bus-off recovery is configurable:
->>>
->>>   To comply with the usual handling of Socket-CAN bus-off recovery,
->>>   "recovery on request" is selected (instead of automatic recovery).
->>>
->>> Signed-off-by: Wolfgang Grandegger <wg@denx.de>
->>> ---
->>>  drivers/net/can/mscan/Kconfig       |    2 +-
->>>  drivers/net/can/mscan/mpc5xxx_can.c |  234 +++++++++++++++++++++++++++++------
->>>  drivers/net/can/mscan/mscan.c       |   41 +++++--
->>>  drivers/net/can/mscan/mscan.h       |   81 ++++++------
->>>  4 files changed, 271 insertions(+), 87 deletions(-)
->>>
-> [snip]
-> 
->>> +#else /* !CONFIG_PPC_MPC5200 */
->>> +static u32 __devinit mpc52xx_can_get_clock(struct of_device *ofdev,
->>> +					   const char *clock_name,
->>> +					   int *mscan_clksrc)
->>> +{
->>> +	return 0;
->>> +}
->>> +#endif /* CONFIG_PPC_MPC5200 */
->> Hmmm, I don't really like those empty functions. I once used the data-field of
->> struct of_device_id, which carried a function pointer to a specific
->> init-function for the matched device. What do you think about such an approach?
-> 
-> Often the problem is that the function will not compile on the other MPC
-> arch. This is not true here. So, the main reason for the #ifdefs is
-> space saving. Your approach will not help in both cases.
-> 
->>> +
->>> +#ifdef CONFIG_PPC_MPC512x
->>> +struct mpc512x_clockctl {
->>> +	u32 spmr;		/* System PLL Mode Reg */
->>> +	u32 sccr[2];		/* System Clk Ctrl Reg 1 & 2 */
->>> +	u32 scfr1;		/* System Clk Freq Reg 1 */
->>> +	u32 scfr2;		/* System Clk Freq Reg 2 */
->>> +	u32 reserved;
->>> +	u32 bcr;		/* Bread Crumb Reg */
->>> +	u32 pccr[12];		/* PSC Clk Ctrl Reg 0-11 */
->>> +	u32 spccr;		/* SPDIF Clk Ctrl Reg */
->>> +	u32 cccr;		/* CFM Clk Ctrl Reg */
->>> +	u32 dccr;		/* DIU Clk Cnfg Reg */
->>> +	u32 mccr[4];		/* MSCAN Clk Ctrl Reg 1-3 */
->>> +};
->>> +
->>> +static struct of_device_id mpc512x_clock_ids[] __devinitdata = {
->>> +	{ .compatible = "fsl,mpc5121-clock", },
->>> +	{}
->>> +};
->>> +
->>> +static u32  __devinit mpc512x_can_get_clock(struct of_device *ofdev,
->>> +					    const char *clock_name,
->>> +					    int *mscan_clksrc,
->>> +					    ssize_t mscan_addr)
->>> +{
->>> +	struct mpc512x_clockctl __iomem *clockctl;
->>> +	struct device_node *np_clock;
->>> +	struct clk *sys_clk, *ref_clk;
->>> +	int plen, clockidx, clocksrc = -1;
->>> +	u32 sys_freq, val, clockdiv = 1, freq = 0;
->>> +	const u32 *pval;
->>> +
->>> +	np_clock = of_find_matching_node(NULL, mpc512x_clock_ids);
->>> +	if (!np_clock) {
->>> +		dev_err(&ofdev->dev, "couldn't find clock node\n");
->>> +		return -ENODEV;
->>> +	}
->>> +	clockctl = of_iomap(np_clock, 0);
->>> +	if (!clockctl) {
->>> +		dev_err(&ofdev->dev, "couldn't map clock registers\n");
->>> +		return 0;
->>> +	}
->>> +
->>> +	/* Determine the MSCAN device index from the physical address */
->>> +	clockidx = (mscan_addr & 0x80) ? 1 : 0;
->>> +	if (mscan_addr & 0x2000)
->>> +		clockidx += 2;
->> The PSCs use 'cell-index', here we use mscan_addr to derive the index. This is
->> not consistent, but should be IMHO. Now, which is the preferred way? I think
->> I'd go for 'cell-index', as other processors might have mscan_addr shuffled.
->> Also, we could use 'of_iomap' again in the probe_routine.
-> 
-> I understood that "cell-index" is deprecated and it has been removed
-> from many nodes. That's why I used the address to derive the index.
+Le 04/01/2010 12:29, Flavio Leitner a =E9crit :
+=20
+> Then, I tried using call_rcu() to avoid the problem you are saying,
+> but when you stop the reproducer, sk_free() will warn printing=20
+> "optmem leakage.." because the rcu callback didn't run yet.
+>=20
+>=20
 
-So more thoughts: I still find inspecting the regs less error prune than
-defining cell-index and it should work fine for "fsl,mpc5121_mscan".
-Other processor variants might handle a different register layout with
-another appropriate compatibility string. But I could retrieve the
-"regs" property inside mpc512x_can_get_clock() to use of_iomap() as before.
+This is probably because your call_rcu() callback was trying to call so=
+ck_kfree_s() ?
 
-Wolfgang.
+ 		rtnl_unlock();
+		call_rcu(&iml->lock, callback_func)
+
+callback_func()
+{
+	sock_kfree_s(sk, iml, sizeof(*iml));
+}
+
+
+
+Take a look at sock_kfree_s() definition :
+
+void sock_kfree_s(struct sock *sk, void *mem, int size)
+{
+        kfree(mem);
+        atomic_sub(size, &sk->sk_omem_alloc);
+}
+
+
+You can certainly try :
+
+	rtnl_unlock();
+	atomic_sub(sizeof(*iml), sk->sk_omem_alloc);
+	call_rcu(&iml->rcu, kfree);
+
+(immediate sk_omem_alloc handling, but deferred kfree())
 
