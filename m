@@ -1,42 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: regression in socket match caused by "net: Fix RPF to work
- with policy routing"
-Date: Mon, 04 Jan 2010 05:13:42 -0500
-Message-ID: <1262600022.3568.2.camel@bigi>
-References: <20100104100417.GA7699@verge.net.au>
-Reply-To: hadi@cyberus.ca
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] phy: SMSC device Energy Detect power-down mode
+Date: Mon, 04 Jan 2010 11:01:09 +0100
+Message-ID: <4B41BC65.6060301@st.com>
+References: <1260948498-28544-1-git-send-email-peppe.cavallaro@st.com> <20091225.183829.246551084.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDEV list <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f192.google.com ([209.85.221.192]:64857 "EHLO
-	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753261Ab0ADKNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 05:13:45 -0500
-Received: by qyk30 with SMTP id 30so6913062qyk.33
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2010 02:13:44 -0800 (PST)
-In-Reply-To: <20100104100417.GA7699@verge.net.au>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:39092 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751785Ab0ADK3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 05:29:10 -0500
+In-Reply-To: <20091225.183829.246551084.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
+Hi David,
 
-On Mon, 2010-01-04 at 21:04 +1100, Simon Horman wrote:
-> Hi Jamal,
+David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Wed, 16 Dec 2009 08:28:18 +0100
 > 
-> the patch "net: Fix RPF to work with policy routing",
-> which was added between 2.6.32-rc5 and rc6 seems to
-> cause a regression when using the socket match.
+>> SMSC Ethernet Transceivers (LAN88710, LAN8710, LAN8720, LAN8187,
+>> LAN8700, LAN83C185) provide a mechanism to conserve power when
+>> the device is not connected to an active link partner
+>> (Energy Detect Mode).
+>> So this patch enables the Energy Detect power-down mode
+>> for these Transceivers.
+>>
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 > 
-> In particular I'm using IP_TRANSPARENT as detailed
-> in Documentation/networking/tproxy.txt with the following
-> rules:
+> Both phy_read() and phy_write() can return errors, you must check
+> for them.  The rest of this driver does this properly.
 
-Try latest tree - should be resolved.
+I'm resending the patch with this fixed.
+Thanks,
+Peppe
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-cheers,
-jamal
-
+iEYEARECAAYFAktBvGUACgkQ2Xo3j31MSSLA/gCfRSXQ7i/GEiZjPAHV4ZUxoxM5
+YTUAoIPTXQ82zgsjj3q1gSdn1vY0G/dr
+=fJnv
+-----END PGP SIGNATURE-----
