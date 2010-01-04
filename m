@@ -1,69 +1,72 @@
-From: "Berck E. Nash" <flyboy@gmail.com>
-Subject: Re: [PATCH] sky2: Lock transmit queue while disabling device
-Date: Sun, 03 Jan 2010 19:44:28 -0700
-Message-ID: <4B41560C.4040500@gmail.com>
-References: <4B3C8323.1080301@ring3k.org> <4B3CF2C4.5070203@gmail.com> <4B3D38FB.40105@ring3k.org> <20100101183155.GA8519@del.dom.local>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [PATCH -v2] x86: increase NR_IRQS and nr_irqs
+Date: Sun, 3 Jan 2010 19:06:11 -0800
+Message-ID: <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>
+	 <4B398ECD.1080506@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Mike McCormack <mikem@ring3k.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, dhazelton@enter.net, mbreuer@majjas.com
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Yinghai Lu <yinghai@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.211.176]:39698 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784Ab0ADCok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2010 21:44:40 -0500
-Received: by ywh6 with SMTP id 6so14956798ywh.4
-        for <netdev@vger.kernel.org>; Sun, 03 Jan 2010 18:44:39 -0800 (PST)
-In-Reply-To: <20100101183155.GA8519@del.dom.local>
+Received: from mail-yx0-f188.google.com ([209.85.210.188]:49020 "EHLO
+	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072Ab0ADDGM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jan 2010 22:06:12 -0500
+In-Reply-To: <4B398ECD.1080506@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Yes, it seems this lock might be needed around this place, but I'd
-> like to check another idea: if it's not about awakening too early.
-> Berck, could you try this patch?
+On Mon, Dec 28, 2009 at 9:08 PM, Yinghai Lu <yinghai@kernel.org> wrote:
+> have a system with lots of igb and ixgbe, when iov/vf are enabled for
+> them, we hit the limit of 3064.
+>
+> when system have 20 pcie installed, and one card have 2 functions, an=
+d one
+> function need 64 msi-x,
+> =A0may need 20 * 2 * 64 =3D 2560 for msi-x
+> but if iov and vf are enabled
+> =A0may need 20 * 2 * 64 * 3 =3D 7680 for msi-x
+> assume system with 5 ioapic, nr_irqs_gsi will be 120.
+> NR_CPUS =3D 512, and nr_cpu_ids =3D 128
+> will have NR_IRQS =3D 256 + 512 * 64 =3D 33024
+> will have nr_irqs =3D 120 + 8 * 128 + 120 * 64 =3D 8824
+>
+> when SPARSE_IRQ is not set, there is no increase with data
+> when NR_CPUS=3D128, and SPARSE_IRQ is set
+> =A0 text =A0 =A0 =A0 =A0 =A0 =A0data =A0 =A0 bss =A0 =A0 =A0 =A0 =A0 =
+=A0dec =A0 =A0 =A0 =A0 =A0 hex =A0 =A0filename
+> 21837444 =A0 =A0 =A0 =A04216564 12480736 =A0 =A0 =A0 =A038534744 =A0 =
+=A0 =A0 =A024bfe58 vmlinux.before
+> 21837442 =A0 =A0 =A0 =A04216580 12480736 =A0 =A0 =A0 =A038534758 =A0 =
+=A0 =A0 =A024bfe66 vmlinux.after
+> when NR_CPUS=3D4096, and SPARSE_IRQ is set
+> =A0 text =A0 =A0 =A0 =A0 =A0 =A0data =A0 =A0 bss =A0 =A0 =A0 =A0 =A0 =
+=A0dec =A0 =A0 =A0 =A0 =A0 hex =A0 =A0filename
+> 21878619 =A0 =A0 =A0 =A05610244 13415392 =A0 =A0 =A0 =A040904255 =A0 =
+=A0 =A0 =A0270263f vmlinux.before
+> 21878617 =A0 =A0 =A0 =A05610244 13415392 =A0 =A0 =A0 =A040904253 =A0 =
+=A0 =A0 =A0270263d vmlinux.after
+>
+> -v2: update comments to address Ingo's concern
+>
+> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
-Okay, after running with that for several days I have not gotten the
-oops.  That doesn't mean that I won't tomorrow, but I've gotten several
-of these:
+I'm not sure this is the best plan, but may be okay for now.  What
+happens when all of your slots have 6 port 82599 ixgbe adapters in
+them?  They are being made[1], as well as quad port 82576 igb
+adapters, however I'm not fully sure of the SRIOV support of the
+bridges being used on those adapters.
 
-[45621.704025] sky2 eth0: hung mac 124:21 fifo 195 (127:122)
-[45621.704027] sky2 eth0: receiver hang detected
-[45621.708524] sky2 eth0: disabling interface
-[45621.715229] sky2 eth0: enabling interface
-[45624.862111] sky2 eth0: Link is up at 1000 Mbps, full duplex, flow
-control both
-[61024.704036] sky2 eth0: hung mac 124:75 fifo 195 (133:128)
-[61024.704039] sky2 eth0: receiver hang detected
-[61024.708487] sky2 eth0: disabling interface
-[61024.714791] sky2 eth0: enabling interface
-[61027.864288] sky2 eth0: Link is up at 1000 Mbps, full duplex, flow
-control both
+Is it on the table to (re-)design this subsystem to be a little more
+dynamic?  There are probably examples in ppc64 or ia64 directories.
+Every time you suggest a limit I can find a case where it won't be
+enough.
 
-And it hasn't crashed.  The "receiver hang detected" would often (but
-not always) be followed by the oops before.
-
-Berck
-> ---
-> 
->  drivers/net/sky2.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 1c01b96..31f1629 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -1844,7 +1844,7 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
->  	sky2->tx_cons = idx;
->  	smp_mb();
->  
-> -	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
-> +	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4 && netif_device_present(dev))
->  		netif_wake_queue(dev);
->  }
->  
-> 
-
+[1] http://www.hotlavasystems.com/products_10gbe.html
