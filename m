@@ -1,7 +1,7 @@
 From: Yinghai Lu <yinghai@kernel.org>
-Subject: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Sun, 03 Jan 2010 22:56:19 -0800
-Message-ID: <4B419113.1090204@kernel.org>
+Subject: [PATCH 2/2] x86: get more exact nr_irqs
+Date: Sun, 03 Jan 2010 22:58:21 -0800
+Message-ID: <4B41918D.3000605@kernel.org>
 References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	 <4B398ECD.1080506@kernel.org> <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com> <4B415E73.1050801@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -15,45 +15,70 @@ To: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	"H. Peter Anvin" <hpa@zytor.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753201Ab0ADG56@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:34169 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752869Ab0ADG7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 01:59:45 -0500
 In-Reply-To: <4B415E73.1050801@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
+first check with NR_VECTORS - FIRST_EXTERNAL_VECTOR - 0x20
+aka minus exceptions and system vectors.
 
-for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
+NR_CPUS = 512, and nr_cpu_ids = 128
+will have NR_IRQS = 256 + 512 * 64 = 33024
 
-also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
+assume we have 20 intel ixgbe 6 port cards (with sriov and ixgbevf)
+	20 * 6 * 64 * 3 = 23040
+
+first will get:
+	128 * (256 - 64) = 24576
+then with nr_irqs_gsi will get
+	(120 + 8 * 128 + 120 * 256) = 31864
+
+so 24576 will be used for nr_irqs.
+
+24576 * 8 = 196608 bytes will be used for irq_desc_ptrs[]
+
+before this patch:
+    have nr_irqs = 120 + 8 * 128 + 120 * 64 = 8824
+	and irq_desc_ptrs[] is 70592
 
 Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
 ---
- arch/x86/kernel/apic/io_apic.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ arch/x86/kernel/apic/io_apic.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
 Index: linux-2.6/arch/x86/kernel/apic/io_apic.c
 ===================================================================
 --- linux-2.6.orig/arch/x86/kernel/apic/io_apic.c
 +++ linux-2.6/arch/x86/kernel/apic/io_apic.c
-@@ -1162,7 +1162,8 @@ __assign_irq_vector(int irq, struct irq_
- 	 * Also, we've got to be careful not to trash gate
- 	 * 0x80, because int 0x80 is hm, kind of importantish. ;)
+@@ -3833,15 +3833,20 @@ int __init arch_probe_nr_irqs(void)
+ {
+ 	int nr;
+ 
+-	if (nr_irqs > (NR_VECTORS * nr_cpu_ids))
+-		nr_irqs = NR_VECTORS * nr_cpu_ids;
++	/* 0x20 for ipi etc system vectors */
++	nr = NR_VECTORS - FIRST_EXTERNAL_VECTOR - 0x20;
++
++	nr *= nr_cpu_ids;
++
++	if (nr < nr_irqs)
++		nr_irqs = nr;
+ 
+ 	nr = nr_irqs_gsi + 8 * nr_cpu_ids;
+ #if defined(CONFIG_PCI_MSI) || defined(CONFIG_HT_IRQ)
+ 	/*
+ 	 * for MSI and HT dyn irq
  	 */
--	static int current_vector = FIRST_DEVICE_VECTOR, current_offset = 0;
-+	static int current_vector = FIRST_EXTERNAL_VECTOR + 1;
-+	static int current_offset = 0;
- 	unsigned int old_vector;
- 	int cpu, err;
- 	cpumask_var_t tmp_mask;
-@@ -1198,7 +1199,7 @@ next:
- 		if (vector >= first_system_vector) {
- 			/* If out of vectors on large boxen, must share them. */
- 			offset = (offset + 1) % 8;
--			vector = FIRST_DEVICE_VECTOR + offset;
-+			vector = FIRST_EXTERNAL_VECTOR + 1 + offset;
- 		}
- 		if (unlikely(current_vector == vector))
- 			continue;
+-	nr += nr_irqs_gsi * 64;
++	nr += nr_irqs_gsi * 256;
+ #endif
+ 	if (nr < nr_irqs)
+ 		nr_irqs = nr;
