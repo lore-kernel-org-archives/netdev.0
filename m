@@ -1,52 +1,51 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [RESEND PATCH 2/4] stmmac: add the new Header file for stmmac
- platform data
-Date: Mon, 04 Jan 2010 08:22:19 +0100
-Message-ID: <4B41972B.4080002@st.com>
-References: <1260948405-28511-1-git-send-email-peppe.cavallaro@st.com>	<1260948405-28511-2-git-send-email-peppe.cavallaro@st.com> <20091225.182501.39194553.davem@davemloft.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: potential overflow in de4x5.c
+Date: Mon, 4 Jan 2010 00:28:44 -0700
+Message-ID: <20100104072844.GB518@lackof.org>
+References: <20100103101356.GA13023@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:59534 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752096Ab0ADHWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 02:22:24 -0500
-In-Reply-To: <20091225.182501.39194553.davem@davemloft.net>
+Received: from complete.lackof.org ([198.49.126.79]:50387 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753035Ab0ADH2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 02:28:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20100103101356.GA13023@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Hi David,
-
-David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Wed, 16 Dec 2009 08:26:43 +0100
+On Sun, Jan 03, 2010 at 12:13:56PM +0200, Dan Carpenter wrote:
+> Hi I found this using smatch (http://repo.or.cz/w/smatch.git).
 > 
->> +#define __STMMAC_PLATFORM_DATA __FILE__
+> drivers/net/tulip/de4x5.c
+>   4772          lp->active = *p++;
+>   4773          if (MOTO_SROM_BUG) lp->active = 0;
+>   4774          lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
 > 
-> Why is this defining this to __FILE__?  An empty
-> definition is colloquial and sufficient.
-
-OK, I'll fix it as well.
-I'll send the new patch as soon as possible.
-Peppe
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> lp->phy is an array of size 8.
 > 
+> MOTO_SROM_BUG is defined like this. 
+> 
+> #define MOTO_SROM_BUG    (lp->active == 8 && (get_unaligned_le32(dev->dev_addr) & 0x00ffffff) == 0x3e0008)
+> 
+> If lp->active == 8 then we have a buffer overflow.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+Dan,
+When does the overflow actually occur?
 
-iEYEARECAAYFAktBlysACgkQ2Xo3j31MSSKUlgCffZ47WRpimHoj+8EY5UbJRmme
-AzUAoKZ7mV9rMbzSl74wySM14D4oQWdR
-=JTn0
------END PGP SIGNATURE-----
+That code is reseting the value to work around a specific SROM bug:
+   http://lists.ozlabs.org/pipermail/linuxppc-dev/1999-March/001421.html
+
+If you want to make the "input validation" more robust, that would be fine with me.
+But smatch hasn't convinced me there is a bug here.
+
+thanks,
+grant
+
+> 
+> regards,
+> dan carpenter
