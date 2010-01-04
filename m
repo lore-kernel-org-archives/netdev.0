@@ -1,78 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] sky2: Fix oops in sky2_xmit_frame() after TX timeout
-Date: Mon, 4 Jan 2010 19:48:41 +0100
-Message-ID: <20100104184841.GA3106@del.dom.local>
-References: <4B3C8323.1080301@ring3k.org>
- <4B3CF2C4.5070203@gmail.com>
- <4B3D38FB.40105@ring3k.org>
- <20100101183155.GA8519@del.dom.local>
- <4B41560C.4040500@gmail.com>
- <20100104134904.GA18583@ff.dom.local>
- <20100104102637.16734638@nehalam>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] drivers/net/defxx.c: use %pM to show MAC address
+Date: Mon, 4 Jan 2010 18:49:48 +0000 (GMT)
+Message-ID: <alpine.LFD.2.00.1001041833560.13474@eddie.linux-mips.org>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200F63E@mi8nycmail19.Mi8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"Berck E. Nash" <flyboy@gmail.com>,
-	Mike McCormack <mikem@ring3k.org>, netdev@vger.kernel.org,
-	dhazelton@enter.net, mbreuer@majjas.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:48560 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753417Ab0ADSst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 13:48:49 -0500
-Received: by fxm25 with SMTP id 25so9016155fxm.21
-        for <netdev@vger.kernel.org>; Mon, 04 Jan 2010 10:48:47 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100104102637.16734638@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: H Hartley Sweeten <hartleys@visionengravers.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753787Ab0ADStz@vger.kernel.org>
+Received: from localhost.localdomain ([127.0.0.1]:36492 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S1493258Ab0ADSts (ORCPT
+        <rfc822;netdev@vger.kernel.org> + 1 other);
+        Mon, 4 Jan 2010 19:49:48 +0100
+In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200F63E@mi8nycmail19.Mi8.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 04, 2010 at 10:26:37AM -0800, Stephen Hemminger wrote:
-> > -	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
-> > +	/* Wake unless it's detached, and called e.g. from sky2_down() */
-> > +	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4 &&
-> > +	    likely(netif_device_present(dev)))
-> >  		netif_wake_queue(dev);
-> >  }
-> >
+On Wed, 30 Dec 2009, H Hartley Sweeten wrote:
+
+> Use the %pM kernel extension to display the MAC address.
 > 
-> The likely() seems unnecessary noise here. It can't possibly matter that
-> much.
+> The only difference in the output is that the MAC address is
+> shown in the usual colon-separated hex notation.
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-OK. Thanks,
-Jarek P.
-------------> (take 2)
+ Nack.  While I appreciate your effort, the FDDI standard defines opposite 
+bit-ordering for MAC addresses written in the dash-separated and the 
+colon-separated hexadecimal notation, which makes your change invalid, 
+sorry (you'd have to bit-swap them too and that would make addresses 
+counter-intuitive).  Please note that `ifconfig' consistently uses the 
+dash-separated notation for FDDI interfaces too (I haven't checked other 
+tools like those in the "iproute" package; they may be buggy).
 
-During TX timeout procedure dev could be awoken too early, e.g. by
-sky2_complete_tx() called from sky2_down(). Then sky2_xmit_frame()
-can run while buffers are freed causing an oops. This patch fixes it
-by adding netif_device_present() test in sky2_tx_complete().
+ [I'd appreciate to be CCed on patch submissions to code I claim 
+maintenance of too.]
 
-Fixes: http://bugzilla.kernel.org/show_bug.cgi?id=14925
-
-With debugging by: Mike McCormack <mikem@ring3k.org>
-
-Reported-by: Berck E. Nash <flyboy@gmail.com>
-Tested-by: Berck E. Nash <flyboy@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
----
-
- drivers/net/sky2.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 1c01b96..7650f73 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1844,7 +1844,8 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
- 	sky2->tx_cons = idx;
- 	smp_mb();
- 
--	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
-+	/* Wake unless it's detached, and called e.g. from sky2_down() */
-+	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4 && netif_device_present(dev))
- 		netif_wake_queue(dev);
- }
- 
+  Maciej
