@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] ip: fix mc_loop checks for tunnels with
- multicast outer addresses
-Date: Sun, 03 Jan 2010 21:58:55 -0800 (PST)
-Message-ID: <20100103.215855.267134875.davem@davemloft.net>
-References: <200912302201.37735.opurdila@ixiacom.com>
+Subject: Re: [PATCH] broadcom: Fix &&/|| confusion in
+ bcm54xx_adjust_rxrefclk()
+Date: Sun, 03 Jan 2010 22:01:54 -0800 (PST)
+Message-ID: <20100103.220154.226474085.davem@davemloft.net>
+References: <4B3B831A.507@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: opurdila@ixiacom.com
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, mcarlson@broadcom.com
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60555
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43535
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753266Ab0ADF6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:58:51 -0500
-In-Reply-To: <200912302201.37735.opurdila@ixiacom.com>
+	by vger.kernel.org with ESMTP id S1751487Ab0ADGBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:01:51 -0500
+In-Reply-To: <4B3B831A.507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Wed, 30 Dec 2009 22:01:37 +0200
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Wed, 30 Dec 2009 17:43:06 +0100
 
-> +	switch (sk->sk_family) {
-> +	case AF_INET:
-> +		return inet_sk(sk)->mc_loop;
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> +	case AF_INET6:
-> +		return inet6_sk(sk)->mc_loop;
-> +	}
-> +#endif
-> +	__WARN();
-> +	return 1;
-> +}
-> +
+> This always evaluates to true.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-This won't compile with IPV6 disabled.  Switch closing brace is
-erroneously inside of the ifdef test.
-
+Applied, thanks Roel.
