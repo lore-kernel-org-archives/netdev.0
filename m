@@ -1,78 +1,149 @@
-From: Milan Dadok <milan@dadok.name>
-Subject: RE: [PATCH] 1/1 net: packet: Keep 802.1Q VLAN tag in packet on SOCK_DGRAM socket - resend
-Date: Mon, 4 Jan 2010 18:11:17 +0100
-Message-ID: <001c01ca8d60$eda21640$c8e642c0$@name>
-References: <001801ca8d1d$90c68de0$b253a9a0$@name> <4B41F292.8080908@trash.net> <001b01ca8d52$817d07d0$84771770$@name> <4B421785.6090403@trash.net>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH net-next 2/3] can: mscan-mpc5xxx: add support for the
+	MPC521x processor
+Date: Mon, 4 Jan 2010 18:22:09 +0100
+Message-ID: <20100104172209.GC4665@pengutronix.de>
+References: <1262420274-16586-1-git-send-email-wg@grandegger.com> <1262420274-16586-2-git-send-email-wg@grandegger.com> <1262420274-16586-3-git-send-email-wg@grandegger.com> <20100102135734.GC2239@pengutronix.de> <4B3F6F6B.5070004@grandegger.com> <20100104162441.GA4665@pengutronix.de> <4B421CDB.4010902@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <uaca@alumni.uv.es>, <johann.baudy@gnu-log.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: 'Patrick McHardy' <kaber@trash.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="xo44VMWPx7vlQ2+2"
+Cc: Socketcan-core@lists.berlios.de, Netdev@vger.kernel.org,
+	Devicetree-discuss@lists.ozlabs.org, Linuxppc-dev@lists.ozlabs.org,
+	Wolfgang Grandegger <wg@denx.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.kvados.cz ([194.213.53.146]:35285 "EHLO mailgw.kvados.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752392Ab0ADRLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2010 12:11:24 -0500
-In-Reply-To: <4B421785.6090403@trash.net>
-Content-Language: cs
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49204 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860Ab0ADRWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 12:22:12 -0500
+Content-Disposition: inline
+In-Reply-To: <4B421CDB.4010902@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Patrick McHardy wrote:
->> Currently pseudo-header contains for OUTGOING packet on physical card (vlan10@eth1)
->> a) HW accelarated network card  
->> protocol = ethertype IPv4 (0x0800)
->> tci = vlan number = 10
->> and data starts with 4500 0028
->> 
->> b) non HW accelerated network card 
->> protocol = ethertype 802.1Q (0x8100)
->> tci = 0
->> and data starts with 4500 0028
->> vlan tci and real protocol number (ARP,IPV4,IPV6) of data is lost 
->>
->As mentioned in the text I quoted, this is apparently what is
->intended for SOCK_DGRAM packet sockets. The accelerated case is
->inconsistent and vlan_tci should be cleared I guess.
->
->I agree that sll_protocol should reflect the network protocol
->in this case however.
 
-There are probablly two solution SOCK_DGRAM
-A. sll_protocol will have outer network protokol and packet data will have all data after that network protokol field
-	(sll tci will be <>0 only with VLAN acceleration)
-
-B. ssl_protocol will have the most inner network protokol (Ipv4, ARP, Ipv6)
-	and cooked sll will have fields for restore all encapsulation protocols
-	(on eth1 I need to know, if packet is send with vlan 1010 in vlan 10 or as vlan 10 in vlan 1010)
-
->> I have no problems with received packets, only outgoing packet have problem.
->> I think that out packet on SOCK_DGRAM sockets MUST BE in same format as in (received) packet on same interface.
->> Can we agree on this?
->
->Yes, agreed.
-
-Now receive path is working as in solution A (if I remember correctly from my tests)
-- packet data with all 802.1Q tags are send throu SOCK_DGRAM in same format as in SOCK_RAW (expect MAC header)
-  (on HW vlan accel first VLAN tag is in tci field of TPACKET_V2)
-
-Outgoing packet in SOCK_RAW is same as in receive.
-Outgoing packet in SOCK_DGRAM - solution B with invalid sll_protokol
-
-My patch is trying to change behaviour of outgoing packet in SOCK_DGRAM to same format as in received SOCK_DGRAM or SOCK_RAW
-
-PS. There is one BIG question - how can I write kernel filter for filter explicit vlan number,
-which can be used at the same time on HW vlan accelerated card (outer VLAN is in tci) and
-non HW vlan accelerated card (outer VLAN is at the beggining of packet data)
-
-Only solution I found, is to use user level filter and recreate vlan tag from sll tci in userspace before running filter.
-
-Milan
+--xo44VMWPx7vlQ2+2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
 
+> Nice. Just for curiosity, what clock and frequency does it select on
+> your board? It should be listed when the driver is loaded.
+
+Using this simple dts-snipplet
+
+                mscan@1300 {
+                        compatible =3D "fsl,mpc5121-mscan";
+                        cell-index =3D <0>;
+                        interrupts =3D <12 8>;
+                        interrupt-parent =3D < &ipic >;
+                        reg =3D <0x1300 0x80>;
+                };
+
+I get this output:
+
+mpc5xxx_can 80001300.mscan: using 'sys_clk' with frequency divider 25
+mpc5xxx_can 80001300.mscan: MSCAN at 0xe1064300, irq 16, clock 16000000 Hz
+
+mpc5xxx_can 80001380.mscan: using 'sys_clk' with frequency divider 25
+mpc5xxx_can 80001380.mscan: MSCAN at 0xe106c380, irq 17, clock 16000000 Hz
 
 
+> > My idea was: it might be nice to save both #else-branches and the if-cl=
+ause in
+> > probe() which calls this get_clock() or the other (and then another in =
+case
+> > there will be a new mpc5xyz-user in the future). And replace it with so=
+me
+> > mpc5xxx_custom_init() which is taken from of_device_id->data. No big is=
+sue,
+> > though; no show-stopper.
+>=20
+> You mean like in the i2c-mpc driver:
+>=20
+> http://lxr.linux.no/#linux+v2.6.32/drivers/i2c/busses/i2c-mpc.c#L585
 
+Yes.
 
+> No problem, if I handle the regs property inside the mpc5121-specific
+> function. The #ifdef's are for *space saving*. If nobody else than me
+> cares, I will remove them.
 
+I'd be fine with keeping them.
+
+> >>>> +
+> >>>> +#ifdef CONFIG_PPC_MPC512x
+> >>>> +struct mpc512x_clockctl {
+> >>>> +	u32 spmr;		/* System PLL Mode Reg */
+> >>>> +	u32 sccr[2];		/* System Clk Ctrl Reg 1 & 2 */
+> >>>> +	u32 scfr1;		/* System Clk Freq Reg 1 */
+> >>>> +	u32 scfr2;		/* System Clk Freq Reg 2 */
+> >>>> +	u32 reserved;
+> >>>> +	u32 bcr;		/* Bread Crumb Reg */
+> >>>> +	u32 pccr[12];		/* PSC Clk Ctrl Reg 0-11 */
+> >>>> +	u32 spccr;		/* SPDIF Clk Ctrl Reg */
+> >>>> +	u32 cccr;		/* CFM Clk Ctrl Reg */
+> >>>> +	u32 dccr;		/* DIU Clk Cnfg Reg */
+> >>>> +	u32 mccr[4];		/* MSCAN Clk Ctrl Reg 1-3 */
+> >>>> +};
+> >=20
+> > I wonder if this (and the occurence in clock.c) should be factored out =
+and
+> > moved to asm/mpc5xxx.h?
+>=20
+> I was thinking about that as well but mpc5xxx.h seems not (yet) to be a
+> popular place to store mpc5xxx related definitions.
+
+Probably because the mpc5121 is not very popular when it comes to mainline
+activity. (BTW, I also wondered why it is not named mpc512x.h as I'd think
+mpc5xxx is for common stuff between mpc5200 and mpc5121. But this is another
+issue, not relevant here.)
+
+> > One further note: I couldn't spot any code handling Rev1 of the MPC5121=
+? Do you
+> > plan to add such code? If not, we should at least put a comment that it=
+ is
+> > missing. The binding documentation should be updated as well, as you ca=
+n't use
+> > all options on such revisions.
+>=20
+> Do we have rev1 support in the mainline kernel? I also understood that
+> there are only a few devel boards out there with v1 CPUs. If necessary,
+> this could be fixed later on demand. But it should be documented, e.g.
+> in the KConfig and dts bindings doc, of course.
+
+Yup, documenting it will do.
+
+> Did you have a chance to test bus-off recovery? I just realized one
+> issue if the device is stopped while in bus-off.
+
+Sorry, I just did basic transfer-tests as I am currently busy with other
+projects.
+
+> Will come up with a v2 patch soon...
+
+Please do an s/latetr/latter/ before posting it :)
+
+Regards,
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--xo44VMWPx7vlQ2+2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAktCI8EACgkQD27XaX1/VRsiVQCeOY6NPAP1ypafrGuZousfjtRQ
+foQAniRziMi3TzRsydoYZXhEhWQfC94H
+=2lDe
+-----END PGP SIGNATURE-----
+
+--xo44VMWPx7vlQ2+2--
