@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Test off by one in sh_eth_reset()
-Date: Sun, 03 Jan 2010 21:43:44 -0800 (PST)
-Message-ID: <20100103.214344.55841020.davem@davemloft.net>
-References: <4B3B3CF1.6060107@gmail.com>
+Subject: Re: [PATCH 4/5] drivers/net/can: Correct NULL test
+Date: Sun, 03 Jan 2010 21:44:12 -0800 (PST)
+Message-ID: <20100103.214412.50599561.davem@davemloft.net>
+References: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: roel.kluin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51837
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753229Ab0ADFnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:43:40 -0500
-In-Reply-To: <4B3B3CF1.6060107@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753253Ab0ADFoR@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0912272227290.20548@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Wed, 30 Dec 2009 12:43:45 +0100
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 27 Dec 2009 22:27:44 +0100 (CET)
 
-> If no break occurred, cnt reaches 0 after the loop.
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Test the just-allocated value for NULL rather than some other value.
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
