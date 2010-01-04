@@ -1,48 +1,81 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 11:50:23 -0800
-Message-ID: <4B42467F.5040008@zytor.com>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	 <4B398ECD.1080506@kernel.org>	 <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	 <4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	 <m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	 <m1my0thelq.fsf@fess.ebiederm.org>  <4B424305.7050803@kernel.org> <1262634353.2700.49.camel@sbs-t61.sc.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race
+Date: Mon, 04 Jan 2010 20:53:05 +0100
+Message-ID: <4B424721.6040204@gmail.com>
+References: <1262183005-28406-1-git-send-email-fleitner@redhat.com> <20100103.215441.43026709.davem@davemloft.net> <20100104112957.GA2573@sysclose.org> <4B41E7F7.2030003@gmail.com> <20100104185109.GA2706@sysclose.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Suresh Siddha <suresh.b.siddha@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753737Ab0ADTv0@vger.kernel.org>
-In-Reply-To: <1262634353.2700.49.camel@sbs-t61.sc.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@sysclose.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35368 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753011Ab0ADTxM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 14:53:12 -0500
+In-Reply-To: <20100104185109.GA2706@sysclose.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2010 11:45 AM, Suresh Siddha wrote:
-> On Mon, 2010-01-04 at 11:35 -0800, Yinghai Lu wrote:
->> sth like this?
+Le 04/01/2010 19:51, Flavio Leitner a =E9crit :
+> On Mon, Jan 04, 2010 at 02:07:03PM +0100, Eric Dumazet wrote:
+>> Le 04/01/2010 12:29, Flavio Leitner a =E9crit :
+>> =20
+>>> Then, I tried using call_rcu() to avoid the problem you are saying,
+>>> but when you stop the reproducer, sk_free() will warn printing=20
+>>> "optmem leakage.." because the rcu callback didn't run yet.
+>>>
+>>>
 >>
->> Subject: [PATCH 1/2] x86: get back 16 vectors
+>> This is probably because your call_rcu() callback was trying to call=
+ sock_kfree_s() ?
+>=20
+> yes, correct.
+>=20
 >>
->> -v2: according to hpa that we could start from 0x10
->>      according to Eric, we should hold 16 vectors for IRQ MOVE
+>>  		rtnl_unlock();
+>> 		call_rcu(&iml->lock, callback_func)
 >>
->> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+>> callback_func()
+>> {
+>> 	sock_kfree_s(sk, iml, sizeof(*iml));
+>> }
 >>
-> 
-> Yinghai we have to change IRQ_MOVE_CLEANUP_VECTOR to 0x1f or so. From
-> the cpu perspective this vector is documented as illegal, so we need to
-> check if this change will work on the cpu's we have today to get some
-> confidence.
-> 
+>>
+>>
+>> Take a look at sock_kfree_s() definition :
+>>
+>> void sock_kfree_s(struct sock *sk, void *mem, int size)
+>> {
+>>         kfree(mem);
+>>         atomic_sub(size, &sk->sk_omem_alloc);
+>> }
+>>
+>>
+>> You can certainly try :
+>>
+>> 	rtnl_unlock();
+>> 	atomic_sub(sizeof(*iml), sk->sk_omem_alloc);
+>> 	call_rcu(&iml->rcu, kfree);
+>>
+>> (immediate sk_omem_alloc handling, but deferred kfree())
+>=20
+> Ok, below is the new version using call_rcu(). I'm still running my
+> tests here, so I'm planning to resubmit it later if this version is
+> okay with you.
 
-It's documented as reserved, not illegal.  The ability for the APIC to
-generate vectors starting at 0x10 is documented, as is the ability for
-the CPU to receive any vector number as an interrupt -- in fact, the
-legacy BIOS relies on being able to receive interrupts starting at
-vector 0x08.  It causes problems galore, but only at the software level.
+It seems fine, but please make ip_mc_socklist_reclaim() static :
 
-	-hpa
+> +
+> +void ip_mc_socklist_reclaim(struct rcu_head *rp)
+> +{
+> +	struct ip_mc_socklist *iml;
+> +
+> +	iml =3D container_of(rp, struct ip_mc_socklist, rcu);
+> +	/* sk_omem_alloc should have been decreased by the caller*/
+> +	kfree(iml);
+> +}
+> +
+> +
+
+Thanks
