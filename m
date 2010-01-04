@@ -1,127 +1,51 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC 3/9] snet: introduce security/snet, Makefile and Kconfig
- changes
-Date: Mon, 4 Jan 2010 12:39:43 -0600
-Message-ID: <20100104183943.GB6034@us.ibm.com>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
- <1262437456-24476-4-git-send-email-sam@synack.fr>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 10:40:47 -0800
+Message-ID: <4B42362F.7040302@kernel.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org> <m1aawtlu6y.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1262437456-24476-4-git-send-email-sam@synack.fr>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:52926 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751883Ab0ADSmb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 13:42:31 -0500
+In-Reply-To: <m1aawtlu6y.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Samir Bellabes (sam@synack.fr):
-> this patch creates a entry in folder security/ and adds Kconfig and Makefile
+On 01/04/2010 08:18 AM, Eric W. Biederman wrote:
+> Yinghai Lu <yinghai@kernel.org> writes:
 > 
-> Signed-off-by: Samir Bellabes <sam@synack.fr>
-> ---
->  security/Kconfig       |    1 +
->  security/Makefile      |    2 ++
->  security/snet/Kconfig  |   22 ++++++++++++++++++++++
->  security/snet/Makefile |   13 +++++++++++++
->  4 files changed, 38 insertions(+), 0 deletions(-)
->  create mode 100644 security/snet/Kconfig
->  create mode 100644 security/snet/Makefile
+> This patch is wrong.
 > 
-> diff --git a/security/Kconfig b/security/Kconfig
-> index 226b955..48e8fee 100644
-> --- a/security/Kconfig
-> +++ b/security/Kconfig
-> @@ -140,6 +140,7 @@ config LSM_MMAP_MIN_ADDR
->  source security/selinux/Kconfig
->  source security/smack/Kconfig
->  source security/tomoyo/Kconfig
-> +source security/snet/Kconfig
+>> between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
+>>
+>> for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
 > 
->  source security/integrity/ima/Kconfig
+> We can not use any of 0x20 - 0x2f for ioapic irqs.  We need the entire
+> priority level to ensure that the irq move cleanup ipi is of a lower
+> priority.
 > 
-> diff --git a/security/Makefile b/security/Makefile
-> index bb44e35..0870dd0 100644
-> --- a/security/Makefile
-> +++ b/security/Makefile
-> @@ -6,6 +6,7 @@ obj-$(CONFIG_KEYS)			+= keys/
->  subdir-$(CONFIG_SECURITY_SELINUX)	+= selinux
->  subdir-$(CONFIG_SECURITY_SMACK)		+= smack
->  subdir-$(CONFIG_SECURITY_TOMOYO)        += tomoyo
-> +subdir-$(CONFIG_SECURITY_SNET)		+= snet
+>> also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
 > 
->  # always enable default capabilities
->  obj-y		+= commoncap.o min_addr.o
-> @@ -18,6 +19,7 @@ obj-$(CONFIG_SECURITY_SELINUX)		+= selinux/built-in.o
->  obj-$(CONFIG_SECURITY_SMACK)		+= smack/built-in.o
->  obj-$(CONFIG_AUDIT)			+= lsm_audit.o
->  obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/built-in.o
-> +obj-$(CONFIG_SECURITY_SNET)		+= snet/built-in.o
->  obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
-> 
->  # Object integrity file lists
-> diff --git a/security/snet/Kconfig b/security/snet/Kconfig
-> new file mode 100644
-> index 0000000..e1516a1
-> --- /dev/null
-> +++ b/security/snet/Kconfig
-> @@ -0,0 +1,22 @@
-> +#
-> +# snet
-> +#
-> +
-> +config SECURITY_SNET
-> +	bool "snet - Security for NETwork syscalls"
-> +	depends on SECURITY_NETWORK && IPV6
+> There may be a point with 0x30 to 0x3f as I recall when those irqs come through a legacy
+> pic we need to reserve those vectors on all cpus.
 
-Why depend on IPV6?
+ok, I see.
 
-> +	default n
-> +	---help---
-> +	Provide a generic netlink that reports networking's syscalls
-> +	to userspace
+any reason that we can not use 0x40?
 
-And also wait for userspace to decide whether to authorize the
-syscall, right?  'report on' is very different.
+Thanks
 
-> +
-> +config SECURITY_SNET_DEBUG
-> +       bool "snet debug messages"
-> +       depends on SECURITY_SNET
-> +       ---help---
-> +       Only use if you are hacking snet.
-> +
-> +       This toggles the debugging outputs, by setting the parameter snet_debug
-> +       to 0 or 1 at boot.
-> +
-> +       Just say N
-> diff --git a/security/snet/Makefile b/security/snet/Makefile
-> new file mode 100644
-> index 0000000..ee6bd83
-> --- /dev/null
-> +++ b/security/snet/Makefile
-> @@ -0,0 +1,13 @@
-> +#
-> +# Makefile for building the Security Network Events module.
-> +#
-> +obj-$(CONFIG_SECURITY_SNET) :=  snet.o
-> +
-> +snet-y := snet_event.o \
-> +	  snet_netlink.o \
-> +	  snet_verdict.o \
-> +	  snet_hooks.o \
-> +	  snet_core.o \
-> +	  snet_utils.o
-> +
-> +EXTRA_CFLAGS += -Isecurity/snet/include
-> -- 
-> 1.6.3.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yinghai
