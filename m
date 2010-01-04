@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [Resend] rose_loopback_timer sets VC number <=
- ROSE_DEFAULT_MAXVC
-Date: Sun, 03 Jan 2010 21:21:35 -0800 (PST)
-Message-ID: <20100103.212135.58445441.davem@davemloft.net>
-References: <1261063518.20057.22.camel@f6bvp-11>
+Subject: Re: [PATCH 3/7] drivers/net/cxgb3: Use kzalloc for allocating only
+ one thing
+Date: Sun, 03 Jan 2010 21:22:49 -0800 (PST)
+Message-ID: <20100103.212249.91319016.davem@davemloft.net>
+References: <Pine.LNX.4.64.0912190816340.30546@ask.diku.dk>
+	<4B3005D5.9070608@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	ralf@linux-mips.org
-To: f6bvp@free.fr
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1261063518.20057.22.camel@f6bvp-11>
-Sender: linux-hams-owner@vger.kernel.org
+Cc: julia@diku.dk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: divy@chelsio.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753009Ab0ADFWs@vger.kernel.org>
+In-Reply-To: <4B3005D5.9070608@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: bernard pidoux <f6bvp@free.fr>
-Date: Thu, 17 Dec 2009 16:25:18 +0100
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 21 Dec 2009 15:33:41 -0800
 
-> [PATCH] [Resend] rose_loopback_timer sets VC number <= ROSE_DEFAULT_MAXVC
+> Julia Lawall wrote:
+>>
+>> From: Julia Lawall <julia@diku.dk>
+>>
+>> Use kzalloc rather than kcalloc(1,...)
  ...
-> Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
+>> Signed-off-by: Julia Lawall <julia@diku.dk>
+>>
+> 
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, thank you.
+Applied to net-next-2.6, thanks.
