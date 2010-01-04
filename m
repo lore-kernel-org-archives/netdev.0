@@ -1,62 +1,56 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 13:10:54 -0800
-Message-ID: <4B42595E.9010404@zytor.com>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	<m1my0thelq.fsf@fess.ebiederm.org> <4B424305.7050803@kernel.org>	<4B4245FC.7070902@zytor.com> <4B424A5C.7080309@kernel.org> <m1y6kdbpad.fsf@fess.ebiederm.org> <4B425085.5040103@kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] virtio_net: Defer skb allocation in receive path
+Date: Mon, 4 Jan 2010 23:14:54 +0200
+Message-ID: <20100104211454.GB21488@redhat.com>
+References: <1261122090.4148.24.camel@localhost.localdomain> <1261122289.4148.27.camel@localhost.localdomain> <20091224133749.GB2855@amit-x200.redhat.com> <1262640344.18773.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Suresh Siddha <suresh.b.siddha@intel.com>
-To: Yinghai Lu <yinghai@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amit Shah <amit.shah@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:33212 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955Ab0ADVL4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 16:11:56 -0500
-In-Reply-To: <4B425085.5040103@kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7518 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752045Ab0ADVSB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 16:18:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1262640344.18773.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2010 12:33 PM, Yinghai Lu wrote:
-> --- linux-2.6.orig/arch/x86/include/asm/irq_vectors.h
-> +++ linux-2.6/arch/x86/include/asm/irq_vectors.h
-> @@ -30,8 +30,12 @@
->  /*
->   * IDT vectors usable for external interrupt sources start
->   * at 0x20:
-> + * hpa said we can start from 0x1f.
-> + *   0x1f is documented as reserved. The ability for the APIC to
-> + *   generate vectors starting at 0x10 is documented, as is the ability for
-> + *   the CPU to receive any vector number as an interrupt
->   */
-> -#define FIRST_EXTERNAL_VECTOR		0x20
-> +#define FIRST_EXTERNAL_VECTOR		0x1f
->  
+On Mon, Jan 04, 2010 at 01:25:44PM -0800, Shirley Ma wrote:
+> Hello Amit,
+> 
+> Sorry for late response. I am just back from vacation.
+> 
+> On Thu, 2009-12-24 at 19:07 +0530, Amit Shah wrote:
+> > > +static void free_unused_bufs(struct virtnet_info *vi)
+> > > +{
+> > > +     void *buf;
+> > > +     while (vi->num) {
+> > > +             buf = vi->rvq->vq_ops->detach_unused_buf(vi->rvq);
+> > > +             if (!buf)
+> > > +                     continue;
+> > 
+> > Do you mean 'break' here?
+> 
+> Nope, it means break since the buffer usage is not sorted by descriptors
+> from my understanding. It breaks when vi->num reaches 0.
+> 
+> Thanks
+> Shirley
+t
 
-This really isn't a sufficient explanation either.  I know writing
-English prose is very difficult for you, but I'm sorry, you really need
-to start getting better about your comments and commit messages.
+I don't understand.
+detach_unused_buf has:
++               if (!vq->data[i])
++                       continue;
 
-In this case, the text is missing one very important piece of the
-justification: otherwise we have to waste a full 16 vectors in order for
-the IRQ migration interrupt to get its own priority level.  Thus,
-something like this:
+so it will never return NULL unless no more buffers?  breaking here ad
+BUG_ON(vi->num) as Amit suggests seems cleaner than looping forever if
+there's a bug.
 
-*   0x1f is documented as reserved.  However, the ability for the APIC
-*   to generate vectors starting at 0x10 is documented, as is the
-*   ability for the CPU to receive any vector number as an interrupt.
-*   0x1f is used for IRQ_MOVE_CLEANUP_VECTOR since that vector needs
-*   an entire privilege level (16 vectors) all by itself at a higher
-*   priority than any actual device vector.  Thus, by placing it in the
-*   otherwise-unusable 0x10 privilege level, we avoid wasting a full
-*   16-vector block.
-
-	-hpa
+-- 
+MST
