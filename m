@@ -1,67 +1,39 @@
-From: Milan Dadok <milan@dadok.name>
-Subject: RE: [PATCH] 1/1 net: packet: Keep 802.1Q VLAN tag in packet on SOCK_DGRAM socket - resend
-Date: Mon, 4 Jan 2010 16:28:03 +0100
-Message-ID: <001b01ca8d52$817d07d0$84771770$@name>
-References: <001801ca8d1d$90c68de0$b253a9a0$@name> <4B41F292.8080908@trash.net>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
+Date: Mon, 04 Jan 2010 07:34:33 -0800
+Message-ID: <4B420A89.2010907@linux.intel.com>
+References: <20091229015822.GF10172@verge.net.au> <4B41F453.1090802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <uaca@alumni.uv.es>, <johann.baudy@gnu-log.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: 'Patrick McHardy' <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.kvados.cz ([194.213.53.146]:34848 "EHLO mailgw.kvados.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752601Ab0ADP2I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jan 2010 10:28:08 -0500
-In-Reply-To: <4B41F292.8080908@trash.net>
-Content-Language: cs
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4B41F453.1090802@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
+On 1/4/2010 5:59, Patrick McHardy wrote:
 
->Milan Dadok wrote:
->> Keep 802.1Q VLAN tag on non HW vlan accelerated network card received to SOCK_DGRAM socket.
+[sorry for the late response, just got back from a good holiday, which means no work email access ;-) ]
 
->So not including the link layer header for SOCK_DGRAM sockets
->seems to be the intended behaviour.
+> Simon Horman wrote:
 
->From my point of view i have question
-Is 802.1Q encapsulation (or another type of encapsulation (IPSec?)) part of link level header or part of data packet?
+>> I agree with Julian's assessment that your patch shouldn't be
+>> necessary, but on the other hand I think that the checks are
+>> reasonable. Your original patch made checks of the form of
+>> "cmd>  IP_VS_SO_GET_MAX + 1". I have updated this to
+>> "cmd>  IP_VS_SO_GET_MAX", as suggested by Julian, as the optmax
+>> elements of struct nf_sockopt_ops set a non-inclusive range.
+>>
+>> http://lkml.indiana.edu/hypermail/linux/kernel/0910.0/00852.html
+>>
+>> Index: net-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c
+>
+> As a bugfix, this seems more appropriate for net-2.6.git. Please let
+> me know which tree you want me to apply this to.
 
-Currently pseudo-header contains for OUTGOING packet on physical card (vlan10@eth1)
-a) HW accelarated network card  
-protocol = ethertype IPv4 (0x0800)
-tci = vlan number = 10
-and data starts with 4500 0028
-
-b) non HW accelerated network card 
-protocol = ethertype 802.1Q (0x8100)
-tci = 0
-and data starts with 4500 0028
-vlan tci and real protocol number (ARP,IPV4,IPV6) of data is lost 
-
-And with more nested vlans it is getting worse
-for example
-
-vlan1010@vlan10@eth1
-
-a) HW accelarated network card  
-protocol = ethertype IPv4 (0x8100)
-tci = 10
-and data starts with 4500 0028
-
-the 4 bytes of real packet 03f2 0800 is lost too
-
-b) non HW accelarated network card  
-4 words of data packet are lost ...
-
-I have no problems with received packets, only outgoing packet have problem.
-I think that out packet on SOCK_DGRAM sockets MUST BE in same format as in (received) packet on same interface.
-Can we agree on this?
-
-Milan
-
-
-
+this really ought to go into 2.6.33.....
