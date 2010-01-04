@@ -1,43 +1,50 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 11:01:28 -0800
-Message-ID: <4B423B08.3010005@zytor.com>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org> <m1aawtlu6y.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers/net/defxx.c: use %pM to show MAC address
+Date: Mon, 04 Jan 2010 11:03:26 -0800 (PST)
+Message-ID: <20100104.110326.161162074.davem@davemloft.net>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200F63E@mi8nycmail19.Mi8.com>
+	<alpine.LFD.2.00.1001041833560.13474@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753729Ab0ADTDJ@vger.kernel.org>
-In-Reply-To: <m1aawtlu6y.fsf@fess.ebiederm.org>
+Cc: hartleys@visionengravers.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: macro@linux-mips.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753883Ab0ADTD3@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1001041833560.13474@eddie.linux-mips.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/04/2010 08:18 AM, Eric W. Biederman wrote:
-> Yinghai Lu <yinghai@kernel.org> writes:
-> 
-> This patch is wrong.
-> 
->> between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
->>
->> for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
-> 
-> We can not use any of 0x20 - 0x2f for ioapic irqs.  We need the entire
-> priority level to ensure that the irq move cleanup ipi is of a lower
-> priority.
-> 
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Mon, 4 Jan 2010 18:49:48 +0000 (GMT)
 
-Almost makes one want to abuse 0x1f for that.  Although 0x00..0x1f are
-reserved for exceptions, the APICs range down to 0x10, and well, when
-0x1f ends up actually getting used as an exception vector that we
-support, then we can trivially change that.  In the meantime it would
-actually make use of an otherwise-unusable APIC priority level.
+>  Nack.  While I appreciate your effort, the FDDI standard defines opposite 
+> bit-ordering for MAC addresses written in the dash-separated and the 
+> colon-separated hexadecimal notation, which makes your change invalid, 
+> sorry (you'd have to bit-swap them too and that would make addresses 
+> counter-intuitive).  Please note that `ifconfig' consistently uses the 
+> dash-separated notation for FDDI interfaces too (I haven't checked other 
+> tools like those in the "iproute" package; they may be buggy).
 
-	-hpa
+Well:
+
+1) It's a bootup kernel message, we can use whatever format
+   we want.
+
+2) As for consistency's sake, the only other FDDI driver using
+   alloc_fddidev() and friends, skfp, uses yet another format
+   for printing FDDI addresses to the log:
+
+	pr_debug(KERN_INFO "HW-Addr: %02x %02x %02x %02x %02x %02x\n",
+
+   So striving for "consistency" is a bit of a stretch.
+
+   Against a userspace tool's output format?  Even more so...
+
+And I doubt anybody is going to suddenly faint and become
+confused if they see the MAC address in ethernet format.
+
+In fact I'd rather see all of our FDDI drivers use the standard
+ethernet MAC format in visible kernel log messages and save all
+of that object code space that gets taken up by these by-hand
+printk's in these obscure drivers.
