@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2/2] netxen: fix ethtool link test
-Date: Sun, 03 Jan 2010 22:06:48 -0800 (PST)
-Message-ID: <20100103.220648.51694804.davem@davemloft.net>
-References: <1262438719-21095-1-git-send-email-amit.salecha@qlogic.com>
-	<1262438719-21095-3-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH] tcp: for tcp westwood implementation
+Date: Sun, 03 Jan 2010 22:19:49 -0800 (PST)
+Message-ID: <20100103.221949.102909332.davem@davemloft.net>
+References: <20091228084313.GA7302@ff.dom.local>
+	<39ba5b880912280252y208eb8bby7b54289fcd3965af@mail.gmail.com>
+	<20091228123202.GA8435@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	sucheta.chakraborty@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: jhhwang@os.korea.ac.kr, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49726
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752457Ab0ADGGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:06:45 -0500
-In-Reply-To: <1262438719-21095-3-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1752991Ab0ADGTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:19:46 -0500
+In-Reply-To: <20091228123202.GA8435@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Sat,  2 Jan 2010 05:25:19 -0800
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 28 Dec 2009 12:32:02 +0000
 
-> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+> On Mon, Dec 28, 2009 at 07:52:23PM +0900, Jae-Hyun Hwang wrote:
+>> Is it still wrong?
+>> I hope this patch is successful.
 > 
-> o Fix ethtool link test for NX3031 chip.
-> o Remove unused code from phy interrupt callback
-> 
-> Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> I hope too, but it depends on David. This time it's mostly OK, execept
+> "Content-Transfer-Encoding: quoted-printable" instead of "inline", as
+> required by Documentation/SubmittingPatches.
 
-Applied.
-
+Patchwork didn't pick it up either, it definitely needs to be
+resent.
