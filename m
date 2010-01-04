@@ -1,135 +1,103 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14875] New: iproute2: problems with
- "tc filter replace" and u32 hashing filters
-Date: Mon, 4 Jan 2010 12:33:14 -0800
-Message-ID: <20100104123314.a8e1de57.akpm@linux-foundation.org>
-References: <bug-14875-10286@http.bugzilla.kernel.org/>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 12:33:09 -0800
+Message-ID: <4B425085.5040103@kernel.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	<m1my0thelq.fsf@fess.ebiederm.org> <4B424305.7050803@kernel.org>	<4B4245FC.7070902@zytor.com> <4B424A5C.7080309@kernel.org> <m1y6kdbpad.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, stas@crypt.org.ru
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:46451 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752260Ab0ADUdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 15:33:24 -0500
-In-Reply-To: <bug-14875-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Suresh Siddha <suresh.b.siddha@intel.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753764Ab0ADUes@vger.kernel.org>
+In-Reply-To: <m1y6kdbpad.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Subject: [PATCH 1/2] x86: get back 16 vectors
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+-v2: according to hpa that we could start from 0x1f
+-v3: update comments
 
-On Fri, 25 Dec 2009 02:24:00 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14875
-> 
->            Summary: iproute2: problems with "tc filter replace" and u32
->                     hashing filters
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.32
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: stas@crypt.org.ru
->         Regression: No
-> 
-> 
-> I'm using u32 hashing filters and have some issues with "tc filter replace"
-> command.
-> 
-> Issue 1: "tc filter replace" command does not replace filters inside u32 hash
-> tables and works like "tc filter add" command.
-> 
-> Consider the following scenario:
-> 
-> 1. Create qdisc and hashing filters for 10.0.0.0/24 network
-> 
-> tc qdisc add dev eth1 root handle 1: htb
-> tc filter add dev eth1 parent 1:0 pref 10 protocol ip u32
-> tc filter add dev eth1 parent 1:0 pref 10 handle 100: protocol ip \
->     u32 divisor 256
-> tc filter add dev eth1 parent 1:0 pref 10 protocol ip u32 ht 800:: \
->     match ip src 10.0.0.0/24 hashkey mask 0x000000ff at 12 link 100:
-> tc filter add dev eth1 parent 1:0 protocol ip pref 30 u32 \
->     match u32 0x0 0x0 at 0 police mtu 1 action drop
-> 
-> 2. Add filter for IP-address 10.0.0.1
-> 
-> tc class add dev eth1 parent 1: classid 1:3 htb rate 256kibit ceil 256kibit
-> tc qdisc add dev eth1 parent 1:3 handle 3:0 pfifo limit 50
-> tc filter add dev eth1 parent 1: pref 20 u32 ht 100:1: \
->     match ip src 10.0.0.1 flowid 1:3
-> 
-> 3. Try to replace filter for 10.0.0.1 with a new one for 10.0.0.2
-> 
-> tc filter replace dev eth1 parent 1: pref 20 u32 ht 100:1: \
->     match ip src 10.0.0.2 flowid 1:3
-> 
-> I expect that filter for 10.0.0.1 in hash table 100:1: have been replaced by
-> new
-> rule for 10.0.0.2. But "tc -p filter show dev eth1" outputs two filters for
-> both 10.0.0.1 and 10.0.0.2:
-> 
-> filter parent 1: protocol ip pref 10 u32 fh 100:1:800 order 2048 key ht 100
->  bkt 1 flowid 1:3
->   match IP src 10.0.0.1/32
-> filter parent 1: protocol ip pref 10 u32 fh 100:1:801 order 2049 key ht 100
->  bkt 1 flowid 1:3
->   match IP dst 10.0.0.2/32
-> 
-> It means that "tc filter replace" command did not delete the filter 100:1:800, 
-> but attached a new one with handle 100:1:801, just like the "tc filter add" 
-> command. I think it is a wrong behaviour for "replace" command.
-> 
-> 
-> Issue 2: It seems that tc does not provide any syntax to replace a single
-> filter
-> inside the hash table. The command with explicit handle number
-> 
-> tc filter replace dev eth1 parent 1: pref 20 u32 ht 100:1:800 \
->     match ip dst 10.0.0.3 flowid 1:3
-> 
-> gives the error message: "ht" must be a hash table.
-> 
-> The similar command with "handle 100:1:800" prints "What is "handle"?" and
-> usage information.
-> 
-> The following sequence of "del" and "add" commands works:
-> 
-> tc filter del dev eth1 parent 1: pref 10 handle 100:1:800 u32
-> tc filter add dev eth1 parent 1: pref 20 u32 ht 100:1: \
->     match ip src 10.0.0.1 flowid 1:3
-> 
-> Note, that "del" command works only when I use "pref 10" (preference value 
-> for hashing filter 100:), but in "add" command I specified "pref 20"
-> (preference for 100:1:800 filter). This is little counterintuitive, but not
-> very important.
-> 
-> 
-> My suggestions about fixing of "tc filter replace" behaviour.
-> 
-> 1. The "replace" command with "ht" argument
-> 
-> tc filter replace dev eth1 parent 1: pref 20 u32 ht 100:1: match ...
-> 
-> should empty the whole table 100:1: and add a new filter with handle 100:1:800.
-> 
-> 2. The command with "handle" argument
-> 
-> tc filter replace dev eth1 parent 1: pref 20 u32 handle 100:1:800 match ...
-> 
-> should replace only one filter with handle 100:1:800.
-> 
-> Thanks for attention.
+---
+ arch/x86/include/asm/irq_vectors.h |   30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
+Index: linux-2.6/arch/x86/include/asm/irq_vectors.h
+===================================================================
+--- linux-2.6.orig/arch/x86/include/asm/irq_vectors.h
++++ linux-2.6/arch/x86/include/asm/irq_vectors.h
+@@ -30,8 +30,12 @@
+ /*
+  * IDT vectors usable for external interrupt sources start
+  * at 0x20:
++ * hpa said we can start from 0x1f.
++ *   0x1f is documented as reserved. The ability for the APIC to
++ *   generate vectors starting at 0x10 is documented, as is the ability for
++ *   the CPU to receive any vector number as an interrupt
+  */
+-#define FIRST_EXTERNAL_VECTOR		0x20
++#define FIRST_EXTERNAL_VECTOR		0x1f
+ 
+ #ifdef CONFIG_X86_32
+ # define SYSCALL_VECTOR			0x80
+@@ -41,15 +45,19 @@
+ #endif
+ 
+ /*
+- * Reserve the lowest usable priority level 0x20 - 0x2f for triggering
++ * Reserve the lowest usable priority level 0x10 - 0x1f for triggering
+  * cleanup after irq migration.
++ * this overlaps with the reserved range for cpu exceptions so this
++ * will need to be changed to 0x20 - 0x2f if the last cpu exception is
++ * ever allocated.
+  */
++
+ #define IRQ_MOVE_CLEANUP_VECTOR		FIRST_EXTERNAL_VECTOR
+ 
+ /*
+- * Vectors 0x30-0x3f are used for ISA interrupts.
++ * Vectors 0x20-0x2f are used for ISA interrupts.
+  */
+-#define IRQ0_VECTOR			(FIRST_EXTERNAL_VECTOR + 0x10)
++#define IRQ0_VECTOR			(FIRST_EXTERNAL_VECTOR + 1)
+ 
+ #define IRQ1_VECTOR			(IRQ0_VECTOR +  1)
+ #define IRQ2_VECTOR			(IRQ0_VECTOR +  2)
+@@ -68,6 +76,13 @@
+ #define IRQ15_VECTOR			(IRQ0_VECTOR + 15)
+ 
+ /*
++ * First APIC vector available to drivers: (vectors 0x30-0xee) we
++ * start at 0x31 to spread out vectors evenly between priority
++ * levels. (0x80 is the syscall vector)
++ */
++#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
++
++/*
+  * Special IRQ vectors used by the SMP architecture, 0xf0-0xff
+  *
+  *  some of the following vectors are 'rare', they are merged
+@@ -120,13 +135,6 @@
+  */
+ #define MCE_SELF_VECTOR			0xeb
+ 
+-/*
+- * First APIC vector available to drivers: (vectors 0x30-0xee) we
+- * start at 0x31(0x41) to spread out vectors evenly between priority
+- * levels. (0x80 is the syscall vector)
+- */
+-#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
+-
+ #define NR_VECTORS			 256
+ 
+ #define FPU_IRQ				  13
