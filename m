@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/7] drivers/net/cxgb3: Use kzalloc for allocating only
- one thing
-Date: Sun, 03 Jan 2010 21:22:49 -0800 (PST)
-Message-ID: <20100103.212249.91319016.davem@davemloft.net>
-References: <Pine.LNX.4.64.0912190816340.30546@ask.diku.dk>
-	<4B3005D5.9070608@chelsio.com>
+Subject: Re: [patch 1/1] net/sctp/socket.c: squish warning
+Date: Sun, 03 Jan 2010 21:26:14 -0800 (PST)
+Message-ID: <20100103.212614.88335472.davem@davemloft.net>
+References: <200912220025.nBM0P6iQ005122@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia@diku.dk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: divy@chelsio.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753009Ab0ADFWs@vger.kernel.org>
-In-Reply-To: <4B3005D5.9070608@chelsio.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrei@iptel.org, vladislav.yasevich@hp.com
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50288
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752378Ab0ADF0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:26:12 -0500
+In-Reply-To: <200912220025.nBM0P6iQ005122@imap1.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Mon, 21 Dec 2009 15:33:41 -0800
+From: akpm@linux-foundation.org
+Date: Mon, 21 Dec 2009 16:25:06 -0800
 
-> Julia Lawall wrote:
->>
->> From: Julia Lawall <julia@diku.dk>
->>
->> Use kzalloc rather than kcalloc(1,...)
- ...
->> Signed-off-by: Julia Lawall <julia@diku.dk>
->>
+> From: Andrew Morton <akpm@linux-foundation.org>
 > 
-> Acked-by: Divy Le Ray <divy@chelsio.com>
+> net/sctp/socket.c: In function 'sctp_setsockopt_autoclose':
+> net/sctp/socket.c:2090: warning: comparison is always false due to limited range of data type
+> 
+> Cc: Andrei Pelinescu-Onciul <andrei@iptel.org>
+> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Applied to net-next-2.6, thanks.
+Applied.
