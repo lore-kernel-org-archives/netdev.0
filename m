@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/2] proc_fops: convert drivers/isdn/ to seq_file
-Date: Sun, 03 Jan 2010 21:26:48 -0800 (PST)
-Message-ID: <20100103.212648.225653590.davem@davemloft.net>
-References: <200912220025.nBM0PVBC005140@imap1.linux-foundation.org>
+Subject: Re: [PATCH net-next-2.6] can: Speed up CAN frame receiption by
+ using ml_priv
+Date: Sun, 03 Jan 2010 21:31:29 -0800 (PST)
+Message-ID: <20100103.213129.188413356.davem@davemloft.net>
+References: <4B34ECB3.4010607@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org, adobriyan@gmail.com,
-	tilman@imap.cc
-To: akpm@linux-foundation.org
+Cc: urs@isnogud.escape.de, netdev@vger.kernel.org,
+	socketcan-core@lists.berlios.de
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50299
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40696
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752951Ab0ADF0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:26:44 -0500
-In-Reply-To: <200912220025.nBM0PVBC005140@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1751770Ab0ADFbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 00:31:25 -0500
+In-Reply-To: <4B34ECB3.4010607@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Mon, 21 Dec 2009 16:25:31 -0800
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Fri, 25 Dec 2009 17:47:47 +0100
 
-> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Hi Urs,
 > 
-> Convert code away from ->read_proc/->write_proc interfaces.  Switch to
-> proc_create()/proc_create_data() which make addition of proc entries
-> reliable wrt NULL ->proc_fops, NULL ->data and so on.
+> this patch removes the hlist that contains the CAN receiver filter lists.
+> It uses the 'midlayer private' pointer ml_priv and links the filters directly
+> to the CAN netdevice, which allows to omit the walk through the complete CAN
+> devices hlist for each received CAN frame.
 > 
-> Problem with ->read_proc et al is described here commit
-> 786d7e1612f0b0adb6046f19b906609e4fe8b1ba "Fix rmmod/read/write races in
-> /proc entries"
+> This patch is tested and does not remove any locking.
 > 
-> [akpm@linux-foundation.org: CONFIG_PROC_FS=n build fix]
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> Cc: Karsten Keil <isdn@linux-pingi.de>
-> Cc: Tilman Schmidt <tilman@imap.cc>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-Tilman has requested some fixes to the documentation text.
-So I'm waiting for a fixed up version.
+Applied to net-next-2.6
