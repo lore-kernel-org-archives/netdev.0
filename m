@@ -1,50 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/defxx.c: use %pM to show MAC address
-Date: Mon, 04 Jan 2010 11:03:26 -0800 (PST)
-Message-ID: <20100104.110326.161162074.davem@davemloft.net>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200F63E@mi8nycmail19.Mi8.com>
-	<alpine.LFD.2.00.1001041833560.13474@eddie.linux-mips.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 11:04:46 -0800
+Message-ID: <m1vdfhhesx.fsf@fess.ebiederm.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>
+	<4B398ECD.1080506@kernel.org>
+	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
+	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>
+	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B42362F.7040302@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hartleys@visionengravers.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: macro@linux-mips.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753883Ab0ADTD3@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1001041833560.13474@eddie.linux-mips.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:57051 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753643Ab0ADTE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 14:04:56 -0500
+In-Reply-To: <4B42362F.7040302@kernel.org> (Yinghai Lu's message of "Mon\, 04 Jan 2010 10\:40\:47 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Date: Mon, 4 Jan 2010 18:49:48 +0000 (GMT)
+Yinghai Lu <yinghai@kernel.org> writes:
 
->  Nack.  While I appreciate your effort, the FDDI standard defines opposite 
-> bit-ordering for MAC addresses written in the dash-separated and the 
-> colon-separated hexadecimal notation, which makes your change invalid, 
-> sorry (you'd have to bit-swap them too and that would make addresses 
-> counter-intuitive).  Please note that `ifconfig' consistently uses the 
-> dash-separated notation for FDDI interfaces too (I haven't checked other 
-> tools like those in the "iproute" package; they may be buggy).
+> On 01/04/2010 08:18 AM, Eric W. Biederman wrote:
+>> Yinghai Lu <yinghai@kernel.org> writes:
+>> 
+>> This patch is wrong.
+>> 
+>>> between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
+>>>
+>>> for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
+>> 
+>> We can not use any of 0x20 - 0x2f for ioapic irqs.  We need the entire
+>> priority level to ensure that the irq move cleanup ipi is of a lower
+>> priority.
+>> 
+>>> also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
+>> 
+>> There may be a point with 0x30 to 0x3f as I recall when those irqs come through a legacy
+>> pic we need to reserve those vectors on all cpus.
+>
+> ok, I see.
+>
+> any reason that we can not use 0x40?
 
-Well:
+Not that I now of.  Reading the comment it looks like it was only
+skipped so that the initial assignment of vectors would be.
 
-1) It's a bootup kernel message, we can use whatever format
-   we want.
+0x31, 0x41, 0x51, 0x61, 0x71, 0x81, 0x91, 0xa1, 0xb1, 0xc1, 0xd1, 0xe1
+Instead of.
+0x30, 0x40, 0x50, 0x60, 0x70, 0x90, 0xa0, 0xb0, 0xc0, 0xc0, 0xe0
 
-2) As for consistency's sake, the only other FDDI driver using
-   alloc_fddidev() and friends, skfp, uses yet another format
-   for printing FDDI addresses to the log:
+Which doesn't seem to be the worst notion, but at the point we are looking
+for every vector we can get it does seem to be problematic.
 
-	pr_debug(KERN_INFO "HW-Addr: %02x %02x %02x %02x %02x %02x\n",
-
-   So striving for "consistency" is a bit of a stretch.
-
-   Against a userspace tool's output format?  Even more so...
-
-And I doubt anybody is going to suddenly faint and become
-confused if they see the MAC address in ethernet format.
-
-In fact I'd rather see all of our FDDI drivers use the standard
-ethernet MAC format in visible kernel log messages and save all
-of that object code space that gets taken up by these by-hand
-printk's in these obscure drivers.
+Eric
