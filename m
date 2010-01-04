@@ -1,113 +1,141 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race
-Date: Mon, 4 Jan 2010 09:29:58 -0200
-Message-ID: <20100104112957.GA2573@sysclose.org>
-References: <1262183005-28406-1-git-send-email-fleitner@redhat.com>
- <20100103.215441.43026709.davem@davemloft.net>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.33-rc1  v3] pcnet_cs: add cis of KTI PE520
+ pcmcia network card
+Date: Mon, 4 Jan 2010 20:34:17 +0900
+Message-ID: <20100104203417.570958fe.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:57726 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738Ab0ADLam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 06:30:42 -0500
-Received: from homiemail-a17.g.dreamhost.com (caiajhbdcagg.dreamhost.com [208.97.132.66])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 0E81717DA03
-	for <netdev@vger.kernel.org>; Mon,  4 Jan 2010 03:30:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100103.215441.43026709.davem@davemloft.net>
+Received: from userg507.nifty.com ([202.248.238.87]:7567 "EHLO
+	userg507.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964Ab0ADLet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 06:34:49 -0500
+Received: from localhost.localdomain (eaoska170095.adsl.ppp.infoweb.ne.jp [219.116.19.95])by userg507.nifty.com with SMTP id o04BYZeK021309
+	for <netdev@vger.kernel.org>; Mon, 4 Jan 2010 20:34:35 +0900
+In-Reply-To: <20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 03, 2010 at 09:54:41PM -0800, David Miller wrote:
-> From: Flavio Leitner <fleitner@redhat.com>
-> Date: Wed, 30 Dec 2009 12:23:25 -0200
-> 
-> > Almost all igmp functions accessing inet->mc_list are protected by
-> > rtnl_lock(), but there is one exception which is ip_mc_sf_allow(),
-> > so there is a chance of either ip_mc_drop_socket or ip_mc_leave_group
-> > remove an entry while ip_mc_sf_allow is running causing a crash.
-> > 
-> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> 
-> Have you triggered this in practice or is this due purely
-> to code inspection?
 
-I had to modify the code to reproduce introducing a delay in 
-ip_mc_sf_allow(), but a customer is able to reproduce it when
-avahi-daemon runs at boot time.
+pcnet_cs,serial_cs:
 
-CPU: Intel(R) Xeon(R) CPU X5570  @ 2.93GHz stepping 05
+add cis of KTI PE520 pcmcia network card,
+and serial card(Sierra Wireless AC860).
 
-BUG: unable to handle kernel paging request at virtual address 005e0005
-printing eip:
-c05f2194
-*pde = 00000000
-Oops: 0000 [#1]
-SMP
-last sysfs file: /devices/pci0000:7f/0000:7f:06.0/irq
-Modules linked in: nfs lockd fscache nfs_acl autofs4 hidp l2cap
-bluetooth sunrpc 8021q ipv6 xfrm_nalgo crypto_api dm_multipath scsi_dh
-video hwmon backlight sbs i2c_ec i2c_core but ton battery asus_acpi ac
-parport_pc lp parport sg e1000(U) pcspkr dm_raid45 dm_message dm_
-region_hash dm_mem_cache dm_snapshot dm_zero dm_mirror dm_log dm_mod
-hfcldd(FU) sd_mod scs i_mod hfcldd_conf(U) hraslog_link(U) ext3 jbd
-uhci_hcd ohci_hcd ehci_hcd
-CPU:    0
-EIP:    0060:[<c05f2194>]    Tainted: GF     VLI
-EFLAGS: 00210202   (2.6.18-128.el5PAE #1)
-EIP is at ip_mc_sf_allow+0x20/0x79
-eax: 005e0001   ebx: f6cb9100   ecx: 00000008   edx: fb0000e0
-esi: 5acb10ac   edi: f63414e9   ebp: f7ae3200   esp: c0732ea4
-ds: 007b   es: 007b   ss: 0068
-Process xlinpack_xeon32 (pid: 5194, ti=c0732000 task=cfd2daa0
-task.ti=f5d30000)
-Stack: f6cb9108 f6cb9100 c05ea1eb 00000008 d03e9034 5acb10ac fb0000e0 e9140000
-      00000008 e91414e9 f7ae3200 c06ab4a8 00000000 00000000 c05ce1d5 f7ae3200
-      00000000 f7ae3200 d03e9020 c05ce042 f7ae3200 c07d6988 c06ab560 00000008
-Call Trace:
-[<c05ea1eb>] udp_rcv+0x1f4/0x514
-[<c05ce1d5>] ip_local_deliver+0x159/0x204
-[<c05ce042>] ip_rcv+0x46f/0x4a9
-[<c05b397d>] netif_receive_skb+0x30c/0x330
-[<f8924be0>] e1000_clean_rx_irq+0xf0/0x3e0 [e1000]
-[<f8924af0>] e1000_clean_rx_irq+0x0/0x3e0 [e1000]
-[<f8922bd4>] e1000_clean+0xf4/0x340 [e1000]
-[<c04074d6>] do_IRQ+0xb5/0xc3
-[<c05b52d4>] net_rx_action+0x92/0x175
-[<c042900f>] __do_softirq+0x87/0x114
-[<c04073d7>] do_softirq+0x52/0x9c
-[<c04059d7>] apic_timer_interrupt+0x1f/0x24
-=======================
-Code: 81 c4 8c 00 00 00 5b 5e 5f 5d c3 56 89 ce 53 89 c3 8b 4c 24 0c 89
-d0 25 f0 00 00 00
-3d e0 00 00 00 75 59 8b 83 84 01 00 00 eb 0c <39> 50 04 75 05 39 48 0c
-74 08 8b 00 85 c0 75 f0 eb 3f 8b 50 14
-EIP: [<c05f2194>] ip_mc_sf_allow+0x20/0x79 SS:ESP 0068:c0732ea4
-<0>Kernel panic - not syncing: Fatal exception in interrupt
---- snip ---
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
+---
 
-> That new synchronize_rcu() is very expensive and will decrease
-> the rate at which groups can be joined and left, _especially_
-> on high cpu count machines.
+ drivers/net/pcmcia/pcnet_cs.c |    4 ++--
+ drivers/serial/serial_cs.c    |   15 ++++++++++++++-
+ firmware/Makefile             |    3 ++-
+ firmware/WHENCE               |    1 +
+ firmware/cis/PE520.cis.ihex   |    9 +++++++++
+ 5 files changed, 28 insertions(+), 4 deletions(-)
 
-Well, I tried using read-write locking but then the packet reception
-was slower while another task was playing with multicasting groups.
-
-Then, I tried using call_rcu() to avoid the problem you are saying,
-but when you stop the reproducer, sk_free() will warn printing 
-"optmem leakage.." because the rcu callback didn't run yet.
-
-
-> I do not think it is therefore a suitable problem to this
-> race, if it does in fact exist.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-Flavio
+diff -uprN linux-2.6.33-rc1.orig/drivers/net/pcmcia/pcnet_cs.c linux-2.6.33-rc1/drivers/net/pcmcia/pcnet_cs.c
+--- linux-2.6.33-rc1.orig/drivers/net/pcmcia/pcnet_cs.c	2009-12-20 18:17:04.000000000 +0900
++++ linux-2.6.33-rc1/drivers/net/pcmcia/pcnet_cs.c	2009-12-20 18:30:54.000000000 +0900
+@@ -1741,7 +1741,7 @@ static struct pcmcia_device_id pcnet_ids
+ 	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(0, "NSC MF LAN/Modem", 0x58fc6056, "cis/DP83903.cis"),
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(0, 0x0175, 0x0000, "cis/DP83903.cis"),
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "cis/LA-PCM.cis"),
+-	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "PE520.cis"),
++	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "cis/PE520.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "cis/NE2K.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "cis/PE-200.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "cis/tamarack.cis"),
+@@ -1754,7 +1754,7 @@ MODULE_DEVICE_TABLE(pcmcia, pcnet_ids);
+ MODULE_FIRMWARE("cis/PCMLM28.cis");
+ MODULE_FIRMWARE("cis/DP83903.cis");
+ MODULE_FIRMWARE("cis/LA-PCM.cis");
+-MODULE_FIRMWARE("PE520.cis");
++MODULE_FIRMWARE("cis/PE520.cis");
+ MODULE_FIRMWARE("cis/NE2K.cis");
+ MODULE_FIRMWARE("cis/PE-200.cis");
+ MODULE_FIRMWARE("cis/tamarack.cis");
+diff -uprN linux-2.6.33-rc1.orig/drivers/serial/serial_cs.c linux-2.6.33-rc1/drivers/serial/serial_cs.c
+--- linux-2.6.33-rc1.orig/drivers/serial/serial_cs.c	2009-12-20 18:17:05.000000000 +0900
++++ linux-2.6.33-rc1/drivers/serial/serial_cs.c	2010-01-04 20:13:52.000000000 +0900
+@@ -819,6 +819,7 @@ static struct pcmcia_device_id serial_id
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x0035, "cis/3CXEM556.cis"),
+ 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(1, 0x0101, 0x003d, "cis/3CXEM556.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC850", 0xd85f6206, 0x42a2c018, "cis/SW_8xx_SER.cis"), /* Sierra Wireless AC850 3G Network Adapter R1 */
++	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC860", 0xd85f6206, 0x698f93db, "cis/SW_8xx_SER.cis"), /* Sierra Wireless AC860 3G Network Adapter R1 */
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("Sierra Wireless", "AC710/AC750", 0xd85f6206, 0x761b11e0, "cis/SW_7xx_SER.cis"),  /* Sierra Wireless AC710/AC750 GPRS Network Adapter R1 */
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0x0192, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- pre update */
+ 	PCMCIA_DEVICE_CIS_MANF_CARD(0x013f, 0xa555, "cis/SW_555_SER.cis"),  /* Sierra Aircard 555 CDMA 1xrtt Modem -- post update */
+@@ -827,7 +828,7 @@ static struct pcmcia_device_id serial_id
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("ADVANTECH", "COMpad-32/85B-4", 0x96913a85, 0xcec8f102, "cis/COMpad4.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID123("ADVANTECH", "COMpad-32/85", "1.0", 0x96913a85, 0x8fbe92ae, 0x0877b627, "cis/COMpad2.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID2("RS-COM 2P", 0xad20b156, "cis/RS-COM-2P.cis"),
+-	PCMCIA_DEVICE_CIS_MANF_CARD(0x0013, 0x0000, "GLOBETROTTER.cis"),
++	PCMCIA_DEVICE_CIS_MANF_CARD(0x0013, 0x0000, "cis/GLOBETROTTER.cis"),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL100  1.00.",0x19ca78af,0xf964f42b),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL100",0x19ca78af,0x71d98e83),
+ 	PCMCIA_DEVICE_PROD_ID12("ELAN DIGITAL SYSTEMS LTD, c1997.","SERIAL CARD: SL232  1.00.",0x19ca78af,0x69fb7490),
+@@ -861,6 +862,18 @@ static struct pcmcia_device_id serial_id
+ };
+ MODULE_DEVICE_TABLE(pcmcia, serial_ids);
+ 
++MODULE_FIRMWARE("cis/PCMLM28.cis");
++MODULE_FIRMWARE("cis/DP83903.cis");
++MODULE_FIRMWARE("cis/3CCFEM556.cis");
++MODULE_FIRMWARE("cis/3CXEM556.cis");
++MODULE_FIRMWARE("cis/SW_8xx_SER.cis");
++MODULE_FIRMWARE("cis/SW_7xx_SER.cis");
++MODULE_FIRMWARE("cis/SW_555_SER.cis");
++MODULE_FIRMWARE("cis/MT5634ZLX.cis");
++MODULE_FIRMWARE("cis/COMpad2.cis");
++MODULE_FIRMWARE("cis/COMpad4.cis");
++MODULE_FIRMWARE("cis/RS-COM-2P.cis");
++
+ static struct pcmcia_driver serial_cs_driver = {
+ 	.owner		= THIS_MODULE,
+ 	.drv		= {
+diff -uprN linux-2.6.33-rc1.orig/firmware/Makefile linux-2.6.33-rc1/firmware/Makefile
+--- linux-2.6.33-rc1.orig/firmware/Makefile	2009-12-20 18:17:07.000000000 +0900
++++ linux-2.6.33-rc1/firmware/Makefile	2009-12-23 16:32:28.000000000 +0900
+@@ -69,7 +69,8 @@ fw-shipped-$(CONFIG_E100) += e100/d101m_
+ fw-shipped-$(CONFIG_MYRI_SBUS) += myricom/lanai.bin
+ fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis cis/PCMLM28.cis \
+ 				     cis/DP83903.cis cis/NE2K.cis \
+-				     cis/tamarack.cis cis/PE-200.cis
++				     cis/tamarack.cis cis/PE-200.cis \
++				     cis/PE520.cis
+ fw-shipped-$(CONFIG_PCMCIA_3C589) += cis/3CXEM556.cis
+ fw-shipped-$(CONFIG_PCMCIA_3C574) += cis/3CCFEM556.cis
+ fw-shipped-$(CONFIG_SERIAL_8250_CS) += cis/MT5634ZLX.cis cis/RS-COM-2P.cis \
+diff -uprN linux-2.6.33-rc1.orig/firmware/WHENCE linux-2.6.33-rc1/firmware/WHENCE
+--- linux-2.6.33-rc1.orig/firmware/WHENCE	2009-12-20 18:17:07.000000000 +0900
++++ linux-2.6.33-rc1/firmware/WHENCE	2009-12-23 16:33:06.000000000 +0900
+@@ -601,6 +601,7 @@ File: cis/LA-PCM.cis
+       cis/NE2K.cis
+       cis/tamarack.cis
+       cis/PE-200.cis
++      cis/PE520.cis
+ 
+ Licence: GPL
+ 
+diff -uprN linux-2.6.33-rc1.orig/firmware/cis/PE520.cis.ihex linux-2.6.33-rc1/firmware/cis/PE520.cis.ihex
+--- linux-2.6.33-rc1.orig/firmware/cis/PE520.cis.ihex	1970-01-01 09:00:00.000000000 +0900
++++ linux-2.6.33-rc1/firmware/cis/PE520.cis.ihex	2009-12-23 16:43:17.000000000 +0900
+@@ -0,0 +1,9 @@
++:1000000001030000FF152304014B544900504535FE
++:10001000323020504C55530050434D434941204508
++:10002000746865726E65740000FF20046101100041
++:10003000210206001A050101D00F0B1B09C101198D
++:0A00400001556530FFFF1400FF00BA
++:00000001FF
++#
++# Replacement CIS for PE520 ethernet card
++#
