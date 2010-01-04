@@ -1,76 +1,58 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH -v2] x86: increase NR_IRQS and nr_irqs
-Date: Sun, 03 Jan 2010 19:20:19 -0800
-Message-ID: <4B415E73.1050801@kernel.org>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	 <4B398ECD.1080506@kernel.org> <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
+From: "Liu Dave-R63238" <r63238@freescale.com>
+Subject: RE: ucc_geth: Fix the wrong the Rx/Tx FIFO size
+Date: Mon, 4 Jan 2010 11:42:30 +0800
+Message-ID: <D7CCA83BB0796C49BC0BB53B6AB120898BDC0E@zch01exm21.fsl.freescale.net>
+References: <1259309803-5474-1-git-send-email-daveliu@freescale.com>
+	<20091209230015.GA13654@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:35803 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752834Ab0ADDVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jan 2010 22:21:45 -0500
-In-Reply-To: <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, avorontsov@ru.mvista.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20091209230015.GA13654@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On 01/03/2010 07:06 PM, Jesse Brandeburg wrote:
-> On Mon, Dec 28, 2009 at 9:08 PM, Yinghai Lu <yinghai@kernel.org> wrote:
->> have a system with lots of igb and ixgbe, when iov/vf are enabled for
->> them, we hit the limit of 3064.
->>
->> when system have 20 pcie installed, and one card have 2 functions, and one
->> function need 64 msi-x,
->>  may need 20 * 2 * 64 = 2560 for msi-x
->> but if iov and vf are enabled
->>  may need 20 * 2 * 64 * 3 = 7680 for msi-x
->> assume system with 5 ioapic, nr_irqs_gsi will be 120.
->> NR_CPUS = 512, and nr_cpu_ids = 128
->> will have NR_IRQS = 256 + 512 * 64 = 33024
->> will have nr_irqs = 120 + 8 * 128 + 120 * 64 = 8824
->>
->> when SPARSE_IRQ is not set, there is no increase with data
->> when NR_CPUS=128, and SPARSE_IRQ is set
->>   text            data     bss            dec           hex    filename
->> 21837444        4216564 12480736        38534744        24bfe58 vmlinux.before
->> 21837442        4216580 12480736        38534758        24bfe66 vmlinux.after
->> when NR_CPUS=4096, and SPARSE_IRQ is set
->>   text            data     bss            dec           hex    filename
->> 21878619        5610244 13415392        40904255        270263f vmlinux.before
->> 21878617        5610244 13415392        40904253        270263d vmlinux.after
->>
->> -v2: update comments to address Ingo's concern
->>
->> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+> On Fri, Nov 27, 2009 at 04:16:43PM +0800, Dave Liu wrote:
+> > current the Rx/Tx FIFO size settings cause problem
+> > when four UEC ethernets work simultaneously.
+> > 
+> > eg: GETH1, UEM-J15, GETH2, UEC-J5 on 8569MDS board
+> > 
+> >  $ ifconfig eth0 10.193.20.166
+> >  $ ifconfig eth1 10.193.20.167
+> >  $ ifconfig eth2 10.193.20.168
+> >  then
+> >  $ ifconfig eth3 10.193.20.169
+> > 
+> > The fourth ethernet will cause all of interface broken,
+> > you cann't ping successfully any more.
+> > The patch fix this issue for MPC8569 Rev1.0 and Rev2.0
+> > 
+> > Signed-off-by: Dave Liu <daveliu@freescale.com>
 > 
-> I'm not sure this is the best plan, but may be okay for now.  What
-> happens when all of your slots have 6 port 82599 ixgbe adapters in
-> them?  They are being made[1], as well as quad port 82576 igb
-> adapters, however I'm not fully sure of the SRIOV support of the
-> bridges being used on those adapters.
+> Acked-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 > 
-> Is it on the table to (re-)design this subsystem to be a little more
-> dynamic?  There are probably examples in ppc64 or ia64 directories.
-> Every time you suggest a limit I can find a case where it won't be
-> enough.
+> Thanks Dave! I see that the new values actually match the QEIWRM
+> spec (except UTFS... spec recommends 2048, but it also says that
+> it might differ for different memory setups, though that's a
+> separate issue).
 > 
-> [1] http://www.hotlavasystems.com/products_10gbe.html
+> And FWIW, I did some quick netperf tests on MPC8360, and the
+> patch doesn't cause any problems.
 
-you mean
-20 * 6 * 64 * 3 ?
+David,
 
-23040
+How about this patch? Please consider to pick it up to your tree.
 
-maybe we can just keep nr_irqs = (256 - 32 - 10) * nr_cpu_ids?
-32: for exception
-10: for IPI etc.
-
-YH
+Thanks, Dave
