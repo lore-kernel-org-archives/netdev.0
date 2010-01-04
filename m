@@ -1,43 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ipvs: Add boundary check on ioctl arguments
-Date: Mon, 04 Jan 2010 16:39:03 +0100
-Message-ID: <4B420B97.5000302@trash.net>
-References: <20091229015822.GF10172@verge.net.au> <4B41F453.1090802@trash.net> <4B420A89.2010907@linux.intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Mon, 04 Jan 2010 08:18:45 -0800
+Message-ID: <m1aawtlu6y.fsf@fess.ebiederm.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>
+	<4B398ECD.1080506@kernel.org>
+	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
+	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>
-To: Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4B420A89.2010907@linux.intel.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753612Ab0ADQTG@vger.kernel.org>
+In-Reply-To: <4B419113.1090204@kernel.org> (Yinghai Lu's message of "Sun\, 03 Jan 2010 22\:56\:19 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven wrote:
-> On 1/4/2010 5:59, Patrick McHardy wrote:
-> 
-> [sorry for the late response, just got back from a good holiday, which
-> means no work email access ;-) ]
-> 
->> Simon Horman wrote:
-> 
->>> I agree with Julian's assessment that your patch shouldn't be
->>> necessary, but on the other hand I think that the checks are
->>> reasonable. Your original patch made checks of the form of
->>> "cmd>  IP_VS_SO_GET_MAX + 1". I have updated this to
->>> "cmd>  IP_VS_SO_GET_MAX", as suggested by Julian, as the optmax
->>> elements of struct nf_sockopt_ops set a non-inclusive range.
->>>
->>> http://lkml.indiana.edu/hypermail/linux/kernel/0910.0/00852.html
->>>
->>> Index: net-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c
->>
->> As a bugfix, this seems more appropriate for net-2.6.git. Please let
->> me know which tree you want me to apply this to.
-> 
-> this really ought to go into 2.6.33.....
+Yinghai Lu <yinghai@kernel.org> writes:
 
-Thanks, applied and will send it upstream soon.
+This patch is wrong.
+
+> between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
+>
+> for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
+
+We can not use any of 0x20 - 0x2f for ioapic irqs.  We need the entire
+priority level to ensure that the irq move cleanup ipi is of a lower
+priority.
+
+> also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
+
+There may be a point with 0x30 to 0x3f as I recall when those irqs come through a legacy
+pic we need to reserve those vectors on all cpus.
+
+
+Eric
+
+
+> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+
+> ---
+>  arch/x86/kernel/apic/io_apic.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> Index: linux-2.6/arch/x86/kernel/apic/io_apic.c
+> ===================================================================
+> --- linux-2.6.orig/arch/x86/kernel/apic/io_apic.c
+> +++ linux-2.6/arch/x86/kernel/apic/io_apic.c
+> @@ -1162,7 +1162,8 @@ __assign_irq_vector(int irq, struct irq_
+>  	 * Also, we've got to be careful not to trash gate
+>  	 * 0x80, because int 0x80 is hm, kind of importantish. ;)
+>  	 */
+> -	static int current_vector = FIRST_DEVICE_VECTOR, current_offset = 0;
+> +	static int current_vector = FIRST_EXTERNAL_VECTOR + 1;
+> +	static int current_offset = 0;
+>  	unsigned int old_vector;
+>  	int cpu, err;
+>  	cpumask_var_t tmp_mask;
+> @@ -1198,7 +1199,7 @@ next:
+>  		if (vector >= first_system_vector) {
+>  			/* If out of vectors on large boxen, must share them. */
+>  			offset = (offset + 1) % 8;
+> -			vector = FIRST_DEVICE_VECTOR + offset;
+> +			vector = FIRST_EXTERNAL_VECTOR + 1 + offset;
+>  		}
+>  		if (unlikely(current_vector == vector))
+>  			continue;
