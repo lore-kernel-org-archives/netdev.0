@@ -1,34 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: for tcp westwood implementation
-Date: Sun, 03 Jan 2010 22:19:49 -0800 (PST)
-Message-ID: <20100103.221949.102909332.davem@davemloft.net>
-References: <20091228084313.GA7302@ff.dom.local>
-	<39ba5b880912280252y208eb8bby7b54289fcd3965af@mail.gmail.com>
-	<20091228123202.GA8435@ff.dom.local>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Subject: [PATCH 1/2] x86: get back 15 vectors
+Date: Sun, 03 Jan 2010 22:56:19 -0800
+Message-ID: <4B419113.1090204@kernel.org>
+References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	 <4B398ECD.1080506@kernel.org> <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com> <4B415E73.1050801@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jhhwang@os.korea.ac.kr, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752991Ab0ADGTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 01:19:46 -0500
-In-Reply-To: <20091228123202.GA8435@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753201Ab0ADG56@vger.kernel.org>
+In-Reply-To: <4B415E73.1050801@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 28 Dec 2009 12:32:02 +0000
 
-> On Mon, Dec 28, 2009 at 07:52:23PM +0900, Jae-Hyun Hwang wrote:
->> Is it still wrong?
->> I hope this patch is successful.
-> 
-> I hope too, but it depends on David. This time it's mostly OK, execept
-> "Content-Transfer-Encoding: quoted-printable" instead of "inline", as
-> required by Documentation/SubmittingPatches.
 
-Patchwork didn't pick it up either, it definitely needs to be
-resent.
+between FIRST_EXTERNAL_VECTOR (0x20) and FIRST_DEVICE_VECTOR (0x41)
+
+for 0x20 and 0x2f, we are safe be used_vectors will prevent it to use used one.
+
+also try to reuse 0x30 to 0x3f after smp_affinity for irq[0,15] is changed to other cpu.
+
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+---
+ arch/x86/kernel/apic/io_apic.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux-2.6/arch/x86/kernel/apic/io_apic.c
+===================================================================
+--- linux-2.6.orig/arch/x86/kernel/apic/io_apic.c
++++ linux-2.6/arch/x86/kernel/apic/io_apic.c
+@@ -1162,7 +1162,8 @@ __assign_irq_vector(int irq, struct irq_
+ 	 * Also, we've got to be careful not to trash gate
+ 	 * 0x80, because int 0x80 is hm, kind of importantish. ;)
+ 	 */
+-	static int current_vector = FIRST_DEVICE_VECTOR, current_offset = 0;
++	static int current_vector = FIRST_EXTERNAL_VECTOR + 1;
++	static int current_offset = 0;
+ 	unsigned int old_vector;
+ 	int cpu, err;
+ 	cpumask_var_t tmp_mask;
+@@ -1198,7 +1199,7 @@ next:
+ 		if (vector >= first_system_vector) {
+ 			/* If out of vectors on large boxen, must share them. */
+ 			offset = (offset + 1) % 8;
+-			vector = FIRST_DEVICE_VECTOR + offset;
++			vector = FIRST_EXTERNAL_VECTOR + 1 + offset;
+ 		}
+ 		if (unlikely(current_vector == vector))
+ 			continue;
