@@ -1,103 +1,83 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 14:01:52 -0800
-Message-ID: <4B426550.6000209@kernel.org>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>	<4B398ECD.1080506@kernel.org>	<4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>	<4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>	<m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>	<m1my0thelq.fsf@fess.ebiederm.org> <4B424305.7050803@kernel.org>	<4B4245FC.7070902@zytor.com> <4B424A5C.7080309@kernel.org> <m1y6kdbpad.fsf@fess.ebiederm.org> <4B425085.5040103@kernel.org> <4B42595E.9010404@zytor.com> <4B425BB7.90501@kernel.org> <4B425EB5.5080504@zytor.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [RFC] ipv4: support for request type gratuitous ARP
+Date: Tue, 5 Jan 2010 00:04:44 +0200
+Message-ID: <201001050004.45004.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Suresh Siddha <suresh.b.siddha@intel.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753977Ab0ADWD4@vger.kernel.org>
-In-Reply-To: <4B425EB5.5080504@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:22881 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751051Ab0ADWII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 17:08:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2010 01:33 PM, H. Peter Anvin wrote:
-> On 01/04/2010 01:20 PM, Yinghai Lu wrote:
->> --- linux-2.6.orig/arch/x86/include/asm/irq_vectors.h
->> +++ linux-2.6/arch/x86/include/asm/irq_vectors.h
->> @@ -30,8 +30,17 @@
->>  /*
->>   * IDT vectors usable for external interrupt sources start
->>   * at 0x20:
->> + * hpa said we can start from 0x1f.
->> + *   0x1f is documented as reserved.  However, the ability for the APIC
->> + *   to generate vectors starting at 0x10 is documented, as is the
->> + *   ability for the CPU to receive any vector number as an interrupt.
->> + *   0x1f is used for IRQ_MOVE_CLEANUP_VECTOR since that vector needs
->> + *   an entire privilege level (16 vectors) all by itself at a higher
->> + *   priority than any actual device vector.  Thus, by placing it in the
->> + *   otherwise-unusable 0x10 privilege level, we avoid wasting a full
->> + *   16-vector block.
->>   */
->> -#define FIRST_EXTERNAL_VECTOR		0x20
->> +#define FIRST_EXTERNAL_VECTOR		0x1f
->>  
->>  #ifdef CONFIG_X86_32
->>  # define SYSCALL_VECTOR			0x80
->> @@ -41,15 +50,19 @@
->>  #endif
->>  
->>  /*
->> - * Reserve the lowest usable priority level 0x20 - 0x2f for triggering
->> + * Reserve the lowest usable priority level 0x10 - 0x1f for triggering
->>   * cleanup after irq migration.
->> + * this overlaps with the reserved range for cpu exceptions so this
->> + * will need to be changed to 0x20 - 0x2f if the last cpu exception is
->> + * ever allocated.
->>   */
->> +
->>  #define IRQ_MOVE_CLEANUP_VECTOR		FIRST_EXTERNAL_VECTOR
->>  
->>  /*
->> - * Vectors 0x30-0x3f are used for ISA interrupts.
->> + * Vectors 0x20-0x2f are used for ISA interrupts.
->>   */
->> -#define IRQ0_VECTOR			(FIRST_EXTERNAL_VECTOR + 0x10)
->> +#define IRQ0_VECTOR			(FIRST_EXTERNAL_VECTOR + 1)
->>  
->>  #define IRQ1_VECTOR			(IRQ0_VECTOR +  1)
->>  #define IRQ2_VECTOR			(IRQ0_VECTOR +  2)
->> @@ -68,6 +81,13 @@
->>  #define IRQ15_VECTOR			(IRQ0_VECTOR + 15)
->>  
-> 
-> I'm not sure that making IRQ_MOVE_CLEANUP_VECTOR and IRQ0_VECTOR offsets
-> from FIRST_EXTERNAL_VECTOR makes sense from a readability perspective.
-> These are now magic numbers, and making them offsets is only confusing,
-> as it implies we could do it differently.
-> 
-> If nothing else, the actual logic for IRQ0_VECTOR should be:
-> 
-> #define IRQ0_VECTOR		((FIRST_EXTERNAL_VECTOR + 16) & ~15)
-> 
-> ... since that is what we actually want -- we round up to the next
-> 16-vector boundary.  Both +16 and +1 misrepresent the logic.
 
-that will be good, if later update FIRST_EXTERNAL_VECTOR...
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
 
-> 
->>  /*
->> + * First APIC vector available to drivers: (vectors 0x30-0xee) we
->> + * start at 0x31 to spread out vectors evenly between priority
->> + * levels. (0x80 is the syscall vector)
->> + */
->> +#define FIRST_DEVICE_VECTOR		(IRQ15_VECTOR + 2)
->> +
-> 
-> We really should fix that so we can do +1 here instead of +2; that
-> presumably means fixing the logic so we do something smarter than just
-> jump over 0x80.
+I've noticed that even though we currently support response type gratuitous ARP
+[response type, source mac, dest mac, source IP, source IP] *with a clean ARP table*
+we do not support the request type [request type, source mac, ff:ff:ff:ff:ff:ff, source IP, source IP].
 
-we already use used_vectors to skip 0x80. so we could change that to +1?
+This patch makes request type work as well, but RFC2002 says that gratuitous ARP
+(both request and response) must update the ARP table *if* the IP already
+exists in the table:
 
-YH
+          In either case, for a gratuitous ARP, the ARP packet MUST be
+          transmitted as a local broadcast packet on the local link.  As
+          specified in [16], any node receiving any ARP packet (Request or
+          Reply) MUST update its local ARP cache with the Sender Protocol
+          and Hardware Addresses in the ARP packet, if the receiving node
+          has an entry for that IP address already in its ARP cache.  This
+          requirement in the ARP protocol applies even for ARP Request
+          packets, and for ARP Reply packets that do not match any ARP
+          Request transmitted by the receiving node [16].
+
+so, I am not sure if this is right. But current behavior for response type
+gratuitous ARP does not seem to be covered by the RFC either.
+
+ net/ipv4/arp.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index c95cd93..81ef2d5 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -811,8 +811,13 @@ static int arp_process(struct sk_buff *skb)
+ 		goto out;
+ 	}
+ 
+-	if (arp->ar_op == htons(ARPOP_REQUEST) &&
+-	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
++	if (arp->ar_op == htons(ARPOP_REQUEST)) {
++		/* gratuitous ARP */
++		if (tip == sip) {
++			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
++			goto update;
++		} else if (ip_route_input(skb, tip, sip, 0, dev) != 0)
++			goto update_lookup;
+ 
+ 		rt = skb_rtable(skb);
+ 		addr_type = rt->rt_type;
+@@ -853,6 +858,7 @@ static int arp_process(struct sk_buff *skb)
+ 		}
+ 	}
+ 
++update_lookup:
+ 	/* Update our ARP tables */
+ 
+ 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
+@@ -868,6 +874,7 @@ static int arp_process(struct sk_buff *skb)
+ 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
+ 	}
+ 
++update:
+ 	if (n) {
+ 		int state = NUD_REACHABLE;
+ 		int override;
+-- 
+1.5.6.5
