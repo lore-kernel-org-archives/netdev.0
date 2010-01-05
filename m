@@ -1,45 +1,36 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] drivers/net/stmmac/gmac.c: use %pM to show MAC address
-Date: Tue, 5 Jan 2010 10:26:38 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090208923F@mi8nycmail19.Mi8.com>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200F674@mi8nycmail19.Mi8.com> <4B42F226.6010207@st.com>
+From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
+Subject: Re: Still using IPTOS_TOS() in kernel? Really???
+Date: Tue, 5 Jan 2010 16:35:59 +0100
+Message-ID: <201001051635.59914.schmto@hrz.tu-chemnitz.de>
+References: <4B298118.2000608@redfish-solutions.com> <200912221328.56573.schmto@hrz.tu-chemnitz.de> <4B32A33C.6050507@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og102.obsmtp.com ([64.18.1.183]:43359 "HELO
-	exprod6og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754339Ab0AEP0m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 10:26:42 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4B42F226.6010207@st.com>
+Received: from jack.hrz.tu-chemnitz.de ([134.109.132.46]:56299 "EHLO
+	jack.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837Ab0AEPgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 10:36:11 -0500
+In-Reply-To: <4B32A33C.6050507@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, January 05, 2010 1:03 AM, Giuseppe CAVALLARO wrote:
-> Hi Hartley,
+> Can you extend the patch to include classify_1d() in net/mac80211/wme.c?
+> 
+> I'm thinking:
+> 
+>          }
+> 
+> -        if (dscp & 0x1c)
+> +#if !defined(CONFIG_IP_DIFFSERV_COMPLIANT)
+> +        if (IPTOS_TOS(dscp) & ~IPTOS_LOWCOST)
+>                  return 0;
+> +#endif
+>          return dscp >> 5;
+>  }
+This code segment seems to be older stuff. Its not in 2.6.32. 
 
-Hello.
-
-> H Hartley Sweeten wrote:
->> Use the %pM kernel extension to display the MAC address.
->
-> Thanks for this patch.
-> As discussed in the mailing list, I'm reworking some patches for the
-> stmmac driver (fixing compilation errors and trying to make the code
-> more generic).
-> I've already modified the gmac.c file now splitted in new two files.
-> So I'm wondering if it's worth applying this patch into the new code,
-> directly.
-
-Feel free to apply this with your new code.
-
-I am resubmitting a number of the %pM patches to David and will drop
-this one for now.  If you don't get a chance to submit the updated
-gmac.c soon please let me know and I will repost this patch.
-
-Thanks,
-Hartley
+Torsten 
