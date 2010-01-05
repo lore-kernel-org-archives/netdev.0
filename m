@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: getsockopt(TCP_DEFER_ACCEPT) value change
-Date: Tue, 05 Jan 2010 12:29:03 -0800 (PST)
-Message-ID: <20100105.122903.241453878.davem@davemloft.net>
-References: <4B4317AD.1040302@free.fr>
-	<alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
+Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
+ CNA devices
+Date: Tue, 05 Jan 2010 12:38:33 -0800 (PST)
+Message-ID: <20100105.123833.119278401.davem@davemloft.net>
+References: <7608421F3572AB4292BB2532AE89D5658B0BAE9402@AVEXMB1.qlogic.org>
+	<20100105104556.14927d40@nehalam>
+	<7608421F3572AB4292BB2532AE89D5658B0BAE9411@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: daniel.lezcano@free.fr, ja@ssi.bg, eric.dumazet@gmail.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, amit.salecha@qlogic.com,
 	netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+To: dhananjay.phadke@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53682
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43685
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754686Ab0AEU3B convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2010 15:29:01 -0500
-In-Reply-To: <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1755779Ab0AEUi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 15:38:29 -0500
+In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0BAE9411@AVEXMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 5 Jan 2010 15:40:57 +0200 (EET)
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Date: Tue, 5 Jan 2010 11:02:00 -0800
 
-> In general, I wonder if there's something that mandates that a set/ge=
-t=20
-> pair of value should be equal?
+>> You should be doing GRO, what about multiple addresses per interface,
+>> bridging, routing, ...
+> 
+> We do GRO too (that helps when old firmware didn't support LRO).
 
-There is no such requirement, we've been violating that premise since
-day one for socket receive and send queue buffer limit socket options.
-
-The kernel is always allowed to add fuzz or overhead adjustments to
-whatever the user gives it.  If the user wants to know what the kernel
-actually ended up using, it get getsockopt() to find out.
+You should only do GRO.
