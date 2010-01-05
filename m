@@ -1,49 +1,35 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH] via-velocity: add netpoll functionality for the benefit
- of netconsole
-Date: Tue, 05 Jan 2010 21:19:33 +0100
-Message-ID: <4B439ED5.0@computer.org>
-References: <4B423440.6060807@computer.org> <20100105072800.13dba6d2@marrow.netinsight.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: getsockopt(TCP_DEFER_ACCEPT) value change
+Date: Tue, 05 Jan 2010 12:29:03 -0800 (PST)
+Message-ID: <20100105.122903.241453878.davem@davemloft.net>
+References: <4B4317AD.1040302@free.fr>
+	<alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	=?ISO-8859-1?Q?St=E9phane_Berthelot?= <sberthelot@emisfr.com>
-To: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: daniel.lezcano@free.fr, ja@ssi.bg, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:33926 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754704Ab0AEUYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 15:24:07 -0500
-In-Reply-To: <20100105072800.13dba6d2@marrow.netinsight.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53682
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754686Ab0AEU3B convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 15:29:01 -0500
+In-Reply-To: <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simon Kagstrom wrote:
-> Does the patch still work with the new NAPI support in the driver?
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 5 Jan 2010 15:40:57 +0200 (EET)
 
-Errr. (Is my ignorance showing yet?)
+> In general, I wonder if there's something that mandates that a set/ge=
+t=20
+> pair of value should be equal?
 
-I will have to study this, based on other drivers and your commit dfff71.
+There is no such requirement, we've been violating that premise since
+day one for socket receive and send queue buffer limit socket options.
 
-I would be grateful for any hints, but otherwise will endeavour to figure it out myself.
-
->> +static void velocity_poll_controller(struct net_device *dev)
->> +{
->> +	disable_irq(dev->irq);
->> +	velocity_intr(dev->irq, dev);
->> +	enable_irq(dev->irq);
->> +}
-> 
-> This should probably have an
-> 
-> #ifdef CONFIG_NET_POLL_CONTROLLER
-> ...
-> #endif
-> 
-> around it
-
-You are right, will add.
-
-
-Thanks, Jan
+The kernel is always allowed to add fuzz or overhead adjustments to
+whatever the user gives it.  If the user wants to know what the kernel
+actually ended up using, it get getsockopt() to find out.
