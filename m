@@ -1,34 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: packet: option to only pass skb protocol
-Date: Tue, 05 Jan 2010 13:42:18 -0800 (PST)
-Message-ID: <20100105.134218.258781374.davem@davemloft.net>
-References: <20100105185732.GA30346@redhat.com>
-	<4B43AEF6.6050701@nortel.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] e1000: enhance frame fragment detection
+Date: Tue, 5 Jan 2010 13:44:25 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.1001051341110.4056@jbrandeb-desk1.amr.corp.intel.com>
+References: <20091228201005.GC18422@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cfriesen@nortel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34914
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754200Ab0AEVmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 16:42:14 -0500
-In-Reply-To: <4B43AEF6.6050701@nortel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20091228201005.GC18422@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: "Chris Friesen" <cfriesen@nortel.com>
-Date: Tue, 05 Jan 2010 15:28:22 -0600
+Neil, I couple of comments below, I was just looking at the implementation 
+of this for e1000e.
 
-> On 01/05/2010 12:57 PM, Michael S. Tsirkin wrote:
->> When sending packets with a packet socket it is often necessary to set
->> protocol in msg_name: otherwise the protocol field in the skb will not
->> be set correctly.
+On Mon, 28 Dec 2009, Neil Horman wrote:
+
+> Hey all-
+> 	A security discussion was recently given:
+> http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+> And a patch that I submitted awhile back was brought up.  Apparently some of
+> their testing revealed that they were able to force a buffer fragment in e1000
+> in which the trailing fragment was greater than 4 bytes.  As a result the
+> fragment check I introduced failed to detect the fragement and a partial invalid
+> frame was passed up into the network stack.  I've written this patch to correct
+> it.  I'm in the process of testing it now, but it makes good logical sense to
+> me.  Effectively it maintains a per-adapter state variable which detects a
+> non-EOP frame, and discards it and subsequent non-EOP frames leading up to _and_
+> _including_ the next positive-EOP frame (as it is by definition the last
+> fragment).  This should prevent any and all partial frames from entering the
+> network stack from e1000
 > 
-> What about automatically detecting the protocol from the data being sent
-> to avoid the necessity of specifying it in the first place?
+> Regards
+> Neil
+> 
+> 
+>  e1000.h      |    3 ++-
+>  e1000_main.c |   14 ++++++++++++--
+>  2 files changed, 14 insertions(+), 3 deletions(-)
+> 
+> 
+> diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+> index 2a567df..3d421ab 100644
+> --- a/drivers/net/e1000/e1000.h
+> +++ b/drivers/net/e1000/e1000.h
+> @@ -331,7 +331,8 @@ struct e1000_adapter {
+>  enum e1000_state_t {
+>  	__E1000_TESTING,
+>  	__E1000_RESETTING,
+> -	__E1000_DOWN
+> +	__E1000_DOWN,
+> +	__E1000_DISCARDING
+>  };
+>  
+>  extern char e1000_driver_name[];
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 7e855f9..0731779 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -3850,16 +3850,26 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+>  
+>  		length = le16_to_cpu(rx_desc->length);
+>  		/* !EOP means multiple descriptors were used to store a single
+> -		 * packet, also make sure the frame isn't just CRC only */
+> -		if (unlikely(!(status & E1000_RXD_STAT_EOP) || (length <= 4))) {
+> +		 * packet, if thats the case we need to toss it.  In fact, we
+> +		 * to toss every packet with the EOP bit clear and the next
+> +		 * frame that _does_ have the EOP bit set, as it is by
+> +		 * definition only a frame fragment
+> +		 */
+> +		if (unlikely(!(status & E1000_RXD_STAT_EOP)))
+> +			set_bit(__E1000_DISCARDING, &adapter->flags);
 
-This limits packet socket usage to only protocols the kernel is aware
-of, defeating part of the usefulness of the packet socket facility.
+test_bit and set_bit and clear_bit are atomic operations, isn't that quite 
+a bit of overhead for something that is already being done in a guaranteed 
+single context?
+
+> +
+> +		if (test_bit(__E1000_DISCARDING, &adapter->flags)) {
+>  			/* All receives must fit into a single buffer */
+>  			E1000_DBG("%s: Receive packet consumed multiple"
+>  				  " buffers\n", netdev->name);
+>  			/* recycle */
+>  			buffer_info->skb = skb;
+> +			if (status & E1000_RXD_STAT_EOP)
+> +				clear_bit(__E1000_DISCARDING, &adapter->flags);
+
+couldn't these simply be read/modify/write assignments (aka |=)
+
+That would significantly avoid the extra cycles needed to implement three 
+atomic ops.
+
+------------------------------------------------------------------------------
+This SF.Net email is sponsored by the Verizon Developer Community
+Take advantage of Verizon's best-in-class app development support
+A streamlined, 14 day to market process makes app distribution fast and easy
+Join now and get one step closer to millions of Verizon customers
+http://p.sf.net/sfu/verizon-dev2dev 
