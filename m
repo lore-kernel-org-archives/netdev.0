@@ -1,82 +1,126 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: getsockopt(TCP_DEFER_ACCEPT) value change
-Date: Tue, 5 Jan 2010 15:40:57 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
-References: <4B4317AD.1040302@free.fr>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection (v3)
+Date: Tue, 5 Jan 2010 08:57:32 -0500
+Message-ID: <20100105135732.GA24245@hmsreliant.think-freely.org>
+References: <20091228194834.GA18422@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Julian Anastasov <ja@ssi.bg>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, romieu@fr.zoreil.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53540 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab0AENk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 08:40:59 -0500
-In-Reply-To: <4B4317AD.1040302@free.fr>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35134 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660Ab0AEN5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 08:57:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20091228194834.GA18422@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Jan 2010, Daniel Lezcano wrote:
+Ok, third times the charm.  Its been noted that both apporaches to fixing this
+bug are going to have major performance impacts, which is bad.  Unless we can
+get a list of affected hardware to restrict the fix to certain NICS, I don't see
+how we can get around that.   I have come up with this patch however, which I
+think at least partially addresses the performance concerns.
 
-> I noticed a change in the value returned by the getsockopt for the
-> TCP_DEFER_ACCEPT option with a 2.6.32 kernel. The value retrieved with the
-> getsockopt is different from the one specified with the setsockopt. Is it an
-> expected behaviour ?
-> 
-> I saw there were  changes around the TCP_DEFER_ACCEPT option with the number
-> of attempts converted to a number of seconds.
-> 
-> The following program is working fine with a 2.6.31 but fails with a 2.6.32
-> kernel.
-> 
-> Thanks
->  -- Daniel
-> 
-> #include <stdio.h>
-> #include <sys/socket.h>
-> #include <netinet/in.h>
-> #include <netinet/tcp.h>
-> 
-> int main(int argc, char *argv[])
-> {
->    int val1 = 12, val2;
->    socklen_t len = sizeof(val2);
->    int fd;
->      fd = socket(PF_INET, SOCK_STREAM, 0);
->    if (fd < 0) {
->        perror("socket");
->        return -1;
->    }
->      if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val1, sizeof(val1))) {
->        perror("setsockopt");
->        return -1;
->    }
->      if (getsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val2, &len)) {
->        perror("getsockopt");
->        return -1;
->    }
-> 
->    if (val1 != val2) {
->        fprintf(stderr, "error %d != %d\n", val1, val2);
->        return -1;
->    }
-> 
->    return 0;
-> }
+        A while back Eric submitted a patch for r8169 in which the proper
+allocated frame size was written to RXMaxSize to prevent the NIC from dmaing too
+much data.  This was done in commit fdd7b4c3302c93f6833e338903ea77245eb510b4.  A
+long time prior to that however, Francois posted
+126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c, which expiclitly disabled the MaxSize
+setting due to the fact that the hardware behaved in odd ways when overlong
+frames were received on NIC's supported by this driver.  This was mentioned in a
+security conference recently:
+http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
 
-Added Cc.
+It seems that if we can't enable frame size filtering, then, as Eric correctly
+noticed, we can find ourselves DMA-ing too much data to a buffer, causing
+corruption.  As a result is seems that we are forced to allocate a frame which
+is ready to handle a maximally sized receive.
 
-I don't think this change was intentional. ...However, is this difference 
-particularly significant besides failing such a test program? The actual 
-value now returned by the getsockopt is more accurate than what the
-userspace initially provided.
+This obviously has performance issues with it, so to mitigate that issue, this
+patch does two things:
 
-In general, I wonder if there's something that mandates that a set/get 
-pair of value should be equal?
+1) Raises the copybreak value to the frame allocation size, which should force
+appropriately sized packets to get allocated on rx, rather than a full new 16k
+buffer.
 
--- 
- i.
+2) This patch only disables frame filtering initially (i.e., during the NIC
+open), changing the MTU results in ring buffer allocation of a size in relation
+to the new mtu (along with a warning indicating that this is dangerous).
+
+Because of item (2), individuals who can't cope with the performance hit (or can
+otherwise filter frames to prevent the bug), or who have hardware they are sure
+is unaffected by this issue, can manually lower the copybreak and reset the mtu
+such that performance is restored easily.
+
+Signed-off-by: Neil Horman <nhorman@redhat.com>
+
+
+
+ r8169.c |   29 ++++++++++++++++++++++++-----
+ 1 file changed, 24 insertions(+), 5 deletions(-)
+
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index c403ce0..9aac49c 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -186,7 +186,12 @@ static struct pci_device_id rtl8169_pci_tbl[] = {
+ 
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+-static int rx_copybreak = 200;
++/*
++ * we set our copybreak very high so that we don't have
++ * to allocate 16k frames all the time (see note in
++ * rtl8169_open()
++ */ 
++static int rx_copybreak = 16383;
+ static int use_dac;
+ static struct {
+ 	u32 msg_enable;
+@@ -3240,9 +3245,13 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ }
+ 
+ static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
+-				  struct net_device *dev)
++				  unsigned int mtu)
+ {
+-	unsigned int max_frame = dev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
++	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
++
++	if (max_frame != 16383)
++		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
++			"May lead to frame reception errors!\n");
+ 
+ 	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
+ }
+@@ -3254,7 +3263,17 @@ static int rtl8169_open(struct net_device *dev)
+ 	int retval = -ENOMEM;
+ 
+ 
+-	rtl8169_set_rxbufsize(tp, dev);
++	/*
++	 * Note that we use a magic value here, its wierd I know
++	 * its done because, some subset of rtl8169 hardware suffers from
++	 * a problem in which frames received that are longer than 
++	 * the size set in RxMaxSize register return garbage sizes
++	 * when received.  To avoid this we need to turn off filtering, 
++	 * which is done by setting a value of 16383 in the RxMaxSize register
++	 * and allocating 16k frames to handle the largest possible rx value
++	 * thats what the magic math below does.
++	 */
++	rtl8169_set_rxbufsize(tp, 16383 - VLAN_ETH_HLEN - ETH_FCS_LEN);
+ 
+ 	/*
+ 	 * Rx and Tx desscriptors needs 256 bytes alignment.
+@@ -3907,7 +3926,7 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	rtl8169_down(dev);
+ 
+-	rtl8169_set_rxbufsize(tp, dev);
++	rtl8169_set_rxbufsize(tp, dev->mtu);
+ 
+ 	ret = rtl8169_init_ring(dev);
+ 	if (ret < 0)
