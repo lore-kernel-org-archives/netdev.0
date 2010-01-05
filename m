@@ -1,71 +1,47 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] sunrpc: fix peername failed on closed listener
-Date: Tue, 5 Jan 2010 18:01:31 -0500
-Message-ID: <20100105230131.GA22850@fieldses.org>
-References: <1262227956-21470-1-git-send-email-dfeng@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race [v3]
+Date: Tue, 5 Jan 2010 15:03:04 -0800
+Message-ID: <20100105150304.73d435da@nehalam>
+References: <4B42E252.1080405@gmail.com>
+	<1262724742-5232-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Xiaotian Feng <dfeng@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Flavio Leitner <fleitner@redhat.com>
+To: Flavio Leitner <fleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:40695 "EHLO fieldses.org"
+Received: from mail.vyatta.com ([76.74.103.46]:55438 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755507Ab0AEXAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2010 18:00:44 -0500
-Content-Disposition: inline
-In-Reply-To: <1262227956-21470-1-git-send-email-dfeng@redhat.com>
+	id S1753320Ab0AEXDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 18:03:32 -0500
+In-Reply-To: <1262724742-5232-1-git-send-email-fleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 31, 2009 at 10:52:36AM +0800, Xiaotian Feng wrote:
-> There're some warnings of "nfsd: peername failed (err 107)!"
-> socket error -107 means Transport endpoint is not connected.
-> This warning message was outputed by svc_tcp_accept() [net/sunrpc/svcsock.c],
-> when kernel_getpeername returns -107. This means socket might be CLOSED.
-> 
-> And svc_tcp_accept was called by svc_recv() [net/sunrpc/svc_xprt.c]
-> 
->         if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
->         <snip>
->                 newxpt = xprt->xpt_ops->xpo_accept(xprt);
->         <snip>
-> 
-> So this might happen when xprt->xpt_flags has both XPT_LISTENER and XPT_CLOSE.
-> 
-> Let's take a look at commit b0401d72, this commit has moved the close
-> processing after do recvfrom method, but this commit also introduces this
-> warnings, if the xpt_flags has both XPT_LISTENER and XPT_CLOSED, we should
-> close it, not accpet then close.
+On Tue,  5 Jan 2010 18:52:22 -0200
+Flavio Leitner <fleitner@redhat.com> wrote:
 
-The logic here seems unnecessarily complicated now, but as a minimal
-fix, this seems fine.
-
-Is the *only* justification for this to silence this warning, or is
-there some more serious problem I'm missing?
-
---b.
-
-> 
-> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-> Cc: J. Bruce Fields <bfields@fieldses.org>
-> Cc: Neil Brown <neilb@suse.de>
-> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
-> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-> index 1c924ee..187f0f4 100644
-> --- a/net/sunrpc/svc_xprt.c
-> +++ b/net/sunrpc/svc_xprt.c
-> @@ -699,7 +699,8 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
->  	spin_unlock_bh(&pool->sp_lock);
+> @@ -2245,13 +2269,17 @@ void ip_mc_drop_socket(struct sock *sk)
+>  	struct ip_mc_socklist *iml;
+>  	struct net *net = sock_net(sk);
 >  
->  	len = 0;
-> -	if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
-> +	if (test_bit(XPT_LISTENER, &xprt->xpt_flags) &&
-> +	    !test_bit(XPT_CLOSE, &xprt->xpt_flags)) {
->  		struct svc_xprt *newxpt;
->  		newxpt = xprt->xpt_ops->xpo_accept(xprt);
->  		if (newxpt) {
+> -	if (inet->mc_list == NULL)
+> +	rcu_read_lock();
+> +	if (rcu_dereference(inet->mc_list) == NULL) {
+> +		rcu_read_unlock();
+>  		return;
+> +	}
+> +	rcu_read_unlock();
+>  
+>  	rtnl_lock();
+> -	while ((iml = i
+
+All this would be cleaner if mc_list was using list_head and the
+existing list_head_rcu stuff.
+
+
+
+-- 
