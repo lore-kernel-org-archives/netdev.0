@@ -1,69 +1,42 @@
-From: Mark Bergsma <mark@wikimedia.org>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Tue, 05 Jan 2010 12:02:20 +0100
-Message-ID: <4B431C3C.5080203@wikimedia.org>
-References: <20091229013401.GE10172@verge.net.au> <4B41F3C2.6050006@trash.net> <20100104232445.GC2554@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Catalin(ux) M. BOIE" <catab@embedromix.ro>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Graeme Fowler <graeme@graemef.net>,
-	David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: [PATCH] cs89x0: Always report failure to request interrupt
+Date: Tue,  5 Jan 2010 11:16:50 +0000
+Message-ID: <1262690210-20763-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Cc: netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tilia.nedworks.org ([82.94.225.218]:37840 "EHLO
-	tilia.nedworks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751722Ab0AELCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 06:02:24 -0500
-In-Reply-To: <20100104232445.GC2554@verge.net.au>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:43918 "EHLO
+	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751234Ab0AELQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 06:16:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05-01-10 00:24, Simon Horman wrote:
-> On Mon, Jan 04, 2010 at 02:57:22PM +0100, Patrick McHardy wrote:
->> Simon Horman wrote:
->>> On Mon, Dec 28, 2009 at 07:49:38PM +0100, Mark Bergsma wrote:
->>>> On 03-12-08 01:37, David Miller wrote:
->>>>> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
->>>>> Date: Tue, 2 Dec 2008 16:16:04 -0700 (MST)
->>>>>> I was looking for anything that could get me past of 88.000 request per
->>>>>> seconds.
->>>>>> The help text told me to raise that value if I have big number of
->>>>>> connections. I just needed an easy way to test.
->>>>> You're just repeating what I said, you "think" it should be
->>>>> changed and as a result you are wasting everyones time.
->>>>>
->>>>> You don't actually "know", you're just guessing using random
->>>>> snippets from documentation rather than good hard evidence of
->>>>> a need.
->>>> Hello,
->>>>
->>>> I just found this year-old thread about a patch allowing the IPVS
->>>> connection hash table size to be set at load time by a module parameter.
->>>> Apparently the conclusion reached was that allowing this configuration
->>>> setting to be changed would be useless, and that the poster's
->>>> performance problems would likely lie elsewhere, since he had no
->>>> evidence it was caused by the hash table size.
->>>
->>> Hi Mark,
->>>
->>> thanks for your test results. I have added them to the patch.
->>> Feel free to edit the text.
->>
->> Just wondering because of this comment - do you want me to apply this
->> patch?
-> 
-> I was fishing for an response from Mark.
-> I'll resubmit it properly as that doesn't seem to be forthcoming.
+A failure on request_irq() is always fatal but unlike other fatal
+errors it's only reported to the user if net_debug is set. Make the
+diagnostic unconditional and raise the priority so that errors are
+more obvious to the user.
 
-Hi Simon/Patrick,
+Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+---
+ drivers/net/cs89x0.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Sorry for the late reply, and yes, this is fine. Thanks for applying the
-patch!
-
+diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+index 5598677..9b5bbc6 100644
+--- a/drivers/net/cs89x0.c
++++ b/drivers/net/cs89x0.c
+@@ -1325,8 +1325,7 @@ net_open(struct net_device *dev)
+ 		write_irq(dev, lp->chip_type, dev->irq);
+ 		ret = request_irq(dev->irq, net_interrupt, 0, dev->name, dev);
+ 		if (ret) {
+-			if (net_debug)
+-				printk(KERN_DEBUG "cs89x0: request_irq(%d) failed\n", dev->irq);
++			printk(KERN_ERR "cs89x0: request_irq(%d) failed\n", dev->irq);
+ 			goto bad_out;
+ 		}
+ 	}
 -- 
-Mark Bergsma <mark@wikimedia.org>
-Operations Engineer, Wikimedia Foundation
+1.6.5.7
+
