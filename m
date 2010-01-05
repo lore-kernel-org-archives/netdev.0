@@ -1,42 +1,63 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: RE: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
- CNA devices
-Date: Tue, 5 Jan 2010 11:02:00 -0800
-Message-ID: <7608421F3572AB4292BB2532AE89D5658B0BAE9411@AVEXMB1.qlogic.org>
-References: <1262697876-26206-1-git-send-email-amit.salecha@qlogic.com>
-	<20100105091548.57caf0a4@nehalam>
-	<7608421F3572AB4292BB2532AE89D5658B0BAE9402@AVEXMB1.qlogic.org>
- <20100105104556.14927d40@nehalam>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] mv643xx_eth: don't include cache padding in rx desc buffer size
+Date: Tue, 5 Jan 2010 20:15:32 +0100
+Message-ID: <20100105191532.GU1735@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:47212 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753780Ab0AETDn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 14:03:43 -0500
-In-Reply-To: <20100105104556.14927d40@nehalam>
-Content-Language: en-US
+Received: from fw.wantstofly.org ([80.101.37.227]:36812 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754224Ab0AETPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 14:15:35 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> You should be doing GRO, what about multiple addresses per interface,
-> bridging, routing, ...
+From: Saeed Bishara <saeed@marvell.com>
 
-We do GRO too (that helps when old firmware didn't support LRO).
-Since all addresses associated with a net device are tracked
-we do take care of IP aliases. Note that LRO packets are not
-fed into GRO, although there's nothing that prevents it.
+If NET_SKB_PAD is not a multiple of the cache line size, mv643xx_eth 
+allocates a couple of extra bytes at the start of each receive buffer
+to make the data payload end up on a cache line boundary.
 
-On older machines, GRO tops out CPU to get close to line rate,
-LRO doesn't. Also, LRO reduces number of PCIe transactions.
+These extra bytes are skb_reserve()'d before DMA mapping, so they
+should not be included in the DMA map byte count (as the mapping is
+done starting at skb->data), nor should they be included in the
+receive descriptor buffer size field, or the hardware can end up
+DMAing beyond the end of the buffer, which can happen if someone
+sends us a larger-than-MTU sized packet.
 
-LRO across bridge / routing is topology violation right?
-We don't get inet notification for remote IP addresses (correct
-me if wrong), so these cases are excluded from LRO.
+This problem was introduced in commit 7fd96ce47ff ("mv643xx_eth:
+rework receive skb cache alignment", May 6 2009), but hasn't appeared
+to be problematic so far, probably as the main users of mv643xx_eth
+all have NET_SKB_PAD == L1_CACHE_BYTES.
 
--Dhananjay
+Signed-off-by: Saeed Bishara <saeed@marvell.com>
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 1405a17..af67af5 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -656,6 +656,7 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 		struct sk_buff *skb;
+ 		int rx;
+ 		struct rx_desc *rx_desc;
++		int size;
+ 
+ 		skb = __skb_dequeue(&mp->rx_recycle);
+ 		if (skb == NULL)
+@@ -678,10 +679,11 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 
+ 		rx_desc = rxq->rx_desc_area + rx;
+ 
++		size = skb->end - skb->data;
+ 		rx_desc->buf_ptr = dma_map_single(mp->dev->dev.parent,
+-						  skb->data, mp->skb_size,
++						  skb->data, size,
+ 						  DMA_FROM_DEVICE);
+-		rx_desc->buf_size = mp->skb_size;
++		rx_desc->buf_size = size;
+ 		rxq->rx_skb[rx] = skb;
+ 		wmb();
+ 		rx_desc->cmd_sts = BUFFER_OWNED_BY_DMA | RX_ENABLE_INTERRUPT;
