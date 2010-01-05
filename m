@@ -1,34 +1,174 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
- (v3)
-Date: Tue, 05 Jan 2010 12:40:40 -0800 (PST)
-Message-ID: <20100105.124040.192660261.davem@davemloft.net>
-References: <20091228194834.GA18422@hmsreliant.think-freely.org>
-	<20100105135732.GA24245@hmsreliant.think-freely.org>
-	<4B4357A9.5010507@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: eric.dumazet@gmail.com
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH] igmp: fix ip_mc_sf_allow race [v3]
+Date: Tue,  5 Jan 2010 18:52:22 -0200
+Message-ID: <1262724742-5232-1-git-send-email-fleitner@redhat.com>
+References: <4B42E252.1080405@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Flavio Leitner <fleitner@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45275
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753780Ab0AEUkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 15:40:36 -0500
-In-Reply-To: <4B4357A9.5010507@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48091 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754704Ab0AEUwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 15:52:53 -0500
+In-Reply-To: <4B42E252.1080405@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 05 Jan 2010 16:15:53 +0100
+Almost all igmp functions accessing inet->mc_list are protected by
+rtnl_lock(), but there is one exception which is ip_mc_sf_allow(),
+so there is a chance of either ip_mc_drop_socket or ip_mc_leave_group
+remove an entry while ip_mc_sf_allow is running causing a crash.
 
-> If hardware is buggy, driver should focus on security first,
-> performance doesnt matter in this case.
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+---
+ include/linux/igmp.h |    1 +
+ net/ipv4/igmp.c      |   58 +++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 45 insertions(+), 14 deletions(-)
 
-Copying every packet is way too much of a performance hit to
-accept.
+diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+index 724c27e..9cccd16 100644
+--- a/include/linux/igmp.h
++++ b/include/linux/igmp.h
+@@ -170,6 +170,7 @@ struct ip_mc_socklist {
+ 	struct ip_mreqn		multi;
+ 	unsigned int		sfmode;		/* MCAST_{INCLUDE,EXCLUDE} */
+ 	struct ip_sf_socklist	*sflist;
++	struct rcu_head		rcu;
+ };
+ 
+ struct ip_sf_list {
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 76c0840..61ff685 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1799,7 +1799,7 @@ int ip_mc_join_group(struct sock *sk , struct ip_mreqn *imr)
+ 	iml->next = inet->mc_list;
+ 	iml->sflist = NULL;
+ 	iml->sfmode = MCAST_EXCLUDE;
+-	inet->mc_list = iml;
++	rcu_assign_pointer(inet->mc_list, iml);
+ 	ip_mc_inc_group(in_dev, addr);
+ 	err = 0;
+ done:
+@@ -1825,6 +1825,17 @@ static int ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
+ 	return err;
+ }
+ 
++
++static void ip_mc_socklist_reclaim(struct rcu_head *rp)
++{
++	struct ip_mc_socklist *iml;
++
++	iml = container_of(rp, struct ip_mc_socklist, rcu);
++	/* sk_omem_alloc should have been decreased by the caller*/
++	kfree(iml);
++}
++
++
+ /*
+  *	Ask a socket to leave a group.
+  */
+@@ -1854,12 +1865,15 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 
+ 		(void) ip_mc_leave_src(sk, iml, in_dev);
+ 
+-		*imlp = iml->next;
++		rcu_assign_pointer(*imlp, iml->next);
+ 
+ 		if (in_dev)
+ 			ip_mc_dec_group(in_dev, group);
++
+ 		rtnl_unlock();
+-		sock_kfree_s(sk, iml, sizeof(*iml));
++		/* decrease mem now to avoid the memleak warning */
++		atomic_sub(sizeof(*iml), &sk->sk_omem_alloc);
++		call_rcu(&iml->rcu, ip_mc_socklist_reclaim);
+ 		return 0;
+ 	}
+ 	if (!in_dev)
+@@ -2209,30 +2223,40 @@ int ip_mc_sf_allow(struct sock *sk, __be32 loc_addr, __be32 rmt_addr, int dif)
+ 	struct ip_mc_socklist *pmc;
+ 	struct ip_sf_socklist *psl;
+ 	int i;
++	int ret;
+ 
++	ret = 1;
+ 	if (!ipv4_is_multicast(loc_addr))
+-		return 1;
++		goto out;
+ 
+-	for (pmc=inet->mc_list; pmc; pmc=pmc->next) {
++	rcu_read_lock();
++	for (pmc=rcu_dereference(inet->mc_list); pmc; pmc=rcu_dereference(pmc->next)) {
+ 		if (pmc->multi.imr_multiaddr.s_addr == loc_addr &&
+ 		    pmc->multi.imr_ifindex == dif)
+ 			break;
+ 	}
++	ret = inet->mc_all;
+ 	if (!pmc)
+-		return inet->mc_all;
++		goto unlock;
+ 	psl = pmc->sflist;
++	ret = (pmc->sfmode == MCAST_EXCLUDE);
+ 	if (!psl)
+-		return pmc->sfmode == MCAST_EXCLUDE;
++		goto unlock;
+ 
+ 	for (i=0; i<psl->sl_count; i++) {
+ 		if (psl->sl_addr[i] == rmt_addr)
+ 			break;
+ 	}
++	ret = 0;
+ 	if (pmc->sfmode == MCAST_INCLUDE && i >= psl->sl_count)
+-		return 0;
++		goto unlock;
+ 	if (pmc->sfmode == MCAST_EXCLUDE && i < psl->sl_count)
+-		return 0;
+-	return 1;
++		goto unlock;
++	ret = 1;
++unlock:
++	rcu_read_unlock();
++out:
++	return ret;
+ }
+ 
+ /*
+@@ -2245,13 +2269,17 @@ void ip_mc_drop_socket(struct sock *sk)
+ 	struct ip_mc_socklist *iml;
+ 	struct net *net = sock_net(sk);
+ 
+-	if (inet->mc_list == NULL)
++	rcu_read_lock();
++	if (rcu_dereference(inet->mc_list) == NULL) {
++		rcu_read_unlock();
+ 		return;
++	}
++	rcu_read_unlock();
+ 
+ 	rtnl_lock();
+-	while ((iml = inet->mc_list) != NULL) {
++	while ((iml = rcu_dereference(inet->mc_list)) != NULL) {
+ 		struct in_device *in_dev;
+-		inet->mc_list = iml->next;
++		rcu_assign_pointer(inet->mc_list, iml->next);
+ 
+ 		in_dev = inetdev_by_index(net, iml->multi.imr_ifindex);
+ 		(void) ip_mc_leave_src(sk, iml, in_dev);
+@@ -2259,7 +2287,9 @@ void ip_mc_drop_socket(struct sock *sk)
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+ 			in_dev_put(in_dev);
+ 		}
+-		sock_kfree_s(sk, iml, sizeof(*iml));
++		/* decrease mem now to avoid the memleak warning */
++		atomic_sub(sizeof(*iml), &sk->sk_omem_alloc);
++		call_rcu(&iml->rcu, ip_mc_socklist_reclaim);
+ 	}
+ 	rtnl_unlock();
+ }
+-- 
+1.6.2.3
 
-Things are not so black and white, there are shades of grey.
-
-We can fix this without making things so slow, try harder...
