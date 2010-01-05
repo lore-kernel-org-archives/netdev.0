@@ -1,126 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection (v3)
-Date: Tue, 5 Jan 2010 08:57:32 -0500
-Message-ID: <20100105135732.GA24245@hmsreliant.think-freely.org>
-References: <20091228194834.GA18422@hmsreliant.think-freely.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC 0/9] snet: Security for NETwork syscalls
+Date: Tue, 5 Jan 2010 08:09:17 -0600
+Message-ID: <20100105140917.GA6624@us.ibm.com>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+ <1262537872.10218.27.camel@bigi>
+ <m2r5q5nhbc.fsf@ssh.synack.fr>
+ <201001050820.o058Kuwx087793@www262.sakura.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, romieu@fr.zoreil.com
-To: netdev@vger.kernel.org
+Cc: sam@synack.fr, linux-security-module@vger.kernel.org,
+	kaber@trash.net, zbr@ioremap.net, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hadi@cyberus.ca
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35134 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660Ab0AEN5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 08:57:40 -0500
+Received: from e36.co.us.ibm.com ([32.97.110.154]:60244 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab0AEOJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 09:09:47 -0500
 Content-Disposition: inline
-In-Reply-To: <20091228194834.GA18422@hmsreliant.think-freely.org>
+In-Reply-To: <201001050820.o058Kuwx087793@www262.sakura.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, third times the charm.  Its been noted that both apporaches to fixing this
-bug are going to have major performance impacts, which is bad.  Unless we can
-get a list of affected hardware to restrict the fix to certain NICS, I don't see
-how we can get around that.   I have come up with this patch however, which I
-think at least partially addresses the performance concerns.
+Quoting Tetsuo Handa (penguin-kernel@I-love.SAKURA.ne.jp):
+> Samir Bellabes wrote:
+> > I'm currently testing security_sock_rcv_skb() hook - which is inside
+> > sk_filter() - to get skbuffs when then are arriving, and so trying to
+> > push the buffer to userspace. In case this is not userfull, userspace
+> > is able to use the NFQUEUE of netfilter to get skbuff, and deal
+> > with incoming datas.
+> 
+> Pushing buffer to userspace and wait for userspace's decision will sleep.
+> sk_filter() which calls security_sock_rcv_skb() hook is called from
+> (e.g.) tcp_v6_do_rcv() and comment of tcp_v6_do_rcv() says that
+> "The socket must have it's spinlock held when we get here." 
+> Also, comment of rxrpc_queue_rcv_skb() says that
+> "the caller must hold a lock on call->lock".
+> I think it is not permitted to do sleeping operation inside
+> security_sock_rcv_skb().
 
-        A while back Eric submitted a patch for r8169 in which the proper
-allocated frame size was written to RXMaxSize to prevent the NIC from dmaing too
-much data.  This was done in commit fdd7b4c3302c93f6833e338903ea77245eb510b4.  A
-long time prior to that however, Francois posted
-126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c, which expiclitly disabled the MaxSize
-setting due to the fact that the hardware behaved in odd ways when overlong
-frames were received on NIC's supported by this driver.  This was mentioned in a
-security conference recently:
-http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+Ah, there it is, thanks for finding a specific instance.  I'd looked
+a bit yesterday but couldn't find it.
 
-It seems that if we can't enable frame size filtering, then, as Eric correctly
-noticed, we can find ourselves DMA-ing too much data to a buffer, causing
-corruption.  As a result is seems that we are forced to allocate a frame which
-is ready to handle a maximally sized receive.
+Tetsuo, would you mind sending a patch to add a note to security.h's
+comment for socket_sock_rcv_skb: that it can't sleep?  It also used
+to be the case for security_task_free() which presumably would be
+hooked by the ssyscall or whatever was mentioned.
 
-This obviously has performance issues with it, so to mitigate that issue, this
-patch does two things:
-
-1) Raises the copybreak value to the frame allocation size, which should force
-appropriately sized packets to get allocated on rx, rather than a full new 16k
-buffer.
-
-2) This patch only disables frame filtering initially (i.e., during the NIC
-open), changing the MTU results in ring buffer allocation of a size in relation
-to the new mtu (along with a warning indicating that this is dangerous).
-
-Because of item (2), individuals who can't cope with the performance hit (or can
-otherwise filter frames to prevent the bug), or who have hardware they are sure
-is unaffected by this issue, can manually lower the copybreak and reset the mtu
-such that performance is restored easily.
-
-Signed-off-by: Neil Horman <nhorman@redhat.com>
-
-
-
- r8169.c |   29 ++++++++++++++++++++++++-----
- 1 file changed, 24 insertions(+), 5 deletions(-)
-
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c403ce0..9aac49c 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -186,7 +186,12 @@ static struct pci_device_id rtl8169_pci_tbl[] = {
- 
- MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
- 
--static int rx_copybreak = 200;
-+/*
-+ * we set our copybreak very high so that we don't have
-+ * to allocate 16k frames all the time (see note in
-+ * rtl8169_open()
-+ */ 
-+static int rx_copybreak = 16383;
- static int use_dac;
- static struct {
- 	u32 msg_enable;
-@@ -3240,9 +3245,13 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- }
- 
- static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
--				  struct net_device *dev)
-+				  unsigned int mtu)
- {
--	unsigned int max_frame = dev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
-+	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
-+
-+	if (max_frame != 16383)
-+		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
-+			"May lead to frame reception errors!\n");
- 
- 	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
- }
-@@ -3254,7 +3263,17 @@ static int rtl8169_open(struct net_device *dev)
- 	int retval = -ENOMEM;
- 
- 
--	rtl8169_set_rxbufsize(tp, dev);
-+	/*
-+	 * Note that we use a magic value here, its wierd I know
-+	 * its done because, some subset of rtl8169 hardware suffers from
-+	 * a problem in which frames received that are longer than 
-+	 * the size set in RxMaxSize register return garbage sizes
-+	 * when received.  To avoid this we need to turn off filtering, 
-+	 * which is done by setting a value of 16383 in the RxMaxSize register
-+	 * and allocating 16k frames to handle the largest possible rx value
-+	 * thats what the magic math below does.
-+	 */
-+	rtl8169_set_rxbufsize(tp, 16383 - VLAN_ETH_HLEN - ETH_FCS_LEN);
- 
- 	/*
- 	 * Rx and Tx desscriptors needs 256 bytes alignment.
-@@ -3907,7 +3926,7 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
- 
- 	rtl8169_down(dev);
- 
--	rtl8169_set_rxbufsize(tp, dev);
-+	rtl8169_set_rxbufsize(tp, dev->mtu);
- 
- 	ret = rtl8169_init_ring(dev);
- 	if (ret < 0)
+thanks,
+-serge
