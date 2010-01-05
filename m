@@ -1,56 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] net: packet: option to only pass skb protocol
-Date: Tue, 5 Jan 2010 20:57:32 +0200
-Message-ID: <20100105185732.GA30346@redhat.com>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: RE: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
+ CNA devices
+Date: Tue, 5 Jan 2010 11:02:00 -0800
+Message-ID: <7608421F3572AB4292BB2532AE89D5658B0BAE9411@AVEXMB1.qlogic.org>
+References: <1262697876-26206-1-git-send-email-amit.salecha@qlogic.com>
+	<20100105091548.57caf0a4@nehalam>
+	<7608421F3572AB4292BB2532AE89D5658B0BAE9402@AVEXMB1.qlogic.org>
+ <20100105104556.14927d40@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Amit Salecha <amit.salecha@qlogic.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50118 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753363Ab0AETAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2010 14:00:36 -0500
-Content-Disposition: inline
+Received: from avexch1.qlogic.com ([198.70.193.115]:47212 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753780Ab0AETDn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 14:03:43 -0500
+In-Reply-To: <20100105104556.14927d40@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending packets with a packet socket it is often necessary to set
-protocol in msg_name: otherwise the protocol field in the skb will not
-be set correctly.  However, currently doing this also requires
-supplying the interface index.
+> You should be doing GRO, what about multiple addresses per interface,
+> bridging, routing, ...
 
-The following patch makes it possible to avoid supplying the interface
-index by interpreting index 0 as "use device this socket is bound to".
+We do GRO too (that helps when old firmware didn't support LRO).
+Since all addresses associated with a net device are tracked
+we do take care of IP aliases. Note that LRO packets are not
+fed into GRO, although there's nothing that prevents it.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- net/packet/af_packet.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On older machines, GRO tops out CPU to get close to line rate,
+LRO doesn't. Also, LRO reduces number of PCIe transactions.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e0516a2..a81dae8 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -958,7 +958,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 					+ offsetof(struct sockaddr_ll,
- 						sll_addr)))
- 			goto out;
--		ifindex	= saddr->sll_ifindex;
-+		ifindex	= saddr->sll_ifindex ? : po->ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 	}
-@@ -1074,7 +1074,7 @@ static int packet_snd(struct socket *sock,
- 			goto out;
- 		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
- 			goto out;
--		ifindex	= saddr->sll_ifindex;
-+		ifindex	= saddr->sll_ifindex ? : po->ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 	}
--- 
-1.6.6.rc1.43.gf55cc
+LRO across bridge / routing is topology violation right?
+We don't get inet notification for remote IP addresses (correct
+me if wrong), so these cases are excluded from LRO.
+
+-Dhananjay
