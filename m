@@ -1,52 +1,98 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC 0/9] snet: Security for NETwork syscalls
-Date: Tue, 5 Jan 2010 08:09:17 -0600
-Message-ID: <20100105140917.GA6624@us.ibm.com>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
- <1262537872.10218.27.camel@bigi>
- <m2r5q5nhbc.fsf@ssh.synack.fr>
- <201001050820.o058Kuwx087793@www262.sakura.ne.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: getsockopt(TCP_DEFER_ACCEPT) value change
+Date: Tue, 05 Jan 2010 15:11:51 +0100
+Message-ID: <4B4348A7.4090509@gmail.com>
+References: <4B4317AD.1040302@free.fr> <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sam@synack.fr, linux-security-module@vger.kernel.org,
-	kaber@trash.net, zbr@ioremap.net, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hadi@cyberus.ca
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:60244 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab0AEOJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 09:09:47 -0500
-Content-Disposition: inline
-In-Reply-To: <201001050820.o058Kuwx087793@www262.sakura.ne.jp>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41134 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179Ab0AEOMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 09:12:09 -0500
+In-Reply-To: <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Tetsuo Handa (penguin-kernel@I-love.SAKURA.ne.jp):
-> Samir Bellabes wrote:
-> > I'm currently testing security_sock_rcv_skb() hook - which is inside
-> > sk_filter() - to get skbuffs when then are arriving, and so trying to
-> > push the buffer to userspace. In case this is not userfull, userspace
-> > is able to use the NFQUEUE of netfilter to get skbuff, and deal
-> > with incoming datas.
-> 
-> Pushing buffer to userspace and wait for userspace's decision will sleep.
-> sk_filter() which calls security_sock_rcv_skb() hook is called from
-> (e.g.) tcp_v6_do_rcv() and comment of tcp_v6_do_rcv() says that
-> "The socket must have it's spinlock held when we get here." 
-> Also, comment of rxrpc_queue_rcv_skb() says that
-> "the caller must hold a lock on call->lock".
-> I think it is not permitted to do sleeping operation inside
-> security_sock_rcv_skb().
+Le 05/01/2010 14:40, Ilpo J=E4rvinen a =E9crit :
+> On Tue, 5 Jan 2010, Daniel Lezcano wrote:
+>=20
+>> I noticed a change in the value returned by the getsockopt for the
+>> TCP_DEFER_ACCEPT option with a 2.6.32 kernel. The value retrieved wi=
+th the
+>> getsockopt is different from the one specified with the setsockopt. =
+Is it an
+>> expected behaviour ?
+>>
+>> I saw there were  changes around the TCP_DEFER_ACCEPT option with th=
+e number
+>> of attempts converted to a number of seconds.
+>>
+>> The following program is working fine with a 2.6.31 but fails with a=
+ 2.6.32
+>> kernel.
+>>
+>> Thanks
+>>  -- Daniel
+>>
+>> #include <stdio.h>
+>> #include <sys/socket.h>
+>> #include <netinet/in.h>
+>> #include <netinet/tcp.h>
+>>
+>> int main(int argc, char *argv[])
+>> {
+>>    int val1 =3D 12, val2;
+>>    socklen_t len =3D sizeof(val2);
+>>    int fd;
+>>      fd =3D socket(PF_INET, SOCK_STREAM, 0);
+>>    if (fd < 0) {
+>>        perror("socket");
+>>        return -1;
+>>    }
+>>      if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val1, sizeof(val=
+1))) {
+>>        perror("setsockopt");
+>>        return -1;
+>>    }
+>>      if (getsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val2, &len)) {
+>>        perror("getsockopt");
+>>        return -1;
+>>    }
+>>
+>>    if (val1 !=3D val2) {
+>>        fprintf(stderr, "error %d !=3D %d\n", val1, val2);
+>>        return -1;
+>>    }
+>>
+>>    return 0;
+>> }
+>=20
+> Added Cc.
+>=20
+> I don't think this change was intentional. ...However, is this differ=
+ence=20
+> particularly significant besides failing such a test program? The act=
+ual=20
+> value now returned by the getsockopt is more accurate than what the
+> userspace initially provided.
+>=20
+> In general, I wonder if there's something that mandates that a set/ge=
+t=20
+> pair of value should be equal?
+>=20
 
-Ah, there it is, thanks for finding a specific instance.  I'd looked
-a bit yesterday but couldn't find it.
+Nothing... really... we can round the value, and we indeed round it in =
+2.6.32
 
-Tetsuo, would you mind sending a patch to add a note to security.h's
-comment for socket_sock_rcv_skb: that it can't sleep?  It also used
-to be the case for security_task_free() which presumably would be
-hooked by the ssyscall or whatever was mentioned.
+defer value is given in second by user, and converted to number of retr=
+ansmits by kernel.
 
-thanks,
--serge
+Program assumption is wrong.
+
