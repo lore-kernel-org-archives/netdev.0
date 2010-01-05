@@ -1,50 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race [v3]
-Date: Tue, 05 Jan 2010 23:36:47 +0100
-Message-ID: <4B43BEFF.3030401@gmail.com>
-References: <4B42E252.1080405@gmail.com> <1262724742-5232-1-git-send-email-fleitner@redhat.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] sunrpc: fix peername failed on closed listener
+Date: Tue, 5 Jan 2010 18:01:31 -0500
+Message-ID: <20100105230131.GA22850@fieldses.org>
+References: <1262227956-21470-1-git-send-email-dfeng@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>
-To: Flavio Leitner <fleitner@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xiaotian Feng <dfeng@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34968 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754670Ab0AEWhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 17:37:21 -0500
-In-Reply-To: <1262724742-5232-1-git-send-email-fleitner@redhat.com>
+Received: from fieldses.org ([174.143.236.118]:40695 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755507Ab0AEXAo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 18:00:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1262227956-21470-1-git-send-email-dfeng@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/01/2010 21:52, Flavio Leitner a =E9crit :
-> Almost all igmp functions accessing inet->mc_list are protected by
-> rtnl_lock(), but there is one exception which is ip_mc_sf_allow(),
-> so there is a chance of either ip_mc_drop_socket or ip_mc_leave_group
-> remove an entry while ip_mc_sf_allow is running causing a crash.
->=20
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+On Thu, Dec 31, 2009 at 10:52:36AM +0800, Xiaotian Feng wrote:
+> There're some warnings of "nfsd: peername failed (err 107)!"
+> socket error -107 means Transport endpoint is not connected.
+> This warning message was outputed by svc_tcp_accept() [net/sunrpc/svcsock.c],
+> when kernel_getpeername returns -107. This means socket might be CLOSED.
+> 
+> And svc_tcp_accept was called by svc_recv() [net/sunrpc/svc_xprt.c]
+> 
+>         if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
+>         <snip>
+>                 newxpt = xprt->xpt_ops->xpo_accept(xprt);
+>         <snip>
+> 
+> So this might happen when xprt->xpt_flags has both XPT_LISTENER and XPT_CLOSE.
+> 
+> Let's take a look at commit b0401d72, this commit has moved the close
+> processing after do recvfrom method, but this commit also introduces this
+> warnings, if the xpt_flags has both XPT_LISTENER and XPT_CLOSED, we should
+> close it, not accpet then close.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+The logic here seems unnecessarily complicated now, but as a minimal
+fix, this seems fine.
 
-Small notes : in ip_mc_drop_socket()
+Is the *only* justification for this to silence this warning, or is
+there some more serious problem I'm missing?
 
+--b.
 
-// rcu_read_lock()/unlock() seems not really needed here, we only want =
-to avoid
-//the fill rtnl=E7lock() in case this socket have a NULL mc_list.
-
-rcu_read_lock();
-if (rcu_dereference(inet->mc_list) =3D=3D NULL) {
-	rcu_read_unlock();
-	return;
-}
-rcu_read_unlock();
-
-
-rtnl_lock();
-while ((iml =3D rcu_dereference(inet->mc_list)) !=3D NULL) {
-
-rcu_dereference() is not really needed here, since you own RTNL
-
+> 
+> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
+> Cc: J. Bruce Fields <bfields@fieldses.org>
+> Cc: Neil Brown <neilb@suse.de>
+> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+> index 1c924ee..187f0f4 100644
+> --- a/net/sunrpc/svc_xprt.c
+> +++ b/net/sunrpc/svc_xprt.c
+> @@ -699,7 +699,8 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
+>  	spin_unlock_bh(&pool->sp_lock);
+>  
+>  	len = 0;
+> -	if (test_bit(XPT_LISTENER, &xprt->xpt_flags)) {
+> +	if (test_bit(XPT_LISTENER, &xprt->xpt_flags) &&
+> +	    !test_bit(XPT_CLOSE, &xprt->xpt_flags)) {
+>  		struct svc_xprt *newxpt;
+>  		newxpt = xprt->xpt_ops->xpo_accept(xprt);
+>  		if (newxpt) {
