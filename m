@@ -1,83 +1,69 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: getsockopt(TCP_DEFER_ACCEPT) value change
-Date: Tue, 05 Jan 2010 11:42:53 +0100
-Message-ID: <4B4317AD.1040302@free.fr>
+From: Mark Bergsma <mark@wikimedia.org>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Tue, 05 Jan 2010 12:02:20 +0100
+Message-ID: <4B431C3C.5080203@wikimedia.org>
+References: <20091229013401.GE10172@verge.net.au> <4B41F3C2.6050006@trash.net> <20100104232445.GC2554@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	"Catalin(ux) M. BOIE" <catab@embedromix.ro>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	Graeme Fowler <graeme@graemef.net>,
+	David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:52512 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754232Ab0AEKm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 05:42:57 -0500
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o05Agsw4010951
-	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o05Ags2G1277994
-	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o05Ags0H005080
-	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
-Received: from smtp.lab.toulouse-stg.fr.ibm.com (smtp.lab.toulouse-stg.fr.ibm.com [9.101.4.108])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id o05Agshk005073
-	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
-Received: from mai-009101017029.toulouse-stg.fr.ibm.com (dhcp6.lab.toulouse-stg.fr.ibm.com [9.101.4.206])
-	by smtp.lab.toulouse-stg.fr.ibm.com (Postfix) with ESMTP id 06AC82A8051
-	for <netdev@vger.kernel.org>; Tue,  5 Jan 2010 11:42:54 +0100 (CET)
+Received: from tilia.nedworks.org ([82.94.225.218]:37840 "EHLO
+	tilia.nedworks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722Ab0AELCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 06:02:24 -0500
+In-Reply-To: <20100104232445.GC2554@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05-01-10 00:24, Simon Horman wrote:
+> On Mon, Jan 04, 2010 at 02:57:22PM +0100, Patrick McHardy wrote:
+>> Simon Horman wrote:
+>>> On Mon, Dec 28, 2009 at 07:49:38PM +0100, Mark Bergsma wrote:
+>>>> On 03-12-08 01:37, David Miller wrote:
+>>>>> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+>>>>> Date: Tue, 2 Dec 2008 16:16:04 -0700 (MST)
+>>>>>> I was looking for anything that could get me past of 88.000 request per
+>>>>>> seconds.
+>>>>>> The help text told me to raise that value if I have big number of
+>>>>>> connections. I just needed an easy way to test.
+>>>>> You're just repeating what I said, you "think" it should be
+>>>>> changed and as a result you are wasting everyones time.
+>>>>>
+>>>>> You don't actually "know", you're just guessing using random
+>>>>> snippets from documentation rather than good hard evidence of
+>>>>> a need.
+>>>> Hello,
+>>>>
+>>>> I just found this year-old thread about a patch allowing the IPVS
+>>>> connection hash table size to be set at load time by a module parameter.
+>>>> Apparently the conclusion reached was that allowing this configuration
+>>>> setting to be changed would be useless, and that the poster's
+>>>> performance problems would likely lie elsewhere, since he had no
+>>>> evidence it was caused by the hash table size.
+>>>
+>>> Hi Mark,
+>>>
+>>> thanks for your test results. I have added them to the patch.
+>>> Feel free to edit the text.
+>>
+>> Just wondering because of this comment - do you want me to apply this
+>> patch?
+> 
+> I was fishing for an response from Mark.
+> I'll resubmit it properly as that doesn't seem to be forthcoming.
 
-Hi,
+Hi Simon/Patrick,
 
-I noticed a change in the value returned by the getsockopt for the 
-TCP_DEFER_ACCEPT option with a 2.6.32 kernel. The value retrieved with 
-the getsockopt is different from the one specified with the setsockopt. 
-Is it an expected behaviour ?
+Sorry for the late reply, and yes, this is fine. Thanks for applying the
+patch!
 
-I saw there were  changes around the TCP_DEFER_ACCEPT option with the 
-number of attempts converted to a number of seconds.
-
-The following program is working fine with a 2.6.31 but fails with a 
-2.6.32 kernel.
-
-Thanks
-  -- Daniel
-
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
-int main(int argc, char *argv[])
-{
-    int val1 = 12, val2;
-    socklen_t len = sizeof(val2);
-    int fd;
-   
-    fd = socket(PF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        perror("socket");
-        return -1;
-    }
-   
-    if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val1, sizeof(val1))) {
-        perror("setsockopt");
-        return -1;
-    }
-   
-    if (getsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val2, &len)) {
-        perror("getsockopt");
-        return -1;
-    }
-
-    if (val1 != val2) {
-        fprintf(stderr, "error %d != %d\n", val1, val2);
-        return -1;
-    }
-
-    return 0;
-}
-
+-- 
+Mark Bergsma <mark@wikimedia.org>
+Operations Engineer, Wikimedia Foundation
