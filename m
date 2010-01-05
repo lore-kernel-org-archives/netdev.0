@@ -1,64 +1,54 @@
-From: Suresh Siddha <suresh.b.siddha@intel.com>
-Subject: Re: Subject: [PATCH 1/2] x86: get back 15 vectors
-Date: Mon, 04 Jan 2010 16:05:44 -0800
-Message-ID: <1262649945.2700.364.camel@sbs-t61.sc.intel.com>
-References: <4B347AEE.6030705@kernel.org> <20091228094707.GH24690@elte.hu>
-	 <4B398ECD.1080506@kernel.org>
-	 <4807377b1001031906s6b1ee576jc021da2642bb4147@mail.gmail.com>
-	 <4B415E73.1050801@kernel.org> <4B419113.1090204@kernel.org>
-	 <m1aawtlu6y.fsf@fess.ebiederm.org> <4B423B08.3010005@zytor.com>
-	 <m1my0thelq.fsf@fess.ebiederm.org>  <4B424305.7050803@kernel.org>
-	 <1262634353.2700.49.camel@sbs-t61.sc.intel.com>
-	 <4B42467F.5040008@zytor.com>
-Reply-To: Suresh Siddha <suresh.b.siddha@intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: regression in socket match caused by "net: Fix RPF to work
+ with policy routing"
+Date: Tue, 5 Jan 2010 11:10:19 +1100
+Message-ID: <20100105001019.GI2554@verge.net.au>
+References: <20100104100417.GA7699@verge.net.au>
+ <1262600022.3568.2.camel@bigi>
+ <20100104.103527.134676041.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDEV list <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754153Ab0AEAG6@vger.kernel.org>
-In-Reply-To: <4B42467F.5040008@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56212 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751612Ab0AEAKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jan 2010 19:10:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20100104.103527.134676041.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-01-04 at 11:50 -0800, H. Peter Anvin wrote:
-> On 01/04/2010 11:45 AM, Suresh Siddha wrote:
-> > On Mon, 2010-01-04 at 11:35 -0800, Yinghai Lu wrote:
-> >> sth like this?
-> >>
-> >> Subject: [PATCH 1/2] x86: get back 16 vectors
-> >>
-> >> -v2: according to hpa that we could start from 0x10
-> >>      according to Eric, we should hold 16 vectors for IRQ MOVE
-> >>
-> >> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-> >>
-> > 
-> > Yinghai we have to change IRQ_MOVE_CLEANUP_VECTOR to 0x1f or so. From
-> > the cpu perspective this vector is documented as illegal, so we need to
-> > check if this change will work on the cpu's we have today to get some
-> > confidence.
-> > 
+On Mon, Jan 04, 2010 at 10:35:27AM -0800, David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Mon, 04 Jan 2010 05:13:42 -0500
 > 
-> It's documented as reserved, not illegal.  The ability for the APIC to
-> generate vectors starting at 0x10 is documented, as is the ability for
-> the CPU to receive any vector number as an interrupt -- in fact, the
-> legacy BIOS relies on being able to receive interrupts starting at
-> vector 0x08.  It causes problems galore, but only at the software level.
+> > Hi Simon,
+> > 
+> > 
+> > On Mon, 2010-01-04 at 21:04 +1100, Simon Horman wrote:
+> >> Hi Jamal,
+> >> 
+> >> the patch "net: Fix RPF to work with policy routing",
+> >> which was added between 2.6.32-rc5 and rc6 seems to
+> >> cause a regression when using the socket match.
+> >> 
+> >> In particular I'm using IP_TRANSPARENT as detailed
+> >> in Documentation/networking/tproxy.txt with the following
+> >> rules:
+> > 
+> > Try latest tree - should be resolved.
+> 
+> Specifically this commit:
+> 
+> commit 28f6aeea3f12d37bd258b2c0d5ba891bff4ec479
+> Author: Jamal Hadi Salim <hadi@cyberus.ca>
+> Date:   Fri Dec 25 17:30:22 2009 -0800
+> 
+>     net: restore ip source validation
 
-I have checked out couple of platforms (including 32-bit atom) and 0x1f
-vector logic seems to be working.
+Hi Jamal, Hi Dave,
 
-Hopefully we won't have other hardware or software issues (vmm
-restrictions etc) with this logic.
+thanks, that resolves the problem that encountered.
 
-thanks,
-suresh
