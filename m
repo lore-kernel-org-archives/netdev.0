@@ -1,54 +1,75 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC 2/9] Revert "lsm: Remove the socket_post_accept() hook"
-Date: Mon, 4 Jan 2010 18:38:49 -0600
-Message-ID: <20100105003849.GA13053@us.ibm.com>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
- <1262437456-24476-3-git-send-email-sam@synack.fr>
- <20100104183619.GA6034@us.ibm.com>
- <201001050031.o050VhTU002668@www262.sakura.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sam@synack.fr, linux-security-module@vger.kernel.org,
-	kaber@trash.net, hadi@cyberus.ca, zbr@ioremap.net,
-	nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201001050031.o050VhTU002668@www262.sakura.ne.jp>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg Kroah-Hartman <gregkh@suse.de>
+Subject: [PATCH 39/97] Libertas: fix buffer overflow in lbs_get_essid()
+Date: Mon,  4 Jan 2010 16:32:52 -0800
+Message-ID: <1262651630-7354-39-git-send-email-gregkh@suse.de>
+References: <20100105003133.GA7199@kroah.com>
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, Daniel Mack <daniel@caiaq.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Maithili Hinge <maithili@marvell.com>,
+	Kiran Divekar <dkiran@marvell.com>,
+	Michael Hirsch <m.hirsch@raumfeld.com>, netdev@vger.kernel.org,
+	libertas-dev@lists.infradead.org,
+	linux-wireless@lists.infradead.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	stable-review@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:34218 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754309Ab0AEAfN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jan 2010 19:35:13 -0500
+In-Reply-To: <20100105003133.GA7199@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Tetsuo Handa (penguin-kernel@I-love.SAKURA.ne.jp):
-> Serge E. Hallyn wrote:
-> > Quoting Samir Bellabes (sam@synack.fr):
-> > > This reverts commit 8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
-> > > 
-> > > snet needs to reintroduce this hook, as it was designed to be: a hook for
-> > > updating security informations on objects.
-> > > 
-> > > Signed-off-by: Samir Bellabes <sam@synack.fr>
-> > 
-> > Acked-by: Serge Hallyn <serue@us.ibm.com>
-> > 
-> > (contingent of course on the proposed user actually going in :)
-> > 
-> > > diff --git a/net/socket.c b/net/socket.c
-> > > index 8984973..fcd4f2b 100644
-> > > --- a/net/socket.c
-> > > +++ b/net/socket.c
-> > > @@ -1557,6 +1557,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
-> > >  	fd_install(newfd, newfile);
-> > >  	err = newfd;
-> > > 
-> > > +	security_socket_post_accept(sock, newsock);
-> > > +
-> > >  out_put:
-> > >  	fput_light(sock->file, fput_needed);
-> > >  out:
-> 
-> I think we should call security_socket_post_accept() before fd_install().
-> Otherwise, other threads which share fd tables can use
-> security-informations-not-yet-updated accept()ed sockets.
+From: Daniel Mack <daniel@caiaq.de>
 
-That makes sense.
+commit 45b241689179a6065384260242637cf21dabfb2d upstream.
+
+The libertas driver copies the SSID buffer back to the wireless core and
+appends a trailing NULL character for termination. This is
+
+a) unnecessary because the buffer is allocated with kzalloc and is hence
+   already NULLed when this function is called, and
+
+b) for priv->curbssparams.ssid_len == 32, it writes back one byte too
+   much which causes memory corruptions.
+
+Fix this by removing the extra write.
+
+Signed-off-by: Daniel Mack <daniel@caiaq.de>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Maithili Hinge <maithili@marvell.com>
+Cc: Kiran Divekar <dkiran@marvell.com>
+Cc: Michael Hirsch <m.hirsch@raumfeld.com>
+Cc: netdev@vger.kernel.org
+Cc: libertas-dev@lists.infradead.org
+Cc: linux-wireless@lists.infradead.org
+Acked-by: Holger Schurig <holgerschurig@gmail.com>
+Acked-by: Dan Williams <dcbw@redhat.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/net/wireless/libertas/wext.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/libertas/wext.c b/drivers/net/wireless/libertas/wext.c
+index be837a0..01c738b 100644
+--- a/drivers/net/wireless/libertas/wext.c
++++ b/drivers/net/wireless/libertas/wext.c
+@@ -1953,10 +1953,8 @@ static int lbs_get_essid(struct net_device *dev, struct iw_request_info *info,
+ 	if (priv->connect_status == LBS_CONNECTED) {
+ 		memcpy(extra, priv->curbssparams.ssid,
+ 		       priv->curbssparams.ssid_len);
+-		extra[priv->curbssparams.ssid_len] = '\0';
+ 	} else {
+ 		memset(extra, 0, 32);
+-		extra[priv->curbssparams.ssid_len] = '\0';
+ 	}
+ 	/*
+ 	 * If none, we may want to get the one that was set
+-- 
+1.6.6
+
