@@ -1,104 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: [net-next PATCH] lib/vsprintf.c: Add IPV4 options %pI4[hnbl] for
- host, network, big and little endian
-Date: Tue, 05 Jan 2010 00:42:18 -0800
-Message-ID: <1262680938.1952.17.camel@Joe-Laptop.home>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: getsockopt(TCP_DEFER_ACCEPT) value change
+Date: Tue, 05 Jan 2010 11:42:53 +0100
+Message-ID: <4B4317AD.1040302@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1508 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750696Ab0AEImU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jan 2010 03:42:20 -0500
+Received: from mtagate1.uk.ibm.com ([194.196.100.161]:52512 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754232Ab0AEKm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 05:42:57 -0500
+Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
+	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o05Agsw4010951
+	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o05Ags2G1277994
+	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o05Ags0H005080
+	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
+Received: from smtp.lab.toulouse-stg.fr.ibm.com (smtp.lab.toulouse-stg.fr.ibm.com [9.101.4.108])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id o05Agshk005073
+	for <netdev@vger.kernel.org>; Tue, 5 Jan 2010 10:42:54 GMT
+Received: from mai-009101017029.toulouse-stg.fr.ibm.com (dhcp6.lab.toulouse-stg.fr.ibm.com [9.101.4.206])
+	by smtp.lab.toulouse-stg.fr.ibm.com (Postfix) with ESMTP id 06AC82A8051
+	for <netdev@vger.kernel.org>; Tue,  5 Jan 2010 11:42:54 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should allow the removal of the #defines and uses
-of NIPQUAD and NIPQUAD_FMT
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Hi,
 
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index d4996cf..5f12ffa 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -692,13 +692,37 @@ static char *mac_address_string(char *buf, char *end, u8 *addr,
- 	return string(buf, end, mac_addr, spec);
- }
- 
--static char *ip4_string(char *p, const u8 *addr, bool leading_zeros)
-+static char *ip4_string(char *p, const u8 *addr, const char *fmt)
- {
- 	int i;
--
-+	bool leading_zeros = (fmt[0] == 'i');
-+	int index;
-+	int step;
-+
-+	switch (fmt[2]) {
-+	case 'h':
-+#ifdef __BIG_ENDIAN
-+		index = 0;
-+		step = 1;
-+#else
-+		index = 3;
-+		step = -1;
-+#endif
-+		break;
-+	case 'l':
-+		index = 3;
-+		step = -1;
-+		break;
-+	case 'n':
-+	case 'b':
-+	default:
-+		index = 0;
-+		step = 1;
-+		break;
-+	}
- 	for (i = 0; i < 4; i++) {
- 		char temp[3];	/* hold each IP quad in reverse order */
--		int digits = put_dec_trunc(temp, addr[i]) - temp;
-+		int digits = put_dec_trunc(temp, addr[index]) - temp;
- 		if (leading_zeros) {
- 			if (digits < 3)
- 				*p++ = '0';
-@@ -710,6 +734,7 @@ static char *ip4_string(char *p, const u8 *addr, bool leading_zeros)
- 			*p++ = temp[digits];
- 		if (i < 3)
- 			*p++ = '.';
-+		index += step;
- 	}
- 	*p = '\0';
- 
-@@ -789,7 +814,7 @@ static char *ip6_compressed_string(char *p, const char *addr)
- 	if (useIPv4) {
- 		if (needcolon)
- 			*p++ = ':';
--		p = ip4_string(p, &in6.s6_addr[12], false);
-+		p = ip4_string(p, &in6.s6_addr[12], "I4");
- 	}
- 	*p = '\0';
- 
-@@ -829,7 +854,7 @@ static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
- {
- 	char ip4_addr[sizeof("255.255.255.255")];
- 
--	ip4_string(ip4_addr, addr, fmt[0] == 'i');
-+	ip4_string(ip4_addr, addr, fmt);
- 
- 	return string(buf, end, ip4_addr, spec);
- }
-@@ -902,6 +927,7 @@ static char *uuid_string(char *buf, char *end, const u8 *addr,
-  * - 'i' [46] for 'raw' IPv4/IPv6 addresses
-  *       IPv6 omits the colons (01020304...0f)
-  *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
-+ * - '[Ii]4[hnbl]' IPv4 addresses in host, network, big or little endian order
-  * - 'I6c' for IPv6 addresses printed as specified by
-  *       http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
-  * - 'U' For a 16 byte UUID/GUID, it prints the UUID/GUID in the form
+I noticed a change in the value returned by the getsockopt for the 
+TCP_DEFER_ACCEPT option with a 2.6.32 kernel. The value retrieved with 
+the getsockopt is different from the one specified with the setsockopt. 
+Is it an expected behaviour ?
 
+I saw there were  changes around the TCP_DEFER_ACCEPT option with the 
+number of attempts converted to a number of seconds.
+
+The following program is working fine with a 2.6.31 but fails with a 
+2.6.32 kernel.
+
+Thanks
+  -- Daniel
+
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
+int main(int argc, char *argv[])
+{
+    int val1 = 12, val2;
+    socklen_t len = sizeof(val2);
+    int fd;
+   
+    fd = socket(PF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        perror("socket");
+        return -1;
+    }
+   
+    if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val1, sizeof(val1))) {
+        perror("setsockopt");
+        return -1;
+    }
+   
+    if (getsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &val2, &len)) {
+        perror("getsockopt");
+        return -1;
+    }
+
+    if (val1 != val2) {
+        fprintf(stderr, "error %d != %d\n", val1, val2);
+        return -1;
+    }
+
+    return 0;
+}
 
