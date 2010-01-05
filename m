@@ -1,57 +1,44 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] drivers/net/ixgbe/ixgbe_common.c: use %pM to show MAC address
-Date: Tue, 5 Jan 2010 09:56:52 -0700
-Message-ID: <201001050956.53199.hartleys@visionengravers.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
+ CNA devices
+Date: Tue, 5 Jan 2010 09:07:17 -0800
+Message-ID: <20100105090717.15d532ce@nehalam>
+References: <1262697876-26206-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	dhananjay.phadke@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [206.15.93.42] ([206.15.93.42]:9423 "EHLO
-	visionfs1.visionengravers.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754903Ab0AERDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 12:03:25 -0500
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:39821 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754752Ab0AERHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 12:07:24 -0500
+In-Reply-To: <1262697876-26206-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the %pM kernel extension to display the MAC address.
+On Tue,  5 Jan 2010 05:24:34 -0800
+Amit Kumar Salecha <amit.salecha@qlogic.com> wrote:
 
-The only difference in the output is that the MAC address is
-shown in the usual colon-separated hex notation.
+> Hi
+>   Series of 2 patches to add Qlogic ethernet driver for QLE8240 and
+>   QLE8242 CNA devices. QLE8240 and QLE8242 devices support various 
+>   class of drivers.
+>   Please apply to net-next tree.
+> 
+> -Amit Salecha
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-Cc: David S. Miller <davem@davemloft.net>
+The patches are out of order. If patch 1 was applied (but not patch 2),
+then it would be possible to configure device but the actual driver
+code would not be there. This could happen when doing git bisect.
 
----
+I assume Dave will just resolve this by combining the two before
+merging.
 
-Repost due to merge issues.
-
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 688b8ca..1cedb9a 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1278,19 +1278,11 @@ s32 ixgbe_init_rx_addrs_generic(struct ixgbe_hw *hw)
- 		/* Get the MAC address from the RAR0 for later reference */
- 		hw->mac.ops.get_mac_addr(hw, hw->mac.addr);
- 
--		hw_dbg(hw, " Keeping Current RAR0 Addr =%.2X %.2X %.2X ",
--		       hw->mac.addr[0], hw->mac.addr[1],
--		       hw->mac.addr[2]);
--		hw_dbg(hw, "%.2X %.2X %.2X\n", hw->mac.addr[3],
--		       hw->mac.addr[4], hw->mac.addr[5]);
-+		hw_dbg(hw, " Keeping Current RAR0 Addr =%pM\n", hw->mac.addr);
- 	} else {
- 		/* Setup the receive address. */
- 		hw_dbg(hw, "Overriding MAC Address in RAR[0]\n");
--		hw_dbg(hw, " New MAC Addr =%.2X %.2X %.2X ",
--		       hw->mac.addr[0], hw->mac.addr[1],
--		       hw->mac.addr[2]);
--		hw_dbg(hw, "%.2X %.2X %.2X\n", hw->mac.addr[3],
--		       hw->mac.addr[4], hw->mac.addr[5]);
-+		hw_dbg(hw, " New MAC Addr =%pM\n", hw->mac.addr);
- 
- 		hw->mac.ops.set_rar(hw, 0, hw->mac.addr, 0, IXGBE_RAH_AV);
- 	}
+-- 
