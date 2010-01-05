@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [01/10] Libertas: fix buffer overflow in lbs_get_essid()
-Date: Tue, 05 Jan 2010 11:47:52 -0800
-Message-ID: <20100105194914.321801567@mini.kroah.org>
+Subject: [08/39] Libertas: fix buffer overflow in lbs_get_essid()
+Date: Tue, 05 Jan 2010 12:02:04 -0800
+Message-ID: <20100105200259.993485759@mini.kroah.org>
 References: <20100105195007.GA23952@kroah.com>
 Cc: Daniel Mack <daniel@caiaq.de>,
 	Stephen Hemminger <shemminger@vyatta.com>,
@@ -16,12 +16,16 @@ Cc: Daniel Mack <daniel@caiaq.de>,
 To: linux-kernel@vger.kernel.org, stable@kernel.org,
 	akpm@linux-foundation.org, torvalds@linux-foundation.org,
 	stable-review@kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755294Ab0AETwy@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:49954 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755429Ab0AEUGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 15:06:09 -0500
 In-Reply-To: <20100105195007.GA23952@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2.6.27-stable review patch.  If anyone has any objections, please let us know.
+2.6.31-stable review patch.  If anyone has any objections, please let us know.
 
 ------------------
 
@@ -59,7 +63,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 --- a/drivers/net/wireless/libertas/wext.c
 +++ b/drivers/net/wireless/libertas/wext.c
-@@ -1899,10 +1899,8 @@ static int lbs_get_essid(struct net_devi
+@@ -1951,10 +1951,8 @@ static int lbs_get_essid(struct net_devi
  	if (priv->connect_status == LBS_CONNECTED) {
  		memcpy(extra, priv->curbssparams.ssid,
  		       priv->curbssparams.ssid_len);
@@ -70,3 +74,5 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  	}
  	/*
  	 * If none, we may want to get the one that was set
+
+
