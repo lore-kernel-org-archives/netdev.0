@@ -1,73 +1,48 @@
-From: Rakesh Ranjan <rakesh@chelsio.com>
-Subject: Re: linux-next: manual merge of the net-current tree with the scsi-rc-fixes
- tree
-Date: Tue, 05 Jan 2010 10:39:31 +0530
-Message-ID: <4B42C98B.8070300@chelsio.com>
-References: <20100105085613.0a04d952.sfr@canb.auug.org.au> <20100104.143705.179916049.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC][PATCH] IP: Send a fragment reassembly time exceeded packet
+ when enabling connection track
+Date: Tue, 05 Jan 2010 06:44:35 +0100
+Message-ID: <4B42D1C3.3020207@trash.net>
+References: <4B3191E7.8060509@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	James.Bottomley@HansenPartnership.com,
-	Rakesh Ranjan <rakesh@chelsio.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100104.143705.179916049.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B3191E7.8060509@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/05/2010 04:07 AM, David Miller wrote:
-> From: Stephen Rothwell<sfr@canb.auug.org.au>
-> Date: Tue, 5 Jan 2010 08:56:13 +1100
->
->> Today's linux-next merge of the net-current tree got a conflict in
->> drivers/scsi/cxgb3i/cxgb3i_offload.c between commit
->> 44214ab474671e1ab5a860954db413bce52f7e04 ("[SCSI] cxgb3i: Fix a login
->> over vlan issue") from the scsi-rc-fixes tree and commit
->> 52ee264bca378835decb827d18b1d90b709ca4c9 ("cxgb3i: Fix a login over vlan
->> issue") from the net-current tree.
->>
->> These seem to be different version of the same change.  The version in
->> the net-current tree looks wrong - it contains
->>
->> if (dev->priv_flags&&  IFF_802_1Q_VLAN)
->>
->> but it presumably should be
->>
->> if (dev->priv_flags&  IFF_802_1Q_VLAN)
->>
->> as in the scsi-rc-fixes version.
->
-> I checked the following into my tree so it should all work out.
->
-> commit d3af9dd04f8795dc2761ecfa56632e4d0df0dae2
-> Author: David S. Miller<davem@davemloft.net>
-> Date:   Mon Jan 4 14:36:40 2010 -0800
->
->      cxgb3i: Fix flags test.
->
->      As noticed by Stephen Rothwell.
->
->      Signed-off-by: David S. Miller<davem@davemloft.net>
->
-> diff --git a/drivers/scsi/cxgb3i/cxgb3i_offload.c b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-> index 4b8a513..7449d46 100644
-> --- a/drivers/scsi/cxgb3i/cxgb3i_offload.c
-> +++ b/drivers/scsi/cxgb3i/cxgb3i_offload.c
-> @@ -1442,7 +1442,7 @@ static int is_cxgb3_dev(struct net_device *dev)
->   	struct cxgb3i_sdev_data *cdata;
->   	struct net_device *ndev = dev;
->
-> -	if (dev->priv_flags&&  IFF_802_1Q_VLAN)
-> +	if (dev->priv_flags&  IFF_802_1Q_VLAN)
->   		ndev = vlan_dev_real_dev(dev);
->
->   	write_lock(&cdata_rwlock);
+Shan Wei wrote:
+> Default, a host may send a fragment reassembly time exceeded packet
+> (ICMP Time Exceeded Message with code value of 1) when defraging fragments timeout.
+> But, when enabling connection track, a host can't send the packet.
+> 
+> Because, the module of nf_defrag_ipv4 selected by connection track is registered 
+> in PRE_ROUTING HOOK and assembles all accepted fragments(here, not begin to routing).
+> After defrag timeout, the host can't send fragment reassembly time exceeded packet, 
+> because of lack of router information.
+> 
+> RFC 792 says:
+>>>>>   If a host reassembling a fragmented datagram cannot complete the
+>>>>>   reassembly due to missing fragments within its time limit it
+>>>>>   discards the datagram, and it may send a time exceeded message.
+>>>>>
+>>>>>   If fragment zero is not available then no time exceeded need be
+>>>>>   sent at all.
+>>>>>
+>>>>>
+>>>>> Read more: http://www.faqs.org/rfcs/rfc792.html#ixzz0aOXRD7Wp
+> 
+> So, the patch try to fix it with filling router information before sending fragment reassembly
+> time exceeded packet when defrag timeout.
 
-Hi David,
-
-Sorry for the typo and thanks for fixing it.
-
-Regards
-Rakesh Ranjan
+I guess the question is whether we really want to send an ICMP
+message in this case. The above quote applies to end hosts,
+while conntrack is also (probably more commonly) used on routers,
+which normally shouldn't attempt reassembly. I can see no real
+downside to this though except that it makes it quite easy to
+discover firewalls, but that shouldn't be a real problem.
