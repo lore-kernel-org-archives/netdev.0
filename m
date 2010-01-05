@@ -1,51 +1,49 @@
-From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/6] hso: Add Vendor/Product ID's for new devices
-Date: Tue, 5 Jan 2010 15:50:31 +0100
-Message-ID: <20100105145029.GA19825@raptor>
+From: Jan Dumon <j.dumon@option.com>
+Subject: [PATCH 3/6] hso: don't change the state of a closed port
+Date: Tue, 5 Jan 2010 15:51:28 +0100
+Message-ID: <20100105145127.GC19825@raptor>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer2.option.com ([81.246.70.163]:46230 "EHLO
+	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754727Ab0AEPBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 10:01:24 -0500
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+From: Jan Dumon <j.dumon@option.com>
 
-Add product ID's for new devices.
+Don't change the state of a port if it's not open. This fixes an issue where a
+port sometimes has to be opened twice before data can be received.
 
-Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jan Dumon <j.dumon@option.com>
 
 --- linux-2.6.orig/drivers/net/usb/hso.c
 +++ linux-2.6/drivers/net/usb/hso.c
-@@ -461,10 +461,17 @@ static const struct usb_device_id hso_id
- 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
- 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
- 	{USB_DEVICE(0x0af0, 0x7701)},
-+	{USB_DEVICE(0x0af0, 0x7706)},
- 	{USB_DEVICE(0x0af0, 0x7801)},
- 	{USB_DEVICE(0x0af0, 0x7901)},
-+	{USB_DEVICE(0x0af0, 0x7A01)},
-+	{USB_DEVICE(0x0af0, 0x7A05)},
- 	{USB_DEVICE(0x0af0, 0x8200)},
- 	{USB_DEVICE(0x0af0, 0x8201)},
-+	{USB_DEVICE(0x0af0, 0x8300)},
-+	{USB_DEVICE(0x0af0, 0x8302)},
-+	{USB_DEVICE(0x0af0, 0x8304)},
-+	{USB_DEVICE(0x0af0, 0x8400)},
- 	{USB_DEVICE(0x0af0, 0xd035)},
- 	{USB_DEVICE(0x0af0, 0xd055)},
- 	{USB_DEVICE(0x0af0, 0xd155)},
-@@ -473,6 +480,8 @@ static const struct usb_device_id hso_id
- 	{USB_DEVICE(0x0af0, 0xd157)},
- 	{USB_DEVICE(0x0af0, 0xd257)},
- 	{USB_DEVICE(0x0af0, 0xd357)},
-+	{USB_DEVICE(0x0af0, 0xd058)},
-+	{USB_DEVICE(0x0af0, 0xc100)},
- 	{}
- };
- MODULE_DEVICE_TABLE(usb, hso_ids);
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+@@ -1915,18 +1915,18 @@ static void intr_callback(struct urb *ur
+ 			if (serial != NULL) {
+ 				D1("Pending read interrupt on port %d\n", i);
+ 				spin_lock(&serial->serial_lock);
+-				if (serial->rx_state == RX_IDLE) {
++				if (serial->rx_state == RX_IDLE &&
++					serial->open_count > 0) {
+ 					/* Setup and send a ctrl req read on
+ 					 * port i */
+-				if (!serial->rx_urb_filled[0]) {
++					if (!serial->rx_urb_filled[0]) {
+ 						serial->rx_state = RX_SENT;
+ 						hso_mux_serial_read(serial);
+ 					} else
+ 						serial->rx_state = RX_PENDING;
+-
+ 				} else {
+-					D1("Already pending a read on "
+-					   "port %d\n", i);
++					D1("Already a read pending on "
++					   "port %d or port not open\n", i);
+ 				}
+ 				spin_unlock(&serial->serial_lock);
+ 			}
