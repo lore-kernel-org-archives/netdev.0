@@ -1,40 +1,45 @@
-From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: Still using IPTOS_TOS() in kernel? Really???
-Date: Tue, 05 Jan 2010 10:20:30 -0800
-Message-ID: <4B4382EE.4080706@redfish-solutions.com>
-References: <4B298118.2000608@redfish-solutions.com> <200912221328.56573.schmto@hrz.tu-chemnitz.de> <4B32A33C.6050507@redfish-solutions.com> <201001051635.59914.schmto@hrz.tu-chemnitz.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] netfilter: ebtables: enforce CAP_NET_ADMIN
+Date: Tue,  5 Jan 2010 19:26:07 +0100
+Message-ID: <1262715967-25274-1-git-send-email-fw@strlen.de>
 Cc: netdev@vger.kernel.org
-To: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:36123 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753978Ab0AESUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 13:20:38 -0500
-In-Reply-To: <201001051635.59914.schmto@hrz.tu-chemnitz.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/05/2010 07:35 AM, Torsten Schmidt wrote:
->> Can you extend the patch to include classify_1d() in net/mac80211/wme.c?
->>
->> I'm thinking:
->>
->>          }
->>
->> -        if (dscp & 0x1c)
->> +#if !defined(CONFIG_IP_DIFFSERV_COMPLIANT)
->> +        if (IPTOS_TOS(dscp) & ~IPTOS_LOWCOST)
->>                  return 0;
->> +#endif
->>          return dscp >> 5;
->>  }
-> This code segment seems to be older stuff. Its not in 2.6.32. 
-> 
-> Torsten 
+normal users are currently allowed to set/modify ebtables rules.
+Restrict it to processes with CAP_NET_ADMIN.
 
-I'm running 2.6.27.42.
+Signed-off-by: Florian Westphal <fwestphal@astaro.com>
+---
+ Note that this cannot be reproduced with
+ unmodified ebtables binary because it uses SOCK_RAW.
 
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index bd1c654..0b7f262 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1406,6 +1406,9 @@ static int do_ebt_set_ctl(struct sock *sk,
+ {
+ 	int ret;
+ 
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
+ 	switch(cmd) {
+ 	case EBT_SO_SET_ENTRIES:
+ 		ret = do_replace(sock_net(sk), user, len);
+@@ -1425,6 +1428,9 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 	struct ebt_replace tmp;
+ 	struct ebt_table *t;
+ 
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
+ 	if (copy_from_user(&tmp, user, sizeof(tmp)))
+ 		return -EFAULT;
+ 
+-- 
+1.6.3.3
 
