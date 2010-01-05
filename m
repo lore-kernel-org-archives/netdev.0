@@ -1,55 +1,33 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: Re: [PATCH] via-velocity: add netpoll functionality for the benefit
- of netconsole
-Date: Tue, 5 Jan 2010 07:28:00 +0100
-Message-ID: <20100105072800.13dba6d2@marrow.netinsight.se>
-References: <4B423440.6060807@computer.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC-PATCH] libiscsi dhcp handler
+Date: Mon, 04 Jan 2010 22:42:18 -0800 (PST)
+Message-ID: <20100104.224218.35346973.davem@davemloft.net>
+References: <4B014F95.8000906@chelsio.com>
+	<20091116.051835.125328285.davem@davemloft.net>
+	<4B01577E.2020003@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	=?ISO-8859-1?Q?St=E9phane?= Berthelot <sberthelot@emisfr.com>
-To: Jan Ceuleers <jan.ceuleers@computer.org>
+Cc: michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	James.Bottomley@suse.de, kxie@chelsio.com
+To: rakesh@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:12994 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752068Ab0AEG2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 01:28:09 -0500
-In-Reply-To: <4B423440.6060807@computer.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48564
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753095Ab0AEGmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 01:42:15 -0500
+In-Reply-To: <4B01577E.2020003@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Rakesh Ranjan <rakesh@chelsio.com>
+Date: Mon, 16 Nov 2009 19:15:34 +0530
 
-Does the patch still work with the new NAPI support in the driver? Some
-comments below:
+> +	/* Construct UDP header */
+> +	udph = &pkt->udph;
+> +	udph->source = htons(DHCPC_CLIENT_PORT);
+> +	udph->dest = htons(DHCPC_SERVER_PORT);
+> +	udph->len = htons(sizeof(struct dhcp_pkt) - sizeof(struct iphdr));
 
-On Mon, 04 Jan 2010 19:32:32 +0100
-Jan Ceuleers <jan.ceuleers@computer.org> wrote:
-
-> +static void velocity_poll_controller(struct net_device *dev)
-> +{
-> +	disable_irq(dev->irq);
-> +	velocity_intr(dev->irq, dev);
-> +	enable_irq(dev->irq);
-> +}
-
-This should probably have an
-
-#ifdef CONFIG_NET_POLL_CONTROLLER
-...
-#endif
-
-around it since
-
-> @@ -2628,6 +2642,9 @@ static const struct net_device_ops velocity_netdev_ops = {
->  	.ndo_vlan_rx_add_vid	= velocity_vlan_rx_add_vid,
->  	.ndo_vlan_rx_kill_vid	= velocity_vlan_rx_kill_vid,
->  	.ndo_vlan_rx_register	= velocity_vlan_rx_register,
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +	.ndo_poll_controller	= velocity_poll_controller,
-> +#endif
-
-This one has it (to avoid a warning when building without it).
-
-// Simon
+UDP checksum is not set, and is also not validated on receive.
