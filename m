@@ -1,163 +1,43 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH v2] dmfe/tulip: Let dmfe handle DM910x except for SPARC
-	on-board chips
-Date: Tue, 5 Jan 2010 09:58:17 -0700
-Message-ID: <20100105165817.GA13015@lackof.org>
-References: <1262660588.26813.24.camel@localhost>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: [PATCH] drivers/net/atl1e/atl1e_main.c: use %pM to show MAC address
+Date: Tue, 5 Jan 2010 09:55:40 -0700
+Message-ID: <201001050955.40411.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, brandon@ifup.org,
-	grundler@google.com, tobias@ringis.se, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, grundler@parisc-linux.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:44928 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317Ab0AEQ6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 11:58:19 -0500
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932134Ab0AERDf@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1262660588.26813.24.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 05, 2010 at 03:03:08AM +0000, Ben Hutchings wrote:
-> The Davicom DM9100 and DM9102 chips are used on the motherboards of
-> some SPARC systems (supported by the tulip driver) and also in PCI
-> expansion cards (supported by the dmfe driver).  There is no
-> difference in the PCI device ids for the two different configurations,
-> so these drivers both claim the device ids.  However, it is possible
-> to distinguish the two configurations by the presence of Open Firmware
-> properties for them, so we do that.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Use the %pM kernel extension to display the MAC address.
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+The only difference in the output is that the MAC address is
+shown in the usual colon-separated hex notation.
 
-thanks for respinning this several times!
-grant
+Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Cc: David S. Miller <davem@davemloft.net>
 
-> ---
-> Changes from v1, as you requested:
-> - Downgraded log messages from ERR to INFO
-> - Removed dummy length parameter to of_get_property()
-> 
-> Ben.
-> 
->  drivers/net/tulip/Kconfig      |    4 ++++
->  drivers/net/tulip/dmfe.c       |   17 +++++++++++++++++
->  drivers/net/tulip/tulip_core.c |   32 +++++++++++++++++++++++++-------
->  3 files changed, 46 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/tulip/Kconfig b/drivers/net/tulip/Kconfig
-> index 1cc8cf4..516713f 100644
-> --- a/drivers/net/tulip/Kconfig
-> +++ b/drivers/net/tulip/Kconfig
-> @@ -101,6 +101,10 @@ config TULIP_NAPI_HW_MITIGATION
->  
->  	  If in doubt, say Y.
->  
-> +config TULIP_DM910X
-> +	def_bool y
-> +	depends on TULIP && SPARC
-> +
->  config DE4X5
->  	tristate "Generic DECchip & DIGITAL EtherWORKS PCI/EISA"
->  	depends on PCI || EISA
-> diff --git a/drivers/net/tulip/dmfe.c b/drivers/net/tulip/dmfe.c
-> index ad63621..b2273a1 100644
-> --- a/drivers/net/tulip/dmfe.c
-> +++ b/drivers/net/tulip/dmfe.c
-> @@ -377,6 +377,23 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
->  	if (!printed_version++)
->  		printk(version);
->  
-> +	/*
-> +	 *	SPARC on-board DM910x chips should be handled by the main
-> +	 *	tulip driver, except for early DM9100s.
-> +	 */
-> +#ifdef CONFIG_TULIP_DM910X
-> +	if (ent->driver_data == PCI_DM9100_ID && pdev->revision >= 0x30 ||
-> +	    ent->driver_data == PCI_DM9102_ID) {
-> +		struct device_node *dp = pci_device_to_OF_node(pdev);
-> +
-> +		if (dp && of_get_property(dp, "local-mac-address", NULL)) {
-> +			printk(KERN_INFO DRV_NAME
-> +			       ": skipping on-board DM910x (use tulip)\n");
-> +			return -ENODEV;
-> +		}
-> +	}
-> +#endif
-> +
->  	/* Init network device */
->  	dev = alloc_etherdev(sizeof(*db));
->  	if (dev == NULL)
-> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-> index 0fa3140..595777d 100644
-> --- a/drivers/net/tulip/tulip_core.c
-> +++ b/drivers/net/tulip/tulip_core.c
-> @@ -196,9 +196,13 @@ struct tulip_chip_table tulip_tbl[] = {
->  	| HAS_NWAY | HAS_PCI_MWI, tulip_timer, tulip_media_task },
->  
->    /* DM910X */
-> +#ifdef CONFIG_TULIP_DM910X
->    { "Davicom DM9102/DM9102A", 128, 0x0001ebef,
->  	HAS_MII | HAS_MEDIA_TABLE | CSR12_IN_SROM | HAS_ACPI,
->  	tulip_timer, tulip_media_task },
-> +#else
-> +  { NULL },
-> +#endif
->  
->    /* RS7112 */
->    { "Conexant LANfinity", 256, 0x0001ebef,
-> @@ -228,8 +232,10 @@ static struct pci_device_id tulip_pci_tbl[] = {
->  	{ 0x1259, 0xa120, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
->  	{ 0x11F6, 0x9881, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMPEX9881 },
->  	{ 0x8086, 0x0039, PCI_ANY_ID, PCI_ANY_ID, 0, 0, I21145 },
-> +#ifdef CONFIG_TULIP_DM910X
->  	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
->  	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },
-> +#endif
->  	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
->  	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
->  	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
-> @@ -1299,18 +1305,30 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
->  	}
->  
->  	/*
-> -	 *	Early DM9100's need software CRC and the DMFE driver
-> +	 *	DM910x chips should be handled by the dmfe driver, except
-> +	 *	on-board chips on SPARC systems.  Also, early DM9100s need
-> +	 *	software CRC which only the dmfe driver supports.
->  	 */
->  
-> -	if (pdev->vendor == 0x1282 && pdev->device == 0x9100)
-> -	{
-> -		/* Read Chip revision */
-> -		if (pdev->revision < 0x30)
-> -		{
-> -			printk(KERN_ERR PFX "skipping early DM9100 with Crc bug (use dmfe)\n");
-> +#ifdef CONFIG_TULIP_DM910X
-> +	if (chip_idx == DM910X) {
-> +		struct device_node *dp;
-> +
-> +		if (pdev->vendor == 0x1282 && pdev->device == 0x9100 &&
-> +		    pdev->revision < 0x30) {
-> +			printk(KERN_INFO PFX
-> +			       "skipping early DM9100 with Crc bug (use dmfe)\n");
-> +			return -ENODEV;
-> +		}
-> +
-> +		dp = pci_device_to_OF_node(pdev);
-> +		if (!(dp && of_get_property(dp, "local-mac-address", NULL))) {
-> +			printk(KERN_INFO PFX
-> +			       "skipping DM910x expansion card (use dmfe)\n");
->  			return -ENODEV;
->  		}
->  	}
-> +#endif
->  
->  	/*
->  	 *	Looks for early PCI chipsets where people report hangs
-> -- 
-> 1.6.5.7
-> 
+---
+
+Repost due to merge issues.
+
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 08f8c09..2080d44 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -2378,10 +2378,7 @@ static int __devinit atl1e_probe(struct pci_dev *pdev,
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
+ 	memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
+-	dev_dbg(&pdev->dev, "mac address : %02x-%02x-%02x-%02x-%02x-%02x\n",
+-			adapter->hw.mac_addr[0], adapter->hw.mac_addr[1],
+-			adapter->hw.mac_addr[2], adapter->hw.mac_addr[3],
+-			adapter->hw.mac_addr[4], adapter->hw.mac_addr[5]);
++	dev_dbg(&pdev->dev, "mac address : %pM\n", adapter->hw.mac_addr);
+ 
+ 	INIT_WORK(&adapter->reset_task, atl1e_reset_task);
+ 	INIT_WORK(&adapter->link_chg_task, atl1e_link_chg_task);
