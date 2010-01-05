@@ -1,106 +1,77 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
-Date: Tue, 05 Jan 2010 08:34:45 +0100
-Message-ID: <87iqbhuhre.fsf@nemi.mork.no>
-References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
-	<1261604906.609.106.camel@localhost.localdomain>
-	<878wcdx6tt.fsf@nemi.mork.no>
-	<1262639441.16627.322.camel@localhost.localdomain>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] drivers/net/stmmac/gmac.c: use %pM to show MAC address
+Date: Tue, 05 Jan 2010 09:02:46 +0100
+Message-ID: <4B42F226.6010207@st.com>
+References: <BD79186B4FD85F4B8E60E381CAEE19090200F674@mi8nycmail19.Mi8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: H Hartley Sweeten <hartleys@visionengravers.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38408 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754214Ab0AEHnV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 02:43:21 -0500
-In-Reply-To: <1262639441.16627.322.camel@localhost.localdomain> (Marcel
-	Holtmann's message of "Mon, 04 Jan 2010 13:10:41 -0800")
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:37640 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754306Ab0AEIDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 03:03:04 -0500
+In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200F674@mi8nycmail19.Mi8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcel Holtmann <marcel@holtmann.org> writes:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Hi Bjorn,
->
->> >> This patch adds the Sony Ericsson J105i (Naite)
->> >> mobile phone to the cdc_ether device whitelist,
->> >> enabling access to the modem.
->> >>=20
->> >> I would think more SE models of this generation
->> >> (2009Q3) with builtin HSDPA modules also needs
->> >> to be added to this list.
->> >
->> > I do prefer if we NOT use the mbm_info details for this since they=
- are
->> > clearly for mobile broadband cards with FLAG_WWAN.
->>=20
->> Assuming that these devices can be configured just like the WWAN car=
-ds
->> by sending commands to the associated ACM* or WDM* interfaces, why w=
-ould
->> you treat them differently?  Because they've got a keyboard and a
->> display?
->
-> these are not like MBM devices WWAN cards. The MBM cards require to
-> setup the PDP context before the card will become ready. With an actu=
-al
-> phone you are already set.
+Hi Hartley,
 
-You are?  AFAIK, the PDP context *may* be configured using the phone UI
-but it still needs to be setup.  And there are good reasons why you'd
-like to configure/setup/verify the PDP context from the PC even if one
-is setup using the phone UI. You will at least need to verify that a PD=
-P
-context actually *is* setup.  And you might want to use a different APN
-than the one used when surfing from the phone.  You might even want to
-choose different APNs depending on context (for VPN access, e.g)
+H Hartley Sweeten wrote:
+> Use the %pM kernel extension to display the MAC address.
 
-> So these are Ethernet devices and not WWAN cards.
+Thanks for this patch.
+As discussed in the mailing list, I'm reworking some patches for the
+stmmac driver (fixing compilation errors and trying to make the code
+more generic).
+I've already modified the gmac.c file now splitted in new two files.
+So I'm wondering if it's worth applying this patch into the new code,
+directly.
 
-Well, I argued that the WWAN card were Ethernet devices.  I realise tha=
-t
-they've been defined otherwise now.  What I'm trying to understand are
-the finer details of this definition.  Exactly what defines a WWAN card=
-?
+Regards,
+Peppe
 
->> > Since this is a phone where the setup of the connection is done vi=
-a the
->> > phone. And you just treat this as an Ethernet device and run DHCP,=
- then
->> > please create a se_info or similar with FLAG_ETHER.
->>=20
->> Why would anyone want to setup the connection via the phone?  That s=
-eems
->> unnecessary cumbersome. I'd prefer such devices to be auto-configure=
-d
->> just like any other WWAN device.
->
-> Are they WWAN devices? What these do is basically tethering via an
-> Ethernet like device. It does not require a telephony stack to drive
-> this hardware.
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+> 
+> diff --git a/drivers/net/stmmac/gmac.c b/drivers/net/stmmac/gmac.c
+> index 52586ee..7700772 100644
+> --- a/drivers/net/stmmac/gmac.c
+> +++ b/drivers/net/stmmac/gmac.c
+> @@ -481,12 +481,8 @@ static void gmac_set_filter(struct net_device *dev)
+>  				gmac_set_umac_addr(ioaddr, uc_ptr->da_addr,
+>  						i + 1);
+>  
+> -				DBG(KERN_INFO "\t%d "
+> -				"- Unicast addr %02x:%02x:%02x:%02x:%02x:"
+> -				"%02x\n", i + 1,
+> -				uc_ptr->da_addr[0], uc_ptr->da_addr[1],
+> -				uc_ptr->da_addr[2], uc_ptr->da_addr[3],
+> -				uc_ptr->da_addr[4], uc_ptr->da_addr[5]);
+> +				DBG(KERN_INFO "\t%d - Unicast addr %pM\n",
+> +					i + 1, uc_ptr->da_addr);
+>  				uc_ptr = uc_ptr->next;
+>  		}
+>  	} 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Do they connect automatically, or do you need to initiate the connectio=
-n
-somehow?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-> We require a proper DEVTYPE classification and these don't fall into =
-the
-> category of WWAN devices. They can be treated like every other Ethern=
-et
-> card and should be classified like this. We have FLAG_ETHER for this,=
- so
-> please use that one.
-
-I believe the WWAN cards also can be treated like every other USB
-Ethernet device, as far as the kernel is concerned.  Any differences ar=
-e
-easily resolved by userspace applications.=20
-
-So I'm still trying to figure out what makes a WWAN device special wrt
-the kernel.  Thanks for explaining.
-
-
-Bj=C3=B8rn
+iEYEARECAAYFAktC8iAACgkQ2Xo3j31MSSJ+DACguvgHAeRm2Qy+N6Lw8svt/nna
+Z0sAnRjHHkG+FYtyu0OfjOrRi8eu9SyN
+=srnl
+-----END PGP SIGNATURE-----
