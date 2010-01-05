@@ -1,65 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: getsockopt(TCP_DEFER_ACCEPT) value change
-Date: Tue, 05 Jan 2010 17:14:23 +0100
-Message-ID: <4B43655F.5030807@gmail.com>
-References: <4B4317AD.1040302@free.fr> <alpine.DEB.2.00.1001051526520.7024@wel-95.cs.helsinki.fi> <4B4348A7.4090509@gmail.com> <4B435EB5.1010902@free.fr>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [net-next PATCH] net: Make it easier to parse /proc/net/dev contents.
+Date: Tue, 05 Jan 2010 16:50:52 +0100
+Message-ID: <20100105155052.13309.1197.stgit@firesoul.comx.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34650 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753945Ab0AEQOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 11:14:37 -0500
-In-Reply-To: <4B435EB5.1010902@free.fr>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49657 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754126Ab0AEQXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 11:23:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/01/2010 16:45, Daniel Lezcano a =E9crit :
- =20
-> It's not problem if the set / get values are not same, but I was aski=
-ng
-> because I am working with a test suite checking if a checkpoint /
-> restart solution is correct.  One of these tests, sets the
-> TCP_DEFER_ACCEPT value to 12, checkpoints / restarts, and reads the
-> value in order to check if it was correctly restored. The value 12 wa=
-s
-> chosen because it is not rounded, so we were able to safely do the te=
-st.
-> But with the 2.6.32, the behaviour changed, so I preferred to report =
-it
-> in case that is something not expected.
->=20
->=20
+The contents of /proc/net/dev is annoying to parse, because
+it changes whether there is a space after the "ethX:" or not.
+It depends upon the size of the "Receive bytes" counter,
+if the number is below 7 digits, then there is whitespaces
+else if the number is 8 digits or above there is no space
+between the ":" and the number.
 
-12 happened to be rounded to 12 with previous kernels,
-but with recent kernels we have another conversion table :
+This patch changes the output to assure there is always a space
+between the ":" and the number.  Given that all existing userspace
+application already need to handle the whitespaces, I see
+no breakage of existing tools.
 
-1 -> 3
-2 -> 3
-3 -> 3
-4 -> 9
-5 -> 9
-6 -> 9
-7 -> 9
-8 -> 9
-9 -> 9
-10 -> 21
-=2E..
-21 -> 21
-22 -> 45
-=2E..
-45 -> 45
-46 -> 93
-=2E..
-93 -> 93
-94 -> 189
-=2E..
-189 -> 189
-190 -> 309
-=2E..
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+---
+
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f9aa699..3a86252 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3207,7 +3207,7 @@ static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
+ {
+ 	const struct net_device_stats *stats = dev_get_stats(dev);
+ 
+-	seq_printf(seq, "%6s:%8lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
++	seq_printf(seq, "%6s: %7lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
+ 		   "%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
+ 		   dev->name, stats->rx_bytes, stats->rx_packets,
+ 		   stats->rx_errors,
+
