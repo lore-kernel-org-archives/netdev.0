@@ -1,37 +1,77 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection (v3)
-Date: Tue, 5 Jan 2010 17:04:53 -0500
-Message-ID: <20100105220452.GB6825@localhost.localdomain>
-References: <4B4357A9.5010507@gmail.com>
- <20100105.124040.192660261.davem@davemloft.net>
- <20100105213856.GB24245@hmsreliant.think-freely.org>
- <20100105.134537.244111255.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: packet: option to only pass skb protocol
+Date: Wed, 6 Jan 2010 00:05:53 +0200
+Message-ID: <20100105220553.GE30921@redhat.com>
+References: <20100105185732.GA30346@redhat.com> <4B43AEF6.6050701@nortel.com> <20100105.134218.258781374.davem@davemloft.net> <20100105214524.GA31301@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com
+Cc: cfriesen@nortel.com, eric.dumazet@gmail.com, nhorman@tuxdriver.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42881 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953Ab0AEWE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 17:04:56 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932168Ab0AEWJB@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100105.134537.244111255.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100105214524.GA31301@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 05, 2010 at 01:45:37PM -0800, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Tue, 5 Jan 2010 16:38:56 -0500
+On Tue, Jan 05, 2010 at 11:45:24PM +0200, Michael S. Tsirkin wrote:
+> On Tue, Jan 05, 2010 at 01:42:18PM -0800, David Miller wrote:
+> > From: "Chris Friesen" <cfriesen@nortel.com>
+> > Date: Tue, 05 Jan 2010 15:28:22 -0600
+> > 
+> > > On 01/05/2010 12:57 PM, Michael S. Tsirkin wrote:
+> > >> When sending packets with a packet socket it is often necessary to set
+> > >> protocol in msg_name: otherwise the protocol field in the skb will not
+> > >> be set correctly.
+> > > 
+> > > What about automatically detecting the protocol from the data being sent
+> > > to avoid the necessity of specifying it in the first place?
+> > 
+> > This limits packet socket usage to only protocols the kernel is aware
+> > of, defeating part of the usefulness of the packet socket facility.
 > 
-> > I think thats what I've done in my third version of the patch here.
-> > By raising the copybreak value, and setting an initial allocation
-> > size of 16k, we:
-> 
-> Right, I'll take an even closer look at your patch later this
-> afternoon, thanks Neil.
-> 
-No problem, thank you Dave!
-Neil
+> We could do this if the protocol is ETH_P_ALL -  skbs end up with this
+> protocol currently when sendmsg does not have msgname and when socket is
+> set up to listen for all packets.  It's not a valid protocol value, is
+> it?
 
+Something like this (if we want to support this for all device types,
+we would probably need to add get_proto callback to net_device_ops),
+and call it instead of eth_hdr(skb)->h_proto.
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index a81dae8..a23d4b2 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -845,7 +845,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 
+ 	ph.raw = frame;
+ 
+-	skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = po->sk.sk_priority;
+ 	skb->mark = po->sk.sk_mark;
+@@ -924,6 +923,11 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		len = ((to_write > len_max) ? len_max : to_write);
+ 	}
+ 
++	if (proto == htons(ETH_P_ALL) && dev->type == ARPHRD_ETHER)
++		skb->protocol = eth_hdr(skb)->h_proto;
++	else
++		skb->protocol = proto;
++
+ 	return tp_len;
+ }
+ 
+@@ -1113,7 +1117,10 @@ static int packet_snd(struct socket *sock,
+ 	if (err)
+ 		goto out_free;
+ 
+-	skb->protocol = proto;
++	if (proto == htons(ETH_P_ALL) && dev->type == ARPHRD_ETHER)
++		skb->protocol = eth_hdr(skb)->h_proto;
++	else
++		skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
