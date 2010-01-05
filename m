@@ -1,14 +1,14 @@
 From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] drivers/net/wimax/i2400m/fw.c: use %pM to show MAC address
-Date: Tue, 5 Jan 2010 10:01:54 -0700
-Message-ID: <201001051001.55024.hartleys@visionengravers.com>
+Subject: [PATCH] drivers/net/vxge/vxge-main.c: use %pM to show MAC address
+Date: Tue, 5 Jan 2010 09:59:23 -0700
+Message-ID: <201001050959.23591.hartleys@visionengravers.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755108Ab0AERDv@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755164Ab0AEREq@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -22,31 +22,20 @@ Cc: David S. Miller <davem@davemloft.net>
 
 Repost due to merge issues.
 
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-index 64cdfeb..e803a7d 100644
---- a/drivers/net/wimax/i2400m/fw.c
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -1041,21 +1041,14 @@ int i2400m_read_mac_addr(struct i2400m *i2400m)
- 		dev_err(dev, "BM: read mac addr failed: %d\n", result);
- 		goto error_read_mac;
- 	}
--	d_printf(2, dev,
--		 "mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
--		 ack_buf.ack_pl[0], ack_buf.ack_pl[1],
--		 ack_buf.ack_pl[2], ack_buf.ack_pl[3],
--		 ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
-+	d_printf(2, dev, "mac addr is %pM\n", ack_buf.ack_pl);
- 	if (i2400m->bus_bm_mac_addr_impaired == 1) {
- 		ack_buf.ack_pl[0] = 0x00;
- 		ack_buf.ack_pl[1] = 0x16;
- 		ack_buf.ack_pl[2] = 0xd3;
- 		get_random_bytes(&ack_buf.ack_pl[3], 3);
- 		dev_err(dev, "BM is MAC addr impaired, faking MAC addr to "
--			"mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
--			ack_buf.ack_pl[0], ack_buf.ack_pl[1],
--			ack_buf.ack_pl[2], ack_buf.ack_pl[3],
--			ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
-+			"mac addr is %pM\n", ack_buf.ack_pl);
- 		result = 0;
- 	}
- 	net_dev->addr_len = ETH_ALEN;
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index 0fdfd58..df13873 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -4297,10 +4297,8 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	vxge_debug_init(VXGE_TRACE, "%s: Neterion %s Server Adapter",
+ 		vdev->ndev->name, ll_config.device_hw_info.product_desc);
+ 
+-	vxge_debug_init(VXGE_TRACE,
+-		"%s: MAC ADDR: %02X:%02X:%02X:%02X:%02X:%02X",
+-		vdev->ndev->name, macaddr[0], macaddr[1], macaddr[2],
+-		macaddr[3], macaddr[4], macaddr[5]);
++	vxge_debug_init(VXGE_TRACE, "%s: MAC ADDR: %pM",
++		vdev->ndev->name, macaddr);
+ 
+ 	vxge_debug_init(VXGE_TRACE, "%s: Link Width x%d",
+ 		vdev->ndev->name, vxge_hw_device_link_width_get(hldev));
