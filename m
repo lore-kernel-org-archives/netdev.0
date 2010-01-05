@@ -1,63 +1,110 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] mv643xx_eth: don't include cache padding in rx desc buffer size
-Date: Tue, 5 Jan 2010 20:15:32 +0100
-Message-ID: <20100105191532.GU1735@mail.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH net-next v2 3/3] powerpc/mpc5xxx: add OF platform binding doc for FSL MSCAN devices
+Date: Tue,  5 Jan 2010 20:19:29 +0100
+Message-ID: <1262719169-2350-4-git-send-email-wg@grandegger.com>
+References: <1262719169-2350-1-git-send-email-wg@grandegger.com>
+ <1262719169-2350-2-git-send-email-wg@grandegger.com>
+ <1262719169-2350-3-git-send-email-wg@grandegger.com>
+Cc: Socketcan-core@lists.berlios.de, Linuxppc-dev@lists.ozlabs.org,
+	Devicetree-discuss@lists.ozlabs.org,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Wolfgang Grandegger <wg@denx.de>
+To: Netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:36812 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754224Ab0AETPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 14:15:35 -0500
-Content-Disposition: inline
+In-Reply-To: <1262719169-2350-3-git-send-email-wg@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Bishara <saeed@marvell.com>
+From: Wolfgang Grandegger <wg@denx.de>
 
-If NET_SKB_PAD is not a multiple of the cache line size, mv643xx_eth 
-allocates a couple of extra bytes at the start of each receive buffer
-to make the data payload end up on a cache line boundary.
+This patch adds documentation for the MSCAN OF device bindings for
+the MPC512x and moves the one for the MPC5200 to the new common file
+"Documentation/powerpc/dts-bindings/fsl/can.txt".
 
-These extra bytes are skb_reserve()'d before DMA mapping, so they
-should not be included in the DMA map byte count (as the mapping is
-done starting at skb->data), nor should they be included in the
-receive descriptor buffer size field, or the hardware can end up
-DMAing beyond the end of the buffer, which can happen if someone
-sends us a larger-than-MTU sized packet.
+Signed-off-by: Wolfgang Grandegger <wg@denx.de>
+Acked-by: Wolfram Sang <w.sang@pengutronix.de>
+---
+ Documentation/powerpc/dts-bindings/fsl/can.txt     |   53 ++++++++++++++++++++
+ Documentation/powerpc/dts-bindings/fsl/mpc5200.txt |    9 +---
+ 2 files changed, 54 insertions(+), 8 deletions(-)
+ create mode 100644 Documentation/powerpc/dts-bindings/fsl/can.txt
 
-This problem was introduced in commit 7fd96ce47ff ("mv643xx_eth:
-rework receive skb cache alignment", May 6 2009), but hasn't appeared
-to be problematic so far, probably as the main users of mv643xx_eth
-all have NET_SKB_PAD == L1_CACHE_BYTES.
-
-Signed-off-by: Saeed Bishara <saeed@marvell.com>
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 1405a17..af67af5 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -656,6 +656,7 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
- 		struct sk_buff *skb;
- 		int rx;
- 		struct rx_desc *rx_desc;
-+		int size;
+diff --git a/Documentation/powerpc/dts-bindings/fsl/can.txt b/Documentation/powerpc/dts-bindings/fsl/can.txt
+new file mode 100644
+index 0000000..2fa4fcd
+--- /dev/null
++++ b/Documentation/powerpc/dts-bindings/fsl/can.txt
+@@ -0,0 +1,53 @@
++CAN Device Tree Bindings
++------------------------
++
++(c) 2006-2009 Secret Lab Technologies Ltd
++Grant Likely <grant.likely@secretlab.ca>
++
++fsl,mpc5200-mscan nodes
++-----------------------
++In addition to the required compatible-, reg- and interrupt-properties, you can
++also specify which clock source shall be used for the controller:
++
++- fsl,mscan-clock-source : a string describing the clock source. Valid values
++			   are:	"ip" for ip bus clock
++				 "ref" for reference clock (XTAL)
++			   "ref" is default in case this property is not
++			   present.
++
++fsl,mpc5121-mscan nodes
++-----------------------
++In addition to the required compatible-, reg- and interrupt-properties, you can
++also specify which clock source and divider shall be used for the controller:
++
++- fsl,mscan-clock-source : a string describing the clock source. Valid values
++			   are:	"ip" for ip bus clock
++				"ref" for reference clock
++				"sys" for system clock
++			   If this property is not present, an optimal CAN
++			   clock source and frequency based on the system
++			   clock will be selected. If this is not possible,
++			   the reference clock will be used.
++
++- fsl,mscan-clock-divider: for the reference and system clock, an additional
++			   clock divider can be specified. By default, a
++			   value of 1 is used.
++
++Note that the MPC5121 Rev. 1 processor is not supported.
++
++Examples:
++	can@1300 {
++		compatible = "fsl,mpc5121-mscan";
++		interrupts = <12 0x8>;
++		interrupt-parent = <&ipic>;
++		reg = <0x1300 0x80>;
++	};
++
++	can@1380 {
++		compatible = "fsl,mpc5121-mscan";
++		interrupts = <13 0x8>;
++		interrupt-parent = <&ipic>;
++		reg = <0x1380 0x80>;
++		fsl,mscan-clock-source = "ref";
++		fsl,mscan-clock-divider = <3>;
++	};
+diff --git a/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt b/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
+index cabc780..95accfa 100644
+--- a/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
++++ b/Documentation/powerpc/dts-bindings/fsl/mpc5200.txt
+@@ -180,11 +180,4 @@ External interrupts:
  
- 		skb = __skb_dequeue(&mp->rx_recycle);
- 		if (skb == NULL)
-@@ -678,10 +679,11 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
- 
- 		rx_desc = rxq->rx_desc_area + rx;
- 
-+		size = skb->end - skb->data;
- 		rx_desc->buf_ptr = dma_map_single(mp->dev->dev.parent,
--						  skb->data, mp->skb_size,
-+						  skb->data, size,
- 						  DMA_FROM_DEVICE);
--		rx_desc->buf_size = mp->skb_size;
-+		rx_desc->buf_size = size;
- 		rxq->rx_skb[rx] = skb;
- 		wmb();
- 		rx_desc->cmd_sts = BUFFER_OWNED_BY_DMA | RX_ENABLE_INTERRUPT;
+ fsl,mpc5200-mscan nodes
+ -----------------------
+-In addition to the required compatible-, reg- and interrupt-properites, you can
+-also specify which clock source shall be used for the controller:
+-
+-- fsl,mscan-clock-source- a string describing the clock source. Valid values
+-			  are:	"ip" for ip bus clock
+-				"ref" for reference clock (XTAL)
+-			  "ref" is default in case this property is not
+-			  present.
++See file can.txt in this directory.
+-- 
+1.6.2.5
+
