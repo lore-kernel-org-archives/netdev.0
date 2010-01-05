@@ -1,48 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC][PATCH] IP: Send a fragment reassembly time exceeded packet
- when enabling connection track
-Date: Tue, 05 Jan 2010 06:44:35 +0100
-Message-ID: <4B42D1C3.3020207@trash.net>
-References: <4B3191E7.8060509@cn.fujitsu.com>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: Re: [PATCH] via-velocity: add netpoll functionality for the benefit
+ of netconsole
+Date: Tue, 5 Jan 2010 07:28:00 +0100
+Message-ID: <20100105072800.13dba6d2@marrow.netinsight.se>
+References: <4B423440.6060807@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B3191E7.8060509@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	=?ISO-8859-1?Q?St=E9phane?= Berthelot <sberthelot@emisfr.com>
+To: Jan Ceuleers <jan.ceuleers@computer.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:12994 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752068Ab0AEG2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 01:28:09 -0500
+In-Reply-To: <4B423440.6060807@computer.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shan Wei wrote:
-> Default, a host may send a fragment reassembly time exceeded packet
-> (ICMP Time Exceeded Message with code value of 1) when defraging fragments timeout.
-> But, when enabling connection track, a host can't send the packet.
-> 
-> Because, the module of nf_defrag_ipv4 selected by connection track is registered 
-> in PRE_ROUTING HOOK and assembles all accepted fragments(here, not begin to routing).
-> After defrag timeout, the host can't send fragment reassembly time exceeded packet, 
-> because of lack of router information.
-> 
-> RFC 792 says:
->>>>>   If a host reassembling a fragmented datagram cannot complete the
->>>>>   reassembly due to missing fragments within its time limit it
->>>>>   discards the datagram, and it may send a time exceeded message.
->>>>>
->>>>>   If fragment zero is not available then no time exceeded need be
->>>>>   sent at all.
->>>>>
->>>>>
->>>>> Read more: http://www.faqs.org/rfcs/rfc792.html#ixzz0aOXRD7Wp
-> 
-> So, the patch try to fix it with filling router information before sending fragment reassembly
-> time exceeded packet when defrag timeout.
+Hi,
 
-I guess the question is whether we really want to send an ICMP
-message in this case. The above quote applies to end hosts,
-while conntrack is also (probably more commonly) used on routers,
-which normally shouldn't attempt reassembly. I can see no real
-downside to this though except that it makes it quite easy to
-discover firewalls, but that shouldn't be a real problem.
+Does the patch still work with the new NAPI support in the driver? Some
+comments below:
+
+On Mon, 04 Jan 2010 19:32:32 +0100
+Jan Ceuleers <jan.ceuleers@computer.org> wrote:
+
+> +static void velocity_poll_controller(struct net_device *dev)
+> +{
+> +	disable_irq(dev->irq);
+> +	velocity_intr(dev->irq, dev);
+> +	enable_irq(dev->irq);
+> +}
+
+This should probably have an
+
+#ifdef CONFIG_NET_POLL_CONTROLLER
+...
+#endif
+
+around it since
+
+> @@ -2628,6 +2642,9 @@ static const struct net_device_ops velocity_netdev_ops = {
+>  	.ndo_vlan_rx_add_vid	= velocity_vlan_rx_add_vid,
+>  	.ndo_vlan_rx_kill_vid	= velocity_vlan_rx_kill_vid,
+>  	.ndo_vlan_rx_register	= velocity_vlan_rx_register,
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +	.ndo_poll_controller	= velocity_poll_controller,
+> +#endif
+
+This one has it (to avoid a warning when building without it).
+
+// Simon
