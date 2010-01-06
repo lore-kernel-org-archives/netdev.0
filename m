@@ -1,97 +1,60 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] e1000: enhance frame fragment detection
-Date: Wed, 6 Jan 2010 15:27:42 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1001061525050.4056@jbrandeb-desk1.amr.corp.intel.com>
-References: <20091228201005.GC18422@hmsreliant.think-freely.org> <alpine.WNT.2.00.1001051341110.4056@jbrandeb-desk1.amr.corp.intel.com>
+From: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] nodmask.h: remove macro any_online_node
+Date: Wed, 6 Jan 2010 15:52:37 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1001061552220.19882@chino.kir.corp.google.com>
+References: <201001061624.59118.hartleys@visionengravers.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>, jesse.brandeburg@intel.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37274 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756530Ab0AFX1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 18:27:43 -0500
-In-Reply-To: <alpine.WNT.2.00.1001051341110.4056@jbrandeb-desk1.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
+	mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org, lee.schermerhorn-VXdhtT5mjnY@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org,
+	paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, dave-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, miltonm-ogEGBHC/i9Y@public.gmane.org,
+	nfont-V7BBcbaFuwjMbYB6QlFGEg@public.gmane.org, geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org, chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+To: H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201001061624.59118.hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-a counter patch, without atomic ops, since we are protected by napi when 
-modifying this variable.
+On Wed, 6 Jan 2010, H Hartley Sweeten wrote:
 
-Originally From: Neil Horman <nhorman@tuxdriver.com>
-Modified by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> nodmask.h: remove macro any_online_node
+> 
+> The macro any_online_node is prone to producing sparse warnings
+> due to the local symbol 'node'. Since all the in-tree users are really
+> requesting the first online node (the mask argument is either
+> NODE_MASK_ALL or node_online_map) just use the first_online_node
+> macro and remove the any_online_node macro since there are no users.
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+> Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> Cc: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> Cc: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+> Cc: Lee Schermerhorn <lee.schermerhorn-VXdhtT5mjnY@public.gmane.org>
+> Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> Cc: Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+> Cc: Dave Hansen <dave-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> Cc: Milton Miller <miltonm-ogEGBHC/i9Y@public.gmane.org>
+> Cc: Nathan Fontenot <nfont-V7BBcbaFuwjMbYB6QlFGEg@public.gmane.org>
+> Cc: Geoff Levand <geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> Cc: J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Benny Halevy <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
+> Cc: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Ricardo Labiaga <Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
 
-<original message>
-Hey all-
-	A security discussion was recently given:
-http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
-And a patch that I submitted awhile back was brought up.  Apparently some of
-their testing revealed that they were able to force a buffer fragment in e1000
-in which the trailing fragment was greater than 4 bytes.  As a result the
-fragment check I introduced failed to detect the fragement and a partial
-invalid frame was passed up into the network stack.  I've written this patch
-to correct it.  I'm in the process of testing it now, but it makes good
-logical sense to me.  Effectively it maintains a per-adapter state variable
-which detects a non-EOP frame, and discards it and subsequent non-EOP frames
-leading up to _and_ _including_ the next positive-EOP frame (as it is by
-definition the last fragment).  This should prevent any and all partial frames
-from entering the network stack from e1000.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
-
- drivers/net/e1000/e1000.h      |    2 ++
- drivers/net/e1000/e1000_main.c |   13 +++++++++++--
- 2 files changed, 13 insertions(+), 2 deletions(-)
-
-
-diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-index 2a567df..e8932db 100644
---- a/drivers/net/e1000/e1000.h
-+++ b/drivers/net/e1000/e1000.h
-@@ -326,6 +326,8 @@ struct e1000_adapter {
- 	/* for ioport free */
- 	int bars;
- 	int need_ioport;
-+
-+	bool discarding;
- };
- 
- enum e1000_state_t {
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 7e855f9..9bc9fcd 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3850,13 +3850,22 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 
- 		length = le16_to_cpu(rx_desc->length);
- 		/* !EOP means multiple descriptors were used to store a single
--		 * packet, also make sure the frame isn't just CRC only */
--		if (unlikely(!(status & E1000_RXD_STAT_EOP) || (length <= 4))) {
-+		 * packet, if thats the case we need to toss it.  In fact, we
-+		 * to toss every packet with the EOP bit clear and the next
-+		 * frame that _does_ have the EOP bit set, as it is by
-+		 * definition only a frame fragment
-+		 */
-+		if (unlikely(!(status & E1000_RXD_STAT_EOP)))
-+			adapter->discarding = true;
-+
-+		if (adapter->discarding) {
- 			/* All receives must fit into a single buffer */
- 			E1000_DBG("%s: Receive packet consumed multiple"
- 				  " buffers\n", netdev->name);
- 			/* recycle */
- 			buffer_info->skb = skb;
-+			if (status & E1000_RXD_STAT_EOP)
-+				adapter->discarding = false;
- 			goto next_desc;
- 		}
- 
+Acked-by: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
