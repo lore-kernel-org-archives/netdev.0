@@ -1,77 +1,40 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/3] can: mscan-mpc5xxx: add support for
-	the Freescale MPC512x
-Date: Wed, 6 Jan 2010 15:45:31 +0100
-Message-ID: <20100106144531.GD5299@pengutronix.de>
-References: <1262719241-2422-1-git-send-email-wg@grandegger.com>
-	<4B449EB0.5090107@grandegger.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH alt.2] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 6 Jan 2010 06:49:57 -0800
+Message-ID: <20100106064957.3be271b8@nehalam>
+References: <20100105230746.GA6612@del.dom.local>
+	<4B43F72C.9090004@majjas.com>
+	<20100106072208.GA6711@ff.dom.local>
+	<20100106091532.GA10201@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1575905861=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B449EB0.5090107-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---===============1575905861==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qOrJKOH36bD5yhNe"
-Content-Disposition: inline
-
-
---qOrJKOH36bD5yhNe
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-> Wolfram, is it OK from your point of view now? I will roll out v3 after
-> some  more thorough testing tomorrow.
-
-It still works here and, as I see it, all issues were resolved as discussed.
-
-Thanks,
-
-   Wolfram
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---qOrJKOH36bD5yhNe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAktEogsACgkQD27XaX1/VRuuxwCfY+Ijx7xKuS8Y+fdznLtD07qd
-wKIAoIvp71e3nlYVA2pH64ekrfjIz20s
-=ahFH
------END PGP SIGNATURE-----
-
---qOrJKOH36bD5yhNe--
-
---===============1575905861==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Michael Breuer <mbreuer@majjas.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:32778 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755767Ab0AFOu0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2010 09:50:26 -0500
+In-Reply-To: <20100106091532.GA10201@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+On Wed, 6 Jan 2010 09:15:32 +0000
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
---===============1575905861==--
+> tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
+> which is illegal.
+> 
+> With debugging by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> Reported-by: Michael Breuer <mbreuer@majjas.com>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+Good catch.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+-- 
