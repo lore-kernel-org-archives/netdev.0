@@ -1,104 +1,131 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Wed, 6 Jan 2010 22:09:41 +0100
-Message-ID: <20100106210941.GC3354@del.dom.local>
-References: <20100105230746.GA6612@del.dom.local>
- <4B43F72C.9090004@majjas.com>
- <20100106072208.GA6711@ff.dom.local>
- <4B44E952.5000804@majjas.com>
- <20100106202212.GB3354@del.dom.local>
- <4B44F381.3000206@majjas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG net-next-2.6] Had to revert bonding: allow arp_ip_targets on
+ separate vlans to use arp validation
+Date: Wed, 06 Jan 2010 22:10:03 +0100
+Message-ID: <4B44FC2B.4090505@gmail.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <20091120154046.67252d23@nehalam>	 <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932802Ab0AFVJ5@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B44F381.3000206@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60604 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932827Ab0AFVKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:10:15 -0500
+In-Reply-To: <4B44D89B.8070006@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 06, 2010 at 03:33:05PM -0500, Michael Breuer wrote:
-> On 1/6/2010 3:22 PM, Jarek Poplawski wrote:
-> >On Wed, Jan 06, 2010 at 02:49:38PM -0500, Michael Breuer wrote:
-> >>On 1/6/2010 2:22 AM, Jarek Poplawski wrote:
-> >>>On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
-> >>>>On 1/5/2010 6:07 PM, Jarek Poplawski wrote:
-> >>>>>----------------->
-> >>>>>
-> >>>>>Changing an skb after dev_queue_xmit() is illegal. And since it's
-> >>>>>inconsistent to treat specially net_xmit_errno() non-zero return,
-> >>>>>while ignoring other dev_queue_xmit() errors, there is no reason
-> >>>>>to break the loop in tpacket_snd() in this case.
-> >>>>>
-> >>>>>With debugging by: Stephen Hemminger<shemminger@linux-foundation.org>
-> >>>>>
-> >>>>>Reported-by: Michael Breuer<mbreuer@majjas.com>
-> >>>>>Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
-> >>>>>---
-> >>>>>
-> >>>>>   net/packet/af_packet.c |    8 +++-----
-> >>>>>   1 files changed, 3 insertions(+), 5 deletions(-)
-> >>>>>
-> >>>>>diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> >>>>>index e0516a2..984a1fa 100644
-> >>>>>--- a/net/packet/af_packet.c
-> >>>>>+++ b/net/packet/af_packet.c
-> >>>>>@@ -1021,8 +1021,9 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-> >>>>>
-> >>>>>   		status = TP_STATUS_SEND_REQUEST;
-> >>>>>   		err = dev_queue_xmit(skb);
-> >>>>>-		if (unlikely(err>    0&&    (err = net_xmit_errno(err)) != 0))
-> >>>>>-			goto out_xmit;
-> >>>>>+		if (unlikely(err>    0))
-> >>>>>+			err = net_xmit_errno(err);
-> >>>>>+
-> >>>>>   		packet_increment_head(&po->tx_ring);
-> >>>>>   		len_sum += tp_len;
-> >>>>>   	} while (likely((ph != NULL) ||
-> >>>>>@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-> >>>>>   	err = len_sum;
-> >>>>>   	goto out_put;
-> >>>>>
-> >>>>>-out_xmit:
-> >>>>>-	skb->destructor = sock_wfree;
-> >>>>>-	atomic_dec(&po->tx_ring.pending);
-> >>>>>   out_status:
-> >>>>>   	__packet_set_status(po, ph, status);
-> >>>>>   	kfree_skb(skb);
-> >>>>>--
-...
-> >>This patch at first behaved similarly to the previous one - seemed
-> >>to be running a bit better... until the adapter went down :(
-> >I'm not sure: do you mean this patch above vs previous one by Stephen,
-> >or did you manage to try my "alernative #2" patch already?
-> >
-> >BTW, I forgot to mention, and maybe it doesn't matter here, but it
-> >would be better to (always) use my sky2 patch from Berck Nash's
-> >thread.
-> >
-> >Jarek P.
-> This was using "alternative #2" patch. I didn't get the hang with
-> alternative #1. Your sky2 patch from Berck Nash's thread was
-> included in both cases; Stephen's was not.
+Le 06/01/2010 19:38, Eric Dumazet a =E9crit :
+>=20
+> (net-next-2.6 doesnt work well on my bond/vlan setup, I suspect I nee=
+d a bisection)
 
-OK, so I guess "alternative #1" (above) seems safer to recommend for
-now (as I assumed earlier).
+David, I had to revert 1f3c8804acba841b5573b953f5560d2683d2db0d
+(bonding: allow arp_ip_targets on separate vlans to use arp validation)
 
-On the other hand, we really don't know if it's only because it's
-because it's nicer for your hardware (or still some other bug around),
-so as before: let David choose ;-)
+Or else, my vlan devices dont work (unfortunatly I dont have much time
+these days to debug the thing)
 
-BTW, I think you could still use Stephen's patch too (there might be
-still something more like this). There was also mentioned this network
-manager again. I might be wrong, but IMHO there could be some
-interaction even if it doesn't use this device; so could/did you try
-to disable it entirely?
+My config :
 
-Thanks for testing!
-Jarek P.
+              +---------+
+vlan.103 -----+ bond0   +--- eth1 (bnx2)
+              |         +
+vlan.825 -----+         +--- eth2 (tg3)
+              +---------+
 
- 
+$ cat /proc/net/bonding/bond0
+Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
+
+Bonding Mode: fault-tolerance (active-backup)
+Primary Slave: None
+Currently Active Slave: eth2
+MII Status: up
+MII Polling Interval (ms): 100
+Up Delay (ms): 0
+Down Delay (ms): 0
+
+Slave Interface: eth1  (bnx2)
+MII Status: down
+Link Failure Count: 1
+Permanent HW addr: 00:1e:0b:ec:d3:d2
+
+Slave Interface: eth2   (tg3)
+MII Status: up
+Link Failure Count: 0
+Permanent HW addr: 00:1e:0b:92:78:50
+
+
+
+
+author	Andy Gospodarek <andy@greyhouse.net>=09
+	Mon, 14 Dec 2009 10:48:58 +0000 (10:48 +0000)
+committer	David S. Miller <davem@davemloft.net>=09
+	Mon, 4 Jan 2010 05:17:16 +0000 (21:17 -0800)
+commit	1f3c8804acba841b5573b953f5560d2683d2db0d
+tree	453fae141b4a37e72ee0513ea1816fbff8f1cf8a=09
+parent	3a999e6eb5d277cd6a321dcda3fc43c3d9e4e4b8=09
+bonding: allow arp_ip_targets on separate vlans to use arp validation
+
+This allows a bond device to specify an arp_ip_target as a host that is
+not on the same vlan as the base bond device and still use arp
+validation.  A configuration like this, now works:
+
+BONDING_OPTS=3D"mode=3Dactive-backup arp_interval=3D1000 arp_ip_target=3D=
+10.0.100.1 arp_validate=3D3"
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
+ast master bond0 qlen 1000
+    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+3: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
+ast master bond0 qlen 1000
+    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noque=
+ue
+    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::213:21ff:febe:33e9/64 scope link
+       valid_lft forever preferred_lft forever
+9: bond0.100@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 q=
+disc noqueue
+    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.100.2/24 brd 10.0.100.255 scope global bond0.100
+    inet6 fe80::213:21ff:febe:33e9/64 scope link
+       valid_lft forever preferred_lft forever
+
+Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
+
+Bonding Mode: fault-tolerance (active-backup)
+Primary Slave: None
+Currently Active Slave: eth1
+MII Status: up
+MII Polling Interval (ms): 0
+Up Delay (ms): 0
+Down Delay (ms): 0
+ARP Polling Interval (ms): 1000
+ARP IP target/s (n.n.n.n form): 10.0.100.1
+
+Slave Interface: eth1
+MII Status: up
+Link Failure Count: 1
+Permanent HW addr: 00:40:05:30:ff:30
+
+Slave Interface: eth0
+MII Status: up
+Link Failure Count: 0
+Permanent HW addr: 00:13:21:be:33:e9
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
