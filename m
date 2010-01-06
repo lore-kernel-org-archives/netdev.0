@@ -1,43 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 6/8] net/netfilter/ipvs/ip_vs_ftp.c: Use standardized format in sprintf
-Date: Tue,  5 Jan 2010 17:20:18 -0800
-Message-ID: <da25f48ee7959e83a18e3705c223c8619e508bf4.1262726222.git.joe@perches.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 4/8] net/sunrpc: Remove uses of NIPQUAD, use %pI4
+Date: Tue,  5 Jan 2010 17:20:16 -0800
+Message-ID: <b39f7936e8b262c3367ab708bf1e039db53509d3.1262726222.git.joe@perches.com>
 References: <cover.1262726222.git.joe@perches.com>
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932202Ab0AFBVb@vger.kernel.org>
-In-Reply-To: <cover.1262726222.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1262726222.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use the same format string as net/ipv4/netfilter/nf_nat_ftp.c
-to encode an ipv4 address and port.
-
-Both uses should be a single common function.
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/sunrpc/xprtrdma/transport.c |    3 +--
+ net/sunrpc/xprtsock.c           |    5 ++---
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 33e2c79..73f38ea 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -208,7 +208,7 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 		 */
- 		from.ip = n_cp->vaddr.ip;
- 		port = n_cp->vport;
--		sprintf(buf, "%d,%d,%d,%d,%d,%d", NIPQUAD(from.ip),
-+		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
- 			(ntohs(port)>>8)&255, ntohs(port)&255);
- 		buf_len = strlen(buf);
+diff --git a/net/sunrpc/xprtrdma/transport.c b/net/sunrpc/xprtrdma/transport.c
+index 7018eef..83d339f 100644
+--- a/net/sunrpc/xprtrdma/transport.c
++++ b/net/sunrpc/xprtrdma/transport.c
+@@ -165,8 +165,7 @@ xprt_rdma_format_addresses(struct rpc_xprt *xprt)
  
+ 	xprt->address_strings[RPC_DISPLAY_PROTO] = "rdma";
+ 
+-	(void)snprintf(buf, sizeof(buf), "%02x%02x%02x%02x",
+-				NIPQUAD(sin->sin_addr.s_addr));
++	(void)snprintf(buf, sizeof(buf), "%08x", ntohl(sin->sin_addr.s_addr));
+ 	xprt->address_strings[RPC_DISPLAY_HEX_ADDR] = kstrdup(buf, GFP_KERNEL);
+ 
+ 	(void)snprintf(buf, sizeof(buf), "%4hx", rpc_get_port(sap));
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 3d739e5..86234bc 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -297,12 +297,11 @@ static void xs_format_common_peer_addresses(struct rpc_xprt *xprt)
+ 	switch (sap->sa_family) {
+ 	case AF_INET:
+ 		sin = xs_addr_in(xprt);
+-		(void)snprintf(buf, sizeof(buf), "%02x%02x%02x%02x",
+-					NIPQUAD(sin->sin_addr.s_addr));
++		snprintf(buf, sizeof(buf), "%08x", ntohl(sin->sin_addr.s_addr));
+ 		break;
+ 	case AF_INET6:
+ 		sin6 = xs_addr_in6(xprt);
+-		(void)snprintf(buf, sizeof(buf), "%pi6", &sin6->sin6_addr);
++		snprintf(buf, sizeof(buf), "%pi6", &sin6->sin6_addr);
+ 		break;
+ 	default:
+ 		BUG();
 -- 
 1.6.6.rc0.57.gad7a
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
