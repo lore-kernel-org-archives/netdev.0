@@ -1,41 +1,76 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: RE: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
- CNA devices
-Date: Tue, 5 Jan 2010 18:19:29 -0800
-Message-ID: <7608421F3572AB4292BB2532AE89D5658B0BAE94A3@AVEXMB1.qlogic.org>
-References: <7608421F3572AB4292BB2532AE89D5658B0BAE9450@AVEXMB1.qlogic.org>
-	<20100105.154928.80012641.davem@davemloft.net>
-	<7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org>
- <20100105.163343.14826539.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the wireless-current
+ tree
+Date: Wed, 6 Jan 2010 13:25:20 +1100
+Message-ID: <20100106132520.89e75a15.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	Amit Salecha <amit.salecha@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:11937 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754818Ab0AFCVL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 21:21:11 -0500
-Content-Language: en-US
+Received: from chilli.pcug.org.au ([203.10.76.44]:58236 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752382Ab0AFCZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jan 2010 21:25:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I won't defend other vendors' implementation. Even if LRO was
-> not turned off for bridge/forwarding, we still wouldn't accumulate
-> those remote flows because the dest IP address is not configured in
-> firmware in our case. This is the reason why we have a inet
-> notification listener (to tell firmware about local addresses).
+Hi all,
 
-May be I should clarify further. Driver does check if the net device
-is owned by a qlogic (or netxen) pci device then only will care
-about telling firmware about the IP address.
+Today's linux-next merge of the net tree got a conflict in
+net/mac80211/iface.c between commit
+cf0277e714a0db302a8f80e1b85fd61c32cf00b3 ("mac80211: fix skb buffering
+issue") from the wireless-current tree and commit
+47846c9b0c10808d9337d2e7d09361f3e0a0a71a ("mac80211: reduce reliance on
+netdev") from the net tree.
 
-On NAT box, the IP address belonging to tap/tun device won't land into
-firmware preventing any packet accumulation in HW.
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
--Dhananjay
-
+diff --cc net/mac80211/iface.c
+index c261cdb,00a1f4c..0000000
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@@ -659,35 -664,9 +672,35 @@@ static const struct net_device_ops ieee
+  	.ndo_start_xmit		= ieee80211_subif_start_xmit,
+  	.ndo_set_multicast_list = ieee80211_set_multicast_list,
+  	.ndo_change_mtu 	= ieee80211_change_mtu,
+- 	.ndo_set_mac_address 	= eth_mac_addr,
++ 	.ndo_set_mac_address 	= ieee80211_change_mac,
+ +	.ndo_select_queue	= ieee80211_netdev_select_queue,
+  };
+  
+ +static u16 ieee80211_monitor_select_queue(struct net_device *dev,
+ +					  struct sk_buff *skb)
+ +{
+ +	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ +	struct ieee80211_local *local = sdata->local;
+ +	struct ieee80211_hdr *hdr;
+ +	struct ieee80211_radiotap_header *rtap = (void *)skb->data;
+ +
+ +	if (local->hw.queues < 4)
+ +		return 0;
+ +
+ +	if (skb->len < 4 ||
+ +	    skb->len < rtap->it_len + 2 /* frame control */)
+ +		return 0; /* doesn't matter, frame will be dropped */
+ +
+ +	hdr = (void *)((u8 *)skb->data + rtap->it_len);
+ +
+ +	if (!ieee80211_is_data(hdr->frame_control)) {
+ +		skb->priority = 7;
+ +		return ieee802_1d_to_ac[skb->priority];
+ +	}
+ +
+ +	return ieee80211_downgrade_queue(local, skb);
+ +}
+ +
+  static const struct net_device_ops ieee80211_monitorif_ops = {
+  	.ndo_open		= ieee80211_open,
+  	.ndo_stop		= ieee80211_stop,
