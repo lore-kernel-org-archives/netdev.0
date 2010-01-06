@@ -1,17 +1,18 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/3] can: mscan-mpc5xxx: add support for the
-	Freescale MPC512x
-Date: Wed, 06 Jan 2010 15:31:12 +0100
-Message-ID: <4B449EB0.5090107@grandegger.com>
-References: <1262719241-2422-1-git-send-email-wg@grandegger.com>
+From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/3] can: mscan: fix improper return if dlc
+	< 8 in start_xmit function
+Date: Wed, 6 Jan 2010 15:33:37 +0100
+Message-ID: <20100106143337.GC5299@pengutronix.de>
+References: <1262719169-2350-1-git-send-email-wg@grandegger.com>
+	<1262719169-2350-2-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============1382799265=="
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1262719241-2422-1-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+In-Reply-To: <1262719169-2350-2-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -23,28 +24,97 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Wolfgang Grandegger wrote:
-> This patch series adds support for the MPC512x from Freescale to
-> the mpc5xxx_can MSCAN driver.
-> 
-> Changes since v1:
-> 
-> - Various coding style issues, printk formats, variable names and
->   error messagaes and typos fixes or improved
-> 
-> - MPC5xxx specific data are now passed to mpc5xxx_can_probe() via
->   "of_device_id->data".
-> 
-> - The index of the MPC512x CAN controller is now derived directly
->   from reg property. This allows use of_iomap() as usual.
-> 
-> - It has been documented that MPC512x Rev.1 CPUs are not supported.
 
-As you might have already realized, this patch set slipped out
-accidentally to the mailing list due to a bug in my
-patch-format-test-and-send-email script. Nevertheless, it's good enough
-for reviewing and testing. Just some debugging code needs to be removed.
-Wolfram, is it OK from your point of view now? I will roll out v3 after
-some  more thorough testing tomorrow.
+--===============1382799265==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="7DO5AaGCk89r4vaK"
+Content-Disposition: inline
 
-Wolfgang.
+
+--7DO5AaGCk89r4vaK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Jan 05, 2010 at 08:19:27PM +0100, Wolfgang Grandegger wrote:
+> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+>=20
+> The start_xmit function of the MSCAN Driver did return improperly if
+> the CAN dlc check failed (skb not freed and invalid return code). This
+> patch adds a proper check of the frame lenght and data size and returns
+> now correctly. Furthermore, a typo has been fixed.
+>=20
+> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+> Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> ---
+>  drivers/net/can/mscan/mscan.c |   11 ++++++++---
+>  1 files changed, 8 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+> index bb06dfb..7df950e 100644
+> --- a/drivers/net/can/mscan/mscan.c
+> +++ b/drivers/net/can/mscan/mscan.c
+> @@ -4,7 +4,7 @@
+>   * Copyright (C) 2005-2006 Andrey Volkov <avolkov-ppI4tVfbJvJWk0Htik3J/w@public.gmane.org>,
+>   *                         Varma Electronics Oy
+>   * Copyright (C) 2008-2009 Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> - * Copytight (C) 2008-2009 Pengutronix <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> + * Copyright (C) 2008-2009 Pengutronix <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>   *
+>   * This program is free software; you can redistribute it and/or modify
+>   * it under the terms of the version 2 of the GNU General Public License
+> @@ -177,8 +177,13 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *=
+skb, struct net_device *dev)
+>  	int i, rtr, buf_id;
+>  	u32 can_id;
+> =20
+> -	if (frame->can_dlc > 8)
+> -		return -EINVAL;
+> +	if (skb->len !=3D sizeof(*frame) || frame->can_dlc > 8) {
+> +		dev_err(dev->dev.parent,
+> +			"Dropping non-conform packet: len %u, can_dlc %u\n",
+> +			skb->len, frame->can_dlc);
+> +		kfree_skb(skb);
+> +		return  NETDEV_TX_OK;
+
+Double space.
+
+> +	}
+> =20
+>  	out_8(&regs->cantier, 0);
+> =20
+> --=20
+> 1.6.2.5
+>=20
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--7DO5AaGCk89r4vaK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAktEn0EACgkQD27XaX1/VRuh1wCcD/HMib9GgtTHAVvmJR2AnGzb
+MygAn3fVzNw33dY+/R28XQSb4IxdJWya
+=F9By
+-----END PGP SIGNATURE-----
+
+--7DO5AaGCk89r4vaK--
+
+--===============1382799265==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============1382799265==--
