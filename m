@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
- CNA devices
-Date: Tue, 05 Jan 2010 19:57:41 -0800 (PST)
-Message-ID: <20100105.195741.145481609.davem@davemloft.net>
-References: <7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org>
-	<20100105.163343.14826539.davem@davemloft.net>
-	<4B43E872.5000809@hp.com>
+Subject: Re: BSD 4.2 style TCP keepalives
+Date: Tue, 05 Jan 2010 19:59:53 -0800 (PST)
+Message-ID: <20100105.195953.16499086.davem@davemloft.net>
+References: <20100105.163911.10233438.davem@davemloft.net>
+	<20100106020756.GA4378@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dhananjay.phadke@qlogic.com, shemminger@vyatta.com,
-	amit.salecha@qlogic.com, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52665
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54393
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755196Ab0AFD5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 22:57:36 -0500
-In-Reply-To: <4B43E872.5000809@hp.com>
+	by vger.kernel.org with ESMTP id S1755363Ab0AFD7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 22:59:48 -0500
+In-Reply-To: <20100106020756.GA4378@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 05 Jan 2010 17:33:38 -0800
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 5 Jan 2010 21:07:56 -0500
 
-> David Miller wrote:
->> From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
->> Date: Tue, 5 Jan 2010 15:55:10 -0800
->> 
->>>The LRO you are talking about was still kernel based
->>>LRO. Even GRO doesn't save PCIe transactions as much
->>>HW LRO does. That is the key. The difference between
->>>HW LRO and GRO is significant to keep former alive
->>>for a while.
-> 
-> Is it really the PCIe transactions (*)?  ISTR that HW LRO also tended
-> to significantly cut-down on the ACK rate, rather like the oft-derided
-> ACK avoidance heuristics in Solaris, HP-UX and various MacOSX revs.
+> Dave, If that patch fixes the problem (waiting on test results now,
+> but I figure it will), what if we add a parameter to tcp_sequence
+> (and tcp_validate_incomming), that represents an offset to trim from
+> end_seq (so that we can effectively ignore the garbage byte)?
 
-Yes, it causes stretch ACKs, but so does GRO.
+Sure, we could do that too, and it would be an improvement.
+
+Let's first wait for test results and also give a bit for
+others to potentially come up with implementation ideas.
