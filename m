@@ -1,50 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race [v3]
-Date: Wed, 6 Jan 2010 09:10:07 -0800
-Message-ID: <20100106091007.3fcc7d9b@nehalam>
-References: <4B42E252.1080405@gmail.com>
-	<1262724742-5232-1-git-send-email-fleitner@redhat.com>
-	<20100106164027.GB6824@linux.vnet.ibm.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: BSD 4.2 style TCP keepalives
+Date: Wed, 06 Jan 2010 09:21:49 -0800
+Message-ID: <4B44C6AD.6040806@hp.com>
+References: <20100105.163911.10233438.davem@davemloft.net>	<20100106020756.GA4378@localhost.localdomain> <20100105.195953.16499086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Flavio Leitner <fleitner@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: paulmck@linux.vnet.ibm.com
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38829 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755430Ab0AFRKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 12:10:41 -0500
-In-Reply-To: <20100106164027.GB6824@linux.vnet.ibm.com>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:11805 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755706Ab0AFRVx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 12:21:53 -0500
+In-Reply-To: <20100105.195953.16499086.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Jan 2010 08:40:27 -0800
-"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
-
-> > -	if (inet->mc_list == NULL)
-> > +	rcu_read_lock();
-> > +	if (rcu_dereference(inet->mc_list) == NULL) {
-> > +		rcu_read_unlock();
-> >  		return;
-> > +	}
-> > +	rcu_read_unlock();  
+David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 5 Jan 2010 21:07:56 -0500
 > 
-> I don't understand what rcu_read_lock() is protecting here.  The
-> test is still unstable -- just after finding inet->mc_list non-NULL,
-> ip_mc_leave_group() might cause it to become NULL.
 > 
-> Is there a need to protect sock_net(sk)?  (I don't believe so, but then
-> again, I don't claim to understand locking in Linux networking.)
-> If there is no need, it should be possible to drop the rcu_read_lock(),
-> rcu_read_unlock(), and rcu_dereference() above.  (You might want them
-> for documentation purposes, as they aren't hurting anything, just
-> wondering what the intent is.)
+>>Dave, If that patch fixes the problem (waiting on test results now,
+>>but I figure it will), what if we add a parameter to tcp_sequence
+>>(and tcp_validate_incomming), that represents an offset to trim from
+>>end_seq (so that we can effectively ignore the garbage byte)?
+> 
+> 
+> Sure, we could do that too, and it would be an improvement.
+> 
+> Let's first wait for test results and also give a bit for
+> others to potentially come up with implementation ideas.
 
-I think code is trying to avoid looking at mc_list if no multicast
-addresses. But it is an unsafe check.
+Might it suffice to simply enable TCP keepalives on the Linux end?  Or is that 
+too big a kludge?
 
-If mc_list was just converted to list_head this would all be clearer
+rick jones
