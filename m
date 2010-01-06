@@ -1,68 +1,129 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH] workqueue.c: should schedule work serialize work->func
-Date: Wed, 06 Jan 2010 23:05:12 +0000
-Message-ID: <20100106230512.17900.47310.stgit@localhost.localdomain>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: [PATCH] nodmask.h: remove macro any_online_node
+Date: Wed, 6 Jan 2010 16:24:58 -0700
+Message-ID: <201001061624.59118.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, jesse.brandeburg@ingel.com, tj@kernel.org,
-	tglx@linuxtronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51734 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933023Ab0AFXGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 18:06:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, rientjes@google.com,
+	kamezawa.hiroyu@jp.fujitsu.com, mel@csn.ul.ie,
+	lee.schermerhorn@hp.com, benh@kernel.crashing.org,
+	paulus@samba.org, dave@linux.vnet.ibm.com, miltonm@bga.com,
+	nfont@austin.ibm.com, geoffrey.levand@am.sony.com,
+	grant.likely@secretlab.ca, bfields@fieldses.org, neilb@suse.de,
+	Trond.Myklebust@netapp.com, davem@davemloft.net,
+	bhalevy@panasas.com, chuck.lever@oracle.com,
+	Ricardo.Labiaga@netapp.com
+To: Linux Kernel <linux-kernel@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org, devicetree-discuss@lists.ozlabs.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933078Ab0AFXYl@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-codepath
-schedule_work(); ... ; run_workqueue() -> work_clear_pending() -> f(work)
+nodmask.h: remove macro any_online_node
 
-Although schedule_work() will only schedule the task if it is not already
-on the work queue the WORK_STRUCT_PENDING bits are cleared just before
-calling the work function.  If work is scheduled after this occurs and
-before f(work) completes it is possible to have multiple calls into f().
+The macro any_online_node is prone to producing sparse warnings
+due to the local symbol 'node'. Since all the in-tree users are really
+requesting the first online node (the mask argument is either
+NODE_MASK_ALL or node_online_map) just use the first_online_node
+macro and remove the any_online_node macro since there are no users.
 
-Should the kernel protect us from this? With something like the patch
-below.
+Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Rientjes <rientjes@google.com>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: Mel Gorman <mel@csn.ul.ie>
+Cc: Lee Schermerhorn <lee.schermerhorn@hp.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Dave Hansen <dave@linux.vnet.ibm.com>
+Cc: Milton Miller <miltonm@bga.com>
+Cc: Nathan Fontenot <nfont@austin.ibm.com>
+Cc: Geoff Levand <geoffrey.levand@am.sony.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: J. Bruce Fields <bfields@fieldses.org>
+Cc: Neil Brown <neilb@suse.de>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Benny Halevy <bhalevy@panasas.com>
+Cc: Chuck Lever <chuck.lever@oracle.com>
+Cc: Ricardo Labiaga <Ricardo.Labiaga@netapp.com>
 
-Thanks
 ---
 
- include/linux/workqueue.h |    3 ++-
- kernel/workqueue.c        |    3 +++
- 2 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 9466e86..fa6ffea 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -26,7 +26,8 @@ struct work_struct {
- 	atomic_long_t data;
- #define WORK_STRUCT_PENDING 0		/* T if work item pending execution */
- #define WORK_STRUCT_STATIC  1		/* static initializer (debugobjects) */
--#define WORK_STRUCT_FLAG_MASK (3UL)
-+#define WORK_STRUCT_RUNNING 2
-+#define WORK_STRUCT_FLAG_MASK (7UL)	/* 0111 */
- #define WORK_STRUCT_WQ_DATA_MASK (~WORK_STRUCT_FLAG_MASK)
- 	struct list_head entry;
- 	work_func_t func;
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index dee4865..b867125 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -397,10 +397,13 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
- 		spin_unlock_irq(&cwq->lock);
+diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
+index b037d95..64c0022 100644
+--- a/arch/powerpc/mm/numa.c
++++ b/arch/powerpc/mm/numa.c
+@@ -451,7 +451,7 @@ static int __cpuinit numa_setup_cpu(unsigned long lcpu)
+ 	nid = of_node_to_nid_single(cpu);
  
- 		BUG_ON(get_wq_data(work) != cwq);
-+		while (test_and_set_bit(WORK_STRUCT_RUNNING, work_data_bits(work)))
-+			cpu_relax();
- 		work_clear_pending(work);
- 		lock_map_acquire(&cwq->wq->lockdep_map);
- 		lock_map_acquire(&lockdep_map);
- 		f(work);
-+		clear_bit(WORK_STRUCT_RUNNING, work_data_bits(work));
- 		lock_map_release(&lockdep_map);
- 		lock_map_release(&cwq->wq->lockdep_map);
+ 	if (nid < 0 || !node_online(nid))
+-		nid = any_online_node(NODE_MASK_ALL);
++		nid = first_online_node;
+ out:
+ 	map_cpu_to_node(lcpu, nid);
  
-
+@@ -1114,7 +1114,7 @@ int hot_add_scn_to_nid(unsigned long scn_addr)
+ 	int nid, found = 0;
+ 
+ 	if (!numa_enabled || (min_common_depth < 0))
+-		return any_online_node(NODE_MASK_ALL);
++		return first_online_node;
+ 
+ 	memory = of_find_node_by_path("/ibm,dynamic-reconfiguration-memory");
+ 	if (memory) {
+@@ -1125,7 +1125,7 @@ int hot_add_scn_to_nid(unsigned long scn_addr)
+ 	}
+ 
+ 	if (nid < 0 || !node_online(nid))
+-		nid = any_online_node(NODE_MASK_ALL);
++		nid = first_online_node;
+ 
+ 	if (NODE_DATA(nid)->node_spanned_pages)
+ 		return nid;
+diff --git a/include/linux/nodemask.h b/include/linux/nodemask.h
+index 454997c..c4fa64b 100644
+--- a/include/linux/nodemask.h
++++ b/include/linux/nodemask.h
+@@ -69,8 +69,6 @@
+  * int node_online(node)		Is some node online?
+  * int node_possible(node)		Is some node possible?
+  *
+- * int any_online_node(mask)		First online node in mask
+- *
+  * node_set_online(node)		set bit 'node' in node_online_map
+  * node_set_offline(node)		clear bit 'node' in node_online_map
+  *
+@@ -467,15 +465,6 @@ static inline int num_node_state(enum node_states state)
+ #define node_online_map 	node_states[N_ONLINE]
+ #define node_possible_map 	node_states[N_POSSIBLE]
+ 
+-#define any_online_node(mask)			\
+-({						\
+-	int node;				\
+-	for_each_node_mask(node, (mask))	\
+-		if (node_online(node))		\
+-			break;			\
+-	node;					\
+-})
+-
+ #define num_online_nodes()	num_node_state(N_ONLINE)
+ #define num_possible_nodes()	num_node_state(N_POSSIBLE)
+ #define node_online(node)	node_state((node), N_ONLINE)
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 538ca43..832c1fe 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -133,7 +133,7 @@ svc_pool_map_choose_mode(void)
+ 		return SVC_POOL_PERNODE;
+ 	}
+ 
+-	node = any_online_node(node_online_map);
++	node = first_online_node;
+ 	if (nr_cpus_node(node) > 2) {
+ 		/*
+ 		 * Non-trivial SMP, or CONFIG_NUMA on
