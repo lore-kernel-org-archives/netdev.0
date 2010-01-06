@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
- CNA devices
-Date: Tue, 05 Jan 2010 16:33:43 -0800 (PST)
-Message-ID: <20100105.163343.14826539.davem@davemloft.net>
-References: <7608421F3572AB4292BB2532AE89D5658B0BAE9450@AVEXMB1.qlogic.org>
-	<20100105.154928.80012641.davem@davemloft.net>
-	<7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org>
+Subject: BSD 4.2 style TCP keepalives
+Date: Tue, 05 Jan 2010 16:39:11 -0800 (PST)
+Message-ID: <20100105.163911.10233438.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, amit.salecha@qlogic.com,
-	netdev@vger.kernel.org
-To: dhananjay.phadke@qlogic.com
+Cc: nhorman@tuxdriver.com, ilpo.jarvinen@helsinki.fi
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47492
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59752
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754349Ab0AFAdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 19:33:40 -0500
-In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org>
+	by vger.kernel.org with ESMTP id S1752434Ab0AFAjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 19:39:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Date: Tue, 5 Jan 2010 15:55:10 -0800
 
-> The LRO you are talking about was still kernel based
-> LRO. Even GRO doesn't save PCIe transactions as much
-> HW LRO does. That is the key. The difference between
-> HW LRO and GRO is significant to keep former alive
-> for a while.
+To make a long story short, there are still some Windows 2000
+machines out there emitting BSD 4.2 style keepalives (one garbage
+byte instead of an empty out-of-window probe frame).
 
-But HW LRO is not bridge/forwarding/etc. agnostic because it loses
-information.
+We don't ACK these because of how tcp_sequence() sees ->end_seq
+as being equal to ->rcv_wup
 
-As soon as I turn on forwarding to make a NAT box or whatever, all of
-the hw LRO gets turned off and we're back to square one for local
-connections on the machine.
+But we can't change tcp_sequence() to reject these frames, because if
+we do then we end up mishandling connection attempts (SYN, SYN+ACK)
+and retransmits of such.
+
+Neil has shown me a patch that does a by-hand special case of this
+one-garbage-byte keepalive inside of tcp_rcv_established().
+
+Anyone have suggestions for an alternative and perhaps cleaner
+implementation of a fix?
+
+Thanks!
