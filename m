@@ -1,72 +1,72 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
-Date: Wed, 06 Jan 2010 16:28:05 -0500
-Message-ID: <4B450065.4010108@gmail.com>
-References: <4B44FE3C.6060809@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [BUG net-next-2.6] Had to revert bonding: allow arp_ip_targets on separate vlans to use arp validation
+Date: Wed, 06 Jan 2010 13:28:07 -0800
+Message-ID: <1451.1262813287@death.nxdomain.ibm.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com> <20091120154046.67252d23@nehalam> <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com> <4B44FC2B.4090505@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020303000900040805090502"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.211.176]:52835 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755100Ab0AFV2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:28:09 -0500
-In-Reply-To: <4B44FE3C.6060809@gmail.com>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:38472 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756208Ab0AFV2f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:28:35 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o06LLXhe011506
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:21:33 -0700
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o06LSP6J072144
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:28:26 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o06LSOdb025140
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:28:25 -0700
+In-reply-to: <4B44FC2B.4090505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020303000900040805090502
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Redefine two TCP header functions to accept TCP header pointer.
-When subtracting, return signed int to allow error checking.
+>Le 06/01/2010 19:38, Eric Dumazet a =C3=A9crit :
+>>=20
+>> (net-next-2.6 doesnt work well on my bond/vlan setup, I suspect I ne=
+ed a bisection)
+>
+>David, I had to revert 1f3c8804acba841b5573b953f5560d2683d2db0d
+>(bonding: allow arp_ip_targets on separate vlans to use arp validation=
+)
+>
+>Or else, my vlan devices dont work (unfortunatly I dont have much time
+>these days to debug the thing)
+>
+>My config :
+>
+>              +---------+
+>vlan.103 -----+ bond0   +--- eth1 (bnx2)
+>              |         +
+>vlan.825 -----+         +--- eth2 (tg3)
+>              +---------+
 
-These functions will be used in subsequent patches that implement
-additional features.
+	I'm looking into this right now; I'm seeing what I suspect is
+the same thing: the ARP traffic for the probes is processed, and the
+bonding slaves are marked up, but any other incoming traffic on the VLA=
+N
+is dropped.  It might be that just the incoming ARP replies are lost;
+I'm not sure yet.  Tcpdump clearly shows the traffic from the peer
+arriving.
 
-Signed-off-by: William.Allen.Simpson@gmail.com
+	This is the patch we put in last week that worked for Andy, but
+not for me.  Earlier versions worked fine, so this might be something i=
+n
+the last version.  With Eric now having issues, perhaps this isn't just
+my problem.  Perhaps there's some difference in our configurations that
+differs from what Andy has.
+
+	-J
+
 ---
-  include/linux/tcp.h |   12 ++++++++++++
-  1 files changed, 12 insertions(+), 0 deletions(-)
-
-
---------------020303000900040805090502
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="len_th+1v3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="len_th+1v3.patch"
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 7fee8a4..d0133cf 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -223,6 +223,18 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
- 	return (tcp_hdr(skb)->doff - 5) * 4;
- }
- 
-+/* Length of fixed header plus standard options. */
-+static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
-+{
-+	return th->doff * 4;
-+}
-+
-+/* Length of standard options only.  This could be negative. */
-+static inline int tcp_option_len_th(const struct tcphdr *th)
-+{
-+	return (int)(th->doff * 4) - sizeof(*th);
-+}
-+
- /* This defines a selective acknowledgement block. */
- struct tcp_sack_block_wire {
- 	__be32	start_seq;
--- 
-1.6.3.3
-
-
---------------020303000900040805090502--
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
