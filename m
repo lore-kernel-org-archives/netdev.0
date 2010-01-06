@@ -1,52 +1,50 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 1/1] NET: atlx, fix memory leak
-Date: Wed,  6 Jan 2010 17:54:16 +0100
-Message-ID: <1262796856-21919-1-git-send-email-jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932315Ab0AFQyV@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race [v3]
+Date: Wed, 6 Jan 2010 09:10:07 -0800
+Message-ID: <20100106091007.3fcc7d9b@nehalam>
+References: <4B42E252.1080405@gmail.com>
+	<1262724742-5232-1-git-send-email-fleitner@redhat.com>
+	<20100106164027.GB6824@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Flavio Leitner <fleitner@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38829 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755430Ab0AFRKl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2010 12:10:41 -0500
+In-Reply-To: <20100106164027.GB6824@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanse found a memory leak in atl2_get_eeprom. eeprom_buff is not
-freed/assigned on all paths. Fix that.
+On Wed, 6 Jan 2010 08:40:27 -0800
+"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: Jie Yang <jie.yang@atheros.com>
-Cc: atl1-devel@lists.sourceforge.net
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- drivers/net/atlx/atl2.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+> > -	if (inet->mc_list == NULL)
+> > +	rcu_read_lock();
+> > +	if (rcu_dereference(inet->mc_list) == NULL) {
+> > +		rcu_read_unlock();
+> >  		return;
+> > +	}
+> > +	rcu_read_unlock();  
+> 
+> I don't understand what rcu_read_lock() is protecting here.  The
+> test is still unstable -- just after finding inet->mc_list non-NULL,
+> ip_mc_leave_group() might cause it to become NULL.
+> 
+> Is there a need to protect sock_net(sk)?  (I don't believe so, but then
+> again, I don't claim to understand locking in Linux networking.)
+> If there is no need, it should be possible to drop the rcu_read_lock(),
+> rcu_read_unlock(), and rcu_dereference() above.  (You might want them
+> for documentation purposes, as they aren't hurting anything, just
+> wondering what the intent is.)
 
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index c0451d7..ec52529 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -1959,12 +1959,15 @@ static int atl2_get_eeprom(struct net_device *netdev,
- 		return -ENOMEM;
- 
- 	for (i = first_dword; i < last_dword; i++) {
--		if (!atl2_read_eeprom(hw, i*4, &(eeprom_buff[i-first_dword])))
--			return -EIO;
-+		if (!atl2_read_eeprom(hw, i*4, &(eeprom_buff[i-first_dword]))) {
-+			ret_val = -EIO;
-+			goto free;
-+		}
- 	}
- 
- 	memcpy(bytes, (u8 *)eeprom_buff + (eeprom->offset & 3),
- 		eeprom->len);
-+free:
- 	kfree(eeprom_buff);
- 
- 	return ret_val;
--- 
-1.6.5.7
+I think code is trying to avoid looking at mc_list if no multicast
+addresses. But it is an unsafe check.
+
+If mc_list was just converted to list_head this would all be clearer
