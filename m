@@ -1,56 +1,50 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [net-next PATCH] net: RFC3069, private VLAN proxy arp support
-Date: Wed, 06 Jan 2010 15:17:22 +0100
-Message-ID: <1262787442.22735.10.camel@jdb-workstation>
-References: <20100105155047.13309.79610.stgit@firesoul.comx.local>
-	 <4B4427CE.1040203@gmail.com> <1262771369.9474.80.camel@jdb-workstation>
-	 <20100106232231.5f454d53@opy.nosense.org>
-Reply-To: hawk@comx.dk
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2 0/3] can: mscan-mpc5xxx: add support for the
+	Freescale MPC512x
+Date: Wed, 06 Jan 2010 15:31:12 +0100
+Message-ID: <4B449EB0.5090107@grandegger.com>
+References: <1262719241-2422-1-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:38540 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755838Ab0AFOMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 09:12:37 -0500
-In-Reply-To: <20100106232231.5f454d53@opy.nosense.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1262719241-2422-1-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-01-06 at 23:22 +1030, Mark Smith wrote:
-> On Wed, 06 Jan 2010 10:49:29 +0100
-> Jesper Dangaard Brouer <hawk@comx.dk> wrote:
-> > 
-> > This patch solved the issue by doing proxy arp'ing on the router against
-> > the "local" network, thus making it possible for customers to
-> > communicate, but via the router.  This also gives the ability to do
-> > firewalling on the router between customers on an Ethernet. (In our
-> > solution the Linux router also have a personal firewall configurable per
-> > customer.)
-> > 
+Wolfgang Grandegger wrote:
+> This patch series adds support for the MPC512x from Freescale to
+> the mpc5xxx_can MSCAN driver.
 > 
-> I can see value in that - you're forcing all traffic through the
-> upstream router for policy enforcement purposes, without having to have
-> point-to-point (simulated or otherwise) links between customers and the
-> router, and avoiding IP address waste by not using /30s. You're pretty
-> much making the ethernet a Non-broadcast Multi-Access link.
+> Changes since v1:
+> 
+> - Various coding style issues, printk formats, variable names and
+>   error messagaes and typos fixes or improved
+> 
+> - MPC5xxx specific data are now passed to mpc5xxx_can_probe() via
+>   "of_device_id->data".
+> 
+> - The index of the MPC512x CAN controller is now derived directly
+>   from reg property. This allows use of_iomap() as usual.
+> 
+> - It has been documented that MPC512x Rev.1 CPUs are not supported.
 
-Yes, its actually a quite nice trick, and several switch vendors have
-supported this technology for years (although they all annoying call it
-something differently).  And we/ComX have actually also been using this
-for years, including my patch (sorry for being so slow with upstream
-submission).
+As you might have already realized, this patch set slipped out
+accidentally to the mailing list due to a bug in my
+patch-format-test-and-send-email script. Nevertheless, it's good enough
+for reviewing and testing. Just some debugging code needs to be removed.
+Wolfram, is it OK from your point of view now? I will roll out v3 after
+some  more thorough testing tomorrow.
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+Wolfgang.
