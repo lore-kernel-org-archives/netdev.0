@@ -1,72 +1,116 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [BUG net-next-2.6] Had to revert bonding: allow arp_ip_targets on separate vlans to use arp validation
-Date: Wed, 06 Jan 2010 13:28:07 -0800
-Message-ID: <1451.1262813287@death.nxdomain.ibm.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com> <20091120154046.67252d23@nehalam> <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com> <4B44FC2B.4090505@gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 06 Jan 2010 16:32:15 -0500
+Message-ID: <4B45015F.4090506@majjas.com>
+References: <20100105230746.GA6612@del.dom.local> <4B43F72C.9090004@majjas.com>
+ <20100106072208.GA6711@ff.dom.local> <4B44E952.5000804@majjas.com>
+ <20100106202212.GB3354@del.dom.local> <4B44F381.3000206@majjas.com>
+ <20100106210941.GC3354@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:38472 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756208Ab0AFV2f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:28:35 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o06LLXhe011506
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:21:33 -0700
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o06LSP6J072144
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:28:26 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o06LSOdb025140
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 14:28:25 -0700
-In-reply-to: <4B44FC2B.4090505@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932870Ab0AFVdG@vger.kernel.org>
+In-reply-to: <20100106210941.GC3354@del.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
->Le 06/01/2010 19:38, Eric Dumazet a =C3=A9crit :
->>=20
->> (net-next-2.6 doesnt work well on my bond/vlan setup, I suspect I ne=
-ed a bisection)
+On 1/6/2010 4:09 PM, Jarek Poplawski wrote:
+> On Wed, Jan 06, 2010 at 03:33:05PM -0500, Michael Breuer wrote:
+>    
+>> On 1/6/2010 3:22 PM, Jarek Poplawski wrote:
+>>      
+>>> On Wed, Jan 06, 2010 at 02:49:38PM -0500, Michael Breuer wrote:
+>>>        
+>>>> On 1/6/2010 2:22 AM, Jarek Poplawski wrote:
+>>>>          
+>>>>> On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
+>>>>>            
+>>>>>> On 1/5/2010 6:07 PM, Jarek Poplawski wrote:
+>>>>>>              
+>>>>>>> ----------------->
+>>>>>>>
+>>>>>>> Changing an skb after dev_queue_xmit() is illegal. And since it's
+>>>>>>> inconsistent to treat specially net_xmit_errno() non-zero return,
+>>>>>>> while ignoring other dev_queue_xmit() errors, there is no reason
+>>>>>>> to break the loop in tpacket_snd() in this case.
+>>>>>>>
+>>>>>>> With debugging by: Stephen Hemminger<shemminger@linux-foundation.org>
+>>>>>>>
+>>>>>>> Reported-by: Michael Breuer<mbreuer@majjas.com>
+>>>>>>> Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
+>>>>>>> ---
+>>>>>>>
+>>>>>>>    net/packet/af_packet.c |    8 +++-----
+>>>>>>>    1 files changed, 3 insertions(+), 5 deletions(-)
+>>>>>>>
+>>>>>>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>>>>>>> index e0516a2..984a1fa 100644
+>>>>>>> --- a/net/packet/af_packet.c
+>>>>>>> +++ b/net/packet/af_packet.c
+>>>>>>> @@ -1021,8 +1021,9 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>>>>>>>
+>>>>>>>    		status = TP_STATUS_SEND_REQUEST;
+>>>>>>>    		err = dev_queue_xmit(skb);
+>>>>>>> -		if (unlikely(err>     0&&     (err = net_xmit_errno(err)) != 0))
+>>>>>>> -			goto out_xmit;
+>>>>>>> +		if (unlikely(err>     0))
+>>>>>>> +			err = net_xmit_errno(err);
+>>>>>>> +
+>>>>>>>    		packet_increment_head(&po->tx_ring);
+>>>>>>>    		len_sum += tp_len;
+>>>>>>>    	} while (likely((ph != NULL) ||
+>>>>>>> @@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>>>>>>>    	err = len_sum;
+>>>>>>>    	goto out_put;
+>>>>>>>
+>>>>>>> -out_xmit:
+>>>>>>> -	skb->destructor = sock_wfree;
+>>>>>>> -	atomic_dec(&po->tx_ring.pending);
+>>>>>>>    out_status:
+>>>>>>>    	__packet_set_status(po, ph, status);
+>>>>>>>    	kfree_skb(skb);
+>>>>>>> --
+>>>>>>>                
+> ...
+>    
+>>>> This patch at first behaved similarly to the previous one - seemed
+>>>> to be running a bit better... until the adapter went down :(
+>>>>          
+>>> I'm not sure: do you mean this patch above vs previous one by Stephen,
+>>> or did you manage to try my "alernative #2" patch already?
+>>>
+>>> BTW, I forgot to mention, and maybe it doesn't matter here, but it
+>>> would be better to (always) use my sky2 patch from Berck Nash's
+>>> thread.
+>>>
+>>> Jarek P.
+>>>        
+>> This was using "alternative #2" patch. I didn't get the hang with
+>> alternative #1. Your sky2 patch from Berck Nash's thread was
+>> included in both cases; Stephen's was not.
+>>      
+> OK, so I guess "alternative #1" (above) seems safer to recommend for
+> now (as I assumed earlier).
 >
->David, I had to revert 1f3c8804acba841b5573b953f5560d2683d2db0d
->(bonding: allow arp_ip_targets on separate vlans to use arp validation=
-)
+> On the other hand, we really don't know if it's only because it's
+> because it's nicer for your hardware (or still some other bug around),
+> so as before: let David choose ;-)
 >
->Or else, my vlan devices dont work (unfortunatly I dont have much time
->these days to debug the thing)
+> BTW, I think you could still use Stephen's patch too (there might be
+> still something more like this). There was also mentioned this network
+> manager again. I might be wrong, but IMHO there could be some
+> interaction even if it doesn't use this device; so could/did you try
+> to disable it entirely?
 >
->My config :
+> Thanks for testing!
+> Jarek P.
 >
->              +---------+
->vlan.103 -----+ bond0   +--- eth1 (bnx2)
->              |         +
->vlan.825 -----+         +--- eth2 (tg3)
->              +---------+
-
-	I'm looking into this right now; I'm seeing what I suspect is
-the same thing: the ARP traffic for the probes is processed, and the
-bonding slaves are marked up, but any other incoming traffic on the VLA=
-N
-is dropped.  It might be that just the incoming ARP replies are lost;
-I'm not sure yet.  Tcpdump clearly shows the traffic from the peer
-arriving.
-
-	This is the patch we put in last week that worked for Andy, but
-not for me.  Earlier versions worked fine, so this might be something i=
-n
-the last version.  With Eric now having issues, perhaps this isn't just
-my problem.  Perhaps there's some difference in our configurations that
-differs from what Andy has.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+>    
+Just reran without the network manager - no change. Going to rerun with 
+Stephen's new patch, alternative #1, and the patch from Berck Nash's thread.
