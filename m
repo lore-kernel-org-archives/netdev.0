@@ -1,115 +1,89 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [net-next PATCH] net: RFC3069, private VLAN proxy arp support
-Date: Wed, 6 Jan 2010 23:22:31 +1030
-Message-ID: <20100106232231.5f454d53@opy.nosense.org>
-References: <20100105155047.13309.79610.stgit@firesoul.comx.local>
-	<4B4427CE.1040203@gmail.com>
-	<1262771369.9474.80.camel@jdb-workstation>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] Fix 2.6.33rc1 regression in et131x
+Date: Wed, 6 Jan 2010 14:01:26 +0000
+Message-ID: <20100106140126.6f26ddde@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hawk@comx.dk
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:59024 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755202Ab0AFMwn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 07:52:43 -0500
-In-Reply-To: <1262771369.9474.80.camel@jdb-workstation>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:57669 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755770Ab0AFN5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 08:57:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 Jan 2010 10:49:29 +0100
-Jesper Dangaard Brouer <hawk@comx.dk> wrote:
-
-> On Wed, 2010-01-06 at 07:03 +0100, Eric Dumazet wrote:
-> > Le 05/01/2010 16:50, Jesper Dangaard Brouer a =E9crit :
-> > > This is to be used together with switch technologies, like RFC306=
-9,
-> > > that where the individual ports are not allowed to communicate wi=
-th
-> > > each other, but they are allowed to talk to the upstream router. =
- As
-> > > described in RFC 3069, it is possible to allow these hosts to
-> > > communicate through the upstream router by proxy_arp'ing.
-> > >=20
-> >=20
-> > Reading RFC 3069, I dont understand why it needs support on hosts
-> > themselves.
->=20
-> They don't, this patch does NOT implement support on the hosts (most =
-of
-> the "hosts" in our ISP setup is peoples Windows machines).
-> This is intended only to be used on the router.
->=20
->=20
-> > > This patch basically allow proxy arp replies back to the same
-> > > interface (from which the ARP request/solicitation was received).
-> >=20
-> > Could you give me an example of how it is used ?
->=20
-> Okay, that first requires an understanding of our setup, then how we =
-use
-> it...
->=20
-> As an ISP we use this stuff on our Linux based Internet routers (thes=
-e
-> boxes are Ethernet Layer 2 connected via VLANs to the Ethernet switch=
-es
-> in the customers apartment buildings).
-> Our primary customers are entire apartment buildings, where we basica=
-lly
-> establish an Ethernet based network, which all apartments are connect=
-ed
-> to.
->=20
-> One big Ethernet based network gives a lot of problems with people
-> misbehaving, viruses, broadcast packets and so on.  Thus, to solve th=
-ese
-> issues we shield every customer/ethernet-port from each other, by usi=
-ng
-> RFC 3069 like switch technologies.
->=20
-> This seemed like a good solution, until customers started to run e.g.
-> web-servers on their home PCs.  This meant that the entire Internet
-> could browse their homepage, but they could not show it to their
-> neighbor...
->=20
-> This patch solved the issue by doing proxy arp'ing on the router agai=
-nst
-> the "local" network, thus making it possible for customers to
-> communicate, but via the router.  This also gives the ability to do
-> firewalling on the router between customers on an Ethernet. (In our
-> solution the Linux router also have a personal firewall configurable =
-per
-> customer.)
->=20
-
-I can see value in that - you're forcing all traffic through the
-upstream router for policy enforcement purposes, without having to have
-point-to-point (simulated or otherwise) links between customers and the
-router, and avoiding IP address waste by not using /30s. You're pretty
-much making the ethernet a Non-broadcast Multi-Access link.
 
 
+et131x: Fix 12bit wrapping
 
-> It is simply enabled on an interface via e.g.:
->=20
->  echo 1 > /proc/sys/net/ipv4/conf/eth2.1013/proxy_arp_pvlan
->=20
-> Hope that helps your understand the idea and usage :-)
->=20
-> --=20
-> Med venlig hilsen / Best regards
->   Jesper Brouer
->   ComX Networks A/S
->   Linux Network Kernel Developer
->   Cand. Scient Datalog / MSc.CS
->   Author of http://adsl-optimizer.dk
->   LinkedIn: http://www.linkedin.com/in/brouer
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Alan Cox <alan@linux.intel.com>
+
+The 12bit wrap logic conversion is wrong and this shows up for some
+memory sizes and layouts of card. Patch it up for now, once the kernel
+view of status is cleaned up it'll become two variables and a lot saner.
+
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
+
+ drivers/staging/et131x/et1310_address_map.h |   18 +++++++++++++-----
+ drivers/staging/et131x/et1310_rx.c          |    6 +++---
+ 2 files changed, 16 insertions(+), 8 deletions(-)
+
+
+diff --git a/drivers/staging/et131x/et1310_address_map.h b/drivers/staging/et131x/et1310_address_map.h
+index 6da843c..e715e4d 100644
+--- a/drivers/staging/et131x/et1310_address_map.h
++++ b/drivers/staging/et131x/et1310_address_map.h
+@@ -203,11 +203,14 @@ typedef struct _GLOBAL_t {			/* Location: */
+  * 9-0: pr ndes
+  */
+ 
+-#define ET_DMA10_MASK		0x3FF	/* 10 bit mask for DMA10W types */
+-#define ET_DMA10_WRAP		0x400
+-#define ET_DMA4_MASK		0x00F	/* 4 bit mask for DMA4W types */
+-#define ET_DMA4_WRAP		0x010
+-
++#define ET_DMA12_MASK		0x0FFF	/* 12 bit mask for DMA12W types */
++#define ET_DMA12_WRAP		0x1000
++#define ET_DMA10_MASK		0x03FF	/* 10 bit mask for DMA10W types */
++#define ET_DMA10_WRAP		0x0400
++#define ET_DMA4_MASK		0x000F	/* 4 bit mask for DMA4W types */
++#define ET_DMA4_WRAP		0x0010
++
++#define INDEX12(x)	((x) & ET_DMA12_MASK)
+ #define INDEX10(x)	((x) & ET_DMA10_MASK)
+ #define INDEX4(x)	((x) & ET_DMA4_MASK)
+ 
+@@ -216,6 +219,11 @@ extern inline void add_10bit(u32 *v, int n)
+ 	*v = INDEX10(*v + n) | (*v & ET_DMA10_WRAP);
+ }
+ 
++extern inline void add_12bit(u32 *v, int n)
++{
++	*v = INDEX12(*v + n) | (*v & ET_DMA12_WRAP);
++}
++
+ /*
+  * 10bit DMA with wrap
+  * txdma tx queue write address reg in txdma address map at 0x1010
+diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
+index 3ddc9b1..81c1a74 100644
+--- a/drivers/staging/et131x/et1310_rx.c
++++ b/drivers/staging/et131x/et1310_rx.c
+@@ -831,10 +831,10 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
+ 
+ 	/* Indicate that we have used this PSR entry. */
+ 	/* FIXME wrap 12 */
+-	rx_local->local_psr_full = (rx_local->local_psr_full + 1) & 0xFFF;
+-	if (rx_local->local_psr_full  > rx_local->PsrNumEntries - 1) {
++	add_12bit(&rx_local->local_psr_full, 1);
++	if ((rx_local->local_psr_full & 0xFFF)  > rx_local->PsrNumEntries - 1) {
+ 		/* Clear psr full and toggle the wrap bit */
+-		rx_local->local_psr_full &=  0xFFF;
++		rx_local->local_psr_full &=  ~0xFFF;
+ 		rx_local->local_psr_full ^= 0x1000;
+ 	}
+ 
