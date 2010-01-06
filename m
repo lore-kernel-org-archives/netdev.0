@@ -1,38 +1,31 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/3] can: mscan-mpc5xxx: add support for	the
-	Freescale MPC512x
-Date: Wed, 06 Jan 2010 16:22:18 +0100
-Message-ID: <4B44AAAA.2080503@grandegger.com>
-References: <1262719241-2422-1-git-send-email-wg@grandegger.com>
-	<4B449EB0.5090107@grandegger.com>
-	<20100106144531.GD5299@pengutronix.de>
+From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Wed, 6 Jan 2010 17:25:56 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1001061722290.23645@mail.embedromix.ro>
+References: <20091229013401.GE10172@verge.net.au> <4B41F3C2.6050006@trash.net> <20100104232445.GC2554@verge.net.au> <4B431C3C.5080203@wikimedia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100106144531.GD5299-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Simon Horman <horms@verge.net.au>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Joseph Mack NA3T <jmack@wm7d.net>,
+	Graeme Fowler <graeme@graemef.net>,
+	David Miller <davem@davemloft.net>
+To: Mark Bergsma <mark@wikimedia.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4B431C3C.5080203@wikimedia.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wolfram Sang wrote:
->> Wolfram, is it OK from your point of view now? I will roll out v3 after
->> some  more thorough testing tomorrow.
-> 
-> It still works here and, as I see it, all issues were resolved as discussed.
+> Sorry for the late reply, and yes, this is fine. Thanks for applying the
+> patch!
+>
+> -- 
+> Mark Bergsma <mark@wikimedia.org>
+> Operations Engineer, Wikimedia Foundation
 
-OK, fine if I add your acked-by then?
+I also want to thank Mark for providing the data, allowing this patch to 
+be accepted. Thanks, Mark!
 
-Thanks,
-
-Wolfgang.
+--
+Catalin(ux) M. BOIE
+http://kernel.embedromix.ro/
