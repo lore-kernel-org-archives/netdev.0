@@ -1,159 +1,120 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Wed, 6 Jan 2010 21:22:12 +0100
-Message-ID: <20100106202212.GB3354@del.dom.local>
-References: <20100105230746.GA6612@del.dom.local>
- <4B43F72C.9090004@majjas.com>
- <20100106072208.GA6711@ff.dom.local>
- <4B44E952.5000804@majjas.com>
+From: Laurent Chavey <chavey@google.com>
+Subject: Re: [RFC] ipv4: support for request type gratuitous ARP
+Date: Wed, 6 Jan 2010 12:24:22 -0800
+Message-ID: <97949e3e1001061224n73e6adecv83cb114b8b046807@mail.gmail.com>
+References: <201001050004.45004.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756247Ab0AFUWW@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B44E952.5000804@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:3121 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932502Ab0AFUZA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 15:25:00 -0500
+Received: from kpbe19.cbf.corp.google.com (kpbe19.cbf.corp.google.com [172.25.105.83])
+	by smtp-out.google.com with ESMTP id o06KOxeR024299
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 12:24:59 -0800
+Received: from qyk32 (qyk32.prod.google.com [10.241.83.160])
+	by kpbe19.cbf.corp.google.com with ESMTP id o06KOgTI012990
+	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 12:24:55 -0800
+Received: by qyk32 with SMTP id 32so7216979qyk.4
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2010 12:24:42 -0800 (PST)
+In-Reply-To: <201001050004.45004.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 06, 2010 at 02:49:38PM -0500, Michael Breuer wrote:
-> On 1/6/2010 2:22 AM, Jarek Poplawski wrote:
-> >On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
-> >>On 1/5/2010 6:07 PM, Jarek Poplawski wrote:
-> >>>David Miller wrote, On 12/27/2009 05:11 AM:
-> >>>
-> >>>
-> >>>>From: David Miller<davem@davemloft.net>
-> >>>>Date: Sat, 26 Dec 2009 19:44:18 -0800 (PST)
-> >>>>
-> >>>>
-> >>>>>From: Stephen Hemminger<shemminger@linux-foundation.org>
-> >>>>>Date: Sat, 26 Dec 2009 14:05:44 -0800
-> >>>>>
-> >>>>>
-> >>>>>>Other drivers may have same problem, I really think this ought
-> >>>>>>to be done at higher level.
-> >>>>>>
-> >>>>>I tend to agree with you, and I thought we had handled all
-> >>>>>cases.  Let's simply make AF_PACKET linearize the link
-> >>>>>level header before sending things out to the transmit path.
-> >>>>>
-> >>>>>I can work on this if you want.
-> >>>>>
-> >>>>Actually Stephen, I took a look and I can't see how AF_PACKET
-> >>>>can create this situation.
-> >>>>
-> >>>>It always copies into the linear area of the SKB it allocates
-> >>>>for sendmsg() processing.  Whether the data comes from sendmsg
-> >>>>data or the mmap() ring buffer.
-> >>>>
-> >>>Actually, I think there is a bug in this place, but of course this
-> >>>might be unconnected. Anyway, Michael, could you try this patch?
-> >>>BTW, did you try with CONFIG_PACKET_MMAP disabled?
-> >>>
-> >>>Thanks,
-> >>>Jarek P.
-> >>>----------------->
-> >>>
-> >>>Changing an skb after dev_queue_xmit() is illegal. And since it's
-> >>>inconsistent to treat specially net_xmit_errno() non-zero return,
-> >>>while ignoring other dev_queue_xmit() errors, there is no reason
-> >>>to break the loop in tpacket_snd() in this case.
-> >>>
-> >>>With debugging by: Stephen Hemminger<shemminger@linux-foundation.org>
-> >>>
-> >>>Reported-by: Michael Breuer<mbreuer@majjas.com>
-> >>>Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
-> >>>---
-> >>>
-> >>>   net/packet/af_packet.c |    8 +++-----
-> >>>   1 files changed, 3 insertions(+), 5 deletions(-)
-> >>>
-> >>>diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> >>>index e0516a2..984a1fa 100644
-> >>>--- a/net/packet/af_packet.c
-> >>>+++ b/net/packet/af_packet.c
-> >>>@@ -1021,8 +1021,9 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-> >>>
-> >>>   		status = TP_STATUS_SEND_REQUEST;
-> >>>   		err = dev_queue_xmit(skb);
-> >>>-		if (unlikely(err>   0&&   (err = net_xmit_errno(err)) != 0))
-> >>>-			goto out_xmit;
-> >>>+		if (unlikely(err>   0))
-> >>>+			err = net_xmit_errno(err);
-> >>>+
-> >>>   		packet_increment_head(&po->tx_ring);
-> >>>   		len_sum += tp_len;
-> >>>   	} while (likely((ph != NULL) ||
-> >>>@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
-> >>>   	err = len_sum;
-> >>>   	goto out_put;
-> >>>
-> >>>-out_xmit:
-> >>>-	skb->destructor = sock_wfree;
-> >>>-	atomic_dec(&po->tx_ring.pending);
-> >>>   out_status:
-> >>>   	__packet_set_status(po, ph, status);
-> >>>   	kfree_skb(skb);
-> >>>--
-> >>>To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> >>>the body of a message to majordomo@vger.kernel.org
-> >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>>Please read the FAQ at  http://www.tux.org/lkml/
-> >>>
-> >>This patch solves the original reported oops - as did Steven's patch of
-> >>12/26: [PATCH] sky2: make sure ethernet header is in transmit skb (I ran
-> >>without Steven's patch and with this patch).
-> >>
-> >>Oddly, with this patch vs. Steven's - I'm getting software interrupt
-> >>errors sporadically while not under load - with Steven's I get the
-> >>frequently while under load (as per nethogs). For example:
-> >>Jan  5 21:29:00 mail kernel: sky2 0000:06:00.0: error interrupt
-> >>status=0x40000008
-> >>Jan  5 21:29:00 mail kernel: sky2 software interrupt status 0x40000008
-> >>Jan  5 21:29:00 mail kernel: sky2 Tx ring pending=124...125 report=125
-> >>done=125
-> >>Jan  5 21:29:00 mail kernel: 124: 0xb38de0be(5374)
-> >>Jan  5 21:29:00 mail kernel: sky2 0000:06:00.0: error interrupt status=0x8
-> >>Jan  5 21:29:00 mail kernel: sky2 software interrupt status 0x8
-> >>Jan  5 21:29:00 mail kernel: sky2 Tx ring pending=126...127 report=126
-> >>done=127
-> >>Jan  5 21:29:00 mail kernel: 126: 0xb38d80be(9014)
-> >>
-> >>I also believe (can't prove yet) that my load test is slower with this
-> >>patch vs. the sky2 patch.
-> >>
-> >>Is it possible that this patch is causing the transmission to
-> >>momentarily halt such that the overall utilization appears low at the
-> >>time I see the interrupt errors, vs. the other patch which perhaps
-> >>doesn't interrupt the traffic flow quite so much?
-> >Yes, without this patch xmit could be stopped earlier on some kind of
-> >errors, with retransmit of the last message possible. On the other
-> >hand, other dev_queue_xmit() (negative) errors, are ignored. So this
-> >place could be still improved by adding proper err handling (or
-> >removing getting err return from dev_queue_xmit() at all).
-> >
-> >Anyway, I think this patch should be a safe proposal for stable. If
-> >so, David, please add Michael's "Tested-by".
-> >
-> >>I haven't run yet with CONFIG_PACKET_MMAP disabled.
-> >>
-> >This should behave similarly as MMAP with this patch or maybe even
-> >better in case of errors.
-> >
-> >Thanks,
-> >Jarek P.
-> This patch at first behaved similarly to the previous one - seemed
-> to be running a bit better... until the adapter went down :(
+Reviewed-by: Laurent Chavey <chavey@google.com>
 
-I'm not sure: do you mean this patch above vs previous one by Stephen,
-or did you manage to try my "alernative #2" patch already?
-
-BTW, I forgot to mention, and maybe it doesn't matter here, but it
-would be better to (always) use my sky2 patch from Berck Nash's
-thread.
-
-Jarek P.
+On Mon, Jan 4, 2010 at 2:04 PM, Octavian Purdila <opurdila@ixiacom.com>=
+ wrote:
+>
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> ---
+>
+> I've noticed that even though we currently support response type grat=
+uitous ARP
+> [response type, source mac, dest mac, source IP, source IP] *with a c=
+lean ARP table*
+> we do not support the request type [request type, source mac, ff:ff:f=
+f:ff:ff:ff, source IP, source IP].
+>
+> This patch makes request type work as well, but RFC2002 says that gra=
+tuitous ARP
+> (both request and response) must update the ARP table *if* the IP alr=
+eady
+> exists in the table:
+>
+> =A0 =A0 =A0 =A0 =A0In either case, for a gratuitous ARP, the ARP pack=
+et MUST be
+> =A0 =A0 =A0 =A0 =A0transmitted as a local broadcast packet on the loc=
+al link. =A0As
+> =A0 =A0 =A0 =A0 =A0specified in [16], any node receiving any ARP pack=
+et (Request or
+> =A0 =A0 =A0 =A0 =A0Reply) MUST update its local ARP cache with the Se=
+nder Protocol
+> =A0 =A0 =A0 =A0 =A0and Hardware Addresses in the ARP packet, if the r=
+eceiving node
+> =A0 =A0 =A0 =A0 =A0has an entry for that IP address already in its AR=
+P cache. =A0This
+> =A0 =A0 =A0 =A0 =A0requirement in the ARP protocol applies even for A=
+RP Request
+> =A0 =A0 =A0 =A0 =A0packets, and for ARP Reply packets that do not mat=
+ch any ARP
+> =A0 =A0 =A0 =A0 =A0Request transmitted by the receiving node [16].
+>
+> so, I am not sure if this is right. But current behavior for response=
+ type
+> gratuitous ARP does not seem to be covered by the RFC either.
+>
+> =A0net/ipv4/arp.c | =A0 11 +++++++++--
+> =A01 files changed, 9 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index c95cd93..81ef2d5 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -811,8 +811,13 @@ static int arp_process(struct sk_buff *skb)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out;
+> =A0 =A0 =A0 =A0}
+>
+> - =A0 =A0 =A0 if (arp->ar_op =3D=3D htons(ARPOP_REQUEST) &&
+> - =A0 =A0 =A0 =A0 =A0 ip_route_input(skb, tip, sip, 0, dev) =3D=3D 0)=
+ {
+> + =A0 =A0 =A0 if (arp->ar_op =3D=3D htons(ARPOP_REQUEST)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* gratuitous ARP */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tip =3D=3D sip) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 n =3D neigh_event_ns(&a=
+rp_tbl, sha, &sip, dev);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto update;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else if (ip_route_input(skb, tip, sip=
+, 0, dev) !=3D 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto update_lookup;
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rt =3D skb_rtable(skb);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0addr_type =3D rt->rt_type;
+> @@ -853,6 +858,7 @@ static int arp_process(struct sk_buff *skb)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0}
+>
+> +update_lookup:
+> =A0 =A0 =A0 =A0/* Update our ARP tables */
+>
+> =A0 =A0 =A0 =A0n =3D __neigh_lookup(&arp_tbl, &sip, dev, 0);
+> @@ -868,6 +874,7 @@ static int arp_process(struct sk_buff *skb)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0n =3D __neigh_lookup(&=
+arp_tbl, &sip, dev, 1);
+> =A0 =A0 =A0 =A0}
+>
+> +update:
+> =A0 =A0 =A0 =A0if (n) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int state =3D NUD_REACHABLE;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int override;
+> --
+> 1.5.6.5
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
