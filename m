@@ -1,57 +1,55 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [RFC] PCMCIA patches for 2.6.34
-Date: Wed, 6 Jan 2010 12:45:31 +0100
-Message-ID: <20100106114531.GA29913@comet.dominikbrodowski.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-pcmcia@lists.infradead.org
+Subject: [PATCH 02/15] pcmcia: remove remaining unused IRQ_FIRST_SHARED parameter
+Date: Wed,  6 Jan 2010 12:46:13 +0100
+Message-ID: <1262778386-30182-2-git-send-email-linux@dominikbrodowski.net>
+References: <20100106114531.GA29913@comet.dominikbrodowski.net>
+Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
+	netdev@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>
+To: <linux-pcmcia@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.133.102.198]:47059 "EHLO linta.de"
+Received: from isilmar.linta.de ([213.133.102.198]:47082 "EHLO linta.de"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754819Ab0AFLrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 06:47:08 -0500
-Content-Disposition: inline
+	id S1755685Ab0AFLrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2010 06:47:15 -0500
+In-Reply-To: <20100106114531.GA29913@comet.dominikbrodowski.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+Komuro pointed out correctly that I missed one IRQ_FIRST_SHARED
+parameter in smc91c92_cs.c, and that another line could be writter
+more beautifully.
 
-here are some patches relating to the PCMCIA subsystem, and intended for
-2.6.34. I'm interested in your input to this patch series. They'll be
-sent to the PCMCIA list shortly, with CC to other lists if deemed
-appropriate.
+CC: netdev@vger.kernel.org
+CC: Komuro <komurojun-mbn@nifty.com>
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+---
+ drivers/net/pcmcia/smc91c92_cs.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-      pcmcia: make use of pcmcia_dev_resume() return value
-      pcmcia: remove remaining unused IRQ_FIRST_SHARED parameter
-      pcmcia: do not meddle with already assigned resources
-      pcmcia: validate CIS, not CIS cache.
-      pcmcia: cleanup pccard_validate_cis()
-      pcmcia: improve check for same card in slot after resume
-      pcmcia: CardBus doesn't need CIS access
-      pcmcia: call CIS cleanup from ds.c
-      pcmcia: rsrc_nonstatic io memory probe improvements
-      pcmcia: do not lock socket driver module in pcmcia_get_socket()
-      pcmcia: do not lock socket driver module on card insert
-      pcmcia: remove useless indirection
-      pcmcia: remove some rsrc_mgr indirections
-      pcmcia: m32r uses static socket resources
-      pcmcia: m8xx_pcmcia.c should use iodyn resource manager
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 6dd486d..aa57cfd 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -453,8 +453,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+ 
+     link->conf.Attributes |= CONF_ENABLE_SPKR;
+     link->conf.Status = CCSR_AUDIO_ENA;
+-    link->irq.Attributes =
+-	IRQ_TYPE_DYNAMIC_SHARING;
++    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+     link->io.IOAddrLines = 16;
+     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
+     link->io.NumPorts2 = 8;
+@@ -652,8 +651,7 @@ static int osi_config(struct pcmcia_device *link)
+ 
+     link->conf.Attributes |= CONF_ENABLE_SPKR;
+     link->conf.Status = CCSR_AUDIO_ENA;
+-    link->irq.Attributes =
+-	IRQ_TYPE_DYNAMIC_SHARING|IRQ_FIRST_SHARED;
++    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+     link->io.NumPorts1 = 64;
+     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
+     link->io.NumPorts2 = 8;
+-- 
+1.6.3.3
 
- drivers/net/pcmcia/smc91c92_cs.c |    6 +-
- drivers/pcmcia/Kconfig           |    3 -
- drivers/pcmcia/cardbus.c         |  175 ++-----------------
- drivers/pcmcia/cistpl.c          |  368 +++++++++++++-------------------------
- drivers/pcmcia/cs.c              |   89 +++++-----
- drivers/pcmcia/cs_internal.h     |   25 ---
- drivers/pcmcia/ds.c              |   25 +++-
- drivers/pcmcia/m32r_cfc.c        |    2 +-
- drivers/pcmcia/m8xx_pcmcia.c     |    2 +-
- drivers/pcmcia/pcmcia_resource.c |   17 ++
- drivers/pcmcia/rsrc_mgr.c        |   24 ---
- drivers/pcmcia/rsrc_nonstatic.c  |  184 ++++++++++++-------
- include/pcmcia/ss.h              |    9 +-
- 13 files changed, 341 insertions(+), 588 deletions(-)
-
-Best,
-	Dominik
