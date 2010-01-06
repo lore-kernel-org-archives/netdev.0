@@ -1,79 +1,130 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH alt.2] af_packet: Don't use skb after dev_queue_xmit()
-Date: Wed, 6 Jan 2010 09:15:32 +0000
-Message-ID: <20100106091532.GA10201@ff.dom.local>
-References: <20100105230746.GA6612@del.dom.local> <4B43F72C.9090004@majjas.com> <20100106072208.GA6711@ff.dom.local>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: packet: option to only pass skb protocol
+Date: Wed, 6 Jan 2010 11:12:57 +0200
+Message-ID: <20100106091257.GB599@redhat.com>
+References: <4B43AEF6.6050701@nortel.com> <20100105.134218.258781374.davem@davemloft.net> <4B43B989.4010004@nortel.com> <20100105.155150.232916389.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755622Ab0AFJPm@vger.kernel.org>
+Cc: cfriesen@nortel.com, eric.dumazet@gmail.com, nhorman@tuxdriver.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755633Ab0AFJQ1@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100106072208.GA6711@ff.dom.local>
+In-Reply-To: <20100105.155150.232916389.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 06, 2010 at 07:22:08AM +0000, Jarek Poplawski wrote:
-> On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
-> > Is it possible that this patch is causing the transmission to  
-> > momentarily halt such that the overall utilization appears low at the  
-> > time I see the interrupt errors, vs. the other patch which perhaps  
-> > doesn't interrupt the traffic flow quite so much?
+On Tue, Jan 05, 2010 at 03:51:50PM -0800, David Miller wrote:
+> From: "Chris Friesen" <cfriesen@nortel.com>
+> Date: Tue, 05 Jan 2010 16:13:29 -0600
 > 
-> Yes, without this patch xmit could be stopped earlier on some kind of
-> errors, with retransmit of the last message possible. On the other
-> hand, other dev_queue_xmit() (negative) errors, are ignored. So this
-> place could be still improved by adding proper err handling (or
-> removing getting err return from dev_queue_xmit() at all).
+> > If SOCK_RAW packets are being sent, the protocol number is embedded in
+> > the packet data
+> 
+> Where exactly is that protocol value?  Not every link level protocol
+> is ethernet.
+> 
+> We support FDDI, HIPPI, wireless, VLAN, PPP, and a host of others.
+> 
+> So you can't know for sure unless you assume ethernet, which you
+> can't do.
 
-On the other hand, returning just this one net_xmit_errno() would be
-consistent with non-MMAP sendmsg, so here is an alternative version
-for testing.
+You are right.  This is TX though so the socket is bound to a specific
+device, and devices know which link protocol they use.  So we could add a
+get_protocol operation to each device type, and call it if the protocol
+passed is ETH_P_ALL to get the real one.
 
-Thanks,
-Jarek P.
+Like this: except I only added this for ethernet, and I would have to
+add this for the rest of device types. But I would like to hear what
+others think about this before I do the rest of the work for the rest of
+device types.
 
------------------> (alternative #2)
+Does the below look sane?
 
-tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
-which is illegal.
-
-With debugging by: Stephen Hemminger <shemminger@linux-foundation.org>
-
-Reported-by: Michael Breuer <mbreuer@majjas.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-
- net/packet/af_packet.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a3fccc8..99d7801 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -319,6 +319,7 @@ struct header_ops {
+ 	void	(*cache_update)(struct hh_cache *hh,
+ 				const struct net_device *dev,
+ 				const unsigned char *haddr);
++	__be16	(*get_protocol)(struct sk_buff *skb, struct net_device *dev)
+ };
+ 
+ /* These flag bits are private to the generic network queueing
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 205a1c1..3e7761d 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -231,6 +231,17 @@ int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+ EXPORT_SYMBOL(eth_header_parse);
+ 
+ /**
++ * eth_get_protocol - extract protocol value from packet
++ * @skb: packet to extract protocol from
++ * @dev: source device
++ */
++__be16 eth_get_protocol(const struct sk_buff *skb, struct net_device *dev)
++{
++	const struct ethhdr *eth = eth_hdr(skb);
++	return eth->h_proto
++}
++
++/**
+  * eth_header_cache - fill cache entry from neighbour
+  * @neigh: source neighbour
+  * @hh: destination cache entry
+@@ -324,6 +335,7 @@ EXPORT_SYMBOL(eth_validate_addr);
+ const struct header_ops eth_header_ops ____cacheline_aligned = {
+ 	.create		= eth_header,
+ 	.parse		= eth_header_parse,
++	.get_protocol   = eth_get_protocol,
+ 	.rebuild	= eth_rebuild_header,
+ 	.cache		= eth_header_cache,
+ 	.cache_update	= eth_header_cache_update,
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e0516a2..aba2049 100644
+index a81dae8..492e580 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1021,9 +1021,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+@@ -845,7 +845,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
  
- 		status = TP_STATUS_SEND_REQUEST;
- 		err = dev_queue_xmit(skb);
--		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
--			goto out_xmit;
- 		packet_increment_head(&po->tx_ring);
-+		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
-+			goto out_put;
+ 	ph.raw = frame;
+ 
+-	skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = po->sk.sk_priority;
+ 	skb->mark = po->sk.sk_mark;
+@@ -924,6 +923,14 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		len = ((to_write > len_max) ? len_max : to_write);
+ 	}
+ 
++	if (proto == htons(ETH_P_ALL) && dev->header_ops->get_protocol) {
++		skb->protocol = dev->header_ops->get_protocol(dev, skb);
++		if (unlikely(skb->protocol == htons(ETH_P_ALL)))
++			return -EINVAL;
++	} else {
++		skb->protocol = proto;
++	}
 +
- 		len_sum += tp_len;
- 	} while (likely((ph != NULL) ||
- 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
-@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	err = len_sum;
- 	goto out_put;
+ 	return tp_len;
+ }
  
--out_xmit:
--	skb->destructor = sock_wfree;
--	atomic_dec(&po->tx_ring.pending);
- out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
+@@ -1113,7 +1120,13 @@ static int packet_snd(struct socket *sock,
+ 	if (err)
+ 		goto out_free;
+ 
+-	skb->protocol = proto;
++	if (proto == htons(ETH_P_ALL) && dev->header_ops->get_protocol) {
++		skb->protocol = dev->header_ops->get_protocol(dev, skb);
++		if (unlikely(skb->protocol == htons(ETH_P_ALL)))
++			return -EINVAL;
++	} else {
++		skb->protocol = proto;
++	}
+ 	skb->dev = dev;
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
+
+-- 
+MST
