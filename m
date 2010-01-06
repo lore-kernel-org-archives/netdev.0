@@ -1,238 +1,104 @@
-From: Daniel Borkmann <danborkmann@googlemail.com>
-Subject: [PATCH] netpoll: allow execution of multiple rx_hooks per interface
-Date: Wed, 06 Jan 2010 21:54:45 +0100
-Message-ID: <4B44F895.9080205@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 6 Jan 2010 22:09:41 +0100
+Message-ID: <20100106210941.GC3354@del.dom.local>
+References: <20100105230746.GA6612@del.dom.local>
+ <4B43F72C.9090004@majjas.com>
+ <20100106072208.GA6711@ff.dom.local>
+ <4B44E952.5000804@majjas.com>
+ <20100106202212.GB3354@del.dom.local>
+ <4B44F381.3000206@majjas.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigD8659B9C58439AE254984C4B"
-Cc: Jeff Moyer <jmoyer@redhat.com>, netdev@vger.kernel.org,
-	netdev@oss.sgi.com, David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932791Ab0AFUzK@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932802Ab0AFVJ5@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B44F381.3000206@majjas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD8659B9C58439AE254984C4B
-Content-Type: multipart/mixed;
- boundary="------------050202060500050105010501"
+On Wed, Jan 06, 2010 at 03:33:05PM -0500, Michael Breuer wrote:
+> On 1/6/2010 3:22 PM, Jarek Poplawski wrote:
+> >On Wed, Jan 06, 2010 at 02:49:38PM -0500, Michael Breuer wrote:
+> >>On 1/6/2010 2:22 AM, Jarek Poplawski wrote:
+> >>>On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
+> >>>>On 1/5/2010 6:07 PM, Jarek Poplawski wrote:
+> >>>>>----------------->
+> >>>>>
+> >>>>>Changing an skb after dev_queue_xmit() is illegal. And since it's
+> >>>>>inconsistent to treat specially net_xmit_errno() non-zero return,
+> >>>>>while ignoring other dev_queue_xmit() errors, there is no reason
+> >>>>>to break the loop in tpacket_snd() in this case.
+> >>>>>
+> >>>>>With debugging by: Stephen Hemminger<shemminger@linux-foundation.org>
+> >>>>>
+> >>>>>Reported-by: Michael Breuer<mbreuer@majjas.com>
+> >>>>>Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
+> >>>>>---
+> >>>>>
+> >>>>>   net/packet/af_packet.c |    8 +++-----
+> >>>>>   1 files changed, 3 insertions(+), 5 deletions(-)
+> >>>>>
+> >>>>>diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> >>>>>index e0516a2..984a1fa 100644
+> >>>>>--- a/net/packet/af_packet.c
+> >>>>>+++ b/net/packet/af_packet.c
+> >>>>>@@ -1021,8 +1021,9 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+> >>>>>
+> >>>>>   		status = TP_STATUS_SEND_REQUEST;
+> >>>>>   		err = dev_queue_xmit(skb);
+> >>>>>-		if (unlikely(err>    0&&    (err = net_xmit_errno(err)) != 0))
+> >>>>>-			goto out_xmit;
+> >>>>>+		if (unlikely(err>    0))
+> >>>>>+			err = net_xmit_errno(err);
+> >>>>>+
+> >>>>>   		packet_increment_head(&po->tx_ring);
+> >>>>>   		len_sum += tp_len;
+> >>>>>   	} while (likely((ph != NULL) ||
+> >>>>>@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+> >>>>>   	err = len_sum;
+> >>>>>   	goto out_put;
+> >>>>>
+> >>>>>-out_xmit:
+> >>>>>-	skb->destructor = sock_wfree;
+> >>>>>-	atomic_dec(&po->tx_ring.pending);
+> >>>>>   out_status:
+> >>>>>   	__packet_set_status(po, ph, status);
+> >>>>>   	kfree_skb(skb);
+> >>>>>--
+...
+> >>This patch at first behaved similarly to the previous one - seemed
+> >>to be running a bit better... until the adapter went down :(
+> >I'm not sure: do you mean this patch above vs previous one by Stephen,
+> >or did you manage to try my "alernative #2" patch already?
+> >
+> >BTW, I forgot to mention, and maybe it doesn't matter here, but it
+> >would be better to (always) use my sky2 patch from Berck Nash's
+> >thread.
+> >
+> >Jarek P.
+> This was using "alternative #2" patch. I didn't get the hang with
+> alternative #1. Your sky2 patch from Berck Nash's thread was
+> included in both cases; Stephen's was not.
 
-This is a multi-part message in MIME format.
---------------050202060500050105010501
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+OK, so I guess "alternative #1" (above) seems safer to recommend for
+now (as I assumed earlier).
 
-Hi,
+On the other hand, we really don't know if it's only because it's
+because it's nicer for your hardware (or still some other bug around),
+so as before: let David choose ;-)
 
-this patch allows the registration and _execution_ of multiple netpoll
-rx_hooks per interface. Currently, it is possible to register multiple
-netpoll structures to one interface, _but_ only one single rx_hook (from
-the netpoll struct that has been registered last) can be executed, which
-was an oversight in the implementation [1].
-So, this patch fixes it. I've sucessfully tested it within 2.6.32.2 with
-the registration of multiple rx_hook clients for several times. I'd
-appreciate comments / feedback.
+BTW, I think you could still use Stephen's patch too (there might be
+still something more like this). There was also mentioned this network
+manager again. I might be wrong, but IMHO there could be some
+interaction even if it doesn't use this device; so could/did you try
+to disable it entirely?
 
-Thanks,
-Daniel
+Thanks for testing!
+Jarek P.
 
-[1] http://lwn.net/Articles/140852/
-
---------------050202060500050105010501
-Content-Type: text/x-patch;
- name="netpoll_multiple_rx_hooks.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline;
- filename="netpoll_multiple_rx_hooks.patch"
-
-Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
-
-diff -Nur a/include/linux/netpoll.h b/include/linux/netpoll.h
---- a/include/linux/netpoll.h	2010-01-05 23:52:58.000000000 +0100
-+++ b/include/linux/netpoll.h	2010-01-06 00:12:54.000000000 +0100
-@@ -21,6 +21,7 @@
- 	__be32 local_ip, remote_ip;
- 	u16 local_port, remote_port;
- 	u8 remote_mac[ETH_ALEN];
-+	struct netpoll *next; /* rx list for net device */
- };
-=20
- struct netpoll_info {
-diff -Nur a/net/core/netpoll.c b/net/core/netpoll.c
---- a/net/core/netpoll.c	2010-01-05 23:53:07.000000000 +0100
-+++ b/net/core/netpoll.c	2010-01-06 20:44:59.000000000 +0100
-@@ -493,13 +493,13 @@
-=20
- int __netpoll_rx(struct sk_buff *skb)
- {
--	int proto, len, ulen;
-+	int proto, len, ulen, hits;
- 	struct iphdr *iph;
- 	struct udphdr *uh;
- 	struct netpoll_info *npi =3D skb->dev->npinfo;
--	struct netpoll *np =3D npi->rx_np;
-+	struct netpoll **np =3D &npi->rx_np;
-=20
--	if (!np)
-+	if (!(*np))
- 		goto out;
- 	if (skb->dev->type !=3D ARPHRD_ETHER)
- 		goto out;
-@@ -551,16 +551,23 @@
- 		goto out;
- 	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
- 		goto out;
--	if (np->local_ip && np->local_ip !=3D iph->daddr)
--		goto out;
--	if (np->remote_ip && np->remote_ip !=3D iph->saddr)
--		goto out;
--	if (np->local_port && np->local_port !=3D ntohs(uh->dest))
--		goto out;
-=20
--	np->rx_hook(np, ntohs(uh->source),
--		    (char *)(uh+1),
--		    ulen - sizeof(struct udphdr));
-+	for (hits =3D 0; (*np) !=3D NULL; np =3D &((*np)->next)) {
-+		if ((*np)->local_ip && (*np)->local_ip !=3D iph->daddr)
-+			continue;
-+		if ((*np)->remote_ip && (*np)->remote_ip !=3D iph->saddr)
-+			continue;
-+		if ((*np)->local_port && (*np)->local_port !=3D ntohs(uh->dest))
-+			continue;
-+
-+		(*np)->rx_hook((*np), ntohs(uh->source),
-+			       (char *)(uh+1),
-+			       ulen - sizeof(struct udphdr));
-+		hits++;
-+	}
-+
-+	if (!hits)
-+		goto out;
-=20
- 	kfree_skb(skb);
- 	return 1;
-@@ -679,6 +686,45 @@
- 	return -1;
- }
-=20
-+static int netpoll_rx_list_register(struct netpoll **np_head,
-+				    struct netpoll *np)
-+{
-+	while ((*np_head) !=3D NULL) {
-+		if ((*np_head) =3D=3D np)
-+			return -EEXIST;
-+		np_head =3D &((*np_head)->next);
-+	}
-+
-+	np->next =3D *np_head;
-+	rcu_assign_pointer(*np_head, np);
-+	return 0;
-+}
-+
-+static int netpoll_rx_list_unregister(struct netpoll **np_head,
-+				      struct netpoll *np)
-+{
-+	while ((*np_head) !=3D NULL) {
-+		if ((*np_head) =3D=3D np) {
-+			rcu_assign_pointer(*np_head, np->next);
-+			return 0;
-+		}
-+		np_head =3D &((*np_head)->next);
-+	}
-+	return -ENOENT;
-+}
-+
-+static void netpoll_rx_list_nullify(struct netpoll **np_head)
-+{
-+	struct netpoll *np =3D NULL;
-+
-+	while ((*np_head) !=3D NULL) {
-+		np =3D (*np_head);
-+		np_head =3D &((*np_head)->next);
-+		np->dev =3D NULL;
-+		np->next =3D NULL;
-+	}
-+}
-+
- int netpoll_setup(struct netpoll *np)
- {
- 	struct net_device *ndev =3D NULL;
-@@ -695,6 +741,7 @@
- 		return -ENODEV;
- 	}
-=20
-+	np->next =3D NULL;
- 	np->dev =3D ndev;
- 	if (!ndev->npinfo) {
- 		npinfo =3D kmalloc(sizeof(*npinfo), GFP_KERNEL);
-@@ -785,7 +832,7 @@
- 	if (np->rx_hook) {
- 		spin_lock_irqsave(&npinfo->rx_lock, flags);
- 		npinfo->rx_flags |=3D NETPOLL_RX_ENABLED;
--		npinfo->rx_np =3D np;
-+		netpoll_rx_list_register(&npinfo->rx_np, np);
- 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
- 	}
-=20
-@@ -801,9 +848,14 @@
- 	return 0;
-=20
-  release:
--	if (!ndev->npinfo)
-+	if (!ndev->npinfo) {
-+		spin_lock_irqsave(&npinfo->rx_lock, flags);
-+		netpoll_rx_list_nullify(&npinfo->rx_np);
-+		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-+
- 		kfree(npinfo);
--	np->dev =3D NULL;
-+	}
-+
- 	dev_put(ndev);
- 	return err;
- }
-@@ -823,10 +875,11 @@
- 	if (np->dev) {
- 		npinfo =3D np->dev->npinfo;
- 		if (npinfo) {
--			if (npinfo->rx_np =3D=3D np) {
-+			if (npinfo->rx_np) {
- 				spin_lock_irqsave(&npinfo->rx_lock, flags);
--				npinfo->rx_np =3D NULL;
--				npinfo->rx_flags &=3D ~NETPOLL_RX_ENABLED;
-+				netpoll_rx_list_unregister(&npinfo->rx_np, np);
-+				if (!npinfo->rx_np)
-+					npinfo->rx_flags &=3D ~NETPOLL_RX_ENABLED;
- 				spin_unlock_irqrestore(&npinfo->rx_lock, flags);
- 			}
-=20
-@@ -845,7 +898,10 @@
- 		dev_put(np->dev);
- 	}
-=20
-+	np->next =3D NULL;
- 	np->dev =3D NULL;
-+
-+	synchronize_rcu();
- }
-=20
- int netpoll_trap(void)
-
---------------050202060500050105010501--
-
---------------enigD8659B9C58439AE254984C4B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAktE+JUACgkQ5AxJm1m3CC/1tQCeI8R1h+rAfArWSy/65XdJZ82o
-uuUAniI8xCRGNGXLErG6ZSYw7menKlWa
-=cMPw
------END PGP SIGNATURE-----
-
---------------enigD8659B9C58439AE254984C4B--
+ 
