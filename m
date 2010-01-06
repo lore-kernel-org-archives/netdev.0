@@ -1,120 +1,70 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/3] can: mscan: fix improper return if dlc
-	< 8 in start_xmit function
-Date: Wed, 6 Jan 2010 15:33:37 +0100
-Message-ID: <20100106143337.GC5299@pengutronix.de>
-References: <1262719169-2350-1-git-send-email-wg@grandegger.com>
-	<1262719169-2350-2-git-send-email-wg@grandegger.com>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: [net-next PATCH] net: RFC3069, private VLAN proxy arp support
+Date: Thu, 7 Jan 2010 01:05:24 +1030
+Message-ID: <20100107010524.6f577367@opy.nosense.org>
+References: <20100105155047.13309.79610.stgit@firesoul.comx.local>
+	<4B4427CE.1040203@gmail.com>
+	<1262771369.9474.80.camel@jdb-workstation>
+	<20100106232231.5f454d53@opy.nosense.org>
+	<1262787442.22735.10.camel@jdb-workstation>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1382799265=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1262719169-2350-2-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---===============1382799265==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="7DO5AaGCk89r4vaK"
-Content-Disposition: inline
-
-
---7DO5AaGCk89r4vaK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Jan 05, 2010 at 08:19:27PM +0100, Wolfgang Grandegger wrote:
-> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
->=20
-> The start_xmit function of the MSCAN Driver did return improperly if
-> the CAN dlc check failed (skb not freed and invalid return code). This
-> patch adds a proper check of the frame lenght and data size and returns
-> now correctly. Furthermore, a typo has been fixed.
->=20
-> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
-> Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> ---
->  drivers/net/can/mscan/mscan.c |   11 ++++++++---
->  1 files changed, 8 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
-> index bb06dfb..7df950e 100644
-> --- a/drivers/net/can/mscan/mscan.c
-> +++ b/drivers/net/can/mscan/mscan.c
-> @@ -4,7 +4,7 @@
->   * Copyright (C) 2005-2006 Andrey Volkov <avolkov-ppI4tVfbJvJWk0Htik3J/w@public.gmane.org>,
->   *                         Varma Electronics Oy
->   * Copyright (C) 2008-2009 Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> - * Copytight (C) 2008-2009 Pengutronix <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> + * Copyright (C) 2008-2009 Pengutronix <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->   *
->   * This program is free software; you can redistribute it and/or modify
->   * it under the terms of the version 2 of the GNU General Public License
-> @@ -177,8 +177,13 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *=
-skb, struct net_device *dev)
->  	int i, rtr, buf_id;
->  	u32 can_id;
-> =20
-> -	if (frame->can_dlc > 8)
-> -		return -EINVAL;
-> +	if (skb->len !=3D sizeof(*frame) || frame->can_dlc > 8) {
-> +		dev_err(dev->dev.parent,
-> +			"Dropping non-conform packet: len %u, can_dlc %u\n",
-> +			skb->len, frame->can_dlc);
-> +		kfree_skb(skb);
-> +		return  NETDEV_TX_OK;
-
-Double space.
-
-> +	}
-> =20
->  	out_8(&regs->cantier, 0);
-> =20
-> --=20
-> 1.6.2.5
->=20
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---7DO5AaGCk89r4vaK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAktEn0EACgkQD27XaX1/VRuh1wCcD/HMib9GgtTHAVvmJR2AnGzb
-MygAn3fVzNw33dY+/R28XQSb4IxdJWya
-=F9By
------END PGP SIGNATURE-----
-
---7DO5AaGCk89r4vaK--
-
---===============1382799265==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: hawk@comx.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.adam.net.au ([202.136.110.247]:53648 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932229Ab0AFOfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 09:35:32 -0500
+In-Reply-To: <1262787442.22735.10.camel@jdb-workstation>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+On Wed, 06 Jan 2010 15:17:22 +0100
+Jesper Dangaard Brouer <hawk@comx.dk> wrote:
 
---===============1382799265==--
+> On Wed, 2010-01-06 at 23:22 +1030, Mark Smith wrote:
+> > On Wed, 06 Jan 2010 10:49:29 +0100
+> > Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+> > > 
+> > > This patch solved the issue by doing proxy arp'ing on the router against
+> > > the "local" network, thus making it possible for customers to
+> > > communicate, but via the router.  This also gives the ability to do
+> > > firewalling on the router between customers on an Ethernet. (In our
+> > > solution the Linux router also have a personal firewall configurable per
+> > > customer.)
+> > > 
+> > 
+> > I can see value in that - you're forcing all traffic through the
+> > upstream router for policy enforcement purposes, without having to have
+> > point-to-point (simulated or otherwise) links between customers and the
+> > router, and avoiding IP address waste by not using /30s. You're pretty
+> > much making the ethernet a Non-broadcast Multi-Access link.
+> 
+> Yes, its actually a quite nice trick, and several switch vendors have
+> supported this technology for years (although they all annoying call it
+> something differently).  And we/ComX have actually also been using this
+> for years, including my patch (sorry for being so slow with upstream
+> submission).
+> 
+
+Do you have any issues with router redundance e.g. VRRP? I can't really
+think of any, as long as the proxy-arp responses are using the VRRP
+virtual router address, rather than the actual NIC's address, and the
+routers can see each other via the switch.
+
+> -- 
+> Med venlig hilsen / Best regards
+>   Jesper Brouer
+>   ComX Networks A/S
+>   Linux Network Kernel Developer
+>   Cand. Scient Datalog / MSc.CS
+>   Author of http://adsl-optimizer.dk
+>   LinkedIn: http://www.linkedin.com/in/brouer
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
