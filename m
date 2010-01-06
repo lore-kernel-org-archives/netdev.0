@@ -1,59 +1,76 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
- CNA devices
-Date: Tue, 05 Jan 2010 17:33:38 -0800
-Message-ID: <4B43E872.5000809@hp.com>
-References: <7608421F3572AB4292BB2532AE89D5658B0BAE9450@AVEXMB1.qlogic.org>	<20100105.154928.80012641.davem@davemloft.net>	<7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org> <20100105.163343.14826539.davem@davemloft.net>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH] cdc-ether: Assume link is up initially
+Date: Wed, 06 Jan 2010 01:47:15 +0000
+Message-ID: <1262742435.26813.61.camel@localhost>
+References: <1262741203.26813.58.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dhananjay.phadke@qlogic.com, shemminger@vyatta.com,
-	amit.salecha@qlogic.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:25468 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753978Ab0AFBdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 20:33:41 -0500
-In-Reply-To: <20100105.163343.14826539.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-UfG+H5/soAuhL60puMTi"
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1262741203.26813.58.camel@localhost>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-> Date: Tue, 5 Jan 2010 15:55:10 -0800
-> 
-> 
->>The LRO you are talking about was still kernel based
->>LRO. Even GRO doesn't save PCIe transactions as much
->>HW LRO does. That is the key. The difference between
->>HW LRO and GRO is significant to keep former alive
->>for a while.
 
-Is it really the PCIe transactions (*)?  ISTR that HW LRO also tended to 
-significantly cut-down on the ACK rate, rather like the oft-derided ACK 
-avoidance heuristics in Solaris, HP-UX and various MacOSX revs.
+--=-UfG+H5/soAuhL60puMTi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-rick jones
+On Wed, 2010-01-06 at 01:26 +0000, Ben Hutchings wrote:
+> The bug report <http://bugzilla.kernel.org/show_bug.cgi?id=3D14791>
+> implies that at least some devices will not send a Network Connection
+> notification if the link is initially up.  Further, the CDC-ECM
+> specification states that '[n]etworking devices are typically "Always
+> Connected", spending all of their time with the "link up"'.  So it
+> appears to be safer to assume the link is up and to rely on the device
+> to tell us otherwise.
+>=20
+> This is a partial revert of:
+>=20
+> commit 37e8273cd30592d3a82bcb70cbb1bdc4eaeb6b71
+> Author: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+> Date:   Wed Nov 4 15:29:52 2009 +0000
+>=20
+>     usbnet: Set link down initially for drivers that update link state
+>=20
+> Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+> ---
+> This should be tested by someone with one of these devices, preferably
+> you since you reported the bug.
 
-* OK, I am recalling that long ago and far away, the Alteon AceNIC (PCI) had 
-very high DMA setup times - so long that if an outbound (in this case) packet 
-was more than 1.something buffers the card was unable to acheive link-rate with 
-a 1500 byte MTU.  It meant that for straight copy outbound was fine, but for 
-copy avoided (eg sendfile() - this was HP-UX 11) one was sub-par because it was 
-at least two buffers per packet - aka two DMA setups - and sometimes three.  One 
-workaround was to use JumboFrames - the larger MTU helped.
+Mail to reporter bounces, so someone else had better check this.
 
-> 
-> 
-> But HW LRO is not bridge/forwarding/etc. agnostic because it loses
-> information.
-> 
-> As soon as I turn on forwarding to make a NAT box or whatever, all of
-> the hw LRO gets turned off and we're back to square one for local
-> connections on the machine.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben.
 
+--=20
+Ben Hutchings
+Horngren's Observation:
+                   Among economists, the real world is often a special case=
+.
+
+--=-UfG+H5/soAuhL60puMTi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS0Prnue/yOyVhhEJAQLyjA//Uya3Ur9rXCBEzLoA74Xj+U7DF+64xWZh
+DU5GHdKn/HJUVjRx9sXSPPJlaKy3qavKsKp3QwDGkPT4RTZexKLy8YPo0/y144b0
+yqHACqKarRVRUNkNK89miqMyJMYMTET/llE2/UfLWoS0WrCXTi3Dx1MFo6PtA9pE
+eGbGc7GUNIPcBaV5w5AOYIzGRMu10tSQNuA31/J7YK1q0mlvL6SptijbbaWpTQBF
+Rpk2RBHyRIngvIVejwNybZlbf8rQWpW7H7LtzUAQfWFpysaPMgd+wDwPamyrkIkT
+NGs3nLBn3/GbANf68XpjkwFnVX5ls6/gGDNRUEfCI4k/WOUqX5lWtodSsxbiM3H7
+d1UgjvOG5W/3+NewrrFQvMPnJtDJwI3y6X86o8d9gobF8T65JgWUip7o4v6sd9jy
+C0L+46lTXssngXUSlesu36H/ha1VFs6IelrmNTOEYUO7hWbGlhM4bzRGPtzReyIt
+MzGFCkqcYPAhrVdixzcdlp6bCDwjNXTBi37s2MUFMYsHLClAWvLW3uSAKXrbIE4j
+TkK8TndJsD0ChW2o/v9cUwrmJl5lsohTm72agg5oE1h+603wSzFKhH4FbPN9HtzP
+A/cZ5Ks458Af5e0EVIe2ZWqn3sDj0X/fTG/45qCqTbaR4FSMsB2+BE2y3aOOWJnf
+GGBpILULAbA=
+=y57m
+-----END PGP SIGNATURE-----
+
+--=-UfG+H5/soAuhL60puMTi--
