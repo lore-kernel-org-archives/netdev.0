@@ -1,55 +1,68 @@
-From: Stefan Weil <weil@mail.berlios.de>
-Subject: [PATCH] Fix spelling in log messages
-Date: Thu,  7 Jan 2010 00:05:37 +0100
-Message-ID: <1262819137-16775-1-git-send-email-weil__8300.37192577056$1262819199$gmane$org@mail.berlios.de>
-Cc: Stefan Weil <weil@mail.berlios.de>
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Dave Young <hidave.darkstar@gmail.com>,
-	Matthew Garrett <mjg@redhat.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-input@vger.kern
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [RFC PATCH] workqueue.c: should schedule work serialize work->func
+Date: Wed, 06 Jan 2010 23:05:12 +0000
+Message-ID: <20100106230512.17900.47310.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, jesse.brandeburg@ingel.com, tj@kernel.org,
+	tglx@linuxtronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:64150 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932958Ab0AFXGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 18:06:00 -0500
+Received: from mga09.intel.com ([134.134.136.24]:51734 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933023Ab0AFXGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2010 18:06:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace platfrom -> platform.
+codepath
+schedule_work(); ... ; run_workqueue() -> work_clear_pending() -> f(work)
 
-Signed-off-by: Stefan Weil <weil@mail.berlios.de>
+Although schedule_work() will only schedule the task if it is not already
+on the work queue the WORK_STRUCT_PENDING bits are cleared just before
+calling the work function.  If work is scheduled after this occurs and
+before f(work) completes it is possible to have multiple calls into f().
+
+Should the kernel protect us from this? With something like the patch
+below.
+
+Thanks
 ---
- drivers/input/serio/i8042.c |    2 +-
- drivers/net/davinci_emac.c  |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/input/serio/i8042.c b/drivers/input/serio/i8042.c
-index d84a36e..33f3541 100644
---- a/drivers/input/serio/i8042.c
-+++ b/drivers/input/serio/i8042.c
-@@ -430,7 +430,7 @@ static bool i8042_filter(unsigned char data, unsigned char str,
- 	}
+ include/linux/workqueue.h |    3 ++-
+ kernel/workqueue.c        |    3 +++
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index 9466e86..fa6ffea 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -26,7 +26,8 @@ struct work_struct {
+ 	atomic_long_t data;
+ #define WORK_STRUCT_PENDING 0		/* T if work item pending execution */
+ #define WORK_STRUCT_STATIC  1		/* static initializer (debugobjects) */
+-#define WORK_STRUCT_FLAG_MASK (3UL)
++#define WORK_STRUCT_RUNNING 2
++#define WORK_STRUCT_FLAG_MASK (7UL)	/* 0111 */
+ #define WORK_STRUCT_WQ_DATA_MASK (~WORK_STRUCT_FLAG_MASK)
+ 	struct list_head entry;
+ 	work_func_t func;
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index dee4865..b867125 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -397,10 +397,13 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
+ 		spin_unlock_irq(&cwq->lock);
  
- 	if (i8042_platform_filter && i8042_platform_filter(data, str, serio)) {
--		dbg("Filtered out by platfrom filter\n");
-+		dbg("Filtered out by platform filter\n");
- 		return true;
- 	}
+ 		BUG_ON(get_wq_data(work) != cwq);
++		while (test_and_set_bit(WORK_STRUCT_RUNNING, work_data_bits(work)))
++			cpu_relax();
+ 		work_clear_pending(work);
+ 		lock_map_acquire(&cwq->wq->lockdep_map);
+ 		lock_map_acquire(&lockdep_map);
+ 		f(work);
++		clear_bit(WORK_STRUCT_RUNNING, work_data_bits(work));
+ 		lock_map_release(&lockdep_map);
+ 		lock_map_release(&cwq->wq->lockdep_map);
  
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 107bc5f..4741ade 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2652,7 +2652,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 
- 	pdata = pdev->dev.platform_data;
- 	if (!pdata) {
--		printk(KERN_ERR "DaVinci EMAC: No platfrom data\n");
-+		printk(KERN_ERR "DaVinci EMAC: No platform data\n");
- 		return -ENODEV;
- 	}
- 
--- 
-1.5.6.5
 
