@@ -1,127 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BSD 4.2 style TCP keepalives
-Date: Wed, 06 Jan 2010 00:23:28 -0800 (PST)
-Message-ID: <20100106.002328.141253811.davem@davemloft.net>
-References: <20100105.163911.10233438.davem@davemloft.net>
+From: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: fix peername failed on closed listener
+Date: Wed, 06 Jan 2010 17:07:32 +0800
+Message-ID: <4B4452D4.6090708@redhat.com>
+References: <1262227956-21470-1-git-send-email-dfeng@redhat.com> <20100105230131.GA22850@fieldses.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, ilpo.jarvinen@helsinki.fi
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48676
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754944Ab0AFIXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 03:23:23 -0500
-In-Reply-To: <20100105.163911.10233438.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100105230131.GA22850-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 05 Jan 2010 16:39:11 -0800 (PST)
+On 01/06/2010 07:01 AM, J. Bruce Fields wrote:
+> On Thu, Dec 31, 2009 at 10:52:36AM +0800, Xiaotian Feng wrote:
+>> There're some warnings of "nfsd: peername failed (err 107)!"
+>> socket error -107 means Transport endpoint is not connected.
+>> This warning message was outputed by svc_tcp_accept() [net/sunrpc/svcsock.c],
+>> when kernel_getpeername returns -107. This means socket might be CLOSED.
+>>
+>> And svc_tcp_accept was called by svc_recv() [net/sunrpc/svc_xprt.c]
+>>
+>>          if (test_bit(XPT_LISTENER,&xprt->xpt_flags)) {
+>>          <snip>
+>>                  newxpt = xprt->xpt_ops->xpo_accept(xprt);
+>>          <snip>
+>>
+>> So this might happen when xprt->xpt_flags has both XPT_LISTENER and XPT_CLOSE.
+>>
+>> Let's take a look at commit b0401d72, this commit has moved the close
+>> processing after do recvfrom method, but this commit also introduces this
+>> warnings, if the xpt_flags has both XPT_LISTENER and XPT_CLOSED, we should
+>> close it, not accpet then close.
+>
+> The logic here seems unnecessarily complicated now, but as a minimal
+> fix, this seems fine.
+>
+> Is the *only* justification for this to silence this warning, or is
+> there some more serious problem I'm missing?
 
-> To make a long story short, there are still some Windows 2000
-> machines out there emitting BSD 4.2 style keepalives (one garbage
-> byte instead of an empty out-of-window probe frame).
-> 
-> We don't ACK these because of how tcp_sequence() sees ->end_seq
-> as being equal to ->rcv_wup
-> 
-> But we can't change tcp_sequence() to reject these frames, because if
-> we do then we end up mishandling connection attempts (SYN, SYN+ACK)
-> and retransmits of such.
+If a xprt->xpt_flags has XPT_CLOSE & XPT_LISTENER, kernel will accept it 
+first,
+and svc_xprt_received(xptr) no mater xpo_accept is suceed or failed, 
+then svc_delete_xprt(xprt).
 
-After some digging I found commit:
+I'm not sure what will happened between the svc_xprt_received and 
+svc_delete_xprt, there isn't any
+lock to protect it.
 
-commit 585d51805443d6caf10d468366bc6567e12cf090
-Author: davem <davem>
-Date:   Tue Jan 30 01:38:22 2001 +0000
+>
+> --b.
+>
+>>
+>> Signed-off-by: Xiaotian Feng<dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> Cc: J. Bruce Fields<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+>> Cc: Neil Brown<neilb-l3A5Bk7waGM@public.gmane.org>
+>> Cc: Trond Myklebust<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+>> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> ---
+>> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+>> index 1c924ee..187f0f4 100644
+>> --- a/net/sunrpc/svc_xprt.c
+>> +++ b/net/sunrpc/svc_xprt.c
+>> @@ -699,7 +699,8 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
+>>   	spin_unlock_bh(&pool->sp_lock);
+>>
+>>   	len = 0;
+>> -	if (test_bit(XPT_LISTENER,&xprt->xpt_flags)) {
+>> +	if (test_bit(XPT_LISTENER,&xprt->xpt_flags)&&
+>> +	    !test_bit(XPT_CLOSE,&xprt->xpt_flags)) {
+>>   		struct svc_xprt *newxpt;
+>>   		newxpt = xprt->xpt_ops->xpo_accept(xprt);
+>>   		if (newxpt) {
+>
 
-    Make tcp_sequence check more loose, so that
-    we respect control flags in packets which are not
-    out-of-window after truncating to the current window.
-    From Alexey.
-
-in the netdev-vger-cvs tree, which is how we arrived at the
-current implementation of tcp_sequence().
-
-The old code looks like (ifdef'd sections removed and code
-reformatted for brevity):
-
-static int __tcp_sequence(struct tcp_opt *tp, u32 seq, u32 end_seq)
-{
-	u32 end_window = tp->rcv_wup + tp->rcv_wnd;
-	u32 rcv_wnd = tcp_receive_window(tp);
-
-	if (rcv_wnd && after(end_seq, tp->rcv_nxt) &&
-	    before(seq, end_window))
-		return 1;
-	if (seq != end_window)
-		return 0;
-	return (seq == end_seq);
-}
-extern __inline__ int tcp_sequence(struct tcp_opt *tp, u32 seq, u32 end_seq, int rst)
-{
-	u32 rcv_wnd = tcp_receive_window(tp);
-	if (seq == tp->rcv_nxt)
-		return (rcv_wnd || (end_seq == seq) || rst);
-	return __tcp_sequence(tp, seq, end_seq);
-}
-
-Whereas tcp_sequence() is now:
-
-static inline int tcp_sequence(struct tcp_sock *tp, u32 seq, u32 end_seq)
-{
-	return	!before(end_seq, tp->rcv_wup) &&
-		!after(seq, tp->rcv_nxt + tcp_receive_window(tp));
-}
-
-The key element (taken from FreeBSD, as per current comments) is to
-allow sequences using tp->rcv_wup as the window edge so that we can
-accept things like resets even when our delayed ACK has caused the
-sender to not advance his snd.una yet.
-
-That's fine.
-
-So everywhere you see tp->rcv_nxt in the old code, it should correspond
-to things using tp->rcv_wup in the new code.
-
-Would the old code cause us to properly ACK the zero window probes
-that have the garbage byte?  It seems it would.
-
-Assuming we still have a zero window being advertised when we receive
-the probe:
-
-1) seq is one byte behind edge of the window so the
-   seq == tp->rcv_nxt check will not pass, therefore
-   we get to __tcp_sequence()
-
-2) rcv_wnd is zero, so first check there does not pass
-
-3) seq != end_window (it's something like tp->rcv_wup - 1) so
-   we return 0
-
-and thus end up in the code (two functions up) which emits the ACK.
-
-However, we can't just change
-
-		!before(end_seq, tp->rcv_wup) &&
-
-to be:
-
-		after(end_seq, tp->rcv_wup) &&
-
-As that would even reject the first bare ACK we receive
-in the SYN, SYN+ACK, ACK sequence.  (where seq == end_seq and
-end_seq == tp->rcv_wup, which would be rejected by
-after(end_seq, tp->rcv_wup)).
-
-Special casing the seq == end_seq == tp->rcv_wup case using
-something like:
-
-		(after(end_seq, tp->rcv_wup) ||
-		 (end_seq == tp->rcv_wup && seq == end_seq)) &&
-
-might work, but I'm not confident that's exactly what we want at the
-moment, as it partially defeats what this code is trying to do (let us
-accept URG/FIN/RST after seq and end_seq are truncated to the window).
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
