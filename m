@@ -1,89 +1,58 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] Fix 2.6.33rc1 regression in et131x
-Date: Wed, 6 Jan 2010 14:01:26 +0000
-Message-ID: <20100106140126.6f26ddde@lxorguk.ukuu.org.uk>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [RFC] PCMCIA patches for 2.6.34
+Date: Wed, 6 Jan 2010 15:03:32 +0100
+Message-ID: <20100106140332.GA5299@pengutronix.de>
+References: <20100106114531.GA29913@comet.dominikbrodowski.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	greg@kroah.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OgqxwSJOaUobr8KG"
+To: linux-pcmcia@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:57669 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755770Ab0AFN5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 08:57:48 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37602 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932165Ab0AFODd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 09:03:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20100106114531.GA29913@comet.dominikbrodowski.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-et131x: Fix 12bit wrapping
+Hi Dominik,
 
-From: Alan Cox <alan@linux.intel.com>
+> here are some patches relating to the PCMCIA subsystem, and intended for
+> 2.6.34. I'm interested in your input to this patch series. They'll be
+> sent to the PCMCIA list shortly, with CC to other lists if deemed
 
-The 12bit wrap logic conversion is wrong and this shows up for some
-memory sizes and layouts of card. Patch it up for now, once the kernel
-view of status is cleaned up it'll become two variables and a lot saner.
+Looks interesting, I will pull your master(?)-branch this evening and give =
+it a
+test. Any hints on what to try/look for especially? Suspend/Resume seems one
+candidate next to the usual "I'll try a bunch of cards"...
 
-Signed-off-by: Alan Cox <alan@linux.intel.com>
----
+Regards,
 
- drivers/staging/et131x/et1310_address_map.h |   18 +++++++++++++-----
- drivers/staging/et131x/et1310_rx.c          |    6 +++---
- 2 files changed, 16 insertions(+), 8 deletions(-)
+   Wolfram
 
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
 
-diff --git a/drivers/staging/et131x/et1310_address_map.h b/drivers/staging/et131x/et1310_address_map.h
-index 6da843c..e715e4d 100644
---- a/drivers/staging/et131x/et1310_address_map.h
-+++ b/drivers/staging/et131x/et1310_address_map.h
-@@ -203,11 +203,14 @@ typedef struct _GLOBAL_t {			/* Location: */
-  * 9-0: pr ndes
-  */
- 
--#define ET_DMA10_MASK		0x3FF	/* 10 bit mask for DMA10W types */
--#define ET_DMA10_WRAP		0x400
--#define ET_DMA4_MASK		0x00F	/* 4 bit mask for DMA4W types */
--#define ET_DMA4_WRAP		0x010
--
-+#define ET_DMA12_MASK		0x0FFF	/* 12 bit mask for DMA12W types */
-+#define ET_DMA12_WRAP		0x1000
-+#define ET_DMA10_MASK		0x03FF	/* 10 bit mask for DMA10W types */
-+#define ET_DMA10_WRAP		0x0400
-+#define ET_DMA4_MASK		0x000F	/* 4 bit mask for DMA4W types */
-+#define ET_DMA4_WRAP		0x0010
-+
-+#define INDEX12(x)	((x) & ET_DMA12_MASK)
- #define INDEX10(x)	((x) & ET_DMA10_MASK)
- #define INDEX4(x)	((x) & ET_DMA4_MASK)
- 
-@@ -216,6 +219,11 @@ extern inline void add_10bit(u32 *v, int n)
- 	*v = INDEX10(*v + n) | (*v & ET_DMA10_WRAP);
- }
- 
-+extern inline void add_12bit(u32 *v, int n)
-+{
-+	*v = INDEX12(*v + n) | (*v & ET_DMA12_WRAP);
-+}
-+
- /*
-  * 10bit DMA with wrap
-  * txdma tx queue write address reg in txdma address map at 0x1010
-diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
-index 3ddc9b1..81c1a74 100644
---- a/drivers/staging/et131x/et1310_rx.c
-+++ b/drivers/staging/et131x/et1310_rx.c
-@@ -831,10 +831,10 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
- 
- 	/* Indicate that we have used this PSR entry. */
- 	/* FIXME wrap 12 */
--	rx_local->local_psr_full = (rx_local->local_psr_full + 1) & 0xFFF;
--	if (rx_local->local_psr_full  > rx_local->PsrNumEntries - 1) {
-+	add_12bit(&rx_local->local_psr_full, 1);
-+	if ((rx_local->local_psr_full & 0xFFF)  > rx_local->PsrNumEntries - 1) {
- 		/* Clear psr full and toggle the wrap bit */
--		rx_local->local_psr_full &=  0xFFF;
-+		rx_local->local_psr_full &=  ~0xFFF;
- 		rx_local->local_psr_full ^= 0x1000;
- 	}
- 
+--OgqxwSJOaUobr8KG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAktEmDQACgkQD27XaX1/VRv0lQCgkT9UIU+bFHdItrIAijhOa/AN
+iiIAnAgw0RB0iKXZyFhM6EQCoj7sHFkw
+=hjqS
+-----END PGP SIGNATURE-----
+
+--OgqxwSJOaUobr8KG--
