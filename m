@@ -1,84 +1,79 @@
-From: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: fix peername failed on closed listener
-Date: Wed, 06 Jan 2010 17:07:32 +0800
-Message-ID: <4B4452D4.6090708@redhat.com>
-References: <1262227956-21470-1-git-send-email-dfeng@redhat.com> <20100105230131.GA22850@fieldses.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH alt.2] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 6 Jan 2010 09:15:32 +0000
+Message-ID: <20100106091532.GA10201@ff.dom.local>
+References: <20100105230746.GA6612@del.dom.local> <4B43F72C.9090004@majjas.com> <20100106072208.GA6711@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100105230131.GA22850-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755622Ab0AFJPm@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100106072208.GA6711@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/06/2010 07:01 AM, J. Bruce Fields wrote:
-> On Thu, Dec 31, 2009 at 10:52:36AM +0800, Xiaotian Feng wrote:
->> There're some warnings of "nfsd: peername failed (err 107)!"
->> socket error -107 means Transport endpoint is not connected.
->> This warning message was outputed by svc_tcp_accept() [net/sunrpc/svcsock.c],
->> when kernel_getpeername returns -107. This means socket might be CLOSED.
->>
->> And svc_tcp_accept was called by svc_recv() [net/sunrpc/svc_xprt.c]
->>
->>          if (test_bit(XPT_LISTENER,&xprt->xpt_flags)) {
->>          <snip>
->>                  newxpt = xprt->xpt_ops->xpo_accept(xprt);
->>          <snip>
->>
->> So this might happen when xprt->xpt_flags has both XPT_LISTENER and XPT_CLOSE.
->>
->> Let's take a look at commit b0401d72, this commit has moved the close
->> processing after do recvfrom method, but this commit also introduces this
->> warnings, if the xpt_flags has both XPT_LISTENER and XPT_CLOSED, we should
->> close it, not accpet then close.
->
-> The logic here seems unnecessarily complicated now, but as a minimal
-> fix, this seems fine.
->
-> Is the *only* justification for this to silence this warning, or is
-> there some more serious problem I'm missing?
+On Wed, Jan 06, 2010 at 07:22:08AM +0000, Jarek Poplawski wrote:
+> On Tue, Jan 05, 2010 at 09:36:28PM -0500, Michael Breuer wrote:
+> > Is it possible that this patch is causing the transmission to  
+> > momentarily halt such that the overall utilization appears low at the  
+> > time I see the interrupt errors, vs. the other patch which perhaps  
+> > doesn't interrupt the traffic flow quite so much?
+> 
+> Yes, without this patch xmit could be stopped earlier on some kind of
+> errors, with retransmit of the last message possible. On the other
+> hand, other dev_queue_xmit() (negative) errors, are ignored. So this
+> place could be still improved by adding proper err handling (or
+> removing getting err return from dev_queue_xmit() at all).
 
-If a xprt->xpt_flags has XPT_CLOSE & XPT_LISTENER, kernel will accept it 
-first,
-and svc_xprt_received(xptr) no mater xpo_accept is suceed or failed, 
-then svc_delete_xprt(xprt).
+On the other hand, returning just this one net_xmit_errno() would be
+consistent with non-MMAP sendmsg, so here is an alternative version
+for testing.
 
-I'm not sure what will happened between the svc_xprt_received and 
-svc_delete_xprt, there isn't any
-lock to protect it.
+Thanks,
+Jarek P.
 
->
-> --b.
->
->>
->> Signed-off-by: Xiaotian Feng<dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Cc: J. Bruce Fields<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
->> Cc: Neil Brown<neilb-l3A5Bk7waGM@public.gmane.org>
->> Cc: Trond Myklebust<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->> Cc: David S. Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> ---
->> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
->> index 1c924ee..187f0f4 100644
->> --- a/net/sunrpc/svc_xprt.c
->> +++ b/net/sunrpc/svc_xprt.c
->> @@ -699,7 +699,8 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
->>   	spin_unlock_bh(&pool->sp_lock);
->>
->>   	len = 0;
->> -	if (test_bit(XPT_LISTENER,&xprt->xpt_flags)) {
->> +	if (test_bit(XPT_LISTENER,&xprt->xpt_flags)&&
->> +	    !test_bit(XPT_CLOSE,&xprt->xpt_flags)) {
->>   		struct svc_xprt *newxpt;
->>   		newxpt = xprt->xpt_ops->xpo_accept(xprt);
->>   		if (newxpt) {
->
+-----------------> (alternative #2)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
+which is illegal.
+
+With debugging by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+Reported-by: Michael Breuer <mbreuer@majjas.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/packet/af_packet.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e0516a2..aba2049 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1021,9 +1021,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 
+ 		status = TP_STATUS_SEND_REQUEST;
+ 		err = dev_queue_xmit(skb);
+-		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
+-			goto out_xmit;
+ 		packet_increment_head(&po->tx_ring);
++		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
++			goto out_put;
++
+ 		len_sum += tp_len;
+ 	} while (likely((ph != NULL) ||
+ 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
+@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	err = len_sum;
+ 	goto out_put;
+ 
+-out_xmit:
+-	skb->destructor = sock_wfree;
+-	atomic_dec(&po->tx_ring.pending);
+ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
