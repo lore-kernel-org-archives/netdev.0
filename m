@@ -1,53 +1,48 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH] LSM: Update comment on security_sock_rcv_skb
-Date: Tue, 5 Jan 2010 21:27:42 -0600
-Message-ID: <20100106032742.GA8627@us.ibm.com>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
- <1262537872.10218.27.camel@bigi>
- <m2r5q5nhbc.fsf@ssh.synack.fr>
- <201001050820.o058Kuwx087793@www262.sakura.ne.jp>
- <20100105140917.GA6624@us.ibm.com>
- <201001060023.o060Ns76078068@www262.sakura.ne.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH NEXT 0/2] qlcnic: Add Qlogic 1/10Gb Ethernet driver for
+ CNA devices
+Date: Tue, 05 Jan 2010 19:51:56 -0800 (PST)
+Message-ID: <20100105.195156.39644124.davem@davemloft.net>
+References: <7608421F3572AB4292BB2532AE89D5658B0BAE9471@AVEXMB1.qlogic.org>
+	<20100105.163343.14826539.davem@davemloft.net>
+	<7608421F3572AB4292BB2532AE89D5658B0BAE949E@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jmorris@namei.org,
-	sam@synack.fr, kaber@trash.net, zbr@ioremap.net,
-	nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201001060023.o060Ns76078068@www262.sakura.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, amit.salecha@qlogic.com,
+	netdev@vger.kernel.org
+To: dhananjay.phadke@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35740
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754690Ab0AFDvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jan 2010 22:51:52 -0500
+In-Reply-To: <7608421F3572AB4292BB2532AE89D5658B0BAE949E@AVEXMB1.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Tetsuo Handa (penguin-kernel@I-love.SAKURA.ne.jp):
-> [PATCH] LSM: Update comment on security_sock_rcv_skb
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Date: Tue, 5 Jan 2010 17:56:00 -0800
+
+>> But HW LRO is not bridge/forwarding/etc. agnostic because it loses
+>> information.
+>> 
+>> As soon as I turn on forwarding to make a NAT box or whatever, all of
+>> the hw LRO gets turned off and we're back to square one for local
+>> connections on the machine.
 > 
-> It is not permitted to do sleeping operation inside security_sock_rcv_skb().
-> 
-> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> I won't defend other vendors' implementation. Even if LRO was
+> not turned off for bridge/forwarding, we still wouldn't accumulate
+> those remote flows because the dest IP address is not configured in
+> firmware in our case. This is the reason why we have a inet
+> notification listener (to tell firmware about local addresses).
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+Ok, but you do realize that because GRO maintains enough state
+we can reconstitute packets across forwarding and bridging
+thus decreasing the per-packet costs in those situations as
+well right?
 
-Thank you for sending this.
-
--serge
-
-> --
-> diff --git a/include/linux/security.h b/include/linux/security.h
-> index 466cbad..3696ca3 100644
-> --- a/include/linux/security.h
-> +++ b/include/linux/security.h
-> @@ -978,6 +978,7 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
->   *	Check permissions on incoming network packets.  This hook is distinct
->   *	from Netfilter's IP input hooks since it is the first time that the
->   *	incoming sk_buff @skb has been associated with a particular socket, @sk.
-> + *	Must not sleep inside this hook because some callers hold spinlocks.
->   *	@sk contains the sock (not socket) associated with the incoming sk_buff.
->   *	@skb contains the incoming network data.
->   * @socket_getpeersec_stream:
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That's why hardware vendors should strive to align their hw
+LRO implementations with what GRO does, since it is truly
+generic and allows to optimize all cases not just local
+TCP streams.
