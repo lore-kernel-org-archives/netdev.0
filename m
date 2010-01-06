@@ -1,81 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 3/8] net/rds: Remove uses of NIPQUAD, use %pI4
-Date: Tue,  5 Jan 2010 17:20:15 -0800
-Message-ID: <b2b11634105aee49050589f5d0e4e9fd09a270d6.1262726222.git.joe@perches.com>
-References: <cover.1262726222.git.joe@perches.com>
-Cc: Andy Grover <andy.grover@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755619Ab0AFBW0@vger.kernel.org>
-In-Reply-To: <cover.1262726222.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: [PATCH] cdc-ether: Assume link is up initially
+Date: Wed, 06 Jan 2010 01:26:43 +0000
+Message-ID: <1262741203.26813.58.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: speedyboyinovator-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/rds/tcp_connect.c |    7 +++----
- net/rds/tcp_listen.c  |    6 +++---
- net/rds/tcp_send.c    |    4 ++--
- 3 files changed, 8 insertions(+), 9 deletions(-)
+The bug report <http://bugzilla.kernel.org/show_bug.cgi?id=14791>
+implies that at least some devices will not send a Network Connection
+notification if the link is initially up.  Further, the CDC-ECM
+specification states that '[n]etworking devices are typically "Always
+Connected", spending all of their time with the "link up"'.  So it
+appears to be safer to assume the link is up and to rely on the device
+to tell us otherwise.
 
-diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
-index 211522f..0562562 100644
---- a/net/rds/tcp_connect.c
-+++ b/net/rds/tcp_connect.c
-@@ -90,8 +90,8 @@ int rds_tcp_conn_connect(struct rds_connection *conn)
+This is a partial revert of:
+
+commit 37e8273cd30592d3a82bcb70cbb1bdc4eaeb6b71
+Author: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Date:   Wed Nov 4 15:29:52 2009 +0000
+
+    usbnet: Set link down initially for drivers that update link state
+
+Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+---
+This should be tested by someone with one of these devices, preferably
+you since you reported the bug.
+
+Ben.
+
+ drivers/net/usb/cdc_ether.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 21e183a..4f27f02 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -419,7 +419,7 @@ static int cdc_manage_power(struct usbnet *dev, int on)
  
- 	ret = sock->ops->bind(sock, (struct sockaddr *)&src, sizeof(src));
- 	if (ret) {
--		rdsdebug("bind failed with %d at address %u.%u.%u.%u\n",
--		     ret, NIPQUAD(conn->c_laddr));
-+		rdsdebug("bind failed with %d at address %pI4\n",
-+			 ret, &conn->c_laddr);
- 		goto out;
- 	}
- 
-@@ -108,8 +108,7 @@ int rds_tcp_conn_connect(struct rds_connection *conn)
- 				 O_NONBLOCK);
- 	sock = NULL;
- 
--	rdsdebug("connect to address %u.%u.%u.%u returned %d\n",
--		 NIPQUAD(conn->c_faddr), ret);
-+	rdsdebug("connect to address %pI4 returned %d\n", &conn->c_faddr, ret);
- 	if (ret == -EINPROGRESS)
- 		ret = 0;
- 
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index 45474a4..53cb1b5 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -66,9 +66,9 @@ static int rds_tcp_accept_one(struct socket *sock)
- 
- 	inet = inet_sk(new_sock->sk);
- 
--	rdsdebug("accepted tcp %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n",
--		  NIPQUAD(inet->inet_saddr), ntohs(inet->inet_sport),
--		  NIPQUAD(inet->inet_daddr), ntohs(inet->inet_dport));
-+	rdsdebug("accepted tcp %pI4:%u -> %pI4:%u\n",
-+		 &inet->inet_saddr, ntohs(inet->inet_sport),
-+		 &inet->inet_daddr, ntohs(inet->inet_dport));
- 
- 	conn = rds_conn_create(inet->inet_saddr, inet->inet_daddr,
- 			       &rds_tcp_transport, GFP_KERNEL);
-diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
-index ab545e0..34fdcc0 100644
---- a/net/rds/tcp_send.c
-+++ b/net/rds/tcp_send.c
-@@ -193,9 +193,9 @@ out:
- 			rds_tcp_stats_inc(s_tcp_sndbuf_full);
- 			ret = 0;
- 		} else {
--			printk(KERN_WARNING "RDS/tcp: send to %u.%u.%u.%u "
-+			printk(KERN_WARNING "RDS/tcp: send to %pI4 "
- 			       "returned %d, disconnecting and reconnecting\n",
--			       NIPQUAD(conn->c_faddr), ret);
-+			       &conn->c_faddr, ret);
- 			rds_conn_drop(conn);
- 		}
- 	}
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+-	.flags =	FLAG_ETHER | FLAG_LINK_INTR,
++	.flags =	FLAG_ETHER,
+ 	// .check_connect = cdc_check_connect,
+ 	.bind =		cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
 -- 
-1.6.6.rc0.57.gad7a
+1.6.5.7
