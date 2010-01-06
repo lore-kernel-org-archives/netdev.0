@@ -1,183 +1,195 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH 07/31] CAPI: Convert capi drivers rwlock into mutex
-Date: Wed, 6 Jan 2010 19:02:14 +0100
-Message-ID: <8c1e6ca64ededd5e94e1d1aa1517898a66eb02e4.1264201406.git.jan.kiszka@web.de>
+Subject: [PATCH 02/31] CAPI: Sanitize capifs API
+Date: Wed, 6 Jan 2010 14:38:52 +0100
+Message-ID: <ebbdbacd9d3ddbbd7c11ce9b3b064668a876a8f4.1264201406.git.jan.kiszka@web.de>
 References: <cover.1264201406.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755583Ab0AVXUJ@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755739Ab0AVXUm@vger.kernel.org>
 In-Reply-To: <cover.1264201406.git.jan.kiszka@web.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Turn the lock protecting registered capi drivers into a mutex and apply
-it consistently.
+Instead of looking up the dentry of an NCCI node again in
+capifs_free_ncci pass the pointer via the capifs user.
+
+This patch also reduces the #ifdef mess in capi.c a bit as far as capifs
+was causing it.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/kcapi.c      |   49 ++++++++++++++++++----------------------
- drivers/isdn/capi/kcapi.h      |    2 +-
- drivers/isdn/capi/kcapi_proc.c |    8 +++---
- 3 files changed, 27 insertions(+), 32 deletions(-)
+ drivers/isdn/capi/capi.c   |   14 +++++-------
+ drivers/isdn/capi/capifs.c |   50 +++++++++++++++++++++++++------------------
+ drivers/isdn/capi/capifs.h |   21 ++++++++++++++++-
+ 3 files changed, 54 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index 402a16b..476239f 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -61,7 +61,7 @@ static char capi_manufakturer[64] = "AVM Berlin";
- #define NCCI2CTRL(ncci)    (((ncci) >> 24) & 0x7f)
- 
- LIST_HEAD(capi_drivers);
--DEFINE_RWLOCK(capi_drivers_list_lock);
-+DEFINE_MUTEX(capi_drivers_lock);
- 
- static DEFINE_RWLOCK(application_lock);
- static DEFINE_MUTEX(controller_mutex);
-@@ -544,11 +544,9 @@ EXPORT_SYMBOL(detach_capi_ctr);
- 
- void register_capi_driver(struct capi_driver *driver)
- {
--	unsigned long flags;
--
--	write_lock_irqsave(&capi_drivers_list_lock, flags);
-+	mutex_lock(&capi_drivers_lock);
- 	list_add_tail(&driver->list, &capi_drivers);
--	write_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+	mutex_unlock(&capi_drivers_lock);
- }
- 
- EXPORT_SYMBOL(register_capi_driver);
-@@ -562,11 +560,9 @@ EXPORT_SYMBOL(register_capi_driver);
- 
- void unregister_capi_driver(struct capi_driver *driver)
- {
--	unsigned long flags;
--
--	write_lock_irqsave(&capi_drivers_list_lock, flags);
-+	mutex_lock(&capi_drivers_lock);
- 	list_del(&driver->list);
--	write_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+	mutex_unlock(&capi_drivers_lock);
- }
- 
- EXPORT_SYMBOL(unregister_capi_driver);
-@@ -903,7 +899,6 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 	struct capi_driver *driver = NULL;
- 	capiloaddata ldata;
- 	struct list_head *l;
--	unsigned long flags;
- 	int retval;
- 
- 	switch (cmd) {
-@@ -923,7 +918,8 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 		cparams.irq = cdef.irq;
- 		cparams.cardnr = cdef.cardnr;
- 
--		read_lock_irqsave(&capi_drivers_list_lock, flags);
-+		mutex_lock(&capi_drivers_lock);
+diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
+index 65bf91e..58504ef 100644
+--- a/drivers/isdn/capi/capi.c
++++ b/drivers/isdn/capi/capi.c
+@@ -41,9 +41,8 @@
+ #include <linux/moduleparam.h>
+ #include <linux/isdn/capiutil.h>
+ #include <linux/isdn/capicmd.h>
+-#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 +
-                 switch (cdef.cardtype) {
- 			case AVM_CARDTYPE_B1:
- 				list_for_each(l, &capi_drivers) {
-@@ -944,18 +940,15 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 				break;
- 		}
- 		if (!driver) {
--			read_unlock_irqrestore(&capi_drivers_list_lock, flags);
- 			printk(KERN_ERR "kcapi: driver not loaded.n");
--			return -EIO;
--		}
--		if (!driver->add_card) {
--			read_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+			retval = -EIO;
-+		} else if (!driver->add_card) {
- 			printk(KERN_ERR "kcapi: driver has no add card function.n");
--			return -EIO;
--		}
-+			retval = -EIO;
-+		} else
-+			retval = driver->add_card(driver, &cparams);
+ #include "capifs.h"
+-#endif
  
--		retval = driver->add_card(driver, &cparams);
--		read_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+		mutex_unlock(&capi_drivers_lock);
- 		return retval;
+ static char *revision = "$Revision: 1.1.2.7 $";
  
- 	case AVMB1_LOAD:
-@@ -1111,6 +1104,8 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
- 		cparams.cardtype = 0;
- 		cdef.driver[sizeof(cdef.driver)-1] = 0;
+@@ -95,6 +94,7 @@ struct capiminor {
+ 	struct list_head list;
+ 	struct capincci  *nccip;
+ 	unsigned int      minor;
++	struct dentry *capifs_dentry;
  
-+		mutex_lock(&capi_drivers_lock);
-+
- 		list_for_each(l, &capi_drivers) {
- 			driver = list_entry(l, struct capi_driver, list);
- 			if (strcmp(driver->name, cdef.driver) == 0)
-@@ -1119,15 +1114,15 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
- 		if (driver == NULL) {
- 			printk(KERN_ERR "kcapi: driver "%s" not loaded.n",
- 					cdef.driver);
--			return -ESRCH;
--		}
--
--		if (!driver->add_card) {
-+			retval = -ESRCH;
-+		} else if (!driver->add_card) {
- 			printk(KERN_ERR "kcapi: driver "%s" has no add card function.n", cdef.driver);
--			return -EIO;
--		}
-+			retval = -EIO;
-+		} else
-+			retval = driver->add_card(driver, &cparams);
- 
--		return driver->add_card(driver, &cparams);
-+		mutex_unlock(&capi_drivers_lock);
-+		return retval;
+ 	struct capi20_appl *ap;
+ 	u32		 ncci;
+@@ -327,9 +327,9 @@ static struct capincci *capincci_alloc(struct capidev *cdev, u32 ncci)
+ #ifdef _DEBUG_REFCOUNT
+ 		printk(KERN_DEBUG "set mp->nccipn");
+ #endif
+-#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
+-		capifs_new_ncci(mp->minor, MKDEV(capi_ttymajor, mp->minor));
+-#endif
++		mp->capifs_dentry =
++			capifs_new_ncci(mp->minor,
++					MKDEV(capi_ttymajor, mp->minor));
  	}
- 
- 	default:
-diff --git a/drivers/isdn/capi/kcapi.h b/drivers/isdn/capi/kcapi.h
-index f62c53b..07c5850 100644
---- a/drivers/isdn/capi/kcapi.h
-+++ b/drivers/isdn/capi/kcapi.h
-@@ -30,7 +30,7 @@ enum {
+ #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+ 	for (pp=&cdev->nccis; *pp; pp = &(*pp)->next)
+@@ -352,9 +352,7 @@ static void capincci_free(struct capidev *cdev, u32 ncci)
+ 			*pp = (*pp)->next;
+ #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+ 			if ((mp = np->minorp) != NULL) {
+-#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
+-				capifs_free_ncci(mp->minor);
+-#endif
++				capifs_free_ncci(mp->capifs_dentry);
+ 				if (mp->tty) {
+ 					mp->nccip = NULL;
+ #ifdef _DEBUG_REFCOUNT
+diff --git a/drivers/isdn/capi/capifs.c b/drivers/isdn/capi/capifs.c
+index dc68fcb..91aafad 100644
+--- a/drivers/isdn/capi/capifs.c
++++ b/drivers/isdn/capi/capifs.c
+@@ -141,31 +141,32 @@ static struct file_system_type capifs_fs_type = {
+ 	.kill_sb	= kill_anon_super,
  };
  
- extern struct list_head capi_drivers;
--extern rwlock_t capi_drivers_list_lock;
-+extern struct mutex capi_drivers_lock;
- 
- extern struct capi20_appl *capi_applications[CAPI_MAXAPPL];
- extern struct capi_ctr *capi_controller[CAPI_MAXCONTR];
-diff --git a/drivers/isdn/capi/kcapi_proc.c b/drivers/isdn/capi/kcapi_proc.c
-index 59fd16a..71b0761 100644
---- a/drivers/isdn/capi/kcapi_proc.c
-+++ b/drivers/isdn/capi/kcapi_proc.c
-@@ -238,9 +238,9 @@ static const struct file_operations proc_applstats_ops = {
- // ---------------------------------------------------------------------------
- 
- static void *capi_driver_start(struct seq_file *seq, loff_t *pos)
--	__acquires(&capi_drivers_list_lock)
-+	__acquires(&capi_drivers_lock)
+-static struct dentry *get_node(int num)
+-{
+-	char s[10];
+-	struct dentry *root = capifs_root;
+-	mutex_lock(&root->d_inode->i_mutex);
+-	return lookup_one_len(s, root, sprintf(s, "%d", num));
+-}
+-
+-void capifs_new_ncci(unsigned int number, dev_t device)
++struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
  {
--	read_lock(&capi_drivers_list_lock);
-+	mutex_lock(&capi_drivers_lock);
- 	return seq_list_start(&capi_drivers, *pos);
+ 	struct dentry *dentry;
+ 	struct inode *inode;
++	char name[10];
++	int namelen;
+ 
+-	dentry = get_node(number);
+-	if (IS_ERR(dentry))
++	mutex_lock(&capifs_root->d_inode->i_mutex);
++
++	namelen = sprintf(name, "%d", number);
++	dentry = lookup_one_len(name, capifs_root, namelen);
++	if (IS_ERR(dentry)) {
++		dentry = NULL;
+ 		goto unlock_out;
++	}
+ 
+ 	if (dentry->d_inode) {
+ 		dput(dentry);
++		dentry = NULL;
+ 		goto unlock_out;
+ 	}
+ 
+ 	inode = new_inode(capifs_mnt->mnt_sb);
+ 	if (!inode) {
+ 		dput(dentry);
++		dentry = NULL;
+ 		goto unlock_out;
+ 	}
+ 
+@@ -177,24 +178,31 @@ void capifs_new_ncci(unsigned int number, dev_t device)
+ 	init_special_inode(inode, S_IFCHR|config.mode, device);
+ 
+ 	d_instantiate(dentry, inode);
++	dget(dentry);
+ 
+ unlock_out:
+ 	mutex_unlock(&capifs_root->d_inode->i_mutex);
++
++	return dentry;
  }
  
-@@ -250,9 +250,9 @@ static void *capi_driver_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void capi_driver_stop(struct seq_file *seq, void *v)
--	__releases(&capi_drivers_list_lock)
-+	__releases(&capi_drivers_lock)
+-void capifs_free_ncci(unsigned int number)
++void capifs_free_ncci(struct dentry *dentry)
  {
--	read_unlock(&capi_drivers_list_lock);
-+	mutex_unlock(&capi_drivers_lock);
+-	struct dentry *dentry = get_node(number);
+-
+-	if (!IS_ERR(dentry)) {
+-		struct inode *inode = dentry->d_inode;
+-		if (inode) {
+-			inode->i_nlink--;
+-			d_delete(dentry);
+-			dput(dentry);
+-		}
++	struct inode *inode;
++
++	if (!dentry)
++		return;
++
++	mutex_lock(&capifs_root->d_inode->i_mutex);
++
++	inode = dentry->d_inode;
++	if (inode) {
++		drop_nlink(inode);
++		d_delete(dentry);
+ 		dput(dentry);
+ 	}
++	dput(dentry);
++
+ 	mutex_unlock(&capifs_root->d_inode->i_mutex);
  }
  
- static int capi_driver_show(struct seq_file *seq, void *v)
+diff --git a/drivers/isdn/capi/capifs.h b/drivers/isdn/capi/capifs.h
+index d0bd4c3..e193d11 100644
+--- a/drivers/isdn/capi/capifs.h
++++ b/drivers/isdn/capi/capifs.h
+@@ -7,5 +7,22 @@
+  *
+  */
+ 
+-void capifs_new_ncci(unsigned int num, dev_t device);
+-void capifs_free_ncci(unsigned int num);
++#include <linux/dcache.h>
++
++#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
++
++struct dentry *capifs_new_ncci(unsigned int num, dev_t device);
++void capifs_free_ncci(struct dentry *dentry);
++
++#else
++
++static inline struct dentry *capifs_new_ncci(unsigned int num, dev_t device)
++{
++	return NULL;
++}
++
++static inline void capifs_free_ncci(struct dentry *dentry)
++{
++}
++
++#endif
 -- 
 1.6.0.2
