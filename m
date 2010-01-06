@@ -1,38 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH] net: RFC3069, private VLAN proxy arp support
-Date: Wed, 06 Jan 2010 11:28:19 +0100
-Message-ID: <4B4465C3.9090403@gmail.com>
-References: <20100105155047.13309.79610.stgit@firesoul.comx.local>	 <4B4427CE.1040203@gmail.com> <1262771369.9474.80.camel@jdb-workstation>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hawk@comx.dk
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCHv2 NEXT 2/2] NET: Add Qlogic ethernet driver for CNA devices
+Date: Wed,  6 Jan 2010 03:25:54 -0800
+Message-ID: <1262777154-31982-3-git-send-email-amit.salecha@qlogic.com>
+References: <1262777154-31982-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34122 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755604Ab0AFK2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 05:28:24 -0500
-In-Reply-To: <1262771369.9474.80.camel@jdb-workstation>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:45099 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755827Ab0AFLZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jan 2010 06:25:56 -0500
+In-Reply-To: <1262777154-31982-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/01/2010 10:49, Jesper Dangaard Brouer a =C3=A9crit :
+o Separate Ethernet driver for Qlogic CNA devices
 
-> This patch solved the issue by doing proxy arp'ing on the router agai=
-nst
-> the "local" network, thus making it possible for customers to
-> communicate, but via the router.  This also gives the ability to do
-> firewalling on the router between customers on an Ethernet. (In our
-> solution the Linux router also have a personal firewall configurable =
-per
-> customer.)
->=20
-> It is simply enabled on an interface via e.g.:
->=20
->  echo 1 > /proc/sys/net/ipv4/conf/eth2.1013/proxy_arp_pvlan
->=20
-> Hope that helps your understand the idea and usage :-)
->=20
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ MAINTAINERS          |    7 +++++++
+ drivers/net/Kconfig  |    7 +++++++
+ drivers/net/Makefile |    1 +
+ 3 files changed, 15 insertions(+), 0 deletions(-)
 
-Excellent, thanks for sharing !
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 745643b..ed460c5 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4452,6 +4452,13 @@ S:	Supported
+ F:	Documentation/networking/LICENSE.qla3xxx
+ F:	drivers/net/qla3xxx.*
+ 
++QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
++M:	Amit Kumar Salecha <amit.salecha@qlogic.com>
++M:	linux-driver@qlogic.com
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/qlcnic/
++
+ QLOGIC QLGE 10Gb ETHERNET DRIVER
+ M:	Ron Mercer <ron.mercer@qlogic.com>
+ M:	linux-driver@qlogic.com
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index dd9a09c..4fdb20b 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2756,6 +2756,13 @@ config BNX2X
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called bnx2x.  This is recommended.
+ 
++config QLCNIC
++	tristate "QLOGIC QLCNIC 1/10Gb Converged Ethernet NIC Support"
++	depends on PCI
++	help
++	  This driver supports QLogic QLE8240 and QLE8242 Converged Ethernet
++	  devices.
++
+ config QLGE
+ 	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
+ 	depends on PCI
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ad1346d..a9c4b01 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -148,6 +148,7 @@ ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
+ obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
+ obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
+ obj-$(CONFIG_QLA3XXX) += qla3xxx.o
++obj-$(CONFIG_QLCNIC) += qlcnic/
+ obj-$(CONFIG_QLGE) += qlge/
+ 
+ obj-$(CONFIG_PPP) += ppp_generic.o
+-- 
+1.6.0.2
+
