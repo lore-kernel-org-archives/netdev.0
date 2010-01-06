@@ -1,96 +1,149 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] fix bonding: allow arp_ip_targets on separate vlans to use arp validation
-Date: Wed, 06 Jan 2010 15:53:49 -0800
-Message-ID: <13683.1262822029@death.nxdomain.ibm.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com> <20091120154046.67252d23@nehalam> <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com> <4B44FC2B.4090505@gmail.com> <20100106225637.GC6490@gospo.rdu.redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:46213 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933103Ab0AFXyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 18:54:09 -0500
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o06NiNcX016517
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 18:44:23 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o06Ns8jh2068530
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 18:54:08 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o06Ns7UM027498
-	for <netdev@vger.kernel.org>; Wed, 6 Jan 2010 21:54:08 -0200
-In-reply-to: <20100106225637.GC6490@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH] nodmask.h: remove macro any_online_node
+Date: Thu, 7 Jan 2010 08:51:46 +0900
+Message-ID: <20100107085146.59cc9888.kamezawa.hiroyu@jp.fujitsu.com>
+References: <201001061624.59118.hartleys@visionengravers.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org,
+	lee.schermerhorn-VXdhtT5mjnY@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org,
+	paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, dave-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, miltonm-ogEGBHC/i9Y@public.gmane.org,
+	nfont-V7BBcbaFuwjMbYB6QlFGEg@public.gmane.org, geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org,
+	grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org, chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+To: H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201001061624.59118.hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+On Wed, 6 Jan 2010 16:24:58 -0700
+H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org> wrote:
 
->This patch fixes up a problem with found with commit
->1f3c8804acba841b5573b953f5560d2683d2db0d.  The original change
->overloaded null_or_orig, but doing that prevented any packet handlers
->that were not tied to a specific device (i.e. ptype->dev == NULL) from
->ever receiving any frames.
->
->The null_or_orig variable cannot be overloaded, and must be kept as NULL
->to prevent the frame from being ignored by packet handlers designed to
->accept frames on any interface.
->
->Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> nodmask.h: remove macro any_online_node
+> 
+> The macro any_online_node is prone to producing sparse warnings
+> due to the local symbol 'node'. Since all the in-tree users are really
+> requesting the first online node (the mask argument is either
+> NODE_MASK_ALL or node_online_map) just use the first_online_node
+> macro and remove the any_online_node macro since there are no users.
+> 
 
-	Tested, and it appears to work fine.  Tcpdump also appears to
-behave rationally.
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Thank you.
+BTW, it's better to add diffstat to this kind of changes.
 
-	-J
+Regards,
+-Kame
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
->---
-> dev.c |   11 +++++------
-> 1 file changed, 5 insertions(+), 6 deletions(-)
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index f9aa699..d9ab9be 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -2430,6 +2430,7 @@ int netif_receive_skb(struct sk_buff *skb)
-> 	struct packet_type *ptype, *pt_prev;
-> 	struct net_device *orig_dev;
-> 	struct net_device *null_or_orig;
->+	struct net_device *null_or_bond;
-> 	int ret = NET_RX_DROP;
-> 	__be16 type;
->
->@@ -2500,21 +2501,19 @@ ncls:
-> 	 * bonding interfaces still make their way to any base bonding
-> 	 * device that may have registered for a specific ptype.  The
-> 	 * handler may have to adjust skb->dev and orig_dev.
->-	 *
->-	 * null_or_orig can be overloaded since it will not be set when
->-	 * using VLANs on top of bonding.  Putting it here prevents
->-	 * disturbing the ptype_all handlers above.
-> 	 */
->+	null_or_bond = NULL;
-> 	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
-> 	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
->-		null_or_orig = vlan_dev_real_dev(skb->dev);
->+		null_or_bond = vlan_dev_real_dev(skb->dev);
-> 	}
->
-> 	type = skb->protocol;
-> 	list_for_each_entry_rcu(ptype,
-> 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-> 		if (ptype->type == type && (ptype->dev == null_or_orig ||
->-		     ptype->dev == skb->dev || ptype->dev == orig_dev)) {
->+		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
->+		     ptype->dev == null_or_bond)) {
-> 			if (pt_prev)
-> 				ret = deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev = ptype;
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: H Hartley Sweeten <hsweeten-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+> Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> Cc: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> Cc: Mel Gorman <mel-wPRd99KPJ+uzQB+pC5nmwQ@public.gmane.org>
+> Cc: Lee Schermerhorn <lee.schermerhorn-VXdhtT5mjnY@public.gmane.org>
+> Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> Cc: Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+> Cc: Dave Hansen <dave-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> Cc: Milton Miller <miltonm-ogEGBHC/i9Y@public.gmane.org>
+> Cc: Nathan Fontenot <nfont-V7BBcbaFuwjMbYB6QlFGEg@public.gmane.org>
+> Cc: Geoff Levand <geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> Cc: J. Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Benny Halevy <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
+> Cc: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Ricardo Labiaga <Ricardo.Labiaga-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> 
+> ---
+> 
+> diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
+> index b037d95..64c0022 100644
+> --- a/arch/powerpc/mm/numa.c
+> +++ b/arch/powerpc/mm/numa.c
+> @@ -451,7 +451,7 @@ static int __cpuinit numa_setup_cpu(unsigned long lcpu)
+>  	nid = of_node_to_nid_single(cpu);
+>  
+>  	if (nid < 0 || !node_online(nid))
+> -		nid = any_online_node(NODE_MASK_ALL);
+> +		nid = first_online_node;
+>  out:
+>  	map_cpu_to_node(lcpu, nid);
+>  
+> @@ -1114,7 +1114,7 @@ int hot_add_scn_to_nid(unsigned long scn_addr)
+>  	int nid, found = 0;
+>  
+>  	if (!numa_enabled || (min_common_depth < 0))
+> -		return any_online_node(NODE_MASK_ALL);
+> +		return first_online_node;
+>  
+>  	memory = of_find_node_by_path("/ibm,dynamic-reconfiguration-memory");
+>  	if (memory) {
+> @@ -1125,7 +1125,7 @@ int hot_add_scn_to_nid(unsigned long scn_addr)
+>  	}
+>  
+>  	if (nid < 0 || !node_online(nid))
+> -		nid = any_online_node(NODE_MASK_ALL);
+> +		nid = first_online_node;
+>  
+>  	if (NODE_DATA(nid)->node_spanned_pages)
+>  		return nid;
+> diff --git a/include/linux/nodemask.h b/include/linux/nodemask.h
+> index 454997c..c4fa64b 100644
+> --- a/include/linux/nodemask.h
+> +++ b/include/linux/nodemask.h
+> @@ -69,8 +69,6 @@
+>   * int node_online(node)		Is some node online?
+>   * int node_possible(node)		Is some node possible?
+>   *
+> - * int any_online_node(mask)		First online node in mask
+> - *
+>   * node_set_online(node)		set bit 'node' in node_online_map
+>   * node_set_offline(node)		clear bit 'node' in node_online_map
+>   *
+> @@ -467,15 +465,6 @@ static inline int num_node_state(enum node_states state)
+>  #define node_online_map 	node_states[N_ONLINE]
+>  #define node_possible_map 	node_states[N_POSSIBLE]
+>  
+> -#define any_online_node(mask)			\
+> -({						\
+> -	int node;				\
+> -	for_each_node_mask(node, (mask))	\
+> -		if (node_online(node))		\
+> -			break;			\
+> -	node;					\
+> -})
+> -
+>  #define num_online_nodes()	num_node_state(N_ONLINE)
+>  #define num_possible_nodes()	num_node_state(N_POSSIBLE)
+>  #define node_online(node)	node_state((node), N_ONLINE)
+> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+> index 538ca43..832c1fe 100644
+> --- a/net/sunrpc/svc.c
+> +++ b/net/sunrpc/svc.c
+> @@ -133,7 +133,7 @@ svc_pool_map_choose_mode(void)
+>  		return SVC_POOL_PERNODE;
+>  	}
+>  
+> -	node = any_online_node(node_online_map);
+> +	node = first_online_node;
+>  	if (nr_cpus_node(node) > 2) {
+>  		/*
+>  		 * Non-trivial SMP, or CONFIG_NUMA on
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
