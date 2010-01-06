@@ -1,58 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BSD 4.2 style TCP keepalives
-Date: Wed, 06 Jan 2010 15:04:53 -0800 (PST)
-Message-ID: <20100106.150453.186399201.davem@davemloft.net>
-References: <20100105.163911.10233438.davem@davemloft.net>
-	<20100106.002328.141253811.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, ilpo.jarvinen@helsinki.fi
-To: netdev@vger.kernel.org
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] pcmci: remove odd bracket
+Date: Thu,  7 Jan 2010 02:05:46 +0300
+Message-ID: <1262819146-21361-1-git-send-email-a.beregalov@gmail.com>
+Cc: netdev@vger.kernel.org, Alexander Beregalov <a.beregalov@gmail.com>
+To: linux@dominikbrodowski.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48843
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750860Ab0AFXEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 18:04:47 -0500
-In-Reply-To: <20100106.002328.141253811.davem@davemloft.net>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:61594 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932332Ab0AFXF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 18:05:59 -0500
+Received: by fxm25 with SMTP id 25so11219164fxm.21
+        for <netdev@vger.kernel.org>; Wed, 06 Jan 2010 15:05:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 06 Jan 2010 00:23:28 -0800 (PST)
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+ drivers/net/pcmcia/nmclan_cs.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-> Special casing the seq == end_seq == tp->rcv_wup case using
-> something like:
-> 
-> 		(after(end_seq, tp->rcv_wup) ||
-> 		 (end_seq == tp->rcv_wup && seq == end_seq)) &&
-> 
-> might work, but I'm not confident that's exactly what we want at the
-> moment, as it partially defeats what this code is trying to do (let us
-> accept URG/FIN/RST after seq and end_seq are truncated to the window).
+diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
+index 8a5ae3b..12e3233 100644
+--- a/drivers/net/pcmcia/nmclan_cs.c
++++ b/drivers/net/pcmcia/nmclan_cs.c
+@@ -1402,7 +1402,6 @@ static void BuildLAF(int *ladrf, int *adr)
+   for (i = 0; i < 8; i++)
+     printk(KERN_CONT " %02X", ladrf[i]);
+   printk(KERN_CONT "\n");
+-  }
+ #endif
+ } /* BuildLAF */
+ 
+-- 
+1.6.6
 
-I did some more research and everything I've said here turns
-out to be moot.
-
-We should be ACK'ing these things anyways.  Here is why:
-
-1) if tcp_sequence() accepts the sequence we continue on in
-   tcp_established()
-
-2) We make it to tcp_data_queue() unless tcp_ack() finds that the
-   ACK sequence is invalid (it covers data we never sent).
-
-3) tcp_data_queue() should make it to, and hit, this conditional:
-
-	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
-
-   which will schedule an ACK the same exact way we would if
-   tcp_sequence() rejected the sequence range.
-
-So it's a mystery why we aren't responding to Windows 2000's
-BSD 4.2 style zero window probes.
-
-Can someone please validate my analysis?
-
-Someone with access to a system exhibiting this will probably need to
-do some diagnostics to figure out what's going on.
