@@ -1,131 +1,145 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG net-next-2.6] Had to revert bonding: allow arp_ip_targets on
- separate vlans to use arp validation
-Date: Wed, 06 Jan 2010 22:10:03 +0100
-Message-ID: <4B44FC2B.4090505@gmail.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <20091120154046.67252d23@nehalam>	 <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 6 Jan 2010 13:10:44 -0800
+Message-ID: <20100106131044.25b4e500@nehalam>
+References: <20100105230746.GA6612@del.dom.local>
+	<4B43F72C.9090004@majjas.com>
+	<20100106072208.GA6711@ff.dom.local>
+	<4B44E952.5000804@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60604 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932827Ab0AFVKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:10:15 -0500
-In-Reply-To: <4B44D89B.8070006@gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48078 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932401Ab0AFVMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 16:12:05 -0500
+In-Reply-To: <4B44E952.5000804@majjas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/01/2010 19:38, Eric Dumazet a =E9crit :
->=20
-> (net-next-2.6 doesnt work well on my bond/vlan setup, I suspect I nee=
-d a bisection)
+On Wed, 06 Jan 2010 14:49:38 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-David, I had to revert 1f3c8804acba841b5573b953f5560d2683d2db0d
-(bonding: allow arp_ip_targets on separate vlans to use arp validation)
+> This patch at first behaved similarly to the previous one - seemed to be 
+> running a bit better... until the adapter went down :(
+> 
+> This is the syslog output at the time the network failed:
+> Jan  6 14:11:01 mail kernel: sky2 0000:06:00.0: error interrupt 
+> status=0x40000008
+> Jan  6 14:11:01 mail kernel: sky2 software interrupt status 0x40000008
 
-Or else, my vlan devices dont work (unfortunatly I dont have much time
-these days to debug the thing)
+Could you go back to baseline sky2 driver.  The display code might be buggy.
+These bits indicate an error in the MAC. The interrupt source enabled
+is Transmit FIFO underrun.
 
-My config :
+Looking at how vendor driver handles this.
+It looks like the Yukon EC_U chip doesn't really do Jumbo frames correctly.
+Maybe not enough internal buffering to ensure that the whole packet
+is in the chip.  Of course, none of this is in the chip manual.
 
-              +---------+
-vlan.103 -----+ bond0   +--- eth1 (bnx2)
-              |         +
-vlan.825 -----+         +--- eth2 (tg3)
-              +---------+
+Does this help
+--------------
+--- a/drivers/net/sky2.c	2010-01-06 12:48:43.012318966 -0800
++++ b/drivers/net/sky2.c	2010-01-06 13:05:31.273987255 -0800
+@@ -792,33 +792,21 @@ static void sky2_set_tx_stfwd(struct sky
+ {
+ 	struct net_device *dev = hw->dev[port];
+ 
+-	if ( (hw->chip_id == CHIP_ID_YUKON_EX &&
+-	      hw->chip_rev != CHIP_REV_YU_EX_A0) ||
+-	     hw->chip_id >= CHIP_ID_YUKON_FE_P) {
+-		/* Yukon-Extreme B0 and further Extreme devices */
+-		/* enable Store & Forward mode for TX */
+-
+-		if (dev->mtu <= ETH_DATA_LEN)
+-			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
+-				     TX_JUMBO_DIS | TX_STFW_ENA);
+-
+-		else
+-			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
+-				     TX_JUMBO_ENA| TX_STFW_ENA);
+-	} else {
+-		if (dev->mtu <= ETH_DATA_LEN)
+-			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_ENA);
+-		else {
+-			/* set Tx GMAC FIFO Almost Empty Threshold */
+-			sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
+-				     (ECU_JUMBO_WM << 16) | ECU_AE_THR);
+-
+-			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_DIS);
+-
+-			/* Can't do offload because of lack of store/forward */
+-			dev->features &= ~(NETIF_F_TSO | NETIF_F_SG | NETIF_F_ALL_CSUM);
+-		}
+-	}
++       if ( (hw->chip_id == CHIP_ID_YUKON_EX && hw->chip_rev != CHIP_REV_YU_EX_A0) ||
++	    hw->chip_id >= CHIP_ID_YUKON_FE_P) {
++	       /* Yukon-Extreme B0 and further Extreme devices */
++	       /* enable Store & Forward mode for TX */
++	       sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_ENA);
++       } else if (dev->mtu > ETH_DATA_LEN) {
++	       /* set Tx GMAC FIFO Almost Empty Threshold */
++	       sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
++			    (ECU_JUMBO_WM << 16) | ECU_AE_THR);
++	       /* disable Store & Forward mode for TX */
++	       sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_DIS);
++       } else {
++	       /* enable Store & Forward mode for TX */
++	       sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T), TX_STFW_ENA);
++       }
+ }
+ 
+ static void sky2_mac_init(struct sky2_hw *hw, unsigned port)
+@@ -2185,11 +2173,16 @@ static int sky2_change_mtu(struct net_de
+ 	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+ 		return -EINVAL;
+ 
++	/* MTU > 1500 on yukon FE and FE+ not allowed */
+ 	if (new_mtu > ETH_DATA_LEN &&
+ 	    (hw->chip_id == CHIP_ID_YUKON_FE ||
+ 	     hw->chip_id == CHIP_ID_YUKON_FE_P))
+ 		return -EINVAL;
+ 
++	/* TSO on Yukon Ultra and MTU > 1500 not supported */
++	if (new_mtu > ETH_DATA_LEN && hw->chip_id == CHIP_ID_YUKON_EC_U)
++		dev->features &= ~NETIF_F_TSO;
++
+ 	if (!netif_running(dev)) {
+ 		dev->mtu = new_mtu;
+ 		return 0;
+@@ -2233,6 +2226,15 @@ static int sky2_change_mtu(struct net_de
+ 	if (err)
+ 		dev_close(dev);
+ 	else {
++		/* WA for dev. #4.209 */
++		if (hw->chip_id == CHIP_ID_YUKON_EC_U &&
++		    hw->chip_rev == CHIP_REV_YU_EC_U_A1) {
++			/* enable/disable Store & Forward mode for TX */
++			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
++				     sky2->speed != SPEED_1000
++				     ? TX_STFW_ENA : TX_STFW_DIS);
++		}
++
+ 		gma_write16(hw, port, GM_GP_CTRL, ctl);
+ 
+ 		netif_wake_queue(dev);
+--- a/drivers/net/sky2.h	2010-01-06 12:48:48.632247424 -0800
++++ b/drivers/net/sky2.h	2010-01-06 12:59:57.322078964 -0800
+@@ -1901,8 +1901,8 @@ enum {
+ 	TX_VLAN_TAG_ON	= 1<<25,/* enable  VLAN tagging */
+ 	TX_VLAN_TAG_OFF	= 1<<24,/* disable VLAN tagging */
+ 
+-	TX_JUMBO_ENA	= 1<<23,/* PCI Jumbo Mode enable (Yukon-EC Ultra) */
+-	TX_JUMBO_DIS	= 1<<22,/* PCI Jumbo Mode enable (Yukon-EC Ultra) */
++	TX_PCI_JUM_ENA	= 1<<23,/* Enable  PCI Jumbo Mode (Yukon-EC Ultra) */
++	TX_PCI_JUM_DIS	= 1<<22,/* Disable PCI Jumbo Mode (Yukon-EC Ultra) */
+ 
+ 	GMF_WSP_TST_ON	= 1<<18,/* Write Shadow Pointer Test On */
+ 	GMF_WSP_TST_OFF	= 1<<17,/* Write Shadow Pointer Test Off */
 
-$ cat /proc/net/bonding/bond0
-Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: eth2
-MII Status: up
-MII Polling Interval (ms): 100
-Up Delay (ms): 0
-Down Delay (ms): 0
-
-Slave Interface: eth1  (bnx2)
-MII Status: down
-Link Failure Count: 1
-Permanent HW addr: 00:1e:0b:ec:d3:d2
-
-Slave Interface: eth2   (tg3)
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:1e:0b:92:78:50
-
-
-
-
-author	Andy Gospodarek <andy@greyhouse.net>=09
-	Mon, 14 Dec 2009 10:48:58 +0000 (10:48 +0000)
-committer	David S. Miller <davem@davemloft.net>=09
-	Mon, 4 Jan 2010 05:17:16 +0000 (21:17 -0800)
-commit	1f3c8804acba841b5573b953f5560d2683d2db0d
-tree	453fae141b4a37e72ee0513ea1816fbff8f1cf8a=09
-parent	3a999e6eb5d277cd6a321dcda3fc43c3d9e4e4b8=09
-bonding: allow arp_ip_targets on separate vlans to use arp validation
-
-This allows a bond device to specify an arp_ip_target as a host that is
-not on the same vlan as the base bond device and still use arp
-validation.  A configuration like this, now works:
-
-BONDING_OPTS=3D"mode=3Dactive-backup arp_interval=3D1000 arp_ip_target=3D=
-10.0.100.1 arp_validate=3D3"
-
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-2: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
-ast master bond0 qlen 1000
-    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-3: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
-ast master bond0 qlen 1000
-    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-8: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noque=
-ue
-    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-    inet6 fe80::213:21ff:febe:33e9/64 scope link
-       valid_lft forever preferred_lft forever
-9: bond0.100@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 q=
-disc noqueue
-    link/ether 00:13:21:be:33:e9 brd ff:ff:ff:ff:ff:ff
-    inet 10.0.100.2/24 brd 10.0.100.255 scope global bond0.100
-    inet6 fe80::213:21ff:febe:33e9/64 scope link
-       valid_lft forever preferred_lft forever
-
-Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: eth1
-MII Status: up
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-ARP Polling Interval (ms): 1000
-ARP IP target/s (n.n.n.n form): 10.0.100.1
-
-Slave Interface: eth1
-MII Status: up
-Link Failure Count: 1
-Permanent HW addr: 00:40:05:30:ff:30
-
-Slave Interface: eth0
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:13:21:be:33:e9
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
