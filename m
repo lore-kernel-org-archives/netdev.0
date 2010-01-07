@@ -1,43 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: Lock transmit queue while disabling device
-Date: Thu, 7 Jan 2010 10:08:32 -0800
-Message-ID: <20100107100832.32a95310@s6510>
-References: <20100107063545.GA6258@ff.dom.local>
- <20100107.000111.205787691.davem@davemloft.net>
- <20100107081501.GA7229@ff.dom.local>
- <20100107.001923.182599102.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next v3 1/3] can: mscan: fix improper return if dlc
+	< 8 in start_xmit function
+Date: Thu, 07 Jan 2010 19:10:38 +0100
+Message-ID: <4B46239E.2000403@hartkopp.net>
+References: <1262873421-6863-1-git-send-email-wg@grandegger.com>
+	<1262873421-6863-2-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, mikem@ring3k.org, netdev@vger.kernel.org,
-	flyboy@gmail.com, dhazelton@enter.net, mbreuer@majjas.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41093 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751600Ab0AGSIq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 13:08:46 -0500
-In-Reply-To: <20100107.001923.182599102.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1262873421-6863-2-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Jan 2010 00:19:23 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Wolfgang Grandegger wrote:
 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 7 Jan 2010 08:15:01 +0000
-> 
-> > Maybe right, but Mike's patch changelog above writes:
-> > "Proposed fix for "sky2 panic under load" reported by Berck E. Nash.",
-> > and maybe I missed something, but I can't find any report which
-> > acknowledges this patch fixed this or down/suspending problem.
-> 
-> Certainly by my reading Mike's patch does in fact fix a race
-> between device detach and the TX handler, so regardless of
-> whether it fixes actual reported user problems it should
-> at a minimum go into net-next-2.6
-> 
-> And that's _exactly_ what I did, and how I analyzed his work.
+> The start_xmit function of the MSCAN Driver did return improperly if
+> the CAN dlc check failed (skb not freed and invalid return code). This
+> patch adds a proper check of the frame lenght and data size and returns
+> now correctly. 
 
+> @@ -177,8 +177,13 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	int i, rtr, buf_id;
+>  	u32 can_id;
+>  
+> -	if (frame->can_dlc > 8)
+> -		return -EINVAL;
+> +	if (skb->len != sizeof(*frame) || frame->can_dlc > 8) {
+> +		dev_err(dev->dev.parent,
+> +			"Dropping non-conform packet: len %u, can_dlc %u\n",
+> +			skb->len, frame->can_dlc);
+> +		kfree_skb(skb);
+> +		return NETDEV_TX_OK;
+> +	}
+>  
 
-No objections, thanks.
+Hi Wolfgang,
+
+i would suggest to remove the dev_err() which may flood the kernel log and add
+
+   dev->stats.tx_dropped++;
+
+instead.
+
+As discussed with DaveM on netdev-ML this 'silent' handling seems to be the
+most appropriate approach to deal with invalid skbs.
+
+We should update the other CAN drivers in a similar way, if this is ok for you.
+
+Best regards,
+Oliver
