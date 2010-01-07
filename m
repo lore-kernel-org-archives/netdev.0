@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: allow execution of multiple rx_hooks per
- interface
-Date: Thu, 07 Jan 2010 01:02:01 -0800 (PST)
-Message-ID: <20100107.010201.51693251.davem@davemloft.net>
-References: <4B44F895.9080205@gmail.com>
-	<1262836445.29868.227.camel@calx>
+Subject: Re: [PATCH 1/1] NET: atlx, fix memory leak
+Date: Thu, 07 Jan 2010 01:05:06 -0800 (PST)
+Message-ID: <20100107.010506.165517428.davem@davemloft.net>
+References: <1262796856-21919-1-git-send-email-jslaby@suse.cz>
+	<20100106182830.4bd861fe@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: danborkmann@googlemail.com, linux-kernel@vger.kernel.org,
-	jmoyer@redhat.com, netdev@vger.kernel.org, netdev@oss.sgi.com
-To: mpm@selenic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47154
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932597Ab0AGJBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:01:54 -0500
-In-Reply-To: <1262836445.29868.227.camel@calx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jslaby@suse.cz, linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	chris.snook@gmail.com, jie.yang@atheros.com,
+	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jcliburn@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932760Ab0AGJFD@vger.kernel.org>
+In-Reply-To: <20100106182830.4bd861fe@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Wed, 06 Jan 2010 21:54:05 -0600
+From: J K Cliburn <jcliburn@gmail.com>
+Date: Wed, 6 Jan 2010 18:28:30 -0600
 
-> Please inline patches so they can be reviewed easily in reply.
+> On Wed,  6 Jan 2010 17:54:16 +0100
+> Jiri Slaby <jslaby@suse.cz> wrote:
 > 
+>> Stanse found a memory leak in atl2_get_eeprom. eeprom_buff is not
+>> freed/assigned on all paths. Fix that.
 > 
-> -       struct netpoll *np = npi->rx_np;
-> +       struct netpoll **np = &npi->rx_np;
->  
-> -       if (!np)
-> +       if (!(*np))
-> 
-> This makes everything horrible. Can you avoid the double indirection?
-> Using a list head might be a good answer.
-> 
+> Acked by: Jay Cliburn <jcliburn@gmail.com>
 
-Agreed on all counts.
+Applied, thanks.
