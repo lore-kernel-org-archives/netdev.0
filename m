@@ -1,43 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: RFC3069, private VLAN proxy arp support
-Date: Thu, 07 Jan 2010 00:59:19 -0800 (PST)
-Message-ID: <20100107.005919.138283009.davem@davemloft.net>
-References: <20100105155047.13309.79610.stgit@firesoul.comx.local>
+Subject: Re: [net-next PATCH] net: Make it easier to parse /proc/net/dev
+ contents.
+Date: Thu, 07 Jan 2010 00:59:29 -0800 (PST)
+Message-ID: <20100107.005929.125556875.davem@davemloft.net>
+References: <20100105155052.13309.1197.stgit@firesoul.comx.local>
+	<4B44263D.20604@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hawk@comx.dk
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hawk@comx.dk, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47143
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47147
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932380Ab0AGI7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:59:10 -0500
-In-Reply-To: <20100105155047.13309.79610.stgit@firesoul.comx.local>
+	by vger.kernel.org with ESMTP id S932457Ab0AGI7V convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2010 03:59:21 -0500
+In-Reply-To: <4B44263D.20604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Date: Tue, 05 Jan 2010 16:50:47 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Jan 2010 06:57:17 +0100
 
-> This is to be used together with switch technologies, like RFC3069,
-> that where the individual ports are not allowed to communicate with
-> each other, but they are allowed to talk to the upstream router.  As
-> described in RFC 3069, it is possible to allow these hosts to
-> communicate through the upstream router by proxy_arp'ing.
-> 
-> This patch basically allow proxy arp replies back to the same
-> interface (from which the ARP request/solicitation was received).
-> 
-> Tunable per device via proc "proxy_arp_pvlan":
->   /proc/sys/net/ipv4/conf/*/proxy_arp_pvlan
-> 
-> This switch technology is known by different vendor names:
->  - In RFC 3069 it is called VLAN Aggregation.
->  - Cisco and Allied Telesyn call it Private VLAN.
->  - Hewlett-Packard call it Source-Port filtering or port-isolation.
->  - Ericsson call it MAC-Forced Forwarding (RFC Draft).
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> Le 05/01/2010 16:50, Jesper Dangaard Brouer a =E9crit :
+>> The contents of /proc/net/dev is annoying to parse, because
+>> it changes whether there is a space after the "ethX:" or not.
+>> It depends upon the size of the "Receive bytes" counter,
+>> if the number is below 7 digits, then there is whitespaces
+>> else if the number is 8 digits or above there is no space
+>> between the ":" and the number.
+>>=20
+>> This patch changes the output to assure there is always a space
+>> between the ":" and the number.  Given that all existing userspace
+>> application already need to handle the whitespaces, I see
+>> no breakage of existing tools.
+>>=20
+>> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
