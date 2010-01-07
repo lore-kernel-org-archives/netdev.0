@@ -1,36 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 7 Jan 2010 19:01:14 +0100
-Message-ID: <20100107180114.GB3088@del.dom.local>
-References: <4B451C31.3000309@majjas.com>
- <4B454A16.3030909@majjas.com>
- <4B455C62.6030504@majjas.com>
- <20100106205343.5460d658@nehalam>
- <4B4571D5.30002@majjas.com>
- <4B457711.1040008@majjas.com>
- <4B458B36.6050509@majjas.com>
- <20100107074756.GB6258@ff.dom.local>
- <4B459368.2000503@majjas.com>
- <4B45F841.8030407@majjas.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: Lock transmit queue while disabling device
+Date: Thu, 7 Jan 2010 10:08:32 -0800
+Message-ID: <20100107100832.32a95310@s6510>
+References: <20100107063545.GA6258@ff.dom.local>
+ <20100107.000111.205787691.davem@davemloft.net>
+ <20100107081501.GA7229@ff.dom.local>
+ <20100107.001923.182599102.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752984Ab0AGSBZ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B45F841.8030407@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, mikem@ring3k.org, netdev@vger.kernel.org,
+	flyboy@gmail.com, dhazelton@enter.net, mbreuer@majjas.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:41093 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751600Ab0AGSIq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2010 13:08:46 -0500
+In-Reply-To: <20100107.001923.182599102.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2010 at 10:05:37AM -0500, Michael Breuer wrote:
-> Bad news - crashed about an hour after I wrote this email - under
-> load - same crash as before. Network watchdog... lots of attempts to
-> reset the adapter... then hw watchdog rebooted the system.
+On Thu, 07 Jan 2010 00:19:23 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-It's a pity. Anyway, I'd be still interested in CONFIG_PACKET_MMAP off
-if you find time.
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Thu, 7 Jan 2010 08:15:01 +0000
+> 
+> > Maybe right, but Mike's patch changelog above writes:
+> > "Proposed fix for "sky2 panic under load" reported by Berck E. Nash.",
+> > and maybe I missed something, but I can't find any report which
+> > acknowledges this patch fixed this or down/suspending problem.
+> 
+> Certainly by my reading Mike's patch does in fact fix a race
+> between device detach and the TX handler, so regardless of
+> whether it fixes actual reported user problems it should
+> at a minimum go into net-next-2.6
+> 
+> And that's _exactly_ what I did, and how I analyzed his work.
 
-Jarek P.
+
+No objections, thanks.
