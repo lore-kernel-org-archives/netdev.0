@@ -1,52 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the wireless-current
- tree
-Date: Thu, 7 Jan 2010 13:12:34 +1100
-Message-ID: <20100107131234.4c340d1c.sfr@canb.auug.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] net/netfilter/xt_osf.c: Change %pi4 to %pI4
+Date: Wed, 06 Jan 2010 18:20:18 -0800
+Message-ID: <1262830818.1872.52.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jouni Malinen <jouni.malinen@atheros.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756521Ab0AGCUW@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+commit 8a27f7c90ffcb791eed7574922b51fb60b08fc89
+changed the output style of %pi4 to use fixed
+width leading zero IP addresses "001.002.003.004".
 
-Hi all,
+It's useful when printing multiple lines of
+addresses, but was a change in output style for
+some existing uses.
 
-Today's linux-next merge of the net tree got a conflict in
-net/mac80211/scan.c between commit
-8a5b33f55452c226aa0e47d737e541985ff10e16 ("Revert "mac80211: replace
-netif_tx_{start,stop,wake}_all_queues"") from the wireless-current tree
-and commit b203ffc3a447eb8d9e6120b783ddee081b143061 ("mac80211:
-Generalize off-channel operation helpers from scan code") from the net
-tree.
+Using %pI4 restores the previous output style.
 
-I used the version from the net tree (though I suspect that it may not be
-completely correct).  I assume that this will be fixed up shortly.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Signed-off-by: Joe Perches <joe@perches.com>
 
---Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktFQxIACgkQjjKRsyhoI8wbWwCggaXr8DrVKzJwu6P5XPsBasJD
-ZR0AnR1qPiE/lKdeYVQW+YdJB1v4AOS1
-=2TfM
------END PGP SIGNATURE-----
-
---Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy--
+diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
+index 4d1a41b..4169e20 100644
+--- a/net/netfilter/xt_osf.c
++++ b/net/netfilter/xt_osf.c
+@@ -334,7 +334,7 @@ static bool xt_osf_match_packet(const struct sk_buff *skb,
+ 			if (info->flags & XT_OSF_LOG)
+ 				nf_log_packet(p->family, p->hooknum, skb,
+ 					p->in, p->out, NULL,
+-					"%s [%s:%s] : %pi4:%d -> %pi4:%d hops=%d\n",
++					"%s [%s:%s] : %pI4:%d -> %pI4:%d hops=%d\n",
+ 					f->genre, f->version, f->subtype,
+ 					&ip->saddr, ntohs(tcp->source),
+ 					&ip->daddr, ntohs(tcp->dest),
+@@ -349,7 +349,7 @@ static bool xt_osf_match_packet(const struct sk_buff *skb,
+ 
+ 	if (!fcount && (info->flags & XT_OSF_LOG))
+ 		nf_log_packet(p->family, p->hooknum, skb, p->in, p->out, NULL,
+-			"Remote OS is not known: %pi4:%u -> %pi4:%u\n",
++			"Remote OS is not known: %pI4:%u -> %pI4:%u\n",
+ 				&ip->saddr, ntohs(tcp->source),
+ 				&ip->daddr, ntohs(tcp->dest));
+ 
