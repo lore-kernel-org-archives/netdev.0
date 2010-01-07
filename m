@@ -1,142 +1,119 @@
 From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 3/3] Staging: Octeon Ethernet: Enable scatter-gather.
-Date: Wed,  6 Jan 2010 16:57:16 -0800
-Message-ID: <1262825836-9457-3-git-send-email-ddaney@caviumnetworks.com>
+Subject: [PATCH 1/3] MIPS: Octeon: Fix EIO handling.
+Date: Wed,  6 Jan 2010 16:57:14 -0800
+Message-ID: <1262825836-9457-1-git-send-email-ddaney@caviumnetworks.com>
 References: <4B4530F3.1070701@caviumnetworks.com>
 Cc: David Daney <ddaney@caviumnetworks.com>
 To: ralf@linux-mips.org, linux-mips@linux-mips.org,
 	netdev@vger.kernel.org, gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:11036 "EHLO
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:11043 "EHLO
 	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932767Ab0AGA5q (ORCPT
+	with ESMTP id S932768Ab0AGA5q (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 19:57:46 -0500
 In-Reply-To: <4B4530F3.1070701@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octeon ethernet hardware can handle NETIF_F_SG, so we enable it.
+If an interrupt handler disables interrupts, the EOI function will
+just reenable them.  This will put us in an endless loop when the
+upcoming Ethernet driver patches are applied.
+
+Only reenable the interrupt on EOI if it is not IRQ_DISABLED.  This
+requires that the EIO function be separate from the ENABLE function.
+We also rename the ACK functions to correspond with their function.
 
 Signed-off-by: David Daney <ddaney@caviumnetworks.com>
 ---
- drivers/staging/octeon/ethernet-tx.c |   57 +++++++++++++++++++++++++++++----
- drivers/staging/octeon/ethernet.c    |    7 +++-
- 2 files changed, 55 insertions(+), 9 deletions(-)
+ arch/mips/cavium-octeon/octeon-irq.c |   40 ++++++++++++++++++++++++++++-----
+ 1 files changed, 34 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/staging/octeon/ethernet-tx.c b/drivers/staging/octeon/ethernet-tx.c
-index 28e2de6..c4007a6 100644
---- a/drivers/staging/octeon/ethernet-tx.c
-+++ b/drivers/staging/octeon/ethernet-tx.c
-@@ -53,6 +53,8 @@
+diff --git a/arch/mips/cavium-octeon/octeon-irq.c b/arch/mips/cavium-octeon/octeon-irq.c
+index 6f2acf0..1460d08 100644
+--- a/arch/mips/cavium-octeon/octeon-irq.c
++++ b/arch/mips/cavium-octeon/octeon-irq.c
+@@ -193,7 +193,7 @@ static void octeon_irq_ciu0_enable_v2(unsigned int irq)
+  * Disable the irq on the current core for chips that have the EN*_W1{S,C}
+  * registers.
+  */
+-static void octeon_irq_ciu0_disable_v2(unsigned int irq)
++static void octeon_irq_ciu0_ack_v2(unsigned int irq)
+ {
+ 	int index = cvmx_get_core_num() * 2;
+ 	u64 mask = 1ull << (irq - OCTEON_IRQ_WORKQ0);
+@@ -202,6 +202,20 @@ static void octeon_irq_ciu0_disable_v2(unsigned int irq)
+ }
  
- #include "cvmx-gmxx-defs.h"
- 
-+#define CVM_OCT_SKB_CB(skb)	((u64 *)((skb)->cb))
-+
  /*
-  * You can define GET_SKBUFF_QOS() to override how the skbuff output
-  * function determines which output queue is used. The default
-@@ -121,6 +123,7 @@ int cvm_oct_xmit(struct sk_buff *skb, struct net_device *dev)
- 	uint64_t old_scratch;
- 	uint64_t old_scratch2;
- 	int qos;
-+	int i;
- 	enum {QUEUE_CORE, QUEUE_HW, QUEUE_DROP} queue_type;
- 	struct octeon_ethernet *priv = netdev_priv(dev);
- 	struct sk_buff *to_free_list;
-@@ -171,6 +174,28 @@ int cvm_oct_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	/*
-+	 * We have space for 6 segment pointers, If there will be more
-+	 * than that, we must linearize.
-+	 */
-+	if (unlikely(skb_shinfo(skb)->nr_frags > 5)) {
-+		if (unlikely(__skb_linearize(skb))) {
-+			queue_type = QUEUE_DROP;
-+			if (USE_ASYNC_IOBDMA) {
-+				/* Get the number of skbuffs in use by the hardware */
-+				CVMX_SYNCIOBDMA;
-+				skb_to_free = cvmx_scratch_read64(CVMX_SCR_SCRATCH);
-+			} else {
-+				/* Get the number of skbuffs in use by the hardware */
-+				skb_to_free = cvmx_fau_fetch_and_add32(priv->fau + qos * 4,
-+								       MAX_SKB_TO_FREE);
-+			}
-+			skb_to_free = cvm_oct_adjust_skb_to_free(skb_to_free, priv->fau + qos * 4);
-+			spin_lock_irqsave(&priv->tx_free_list[qos].lock, flags);
-+			goto skip_xmit;
-+		}
-+	}
++ * Enable the irq on the current core for chips that have the EN*_W1{S,C}
++ * registers.
++ */
++static void octeon_irq_ciu0_eoi_v2(unsigned int irq)
++{
++	struct irq_desc *desc = irq_desc + irq;
++	int index = cvmx_get_core_num() * 2;
++	u64 mask = 1ull << (irq - OCTEON_IRQ_WORKQ0);
 +
-+	/*
- 	 * The CN3XXX series of parts has an errata (GMX-401) which
- 	 * causes the GMX block to hang if a collision occurs towards
- 	 * the end of a <68 byte packet. As a workaround for this, we
-@@ -198,13 +223,6 @@ int cvm_oct_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
--	/* Build the PKO buffer pointer */
--	hw_buffer.u64 = 0;
--	hw_buffer.s.addr = cvmx_ptr_to_phys(skb->data);
--	hw_buffer.s.pool = 0;
--	hw_buffer.s.size =
--	    (unsigned long)skb_end_pointer(skb) - (unsigned long)skb->head;
--
- 	/* Build the PKO command */
- 	pko_command.u64 = 0;
- 	pko_command.s.n2 = 1;	/* Don't pollute L2 with the outgoing packet */
-@@ -215,6 +233,31 @@ int cvm_oct_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	pko_command.s.dontfree = 1;
- 	pko_command.s.reg0 = priv->fau + qos * 4;
++	if ((desc->status & IRQ_DISABLED) == 0)
++		cvmx_write_csr(CVMX_CIU_INTX_EN0_W1S(index), mask);
++}
 +
-+	/* Build the PKO buffer pointer */
-+	hw_buffer.u64 = 0;
-+	if (skb_shinfo(skb)->nr_frags == 0) {
-+		hw_buffer.s.addr = XKPHYS_TO_PHYS(skb->data);
-+		hw_buffer.s.pool = 0;
-+		hw_buffer.s.size = skb->len;
-+	} else {
-+		hw_buffer.s.addr = XKPHYS_TO_PHYS(skb->data);
-+		hw_buffer.s.pool = 0;
-+		hw_buffer.s.size = skb_headlen(skb);
-+		CVM_OCT_SKB_CB(skb)[0] = hw_buffer.u64;
-+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+			struct skb_frag_struct *fs = skb_shinfo(skb)->frags + i;
-+			hw_buffer.s.addr = XKPHYS_TO_PHYS(page_address(fs->page) + fs->page_offset);
-+			hw_buffer.s.size = fs->size;
-+			CVM_OCT_SKB_CB(skb)[i + 1] = hw_buffer.u64;
-+		}
-+		hw_buffer.s.addr = XKPHYS_TO_PHYS(CVM_OCT_SKB_CB(skb));
-+		hw_buffer.s.size = skb_shinfo(skb)->nr_frags + 1;
-+		pko_command.s.segs = skb_shinfo(skb)->nr_frags + 1;
-+		pko_command.s.gather = 1;
-+		goto dont_put_skbuff_in_hw;
-+	}
++/*
+  * Disable the irq on the all cores for chips that have the EN*_W1{S,C}
+  * registers.
+  */
+@@ -272,8 +286,8 @@ static struct irq_chip octeon_irq_chip_ciu0_v2 = {
+ 	.name = "CIU0",
+ 	.enable = octeon_irq_ciu0_enable_v2,
+ 	.disable = octeon_irq_ciu0_disable_all_v2,
+-	.ack = octeon_irq_ciu0_disable_v2,
+-	.eoi = octeon_irq_ciu0_enable_v2,
++	.ack = octeon_irq_ciu0_ack_v2,
++	.eoi = octeon_irq_ciu0_eoi_v2,
+ #ifdef CONFIG_SMP
+ 	.set_affinity = octeon_irq_ciu0_set_affinity_v2,
+ #endif
+@@ -374,7 +388,7 @@ static void octeon_irq_ciu1_enable_v2(unsigned int irq)
+  * Disable the irq on the current core for chips that have the EN*_W1{S,C}
+  * registers.
+  */
+-static void octeon_irq_ciu1_disable_v2(unsigned int irq)
++static void octeon_irq_ciu1_ack_v2(unsigned int irq)
+ {
+ 	int index = cvmx_get_core_num() * 2 + 1;
+ 	u64 mask = 1ull << (irq - OCTEON_IRQ_WDOG0);
+@@ -383,6 +397,20 @@ static void octeon_irq_ciu1_disable_v2(unsigned int irq)
+ }
+ 
+ /*
++ * Enable the irq on the current core for chips that have the EN*_W1{S,C}
++ * registers.
++ */
++static void octeon_irq_ciu1_eoi_v2(unsigned int irq)
++{
++	struct irq_desc *desc = irq_desc + irq;
++	int index = cvmx_get_core_num() * 2 + 1;
++	u64 mask = 1ull << (irq - OCTEON_IRQ_WDOG0);
 +
- 	/*
- 	 * See if we can put this skb in the FPA pool. Any strange
- 	 * behavior from the Linux networking stack will most likely
-diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
-index 2fc1e8e..3bc9a7c 100644
---- a/drivers/staging/octeon/ethernet.c
-+++ b/drivers/staging/octeon/ethernet.c
-@@ -485,8 +485,11 @@ int cvm_oct_common_init(struct net_device *dev)
- 	    && (always_use_pow || strstr(pow_send_list, dev->name)))
- 		priv->queue = -1;
- 
--	if (priv->queue != -1 && USE_HW_TCPUDP_CHECKSUM)
--		dev->features |= NETIF_F_IP_CSUM;
-+	if (priv->queue != -1) {
-+		dev->features |= NETIF_F_SG;
-+		if (USE_HW_TCPUDP_CHECKSUM)
-+			dev->features |= NETIF_F_IP_CSUM;
-+	}
- 
- 	/* We do our own locking, Linux doesn't need to */
- 	dev->features |= NETIF_F_LLTX;
++	if ((desc->status & IRQ_DISABLED) == 0)
++		cvmx_write_csr(CVMX_CIU_INTX_EN1_W1S(index), mask);
++}
++
++/*
+  * Disable the irq on the all cores for chips that have the EN*_W1{S,C}
+  * registers.
+  */
+@@ -455,8 +483,8 @@ static struct irq_chip octeon_irq_chip_ciu1_v2 = {
+ 	.name = "CIU0",
+ 	.enable = octeon_irq_ciu1_enable_v2,
+ 	.disable = octeon_irq_ciu1_disable_all_v2,
+-	.ack = octeon_irq_ciu1_disable_v2,
+-	.eoi = octeon_irq_ciu1_enable_v2,
++	.ack = octeon_irq_ciu1_ack_v2,
++	.eoi = octeon_irq_ciu1_eoi_v2,
+ #ifdef CONFIG_SMP
+ 	.set_affinity = octeon_irq_ciu1_set_affinity_v2,
+ #endif
 -- 
 1.6.0.6
 
