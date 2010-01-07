@@ -1,60 +1,60 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 03/13] stmmac: add the new Header file for stmmac platform
- data
-Date: Thu, 07 Jan 2010 15:01:37 +0100
-Message-ID: <4B45E941.1070002@st.com>
-References: <1262855243-6762-1-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-2-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-3-git-send-email-peppe.cavallaro@st.com> <4B45DE02.5010403@octasic.com> <4B45E1D7.80407@st.com> <4B45E5C3.6060205@octasic.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: [PATCH net-next v3 0/3] can: mscan-mpc5xxx: add support for the
+	Freescale MPC512x
+Date: Thu,  7 Jan 2010 15:10:18 +0100
+Message-ID: <1262873421-6863-1-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:56204 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752079Ab0AGOBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 09:01:55 -0500
-In-Reply-To: <4B45E5C3.6060205@octasic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+This patch series adds support for the MPC512x from Freescale to the
+mpc5xxx_can MSCAN driver. It has been tested on a MPC5121 and MPC5200B
+board.
 
-Hi Jean-Hugues,
+Changes since v2:
 
-Jean-Hugues Deschenes wrote:
+- Debugging for development code remove.
+- Bus-off recovery tested and fixed for MPC5121.
 
-> I took a look at the the arch subdirectory before suggesting this:
-> grep -RI "^\#include.*\/drivers" *
-> m32r/platforms/usrv/io.c:#include "../../../../drivers/pcmcia/m32r_cfc.h"
-> s390/mm/cmm.c:#include "../../../drivers/s390/net/smsgiucv.h"
-> x86/kernel/asm-offsets_32.c:#include "../../../drivers/lguest/lg.h"
-> 
-> ... so we wouldn't be the only ones... but then again, as with your
-> Davicom dm9000.h example, we wouldn't be the only ones to locate it in
-> include/linux either... so...?
+Changes since v1:
 
-Yes you are right :-) !
-Another question. Indeed, for stm architectures, within each setup file,
-we don't include the linux/stmmac.h (I was wrong before!) but include
-linux/stm/platform.h. This own header includes the "linux/stmmac.h".
-So using stmmac_plat.h, I should add: #include
-"../../../drivers/net/stmmac/stmmac_plat.h"  within the
-include/linux/stm/platform.h file. Is it ok? What do you think?
+- Various coding style issues, print formats, variable names, error
+  messages and typos fixes or improved.
 
-Thanks
-Peppe
+- MPC5xxx specific data are now passed to mpc5xxx_can_probe() via
+  "of_device_id->data".
 
-> 
-> jh
-> 
+- The index of the MPC512x CAN controller is now derived directly
+  from the reg property. This allows using of_iomap() as before.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+- It has been documented that MPC512x Rev.1 CPUs are not supported.
 
-iEYEARECAAYFAktF6UEACgkQ2Xo3j31MSSJ+WQCgpTM9z6/b7JaXq60TaQTN39P0
-Tv0An3PFCB4nPUmxTUphrupPTp65mW2d
-=kzPv
------END PGP SIGNATURE-----
+Wolfgang
+
+Wolfgang Grandegger (3):
+  can: mscan: fix improper return if dlc < 8 in start_xmit function
+  can: mscan-mpc5xxx: add support for the MPC512x processor
+  powerpc/mpc5xxx: add OF platform binding doc for FSL MSCAN devices
+
+ Documentation/powerpc/dts-bindings/fsl/can.txt     |   53 +++++
+ Documentation/powerpc/dts-bindings/fsl/mpc5200.txt |    9 +-
+ drivers/net/can/mscan/Kconfig                      |    7 +-
+ drivers/net/can/mscan/mpc5xxx_can.c                |  246 ++++++++++++++++----
+ drivers/net/can/mscan/mscan.c                      |   62 ++++-
+ drivers/net/can/mscan/mscan.h                      |   86 ++++----
+ 6 files changed, 357 insertions(+), 106 deletions(-)
+ create mode 100644 Documentation/powerpc/dts-bindings/fsl/can.txt
