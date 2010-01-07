@@ -1,32 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH] phy: SMSC device Energy Detect power-down mode
-Date: Wed, 06 Jan 2010 20:35:24 -0800 (PST)
-Message-ID: <20100106.203524.177114652.davem@davemloft.net>
-References: <1262601873-7105-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [net-next PATCH] ip: fix mc_loop checks for tunnels with
+ multicast outer addresses
+Date: Wed, 06 Jan 2010 20:37:18 -0800 (PST)
+Message-ID: <20100106.203718.180097165.davem@davemloft.net>
+References: <200912302201.37735.opurdila@ixiacom.com>
+	<20100103.215855.267134875.davem@davemloft.net>
+	<201001041248.26095.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53961
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53965
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752342Ab0AGEfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 23:35:15 -0500
-In-Reply-To: <1262601873-7105-1-git-send-email-peppe.cavallaro@st.com>
+	by vger.kernel.org with ESMTP id S932411Ab0AGEhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 23:37:10 -0500
+In-Reply-To: <201001041248.26095.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon,  4 Jan 2010 11:44:33 +0100
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Mon, 4 Jan 2010 12:48:25 +0200
 
-> SMSC Ethernet Transceivers (LAN88710, LAN8710, LAN8720, LAN8187,
-> LAN8700, LAN83C185) provide a mechanism to conserve power when
-> the device is not connected to an active link partner
-> (Energy Detect Mode).
-> So this patch enables the Energy Detect power-down mode
-> for these Transceivers.
+> On Monday 04 January 2010 07:58:55 you wrote:
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> This won't compile with IPV6 disabled.  Switch closing brace is
+>> erroneously inside of the ifdef test.
+>> 
+> 
+> Oops... Here is a new version:
+> 
+> [PATCH] ip: fix mc_loop checks for tunnels with multicast outer addresses
+> 
+> When we have L3 tunnels with different inner/outer families
+> (i.e. IPV4/IPV6) which use a multicast address as the outer tunnel
+> destination address, multicast packets will be loopbacked back to the
+> sending socket even if IP*_MULTICAST_LOOP is set to disabled.
+> 
+> The mc_loop flag is present in the family specific part of the socket
+> (e.g. the IPv4 or IPv4 specific part).  setsockopt sets the inner
+> family mc_loop flag. When the packet is pushed through the L3 tunnel
+> it will eventually be processed by the outer family which if different
+> will check the flag in a different part of the socket then it was set.
+> 
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 
-Applied to net-next-2.6, thank you.
+Applied to net-2.6, thanks!
