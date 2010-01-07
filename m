@@ -1,82 +1,74 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 4/9] snet: introduce snet_core.c and snet.h
-Date: Thu, 07 Jan 2010 15:34:16 +0100
-Message-ID: <m2ocl6m1av.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-5-git-send-email-sam@synack.fr>
-	<4B41FE9D.2070708@trash.net>
+From: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
+Subject: Re: [PATCH 03/13] stmmac: add the new Header file for stmmac platform
+ data
+Date: Thu, 07 Jan 2010 09:34:50 -0500
+Message-ID: <4B45F10A.3050508@octasic.com>
+References: <1262855243-6762-1-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-2-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-3-git-send-email-peppe.cavallaro@st.com> <4B45DE02.5010403@octasic.com> <4B45E1D7.80407@st.com> <4B45E5C3.6060205@octasic.com> <4B45E941.1070002@st.com> <4B45EC4B.10602@octasic.com> <4B45EDB8.3070601@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:50996 "EHLO
-	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532Ab0AGOeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 09:34:18 -0500
-In-Reply-To: <4B41FE9D.2070708@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 15:43:41 +0100")
+Received: from mail.octasic.com ([70.54.254.106]:30236 "EHLO
+	MAILEXCH.octasic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752868Ab0AGOev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 09:34:51 -0500
+In-Reply-To: <4B45EDB8.3070601@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
 
->> +unsigned int event_hash_size = 16;
->> +module_param(event_hash_size, uint, 0600);
->> +MODULE_PARM_DESC(event_hash_size, "Set the size of the event hash table");
->> +
->> +unsigned int verdict_hash_size = 16;
->> +module_param(verdict_hash_size, uint, 0600);
->> +MODULE_PARM_DESC(verdict_hash_size, "Set the size of the verdict hash table");
+
+Giuseppe CAVALLARO wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
 >
-> I can't see anything handling size changes after initialization,
-> so there should probably use 0400.
+> Jean-Hugues Deschenes wrote:
+>   
+>> Hi Giuseppe,
+>>
+>> Giuseppe CAVALLARO wrote:
+>>     
+>>> Another question. Indeed, for stm architectures, within each setup file,
+>>> we don't include the linux/stmmac.h (I was wrong before!) but include
+>>> linux/stm/platform.h. This own header includes the "linux/stmmac.h".
+>>> So using stmmac_plat.h, I should add: #include
+>>> "../../../drivers/net/stmmac/stmmac_plat.h"  within the
+>>> include/linux/stm/platform.h file. Is it ok? What do you think?
+>>>
+>>>       
+>> I believe that would work out well.
+>>
+>> ... Although I wonder if the whole stm subdirectory should be in
+>> include/linux, rather than in arch/sh...
+>>     
+> Sorry, I was not not clear before. the  stm subdirectory is in
+> include/linux.
+>   
+You were quite clear; sorry, my mistake; I should have written "... 
+Although I wonder if the whole stm subdirectory should be in arch/sh, 
+rather than in
+include/linux..."
 
-right, here is a patch
+> In fact, my previous question was if it's good to include
+> ../../../drivers/net/stmmac/stmmac_plat.h within the
+> include/linux/stm/platform.h file.
+>   
+I don't see a problem with that, although we'd be the first doing it... 
+probably as long as the include
+../../../drivers/net/stmmac/stmmac_plat.h is surrounded by the 
+appropriate #ifdef CONFIG_STMMAC_ETH?
 
-thanks Patrick,
-sam
+>  But that's another story... It
+>   
+>> is there because you maintain both sh and arm-base SOCs right?
+>>     
+> Yes you are right!
+>   
+... so ideally, you'need some kind of arch/common, arch/shared or 
+include/linux/platform directory of some kind... Too bad such a thing 
+doesn't exist...
 
-commit af9c2157ecb130c1d08bcbeb121e4f50b3e40ab0
-Author: Samir Bellabes <sam@synack.fr>
-Date:   Tue Jan 5 17:58:42 2010 +0100
-
-    snet: fixing permission of snet module's parameters
-    
-    the values of parameters are not changing after initialisation.
-    So permissions should be 0400
-    
-    Noticed by Patrick McHardy <kaber@trash.net>
-    
-    Signed-off-by: Samir Bellabes <sam@synack.fr>
-
-diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
-index 6e2befc..bf55758 100644
---- a/security/snet/snet_core.c
-+++ b/security/snet/snet_core.c
-@@ -10,11 +10,11 @@
- #include "snet_utils.h"
- 
- unsigned int snet_evh_size = 16;
--module_param(snet_evh_size, uint, 0600);
-+module_param(snet_evh_size, uint, 0400);
- MODULE_PARM_DESC(snet_evh_size, "Set the size of the event hash table");
- 
- unsigned int snet_vdh_size = 16;
--module_param(snet_vdh_size, uint, 0600);
-+module_param(snet_vdh_size, uint, 0400);
- MODULE_PARM_DESC(snet_vdh_size, "Set the size of the verdict hash table");
- 
- unsigned int snet_verdict_delay = 5;
-@@ -22,7 +22,7 @@ module_param(snet_verdict_delay, uint, 0600);
- MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
- 
- unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
--module_param(snet_verdict_policy, uint, 0600);
-+module_param(snet_verdict_policy, uint, 0400);
- MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
- 
- #ifdef CONFIG_SECURITY_SNET_DEBUG
+Regards,
+jh
