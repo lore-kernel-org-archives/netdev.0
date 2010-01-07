@@ -1,30 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] NET: atlx, fix memory leak
-Date: Thu, 07 Jan 2010 01:05:06 -0800 (PST)
-Message-ID: <20100107.010506.165517428.davem@davemloft.net>
-References: <1262796856-21919-1-git-send-email-jslaby@suse.cz>
-	<20100106182830.4bd861fe@gmail.com>
+Subject: Re: [PATCH v2] dmfe/tulip: Let dmfe handle DM910x except for SPARC
+ on-board chips
+Date: Thu, 07 Jan 2010 01:06:51 -0800 (PST)
+Message-ID: <20100107.010651.18296756.davem@davemloft.net>
+References: <1262660588.26813.24.camel@localhost>
+	<20100105165817.GA13015@lackof.org>
+	<20100107.005125.202622527.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jslaby@suse.cz, linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	chris.snook@gmail.com, jie.yang@atheros.com,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jcliburn@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932760Ab0AGJFD@vger.kernel.org>
-In-Reply-To: <20100106182830.4bd861fe@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ben@decadent.org.uk, brandon@ifup.org, grundler@google.com,
+	tobias@ringis.se, kyle@mcmartin.ca, netdev@vger.kernel.org
+To: grundler@parisc-linux.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41048
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755821Ab0AGJGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:06:43 -0500
+In-Reply-To: <20100107.005125.202622527.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: J K Cliburn <jcliburn@gmail.com>
-Date: Wed, 6 Jan 2010 18:28:30 -0600
+From: David Miller <davem@davemloft.net>
+Date: Thu, 07 Jan 2010 00:51:25 -0800 (PST)
 
-> On Wed,  6 Jan 2010 17:54:16 +0100
-> Jiri Slaby <jslaby@suse.cz> wrote:
+> From: Grant Grundler <grundler@parisc-linux.org>
+> Date: Tue, 5 Jan 2010 09:58:17 -0700
 > 
->> Stanse found a memory leak in atl2_get_eeprom. eeprom_buff is not
->> freed/assigned on all paths. Fix that.
+>> On Tue, Jan 05, 2010 at 03:03:08AM +0000, Ben Hutchings wrote:
+>>> The Davicom DM9100 and DM9102 chips are used on the motherboards of
+>>> some SPARC systems (supported by the tulip driver) and also in PCI
+>>> expansion cards (supported by the dmfe driver).  There is no
+>>> difference in the PCI device ids for the two different configurations,
+>>> so these drivers both claim the device ids.  However, it is possible
+>>> to distinguish the two configurations by the presence of Open Firmware
+>>> properties for them, so we do that.
+>>> 
+>>> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>> 
+>> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 > 
-> Acked by: Jay Cliburn <jcliburn@gmail.com>
+> Applied, thanks everyone.
 
-Applied, thanks.
+Sorry, had to revert, doesn't build:
+
+  CHK     include/linux/version.h
+  CHK     include/linux/utsrelease.h
+  SYMLINK include/asm -> include/asm-sparc
+  CALL    scripts/checksyscalls.sh
+  CC [M]  drivers/net/tulip/dmfe.o
+drivers/net/tulip/dmfe.c: In function 'dmfe_init_one':
+drivers/net/tulip/dmfe.c:386: warning: suggest parentheses around && within ||
+drivers/net/tulip/dmfe.c:389: error: implicit declaration of function 'of_get_property'
+make[1]: *** [drivers/net/tulip/dmfe.o] Error 1
+make: *** [drivers/net/tulip/dmfe.o] Error 2
+
+Please fix this up and resubmit, thanks.
