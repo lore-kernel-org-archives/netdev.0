@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] dmfe/tulip: Let dmfe handle DM910x except for SPARC
- on-board chips
-Date: Thu, 07 Jan 2010 00:51:25 -0800 (PST)
-Message-ID: <20100107.005125.202622527.davem@davemloft.net>
-References: <1262660588.26813.24.camel@localhost>
-	<20100105165817.GA13015@lackof.org>
+Subject: Re: [PATCH] cs89x0: Always report failure to request interrupt
+Date: Thu, 07 Jan 2010 00:53:12 -0800 (PST)
+Message-ID: <20100107.005312.243284287.davem@davemloft.net>
+References: <1262690210-20763-1-git-send-email-broonie@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, brandon@ifup.org, grundler@google.com,
-	tobias@ringis.se, kyle@mcmartin.ca, netdev@vger.kernel.org
-To: grundler@parisc-linux.org
+Cc: netdev@vger.kernel.org
+To: broonie@opensource.wolfsonmicro.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35302
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35310
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752496Ab0AGIvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:51:17 -0500
-In-Reply-To: <20100105165817.GA13015@lackof.org>
+	by vger.kernel.org with ESMTP id S932546Ab0AGIxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:53:04 -0500
+In-Reply-To: <1262690210-20763-1-git-send-email-broonie@opensource.wolfsonmicro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Tue, 5 Jan 2010 09:58:17 -0700
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Date: Tue,  5 Jan 2010 11:16:50 +0000
 
-> On Tue, Jan 05, 2010 at 03:03:08AM +0000, Ben Hutchings wrote:
->> The Davicom DM9100 and DM9102 chips are used on the motherboards of
->> some SPARC systems (supported by the tulip driver) and also in PCI
->> expansion cards (supported by the dmfe driver).  There is no
->> difference in the PCI device ids for the two different configurations,
->> so these drivers both claim the device ids.  However, it is possible
->> to distinguish the two configurations by the presence of Open Firmware
->> properties for them, so we do that.
->> 
->> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> A failure on request_irq() is always fatal but unlike other fatal
+> errors it's only reported to the user if net_debug is set. Make the
+> diagnostic unconditional and raise the priority so that errors are
+> more obvious to the user.
 > 
-> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
 
-Applied, thanks everyone.
+Applied, thanks.
