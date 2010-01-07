@@ -1,48 +1,55 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 0/3] Staging: Improvments to Octeon Ethernet driver.
-Date: Wed, 06 Jan 2010 16:55:15 -0800
-Message-ID: <4B4530F3.1070701@caviumnetworks.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] e1000: enhance frame fragment detection
+Date: Wed, 6 Jan 2010 19:56:29 -0500
+Message-ID: <20100107005629.GA2020@localhost.localdomain>
+References: <20091228201005.GC18422@hmsreliant.think-freely.org>
+ <alpine.WNT.2.00.1001051341110.4056@jbrandeb-desk1.amr.corp.intel.com>
+ <alpine.WNT.2.00.1001061525050.4056@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Ralf Baechle <ralf@linux-mips.org>,
-	linux-mips <linux-mips@linux-mips.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:10975 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932616Ab0AGAzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 19:55:36 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55902 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752246Ab0AGA4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 19:56:35 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.WNT.2.00.1001061525050.4056@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches attempt to cleanup and improve the octeon-ethernet
-driver in staging.  The first patch fixes up octeon interrupt handling
-in preparation for the following patches.  The second and third
-patches convert to NAPI and enable scatter-gather as well is cleaning
-up some ugly garbage.
-
-Since Octeon is a MIPS based SOC, we might want to merge the entire
-series via Ralf's linux-mips.org tree.
-
-I will reply with the three patches.
-
-David Daney (3):
-   MIPS: Octeon: Fix EIO handling.
-   Staging: Octeon Ethernet: Clean up and convert to NAPI.
-   Staging: Octeon Ethernet: Enable scatter-gather.
-
-  arch/mips/cavium-octeon/octeon-irq.c      |   40 +++-
-  drivers/staging/octeon/Kconfig            |    1 +
-  drivers/staging/octeon/ethernet-defines.h |   28 ---
-  drivers/staging/octeon/ethernet-mem.c     |   89 +++-----
-  drivers/staging/octeon/ethernet-rx.c      |  377 
-++++++++++++++++------------
-  drivers/staging/octeon/ethernet-rx.h      |   25 ++-
-  drivers/staging/octeon/ethernet-tx.c      |  330 ++++++++++++-------------
-  drivers/staging/octeon/ethernet-tx.h      |   27 +--
-  drivers/staging/octeon/ethernet.c         |  157 +++++--------
-  drivers/staging/octeon/octeon-ethernet.h  |   48 +---
-  10 files changed, 532 insertions(+), 590 deletions(-)
+On Wed, Jan 06, 2010 at 03:27:42PM -0800, Brandeburg, Jesse wrote:
+> a counter patch, without atomic ops, since we are protected by napi when 
+> modifying this variable.
+> 
+> Originally From: Neil Horman <nhorman@tuxdriver.com>
+> Modified by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> <original message>
+> Hey all-
+> 	A security discussion was recently given:
+> http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+> And a patch that I submitted awhile back was brought up.  Apparently some of
+> their testing revealed that they were able to force a buffer fragment in e1000
+> in which the trailing fragment was greater than 4 bytes.  As a result the
+> fragment check I introduced failed to detect the fragement and a partial
+> invalid frame was passed up into the network stack.  I've written this patch
+> to correct it.  I'm in the process of testing it now, but it makes good
+> logical sense to me.  Effectively it maintains a per-adapter state variable
+> which detects a non-EOP frame, and discards it and subsequent non-EOP frames
+> leading up to _and_ _including_ the next positive-EOP frame (as it is by
+> definition the last fragment).  This should prevent any and all partial frames
+> from entering the network stack from e1000.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Seems like a fine alternative to me.  Thanks!
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
