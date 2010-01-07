@@ -1,74 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: rps: some comments
-Date: Thu, 07 Jan 2010 18:42:41 +0100
-Message-ID: <4B461D11.6050603@gmail.com>
-References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <20091120154046.67252d23@nehalam>	 <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com>	 <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com>	 <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com> <65634d661001061454v389d311fjb245de21e0ab8092@mail.gmail.com> <4B45A623.7070507@gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [RFC] ndo_validate_skb: Let the netdev check a valid skb content
+Date: Thu, 07 Jan 2010 18:50:35 +0100
+Message-ID: <4B461EEB.7040806@hartkopp.net>
+References: <4B326E2F.2050709@hartkopp.net> <20100107.004101.217821816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43183 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076Ab0AGRmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 12:42:49 -0500
-In-Reply-To: <4B45A623.7070507@gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:31744 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085Ab0AGRul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 12:50:41 -0500
+In-Reply-To: <20100107.004101.217821816.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom
+David Miller wrote:
+> From: Oliver Hartkopp <oliver@hartkopp.net>
+> Date: Wed, 23 Dec 2009 20:23:27 +0100
+> 
+>> @@ -2034,6 +2035,14 @@ int dev_queue_xmit(struct sk_buff *skb)
+>>  			goto out_kfree_skb;
+>>  	}
+>>  
+>> +	/* If the device offers a function to validate the skb content, let
+>> +	 * it check the skb and return an error to the caller if it fails.
+>> +	 */ 
+>> +	if (ops->ndo_validate_skb && ops->ndo_validate_skb(skb)) {
+>> +		rc = -EINVAL;
+>> +		goto out_kfree_skb;
+>> +	}
+>> +
+> 
+> To me this is as valuable as no error at all and simply having
+> the driver drop the frame.  Which is what we do now.  I can
+> sniff at the receiver to see that the device never transmitted
+> the frame.
+> 
+> Is this getting this generic -EINVAL back so important that it's
+> worth adding the new if() test for the NULL method to every packet
+> that traverses the machine?  Keep in mind we can route at rates
+> exceeding 1 million packets per second, so ever cycle you add
+> here really matters.
+> 
+> If you want to place the hooks still, put them out of the fast
+> path, which is probably in AF_PACKET.  We can extend this to
+> call the validation function from other "untrusted" sources.
+> 
+> But do realize that you're not saving anything, things like
+> queueing disciplines and traffic classifiers in the qdisc
+> layer can modify any part of the packet however they wish.
+> 
+> So even if the CAN protocol layer itself emitted a valid
+> frame, the qdisc layer can "corrupt" it.
 
-1) netif_receive_skb() might enqueue skb instead of handling them directly.
+I see. Thanks for your detailed answer!
 
-int netif_receive_skb(struct sk_buff *skb)
-{
-        int cpu = get_rps_cpu(skb->dev, skb);
+Indeed silently drop the invalid CAN frame inside the driver (and increase
+dev->stats.tx_dropped) looks like the best solution to me now.
 
-        if (cpu < 0)
-                return __netif_receive_skb(skb);
-        else
-                return enqueue_to_backlog(skb, cpu);
-}
+If people try to push rubbish into the device, tx_dropped is an appropriate
+indication.
 
-If get_rps_cpu() happens to select the current cpu, we enqueue to backlog the
-skb instead of directly calling __netif_receive_skb().
-
-One way to solve this is to make get_rps_cpu() returns -1 in this case :
-
-...
-if (cpu == smp_processor_id() || !cpu_online(cpu))
-	cpu = -1;
-
-done:
-	rcu_read_unlock();
-	return cpu;
-} /* get_rps_cpu() */
-
-
-2) RPS_MAP_SIZE might be too expensive to use in fast path, on big (NR_CPUS=4096) machines :
- num_possible_cpus() has to count all bits set in a bitmap.
-
-#define MAX_RPS_CPUS (num_possible_cpus() < 256 ? num_possible_cpus() : 256)
-#define RPS_MAP_SIZE (sizeof(struct rps_map) + (MAX_RPS_CPUS * sizeof(u16))
-
-You can use nr_cpu_ids, or even better a new variable, that you init _once_ to
-
-unsigned int rps_map_size = sizeof(struct rps_map) + (min(256, nr_cpu_ids) * sizeof(u16));
-
-
-3) cpu hotplug.
-
-I cannot find how cpu unplug can be safe.
-
-if (!cpu_online(cpu))
-	cpu = -1;
-rcu_read_unlock();
-...
-cpu_set(cpu, __get_cpu_var(rps_remote_softirq_cpus));
-...
-__smp_call_function_single(cpu, &queue->csd, 0);
-
-Thanks
+Thanks,
+Oliver
 
