@@ -1,98 +1,71 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next v3 2/3] can: mscan-mpc5xxx: add support for
-	the MPC512x processor
-Date: Thu, 7 Jan 2010 17:21:13 +0100
-Message-ID: <20100107162113.GB7394@pengutronix.de>
-References: <1262873421-6863-1-git-send-email-wg@grandegger.com>
-	<1262873421-6863-2-git-send-email-wg@grandegger.com>
-	<1262873421-6863-3-git-send-email-wg@grandegger.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
+Date: Thu, 07 Jan 2010 08:21:20 -0800
+Message-ID: <1262881280.23268.50.camel@localhost.localdomain>
+References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
+	 <1261604906.609.106.camel@localhost.localdomain>
+	 <878wcdx6tt.fsf@nemi.mork.no>
+	 <1262639441.16627.322.camel@localhost.localdomain>
+	 <87iqbhuhre.fsf@nemi.mork.no>
+	 <1262691113.16627.361.camel@localhost.localdomain>
+	 <87eim4vhvh.fsf@nemi.mork.no>
+	 <1262846321.3608.76.camel@localhost.localdomain>
+	 <874omyqoxy.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1978503188=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1262873421-6863-3-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64937 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753223Ab0AGQre (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2010 11:47:34 -0500
+In-Reply-To: <874omyqoxy.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---===============1978503188==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="UHN/qo2QbUvPLonB"
-Content-Disposition: inline
-
-
---UHN/qo2QbUvPLonB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, Jan 07, 2010 at 03:10:20PM +0100, Wolfgang Grandegger wrote:
-> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+On Thu, 2010-01-07 at 09:50 +0100, Bj=C3=B8rn Mork wrote:
+> Dan Williams <dcbw@redhat.com> writes:
 >=20
-> The main differences compared to the MSCAN on the MPC5200 are:
+> > Here's the difference:
+> >
+> > F3507g: requires AT command setup before cdc-ether port is usable
+> > SE j105i: does not require AT command setup before port is usable
+> >
+> > Same on my TM-506; you can simply run DHCP on the 'usb0' port and i=
+t
+> > works, because the phone is pretending to be a usb-ethernet device =
+and
+> > transparently bridge between the ethernet and the cellular network.
+> > That's simply not the case with the F3507g or any other WWAN card.
+> >
+> > Phones are fundamentally different than WWAN cards and shouldn't be
+> > treated like one, at least at this time.
 >=20
-> - More flexibility in choosing the CAN source clock and frequency:
->=20
->   Three different clock sources can be selected: "ip", "ref" or "sys".
->   For the latter two, a clock divider can be defined as well. If the
->   clock source is not specified by the device tree, we first try to
->   find an optimal CAN source clock based on the system clock. If that
->   is not possible, the reference clock will be used.
->=20
-> - The behavior of bus-off recovery is configurable:
->=20
->   To comply with the usual handling of Socket-CAN bus-off recovery,
->   "recovery on request" is selected (instead of automatic recovery).
->=20
-> Note that only MPC5121 Rev. 2 and later is supported.
->=20
-> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+> OK, then I misunderstood the request.  I thought that this phone beha=
+ved
+> like a WWAN card since it presumably advertised the same CDC "Mobile
+> Direct Line" class as the Ericsson WWAN cards, maybe even with the sa=
+me
+> GUID in the MDLM header?
 
-Reviewed-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Interesting.  But I'd be very, very skeptical if the phone really acted
+just like an MBM card.  My TM-506 has *some* of the same commands that
+the F3507g and the F3607gw do but certainly not all of them.
 
-It still works with our board and I didn't find anything else to comment on.
+> If it really behaves like you describe (which is what the other Sony
+> Ericsson phones I've seen does too), then I don't understand why it
+> doesn't just advertise a CDC Ethernet class device.  That's what the
+> other phones do, and as you of course know, the reason why we don't h=
+ave
+> a gazillion phone VID/PID entries in cdc_ether.c..
 
-Thanks, Wolfgang!
+Good question; though I've seen enough hardware that I'll simply just
+assume they did it differently just because they could, not for any
+specific reason.  Don't over-estimate the intelligence of firmware
+people, they are just as human as the rest of us :)
 
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Dan
 
---UHN/qo2QbUvPLonB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAktGCfkACgkQD27XaX1/VRvi2wCeM7HN2IBscYMOag2R4a9yJ7kP
-lq4An0z/WN5ENEN/YU01eFA34W2GxMLh
-=ECwy
------END PGP SIGNATURE-----
-
---UHN/qo2QbUvPLonB--
-
---===============1978503188==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1978503188==--
