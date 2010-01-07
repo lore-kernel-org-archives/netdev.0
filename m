@@ -1,46 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BSD 4.2 style TCP keepalives
-Date: Wed, 06 Jan 2010 19:36:08 -0800 (PST)
-Message-ID: <20100106.193608.193693425.davem@davemloft.net>
-References: <20100106.150453.186399201.davem@davemloft.net>
-	<20100106.161454.193705075.davem@davemloft.net>
-	<20100106.192131.193700514.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: Fix compiler warning about variable being used
+	uninitialized
+Date: Wed, 06 Jan 2010 19:50:29 -0800
+Message-ID: <20100107035001.28341.55395.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, ilpo.jarvinen@helsinki.fi
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56757
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756708Ab0AGDgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 22:36:01 -0500
-In-Reply-To: <20100106.192131.193700514.davem@davemloft.net>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:41692
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755903Ab0AGDus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 22:50:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 06 Jan 2010 19:21:31 -0800 (PST)
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-> And maybe that's a clue, because with this upstream Linux does ACK the
-> probe.
+tc is still throwing a warning that is could be used
+uninitialized.  This fixes it, and properly formats the device ID
+checks for the use of this variable.
 
-Here's an example trace, note the DSACK blocks:
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-19:26:51.966289 IP A.34376 > B.330: . ack 22738433 win 0 <nop,nop,timestamp 4294964458 375470>
-19:26:52.185946 IP B.330 > A.34376: . 22738432:22738433(1) ack 10753 win 127 <nop,nop,timestamp 375492 4294964458>
-19:26:52.207848 IP A.34376 > B.330: . ack 22738433 win 0 <nop,nop,timestamp 4294964480 375492,nop,nop,sack 1 {22738432:22738433}>
-19:26:52.645946 IP B.330 > A.34376: . 22738432:22738433(1) ack 10753 win 127 <nop,nop,timestamp 375538 4294964480>
-19:26:52.668386 IP A.34376 > B.330: . ack 22738433 win 0 <nop,nop,timestamp 4294964526 375538,nop,nop,sack 1 {22738432:22738433}>
-19:26:53.545949 IP B.330 > A.34376: . 22738432:22738433(1) ack 10753 win 127 <nop,nop,timestamp 375628 4294964526>
-19:26:53.568955 IP A.34376 > B.330: . ack 22738433 win 0 <nop,nop,timestamp 4294964616 375628,nop,nop,sack 1 {22738432:22738433}>
-19:26:55.328448 IP B.330 > A.34376: . 22738432:22738433(1) ack 10753 win 127 <nop,nop,timestamp 375806 4294964616>
-19:26:55.351998 IP A.34376 > B.330: . ack 22738433 win 0 <nop,nop,timestamp 4294964794 375806,nop,nop,sack 1 {22738432:22738433}>
+ drivers/net/ixgbe/ixgbe_main.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-I added diagnostics to tcp_data_queue() to validate which conditional
-triggers:
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 1a2ea62..2ad754c 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -262,10 +262,12 @@ static inline bool ixgbe_tx_is_paused(struct ixgbe_adapter *adapter,
+ 		int reg_idx = tx_ring->reg_idx;
+ 		int dcb_i = adapter->ring_feature[RING_F_DCB].indices;
+ 
+-		if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
++		switch (adapter->hw.mac.type) {
++		case ixgbe_mac_82598EB:
+ 			tc = reg_idx >> 2;
+ 			txoff = IXGBE_TFCS_TXOFF0;
+-		} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
++			break;
++		case ixgbe_mac_82599EB:
+ 			tc = 0;
+ 			txoff = IXGBE_TFCS_TXOFF;
+ 			if (dcb_i == 8) {
+@@ -284,6 +286,9 @@ static inline bool ixgbe_tx_is_paused(struct ixgbe_adapter *adapter,
+ 						tc += (reg_idx - 96) >> 4;
+ 				}
+ 			}
++			break;
++		default:
++			tc = 0;
+ 		}
+ 		txoff <<= tc;
+ 	}
 
-[  662.808884] TCP: HIT SYN[0] FIN[0] ACK[1] SEQ[a018c50f:a018c510] rcv_nxt[a018c510] rcv_wup[a018c510] window[00000000]
-[  662.822532] TCP: tcp_data_queue() !after(end_seq, rcv_nxt)
-
-Which is what I said should trigger for these things.
