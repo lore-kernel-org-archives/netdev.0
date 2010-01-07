@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/3] qlge: Performance changes for qlge.
-Date: Wed, 06 Jan 2010 20:30:53 -0800 (PST)
-Message-ID: <20100106.203053.149144229.davem@davemloft.net>
-References: <1262464664-14996-1-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: ucc_geth: Fix the wrong the Rx/Tx FIFO size
+Date: Wed, 06 Jan 2010 20:32:50 -0800 (PST)
+Message-ID: <20100106.203250.80870186.davem@davemloft.net>
+References: <1262597823-13788-1-git-send-email-daveliu@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+To: daveliu@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59116
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59120
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756412Ab0AGEaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 23:30:46 -0500
-In-Reply-To: <1262464664-14996-1-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1756412Ab0AGEcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 23:32:43 -0500
+In-Reply-To: <1262597823-13788-1-git-send-email-daveliu@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Sat,  2 Jan 2010 12:37:41 -0800
+From: Dave Liu <daveliu@freescale.com>
+Date: Mon,  4 Jan 2010 17:37:03 +0800
 
+> current the Rx/Tx FIFO size settings cause problem
+> when four UEC ethernets work simultaneously.
 > 
-> Currently qlge splits headers into a separate buffer so they can
-> be re-aligned on a 2-byte boundary.  This is done to avoid
-> exceptions thrown on certain platforms when headers are processed.
-> To avoid the overhead of re-aligning headers, we turn on the split 
-> header/realign configuration only when the platform requires it.
-> This allows usage of the gro-frags interface on platforms that do
-> not require 32 bit aligned headers.
+> eg: GETH1, UEM-J15, GETH2, UEC-J5 on 8569MDS board
+> 
+>  $ ifconfig eth0 10.193.20.166
+>  $ ifconfig eth1 10.193.20.167
+>  $ ifconfig eth2 10.193.20.168
+>  then
+>  $ ifconfig eth3 10.193.20.169
+> 
+> The fourth ethernet will cause all of interface broken,
+> you cann't ping successfully any more.
+> The patch fix this issue for MPC8569 Rev1.0 and Rev2.0
+> 
+> Signed-off-by: Dave Liu <daveliu@freescale.com>
+> Acked-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-All applied to net-next-2.6, thanks Ron.
+Applied to net-2.6, thank you.
