@@ -1,64 +1,38 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH net-next v3 1/3] can: mscan: fix improper return if dlc
-	< 8 in start_xmit function
-Date: Thu, 07 Jan 2010 19:10:38 +0100
-Message-ID: <4B46239E.2000403@hartkopp.net>
-References: <1262873421-6863-1-git-send-email-wg@grandegger.com>
-	<1262873421-6863-2-git-send-email-wg@grandegger.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Thu, 7 Jan 2010 19:17:59 +0100
+Message-ID: <20100107181759.GC3088@del.dom.local>
+References: <4B455C62.6030504@majjas.com>
+ <20100106205343.5460d658@nehalam>
+ <4B4571D5.30002@majjas.com>
+ <4B457711.1040008@majjas.com>
+ <4B458B36.6050509@majjas.com>
+ <20100107074756.GB6258@ff.dom.local>
+ <4B459368.2000503@majjas.com>
+ <20100107082140.GB7229@ff.dom.local>
+ <4B45F7D7.3060308@majjas.com>
+ <20100107175610.GA3088@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1262873421-6863-2-git-send-email-wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:56097 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273Ab0AGSSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 13:18:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20100107175610.GA3088@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
+On Thu, Jan 07, 2010 at 06:56:10PM +0100, Jarek Poplawski wrote:
+> [...] (try to grep in net\). [...]
 
-> The start_xmit function of the MSCAN Driver did return improperly if
-> the CAN dlc check failed (skb not freed and invalid return code). This
-> patch adds a proper check of the frame lenght and data size and returns
-> now correctly. 
+Did I say "net\"?!
 
-> @@ -177,8 +177,13 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	int i, rtr, buf_id;
->  	u32 can_id;
->  
-> -	if (frame->can_dlc > 8)
-> -		return -EINVAL;
-> +	if (skb->len != sizeof(*frame) || frame->can_dlc > 8) {
-> +		dev_err(dev->dev.parent,
-> +			"Dropping non-conform packet: len %u, can_dlc %u\n",
-> +			skb->len, frame->can_dlc);
-> +		kfree_skb(skb);
-> +		return NETDEV_TX_OK;
-> +	}
->  
-
-Hi Wolfgang,
-
-i would suggest to remove the dev_err() which may flood the kernel log and add
-
-   dev->stats.tx_dropped++;
-
-instead.
-
-As discussed with DaveM on netdev-ML this 'silent' handling seems to be the
-most appropriate approach to deal with invalid skbs.
-
-We should update the other CAN drivers in a similar way, if this is ok for you.
-
-Best regards,
-Oliver
+Extremely sorry! ;-)
+Jarek P.
