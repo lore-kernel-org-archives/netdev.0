@@ -1,60 +1,39 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
-Date: Thu, 07 Jan 2010 09:50:01 +0100
-Message-ID: <874omyqoxy.fsf@nemi.mork.no>
-References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
-	<1261604906.609.106.camel@localhost.localdomain>
-	<878wcdx6tt.fsf@nemi.mork.no>
-	<1262639441.16627.322.camel@localhost.localdomain>
-	<87iqbhuhre.fsf@nemi.mork.no>
-	<1262691113.16627.361.camel@localhost.localdomain>
-	<87eim4vhvh.fsf@nemi.mork.no>
-	<1262846321.3608.76.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] dmfe/tulip: Let dmfe handle DM910x except for SPARC
+ on-board chips
+Date: Thu, 07 Jan 2010 00:51:25 -0800 (PST)
+Message-ID: <20100107.005125.202622527.davem@davemloft.net>
+References: <1262660588.26813.24.camel@localhost>
+	<20100105165817.GA13015@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk, brandon@ifup.org, grundler@google.com,
+	tobias@ringis.se, kyle@mcmartin.ca, netdev@vger.kernel.org
+To: grundler@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38332 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932506Ab0AGIuZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:50:25 -0500
-In-Reply-To: <1262846321.3608.76.camel@localhost.localdomain> (Dan Williams's
-	message of "Wed, 06 Jan 2010 22:38:41 -0800")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35302
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752496Ab0AGIvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:51:17 -0500
+In-Reply-To: <20100105165817.GA13015@lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Williams <dcbw@redhat.com> writes:
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Tue, 5 Jan 2010 09:58:17 -0700
 
-> Here's the difference:
->
-> F3507g: requires AT command setup before cdc-ether port is usable
-> SE j105i: does not require AT command setup before port is usable
->
-> Same on my TM-506; you can simply run DHCP on the 'usb0' port and it
-> works, because the phone is pretending to be a usb-ethernet device an=
-d
-> transparently bridge between the ethernet and the cellular network.
-> That's simply not the case with the F3507g or any other WWAN card.
->
-> Phones are fundamentally different than WWAN cards and shouldn't be
-> treated like one, at least at this time.
+> On Tue, Jan 05, 2010 at 03:03:08AM +0000, Ben Hutchings wrote:
+>> The Davicom DM9100 and DM9102 chips are used on the motherboards of
+>> some SPARC systems (supported by the tulip driver) and also in PCI
+>> expansion cards (supported by the dmfe driver).  There is no
+>> difference in the PCI device ids for the two different configurations,
+>> so these drivers both claim the device ids.  However, it is possible
+>> to distinguish the two configurations by the presence of Open Firmware
+>> properties for them, so we do that.
+>> 
+>> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> 
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 
-OK, then I misunderstood the request.  I thought that this phone behave=
-d
-like a WWAN card since it presumably advertised the same CDC "Mobile
-Direct Line" class as the Ericsson WWAN cards, maybe even with the same
-GUID in the MDLM header?
-
-If it really behaves like you describe (which is what the other Sony
-Ericsson phones I've seen does too), then I don't understand why it
-doesn't just advertise a CDC Ethernet class device.  That's what the
-other phones do, and as you of course know, the reason why we don't hav=
-e
-a gazillion phone VID/PID entries in cdc_ether.c..
-
-
-Bj=C3=B8rn
-
-
+Applied, thanks everyone.
