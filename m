@@ -1,35 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: fix rt_lookup in pmtu_discovery
-Date: Thu, 07 Jan 2010 01:27:01 -0800 (PST)
-Message-ID: <20100107.012701.257511338.davem@davemloft.net>
-References: <65634d661001062043s1b4eb204v63566149bb44f144@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
-To: therbert@google.com
+From: Sriramakrishnan <srk@ti.com>
+Subject: [PATCH] TI DaVinci EMAC: Handle emac module clock correctly.
+Date: Thu,  7 Jan 2010 15:52:37 +0530
+Message-ID: <1262859757-2809-1-git-send-email-srk@ti.com>
+Cc: davinci-linux-open-source@linux.davincidsp.com,
+	Sriramakrishnan <srk@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44760
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750930Ab0AGJ0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:26:53 -0500
-In-Reply-To: <65634d661001062043s1b4eb204v63566149bb44f144@mail.gmail.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:56928 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781Ab0AGKWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 05:22:45 -0500
+Received: from dbdp31.itg.ti.com ([172.24.170.98])
+	by devils.ext.ti.com (8.13.7/8.13.7) with ESMTP id o07AMgl2025616
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 7 Jan 2010 04:22:44 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 6 Jan 2010 20:43:48 -0800
+In the driver probe function the emac module clock needs to
+be enabled before calling register_netdev(). As soon as the
+device is registered the driver get_stats function can be invoked
+by the core - the module clock must be switched on to be able to
+read from stats registers. Also explicitly call matching clk_disable
+for failure conditions in probe function.
 
-> In rt6_pmtu_discovery a route lookup is done constrained to the
-> receiving interface of the ICMP message.  In the case of an asymmetric
-> routing, the receive interface may be different than the sending
-> interface, so no route will be found in such cases and pmtu is never
-> correctly set in the route to the destination.  This patch fixes that
-> by not using the receive interface in the lookup.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Sriramakrishnan <srk@ti.com>
+---
+This patch has been generated against tip of net-2.6.git
 
-This needs to do what the IPV4 side does, iterate over specific then
-"any" device index, doing a lookup for each case until the route is
-found, therefore starting from more specific and going towards less
-specific routes.
+ drivers/net/davinci_emac.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 34e0310..33c4fe2 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -2711,6 +2711,8 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	SET_ETHTOOL_OPS(ndev, &ethtool_ops);
+ 	netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
+ 
++	clk_enable(emac_clk);
++
+ 	/* register the network device */
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	rc = register_netdev(ndev);
+@@ -2720,7 +2722,6 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 		goto netdev_reg_err;
+ 	}
+ 
+-	clk_enable(emac_clk);
+ 
+ 	/* MII/Phy intialisation, mdio bus registration */
+ 	emac_mii = mdiobus_alloc();
+@@ -2760,6 +2761,7 @@ mdiobus_quit:
+ 
+ netdev_reg_err:
+ mdio_alloc_err:
++	clk_disable(emac_clk);
+ no_irq_res:
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	release_mem_region(res->start, res->end - res->start + 1);
+-- 
+1.6.2.4
+
