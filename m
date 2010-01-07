@@ -1,69 +1,50 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [RFC] ndo_validate_skb: Let the netdev check a valid skb content
-Date: Thu, 07 Jan 2010 18:50:35 +0100
-Message-ID: <4B461EEB.7040806@hartkopp.net>
-References: <4B326E2F.2050709@hartkopp.net> <20100107.004101.217821816.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Thu, 7 Jan 2010 18:56:10 +0100
+Message-ID: <20100107175610.GA3088@del.dom.local>
+References: <4B454A16.3030909@majjas.com>
+ <4B455C62.6030504@majjas.com>
+ <20100106205343.5460d658@nehalam>
+ <4B4571D5.30002@majjas.com>
+ <4B457711.1040008@majjas.com>
+ <4B458B36.6050509@majjas.com>
+ <20100107074756.GB6258@ff.dom.local>
+ <4B459368.2000503@majjas.com>
+ <20100107082140.GB7229@ff.dom.local>
+ <4B45F7D7.3060308@majjas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:31744 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085Ab0AGRul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 12:50:41 -0500
-In-Reply-To: <20100107.004101.217821816.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752584Ab0AGR4V@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B45F7D7.3060308@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Wed, 23 Dec 2009 20:23:27 +0100
-> 
->> @@ -2034,6 +2035,14 @@ int dev_queue_xmit(struct sk_buff *skb)
->>  			goto out_kfree_skb;
->>  	}
->>  
->> +	/* If the device offers a function to validate the skb content, let
->> +	 * it check the skb and return an error to the caller if it fails.
->> +	 */ 
->> +	if (ops->ndo_validate_skb && ops->ndo_validate_skb(skb)) {
->> +		rc = -EINVAL;
->> +		goto out_kfree_skb;
->> +	}
->> +
-> 
-> To me this is as valuable as no error at all and simply having
-> the driver drop the frame.  Which is what we do now.  I can
-> sniff at the receiver to see that the device never transmitted
-> the frame.
-> 
-> Is this getting this generic -EINVAL back so important that it's
-> worth adding the new if() test for the NULL method to every packet
-> that traverses the machine?  Keep in mind we can route at rates
-> exceeding 1 million packets per second, so ever cycle you add
-> here really matters.
-> 
-> If you want to place the hooks still, put them out of the fast
-> path, which is probably in AF_PACKET.  We can extend this to
-> call the validation function from other "untrusted" sources.
-> 
-> But do realize that you're not saving anything, things like
-> queueing disciplines and traffic classifiers in the qdisc
-> layer can modify any part of the packet however they wish.
-> 
-> So even if the CAN protocol layer itself emitted a valid
-> frame, the qdisc layer can "corrupt" it.
+On Thu, Jan 07, 2010 at 10:03:51AM -0500, Michael Breuer wrote:
+> On 1/7/2010 3:21 AM, Jarek Poplawski wrote:
+> >On Thu, Jan 07, 2010 at 02:55:20AM -0500, Michael Breuer wrote:
+> >>Unless I misread the code, I think that in some cases e skb is actually
+> >>freed if the cfq (among others perhaps) scheduler returns an error on
+> >>enqueue (flow control perhaps).  Thus with alternative 1, it is possible
+> >>that the skb is acted upon after being freed - this would be consistent
+> >>with the DMAR errors I saw.
+> >I can't see your point: could you give some scenario?
+> >
+> >Jarek P.
+> With NET_CLS_ACT set, net_dev_enqueue can return an error after
+> freeing the skb. Alternative 1 disregards the error and assumes the
+> skb is still valid. The original code and alternative 2 exit the
+> loop assuming the skb has been freed.
 
-I see. Thanks for your detailed answer!
+Not exactly: alternative 1 disregards the error, and tries to send
+next skbs if the message was longer. After consuming all the message
+it returns without err code (at least wrt. dev_queue_xmit). This is
+quite often practice to skip dev_queue_xmit() return (try to grep in
+net\). It should never touch any part of an earlier sent skb.
 
-Indeed silently drop the invalid CAN frame inside the driver (and increase
-dev->stats.tx_dropped) looks like the best solution to me now.
-
-If people try to push rubbish into the device, tx_dropped is an appropriate
-indication.
-
-Thanks,
-Oliver
-
+Jarek P.
