@@ -1,72 +1,64 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 03/13] stmmac: add the new Header file for stmmac platform
- data
-Date: Thu, 07 Jan 2010 16:03:02 +0100
-Message-ID: <4B45F7A6.5010008@st.com>
-References: <1262855243-6762-1-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-2-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-3-git-send-email-peppe.cavallaro@st.com> <4B45DE02.5010403@octasic.com> <4B45E1D7.80407@st.com> <4B45E5C3.6060205@octasic.com> <4B45E941.1070002@st.com> <4B45EC4B.10602@octasic.com> <4B45EDB8.3070601@st.com> <4B45F10A.3050508@octasic.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Thu, 07 Jan 2010 10:03:51 -0500
+Message-ID: <4B45F7D7.3060308@majjas.com>
+References: <20100106131044.25b4e500@nehalam> <4B451C31.3000309@majjas.com>
+ <4B454A16.3030909@majjas.com> <4B455C62.6030504@majjas.com>
+ <20100106205343.5460d658@nehalam> <4B4571D5.30002@majjas.com>
+ <4B457711.1040008@majjas.com> <4B458B36.6050509@majjas.com>
+ <20100107074756.GB6258@ff.dom.local> <4B459368.2000503@majjas.com>
+ <20100107082140.GB7229@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:42775 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751811Ab0AGPDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 10:03:20 -0500
-In-Reply-To: <4B45F10A.3050508@octasic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753044Ab0AGPEh@vger.kernel.org>
+In-reply-to: <20100107082140.GB7229@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Jean-Hugues Deschenes wrote:
-> Giuseppe CAVALLARO wrote:
->> In fact, my previous question was if it's good to include
->> ../../../drivers/net/stmmac/stmmac_plat.h within the
->> include/linux/stm/platform.h file.
->>   
-> I don't see a problem with that, although we'd be the first doing it...
-> probably as long as the include
-> ../../../drivers/net/stmmac/stmmac_plat.h is surrounded by the
-> appropriate #ifdef CONFIG_STMMAC_ETH?
-
-Hi Jean-Hugues,
-I can rework this moving the stmmac platform header from
- include/linux/stmmac.h
-to
- drivers/net/stmmac/stmmac_plat.h
-
-On stlinux kernel the include/linux/stm/platform.h header will include
-../../../drivers/net/stmmac/stmmac_plat.h instead of linux/stmmac.h.
-
-Any other comments?
-
-To David: I've also removed __FILE__ as you had already suggested.
-
-Many Thanks.
-Regards,
-Peppe
-
->>  But that's another story... It
->>  
->>> is there because you maintain both sh and arm-base SOCs right?
->>>     
->> Yes you are right!
->>   
-> ... so ideally, you'need some kind of arch/common, arch/shared or
-> include/linux/platform directory of some kind... Too bad such a thing
-> doesn't exist...
-> Regards,
-> jh
-> 
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAktF96UACgkQ2Xo3j31MSSLG2wCgsc0SNGLgkXrlzvLq+moQst2D
-QvgAnAxTAB5np8Xc3d6rF1+9nftk6nxP
-=GL1t
------END PGP SIGNATURE-----
+On 1/7/2010 3:21 AM, Jarek Poplawski wrote:
+> On Thu, Jan 07, 2010 at 02:55:20AM -0500, Michael Breuer wrote:
+>    
+>> On 1/7/2010 2:47 AM, Jarek Poplawski wrote:
+>>      
+>>> On Thu, Jan 07, 2010 at 02:20:22AM -0500, Michael Breuer wrote:
+>>>
+>>>        
+>>>> ...
+>>>> Reapplied a couple of earlier patches - still can't do jumbo frames, but
+>>>> the rx errors are gone and speed has improved. Too early to assure that
+>>>> it's stable.
+>>>>
+>>>> Patches that seem to fix the rx drops (all from Stephen):
+>>>> 1) Patch change to tx_init
+>>>> 2) Patch to lock netif_device_detach
+>>>> 3) Patch to sky2_tx_complete to add netif_device_present test
+>>>> Also in the mix: Jarek's alternative 2
+>>>>
+>>>>          
+>>> BTW, the main difference between alt. 1 and 2 is error notification:
+>>> alternative 2 doesn't hide some (most) of drops, so, dependending on
+>>> app, there might be more and faster retransmits. (I don't know what
+>>> apps used by you (other than dhcp) can depend so much on this.)
+>>>
+>>>
+>>>        
+>> Unless I misread the code, I think that in some cases e skb is actually
+>> freed if the cfq (among others perhaps) scheduler returns an error on
+>> enqueue (flow control perhaps).  Thus with alternative 1, it is possible
+>> that the skb is acted upon after being freed - this would be consistent
+>> with the DMAR errors I saw.
+>>      
+> I can't see your point: could you give some scenario?
+>
+> Jarek P.
+>    
+With NET_CLS_ACT set, net_dev_enqueue can return an error after freeing 
+the skb. Alternative 1 disregards the error and assumes the skb is still 
+valid. The original code and alternative 2 exit the loop assuming the 
+skb has been freed.
