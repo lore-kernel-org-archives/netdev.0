@@ -1,37 +1,80 @@
-From: Jean-Hugues Deschenes <jean-hugues.deschenes@octasic.com>
-Subject: Re: [PATCH 03/13] stmmac: add the new Header file for stmmac platform
- data
-Date: Thu, 07 Jan 2010 10:06:50 -0500
-Message-ID: <4B45F88A.2070105@octasic.com>
-References: <1262855243-6762-1-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-2-git-send-email-peppe.cavallaro@st.com> <1262855243-6762-3-git-send-email-peppe.cavallaro@st.com> <4B45DE02.5010403@octasic.com> <4B45E1D7.80407@st.com> <4B45E5C3.6060205@octasic.com> <4B45E941.1070002@st.com> <4B45EC4B.10602@octasic.com> <4B45EDB8.3070601@st.com> <4B45F10A.3050508@octasic.com> <4B45F7A6.5010008@st.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: potential overflow in de4x5.c
+Date: Thu, 7 Jan 2010 18:40:07 +0300
+Message-ID: <20100107154007.GE8134@bicker>
+References: <20100103101356.GA13023@bicker> <20100104072844.GB518@lackof.org> <20100104073514.GA987@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.octasic.com ([70.54.254.106]:36380 "EHLO
-	MAILEXCH.octasic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753098Ab0AGPGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 10:06:51 -0500
-In-Reply-To: <4B45F7A6.5010008@st.com>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:52161 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750783Ab0AGPka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 10:40:30 -0500
+Received: by bwz27 with SMTP id 27so11496549bwz.21
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2010 07:40:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100104073514.GA987@lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jan 04, 2010 at 12:35:14AM -0700, Grant Grundler wrote:
+> On Mon, Jan 04, 2010 at 12:28:44AM -0700, Grant Grundler wrote:
+> > On Sun, Jan 03, 2010 at 12:13:56PM +0200, Dan Carpenter wrote:
+> > > Hi I found this using smatch (http://repo.or.cz/w/smatch.git).
+> > > 
+> > > drivers/net/tulip/de4x5.c
+> > >   4772          lp->active = *p++;
+> > >   4773          if (MOTO_SROM_BUG) lp->active = 0;
+> > >   4774          lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
+> > > 
+> > > lp->phy is an array of size 8.
+> > > 
+> > > MOTO_SROM_BUG is defined like this. 
+> > > 
+> > > #define MOTO_SROM_BUG    (lp->active == 8 && (get_unaligned_le32(dev->dev_addr) & 0x00ffffff) == 0x3e0008)
+> > > 
+> > > If lp->active == 8 then we have a buffer overflow.
+> > 
+> > Dan,
+> > When does the overflow actually occur?
+> > 
 
+You may be right that it can't happen in real life but from reading
+the code without access to the hardware, it looks like it would happen on
+line 4774 quoted above.
 
-Giuseppe CAVALLARO wrote:
-> I can rework this moving the stmmac platform header from
->  include/linux/stmmac.h
-> to
->  drivers/net/stmmac/stmmac_plat.h
->
-> On stlinux kernel the include/linux/stm/platform.h header will include
-> .../../../drivers/net/stmmac/stmmac_plat.h instead of linux/stmmac.h.
->
-> Any other comments?
->   
-Nope; I'll let you know if I notice something else.
+> > That code is reseting the value to work around a specific SROM bug:
+> >    http://lists.ozlabs.org/pipermail/linuxppc-dev/1999-March/001421.html
+> > 
+> > If you want to make the "input validation" more robust, that would be fine with me.
+> > But smatch hasn't convinced me there is a bug here.
+> 
 
-Thanks!
-jh
+Basically the MOTO_SROM_BUG macro is asking:  Do we have an array overflow 
+and a hardware bug?  If so we had better do something about the hardware
+bug.  It sounds silly to me.
+
+> BTW, someone suggested to fix up this same bit of code before:
+>    http://www.mail-archive.com/netdev@vger.kernel.org/msg09838.html
+> 
+> And I'm not sure why that patch wasn't accepted then either. Patch looks fine to me.
+> 
+
+Someone has updated the code since he posted the patch, presumably to fix
+the second overflow he mentioned.
+
+There is still another one left unfixed though which smatch misses.  
+
+  5073          if ((j == limit) && (i < DE4X5_MAX_MII)) {
+  5074              for (k=0; k < DE4X5_MAX_PHY && lp->phy[k].id; k++);
+  5075              lp->phy[k].addr = i;
+
+k could be == DE4X5_MAX_PHY on line 5075.
+
+regards,
+dan carpenter
+
+> thanks,
+> grant
