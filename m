@@ -1,91 +1,175 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14969] New: b44: WOL does not work in
- suspended state
-Date: Thu, 7 Jan 2010 14:17:19 -0800
-Message-ID: <20100107141719.a2303ad9.akpm@linux-foundation.org>
-References: <bug-14969-10286@http.bugzilla.kernel.org/>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tg3 appears to be sick in 2.6.33
+Date: Thu, 07 Jan 2010 23:24:44 +0100
+Message-ID: <4B465F2C.1080208@gmail.com>
+References: <201001071156.31892.dmitry.torokhov@gmail.com> <20100107204835.GB5788@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, ossi@kde.org,
-	Gary Zambrano <zambrano@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45946 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754410Ab0AGWSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 17:18:17 -0500
-In-Reply-To: <bug-14969-10286@http.bugzilla.kernel.org/>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47219 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756Ab0AGWYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 17:24:49 -0500
+In-Reply-To: <20100107204835.GB5788@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 07/01/2010 21:48, Matt Carlson a =E9crit :
+> Nothing jumps to mind.  Let me see if I can repro this here.
+>=20
+> On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
+>> Hi,
+>>
+>> Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latit=
+ude
+>> D630, it discards most of the packages for some reason:
+>>
+>> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
+>>      rx_octets: 35886
+>>      rx_fragments: 0
+>>      rx_ucast_packets: 9
+>>      rx_mcast_packets: 93
+>>      rx_bcast_packets: 237
+>>      rx_fcs_errors: 0
+>>      rx_align_errors: 0
+>>      rx_xon_pause_rcvd: 0
+>>      rx_xoff_pause_rcvd: 0
+>>      rx_mac_ctrl_rcvd: 0
+>>      rx_xoff_entered: 0
+>>      rx_frame_too_long_errors: 0
+>>      rx_jabbers: 0
+>>      rx_undersize_packets: 0
+>>      rx_in_length_errors: 0
+>>      rx_out_length_errors: 0
+>>      rx_64_or_less_octet_packets: 0
+>>      rx_65_to_127_octet_packets: 0
+>>      rx_128_to_255_octet_packets: 0
+>>      rx_256_to_511_octet_packets: 0
+>>      rx_512_to_1023_octet_packets: 0
+>>      rx_1024_to_1522_octet_packets: 0
+>>      rx_1523_to_2047_octet_packets: 0
+>>      rx_2048_to_4095_octet_packets: 0
+>>      rx_4096_to_8191_octet_packets: 0
+>>      rx_8192_to_9022_octet_packets: 0
+>>      rx_discards: 304
+>>      rx_errors: 0
+>>      rx_threshold_hit: 0
+>>
+>> The above on last night pull from Linux (so 2.6.33+).
+>>
+>> Everything works fine if I use wireless or another wired card (Realt=
+ek in=20
+>> cardbus slot):
+>>
+>> [root@dtor-d630 ~]# lspci | grep -ri net
+>> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.=20
+>> RTL-8139/8139C/8139C+ (rev 10)
+>> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M=
+ Gigabit=20
+>> Ethernet PCI Express (rev 02)
+>> 0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [=
+Golan]=20
+>> Network Connection (rev 02)
+>>
+>> [root@dtor-d630 ~]# ethtool eth0
+>> Settings for eth0:
+>>         Supported ports: [ TP ]
+>>         Supported link modes:   10baseT/Half 10baseT/Full
+>>                                 100baseT/Half 100baseT/Full
+>>                                 1000baseT/Half 1000baseT/Full
+>>         Supports auto-negotiation: Yes
+>>         Advertised link modes:  10baseT/Half 10baseT/Full
+>>                                 100baseT/Half 100baseT/Full
+>>                                 1000baseT/Half 1000baseT/Full
+>>         Advertised auto-negotiation: Yes
+>>         Speed: 1000Mb/s
+>>         Duplex: Full
+>>         Port: Twisted Pair
+>>         PHYAD: 1
+>>         Transceiver: internal
+>>         Auto-negotiation: on
+>>         Supports Wake-on: g
+>>         Wake-on: g
+>>         Current message level: 0x000000ff (255)
+>>         Link detected: yes
+>>
+>> Any ideas? Thanks!
+>>
+>> --=20
+>> Dmitry
+>>
+>=20
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+My laptop is a D630, and running 2.6.33-rc3 with no special problems on=
+ tg3
 
-On Fri, 1 Jan 2010 12:26:16 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+root@edumazet-laptop:~# ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full=20
+	                        100baseT/Half 100baseT/Full=20
+	                        1000baseT/Half 1000baseT/Full=20
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full=20
+	                        100baseT/Half 100baseT/Full=20
+	                        1000baseT/Half 1000baseT/Full=20
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 1
+	Transceiver: internal
+	Auto-negotiation: on
+	Supports Wake-on: g
+	Wake-on: g
+	Current message level: 0x000000ff (255)
+	Link detected: yes
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14969
-> 
->            Summary: b44: WOL does not work in suspended state
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.32.2
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: ossi@kde.org
->         Regression: No
-> 
-> 
-> WOL works fine if the system is powered down. it does not work with echo
-> mem/disk > /sys/power/state. for disk, it does not matter whether
-> /sys/power/disk is platform or shutdown.
-> 
-> # lspci -vv
-> 00:00.0 Host bridge: Intel Corporation 82845G/GL[Brookdale-G]/GE/PE DRAM
-> Controller/Host-Hub Interface (rev 03)
->         Subsystem: ASUSTeK Computer Inc. Device 80b1
->         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B- DisINTx-
->         Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort-
-> <MAbort+ >SERR- <PERR- INTx-
->         Latency: 0
->         Region 0: Memory at f8000000 (32-bit, prefetchable) [size=64M]
->         Capabilities: [e4] Vendor Specific Information <?>
->         Kernel driver in use: agpgart-intel
-> ...
-> 02:05.0 Ethernet controller: Broadcom Corporation BCM4401 100Base-T (rev 01)
->         Subsystem: ASUSTeK Computer Inc. A7V8X motherboard
->         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B- DisINTx-
->         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort-
-> <MAbort- >SERR- <PERR- INTx-
->         Latency: 32
->         Interrupt: pin A routed to IRQ 11
->         Region 0: Memory at ee000000 (32-bit, non-prefetchable) [size=8K]
->         Capabilities: [40] Power Management version 2
->                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
-> PME(D0+,D1+,D2+,D3hot+,D3cold+)
->                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=2 PME-
->         Kernel driver in use: b44
-> 
-> as becomes obvious from the pci dump, and is explained by reading the code, the
-> driver does not set up the hardware for WOL until the device is closed. maybe
-> this path is not taken at all when hibernating/suspending?
-> 
-> related bugs for other nics are: bug 8381, bug 8637, ...
-> 
-> 
-> on a somewhat related note,
->   cat /sys/class/net/eth0/device/power/wakeup
-> outputs just an empty line instead of enabled/disabled (like it does for the
-> non-b44 eth1).
+root@edumazet-laptop:~# ethtool -S eth0 | grep rx
+     rx_octets: 13542409
+     rx_fragments: 0
+     rx_ucast_packets: 12253
+     rx_mcast_packets: 0
+     rx_bcast_packets: 17
+     rx_fcs_errors: 0
+     rx_align_errors: 0
+     rx_xon_pause_rcvd: 0
+     rx_xoff_pause_rcvd: 0
+     rx_mac_ctrl_rcvd: 0
+     rx_xoff_entered: 0
+     rx_frame_too_long_errors: 0
+     rx_jabbers: 0
+     rx_undersize_packets: 0
+     rx_in_length_errors: 0
+     rx_out_length_errors: 0
+     rx_64_or_less_octet_packets: 0
+     rx_65_to_127_octet_packets: 0
+     rx_128_to_255_octet_packets: 0
+     rx_256_to_511_octet_packets: 0
+     rx_512_to_1023_octet_packets: 0
+     rx_1024_to_1522_octet_packets: 0
+     rx_1523_to_2047_octet_packets: 0
+     rx_2048_to_4095_octet_packets: 0
+     rx_4096_to_8191_octet_packets: 0
+     rx_8192_to_9022_octet_packets: 0
+     rxbds_empty: 0
+     rx_discards: 0
+     rx_errors: 0
+     rx_threshold_hit: 0
 
+# dmesg | grep tg3
+[    4.085259] tg3.c:v3.105 (December 2, 2009)
+[    4.085282] tg3 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IR=
+Q 17
+[    4.085296] tg3 0000:09:00.0: setting latency timer to 64
+[   10.910756] tg3 0000:09:00.0: irq 28 for MSI/MSI-X
+[   12.554801] tg3: eth0: Link is up at 100 Mbps, full duplex.
+[   12.554805] tg3: eth0: Flow control is on for TX and on for RX.
+
+# uname -a
+Linux edumazet-laptop 2.6.33-rc3 #15 SMP Thu Jan 7 22:11:49 CET 2010 x8=
+6_64 GNU/Linux
