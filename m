@@ -1,62 +1,102 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] lib/vsprintf.c: Add %pMF to format FDDI bit reversed
- MAC addresses
-Date: Thu, 7 Jan 2010 20:42:12 +0000 (GMT)
-Message-ID: <alpine.LFD.2.00.1001072037170.13474@eddie.linux-mips.org>
-References: <BD79186B4FD85F4B8E60E381CAEE19090208954A@mi8nycmail19.Mi8.com> <1262888625.10429.23.camel@Joe-Laptop.home>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3 appears to be sick in 2.6.33
+Date: Thu, 7 Jan 2010 12:48:35 -0800
+Message-ID: <20100107204835.GB5788@xw6200.broadcom.net>
+References: <201001071156.31892.dmitry.torokhov@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: H Hartley Sweeten <hartleys@visionengravers.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753493Ab0AGUmP@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:35127 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S1492768Ab0AGUmM (ORCPT
-        <rfc822;netdev@vger.kernel.org> + 1 other);
-        Thu, 7 Jan 2010 21:42:12 +0100
-In-Reply-To: <1262888625.10429.23.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1919 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752794Ab0AGUso (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jan 2010 15:48:44 -0500
+In-Reply-To: <201001071156.31892.dmitry.torokhov@gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Jan 2010, Joe Perches wrote:
+Nothing jumps to mind.  Let me see if I can repro this here.
 
-> On Mon, 2010-01-04 at 23:43 +0000, Maciej W. Rozycki wrote:
-> > The example below shows an address, and the sequence of bits or symbols 
-> > that would be transmitted when the address is used in the Source Address 
-> > or Destination Address fields on the MAC header.  The transmission line 
-> > shows the address bits in the order transmitted, from left to right.  For 
-> > IEEE 802 LANs these correspond to actual bits on the medium.  The FDDI 
-> > symbols line shows how the FDDI PHY sends the address bits as encoded 
-> > symbols.
-> > 
-> >         MSB:            35:7B:12:00:00:01
-> >         Canonical:      AC-DE-48-00-00-80
-> >         Transmission:   00110101 01111011 00010010 00000000 00000000 00000001
-> >         FDDI Symbols:   35 7B 12 00 00 01"
-> > 
-> > Please note that this address has its group bit clear.
-> > 
-> >  This notation is also defined in the "FDDI MEDIA ACCESS CONTROL-2 
-> > (MAC-2)" (X3T9/92-120) document although that book does not have a need 
-> > to use the MSB form and it's skipped.
+On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
+> Hi,
 > 
-> Adds 56 bytes to object size
+> Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latitude
+> D630, it discards most of the packages for some reason:
 > 
-> New:
-> $ size lib/vsprintf.o
->    text	   data	    bss	    dec	    hex	filename
->    8714	      0	      2	   8716	   220c	lib/vsprintf.o
-> old:
-> $ size lib/vsprintf.o
->    text	   data	    bss	    dec	    hex	filename
->    8658	      0	      2	   8660	   21d4	lib/vsprintf.o
+> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
+>      rx_octets: 35886
+>      rx_fragments: 0
+>      rx_ucast_packets: 9
+>      rx_mcast_packets: 93
+>      rx_bcast_packets: 237
+>      rx_fcs_errors: 0
+>      rx_align_errors: 0
+>      rx_xon_pause_rcvd: 0
+>      rx_xoff_pause_rcvd: 0
+>      rx_mac_ctrl_rcvd: 0
+>      rx_xoff_entered: 0
+>      rx_frame_too_long_errors: 0
+>      rx_jabbers: 0
+>      rx_undersize_packets: 0
+>      rx_in_length_errors: 0
+>      rx_out_length_errors: 0
+>      rx_64_or_less_octet_packets: 0
+>      rx_65_to_127_octet_packets: 0
+>      rx_128_to_255_octet_packets: 0
+>      rx_256_to_511_octet_packets: 0
+>      rx_512_to_1023_octet_packets: 0
+>      rx_1024_to_1522_octet_packets: 0
+>      rx_1523_to_2047_octet_packets: 0
+>      rx_2048_to_4095_octet_packets: 0
+>      rx_4096_to_8191_octet_packets: 0
+>      rx_8192_to_9022_octet_packets: 0
+>      rx_discards: 304
+>      rx_errors: 0
+>      rx_threshold_hit: 0
+> 
+> The above on last night pull from Linux (so 2.6.33+).
+> 
+> Everything works fine if I use wireless or another wired card (Realtek in 
+> cardbus slot):
+> 
+> [root@dtor-d630 ~]# lspci | grep -ri net
+> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+> RTL-8139/8139C/8139C+ (rev 10)
+> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M Gigabit 
+> Ethernet PCI Express (rev 02)
+> 0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] 
+> Network Connection (rev 02)
+> 
+> [root@dtor-d630 ~]# ethtool eth0
+> Settings for eth0:
+>         Supported ports: [ TP ]
+>         Supported link modes:   10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Half 1000baseT/Full
+>         Supports auto-negotiation: Yes
+>         Advertised link modes:  10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Half 1000baseT/Full
+>         Advertised auto-negotiation: Yes
+>         Speed: 1000Mb/s
+>         Duplex: Full
+>         Port: Twisted Pair
+>         PHYAD: 1
+>         Transceiver: internal
+>         Auto-negotiation: on
+>         Supports Wake-on: g
+>         Wake-on: g
+>         Current message level: 0x000000ff (255)
+>         Link detected: yes
+> 
+> Any ideas? Thanks!
+> 
+> -- 
+> Dmitry
+> 
 
- What's the gain?  I'd be rather conservative when taking everybody's 56 
-bytes for one or two drivers hardly anybody uses.  The format of MAC 
-addresses is unlikely to change, so I'd say the sources can live with 
-one or two places where the strings are formatted manually.  Even if the 
-drivers lose more than these 56 bytes.
-
-  Maciej
