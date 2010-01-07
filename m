@@ -1,95 +1,53 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: tg3 appears to be sick in 2.6.33
-Date: Thu, 7 Jan 2010 11:56:31 -0800
-Message-ID: <201001071156.31892.dmitry.torokhov@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Thu, 7 Jan 2010 21:22:35 +0100
+Message-ID: <20100107202235.GA3593@del.dom.local>
+References: <20100107074756.GB6258@ff.dom.local>
+ <4B459368.2000503@majjas.com>
+ <4B45F841.8030407@majjas.com>
+ <20100107180114.GB3088@del.dom.local>
+ <4B4625BD.3070202@majjas.com>
+ <20100107183545.GA3208@del.dom.local>
+ <4B462B3C.90506@majjas.com>
+ <20100107185040.GB3208@del.dom.local>
+ <20100107193607.GC3208@del.dom.local>
+ <4B463C2A.2090209@majjas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:51127 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753942Ab0AGT4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 14:56:43 -0500
-Received: by pwj9 with SMTP id 9so12183566pwj.21
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2010 11:56:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752605Ab0AGUWo@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B463C2A.2090209@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Jan 07, 2010 at 02:55:22PM -0500, Michael Breuer wrote:
+> On 1/7/2010 2:36 PM, Jarek Poplawski wrote:
+> >On Thu, Jan 07, 2010 at 07:50:40PM +0100, Jarek Poplawski wrote:
+> >>>Going to rerun with these patches and with and without MMAP. Will
+> >>>also retry both with jumbo frames if possible.
+> >>If MMAP then some "alternative" too. But first no MMAP.
+> >Another things IMHO worth to try: a sky2 module parameter
+> >"disable_msi=1", and CONFIG_DMAR off.
+> >
+> >Jarek P.
+> Ok - that'd be with or without MMAP enabled? (note that so-far,
+> without MMAP I'm not seeing any errors - throughput is running about
+> half what I was seeing with MMAP enabled (before crashing that is).
+> CPU is also way busier (also to be expected). One other observation
+> - I had been seeing lots of DNS errors - IPV6 related format errors
+> I really didn't think much of it as they were mostly .ru and seemed
+> spam-related, but now I don't see any. Haven't updated bind; doubt
+> the world has changed - so perhaps this is related to the network
+> issue.
 
-Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latitude
-D630, it discards most of the packages for some reason:
+MMAP enabled (with some "alternative" patch - to avoid known bugs)
+should give as earlier the answer if these changes matter. But first
+let's try longer (if possible) if this "no MMAP" could really heal
+your hardware.
 
-[root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
-     rx_octets: 35886
-     rx_fragments: 0
-     rx_ucast_packets: 9
-     rx_mcast_packets: 93
-     rx_bcast_packets: 237
-     rx_fcs_errors: 0
-     rx_align_errors: 0
-     rx_xon_pause_rcvd: 0
-     rx_xoff_pause_rcvd: 0
-     rx_mac_ctrl_rcvd: 0
-     rx_xoff_entered: 0
-     rx_frame_too_long_errors: 0
-     rx_jabbers: 0
-     rx_undersize_packets: 0
-     rx_in_length_errors: 0
-     rx_out_length_errors: 0
-     rx_64_or_less_octet_packets: 0
-     rx_65_to_127_octet_packets: 0
-     rx_128_to_255_octet_packets: 0
-     rx_256_to_511_octet_packets: 0
-     rx_512_to_1023_octet_packets: 0
-     rx_1024_to_1522_octet_packets: 0
-     rx_1523_to_2047_octet_packets: 0
-     rx_2048_to_4095_octet_packets: 0
-     rx_4096_to_8191_octet_packets: 0
-     rx_8192_to_9022_octet_packets: 0
-     rx_discards: 304
-     rx_errors: 0
-     rx_threshold_hit: 0
-
-The above on last night pull from Linux (so 2.6.33+).
-
-Everything works fine if I use wireless or another wired card (Realtek in 
-cardbus slot):
-
-[root@dtor-d630 ~]# lspci | grep -ri net
-04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
-RTL-8139/8139C/8139C+ (rev 10)
-09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M Gigabit 
-Ethernet PCI Express (rev 02)
-0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] 
-Network Connection (rev 02)
-
-[root@dtor-d630 ~]# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: g
-        Wake-on: g
-        Current message level: 0x000000ff (255)
-        Link detected: yes
-
-Any ideas? Thanks!
-
--- 
-Dmitry
+Jarek P.
