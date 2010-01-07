@@ -1,58 +1,56 @@
-From: "Benjamin Li" <benli@broadcom.com>
-Subject: [PATCH net-next] bnx2: Flush the register writes which setup
- the MSI-X table
-Date: Wed, 6 Jan 2010 16:07:23 -0800
-Message-ID: <1262822843-14700-1-git-send-email-benli@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BSD 4.2 style TCP keepalives
+Date: Wed, 06 Jan 2010 16:14:54 -0800 (PST)
+Message-ID: <20100106.161454.193705075.davem@davemloft.net>
+References: <20100105.163911.10233438.davem@davemloft.net>
+	<20100106.002328.141253811.davem@davemloft.net>
+	<20100106.150453.186399201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Benjamin Li" <benli@broadcom.com>,
-	"Kalyan Ram Chintalapati" <kalyanc@vmware.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kalyan Ram Chintalapati" <kalyanc@vmware.com>,
-	"Michael Chan" <mchan@broadcom.com>
+Cc: nhorman@tuxdriver.com, ilpo.jarvinen@helsinki.fi
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3867 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932834Ab0AGAHd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 19:07:33 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56821
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750832Ab0AGAOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 19:14:48 -0500
+In-Reply-To: <20100106.150453.186399201.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MSI-X table size needs to be properly set before pci_enable_msix()
-is called.  But on certain machines, the writes are delayed and the
-MSI-X table size is incorrectly read.  By reading the
-BNX2_PCI_MSIX_CONTROL register, the writes are flushed and now
-ensure that the MSI-X table is set correctly before MSI-X
-is enable on the device.
+From: David Miller <davem@davemloft.net>
+Date: Wed, 06 Jan 2010 15:04:53 -0800 (PST)
 
-This patch was originally diagnosed and authored by
-Kalyan Ram Chintalapati <kalyanc@vmware.com>.
+> Someone with access to a system exhibiting this will probably need to
+> do some diagnostics to figure out what's going on.
 
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Kalyan Ram Chintalapati <kalyanc@vmware.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+To make this easier to diagnose, I cooked up a hack patch that
+makes Linux emit BSD 4.2 style keepalives, and indeed a quick
+test shows that we do indeed not ACK these for some reason:
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 65df1de..c7289b5 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6145,6 +6145,10 @@ bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
- 	REG_WR(bp, BNX2_PCI_MSIX_TBL_OFF_BIR, BNX2_PCI_GRC_WINDOW2_BASE);
- 	REG_WR(bp, BNX2_PCI_MSIX_PBA_OFF_BIT, BNX2_PCI_GRC_WINDOW3_BASE);
- 
-+	/*  Need to flush the previous three writes to ensure MSI-X 
-+	 *  is setup properly */
-+	REG_RD(bp, BNX2_PCI_MSIX_CONTROL);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 383ce23..e0db52e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2727,6 +2727,19 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent)
+ 	 * send it.
+ 	 */
+ 	tcp_init_nondata_skb(skb, tp->snd_una - !urgent, TCPCB_FLAG_ACK);
++#if 1
++	/* Construct BSD 4.2 style zero-window probe with one
++	 * out-of-window garbage data byte.
++	 *
++	 * XXX this does the wrong thing when 'urgent' is true
++	 */
++	{
++		unsigned char *garbage_byte = skb_put(skb, 1);
 +
- 	for (i = 0; i < BNX2_MAX_MSIX_VEC; i++) {
- 		msix_ent[i].entry = i;
- 		msix_ent[i].vector = 0;
--- 
-1.6.1.2
-
++		*garbage_byte = 0xff;
++		TCP_SKB_CB(skb)->end_seq++;
++	}
++#endif
+ 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
+ 	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
+ }
 
