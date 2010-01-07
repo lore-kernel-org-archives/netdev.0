@@ -1,142 +1,83 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] net: cdc_ether.c: Add SE J105i to device whitelist
-Date: Wed, 06 Jan 2010 22:38:41 -0800
-Message-ID: <1262846321.3608.76.camel@localhost.localdomain>
-References: <1261601807-8385-1-git-send-email-tloo@saltstorm.net>
-	 <1261604906.609.106.camel@localhost.localdomain>
-	 <878wcdx6tt.fsf@nemi.mork.no>
-	 <1262639441.16627.322.camel@localhost.localdomain>
-	 <87iqbhuhre.fsf@nemi.mork.no>
-	 <1262691113.16627.361.camel@localhost.localdomain>
-	 <87eim4vhvh.fsf@nemi.mork.no>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection (v3)
+Date: Thu, 7 Jan 2010 02:01:22 +0100
+Message-ID: <20100107010122.GA5872@electric-eye.fr.zoreil.com>
+References: <20091228194834.GA18422@hmsreliant.think-freely.org>
+ <20100105135732.GA24245@hmsreliant.think-freely.org>
+ <4B4357A9.5010507@gmail.com>
+ <20100105.124040.192660261.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751006Ab0AGGjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 01:39:01 -0500
-In-Reply-To: <87eim4vhvh.fsf@nemi.mork.no>
+Received: from 49.119.116-78.rev.gaoland.net ([78.116.119.49]:33313 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932259Ab0AGHU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 02:20:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20100105.124040.192660261.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-05 at 13:46 +0100, Bj=C3=B8rn Mork wrote:
-> Marcel Holtmann <marcel@holtmann.org> writes:
->=20
-> >> I believe the WWAN cards also can be treated like every other USB
-> >> Ethernet device, as far as the kernel is concerned.  Any differenc=
-es are
-> >> easily resolved by userspace applications.=20
-> >
-> > and this is where you are totally wrong. It is not easy for userspa=
-ce to
-> > identify the type of an interface and resolve things.
->=20
-> No?  Well, I probably have a too limited view of this, but I found it
-> easy enough to create a pre-up/post-down script which checked whether
-> the network interface being brought up/down belongs to a supported WW=
-AN
-> card and then do the necessary magic on one of the related cdc-wdm
-> channels. This was implemented by poking around in the sysfs.  I fail=
- to
-> see why one needs a special network device name to do that.
->=20
-> But it would have been useful to have the CDC MDLM header exported
-> somewhere in sysfs.  That's more of a generic usb/cdc thing though, I
-> guess.=20
->=20
-> > Take WiFi for example. We need to actually connect to a network bef=
-ore
-> > these are useful. Same applies for 3G cards (aka WWAN) devices. You=
- have
-> > to register with the network, attach to GPRS etc. before any of thi=
-s
-> > becomes really useful. If the the USB network interface does automa=
-tic
-> > connect and does tethering then it is not a WWAN device. Then it is=
- an
-> > Ethernet device.
->=20
-> I can live with that defintion of the difference between a WWAN/3G
-> device (wwan%d) and a USB Ethernet device (usb%d).
->=20
-> But I still don't see why this doesn't make a phone (supporting the s=
-ame
-> commands as a 3G card) a WWAN device.  A phone can't do an automatic
-> connection any more than a WWAN card can.  Both *must* be configured
-> with at least one PDP context, register with the network, attach to G=
-PRS
-> etc.
->=20
-> Yes, some phones can be configured to auto-connect using it's own
-> UI. But there's really nothing preventing anyone from implementing th=
-e
-> same feature for a WWAN card.  What would that make that card then?
->=20
-> > And that you can use your phone via a TTY and configure a second PD=
-P
-> > context and then run PPP has nothing to do with its network device.
->=20
-> I was talking about the network device. =20
->=20
-> My experience with these devices is limited to the Ericsson F3507g, b=
-ut
-> I assume that many of them will behave identically.  It allows you to
+On Tue, Jan 05, 2010 at 12:40:40PM -0800, David Miller wrote:
+[...]
+> We can fix this without making things so slow, try harder...
 
-Haha.  No.  Never assume that two WWAN devices (or even two phones) wil=
-l
-behave identically.  It's almost never the case.
+I have reproduced something which seems rather close to the behavior
+described in the ccc paper (I have a couple of old PCI rev 10 8169
+chipset based network cards).
 
-> define multiple PDP contexts and select which one you connect with,
-> either you use PPP or the network device.  The list of defined contex=
-ts
-> are in fact shared.
+The setup includes two r8169 face-to-face. The target has an usual
+MTU. I tweaked its skb allocation function to include 4000 bytes
+of space instead of the usual 1500 something. It is grossly poisoned
+to estimate the size of the actual DMA. The RX descriptor has no
+knowledge of the extra buffer space above 1500 bytes.
 
-Here's the difference:
+The sender has a bigger MTU (say 6000) and it sends increasingly
+sized ping. No rocket science so far.
 
-=463507g: requires AT command setup before cdc-ether port is usable
-SE j105i: does not require AT command setup before port is usable
+The result looks like this (so far I checked only one descriptor at
+a time when a packet is received):
 
-Same on my TM-506; you can simply run DHCP on the 'usb0' port and it
-works, because the phone is pretending to be a usb-ethernet device and
-transparently bridge between the ethernet and the cellular network.
-That's simply not the case with the F3507g or any other WWAN card.
+entry 000 opts1 0x3281c040 opts2 0x00000000 size 066
+entry 001 opts1 0x3486c5ec opts2 0x00000000 size 1518
+entry 002 opts1 0x3481c040 opts2 0x00000000 size 066
+entry 003 opts1 0x3486c5ed opts2 0x00000000 size 1518
+entry 004 opts1 0x3486c5ee opts2 0x00000000 size 1518
+entry 005 opts1 0x3481c040 opts2 0x00000000 size 066
+entry 006 opts1 0x3486c5ef opts2 0x00000000 size 1522
+entry 007 opts1 0x3481c040 opts2 0x00000000 size 066
+entry 008 opts1 0x3486c5f0 opts2 0x00000000 size 1522 <- first test packet
+entry 009 opts1 0x3486c5f1 opts2 0x00000000 size 1522
+entry 010 opts1 0x3486c5f2 opts2 0x00000000 size 1522
+entry 011 opts1 0x3486c5f3 opts2 0x00000000 size 1526
+entry 012 opts1 0x3486c5f4 opts2 0x00000000 size 1526
+entry 013 opts1 0x3486c5f5 opts2 0x00000000 size 1526 <- ... so far so good
+entry 014 opts1 0x3486c5f6 opts2 0x00000000 size 1526
+entry 015 opts1 0x3486c5f7 opts2 0x00000000 size 1530
+entry 016 opts1 0x3486c5f8 opts2 0x00000000 size 1530
+entry 017 opts1 0x3486c5f9 opts2 0x00000000 size 1530
+entry 018 opts1 0x3486c5fa opts2 0x00000000 size 1530
+entry 019 opts1 0x3486c5fb opts2 0x00000000 size 1534
+entry 020 opts1 0x3486c5fc opts2 0x00000000 size 1534
+entry 021 opts1 0x3486c5fd opts2 0x00000000 size 1534
+entry 022 opts1 0x3486c5fe opts2 0x00000000 size 1534
+entry 023 opts1 0x3486c5ff opts2 0x00000000 size 1536
+entry 024 opts1 0x20803ff0 opts2 0x00000000 size 1536 <- problem starts here.
+entry 025 opts1 0x00803ff0 opts2 0x00000000 size 1536    The lines below are
+entry 026 opts1 0x00803ff0 opts2 0x00000000 size 1536    not meaningful.
+entry 027 opts1 0x00803ff0 opts2 0x00000000 size 1536
 
-Phones are fundamentally different than WWAN cards and shouldn't be
-treated like one, at least at this time.
+The driver will mess things up because it needs the desc->opts1.RxRes bit
+to be set before it claims that the packet is broken. Since this condition
+is not fulfilled when opts1 = 0x20803ff0, the problem goes unnoticed and
+it can be further exploited.
 
-Dan
+AFAIUI, if the driver does not lose sync (to use the paper's words), i.e.
+if it notices the condition above and stops / resets the chipset, there
+is not much to exploit.
 
-> >> So I'm still trying to figure out what makes a WWAN device special=
- wrt
-> >> the kernel.  Thanks for explaining.
-> >
-> > It has nothing to do with the kernel. It classifies the network dev=
-ice
-> > type for userspace. Like you classify /dev/sda as "disk" and /dev/s=
-da1
-> > as "partition".
-> >
-> > So please modify your patch as outlined in my first response. It sh=
-ould
-> > take you only like 5 minutes to do so. Then your phone will show up=
- and
-> > gets a proper classification.
->=20
-> Sorry for the confusion, but the patch was not mine.  I just stumbled
-> across the discussion and first wondered why the heck the mbm_info st=
-uff
-> was added (hadn't noticed before) and then why the heck this device
-> should be treated differenctly if it shows up as a similar one.
->=20
->=20
->=20
-> Bj=C3=B8rn
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+-- 
+Ueimor
