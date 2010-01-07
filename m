@@ -1,7 +1,7 @@
 From: Michael Breuer <mbreuer@majjas.com>
 Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 07 Jan 2010 00:10:24 -0500
-Message-ID: <4B456CC0.1000506@majjas.com>
+Date: Thu, 07 Jan 2010 00:32:05 -0500
+Message-ID: <4B4571D5.30002@majjas.com>
 References: <20100105230746.GA6612@del.dom.local> <4B43F72C.9090004@majjas.com>
  <20100106072208.GA6711@ff.dom.local> <4B44E952.5000804@majjas.com>
  <20100106131044.25b4e500@nehalam> <4B451C31.3000309@majjas.com>
@@ -15,7 +15,7 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	flyboy@gmail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751775Ab0AGFLM@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752986Ab0AGFcn@vger.kernel.org>
 In-reply-to: <20100106205343.5460d658@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -52,76 +52,16 @@ On 1/6/2010 11:53 PM, Stephen Hemminger wrote:
 > vendors need to tweak PCI timing in firmware/BIOS.  It seems the firmware on this
 > chip is just a bunch of register setups done on power on.
 >    
-So at this point, things are working as mentioned - but really slow... 
-at least an order of magnitude slower than with the other set of 
-patches. The other set also generated errors and was not stable :( But, 
-that set worked with mtu=9000, this set doesn't seem to work with 
-anything over 1500. The slowdown may also be (based on earlier testing) 
-attributable to Jarek's alternative #2 patch.  As to the chip, I *think* 
-we have the same chip - I'm including lspci -vv - perhaps there is 
-something different.
+Also - I'm seeing a huge number of dropped packets  (RX) 200-300/second. 
+Probably why this is so slow.
 
-06:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E 
-Gigabit Ethernet Controller (rev 14)
-         Subsystem: Giga-byte Technology Device e000
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR+ FastB2B- DisINTx+
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-         Latency: 0, Cache Line Size: 256 bytes
-         Interrupt: pin A routed to IRQ 58
-         Region 0: Memory at fbdfc000 (64-bit, non-prefetchable) [size=16K]
-         Region 2: I/O ports at d800 [size=256]
-         Expansion ROM at fbdc0000 [disabled] [size=128K]
-         Capabilities: [48] Power Management version 3
-                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA 
-PME(D0+,D1+,D2+,D3hot+,D3cold+)
-                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-         Capabilities: [50] Vital Product Data
-                 Product Name: Marvell Yukon 88E8056 Gigabit Ethernet 
-Controller
-                 Read-only fields:
-                         [PN] Part number: Yukon 88E8056
-                         [EC] Engineering changes: Rev. 1.4
-                         [MN] Manufacture ID: 4d 61 72 76 65 6c 6c
-                         [SN] Serial number: AbCdEfG001C3B
-                         [CP] Extended capability: 01 10 cc 03
-                         [RV] Reserved: checksum good, 9 byte(s) reserved
-                 Read/write fields:
-                         [RW] Read-write area: 121 byte(s) free
-                 End
-         Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                 Address: 00000000fee00458  Data: 0000
-         Capabilities: [e0] Express (v1) Legacy Endpoint, MSI 00
-                 DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s 
-unlimited, L1 unlimited
-                         ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal- 
-Unsupported-
-                         RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-                         MaxPayload 128 bytes, MaxReadReq 512 bytes
-                 DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ 
-AuxPwr+ TransPend-
-                 LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, 
-Latency L0 <256ns, L1 unlimited
-                         ClockPM+ Surprise- LLActRep- BwNot-
-                 LnkCtl: ASPM Disabled; RCB 128 bytes Disabled- Retrain- 
-CommClk+
-                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                 LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
-DLActive- BWMgmt- ABWMgmt-
-         Capabilities: [100] Advanced Error Reporting
-                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
-NonFatalErr+
-                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
-NonFatalErr+
-                 AERCap: First Error Pointer: 1f, GenCap- CGenEn- 
-ChkCap- ChkEn-
-         Kernel driver in use: sky2
-         Kernel modules: sky2
+Current ifconfig:
+eth0      Link encap:Ethernet  HWaddr 00:26:18:00:1C:3B
+           inet addr:10.0.0.1  Bcast:10.0.0.255  Mask:255.255.255.0
+           inet6 addr: fe80::226:18ff:fe00:1c3b/64 Scope:Link
+           UP BROADCAST RUNNING ALLMULTI MULTICAST  MTU:1500  Metric:1
+           RX packets:26647536 errors:0 dropped:517884 overruns:0 frame:0
+           TX packets:12112780 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:38960063319 (36.2 GiB)  TX bytes:1889879762 (1.7 GiB)
+           Interrupt:18
