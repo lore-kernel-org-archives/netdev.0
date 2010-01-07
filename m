@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: Make it easier to parse /proc/net/dev
- contents.
-Date: Thu, 07 Jan 2010 00:59:29 -0800 (PST)
-Message-ID: <20100107.005929.125556875.davem@davemloft.net>
-References: <20100105155052.13309.1197.stgit@firesoul.comx.local>
-	<4B44263D.20604@gmail.com>
+Subject: Re: [PATCH] netpoll: allow execution of multiple rx_hooks per
+ interface
+Date: Thu, 07 Jan 2010 01:02:01 -0800 (PST)
+Message-ID: <20100107.010201.51693251.davem@davemloft.net>
+References: <4B44F895.9080205@gmail.com>
+	<1262836445.29868.227.camel@calx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hawk@comx.dk, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: danborkmann@googlemail.com, linux-kernel@vger.kernel.org,
+	jmoyer@redhat.com, netdev@vger.kernel.org, netdev@oss.sgi.com
+To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47147
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47154
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932457Ab0AGI7V convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 03:59:21 -0500
-In-Reply-To: <4B44263D.20604@gmail.com>
+	by vger.kernel.org with ESMTP id S932597Ab0AGJBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:01:54 -0500
+In-Reply-To: <1262836445.29868.227.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 06 Jan 2010 06:57:17 +0100
+From: Matt Mackall <mpm@selenic.com>
+Date: Wed, 06 Jan 2010 21:54:05 -0600
 
-> Le 05/01/2010 16:50, Jesper Dangaard Brouer a =E9crit :
->> The contents of /proc/net/dev is annoying to parse, because
->> it changes whether there is a space after the "ethX:" or not.
->> It depends upon the size of the "Receive bytes" counter,
->> if the number is below 7 digits, then there is whitespaces
->> else if the number is 8 digits or above there is no space
->> between the ":" and the number.
->>=20
->> This patch changes the output to assure there is always a space
->> between the ":" and the number.  Given that all existing userspace
->> application already need to handle the whitespaces, I see
->> no breakage of existing tools.
->>=20
->> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Please inline patches so they can be reviewed easily in reply.
+> 
+> 
+> -       struct netpoll *np = npi->rx_np;
+> +       struct netpoll **np = &npi->rx_np;
+>  
+> -       if (!np)
+> +       if (!(*np))
+> 
+> This makes everything horrible. Can you avoid the double indirection?
+> Using a list head might be a good answer.
+> 
 
-Applied.
+Agreed on all counts.
