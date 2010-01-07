@@ -1,31 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8139too: make PCI device ids constant
-Date: Thu, 07 Jan 2010 00:33:51 -0800 (PST)
-Message-ID: <20100107.003351.257169688.davem@davemloft.net>
-References: <4B4273A6.4020102@freemail.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] fix bonding: allow arp_ip_targets on separate
+ vlans to use arp validation
+Date: Thu, 07 Jan 2010 09:37:58 +0100
+Message-ID: <4B459D66.5060307@gmail.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com> <20091120154046.67252d23@nehalam> <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com> <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com> <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com> <4B44FC2B.4090505@gmail.com> <20100106225637.GC6490@gospo.rdu.redhat.com> <13683.1262822029@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, julia@diku.dk,
-	cocci@diku.dk
-To: nm127@freemail.hu
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51240
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932628Ab0AGIdp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 03:33:45 -0500
-In-Reply-To: <4B4273A6.4020102@freemail.hu>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57049 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345Ab0AGIiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:38:13 -0500
+In-Reply-To: <13683.1262822029@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: N=E9meth M=E1rton <nm127@freemail.hu>
-Date: Tue, 05 Jan 2010 00:03:02 +0100
-
-> From: M=E1rton N=E9meth <nm127@freemail.hu>
+Le 07/01/2010 00:53, Jay Vosburgh a =E9crit :
+> Andy Gospodarek <andy@greyhouse.net> wrote:
 >=20
-> The id_table field of the struct pci_driver is constant in <linux/pci=
-=2Eh>
-> so it is worth to make pci_device_id also constant.
+>> This patch fixes up a problem with found with commit
+>> 1f3c8804acba841b5573b953f5560d2683d2db0d.  The original change
+>> overloaded null_or_orig, but doing that prevented any packet handler=
+s
+>> that were not tied to a specific device (i.e. ptype->dev =3D=3D NULL=
+) from
+>> ever receiving any frames.
+>>
+>> The null_or_orig variable cannot be overloaded, and must be kept as =
+NULL
+>> to prevent the frame from being ignored by packet handlers designed =
+to
+>> accept frames on any interface.
+>>
+>> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>=20
+> 	Tested, and it appears to work fine.  Tcpdump also appears to
+> behave rationally.
+>=20
+> 	-J
+>=20
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Applied to net-next-2.6, thank you.
+Tested as well on my machine, I confirm this fixes the problem I had.
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Thanks guys !
