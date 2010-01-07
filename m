@@ -1,30 +1,19 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Phonet: reject unsupported sendmsg/recvmsg flags
-Date: Thu, 07 Jan 2010 00:25:22 -0800 (PST)
-Message-ID: <20100107.002522.82709179.davem@davemloft.net>
-References: <1262606569-3021-1-git-send-email-remi@remlab.net>
-	<1262606569-3021-2-git-send-email-remi@remlab.net>
-	<1262606569-3021-3-git-send-email-remi@remlab.net>
+Subject: Re: [1/1] claw: use "claw" as root device name
+Date: Thu, 07 Jan 2010 00:27:29 -0800 (PST)
+Message-ID: <20100107.002729.243017526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: remi@remlab.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ursula.braun@de.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58203
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58208
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932422Ab0AGIZO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 03:25:14 -0500
-In-Reply-To: <1262606569-3021-3-git-send-email-remi@remlab.net>
+	by vger.kernel.org with ESMTP id S1755343Ab0AGI1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 03:27:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
-Date: Mon,  4 Jan 2010 14:02:49 +0200
 
-> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-
-Applied to net-next-2.6
+Applied to net-2.6, thanks.
