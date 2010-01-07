@@ -1,58 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] dmfe/tulip: Let dmfe handle DM910x except for SPARC
- on-board chips
-Date: Thu, 07 Jan 2010 01:06:51 -0800 (PST)
-Message-ID: <20100107.010651.18296756.davem@davemloft.net>
-References: <1262660588.26813.24.camel@localhost>
-	<20100105165817.GA13015@lackof.org>
-	<20100107.005125.202622527.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, brandon@ifup.org, grundler@google.com,
-	tobias@ringis.se, kyle@mcmartin.ca, netdev@vger.kernel.org
-To: grundler@parisc-linux.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH 06/13] stmmac: do not call fix_mac_speed if NULL
+Date: Thu,  7 Jan 2010 10:07:16 +0100
+Message-ID: <1262855243-6762-6-git-send-email-peppe.cavallaro@st.com>
+References: <1262855243-6762-1-git-send-email-peppe.cavallaro@st.com>
+ <1262855243-6762-2-git-send-email-peppe.cavallaro@st.com>
+ <1262855243-6762-3-git-send-email-peppe.cavallaro@st.com>
+ <1262855243-6762-4-git-send-email-peppe.cavallaro@st.com>
+ <1262855243-6762-5-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41048
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755821Ab0AGJGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:06:43 -0500
-In-Reply-To: <20100107.005125.202622527.davem@davemloft.net>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:42553 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756329Ab0AGJHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 04:07:30 -0500
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3D00113C
+	for <netdev@vger.kernel.org>; Thu,  7 Jan 2010 09:07:25 +0000 (GMT)
+Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C0EFDBE2
+	for <netdev@vger.kernel.org>; Thu,  7 Jan 2010 09:07:24 +0000 (GMT)
+In-Reply-To: <1262855243-6762-5-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 07 Jan 2010 00:51:25 -0800 (PST)
+On some platforms, fix_mac_speed is used for
+configuring some sysconf registers according
+to the working speed.
+This patch fixes the fix_mac_speed invocation
+that cannot be done if it is a NULL pointer.
 
-> From: Grant Grundler <grundler@parisc-linux.org>
-> Date: Tue, 5 Jan 2010 09:58:17 -0700
-> 
->> On Tue, Jan 05, 2010 at 03:03:08AM +0000, Ben Hutchings wrote:
->>> The Davicom DM9100 and DM9102 chips are used on the motherboards of
->>> some SPARC systems (supported by the tulip driver) and also in PCI
->>> expansion cards (supported by the dmfe driver).  There is no
->>> difference in the PCI device ids for the two different configurations,
->>> so these drivers both claim the device ids.  However, it is possible
->>> to distinguish the two configurations by the presence of Open Firmware
->>> properties for them, so we do that.
->>> 
->>> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
->> 
->> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-> 
-> Applied, thanks everyone.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/stmmac/stmmac_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Sorry, had to revert, doesn't build:
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index a02006d..82ebbc0 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -258,8 +258,9 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 				} else {
+ 					ctrl &= ~priv->mac_type->hw.link.port;
+ 				}
+-				priv->fix_mac_speed(priv->bsp_priv,
+-						    phydev->speed);
++				if (likely(priv->fix_mac_speed))
++					priv->fix_mac_speed(priv->bsp_priv,
++							    phydev->speed);
+ 				break;
+ 			default:
+ 				if (netif_msg_link(priv))
+-- 
+1.6.0.4
 
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  SYMLINK include/asm -> include/asm-sparc
-  CALL    scripts/checksyscalls.sh
-  CC [M]  drivers/net/tulip/dmfe.o
-drivers/net/tulip/dmfe.c: In function 'dmfe_init_one':
-drivers/net/tulip/dmfe.c:386: warning: suggest parentheses around && within ||
-drivers/net/tulip/dmfe.c:389: error: implicit declaration of function 'of_get_property'
-make[1]: *** [drivers/net/tulip/dmfe.o] Error 1
-make: *** [drivers/net/tulip/dmfe.o] Error 2
-
-Please fix this up and resubmit, thanks.
