@@ -1,62 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
- (v3)
-Date: Wed, 06 Jan 2010 17:15:14 -0800 (PST)
-Message-ID: <20100106.171514.104051841.davem@davemloft.net>
-References: <4B4357A9.5010507@gmail.com>
-	<20100105.124040.192660261.davem@davemloft.net>
-	<20100107010122.GA5872@electric-eye.fr.zoreil.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the wireless-current
+ tree
+Date: Thu, 7 Jan 2010 13:12:34 +1100
+Message-ID: <20100107131234.4c340d1c.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756519Ab0AGBPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 20:15:09 -0500
-In-Reply-To: <20100107010122.GA5872@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jouni Malinen <jouni.malinen@atheros.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 7 Jan 2010 02:01:22 +0100
+--Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> entry 024 opts1 0x20803ff0 opts2 0x00000000 size 1536 <- problem starts here.
-> entry 025 opts1 0x00803ff0 opts2 0x00000000 size 1536    The lines below are
-> entry 026 opts1 0x00803ff0 opts2 0x00000000 size 1536    not meaningful.
-> entry 027 opts1 0x00803ff0 opts2 0x00000000 size 1536
-> 
-> The driver will mess things up because it needs the desc->opts1.RxRes bit
-> to be set before it claims that the packet is broken. Since this condition
-> is not fulfilled when opts1 = 0x20803ff0, the problem goes unnoticed and
-> it can be further exploited.
-> 
-> AFAIUI, if the driver does not lose sync (to use the paper's words), i.e.
-> if it notices the condition above and stops / resets the chipset, there
-> is not much to exploit.
+Hi all,
 
-Thanks for doing this test.
+Today's linux-next merge of the net tree got a conflict in
+net/mac80211/scan.c between commit
+8a5b33f55452c226aa0e47d737e541985ff10e16 ("Revert "mac80211: replace
+netif_tx_{start,stop,wake}_all_queues"") from the wireless-current tree
+and commit b203ffc3a447eb8d9e6120b783ddee081b143061 ("mac80211:
+Generalize off-channel operation helpers from scan code") from the net
+tree.
 
-Also note the FirstFrag and LastFrag bits.  Here we see FirstFrag set,
-and this indicates a fragmented frame.
+I used the version from the net tree (though I suspect that it may not be
+completely correct).  I assume that this will be fixed up shortly.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-The fix seems to be to simply check the error bits unconditionally, or
-alternatively validate the FirstFrag and LastFrag bits
-unconditionally.
+--Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy
+Content-Type: application/pgp-signature
 
-I don't even think we need to reset the chip, just do what the code
-does now and recycle the buffer back to the chip as we currently do
-when RxRes is set.  We can keep a state bit around, showing that we
-saw the beginning of a fragmented frame, and we recycle buffers back
-to the chip when in state state until we see LastFrag.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-That should work, right?
+iEYEARECAAYFAktFQxIACgkQjjKRsyhoI8wbWwCggaXr8DrVKzJwu6P5XPsBasJD
+ZR0AnR1qPiE/lKdeYVQW+YdJB1v4AOS1
+=2TfM
+-----END PGP SIGNATURE-----
 
-In your trace, we're merely seeing the >1536 frame being chopped
-into a fragmented frame by the device.  The first one has FirstFrag
-set and the remaining (that you've shown) have neither bit set.
-
-Did you eventually get a descriptor with LastFrag (bit 28) set?
+--Signature=_Thu__7_Jan_2010_13_12_34_+1100_ktaER8VFFQYl8OIy--
