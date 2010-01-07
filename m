@@ -1,43 +1,57 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 7 Jan 2010 07:47:56 +0000
-Message-ID: <20100107074756.GB6258@ff.dom.local>
-References: <20100106072208.GA6711@ff.dom.local> <4B44E952.5000804@majjas.com> <20100106131044.25b4e500@nehalam> <4B451C31.3000309@majjas.com> <4B454A16.3030909@majjas.com> <4B455C62.6030504@majjas.com> <20100106205343.5460d658@nehalam> <4B4571D5.30002@majjas.com> <4B457711.1040008@majjas.com> <4B458B36.6050509@majjas.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: BSD 4.2 style TCP keepalives
+Date: Thu, 7 Jan 2010 09:55:23 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1001070954240.3417@melkinpaasi.cs.helsinki.fi>
+References: <20100106.002328.141253811.davem@davemloft.net> <20100106.150453.186399201.davem@davemloft.net> <alpine.DEB.2.00.1001070231540.26362@melkinpaasi.cs.helsinki.fi> <20100106.165933.226786062.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756234Ab0AGHsM@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B458B36.6050509@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696230645-861915836-1262850924=:3417"
+Cc: Netdev <netdev@vger.kernel.org>, nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47833 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756190Ab0AGHzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 02:55:25 -0500
+In-Reply-To: <20100106.165933.226786062.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2010 at 02:20:22AM -0500, Michael Breuer wrote:
-> ...
-> Reapplied a couple of earlier patches - still can't do jumbo frames, but  
-> the rx errors are gone and speed has improved. Too early to assure that  
-> it's stable.
->
-> Patches that seem to fix the rx drops (all from Stephen):
-> 1) Patch change to tx_init
-> 2) Patch to lock netif_device_detach
-> 3) Patch to sky2_tx_complete to add netif_device_present test
-> Also in the mix: Jarek's alternative 2
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-BTW, the main difference between alt. 1 and 2 is error notification:
-alternative 2 doesn't hide some (most) of drops, so, dependending on
-app, there might be more and faster retransmits. (I don't know what
-apps used by you (other than dhcp) can depend so much on this.)
+---696230645-861915836-1262850924=:3417
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
->
-> With this set and mtu=1500 all seems good - decent if not stellar  
-> throughput; no logged errors; no reported packet loss. As before, will  
-> leave running and see if anything falls apart.
+On Wed, 6 Jan 2010, David Miller wrote:
 
-Good news!
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Thu, 7 Jan 2010 02:34:51 +0200 (EET)
+> 
+> > On Wed, 6 Jan 2010, David Miller wrote:
+> > 
+> >> 3) tcp_data_queue() should make it to, and hit, this conditional:
+> >> 
+> >> 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
+> >> 
+> >>    which will schedule an ACK the same exact way we would if
+> >>    tcp_sequence() rejected the sequence range.
+> >> 
+> >> So it's a mystery why we aren't responding to Windows 2000's
+> >> BSD 4.2 style zero window probes.
+> >> 
+> >> Can someone please validate my analysis?
+> > 
+> > In 3) I don't see why we'd hit that one as peer's snd_una+1 would be 
+> > larger than rcv_nxt.
+> 
+> Peer constructs keepalive packet using sequence [snd.una-1,snd.una],
+> both of which are <= rcv_nxt
 
-Jarek P.
+Right, I later realized that there was this !urgent but was already too 
+much heading to zzz to correct it.
+
+
+-- 
+ i.
+---696230645-861915836-1262850924=:3417--
