@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BSD 4.2 style TCP keepalives
-Date: Wed, 06 Jan 2010 16:59:33 -0800 (PST)
-Message-ID: <20100106.165933.226786062.davem@davemloft.net>
-References: <20100106.002328.141253811.davem@davemloft.net>
-	<20100106.150453.186399201.davem@davemloft.net>
-	<alpine.DEB.2.00.1001070231540.26362@melkinpaasi.cs.helsinki.fi>
+Subject: Re: [PATCH 2/3] Staging: Octeon Ethernet: Clean up and convert to
+ NAPI.
+Date: Wed, 06 Jan 2010 17:01:38 -0800 (PST)
+Message-ID: <20100106.170138.71108684.davem@davemloft.net>
+References: <4B4530F3.1070701@caviumnetworks.com>
+	<1262825836-9457-2-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: ddaney@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38557
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38565
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932814Ab0AGA71 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jan 2010 19:59:27 -0500
-In-Reply-To: <alpine.DEB.2.00.1001070231540.26362@melkinpaasi.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1752243Ab0AGBBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jan 2010 20:01:34 -0500
+In-Reply-To: <1262825836-9457-2-git-send-email-ddaney@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 7 Jan 2010 02:34:51 +0200 (EET)
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Wed,  6 Jan 2010 16:57:15 -0800
 
-> On Wed, 6 Jan 2010, David Miller wrote:
->=20
->> 3) tcp_data_queue() should make it to, and hit, this conditional:
->>=20
->> 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
->>=20
->>    which will schedule an ACK the same exact way we would if
->>    tcp_sequence() rejected the sequence range.
->>=20
->> So it's a mystery why we aren't responding to Windows 2000's
->> BSD 4.2 style zero window probes.
->>=20
->> Can someone please validate my analysis?
->=20
-> In 3) I don't see why we'd hit that one as peer's snd_una+1 would be=20
-> larger than rcv_nxt.
+> Convert the driver to be a reasonably well behaved NAPI citizen.  Also
+> clean up memory allocation and tx buffer accounding code.  Remove some
+> configuration #defines and other unused code that are not applicable
+> to the in-tree driver.
+> 
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
 
-Peer constructs keepalive packet using sequence [snd.una-1,snd.una],
-both of which are <=3D rcv_nxt
+Please seperate the cleanups and conversion to NAPI into seperate
+patches.
+
+Doing both at the same time makes your patch impossible to review.
