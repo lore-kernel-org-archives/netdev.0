@@ -1,78 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: ipvs 02/04: Add boundary check on ioctl arguments
-Date: Fri,  8 Jan 2010 17:42:10 +0100 (MET)
-Message-ID: <20100108164207.28066.52850.sendpatchset@x2.localnet>
-References: <20100108164204.28066.44430.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100108164204.28066.44430.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dragoslav Zaric <dragoslav.zaric.kd@gmail.com>
+Subject: Re: Socket Server breaks after 1000 client requests
+Date: Fri, 8 Jan 2010 18:24:22 +0100
+Message-ID: <2d05c4581001080924j159193c4ve45c8db14f89f8cf@mail.gmail.com>
+References: <2d05c4580912311111w6abaa007y5d212dd8fbde24d9@mail.gmail.com>
+	 <4B3CF9EC.9070103@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:51738 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab0AHRYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 12:24:24 -0500
+Received: by bwz27 with SMTP id 27so12289430bwz.21
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 09:24:22 -0800 (PST)
+In-Reply-To: <4B3CF9EC.9070103@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 04bcef2a83f40c6db24222b27a52892cba39dffb
-Author: Arjan van de Ven <arjan@linux.intel.com>
-Date:   Mon Jan 4 16:37:12 2010 +0100
+Thanks Ben,
 
-    ipvs: Add boundary check on ioctl arguments
-    
-    The ipvs code has a nifty system for doing the size of ioctl command
-    copies; it defines an array with values into which it indexes the cmd
-    to find the right length.
-    
-    Unfortunately, the ipvs code forgot to check if the cmd was in the
-    range that the array provides, allowing for an index outside of the
-    array, which then gives a "garbage" result into the length, which
-    then gets used for copying into a stack buffer.
-    
-    Fix this by adding sanity checks on these as well as the copy size.
-    
-    [ horms@verge.net.au: adjusted limit to IP_VS_SO_GET_MAX ]
-    Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-    Acked-by: Julian Anastasov <ja@ssi.bg>
-    Signed-off-by: Simon Horman <horms@verge.net.au>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+The error was definitely in my code. I used c++ functions for send and receive.
+Now I am using write() and read() system calls to write and read
+directly to sockets and
+it works flawlessly ;)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 6bde12d..c37ac2d 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2077,6 +2077,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
-+		return -EINVAL;
-+	if (len < 0 || len >  MAX_ARG_LEN)
-+		return -EINVAL;
- 	if (len != set_arglen[SET_CMDID(cmd)]) {
- 		pr_err("set_ctl: len %u != %u\n",
- 		       len, set_arglen[SET_CMDID(cmd)]);
-@@ -2352,17 +2356,25 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- {
- 	unsigned char arg[128];
- 	int ret = 0;
-+	unsigned int copylen;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
-+		return -EINVAL;
-+
- 	if (*len < get_arglen[GET_CMDID(cmd)]) {
- 		pr_err("get_ctl: len %u < %u\n",
- 		       *len, get_arglen[GET_CMDID(cmd)]);
- 		return -EINVAL;
- 	}
- 
--	if (copy_from_user(arg, user, get_arglen[GET_CMDID(cmd)]) != 0)
-+	copylen = get_arglen[GET_CMDID(cmd)];
-+	if (copylen > 128)
-+		return -EINVAL;
-+
-+	if (copy_from_user(arg, user, copylen) != 0)
- 		return -EFAULT;
- 
- 	if (mutex_lock_interruptible(&__ip_vs_mutex))
+When I am sending 100 000 messages in loop from client to server it goes for few
+seconds.
+
+regards,
+
+dragoslav zaric
