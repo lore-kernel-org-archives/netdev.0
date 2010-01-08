@@ -1,37 +1,37 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-2.6 PATCH 1/5] e1000e: call pci_save_state() after
-	pci_restore_state()
-Date: Thu, 7 Jan 2010 23:59:32 -0800
-Message-ID: <9929d2391001072359u499b3269v9b0c1cd6ca864798@mail.gmail.com>
-References: <20100108023033.31476.4034.stgit@localhost.localdomain>
-	 <20100107.235240.173918660.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: update the netstamp_needed counter when cloning
+ sockets
+Date: Fri, 08 Jan 2010 00:00:34 -0800 (PST)
+Message-ID: <20100108.000034.48682320.davem@davemloft.net>
+References: <1262732790-16053-1-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:41446 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab0AHH7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 02:59:33 -0500
-Received: by pwj9 with SMTP id 9so12524423pwj.21
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2010 23:59:32 -0800 (PST)
-In-Reply-To: <20100107.235240.173918660.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48133
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752580Ab0AHIA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 03:00:26 -0500
+In-Reply-To: <1262732790-16053-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 7, 2010 at 23:52, David Miller <davem@davemloft.net> wrote:
->
-> Aren't the fragment overrun patches for e1000 and e1000e 1,000 times
-> more important that thumb twiddling fixes like these? :-(
-> --
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Wed,  6 Jan 2010 01:06:30 +0200
 
-I would agree, and Jesse's updated patches which were made 1 day ago
-are currently under test and review, where as these patches were
-produced over Christmas break and testing was completed before Jesse
-completed his rework of the fragment overrun patches (and are based on
-a driver which has these patches applied).
+> This fixes a netstamp_needed accounting issue when the listen socket
+> has SO_TIMESTAMP set:
+> 
+>     s = socket(AF_INET, SOCK_STREAM, 0);
+>     setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, 1); -> netstamp_needed = 1
+>     bind(s, ...);
+>     listen(s, ...);
+>     s2 = accept(s, ...); -> netstamp_needed = 1
+>     close(s2); -> netstamp_needed = 0
+>     close(s); -> netstamp_needed = -1
+> 
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 
--- 
-Cheers,
-Jeff
+Applied and queued up for -stable, thanks for fixing this!
