@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/04: ebtables: enforce CAP_NET_ADMIN
-Date: Fri,  8 Jan 2010 17:42:13 +0100 (MET)
-Message-ID: <20100108164210.28066.73835.sendpatchset@x2.localnet>
+Subject: ipvs 01/04: ip_vs_wrr.c: use lib/gcd.c
+Date: Fri,  8 Jan 2010 17:42:09 +0100 (MET)
+Message-ID: <20100108164206.28066.65576.sendpatchset@x2.localnet>
 References: <20100108164204.28066.44430.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,43 +11,70 @@ In-Reply-To: <20100108164204.28066.44430.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit dce766af541f6605fa9889892c0280bab31c66ab
-Author: Florian Westphal <fwestphal@astaro.com>
-Date:   Fri Jan 8 17:31:24 2010 +0100
+commit ae24e578de02b87cce3dc59248c29b2ecb071e9e
+Author: Florian Fainelli <florian@openwrt.org>
+Date:   Tue Dec 22 09:42:06 2009 +0100
 
-    netfilter: ebtables: enforce CAP_NET_ADMIN
+    ipvs: ip_vs_wrr.c: use lib/gcd.c
     
-    normal users are currently allowed to set/modify ebtables rules.
-    Restrict it to processes with CAP_NET_ADMIN.
+    Remove the private version of the greatest common divider to use
+    lib/gcd.c, the latter also implementing the a < b case.
     
-    Note that this cannot be reproduced with unmodified ebtables binary
-    because it uses SOCK_RAW.
-    
-    Signed-off-by: Florian Westphal <fwestphal@astaro.com>
-    Cc: stable@kernel.org
+    [akpm@linux-foundation.org: repair neighboring whitespace because the diff looked odd]
+    Signed-off-by: Florian Fainelli <florian@openwrt.org>
+    Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+    Cc: Takashi Iwai <tiwai@suse.de>
+    Acked-by: Simon Horman <horms@verge.net.au>
+    Cc: Julius Volz <juliusv@google.com>
+    Cc: David S. Miller <davem@davemloft.net>
+    Cc: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index bd1c654..0b7f262 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1406,6 +1406,9 @@ static int do_ebt_set_ctl(struct sock *sk,
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 79a6980..f2d7623 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -112,7 +112,8 @@ config	IP_VS_RR
+ 	  module, choose M here. If unsure, say N.
+  
+ config	IP_VS_WRR
+-        tristate "weighted round-robin scheduling" 
++	tristate "weighted round-robin scheduling"
++	select GCD
+ 	---help---
+ 	  The weighted robin-robin scheduling algorithm directs network
+ 	  connections to different real servers based on server weights
+diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
+index 6182e8e..3c115fc 100644
+--- a/net/netfilter/ipvs/ip_vs_wrr.c
++++ b/net/netfilter/ipvs/ip_vs_wrr.c
+@@ -24,6 +24,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/net.h>
++#include <linux/gcd.h>
+ 
+ #include <net/ip_vs.h>
+ 
+@@ -38,20 +39,6 @@ struct ip_vs_wrr_mark {
+ };
+ 
+ 
+-/*
+- *    Get the gcd of server weights
+- */
+-static int gcd(int a, int b)
+-{
+-	int c;
+-
+-	while ((c = a % b)) {
+-		a = b;
+-		b = c;
+-	}
+-	return b;
+-}
+-
+ static int ip_vs_wrr_gcd_weight(struct ip_vs_service *svc)
  {
- 	int ret;
- 
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
- 	switch(cmd) {
- 	case EBT_SO_SET_ENTRIES:
- 		ret = do_replace(sock_net(sk), user, len);
-@@ -1425,6 +1428,9 @@ static int do_ebt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 	struct ebt_replace tmp;
- 	struct ebt_table *t;
- 
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
- 	if (copy_from_user(&tmp, user, sizeof(tmp)))
- 		return -EFAULT;
- 
+ 	struct ip_vs_dest *dest;
