@@ -1,67 +1,56 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] drivers/net/defxx.c: use %pMF to show MAC address
-Date: Thu, 7 Jan 2010 21:11:34 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE19090208961F@mi8nycmail19.Mi8.com>
-References: <201001071624.20139.hartleys@visionengravers.com> <1262914750.10429.88.camel@Joe-Laptop.home> <alpine.LFD.2.00.1001080143250.13474@eddie.linux-mips.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/5] e1000e: call pci_save_state() after
+	pci_restore_state()
+Date: Thu, 07 Jan 2010 18:30:56 -0800
+Message-ID: <20100108023033.31476.4034.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Linux Kernel" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	"Joe Perches" <joe@perches.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og107.obsmtp.com ([64.18.1.208]:34765 "HELO
-	exprod6og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750983Ab0AHCLh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 21:11:37 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <alpine.LFD.2.00.1001080143250.13474@eddie.linux-mips.org>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:33907
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752648Ab0AHCbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 21:31:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, January 07, 2010 7:06 PM, Maciej W. Rozycki wrote:
-> On Thu, 7 Jan 2010, Joe Perches wrote:
->
->> On Thu, 2010-01-07 at 16:24 -0700, H Hartley Sweeten wrote:
->>> Use the %pMF kernel extension to display the MAC address.
->>> The address will still be displayed in the FDDI Canonical format.
->> 
->>> diff --git a/drivers/net/defxx.c b/drivers/net/defxx.c
->>> index 6a6ea03..e4eac4b 100644
->>> --- a/drivers/net/defxx.c
->>> +++ b/drivers/net/defxx.c
->>> @@ -1052,12 +1052,9 @@ static int __devinit dfx_driver_init(struct net_device *dev,
->>>  		board_name = "DEFEA";
->>>  	if (dfx_bus_pci)
->>>  		board_name = "DEFPA";
->>> -	pr_info("%s: %s at %saddr = 0x%llx, IRQ = %d, "
->>> -		"Hardware addr = %02X-%02X-%02X-%02X-%02X-%02X\n",
->>> +	pr_info("%s: %s at %saddr = 0x%llx, IRQ = %d, Hardware addr = %pMF\n",
->>>  		print_name, board_name, dfx_use_mmio ? "" : "I/O ",
->> 
->> I believe the output will _now_ be in the canonical form.
->> Before it wasn't bit reversed.  Now it should be.
->
-> Output was correct -- why would you assume otherwise?  The bit order in 
-> the MLA (My Long Address) register as retrieved from the MAC chip by 
-> board's firmware has nothing to do with the wire order and is already in 
-> the canonical form (the same applies to CAM entries and frame headers) -- 
-> the board designers were sane people.
->
-> With the two patches in place the output produced is now broken. :(
->
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Ugh.. This is a mess...
+Due to a change in pci_restore_state()[1] which clears the saved_state
+flag, the driver should call pci_save_state() to set the flag once again
+to avoid issues with EEH (same fix that recently was submitted for ixgbe).
 
-David,
+[1] commmit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff
 
-Can you please un-apply both this patch and the one for skfddi.c?
-I think they should both use some form of the %p[mMF] format to display
-the address but it appears Maciej is the only person that really knows
-what the output _should" be...
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Oh well... So much for trying to make things consistent...
+ drivers/net/e1000e/netdev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Regards,
-Hartley
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 762b697..10aa0ec 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4674,6 +4674,7 @@ static int e1000_resume(struct pci_dev *pdev)
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
++	pci_save_state(pdev);
+ 	e1000e_disable_l1aspm(pdev);
+ 
+ 	err = pci_enable_device_mem(pdev);
+@@ -4825,6 +4826,7 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
+ 	} else {
+ 		pci_set_master(pdev);
+ 		pci_restore_state(pdev);
++		pci_save_state(pdev);
+ 
+ 		pci_enable_wake(pdev, PCI_D3hot, 0);
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+
