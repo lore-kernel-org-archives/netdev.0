@@ -1,96 +1,88 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH] drivers/net/skfp/skfddi.c: use %pMF to show MAC address
-Date: Fri, 8 Jan 2010 15:57:23 +0100
-Message-ID: <e2d7436a1001080657r138012d9y1d242e8f3d1568ce@mail.gmail.com>
-References: <201001071627.46569.hartleys@visionengravers.com>
-	 <20100108000224.GH2436@verge.net.au>
-	 <1262915005.10429.92.camel@Joe-Laptop.home>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
+Date: Fri, 8 Jan 2010 09:34:43 -0600
+Message-ID: <20100108153443.GA8117@us.ibm.com>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+ <1262437456-24476-6-git-send-email-sam@synack.fr>
+ <20100104190854.GD6034@us.ibm.com>
+ <m2iqbdkqnm.fsf@ssh.synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>,
-	H Hartley Sweeten <hartleys@visionengravers.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:34417 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753443Ab0AHO5Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 09:57:25 -0500
-In-Reply-To: <1262915005.10429.92.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m2iqbdkqnm.fsf@ssh.synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2010/1/8 Joe Perches <joe@perches.com>:
-> On Fri, 2010-01-08 at 11:02 +1100, Simon Horman wrote:
->> On Thu, Jan 07, 2010 at 04:27:46PM -0700, H Hartley Sweeten wrote:
->> > Use the %pMF kernel extension to display the MAC address.
->> > The address will still be displayed in the FDDI Canonical format.
->> I'm not sure that it matters, but prior to this patch
->> the address was displayed with octets delimited by spaces,
->> and afterwards its delimited by hyphens. So perhaps the comment
->> should read:
->>
->> The address will now be displayed in the FDDI Canonical format.
-> And it probably wasn't bit reversed.
->> > diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
->> > index db216a7..1f9698c 100644
->> > --- a/drivers/net/skfp/skfddi.c
->> > +++ b/drivers/net/skfp/skfddi.c
->> > @@ -435,13 +435,7 @@ static =A0int skfp_driver_init(struct net_dev=
-ice *dev)
->> > =A0 =A0 =A0 =A0 =A0 =A0 goto fail;
->> > =A0 =A0 }
->> > =A0 =A0 read_address(smc, NULL);
->> > - =A0 pr_debug(KERN_INFO "HW-Addr: %02x %02x %02x %02x %02x %02x\n=
-",
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[0],
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[1],
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[2],
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[3],
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[4],
->> > - =A0 =A0 =A0 =A0 =A0smc->hw.fddi_canon_addr.a[5]);
->> > + =A0 pr_debug(KERN_INFO "HW-Addr: %pMF\n", smc->hw.fddi_canon_add=
-r.a);
-> Is fddi_canon_addr already bit reversed?
-> It's memcpy'd to dev->dev_addr later, so probably not.
->
->> > =A0 =A0 smt_reset_defaults(smc, 0);
->> > @@ -890,15 +884,8 @@ static void skfp_ctl_set_multicast_list_wo_lo=
-ck(struct net_device *dev)
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (struct fddi_addr *)dmi->dmi_a=
-ddr,
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 1);
->> >
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 pr_debug(KERN_INFO "ENABLE MC ADDRESS:");
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 pr_debug(" %02x %02x %02x ",
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[0],
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[1],
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[2]);
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 pr_debug("%02x %02x %02x\n",
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[3],
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[4],
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0dmi->dmi_addr[5]);
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 pr_debug(KERN_INFO "ENABLE MC ADDRESS: %pMF\n",
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 dmi->dmi_addr);
-> I think you want %pM here, not the bit-reversed %pMF form.
+Quoting Samir Bellabes (sam@synack.fr):
+> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+> 
+> > Quoting Samir Bellabes (sam@synack.fr):
+> >> +int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
+> >> +{
+> >> +	unsigned int i = 0, n = 0;
+> >> +	int ret = -1;
+> >> +	unsigned hashs_to_skip = cb->args[0];
+> >> +	unsigned events_to_skip = cb->args[1];
+> >> +	struct list_head *l;
+> >> +	struct snet_event_entry *s;
+> >> +
+> >> +	read_lock_bh(&event_hash_lock);
+> >> +
+> >> +	if (!event_hash)
+> >> +		goto errout;
+> >> +
+> >> +	for (i = 0; i < event_hash_size; i++) {
+> >> +		if (i < hashs_to_skip)
+> >> +			continue;
+> >
+> > What is this?
+> 
+> code was duplicated from ctrl_dumpfamily() at net/netlink/genetlink.c
+> this can be optimized by:
+>         for (i = hashs_to_skip; i < event_hash_size; i++) {
 
-You could add %pMf for those, that are bit-reversed already? That
-should take at most two extra insns for x86. ;)
+Sure, but my question was more general (more naive?) - what are the
+hashs_to_skip?
 
-Best Regards,
-Micha=B3 Miros=B3aw
+sounds like i should be able to go read the genetlink code for an
+answer, thanks.
+
+> I will made a patch for ctrl_dumpfamily() right now.
+> 
+> >> +		l = &event_hash[i];
+> >> +		n = 0;
+> >> +		list_for_each_entry(s, l, list) {
+> >> +			if (++n < events_to_skip)
+> >> +				continue;
+> >> +			ret = snet_nl_list_fill_info(skb,
+> >> +						     NETLINK_CB(cb->skb).pid,
+> >> +						     cb->nlh->nlmsg_seq,
+> >> +						     NLM_F_MULTI,
+> >> +						     s->se.protocol,
+> >> +						     s->se.syscall);
+> >> +			if (ret < 0)
+> >> +				goto errout;
+> >
+> > So if it returns 0, presumably meaning successfully handled, you
+> > want to go on processing any duplicates?
+> 
+> first, I found a bug in snet_nl_list_fill_info() which was returning 0
+> instead of -EMSGSIZE in case there was not enough space to put data.
+> 
+> I'm not sure to understand what may have duplicates, but if you are
+> talking about the events (struct snet_event_entry), that is not possible
+> as the insert function checks if the event is already in the hashtable
+> snet_evh before insertion.
+
+Ok, but the way your loop is constructed, if snet_nl_list_fill_info()
+returns 0 (success, presumably) you won't break.  Sounds like you want
+to.
+
+-serge
