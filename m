@@ -1,32 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/defxx.c: use %pMF to show MAC address
-Date: Thu, 07 Jan 2010 23:47:37 -0800 (PST)
-Message-ID: <20100107.234737.174030302.davem@davemloft.net>
-References: <1262914750.10429.88.camel@Joe-Laptop.home>
-	<alpine.LFD.2.00.1001080143250.13474@eddie.linux-mips.org>
-	<BD79186B4FD85F4B8E60E381CAEE19090208961F@mi8nycmail19.Mi8.com>
+Subject: Re: [net-2.6 PATCH 1/5] e1000e: call pci_save_state() after
+ pci_restore_state()
+Date: Thu, 07 Jan 2010 23:52:40 -0800 (PST)
+Message-ID: <20100107.235240.173918660.davem@davemloft.net>
+References: <20100108023033.31476.4034.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: macro@linux-mips.org, joe@perches.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: hartleys@visionengravers.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43934
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59824
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750974Ab0AHHrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 02:47:31 -0500
-In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090208961F@mi8nycmail19.Mi8.com>
+	by vger.kernel.org with ESMTP id S1751715Ab0AHHwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 02:52:33 -0500
+In-Reply-To: <20100108023033.31476.4034.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Date: Thu, 7 Jan 2010 21:11:34 -0500
 
-> Can you please un-apply both this patch and the one for skfddi.c?
-
-I can't "unapply" them.  They have been pushed out to my
-net-next-2.6 tree and thus are irreversably a part of the
-permanent record.
-
-Submit fixes instead, if indeed fixes are even necessary.
+Aren't the fragment overrun patches for e1000 and e1000e 1,000 times
+more important that thumb twiddling fixes like these? :-(
