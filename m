@@ -1,76 +1,127 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
- lib/dma-debug.c:902 check_sync)
-Date: Fri, 22 Jan 2010 18:25:12 -0500
-Message-ID: <4B5A33D8.90501@majjas.com>
-References: <20100120094103.GA6225@ff.dom.local> <4B58B217.8030001@majjas.com>
- <20100121204133.GB3085@del.dom.local> <4B59E7EB.3050605@majjas.com>
- <20100122215304.GA3105@del.dom.local> <4B5A2362.6000306@majjas.com>
- <20100122230605.GB3105@del.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756183Ab0AVXZb@vger.kernel.org>
-In-reply-to: <20100122230605.GB3105@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Kiszka <jan.kiszka@web.de>
+Subject: [PATCH 20/31] CAPI: Drop atomic ttyopencount
+Date: Fri, 8 Jan 2010 11:38:58 +0100
+Message-ID: <136f269e37529d1e40fc54ef3da02facd7bda21a.1264201407.git.jan.kiszka@web.de>
+References: <cover.1264201406.git.jan.kiszka@web.de>
+Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate02.web.de ([217.72.192.227]:49661 "EHLO
+	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753767Ab0AVX0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 18:26:07 -0500
+In-Reply-To: <cover.1264201406.git.jan.kiszka@web.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/22/2010 6:06 PM, Jarek Poplawski wrote:
-> On Fri, Jan 22, 2010 at 05:14:58PM -0500, Michael Breuer wrote:
->    
->> On 1/22/2010 4:53 PM, Jarek Poplawski wrote:
->>      
->>> On Fri, Jan 22, 2010 at 01:01:15PM -0500, Michael Breuer wrote:
->>>        
->>>> Kernel 2.6.32.4 (git) with the following patches applied:
->>>>
->>>> af_packet.c (tpacket_snd version 3)
->>>> sky2.c pskb_may_pull
->>>> sky2 fix WARNING at lib/dma-debug.c check_sync
->>>>          
->>> I guess, you meant the "sky2.c receive_copy" patch which you tested
->>> earlier, or at least you managed to crash DMAR with that patch
->>> before crashing it with Stephen's "lib/dma-debug.c check_sync" patch,
->>> right?
->>>
->>>        
->> Yes - sorry, correct - all three patches were in the last run.
->> Previously, I've encountered the crash without these patches.
->>      
-> OK, thanks for testing - it's really very helpful, and supports
-> David's opinion that dmar is a different problem.
-> ...
->    
->> Not sure I can do that. Note that based on the log messages, there
->> were no errors/dropped packets involving dhcp. Moving the dhcp
->> server off of the affected machine is not trivial. The dhcp
->> correlation is based on logged messages preceding each crash. I
->> cannot confirm that they're related, however it's really suspicious.
->> If it helps, HP replaced my unmanaged switch with a managed one so I
->> can see whether there were any switch events logged the next time I
->> have a crash.
->>
->> At this point, it seems the following is required to trigger the crash:
->> 1) Uptime of 24-36 hours
->> 2) High RX load on server (cifs traffic is what I've triggered it with).
->> 3) Normal DHCP traffic.
->>      
-> Do you mean you got these crashes with the new switch too, and this
-> switch doesn't drop DHCP at all? (Otherwise, let's try this switch
-> first.)
->
-> Jarek P.
->    
-Nope - just got the new switch. Crash was old switch. That said, I don't 
-think (based on the log messages) that the dhcpoffer packet drop was 
-happening prior to the crash. I also can't fathom why a DHCPOFFER packet 
-dropped after leaving the server would have any bearing on the issue.
+Not needed, tty->count keeps track of this information. At this chance,
+drop traces of ancient attempts to debug this logic via _DEBUG_REFCOUNT.
+
+Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
+---
+ drivers/isdn/capi/capi.c |   31 +++----------------------------
+ 1 files changed, 3 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
+index b53cead..7710a66 100644
+--- a/drivers/isdn/capi/capi.c
++++ b/drivers/isdn/capi/capi.c
+@@ -44,7 +44,6 @@ MODULE_DESCRIPTION("CAPI4Linux: Userspace /dev/capi20 interface");
+ MODULE_AUTHOR("Carsten Paeth");
+ MODULE_LICENSE("GPL");
+ 
+-#undef _DEBUG_REFCOUNT		/* alloc/free and open/close debug */
+ #undef _DEBUG_TTYFUNCS		/* call to tty_driver */
+ #undef _DEBUG_DATAFLOW		/* data flow */
+ 
+@@ -98,7 +97,6 @@ struct capiminor {
+ 	int                ttyinstop;
+ 	int                ttyoutstop;
+ 	struct sk_buff    *ttyskb;
+-	atomic_t           ttyopencount;
+ 
+ 	struct sk_buff_head inqueue;
+ 	int                 inbytes;
+@@ -224,7 +222,6 @@ static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
+ 	mp->ap = ap;
+ 	mp->ncci = ncci;
+ 	mp->msgid = 0;
+-	atomic_set(&mp->ttyopencount,0);
+ 	INIT_LIST_HEAD(&mp->ackqueue);
+ 	spin_lock_init(&mp->ackqlock);
+ 
+@@ -294,9 +291,6 @@ static void capincci_alloc_minor(struct capidev *cdev, struct capincci *np)
+ 	mp = np->minorp = capiminor_alloc(&cdev->ap, np->ncci);
+ 	if (mp) {
+ 		mp->nccip = np;
+-#ifdef _DEBUG_REFCOUNT
+-		printk(KERN_DEBUG "set mp->nccipn");
+-#endif
+ 		mp->capifs_dentry =
+ 			capifs_new_ncci(mp->minor,
+ 					MKDEV(capi_ttymajor, mp->minor));
+@@ -316,9 +310,6 @@ static void capincci_free_minor(struct capincci *np)
+ 		capifs_free_ncci(mp->capifs_dentry);
+ 		if (mp->tty) {
+ 			mp->nccip = NULL;
+-#ifdef _DEBUG_REFCOUNT
+-			printk(KERN_DEBUG "reset mp->nccipn");
+-#endif
+ 			tty_hangup(mp->tty);
+ 		} else {
+ 			capiminor_free(mp);
+@@ -332,7 +323,7 @@ static inline unsigned int capincci_minor_opencount(struct capincci *np)
+ {
+ 	struct capiminor *mp = np->minorp;
+ 
+-	return mp ? atomic_read(&mp->ttyopencount) : 0;
++	return (mp && mp->tty) ? mp->tty->count : 0;
+ }
+ 
+ #else /* !CONFIG_ISDN_CAPI_MIDDLEWARE */
+@@ -998,14 +989,9 @@ static int capinc_tty_open(struct tty_struct * tty, struct file * file)
+ 	}
+ 
+ 	tty->driver_data = mp;
++	mp->tty = tty;
+ 
+ 	spin_lock_irqsave(&workaround_lock, flags);
+-	if (atomic_read(&mp->ttyopencount) == 0)
+-		mp->tty = tty;
+-	atomic_inc(&mp->ttyopencount);
+-#ifdef _DEBUG_REFCOUNT
+-	printk(KERN_DEBUG "capinc_tty_open ocount=%dn", atomic_read(&mp->ttyopencount));
+-#endif
+ 	handle_minor_recv(mp);
+ 	spin_unlock_irqrestore(&workaround_lock, flags);
+ 
+@@ -1020,23 +1006,12 @@ static void capinc_tty_close(struct tty_struct * tty, struct file * file)
+ 
+ 	mutex_lock(&glue_lock);
+ 
+-	if (atomic_dec_and_test(&mp->ttyopencount)) {
+-#ifdef _DEBUG_REFCOUNT
+-		printk(KERN_DEBUG "capinc_tty_close lastclosen");
+-#endif
++	if (tty->count == 1)
+ 		mp->tty = NULL;
+-	}
+-#ifdef _DEBUG_REFCOUNT
+-		printk(KERN_DEBUG "capinc_tty_close ocount=%dn", atomic_read(&mp->ttyopencount));
+-#endif
+ 	if (!mp->nccip)
+ 		capiminor_free(mp);
+ 
+ 	mutex_unlock(&glue_lock);
+-
+-#ifdef _DEBUG_REFCOUNT
+-	printk(KERN_DEBUG "capinc_tty_closen");
+-#endif
+ }
+ 
+ static int capinc_tty_write(struct tty_struct * tty,
+-- 
+1.6.0.2
+
