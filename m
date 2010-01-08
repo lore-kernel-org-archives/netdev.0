@@ -1,91 +1,122 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH 24/31] CAPI: Use atomics for capiminor's datahandle and msgid
-Date: Fri, 8 Jan 2010 12:46:35 +0100
-Message-ID: <01a234271a58f2f2f8b7b1a7174e0f3d741b0601.1264201408.git.jan.kiszka@web.de>
+Subject: [PATCH 28/31] CAPI: Drop handle_minor_send return value
+Date: Fri, 8 Jan 2010 15:11:11 +0100
+Message-ID: <506756781e11cfe356b16c3c74f86fe1719b04a7.1264201408.git.jan.kiszka@web.de>
 References: <cover.1264201406.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:49672 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756182Ab0AVX0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 18:26:07 -0500
+Received: from fmmailgate03.web.de ([217.72.192.234]:34198 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756339Ab0AVX2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 18:28:09 -0500
 In-Reply-To: <cover.1264201406.git.jan.kiszka@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The capiminor members datahandle and msgid are incremented outside any
-lock, so better do this atomically.
+We did not evaluate handle_minor_send's return value, just (void)'ed it
+away. Time for a cleanup.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |   16 +++++++---------
- 1 files changed, 7 insertions(+), 9 deletions(-)
+ drivers/isdn/capi/capi.c |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index b8019a1..6ab496c 100644
+index 7a04492..a91b9ae 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -88,10 +88,10 @@ struct capiminor {
- 	unsigned int      minor;
- 	struct dentry *capifs_dentry;
+@@ -477,11 +477,10 @@ static void handle_minor_recv(struct capiminor *mp)
+ 		}
+ }
  
--	struct capi20_appl *ap;
--	u32		 ncci;
--	u16		 datahandle;
--	u16		 msgid;
-+	struct capi20_appl	*ap;
-+	u32			ncci;
-+	atomic_t		datahandle;
-+	atomic_t		msgid;
+-static int handle_minor_send(struct capiminor *mp)
++static void handle_minor_send(struct capiminor *mp)
+ {
+ 	struct sk_buff *skb;
+ 	u16 len;
+-	int count = 0;
+ 	u16 errcode;
+ 	u16 datahandle;
  
- 	struct tty_struct	*tty;
- 	struct mutex		ttylock;
-@@ -222,7 +222,6 @@ static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
- 
- 	mp->ap = ap;
- 	mp->ncci = ncci;
--	mp->msgid = 0;
- 	INIT_LIST_HEAD(&mp->ackqueue);
- 	spin_lock_init(&mp->ackqlock);
- 
-@@ -396,7 +395,7 @@ gen_data_b3_resp_for(struct capiminor *mp, struct sk_buff *skb)
- 		capimsg_setu16(s, 2, mp->ap->applid);
- 		capimsg_setu8 (s, 4, CAPI_DATA_B3);
- 		capimsg_setu8 (s, 5, CAPI_RESP);
--		capimsg_setu16(s, 6, mp->msgid++);
-+		capimsg_setu16(s, 6, atomic_inc_return(&mp->msgid));
- 		capimsg_setu32(s, 8, mp->ncci);
- 		capimsg_setu16(s, 12, datahandle);
- 	}
-@@ -509,7 +508,7 @@ static int handle_minor_send(struct capiminor *mp)
+@@ -489,7 +488,7 @@ static int handle_minor_send(struct capiminor *mp)
+ #if defined(_DEBUG_DATAFLOW) || defined(_DEBUG_TTYFUNCS)
+ 		printk(KERN_DEBUG "capi: send: tty stoppedn");
+ #endif
+-		return 0;
++		return;
  	}
  
- 	while ((skb = skb_dequeue(&mp->outqueue)) != NULL) {
--		datahandle = mp->datahandle;
-+		datahandle = atomic_inc_return(&mp->datahandle);
- 		len = (u16)skb->len;
- 		skb_push(skb, CAPI_DATA_B3_REQ_LEN);
- 		memset(skb->data, 0, CAPI_DATA_B3_REQ_LEN);
-@@ -517,7 +516,7 @@ static int handle_minor_send(struct capiminor *mp)
- 		capimsg_setu16(skb->data, 2, mp->ap->applid);
- 		capimsg_setu8 (skb->data, 4, CAPI_DATA_B3);
- 		capimsg_setu8 (skb->data, 5, CAPI_REQ);
--		capimsg_setu16(skb->data, 6, mp->msgid++);
-+		capimsg_setu16(skb->data, 6, atomic_inc_return(&mp->msgid));
- 		capimsg_setu32(skb->data, 8, mp->ncci);	/* NCCI */
- 		capimsg_setu32(skb->data, 12, (u32)(long)skb->data);/* Data32 */
- 		capimsg_setu16(skb->data, 16, len);	/* Data length */
-@@ -531,7 +530,6 @@ static int handle_minor_send(struct capiminor *mp)
+ 	while (1) {
+@@ -525,11 +524,10 @@ static int handle_minor_send(struct capiminor *mp)
+ 			mp->outbytes += len;
+ 			spin_unlock_bh(&mp->outlock);
+ 
+-			return count;
++			break;
  		}
  		errcode = capi20_put_message(mp->ap, skb);
  		if (errcode == CAPI_NOERROR) {
--			mp->datahandle++;
- 			count++;
- 			mp->outbytes -= len;
+-			count++;
  #ifdef _DEBUG_DATAFLOW
+ 			printk(KERN_DEBUG "capi: DATA_B3_REQ %u len=%un",
+ 							datahandle, len);
+@@ -553,7 +551,6 @@ static int handle_minor_send(struct capiminor *mp)
+ 		printk(KERN_ERR "capi: put_message = %xn", errcode);
+ 		kfree_skb(skb);
+ 	}
+-	return count;
+ }
+ 
+ #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+@@ -629,7 +626,8 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
+ 		if (mp->tty)
+ 			tty_wakeup(mp->tty);
+ 		mutex_unlock(&mp->ttylock);
+-		(void)handle_minor_send(mp);
++
++		handle_minor_send(mp);
+ 
+ 	} else {
+ 		/* ups, let capi application handle it :-) */
+@@ -1063,7 +1061,7 @@ static int capinc_tty_write(struct tty_struct * tty,
+ 	mp->outbytes += skb->len;
+ 	spin_unlock_bh(&mp->outlock);
+ 
+-	(void)handle_minor_send(mp);
++	handle_minor_send(mp);
+ 
+ 	return count;
+ }
+@@ -1106,7 +1104,7 @@ unlock_out:
+ 	spin_unlock_bh(&mp->outlock);
+ 
+ 	if (invoke_send)
+-		(void)handle_minor_send(mp);
++		handle_minor_send(mp);
+ 
+ 	return ret;
+ }
+@@ -1128,7 +1126,7 @@ static void capinc_tty_flush_chars(struct tty_struct *tty)
+ 		mp->outbytes += skb->len;
+ 		spin_unlock_bh(&mp->outlock);
+ 
+-		(void)handle_minor_send(mp);
++		handle_minor_send(mp);
+ 	} else
+ 		spin_unlock_bh(&mp->outlock);
+ 
+@@ -1217,7 +1215,7 @@ static void capinc_tty_start(struct tty_struct *tty)
+ 	printk(KERN_DEBUG "capinc_tty_startn");
+ #endif
+ 	mp->ttyoutstop = 0;
+-	(void)handle_minor_send(mp);
++	handle_minor_send(mp);
+ }
+ 
+ static void capinc_tty_hangup(struct tty_struct *tty)
 -- 
 1.6.0.2
 
