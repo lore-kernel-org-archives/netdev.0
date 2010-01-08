@@ -1,149 +1,298 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Fri, 8 Jan 2010 10:25:50 -0800
-Message-ID: <201001081025.50298.dmitry.torokhov@gmail.com>
-References: <201001071156.31892.dmitry.torokhov@gmail.com> <20100108013600.GA2711@core.coreip.homeip.net> <20100108180915.GA8218@xw6200.broadcom.net>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH net-next-2.6] can: Unify droping of invalid tx skbs and netdev
+	stats
+Date: Fri, 08 Jan 2010 19:38:47 +0100
+Message-ID: <4B477BB7.2030108@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Matt Carlson" <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:55165 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214Ab0AHS0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 13:26:03 -0500
-Received: by pwj9 with SMTP id 9so175595pwj.21
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 10:26:02 -0800 (PST)
-In-Reply-To: <20100108180915.GA8218@xw6200.broadcom.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 08 January 2010 10:09:15 am Matt Carlson wrote:
-> On Thu, Jan 07, 2010 at 05:36:00PM -0800, Dmitry Torokhov wrote:
-> > On Thu, Jan 07, 2010 at 04:14:54PM -0800, Dmitry Torokhov wrote:
-> > > On Thu, Jan 07, 2010 at 03:53:09PM -0800, Matt Carlson wrote:
-> > > > On Thu, Jan 07, 2010 at 02:45:43PM -0800, Dmitry Torokhov wrote:
-> > > > > On Thursday 07 January 2010 02:24:44 pm Eric Dumazet wrote:
-> > > > > > Le 07/01/2010 21:48, Matt Carlson a ?crit :
-> > > > > > > Nothing jumps to mind.  Let me see if I can repro this here.
-> > > > > > >
-> > > > > > > On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
-> > > > > > >> Hi,
-> > > > > > >>
-> > > > > > >> Ever since I moved post 2.6.32 tg3 seems to be very sick in my
-> > > > > > >> Latitude D630, it discards most of the packages for some
-> > > > > > >> reason:
-> > > > > > >>
-> > > > > > >> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
-> > > > > > >>      rx_octets: 35886
-> > > > > > >>      rx_fragments: 0
-> > > > > > >>      rx_ucast_packets: 9
-> > > > > > >>      rx_mcast_packets: 93
-> > > > > > >>      rx_bcast_packets: 237
-> > > > > > >>      rx_fcs_errors: 0
-> > > > > > >>      rx_align_errors: 0
-> > > > > > >>      rx_xon_pause_rcvd: 0
-> > > > > > >>      rx_xoff_pause_rcvd: 0
-> > > > > > >>      rx_mac_ctrl_rcvd: 0
-> > > > > > >>      rx_xoff_entered: 0
-> > > > > > >>      rx_frame_too_long_errors: 0
-> > > > > > >>      rx_jabbers: 0
-> > > > > > >>      rx_undersize_packets: 0
-> > > > > > >>      rx_in_length_errors: 0
-> > > > > > >>      rx_out_length_errors: 0
-> > > > > > >>      rx_64_or_less_octet_packets: 0
-> > > > > > >>      rx_65_to_127_octet_packets: 0
-> > > > > > >>      rx_128_to_255_octet_packets: 0
-> > > > > > >>      rx_256_to_511_octet_packets: 0
-> > > > > > >>      rx_512_to_1023_octet_packets: 0
-> > > > > > >>      rx_1024_to_1522_octet_packets: 0
-> > > > > > >>      rx_1523_to_2047_octet_packets: 0
-> > > > > > >>      rx_2048_to_4095_octet_packets: 0
-> > > > > > >>      rx_4096_to_8191_octet_packets: 0
-> > > > > > >>      rx_8192_to_9022_octet_packets: 0
-> > > > > > >>      rx_discards: 304
-> > > > > > >>      rx_errors: 0
-> > > > > > >>      rx_threshold_hit: 0
-> > > > > > >>
-> > > > > > >> The above on last night pull from Linux (so 2.6.33+).
-> > > > > > >>
-> > > > > > >> Everything works fine if I use wireless or another wired card
-> > > > > > >> (Realtek in cardbus slot):
-> > > > > > >>
-> > > > > > >> [root@dtor-d630 ~]# lspci | grep -ri net
-> > > > > > >> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > > > > > >> RTL-8139/8139C/8139C+ (rev 10)
-> > > > > > >> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme
-> > > > > > >> BCM5755M Gigabit Ethernet PCI Express (rev 02)
-> > > > > > >> 0c:00.0 Network controller: Intel Corporation PRO/Wireless
-> > > > > > >> 3945ABG [Golan] Network Connection (rev 02)
-> > > > > > >>
-> > > > > > >> [root@dtor-d630 ~]# ethtool eth0
-> > > > > > >> Settings for eth0:
-> > > > > > >>         Supported ports: [ TP ]
-> > > > > > >>         Supported link modes:   10baseT/Half 10baseT/Full
-> > > > > > >>                                 100baseT/Half 100baseT/Full
-> > > > > > >>                                 1000baseT/Half 1000baseT/Full
-> > > > > > >>         Supports auto-negotiation: Yes
-> > > > > > >>         Advertised link modes:  10baseT/Half 10baseT/Full
-> > > > > > >>                                 100baseT/Half 100baseT/Full
-> > > > > > >>                                 1000baseT/Half 1000baseT/Full
-> > > > > > >>         Advertised auto-negotiation: Yes
-> > > > > > >>         Speed: 1000Mb/s
-> > > > > > >>         Duplex: Full
-> > > > > > >>         Port: Twisted Pair
-> > > > > > >>         PHYAD: 1
-> > > > > > >>         Transceiver: internal
-> > > > > > >>         Auto-negotiation: on
-> > > > > > >>         Supports Wake-on: g
-> > > > > > >>         Wake-on: g
-> > > > > > >>         Current message level: 0x000000ff (255)
-> > > > > > >>         Link detected: yes
-> > > > > > >>
-> > > > > > >> Any ideas? Thanks!
-> > > > > >
-> > > > > > My laptop is a D630, and running 2.6.33-rc3 with no special
-> > > > > > problems on tg3
-> > > > >
-> > > > > This is wierd... It all works well with Fedora 12 kernel and .32 so
-> > > > > hardware is fine here. I think it also worked when I plugged it
-> > > > > into my home router (will try it again tonight). But in the office
-> > > > > it just does not want to work. It's like it just does not like the
-> > > > > addresses that we use here...
-> > > >
-> > > > Is the problem related to link speed?  I see that Eric was running at
-> > > > 100Mbps.  Your ethtool output above shows that you are running at
-> > > > 1Gbps.
-> > >
-> > > Indeed I have 100Mbps at home and 1Gb in the office.. I amy try playing
-> > > with it some more if you want but that patch you sent seems to have
-> > > fixed the issue for me...
-> > >
-> > > Except that sice I started using tg3 in couple of hours the box locked
-> > > up completely once and panicked twice; of course it happened in X so no
-> > > traces whatsoever. Maybe a coincidence though, I am running with nvidia
-> > > driver...
-> >
-> > No, something is definitely going on. I can work for a long time using
-> > the Realtek card but if I switch to tg3 then pretty quickly network gets
-> > stuck again and in a minute or so the box panics. Last time that
-> > happened I switched to the text console and managed to captute an oops
-> > (attached) but there is nothing really conclusive there...
-> >
-> > Thanks.
-> 
-> I looked over all the patches I submitted between tg3 versions 3.102
-> and 3.105.  Long story short, I didn't see anything particularly
-> suspicious.
-> 
-> Could you try dropping in the tg3.c and tg3.h from the 2.6.32 kernel
-> into your 2.6.33 source tree and see if you encounter the same problem?
-> 
+To prevent the CAN drivers to operate on invalid socketbuffers the skbs are
+now checked and silently dropped at the xmit-function consistently.
 
-skb_dma_map/unmap are gone from 2.6.33 so direct drop does not work :(
+Also the netdev stats are consistently using the CAN data length code (dlc)
+for [rx|tx]_bytes now.
 
--- 
-Dmitry
+Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+
+---
+
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 166cc7e..95567be 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -336,18 +336,24 @@ static void at91_chip_stop(struct net_device *dev, enum can_state state)
+  */
+ static netdev_tx_t at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct at91_priv *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &dev->stats;
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	unsigned int mb, prio;
+ 	u32 reg_mid, reg_mcr;
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		dev->stats.tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	mb = get_tx_next_mb(priv);
+ 	prio = get_tx_next_prio(priv);
+ 
+ 	if (unlikely(!(at91_read(priv, AT91_MSR(mb)) & AT91_MSR_MRDY))) {
+ 		netif_stop_queue(dev);
+ 
+ 		dev_err(dev->dev.parent,
+ 			"BUG! TX buffer full when queue awake!\n");
+ 		return NETDEV_TX_BUSY;
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index 0ec1524..f8f8b47 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -312,18 +312,24 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct bfin_can_priv *priv = netdev_priv(dev);
+ 	struct bfin_can_regs __iomem *reg = priv->membase;
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	u8 dlc = cf->can_dlc;
+ 	canid_t id = cf->can_id;
+ 	u8 *data = cf->data;
+ 	u16 val;
+ 	int i;
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		dev->stats.tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	netif_stop_queue(dev);
+ 
+ 	/* fill id */
+ 	if (id & CAN_EFF_FLAG) {
+ 		bfin_write16(&reg->chl[TRANSMIT_CHL].id0, id);
+ 		if (id & CAN_RTR_FLAG)
+ 			writew(((id & 0x1FFF0000) >> 16) | IDE | AME | RTR,
+ 					&reg->chl[TRANSMIT_CHL].id1);
+ 		else
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 9c5a153..9b8f782 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -481,28 +481,28 @@ static void mcp251x_hw_wakeup(struct spi_device *spi)
+ 	if (!wait_for_completion_timeout(&priv->awake, HZ))
+ 		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
+ }
+ 
+ static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
+ 					   struct net_device *net)
+ {
+ 	struct mcp251x_priv *priv = netdev_priv(net);
+ 	struct spi_device *spi = priv->spi;
++	struct can_frame *cf = (struct can_frame *)skb->data;
+ 
+ 	if (priv->tx_skb || priv->tx_len) {
+ 		dev_warn(&spi->dev, "hard_xmit called while tx busy\n");
+ 		netif_stop_queue(net);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+-	if (skb->len != sizeof(struct can_frame)) {
+-		dev_err(&spi->dev, "dropping packet - bad length\n");
+-		dev_kfree_skb(skb);
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
+ 		net->stats.tx_dropped++;
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+ 	netif_stop_queue(net);
+ 	priv->tx_skb = skb;
+ 	net->trans_start = jiffies;
+ 	queue_work(priv->wq, &priv->tx_work);
+ 
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 542a4f7..7979d48 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -243,18 +243,24 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
+ {
+ 	struct sja1000_priv *priv = netdev_priv(dev);
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	uint8_t fi;
+ 	uint8_t dlc;
+ 	canid_t id;
+ 	uint8_t dreg;
+ 	int i;
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		dev->stats.tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	netif_stop_queue(dev);
+ 
+ 	fi = dlc = cf->can_dlc;
+ 	id = cf->can_id;
+ 
+ 	if (id & CAN_RTR_FLAG)
+ 		fi |= FI_RTR;
+ 
+ 	if (id & CAN_EFF_FLAG) {
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index 5c993c2..e80be1d 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -471,33 +471,38 @@ static int ti_hecc_do_set_mode(struct net_device *ndev, enum can_mode mode)
+  * value roll-over happens.
+  */
+ static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct ti_hecc_priv *priv = netdev_priv(ndev);
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	u32 mbxno, mbx_mask, data;
+ 	unsigned long flags;
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		ndev->stats.tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	mbxno = get_tx_head_mb(priv);
+ 	mbx_mask = BIT(mbxno);
+ 	spin_lock_irqsave(&priv->mbx_lock, flags);
+ 	if (unlikely(hecc_read(priv, HECC_CANME) & mbx_mask)) {
+ 		spin_unlock_irqrestore(&priv->mbx_lock, flags);
+ 		netif_stop_queue(ndev);
+ 		dev_err(priv->ndev->dev.parent,
+ 			"BUG: TX mbx not ready tx_head=%08X, tx_tail=%08X\n",
+ 			priv->tx_head, priv->tx_tail);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 	spin_unlock_irqrestore(&priv->mbx_lock, flags);
+ 
+ 	/* Prepare mailbox for transmission */
+-	data = min_t(u8, cf->can_dlc, 8);
+ 	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
+ 		data |= HECC_CANMCF_RTR;
+ 	data |= get_tx_head_prio(priv) << 8;
+ 	hecc_write_mbx(priv, mbxno, HECC_CANMCF, data);
+ 
+ 	if (cf->can_id & CAN_EFF_FLAG) /* Extended frame format */
+ 		data = (cf->can_id & CAN_EFF_MASK) | HECC_CANMID_IDE;
+ 	else /* Standard frame format */
+ 		data = (cf->can_id & CAN_SFF_MASK) << 18;
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index efbb05c..f1c8fd7 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -761,18 +761,24 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
+ 	struct net_device_stats *stats = &netdev->stats;
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	struct ems_cpc_msg *msg;
+ 	struct urb *urb;
+ 	u8 *buf;
+ 	int i, err;
+ 	size_t size = CPC_HEADER_SIZE + CPC_MSG_HEADER_LEN
+ 			+ sizeof(struct cpc_can_msg);
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		stats->tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	/* create a URB, and a buffer for it, and copy the data to the URB */
+ 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+ 	if (!urb) {
+ 		dev_err(netdev->dev.parent, "No memory left for URBs\n");
+ 		goto nomem;
+ 	}
+ 
+ 	buf = usb_buffer_alloc(dev->udev, size, GFP_ATOMIC, &urb->transfer_dma);
+ 	if (!buf) {
+diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
+index 80ac563..d6af5fa 100644
+--- a/drivers/net/can/vcan.c
++++ b/drivers/net/can/vcan.c
+@@ -64,52 +64,60 @@ MODULE_AUTHOR("Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>");
+  */
+ 
+ static int echo; /* echo testing. Default: 0 (Off) */
+ module_param(echo, bool, S_IRUGO);
+ MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
+ 
+ 
+ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
+ {
++	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	struct net_device_stats *stats = &dev->stats;
+ 
+ 	stats->rx_packets++;
+-	stats->rx_bytes += skb->len;
++	stats->rx_bytes += cf->can_dlc;
+ 
+ 	skb->protocol  = htons(ETH_P_CAN);
+ 	skb->pkt_type  = PACKET_BROADCAST;
+ 	skb->dev       = dev;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+ 	netif_rx_ni(skb);
+ }
+ 
+ static netdev_tx_t vcan_tx(struct sk_buff *skb, struct net_device *dev)
+ {
++	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	struct net_device_stats *stats = &dev->stats;
+ 	int loop;
+ 
++	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
++		kfree_skb(skb);
++		stats->tx_dropped++;
++		return NETDEV_TX_OK;
++	}
++
+ 	stats->tx_packets++;
+-	stats->tx_bytes += skb->len;
++	stats->tx_bytes += cf->can_dlc;
+ 
+ 	/* set flag whether this packet has to be looped back */
+ 	loop = skb->pkt_type == PACKET_LOOPBACK;
+ 
+ 	if (!echo) {
+ 		/* no echo handling available inside this driver */
+ 
+ 		if (loop) {
+ 			/*
+ 			 * only count the packets here, because the
+ 			 * CAN core already did the echo for us
+ 			 */
+ 			stats->rx_packets++;
+-			stats->rx_bytes += skb->len;
++			stats->rx_bytes += cf->can_dlc;
+ 		}
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+ 	/* perform standard echo handling for CAN network interfaces */
+ 
+ 	if (loop) {
+ 		struct sock *srcsk = skb->sk;
