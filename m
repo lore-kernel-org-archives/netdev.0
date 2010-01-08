@@ -1,148 +1,37 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Fri, 8 Jan 2010 10:09:15 -0800
-Message-ID: <20100108180915.GA8218@xw6200.broadcom.net>
-References: <201001071156.31892.dmitry.torokhov@gmail.com>
- <20100107204835.GB5788@xw6200.broadcom.net>
- <4B465F2C.1080208@gmail.com>
- <201001071445.44550.dmitry.torokhov@gmail.com>
- <20100107235309.GA4515@xw6200.broadcom.net>
- <20100108001453.GA2436@core.coreip.homeip.net>
- <20100108013600.GA2711@core.coreip.homeip.net>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
+Date: Fri, 8 Jan 2010 12:10:46 -0600
+Message-ID: <20100108181046.GA16348@us.ibm.com>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+ <1262437456-24476-6-git-send-email-sam@synack.fr>
+ <20100104190854.GD6034@us.ibm.com>
+ <m2iqbdkqnm.fsf@ssh.synack.fr>
+ <20100108153443.GA8117@us.ibm.com>
+ <m2vdfcjxue.fsf@ssh.synack.fr>
+ <m2r5q0jxhg.fsf@ssh.synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1856 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752845Ab0AHSJX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2010 13:09:23 -0500
-In-Reply-To: <20100108013600.GA2711@core.coreip.homeip.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <m2r5q0jxhg.fsf@ssh.synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 07, 2010 at 05:36:00PM -0800, Dmitry Torokhov wrote:
-> On Thu, Jan 07, 2010 at 04:14:54PM -0800, Dmitry Torokhov wrote:
-> > On Thu, Jan 07, 2010 at 03:53:09PM -0800, Matt Carlson wrote:
-> > > On Thu, Jan 07, 2010 at 02:45:43PM -0800, Dmitry Torokhov wrote:
-> > > > On Thursday 07 January 2010 02:24:44 pm Eric Dumazet wrote:
-> > > > > Le 07/01/2010 21:48, Matt Carlson a ?crit :
-> > > > > > Nothing jumps to mind.  Let me see if I can repro this here.
-> > > > > >
-> > > > > > On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
-> > > > > >> Hi,
-> > > > > >>
-> > > > > >> Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latitude
-> > > > > >> D630, it discards most of the packages for some reason:
-> > > > > >>
-> > > > > >> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
-> > > > > >>      rx_octets: 35886
-> > > > > >>      rx_fragments: 0
-> > > > > >>      rx_ucast_packets: 9
-> > > > > >>      rx_mcast_packets: 93
-> > > > > >>      rx_bcast_packets: 237
-> > > > > >>      rx_fcs_errors: 0
-> > > > > >>      rx_align_errors: 0
-> > > > > >>      rx_xon_pause_rcvd: 0
-> > > > > >>      rx_xoff_pause_rcvd: 0
-> > > > > >>      rx_mac_ctrl_rcvd: 0
-> > > > > >>      rx_xoff_entered: 0
-> > > > > >>      rx_frame_too_long_errors: 0
-> > > > > >>      rx_jabbers: 0
-> > > > > >>      rx_undersize_packets: 0
-> > > > > >>      rx_in_length_errors: 0
-> > > > > >>      rx_out_length_errors: 0
-> > > > > >>      rx_64_or_less_octet_packets: 0
-> > > > > >>      rx_65_to_127_octet_packets: 0
-> > > > > >>      rx_128_to_255_octet_packets: 0
-> > > > > >>      rx_256_to_511_octet_packets: 0
-> > > > > >>      rx_512_to_1023_octet_packets: 0
-> > > > > >>      rx_1024_to_1522_octet_packets: 0
-> > > > > >>      rx_1523_to_2047_octet_packets: 0
-> > > > > >>      rx_2048_to_4095_octet_packets: 0
-> > > > > >>      rx_4096_to_8191_octet_packets: 0
-> > > > > >>      rx_8192_to_9022_octet_packets: 0
-> > > > > >>      rx_discards: 304
-> > > > > >>      rx_errors: 0
-> > > > > >>      rx_threshold_hit: 0
-> > > > > >>
-> > > > > >> The above on last night pull from Linux (so 2.6.33+).
-> > > > > >>
-> > > > > >> Everything works fine if I use wireless or another wired card (Realtek
-> > > > > >> in cardbus slot):
-> > > > > >>
-> > > > > >> [root@dtor-d630 ~]# lspci | grep -ri net
-> > > > > >> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > > > > >> RTL-8139/8139C/8139C+ (rev 10)
-> > > > > >> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M
-> > > > > >> Gigabit Ethernet PCI Express (rev 02)
-> > > > > >> 0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG
-> > > > > >> [Golan] Network Connection (rev 02)
-> > > > > >>
-> > > > > >> [root@dtor-d630 ~]# ethtool eth0
-> > > > > >> Settings for eth0:
-> > > > > >>         Supported ports: [ TP ]
-> > > > > >>         Supported link modes:   10baseT/Half 10baseT/Full
-> > > > > >>                                 100baseT/Half 100baseT/Full
-> > > > > >>                                 1000baseT/Half 1000baseT/Full
-> > > > > >>         Supports auto-negotiation: Yes
-> > > > > >>         Advertised link modes:  10baseT/Half 10baseT/Full
-> > > > > >>                                 100baseT/Half 100baseT/Full
-> > > > > >>                                 1000baseT/Half 1000baseT/Full
-> > > > > >>         Advertised auto-negotiation: Yes
-> > > > > >>         Speed: 1000Mb/s
-> > > > > >>         Duplex: Full
-> > > > > >>         Port: Twisted Pair
-> > > > > >>         PHYAD: 1
-> > > > > >>         Transceiver: internal
-> > > > > >>         Auto-negotiation: on
-> > > > > >>         Supports Wake-on: g
-> > > > > >>         Wake-on: g
-> > > > > >>         Current message level: 0x000000ff (255)
-> > > > > >>         Link detected: yes
-> > > > > >>
-> > > > > >> Any ideas? Thanks!
-> > > > > 
-> > > > > My laptop is a D630, and running 2.6.33-rc3 with no special problems on tg3
-> > > > >
-> > > > 
-> > > > This is wierd... It all works well with Fedora 12 kernel and .32 so hardware 
-> > > > is fine here. I think it also worked when I plugged it into my home router 
-> > > > (will try it again tonight). But in the office it just does not want to work. 
-> > > > It's like it just does not like the addresses that we use here...
-> > > 
-> > > Is the problem related to link speed?  I see that Eric was running at
-> > > 100Mbps.  Your ethtool output above shows that you are running at 1Gbps.
-> > > 
-> > 
-> > Indeed I have 100Mbps at home and 1Gb in the office.. I amy try playing
-> > with it some more if you want but that patch you sent seems to have
-> > fixed the issue for me...
-> > 
-> > Except that sice I started using tg3 in couple of hours the box locked
-> > up completely once and panicked twice; of course it happened in X so no
-> > traces whatsoever. Maybe a coincidence though, I am running with nvidia
-> > driver...
-> > 
+Quoting Samir Bellabes (sam@synack.fr):
+> Samir Bellabes <sam@synack.fr> writes:
 > 
-> No, something is definitely going on. I can work for a long time using
-> the Realtek card but if I switch to tg3 then pretty quickly network gets
-> stuck again and in a minute or so the box panics. Last time that
-> happened I switched to the text console and managed to captute an oops
-> (attached) but there is nothing really conclusive there...
 > 
-> Thanks.
+> > No I don't, if it returns 0, we proceed the next event in the current
+> > list.
+> 
+> To be sure you shall understand: No I don't want to break.
 
-I looked over all the patches I submitted between tg3 versions 3.102
-and 3.105.  Long story short, I didn't see anything particularly
-suspicious.
+Thanks :)
 
-Could you try dropping in the tg3.c and tg3.h from the 2.6.32 kernel
-into your 2.6.33 source tree and see if you encounter the same problem?
-
+-serge
