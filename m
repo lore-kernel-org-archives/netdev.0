@@ -1,56 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: consolidate netif_needs_gso() checks
-Date: Fri, 08 Jan 2010 01:00:49 -0800 (PST)
-Message-ID: <20100108.010049.218930041.davem@davemloft.net>
-References: <20100104102153.11639.48828.stgit@localhost.localdomain>
-	<20100106.203423.58447620.davem@davemloft.net>
-	<20100107050721.GA2282@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v4 0/3] can: mscan-mpc5xxx: add support for
+ the Freescale MPC512x
+Date: Fri, 08 Jan 2010 01:02:33 -0800 (PST)
+Message-ID: <20100108.010233.267965992.davem@davemloft.net>
+References: <1262893388-16218-1-git-send-email-wg@grandegger.com>
+	<20100108.004102.225115986.davem@davemloft.net>
+	<4B46F3D2.8070102@grandegger.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: Netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	Linuxppc-dev@lists.ozlabs.org, Devicetree-discuss@lists.ozlabs.org,
+	w.sang@pengutronix.de
+To: wg@grandegger.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54447
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751367Ab0AHJAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 04:00:40 -0500
-In-Reply-To: <20100107050721.GA2282@gondor.apana.org.au>
+In-Reply-To: <4B46F3D2.8070102@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 7 Jan 2010 16:07:21 +1100
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Fri, 08 Jan 2010 09:58:58 +0100
 
-> On Wed, Jan 06, 2010 at 08:34:23PM -0800, David Miller wrote:
->> From: John Fastabend <john.r.fastabend@intel.com>
->> Date: Mon, 04 Jan 2010 10:21:53 +0000
+> David Miller wrote:
+>> From: Wolfgang Grandegger <wg@grandegger.com>
+>> Date: Thu,  7 Jan 2010 20:43:05 +0100
 >> 
->> > netif_needs_gso() is checked twice in the TX path once,
->> > before submitting the skb to the qdisc and once after
->> > it is dequeued from the qdisc just before calling
->> > ndo_hard_start().  This opens a window for a user to
->> > change the gso/tso or tx checksum settings that can
->> > cause netif_needs_gso to be true in one check and false
->> > in the other.
->> > 
->> > Specifically, changing TX checksum setting may cause
->> > the warning in skb_gso_segment() to be triggered if
->> > the checksum is calculated earlier.
->> > 
->> > This consolidates the netif_needs_gso() calls so that
->> > the stack only checks if gso is needed after the skb
->> > is dequeued from the qdisc.  Or if the device has no
->> > queue then before dev_hard_start_xmit() in dev_queue_xmit().
->> > 
->> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>> This patch series adds support for the MPC512x from Freescale to the
+>>> mpc5xxx_can MSCAN driver. It has been tested on a MPC5121 and MPC5200B
+>>> board.
 >> 
->> Herbert, please review.
+>> So are these ready to go or should I wait for another round
+>> of review? :-)
 > 
-> Looks fine to me.  I have just one suggestion.  The queueless
-> case also calls dev_hard_start_xmit so we should be able to
-> remove the existing !need_gso code from dev_queue_xmit completely.
+>>From my point of view they can go in now, finally.
 
-John, please make these changes.
-
-Thanks.
+Ok, all applied to net-next-2.6, thanks.
