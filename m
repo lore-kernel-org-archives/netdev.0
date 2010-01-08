@@ -1,116 +1,79 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Thu, 7 Jan 2010 15:53:09 -0800
-Message-ID: <20100107235309.GA4515@xw6200.broadcom.net>
-References: <201001071156.31892.dmitry.torokhov@gmail.com>
- <20100107204835.GB5788@xw6200.broadcom.net>
- <4B465F2C.1080208@gmail.com>
- <201001071445.44550.dmitry.torokhov@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] drivers/net/skfp/skfddi.c: use %pMF to show MAC address
+Date: Fri, 8 Jan 2010 11:02:24 +1100
+Message-ID: <20100108000224.GH2436@verge.net.au>
+References: <201001071627.46569.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: H Hartley Sweeten <hartleys@visionengravers.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4225 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753482Ab0AGXx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jan 2010 18:53:26 -0500
-In-Reply-To: <201001071445.44550.dmitry.torokhov@gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:55585 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753706Ab0AHAC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 19:02:27 -0500
 Content-Disposition: inline
+In-Reply-To: <201001071627.46569.hartleys@visionengravers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2010 at 02:45:43PM -0800, Dmitry Torokhov wrote:
-> On Thursday 07 January 2010 02:24:44 pm Eric Dumazet wrote:
-> > Le 07/01/2010 21:48, Matt Carlson a ?crit :
-> > > Nothing jumps to mind.  Let me see if I can repro this here.
-> > >
-> > > On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
-> > >> Hi,
-> > >>
-> > >> Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latitude
-> > >> D630, it discards most of the packages for some reason:
-> > >>
-> > >> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
-> > >>      rx_octets: 35886
-> > >>      rx_fragments: 0
-> > >>      rx_ucast_packets: 9
-> > >>      rx_mcast_packets: 93
-> > >>      rx_bcast_packets: 237
-> > >>      rx_fcs_errors: 0
-> > >>      rx_align_errors: 0
-> > >>      rx_xon_pause_rcvd: 0
-> > >>      rx_xoff_pause_rcvd: 0
-> > >>      rx_mac_ctrl_rcvd: 0
-> > >>      rx_xoff_entered: 0
-> > >>      rx_frame_too_long_errors: 0
-> > >>      rx_jabbers: 0
-> > >>      rx_undersize_packets: 0
-> > >>      rx_in_length_errors: 0
-> > >>      rx_out_length_errors: 0
-> > >>      rx_64_or_less_octet_packets: 0
-> > >>      rx_65_to_127_octet_packets: 0
-> > >>      rx_128_to_255_octet_packets: 0
-> > >>      rx_256_to_511_octet_packets: 0
-> > >>      rx_512_to_1023_octet_packets: 0
-> > >>      rx_1024_to_1522_octet_packets: 0
-> > >>      rx_1523_to_2047_octet_packets: 0
-> > >>      rx_2048_to_4095_octet_packets: 0
-> > >>      rx_4096_to_8191_octet_packets: 0
-> > >>      rx_8192_to_9022_octet_packets: 0
-> > >>      rx_discards: 304
-> > >>      rx_errors: 0
-> > >>      rx_threshold_hit: 0
-> > >>
-> > >> The above on last night pull from Linux (so 2.6.33+).
-> > >>
-> > >> Everything works fine if I use wireless or another wired card (Realtek
-> > >> in cardbus slot):
-> > >>
-> > >> [root@dtor-d630 ~]# lspci | grep -ri net
-> > >> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > >> RTL-8139/8139C/8139C+ (rev 10)
-> > >> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M
-> > >> Gigabit Ethernet PCI Express (rev 02)
-> > >> 0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG
-> > >> [Golan] Network Connection (rev 02)
-> > >>
-> > >> [root@dtor-d630 ~]# ethtool eth0
-> > >> Settings for eth0:
-> > >>         Supported ports: [ TP ]
-> > >>         Supported link modes:   10baseT/Half 10baseT/Full
-> > >>                                 100baseT/Half 100baseT/Full
-> > >>                                 1000baseT/Half 1000baseT/Full
-> > >>         Supports auto-negotiation: Yes
-> > >>         Advertised link modes:  10baseT/Half 10baseT/Full
-> > >>                                 100baseT/Half 100baseT/Full
-> > >>                                 1000baseT/Half 1000baseT/Full
-> > >>         Advertised auto-negotiation: Yes
-> > >>         Speed: 1000Mb/s
-> > >>         Duplex: Full
-> > >>         Port: Twisted Pair
-> > >>         PHYAD: 1
-> > >>         Transceiver: internal
-> > >>         Auto-negotiation: on
-> > >>         Supports Wake-on: g
-> > >>         Wake-on: g
-> > >>         Current message level: 0x000000ff (255)
-> > >>         Link detected: yes
-> > >>
-> > >> Any ideas? Thanks!
-> > 
-> > My laptop is a D630, and running 2.6.33-rc3 with no special problems on tg3
-> >
+On Thu, Jan 07, 2010 at 04:27:46PM -0700, H Hartley Sweeten wrote:
+> Use the %pMF kernel extension to display the MAC address.
 > 
-> This is wierd... It all works well with Fedora 12 kernel and .32 so hardware 
-> is fine here. I think it also worked when I plugged it into my home router 
-> (will try it again tonight). But in the office it just does not want to work. 
-> It's like it just does not like the addresses that we use here...
+> The address will still be displayed in the FDDI Canonical format.
 
-Is the problem related to link speed?  I see that Eric was running at
-100Mbps.  Your ethtool output above shows that you are running at 1Gbps.
+I'm not sure that it matters, but prior to this patch
+the address was displayed with octets delimited by spaces,
+and afterwards its delimited by hyphens. So perhaps the comment
+should read:
 
+The address will now be displayed in the FDDI Canonical format.
+
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> 
+> ---
+> 
+> diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+> index db216a7..1f9698c 100644
+> --- a/drivers/net/skfp/skfddi.c
+> +++ b/drivers/net/skfp/skfddi.c
+> @@ -435,13 +435,7 @@ static  int skfp_driver_init(struct net_device *dev)
+>  		goto fail;
+>  	}
+>  	read_address(smc, NULL);
+> -	pr_debug(KERN_INFO "HW-Addr: %02x %02x %02x %02x %02x %02x\n",
+> -	       smc->hw.fddi_canon_addr.a[0],
+> -	       smc->hw.fddi_canon_addr.a[1],
+> -	       smc->hw.fddi_canon_addr.a[2],
+> -	       smc->hw.fddi_canon_addr.a[3],
+> -	       smc->hw.fddi_canon_addr.a[4],
+> -	       smc->hw.fddi_canon_addr.a[5]);
+> +	pr_debug(KERN_INFO "HW-Addr: %pMF\n", smc->hw.fddi_canon_addr.a);
+>  	memcpy(dev->dev_addr, smc->hw.fddi_canon_addr.a, 6);
+>  
+>  	smt_reset_defaults(smc, 0);
+> @@ -890,15 +884,8 @@ static void skfp_ctl_set_multicast_list_wo_lock(struct net_device *dev)
+>  							  (struct fddi_addr *)dmi->dmi_addr, 
+>  							  1);
+>  
+> -					pr_debug(KERN_INFO "ENABLE MC ADDRESS:");
+> -					pr_debug(" %02x %02x %02x ",
+> -					       dmi->dmi_addr[0],
+> -					       dmi->dmi_addr[1],
+> -					       dmi->dmi_addr[2]);
+> -					pr_debug("%02x %02x %02x\n",
+> -					       dmi->dmi_addr[3],
+> -					       dmi->dmi_addr[4],
+> -					       dmi->dmi_addr[5]);
+> +					pr_debug(KERN_INFO "ENABLE MC ADDRESS: %pMF\n",
+> +						dmi->dmi_addr);
+>  					dmi = dmi->next;
+>  				}	// for
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
