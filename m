@@ -1,129 +1,421 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Thu, 7 Jan 2010 16:14:54 -0800
-Message-ID: <20100108001453.GA2436@core.coreip.homeip.net>
-References: <201001071156.31892.dmitry.torokhov@gmail.com>
- <20100107204835.GB5788@xw6200.broadcom.net>
- <4B465F2C.1080208@gmail.com>
- <201001071445.44550.dmitry.torokhov@gmail.com>
- <20100107235309.GA4515@xw6200.broadcom.net>
+From: Daniel Borkmann <danborkmann@googlemail.com>
+Subject: Re: [PATCH] netpoll: allow execution of multiple rx_hooks per interface
+Date: Fri, 08 Jan 2010 01:20:29 +0100
+Message-ID: <4B467A4D.9070708@gmail.com>
+References: <4B44F895.9080205@gmail.com>	<1262836445.29868.227.camel@calx> <20100107.010201.51693251.davem@davemloft.net> <4B4630C0.6090206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig648FCAA701C2132ED752E904"
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org, jmoyer@redhat.com,
+	netdev@vger.kernel.org, netdev@oss.sgi.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:61546 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752655Ab0AHAPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 19:15:13 -0500
-Received: by pwj9 with SMTP id 9so12318193pwj.21
-        for <netdev@vger.kernel.org>; Thu, 07 Jan 2010 16:15:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100107235309.GA4515@xw6200.broadcom.net>
+Received: from ey-out-2122.google.com ([74.125.78.25]:58822 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324Ab0AHAUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 19:20:49 -0500
+In-Reply-To: <4B4630C0.6090206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 07, 2010 at 03:53:09PM -0800, Matt Carlson wrote:
-> On Thu, Jan 07, 2010 at 02:45:43PM -0800, Dmitry Torokhov wrote:
-> > On Thursday 07 January 2010 02:24:44 pm Eric Dumazet wrote:
-> > > Le 07/01/2010 21:48, Matt Carlson a ?crit :
-> > > > Nothing jumps to mind.  Let me see if I can repro this here.
-> > > >
-> > > > On Thu, Jan 07, 2010 at 11:56:31AM -0800, Dmitry Torokhov wrote:
-> > > >> Hi,
-> > > >>
-> > > >> Ever since I moved post 2.6.32 tg3 seems to be very sick in my Latitude
-> > > >> D630, it discards most of the packages for some reason:
-> > > >>
-> > > >> [root@dtor-d630 ~]# ethtool -S eth0 | grep rx_
-> > > >>      rx_octets: 35886
-> > > >>      rx_fragments: 0
-> > > >>      rx_ucast_packets: 9
-> > > >>      rx_mcast_packets: 93
-> > > >>      rx_bcast_packets: 237
-> > > >>      rx_fcs_errors: 0
-> > > >>      rx_align_errors: 0
-> > > >>      rx_xon_pause_rcvd: 0
-> > > >>      rx_xoff_pause_rcvd: 0
-> > > >>      rx_mac_ctrl_rcvd: 0
-> > > >>      rx_xoff_entered: 0
-> > > >>      rx_frame_too_long_errors: 0
-> > > >>      rx_jabbers: 0
-> > > >>      rx_undersize_packets: 0
-> > > >>      rx_in_length_errors: 0
-> > > >>      rx_out_length_errors: 0
-> > > >>      rx_64_or_less_octet_packets: 0
-> > > >>      rx_65_to_127_octet_packets: 0
-> > > >>      rx_128_to_255_octet_packets: 0
-> > > >>      rx_256_to_511_octet_packets: 0
-> > > >>      rx_512_to_1023_octet_packets: 0
-> > > >>      rx_1024_to_1522_octet_packets: 0
-> > > >>      rx_1523_to_2047_octet_packets: 0
-> > > >>      rx_2048_to_4095_octet_packets: 0
-> > > >>      rx_4096_to_8191_octet_packets: 0
-> > > >>      rx_8192_to_9022_octet_packets: 0
-> > > >>      rx_discards: 304
-> > > >>      rx_errors: 0
-> > > >>      rx_threshold_hit: 0
-> > > >>
-> > > >> The above on last night pull from Linux (so 2.6.33+).
-> > > >>
-> > > >> Everything works fine if I use wireless or another wired card (Realtek
-> > > >> in cardbus slot):
-> > > >>
-> > > >> [root@dtor-d630 ~]# lspci | grep -ri net
-> > > >> 04:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-> > > >> RTL-8139/8139C/8139C+ (rev 10)
-> > > >> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5755M
-> > > >> Gigabit Ethernet PCI Express (rev 02)
-> > > >> 0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG
-> > > >> [Golan] Network Connection (rev 02)
-> > > >>
-> > > >> [root@dtor-d630 ~]# ethtool eth0
-> > > >> Settings for eth0:
-> > > >>         Supported ports: [ TP ]
-> > > >>         Supported link modes:   10baseT/Half 10baseT/Full
-> > > >>                                 100baseT/Half 100baseT/Full
-> > > >>                                 1000baseT/Half 1000baseT/Full
-> > > >>         Supports auto-negotiation: Yes
-> > > >>         Advertised link modes:  10baseT/Half 10baseT/Full
-> > > >>                                 100baseT/Half 100baseT/Full
-> > > >>                                 1000baseT/Half 1000baseT/Full
-> > > >>         Advertised auto-negotiation: Yes
-> > > >>         Speed: 1000Mb/s
-> > > >>         Duplex: Full
-> > > >>         Port: Twisted Pair
-> > > >>         PHYAD: 1
-> > > >>         Transceiver: internal
-> > > >>         Auto-negotiation: on
-> > > >>         Supports Wake-on: g
-> > > >>         Wake-on: g
-> > > >>         Current message level: 0x000000ff (255)
-> > > >>         Link detected: yes
-> > > >>
-> > > >> Any ideas? Thanks!
-> > > 
-> > > My laptop is a D630, and running 2.6.33-rc3 with no special problems on tg3
-> > >
-> > 
-> > This is wierd... It all works well with Fedora 12 kernel and .32 so hardware 
-> > is fine here. I think it also worked when I plugged it into my home router 
-> > (will try it again tonight). But in the office it just does not want to work. 
-> > It's like it just does not like the addresses that we use here...
-> 
-> Is the problem related to link speed?  I see that Eric was running at
-> 100Mbps.  Your ethtool output above shows that you are running at 1Gbps.
-> 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig648FCAA701C2132ED752E904
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Indeed I have 100Mbps at home and 1Gb in the office.. I amy try playing
-with it some more if you want but that patch you sent seems to have
-fixed the issue for me...
+Daniel Borkmann wrote:
+> David Miller wrote:
+>> From: Matt Mackall <mpm@selenic.com>
+>> Date: Wed, 06 Jan 2010 21:54:05 -0600
+>>
+>>> Please inline patches so they can be reviewed easily in reply.
+>>>
+>>>
+>>> -       struct netpoll *np =3D npi->rx_np;
+>>> +       struct netpoll **np =3D &npi->rx_np;
+>>> =20
+>>> -       if (!np)
+>>> +       if (!(*np))
+>>>
+>>> This makes everything horrible. Can you avoid the double indirection?=
 
-Except that sice I started using tg3 in couple of hours the box locked
-up completely once and panicked twice; of course it happened in X so no
-traces whatsoever. Maybe a coincidence though, I am running with nvidia
-driver...
+>>> Using a list head might be a good answer.
+>>>
+>> Agreed on all counts.
+>>
+>=20
+> Agreed on the double indirection, I'll fix it.
+>=20
+> I've already considered the list_head structure, but then I was the opi=
+nion
+> that a double linked list might not be necessary for this, so I did it =
+that
+> way ... (compare: kernel notifier by Alan Cox). If you insist on that I=
+'ll
+> fix it of course ;)
 
--- 
-Dmitry
+So, here's the list head implementation. Tested on both of my machines wi=
+th several
+rx_hook clients.
+
+Best regards,
+Daniel
+
+Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
+
+diff -Nur a/include/linux/netpoll.h b/include/linux/netpoll.h
+--- a/include/linux/netpoll.h	2010-01-05 23:52:58.000000000 +0100
++++ b/include/linux/netpoll.h	2010-01-07 23:19:25.000000000 +0100
+@@ -21,15 +21,20 @@
+ 	__be32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	u8 remote_mac[ETH_ALEN];
++
++	struct list_head rx; /* rx_np list element */
+ };
+
+ struct netpoll_info {
+ 	atomic_t refcnt;
++
+ 	int rx_flags;
+ 	spinlock_t rx_lock;
+-	struct netpoll *rx_np; /* netpoll that registered an rx_hook */
++	struct list_head rx_np; /* netpolls that registered an rx_hook */
++
+ 	struct sk_buff_head arp_tx; /* list of arp requests to reply to */
+ 	struct sk_buff_head txq;
++
+ 	struct delayed_work tx_work;
+ };
+
+@@ -51,7 +56,7 @@
+ 	unsigned long flags;
+ 	int ret =3D 0;
+
+-	if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
++	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
+ 		return 0;
+
+ 	spin_lock_irqsave(&npinfo->rx_lock, flags);
+@@ -67,7 +72,7 @@
+ {
+ 	struct netpoll_info *npinfo =3D skb->dev->npinfo;
+
+-	return npinfo && (npinfo->rx_np || npinfo->rx_flags);
++	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
+ }
+
+ static inline int netpoll_receive_skb(struct sk_buff *skb)
+diff -Nur a/net/core/netpoll.c b/net/core/netpoll.c
+--- a/net/core/netpoll.c	2010-01-05 23:53:07.000000000 +0100
++++ b/net/core/netpoll.c	2010-01-08 00:59:19.000000000 +0100
+@@ -407,107 +407,119 @@
+ 	__be32 sip, tip;
+ 	unsigned char *sha;
+ 	struct sk_buff *send_skb;
+-	struct netpoll *np =3D NULL;
+-
+-	if (npinfo->rx_np && npinfo->rx_np->dev =3D=3D skb->dev)
+-		np =3D npinfo->rx_np;
+-	if (!np)
+-		return;
+-
+-	/* No arp on this interface */
+-	if (skb->dev->flags & IFF_NOARP)
+-		return;
++	struct netpoll *np, *tmp;
++	unsigned long flags;
+
+-	if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
++	if (list_empty(&npinfo->rx_np))
+ 		return;
+
+-	skb_reset_network_header(skb);
+-	skb_reset_transport_header(skb);
+-	arp =3D arp_hdr(skb);
+-
+-	if ((arp->ar_hrd !=3D htons(ARPHRD_ETHER) &&
+-	     arp->ar_hrd !=3D htons(ARPHRD_IEEE802)) ||
+-	    arp->ar_pro !=3D htons(ETH_P_IP) ||
+-	    arp->ar_op !=3D htons(ARPOP_REQUEST))
+-		return;
++	spin_lock_irqsave(&npinfo->rx_lock, flags);
++	list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
++		if (np->dev !=3D skb->dev)
++			continue;
++
++		/* No arp on this interface */
++		if (skb->dev->flags & IFF_NOARP)
++			continue;
++
++		if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
++			continue;
++
++		skb_reset_network_header(skb);
++		skb_reset_transport_header(skb);
++		arp =3D arp_hdr(skb);
++
++		if ((arp->ar_hrd !=3D htons(ARPHRD_ETHER) &&
++		     arp->ar_hrd !=3D htons(ARPHRD_IEEE802)) ||
++		    arp->ar_pro !=3D htons(ETH_P_IP) ||
++		    arp->ar_op !=3D htons(ARPOP_REQUEST))
++			continue;
++
++		arp_ptr =3D (unsigned char *)(arp+1);
++		/* save the location of the src hw addr */
++		sha =3D arp_ptr;
++		arp_ptr +=3D skb->dev->addr_len;
++		memcpy(&sip, arp_ptr, 4);
++		arp_ptr +=3D 4;
++		/*
++		 * if we actually cared about dst hw addr,
++		 * it would get copied here
++		 */
++		arp_ptr +=3D skb->dev->addr_len;
++		memcpy(&tip, arp_ptr, 4);
+
+-	arp_ptr =3D (unsigned char *)(arp+1);
+-	/* save the location of the src hw addr */
+-	sha =3D arp_ptr;
+-	arp_ptr +=3D skb->dev->addr_len;
+-	memcpy(&sip, arp_ptr, 4);
+-	arp_ptr +=3D 4;
+-	/* if we actually cared about dst hw addr, it would get copied here */
+-	arp_ptr +=3D skb->dev->addr_len;
+-	memcpy(&tip, arp_ptr, 4);
+-
+-	/* Should we ignore arp? */
+-	if (tip !=3D np->local_ip ||
+-	    ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
+-		return;
++		/* Should we ignore arp? */
++		if (tip !=3D np->local_ip ||
++		    ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
++			continue;
++
++		size =3D arp_hdr_len(skb->dev);
++		send_skb =3D find_skb(np, size + LL_ALLOCATED_SPACE(np->dev),
++				    LL_RESERVED_SPACE(np->dev));
++
++		if (!send_skb)
++			continue;
++
++		skb_reset_network_header(send_skb);
++		arp =3D (struct arphdr *) skb_put(send_skb, size);
++		send_skb->dev =3D skb->dev;
++		send_skb->protocol =3D htons(ETH_P_ARP);
++
++		/* Fill the device header for the ARP frame */
++		if (dev_hard_header(send_skb, skb->dev, ptype,
++				    sha, np->dev->dev_addr,
++				    send_skb->len) < 0) {
++			kfree_skb(send_skb);
++			continue;
++		}
+
+-	size =3D arp_hdr_len(skb->dev);
+-	send_skb =3D find_skb(np, size + LL_ALLOCATED_SPACE(np->dev),
+-			    LL_RESERVED_SPACE(np->dev));
++		/*
++		 * Fill out the arp protocol part.
++		 *
++		 * we only support ethernet device type,
++		 * which (according to RFC 1390) should
++		 * always equal 1 (Ethernet).
++		 */
+
+-	if (!send_skb)
+-		return;
++		arp->ar_hrd =3D htons(np->dev->type);
++		arp->ar_pro =3D htons(ETH_P_IP);
++		arp->ar_hln =3D np->dev->addr_len;
++		arp->ar_pln =3D 4;
++		arp->ar_op =3D htons(type);
++
++		arp_ptr =3D (unsigned char *)(arp + 1);
++		memcpy(arp_ptr, np->dev->dev_addr, np->dev->addr_len);
++		arp_ptr +=3D np->dev->addr_len;
++		memcpy(arp_ptr, &tip, 4);
++		arp_ptr +=3D 4;
++		memcpy(arp_ptr, sha, np->dev->addr_len);
++		arp_ptr +=3D np->dev->addr_len;
++		memcpy(arp_ptr, &sip, 4);
+
+-	skb_reset_network_header(send_skb);
+-	arp =3D (struct arphdr *) skb_put(send_skb, size);
+-	send_skb->dev =3D skb->dev;
+-	send_skb->protocol =3D htons(ETH_P_ARP);
+-
+-	/* Fill the device header for the ARP frame */
+-	if (dev_hard_header(send_skb, skb->dev, ptype,
+-			    sha, np->dev->dev_addr,
+-			    send_skb->len) < 0) {
+-		kfree_skb(send_skb);
+-		return;
++		netpoll_send_skb(np, send_skb);
+ 	}
+-
+-	/*
+-	 * Fill out the arp protocol part.
+-	 *
+-	 * we only support ethernet device type,
+-	 * which (according to RFC 1390) should always equal 1 (Ethernet).
+-	 */
+-
+-	arp->ar_hrd =3D htons(np->dev->type);
+-	arp->ar_pro =3D htons(ETH_P_IP);
+-	arp->ar_hln =3D np->dev->addr_len;
+-	arp->ar_pln =3D 4;
+-	arp->ar_op =3D htons(type);
+-
+-	arp_ptr=3D(unsigned char *)(arp + 1);
+-	memcpy(arp_ptr, np->dev->dev_addr, np->dev->addr_len);
+-	arp_ptr +=3D np->dev->addr_len;
+-	memcpy(arp_ptr, &tip, 4);
+-	arp_ptr +=3D 4;
+-	memcpy(arp_ptr, sha, np->dev->addr_len);
+-	arp_ptr +=3D np->dev->addr_len;
+-	memcpy(arp_ptr, &sip, 4);
+-
+-	netpoll_send_skb(np, send_skb);
++	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ }
+
+ int __netpoll_rx(struct sk_buff *skb)
+ {
+ 	int proto, len, ulen;
++	int hits =3D 0;
+ 	struct iphdr *iph;
+ 	struct udphdr *uh;
+-	struct netpoll_info *npi =3D skb->dev->npinfo;
+-	struct netpoll *np =3D npi->rx_np;
++	struct netpoll_info *npinfo =3D skb->dev->npinfo;
++	struct netpoll *np, *tmp;
+
+-	if (!np)
++	if (list_empty(&npinfo->rx_np))
+ 		goto out;
++
+ 	if (skb->dev->type !=3D ARPHRD_ETHER)
+ 		goto out;
+
+ 	/* check if netpoll clients need ARP */
+ 	if (skb->protocol =3D=3D htons(ETH_P_ARP) &&
+ 	    atomic_read(&trapped)) {
+-		skb_queue_tail(&npi->arp_tx, skb);
++		skb_queue_tail(&npinfo->arp_tx, skb);
+ 		return 1;
+ 	}
+
+@@ -551,16 +563,23 @@
+ 		goto out;
+ 	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
+ 		goto out;
+-	if (np->local_ip && np->local_ip !=3D iph->daddr)
+-		goto out;
+-	if (np->remote_ip && np->remote_ip !=3D iph->saddr)
+-		goto out;
+-	if (np->local_port && np->local_port !=3D ntohs(uh->dest))
+-		goto out;
+
+-	np->rx_hook(np, ntohs(uh->source),
+-		    (char *)(uh+1),
+-		    ulen - sizeof(struct udphdr));
++	list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
++		if (np->local_ip && np->local_ip !=3D iph->daddr)
++			continue;
++		if (np->remote_ip && np->remote_ip !=3D iph->saddr)
++			continue;
++		if (np->local_port && np->local_port !=3D ntohs(uh->dest))
++			continue;
++
++		np->rx_hook(np, ntohs(uh->source),
++			       (char *)(uh+1),
++			       ulen - sizeof(struct udphdr));
++		hits++;
++	}
++
++	if (!hits)
++		goto out;
+
+ 	kfree_skb(skb);
+ 	return 1;
+@@ -684,6 +703,7 @@
+ 	struct net_device *ndev =3D NULL;
+ 	struct in_device *in_dev;
+ 	struct netpoll_info *npinfo;
++	struct netpoll *npe, *tmp;
+ 	unsigned long flags;
+ 	int err;
+
+@@ -704,7 +724,7 @@
+ 		}
+
+ 		npinfo->rx_flags =3D 0;
+-		npinfo->rx_np =3D NULL;
++		INIT_LIST_HEAD(&npinfo->rx_np);
+
+ 		spin_lock_init(&npinfo->rx_lock);
+ 		skb_queue_head_init(&npinfo->arp_tx);
+@@ -785,7 +805,7 @@
+ 	if (np->rx_hook) {
+ 		spin_lock_irqsave(&npinfo->rx_lock, flags);
+ 		npinfo->rx_flags |=3D NETPOLL_RX_ENABLED;
+-		npinfo->rx_np =3D np;
++		list_add_tail(&np->rx, &npinfo->rx_np);
+ 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	}
+
+@@ -801,9 +821,16 @@
+ 	return 0;
+
+  release:
+-	if (!ndev->npinfo)
++	if (!ndev->npinfo) {
++		spin_lock_irqsave(&npinfo->rx_lock, flags);
++		list_for_each_entry_safe(npe, tmp, &npinfo->rx_np, rx) {
++			npe->dev =3D NULL;
++		}
++		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
++
+ 		kfree(npinfo);
+-	np->dev =3D NULL;
++	}
++
+ 	dev_put(ndev);
+ 	return err;
+ }
+@@ -823,10 +850,11 @@
+ 	if (np->dev) {
+ 		npinfo =3D np->dev->npinfo;
+ 		if (npinfo) {
+-			if (npinfo->rx_np =3D=3D np) {
++			if (!list_empty(&npinfo->rx_np)) {
+ 				spin_lock_irqsave(&npinfo->rx_lock, flags);
+-				npinfo->rx_np =3D NULL;
+-				npinfo->rx_flags &=3D ~NETPOLL_RX_ENABLED;
++				list_del(&np->rx);
++				if (list_empty(&npinfo->rx_np))
++					npinfo->rx_flags &=3D ~NETPOLL_RX_ENABLED;
+ 				spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 			}
+
+
+
+
+--------------enig648FCAA701C2132ED752E904
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAktGek0ACgkQ5AxJm1m3CC+36ACbBOjCcPOlWJFYJqA/PHtNR5BJ
+8YkAnjB/yxZUG+Xqua1Aklz4JciUbt9G
+=VeVx
+-----END PGP SIGNATURE-----
+
+--------------enig648FCAA701C2132ED752E904--
