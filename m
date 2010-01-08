@@ -1,34 +1,42 @@
-From: Dragoslav Zaric <dragoslav.zaric.kd@gmail.com>
-Subject: Re: Socket Server breaks after 1000 client requests
-Date: Fri, 8 Jan 2010 18:24:22 +0100
-Message-ID: <2d05c4581001080924j159193c4ve45c8db14f89f8cf@mail.gmail.com>
-References: <2d05c4580912311111w6abaa007y5d212dd8fbde24d9@mail.gmail.com>
-	 <4B3CF9EC.9070103@candelatech.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for January 8 (net/ip.h, BUG=n)
+Date: Fri, 8 Jan 2010 09:25:05 -0800
+Message-ID: <20100108092505.4f4e1ac3.randy.dunlap@oracle.com>
+References: <20100108164232.d3e1a164.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:51738 "EHLO
-	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273Ab0AHRYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 12:24:24 -0500
-Received: by bwz27 with SMTP id 27so12289430bwz.21
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 09:24:22 -0800 (PST)
-In-Reply-To: <4B3CF9EC.9070103@candelatech.com>
+Received: from acsinet11.oracle.com ([141.146.126.233]:62551 "EHLO
+	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300Ab0AHRZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 12:25:39 -0500
+In-Reply-To: <20100108164232.d3e1a164.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Ben,
+On Fri, 8 Jan 2010 16:42:32 +1100 Stephen Rothwell wrote:
 
-The error was definitely in my code. I used c++ functions for send and receive.
-Now I am using write() and read() system calls to write and read
-directly to sockets and
-it works flawlessly ;)
+> Hi all,
+> 
+> Changes since 20100107:
 
-When I am sending 100 000 messages in loop from client to server it goes for few
-seconds.
 
-regards,
+When CONFIG_BUG=n, CONFIG_GENERIC_BUG=n:
 
-dragoslav zaric
+include/net/ip.h:341: error: implicit declaration of function '__WARN'
+
+This affects:
+make[3]: *** [security/selinux/hooks.o] Error 1
+make[3]: *** [fs/ceph/messenger.o] Error 1
+make[3]: *** [net/core/sock.o] Error 1
+make[4]: *** [drivers/net/benet/be_main.o] Error 1
+
+
+(this was on i386 builds)
+
+---
+~Randy
