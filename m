@@ -1,42 +1,56 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v4 0/3] can: mscan-mpc5xxx: add support for the
-	Freescale MPC512x
-Date: Fri, 08 Jan 2010 09:58:58 +0100
-Message-ID: <4B46F3D2.8070102@grandegger.com>
-References: <1262893388-16218-1-git-send-email-wg@grandegger.com>
-	<20100108.004102.225115986.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: consolidate netif_needs_gso() checks
+Date: Fri, 08 Jan 2010 01:00:49 -0800 (PST)
+Message-ID: <20100108.010049.218930041.davem@davemloft.net>
+References: <20100104102153.11639.48828.stgit@localhost.localdomain>
+	<20100106.203423.58447620.davem@davemloft.net>
+	<20100107050721.GA2282@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20100108.004102.225115986.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54447
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751367Ab0AHJAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 04:00:40 -0500
+In-Reply-To: <20100107050721.GA2282@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> Date: Thu,  7 Jan 2010 20:43:05 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 7 Jan 2010 16:07:21 +1100
+
+> On Wed, Jan 06, 2010 at 08:34:23PM -0800, David Miller wrote:
+>> From: John Fastabend <john.r.fastabend@intel.com>
+>> Date: Mon, 04 Jan 2010 10:21:53 +0000
+>> 
+>> > netif_needs_gso() is checked twice in the TX path once,
+>> > before submitting the skb to the qdisc and once after
+>> > it is dequeued from the qdisc just before calling
+>> > ndo_hard_start().  This opens a window for a user to
+>> > change the gso/tso or tx checksum settings that can
+>> > cause netif_needs_gso to be true in one check and false
+>> > in the other.
+>> > 
+>> > Specifically, changing TX checksum setting may cause
+>> > the warning in skb_gso_segment() to be triggered if
+>> > the checksum is calculated earlier.
+>> > 
+>> > This consolidates the netif_needs_gso() calls so that
+>> > the stack only checks if gso is needed after the skb
+>> > is dequeued from the qdisc.  Or if the device has no
+>> > queue then before dev_hard_start_xmit() in dev_queue_xmit().
+>> > 
+>> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> 
+>> Herbert, please review.
 > 
->> This patch series adds support for the MPC512x from Freescale to the
->> mpc5xxx_can MSCAN driver. It has been tested on a MPC5121 and MPC5200B
->> board.
-> 
-> So are these ready to go or should I wait for another round
-> of review? :-)
+> Looks fine to me.  I have just one suggestion.  The queueless
+> case also calls dev_hard_start_xmit so we should be able to
+> remove the existing !need_gso code from dev_queue_xmit completely.
 
->From my point of view they can go in now, finally.
+John, please make these changes.
 
-Thanks,
-
-Wolfgang.
+Thanks.
