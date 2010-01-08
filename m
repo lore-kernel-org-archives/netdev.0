@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/5] e1000e: call pci_save_state() after
-	pci_restore_state()
-Date: Thu, 07 Jan 2010 18:30:56 -0800
-Message-ID: <20100108023033.31476.4034.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/5] e1000e: don't accumulate PHY statistics on PHY
+	read failure
+Date: Thu, 07 Jan 2010 18:31:16 -0800
+Message-ID: <20100108023115.31476.56779.stgit@localhost.localdomain>
+References: <20100108023033.31476.4034.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,46 +12,82 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:33907
-	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752648Ab0AHCbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 21:31:21 -0500
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:51272
+	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752714Ab0AHCbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jan 2010 21:31:34 -0500
+In-Reply-To: <20100108023033.31476.4034.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Due to a change in pci_restore_state()[1] which clears the saved_state
-flag, the driver should call pci_save_state() to set the flag once again
-to avoid issues with EEH (same fix that recently was submitted for ixgbe).
-
-[1] commmit 4b77b0a2ba27d64f58f16d8d4d48d8319dda36ff
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/netdev.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 762b697..10aa0ec 100644
+index 10aa0ec..c45965a 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -4674,6 +4674,7 @@ static int e1000_resume(struct pci_dev *pdev)
+@@ -3315,24 +3315,24 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+ 		e1e_rphy(hw, HV_SCC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_SCC_LOWER, &phy_data);
+-		adapter->stats.scc += phy_data;
++		if (!e1e_rphy(hw, HV_SCC_LOWER, &phy_data))
++			adapter->stats.scc += phy_data;
  
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
-+	pci_save_state(pdev);
- 	e1000e_disable_l1aspm(pdev);
+ 		e1e_rphy(hw, HV_ECOL_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_ECOL_LOWER, &phy_data);
+-		adapter->stats.ecol += phy_data;
++		if (!e1e_rphy(hw, HV_ECOL_LOWER, &phy_data))
++			adapter->stats.ecol += phy_data;
  
- 	err = pci_enable_device_mem(pdev);
-@@ -4825,6 +4826,7 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
+ 		e1e_rphy(hw, HV_MCC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_MCC_LOWER, &phy_data);
+-		adapter->stats.mcc += phy_data;
++		if (!e1e_rphy(hw, HV_MCC_LOWER, &phy_data))
++			adapter->stats.mcc += phy_data;
+ 
+ 		e1e_rphy(hw, HV_LATECOL_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data);
+-		adapter->stats.latecol += phy_data;
++		if (!e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data))
++			adapter->stats.latecol += phy_data;
+ 
+ 		e1e_rphy(hw, HV_DC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_DC_LOWER, &phy_data);
+-		adapter->stats.dc += phy_data;
++		if (!e1e_rphy(hw, HV_DC_LOWER, &phy_data))
++			adapter->stats.dc += phy_data;
  	} else {
- 		pci_set_master(pdev);
- 		pci_restore_state(pdev);
-+		pci_save_state(pdev);
- 
- 		pci_enable_wake(pdev, PCI_D3hot, 0);
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 		adapter->stats.scc += er32(SCC);
+ 		adapter->stats.ecol += er32(ECOL);
+@@ -3360,8 +3360,8 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+ 		e1e_rphy(hw, HV_COLC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_COLC_LOWER, &phy_data);
+-		hw->mac.collision_delta = phy_data;
++		if (!e1e_rphy(hw, HV_COLC_LOWER, &phy_data))
++			hw->mac.collision_delta = phy_data;
+ 	} else {
+ 		hw->mac.collision_delta = er32(COLC);
+ 	}
+@@ -3372,8 +3372,8 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+ 		e1e_rphy(hw, HV_TNCRS_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data);
+-		adapter->stats.tncrs += phy_data;
++		if (!e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data))
++			adapter->stats.tncrs += phy_data;
+ 	} else {
+ 		if ((hw->mac.type != e1000_82574) &&
+ 		    (hw->mac.type != e1000_82583))
 
