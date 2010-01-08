@@ -1,74 +1,39 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 5/9] snet: introduce snet_event.c and snet_event.h
-Date: Fri, 08 Jan 2010 08:21:49 +0100
-Message-ID: <m2iqbdkqnm.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-6-git-send-email-sam@synack.fr>
-	<20100104190854.GD6034@us.ibm.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] drivers/net/: use DEFINE_PCI_DEVICE_TABLE()
+Date: Fri, 8 Jan 2010 09:34:47 +0200
+Message-ID: <20100108073447.GA4070@x200>
+References: <20100107215811.GA9357@x200>
+ <1262903146.10429.83.camel@Joe-Laptop.home>
+ <4B465FF0.80802@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20100104190854.GD6034@us.ibm.com> (Serge E. Hallyn's message of
-	"Mon, 4 Jan 2010 13:08:54 -0600")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Joe Perches <joe@perches.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.158]:31812 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748Ab0AHHew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 02:34:52 -0500
+Received: by fg-out-1718.google.com with SMTP id 22so7608335fge.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jan 2010 23:34:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4B465FF0.80802@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+On Thu, Jan 07, 2010 at 05:28:00PM -0500, Jeff Garzik wrote:
+> On 01/07/2010 05:25 PM, Joe Perches wrote:
+> > On Thu, 2010-01-07 at 23:58 +0200, Alexey Dobriyan wrote:
+> >> Use DEFINE_PCI_DEVICE_TABLE() so we get place PCI ids table into correct section
+> >> in every case.
+> >
+> > Good idea, but aren't there are some tables that are not const?
+> 
+> I hope not...  those tables are read by userland tools.
 
-> Quoting Samir Bellabes (sam@synack.fr):
->> +int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
->> +{
->> +	unsigned int i = 0, n = 0;
->> +	int ret = -1;
->> +	unsigned hashs_to_skip = cb->args[0];
->> +	unsigned events_to_skip = cb->args[1];
->> +	struct list_head *l;
->> +	struct snet_event_entry *s;
->> +
->> +	read_lock_bh(&event_hash_lock);
->> +
->> +	if (!event_hash)
->> +		goto errout;
->> +
->> +	for (i = 0; i < event_hash_size; i++) {
->> +		if (i < hashs_to_skip)
->> +			continue;
->
-> What is this?
+I checked non-static ones, they are readonly.
+and PCI layer expects them to be readonly.
 
-code was duplicated from ctrl_dumpfamily() at net/netlink/genetlink.c
-this can be optimized by:
-        for (i = hashs_to_skip; i < event_hash_size; i++) {
-
-I will made a patch for ctrl_dumpfamily() right now.
-
->> +		l = &event_hash[i];
->> +		n = 0;
->> +		list_for_each_entry(s, l, list) {
->> +			if (++n < events_to_skip)
->> +				continue;
->> +			ret = snet_nl_list_fill_info(skb,
->> +						     NETLINK_CB(cb->skb).pid,
->> +						     cb->nlh->nlmsg_seq,
->> +						     NLM_F_MULTI,
->> +						     s->se.protocol,
->> +						     s->se.syscall);
->> +			if (ret < 0)
->> +				goto errout;
->
-> So if it returns 0, presumably meaning successfully handled, you
-> want to go on processing any duplicates?
-
-first, I found a bug in snet_nl_list_fill_info() which was returning 0
-instead of -EMSGSIZE in case there was not enough space to put data.
-
-I'm not sure to understand what may have duplicates, but if you are
-talking about the events (struct snet_event_entry), that is not possible
-as the insert function checks if the event is already in the hashtable
-snet_evh before insertion.
+> Messing with the PCI ID tables as runtime is highly unusual, to say the 
+> least.
