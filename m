@@ -1,40 +1,46 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH net-2.6 1/4] netxen: fix tx ring memory leak
-Date: Fri,  8 Jan 2010 00:10:14 -0800
-Message-ID: <1262938217-10089-2-git-send-email-amit.salecha@qlogic.com>
-References: <1262938217-10089-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: davem@davemloft.net
+From: Samir Bellabes <sam@synack.fr>
+Subject: [PATCH] genetlink: optimize ctrl_dumpfamily()
+Date: Fri, 08 Jan 2010 09:10:56 +0100
+Message-ID: <m2bph5kodr.fsf@ssh.synack.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:25993 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753204Ab0AHIKV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jan 2010 03:10:21 -0500
-In-Reply-To: <1262938217-10089-1-git-send-email-amit.salecha@qlogic.com>
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:45716 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753302Ab0AHIK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 03:10:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o While unloading driver or resetting the context, tx ring was not
-  getting free.
+commit f3257ff67aac80d423227eae89281e506fed8cd6
+Author: Samir Bellabes <sam@synack.fr>
+Date:   Fri Jan 8 08:44:41 2010 +0100
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_init.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+    genetlink: optimize ctrl_dumpfamily()
+    
+    there is a unnecessary test which can be replaced by a good initialization in
+    the 'for' statement
+    
+    Noticed by Serge E. Hallyn <serue@us.ibm.com>
+    
+    Signed-off-by: Samir Bellabes <sam@synack.fr>
 
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 02f8d4b..925b699 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -184,6 +184,8 @@ skip_rds:
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index d07ecda..a4b6e14 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -681,9 +681,7 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
  
- 	tx_ring = adapter->tx_ring;
- 	vfree(tx_ring->cmd_buf_arr);
-+	kfree(tx_ring);
-+	adapter->tx_ring = NULL;
- }
- 
- int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
--- 
-1.6.0.2
-
+-	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
+-		if (i < chains_to_skip)
+-			continue;
++	for (i = chains_to_skip; i < GENL_FAM_TAB_SIZE; i++) {
+ 		n = 0;
+ 		list_for_each_entry(rt, genl_family_chain(i), family_list) {
+ 			if (!rt->netnsok && !net_eq(net, &init_net))
