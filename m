@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/3] can: mscan-mpc5xxx: add support for
- the Freescale MPC512x
-Date: Fri, 08 Jan 2010 01:02:33 -0800 (PST)
-Message-ID: <20100108.010233.267965992.davem@davemloft.net>
-References: <1262893388-16218-1-git-send-email-wg@grandegger.com>
-	<20100108.004102.225115986.davem@davemloft.net>
-	<4B46F3D2.8070102@grandegger.com>
+Subject: Re: [net-next-2.6 PATCH] igb: add support for device reset
+ interrupt
+Date: Fri, 08 Jan 2010 01:02:56 -0800 (PST)
+Message-ID: <20100108.010256.254849765.davem@davemloft.net>
+References: <20100108034058.31805.96712.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
-	Linuxppc-dev@lists.ozlabs.org, Devicetree-discuss@lists.ozlabs.org,
-	w.sang@pengutronix.de
-To: wg@grandegger.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4B46F3D2.8070102@grandegger.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54459
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752204Ab0AHJCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 04:02:48 -0500
+In-Reply-To: <20100108034058.31805.96712.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Fri, 08 Jan 2010 09:58:58 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 07 Jan 2010 19:41:00 -0800
 
-> David Miller wrote:
->> From: Wolfgang Grandegger <wg@grandegger.com>
->> Date: Thu,  7 Jan 2010 20:43:05 +0100
->> 
->>> This patch series adds support for the MPC512x from Freescale to the
->>> mpc5xxx_can MSCAN driver. It has been tested on a MPC5121 and MPC5200B
->>> board.
->> 
->> So are these ready to go or should I wait for another round
->> of review? :-)
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
->>From my point of view they can go in now, finally.
+> This patch adds support for the global device reset interrupt.  Without
+> this change the drivers will report tx hangs on all ports when a global
+> device reset occurs.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Ok, all applied to net-next-2.6, thanks.
+Applied.
