@@ -1,53 +1,83 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH/next] mac8390: Fix build breakage
-Date: Sat, 9 Jan 2010 14:21:28 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1001091420080.21892@ayla.of.borg>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: query: tcp_sock tcp_header_len calculations
+Date: Sat, 09 Jan 2010 09:03:35 -0500
+Message-ID: <4B488CB7.8070900@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f176.google.com ([209.85.211.176]:64311 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751594Ab0AIODi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 09:03:38 -0500
+Received: by ywh6 with SMTP id 6so20284764ywh.4
+        for <netdev@vger.kernel.org>; Sat, 09 Jan 2010 06:03:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 18c0019102228875cb0f6f252dad5148491e96b2 ("drivers/net/mac8390.c:
-Convert printk(KERN_<level> to pr_<level>(") broke the build:
+I'm re-writing TCPCT part 3 waiting for comments on part 2, and have
+stumbled upon a completely undocumented and incomprehensible usage for
+tcp_header_len.  Is whomever wrote this still around?
 
-| drivers/net/mac8390.c:306: error: expected ')' before 'version'
+linux/tcp.h documents this as:
+...
+	u16	tcp_header_len;	/* Bytes of tcp header to send		*/
+...
 
-as "version" is not a string literal, but a variable.
+So far, so good.  But it's clearly *not* correct in tcp_output.c:
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-http://kisskb.ellerman.id.au/kisskb/buildresult/1985016/
+tcp_connect_init()
+...
+	tp->tcp_header_len = sizeof(struct tcphdr) +
+		(sysctl_tcp_timestamps ? TCPOLEN_TSTAMP_ALIGNED : 0);
 
- drivers/net/mac8390.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+#ifdef CONFIG_TCP_MD5SIG
+	if (tp->af_specific->md5_lookup(sk, sk) != NULL)
+		tp->tcp_header_len += TCPOLEN_MD5SIG_ALIGNED;
+#endif
+...
 
-diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
-index c70bd68..a876867 100644
---- a/drivers/net/mac8390.c
-+++ b/drivers/net/mac8390.c
-@@ -303,7 +303,7 @@ static bool __init mac8390_init(struct net_device *dev, struct nubus_dev *ndev,
- 	int offset;
- 	volatile unsigned short *i;
- 
--	printk_once(KERN_INFO pr_fmt(version));
-+	printk_once(KERN_INFO pr_fmt("%s"), version);
- 
- 	dev->irq = SLOT2IRQ(ndev->board->slot);
- 	/* This is getting to be a habit */
--- 
-1.6.0.4
+This combination is actually *impossible* -- current options code
+*never* allows both authentication and timestamps, doing SACK instead:
 
-Gr{oetje,eeting}s,
+tcp_syn_options()
+...
+	if (likely(sysctl_tcp_timestamps && *md5 == NULL)) {
+		opts->options |= OPTION_TS;
+...
 
-						Geert
+tcp_synack_options()
+...
+		/* We can't fit any SACK blocks in a packet with MD5 + TS
+		 * options. There was discussion about disabling SACK
+		 * rather than TS in order to fit in better with old,
+		 * buggy kernels, but that was deemed to be unnecessary.
+		 */
+		doing_ts &= !ireq->sack_ok;
+...
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Thus, tcp_header_len has the wrong value, resulting in underestimation
+for MSS.  But even worse usage in minisocks.c:
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+tcp_create_openreq_child()
+...
+		if (newtp->rx_opt.tstamp_ok) {
+			newtp->rx_opt.ts_recent = req->ts_recent;
+			newtp->rx_opt.ts_recent_stamp = get_seconds();
+			newtp->tcp_header_len = sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED;
+		} else {
+			newtp->rx_opt.ts_recent_stamp = 0;
+			newtp->tcp_header_len = sizeof(struct tcphdr);
+		}
+#ifdef CONFIG_TCP_MD5SIG
+		newtp->md5sig_info = NULL;	/*XXX*/
+#endif
+		if (skb->len >= TCP_MSS_DEFAULT + newtp->tcp_header_len)
+			newicsk->icsk_ack.last_seg_size = skb->len - newtp->tcp_header_len;
+...
+
+This takes an *output* estimation, and then compares it to (and subtracts
+from) skb->len, which is *input* length.  What's supposed to happen here?
+
+Shouldn't this simply use the real input tcp_hdrlen()?
