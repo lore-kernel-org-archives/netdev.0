@@ -1,46 +1,35 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Fri, 8 Jan 2010 22:30:19 -0800
-Message-ID: <20100109063019.GA3054@core.coreip.homeip.net>
-References: <201001071156.31892.dmitry.torokhov@gmail.com>
- <20100108013600.GA2711@core.coreip.homeip.net>
- <20100108180915.GA8218@xw6200.broadcom.net>
- <201001081025.50298.dmitry.torokhov@gmail.com>
- <20100108194222.GA8386@xw6200.broadcom.net>
- <20100108225024.GB22950@core.coreip.homeip.net>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] net/sunrpc/addr.c: Remove unnecessary semicolons
+Date: Fri, 08 Jan 2010 22:36:23 -0800
+Message-ID: <1263018983.20926.9.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jfeeney@redhat.com, David Miller <davem@davemloft.net>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:33886 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782Ab0AIGa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 01:30:26 -0500
-Received: by pwj9 with SMTP id 9so457896pwj.21
-        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 22:30:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100108225024.GB22950@core.coreip.homeip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Matt,
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-On Fri, Jan 08, 2010 at 02:50:25PM -0800, Dmitry Torokhov wrote:
-> On Fri, Jan 08, 2010 at 11:42:22AM -0800, Matt Carlson wrote:
-> > 
-> > Ah.  I may have found the problem.  Can you apply the below patch on top
-> > of the patch you already applied and see if this fixes the problem?
-> > 
-> 
-> Looks very promising...2+ hours and I haven't seen a single lockup.
-> 
+diff --git a/net/sunrpc/addr.c b/net/sunrpc/addr.c
+index 6dcdd25..2ef893e 100644
+--- a/net/sunrpc/addr.c
++++ b/net/sunrpc/addr.c
+@@ -149,7 +149,7 @@ static size_t rpc_pton4(const char *buf, const size_t buflen,
+ 		return 0;
+ 
+ 	sin->sin_family = AF_INET;
+-	return sizeof(struct sockaddr_in);;
++	return sizeof(struct sockaddr_in);
+ }
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 
-So I haven't had a single lockup since applying this patch so that is
-it. Thank you very much for the quick fix and please make sure it gets
-upstream.
 
--- 
-Dmitry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
