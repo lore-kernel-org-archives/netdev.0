@@ -1,58 +1,53 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH net-2.6 resent] af_packet: Don't use skb after
- dev_queue_xmit()
-Date: Sat, 9 Jan 2010 13:38:27 +0100
-Message-ID: <20100109123827.GB4386@del.dom.local>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH/next] mac8390: Fix build breakage
+Date: Sat, 9 Jan 2010 14:21:28 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1001091420080.21892@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754078Ab0AIMig@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
-which is illegal.
+commit 18c0019102228875cb0f6f252dad5148491e96b2 ("drivers/net/mac8390.c:
+Convert printk(KERN_<level> to pr_<level>(") broke the build:
 
-With debugging by: Stephen Hemminger <shemminger@vyatta.com>
+| drivers/net/mac8390.c:306: error: expected ')' before 'version'
 
-Reported-by: Michael Breuer <mbreuer@majjas.com>
-Tested-by: Michael Breuer <mbreuer@majjas.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+as "version" is not a string literal, but a variable.
+
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
+http://kisskb.ellerman.id.au/kisskb/buildresult/1985016/
 
- net/packet/af_packet.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/mac8390.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e0516a2..aba2049 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1021,9 +1021,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
+index c70bd68..a876867 100644
+--- a/drivers/net/mac8390.c
++++ b/drivers/net/mac8390.c
+@@ -303,7 +303,7 @@ static bool __init mac8390_init(struct net_device *dev, struct nubus_dev *ndev,
+ 	int offset;
+ 	volatile unsigned short *i;
  
- 		status = TP_STATUS_SEND_REQUEST;
- 		err = dev_queue_xmit(skb);
--		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
--			goto out_xmit;
- 		packet_increment_head(&po->tx_ring);
-+		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
-+			goto out_put;
-+
- 		len_sum += tp_len;
- 	} while (likely((ph != NULL) ||
- 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
-@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	err = len_sum;
- 	goto out_put;
+-	printk_once(KERN_INFO pr_fmt(version));
++	printk_once(KERN_INFO pr_fmt("%s"), version);
  
--out_xmit:
--	skb->destructor = sock_wfree;
--	atomic_dec(&po->tx_ring.pending);
- out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
+ 	dev->irq = SLOT2IRQ(ndev->board->slot);
+ 	/* This is getting to be a habit */
+-- 
+1.6.0.4
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
