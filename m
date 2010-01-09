@@ -1,45 +1,58 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: Re: [PATCH] pcmci: remove odd bracket
-Date: Sat, 9 Jan 2010 13:22:06 +0100
-Message-ID: <20100109122206.GA7199@comet.dominikbrodowski.net>
-References: <1262819146-21361-1-git-send-email-a.beregalov@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH net-2.6 resent] af_packet: Don't use skb after
+ dev_queue_xmit()
+Date: Sat, 9 Jan 2010 13:38:27 +0100
+Message-ID: <20100109123827.GB4386@del.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Alexander Beregalov <a.beregalov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.133.102.198]:37508 "EHLO linta.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754013Ab0AIMiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jan 2010 07:38:16 -0500
+Cc: Michael Breuer <mbreuer@majjas.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754078Ab0AIMig@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1262819146-21361-1-git-send-email-a.beregalov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 07, 2010 at 02:05:46AM +0300, Alexander Beregalov wrote:
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
-> ---
->  drivers/net/pcmcia/nmclan_cs.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-> index 8a5ae3b..12e3233 100644
-> --- a/drivers/net/pcmcia/nmclan_cs.c
-> +++ b/drivers/net/pcmcia/nmclan_cs.c
-> @@ -1402,7 +1402,6 @@ static void BuildLAF(int *ladrf, int *adr)
->    for (i = 0; i < 8; i++)
->      printk(KERN_CONT " %02X", ladrf[i]);
->    printk(KERN_CONT "\n");
-> -  }
->  #endif
->  } /* BuildLAF */
+tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
+which is illegal.
 
-Thanks, merged your patch to the pcmcia git tree (but renamed it to:
+With debugging by: Stephen Hemminger <shemminger@vyatta.com>
 
-	pcmcia: remove odd bracket in nmclan_cs.c
+Reported-by: Michael Breuer <mbreuer@majjas.com>
+Tested-by: Michael Breuer <mbreuer@majjas.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+---
 
-).
+ net/packet/af_packet.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-Best,
-	Dominik
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e0516a2..aba2049 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1021,9 +1021,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 
+ 		status = TP_STATUS_SEND_REQUEST;
+ 		err = dev_queue_xmit(skb);
+-		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
+-			goto out_xmit;
+ 		packet_increment_head(&po->tx_ring);
++		if (unlikely(err > 0 && (err = net_xmit_errno(err)) != 0))
++			goto out_put;
++
+ 		len_sum += tp_len;
+ 	} while (likely((ph != NULL) ||
+ 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
+@@ -1033,9 +1034,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	err = len_sum;
+ 	goto out_put;
+ 
+-out_xmit:
+-	skb->destructor = sock_wfree;
+-	atomic_dec(&po->tx_ring.pending);
+ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
