@@ -1,83 +1,89 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: query: tcp_sock tcp_header_len calculations
-Date: Sat, 09 Jan 2010 09:03:35 -0500
-Message-ID: <4B488CB7.8070900@gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Sat, 09 Jan 2010 13:34:20 -0500
+Message-ID: <4B48CC2C.2090403@majjas.com>
+References: <4B4625BD.3070202@majjas.com> <20100107183545.GA3208@del.dom.local>
+ <4B462B3C.90506@majjas.com> <20100107185040.GB3208@del.dom.local>
+ <4B466A26.5070506@majjas.com> <20100108074539.GA6205@ff.dom.local>
+ <4B475FF9.7000702@majjas.com> <20100108212923.GA3078@del.dom.local>
+ <4B47A81B.5040601@majjas.com> <4B4809EF.1070609@majjas.com>
+ <20100109122830.GA4386@del.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.211.176]:64311 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594Ab0AIODi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 09:03:38 -0500
-Received: by ywh6 with SMTP id 6so20284764ywh.4
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2010 06:03:38 -0800 (PST)
+Received: from mta4.srv.hcvlny.cv.net ([167.206.4.199]:33791 "EHLO
+	mta4.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750841Ab0AISet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 13:34:49 -0500
+In-reply-to: <20100109122830.GA4386@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm re-writing TCPCT part 3 waiting for comments on part 2, and have
-stumbled upon a completely undocumented and incomprehensible usage for
-tcp_header_len.  Is whomever wrote this still around?
+On 1/9/2010 7:28 AM, Jarek Poplawski wrote:
+> On Fri, Jan 08, 2010 at 11:45:35PM -0500, Michael Breuer wrote:
+>    
+>> On 1/8/2010 4:48 PM, Michael Breuer wrote:
+>>      
+>>> On 1/8/2010 4:29 PM, Jarek Poplawski wrote:
+>>> ...
+>>>        
+>>>> BTW, don't hurry with that yet, but in the next test, please try
+>>>> alternative 2 again (i.e. with MMAP + no DMAR + disable_msi).
+>>>>
+>>>>          
+>>> Will do - still up from yesterday... no more dropped packets...
+>>> none of the dns errors either. To be expected I suppose as long as
+>>> I'm trying to sniff it. Assuming no immediate erorrs with alt2, no
+>>> DMAR + disable_msi I'll report back after it's been up for a
+>>> while.
+>>> -- 
+>>>        
+>> Ok - ran alt1 and alt2, both with MMAP, no DMAR and disable_msi.
+>> Both seem to behave similarly. No logged errors;
+>>      
+> Ok - since alt2 introduces less changes and is acked by Stephen
+> already, I'll resend it with your "Tested-by" in a new thread to clear
+> things a bit.
+>
+>    
+Ok - good, and thank you for all your help.
+>> large numbers of dropped RX packets.
+>>      
+> You might try some tweaking with another sky2 parameter "copybreak"
+> or even editing its "NAPI_WEIGHT" variable.
+>
+>    
+I'll play around with this after I figure out what's actually being 
+dropped and why. Looking at ethtool, over 99% of RX packets are in the 
+ >=1024 bucket. I'll play with weight and perhaps rmem as time permits.
+>> One odd thing: when driving every sort of
+>> traffic through, I was able to hose the client adapter (win7)
+>> repeatedly by runnnig the win7 backup and connecting Windows Media
+>> Player to a Mediatomb stream while also running a remote X11
+>> session. Looks like the SSDP traffic that occurs at the same time as
+>> the SMB traffic and X11 traffic takes out the adapter on Win7 -
+>> Nforce.
+>> Reran with msi enabled, MMAP and no DMAR. Also no errors; much
+>> faster, and the Win7 side survives the same conditions that don't
+>> work when msi is disabled. Doesn't make sense to me, but it is what
+>> it is.
+>>
+>> Going to leave this up for a while and see if things remain functional.
+>>      
+> It looks like DMAR is the main candidate for a new linux-kernel@ or
+> bugzilla bug report. You should also consider reporting these ipv6
+> problems, especially if you think they can trigger TX timeouts. (In
+> both cases it would be good to try current mainline first, when you
+> get it workable.)
+>    
+Ok - I'll get onto mainline and then deal with DMAR.
+> Thanks,
+> Jarek P.
+>    
 
-linux/tcp.h documents this as:
-...
-	u16	tcp_header_len;	/* Bytes of tcp header to send		*/
-...
-
-So far, so good.  But it's clearly *not* correct in tcp_output.c:
-
-tcp_connect_init()
-...
-	tp->tcp_header_len = sizeof(struct tcphdr) +
-		(sysctl_tcp_timestamps ? TCPOLEN_TSTAMP_ALIGNED : 0);
-
-#ifdef CONFIG_TCP_MD5SIG
-	if (tp->af_specific->md5_lookup(sk, sk) != NULL)
-		tp->tcp_header_len += TCPOLEN_MD5SIG_ALIGNED;
-#endif
-...
-
-This combination is actually *impossible* -- current options code
-*never* allows both authentication and timestamps, doing SACK instead:
-
-tcp_syn_options()
-...
-	if (likely(sysctl_tcp_timestamps && *md5 == NULL)) {
-		opts->options |= OPTION_TS;
-...
-
-tcp_synack_options()
-...
-		/* We can't fit any SACK blocks in a packet with MD5 + TS
-		 * options. There was discussion about disabling SACK
-		 * rather than TS in order to fit in better with old,
-		 * buggy kernels, but that was deemed to be unnecessary.
-		 */
-		doing_ts &= !ireq->sack_ok;
-...
-
-Thus, tcp_header_len has the wrong value, resulting in underestimation
-for MSS.  But even worse usage in minisocks.c:
-
-tcp_create_openreq_child()
-...
-		if (newtp->rx_opt.tstamp_ok) {
-			newtp->rx_opt.ts_recent = req->ts_recent;
-			newtp->rx_opt.ts_recent_stamp = get_seconds();
-			newtp->tcp_header_len = sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED;
-		} else {
-			newtp->rx_opt.ts_recent_stamp = 0;
-			newtp->tcp_header_len = sizeof(struct tcphdr);
-		}
-#ifdef CONFIG_TCP_MD5SIG
-		newtp->md5sig_info = NULL;	/*XXX*/
-#endif
-		if (skb->len >= TCP_MSS_DEFAULT + newtp->tcp_header_len)
-			newicsk->icsk_ack.last_seg_size = skb->len - newtp->tcp_header_len;
-...
-
-This takes an *output* estimation, and then compares it to (and subtracts
-from) skb->len, which is *input* length.  What's supposed to happen here?
-
-Shouldn't this simply use the real input tcp_hdrlen()?
