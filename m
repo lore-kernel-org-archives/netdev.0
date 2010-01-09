@@ -1,75 +1,137 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Sat, 09 Jan 2010 00:44:28 -0500
-Message-ID: <4B4817BC.4060002@majjas.com>
-References: <4B459368.2000503@majjas.com> <4B45F841.8030407@majjas.com>
- <20100107180114.GB3088@del.dom.local> <4B4625BD.3070202@majjas.com>
- <20100107183545.GA3208@del.dom.local> <4B462B3C.90506@majjas.com>
- <20100107185040.GB3208@del.dom.local> <4B466A26.5070506@majjas.com>
- <20100108074539.GA6205@ff.dom.local> <4B475FF9.7000702@majjas.com>
- <20100108212923.GA3078@del.dom.local> <4B47A81B.5040601@majjas.com>
- <4B4809EF.1070609@majjas.com>
+From: Glenn Maynard <glenn@zewt.org>
+Subject: TCP sockets stalling (Ubuntu 2.6.31-14-server, r8169)
+Date: Sat, 9 Jan 2010 01:29:19 -0500
+Message-ID: <bd36f99e1001082229h6a7d6a22lb51a2c21fd64918d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta5.srv.hcvlny.cv.net ([167.206.4.200]:47607 "EHLO
-	mta5.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801Ab0AIFpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 00:45:09 -0500
-In-reply-to: <4B4809EF.1070609@majjas.com>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:50232 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142Ab0AIG3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 01:29:20 -0500
+Received: by pwj9 with SMTP id 9so457592pwj.21
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 22:29:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/8/2010 11:45 PM, Michael Breuer wrote:
-> On 1/8/2010 4:48 PM, Michael Breuer wrote:
->> On 1/8/2010 4:29 PM, Jarek Poplawski wrote:
->> ...
->>> BTW, don't hurry with that yet, but in the next test, please try
->>> alternative 2 again (i.e. with MMAP + no DMAR + disable_msi).
->>>
->> Will do - still up from yesterday... no more dropped packets... none 
->> of the dns errors either. To be expected I suppose as long as I'm 
->> trying to sniff it. Assuming no immediate erorrs with alt2, no DMAR + 
->> disable_msi I'll report back after it's been up for a while.
->> -- 
-> Ok - ran alt1 and alt2, both with MMAP, no DMAR and disable_msi. Both 
-> seem to behave similarly. No logged errors; large numbers of dropped 
-> RX packets. One odd thing: when driving every sort of traffic through, 
-> I was able to hose the client adapter (win7) repeatedly by runnnig the 
-> win7 backup and connecting Windows Media Player to a Mediatomb stream 
-> while also running a remote X11 session. Looks like the SSDP traffic 
-> that occurs at the same time as the SMB traffic and X11 traffic takes 
-> out the adapter on Win7 - Nforce.
-> Reran with msi enabled, MMAP and no DMAR. Also no errors; much faster, 
-> and the Win7 side survives the same conditions that don't work when 
-> msi is disabled. Doesn't make sense to me, but it is what it is.
->
-Tracked it down - this appears to be result of Win7 enabling 
-"EnableDeadGWDetect" by default. Long story short, if this is set and a 
-packet sent to the gw is retransmitted more than, 1/2 the value of 
-maxdataretransmissions (default of 5), then the gateway is declared dead 
-and the next one selected. If there is only one gateway, then the 
-default gateway is effectively removed. So under load where the server 
-is the default gateway, this is not a surprising result. With msi 
-enabled, the system responds better, fewer retransmissions, no dropping 
-the link.
-> Going to leave this up for a while and see if things remain functional.
->> To unsubscribe from this list: send the line "unsubscribe 
->> linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This seems similar to
+http://www.mail-archive.com/e1000-devel@lists.sourceforge.net/msg02055.html:
 
+Some single-command SSH connections ("ssh server echo sdf") stall
+indefinitely.  Everything else seems to work OK: regular SSH sessions
+and everything else works fine.
+
+Looking at SSH's debug output (running on port 50) and strace on both sides:
+
+client strace: write(3, "\x0f\xf9\xd4\xc4\x76\xc0"..., 128) = 128
+client strace: select(7, [3], [], NULL, NULL
+... and the client stops here, waiting to read data from the server.
+
+server strace: strace: read(3, "\x0f\xf9\xd4\xc4\x76\xc0"..., 16384) = 128
+setsockopt(3, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+setsockopt(3, SOL_IP, IP_TOS, [8], 4)   = 0
+...
+write(3, "\xd2\xa6\x3c\xe5\x77\x43\xd0"..., 80) = 80
+write(3, "\x1c\xd3\xee\x93\x9b\xf8\x73"..., 128) = 128
+write(3, "\x0d\x8b\x7c\x40\xce\x91\x74"..., 352) = 352
+read(9, "sdf\n", 16384)                 = 4 ("echo sdf")
+write(3, "\x7d\xe3\x9a\xc3\x5e\xa8\x26"..., 176) = 176
+write(3, "\xfe\xae\x36\xa0\x10\xb7\x3e"..., 64) = 64
+select(12, [3 5], [], NULL, NULL
+
+... and then stalls waiting to read data from the client.
+
+Here's tcpdump on the server side.  The client sends its 128 byte
+packet above ("\x0f\xf9\xd4..."); ssh sees it immediately, but no ACK
+is being sent, so the client starts resending.  The server's sendq at
+this point is 800 bytes (the above 5 packets), and it's not sending
+any of that, either.
+
+05:58:40.217172 IP (tos 0x0, ttl 64, id 34994, offset 0, flags [DF],
+proto TCP (6), length 100) server.50 > client.40664: Flags [P.], seq
+2320:2368, ack 2360, win 108, options [nop,nop,TS val 97945154 ecr
+572925772], length 48
+05:58:40.331444 IP (tos 0x0, ttl 56, id 36049, offset 0, flags [DF],
+proto TCP (6), length 180) client.40664 > server.50: Flags [P.], seq
+2360:2488, ack 2368, win 190, options [nop,nop,TS val 572925788 ecr
+97945154], length 128
+05:58:40.683518 IP (tos 0x0, ttl 56, id 36050, offset 0, flags [DF],
+proto TCP (6), length 180) client.40664 > server.50: Flags [P.], seq
+2360:2488, ack 2368, win 190, options [nop,nop,TS val 572925825 ecr
+97945154], length 128
+05:58:41.423767 IP (tos 0x0, ttl 56, id 36051, offset 0, flags [DF],
+proto TCP (6), length 180) client.40664 > server.50: Flags [P.], seq
+2360:2488, ack 2368, win 190, options [nop,nop,TS val 572925899 ecr
+97945154], length 128
+05:58:42.907976 IP (tos 0x0, ttl 56, id 36052, offset 0, flags [DF],
+proto TCP (6), length 180) client.40664 > server.50: Flags [P.], seq
+2360:2488, ack 2368, win 190, options [nop,nop,TS val 572926047 ecr
+97945154], length 128
+05:58:45.864109 IP (tos 0x0, ttl 56, id 36053, offset 0, flags [DF],
+proto TCP (6), length 180) client.40664 > server.50: Flags [P.], seq
+2360:2488, ack 2368, win 190, options [nop,nop,TS val 572926343 ecr
+97945154], length 128
+
+This keeps going for a long time, until the server finally wakes up,
+acks the packet and starts sending the queued data (curiously, without
+coalescing the packets, which I'd expect should happen even with
+TCP_NODELAY set when the packets are delayed for other reasons):
+
+06:02:34.489234 IP (tos 0x8, ttl 64, id 34995, offset 0, flags [DF],
+proto TCP (6), length 132) server.50 > client.40664: Flags [P.], seq
+2368:2448, ack 2488, win 120, options [nop,nop,TS val 97945173 ecr
+572925788], length 80
+06:02:34.489239 IP (tos 0x8, ttl 64, id 34996, offset 0, flags [DF],
+proto TCP (6), length 180) server.50 > client.40664: Flags [P.], seq
+2448:2576, ack 2488, win 120, options [nop,nop,TS val 97945173 ecr
+572925788], length 128
+06:02:34.491116 IP (tos 0x8, ttl 64, id 34997, offset 0, flags [DF],
+proto TCP (6), length 404) server.50 > client.40664: Flags [P.], seq
+2576:2928, ack 2488, win 120, options [nop,nop,TS val 97945173 ecr
+572925788], length 352
+06:02:34.491240 IP (tos 0x8, ttl 64, id 34998, offset 0, flags [DF],
+proto TCP (6), length 228) server.50 > client.40664: Flags [P.], seq
+2928:3104, ack 2488, win 120, options [nop,nop,TS val 97945176 ecr
+572925788], length 176
+06:02:34.491362 IP (tos 0x8, ttl 64, id 34999, offset 0, flags [DF],
+proto TCP (6), length 116) server.50 > client.40664: Flags [P.], seq
+3104:3168, ack 2488, win 120, options [nop,nop,TS val 97945176 ecr
+572925788], length 64
+
+at which point the connection wakes back up, spitting out the text and
+exiting normally.  (The timestamps on those last few lines are longer
+than they should be because I suspended tcpdump to check the socket
+buffer.  Running it again, it took 53 seconds before the connection
+started moving again, not 4 minutes.)
+
+/proc/net/tcp on the server during this stall (twice a while apart,
+not the same repro as above):
+
+2366: server:0032 client:A975 01 00000320:00000000 01:0000013D
+00000004     0        0 98188788 3 ffff880057dd1380 656 4 16 5 3
+2478: server:0032 client:A975 01 00000320:00000000 01:00000963
+00000007     0        0 98188788 3 ffff880057dd1380 5248 4 16 5 3
+
+This is a colocated server, so I'm hesitant to experiment with
+patches; I won't be able to recover the machine easily.  No kernel QOS
+rules are active.  This is a reasonably active webserver (around 500
+active connections, saturated 100mbit) and this doesn't seem to be
+causing problems with that at all, or so spuriously nobody's noticing.
+
+I also was seeing bad checksums on the client side on packets from the
+server.  It was consistently a checksum problem--the checksum field in
+the received packets didn't match what they were when they left the
+server.  I ran "ethtool -K eth0 tx off rx off" and I'm not seeing them
+anymore.  (This seems like a separate problem, but one thing I noticed
+dumping these packets was that the packets with bad checksums always
+seemed to end with a lot of 0's.  Possibly coincidence, but that would
+explain why it wasn't causing problems with fully established SSH
+connections or the webserver; there won't be a lot of packets like
+that in plaintext, encrypted SSH traffic or compressed images.)
+
+lspci says: 02:00.0 Ethernet controller: Realtek Semiconductor Co.,
+Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 03)
+
+-- 
+Glenn Maynard
