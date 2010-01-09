@@ -1,86 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
- (v3)
-Date: Fri, 08 Jan 2010 16:02:52 -0800 (PST)
-Message-ID: <20100108.160252.189352309.davem@davemloft.net>
-References: <20100107010122.GA5872@electric-eye.fr.zoreil.com>
-	<20100106.171514.104051841.davem@davemloft.net>
-	<20100108234800.GA2908@electric-eye.fr.zoreil.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] IPv6: fix rt_lookup in pmtu_discovery
+Date: Fri, 8 Jan 2010 16:12:55 -0800
+Message-ID: <b91784ff1001081612g7c15e968u5e77931289af25c@mail.gmail.com>
+References: <65634d661001062043s1b4eb204v63566149bb44f144@mail.gmail.com>
+	<20100107.012701.257511338.davem@davemloft.net> <55a4f86e1001071705i33f8c58cubae56f5616216de4@mail.gmail.com>
+	<20100107.171015.29035630.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zenczykowski@gmail.com, therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33961
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754498Ab0AIACo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 19:02:44 -0500
-In-Reply-To: <20100108234800.GA2908@electric-eye.fr.zoreil.com>
+Received: from smtp-out.google.com ([216.239.33.17]:8039 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754340Ab0AIANU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jan 2010 19:13:20 -0500
+Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
+	by smtp-out.google.com with ESMTP id o090DI4j029720
+	for <netdev@vger.kernel.org>; Sat, 9 Jan 2010 00:13:18 GMT
+Received: from pzk27 (pzk27.prod.google.com [10.243.19.155])
+	by wpaz17.hot.corp.google.com with ESMTP id o090DFfS028101
+	for <netdev@vger.kernel.org>; Fri, 8 Jan 2010 16:13:16 -0800
+Received: by pzk27 with SMTP id 27so30200pzk.12
+        for <netdev@vger.kernel.org>; Fri, 08 Jan 2010 16:13:15 -0800 (PST)
+In-Reply-To: <20100107.171015.29035630.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 9 Jan 2010 00:48:00 +0100
-
-> For a single packet, at the time the first interruption is received,
-> 4 Rx descriptors have been written. The FirstFrag bit is set on the
-> first descriptor only and the LastFrag bit is not set anywhere :
-> 
-> entry 019 opts1 0x20803ff0 opts2 0x00000000 used 1536 <- FirstFrag
-> entry 020 opts1 0x00803ff0 opts2 0x00000000 used 1536
-> entry 021 opts1 0x00803ff0 opts2 0x00000000 used 1536
-> entry 022 opts1 0x00803ff0 opts2 0x00000000 used 1536
-> entry 023 opts1 0x80000600 opts2 0x00000000 used 1524
->                                                  ^^^^
-> (apparently we race with the DMA transfer)
+2010/1/7 David Miller <davem@davemloft.net>
+> =A0=A0 ipv4: Update MTU to all related cache entries in ip_rt_frag_ne=
+eded()
 >
-> More events pop up, starting at 023. They are all identical to 20 / 21 /22.
-> It then ends as :
-> 
-> entry 028 opts1 0x00803ff0 opts2 0x00000000 used 1536
-> entry 029 opts1 0x10803ff0 opts2 0x00000000 used 1010 <- LastFrag bit set
-> entry 030 opts1 0x80000600 opts2 0x00000000 used 000  <- 0 used byte. Entry
-> entry 031 opts1 0x80000600 opts2 0x00000000 used 000     is available.
-> entry 032 opts1 0x80000600 opts2 0x00000000 used 000
-> 
-> The total size of the DMA is not far from 16384 bytes (1536 * 10 + 1010).
+> =A0 =A0Add struct net_device parameter to ip_rt_frag_needed() and upd=
+ate MTU to
+> =A0 =A0cache entries where ifindex is specified. This is similar to w=
+hat is
+> =A0 =A0already done in ip_rt_redirect().
+> [...]
+> + =A0 =A0 =A0 int =A0ikeys[2] =3D { dev->ifindex, 0 };
+> =A0 =A0 =A0 =A0__be32 =A0skeys[2] =3D { iph->saddr, 0, };
+> =A0 =A0 =A0 =A0__be32 =A0daddr =3D iph->daddr;
+> [...]
 
-My guess is that once the chip starts filling out frags like this,
-the signal to trigger what should be the LastFrag entry never
-propagates to the DMA engine and thus the descriptor table.
+That patch makes it so that if a fragmentation needed message is
+received on an interface other than the one that the kernel would
+normally use to send a message to the original destination, then any
+route cache entries pointing out that interface are updated as well.
+AFAICT it was motivated by a scenario where traffic =A0was intended to
+be sent through a particular interface with SO_BINDTODEVICE set:
+http://lists.openwall.net/netdev/2008/04/24/44
 
-Thus the device just keeps filling packet contents with subsequent
-data, with FirstFrag and LastFrag clear, until that ~16K limit is
-reached.  At which point it finally sets LastFrag.
+The correct thing to do would be to update the MTU on all the route
+cache entries, including entries pointing to other interfaces on the
+box (for example, consider a box with a default route pointing at
+eth0, the packet too big coming in on eth1, and the original packet
+having been sent through gre1 with SO_BINDTODEVICE; in this case, the
+existing IPv4 code would silently fail). However, this=A0is expensive
+and doing it for the two common cases seems a reasonable compromise,
+so it's probably worth doing it for IPv6 as well.
 
-> Simply recycling the buffer may work. I'll do a few tests with it : I am
-> still unable to corrupt the descriptor ring itself.
+How about this patch instead?
 
-Whilst the above will end up gobbling up to (16K - BIG_PACKET_SZ)
-worth of innocent frames, the DMA engine seems to keep things at least
-self-consistent.
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c2bd74c..c27464d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1562,14 +1562,13 @@ out:
+  *	i.e. Path MTU discovery
+  */
 
-The only bug seems to be the omission of the LastFrag trigger at the
-proper place.
+-void rt6_pmtu_discovery(struct in6_addr *daddr, struct in6_addr *saddr=
+,
+-			struct net_device *dev, u32 pmtu)
++static void rt6_do_pmtu_disc(struct in6_addr *daddr, struct in6_addr *=
+saddr,
++			     struct net *net, u32 pmtu, int ifindex)
+ {
+ 	struct rt6_info *rt, *nrt;
+-	struct net *net =3D dev_net(dev);
+ 	int allfrag =3D 0;
 
-About recycling, as far as I can tell that's exactly what the driver
-already does in these exact cases, right?  If RxRes is not set, and
-we don't see both FirstFrag and LastFrag set, we'll recycle the frame.
+-	rt =3D rt6_lookup(net, daddr, saddr, dev->ifindex, 0);
++	rt =3D rt6_lookup(net, daddr, saddr, ifindex, 0);
+ 	if (rt =3D=3D NULL)
+ 		return;
 
-		if (unlikely(status & RxRES)) {
- ...
-		} else {
- ...
-			if (unlikely(rtl8169_fragmented_frame(status))) {
-				dev->stats.rx_dropped++;
-				dev->stats.rx_length_errors++;
-				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
-				continue;
-			}
+@@ -1637,6 +1636,28 @@ out:
+ 	dst_release(&rt->u.dst);
+ }
 
-Therefore we shouldn't need to change anything and there is actually
-no "bug" or "exploit" at all.  We just end up dropping some RX frames
-because the chip didn't DMA them properly.
-
++void rt6_pmtu_discovery(struct in6_addr *daddr, struct in6_addr *saddr=
+,
++			struct net_device *dev, u32 pmtu)
++{
++	struct net *net =3D dev_net(dev);
++
++	/*
++	 * RFC 1981 states that a node "MUST reduce the size of the packets i=
+t
++	 * is sending along the path" that caused the Packet Too Big message.
++	 * Since it's not possible in the general case to determine which
++	 * interface was used to send the original packet, we update the MTU
++	 * on the interface that will be used to send future packets. We also
++	 * update the MTU on the interface that received the Packet Too Big i=
+n
++	 * case the original packet was forced out that interface with
++	 * SO_BINDTODEVICE or similar. This is the next best thing to the
++	 * correct behaviour, which would be to update the MTU on all
++	 * interfaces.
++	 */
++	rt6_do_pmtu_disc(daddr, saddr, net, pmtu, 0);
++	rt6_do_pmtu_disc(daddr, saddr, net, pmtu, dev->ifindex);
++}
++
++
+ /*
+  *	Misc support functions
+  */
