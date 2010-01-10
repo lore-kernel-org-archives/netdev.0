@@ -1,53 +1,60 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Mon, 11 Jan 2010 08:44:44 +1100 (EST)
-Message-ID: <alpine.LRH.2.00.1001110844110.25601@tundra.namei.org>
-References: <20091227010441.GA12077@heat> <20091227010650.GA12190@heat> <20091230185053.GB18712@us.ibm.com> <20100101143100.GA3944@atrey.karlin.mff.cuni.cz> <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org> <20100110211609.GC26079@elf.ucw.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 resent] af_packet: Don't use skb after
+ dev_queue_xmit()
+Date: Sun, 10 Jan 2010 13:51:35 -0800 (PST)
+Message-ID: <20100110.135135.237364018.davem@davemloft.net>
+References: <20100109123827.GB4386@del.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20100110211609.GC26079@elf.ucw.cz>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mbreuer@majjas.com, shemminger@vyatta.com,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50685
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753308Ab0AJVv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:51:27 -0500
+In-Reply-To: <20100109123827.GB4386@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 10 Jan 2010, Pavel Machek wrote:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sat, 9 Jan 2010 13:38:27 +0100
 
-> > > For the record: NAK, as it introduces security holes.
-> > 
-> > Please elaborate.
+> tpacket_snd() can change and kfree an skb after dev_queue_xmit(),
+> which is illegal.
 > 
-> See the mailthread.
-
-Yep, wading through several weeks of it..
-
+> With debugging by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Allows user to disable suid program's access to network. That bypasses
-> audit, and will cause system-wide DoS if suid program decides to go
-> daemon.
+> Reported-by: Michael Breuer <mbreuer@majjas.com>
+> Tested-by: Michael Breuer <mbreuer@majjas.com>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Ok.
+Jarek, if this code path triggers, it will deadlock the
+send ring with your changes.
 
--- 
-James Morris
-<jmorris@namei.org>
+We will now leave the ring packet status in the "SENDING" state.
+
+That's not right.
+
+Then, if the application calls send again, we will just return
+immediately since we only make progress if the head ring entry is in
+SEND_REQUEST state.
+
+This is really bogus behavior.  When the qdisc or mid-layer
+drops the packet, we should at least mark the packet state
+properly (which is what the current code would does, sans
+the "reference SKB after dev_queue_xmit()" issue).  And
+advance the packet ring pointer.
+
+This way the user:
+
+1) can see that the packet got dropped and couldn't be sent
+
+2) can call send again to try sending the rest of the ring
+
+Fix the use after dev_queue_xmit() issue, but don't change other side
+effects which are important for correct AF_PACKET TX ring semantics.
