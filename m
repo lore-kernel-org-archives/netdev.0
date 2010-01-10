@@ -1,63 +1,61 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Sun, 10 Jan 2010 22:16:09 +0100
-Message-ID: <20100110211609.GC26079@elf.ucw.cz>
-References: <20091227010441.GA12077@heat>
- <20091227010650.GA12190@heat>
- <20091230185053.GB18712@us.ibm.com>
- <20100101143100.GA3944@atrey.karlin.mff.cuni.cz>
- <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] ipv4: support for request type gratuitous ARP
+Date: Sun, 10 Jan 2010 13:21:05 -0800 (PST)
+Message-ID: <20100110.132105.179935794.davem@davemloft.net>
+References: <201001050004.45004.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: James Morris <jmorris@namei.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: opurdila@ixiacom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58236
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753506Ab0AJVU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:20:57 -0500
+In-Reply-To: <201001050004.45004.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon 2010-01-11 08:11:55, James Morris wrote:
-> On Fri, 1 Jan 2010, Pavel Machek wrote:
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Tue, 5 Jan 2010 00:04:44 +0200
+
 > 
-> > > Quoting Michael Stone (michael@laptop.org):
-> > > > Implement security_* hooks for socket_create, socket_bind, socket_connect,
-> > > > socket_sendmsg, and ptrace_access_check which return -EPERM when called from a
-> > > > process with networking restrictions. Exempt AF_UNIX sockets.
-> > > > 
-> > > > Signed-off-by: Michael Stone <michael@laptop.org>
-> > > 
-> > > Acked-by: Serge Hallyn <serue@us.ibm.com>
-> > 
-> > For the record: NAK, as it introduces security holes.
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> ---
 > 
-> Please elaborate.
+> I've noticed that even though we currently support response type gratuitous ARP
+> [response type, source mac, dest mac, source IP, source IP] *with a clean ARP table*
+> we do not support the request type [request type, source mac, ff:ff:ff:ff:ff:ff, source IP, source IP].
 
-See the mailthread.
+Please don't submit your patches in this manner.
 
-Allows user to disable suid program's access to network. That bypasses
-audit, and will cause system-wide DoS if suid program decides to go
-daemon.
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+All of these relevant, interesting, details belong in the commit
+message.  But any text you place aftr the "---" line will be omitted
+from the commit message when your patch is applied by automated GIT
+tools.
+
+I've done some research and I'm happy to apply your patch to
+net-next-2.6 once it is submitted properly.
+
+In fact we need to do some more research in this area because
+generally we should more mimick the processing order of ARP prescribed
+in the RFC.  In particular we should test the operation code lastly,
+which would avoid these kinds of inconsistencies.
+
+I'm worried though about security issues as well, as we make more the
+acceptance more and more liberal, it becomes that much easier for
+machines on the local network to poison ARP entries and use that to
+either accept all traffic destined for a particular node or simply
+deny that node access to the network.
+
+In particular the kernel currently explicitly does not accept
+unsolicited ARP, and this is controlled by the ARP_ACCEPT per-device
+option.
+
+	if (IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
+		/* Unsolicited ARP is not accepted by default.
+		   It is possible, that this option should be enabled for some
+		   devices (strip is candidate)
+		 */
+...
