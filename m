@@ -1,56 +1,28 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 1/1] NET: irda, remove unnecessary checks
-Date: Sun, 10 Jan 2010 12:17:34 +0100
-Message-ID: <1263122254-18781-1-git-send-email-jslaby@suse.cz>
-References: <1263114674-10433-1-git-send-email-jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Alan Cox <alan@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org
-To: samuel@sortiz.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754005Ab0AJLRl@vger.kernel.org>
-In-Reply-To: <1263114674-10433-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Stanse found a potential null dereference in ircomm_tty_close
-and ircomm_tty_hangup. There is a check for tty being NULL,
-but it is dereferenced earlier. But it is bogus, the tty cannot
-be NULL, so remove the !tty checks.
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alan Cox <alan@linux.intel.com>
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: [PATCH 1/1] NET: ipv6, fix potential null dereference
+Date: Sun, 10 Jan 2010 12:37:08 +0100
+Message-ID: <4B49BBE4.2010502@gmail.com>
+References: <20100110103528.GA4769@x200> <4B49AE41.5000206@gmail.com> <20100110104742.GC4769@x200> <4B49B463.3010502@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
----
- net/irda/ircomm/ircomm_tty.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:47492 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750834Ab0AJLhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 06:37:12 -0500
+Received: by fg-out-1718.google.com with SMTP id 22so357902fge.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 03:37:10 -0800 (PST)
+In-Reply-To: <4B49B463.3010502@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 811984d..8b85d77 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -496,9 +496,6 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
- 
- 	IRDA_DEBUG(0, "%s()\n", __func__ );
- 
--	if (!tty)
--		return;
--
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return;);
- 
-@@ -1007,9 +1004,6 @@ static void ircomm_tty_hangup(struct tty_struct *tty)
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return;);
- 
--	if (!tty)
--		return;
--
- 	/* ircomm_tty_flush_buffer(tty); */
- 	ircomm_tty_shutdown(self);
- 
--- 
-1.6.5.7
+On 01/10/2010 12:05 PM, Jiri Slaby wrote:
+> And until people start to look at the reports for their stuff
+> themselves, they will get bogus fixes from others. And they have to nack
+> them, indeed.
+
+Plus people sending such patches should plug in their brain. The tty
+case is clearly bogus.
