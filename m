@@ -1,77 +1,56 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 1/1] NET: ipv6, fix potential null dereference
-Date: Sun, 10 Jan 2010 12:05:07 +0100
-Message-ID: <4B49B463.3010502@gmail.com>
-References: <20100110103528.GA4769@x200> <4B49AE41.5000206@gmail.com> <20100110104742.GC4769@x200>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/1] NET: irda, remove unnecessary checks
+Date: Sun, 10 Jan 2010 12:17:34 +0100
+Message-ID: <1263122254-18781-1-git-send-email-jslaby@suse.cz>
+References: <1263114674-10433-1-git-send-email-jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Alan Cox <alan@linux.intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org
+To: samuel@sortiz.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754005Ab0AJLRl@vger.kernel.org>
+In-Reply-To: <1263114674-10433-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Stanse found a potential null dereference in ircomm_tty_close
+and ircomm_tty_hangup. There is a check for tty being NULL,
+but it is dereferenced earlier. But it is bogus, the tty cannot
+be NULL, so remove the !tty checks.
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alan Cox <alan@linux.intel.com>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
 Cc: netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:43077 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753342Ab0AJLFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 06:05:10 -0500
-Received: by fg-out-1718.google.com with SMTP id 22so352185fge.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 03:05:09 -0800 (PST)
-In-Reply-To: <20100110104742.GC4769@x200>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+---
+ net/irda/ircomm/ircomm_tty.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-On 01/10/2010 11:47 AM, Alexey Dobriyan wrote:
-> On Sun, Jan 10, 2010 at 11:38:57AM +0100, Jiri Slaby wrote:
->> On 01/10/2010 11:35 AM, Alexey Dobriyan wrote:
->>>> Stanse found a potential null dereference
->>>
->>> Nobody learns from Coverity, it seems. :^)
->>
->> If it is known, why the test is still there?
->>
->> I don't have access to the Coverity results anyway.
-> 
-> Well, when Coverity first exposed their database there were innumerable
-> "potential NULL dereference" defects and people fixed them by moving
-> stuff and most were bogus and there were flamewars and there were second
-> wave and so on...
-
-Well, it is a clear error. Either the check is superfluous, or there is
-a potential NULL dereference.
-
-And until people start to look at the reports for their stuff
-themselves, they will get bogus fixes from others. And they have to nack
-them, indeed.
-
-While we are at it, could anybody look at (watch `task'):
-int xprt_reserve_xprt(struct rpc_task *task)
-{
-        struct rpc_rqst *req = task->tk_rqstp; <---- here
-        struct rpc_xprt *xprt = req->rq_xprt;
-
-        if (test_and_set_bit(XPRT_LOCKED, &xprt->state)) {
-                if (task == xprt->snd_task)
-                        return 1;
-                if (task == NULL)  <------- here
-                        return 0;
-
-And this (I checked 2.6.28, where netdev_priv was dev->priv):
-static void __devexit de_remove_one (struct pci_dev *pdev)
-{
-        struct net_device *dev = pci_get_drvdata(pdev);
-        struct de_private *de = netdev_priv(dev);
-
-        BUG_ON(!dev);
-
-I know, currently netdev_priv returns dev+offset, but will this hold in
-the future?
-
->>> snmp6_unregister_dev() always called with valid idev.
-> 
-> irda patch is not right too: calling tty->ops->hook with NULL tty is
-> impossible.
-
-Yup, I somehow messed with tty->driver_data being NULL.
-
-thanks,
+diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
+index 811984d..8b85d77 100644
+--- a/net/irda/ircomm/ircomm_tty.c
++++ b/net/irda/ircomm/ircomm_tty.c
+@@ -496,9 +496,6 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
+ 
+ 	IRDA_DEBUG(0, "%s()\n", __func__ );
+ 
+-	if (!tty)
+-		return;
+-
+ 	IRDA_ASSERT(self != NULL, return;);
+ 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return;);
+ 
+@@ -1007,9 +1004,6 @@ static void ircomm_tty_hangup(struct tty_struct *tty)
+ 	IRDA_ASSERT(self != NULL, return;);
+ 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return;);
+ 
+-	if (!tty)
+-		return;
+-
+ 	/* ircomm_tty_flush_buffer(tty); */
+ 	ircomm_tty_shutdown(self);
+ 
 -- 
-js
+1.6.5.7
