@@ -1,123 +1,52 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: 2.6.33RC3 libvirtd ->sky2 & rcu oops (was Sky2 oops - Driver tries
- to sync DMA memory it has not allocated)
-Date: Sun, 10 Jan 2010 15:10:03 -0500
-Message-ID: <4B4A341B.6010800@majjas.com>
-References: <4B49015D.9000903@majjas.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Mon, 11 Jan 2010 08:11:55 +1100 (EST)
+Message-ID: <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org>
+References: <20091227010441.GA12077@heat> <20091227010650.GA12190@heat> <20091230185053.GB18712@us.ibm.com> <20100101143100.GA3944@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-To: linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753323Ab0AJUK4@vger.kernel.org>
-In-reply-to: <4B49015D.9000903@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Am?rico Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100101143100.GA3944@atrey.karlin.mff.cuni.cz>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/9/2010 5:21 PM, Michael Breuer wrote:
-> Hi,
->
-> Attempting to move back to mainline after my recent 2.6.32 issues...
-> Config is make oldconfig from working 2.6.32 config. Patch for 
-> af_packet.c (for skb issue found in 2.6.32) included. Attaching 
-> .config and NMI backtraces.
->
-> System becomes unusable after bringing up the network:
->
-> Jan  9 16:36:50 mail kernel: ------------[ cut here ]------------
-> Jan  9 16:36:50 mail kernel: WARNING: at lib/dma-debug.c:902 
-> check_sync+0xbd/0x426()
-> Jan  9 16:36:50 mail kernel: Hardware name: System Product Name
-> Jan  9 16:36:50 mail kernel: sky2 0000:04:00.0: DMA-API: device driver 
-> tries to sync DMA memory it has not allocated [device 
-> address=0x0000000311686822] [size=60 bytes]
-> Jan  9 16:36:50 mail kernel: Modules linked in: bridge stp appletalk 
-> psnap llc nfsd lockd nfs_acl auth_rpcgss exportfs hwmon_vid coretemp 
-> sunrpc acpi_cpufreq sit tunnel4 ipt_LOG ipt_MASQUERADE iptable_nat 
-> nf_nat iptable_mangle iptable_raw nf_conntrack_netbios_ns 
-> nf_conntrack_ftp nf_conntrack_ipv6 xt_multiport ip6table_filter 
-> xt_DSCP xt_dscp xt_MARK ip6table_mangle ip6_tables ipv6 dm_multipath 
-> kvm_intel kvm snd_hda_codec_analog snd_ens1371 gameport snd_rawmidi 
-> snd_ac97_codec snd_hda_intel ac97_bus snd_hda_codec snd_hwdep snd_seq 
-> gspca_spca505 snd_seq_device gspca_main snd_pcm videodev snd_timer snd 
-> v4l1_compat v4l2_compat_ioctl32 firewire_ohci soundcore snd_page_alloc 
-> iTCO_wdt i2c_i801 iTCO_vendor_support firewire_core crc_itu_t sky2 
-> pcspkr wmi asus_atk0110 hwmon fbcon tileblit font bitblit softcursor 
-> raid456 async_raid6_recov async_pq raid6_pq async_xor xor async_memcpy 
-> async_tx raid1 ata_generic pata_acpi pata_marvell nouveau ttm 
-> drm_kms_helper drm agpgart fb i2c_algo_bit cfbcopyarea i2c_core 
-> cfbimgblt cfbfil
-> Jan  9 16:36:50 mail kernel: lrect [last unloaded: scsi_wait_scan]
-> Jan  9 16:36:50 mail kernel: Pid: 5271, comm: libvirtd Not tainted 
-> 2.6.33-rc3WITHMMAPNODMAR-00147-g3c8ad49-dirty #1
-> Jan  9 16:36:50 mail kernel: Call Trace:
-> Jan  9 16:36:50 mail kernel: <IRQ>  [<ffffffff81049fe5>] 
-> warn_slowpath_common+0x7c/0x94
-> Jan  9 16:36:50 mail kernel: [<ffffffff8104a054>] 
-> warn_slowpath_fmt+0x41/0x43
-> Jan  9 16:36:50 mail kernel: [<ffffffff81261c0a>] check_sync+0xbd/0x426
-> Jan  9 16:36:50 mail kernel: [<ffffffff813b2aff>] ? 
-> __netdev_alloc_skb+0x34/0x50
-> Jan  9 16:36:50 mail kernel: [<ffffffff812622c6>] 
-> debug_dma_sync_single_for_cpu+0x42/0x44
-> Jan  9 16:36:50 mail kernel: [<ffffffff8125f6c7>] ? 
-> swiotlb_sync_single+0x2a/0xb6
-> Jan  9 16:36:50 mail kernel: [<ffffffff8125f823>] ? 
-> swiotlb_sync_single_for_cpu+0xc/0xe
-> Jan  9 16:36:50 mail kernel: [<ffffffffa018efcb>] 
-> sky2_poll+0x4d5/0xaf0 [sky2]
-> Jan  9 16:36:50 mail kernel: [<ffffffff8106a1a3>] ? 
-> sched_clock_cpu+0x44/0xce
-> Jan  9 16:36:50 mail kernel: [<ffffffff81070573>] ? 
-> clockevents_program_event+0x7a/0x83
-> Jan  9 16:36:50 mail kernel: [<ffffffff813b9766>] 
-> net_rx_action+0xb5/0x1f0
-> Jan  9 16:36:50 mail kernel: [<ffffffff8105059c>] __do_softirq+0xf8/0x1cd
-> Jan  9 16:36:50 mail kernel: [<ffffffff8109389a>] ? 
-> handle_IRQ_event+0x119/0x12b
-> Jan  9 16:36:50 mail kernel: [<ffffffff8100ab1c>] call_softirq+0x1c/0x30
-> Jan  9 16:36:50 mail kernel: [<ffffffff8100c2b3>] do_softirq+0x4b/0xa3
-> Jan  9 16:36:50 mail kernel: [<ffffffff81050188>] irq_exit+0x4a/0x8c
-> Jan  9 16:36:50 mail kernel: [<ffffffff8145a83c>] do_IRQ+0xac/0xc3
-> Jan  9 16:36:50 mail kernel: [<ffffffff81455a93>] ret_from_intr+0x0/0x16
-> Jan  9 16:36:50 mail kernel: <EOI>  [<ffffffff8104474c>] ? 
-> set_cpus_allowed_ptr+0x22/0x14b
-> Jan  9 16:36:50 mail kernel: [<ffffffff81087aff>] 
-> cpuset_attach_task+0x27/0x9c
-> Jan  9 16:36:50 mail kernel: [<ffffffff81087bfe>] 
-> cpuset_attach+0x8a/0x133
-> Jan  9 16:36:50 mail kernel: [<ffffffff81042cba>] ? 
-> sched_move_task+0x104/0x110
-> Jan  9 16:36:50 mail kernel: [<ffffffff81085b4f>] 
-> cgroup_attach_task+0x4d5/0x533
-> Jan  9 16:36:50 mail kernel: [<ffffffff81085e05>] 
-> cgroup_clone+0x258/0x2ac
-> Jan  9 16:36:50 mail kernel: [<ffffffff81088a74>] 
-> ns_cgroup_clone+0x58/0x75
-> Jan  9 16:36:50 mail kernel: [<ffffffff81048ec1>] 
-> copy_process+0xcef/0x13af
-> Jan  9 16:36:50 mail kernel: [<ffffffff810d9044>] ? 
-> handle_mm_fault+0x355/0x7ff
-> Jan  9 16:36:50 mail kernel: [<ffffffff8108f769>] ? 
-> audit_filter_rules+0x19a/0x7c5
-> Jan  9 16:36:50 mail kernel: [<ffffffff810496ec>] do_fork+0x16b/0x309
-> Jan  9 16:36:50 mail kernel: [<ffffffff81251d12>] ? __up_read+0x82/0x8a
-> Jan  9 16:36:50 mail kernel: [<ffffffff81010f22>] sys_clone+0x28/0x2a
-> Jan  9 16:36:50 mail kernel: [<ffffffff81009f33>] stub_clone+0x13/0x20
-> Jan  9 16:36:50 mail kernel: [<ffffffff81009bf2>] ? 
-> system_call_fastpath+0x16/0x1b
-> Jan  9 16:36:50 mail kernel: ---[ end trace cd5e0588bad4ec83 ]---
-> Then... after a few more normal boot messages (samba starting up, 
-> etc.) I just see rcu stalls with NMI backtraces for each cpu. I've 
-> attached the first one - the rcu stall oops repeats until the reboot I 
-> forced.
-Tracked this down to libvirtd. No idea why yet - but these oops occur 
-when starting libvirtd. Version of libvirt is 0.7.0-15.fc12.x86_64.
+On Fri, 1 Jan 2010, Pavel Machek wrote:
 
-Also, checking back to 2.6.32 - found that the sky2 oops listed above 
-also occurs (started it seems after an update to 
-libvirt-java-0.4.0-1.fc12.noarch two days ago). However the subsequent 
-rcu stall doesn't happen on 2.6.32 - system behaves normally (which is 
-why I missed the oops).
-Now running OK on 2.6.33 w/o libvirtd.
+> > Quoting Michael Stone (michael@laptop.org):
+> > > Implement security_* hooks for socket_create, socket_bind, socket_connect,
+> > > socket_sendmsg, and ptrace_access_check which return -EPERM when called from a
+> > > process with networking restrictions. Exempt AF_UNIX sockets.
+> > > 
+> > > Signed-off-by: Michael Stone <michael@laptop.org>
+> > 
+> > Acked-by: Serge Hallyn <serue@us.ibm.com>
+> 
+> For the record: NAK, as it introduces security holes.
+
+Please elaborate.
+
+
+-- 
+James Morris
+<jmorris@namei.org>
