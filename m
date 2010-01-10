@@ -1,64 +1,34 @@
-From: Vlad Dascalu <vlad.dascalu@goobix.com>
-Subject: Fwd: r8169 - Serios Regression (was Re: r8169 linux driver)
-Date: Sun, 10 Jan 2010 22:55:23 +0100
-Message-ID: <a16d8c9b1001101355x72565562k7c16e5acca243fe4@mail.gmail.com>
-References: <a16d8c9b1001101351y1783157r327761bd2c86def1@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] LSM: Update comment on security_sock_rcv_skb
+Date: Mon, 11 Jan 2010 08:53:55 +1100 (EST)
+Message-ID: <alpine.LRH.2.00.1001110853420.25601@tundra.namei.org>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr> <1262537872.10218.27.camel@bigi> <m2r5q5nhbc.fsf@ssh.synack.fr> <201001050820.o058Kuwx087793@www262.sakura.ne.jp> <20100105140917.GA6624@us.ibm.com>
+ <201001060023.o060Ns76078068@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:21525 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751381Ab0AJVzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:55:24 -0500
-In-Reply-To: <a16d8c9b1001101351y1783157r327761bd2c86def1@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-security-module@vger.kernel.org, serue@us.ibm.com,
+	sam@synack.fr, kaber@trash.net, zbr@ioremap.net,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hadi@cyberus.ca
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201001060023.o060Ns76078068@www262.sakura.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Guys,
+On Wed, 6 Jan 2010, Tetsuo Handa wrote:
 
-This is a serios regression which is causing one of my Fedora 12
-production server to lose every couple of minutes network connectivity
-for 50-60 seconds before coming back.
-
-There are lots of reports and stack dumps at
-https://bugzilla.redhat.com/show_bug.cgi?id=538920 . It seems it's
-mainly a communication issue to get those dumps on lkml where people
-can look at it.
-
-It's still happening with 2.6.31.11 and people report in that bug tons
-of versions and stack traces.
-
-I'm mostly clueless when it comes to kernel debugging but if you can
-help please take a look.
-Thanks!
+> [PATCH] LSM: Update comment on security_sock_rcv_skb
+> 
+> It is not permitted to do sleeping operation inside security_sock_rcv_skb().
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 
 
-Original message follows:
+Applied to
+git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/security-testing-2.6#next
 
-List:       linux-netdev
-Subject:    Re: r8169 linux driver
-From:       David Dillow <dave () thedillows ! org>
-Date:       2009-12-04 13:11:24
 
-Added netdev to cc:, where you will get a broader depth of experience.
-
-On Fri, 2009-12-04 at 04:40 -0800, Philip Bordado wrote:
-> Did you guys manage to make the r8169 driver work on kernel version >= 2.6.29
-> I'm having same problem, the network dies after a few seconds with huge file transfer or nfs transfer.
-> I track the irq status but nothing unusual is happening, it just died with no error or nothing.
-> So no way to debug :( I load the module using debug=16 as parameter.
-
-I have no problems on anything 2.6.30-rc6 and beyond, but others have
-had some issues with infinite loops in the driver that I don't think
-were ever fully resolved. However, that doesn't sound like your problem.
-
-It's unclear what kernels you've tried. You seem to imply that you've
-tried kernels since 2.6.29, but what's the latest kernel you've tried
-and had the issue with?
-
-It will also help if you either send your dmesg output or
-dmesg | egrep '(XID|^Linux version)' so that we can see more details
-about the hardware.
-
-Dave
+-- 
+James Morris
+<jmorris@namei.org>
