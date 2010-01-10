@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/2] proc_fops: convert drivers/isdn/ to seq_file
-Date: Sun, 10 Jan 2010 13:29:31 -0800 (PST)
-Message-ID: <20100110.132931.232879311.davem@davemloft.net>
-References: <4B320D61.4070403@imap.cc>
-	<20100105211934.GA21210@x200>
-	<4B4A1FA9.7030505@imap.cc>
+Subject: Re: [net-next-2.6 PATCH 00/13] virtual function ixgbe driver
+Date: Sun, 10 Jan 2010 13:35:24 -0800 (PST)
+Message-ID: <20100110.133524.238553933.davem@davemloft.net>
+References: <20100109120719.4462.66489.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, akpm@linux-foundation.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: tilman@imap.cc
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46023
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753621Ab0AJV3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:29:22 -0500
-In-Reply-To: <4B4A1FA9.7030505@imap.cc>
+	by vger.kernel.org with ESMTP id S1753334Ab0AJVfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:35:15 -0500
+In-Reply-To: <20100109120719.4462.66489.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sun, 10 Jan 2010 19:42:49 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 09 Jan 2010 04:22:54 -0800
 
-> Am 05.01.2010 22:19 schrieb Alexey Dobriyan:
->> Here is hopefully last version and sorry for delay.
+> The following series implements the ixgbevf driver.  This series of patches
+> has the following known issues:
 > 
-> Looks good. Thanks.
+> - ixgbevf multiple load/unload can cause a panic
+> - loading ixgbevf before ixgbe does not work
+> - Tx hangs on VF interfaces - this happens when various resets, mostly due to
+>   ethtool operations are executed while passing traffic
 > 
->> [PATCH] proc_fops: convert drivers/isdn/ to seq_file
->> 
->> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> Acked-by: Tilman Schmidt <tilman@imap.cc>
-> 
-> for the Documentation and drivers/isdn/gigaset parts.
+> We are looking for inclusion into net-next-2.6 so that we can get assistance
+> from the community in testing and further development of this driver.
 
-Can the "acting ISDN maintainer" formally submit this to
-me?
+Applied.
+
+We can pull it out if things can't be resolve sufficiently, but
+I seriously doubt these problems will persist that long :-)
