@@ -1,78 +1,69 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: query: tcp_sock tcp_header_len calculations (re-sent)
-Date: Sun, 10 Jan 2010 07:06:40 -0500
-Message-ID: <4B49C2D0.1070704@gmail.com>
+Subject: query: redundant tcp header length checks?
+Date: Sun, 10 Jan 2010 08:02:57 -0500
+Message-ID: <4B49D001.4000302@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 To: Linux Kernel Developers <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752474Ab0AJMGq@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752858Ab0AJNDF@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Apparently, nobody on the network developers list knows about this.  I've
-stumbled upon a completely undocumented and incomprehensible usage for
-tcp_header_len.  Is whomever wrote this still around?
+On a related note, back on Nov 10th, Ilpo brought to my attention --
+*hidden* inside the pskb_may_pull() -- the tcp header length is range
+checked for being too short (skb->len < th->doff * 4).
 
-linux/tcp.h documents this as:
+tcp_v4_rcv()
 ...
-	u16	tcp_header_len;	/* Bytes of tcp header to send		*/
+1585         if (!pskb_may_pull(skb, th->doff * 4))
+1586                 goto discard_it;
+1587
+
+But the next comment in tcp_ipv4.c (missing from tcp_ipv6.c) says:
+
+1588         /* An explanation is required here, I think.
+1589          * Packet length and doff are validated by header prediction,
+1590          * provided case of th->doff==0 is eliminated.
+1591          * So, we defer the checks. */
+
+That's not correct anymore, as the checks aren't deferred!  But the
+redundant deferred checks _are_ still present in tcp_input.c:
+
+tcp_rcv_established()
 ...
-
-So far, so good.  But it's clearly *not* correct in tcp_output.c:
-
-tcp_connect_init()
+5210                 if (len <= tcp_header_len) {
+5211                         /* Bulk data transfer: sender */
+5212                         if (len == tcp_header_len) {
 ...
-	tp->tcp_header_len = sizeof(struct tcphdr) +
-		(sysctl_tcp_timestamps ? TCPOLEN_TSTAMP_ALIGNED : 0);
+5229                         } else { /* Header too small */
+5230                                 TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+5231                                 goto discard;
+5232                         }
 
-#ifdef CONFIG_TCP_MD5SIG
-	if (tp->af_specific->md5_lookup(sk, sk) != NULL)
-		tp->tcp_header_len += TCPOLEN_MD5SIG_ALIGNED;
-#endif
-...
+Also:
 
-This combination is actually *impossible* -- current options code
-*never* allows both authentication and timestamps, doing SACK instead:
+5325 slow_path:
+5326         if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
+5327                 goto csum_error;
 
-tcp_syn_options()
-...
-	if (likely(sysctl_tcp_timestamps && *md5 == NULL)) {
-		opts->options |= OPTION_TS;
-...
+Apparently tcp_rcv_established() might be called through some other path
+that requires this extra header length checking?
 
-tcp_synack_options()
-...
-		/* We can't fit any SACK blocks in a packet with MD5 + TS
-		 * options. There was discussion about disabling SACK
-		 * rather than TS in order to fit in better with old,
-		 * buggy kernels, but that was deemed to be unnecessary.
-		 */
-		doing_ts &= !ireq->sack_ok;
-...
+Its callers also have another reference, for example in tcp_ipv4.c:
 
-Thus, tcp_header_len has the wrong value, resulting in underestimation
-for MSS.  But even worse usage in minisocks.c:
+2432         .backlog_rcv            = tcp_v4_do_rcv,
 
-tcp_create_openreq_child()
-...
-		if (newtp->rx_opt.tstamp_ok) {
-			newtp->rx_opt.ts_recent = req->ts_recent;
-			newtp->rx_opt.ts_recent_stamp = get_seconds();
-			newtp->tcp_header_len = sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED;
-		} else {
-			newtp->rx_opt.ts_recent_stamp = 0;
-			newtp->tcp_header_len = sizeof(struct tcphdr);
-		}
-#ifdef CONFIG_TCP_MD5SIG
-		newtp->md5sig_info = NULL;	/*XXX*/
-#endif
-		if (skb->len >= TCP_MSS_DEFAULT + newtp->tcp_header_len)
-			newicsk->icsk_ack.last_seg_size = skb->len - newtp->tcp_header_len;
-...
+And tcp_ipv6.c:
 
-This takes an *output* estimation, and then compares it to (and subtracts
-from) skb->len, which is *input* length.  What's supposed to happen here?
+213                 sk->sk_backlog_rcv = tcp_v4_do_rcv;
 
-Shouldn't this simply use the real input tcp_hdrlen()?
+223                         sk->sk_backlog_rcv = tcp_v6_do_rcv;
+
+1302                 newsk->sk_backlog_rcv = tcp_v4_do_rcv;
+
+2073         .backlog_rcv            = tcp_v6_do_rcv,
+
+Can anybody explain these?
