@@ -1,50 +1,45 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Sun, 10 Jan 2010 18:08:39 -0500
-Message-ID: <20100110230839.GB3825@heat>
-References: <f73f7ab81001101418x3b3f8652j256f6311ad6244c5@mail.gmail.com>
+From: Karsten Keil <isdn@linux-pingi.de>
+Subject: Re: [patch 1/2] proc_fops: convert drivers/isdn/ to seq_file
+Date: Mon, 11 Jan 2010 00:33:57 +0100
+Message-ID: <201001110033.57999.isdn@linux-pingi.de>
+References: <4B320D61.4070403@imap.cc> <4B4A1FA9.7030505@imap.cc> <20100110.132931.232879311.davem@davemloft.net>
+Reply-To: isdn@linux-pingi.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
-To: Kyle Moffett <kyle@moffetthome.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f73f7ab81001101418x3b3f8652j256f6311ad6244c5@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: tilman@imap.cc, adobriyan@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:60924 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009Ab0AJXeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 18:34:04 -0500
+In-Reply-To: <20100110.132931.232879311.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paraphrasing Kyle:
+On Sonntag, 10. Januar 2010 22:29:31 David Miller wrote:
+> From: Tilman Schmidt <tilman@imap.cc>
+> Date: Sun, 10 Jan 2010 19:42:49 +0100
+> 
+> > Am 05.01.2010 22:19 schrieb Alexey Dobriyan:
+> >> Here is hopefully last version and sorry for delay.
+> >
+> > Looks good. Thanks.
+> >
+> >> [PATCH] proc_fops: convert drivers/isdn/ to seq_file
+> >>
+> >> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> >
+> > Acked-by: Tilman Schmidt <tilman@imap.cc>
+> >
+> > for the Documentation and drivers/isdn/gigaset parts.
+> 
+> Can the "acting ISDN maintainer" formally submit this to
+> me?
+> 
+Will do this during next 2 days.
 
-> Suppose there exist PAM modules which lazily fork background processes. Now
-> assume that one of those PAM modules is hooked from /etc/pam.d/su, that the
-> module fails closed when the network is unavailable, and that Mallory wins
-> the race to start the daemon. Boom.
-
-I'm not disagreeing that there are configurations of programs, written for
-kernels without disablenetwork, which cease to be correct on kernels that
-provide it. However, all this says to me is that people who need to use those
-configurations probably shouldn't use disablenetwork. (Or that we haven't found
-exactly the right semantics for disablenetwork yet.)
-
-Let's keep working on it.
-
-Michael
+Karsten
