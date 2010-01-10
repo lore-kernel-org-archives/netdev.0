@@ -1,53 +1,32 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 1/1] NET: ipv6, fix potential null dereference
-Date: Sun, 10 Jan 2010 10:06:44 +0100
-Message-ID: <1263114404-9340-1-git-send-email-jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753069Ab0AJJGz@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [PATCH] via-velocity: add netpoll functionality for the benefit
+ of netconsole
+Date: Sun, 10 Jan 2010 10:06:06 +0100
+Message-ID: <4B49987E.1020403@computer.org>
+References: <4B423440.6060807@computer.org>	<20100105072800.13dba6d2@marrow.netinsight.se>	<4B439ED5.0@computer.org> <20100107072616.4fe2bfb7@marrow.netinsight.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	=?ISO-8859-1?Q?St=E9phane_Berthelot?= <sberthelot@emisfr.com>
+To: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:16556 "EHLO
+	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752454Ab0AJJKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 04:10:11 -0500
+In-Reply-To: <20100107072616.4fe2bfb7@marrow.netinsight.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanse found a potential null dereference in snmp6_unregister_dev.
-There is a check for idev being NULL, but it is dereferenced
-earlier. Move the dereference after the check.
+Simon Kagstrom wrote:
+>> I will have to study this, based on other drivers and your commit dfff71.
+> 
+> Well, if you have tested it and netconsole works with the new driver I
+> would guess it's OK. I don't know netconsole myself, but I know the
+> interrupt handler (which you call from your patch) has changed with the
+> NAPI support, so that's why I was wondering if it still worked.
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
----
- net/ipv6/proc.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+I want to double-check but can't get my hands on the test machine at the moment. I will revert as soon as.
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index c9605c3..53f4ef5 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -256,11 +256,12 @@ int snmp6_register_dev(struct inet6_dev *idev)
- 
- int snmp6_unregister_dev(struct inet6_dev *idev)
- {
--	struct net *net = dev_net(idev->dev);
--	if (!net->mib.proc_net_devsnmp6)
--		return -ENOENT;
-+	struct net *net;
- 	if (!idev || !idev->stats.proc_dir_entry)
- 		return -EINVAL;
-+	net = dev_net(idev->dev);
-+	if (!net->mib.proc_net_devsnmp6)
-+		return -ENOENT;
- 	remove_proc_entry(idev->stats.proc_dir_entry->name,
- 			  net->mib.proc_net_devsnmp6);
- 	idev->stats.proc_dir_entry = NULL;
--- 
-1.6.5.7
+Thanks, Jan
