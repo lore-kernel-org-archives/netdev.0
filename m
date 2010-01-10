@@ -1,49 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tg3 appears to be sick in 2.6.33
-Date: Sun, 10 Jan 2010 13:52:42 -0800 (PST)
-Message-ID: <20100110.135242.113292015.davem@davemloft.net>
-References: <20100108180915.GA8218@xw6200.broadcom.net>
-	<201001081025.50298.dmitry.torokhov@gmail.com>
-	<20100108194222.GA8386@xw6200.broadcom.net>
+From: Vlad Dascalu <vlad.dascalu@goobix.com>
+Subject: Fwd: r8169 - Serios Regression (was Re: r8169 linux driver)
+Date: Sun, 10 Jan 2010 22:55:23 +0100
+Message-ID: <a16d8c9b1001101355x72565562k7c16e5acca243fe4@mail.gmail.com>
+References: <a16d8c9b1001101351y1783157r327761bd2c86def1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dmitry.torokhov@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, jfeeney@redhat.com
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50691
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753958Ab0AJVwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:52:33 -0500
-In-Reply-To: <20100108194222.GA8386@xw6200.broadcom.net>
+Received: from ey-out-2122.google.com ([74.125.78.26]:21525 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381Ab0AJVzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:55:24 -0500
+In-Reply-To: <a16d8c9b1001101351y1783157r327761bd2c86def1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Fri, 8 Jan 2010 11:42:22 -0800
+Guys,
 
-> [PATCH] tg3: Fix std rx prod ring handling
-> 
-> There are some tg3 devices that require the driver to post new rx
-> buffers in smaller increments.  Commit
-> 4361935afe3abc3e5a93006b99197fac1fabbd50, "tg3: Consider
-> rx_std_prod_idx a hw mailbox" changed how the driver tracks the rx
-> producer ring updates, but it does not make any special considerations
-> for the above-mentioned devices.  For those devices, it is possible for
-> the driver to hit the special case path, which updates the hardware
-> mailbox register but skips updating the shadow software mailbox member.
-> If the special case path represents the final mailbox update for this
-> ISR iteration, the hardware and software mailbox values will be out of
-> sync.  Ultimately, this will cause the driver to use a stale mailbox
-> value on the next iteration, which will appear to the hardware as a
-> large rx buffer update.  Bad things ensue.
-> 
-> The fix is to update the software shadow mailbox member when the special
-> case path is taken.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+This is a serios regression which is causing one of my Fedora 12
+production server to lose every couple of minutes network connectivity
+for 50-60 seconds before coming back.
 
-Matt, since we have positive testing, want me to apply this?
+There are lots of reports and stack dumps at
+https://bugzilla.redhat.com/show_bug.cgi?id=538920 . It seems it's
+mainly a communication issue to get those dumps on lkml where people
+can look at it.
 
-Thanks.
+It's still happening with 2.6.31.11 and people report in that bug tons
+of versions and stack traces.
+
+I'm mostly clueless when it comes to kernel debugging but if you can
+help please take a look.
+Thanks!
+
+
+Original message follows:
+
+List:       linux-netdev
+Subject:    Re: r8169 linux driver
+From:       David Dillow <dave () thedillows ! org>
+Date:       2009-12-04 13:11:24
+
+Added netdev to cc:, where you will get a broader depth of experience.
+
+On Fri, 2009-12-04 at 04:40 -0800, Philip Bordado wrote:
+> Did you guys manage to make the r8169 driver work on kernel version >= 2.6.29
+> I'm having same problem, the network dies after a few seconds with huge file transfer or nfs transfer.
+> I track the irq status but nothing unusual is happening, it just died with no error or nothing.
+> So no way to debug :( I load the module using debug=16 as parameter.
+
+I have no problems on anything 2.6.30-rc6 and beyond, but others have
+had some issues with infinite loops in the driver that I don't think
+were ever fully resolved. However, that doesn't sound like your problem.
+
+It's unclear what kernels you've tried. You seem to imply that you've
+tried kernels since 2.6.29, but what's the latest kernel you've tried
+and had the issue with?
+
+It will also help if you either send your dmesg output or
+dmesg | egrep '(XID|^Linux version)' so that we can see more details
+about the hardware.
+
+Dave
