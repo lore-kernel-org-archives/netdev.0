@@ -1,67 +1,91 @@
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Subject: Re: [PATCH] vxge: use pci_dma_mapping_error to test return value
-Date: Sat, 9 Jan 2010 22:52:22 +0300
-Message-ID: <20100109195222.GA4271@coldcone>
-References: <20100105211659.GA12882@coldcone>
- <20100108.005528.263100819.davem@davemloft.net>
-Reply-To: kirjanov@gmail.com
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
+ (v3)
+Date: Sun, 10 Jan 2010 01:57:18 +0000
+Message-ID: <1263088638.2480.210.camel@localhost>
+References: <20100107010122.GA5872@electric-eye.fr.zoreil.com>
+	 <20100106.171514.104051841.davem@davemloft.net>
+	 <20100108234800.GA2908@electric-eye.fr.zoreil.com>
+	 <20100108.160252.189352309.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-YQM4b7DTazrjMQ7sSYqB"
+Cc: romieu@fr.zoreil.com, eric.dumazet@gmail.com,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:52645 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739Ab0AITuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 14:50:39 -0500
-Received: by fg-out-1718.google.com with SMTP id 22so213654fge.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jan 2010 11:50:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100108.005528.263100819.davem@davemloft.net>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34342 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752443Ab0AJB52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jan 2010 20:57:28 -0500
+In-Reply-To: <20100108.160252.189352309.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 08, 2010 at 00:55 -0800, David Miller wrote:
-> From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-> Date: Wed, 6 Jan 2010 00:16:59 +0300
-> 
-> > @@ -821,7 +821,7 @@ vxge_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  	int frg_cnt, first_frg_len;
-> >  	skb_frag_t *frag;
-> >  	int i = 0, j = 0, avail;
-> > -	u64 dma_pointer;
-> > +	dma_addr_t dma_pointer;
-> >  	struct vxge_tx_priv *txdl_priv = NULL;
-> >  	struct __vxge_hw_fifo *fifo_hw;
-> >  	int offload_type;
-> 
-> This will cause build warnings on platforms withe dma_addr_t
-> is some type other than "unsigned long long", such as on
-> sparc64 where it is a u32.
-> 
-> This is because of the %ll printf format used to display it
-> a few lines down from here.
-My mistake. Fixed one.
 
-pci_dma_mapping_error should be used to test return value of
-pci_map_single or pci_map_page.
+--=-YQM4b7DTazrjMQ7sSYqB
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
----
+On Fri, 2010-01-08 at 16:02 -0800, David Miller wrote:
+[...]
+> Whilst the above will end up gobbling up to (16K - BIG_PACKET_SZ)
+> worth of innocent frames, the DMA engine seems to keep things at least
+> self-consistent.
+>=20
+> The only bug seems to be the omission of the LastFrag trigger at the
+> proper place.
 
- drivers/net/vxge/vxge-main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+No, the attacker controls the completion status by writing it in
+previous valid frames.  Please read the slides
+(<http://events.ccc.de/congress/2009/Fahrplan/attachments/1483_26c3_ipv4_fu=
+ckups.pdf> pages 80-87).
 
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 0fdfd58..b9685e8 100644
---- a/drivers/net/vxge/vxge-main.c
-+++ b/drivers/net/vxge/vxge-main.c
-@@ -310,7 +310,7 @@ static int vxge_rx_map(void *dtrh, struct vxge_ring *ring)
- 	dma_addr = pci_map_single(ring->pdev, rx_priv->skb_data,
- 				rx_priv->data_size, PCI_DMA_FROMDEVICE);
- 
--	if (dma_addr == 0) {
-+	if (unlikely(pci_dma_mapping_error(ring->pdev, dma_addr))) {
- 		ring->stats.pci_map_fail++;
- 		return -EIO;
- 	}
+I suspect that:
+1. There is an internal ring buffer for RX DMA containing both frame
+payload and completion status
+2. When a frame is (slightly?) over-length, the ingress and egress logic
+can disagree about the length of payload in the buffer
+3. This results in stale data (usually frame payload) being written to
+memory as the completion status
+
+It is conceivable that the bug can be avoided simply by rounding the=20
+RxMaxSize.
+
+[...]
+> Therefore we shouldn't need to change anything and there is actually
+> no "bug" or "exploit" at all.  We just end up dropping some RX frames
+> because the chip didn't DMA them properly.
+
+The intent of the exploit is precisely to cause other packets to be
+dropped!
+
+Ben.
+
+--=20
+Ben Hutchings
+Theory and practice are closer in theory than in practice.
+                                - John Levine, moderator of comp.compilers
+
+--=-YQM4b7DTazrjMQ7sSYqB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS0kz8+e/yOyVhhEJAQKQkA//STmeTjhqfuE79kgX2BdF682uYYOfGgtS
+yqvAr2qaC94pxR+RnQNWNSvs5ILUMTzxwEQTU1fHTIXEv9hzitGRSwNRRXbf9jRl
+4VkesTduvjHwQHkibY3y7TOf9VWrXrgtJyesSG2LN5hCRT5XQGdsNcH71Hi2/Zn6
+A776ciB2+IIrKAiKsnkYSjcYDq1S5PZJoEfgWVS4Ak2EUStGfl57E3XiuVsqF+LL
+63bPIUbkZaOxhNtYdi0v4aQchM5CEh6XTbgLo5eM1cP0V4l2X+BtrU+CAuFRdOqQ
+4+OSAntZ0rkTb4GEXJa8D6QfLdssPpy9o9UbcmrGRqm0NOJz2agViAreP/ANTpNH
+xwxAjAFpXBhrJhfLQdO5OsT62UcgKT76neqcyp/0RRBtSgPh5n7eTg8VoniWlV/X
+TupkloC/f60VRHBDcUIErg3aLpeslY5VirRnvBvJPqpM8Z7AYiwIIbpj3m1KMnrX
+3qA/vomaMX52H/V8dcCGKNcPkv7dEye+dwQFRhcyYv9nFGMEIVH7no5E+ZOnXue+
+t0tzrad3s9Ll4iCUg4vhuaJMw9s6T6PVs6JFbK2+eb+H0/hbL6ceXDkFr85Ou/8Q
+3RvuecIi3JZ4CitJ89P5hkbILtaDTzu7sATbV/bt/icd8tOwQ1sPR/T2r3HttFVb
+m8zm0pasybg=
+=QGIx
+-----END PGP SIGNATURE-----
+
+--=-YQM4b7DTazrjMQ7sSYqB--
