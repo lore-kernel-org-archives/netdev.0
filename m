@@ -1,61 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ipv4: support for request type gratuitous ARP
-Date: Sun, 10 Jan 2010 13:21:05 -0800 (PST)
-Message-ID: <20100110.132105.179935794.davem@davemloft.net>
-References: <201001050004.45004.opurdila@ixiacom.com>
+Subject: Re: [PATCH 1/1] NET: irda, remove unnecessary checks
+Date: Sun, 10 Jan 2010 13:28:13 -0800 (PST)
+Message-ID: <20100110.132813.21319484.davem@davemloft.net>
+References: <1263114674-10433-1-git-send-email-jslaby@suse.cz>
+	<1263122254-18781-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: opurdila@ixiacom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58236
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753506Ab0AJVU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 16:20:57 -0500
-In-Reply-To: <201001050004.45004.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: samuel@sortiz.org, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, alan@linux.intel.com, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: jslaby@suse.cz
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753996Ab0AJV2J@vger.kernel.org>
+In-Reply-To: <1263122254-18781-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Tue, 5 Jan 2010 00:04:44 +0200
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Sun, 10 Jan 2010 12:17:34 +0100
 
+> Stanse found a potential null dereference in ircomm_tty_close
+> and ircomm_tty_hangup. There is a check for tty being NULL,
+> but it is dereferenced earlier. But it is bogus, the tty cannot
+> be NULL, so remove the !tty checks.
 > 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> ---
-> 
-> I've noticed that even though we currently support response type gratuitous ARP
-> [response type, source mac, dest mac, source IP, source IP] *with a clean ARP table*
-> we do not support the request type [request type, source mac, ff:ff:ff:ff:ff:ff, source IP, source IP].
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 
-Please don't submit your patches in this manner.
-
-All of these relevant, interesting, details belong in the commit
-message.  But any text you place aftr the "---" line will be omitted
-from the commit message when your patch is applied by automated GIT
-tools.
-
-I've done some research and I'm happy to apply your patch to
-net-next-2.6 once it is submitted properly.
-
-In fact we need to do some more research in this area because
-generally we should more mimick the processing order of ARP prescribed
-in the RFC.  In particular we should test the operation code lastly,
-which would avoid these kinds of inconsistencies.
-
-I'm worried though about security issues as well, as we make more the
-acceptance more and more liberal, it becomes that much easier for
-machines on the local network to poison ARP entries and use that to
-either accept all traffic destined for a particular node or simply
-deny that node access to the network.
-
-In particular the kernel currently explicitly does not accept
-unsolicited ARP, and this is controlled by the ARP_ACCEPT per-device
-option.
-
-	if (IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
-		/* Unsolicited ARP is not accepted by default.
-		   It is possible, that this option should be enabled for some
-		   devices (strip is candidate)
-		 */
-...
+Applied.
