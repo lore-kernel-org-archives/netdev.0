@@ -1,67 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: REGRESSION for RT2561/RT61 in 2.6.33
-Date: Mon, 11 Jan 2010 16:11:35 +0100
-Message-ID: <1263222695.29743.1.camel@johannes.local>
-References: <Pine.LNX.4.44L0.1001110947350.2873-100000@iolanthe.rowland.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-MlwfGFwL4KePCVN3SPHL"
-Cc: Gertjan van Wingerde <gwingerde@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
+From: Alex Badea <abadea@ixiacom.com>
+Subject: [PATCH iproute2] ip xfrm state: parse and print "icmp" and "af-unspec" flags
+Date: Mon, 11 Jan 2010 17:23:41 +0200
+Message-ID: <1263223421-14013-1-git-send-email-abadea@ixiacom.com>
+Cc: netdev@vger.kernel.org, Alex Badea <abadea@ixiacom.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:53112 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751895Ab0AKPLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 10:11:44 -0500
-In-Reply-To: <Pine.LNX.4.44L0.1001110947350.2873-100000@iolanthe.rowland.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:6986 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752591Ab0AKPXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 10:23:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Convert to/from XFRM_STATE_ICMP and XFRM_STATE_AF_UNSPEC state flags.
 
---=-MlwfGFwL4KePCVN3SPHL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Alex Badea <abadea@ixiacom.com>
+---
+ ip/ipxfrm.c     |    2 ++
+ ip/xfrm_state.c |    6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
 
-Alan,
-
-> The card doesn't work.  Although the firmware load appears to
-> succeed, "iwconfig wlan0" says no wireless extensions present.
-
-You need to set CONFIG_CFG80211_WEXT (it is default y).
-
-> The only clue I can offer is that "rmmod rt61pci" hangs in=20
-> wiphy_unregister() during the wait_event() loop near the start,
-> because=20
-> rdev->opencount is equal to -1.  This suggests a refcounting imbalance
->=20
-> of some sort.
-
-Good point, that's a bug that will go away with CONFIG_CFG80211_WEXT,
-I'll send a fix.
-
-johannes
-
---=-MlwfGFwL4KePCVN3SPHL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJLSz+jAAoJEODzc/N7+QmameQP/ibGo0juP/pZsZbBDYYxgkLB
-OvDJrQGrSGcyaB4jdpBtn9677MY0C1n0LTrxvCZBkqwFKGzhKEoGcnYLvL3rrwI8
-EbG2vLFQ6npYm3Fi0mQE0PE3YXaEbBZwUwZRLCwwMnkZPiJtULlGPCEUk1tFFLoL
-QfTFxhf9mJxuHsjOVkK39AuxxqEI8Hc/MnGPtt04Fb40GkcDPkQSNy/b4YcBd9yZ
-XDZl3HBbZXvwLT0bRJGb/35psGNxZfVcPiwWleD3bgNv1J7xBLdcUlQsN3rrgHxi
-NsGznjMOYaKX88ROjZws1HebXRdctf79CGDauHH6coEaK5sCDR/zWE9vDqD1Pc4Y
-D6rGWsrEUvbO7KL5RwnPShnwLS2IVEu/H80PIRbpgZUM9zv0rInaWDohzto+sz1N
-GH1IACEXP2Or4dnvvOl61etzJ+risRY2ip2J63dLibMKX07D1+5v6i2HwfU2IwhZ
-LzIqJG8VO6R05/QGVC28zs1xTwBRSB81NH0v34OzcNU+TmhyPevYtD/ksTbygaOj
-h/sWhM4RSfVGmT6wAz5U4G+0LkyDIege9XJWGolTT4G6z54qFXKOCs12q1xVu6PZ
-RujAH5VdNSfyqLjFeaaf1DPYqUCPuD0ULjlcbnsayQw9RDnXztdjTCSosJcsL74O
-Yxf/e+ULvECrfMBP6JIK
-=L+0q
------END PGP SIGNATURE-----
-
---=-MlwfGFwL4KePCVN3SPHL--
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index 18250de..7dc36f3 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -780,6 +780,8 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
+ 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_DECAP_DSCP, "decap-dscp");
+ 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_NOPMTUDISC, "nopmtudisc");
+ 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_WILDRECV, "wildrecv");
++		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ICMP, "icmp");
++		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_AF_UNSPEC, "af-unspec");
+ 		if (flags)
+ 			fprintf(fp, "%x", flags);
+ 	}
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index b1e3f22..32238ab 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -83,7 +83,7 @@ static void usage(void)
+  	//fprintf(stderr, "REQID - number(default=0)\n");
+ 
+ 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+-	fprintf(stderr, "FLAG := [ noecn | decap-dscp | nopmtudisc | wildrecv ]\n");
++	fprintf(stderr, "FLAG := [ noecn | decap-dscp | nopmtudisc | wildrecv | icmp | af-unspec ]\n");
+ 
+         fprintf(stderr, "ENCAP := ENCAP-TYPE SPORT DPORT OADDR\n");
+         fprintf(stderr, "ENCAP-TYPE := espinudp | espinudp-nonike\n");
+@@ -210,6 +210,10 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
+ 				*flags |= XFRM_STATE_NOPMTUDISC;
+ 			else if (strcmp(*argv, "wildrecv") == 0)
+ 				*flags |= XFRM_STATE_WILDRECV;
++			else if (strcmp(*argv, "icmp") == 0)
++				*flags |= XFRM_STATE_ICMP;
++			else if (strcmp(*argv, "af-unspec") == 0)
++				*flags |= XFRM_STATE_AF_UNSPEC;
+ 			else {
+ 				PREV_ARG(); /* back track */
+ 				break;
+-- 
+1.6.3.3
 
