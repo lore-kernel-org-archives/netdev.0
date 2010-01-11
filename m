@@ -1,37 +1,86 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH 2/2] virtio_net: Defer skb allocation in receive path
-Date: Mon, 11 Jan 2010 11:09:25 -0800
-Message-ID: <1263236965.11949.1.camel@localhost.localdomain>
-References: <1261122090.4148.24.camel@localhost.localdomain>
-	 <1261122289.4148.27.camel@localhost.localdomain>
-	 <20091224133749.GB2855@amit-x200.redhat.com>
-	 <1262640344.18773.2.camel@localhost.localdomain>
-	 <20100104211454.GB21488@redhat.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] can: Unify droping of invalid tx skbs and
+	netdev	stats
+Date: Mon, 11 Jan 2010 20:11:15 +0100
+Message-ID: <4B4B77D3.6030200@pengutronix.de>
+References: <4B477BB7.2030108@hartkopp.net> <4B4B20E3.3070603@grandegger.com>
+	<4B4B4765.30302@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:48706 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753189Ab0AKTJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2010 14:09:29 -0500
-In-Reply-To: <20100104211454.GB21488@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B4B4765.30302-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-01-04 at 23:14 +0200, Michael S. Tsirkin wrote:
-> so it will never return NULL unless no more buffers?  breaking here ad
-> BUG_ON(vi->num) as Amit suggests seems cleaner than looping forever if
-> there's a bug. 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Agree. I will change to break as Amit suggested and put BUG_ON and
-resubmit the patch.
+Oliver Hartkopp wrote:
+> Wolfgang Grandegger wrote:
+> 
+>>>  
+>>> +	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
+>>> +		kfree_skb(skb);
+>>> +		dev->stats.tx_dropped++;
+>>> +		return NETDEV_TX_OK;
+>>> +	}
+>> A static inline function "invalid_can_skb(skb)" (or "no_can_skb") would
+>> be handy here:
+>>
+>> 	if (invalid_can_skb(skb)) {
+>> 		kfree_skb(skb);
+>> 		dev->stats.tx_dropped++;
+>> 		return NETDEV_TX_OK;		
+>> 	}
+> 
+> Another idea could be:
+> 
+> 	if (can_dropped_invalid_skb(skb, dev))
+> 		return NETDEV_TX_OK;
+> 
+> with
+> 
+> static inline int can_dropped_invalid_skb(struct sk_buff *skb, struct net_device *dev)
+> {
+> 	const struct can_frame *cf = (struct can_frame *)skb->data;
+> 
+> 	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
+> 		kfree_skb(skb);
+> 		dev->stats.tx_dropped++;
+> 		return 1;
+> 	}
+> 
+> 	return 0;
+> }
 
-Thanks
-Shirley
+this functions looks nice, but I'd swap its arguments, in order to have
+the same signature as the alloc_can_skb() functions
 
+cheers, Marc
+
+- --
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAktLd9MACgkQjTAFq1RaXHPaXACfRm0YdKxSPWX8lYudtvnq7WIo
+8EMAn1nwRpxJ4mMgD/D4RNwZDT1oO9DY
+=t+n5
+-----END PGP SIGNATURE-----
