@@ -1,58 +1,53 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Mon, 11 Jan 2010 12:01:36 -0800
-Message-ID: <20100111200136.GA29955@suse.de>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
- <20100108044646.GC6611@suse.de>
- <4B4B802A.2010709@imap.cc>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bug #14925] sky2 panic under load
+Date: Mon, 11 Jan 2010 21:31:28 +0100
+Message-ID: <20100111203128.GA3139@del.dom.local>
+References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
+ <4B4A729E.9060805@gmail.com>
+ <20100111132647.GA11193@ff.dom.local>
+ <201001112032.24243.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Tilman Schmidt <tilman@imap.cc>
+Cc: "Berck E. Nash" <flyboy@gmail.com>, netdev@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:60778 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754082Ab0AKUGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2010 15:06:08 -0500
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:50640 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060Ab0AKUbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 15:31:34 -0500
+Received: by fxm25 with SMTP id 25so16589fxm.21
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 12:31:32 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <4B4B802A.2010709@imap.cc>
+In-Reply-To: <201001112032.24243.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 11, 2010 at 08:46:50PM +0100, Tilman Schmidt wrote:
-> Am 08.01.2010 05:46 schrieb Greg KH:
-> > On Fri, Jan 08, 2010 at 11:22:36AM +1100, Stephen Rothwell wrote:
-> >>
-> >> This interface has been deprecated since November 2006, so can something
-> >> be done about the last users (I think only some ISDN drivers)?
+On Mon, Jan 11, 2010 at 08:32:24PM +0100, Rafael J. Wysocki wrote:
+> On Monday 11 January 2010, Jarek Poplawski wrote:
+> > On Sun, Jan 10, 2010 at 05:36:46PM -0700, Berck E. Nash wrote:
+> > > Rafael J. Wysocki wrote:
+> > > > This message has been generated automatically as a part of a report
+> > > > of recent regressions.
+> > > > 
+> > > > The following bug entry is on the current list of known regressions
+> > > > from 2.6.32.  Please verify if it still should be listed and let me know
+> > > > (either way).
+> > 
+> > BTW, I don't know why Berck didn't experience such a panic before
+> > 2.6.32, but seems not a regression to me. There might be new/more sky2
+> > TX timeouts which trigger this panic and would make a real regression.
 > 
-> That would be the HiSax I4L drivers.
-> 
-> > Ick, the "new" isdn drivers are still not merged that replace those
-> > older ones?  I thought that happened a while ago.
-> 
-> mISDN, which is the designated successor to HiSax, has indeed been
-> merged in 2008.
-> 
-> Trouble is, mISDN's userspace interface is completely different from I4L.
-> Removing HiSax would therefore break userspace compatibility for current
-> users of HiSax supported devices. In order to switch to mISDN they'll
-> have to replace all of their ISDN4Linux applications with equivalent
-> mISDN ones, and I'm not even sure there is a replacement for everything.
-> 
-> Just an idea - as a stopgap measure, couldn't pci_find_device() be made
-> a private function of the HiSax drivers? That way, the remainder of the
-> kernel won't be polluted by it anymore, and the PCI_LEGACY config option
-> can be dropped. Something like this quick and dirty hack:
+> Even if the code has always been broken, but it's only become visible after
+> 2.6.32, that still counts as a regression IMO, because now the users are
+> affected who weren't before.
 
-Close, but if you do this, please name the function
-hisax_find_pci_device() or something, and change the drivers to use it
-instead.  Also put a big fat warning in the function that calling this
-is unsafe for any PCI hotplug type machine.
+Right, but:
+1) someone with a similar but older problem might be mislead a fix is
+   not for them;
+2) someone with exactly this one problem (i.e. Berck ;-) might be
+   mislead "no oops" is enough, while their linux might be still worse
+   than before. (So I intended Berck to re-consider or even re-check
+   this problem wrt. 2.6.31, and maybe even reporting another
+   regression.)
 
-thanks,
-
-greg k-h
+Jarek P.
