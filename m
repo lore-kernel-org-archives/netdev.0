@@ -1,138 +1,125 @@
-From: "Wu Jiajun-B06378" <B06378@freescale.com>
-Subject: RE: [PATCH 1/3] ucc_geth: Fix empty TX queue processing
-Date: Mon, 11 Jan 2010 11:47:37 +0800
-Message-ID: <100CB1A1877FF245BDB7AF83A0E73FFE26BE4D@zch01exm28.fsl.freescale.net>
-References: <0A1FE637C2C7E148B9573BB60CC630E56C3E90@zch01exm26.fsl.freescale.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Sun, 10 Jan 2010 22:00:34 -0800
+Message-ID: <20100110220034.4d46ba8a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linuxppc-dev@ozlabs.org>, <netdev@vger.kernel.org>,
-	<lsorense@csclub.uwaterloo.ca>, <davem@davemloft.net>
-To: <avorontsov@ru.mvista.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-api@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:63137 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233Ab0AKDrr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 22:47:47 -0500
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id o0B3leYm004458
-	for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 20:47:40 -0700 (MST)
-Received: from zch01exm28.fsl.freescale.net (zch01exm28.ap.freescale.net [10.192.129.225])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id o0B3rUT6010336
-	for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 21:53:31 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <0A1FE637C2C7E148B9573BB60CC630E56C3E90@zch01exm26.fsl.freescale.net>
+Received: from mail.vyatta.com ([76.74.103.46]:49085 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750895Ab0AKGAu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2010 01:00:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-'bd == ugeth->txBd[txQ]' has two possible statuses: 1)full queue.
-2)empty queue.
-Removing 'netif_queue_stopped() == 0' will make transmitting stopping
-when the queue is full. 
+This patch adds the kernel portions needed to implement
+RFC 5082 Generalized TTL Security Mechanism (GTSM).
+It is a lightweight security measure against forged
+packets causing DoS attacks (for BGP). 
 
-I made a new patch for this oops.
+This is already implemented the same way in BSD kernels.
+For the necessary Quagga patch 
+  http://www.gossamer-threads.com/lists/quagga/dev/17389
 
->From 726765194352d01dc8ea672d97612589b67cec3f Mon Sep 17 00:00:00 2001
-From: Jiajun Wu <b06378@freescale.com>
-Date: Mon, 11 Jan 2010 10:57:22 +0800
-Subject: [PATCH] ucc_geth: Fix empty TX queue processing
+Description from Cisco
+  http://www.cisco.com/en/US/docs/ios/12_3t/12_3t7/feature/guide/gt_btsh.html
 
-Signed-off-by: Jiajun Wu <b06378@freescale.com>
+It does add one byte to each socket structure, but I did
+a little rearrangement to reuse a hole (on 64 bit), but it
+does grow the structure on 32 bit
+
+This should be documented on ip(4) man page and the Glibc in.h
+file also needs update.  IPV6_MINHOPLIMIT should also be added
+(although BSD doesn't support that).  
+
+Only TCP is supported, but could also be added to UDP, DCCP, SCTP
+if desired.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
 ---
- drivers/net/ucc_geth.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ include/linux/in.h      |    1 +
+ include/net/inet_sock.h |    9 +++++++++
+ net/ipv4/ip_sockglue.c  |   14 +++++++++++++-
+ net/ipv4/tcp_ipv4.c     |    2 ++
+ 4 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index f982220..34345f0 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3576,17 +3576,17 @@ static int ucc_geth_tx(struct net_device *dev,
-u8 txQ)
- 	while ((bd_status & T_R) == 0) {
- 		struct sk_buff *skb;
+--- a/include/linux/in.h	2010-01-10 21:06:42.873122656 -0800
++++ b/include/linux/in.h	2010-01-10 21:06:47.802185618 -0800
+@@ -84,6 +84,8 @@ struct in_addr {
+ #define IP_ORIGDSTADDR       20
+ #define IP_RECVORIGDSTADDR   IP_ORIGDSTADDR
  
-+		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
++#define IP_MINTTL       21
 +
- 		/* BD contains already transmitted buffer.   */
- 		/* Handle the transmitted buffer and release */
- 		/* the BD to be used with the current frame  */
+ /* IP_MTU_DISCOVER values */
+ #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
+ #define IP_PMTUDISC_WANT		1	/* Use per route hints	*/
+--- a/include/net/inet_sock.h	2010-01-10 21:06:42.893123288 -0800
++++ b/include/net/inet_sock.h	2010-01-10 21:17:50.262842588 -0800
+@@ -122,10 +122,12 @@ struct inet_sock {
+ 	__be32			inet_saddr;
+ 	__s16			uc_ttl;
+ 	__u16			cmsg_flags;
+-	struct ip_options	*opt;
+ 	__be16			inet_sport;
+ 	__u16			inet_id;
++
++	struct ip_options	*opt;
+ 	__u8			tos;
++	__u8			min_ttl;
+ 	__u8			mc_ttl;
+ 	__u8			pmtudisc;
+ 	__u8			recverr:1,
+--- a/net/ipv4/ip_sockglue.c	2010-01-10 21:06:42.913123212 -0800
++++ b/net/ipv4/ip_sockglue.c	2010-01-10 21:06:47.822184879 -0800
+@@ -451,7 +451,8 @@ static int do_ip_setsockopt(struct sock 
+ 			     (1<<IP_TTL) | (1<<IP_HDRINCL) |
+ 			     (1<<IP_MTU_DISCOVER) | (1<<IP_RECVERR) |
+ 			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
+-			     (1<<IP_PASSSEC) | (1<<IP_TRANSPARENT))) ||
++			     (1<<IP_PASSSEC) | (1<<IP_TRANSPARENT) |
++	     		     (1<<IP_MINTTL))) ||
+ 	    optname == IP_MULTICAST_TTL ||
+ 	    optname == IP_MULTICAST_ALL ||
+ 	    optname == IP_MULTICAST_LOOP ||
+@@ -936,6 +937,14 @@ mc_msf_out:
+ 		inet->transparent = !!val;
+ 		break;
  
--		if ((bd == ugeth->txBd[txQ]) &&
-(netif_queue_stopped(dev) == 0))
-+		if ((bd == ugeth->txBd[txQ]) && (skb == NULL))
- 			break;
++	case IP_MINTTL:
++		if (optlen < 1)
++			goto e_inval;
++		if (val < 0 || val > 255)
++			goto e_inval;
++		inet->min_ttl = val;
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 		break;
+@@ -1198,6 +1207,9 @@ static int do_ip_getsockopt(struct sock 
+ 	case IP_TRANSPARENT:
+ 		val = inet->transparent;
+ 		break;
++	case IP_MINTTL:
++		val = inet->min_ttl;
++		break;
+ 	default:
+ 		release_sock(sk);
+ 		return -ENOPROTOOPT;
+--- a/net/ipv4/tcp_ipv4.c	2010-01-10 21:06:42.931093698 -0800
++++ b/net/ipv4/tcp_ipv4.c	2010-01-10 21:08:21.537513427 -0800
+@@ -1649,6 +1649,9 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	if (!sk)
+ 		goto no_tcp_socket;
  
- 		dev->stats.tx_packets++;
- 
--		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
--
- 		if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN
-&&
- 			     skb_recycle_check(skb,
- 
-ugeth->ug_info->uf_info.max_rx_buf_length +
--- 
-1.5.6.3
------Original Message-----
-From: linuxppc-dev-bounces+b13201=freescale.com@lists.ozlabs.org
-[mailto:linuxppc-dev-bounces+b13201=freescale.com@lists.ozlabs.org] On
-Behalf Of Anton Vorontsov
-Sent: Thursday, December 24, 2009 11:31 PM
-To: David Miller
-Cc: linuxppc-dev@ozlabs.org; netdev@vger.kernel.org; Lennart Sorensen
-Subject: [PATCH 1/3] ucc_geth: Fix empty TX queue processing
------------
-
-Following oops was seen with the ucc_geth driver:
-
- Unable to handle kernel paging request for data at address 0x00000058
-Faulting instruction address: 0xc024f2fc
- Oops: Kernel access of bad area, sig: 11 [#1]  [...]  NIP [c024f2fc]
-skb_recycle_check+0x14/0x100  LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0
-[ucc_geth_driver]  Call Trace:
- [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
-[df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
-[df857dd0] [c0258cf8] net_rx_action+0xf8/0x1b8  [df857e10] [c0032a38]
-__do_softirq+0xb8/0x13c  [df857e60] [c00065cc] do_softirq+0xa0/0xac
-[...]
-
-This is because ucc_geth_tx() tries to process an empty queue when
-queues are logically stopped. Stopping the queues doesn't disable
-polling, and since nowadays ucc_geth_tx() is actually called from the
-polling routine, the oops above might pop up.
-
-Fix this by removing 'netif_queue_stopped() == 0' check.
-
-Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Tested-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Cc: Stable <stable@vger.kernel.org> [2.6.32]
----
- drivers/net/ucc_geth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c index
-afaf088..0f8c99e 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3273,7 +3273,7 @@ static int ucc_geth_tx(struct net_device *dev, u8
-txQ)
- 		/* Handle the transmitted buffer and release */
- 		/* the BD to be used with the current frame  */
- 
--		if ((bd == ugeth->txBd[txQ]) &&
-(netif_queue_stopped(dev) == 0))
-+		if (bd == ugeth->txBd[txQ]) /* queue empty? */
- 			break;
- 
- 		dev->stats.tx_packets++;
---
-1.6.3.3
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@lists.ozlabs.org
-https://lists.ozlabs.org/listinfo/linuxppc-dev
-
++	if (iph->ttl < inet_sk(sk)->min_ttl)
++		goto discard_and_relse;
++
+ process:
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		goto do_time_wait;
