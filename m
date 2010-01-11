@@ -1,45 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 5/8] net/ipv4/netfilter/nf_nat_ftp.c: Remove (*mangle[])
- array and functions, use %pI4
-Date: Mon, 11 Jan 2010 11:51:42 +0100
-Message-ID: <4B4B02BE.5060209@trash.net>
-References: <cover.1262726222.git.joe@perches.com>	 <bccf36219f3ea5a9b7565734bc87095bc986dbe0.1262726222.git.joe@perches.com> <1262805798.1952.105.camel@Joe-Laptop.home>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH 1/3] ucc_geth: Fix empty TX queue processing
+Date: Mon, 11 Jan 2010 13:52:48 +0300
+Message-ID: <20100111105248.GA28580@oksana.dev.rtsoft.ru>
+References: <0A1FE637C2C7E148B9573BB60CC630E56C3E90@zch01exm26.fsl.freescale.net>
+ <100CB1A1877FF245BDB7AF83A0E73FFE26BE4D@zch01exm28.fsl.freescale.net>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1262805798.1952.105.camel@Joe-Laptop.home>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	lsorense@csclub.uwaterloo.ca, davem@davemloft.net
+To: Wu Jiajun-B06378 <B06378@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:51113 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751247Ab0AKKwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 05:52:55 -0500
+Content-Disposition: inline
+In-Reply-To: <100CB1A1877FF245BDB7AF83A0E73FFE26BE4D@zch01exm28.fsl.freescale.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches wrote:
-> These functions merely exist to format a buffer and call
-> nf_nat_mangle_tcp_packet.
+On Mon, Jan 11, 2010 at 11:47:37AM +0800, Wu Jiajun-B06378 wrote:
+>  
+> 'bd == ugeth->txBd[txQ]' has two possible statuses: 1)full queue.
+> 2)empty queue.
+> Removing 'netif_queue_stopped() == 0' will make transmitting stopping
+> when the queue is full. 
 > 
-> Format the buffer and perform the call in nf_nat_ftp instead.
-> 
-> Use %pI4 for the IP address.
-> 
-> Saves ~600 bytes of text
-> 
-> old:
-> $ size net/ipv4/netfilter/nf_nat_ftp.o
->    text	   data	    bss	    dec	    hex	filename
->    2187	    160	    408	   2755	    ac3	net/ipv4/netfilter/nf_nat_ftp.o
-> new:
-> $ size net/ipv4/netfilter/nf_nat_ftp.o
->    text    data     bss     dec     hex filename
->    1532     112     288    1932     78c net/ipv4/netfilter/nf_nat_ftp.o
+> I made a new patch for this oops.
+[...]
+> +		if ((bd == ugeth->txBd[txQ]) && (skb == NULL))
+>  			break;
 
-Applied, thanks. BTW, its enough to CC netfilter-devel and optionally
-netdev on patches, netfilter and netfilter-core are unnecessary.
+Hm. I wonder why do we need the 'bd == ugeth->txBd[txQ]' check
+at all? The null skb will cause a kernel oops anyway.
 
+I think the patch below should be sufficient for the fix.
+Can you try it? Or if you tell me how to reproduce the issue
+you observe, I can try it myself.
+
+Thanks a lot!
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 41ad2f3..a1a6d06 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3279,13 +3279,12 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+ 		/* Handle the transmitted buffer and release */
+ 		/* the BD to be used with the current frame  */
+ 
+-		if (bd == ugeth->txBd[txQ]) /* queue empty? */
++		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
++		if (!skb)
+ 			break;
+ 
+ 		dev->stats.tx_packets++;
+ 
+-		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
+-
+ 		if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN &&
+ 			     skb_recycle_check(skb,
+ 				    ugeth->ug_info->uf_info.max_rx_buf_length +
