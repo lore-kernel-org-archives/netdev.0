@@ -1,68 +1,56 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Mon, 11 Jan 2010 12:25:23 +0100
-Message-ID: <4B4B0AA3.6010207@gmail.com>
-References: <20100110220034.4d46ba8a@nehalam>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2] MAINTAINERS: netfilter - Document netfilter and
+ netfilter-core lists purposes
+Date: Mon, 11 Jan 2010 03:27:49 -0800
+Message-ID: <1263209269.1907.61.camel@Joe-Laptop.home>
+References: <cover.1262726222.git.joe@perches.com>
+	 <bccf36219f3ea5a9b7565734bc87095bc986dbe0.1262726222.git.joe@perches.com>
+	 <1262805798.1952.105.camel@Joe-Laptop.home>  <4B4B02BE.5060209@trash.net>
+	 <1263208183.1907.50.camel@Joe-Laptop.home>  <4B4B0806.40801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100110220034.4d46ba8a@nehalam>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1059 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751028Ab0AKL1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2010 06:27:51 -0500
+In-Reply-To: <4B4B0806.40801@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 11/01/2010 07:00, Stephen Hemminger a =E9crit :
-> This patch adds the kernel portions needed to implement
-> RFC 5082 Generalized TTL Security Mechanism (GTSM).
-> It is a lightweight security measure against forged
-> packets causing DoS attacks (for BGP).=20
->=20
-> This is already implemented the same way in BSD kernels.
-> For the necessary Quagga patch=20
->   http://www.gossamer-threads.com/lists/quagga/dev/17389
->=20
-> Description from Cisco
->   http://www.cisco.com/en/US/docs/ios/12_3t/12_3t7/feature/guide/gt_b=
-tsh.html
->=20
-> It does add one byte to each socket structure, but I did
-> a little rearrangement to reuse a hole (on 64 bit), but it
-> does grow the structure on 32 bit
->=20
-> This should be documented on ip(4) man page and the Glibc in.h
-> file also needs update.  IPV6_MINHOPLIMIT should also be added
-> (although BSD doesn't support that). =20
->=20
-> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
-> if desired.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
->=20
+> On Mon, 2010-01-11 at 11:51 +0100, Patrick McHardy wrote:
+> it's enough to CC netfilter-devel and optionally
+> netdev on patches, netfilter and netfilter-core are unnecessary.
+> On Mon, 2010-01-11 at 12:14 +0100, Patrick McHardy wrote:
+> A comment stating the purpose of each list would be more appropriate.
+> netfilter-devel is for developers and patches, netfilter is for users
+> and netfilter-core is only meant to reach the coreteam privately.
 
-> --- a/net/ipv4/tcp_ipv4.c	2010-01-10 21:06:42.931093698 -0800
-> +++ b/net/ipv4/tcp_ipv4.c	2010-01-10 21:08:21.537513427 -0800
-> @@ -1649,6 +1649,9 @@ int tcp_v4_rcv(struct sk_buff *skb)
->  	if (!sk)
->  		goto no_tcp_socket;
-> =20
-> +	if (iph->ttl < inet_sk(sk)->min_ttl)
-> +		goto discard_and_relse;
-> +
->  process:
->  	if (sk->sk_state =3D=3D TCP_TIME_WAIT)
->  		goto do_time_wait;
+Adding "subscribers-only" after the list address stops
+scripts/get_maintainer.pl from including the address
+unless --s is used.  Doesn't matter if the list really
+is subscribers-only or not.
 
-Just wondering if perfoming the check at connection establishment time
-(SYN or SYN-ACK packet) instead of every received packet would be enoug=
-h ?
+Signed-off-by: Joe Perches <joe@perches.com>
 
-Of course, for listeners waiting for connexions from different peers (a=
-nd different
-ttl values), it would be tricky.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 745643b..ea5ddc8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3742,8 +3742,8 @@ P:	Harald Welte
+ P:	Jozsef Kadlecsik
+ M:	Patrick McHardy <kaber@trash.net>
+ L:	netfilter-devel@vger.kernel.org
+-L:	netfilter@vger.kernel.org
+-L:	coreteam@netfilter.org
++L:	netfilter@vger.kernel.org	for user issues, not subscribers-only
++L:	coreteam@netfilter.org		for private emails, not subscribers-only
+ W:	http://www.netfilter.org/
+ W:	http://www.iptables.org/
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
 
-Check should be done at user level, if we store ttl value of SYN packet=
- and let
-user application read its value by a getsockopt()
+
