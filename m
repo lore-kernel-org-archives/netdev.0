@@ -1,186 +1,138 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Mon, 11 Jan 2010 13:25:27 +1000
-Message-ID: <4B4A9A27.8040500@snapgear.com>
-References: <cover.1260785451.git.baruch@tkos.co.il>	<fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>	<20091214103348.GV15126@pengutronix.de>	<20091215083142.GB18290@jasper.tkos.co.il>	<4B277878.1050804@snapgear.com> <20091215201109.GA2621@tarshish>	<4B282644.8030104@snapgear.com>	<20091216063402.GA13160@jasper.tkos.co.il> <20100105082429.GB25571@tarshish>
+From: "Wu Jiajun-B06378" <B06378@freescale.com>
+Subject: RE: [PATCH 1/3] ucc_geth: Fix empty TX queue processing
+Date: Mon, 11 Jan 2010 11:47:37 +0800
+Message-ID: <100CB1A1877FF245BDB7AF83A0E73FFE26BE4D@zch01exm28.fsl.freescale.net>
+References: <0A1FE637C2C7E148B9573BB60CC630E56C3E90@zch01exm26.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>,
-	linux-arm-kernel@lists.infradead.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linuxppc-dev@ozlabs.org>, <netdev@vger.kernel.org>,
+	<lsorense@csclub.uwaterloo.ca>, <davem@davemloft.net>
+To: <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:57792 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751013Ab0AKDZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 22:25:27 -0500
-In-Reply-To: <20100105082429.GB25571@tarshish>
+Received: from az33egw02.freescale.net ([192.88.158.103]:63137 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751233Ab0AKDrr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 22:47:47 -0500
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id o0B3leYm004458
+	for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 20:47:40 -0700 (MST)
+Received: from zch01exm28.fsl.freescale.net (zch01exm28.ap.freescale.net [10.192.129.225])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id o0B3rUT6010336
+	for <netdev@vger.kernel.org>; Sun, 10 Jan 2010 21:53:31 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <0A1FE637C2C7E148B9573BB60CC630E56C3E90@zch01exm26.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ 
+'bd == ugeth->txBd[txQ]' has two possible statuses: 1)full queue.
+2)empty queue.
+Removing 'netif_queue_stopped() == 0' will make transmitting stopping
+when the queue is full. 
 
-Hi Baruch,
+I made a new patch for this oops.
 
-Baruch Siach wrote:
-> On Wed, Dec 16, 2009 at 08:34:06AM +0200, Baruch Siach wrote:
->> Hi Greg,
-> 
-> [snip]
-> 
->> Thanks. The updated patch below.
-> 
-> Ping?
-> 
-> How should take care of this?
-> 
-> The platform code for i.MX25 PDK is going via Sascha's tree, and it depends on 
-> this patch to compile.
+>From 726765194352d01dc8ea672d97612589b67cec3f Mon Sep 17 00:00:00 2001
+From: Jiajun Wu <b06378@freescale.com>
+Date: Mon, 11 Jan 2010 10:57:22 +0800
+Subject: [PATCH] ucc_geth: Fix empty TX queue processing
 
-I assumed it would go via the net git tree?
+Signed-off-by: Jiajun Wu <b06378@freescale.com>
+---
+ drivers/net/ucc_geth.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Regards
-Greg
-
-
-
->> From 2d0751f868519978603b16baa197bfb9f9ec9e2e Mon Sep 17 00:00:00 2001
->> Message-Id: <2d0751f868519978603b16baa197bfb9f9ec9e2e.1260945080.git.baruch@tkos.co.il>
->> From: Baruch Siach <baruch@tkos.co.il>
->> Date: Mon, 14 Dec 2009 10:36:50 +0200
->> Subject: [PATCH] fec: add support for PHY interface platform data
->>
->> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
->> ability to configure RMII, based on platform data.
->>
->> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
->> Acked-by:  Greg Ungerer <gerg@uclinux.org>
->> ---
->>  drivers/net/fec.c   |   22 ++++++++++++++++++++++
->>  drivers/net/fec.h   |    2 ++
->>  include/linux/fec.h |   21 +++++++++++++++++++++
->>  3 files changed, 45 insertions(+), 0 deletions(-)
->>  create mode 100644 include/linux/fec.h
->>
->> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
->> index 16a1d58..a7cfe0d 100644
->> --- a/drivers/net/fec.c
->> +++ b/drivers/net/fec.c
->> @@ -40,6 +40,7 @@
->>  #include <linux/irq.h>
->>  #include <linux/clk.h>
->>  #include <linux/platform_device.h>
->> +#include <linux/fec.h>
->>  
->>  #include <asm/cacheflush.h>
->>  
->> @@ -198,6 +199,7 @@ struct fec_enet_private {
->>  	uint	phy_speed;
->>  	phy_info_t const	*phy;
->>  	struct work_struct phy_task;
->> +	phy_interface_t	phy_interface;
->>  
->>  	uint	sequence_done;
->>  	uint	mii_phy_task_queued;
->> @@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
->>  	/* Set MII speed */
->>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->>  
->> +#ifdef FEC_MIIGSK_ENR
->> +	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
->> +		/* disable the gasket and wait */
->> +		writel(0, fep->hwp + FEC_MIIGSK_ENR);
->> +		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
->> +			udelay(1);
->> +
->> +		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
->> +		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
->> +
->> +		/* re-enable the gasket */
->> +		writel(2, fep->hwp + FEC_MIIGSK_ENR);
->> +	}
->> +#endif
->> +
->>  	/* And last, enable the transmit and receive processing */
->>  	writel(2, fep->hwp + FEC_ECNTRL);
->>  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
->> @@ -1847,6 +1864,7 @@ static int __devinit
->>  fec_probe(struct platform_device *pdev)
->>  {
->>  	struct fec_enet_private *fep;
->> +	struct fec_platform_data *pdata;
->>  	struct net_device *ndev;
->>  	int i, irq, ret = 0;
->>  	struct resource *r;
->> @@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
->>  
->>  	platform_set_drvdata(pdev, ndev);
->>  
->> +	pdata = pdev->dev.platform_data;
->> +	if (pdata)
->> +		fep->phy_interface = pdata->phy;
->> +
->>  	/* This device has up to three irqs on some platforms */
->>  	for (i = 0; i < 3; i++) {
->>  		irq = platform_get_irq(pdev, i);
->> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
->> index cc47f3f..2c48b25 100644
->> --- a/drivers/net/fec.h
->> +++ b/drivers/net/fec.h
->> @@ -43,6 +43,8 @@
->>  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
->>  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
->>  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
->> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
->> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
->>  
->>  #else
->>  
->> diff --git a/include/linux/fec.h b/include/linux/fec.h
->> new file mode 100644
->> index 0000000..5d3523d
->> --- /dev/null
->> +++ b/include/linux/fec.h
->> @@ -0,0 +1,21 @@
->> +/* include/linux/fec.h
->> + *
->> + * Copyright (c) 2009 Orex Computed Radiography
->> + *   Baruch Siach <baruch@tkos.co.il>
->> + *
->> + * Header file for the FEC platform data
->> + *
->> + * This program is free software; you can redistribute it and/or modify
->> + * it under the terms of the GNU General Public License version 2 as
->> + * published by the Free Software Foundation.
->> + */
->> +#ifndef __LINUX_FEC_H__
->> +#define __LINUX_FEC_H__
->> +
->> +#include <linux/phy.h>
->> +
->> +struct fec_platform_data {
->> +	phy_interface_t phy;
->> +};
->> +
->> +#endif
->> -- 
->> 1.6.5
->>
->>
->> -- 
->>                                                      ~. .~   Tk Open Systems
->> =}------------------------------------------------ooO--U--Ooo------------{=
->>    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
->>
->> _______________________________________________
->> linux-arm-kernel mailing list
->> linux-arm-kernel@lists.infradead.org
->> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
-
-
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index f982220..34345f0 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3576,17 +3576,17 @@ static int ucc_geth_tx(struct net_device *dev,
+u8 txQ)
+ 	while ((bd_status & T_R) == 0) {
+ 		struct sk_buff *skb;
+ 
++		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
++
+ 		/* BD contains already transmitted buffer.   */
+ 		/* Handle the transmitted buffer and release */
+ 		/* the BD to be used with the current frame  */
+ 
+-		if ((bd == ugeth->txBd[txQ]) &&
+(netif_queue_stopped(dev) == 0))
++		if ((bd == ugeth->txBd[txQ]) && (skb == NULL))
+ 			break;
+ 
+ 		dev->stats.tx_packets++;
+ 
+-		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
+-
+ 		if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN
+&&
+ 			     skb_recycle_check(skb,
+ 
+ugeth->ug_info->uf_info.max_rx_buf_length +
 -- 
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
-8 Gardner Close                             FAX:         +61 7 3217 5323
-Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
+1.5.6.3
+-----Original Message-----
+From: linuxppc-dev-bounces+b13201=freescale.com@lists.ozlabs.org
+[mailto:linuxppc-dev-bounces+b13201=freescale.com@lists.ozlabs.org] On
+Behalf Of Anton Vorontsov
+Sent: Thursday, December 24, 2009 11:31 PM
+To: David Miller
+Cc: linuxppc-dev@ozlabs.org; netdev@vger.kernel.org; Lennart Sorensen
+Subject: [PATCH 1/3] ucc_geth: Fix empty TX queue processing
+-----------
+
+Following oops was seen with the ucc_geth driver:
+
+ Unable to handle kernel paging request for data at address 0x00000058
+Faulting instruction address: 0xc024f2fc
+ Oops: Kernel access of bad area, sig: 11 [#1]  [...]  NIP [c024f2fc]
+skb_recycle_check+0x14/0x100  LR [e30aa0a4] ucc_geth_poll+0xd8/0x4e0
+[ucc_geth_driver]  Call Trace:
+ [df857d50] [c000b03c] __ipipe_grab_irq+0x3c/0xa4 (unreliable)
+[df857d60] [e30aa0a4] ucc_geth_poll+0xd8/0x4e0 [ucc_geth_driver]
+[df857dd0] [c0258cf8] net_rx_action+0xf8/0x1b8  [df857e10] [c0032a38]
+__do_softirq+0xb8/0x13c  [df857e60] [c00065cc] do_softirq+0xa0/0xac
+[...]
+
+This is because ucc_geth_tx() tries to process an empty queue when
+queues are logically stopped. Stopping the queues doesn't disable
+polling, and since nowadays ucc_geth_tx() is actually called from the
+polling routine, the oops above might pop up.
+
+Fix this by removing 'netif_queue_stopped() == 0' check.
+
+Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Tested-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Cc: Stable <stable@vger.kernel.org> [2.6.32]
+---
+ drivers/net/ucc_geth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c index
+afaf088..0f8c99e 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3273,7 +3273,7 @@ static int ucc_geth_tx(struct net_device *dev, u8
+txQ)
+ 		/* Handle the transmitted buffer and release */
+ 		/* the BD to be used with the current frame  */
+ 
+-		if ((bd == ugeth->txBd[txQ]) &&
+(netif_queue_stopped(dev) == 0))
++		if (bd == ugeth->txBd[txQ]) /* queue empty? */
+ 			break;
+ 
+ 		dev->stats.tx_packets++;
+--
+1.6.3.3
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+
