@@ -1,67 +1,519 @@
-From: "Berck E. Nash" <flyboy@gmail.com>
-Subject: Re: [Bug #14925] sky2 panic under load
-Date: Mon, 11 Jan 2010 14:02:40 -0700
-Message-ID: <4B4B91F0.1090902@gmail.com>
-References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera> <4B4A729E.9060805@gmail.com> <20100111132647.GA11193@ff.dom.local> <201001112032.24243.rjw@sisk.pl> <20100111203128.GA3139@del.dom.local>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH 3/3] ixgbe: add registers etc. printout code just
+ before resetting adapters
+Date: Mon, 11 Jan 2010 13:28:33 -0800
+Message-ID: <1263245313.3034.18.camel@jbrandeb-mobl3.amr.corp.intel.com>
+References: <4B45BBA5.8010407@jp.fujitsu.com>
+	 <4B45BF5E.9060605@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f187.google.com ([209.85.210.187]:51539 "EHLO
-	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753882Ab0AKVCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 16:02:44 -0500
-Received: by yxe17 with SMTP id 17so20683887yxe.33
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 13:02:43 -0800 (PST)
-In-Reply-To: <20100111203128.GA3139@del.dom.local>
+Received: from mga09.intel.com ([134.134.136.24]:34954 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752975Ab0AKV2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2010 16:28:36 -0500
+In-Reply-To: <4B45BF5E.9060605@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Mon, Jan 11, 2010 at 08:32:24PM +0100, Rafael J. Wysocki wrote:
->> On Monday 11 January 2010, Jarek Poplawski wrote:
->>> On Sun, Jan 10, 2010 at 05:36:46PM -0700, Berck E. Nash wrote:
->>>> Rafael J. Wysocki wrote:
->>>>> This message has been generated automatically as a part of a report
->>>>> of recent regressions.
->>>>>
->>>>> The following bug entry is on the current list of known regressions
->>>>> from 2.6.32.  Please verify if it still should be listed and let me know
->>>>> (either way).
->>> BTW, I don't know why Berck didn't experience such a panic before
->>> 2.6.32, but seems not a regression to me. There might be new/more sky2
->>> TX timeouts which trigger this panic and would make a real regression.
->> Even if the code has always been broken, but it's only become visible after
->> 2.6.32, that still counts as a regression IMO, because now the users are
->> affected who weren't before.
+On Thu, 2010-01-07 at 03:02 -0800, Taku Izumi wrote:
+> This patch adds registers (,tx/rx rings' status and so on) printout
+> code just before resetting adapters. This will be helpful for detecting
+> the root cause of adapters reset.
 > 
-> Right, but:
-> 1) someone with a similar but older problem might be mislead a fix is
->    not for them;
-> 2) someone with exactly this one problem (i.e. Berck ;-) might be
->    mislead "no oops" is enough, while their linux might be still worse
->    than before. (So I intended Berck to re-consider or even re-check
->    this problem wrt. 2.6.31, and maybe even reporting another
->    regression.)
+> The default output is netdevice status (transstart, last_rx), registers,
+> and tx/rx rings' simple information. TX/RX descriptors information and
+> buffer_info  can be output by changing the dump_flag module option, but,
+> of course, the amount of output becomes quite large.
+> 
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> ---
+>  drivers/net/ixgbe/ixgbe_main.c |  436 +++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 436 insertions(+)
+> 
+> Index: net-next-2.6/drivers/net/ixgbe/ixgbe_main.c
+> ===================================================================
+> --- net-next-2.6.orig/drivers/net/ixgbe/ixgbe_main.c
+> +++ net-next-2.6/drivers/net/ixgbe/ixgbe_main.c
+> @@ -59,6 +59,15 @@ static const struct ixgbe_info *ixgbe_in
+>         [board_82599] = &ixgbe_82599_info,
+>  };
+> 
+> +
+> +static unsigned int dump_flag = 1;
 
-Well, the problem with this bug is how hard it is for me to reproduce.
-I'm willing to admit that just because I never got it before 2.6.32
-isn't proof that it wasn't there in 2.6.31.  But it's a regression
-somewhere along the line, since I've been using this hardware for over 3
-years now.  There were lots of bugs in the sky2 driver years ago, but
-for the last 2+ years or so, I haven't had any trouble at all until now.
+dump flag should default to 0.
 
-The bug only shows up for me with bittorrent traffic.  I also use the
-same adapter to transfer backups over the network from several
-computers, and that doesn't trigger it...
+> +module_param(dump_flag, uint, 0644);
+> +MODULE_PARM_DESC(dump_flag, "Dump Flag");
+> +#define IXGBE_DUMP_REGS                (1 << 0)
+> +#define IXGBE_DUMP_TX_RINGS    (1 << 1)
+> +#define IXGBE_DUMP_RX_RINGS    (1 << 2)
+> +#define IXGBE_DUMP_BUFFERS     (1 << 3)
+> +
+>  /* ixgbe_pci_tbl - PCI Device ID Table
+>   *
+>   * Wildcard entries (PCI_ANY_ID) should come last
+> @@ -131,6 +140,432 @@ MODULE_VERSION(DRV_VERSION);
+> 
+>  #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+> 
+> +static void hexdump(dma_addr_t dma, u16 len)
+> +{
+> +       uint16_t offset, i;
+> +       char str[80], byte[4];
+> +       void *va = phys_to_virt((unsigned long)dma);
+> +
+> +       printk(KERN_ERR "buffer at %016llX (%d)\n", (u64)dma, len);
+> +       for (offset = 0; offset < len; offset += 16) {
+> +               sprintf(str, "%04x: ", offset);
+> +               for (i = 0; i < 16; i++) {
+> +                       if ((offset + i) < len)
+> +                               sprintf(byte, "%02x ",
+> +                                       ((unsigned char *)va)[offset + i]);
+> +                       else
+> +                               strcpy(byte, "   ");
+> +                       strcat(str, byte);
+> +               }
+> +               printk(KERN_ERR "%s\n", str);
+> +       }
+> +}
 
-I used 2.6.31 for however long it was the current stable, and I never
-got a crash with it.  After I got several crashes in 2.6.32, I reverted
-to 2.6.31 until Jarek sent this patch that seems to have fixed it.  I've
-never gotten it to crash in 2.6.31, so I'm pretty sure it's a 2.6.32
-regression, but I can't prove it.
+There is probably a global version of this in the kernel already.
 
-I would love to do more testing, but since I can't reproduce the bug at
-will, I'm not really sure what to offer?
+> +
+> +/*
+> + * ixgbe_dump - Print registers, tx-rings and rx-rings
+> + */
+> +static void ixgbe_dump(struct ixgbe_adapter *adapter)
+> +{
+> +       struct net_device *netdev = adapter->netdev;
+> +       struct ixgbe_hw *hw = &adapter->hw;
+> +
+> +       u32 reg;
+> +       char rname[32];
+> +       int n = 0;
+> +       int j = 0;
+> +       struct ixgbe_ring *tx_ring;
+> +       struct ixgbe_tx_buffer *tx_buffer_info;
+> +       union ixgbe_adv_tx_desc *tx_desc;
+> +       struct my_u0 { u64 a; u64 b; } *u0;
+> +       struct ixgbe_ring *rx_ring;
+> +       union ixgbe_adv_rx_desc *rx_desc;
+> +       struct ixgbe_rx_buffer *rx_buffer_info;
+> +       u32 staterr;
+> +       int i = 0;
+> +
+> +       /* Print netdevice Info */
+> +       dev_err(&adapter->pdev->dev, "Net device Info\n");
+> +       if (netdev) {
+> +               printk(KERN_ERR "Device Name     state            "
+> +                       "trans_start      last_rx\n");
+> +               printk(KERN_ERR "%-15s %016lX %016lX %016lX\n",
+> +               netdev->name,
+> +               netdev->state,
+> +               netdev->trans_start,
+> +               netdev->last_rx);
+> +       }
+> +
+> +       /* Print Registers */
+> +       if ((dump_flag & IXGBE_DUMP_REGS) == 0)
+> +               goto tx_ring_summary;
+> +
+> +       dev_err(&adapter->pdev->dev, "Register Dump\n");
+> +
+> +       printk(KERN_ERR " Register Name   [value ]\n");
+> +       for (reg = 0; reg < 0x07000; reg += sizeof(u32)) {
+> +               switch (reg & 0xffffffff) {
+> +               /* General Registers */
+> +               case IXGBE_CTRL:
+> +                       sprintf(rname, "CTRL"); break;
+> +               case IXGBE_STATUS:
+> +                       sprintf(rname, "STATUS"); break;
+> +               case IXGBE_CTRL_EXT:
+> +                       sprintf(rname, "CTRL_EXT"); break;
+> +
+> +               /* Interrupt Registers*/
+> +               case IXGBE_EICR:
+> +                       sprintf(rname, "EICR"); break;
+> +
+> +               /* RX */
+> +               case IXGBE_SRRCTL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "SRRCTL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_SRRCTL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_DCA_RXCTRL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "DRXCTRL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_DCA_RXCTRL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RDLEN(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RDLEN[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RDLEN(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RDH(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RDH[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RDH(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RDT(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RDT[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RDT(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RXDCTL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RXDCTL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RXDCTL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RDBAL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RDBAL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RDBAL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_RDBAH(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "RDBAH[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_RDBAH(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +
+> +               /* TX */
+> +               case IXGBE_TDBAL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TDBAL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TDBAL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_TDBAH(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TDBAH[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TDBAH(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_TDLEN(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TDLEN[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TDLEN(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_TDH(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TDH[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TDH(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_TDT(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TDT[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TDT(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +               case IXGBE_TXDCTL(0):
+> +                       for (i = 0; i < 8; i++) {
+> +                               sprintf(rname, "TXDCTL[%d-%d]",
+> +                                       i*8, i*8+7);
+> +                               printk(KERN_ERR "%-15s ", rname);
+> +                               for (j = 0; j < 8; j++)
+> +                                       printk("%08x ",
+> +                                               IXGBE_READ_REG(hw,
+> +                                                 IXGBE_TXDCTL(i*8+j)));
+> +                               printk("\n");
+> +                       }
+> +                       continue;
+> +
+> +               default:
+> +                       continue;
+> +               }
+> +
+> +               printk(KERN_ERR "%-15s %08x\n", rname,
+> +                       IXGBE_READ_REG(hw, (reg & 0xffffffff)));
+> +       }
+> +
+> +       /* Print TX Ring Summary */
+> +tx_ring_summary:
+> +       if (!netdev || !netif_running(netdev))
+> +               goto exit;
+> +
+> +       dev_err(&adapter->pdev->dev, "TX Rings Summary\n");
+> +       printk(KERN_ERR "Queue [NTU] [NTC] [bi(ntc)->dma  ] "
+> +               "leng ntw timestamp\n");
+> +       for (n = 0; n < adapter->num_tx_queues; n++) {
+> +               tx_ring = &adapter->tx_ring[n];
+> +               tx_buffer_info =
+> +                       &tx_ring->tx_buffer_info[tx_ring->next_to_clean];
+> +               printk(KERN_ERR " %5d %5X %5X %016llX %04X %3X %016llX\n",
+> +                          n, tx_ring->next_to_use, tx_ring->next_to_clean,
+> +                          (u64)tx_buffer_info->dma,
+> +                          tx_buffer_info->length,
+> +                          tx_buffer_info->next_to_watch,
+> +                          (u64)tx_buffer_info->time_stamp);
+> +       }
+> +
+> +       /* Print TX Rings */
+> +       if ((dump_flag & IXGBE_DUMP_TX_RINGS) == 0)
+> +               goto rx_ring_summary;
+> +
+> +       dev_err(&adapter->pdev->dev, "TX Rings Dump\n");
+> +
+> +       /* Transmit Descriptor Formats
+> +        *
+> +        * Advanced Transmit Descriptor
+> +        *   +--------------------------------------------------------------+
+> +        * 0 |         Buffer Address [63:0]                                |
+> +        *   +--------------------------------------------------------------+
+> +        * 8 |  PAYLEN  | PORTS  | IDX | STA | DCMD  |DTYP |  RSV |  DTALEN |
+> +        *   +--------------------------------------------------------------+
+> +        *   63       46 45    40 39 36 35 32 31   24 23 20 19              0
+> +        */
+> +
+> +       for (n = 0; n < adapter->num_tx_queues; n++) {
+> +               tx_ring = &adapter->tx_ring[n];
+> +               printk(KERN_ERR "------------------------------------\n");
+> +               printk(KERN_ERR "TX QUEUE INDEX = %d\n", tx_ring->queue_index);
+> +               printk(KERN_ERR "------------------------------------\n");
+> +               printk(KERN_ERR "T [desc]     [address 63:0  ] "
+> +                       "[PlPOIdStDDt Ln] [bi->dma       ] "
+> +                       "leng  ntw timestamp        bi->skb\n");
+> +
+> +               for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
+> +                       tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
+> +                       tx_buffer_info = &tx_ring->tx_buffer_info[i];
+> +                       u0 = (struct my_u0 *)tx_desc;
+> +                       printk(KERN_ERR "T [0x%03X]    %016llX %016llX %016llX"
+> +                               " %04X  %3X %016llX %p", i,
+> +                               le64_to_cpu(u0->a),
+> +                               le64_to_cpu(u0->b),
+> +                               (u64)tx_buffer_info->dma,
+> +                               tx_buffer_info->length,
+> +                               tx_buffer_info->next_to_watch,
+> +                               (u64)tx_buffer_info->time_stamp,
+> +                               tx_buffer_info->skb);
+> +                       if (i == tx_ring->next_to_use &&
+> +                               i == tx_ring->next_to_clean)
+> +                               printk(" NTC/U\n");
+> +                       else if (i == tx_ring->next_to_use)
+> +                               printk(" NTU\n");
+> +                       else if (i == tx_ring->next_to_clean)
+> +                               printk(" NTC\n");
+> +                       else
+> +                               printk("\n");
+> +
+> +                       if ((dump_flag & IXGBE_DUMP_BUFFERS) &&
+> +                               tx_buffer_info->dma != 0)
+> +                               hexdump(tx_buffer_info->dma,
+> +                                       tx_buffer_info->length);
+> +               }
+> +       }
+> +
+> +       /* Print RX Rings Summary */
+> +rx_ring_summary:
+> +       dev_err(&adapter->pdev->dev, "RX Rings Summary\n");
+> +       printk(KERN_ERR "Queue [NTU] [NTC]\n");
+> +       for (n = 0; n < adapter->num_rx_queues; n++) {
+> +               rx_ring = &adapter->rx_ring[n];
+> +               printk(KERN_ERR "%5d %5X %5X\n", n,
+> +                          rx_ring->next_to_use, rx_ring->next_to_clean);
+> +       }
+> +
+> +       /* Print RX Rings */
+> +       if ((dump_flag & IXGBE_DUMP_RX_RINGS) == 0)
+> +               goto exit;
+> +
+> +       dev_err(&adapter->pdev->dev, "RX Rings Dump\n");
+> +
+> +       /* Advanced Receive Descriptor (Read) Format
+> +        *    63                                           1        0
+> +        *    +-----------------------------------------------------+
+> +        *  0 |       Packet Buffer Address [63:1]           |A0/NSE|
+> +        *    +----------------------------------------------+------+
+> +        *  8 |       Header Buffer Address [63:1]           |  DD  |
+> +        *    +-----------------------------------------------------+
+> +        *
+> +        *
+> +        * Advanced Receive Descriptor (Write-Back) Format
+> +        *
+> +        *   63       48 47    32 31  30      21 20 16 15   4 3     0
+> +        *   +------------------------------------------------------+
+> +        * 0 | Packet     IP     |SPH| HDR_LEN   | RSV|Packet|  RSS |
+> +        *   | Checksum   Ident  |   |           |    | Type | Type |
+> +        *   +------------------------------------------------------+
+> +        * 8 | VLAN Tag | Length | Extended Error | Extended Status |
+> +        *   +------------------------------------------------------+
+> +        *   63       48 47    32 31            20 19               0
+> +        */
+> +       for (n = 0; n < adapter->num_rx_queues; n++) {
+> +               rx_ring = &adapter->rx_ring[n];
+> +               printk(KERN_ERR "------------------------------------\n");
+> +               printk(KERN_ERR "RX QUEUE INDEX = %d\n", rx_ring->queue_index);
+> +               printk(KERN_ERR "------------------------------------\n");
+> +               printk(KERN_ERR "R  [desc]      [ PktBuf     A0] "
+> +                       "[  HeadBuf   DD] [bi->dma       ] [bi->skb] "
+> +                       "<-- Adv Rx Read format\n");
+> +               printk(KERN_ERR "RWB[desc]      [PcsmIpSHl PtRs] "
+> +                       "[vl er S cks ln] ---------------- [bi->skb] "
+> +                       "<-- Adv Rx Write-Back format\n");
+> +
+> +               for (i = 0; i < rx_ring->count; i++) {
+> +                       rx_buffer_info = &rx_ring->rx_buffer_info[i];
+> +                       rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
+> +                       u0 = (struct my_u0 *)rx_desc;
+> +                       staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+> +                       if (staterr & IXGBE_RXD_STAT_DD) {
+> +                               /* Descriptor Done */
+> +                               printk(KERN_ERR "RWB[0x%03X]     %016llX "
+> +                                       "%016llX ---------------- %p", i,
+> +                                       le64_to_cpu(u0->a),
+> +                                       le64_to_cpu(u0->b),
+> +                                       rx_buffer_info->skb);
+> +                       } else {
+> +                               printk(KERN_ERR "R  [0x%03X]     %016llX "
+> +                                       "%016llX %016llX %p", i,
+> +                                       le64_to_cpu(u0->a),
+> +                                       le64_to_cpu(u0->b),
+> +                                       (u64)rx_buffer_info->dma,
+> +                                       rx_buffer_info->skb);
+> +
+> +                               if (dump_flag & IXGBE_DUMP_BUFFERS) {
+> +                                       hexdump(rx_buffer_info->dma,
+> +                                               rx_ring->rx_buf_len);
+> +                                       if (rx_ring->rx_buf_len
+> +                                               < IXGBE_RXBUFFER_2048)
+> +                                               hexdump(
+> +                                                 rx_buffer_info->page_dma +
+> +                                                 rx_buffer_info->page_offset,
+> +                                                 PAGE_SIZE/2);
+> +                               }
+> +                       }
+> +
+> +                       if (i == rx_ring->next_to_use)
+> +                               printk(" NTU\n");
+> +                       else if (i == rx_ring->next_to_clean)
+> +                               printk(" NTC\n");
+> +                       else
+> +                               printk("\n");
+> +
+> +               }
+> +       }
+> +
+> +exit:
+> +       return;
+> +}
+> +
+>  static void ixgbe_release_hw_control(struct ixgbe_adapter *adapter)
+>  {
+>         u32 ctrl_ext;
+> @@ -3162,6 +3597,7 @@ static void ixgbe_reset_task(struct work
+> 
+>         adapter->tx_timeout_count++;
+> 
+> +       ixgbe_dump(adapter);
+>         ixgbe_reinit_locked(adapter);
+>  }
+> 
+> 
+> 
+
+
+-- 
+Jesse Brandeburg
+This email sent via Evolution, powered by Linux
+
