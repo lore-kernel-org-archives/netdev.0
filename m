@@ -1,40 +1,186 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with Linus' tree
-Date: Mon, 11 Jan 2010 13:31:09 +1100
-Message-ID: <20100111133109.a191ee64.sfr@canb.auug.org.au>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
+Date: Mon, 11 Jan 2010 13:25:27 +1000
+Message-ID: <4B4A9A27.8040500@snapgear.com>
+References: <cover.1260785451.git.baruch@tkos.co.il>	<fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>	<20091214103348.GV15126@pengutronix.de>	<20091215083142.GB18290@jasper.tkos.co.il>	<4B277878.1050804@snapgear.com> <20091215201109.GA2621@tarshish>	<4B282644.8030104@snapgear.com>	<20091216063402.GA13160@jasper.tkos.co.il> <20100105082429.GB25571@tarshish>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rex.securecomputing.com ([203.24.151.4]:57792 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751013Ab0AKDZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jan 2010 22:25:27 -0500
+In-Reply-To: <20100105082429.GB25571@tarshish>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
 
-Today's linux-next merge of the net tree got a conflict in include/linux/sysctl.h between commit 28f6aeea3f12d37bd258b2c0d5ba891bff4ec479 ("net: restore ip source validation") from Linus' tree and commit 65324144b50bc7022cc9b6ca8f4a536a957019e3 ("net: RFC3069, private VLAN proxy arp support") from the net tree.
+Hi Baruch,
 
-They both use the same number in an enum...  I fixed it up (see below) and
-can carry the fix (or some other) for a while.
+Baruch Siach wrote:
+> On Wed, Dec 16, 2009 at 08:34:06AM +0200, Baruch Siach wrote:
+>> Hi Greg,
+> 
+> [snip]
+> 
+>> Thanks. The updated patch below.
+> 
+> Ping?
+> 
+> How should take care of this?
+> 
+> The platform code for i.MX25 PDK is going via Sascha's tree, and it depends on 
+> this patch to compile.
+
+I assumed it would go via the net git tree?
+
+Regards
+Greg
+
+
+
+>> From 2d0751f868519978603b16baa197bfb9f9ec9e2e Mon Sep 17 00:00:00 2001
+>> Message-Id: <2d0751f868519978603b16baa197bfb9f9ec9e2e.1260945080.git.baruch@tkos.co.il>
+>> From: Baruch Siach <baruch@tkos.co.il>
+>> Date: Mon, 14 Dec 2009 10:36:50 +0200
+>> Subject: [PATCH] fec: add support for PHY interface platform data
+>>
+>> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
+>> ability to configure RMII, based on platform data.
+>>
+>> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+>> Acked-by:  Greg Ungerer <gerg@uclinux.org>
+>> ---
+>>  drivers/net/fec.c   |   22 ++++++++++++++++++++++
+>>  drivers/net/fec.h   |    2 ++
+>>  include/linux/fec.h |   21 +++++++++++++++++++++
+>>  3 files changed, 45 insertions(+), 0 deletions(-)
+>>  create mode 100644 include/linux/fec.h
+>>
+>> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+>> index 16a1d58..a7cfe0d 100644
+>> --- a/drivers/net/fec.c
+>> +++ b/drivers/net/fec.c
+>> @@ -40,6 +40,7 @@
+>>  #include <linux/irq.h>
+>>  #include <linux/clk.h>
+>>  #include <linux/platform_device.h>
+>> +#include <linux/fec.h>
+>>  
+>>  #include <asm/cacheflush.h>
+>>  
+>> @@ -198,6 +199,7 @@ struct fec_enet_private {
+>>  	uint	phy_speed;
+>>  	phy_info_t const	*phy;
+>>  	struct work_struct phy_task;
+>> +	phy_interface_t	phy_interface;
+>>  
+>>  	uint	sequence_done;
+>>  	uint	mii_phy_task_queued;
+>> @@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
+>>  	/* Set MII speed */
+>>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+>>  
+>> +#ifdef FEC_MIIGSK_ENR
+>> +	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
+>> +		/* disable the gasket and wait */
+>> +		writel(0, fep->hwp + FEC_MIIGSK_ENR);
+>> +		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+>> +			udelay(1);
+>> +
+>> +		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
+>> +		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+>> +
+>> +		/* re-enable the gasket */
+>> +		writel(2, fep->hwp + FEC_MIIGSK_ENR);
+>> +	}
+>> +#endif
+>> +
+>>  	/* And last, enable the transmit and receive processing */
+>>  	writel(2, fep->hwp + FEC_ECNTRL);
+>>  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+>> @@ -1847,6 +1864,7 @@ static int __devinit
+>>  fec_probe(struct platform_device *pdev)
+>>  {
+>>  	struct fec_enet_private *fep;
+>> +	struct fec_platform_data *pdata;
+>>  	struct net_device *ndev;
+>>  	int i, irq, ret = 0;
+>>  	struct resource *r;
+>> @@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
+>>  
+>>  	platform_set_drvdata(pdev, ndev);
+>>  
+>> +	pdata = pdev->dev.platform_data;
+>> +	if (pdata)
+>> +		fep->phy_interface = pdata->phy;
+>> +
+>>  	/* This device has up to three irqs on some platforms */
+>>  	for (i = 0; i < 3; i++) {
+>>  		irq = platform_get_irq(pdev, i);
+>> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
+>> index cc47f3f..2c48b25 100644
+>> --- a/drivers/net/fec.h
+>> +++ b/drivers/net/fec.h
+>> @@ -43,6 +43,8 @@
+>>  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
+>>  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
+>>  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
+>> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+>> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+>>  
+>>  #else
+>>  
+>> diff --git a/include/linux/fec.h b/include/linux/fec.h
+>> new file mode 100644
+>> index 0000000..5d3523d
+>> --- /dev/null
+>> +++ b/include/linux/fec.h
+>> @@ -0,0 +1,21 @@
+>> +/* include/linux/fec.h
+>> + *
+>> + * Copyright (c) 2009 Orex Computed Radiography
+>> + *   Baruch Siach <baruch@tkos.co.il>
+>> + *
+>> + * Header file for the FEC platform data
+>> + *
+>> + * This program is free software; you can redistribute it and/or modify
+>> + * it under the terms of the GNU General Public License version 2 as
+>> + * published by the Free Software Foundation.
+>> + */
+>> +#ifndef __LINUX_FEC_H__
+>> +#define __LINUX_FEC_H__
+>> +
+>> +#include <linux/phy.h>
+>> +
+>> +struct fec_platform_data {
+>> +	phy_interface_t phy;
+>> +};
+>> +
+>> +#endif
+>> -- 
+>> 1.6.5
+>>
+>>
+>> -- 
+>>                                                      ~. .~   Tk Open Systems
+>> =}------------------------------------------------ooO--U--Ooo------------{=
+>>    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+>>
+>> _______________________________________________
+>> linux-arm-kernel mailing list
+>> linux-arm-kernel@lists.infradead.org
+>> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
+
 
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc include/linux/sysctl.h
-index bd27fbc,24ff7e3..0000000
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@@ -482,7 -482,7 +482,8 @@@ enu
-  	NET_IPV4_CONF_ARP_ACCEPT=21,
-  	NET_IPV4_CONF_ARP_NOTIFY=22,
-  	NET_IPV4_CONF_ACCEPT_LOCAL=23,
- -	NET_IPV4_CONF_PROXY_ARP_PVLAN=24,
- +	NET_IPV4_CONF_SRC_VMARK=24,
-++	NET_IPV4_CONF_PROXY_ARP_PVLAN=25,
-  	__NET_IPV4_CONF_MAX
-  };
-  
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
+8 Gardner Close                             FAX:         +61 7 3217 5323
+Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
