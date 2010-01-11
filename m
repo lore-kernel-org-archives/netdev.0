@@ -1,204 +1,70 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH net-next-2.6 v3] can: Unify droping of invalid tx skbs and
-	netdev stats
-Date: Tue, 12 Jan 2010 00:19:21 +0100
-Message-ID: <4B4BB1F9.3010808@hartkopp.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] Documentation/3c509: document ethtool support
+Date: Mon, 11 Jan 2010 23:43:49 +0000
+Message-ID: <1263253429.3852.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54661 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751172Ab0AKXny convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2010 18:43:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As suggested by Marc and Wolfgang here is the v3 version:
+3c509 was changed to support ethtool in 2002, making the 'xcvr' module
+parameter obsolete in most cases.  More recently 3c509 was converted
+to the modern driver model and this parameter was removed.  Fix the
+documentation to refer to ethtool rather than the module parameter.
 
-To prevent the CAN drivers to operate on invalid socketbuffers the skbs are
-now checked and silently dropped at the xmit-function consistently.
-
-Also the netdev stats are consistently using the CAN data length code (dlc)
-for [rx|tx]_bytes now.
-
-Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
+ Documentation/networking/3c509.txt |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 166cc7e..f728749 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -342,6 +342,9 @@ static netdev_tx_t at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int mb, prio;
- 	u32 reg_mid, reg_mcr;
+diff --git a/Documentation/networking/3c509.txt b/Documentation/networking/3c509.txt
+index 0643e3b..3c45d5d 100644
+--- a/Documentation/networking/3c509.txt
++++ b/Documentation/networking/3c509.txt
+@@ -48,11 +48,11 @@ for LILO parameters for doing this:
+ This configures the first found 3c509 card for IRQ 10, base I/O 0x310, and
+ transceiver type 3 (10base2). The flag "0x3c509" must be set to avoid conflicts
+ with other card types when overriding the I/O address. When the driver is
+-loaded as a module, only the IRQ and transceiver setting may be overridden.
+-For example, setting two cards to 10base2/IRQ10 and AUI/IRQ11 is done by using
+-the xcvr and irq module options:
++loaded as a module, only the IRQ may be overridden. For example,
++setting two cards to IRQ10 and IRQ11 is done by using the irq module
++option:
  
-+	if (can_dropped_invalid_skb(dev, skb))
-+		return NETDEV_TX_OK;
+-   options 3c509 xcvr=3,1 irq=10,11
++   options 3c509 irq=10,11
+ 
+
+ (2) Full-duplex mode
+@@ -77,6 +77,8 @@ operation.
+ itself full-duplex capable. This is almost certainly one of two things: a full-
+ duplex-capable  Ethernet switch (*not* a hub), or a full-duplex-capable NIC on
+ another system that's connected directly to the 3c509B via a crossover cable.
 +
- 	mb = get_tx_next_mb(priv);
- 	prio = get_tx_next_prio(priv);
- 
-diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
-index 0ec1524..7e1926e 100644
---- a/drivers/net/can/bfin_can.c
-+++ b/drivers/net/can/bfin_can.c
-@@ -318,6 +318,9 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u16 val;
- 	int i;
- 
-+	if (can_dropped_invalid_skb(dev, skb))
-+		return NETDEV_TX_OK;
++Full-duplex mode can be enabled using 'ethtool'.
+  
+ /////Extremely important caution concerning full-duplex mode/////
+ Understand that the 3c509B's hardware's full-duplex support is much more
+@@ -113,6 +115,8 @@ This insured that merely upgrading the driver from an earlier version would
+ never automatically enable full-duplex mode in an existing installation;
+ it must always be explicitly enabled via one of these code in order to be
+ activated.
 +
- 	netif_stop_queue(dev);
++The transceiver type can be changed using 'ethtool'.
+   
  
- 	/* fill id */
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 9c5a153..d46d084 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -494,12 +494,8 @@ static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	if (skb->len != sizeof(struct can_frame)) {
--		dev_err(&spi->dev, "dropping packet - bad length\n");
--		dev_kfree_skb(skb);
--		net->stats.tx_dropped++;
-+	if (can_dropped_invalid_skb(net, skb))
- 		return NETDEV_TX_OK;
--	}
- 
- 	netif_stop_queue(net);
- 	priv->tx_skb = skb;
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 542a4f7..345304d 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -249,6 +249,9 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
- 	uint8_t dreg;
- 	int i;
- 
-+	if (can_dropped_invalid_skb(dev, skb))
-+		return NETDEV_TX_OK;
-+
- 	netif_stop_queue(dev);
- 
- 	fi = dlc = cf->can_dlc;
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 5c993c2..7d370e3 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -477,6 +477,9 @@ static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	u32 mbxno, mbx_mask, data;
- 	unsigned long flags;
- 
-+	if (can_dropped_invalid_skb(ndev, skb))
-+		return NETDEV_TX_OK;
-+
- 	mbxno = get_tx_head_mb(priv);
- 	mbx_mask = BIT(mbxno);
- 	spin_lock_irqsave(&priv->mbx_lock, flags);
-@@ -491,7 +494,6 @@ static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	spin_unlock_irqrestore(&priv->mbx_lock, flags);
- 
- 	/* Prepare mailbox for transmission */
--	data = min_t(u8, cf->can_dlc, 8);
- 	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
- 		data |= HECC_CANMCF_RTR;
- 	data |= get_tx_head_prio(priv) << 8;
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index efbb05c..ddb17e2 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -767,6 +767,9 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
- 	size_t size = CPC_HEADER_SIZE + CPC_MSG_HEADER_LEN
- 			+ sizeof(struct cpc_can_msg);
- 
-+	if (can_dropped_invalid_skb(netdev, skb))
-+		return NETDEV_TX_OK;
-+
- 	/* create a URB, and a buffer for it, and copy the data to the URB */
- 	urb = usb_alloc_urb(0, GFP_ATOMIC);
- 	if (!urb) {
-diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
-index 80ac563..66411d5 100644
---- a/drivers/net/can/vcan.c
-+++ b/drivers/net/can/vcan.c
-@@ -70,10 +70,11 @@ MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
- 
- static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
- {
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	struct net_device_stats *stats = &dev->stats;
- 
- 	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
-+	stats->rx_bytes += cf->can_dlc;
- 
- 	skb->protocol  = htons(ETH_P_CAN);
- 	skb->pkt_type  = PACKET_BROADCAST;
-@@ -85,11 +86,18 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
- 
- static netdev_tx_t vcan_tx(struct sk_buff *skb, struct net_device *dev)
- {
-+	struct can_frame *cf = (struct can_frame *)skb->data;
- 	struct net_device_stats *stats = &dev->stats;
- 	int loop;
- 
-+	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
-+		kfree_skb(skb);
-+		stats->tx_dropped++;
-+		return NETDEV_TX_OK;
-+	}
-+
- 	stats->tx_packets++;
--	stats->tx_bytes += skb->len;
-+	stats->tx_bytes += cf->can_dlc;
- 
- 	/* set flag whether this packet has to be looped back */
- 	loop = skb->pkt_type == PACKET_LOOPBACK;
-@@ -103,7 +111,7 @@ static netdev_tx_t vcan_tx(struct sk_buff *skb, struct net_device *dev)
- 			 * CAN core already did the echo for us
- 			 */
- 			stats->rx_packets++;
--			stats->rx_bytes += skb->len;
-+			stats->rx_bytes += cf->can_dlc;
- 		}
- 		kfree_skb(skb);
- 		return NETDEV_TX_OK;
-diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
-index 3db7767..7e7c98a 100644
---- a/include/linux/can/dev.h
-+++ b/include/linux/can/dev.h
-@@ -60,6 +60,21 @@ struct can_priv {
-  */
- #define get_can_dlc(i)	(min_t(__u8, (i), 8))
- 
-+/* Drop a given socketbuffer if it does not contain a valid CAN frame. */
-+static inline int can_dropped_invalid_skb(struct net_device *dev,
-+					  struct sk_buff *skb)
-+{
-+	const struct can_frame *cf = (struct can_frame *)skb->data;
-+
-+	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
-+		kfree_skb(skb);
-+		dev->stats.tx_dropped++;
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
- struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max);
- void free_candev(struct net_device *dev);
+ (4a) Interpretation of error messages and common problems
+-- 
+1.6.5.7
+
+
