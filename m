@@ -1,60 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bug #14925] sky2 panic under load
-Date: Mon, 11 Jan 2010 22:47:58 +0100
-Message-ID: <20100111214758.GB3139@del.dom.local>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: 2.6.33-rc3-git3: Reported regressions from 2.6.32
+Date: Mon, 11 Jan 2010 16:47:10 -0500
+Message-ID: <20100111214603.GA4335@emergent.ellipticsemi.com>
 References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
- <4B4A729E.9060805@gmail.com>
- <20100111132647.GA11193@ff.dom.local>
- <201001112032.24243.rjw@sisk.pl>
- <20100111203128.GA3139@del.dom.local>
- <4B4B91F0.1090902@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org
-To: "Berck E. Nash" <flyboy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:33458 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab0AKVsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 16:48:03 -0500
-Received: by fxm25 with SMTP id 25so74434fxm.21
-        for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 13:48:02 -0800 (PST)
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752562Ab0AKVsk@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4B4B91F0.1090902@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 11, 2010 at 02:02:40PM -0700, Berck E. Nash wrote:
-> Jarek Poplawski wrote:
-> > 2) someone with exactly this one problem (i.e. Berck ;-) might be
-> >    mislead "no oops" is enough, while their linux might be still worse
-> >    than before. (So I intended Berck to re-consider or even re-check
-> >    this problem wrt. 2.6.31, and maybe even reporting another
-> >    regression.)
+On 23:27 Sun 10 Jan     , Rafael J. Wysocki wrote:
+> This message contains a list of some regressions from 2.6.32, for which there
+> are no fixes in the mainline I know of.  If any of them have been fixed already,
+> please let me know.
 > 
-> Well, the problem with this bug is how hard it is for me to reproduce.
-> I'm willing to admit that just because I never got it before 2.6.32
-> isn't proof that it wasn't there in 2.6.31.  But it's a regression
-> somewhere along the line, since I've been using this hardware for over 3
-> years now.  There were lots of bugs in the sky2 driver years ago, but
-> for the last 2+ years or so, I haven't had any trouble at all until now.
-> 
-> The bug only shows up for me with bittorrent traffic.  I also use the
-> same adapter to transfer backups over the network from several
-> computers, and that doesn't trigger it...
-> 
-> I used 2.6.31 for however long it was the current stable, and I never
-> got a crash with it.  After I got several crashes in 2.6.32, I reverted
-> to 2.6.31 until Jarek sent this patch that seems to have fixed it.  I've
-> never gotten it to crash in 2.6.31, so I'm pretty sure it's a 2.6.32
-> regression, but I can't prove it.
-> 
-> I would love to do more testing, but since I can't reproduce the bug at
-> will, I'm not really sure what to offer?
+> If you know of any other unresolved regressions from 2.6.32, please let me know
+> either and I'll add them to the list.  Also, please let me know if any of the
+> entries below are invalid.
 
-I mainly thought about looking at the logs during such bittorrent to
-compare if there is any visible change in "sky2 eth0: disabling
-interface"/"sky2 eth0: enabling interface" etc. frequency between
-2.6.31 and 2.6.32.
+Here are two that I don't see in the list:
 
-Jarek P.
+ * LVDS downclocking breaks on G45/thinkpad T500
+
+     LKML: http://lkml.org/lkml/2009/12/26/40
+     FDO:  http://bugs.freedesktop.org/show_bug.cgi?id=25809
+ 
+ * Receive failure in et131x (Alan Cox sent me a patch for this but
+                              it's not in mainline yet)
+
+     LKML: http://lkml.org/lkml/2009/12/29/210
+
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
