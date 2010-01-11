@@ -1,49 +1,75 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: 2.6.33-rc3-git3: Reported regressions from 2.6.32
-Date: Mon, 11 Jan 2010 16:47:10 -0500
-Message-ID: <20100111214603.GA4335@emergent.ellipticsemi.com>
-References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/3] e1000e,igb,ixgbe: add registers etc. printout code
+	just before resetting adapters
+Date: Mon, 11 Jan 2010 13:52:12 -0800
+Message-ID: <9929d2391001111352i7280dd76hca1089d9863d2f16@mail.gmail.com>
+References: <4B45BBA5.8010407@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752562Ab0AKVsk@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:53566 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809Ab0AKVwN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 16:52:13 -0500
+Received: by pwj9 with SMTP id 9so1659787pwj.21
+        for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 13:52:12 -0800 (PST)
+In-Reply-To: <4B45BBA5.8010407@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23:27 Sun 10 Jan     , Rafael J. Wysocki wrote:
-> This message contains a list of some regressions from 2.6.32, for which there
-> are no fixes in the mainline I know of.  If any of them have been fixed already,
-> please let me know.
-> 
-> If you know of any other unresolved regressions from 2.6.32, please let me know
-> either and I'll add them to the list.  Also, please let me know if any of the
-> entries below are invalid.
+2010/1/7 Taku Izumi <izumi.taku@jp.fujitsu.com>:
+>
+> This patchset adds registers etc. printout code just before resetting=
+ adapters
+> to e1000e, igb, ixgbe modules. The registers, tx/rx rings status, des=
+criptors,
+> and buffer info will be helpful for detecting the root cause of adapt=
+ers reset.
+>
+> This patchset is based on the following Jesse's debug patch of e1000e=
+ module.
+> =C2=A0http://marc.info/?l=3Dlinux-netdev&m=3D121446492912285&w=3D2
+> I think that code is very useful, and should be comitted to upstream.
+>
+> The main difference between Jesse's patch and mine is as follows:
+> =C2=A0- the function which invokes xxx_dump function. (xxx_clean_tx_i=
+rq -> xxx_reset_task)
+> =C2=A0- add the "dump_flag" module option to select category of print=
+out
+>
+> The default output is netdevice status (transstart, last_rx), registe=
+rs,
+> and tx/rx rings' simple information. TX/RX descriptors information an=
+d
+> buffer_info =C2=A0can be output by changing the dump_flag module opti=
+on, but,
+> of course, the amount of output becomes quite large.
+>
+> =C2=A0*[PATCH 1/3] e1000e: add registers etc. printout code just befo=
+re resetting adapters
+> =C2=A0*[PATCH 2/3] igb: add registers etc. printout code just before =
+resetting adapters
+> =C2=A0*[PATCH 3/3] ixgbe: add registers etc. printout code just befor=
+e resetting adapters
+>
+> Best regards,
+> Taku Izumi <izumi.taku@jp.fujitsu.com>
+>
 
-Here are two that I don't see in the list:
+Thanks Taku!  I have added your patches to my queue of patches.  Let
+me know you are working on an updated version of these patches based
+on Laurent Chavey's comments so that I can suck in your updated
+versions of the patches when they become available.
 
- * LVDS downclocking breaks on G45/thinkpad T500
-
-     LKML: http://lkml.org/lkml/2009/12/26/40
-     FDO:  http://bugs.freedesktop.org/show_bug.cgi?id=25809
- 
- * Receive failure in et131x (Alan Cox sent me a patch for this but
-                              it's not in mainline yet)
-
-     LKML: http://lkml.org/lkml/2009/12/29/210
-
--- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+--=20
+Cheers,
+Jeff
