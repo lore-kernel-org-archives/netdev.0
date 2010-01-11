@@ -1,62 +1,92 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.33-rc3-git3: Reported regressions from 2.6.32
-Date: Mon, 11 Jan 2010 08:00:37 -0800
-Message-ID: <43e72e891001110800h283b534aj1d60f83266fa215a@mail.gmail.com>
-References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
+From: Kristoffer Glembo <kristoffer@gaisler.com>
+Subject: Re: [PATCH 1/1] net: Add Aeroflex Gaisler GRETH 10/100/1G Ethernet
+ MAC driver
+Date: Mon, 11 Jan 2010 17:21:14 +0100
+Message-ID: <4B4B4FFA.8070805@gaisler.com>
+References: <1262965531-4800-1-git-send-email-kristoffer@gaisler.com>	 <1262965531-4800-2-git-send-email-kristoffer@gaisler.com> <1262991459.17358.63.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail168c2.megamailservers.com ([69.49.111.68]:57229 "EHLO
+	mail168c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750709Ab0AKQYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 11:24:41 -0500
+In-Reply-To: <1262991459.17358.63.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 10, 2010 at 2:27 PM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> This message contains a list of some regressions from 2.6.32, for whi=
-ch there
-> are no fixes in the mainline I know of. =C2=A0If any of them have bee=
-n fixed already,
-> please let me know.
->
-> If you know of any other unresolved regressions from 2.6.32, please l=
-et me know
-> either and I'll add them to the list. =C2=A0Also, please let me know =
-if any of the
-> entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic re=
-ply to
-> this message with CCs to the people involved in reporting and handlin=
-g the
-> issue.
->
+Hi Ben,
 
-Of these only the one below was wireless, which is actually fixed now.
-Not bad, rc3 and no wireless regressions yet.
+Thanks for the feedback.
 
-> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
-cgi?id=3D14874
-> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Ath5k regression with commit 8b=
-f3d79bc401ca417ccf9fc076d3295d1a71dbf5
-> Submitter =C2=A0 =C2=A0 =C2=A0 : Joshua Covington <joshuacov@googlema=
-il.com>
-> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-12-25 00:49 (17 =
-days old)
-> Handled-By =C2=A0 =C2=A0 =C2=A0: Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Patch =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org=
-/attachment.cgi?id=3D24335
+Ben Hutchings wrote:
+> On Fri, 2010-01-08 at 16:45 +0100, Kristoffer Glembo wrote:
+> [...]
+>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>> index dd9a09c..806c127 100644
+>> --- a/drivers/net/Kconfig
+>> +++ b/drivers/net/Kconfig
+> 
+> This is just about the worst possible way to configure the MAC address.
+> You should be getting it from EEPROM/flash or OpenFirmware properties.
 
-  Luis
+Yes sorry for that ugliness. I will change this to OF properties.
+
+> Is this driver really so good that we should configure it twice?
+> 
+
+Maybe not :) .. but I wanted it to show up both in 10/100 and
+1000 Mbps since it supports two different devices. But I read in
+Kconfig now that it then should be only in 10/100. That's fine.
+
+
+> [...] 
+>> diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+
+>> +#define GRETH_REGLOAD(a)	    (__raw_readl(&(a)))
+>> +#define GRETH_REGSAVE(a, v)         (__raw_writel(v, &(a)))
+>> +#define GRETH_REGORIN(a, v)         (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) | (v))))
+>> +#define GRETH_REGANDIN(a, v)        (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) & (v))))
+> 
+> I think you need an mmiowb() after the __raw_writel().
+> Also, are you sure the registers are going to match host byte order?
+
+
+I'm working on a CPU with strong ordering so I'm not so confident in these matters,
+but as I understand it I should in that case not put mmiowb() after each __raw_writel()
+but only before unlocks where mmio has been done in the critical section.
+
+I have not put a single explicit memory barrier in the code, I was under the 
+impression that each architecture that needs it has it in the __raw_writel. 
+I only used the __raw versions since I wanted native byte ordering. I should add
+cpu_to_be32 and be32_to_cpu however as you point out. Questions is do I need to add
+wmb/mb when I use __raw as well?
+
+
+ 
+> Use print_hex_dump().
+> 
+
+Ah nice, thanks!
+
+
+>> +
+>> +			pr_debug(" %.2x", *((unsigned char *)
+>> +					    (phys_to_virt
+>> +					     (skb_shinfo(skb)->frags[i].page) +
+>> +					     skb_shinfo(skb)->frags[i].page_offset + j)));
+> 
+> WTF?  phys_to_virt() does not work on pointers to struct page.
+
+Oops. Some untested code crept in here. Adding page_to_phys.
+
+
+I will fix the other issues you mentioned and resend the patch.
+
+
+Best regards,
+Kristoffer Glembo
+
