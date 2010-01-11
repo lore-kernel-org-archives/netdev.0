@@ -1,92 +1,81 @@
-From: Kristoffer Glembo <kristoffer@gaisler.com>
-Subject: Re: [PATCH 1/1] net: Add Aeroflex Gaisler GRETH 10/100/1G Ethernet
- MAC driver
-Date: Mon, 11 Jan 2010 17:21:14 +0100
-Message-ID: <4B4B4FFA.8070805@gaisler.com>
-References: <1262965531-4800-1-git-send-email-kristoffer@gaisler.com>	 <1262965531-4800-2-git-send-email-kristoffer@gaisler.com> <1262991459.17358.63.camel@achroite.uk.solarflarecom.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Mon, 11 Jan 2010 08:25:29 -0800
+Message-ID: <20100111082529.3d5cdae3@nehalam>
+References: <20100110220034.4d46ba8a@nehalam>
+	<4B4B0AA3.6010207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail168c2.megamailservers.com ([69.49.111.68]:57229 "EHLO
-	mail168c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750709Ab0AKQYl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 11:24:41 -0500
-In-Reply-To: <1262991459.17358.63.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B4B0AA3.6010207-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ben,
+On Mon, 11 Jan 2010 12:25:23 +0100
+Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-Thanks for the feedback.
+> Le 11/01/2010 07:00, Stephen Hemminger a =C3=A9crit :
+> > This patch adds the kernel portions needed to implement
+> > RFC 5082 Generalized TTL Security Mechanism (GTSM).
+> > It is a lightweight security measure against forged
+> > packets causing DoS attacks (for BGP).=20
+> >=20
+> > This is already implemented the same way in BSD kernels.
+> > For the necessary Quagga patch=20
+> >   http://www.gossamer-threads.com/lists/quagga/dev/17389
+> >=20
+> > Description from Cisco
+> >   http://www.cisco.com/en/US/docs/ios/12_3t/12_3t7/feature/guide/gt=
+_btsh.html
+> >=20
+> > It does add one byte to each socket structure, but I did
+> > a little rearrangement to reuse a hole (on 64 bit), but it
+> > does grow the structure on 32 bit
+> >=20
+> > This should be documented on ip(4) man page and the Glibc in.h
+> > file also needs update.  IPV6_MINHOPLIMIT should also be added
+> > (although BSD doesn't support that). =20
+> >=20
+> > Only TCP is supported, but could also be added to UDP, DCCP, SCTP
+> > if desired.
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+> >=20
+>=20
+> > --- a/net/ipv4/tcp_ipv4.c	2010-01-10 21:06:42.931093698 -0800
+> > +++ b/net/ipv4/tcp_ipv4.c	2010-01-10 21:08:21.537513427 -0800
+> > @@ -1649,6 +1649,9 @@ int tcp_v4_rcv(struct sk_buff *skb)
+> >  	if (!sk)
+> >  		goto no_tcp_socket;
+> > =20
+> > +	if (iph->ttl < inet_sk(sk)->min_ttl)
+> > +		goto discard_and_relse;
+> > +
+> >  process:
+> >  	if (sk->sk_state =3D=3D TCP_TIME_WAIT)
+> >  		goto do_time_wait;
+>=20
+> Just wondering if perfoming the check at connection establishment tim=
+e
+> (SYN or SYN-ACK packet) instead of every received packet would be eno=
+ugh ?
 
-Ben Hutchings wrote:
-> On Fri, 2010-01-08 at 16:45 +0100, Kristoffer Glembo wrote:
-> [...]
->> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->> index dd9a09c..806c127 100644
->> --- a/drivers/net/Kconfig
->> +++ b/drivers/net/Kconfig
-> 
-> This is just about the worst possible way to configure the MAC address.
-> You should be getting it from EEPROM/flash or OpenFirmware properties.
+We could but:
+  1. GTSM is trying to protect against Man in the Middle attacks to exi=
+sting
+     BGP connections
+  2. That is not what BSD (or other vendors) do.
 
-Yes sorry for that ugliness. I will change this to OF properties.
+> Of course, for listeners waiting for connexions from different peers =
+(and different
+> ttl values), it would be tricky.
+>=20
+> Check should be done at user level, if we store ttl value of SYN pack=
+et and let
+> user application read its value by a getsockopt()
 
-> Is this driver really so good that we should configure it twice?
-> 
-
-Maybe not :) .. but I wanted it to show up both in 10/100 and
-1000 Mbps since it supports two different devices. But I read in
-Kconfig now that it then should be only in 10/100. That's fine.
-
-
-> [...] 
->> diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-
->> +#define GRETH_REGLOAD(a)	    (__raw_readl(&(a)))
->> +#define GRETH_REGSAVE(a, v)         (__raw_writel(v, &(a)))
->> +#define GRETH_REGORIN(a, v)         (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) | (v))))
->> +#define GRETH_REGANDIN(a, v)        (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) & (v))))
-> 
-> I think you need an mmiowb() after the __raw_writel().
-> Also, are you sure the registers are going to match host byte order?
-
-
-I'm working on a CPU with strong ordering so I'm not so confident in these matters,
-but as I understand it I should in that case not put mmiowb() after each __raw_writel()
-but only before unlocks where mmio has been done in the critical section.
-
-I have not put a single explicit memory barrier in the code, I was under the 
-impression that each architecture that needs it has it in the __raw_writel. 
-I only used the __raw versions since I wanted native byte ordering. I should add
-cpu_to_be32 and be32_to_cpu however as you point out. Questions is do I need to add
-wmb/mb when I use __raw as well?
-
-
- 
-> Use print_hex_dump().
-> 
-
-Ah nice, thanks!
-
-
->> +
->> +			pr_debug(" %.2x", *((unsigned char *)
->> +					    (phys_to_virt
->> +					     (skb_shinfo(skb)->frags[i].page) +
->> +					     skb_shinfo(skb)->frags[i].page_offset + j)));
-> 
-> WTF?  phys_to_virt() does not work on pointers to struct page.
-
-Oops. Some untested code crept in here. Adding page_to_phys.
-
-
-I will fix the other issues you mentioned and resend the patch.
-
-
-Best regards,
-Kristoffer Glembo
-
+I think IP_RECVTTL would work for that idea.
