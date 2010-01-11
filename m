@@ -1,76 +1,36 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC] ipv4: support for request type gratuitous ARP
-Date: Mon, 11 Jan 2010 23:31:37 +0200
-Message-ID: <201001112331.37187.opurdila@ixiacom.com>
-References: <201001050004.45004.opurdila@ixiacom.com> <20100110.132105.179935794.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tg3 appears to be sick in 2.6.33
+Date: Mon, 11 Jan 2010 13:39:37 -0800 (PST)
+Message-ID: <20100111.133937.79120219.davem@davemloft.net>
+References: <20100108194222.GA8386@xw6200.broadcom.net>
+	<20100110.135242.113292015.davem@davemloft.net>
+	<20100111175911.GA10496@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: dmitry.torokhov@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, jfeeney@redhat.com
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:21721 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751372Ab0AKVfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 16:35:05 -0500
-In-Reply-To: <20100110.132105.179935794.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37938
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752082Ab0AKVj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 16:39:29 -0500
+In-Reply-To: <20100111175911.GA10496@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 10 January 2010 23:21:05 you wrote:
-> From: Octavian Purdila <opurdila@ixiacom.com>
-> Date: Tue, 5 Jan 2010 00:04:44 +0200
-> 
-> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> > ---
-> >
-> > I've noticed that even though we currently support response type
-> > gratuitous ARP [response type, source mac, dest mac, source IP, source
-> > IP] *with a clean ARP table* we do not support the request type [request
-> > type, source mac, ff:ff:ff:ff:ff:ff, source IP, source IP].
-> 
-> Please don't submit your patches in this manner.
-> 
-> All of these relevant, interesting, details belong in the commit
-> message.  But any text you place aftr the "---" line will be omitted
-> from the commit message when your patch is applied by automated GIT
-> tools.
-> 
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 11 Jan 2010 09:59:11 -0800
 
-Got it.
-
-> I've done some research and I'm happy to apply your patch to
-> net-next-2.6 once it is submitted properly.
+> On Sun, Jan 10, 2010 at 01:52:42PM -0800, David Miller wrote:
+>> From: "Matt Carlson" <mcarlson@broadcom.com>
+>> Date: Fri, 8 Jan 2010 11:42:22 -0800
+>> 
+>> Matt, since we have positive testing, want me to apply this?
 > 
+> I have a small patchset queued up for net-2.6.  Let me just include this
+> one into the mix and submit it all at once.
 
-Thanks, I'll resubmitted it properly in a bit.
-
-> In fact we need to do some more research in this area because
-> generally we should more mimick the processing order of ARP prescribed
-> in the RFC.  In particular we should test the operation code lastly,
-> which would avoid these kinds of inconsistencies.
-> 
-> I'm worried though about security issues as well, as we make more the
-> acceptance more and more liberal, it becomes that much easier for
-> machines on the local network to poison ARP entries and use that to
-> either accept all traffic destined for a particular node or simply
-> deny that node access to the network.
-> 
-> In particular the kernel currently explicitly does not accept
-> unsolicited ARP, and this is controlled by the ARP_ACCEPT per-device
-> option.
-> 
-> 	if (IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
-> 		/* Unsolicited ARP is not accepted by default.
-> 		   It is possible, that this option should be enabled for some
-> 		   devices (strip is candidate)
-> 		 */
-> ...
-> 
-
-Good point, I'll try to respin the patch to do this check for the request type 
-gratuitous ARP as well.
-
-Thanks!
+Ok.
 
