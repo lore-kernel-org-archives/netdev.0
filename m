@@ -1,55 +1,45 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.33-rc3-git3: Reported regressions from 2.6.32
-Date: Mon, 11 Jan 2010 23:10:20 +0100
-Message-ID: <201001112310.21048.rjw@sisk.pl>
-References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera> <20100111214603.GA4335@emergent.ellipticsemi.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
+Date: Tue, 12 Jan 2010 00:16:33 +0200
+Message-ID: <201001120016.33550.opurdila@ixiacom.com>
+References: <1262808658-29346-1-git-send-email-opurdila@ixiacom.com> <20100107.172507.04893002.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Nick Bowler <nbowler@elliptictech.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20100111214603.GA4335@emergent.ellipticsemi.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:32225 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751880Ab0AKWUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 17:20:01 -0500
+In-Reply-To: <20100107.172507.04893002.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 11 January 2010, Nick Bowler wrote:
-> On 23:27 Sun 10 Jan     , Rafael J. Wysocki wrote:
-> > This message contains a list of some regressions from 2.6.32, for which there
-> > are no fixes in the mainline I know of.  If any of them have been fixed already,
-> > please let me know.
-> > 
-> > If you know of any other unresolved regressions from 2.6.32, please let me know
-> > either and I'll add them to the list.  Also, please let me know if any of the
-> > entries below are invalid.
+On Friday 08 January 2010 03:25:07 you wrote:
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Wed,  6 Jan 2010 22:10:58 +0200
 > 
-> Here are two that I don't see in the list:
+> > Signed-off-by: Maksim Pyatkovskiy <mpyatkovskiy@ixiacom.com>
+> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 > 
->  * LVDS downclocking breaks on G45/thinkpad T500
+> RETRANSSEGS is meant to count data segments retransmits, not pure
+> control frames.
 > 
->      LKML: http://lkml.org/lkml/2009/12/26/40
->      FDO:  http://bugs.freedesktop.org/show_bug.cgi?id=25809
-
-Added this one.
-
->  * Receive failure in et131x (Alan Cox sent me a patch for this but
->                               it's not in mainline yet)
+> Similarly for TCPTIMEOUTS, it's mean for data retransmit timeouts.
 > 
->      LKML: http://lkml.org/lkml/2009/12/29/210
+> If you overload these statistics with other similar events, they
+> become less meaningful.
+> 
 
-This one is a staging driver, so I'm not going to list it.
+But we do increment RETRANSSEGS & TCPTIMEOUTS for SYNs. This creates an 
+imbalance in client/server stats which makes things harder to diagnose.
 
-Thanks,
-Rafael
+> Finally, bumping TCP specific statistics from the generic INET
+> connection oriented socket code is a huge no-no.  That code is
+> written to be protocol agnostic.
+> 
+
+Fair point, I'll fix that up in the next version.
