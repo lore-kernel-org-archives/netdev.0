@@ -1,68 +1,39 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6] can: Unify droping of invalid tx skbs and
-	netdev	stats
-Date: Mon, 11 Jan 2010 16:44:37 +0100
-Message-ID: <4B4B4765.30302@hartkopp.net>
-References: <4B477BB7.2030108@hartkopp.net> <4B4B20E3.3070603@grandegger.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: REGRESSION for RT2561/RT61 in 2.6.33
+Date: Mon, 11 Jan 2010 10:46:46 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1001111045240.2873-100000@iolanthe.rowland.org>
+References: <1263222695.29743.1.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B4B20E3.3070603-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Gertjan van Wingerde <gwingerde@gmail.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753545Ab0AKPqs@vger.kernel.org>
+In-Reply-To: <1263222695.29743.1.camel@johannes.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wolfgang Grandegger wrote:
+On Mon, 11 Jan 2010, Johannes Berg wrote:
 
->>  
->> +	if (skb->len != sizeof(*cf) || cf->can_dlc > 8) {
->> +		kfree_skb(skb);
->> +		dev->stats.tx_dropped++;
->> +		return NETDEV_TX_OK;
->> +	}
+> Alan,
 > 
-> A static inline function "invalid_can_skb(skb)" (or "no_can_skb") would
-> be handy here:
+> > The card doesn't work.  Although the firmware load appears to
+> > succeed, "iwconfig wlan0" says no wireless extensions present.
 > 
-> 	if (invalid_can_skb(skb)) {
-> 		kfree_skb(skb);
-> 		dev->stats.tx_dropped++;
-> 		return NETDEV_TX_OK;		
-> 	}
+> You need to set CONFIG_CFG80211_WEXT (it is default y).
+> 
+> > The only clue I can offer is that "rmmod rt61pci" hangs in 
+> > wiphy_unregister() during the wait_event() loop near the start,
+> > because 
+> > rdev->opencount is equal to -1.  This suggests a refcounting imbalance
+> > 
+> > of some sort.
+> 
+> Good point, that's a bug that will go away with CONFIG_CFG80211_WEXT,
+> I'll send a fix.
 
-Another idea could be:
+Many thanks.  I'll test the patch and the config option tonight and
+report back tomorrow.
 
-	if (can_dropped_invalid_skb(skb, dev))
-		return NETDEV_TX_OK;
-
-with
-
-static inline int can_dropped_invalid_skb(struct sk_buff *skb, struct net_device *dev)
-{
-	const struct can_frame *cf = (struct can_frame *)skb->data;
-
-	if (unlikely(skb->len != sizeof(*cf) || cf->can_dlc > 8)) {
-		kfree_skb(skb);
-		dev->stats.tx_dropped++;
-		return 1;
-	}
-
-	return 0;
-}
-
-Any preferences?
-
-Regards,
-Oliver
+Alan Stern
