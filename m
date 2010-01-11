@@ -1,40 +1,37 @@
-From: Gerrit Binnenmars <gerritbinnenmars@online.nl>
-Subject: Different MTU sizes on a single ethernet port
-Date: Mon, 11 Jan 2010 19:39:39 +0100 (CET)
-Message-ID: <1774498547.4264241263235179792.JavaMail.root@mailstore13>
-References: <702058967.4264131263235085567.JavaMail.root@mailstore13>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 2/2] virtio_net: Defer skb allocation in receive path
+Date: Mon, 11 Jan 2010 11:09:25 -0800
+Message-ID: <1263236965.11949.1.camel@localhost.localdomain>
+References: <1261122090.4148.24.camel@localhost.localdomain>
+	 <1261122289.4148.27.camel@localhost.localdomain>
+	 <20091224133749.GB2855@amit-x200.redhat.com>
+	 <1262640344.18773.2.camel@localhost.localdomain>
+	 <20100104211454.GB21488@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Amit Shah <amit.shah@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp10.online.nl ([194.134.42.55]:33225 "EHLO smtp10.online.nl"
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:48706 "EHLO e8.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750934Ab0AKSug (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jan 2010 13:50:36 -0500
-Received: from smtp10.online.nl (localhost [127.0.0.1])
-	by smtp10.online.nl (Postfix) with ESMTP id D773B401CC
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 19:39:39 +0100 (CET)
-Received: from mailstore13.back.prod.mail.online.nl (mailstore13.back.prod.mail.online.nl [10.160.210.113])
-	by smtp10.online.nl (Postfix) with ESMTP
-	for <netdev@vger.kernel.org>; Mon, 11 Jan 2010 19:39:39 +0100 (CET)
-In-Reply-To: <702058967.4264131263235085567.JavaMail.root@mailstore13>
+	id S1753189Ab0AKTJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jan 2010 14:09:29 -0500
+In-Reply-To: <20100104211454.GB21488@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, 2010-01-04 at 23:14 +0200, Michael S. Tsirkin wrote:
+> so it will never return NULL unless no more buffers?  breaking here ad
+> BUG_ON(vi->num) as Amit suggests seems cleaner than looping forever if
+> there's a bug. 
 
-It seems that the following is not possible on Linux
+Agree. I will change to break as Amit suggested and put BUG_ON and
+resubmit the patch.
 
-Default ethernet port eth0   : MTU 1500
-VLAN ethernet port    eth0.3 : MTU 9000
+Thanks
+Shirley
 
-(Although you can do ifconfig eth0 mtu 9000; ifconfig eth0.3 mtu 9000; ifconfig eth0 mtu 1500)
-
-To solve this the MTU size of the VLAN should be passed to the adapter, and the adapter should have a MTU size for its default interface and a MTU size which is the max. of all interfaces on this port.
-
-Anyone been working on this before, or any other ideas how this can be achieved?
-
-With regards,
-
-Gerrit Binnenmars
