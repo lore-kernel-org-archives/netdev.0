@@ -1,75 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] net: Add Aeroflex Gaisler GRETH 10/100/1G Ethernet
-	MAC driver
-Date: Mon, 11 Jan 2010 17:34:30 +0000
-Message-ID: <1263231270.2781.22.camel@achroite.uk.solarflarecom.com>
-References: <1262965531-4800-1-git-send-email-kristoffer@gaisler.com>
-	 <1262965531-4800-2-git-send-email-kristoffer@gaisler.com>
-	 <1262991459.17358.63.camel@achroite.uk.solarflarecom.com>
-	 <4B4B4FFA.8070805@gaisler.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Mon, 11 Jan 2010 11:49:22 -0600
+Message-ID: <20100111174922.GA17285@us.ibm.com>
+References: <201001111007.EAG82373.VHFQSLFOFMOOJt@I-love.SAKURA.ne.jp>
+ <20100111014530.GB4070@heat>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kristoffer Glembo <kristoffer@gaisler.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
+	K
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:46043 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751545Ab0AKRed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 12:34:33 -0500
-In-Reply-To: <4B4B4FFA.8070805@gaisler.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:49260 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753037Ab0AKRtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 12:49:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20100111014530.GB4070@heat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-01-11 at 17:21 +0100, Kristoffer Glembo wrote:
-[...]
-> > [...] 
-> >> diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+Quoting Michael Stone (michael@laptop.org):
+> Tetsuo Handa wrote:
 > 
-> >> +#define GRETH_REGLOAD(a)	    (__raw_readl(&(a)))
-> >> +#define GRETH_REGSAVE(a, v)         (__raw_writel(v, &(a)))
-> >> +#define GRETH_REGORIN(a, v)         (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) | (v))))
-> >> +#define GRETH_REGANDIN(a, v)        (GRETH_REGSAVE(a, (GRETH_REGLOAD(a) & (v))))
-> > 
-> > I think you need an mmiowb() after the __raw_writel().
-> > Also, are you sure the registers are going to match host byte order?
+> >Michael Stone wrote:
+> >>Examples of software that I want to be able to gain privileges normally include:
+> >>
+> >>   rainbow, which requires privilege in order to add new accounts to the system
+> >>   and in order to call setuid() but which does not require networking
+> >>   privileges.
+> >
+> >If the system is not using local files (i.e. /etc/passwd and /etc/shadow),
+> >the process who wants to add new accounts to the system might need network
+> >access (e.g. to LDAP server), doesn't it?
 > 
+> General purpose account manipulation tools might need network access but
+> rainbow handles all its account manipulations via state stored in
+> /var/spool/rainbow/2. This state is made available to the rest of the system
+> via libnss_rainbow.
 > 
-> I'm working on a CPU with strong ordering so I'm not so confident in these matters,
-> but as I understand it I should in that case not put mmiowb() after each __raw_writel()
-> but only before unlocks where mmio has been done in the critical section.
-> 
-> I have not put a single explicit memory barrier in the code, I was under the 
-> impression that each architecture that needs it has it in the __raw_writel. 
+> Michael
 
-No, the __raw functions are about as raw as you can get without
-resorting to architecture-specific operations.
+Michael, I'm sorry, I should go back and search the thread for the
+answer, but don't have time right now - do you really need
+disablenetwork to be available to unprivileged users?  Or is it ok
+to require CAP_SETPCAP (same thing required for dropping privs from
+bounding set)?  Surely rainbow could be started either with that
+capability, or even from a smaller, easier-to-audit wrapper that
+has the capability, calls disablenetwork, then launches rainbow?
 
-> I only used the __raw versions since I wanted native byte ordering. I should add
-> cpu_to_be32 and be32_to_cpu however as you point out.
-
-That depends on how this device is likely to be attached to the bus.
-
-> Questions is do I need to add wmb/mb when I use __raw as well?
-[...]
-
-If you need to write multiple registers in a specific sequence, you will
-use a spinlock or mutex to serialise this with register writes from
-other contexts.  But in general you also need to call mmiowb() before
-dropping the lock, to serialise these at the bus level.
-
-You may need to use the stronger memory barriers (wmb(), rmb() or mb()
-as appropriate) between access to registers and access to associated DMA
-buffers.  For example, there should be a wmb() between writing DMA
-descriptors and writing the pointer register that triggers the
-controller to start reading those descriptors.
-
-Documentation/memory-barriers.txt has general information on this.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-serge
