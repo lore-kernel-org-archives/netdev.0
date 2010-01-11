@@ -1,50 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Mon, 11 Jan 2010 19:49:41 +1100
-Message-ID: <20100111194941.1e20b4a8.sfr@canb.auug.org.au>
-References: <20100111133109.a191ee64.sfr@canb.auug.org.au>
-	<20100110.225055.167520274.davem@davemloft.net>
-	<20100111185645.a66c6c8a.sfr@canb.auug.org.au>
-	<20100110.235927.83024662.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 1/1] rps: core implementation
+Date: Mon, 11 Jan 2010 10:00:53 +0100
+Message-ID: <4B4AE8C5.9010406@gmail.com>
+References: <65634d660911201528k5a07135el471b65fff9dd7c9d@mail.gmail.com>	 <20091120154046.67252d23@nehalam>	 <65634d660912171304p751e1698mbc9de50dade4317d@mail.gmail.com>	 <65634d661001051732qd64e79dt37e6247f8b0dc863@mail.gmail.com>	 <4B44258C.2050302@gmail.com> <4B44D89B.8070006@gmail.com>	 <65634d661001061454v389d311fjb245de21e0ab8092@mail.gmail.com>	 <4B45A623.7070507@gmail.com> <65634d661001102225t226c07bfg2ff0482150b4a18a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__11_Jan_2010_19_49_41_+1100_KVEspoWUy/3q/dl2"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hawk@comx.dk, hadi@cyberus.ca
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100110.235927.83024662.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60492 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752432Ab0AKJBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 04:01:01 -0500
+In-Reply-To: <65634d661001102225t226c07bfg2ff0482150b4a18a@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__11_Jan_2010_19_49_41_+1100_KVEspoWUy/3q/dl2
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le 11/01/2010 07:25, Tom Herbert a =E9crit :
+> Eric, patch below has some more minor fixes per your latest comments.
+>=20
+> - added variables for rps_map_size and rps_cpus_in_map for efficiency
+> - added preempt_disable/enable around __smp_call_function_single to
+> prevent CPUs from being removed during this action (hotplug fix)
+> - check cpu_online before calling __smp_call_function_single (also
+> hotplug related)
+> - do rcu_read_lock instead of rcu_read_lock_bh in store_rps_cpus
+> - don't do rcu_derefence in store_rps_cpus
+>=20
+> Thanks,
+> Tom
 
-Hi Dave,
+Tom, I am currently running one production server with this version,
+everything seems fine so far.
 
-On Sun, 10 Jan 2010 23:59:27 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> I have no personal preference, you can leave it how it is :)
+(Only problem is with your mail program, some lines were folded, and
+I had to manually adjust your patch to apply it...)
 
-OK, that is easy for me!
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+I also did one small change :
 
---Signature=_Mon__11_Jan_2010_19_49_41_+1100_KVEspoWUy/3q/dl2
-Content-Type: application/pgp-signature
+Since struct softnet_data is now aligned to a cache line boundary, its =
+better
+to move it to appropriate section (to avoid adding holes in percpu sect=
+ion,
+because linker is not very smart)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+-DEFINE_PER_CPU(struct softnet_data, softnet_data);
++DEFINE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
 
-iEYEARECAAYFAktK5iUACgkQjjKRsyhoI8yLrgCfS5nxwpULfMEyGHbqva3VW4wt
-a7QAmweMrOvKwsSM7lgUZ2QTfFDT2X3x
-=vZi5
------END PGP SIGNATURE-----
 
---Signature=_Mon__11_Jan_2010_19_49_41_+1100_KVEspoWUy/3q/dl2--
+I believe its ready for inclusion, but of course David should take
+a look before :)
+
+Could you post it formally with the appropriate ChangeLog with a nice
+RPS description, so that other people can ack it ?
+
+Thanks !
