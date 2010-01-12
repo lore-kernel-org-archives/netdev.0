@@ -1,71 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Tue, 12 Jan 2010 20:53:25 +0000
-Message-ID: <1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
-	 <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc>
-	 <20100111200136.GA29955@suse.de>  <m3fx6bxdt7.fsf@intrepid.localdomain>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Tue, 12 Jan 2010 12:59:36 -0800
+Message-ID: <4B4CE2B8.1040702@redfish-solutions.com>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de> <20100112.121607.39835310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, Tilman Schmidt <tilman@imap.cc>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:9762 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944Ab0ALUx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 15:53:29 -0500
-In-Reply-To: <m3fx6bxdt7.fsf@intrepid.localdomain>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:43072 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752214Ab0ALU7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 15:59:46 -0500
+In-Reply-To: <20100112.121607.39835310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-12 at 21:34 +0100, Krzysztof Halasa wrote:
-> Greg KH <gregkh@suse.de> writes:
+On 01/12/2010 12:16 PM, David Miller wrote:
 > 
-> > Close, but if you do this, please name the function
-> > hisax_find_pci_device() or something, and change the drivers to use it
-> > instead.  Also put a big fat warning in the function that calling this
-> > is unsafe for any PCI hotplug type machine.
+> You can't do any of these things you are doing, I've basically been
+> ignoring all of these crazy diffserv patches, they're nuts!
 > 
-> BTW, I have a driver in the works which uses these functions, and I
-> wonder how to do it correctly. The problem is that the hardware is a
-> dual-function PCI card (two DEC Tulip Ethernet controllers) but part of
-> the first device (EEPROM interface or something like that) is used by
-> both (there is an FPGA connected there, serving both channels).
+> The TOS socket option has a meaning and behavior defined by the BSD
+> sockets interface many years ago.  And you cannot and must not change
+> the behavior of those system calls because applications are written to
+> the current behavior and you will break them.  Protecting the new
+> behavior with a kernel config option is a non-starter, it's pointless
+> because no distribution is going to enable a kernel option that
+> knowingly breaks applications.
 > 
-> This means drivers for dev#0 and dev#1 (both "normal" PCI controllers)
-> need to register and access part of dev#0 BARs.
+> And it is also possible to set the TOS field however you desire using
+> what the kernel currently provides, we do not preclude proper diffserv
+> support, the BSD socket interfaces allow that just fine.
+> 
+> And you can also do diffserv by classifying traffic and setting the
+> TOS field using either the packet scheduler, or even netfilter.
+> 
+> Linux supports diffserv fully and just fine, you just can't see it :-)
+> 
+> Please stop submitting these patches without first having at least a
+> real discussion and understanding of how this stuff works.
+> 
+> Thanks.
 
-I hope you realise that this is a design error!  Linux is fairly
-forgiving and allows PCI drivers to do unusual things, but other OSes
-make it hard or impossible for PCI drivers to coordinate multiple
-functions.
+I disagree.
 
-> How do I do that properly, in terms of PCI API?
+The TOS socket option means "use these bits as the value of iphdr->ip_tos exactly as I'm giving them to you".
 
-One of our older controllers had a similar design error in that the two
-functions would sometimes have to be reset together.  The way we look
-for the second function is:
+That hasn't changed.
 
-	dev = pci_dev_get(dev1);
-	while ((dev = pci_get_device(vendor_id, device_id, dev))) {
-		if (dev->bus == dev1->bus &&
-		    dev->devfn == dev1->devfn + 1) {
-			dev2 = dev;
-			break;
-		}
-	}
+What has changed is how network equipment is required to interpret the meaning of those bits.
 
-I assume this is 'properly' since no-one has told me otherwise.
+As for "And you cannot and must not change the behavior of those system calls because applications are written to the current behavior and you will break them."  For me, this is the real non-starter.  Even if we pass the bits "as is" to the network, if the network is applying entirely new semantics (and when I say "entirely new", I mean those mandated since 1998), then compatibility in the host kernel API doesn't matter a hoot since the packets will still be handled by every transited router according to the modern semantics.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I note that the lower two bits of the TOS field were appropriated for ECN at the same time, and that hasn't broken a thing.
 
