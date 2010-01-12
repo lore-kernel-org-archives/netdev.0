@@ -1,60 +1,68 @@
-From: "James Kosin" <JKosin@intcomgrp.com>
-Subject: RE: arm: Optimization for ethernet MAC handling at91_ether.c
-Date: Tue, 12 Jan 2010 14:03:46 -0500
-Message-ID: <3DBBD805E3BA064A87F551C0E8BD36740289741C@MAILSRV.intcomgrp.com>
-References: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com> <4B4CA4E5.7030800@gmail.com> <3DBBD805E3BA064A87F551C0E8BD36740289740E@MAILSRV.intcomgrp.com> <4B4CBA93.4090909@gmail.com> <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [net-next-2.6 PATCH 3/5] ethtool: Introduce n-tuple filter
+	programming support
+Date: Tue, 12 Jan 2010 11:13:54 -0800
+Message-ID: <F86E8680A7D9D74A99DC6345E35A692950109528@orsmsx503.amr.corp.intel.com>
+References: <20100107044741.28605.31414.stgit@localhost.localdomain>
+	 <20100107044905.28605.54076.stgit@localhost.localdomain>
+ <1263238353.2781.38.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-To: "James Kosin" <JKosin@intcomgrp.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>, Luca Deri <deri@ntop.org>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server109h.appriver.com ([72.32.253.92]:4285 "EHLO
-	server109.appriver.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754597Ab0ALTCF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 14:02:05 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com>
+Received: from mga02.intel.com ([134.134.136.20]:50287 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752433Ab0ALTNy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 14:13:54 -0500
+In-Reply-To: <1263238353.2781.38.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/12/2010 1:50 PM, James Kosin wrote:
-> -----Original Message-----
-> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-owner@v=
-ger.kernel.org] On Behalf Of Eric Dumazet
-> Sent: Tuesday, January 12, 2010 1:08 PM
-> To: James Kosin
-> Cc: linux-kernel@vger.kernel.org; Linux Netdev List
-> Subject: Re: arm: Optimization for ethernet MAC handling at91_ether.c
->=20
-> Le 12/01/2010 18:51, James Kosin a =E9crit :
->> On 1/12/2010 11:40 AM, Eric Dumazet wrote:
->=20
->=20
-> I know.  Actually, I am using the hardware; and the part is capable o=
-f more than this driver is displaying.
->=20
-> 1)  The part is able to queue up two packets (1) actively being trans=
-mitted, and (1) queued up behind that packet.  The driver doesn't explo=
-it this; probably because this would cause some confusion, since we wou=
-ldn't really know which packet failed when this happens.
->=20
-> 2)  TX performance is so..so.  With bing on another computer using '-=
-z' option it is reporting a fairly good value of 74Mbps.  I'll have to =
-try with a re-compiled kernel at some point to give better feedback if =
-we can improve this more.
->=20
-> Your interpretation makes some sense on the transmit side.  The RX cu=
-rrently has a DMA queue that extends to a depth of 9 (currently).  So g=
-etting one transmit out before checking the RX may improve things a bit=
-=2E
->=20
+>-----Original Message-----
+>From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+>Sent: Monday, January 11, 2010 11:33 AM
+>To: Kirsher, Jeffrey T
+>Cc: davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+>Waskiewicz Jr, Peter P; Luca Deri; Gasparakis, Joseph
+>Subject: Re: [net-next-2.6 PATCH 3/5] ethtool: Introduce n-tuple filter
+>programming support
+>
+>On Wed, 2010-01-06 at 20:49 -0800, Jeff Kirsher wrote:
+>> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+>>
+>> This patchset enables the ethtool layer to program n-tuple
+>> filters to an underlying device.  The idea is to allow capable
+>> hardware to have static rules applied that can assist steering
+>> flows into appropriate queues.
+>[...]
+>> @@ -500,6 +529,8 @@ struct ethtool_ops {
+>>  	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
+>>  	int     (*flash_device)(struct net_device *, struct ethtool_flash
+>*);
+>>  	int	(*reset)(struct net_device *, u32 *);
+>> +	int	(*set_rx_ntuple)(struct net_device *, struct
+>ethtool_rx_ntuple *);
+>> +	int	(*get_rx_ntuple)(struct net_device *, struct
+>ethtool_rx_ntuple *, void *);
+>>  };
+>>  #endif /* __KERNEL__ */
+>>
+>[...]
+>
+>It it really necessary to add new driver operations?  It seems to me
+>that it would be preferable to extend {get,set}_rx_nfc() and have the
+>ethtool common code convert between the ethtool_rxnfc and
+>ethtool_rx_ntuple structures.  Does that seem possible?
+>
 
-Scratch that.  The interrupt doesn't queue up or send another packet di=
-rectly.  So, it wouldn't help on performance here.  But, may in other i=
-mplementations that queue/transmit packets in the ISR.  At least in the=
- case where the transmitter is limited to one.
+It is possible, but I'm not sure if it's the right way to go.  The nfc routines are just flipping the various engines on in niu, where the ntuple routines are for passing full amounts of data through for different filters.  Also, I think keeping them separate makes niu programming cleaner, which can support both the nfc and ntuple modes.
 
-James
+Cheers,
+-PJ
