@@ -1,196 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] sky2: safer transmit ring cleaning (v2)
-Date: Tue, 12 Jan 2010 10:49:45 -0800
-Message-ID: <20100112104945.462cf205@nehalam>
-References: <20100112.000804.186755338.davem@davemloft.net>
-	<20100112085633.GB6628@ff.dom.local>
-	<20100112.014218.112731835.davem@davemloft.net>
-	<20100112.025620.210305029.davem@davemloft.net>
-	<20100112081513.0175d579@nehalam>
-	<20100112180430.GA3355@del.dom.local>
-	<20100112101306.6a67c0a5@nehalam>
-	<20100112182447.GB3355@del.dom.local>
+From: "James Kosin" <JKosin@intcomgrp.com>
+Subject: RE: arm: Optimization for ethernet MAC handling at91_ether.c
+Date: Tue, 12 Jan 2010 14:03:46 -0500
+Message-ID: <3DBBD805E3BA064A87F551C0E8BD36740289741C@MAILSRV.intcomgrp.com>
+References: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com> <4B4CA4E5.7030800@gmail.com> <3DBBD805E3BA064A87F551C0E8BD36740289740E@MAILSRV.intcomgrp.com> <4B4CBA93.4090909@gmail.com> <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mikem@ring3k.org, flyboy@gmail.com, rjw@sisk.pl,
-	netdev@vger.kernel.org, mbreuer@majjas.com
-To: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-kernel@vger.kernel.org>,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "James Kosin" <JKosin@intcomgrp.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51713 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753028Ab0ALSuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2010 13:50:12 -0500
-In-Reply-To: <20100112182447.GB3355@del.dom.local>
+Received: from server109h.appriver.com ([72.32.253.92]:4285 "EHLO
+	server109.appriver.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754597Ab0ALTCF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 14:02:05 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 1/12/2010 1:50 PM, James Kosin wrote:
+> -----Original Message-----
+> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-owner@v=
+ger.kernel.org] On Behalf Of Eric Dumazet
+> Sent: Tuesday, January 12, 2010 1:08 PM
+> To: James Kosin
+> Cc: linux-kernel@vger.kernel.org; Linux Netdev List
+> Subject: Re: arm: Optimization for ethernet MAC handling at91_ether.c
+>=20
+> Le 12/01/2010 18:51, James Kosin a =E9crit :
+>> On 1/12/2010 11:40 AM, Eric Dumazet wrote:
+>=20
+>=20
+> I know.  Actually, I am using the hardware; and the part is capable o=
+f more than this driver is displaying.
+>=20
+> 1)  The part is able to queue up two packets (1) actively being trans=
+mitted, and (1) queued up behind that packet.  The driver doesn't explo=
+it this; probably because this would cause some confusion, since we wou=
+ldn't really know which packet failed when this happens.
+>=20
+> 2)  TX performance is so..so.  With bing on another computer using '-=
+z' option it is reporting a fairly good value of 74Mbps.  I'll have to =
+try with a re-compiled kernel at some point to give better feedback if =
+we can improve this more.
+>=20
+> Your interpretation makes some sense on the transmit side.  The RX cu=
+rrently has a DMA queue that extends to a depth of 9 (currently).  So g=
+etting one transmit out before checking the RX may improve things a bit=
+=2E
+>=20
 
+Scratch that.  The interrupt doesn't queue up or send another packet di=
+rectly.  So, it wouldn't help on performance here.  But, may in other i=
+mplementations that queue/transmit packets in the ISR.  At least in the=
+ case where the transmitter is limited to one.
 
-This code makes transmit path and transmit reset safer by:
-  * adding memory barrier before checking available ring slots
-  * reseting state of tx ring elements after free
-  * seperate cleanup function from ring done function
-  * removing mostly unused tx_next element
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
-
-What is supposed to happen:
-  * restart sky2_restart calls napi_disable while cleaning
-  * dev_close we can't call napi_disable() because of two ports
-    sharing same NAPI, so napi_synchronize() is used to make sure that
-    any NAPI running on other CPU has completed.
-  * if status is reported by chip for down device, then tx_done should ignore
-
-But, last patch was missing last step
-
---- a/drivers/net/sky2.c	2010-01-11 10:49:50.907113126 -0800
-+++ b/drivers/net/sky2.c	2010-01-12 10:44:56.068391575 -0800
-@@ -1596,6 +1596,9 @@ static inline int tx_inuse(const struct 
- /* Number of list elements available for next tx */
- static inline int tx_avail(const struct sky2_port *sky2)
- {
-+	/* Makes sure update of tx_prod from start_xmit and
-+	   tx_cons from tx_done are seen. */
-+	smp_mb();
- 	return sky2->tx_pending - tx_inuse(sky2);
- }
- 
-@@ -1618,8 +1621,7 @@ static unsigned tx_le_req(const struct s
- 	return count;
- }
- 
--static void sky2_tx_unmap(struct pci_dev *pdev,
--			  const struct tx_ring_info *re)
-+static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
- {
- 	if (re->flags & TX_MAP_SINGLE)
- 		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
-@@ -1629,6 +1631,7 @@ static void sky2_tx_unmap(struct pci_dev
- 		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
- 			       pci_unmap_len(re, maplen),
- 			       PCI_DMA_TODEVICE);
-+	re->flags = 0;
- }
- 
- /*
-@@ -1804,7 +1807,8 @@ mapping_error:
- }
- 
- /*
-- * Free ring elements from starting at tx_cons until "done"
-+ * Transmit complete processing
-+ * Free ring elements from starting at tx_cons until done index
-  *
-  * NB:
-  *  1. The hardware will tell us about partial completion of multi-part
-@@ -1813,11 +1817,14 @@ mapping_error:
-  *     looks at the tail of the queue of FIFO (tx_cons), not
-  *     the head (tx_prod)
-  */
--static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
-+static void sky2_tx_done(struct net_device *dev, u16 done)
- {
--	struct net_device *dev = sky2->netdev;
-+	struct sky2_port *sky2 = netdev_priv(dev);
- 	unsigned idx;
- 
-+	if (unlikely(!netif_running(dev)))
-+		return;
-+
- 	BUG_ON(done >= sky2->tx_ring_size);
- 
- 	for (idx = sky2->tx_cons; idx != done;
-@@ -1828,6 +1835,8 @@ static void sky2_tx_complete(struct sky2
- 		sky2_tx_unmap(sky2->hw->pdev, re);
- 
- 		if (skb) {
-+			re->skb = NULL;
-+
- 			if (unlikely(netif_msg_tx_done(sky2)))
- 				printk(KERN_DEBUG "%s: tx done %u\n",
- 				       dev->name, idx);
-@@ -1836,13 +1845,10 @@ static void sky2_tx_complete(struct sky2
- 			dev->stats.tx_bytes += skb->len;
- 
- 			dev_kfree_skb_any(skb);
--
--			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
- 		}
- 	}
- 
- 	sky2->tx_cons = idx;
--	smp_mb();
- 
- 	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
- 		netif_wake_queue(dev);
-@@ -1870,6 +1876,21 @@ static void sky2_tx_reset(struct sky2_hw
- 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
- }
- 
-+static void sky2_tx_clean(struct sky2_port *sky2)
-+{
-+	u16 idx;
-+
-+	for (idx = 0; idx < sky2->tx_ring_size; idx++) {
-+		struct tx_ring_info *re = sky2->tx_ring + idx;
-+
-+		sky2_tx_unmap(sky2->hw->pdev, re);
-+		if (re->skb) {
-+			dev_kfree_skb_any(re->skb);
-+			re->skb = NULL;
-+		}
-+	}
-+}
-+
- /* Network shutdown */
- static int sky2_down(struct net_device *dev)
- {
-@@ -1933,8 +1954,7 @@ static int sky2_down(struct net_device *
- 	sky2_tx_reset(hw, port);
- 
- 	/* Free any pending frames stuck in HW queue */
--	sky2_tx_complete(sky2, sky2->tx_prod);
--
-+	sky2_tx_clean(sky2);
- 	sky2_rx_clean(sky2);
- 
- 	sky2_free_buffers(sky2);
-@@ -2411,15 +2431,6 @@ error:
- 	goto resubmit;
- }
- 
--/* Transmit complete */
--static inline void sky2_tx_done(struct net_device *dev, u16 last)
--{
--	struct sky2_port *sky2 = netdev_priv(dev);
--
--	if (netif_running(dev))
--		sky2_tx_complete(sky2, last);
--}
--
- static inline void sky2_skb_rx(const struct sky2_port *sky2,
- 			       u32 status, struct sk_buff *skb)
- {
-@@ -4201,7 +4212,7 @@ static int sky2_debug_show(struct seq_fi
- 
- 	/* Dump contents of tx ring */
- 	sop = 1;
--	for (idx = sky2->tx_next; idx != sky2->tx_prod && idx < sky2->tx_ring_size;
-+	for (idx = sky2->tx_cons; idx != sky2->tx_prod && idx < sky2->tx_ring_size;
- 	     idx = RING_NEXT(idx, sky2->tx_ring_size)) {
- 		const struct sky2_tx_le *le = sky2->tx_le + idx;
- 		u32 a = le32_to_cpu(le->addr);
---- a/drivers/net/sky2.h	2010-01-11 17:29:22.817088617 -0800
-+++ b/drivers/net/sky2.h	2010-01-11 17:29:28.197120484 -0800
-@@ -2187,7 +2187,6 @@ struct sky2_port {
- 	u16		     tx_ring_size;
- 	u16		     tx_cons;		/* next le to check */
- 	u16		     tx_prod;		/* next le to use */
--	u16		     tx_next;		/* debug only */
- 
- 	u16		     tx_pending;
- 	u16		     tx_last_mss;
+James
