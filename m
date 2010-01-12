@@ -1,36 +1,54 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bug #14925] sky2 panic under load
-Date: Tue, 12 Jan 2010 10:31:07 +0000
-Message-ID: <20100112103107.GC6628@ff.dom.local>
-References: <20100112075059.GA6628@ff.dom.local> <20100112.000804.186755338.davem@davemloft.net> <20100112085633.GB6628@ff.dom.local> <20100112.014218.112731835.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
+Date: Tue, 12 Jan 2010 11:40:30 +0100
+Message-ID: <4B4C519E.2090207@gmail.com>
+References: <4B44FE3C.6060809@gmail.com> <4B450065.4010108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, mikem@ring3k.org, flyboy@gmail.com,
-	rjw@sisk.pl, netdev@vger.kernel.org, mbreuer@majjas.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:51219 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019Ab0ALKbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 05:31:15 -0500
-Received: by fxm25 with SMTP id 25so473656fxm.21
-        for <netdev@vger.kernel.org>; Tue, 12 Jan 2010 02:31:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100112.014218.112731835.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46628 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648Ab0ALKkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 05:40:35 -0500
+In-Reply-To: <4B450065.4010108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2010 at 01:42:18AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 12 Jan 2010 08:56:34 +0000
-> 
-> > Maybe I miss something, but once more: this patch mentioned by Berck
-> > Nash has been tested by at least two users, Berck himself, and
-> > probably even more intensively by Michael Breuer, during af_packet
-> > debugging. Both guys acknowledged it helped, so it can't be that bad.
-> 
-> I agree, as a short term fix, this patch is fine.
+Le 06/01/2010 22:28, William Allen Simpson a =E9crit :
+> Redefine two TCP header functions to accept TCP header pointer.
+> When subtracting, return signed int to allow error checking.
+>=20
+> These functions will be used in subsequent patches that implement
+> additional features.
+>=20
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> ---
+>  include/linux/tcp.h |   12 ++++++++++++
+>  1 files changed, 12 insertions(+), 0 deletions(-)
+>=20
 
-And I agree real problems might be deeper.
+Its better to inline your patches so that we can comment them, without =
+copy/paste
 
-Jarek P.
+When I hit 'reply to', my mailer only quoted the ChangeLog, not the pat=
+ch.
+
+Anyway ..
+
++/* Length of standard options only.  This could be negative. */
++static inline int tcp_option_len_th(const struct tcphdr *th)
++{
++	return (int)(th->doff * 4) - sizeof(*th);
++}
+
+
+The (int) cast is not necessary, since the function returns a signed in=
+t
+
+->
+	return th->doff * 4 - sizeof(*th);
