@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/3] [PATCH] qeth: HiperSockets Network Traffic Analyzer
-Date: Tue, 12 Jan 2010 03:23:05 -0800 (PST)
-Message-ID: <20100112.032305.223871701.davem@davemloft.net>
-References: <1263295184.6037.26.camel@braunu-laptop>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 1/7] MIPS: Octeon: Fix EIO handling.
+Date: Tue, 12 Jan 2010 12:36:19 +0100
+Message-ID: <20100112113619.GA26806@linux-mips.org>
+References: <4B463005.8060505@caviumnetworks.com>
+ <1262891106-32146-1-git-send-email-ddaney@caviumnetworks.com>
+ <4B4645EE.5050302@ru.mvista.com>
+ <4B464977.2090801@caviumnetworks.com>
+ <20100107215950.GA24672@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	frank.blaschka@de.ibm.com, ursula.braun@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	Sergei Shtylyov <sshtylyov@ru.mvista.com>,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47812
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751346Ab0ALLW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 06:22:57 -0500
-In-Reply-To: <1263295184.6037.26.camel@braunu-laptop>
+Received: from eddie.linux-mips.org ([78.24.191.182]:44439 "EHLO
+	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180Ab0ALLga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 06:36:30 -0500
+Received: from localhost.localdomain ([127.0.0.1]:39203 "EHLO h5.dl5rb.org.uk"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S1492614Ab0ALLg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Jan 2010 12:36:28 +0100
+Content-Disposition: inline
+In-Reply-To: <20100107215950.GA24672@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Tue, 12 Jan 2010 12:19:44 +0100
+On Thu, Jan 07, 2010 at 01:59:50PM -0800, Greg KH wrote:
 
-> An HS NTA device in Linux on System z is a specialized HiperSockets
-> device managed by the qeth driver and initialized specifically for
-> sniffing. The trigger for an HS device to act as a Network Traffic
-> Analyzer is the sysfs attribute "sniffer". If this attribute is set to
-> 1, the NTA-specific initialization is started when the HS device is
-> brought online. Traffic sniffing starts, once the device is switched
-> into promiscuous mode, for instance by invoking the tcpdump-tool.
+> >>> If an interrupt handler disables interrupts, the EOI function will
+> >>> just reenable them.  This will put us in an endless loop when the
+> >>> upcoming Ethernet driver patches are applied.
+> >>>
+> >>> Only reenable the interrupt on EOI if it is not IRQ_DISABLED.  This
+> >>> requires that the EIO function be separate from the ENABLE function.
+> >>> We also rename the ACK functions to correspond with their function.
+> >>>
+> >>> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+> >>>   
+> >>
+> >>   I guess the subject should read "EIO", not "EIO"...
+> >>
+> >
+> > Indeed.  The compiler didn't catch that one.
+> >
+> > Perhaps Ralf can fix it if he merges it, otherwise I can resubmit with 
+> > corrected spelling.
+> 
+> I can change it when merging, don't worry about it.
 
-Sounds like something which might be useful for other
-virtualized environments.
+This is a driver specific to a specific MIPS platform so I think this
+series should be merged via the MIPS tree and assuming Greg is ok with that
+I have merged this into my tree.
 
-At worst, they would be able to provide some similar
-facility, and therefore the configuration mechanism to
-turn this on should be unified.
-
-Perhaps an ethtool boolean flag setting or similar,
-rather than a baroque and driver specific sysfs knob.
+  Ralf
