@@ -1,59 +1,62 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 1/7] MIPS: Octeon: Fix EIO handling.
-Date: Tue, 12 Jan 2010 05:43:13 -0800
-Message-ID: <20100112134313.GA25052@suse.de>
-References: <4B463005.8060505@caviumnetworks.com>
- <1262891106-32146-1-git-send-email-ddaney@caviumnetworks.com>
- <4B4645EE.5050302@ru.mvista.com>
- <4B464977.2090801@caviumnetworks.com>
- <20100107215950.GA24672@suse.de>
- <20100112113619.GA26806@linux-mips.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Tue, 12 Jan 2010 09:28:43 -0500
+Message-ID: <32558.1263306523@localhost>
+References: <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org> <20100110215409.GA3705@heat> <20100110215848.GA26609@elf.ucw.cz> <5768.1263264853@localhost>
+            <20100112075927.GA24256@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1263306523_4979P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Stone <michael@laptop.org>,
+	James Morris <jmorris@namei.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Am?rico Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754010Ab0ALOad@vger.kernel.org>
+In-Reply-To: Your message of "Tue, 12 Jan 2010 08:59:27 +0100."
+             <20100112075927.GA24256@atrey.karlin.mff.cuni.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--==_Exmh_1263306523_4979P
 Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney@caviumnetworks.com>,
-	Sergei Shtylyov <sshtylyov@ru.mvista.com>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:35049 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753303Ab0ALN5w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2010 08:57:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20100112113619.GA26806@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2010 at 12:36:19PM +0100, Ralf Baechle wrote:
-> On Thu, Jan 07, 2010 at 01:59:50PM -0800, Greg KH wrote:
-> 
-> > >>> If an interrupt handler disables interrupts, the EOI function will
-> > >>> just reenable them.  This will put us in an endless loop when the
-> > >>> upcoming Ethernet driver patches are applied.
-> > >>>
-> > >>> Only reenable the interrupt on EOI if it is not IRQ_DISABLED.  This
-> > >>> requires that the EIO function be separate from the ENABLE function.
-> > >>> We also rename the ACK functions to correspond with their function.
-> > >>>
-> > >>> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
-> > >>>   
-> > >>
-> > >>   I guess the subject should read "EIO", not "EIO"...
-> > >>
-> > >
-> > > Indeed.  The compiler didn't catch that one.
-> > >
-> > > Perhaps Ralf can fix it if he merges it, otherwise I can resubmit with 
-> > > corrected spelling.
-> > 
-> > I can change it when merging, don't worry about it.
-> 
-> This is a driver specific to a specific MIPS platform so I think this
-> series should be merged via the MIPS tree and assuming Greg is ok with that
-> I have merged this into my tree.
+On Tue, 12 Jan 2010 08:59:27 +0100, Pavel Machek said:
 
-No objection from me at all, merge away :)
+> Well, maybe, but mailer system where first user starts is as a daemon
+> makes sense...
 
-thanks,
+Does it?  How do you get port 25 open for listening if the first user isn't
+root?  Most *actual* schemes to "launch at first use" that require privs for
+something have used inetd or similar - that program exists for a *reason*.
 
-greg k-h
+--==_Exmh_1263306523_4979P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFLTIcbcC3lWbTT17ARAr8PAJ94bDdQldxM7RZrZfTZGf16tCxRBQCgodDB
+rBzAtNDSU79QFaso6ka4onU=
+=Sa8Z
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1263306523_4979P--
