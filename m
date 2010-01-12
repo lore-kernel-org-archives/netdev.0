@@ -1,46 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection (v3)
-Date: Tue, 12 Jan 2010 01:16:46 +0100
-Message-ID: <20100112001646.GA7017@electric-eye.fr.zoreil.com>
-References: <20100108.160252.189352309.davem@davemloft.net>
- <1263088638.2480.210.camel@localhost>
- <20100110235017.GA8959@electric-eye.fr.zoreil.com>
- <20100110.224504.247142858.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Tue, 12 Jan 2010 11:21:15 +1100
+Message-ID: <20100112112115.98009d50.sfr@canb.auug.org.au>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
+	<20100108044646.GC6611@suse.de>
+	<4B4B802A.2010709@imap.cc>
+	<20100111200136.GA29955@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ben@decadent.org.uk, eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 49.119.116-78.rev.gaoland.net ([78.116.119.49]:37410 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752365Ab0ALATd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:19:33 -0500
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn"
+Cc: Tilman Schmidt <tilman@imap.cc>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754302Ab0ALAV1@vger.kernel.org>
+In-Reply-To: <20100111200136.GA29955@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <20100110.224504.247142858.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jan 10, 2010 at 10:45:04PM -0800, David Miller wrote:
-[...]
-> In my opinion if you reset, you give them more power.
-> 
-> Instead of just dropping the next few frames, you allow them
-> to cause a drop of how ever many RX frames can arrive during
-> the reset period _PLUS_ the amount of other RX frames which
-> were in the receive ring at the point of detection.
+Hi Greg,
 
-Sure.
+On Mon, 11 Jan 2010 12:01:36 -0800 Greg KH <gregkh@suse.de> wrote:
+>
+> Close, but if you do this, please name the function
+> hisax_find_pci_device() or something, and change the drivers to use it
+> instead.  Also put a big fat warning in the function that calling this
+> is unsafe for any PCI hotplug type machine.
 
-The fragmented frame test has been moved a few lines up, before checking
-for the status bits. Exceedingly small frames are detected and dropped
-as well.
+There is another implementation of pci_find_device in
+drivers/staging/dt3155/pci-compat.h (used by dt3155_drv.c).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-I have spent the evening disrupting the communication. As a challenger
-one does not even need complete control : send a few random packets and
-the card goes to neverland. :o/
+--Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn
+Content-Type: application/pgp-signature
 
-I'll do some tests limiting the crap at the first packet.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
--- 
-Ueimor
+iEYEARECAAYFAktLwHwACgkQjjKRsyhoI8zRiACfR+S4tL9GTzsSUPl9trNgRAfE
+BZYAn2oluFkU/kwDvE0CQZK3mqriNyML
+=lmE1
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn--
