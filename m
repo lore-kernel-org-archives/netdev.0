@@ -1,80 +1,178 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Tue, 12 Jan 2010 09:52:46 -0600
-Message-ID: <20100112155246.GA9255@us.ibm.com>
-References: <20100111174922.GA17285@us.ibm.com>
- <20100112061058.GA5231@heat>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: safer transmit ring cleaning
+Date: Tue, 12 Jan 2010 08:15:13 -0800
+Message-ID: <20100112081513.0175d579@nehalam>
+References: <20100112.000804.186755338.davem@davemloft.net>
+ <20100112085633.GB6628@ff.dom.local>
+ <20100112.014218.112731835.davem@davemloft.net>
+ <20100112.025620.210305029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
-	K
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754040Ab0ALPxM@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100112061058.GA5231@heat>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, mikem@ring3k.org, flyboy@gmail.com, rjw@sisk.pl,
+	netdev@vger.kernel.org, mbreuer@majjas.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43836 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753735Ab0ALQPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2010 11:15:44 -0500
+In-Reply-To: <20100112.025620.210305029.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Michael Stone (michael@laptop.org):
-> Serge Hallyn wrote:
-> >Michael, I'm sorry, I should go back and search the thread for the
-> >answer, but don't have time right now - do you really need
-> >disablenetwork to be available to unprivileged users?
-> 
-> Rainbow can only drop the networking privileges when we know at app launch time
-> (e.g. based on a manifest or from the human operator) that privileges can be
-> dropped. Unfortunately, most of the really interesting uses of disablenetwork
-> happen *after* rainbow has dropped privilege and handed control the app.
-> Therefore, having an API which can be used by at least some low-privilege
-> processes is important to me.
-> 
-> >is it ok to require CAP_SETPCAP (same thing required for dropping privs from
-> >bounding set)?
-> 
-> Let me try to restate your idea:
-> 
->   We can make disablenetwork safer by permitting its use only where explicitly
->   permitted by some previously privileged ancestor. The securebits facility
->   described in
-> 
->     http://lwn.net/Articles/280279/
-> 
->   may be a good framework in which to implement this control.
-> 
-> Did I understand correctly? If so, then yes, this approach seems like it would
-> work for me.
+This code makes transmit path and transmit reset safer by:
+  * adding memory barrier before checking available ring slots
+  * reseting state of tx ring elements after free
+  * seperate cleanup function from ring done function
+  * removing mostly unused tx_next element
 
-That is a little more than I was saying this time though I think I
-suggested it earlier.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-But really I don't think anyone would care to separate a system into
-some processes allowed to do unprivileged disablenetwork and other
-processes not allowed to, so a (root-owned mode 644) sysctl seems just
-as useful.
+---
+Please apply this instead of the various bits and pieces flying
+around labeled as sky2 panic under load
 
-> Regards, and thanks very much for your help,
-> 
-> Michael
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--- a/drivers/net/sky2.c	2010-01-11 10:49:50.907113126 -0800
++++ b/drivers/net/sky2.c	2010-01-11 17:36:22.027429875 -0800
+@@ -1596,6 +1596,9 @@ static inline int tx_inuse(const struct 
+ /* Number of list elements available for next tx */
+ static inline int tx_avail(const struct sky2_port *sky2)
+ {
++	/* Makes sure update of tx_prod from start_xmit and
++	   tx_cons from tx_done are seen. */
++	smp_mb();
+ 	return sky2->tx_pending - tx_inuse(sky2);
+ }
+ 
+@@ -1618,8 +1621,7 @@ static unsigned tx_le_req(const struct s
+ 	return count;
+ }
+ 
+-static void sky2_tx_unmap(struct pci_dev *pdev,
+-			  const struct tx_ring_info *re)
++static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
+ {
+ 	if (re->flags & TX_MAP_SINGLE)
+ 		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
+@@ -1629,6 +1631,7 @@ static void sky2_tx_unmap(struct pci_dev
+ 		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
+ 			       pci_unmap_len(re, maplen),
+ 			       PCI_DMA_TODEVICE);
++	re->flags = 0;
+ }
+ 
+ /*
+@@ -1804,7 +1807,8 @@ mapping_error:
+ }
+ 
+ /*
+- * Free ring elements from starting at tx_cons until "done"
++ * Transmit complete processing
++ * Free ring elements from starting at tx_cons until done index
+  *
+  * NB:
+  *  1. The hardware will tell us about partial completion of multi-part
+@@ -1813,9 +1817,9 @@ mapping_error:
+  *     looks at the tail of the queue of FIFO (tx_cons), not
+  *     the head (tx_prod)
+  */
+-static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
++static void sky2_tx_done(struct net_device *dev, u16 done)
+ {
+-	struct net_device *dev = sky2->netdev;
++	struct sky2_port *sky2 = netdev_priv(dev);
+ 	unsigned idx;
+ 
+ 	BUG_ON(done >= sky2->tx_ring_size);
+@@ -1828,6 +1832,8 @@ static void sky2_tx_complete(struct sky2
+ 		sky2_tx_unmap(sky2->hw->pdev, re);
+ 
+ 		if (skb) {
++			re->skb = NULL;
++
+ 			if (unlikely(netif_msg_tx_done(sky2)))
+ 				printk(KERN_DEBUG "%s: tx done %u\n",
+ 				       dev->name, idx);
+@@ -1836,13 +1842,10 @@ static void sky2_tx_complete(struct sky2
+ 			dev->stats.tx_bytes += skb->len;
+ 
+ 			dev_kfree_skb_any(skb);
+-
+-			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
+ 		}
+ 	}
+ 
+ 	sky2->tx_cons = idx;
+-	smp_mb();
+ 
+ 	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
+ 		netif_wake_queue(dev);
+@@ -1870,6 +1873,21 @@ static void sky2_tx_reset(struct sky2_hw
+ 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
+ }
+ 
++static void sky2_tx_clean(struct sky2_port *sky2)
++{
++	u16 idx;
++
++	for (idx = 0; idx < sky2->tx_ring_size; idx++) {
++		struct tx_ring_info *re = sky2->tx_ring + idx;
++
++		sky2_tx_unmap(sky2->hw->pdev, re);
++		if (re->skb) {
++			dev_kfree_skb_any(re->skb);
++			re->skb = NULL;
++		}
++	}
++}
++
+ /* Network shutdown */
+ static int sky2_down(struct net_device *dev)
+ {
+@@ -1933,8 +1951,7 @@ static int sky2_down(struct net_device *
+ 	sky2_tx_reset(hw, port);
+ 
+ 	/* Free any pending frames stuck in HW queue */
+-	sky2_tx_complete(sky2, sky2->tx_prod);
+-
++	sky2_tx_clean(sky2);
+ 	sky2_rx_clean(sky2);
+ 
+ 	sky2_free_buffers(sky2);
+@@ -2411,15 +2428,6 @@ error:
+ 	goto resubmit;
+ }
+ 
+-/* Transmit complete */
+-static inline void sky2_tx_done(struct net_device *dev, u16 last)
+-{
+-	struct sky2_port *sky2 = netdev_priv(dev);
+-
+-	if (netif_running(dev))
+-		sky2_tx_complete(sky2, last);
+-}
+-
+ static inline void sky2_skb_rx(const struct sky2_port *sky2,
+ 			       u32 status, struct sk_buff *skb)
+ {
+@@ -4201,7 +4209,7 @@ static int sky2_debug_show(struct seq_fi
+ 
+ 	/* Dump contents of tx ring */
+ 	sop = 1;
+-	for (idx = sky2->tx_next; idx != sky2->tx_prod && idx < sky2->tx_ring_size;
++	for (idx = sky2->tx_cons; idx != sky2->tx_prod && idx < sky2->tx_ring_size;
+ 	     idx = RING_NEXT(idx, sky2->tx_ring_size)) {
+ 		const struct sky2_tx_le *le = sky2->tx_le + idx;
+ 		u32 a = le32_to_cpu(le->addr);
+--- a/drivers/net/sky2.h	2010-01-11 17:29:22.817088617 -0800
++++ b/drivers/net/sky2.h	2010-01-11 17:29:28.197120484 -0800
+@@ -2187,7 +2187,6 @@ struct sky2_port {
+ 	u16		     tx_ring_size;
+ 	u16		     tx_cons;		/* next le to check */
+ 	u16		     tx_prod;		/* next le to use */
+-	u16		     tx_next;		/* debug only */
+ 
+ 	u16		     tx_pending;
+ 	u16		     tx_last_mss;
