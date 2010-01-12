@@ -1,55 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Tue, 12 Jan 2010 11:21:15 +1100
-Message-ID: <20100112112115.98009d50.sfr@canb.auug.org.au>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
-	<20100108044646.GC6611@suse.de>
-	<4B4B802A.2010709@imap.cc>
-	<20100111200136.GA29955@suse.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Mon, 11 Jan 2010 16:27:03 -0800 (PST)
+Message-ID: <20100111.162703.24001534.davem@davemloft.net>
+References: <20100111082529.3d5cdae3@nehalam>
+	<4B4B5A0A.3090600@gmail.com>
+	<4B4B5B84.3090409@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn"
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754302Ab0ALAV1@vger.kernel.org>
-In-Reply-To: <20100111200136.GA29955@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B4B5B84.3090409-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+=46rom: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 11 Jan 2010 18:10:28 +0100
 
-Hi Greg,
+> Le 11/01/2010 18:04, Eric Dumazet a =E9crit :
+>> Given this is an IP level option, check could be done at IP level, s=
+o that other protocols
+>> can use it too ?
+>=20
+> Oops, this is stupid, we dont have the socket pointer at IP level :)
 
-On Mon, 11 Jan 2010 12:01:36 -0800 Greg KH <gregkh@suse.de> wrote:
->
-> Close, but if you do this, please name the function
-> hisax_find_pci_device() or something, and change the drivers to use it
-> instead.  Also put a big fat warning in the function that calling this
-> is unsafe for any PCI hotplug type machine.
+Right.
 
-There is another implementation of pci_find_device in
-drivers/staging/dt3155/pci-compat.h (used by dt3155_drv.c).
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+But we can later add a helper to place in each protocols receive path,
+at the point where it first has a socket to work with.
 
---Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn
-Content-Type: application/pgp-signature
+I'm going to apply Stephen's original patch.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktLwHwACgkQjjKRsyhoI8zRiACfR+S4tL9GTzsSUPl9trNgRAfE
-BZYAn2oluFkU/kwDvE0CQZK3mqriNyML
-=lmE1
------END PGP SIGNATURE-----
-
---Signature=_Tue__12_Jan_2010_11_21_15_+1100_wPfjVLs1zsoYD1mn--
+Thanks!
