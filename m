@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/8] qlge: Add firmware coredump functionality.
-Date: Mon, 11 Jan 2010 22:22:02 -0800 (PST)
-Message-ID: <20100111.222202.66778648.davem@davemloft.net>
-References: <1263258785-5112-1-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH RFC] r8169: straighten out overlength frame detection
+ (v3)
+Date: Mon, 11 Jan 2010 22:24:00 -0800 (PST)
+Message-ID: <20100111.222400.253153531.davem@davemloft.net>
+References: <20100110235017.GA8959@electric-eye.fr.zoreil.com>
+	<20100110.224504.247142858.davem@davemloft.net>
+	<20100112001646.GA7017@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: ben@decadent.org.uk, eric.dumazet@gmail.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48087
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41733
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750917Ab0ALGVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 01:21:53 -0500
-In-Reply-To: <1263258785-5112-1-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1750741Ab0ALGXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 01:23:51 -0500
+In-Reply-To: <20100112001646.GA7017@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Mon, 11 Jan 2010 17:12:57 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 12 Jan 2010 01:16:46 +0100
 
-> Dump all regsiters and on chip RAM when a fatal firmware error is
-> encountered.  This features is turn on by default but can be
-> turned off with a module parameter.
+> I have spent the evening disrupting the communication. As a challenger
+> one does not even need complete control : send a few random packets and
+> the card goes to neverland. :o/
+> 
+> I'll do some tests limiting the crap at the first packet.
 
-There is no way you should crap into someone's kernel log
-with a large amount of information by default.
-
-Yes, this is true even on fatal errors.
-
-If you can't dump the information in say a dozen lines, it
-is more trouble than it's worth as a default.
-
-Make the default to off.  Users can be asked to turn it on
-if you need to capture more information for diagnostics,
-and you personally can turn it on by default when doing
-development.
-
-Thanks.
+Thanks for doing this work Francois.
