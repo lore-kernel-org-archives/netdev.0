@@ -1,63 +1,61 @@
-From: "James Kosin" <JKosin@intcomgrp.com>
-Subject: RE: arm: Optimization for ethernet MAC handling at91_ether.c
-Date: Tue, 12 Jan 2010 14:39:43 -0500
-Message-ID: <3DBBD805E3BA064A87F551C0E8BD367402897428@MAILSRV.intcomgrp.com>
-References: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com> <4B4CA4E5.7030800@gmail.com> <3DBBD805E3BA064A87F551C0E8BD36740289740E@MAILSRV.intcomgrp.com> <4B4CBA93.4090909@gmail.com> <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com> <3DBBD805E3BA064A87F551C0E8BD36740289741C@MAILSRV.intcomgrp.com> <4B4CCC7B.8040609@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v2)
+Date: Tue, 12 Jan 2010 20:50:04 +0100
+Message-ID: <20100112195004.GD3355@del.dom.local>
+References: <20100112085633.GB6628@ff.dom.local>
+ <20100112.014218.112731835.davem@davemloft.net>
+ <20100112.025620.210305029.davem@davemloft.net>
+ <20100112081513.0175d579@nehalam>
+ <20100112180430.GA3355@del.dom.local>
+ <20100112101306.6a67c0a5@nehalam>
+ <20100112182447.GB3355@del.dom.local>
+ <20100112104945.462cf205@nehalam>
+ <20100112191611.GC3355@del.dom.local>
+ <20100112112314.6d3b37d0@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754824Ab0ALTiI@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4B4CCC7B.8040609@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, mikem@ring3k.org,
+	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org,
+	mbreuer@majjas.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:35643 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753722Ab0ALTuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 14:50:10 -0500
+Received: by fxm25 with SMTP id 25so47809fxm.21
+        for <netdev@vger.kernel.org>; Tue, 12 Jan 2010 11:50:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100112112314.6d3b37d0@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------Original Message-----
->From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
->Sent: Tuesday, January 12, 2010 2:25 PM
->To: James Kosin
->Cc: linux-kernel@vger.kernel.org; Linux Netdev List
->Subject: Re: arm: Optimization for ethernet MAC handling at91_ether.c
->
->Le 12/01/2010 20:03, James Kosin a =E9crit :
->>=20
->> Scratch that.  The interrupt doesn't queue up or send another packet=
- directly.  So, it wouldn't help on performance here.  But, may in othe=
-r implementations that queue/transmit packets in the ISR.  At least in =
-the case where the transmitter is limited to one.
->>=20
->
->It could, at least on SMP. tx completion wakes a blocked sender, while
->this cpu continue with RX handling (possibly expensive)
->
->But even on UP, doing tx completion before rx handling allows
->a better reuse of skb just freed (and partly present in cpu cache, if =
-available).
->
->Start of IRQ
->
->1) tx completion
->    -> free a skb
->
->2) rx handling:
->    -> allocate an skb, kmalloc() reuses previous one, still in cpu ca=
-che.
->
->End of IRQ
+On Tue, Jan 12, 2010 at 11:23:14AM -0800, Stephen Hemminger wrote:
+> On Tue, 12 Jan 2010 20:16:11 +0100
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
+> 
+> > > 
+> > > What is supposed to happen:
+> > >   * restart sky2_restart calls napi_disable while cleaning  
+> > 
+> > Yes, but it's after the detach; similarly to sky2_suspend().
+> > (I'm not sure how safe vs such re-enabling is sky2_set_ringparam().
+> 
+> set_ringparam happens under rtnl_lock() so reset and ringparams can't
+> conflict.
 
-I think this may work to improve things slightly; since, the transmitte=
-r always frees the skb regardless of error or success currently.
+I didn't mean reset. I meant tx (dev_queue_xmit()) during ringparams.
 
-What I was proposing was to modify the sequence slightly to be more lik=
-e this:
+> 
+> > 
+> > >   * dev_close we can't call napi_disable() because of two ports
+> > >     sharing same NAPI, so napi_synchronize() is used to make sure that
+> > >     any NAPI running on other CPU has completed.  
+> > 
+> > So it seems still endangered.
+> 
+> It was but not in revised v2 patch.
 
-1) tx completion
-	-> test for TX TUND error
-		-> resend the current skb (to avoid having to re-do)
-	-> else
-		-> test for TX RTRY error
-			-> increment error count as before
-		-> free the skb
+Sorry, I meant sky2_down() (except in dev_close()).
+
+Jarek P.
