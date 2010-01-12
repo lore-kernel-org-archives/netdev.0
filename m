@@ -1,42 +1,54 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] iplink_can: add support to set one-shot mode
-Date: Tue, 12 Jan 2010 22:17:04 +0100
-Message-ID: <4B4CE6D0.1030803@grandegger.com>
-References: <1261569778-23669-1-git-send-email-mkl@pengutronix.de>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Tue, 12 Jan 2010 13:18:01 -0800
+Message-ID: <20100112211801.GA27999@suse.de>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
+ <20100108044646.GC6611@suse.de>
+ <4B4B802A.2010709@imap.cc>
+ <20100111200136.GA29955@suse.de>
+ <m3fx6bxdt7.fsf@intrepid.localdomain>
+ <1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1261569778-23669-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Krzysztof Halasa <khc@pm.waw.pl>, Tilman Schmidt <tilman@imap.cc>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:49661 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752259Ab0ALVUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2010 16:20:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marc Kleine-Budde wrote:
-> This patch adds the flag CAN_CTRLMODE_ONE_SHOT. It is used as mask
-> or flag in the "struct can_ctrlmode".
+On Tue, Jan 12, 2010 at 08:53:25PM +0000, Ben Hutchings wrote:
+> > How do I do that properly, in terms of PCI API?
 > 
-> It also adds to "ip" the option to set a CAN controller into the special
-> "one-shot" mode. In this mode, if supported by the CAN controller,
-> tries only once to deliver a CAN frame and aborts it if an error
-> (e.g.: arbitration lost) happens.
+> One of our older controllers had a similar design error in that the two
+> functions would sometimes have to be reset together.  The way we look
+> for the second function is:
 > 
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> 	dev = pci_dev_get(dev1);
+> 	while ((dev = pci_get_device(vendor_id, device_id, dev))) {
+> 		if (dev->bus == dev1->bus &&
+> 		    dev->devfn == dev1->devfn + 1) {
+> 			dev2 = dev;
+> 			break;
+> 		}
+> 	}
+> 
+> I assume this is 'properly' since no-one has told me otherwise.
 
-Could this patch be considered for iproute2 inclusion? The corresponding
-kernel patch has been accepted in the meantime.
+As of right now, yes, this is the "correct" way to do this.
 
-Thanks,
+I need to dig up the "let multiple drivers bind to a single device"
+patch set to make this not necessary in the future.
 
-Wolfgang.
+thanks,
+
+greg k-h
