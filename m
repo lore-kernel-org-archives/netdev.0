@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug #14925] sky2 panic under load
-Date: Tue, 12 Jan 2010 01:42:18 -0800 (PST)
-Message-ID: <20100112.014218.112731835.davem@davemloft.net>
-References: <20100112075059.GA6628@ff.dom.local>
-	<20100112.000804.186755338.davem@davemloft.net>
-	<20100112085633.GB6628@ff.dom.local>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v5] can: Unify droping of invalid tx skbs
+	and	netdev stats
+Date: Tue, 12 Jan 2010 10:57:52 +0100
+Message-ID: <4B4C47A0.6020304@grandegger.com>
+References: <4B4C420C.1040308@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mikem@ring3k.org, flyboy@gmail.com,
-	rjw@sisk.pl, netdev@vger.kernel.org, mbreuer@majjas.com
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50388
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751944Ab0ALJmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 04:42:09 -0500
-In-Reply-To: <20100112085633.GB6628@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B4C420C.1040308-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 12 Jan 2010 08:56:34 +0000
+Oliver Hartkopp wrote:
+> To prevent the CAN drivers to operate on invalid socketbuffers the skbs are
+> now checked and silently dropped at the xmit-function consistently.
+> 
+> Also the netdev stats are consistently using the CAN data length code (dlc)
+> for [rx|tx]_bytes now.
+> 
+> Signed-off-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-> Maybe I miss something, but once more: this patch mentioned by Berck
-> Nash has been tested by at least two users, Berck himself, and
-> probably even more intensively by Michael Breuer, during af_packet
-> debugging. Both guys acknowledged it helped, so it can't be that bad.
-
-I agree, as a short term fix, this patch is fine.
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
