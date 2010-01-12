@@ -1,54 +1,71 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Tue, 12 Jan 2010 13:18:01 -0800
-Message-ID: <20100112211801.GA27999@suse.de>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
- <20100108044646.GC6611@suse.de>
- <4B4B802A.2010709@imap.cc>
- <20100111200136.GA29955@suse.de>
- <m3fx6bxdt7.fsf@intrepid.localdomain>
- <1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Tue, 12 Jan 2010 13:33:05 -0800
+Message-ID: <4B4CEA91.3070201@redfish-solutions.com>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de>	<20100112.121607.39835310.davem@davemloft.net>	<4B4CE2B8.1040702@redfish-solutions.com> <20100112.130355.144803575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, Tilman Schmidt <tilman@imap.cc>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49661 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752259Ab0ALVUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2010 16:20:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:54097 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750757Ab0ALVdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 16:33:11 -0500
+In-Reply-To: <20100112.130355.144803575.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 12, 2010 at 08:53:25PM +0000, Ben Hutchings wrote:
-> > How do I do that properly, in terms of PCI API?
+On 01/12/2010 01:03 PM, David Miller wrote:
+> From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+> Date: Tue, 12 Jan 2010 12:59:36 -0800
 > 
-> One of our older controllers had a similar design error in that the two
-> functions would sometimes have to be reset together.  The way we look
-> for the second function is:
+>> What has changed is how network equipment is required to interpret
+>> the meaning of those bits.
+>>
+>> Even if we pass the bits "as is" to the network, if the network is
+>> applying entirely new semantics (and when I say "entirely new", I
+>> mean those mandated since 1998), then compatibility in the host
+>> kernel API doesn't matter a hoot since the packets will still be
+>> handled by every transited router according to the modern semantics.
 > 
-> 	dev = pci_dev_get(dev1);
-> 	while ((dev = pci_get_device(vendor_id, device_id, dev))) {
-> 		if (dev->bus == dev1->bus &&
-> 		    dev->devfn == dev1->devfn + 1) {
-> 			dev2 = dev;
-> 			break;
-> 		}
-> 	}
+> People really don't assign global meaning to bits set by applications
+> in the TOS field.
+
+Since I'm not a clairvoyant, I can't speak for "people".  But I will say that I do assign such a meaning, and based on that interpretation, other people have code reviewed patches and accepted them, so at least "some people" share my interpretation.
+
+I've submitted QoS fixes for NTP, Proftp, Cyrus, Apache/apr, Sendmail, CURL, Thunderbird, Firefox, and a several other packages.
+
+All of which very much depend on host compliance with RFC-2474 and 2597/2598.
+
+
+> What they do is they have a set of semantics inside of their cloud of
+> routers and switch points for diffserv, and when packets come in the
+> TOS field is rewritten to whatever scheme is being used inside of that
+> cloud.
+
+Uh, no.  Net Neutrality very much requires consistent end-to-end interpretation of ToS bits by backbone carriers.  If you know of a carrier that isn't honoring ToS bits, I have a group of lawyers I'd like them to meet.
+
+
+> And the diffserv bits only have meaning and effect within that cloud.
+
+Have you read RFC-2474 lately?  You only need to get as far as the Abstract:
+
+   The services may be either end-to-end or intra-domain; they include
+   both those that can satisfy quantitative performance requirements (e.g.,
+   peak bandwidth) and those based on relative performance (e.g., "class"
+   differentiation).
+
+"end-to-end"... seems pretty clear to me.
+
+
+> So really, having a syscall that sets the TOS bits exactly by
+> applications is just fine.
 > 
-> I assume this is 'properly' since no-one has told me otherwise.
+> People are doing diffserv right now with Linux and have done so
+> for years.
 
-As of right now, yes, this is the "correct" way to do this.
+Right, and I suspect in most cases, the default behavior of the host is to misinterpret the bits and put the packet in the wrong output queue.
 
-I need to dig up the "let multiple drivers bind to a single device"
-patch set to make this not necessary in the future.
-
-thanks,
-
-greg k-h
+-Philip
