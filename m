@@ -1,57 +1,44 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Tue, 12 Jan 2010 08:59:27 +0100
-Message-ID: <20100112075927.GA24256@atrey.karlin.mff.cuni.cz>
-References: <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org> <20100110215409.GA3705@heat> <20100110215848.GA26609@elf.ucw.cz> <5768.1263264853@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug #14925] sky2 panic under load
+Date: Tue, 12 Jan 2010 00:08:04 -0800 (PST)
+Message-ID: <20100112.000804.186755338.davem@davemloft.net>
+References: <20100111220753.GC3139@del.dom.local>
+	<20100111.161419.138918787.davem@davemloft.net>
+	<20100112075059.GA6628@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Stone <michael@laptop.org>,
-	James Morris <jmorris@namei.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>
-To: Valdis.Kletnieks@vt.edu
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, mikem@ring3k.org, flyboy@gmail.com,
+	rjw@sisk.pl, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:44561 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500Ab0ALH73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 02:59:29 -0500
-Content-Disposition: inline
-In-Reply-To: <5768.1263264853@localhost>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58173
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752542Ab0ALIH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 03:07:56 -0500
+In-Reply-To: <20100112075059.GA6628@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Sun, 10 Jan 2010 22:58:48 +0100, Pavel Machek said:
-> 
-> > Scenario 2:
-> > 
-> > Mallory calls disablenetwork, calls sendmail as the first user after
-> > boot; sendmail can't deliver anything (its network is disabled), but
-> > starts forking and taking requests for other users, DoSing the mail
-> > delivery.
-> 
-> You need to be root to start sendmail as a daemon.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 12 Jan 2010 07:50:59 +0000
 
-Well, maybe, but mailer system where first user starts is as a daemon
-makes sense... same for authentication system, etc. And it was okay
-before disablenetwork come.
-									Pavel
+> I think, I can see similar problems e.g. in gianfar or netxen, where
+> napi_disable() is done after netif_device_detach(), especially in
+> suspend procedures (there might be less severe (than oops) effects
+> yet). IMHO, it all looks simply error prone (sometime you have to
+> know a driver well to track all possible paths to say it's really
+> safe).
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Then that's an even larger bug.
+
+Until you do napi_disable(), the device can be touched.
+
+Asynchronous paths outside of the driver's control, even
+with interrupts disabled, can call back into the driver
+and touch the chip.
+
+F.e. netpoll via netconsole output on another cpu
+
+So it therefore must be done before doing the actual work of bringing
+the device down or suspending it.
