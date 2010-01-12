@@ -1,51 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v2)
-Date: Tue, 12 Jan 2010 11:23:14 -0800
-Message-ID: <20100112112314.6d3b37d0@nehalam>
-References: <20100112.000804.186755338.davem@davemloft.net>
-	<20100112085633.GB6628@ff.dom.local>
-	<20100112.014218.112731835.davem@davemloft.net>
-	<20100112.025620.210305029.davem@davemloft.net>
-	<20100112081513.0175d579@nehalam>
-	<20100112180430.GA3355@del.dom.local>
-	<20100112101306.6a67c0a5@nehalam>
-	<20100112182447.GB3355@del.dom.local>
-	<20100112104945.462cf205@nehalam>
-	<20100112191611.GC3355@del.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: arm: Optimization for ethernet MAC handling at91_ether.c
+Date: Tue, 12 Jan 2010 20:24:43 +0100
+Message-ID: <4B4CCC7B.8040609@gmail.com>
+References: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com> <4B4CA4E5.7030800@gmail.com> <3DBBD805E3BA064A87F551C0E8BD36740289740E@MAILSRV.intcomgrp.com> <4B4CBA93.4090909@gmail.com> <3DBBD805E3BA064A87F551C0E8BD367402897418@MAILSRV.intcomgrp.com> <3DBBD805E3BA064A87F551C0E8BD36740289741C@MAILSRV.intcomgrp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mikem@ring3k.org,
-	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org,
-	mbreuer@majjas.com
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Kosin <JKosin@intcomgrp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53282 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753407Ab0ALTXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jan 2010 14:23:31 -0500
-In-Reply-To: <20100112191611.GC3355@del.dom.local>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49651 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753849Ab0ALTYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 14:24:48 -0500
+In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD36740289741C@MAILSRV.intcomgrp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Jan 2010 20:16:11 +0100
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+Le 12/01/2010 20:03, James Kosin a =E9crit :
+>=20
+> Scratch that.  The interrupt doesn't queue up or send another packet =
+directly.  So, it wouldn't help on performance here.  But, may in other=
+ implementations that queue/transmit packets in the ISR.  At least in t=
+he case where the transmitter is limited to one.
+>=20
 
-> > 
-> > What is supposed to happen:
-> >   * restart sky2_restart calls napi_disable while cleaning  
-> 
-> Yes, but it's after the detach; similarly to sky2_suspend().
-> (I'm not sure how safe vs such re-enabling is sky2_set_ringparam().
+It could, at least on SMP. tx completion wakes a blocked sender, while
+this cpu continue with RX handling (possibly expensive)
 
-set_ringparam happens under rtnl_lock() so reset and ringparams can't
-conflict.
+But even on UP, doing tx completion before rx handling allows
+a better reuse of skb just freed (and partly present in cpu cache, if a=
+vailable).
 
-> 
-> >   * dev_close we can't call napi_disable() because of two ports
-> >     sharing same NAPI, so napi_synchronize() is used to make sure that
-> >     any NAPI running on other CPU has completed.  
-> 
-> So it seems still endangered.
+Start of IRQ
 
-It was but not in revised v2 patch.
+1) tx completion
+    -> free a skb
+
+2) rx handling:
+    -> allocate an skb, kmalloc() reuses previous one, still in cpu cac=
+he.
+
+End of IRQ
