@@ -1,51 +1,46 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning
-Date: Tue, 12 Jan 2010 11:32:45 -0500
-Message-ID: <4B4CA42D.5020305@majjas.com>
-References: <20100112.000804.186755338.davem@davemloft.net>
- <20100112085633.GB6628@ff.dom.local>
- <20100112.014218.112731835.davem@davemloft.net>
- <20100112.025620.210305029.davem@davemloft.net>
- <20100112081513.0175d579@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: arm: Optimization for ethernet MAC handling at91_ether.c
+Date: Tue, 12 Jan 2010 17:35:49 +0100
+Message-ID: <4B4CA4E5.7030800@gmail.com>
+References: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	mikem@ring3k.org, flyboy@gmail.com, rjw@sisk.pl,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: James Kosin <JKosin@intcomgrp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta2.srv.hcvlny.cv.net ([167.206.4.197]:39637 "EHLO
-	mta2.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754482Ab0ALQd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 11:33:29 -0500
-Received: from mail.majjas.com (ool-44c00dc8.dyn.optonline.net [68.192.13.200])
- by mta2.srv.hcvlny.cv.net
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- with ESMTP id <0KW500JC17BRC9Z0@mta2.srv.hcvlny.cv.net> for
- netdev@vger.kernel.org; Tue, 12 Jan 2010 11:33:27 -0500 (EST)
-In-reply-to: <20100112081513.0175d579@nehalam>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41245 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754255Ab0ALQgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 11:36:11 -0500
+In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD3674028973F5@MAILSRV.intcomgrp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2010 11:15 AM, Stephen Hemminger wrote:
-> This code makes transmit path and transmit reset safer by:
->    * adding memory barrier before checking available ring slots
->    * reseting state of tx ring elements after free
->    * seperate cleanup function from ring done function
->    * removing mostly unused tx_next element
->
->
->    
-Stephen,
+CC to netdev
 
-Just want to confirm that this supersedes both of the patches I'm 
-currently running with:
+Le 12/01/2010 16:39, James Kosin a =E9crit :
+> Everyone,
+>=20
+> Since, a AT91_EMAC_TUND only happens when the transmitter is unable t=
+o
+> transfer the frame in time for a frame to be sent.  It makes sense to
+> RETRY the packet in this condition in the ISR.
+> Or would this overcomplicate a simple task?
+>                 ... see below ...
+>=20
+=2E..
 
-1. skb_may_pull
-2. Nash patch
---
-Mike
+>=20
+> ...
+> I do know there needs to be a bit more code then to handle the
+> successful case below this; but, this is enough to understand what I =
+am
+> talking about.  The UNDERRUN error should happen infrequently and in
+> ideal circumstances not happen at all.
+> =20
 
 
-
+If this happens once in a while, why do you want driver to retry the tr=
+ansmit ?
