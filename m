@@ -1,79 +1,86 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [PATCH] ixgbe: Fix ixgbe_tx_map error path
-Date: Tue, 12 Jan 2010 15:27:41 -0800
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F12D49A30A1@orsmsx501.amr.corp.intel.com>
-References: <20100112110135.GK12666@kryten>
- <80769D7B14936844A23C0C43D9FBCF0F12D49A2CE7@orsmsx501.amr.corp.intel.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH] Add CAP_NET_RAW checks to bind() and sendmsg() on a
+ AF_PACKET socket
+Date: Tue, 12 Jan 2010 15:54:00 -0800
+Message-ID: <1263340440.6844.110.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Anton Blanchard <anton@samba.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:32366 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754547Ab0ALX1n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 18:27:43 -0500
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F12D49A2CE7@orsmsx501.amr.corp.intel.com>
-Content-Language: en-US
+Received: from e31.co.us.ibm.com ([32.97.110.149]:36605 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038Ab0ALXyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 18:54:08 -0500
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e31.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o0CNk43E003716
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2010 16:46:04 -0700
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0CNs1t4050916
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2010 16:54:01 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0CNs1B3018926
+	for <netdev@vger.kernel.org>; Tue, 12 Jan 2010 16:54:01 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Duyck, Alexander H wrote:
-> Actually it looks like the bug for ixgbe is in the while (count >= 0)
-> check.  It should be just while (count > 0) insead. 
-> 
-> It also appears there is an issue I may have introduced in igb as
-> well.  I will go back through the drivers and see about submitting
-> some patches to address these issues.  
-> 
-> Thanks,
-> 
-> Alex
+CAP_NET_RAW capability check is currently done only when creating
+a PF_PACKET socket. But there are so such checks when doing a bind()
+to a specific interface or sending a message to a specific interface
+via sendmsg() with msg->msg_name.
 
-It looks like we actually have some other patches in place that are addressing the count >= 0 issue.  This patch addresses the remaining return value of -1 issues for ixgbe. I think we should probably pull it into Jeff's tree for testing, and I will generate a separate patch for the igb issues.
+So when a packet socket fd is passed to an un-privileged process, it
+can do a re-bind or send a message to any interface.
+We ran into this case when considering using raw socket backend for
+KVM guests with libvirt opening the packet socket and passing the fd to
+an un-priviliged qemu process.
 
-Thanks,
+The following patch adds CAP_NET_RAW checks to bind() and sendmsg()
+with msg_name calls.
 
-Alex
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-> -----Original Message-----
-> From: Anton Blanchard [mailto:anton@samba.org]
-> Sent: Tuesday, January 12, 2010 3:02 AM
-> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Waskiewicz
-> Jr, Peter P; Ronciak, John; Skidmore, Donald C; Zou, Yi; Duyck,
-> Alexander H  
-> Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
-> Subject: [PATCH] ixgbe: Fix ixgbe_tx_map error path
-> 
-> 
-> Commit e5a43549f7a58509a91b299a51337d386697b92c (ixgbe: remove
-> skb_dma_map/unmap calls from driver) looks to have introduced a bug in
-> ixgbe_tx_map. If we get an error from a PCI DMA call, we loop
-> backwards 
-> through count until it becomes -1 and return that.
-> 
-> The caller of ixgbe_tx_map expects 0 on error, so return that instead.
-> 
-> ---
-> 
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c
-> b/drivers/net/ixgbe/ixgbe_main.c 
-> index 1a2ea62..af660ba 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -5174,7 +5174,7 @@ dma_error:
->  		ixgbe_unmap_and_free_tx_resource(adapter, tx_buffer_info);
->  	}
-> 
-> -	return count;
-> +	return 0;
->  }
-> 
->  static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -958,6 +958,9 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
++		if (!capable(CAP_NET_RAW))
++			return -EACCES;
++
+ 		err = -EINVAL;
+ 		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+ 			goto out;
+@@ -1075,6 +1078,9 @@ static int packet_snd(struct socket *sock,
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
++		if (!capable(CAP_NET_RAW))
++			return -EACCES;
++
+ 		err = -EINVAL;
+ 		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+ 			goto out;
+@@ -1284,6 +1290,8 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 	struct net_device *dev;
+ 	int err = -ENODEV;
+ 
++	if (!capable(CAP_NET_RAW))
++		return -EACCES;
+ 	/*
+ 	 *	Check legality
+ 	 */
+@@ -1307,6 +1315,8 @@ static int packet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len
+ 	struct net_device *dev = NULL;
+ 	int err;
+ 
++	if (!capable(CAP_NET_RAW))
++		return -EACCES;
+ 
+ 	/*
+ 	 *	Check legality
+
 
