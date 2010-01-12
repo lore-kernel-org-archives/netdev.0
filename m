@@ -1,56 +1,49 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
-Date: Tue, 12 Jan 2010 18:55:31 +0200
-Message-ID: <201001121855.32018.opurdila@ixiacom.com>
-References: <1262808658-29346-1-git-send-email-opurdila@ixiacom.com> <201001120016.33550.opurdila@ixiacom.com> <20100111.161537.85213244.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning
+Date: Tue, 12 Jan 2010 09:02:02 -0800
+Message-ID: <20100112090202.6adf2370@nehalam>
+References: <20100112.000804.186755338.davem@davemloft.net>
+	<20100112085633.GB6628@ff.dom.local>
+	<20100112.014218.112731835.davem@davemloft.net>
+	<20100112.025620.210305029.davem@davemloft.net>
+	<20100112081513.0175d579@nehalam>
+	<4B4CA42D.5020305@majjas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	mikem@ring3k.org, flyboy@gmail.com, rjw@sisk.pl,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:22781 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750822Ab0ALQ66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 11:58:58 -0500
-In-Reply-To: <20100111.161537.85213244.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:46312 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752082Ab0ALRCe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jan 2010 12:02:34 -0500
+In-Reply-To: <4B4CA42D.5020305@majjas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 12 January 2010 02:15:37 you wrote:
-> From: Octavian Purdila <opurdila@ixiacom.com>
-> Date: Tue, 12 Jan 2010 00:16:33 +0200
-> 
-> > On Friday 08 January 2010 03:25:07 you wrote:
-> >> From: Octavian Purdila <opurdila@ixiacom.com>
-> >> Date: Wed,  6 Jan 2010 22:10:58 +0200
-> >>
-> >> > Signed-off-by: Maksim Pyatkovskiy <mpyatkovskiy@ixiacom.com>
-> >> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> >>
-> >> RETRANSSEGS is meant to count data segments retransmits, not pure
-> >> control frames.
-> >>
-> >> Similarly for TCPTIMEOUTS, it's mean for data retransmit timeouts.
-> >>
-> >> If you overload these statistics with other similar events, they
-> >> become less meaningful.
+On Tue, 12 Jan 2010 11:32:45 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
+
+> On 01/12/2010 11:15 AM, Stephen Hemminger wrote:
+> > This code makes transmit path and transmit reset safer by:
+> >    * adding memory barrier before checking available ring slots
+> >    * reseting state of tx ring elements after free
+> >    * seperate cleanup function from ring done function
+> >    * removing mostly unused tx_next element
 > >
-> > But we do increment RETRANSSEGS & TCPTIMEOUTS for SYNs. This creates an
-> > imbalance in client/server stats which makes things harder to diagnose.
+> >
+> >    
+> Stephen,
 > 
-> Interesting.
+> Just want to confirm that this supersedes both of the patches I'm 
+> currently running with:
 > 
-> Can you do me a favor and look into the code history and see
-> if we used to account both sides?
-> 
+> 1. skb_may_pull
+> 2. Nash patch
 
-Sure. 
-
-> I wonder if we accidently lost the statistic bumps when the
-> generic inet connection socket layer was added.
-> 
-
-I don't think so because we are seeing this issue in 2.6.7 as well. I'll 
-download the CVS history and drill down further.
+You want:
+  1. AF_PACKET patch that makes sure skb is not modified after send
+  2. This patch.
