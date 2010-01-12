@@ -1,49 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug #14925] sky2 panic under load
-Date: Mon, 11 Jan 2010 16:14:19 -0800 (PST)
-Message-ID: <20100111.161419.138918787.davem@davemloft.net>
-References: <4B4B2FBD.5090007@ring3k.org>
-	<20100111084504.7adb5a1e@nehalam>
-	<20100111220753.GC3139@del.dom.local>
+Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
+Date: Mon, 11 Jan 2010 16:15:37 -0800 (PST)
+Message-ID: <20100111.161537.85213244.davem@davemloft.net>
+References: <1262808658-29346-1-git-send-email-opurdila@ixiacom.com>
+	<20100107.172507.04893002.davem@davemloft.net>
+	<201001120016.33550.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mikem@ring3k.org, flyboy@gmail.com,
-	rjw@sisk.pl, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54140
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54144
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752355Ab0ALAOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:14:11 -0500
-In-Reply-To: <20100111220753.GC3139@del.dom.local>
+	by vger.kernel.org with ESMTP id S1753438Ab0ALAP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:15:28 -0500
+In-Reply-To: <201001120016.33550.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 11 Jan 2010 23:07:54 +0100
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Tue, 12 Jan 2010 00:16:33 +0200
 
-> I don't agree: you both try to make this check more specific.
-> Actually, since this problem is quite tricky, I wondered about
-> making it more genaral and visible for other maintainers by
-> adding something like netif_wake_queue_present() with the
-> check and some comment.
+> On Friday 08 January 2010 03:25:07 you wrote:
+>> From: Octavian Purdila <opurdila@ixiacom.com>
+>> Date: Wed,  6 Jan 2010 22:10:58 +0200
+>> 
+>> > Signed-off-by: Maksim Pyatkovskiy <mpyatkovskiy@ixiacom.com>
+>> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+>> 
+>> RETRANSSEGS is meant to count data segments retransmits, not pure
+>> control frames.
+>> 
+>> Similarly for TCPTIMEOUTS, it's mean for data retransmit timeouts.
+>> 
+>> If you overload these statistics with other similar events, they
+>> become less meaningful.
+>> 
+> 
+> But we do increment RETRANSSEGS & TCPTIMEOUTS for SYNs. This creates an 
+> imbalance in client/server stats which makes things harder to diagnose.
 
-This detracts from the real problem.
+Interesting.
 
-The issue is that we have a code path bringing a device down, which
-uses helper routines which are meant to be executed when the device is
-up and functioning normally.
+Can you do me a favor and look into the code history and see
+if we used to account both sides?
 
-That's the bug.
-
-No other driver does silly things like call helper routines which wake
-the TX queue when taking the chip down.
-
-Fix that, not the immediate symptoms.  Write a routine that
-unconditionally clears the TX queue, frees the packets, etc. and
-has none of the wake logic.
-
-That's what most other driver do, and those that don't should be
-fixed similarly.
-
+I wonder if we accidently lost the statistic bumps when the
+generic inet connection socket layer was added.
