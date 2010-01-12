@@ -1,44 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Mon, 11 Jan 2010 16:28:13 -0800 (PST)
-Message-ID: <20100111.162813.45985102.davem@davemloft.net>
-References: <20100110220034.4d46ba8a@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/3] [PATCH] qeth: HiperSockets Network Traffic Analyzer
+Date: Mon, 11 Jan 2010 16:30:01 -0800 (PST)
+Message-ID: <20100111.163001.08956059.davem@davemloft.net>
+References: <20100111125049.566359000@de.ibm.com>
+	<20100111125123.479494000@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100110220034.4d46ba8a@nehalam>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49182
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753352Ab0ALA3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:29:52 -0500
+In-Reply-To: <20100111125123.479494000@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Date: Sun, 10 Jan 2010 22:00:34 -0800
+From: frank.blaschka@de.ibm.com
+Date: Mon, 11 Jan 2010 13:50:50 +0100
 
-> This patch adds the kernel portions needed to implement
-> RFC 5082 Generalized TTL Security Mechanism (GTSM).
-> It is a lightweight security measure against forged
-> packets causing DoS attacks (for BGP). 
+> From: Ursula Braun <ursula.braun@de.ibm.com>
 > 
-> This is already implemented the same way in BSD kernels.
-> For the necessary Quagga patch 
->   http://www.gossamer-threads.com/lists/quagga/dev/17389
+> New feature to trace HiperSockets network traffic for debugging
+> purposes.
 > 
-> Description from Cisco
->   http://www.cisco.com/en/US/docs/ios/12_3t/12_3t7/feature/guide/gt_btsh.html
-> 
-> It does add one byte to each socket structure, but I did
-> a little rearrangement to reuse a hole (on 64 bit), but it
-> does grow the structure on 32 bit
-> 
-> This should be documented on ip(4) man page and the Glibc in.h
-> file also needs update.  IPV6_MINHOPLIMIT should also be added
-> (although BSD doesn't support that).  
-> 
-> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
-> if desired.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Applied to net-next-2.6, thanks Stephen.
+How exactly does this work?
