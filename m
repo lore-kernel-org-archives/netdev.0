@@ -1,71 +1,79 @@
-From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Tue, 12 Jan 2010 13:33:05 -0800
-Message-ID: <4B4CEA91.3070201@redfish-solutions.com>
-References: <201001121432.43301.schmto@hrz.tu-chemnitz.de>	<20100112.121607.39835310.davem@davemloft.net>	<4B4CE2B8.1040702@redfish-solutions.com> <20100112.130355.144803575.davem@davemloft.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [PATCH] ixgbe: Fix ixgbe_tx_map error path
+Date: Tue, 12 Jan 2010 15:27:41 -0800
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F12D49A30A1@orsmsx501.amr.corp.intel.com>
+References: <20100112110135.GK12666@kryten>
+ <80769D7B14936844A23C0C43D9FBCF0F12D49A2CE7@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Anton Blanchard <anton@samba.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:54097 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750757Ab0ALVdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 16:33:11 -0500
-In-Reply-To: <20100112.130355.144803575.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:32366 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754547Ab0ALX1n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 18:27:43 -0500
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F12D49A2CE7@orsmsx501.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2010 01:03 PM, David Miller wrote:
-> From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-> Date: Tue, 12 Jan 2010 12:59:36 -0800
+Duyck, Alexander H wrote:
+> Actually it looks like the bug for ixgbe is in the while (count >= 0)
+> check.  It should be just while (count > 0) insead. 
 > 
->> What has changed is how network equipment is required to interpret
->> the meaning of those bits.
->>
->> Even if we pass the bits "as is" to the network, if the network is
->> applying entirely new semantics (and when I say "entirely new", I
->> mean those mandated since 1998), then compatibility in the host
->> kernel API doesn't matter a hoot since the packets will still be
->> handled by every transited router according to the modern semantics.
+> It also appears there is an issue I may have introduced in igb as
+> well.  I will go back through the drivers and see about submitting
+> some patches to address these issues.  
 > 
-> People really don't assign global meaning to bits set by applications
-> in the TOS field.
-
-Since I'm not a clairvoyant, I can't speak for "people".  But I will say that I do assign such a meaning, and based on that interpretation, other people have code reviewed patches and accepted them, so at least "some people" share my interpretation.
-
-I've submitted QoS fixes for NTP, Proftp, Cyrus, Apache/apr, Sendmail, CURL, Thunderbird, Firefox, and a several other packages.
-
-All of which very much depend on host compliance with RFC-2474 and 2597/2598.
-
-
-> What they do is they have a set of semantics inside of their cloud of
-> routers and switch points for diffserv, and when packets come in the
-> TOS field is rewritten to whatever scheme is being used inside of that
-> cloud.
-
-Uh, no.  Net Neutrality very much requires consistent end-to-end interpretation of ToS bits by backbone carriers.  If you know of a carrier that isn't honoring ToS bits, I have a group of lawyers I'd like them to meet.
-
-
-> And the diffserv bits only have meaning and effect within that cloud.
-
-Have you read RFC-2474 lately?  You only need to get as far as the Abstract:
-
-   The services may be either end-to-end or intra-domain; they include
-   both those that can satisfy quantitative performance requirements (e.g.,
-   peak bandwidth) and those based on relative performance (e.g., "class"
-   differentiation).
-
-"end-to-end"... seems pretty clear to me.
-
-
-> So really, having a syscall that sets the TOS bits exactly by
-> applications is just fine.
+> Thanks,
 > 
-> People are doing diffserv right now with Linux and have done so
-> for years.
+> Alex
 
-Right, and I suspect in most cases, the default behavior of the host is to misinterpret the bits and put the packet in the wrong output queue.
+It looks like we actually have some other patches in place that are addressing the count >= 0 issue.  This patch addresses the remaining return value of -1 issues for ixgbe. I think we should probably pull it into Jeff's tree for testing, and I will generate a separate patch for the igb issues.
 
--Philip
+Thanks,
+
+Alex
+
+> -----Original Message-----
+> From: Anton Blanchard [mailto:anton@samba.org]
+> Sent: Tuesday, January 12, 2010 3:02 AM
+> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Waskiewicz
+> Jr, Peter P; Ronciak, John; Skidmore, Donald C; Zou, Yi; Duyck,
+> Alexander H  
+> Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+> Subject: [PATCH] ixgbe: Fix ixgbe_tx_map error path
+> 
+> 
+> Commit e5a43549f7a58509a91b299a51337d386697b92c (ixgbe: remove
+> skb_dma_map/unmap calls from driver) looks to have introduced a bug in
+> ixgbe_tx_map. If we get an error from a PCI DMA call, we loop
+> backwards 
+> through count until it becomes -1 and return that.
+> 
+> The caller of ixgbe_tx_map expects 0 on error, so return that instead.
+> 
+> ---
+> 
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c
+> b/drivers/net/ixgbe/ixgbe_main.c 
+> index 1a2ea62..af660ba 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -5174,7 +5174,7 @@ dma_error:
+>  		ixgbe_unmap_and_free_tx_resource(adapter, tx_buffer_info);
+>  	}
+> 
+> -	return count;
+> +	return 0;
+>  }
+> 
+>  static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+
