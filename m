@@ -1,54 +1,47 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Tue, 12 Jan 2010 09:39:47 -0800
-Message-ID: <20100112173947.GA7784@suse.de>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au> <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc> <20100111200136.GA29955@suse.de> <4B4CA666.1050505@imap.cc>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
+Date: Tue, 12 Jan 2010 12:42:04 -0500
+Message-ID: <4B4CB46C.8020502@gmail.com>
+References: <4B44FE3C.6060809@gmail.com> <4B450065.4010108@gmail.com> <4B4C519E.2090207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754469Ab0ALRji@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B4CA666.1050505@imap.cc>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754439Ab0ALRmL@vger.kernel.org>
+In-Reply-To: <4B4C519E.2090207@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 12, 2010 at 05:42:14PM +0100, Tilman Schmidt wrote:
-> Am 2010-01-11 21:01 schrieb Greg KH:
-> > On Mon, Jan 11, 2010 at 08:46:50PM +0100, Tilman Schmidt wrote:
-> >>
-> >> Just an idea - as a stopgap measure, couldn't pci_find_device() be made
-> >> a private function of the HiSax drivers? That way, the remainder of the
-> >> kernel won't be polluted by it anymore, and the PCI_LEGACY config option
-> >> can be dropped. Something like this quick and dirty hack:
-> > 
-> > Close, but if you do this, please name the function
-> > hisax_find_pci_device() or something, and change the drivers to use it
+Eric Dumazet wrote:
+> Its better to inline your patches so that we can comment them, without copy/paste
 > 
-> Sorry, but no. That would drag me into the checkpatch.pl swamp,
-> a place I know well enough by now to avoid it whenever possible.
+> When I hit 'reply to', my mailer only quoted the ChangeLog, not the patch.
+> 
+Seeing that we're both using Mozilla, how to you do it?
 
-I don't understand, why?
+It took me many attempts to get this to work with Thunderbird on the Mac.
 
-> Many of the calls to pci_find_device() have checkpatch problems
-> which of course do not go away by just substituting another
-> function name, so I would be obliged to restructure all those
-> call sites by hand for the sake of "not introducing new code
-> with checkpatch problems". BTDT.
 
-No you would not, don't be crazy.  Modfying a single line to rename a
-function from one thing to another could never be decreed as a "don't
-add bad code".  And if someone says it is, well, you just found someone
-who doesn't know what they are doing :)
+> Anyway ..
+> 
+> +/* Length of standard options only.  This could be negative. */
+> +static inline int tcp_option_len_th(const struct tcphdr *th)
+> +{
+> +	return (int)(th->doff * 4) - sizeof(*th);
+> +}
+> 
+> 
+> The (int) cast is not necessary, since the function returns a signed int
+> 
+> ->
+> 	return th->doff * 4 - sizeof(*th);
+> 
+Then GCC must be smarter than it was in the past, as doff is an __u16
+bit slice -- once upon a time, a cast was required before subtraction.
+One of the dis/advantages of C programming for 30+ years is that my
+fingers remember some fairly old practices....
 
-> So I'll drop that idea. If someone else wants to pick it up,
-> feel free to do so.
-
-Please continue with this idea, it's sane, and valid.
-
-thanks,
-
-greg k-h
+(But this still works properly!)
