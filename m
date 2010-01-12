@@ -1,65 +1,49 @@
-From: Daniel Borkmann <danborkmann@googlemail.com>
-Subject: Re: [PATCH] netpoll: allow execution of multiple rx_hooks per interface
-Date: Tue, 12 Jan 2010 01:09:09 +0100
-Message-ID: <4B4BBDA5.8010808@gmail.com>
-References: <4B4630C0.6090206@gmail.com> <4B467A4D.9070708@gmail.com>	 <1263252108.29868.4774.camel@calx>	 <20100111.155912.68138954.davem@davemloft.net> <1263254625.29868.4777.camel@calx>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug #14925] sky2 panic under load
+Date: Mon, 11 Jan 2010 16:14:19 -0800 (PST)
+Message-ID: <20100111.161419.138918787.davem@davemloft.net>
+References: <4B4B2FBD.5090007@ring3k.org>
+	<20100111084504.7adb5a1e@nehalam>
+	<20100111220753.GC3139@del.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8D877BCA6BA24570F9167579"
-Cc: David Miller <davem@davemloft.net>, danborkmann@googlemail.com,
-	linux-kernel@vger.kernel.org, jmoyer@redhat.com,
-	netdev@vger.kernel.org, netdev@oss.sgi.com
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, mikem@ring3k.org, flyboy@gmail.com,
+	rjw@sisk.pl, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:58905 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752972Ab0ALAJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:09:31 -0500
-In-Reply-To: <1263254625.29868.4777.camel@calx>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54140
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752355Ab0ALAOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jan 2010 19:14:11 -0500
+In-Reply-To: <20100111220753.GC3139@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8D877BCA6BA24570F9167579
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 11 Jan 2010 23:07:54 +0100
 
-Matt Mackall wrote:
-> On Mon, 2010-01-11 at 15:59 -0800, David Miller wrote:
->> From: Matt Mackall <mpm@selenic.com>
->> Date: Mon, 11 Jan 2010 17:21:48 -0600
->>
->>> Looks pretty good. Dave?
->>>
->>> Acked-by: Matt Mackall <mpm@selenic.com>
->> I don't like the loop for RX ARP processing.
->>
->> The packet contents aren't going to change, so doing basic
->> packet validation inside of the "for each RX client" loop
->> of arp_reply() doesn't make any sense.
->=20
-> True. Dan, please help our poor compilers with some manual loop
-> invariant motion.
+> I don't agree: you both try to make this check more specific.
+> Actually, since this problem is quite tricky, I wondered about
+> making it more genaral and visible for other maintainers by
+> adding something like netif_wake_queue_present() with the
+> check and some comment.
 
-Okay, true. I'll fix this by tomorrow and resend the patch.
+This detracts from the real problem.
 
-Best regards,
-Daniel
+The issue is that we have a code path bringing a device down, which
+uses helper routines which are meant to be executed when the device is
+up and functioning normally.
 
+That's the bug.
 
---------------enig8D877BCA6BA24570F9167579
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+No other driver does silly things like call helper routines which wake
+the TX queue when taking the chip down.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Fix that, not the immediate symptoms.  Write a routine that
+unconditionally clears the TX queue, frees the packets, etc. and
+has none of the wake logic.
 
-iEYEARECAAYFAktLvaUACgkQ5AxJm1m3CC8DEACgmoly7e3ugTj87vcvytfdJPyP
-1KsAniSKXoLfTOQTAIYBqaOaZNSNOvvX
-=6nem
------END PGP SIGNATURE-----
+That's what most other driver do, and those that don't should be
+fixed similarly.
 
---------------enig8D877BCA6BA24570F9167579--
