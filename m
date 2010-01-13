@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
 Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Wed, 13 Jan 2010 07:03:21 +0100
-Message-ID: <m2hbqqilsm.fsf@ssh.synack.fr>
+Date: Wed, 13 Jan 2010 07:20:22 +0100
+Message-ID: <m2d41eil09.fsf@ssh.synack.fr>
 References: <1262437456-24476-1-git-send-email-sam@synack.fr>
 	<1262437456-24476-8-git-send-email-sam@synack.fr>
 	<4B420464.3040301@trash.net>
@@ -21,68 +21,20 @@ List-Id: netdev.vger.kernel.org
 Patrick McHardy <kaber@trash.net> writes:
 
 > Samir Bellabes wrote:
->> +
->> +	msg_head = genlmsg_put(skb_rsp, snet_nl_pid,
->> +			       atomic_inc_return(&snet_nl_seq),
->> +			       &snet_genl_family, 0, SNET_C_VERDICT);
->> +	if (msg_head == NULL)
->> +		goto send_event_failure;
->> +
->> +	snet_dbg("verdict_id=0x%x syscall=%s protocol=%u "
->> +		 "family=%u uid=%u pid=%u\n",
->> +		 verdict_id, snet_syscall_name(syscall),
->> +		 protocol, family, current_uid(), current->pid);
->> +
->> +	if (verdict_id) {
->> +		ret = nla_put_u32(skb_rsp, SNET_A_VERDICT_ID, verdict_id);
->> +		if (ret != 0)
->> +			goto send_event_failure;
->> +	}
->> +	ret = nla_put_u8(skb_rsp, SNET_A_SYSCALL, syscall);
->> +	if (ret != 0)
->> +		goto send_event_failure;
->> +	ret = nla_put_u8(skb_rsp, SNET_A_PROTOCOL, protocol);
->> +	if (ret != 0)
->> +		goto send_event_failure;
->> +	ret = nla_put_u8(skb_rsp, SNET_A_FAMILY, family);
->> +	if (ret != 0)
->> +		goto send_event_failure;
->> +	ret = nla_put_u32(skb_rsp, SNET_A_UID, current_uid());
->> +	if (ret != 0)
->> +		goto send_event_failure;
->> +	ret = nla_put_u32(skb_rsp, SNET_A_PID, current->pid);
->> +	if (ret != 0)
->> +		goto send_event_failure;
->> +	ret = nla_put(skb_rsp, SNET_A_DATA_EXT, len, data);
->> +	if (ret != 0)
->> +		goto send_event_failure;
+>> +static const struct nla_policy snet_genl_policy[SNET_A_MAX + 1]
+>> +__read_mostly = {
 >
-> I guess its a matter of taste, but the NLA_PUT macros already take
-> care of exception handling and keep the code smaller.
+> You don't need __read_mostly for const. If I recall correctly, it even
+> causes an error with certain compiler or linker versions.
 
-indeed, I moved the code to use NLA_PUT and the hidden failure label
+fixed, thanks Patrick
 
->> +
->> +	ret = genlmsg_end(skb_rsp, msg_head);
->> +	if (ret < 0)
->> +		goto send_event_failure;
->> +
->> +	genlmsg_unicast(&init_net, skb_rsp, snet_nl_pid);
->> +	return 0;
->> +
->> +send_event_failure:
->> +	kfree_skb(skb_rsp);
->> +	return 0;
->
-> Shouldn't this error be returned to the caller to avoid waiting
-> for the timeout to occur (same question for the return value of
-> genlmsg_unicast, which can also fail).
+I didn't had errors with (fedora core 11):
+gcc (GCC) 4.4.1 20090725 (Red Hat 4.4.1-2)
+GNU ld version 2.19.51.0.2-17.fc11 20090204
 
-indeed, if error occurred, no need to wait, we can apply the polocy
-verdict.
-genlmsg_unicast() is taking care of freeing the skb if error occured, so
-we can return directly the value of genlmsg_unicast()
-
-thanks Patrick
+nor (ubuntu 9.10):
+gcc (Ubuntu 4.4.1-4ubuntu8) 4.4.1 
+GNU ld (GNU Binutils for Ubuntu) 2.20 (2.20-0ubuntu2)
 
 sam
