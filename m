@@ -1,60 +1,73 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH] tcp: harmonize tcp_vx_rcv header length assumptions
-Date: Wed, 13 Jan 2010 04:50:12 -0500
-Message-ID: <4B4D9754.9070902@gmail.com>
-References: <4B49D001.4000302@gmail.com> <4B4C4962.8040207@gmail.com> <4B4C52EA.6070705@gmail.com> <4B4CAD45.5080606@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
+Date: Wed, 13 Jan 2010 11:00:16 +0100
+Message-ID: <4B4D99B0.8090102@gmail.com>
+References: <4B44FE3C.6060809@gmail.com> <4B450065.4010108@gmail.com> <4B4C519E.2090207@gmail.com> <4B4CB46C.8020502@gmail.com> <4B4CB712.8030806@gmail.com> <4B4D8A24.4070108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Andi Kleen <andi@firstfloor.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755287Ab0AMJuS@vger.kernel.org>
-In-Reply-To: <4B4CAD45.5080606@gmail.com>
+	Michael Chan <mchan@broadcom.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755283Ab0AMKAX@vger.kernel.org>
+In-Reply-To: <4B4D8A24.4070108@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-William Allen Simpson wrote:
+Le 13/01/2010 09:53, William Allen Simpson a =E9crit :
 > Eric Dumazet wrote:
->> Seems fine, but :
+>=20
+>> About cast games, maybe following way is the cleanest one.
 >>
->> 1) What means the "Transformed ?" you wrote several times ?
+>> int tcp_options_len_th(struct tcphdr *th)
+>> {
+>>     return tcp_header_len_th(th) - sizeof(*th);
+>> }
 >>
-> The only reason that I've been able to figure out for having the
-> skb->len test in those places is the preceding xfrm4_policy_check()
-> or xfrm6_policy_check() must be able to shrink the skb->len?
-> 
-> When I did the original transform stuff in other code circa 1995, I'd
-> envisioned IP length or link layer (PPP) length shrinking (removing
-> padding after block ciphers) -- and apparently this implementation
-> extended that concept to transport layer, too.
-> 
-> Personally, I'd prefer that a single test be placed in the appropriate
-> spot in the xfrm* functions, instead.  Anybody know where?
-> 
-I've spent another day staring at the xfrm* functions.  Since nobody
-familiar with them has answered my recent questions, it seems I'm on my
-own....  So, here are my conclusions:
+> If you'd have been one of my C students, you'd have failed the exam
+> question.  That's unsigned int tcp_header_len_th() -- subtracting an
+> untyped constant could be a negative number (stored in an unsigned).
+> Then demotion to int (which many compilers truncate to a very large
+> positive number).
 
-The current xfrm* code shouldn't change the TCP header.  If anything did,
-the current tests wouldn't work anyway.  For example:
+Thats simply not true, you are very confused.
 
-tcp_ipv4:
-tcp_v4_rcv()
-...
-1645 no_tcp_socket:
-1646         if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-1647                 goto discard_it;
-1648
-1649         if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
+Once again you type too much text and ignore my comments.
+I really would hate being your student, thanks God it wont happen in th=
+is life.
 
-This code depends on the *th pointer remaining unchanged.  A pullup or
-skb clone could make the pointer invalid.
+1) You wrote tcp_header_len_th(), you should know that it
+returns an unsigned int.
 
-Likewise, the checksum occurs after the xfrm* code.  Thus, the xfrm*
-cannot alter, decrypt, or tunnel the input data.
+2) You also should know that sizeof() is *strongly* typed (size_t),
+not an "untyped constant".
 
-Therefore, I'll remove those existing extraneous skb->len tests.  And
-I'll add these criteria to the include/net/xfrm.h for future reference.
+unsigned int arg =3D some_expression;
+size_t sz =3D sizeof(something)
+int res =3D arg - sz;
+return res;
+
+is *perfectly* legal and very well defined by C standards.
+
+It *will* return a negative value is arg < sz
+
+
+
+>=20
+> It's one of the reasons that folks used to do all this with macros, s=
+o
+> that the types and truncation were handled well by the compiler.
+>=20
+> Of course, this is an inline function, which is more like macros.  I'=
+ve
+> not studied how gcc works internally since egcs.
+>=20
+> Let's keep (int)(th->doff * 4) - sizeof(*th) -- self documenting, and
+> should work with a wide variety of compilers.
+
+So you wrote tcp_header_len_th(), but you keep (th->doff * 4) thing all=
+ over
+the code...
+
+The (int) cast it not only _not_ needed, its also confusing.
