@@ -1,78 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC][PATCH] IP: Send a fragment reassembly time exceeded packet
- when enabling connection track
-Date: Wed, 13 Jan 2010 09:27:41 +0100
-Message-ID: <4B4D83FD.5040604@trash.net>
-References: <4B3191E7.8060509@cn.fujitsu.com> <4B42D1C3.3020207@trash.net> <4B4D3AD3.6050403@cn.fujitsu.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
+Date: Wed, 13 Jan 2010 03:53:56 -0500
+Message-ID: <4B4D8A24.4070108@gmail.com>
+References: <4B44FE3C.6060809@gmail.com> <4B450065.4010108@gmail.com> <4B4C519E.2090207@gmail.com> <4B4CB46C.8020502@gmail.com> <4B4CB712.8030806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B4D3AD3.6050403@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755053Ab0AMIyB@vger.kernel.org>
+In-Reply-To: <4B4CB712.8030806@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shan Wei wrote:
-> Patrick McHardy wrote, at 01/05/2010 01:44 PM:
->> Shan Wei wrote:
->>> Default, a host may send a fragment reassembly time exceeded packet
->>> (ICMP Time Exceeded Message with code value of 1) when defraging fragments timeout.
->>> But, when enabling connection track, a host can't send the packet.
->>>
->>> Because, the module of nf_defrag_ipv4 selected by connection track is registered 
->>> in PRE_ROUTING HOOK and assembles all accepted fragments(here, not begin to routing).
->>> After defrag timeout, the host can't send fragment reassembly time exceeded packet, 
->>> because of lack of router information.
->>>
->>> RFC 792 says:
->>>>>>>   If a host reassembling a fragmented datagram cannot complete the
->>>>>>>   reassembly due to missing fragments within its time limit it
->>>>>>>   discards the datagram, and it may send a time exceeded message.
->>>>>>>
->>>>>>>   If fragment zero is not available then no time exceeded need be
->>>>>>>   sent at all.
->>>>>>>
->>>>>>>
->>>>>>> Read more: http://www.faqs.org/rfcs/rfc792.html#ixzz0aOXRD7Wp
->>> So, the patch try to fix it with filling router information before sending fragment reassembly
->>> time exceeded packet when defrag timeout.
->> I guess the question is whether we really want to send an ICMP
->> message in this case. The above quote applies to end hosts,
+Eric Dumazet wrote:
+> I type my Changelog text, add my signature, then copy/paste patch from external editor
+> (this editor must preserve tabulations of course)
 > 
-> Yes, what you guess is what i want to ask. :-)
-> Should end hosts which are using conntrack send a fragment reassembly time exceeded message?
+That doesn't work properly on a Mac, copying from BBEdit to Thunderbird.
 
-Yes, they should.
+BBEdit preserves tabs and even understands and preserves Unix LF (and
+I've been using it for a Unix editor since it was included with Xinu in
+early '90s), but the MacOS copy and paste seems to mangle it.
 
->> while conntrack is also (probably more commonly) used on routers,
->> which normally shouldn't attempt reassembly.  
+I'll try again someday with Thunderbird 3, when it's had time to mature.
+
+
+> About cast games, maybe following way is the cleanest one.
 > 
-> There are two point:
-> 1.Take security into account, end hosts also used conntrack. 
+> int tcp_options_len_th(struct tcphdr *th)
+> {
+> 	return tcp_header_len_th(th) - sizeof(*th);
+> }
 > 
->   For example: When a host is attacked by denial of service TCP flaws, RedHat used the conntrack&recent
->   match to limit the TCP connections.
->   
->   About details, see the phenomenon description:
->     http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2008-4609
->     http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2008-4609
-> 
->   See RedHat's solution:
->     http://kbase.redhat.com/faq/docs/DOC-18730
+If you'd have been one of my C students, you'd have failed the exam
+question.  That's unsigned int tcp_header_len_th() -- subtracting an
+untyped constant could be a negative number (stored in an unsigned).
+Then demotion to int (which many compilers truncate to a very large
+positive number).
 
-I'm not sure I get the connection to this patch.
+It's one of the reasons that folks used to do all this with macros, so
+that the types and truncation were handled well by the compiler.
 
-> 2.On the latest kernel, a router on which the conntrack is used, reassemble fragments and 
->   forward reassembled intact packet. This implementation is not coincide with what you said.
+Of course, this is an inline function, which is more like macros.  I've
+not studied how gcc works internally since egcs.
 
-Yes, thats a necessity for conntrack to work, but its not what
-a router usually does. But it actually does refragment the packet
-if it exceeds the MTU of the outgoing interface.
-
->   nf_defrag_ipv4 module is registered on PRE_ROUTING hook with the highest priority. So, search router table 
->   after completing the reassembly and forward it to destination host.
-
+Let's keep (int)(th->doff * 4) - sizeof(*th) -- self documenting, and
+should work with a wide variety of compilers.
