@@ -1,606 +1,235 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH v2 2/2] virtio_net: Defer skb allocation in receive path
-Date: Wed, 13 Jan 2010 12:53:38 -0800
-Message-ID: <1263416018.29594.1.camel@localhost.localdomain>
-References: <1261122090.4148.24.camel@localhost.localdomain>
-	 <1261122289.4148.27.camel@localhost.localdomain>
-	 <20091224133749.GB2855@amit-x200.redhat.com>
-	 <1262640344.18773.2.camel@localhost.localdomain>
-	 <20100104211454.GB21488@redhat.com>
-	 <1263236965.11949.1.camel@localhost.localdomain>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: Reproducible corruption with SG offloading
+Date: Wed, 13 Jan 2010 12:55:31 -0800
+Message-ID: <20100113205531.GA15115@xw6200.broadcom.net>
+References: <4B4B181B.3020208@rabbit.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1263236965.11949.1.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Peter Rabbitson" <rabbit+list@rabbit.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2231 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755648Ab0AMU4N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jan 2010 15:56:13 -0500
+In-Reply-To: <4B4B181B.3020208@rabbit.us>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-virtio_net receives packets from its pre-allocated vring buffers, then it 
-delivers these packets to upper layer protocols as skb buffs. So it's not
-necessary to pre-allocate skb for each mergable buffer, then frees extra 
-skbs when buffers are merged into a large packet. This patch has deferred 
-skb allocation in receiving packets for both big packets and mergeable buffers
-to reduce skb pre-allocations and skb frees. It frees unused buffers by calling 
-detach_unused_buf in vring, so recv skb queue is not needed.
+While I think about this a little more can you try two things?
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
- drivers/net/virtio_net.c |  427 +++++++++++++++++++++++++++-------------------
- 1 files changed, 248 insertions(+), 179 deletions(-)
+1) If you can, try moving the NIC to a different slot.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c708ecc..72b3f21 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -56,8 +56,7 @@ struct virtnet_info
- 	/* Host will merge rx buffers for big packets (shake it! shake it!) */
- 	bool mergeable_rx_bufs;
- 
--	/* Receive & send queues. */
--	struct sk_buff_head recv;
-+	/* Send queue. */
- 	struct sk_buff_head send;
- 
- 	/* Work struct for refilling if we run low on memory. */
-@@ -75,34 +74,44 @@ struct skb_vnet_hdr {
- 	unsigned int num_sg;
- };
- 
-+struct padded_vnet_hdr {
-+	struct virtio_net_hdr hdr;
-+	/*
-+	 * virtio_net_hdr should be in a separated sg buffer because of a
-+	 * QEMU bug, and data sg buffer shares same page with this header sg.
-+	 * This padding makes next sg 16 byte aligned after virtio_net_hdr.
-+	 */
-+	char padding[6];
-+};
-+
- static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
- {
- 	return (struct skb_vnet_hdr *)skb->cb;
- }
- 
--static void give_a_page(struct virtnet_info *vi, struct page *page)
--{
--	page->private = (unsigned long)vi->pages;
--	vi->pages = page;
--}
--
--static void trim_pages(struct virtnet_info *vi, struct sk_buff *skb)
-+/*
-+ * private is used to chain pages for big packets, put the whole
-+ * most recent used list in the beginning for reuse
-+ */
-+static void give_pages(struct virtnet_info *vi, struct page *page)
- {
--	unsigned int i;
-+	struct page *end;
- 
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--		give_a_page(vi, skb_shinfo(skb)->frags[i].page);
--	skb_shinfo(skb)->nr_frags = 0;
--	skb->data_len = 0;
-+	/* Find end of list, sew whole thing into vi->pages. */
-+	for (end = page; end->private; end = (struct page *)end->private);
-+	end->private = (unsigned long)vi->pages;
-+	vi->pages = page;
- }
- 
- static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
- {
- 	struct page *p = vi->pages;
- 
--	if (p)
-+	if (p) {
- 		vi->pages = (struct page *)p->private;
--	else
-+		/* clear private here, it is used to chain pages */
-+		p->private = 0;
-+	} else
- 		p = alloc_page(gfp_mask);
- 	return p;
- }
-@@ -118,99 +127,142 @@ static void skb_xmit_done(struct virtqueue *svq)
- 	netif_wake_queue(vi->dev);
- }
- 
--static void receive_skb(struct net_device *dev, struct sk_buff *skb,
--			unsigned len)
-+static void set_skb_frag(struct sk_buff *skb, struct page *page,
-+			 unsigned int offset, unsigned int *len)
- {
--	struct virtnet_info *vi = netdev_priv(dev);
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
--	int err;
--	int i;
--
--	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
--		pr_debug("%s: short packet %i\n", dev->name, len);
--		dev->stats.rx_length_errors++;
--		goto drop;
--	}
-+	int i = skb_shinfo(skb)->nr_frags;
-+	skb_frag_t *f;
-+
-+	f = &skb_shinfo(skb)->frags[i];
-+	f->size = min((unsigned)PAGE_SIZE - offset, *len);
-+	f->page_offset = offset;
-+	f->page = page;
-+
-+	skb->data_len += f->size;
-+	skb->len += f->size;
-+	skb_shinfo(skb)->nr_frags++;
-+	*len -= f->size;
-+}
- 
--	if (vi->mergeable_rx_bufs) {
--		unsigned int copy;
--		char *p = page_address(skb_shinfo(skb)->frags[0].page);
-+static struct sk_buff *page_to_skb(struct virtnet_info *vi,
-+				   struct page *page, unsigned int len)
-+{
-+	struct sk_buff *skb;
-+	struct skb_vnet_hdr *hdr;
-+	unsigned int copy, hdr_len, offset;
-+	char *p;
- 
--		if (len > PAGE_SIZE)
--			len = PAGE_SIZE;
--		len -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	p = page_address(page);
- 
--		memcpy(&hdr->mhdr, p, sizeof(hdr->mhdr));
--		p += sizeof(hdr->mhdr);
-+	/* copy small packet so we can reuse these pages for small data */
-+	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
-+	if (unlikely(!skb))
-+		return NULL;
- 
--		copy = len;
--		if (copy > skb_tailroom(skb))
--			copy = skb_tailroom(skb);
-+	hdr = skb_vnet_hdr(skb);
- 
--		memcpy(skb_put(skb, copy), p, copy);
-+	if (vi->mergeable_rx_bufs) {
-+		hdr_len = sizeof hdr->mhdr;
-+		offset = hdr_len;
-+	} else {
-+		hdr_len = sizeof hdr->hdr;
-+		offset = sizeof(struct padded_vnet_hdr);
-+	}
- 
--		len -= copy;
-+	memcpy(hdr, p, hdr_len);
- 
--		if (!len) {
--			give_a_page(vi, skb_shinfo(skb)->frags[0].page);
--			skb_shinfo(skb)->nr_frags--;
--		} else {
--			skb_shinfo(skb)->frags[0].page_offset +=
--				sizeof(hdr->mhdr) + copy;
--			skb_shinfo(skb)->frags[0].size = len;
--			skb->data_len += len;
--			skb->len += len;
--		}
-+	len -= hdr_len;
-+	p += offset;
- 
--		while (--hdr->mhdr.num_buffers) {
--			struct sk_buff *nskb;
-+	copy = len;
-+	if (copy > skb_tailroom(skb))
-+		copy = skb_tailroom(skb);
-+	memcpy(skb_put(skb, copy), p, copy);
- 
--			i = skb_shinfo(skb)->nr_frags;
--			if (i >= MAX_SKB_FRAGS) {
--				pr_debug("%s: packet too long %d\n", dev->name,
--					 len);
--				dev->stats.rx_length_errors++;
--				goto drop;
--			}
-+	len -= copy;
-+	offset += copy;
- 
--			nskb = vi->rvq->vq_ops->get_buf(vi->rvq, &len);
--			if (!nskb) {
--				pr_debug("%s: rx error: %d buffers missing\n",
--					 dev->name, hdr->mhdr.num_buffers);
--				dev->stats.rx_length_errors++;
--				goto drop;
--			}
-+	while (len) {
-+		set_skb_frag(skb, page, offset, &len);
-+		page = (struct page *)page->private;
-+		offset = 0;
-+	}
- 
--			__skb_unlink(nskb, &vi->recv);
--			vi->num--;
-+	if (page)
-+		give_pages(vi, page);
- 
--			skb_shinfo(skb)->frags[i] = skb_shinfo(nskb)->frags[0];
--			skb_shinfo(nskb)->nr_frags = 0;
--			kfree_skb(nskb);
-+	return skb;
-+}
- 
--			if (len > PAGE_SIZE)
--				len = PAGE_SIZE;
-+static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
-+{
-+	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-+	struct page *page;
-+	int num_buf, i, len;
-+
-+	num_buf = hdr->mhdr.num_buffers;
-+	while (--num_buf) {
-+		i = skb_shinfo(skb)->nr_frags;
-+		if (i >= MAX_SKB_FRAGS) {
-+			pr_debug("%s: packet too long\n", skb->dev->name);
-+			skb->dev->stats.rx_length_errors++;
-+			return -EINVAL;
-+		}
- 
--			skb_shinfo(skb)->frags[i].size = len;
--			skb_shinfo(skb)->nr_frags++;
--			skb->data_len += len;
--			skb->len += len;
-+		page = vi->rvq->vq_ops->get_buf(vi->rvq, &len);
-+		if (!page) {
-+			pr_debug("%s: rx error: %d buffers missing\n",
-+				 skb->dev->name, hdr->mhdr.num_buffers);
-+			skb->dev->stats.rx_length_errors++;
-+			return -EINVAL;
- 		}
--	} else {
--		len -= sizeof(hdr->hdr);
-+		if (len > PAGE_SIZE)
-+			len = PAGE_SIZE;
-+
-+		set_skb_frag(skb, page, 0, &len);
-+
-+		--vi->num;
-+	}
-+	return 0;
-+}
-+
-+static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	struct page *page;
-+	struct skb_vnet_hdr *hdr;
- 
--		if (len <= MAX_PACKET_LEN)
--			trim_pages(vi, skb);
-+	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
-+		pr_debug("%s: short packet %i\n", dev->name, len);
-+		dev->stats.rx_length_errors++;
-+		if (vi->mergeable_rx_bufs || vi->big_packets)
-+			give_pages(vi, buf);
-+		else
-+			dev_kfree_skb(buf);
-+		return;
-+	}
- 
--		err = pskb_trim(skb, len);
--		if (err) {
--			pr_debug("%s: pskb_trim failed %i %d\n", dev->name,
--				 len, err);
-+	if (!vi->mergeable_rx_bufs && !vi->big_packets) {
-+		skb = buf;
-+		len -= sizeof(struct virtio_net_hdr);
-+		skb_trim(skb, len);
-+	} else {
-+		page = buf;
-+		skb = page_to_skb(vi, page, len);
-+		if (unlikely(!skb)) {
- 			dev->stats.rx_dropped++;
--			goto drop;
-+			give_pages(vi, page);
-+			return;
- 		}
-+		if (vi->mergeable_rx_bufs)
-+			if (receive_mergeable(vi, skb)) {
-+				dev_kfree_skb(skb);
-+				return;
-+			}
- 	}
- 
-+	hdr = skb_vnet_hdr(skb);
- 	skb->truesize += skb->data_len;
- 	dev->stats.rx_bytes += skb->len;
- 	dev->stats.rx_packets++;
-@@ -267,110 +319,119 @@ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
- 
- frame_err:
- 	dev->stats.rx_frame_errors++;
--drop:
- 	dev_kfree_skb(skb);
- }
- 
--static bool try_fill_recv_maxbufs(struct virtnet_info *vi, gfp_t gfp)
-+static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
- {
- 	struct sk_buff *skb;
--	struct scatterlist sg[2+MAX_SKB_FRAGS];
--	int num, err, i;
--	bool oom = false;
--
--	sg_init_table(sg, 2+MAX_SKB_FRAGS);
--	do {
--		struct skb_vnet_hdr *hdr;
-+	struct skb_vnet_hdr *hdr;
-+	struct scatterlist sg[2];
-+	int err;
- 
--		skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
--		if (unlikely(!skb)) {
--			oom = true;
--			break;
--		}
-+	skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
-+	if (unlikely(!skb))
-+		return -ENOMEM;
- 
--		skb_put(skb, MAX_PACKET_LEN);
-+	skb_put(skb, MAX_PACKET_LEN);
- 
--		hdr = skb_vnet_hdr(skb);
--		sg_set_buf(sg, &hdr->hdr, sizeof(hdr->hdr));
-+	hdr = skb_vnet_hdr(skb);
-+	sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
- 
--		if (vi->big_packets) {
--			for (i = 0; i < MAX_SKB_FRAGS; i++) {
--				skb_frag_t *f = &skb_shinfo(skb)->frags[i];
--				f->page = get_a_page(vi, gfp);
--				if (!f->page)
--					break;
-+	skb_to_sgvec(skb, sg + 1, 0, skb->len);
- 
--				f->page_offset = 0;
--				f->size = PAGE_SIZE;
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 2, skb);
-+	if (err < 0)
-+		dev_kfree_skb(skb);
- 
--				skb->data_len += PAGE_SIZE;
--				skb->len += PAGE_SIZE;
-+	return err;
-+}
- 
--				skb_shinfo(skb)->nr_frags++;
--			}
-+static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
-+{
-+	struct scatterlist sg[MAX_SKB_FRAGS + 2];
-+	struct page *first, *list = NULL;
-+	char *p;
-+	int i, err, offset;
-+
-+	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
-+	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
-+		first = get_a_page(vi, gfp);
-+		if (!first) {
-+			if (list)
-+				give_pages(vi, list);
-+			return -ENOMEM;
- 		}
-+		sg_set_buf(&sg[i], page_address(first), PAGE_SIZE);
- 
--		num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
--		skb_queue_head(&vi->recv, skb);
-+		/* chain new page in list head to match sg */
-+		first->private = (unsigned long)list;
-+		list = first;
-+	}
- 
--		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, num, skb);
--		if (err < 0) {
--			skb_unlink(skb, &vi->recv);
--			trim_pages(vi, skb);
--			kfree_skb(skb);
--			break;
--		}
--		vi->num++;
--	} while (err >= num);
--	if (unlikely(vi->num > vi->max))
--		vi->max = vi->num;
--	vi->rvq->vq_ops->kick(vi->rvq);
--	return !oom;
-+	first = get_a_page(vi, gfp);
-+	if (!first) {
-+		give_pages(vi, list);
-+		return -ENOMEM;
-+	}
-+	p = page_address(first);
-+
-+	/* sg[0], sg[1] share the same page */
-+	/* a separated sg[0] for  virtio_net_hdr only during to QEMU bug*/
-+	sg_set_buf(&sg[0], p, sizeof(struct virtio_net_hdr));
-+
-+	/* sg[1] for data packet, from offset */
-+	offset = sizeof(struct padded_vnet_hdr);
-+	sg_set_buf(&sg[1], p + offset, PAGE_SIZE - offset);
-+
-+	/* chain first in list head */
-+	first->private = (unsigned long)list;
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, MAX_SKB_FRAGS + 2,
-+				       first);
-+	if (err < 0)
-+		give_pages(vi, first);
-+
-+	return err;
- }
- 
--/* Returns false if we couldn't fill entirely (OOM). */
--static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
-+static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
- {
--	struct sk_buff *skb;
--	struct scatterlist sg[1];
-+	struct page *page;
-+	struct scatterlist sg;
- 	int err;
--	bool oom = false;
--
--	if (!vi->mergeable_rx_bufs)
--		return try_fill_recv_maxbufs(vi, gfp);
- 
--	do {
--		skb_frag_t *f;
-+	page = get_a_page(vi, gfp);
-+	if (!page)
-+		return -ENOMEM;
- 
--		skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
--		if (unlikely(!skb)) {
--			oom = true;
--			break;
--		}
-+	sg_init_one(&sg, page_address(page), PAGE_SIZE);
- 
--		f = &skb_shinfo(skb)->frags[0];
--		f->page = get_a_page(vi, gfp);
--		if (!f->page) {
--			oom = true;
--			kfree_skb(skb);
--			break;
--		}
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, &sg, 0, 1, page);
-+	if (err < 0)
-+		give_pages(vi, page);
- 
--		f->page_offset = 0;
--		f->size = PAGE_SIZE;
-+	return err;
-+}
- 
--		skb_shinfo(skb)->nr_frags++;
-+/* Returns false if we couldn't fill entirely (OOM). */
-+static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
-+{
-+	int err;
-+	bool oom = false;
- 
--		sg_init_one(sg, page_address(f->page), PAGE_SIZE);
--		skb_queue_head(&vi->recv, skb);
-+	do {
-+		if (vi->mergeable_rx_bufs)
-+			err = add_recvbuf_mergeable(vi, gfp);
-+		else if (vi->big_packets)
-+			err = add_recvbuf_big(vi, gfp);
-+		else
-+			err = add_recvbuf_small(vi, gfp);
- 
--		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 1, skb);
- 		if (err < 0) {
--			skb_unlink(skb, &vi->recv);
--			kfree_skb(skb);
-+			oom = true;
- 			break;
- 		}
--		vi->num++;
-+		++vi->num;
- 	} while (err > 0);
- 	if (unlikely(vi->num > vi->max))
- 		vi->max = vi->num;
-@@ -408,15 +469,14 @@ static void refill_work(struct work_struct *work)
- static int virtnet_poll(struct napi_struct *napi, int budget)
- {
- 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
--	struct sk_buff *skb = NULL;
-+	void *buf;
- 	unsigned int len, received = 0;
- 
- again:
- 	while (received < budget &&
--	       (skb = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
--		__skb_unlink(skb, &vi->recv);
--		receive_skb(vi->dev, skb, len);
--		vi->num--;
-+	       (buf = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
-+		receive_buf(vi->dev, buf, len);
-+		--vi->num;
- 		received++;
- 	}
- 
-@@ -496,9 +556,9 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
- 
- 	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(sg, &hdr->mhdr, sizeof(hdr->mhdr));
-+		sg_set_buf(sg, &hdr->mhdr, sizeof hdr->mhdr);
- 	else
--		sg_set_buf(sg, &hdr->hdr, sizeof(hdr->hdr));
-+		sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
- 
- 	hdr->num_sg = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
- 	return vi->svq->vq_ops->add_buf(vi->svq, sg, hdr->num_sg, 0, skb);
-@@ -916,8 +976,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->features |= NETIF_F_HW_VLAN_FILTER;
- 	}
- 
--	/* Initialize our empty receive and send queues. */
--	skb_queue_head_init(&vi->recv);
-+	/* Initialize our empty send queue. */
- 	skb_queue_head_init(&vi->send);
- 
- 	err = register_netdev(dev);
-@@ -952,25 +1011,35 @@ free:
- 	return err;
- }
- 
-+static void free_unused_bufs(struct virtnet_info *vi)
-+{
-+	void *buf;
-+	while (1) {
-+		buf = vi->rvq->vq_ops->detach_unused_buf(vi->rvq);
-+		if (!buf)
-+			break;
-+		if (vi->mergeable_rx_bufs || vi->big_packets)
-+			give_pages(vi, buf);
-+		else
-+			dev_kfree_skb(buf);
-+		--vi->num;
-+	}
-+	BUG_ON(vi->num != 0);
-+}
-+
- static void __devexit virtnet_remove(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
--	struct sk_buff *skb;
- 
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
--	/* Free our skbs in send and recv queues, if any. */
--	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
--		kfree_skb(skb);
--		vi->num--;
--	}
-+	/* Free our skbs in send queue, if any. */
- 	__skb_queue_purge(&vi->send);
- 
--	BUG_ON(vi->num != 0);
--
- 	unregister_netdev(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
-+	free_unused_bufs(vi);
- 
- 	vdev->config->del_vqs(vi->vdev);
- 
+2) Try the following patch:
 
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 7f82b02..fa4c52e 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7645,6 +7645,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	 */
+ 	tp->grc_mode |= GRC_MODE_NO_TX_PHDR_CSUM;
+ 
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
++		tp->grc_mode |= GRC_MODE_FORCE_PCI32BIT;
++
+ 	tw32(GRC_MODE,
+ 	     tp->grc_mode |
+ 	     (GRC_MODE_IRQ_ON_MAC_ATTN | GRC_MODE_HOST_STACKUP));
+
+
+
+On Mon, Jan 11, 2010 at 04:22:51AM -0800, Peter Rabbitson wrote:
+> I have the following card:
+> 
+> 02:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 Gigabit Ethernet (rev 15)
+> 	Subsystem: Compaq Computer Corporation NC7770 Gigabit Server Adapter (PCI-X, 10/100/1000-T)
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+> 	Latency: 64 (16000ns min), Cache Line Size: 64 bytes
+> 	Interrupt: pin A routed to IRQ 24
+> 	Region 0: Memory at fc5e0000 (64-bit, non-prefetchable) [size=64K]
+> 	[virtual] Expansion ROM at fc5d0000 [disabled] [size=64K]
+> 	Capabilities: [40] PCI-X non-bridge device
+> 		Command: DPERE- ERO- RBC=512 OST=1
+> 		Status: Dev=02:02.1 64bit+ 133MHz+ SCD- USC- DC=simple DMMRBC=512 DMOST=1 DMCRS=8 RSCEM- 266MHz- 533MHz-
+> 	Capabilities: [48] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+> 		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+> 	Capabilities: [50] Vital Product Data
+> 		Product Name: HP NC7770 Gigabit Server Adapter
+> 		Read-only fields:
+> 			[PN] Part number: 284685-003
+> 			[EC] Engineering changes: 0G
+> 			[SN] Serial number: WEURE9FB68
+> 			[MN] Manufacture ID: 30 45 31 31
+> 			[RV] Reserved: checksum bad, 47 byte(s) reserved
+> 		Read/write fields:
+> 			[YA] Asset tag: Hewlett Packard
+> 			[RW] Read-write area: 103 byte(s) free
+> 		End
+> 	Capabilities: [58] MSI: Enable- Count=1/8 Maskable- 64bit+
+> 		Address: 00312230088fb704  Data: 0000
+> 	Kernel driver in use: tg3
+> 
+> When confronted with very specific repeatable data streams the card eventually
+> starts setting garbage down the wire. If I do ethtool -k <ifname> sg off the
+> problem disappears. Let me know if ou are interested in tracking this down,
+> (whether software or hardware) otherwise I'll throw the card away and go with
+> something else.
+> 
+> Please CC me as I am not subscribed to netdev@
+> 
+> This is my minimal test case with relevant data:
+> 
+> Program
+> ============
+> 
+> #!/usr/bin/perl
+> use warnings;
+> use strict;
+> 
+> use DBI;
+> my $dbh = DBI->connect ('dbi:mysql:database=tst;host=192.168.5.2', 'stress', 123, { RaiseError => 1});
+> 
+> for (1 .. 92) {
+>   $dbh->selectall_arrayref(q|SELECT `alias` FROM dbmail_aliases WHERE `alias` like "spam@example.com"|);
+> }
+> 
+> tcpdump at the machine with the card in question
+> ======================================
+> 
+> 00000000  d4 c3 b2 a1 02 00 04 00  00 00 00 00 00 00 00 00  |................|
+> 00000010  ff ff 00 00 01 00 00 00  7d 16 4b 4b b2 1a 06 00  |........}.KK....|
+> 00000020  4a 00 00 00 4a 00 00 00  00 30 48 67 c2 1c 00 11  |J...J....0Hg....|
+> 00000030  0a e9 fb 68 08 00 45 00  00 3c e9 c3 40 00 40 06  |...h..E..<..@.@.|
+> 00000040  c5 a4 c0 a8 05 01 c0 a8  05 02 95 30 0c ea 31 99  |...........0..1.|
+> 00000050  f8 84 00 00 00 00 a0 02  16 d0 c5 ed 00 00 02 04  |................|
+> 00000060  05 b4 04 02 08 0a 02 70  11 47 00 00 00 00 01 03  |.......p.G......|
+> 00000070  03 06 7d 16 4b 4b 5c 1b  06 00 4a 00 00 00 4a 00  |..}.KK\...J...J.|
+> 00000080  00 00 00 11 0a e9 fb 68  00 30 48 67 c2 1c 08 00  |.......h.0Hg....|
+> 00000090  45 00 00 3c 00 00 40 00  40 06 af 68 c0 a8 05 02  |E..<..@.@..h....|
+> 000000a0  c0 a8 05 01 0c ea 95 30  c8 89 90 8c 31 99 f8 85  |.......0....1...|
+> 000000b0  a0 12 16 a0 f4 28 00 00  02 04 05 b4 04 02 08 0a  |.....(..........|
+> 000000c0  06 8b 72 41 02 70 11 47  01 03 03 07 7d 16 4b 4b  |..rA.p.G....}.KK|
+> 000000d0  80 1b 06 00 42 00 00 00  42 00 00 00 00 30 48 67  |....B...B....0Hg|
+> 000000e0  c2 1c 00 11 0a e9 fb 68  08 00 45 00 00 34 e9 c4  |.......h..E..4..|
+> 000000f0  40 00 40 06 c5 ab c0 a8  05 01 c0 a8 05 02 95 30  |@.@............0|
+> 00000100  0c ea 31 99 f8 85 c8 89  90 8d 80 10 00 5c 39 39  |..1..........\99|
+> 00000110  00 00 01 01 08 0a 02 70  11 47 06 8b 72 41 7d 16  |.......p.G..rA}.|
+> 00000120  4b 4b ad 1c 06 00 80 00  00 00 80 00 00 00 00 11  |KK..............|
+> 00000130  0a e9 fb 68 00 30 48 67  c2 1c 08 00 45 08 00 72  |...h.0Hg....E..r|
+> 00000140  e2 cc 40 00 40 06 cc 5d  c0 a8 05 02 c0 a8 05 01  |..@.@..]........|
+> 00000150  0c ea 95 30 c8 89 90 8d  31 99 f8 85 80 18 00 2e  |...0....1.......|
+> 00000160  79 db 00 00 01 01 08 0a  06 8b 72 41 02 70 11 47  |y.........rA.p.G|
+> 00000170  3a 00 00 00 0a 35 2e 31  2e 34 31 2d 33 2d 6c 6f  |:....5.1.41-3-lo|
+> 00000180  67 00 80 00 00 00 5d 2d  66 3a 2e 75 29 66 00 ff  |g.....]-f:.u)f..|
+> 00000190  f7 21 02 00 00 00 00 00  00 00 00 00 00 00 00 00  |.!..............|
+> 000001a0  00 48 72 2a 74 2e 24 69  67 48 72 29 6d 00 7d 16  |.Hr*t.$igHr)m.}.|
+> 000001b0  4b 4b db 1c 06 00 42 00  00 00 42 00 00 00 00 30  |KK....B...B....0|
+> 000001c0  48 67 c2 1c 00 11 0a e9  fb 68 08 00 45 08 00 34  |Hg.......h..E..4|
+> 000001d0  e9 c5 40 00 40 06 c5 a2  c0 a8 05 01 c0 a8 05 02  |..@.@...........|
+> 000001e0  95 30 0c ea 31 99 f8 85  c8 89 90 cb 80 10 00 5c  |.0..1..........\|
+> 000001f0  38 fb 00 00 01 01 08 0a  02 70 11 47 06 8b 72 41  |8........p.G..rA|
+> 00000200  7d 16 4b 4b 3d 30 06 00  86 00 00 00 86 00 00 00  |}.KK=0..........|
+> 00000210  00 30 48 67 c2 1c 00 11  0a e9 fb 68 08 00 45 08  |.0Hg.......h..E.|
+> 00000220  00 78 e9 c6 40 00 40 06  c5 5d c0 a8 05 01 c0 a8  |.x..@.@..]......|
+> 00000230  05 02 95 30 0c ea 31 99  f8 85 c8 89 90 cb 80 18  |...0..1.........|
+> 00000240  00 5c 8b be 00 00 01 01  08 0a 02 70 11 48 06 8b  |.\.........p.H..|
+> 00000250  72 41 40 00 00 01 8f a2  02 00 00 00 00 40 08 00  |rA@..........@..|
+> 00000260  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+> 00000270  00 00 00 00 00 00 73 74  72 65 73 73 00 14 5d 16  |......stress..].|
+> 00000280  8c 5d 41 ff 26 31 fc 5a  db fa 42 27 4a a1 6b 16  |.]A.&1.Z..B'J.k.|
+> 00000290  1a 28 74 73 74 00 7d 16  4b 4b b8 30 06 00 42 00  |.(tst.}.KK.0..B.|
+> 000002a0  00 00 42 00 00 00 00 11  0a e9 fb 68 00 30 48 67  |..B........h.0Hg|
+> 000002b0  c2 1c 08 00 45 08 00 34  e2 cd 40 00 40 06 cc 9a  |....E..4..@.@...|
+> 000002c0  c0 a8 05 02 c0 a8 05 01  0c ea 95 30 c8 89 90 cb  |...........0....|
+> 000002d0  31 99 f8 c9 80 10 00 2e  38 e2 00 00 01 01 08 0a  |1......8.......|
+> 000002e0  06 8b 72 43 02 70 11 48  7d 16 4b 4b f5 30 06 00  |..rC.p.H}.KK.0..|
+> 000002f0  4d 00 00 00 4d 00 00 00  00 11 0a e9 fb 68 00 30  |M...M........h.0|
+> 00000300  48 67 c2 1c 08 00 45 08  00 3f e2 ce 40 00 40 06  |Hg....E..?..@.@.|
+> 00000310  cc 8e c0 a8 05 02 c0 a8  05 01 0c ea 95 30 c8 89  |.............0..|
+> 00000320  90 cb 31 99 f8 c9 80 18  00 2e 31 cb 00 00 01 01  |..1.......1.....|
+> 00000330  08 0a 06 8b 72 43 02 70  11 48 07 00 00 02 00 00  |....rC.p.H......|
+> 00000340  00 02 00 00 00 7d 16 4b  4b b9 31 06 00 57 00 00  |.....}.KK.1..W..|
+> 00000350  00 57 00 00 00 00 30 48  67 c2 1c 00 11 0a e9 fb  |.W....0Hg.......|
+> 00000360  68 08 00 45 08 00 49 e9  c7 40 00 40 06 c5 8b c0  |h..E..I..@.@....|
+> 00000370  a8 05 01 c0 a8 05 02 95  30 0c ea 31 99 f8 c9 c8  |........0..1....|
+> 00000380  89 90 d6 80 18 00 5c 8b  8f 00 00 01 01 08 0a 02  |......\.........|
+> 00000390  70 11 49 06 8b 72 43 11  00 00 00 03 73 65 74 20  |p.I..rC.....set |
+> 000003a0  61 75 74 6f 63 6f 6d 6d  69 74 3d 31 7d 16 4b 4b  |autocommit=1}.KK|
+> 000003b0  a1 32 06 00 4d 00 00 00  4d 00 00 00 00 11 0a e9  |.2..M...M.......|
+> 000003c0  fb 68 00 30 48 67 c2 1c  08 00 45 08 00 3f e2 cf  |.h.0Hg....E..?..|
+> 000003d0  40 00 40 06 cc 8d c0 a8  05 02 c0 a8 05 01 0c ea  |@.@.............|
+> 000003e0  95 30 c8 89 90 d6 31 99  f8 de 80 18 00 2e 31 ab  |.0....1.......1.|
+> 000003f0  00 00 01 01 08 0a 06 8b  72 43 02 70 11 49 07 00  |........rC.p.I..|
+> 00000400  00 01 00 00 00 02 00 00  00 7d 16 4b 4b 88 33 06  |.........}.KK.3.|
+> 00000410  00 8f 00 00 00 8f 00 00  00 00 30 48 67 c2 1c 00  |..........0Hg...|
+> 00000420  11 0a e9 fb 68 08 00 45  08 00 81 e9 c8 40 00 40  |....h..E.....@.@|
+> 00000430  06 c5 52 c0 a8 05 01 c0  a8 05 02 95 30 0c ea 31  |..R.........0..1|
+> 00000440  99 f8 de c8 89 90 e1 80  18 00 5c 8b c7 00 00 01  |..........\.....|
+> 00000450  01 08 0a 02 70 11 49 06  8b 72 43 49 00 00 00 03  |....p.I..rCI....|
+> 00000460  53 45 4c 45 43 54 20 60  61 6c 69 61 73 60 20 46  |SELECT `alias` F|
+> 00000470  52 4f 4d 20 64 62 6d 61  69 6c 5f 61 6c 69 61 73  |ROM dbmail_alias|
+> 00000480  65 73 20 57 48 45 52 45  20 60 61 6c 69 61 73 60  |es WHERE `alias`|
+> 00000490  20 6c 69 6b 65 20 22 73  70 61 6d 40 65 78 61 6d  | like "spam@exam|
+> 000004a0  70 6c 65 2e 63 6f 6d 22  7d 16 4b 4b 3c 34 06 00  |ple.com"}.KK<4..|
+> 000004b0  9c 00 00 00 9c 00 00 00  00 11 0a e9 fb 68 00 30  |.............h.0|
+> 000004c0  48 67 c2 1c 08 00 45 08  00 8e e2 d0 40 00 40 06  |Hg....E.....@.@.|
+> 000004d0  cc 3d c0 a8 05 02 c0 a8  05 01 0c ea 95 30 c8 89  |.=...........0..|
+> 000004e0  90 e1 31 99 f9 2b 80 18  00 2e b4 4c 00 00 01 01  |..1..+.....L....|
+> 000004f0  08 0a 06 8b 72 43 02 70  11 49 01 00 00 01 01 3f  |....rC.p.I.....?|
+> 00000500  00 00 02 03 64 65 66 03  74 73 74 0e 64 62 6d 61  |....def.tst.dbma|
+> 00000510  69 6c 5f 61 6c 69 61 73  65 73 0e 64 62 6d 61 69  |il_aliases.dbmai|
+> 00000520  6c 5f 61 6c 69 61 73 65  73 05 61 6c 69 61 73 05  |l_aliases.alias.|
+> 00000530  61 6c 69 61 73 0c 08 00  64 00 00 00 fd 00 00 00  |alias...d.......|
+> 00000540  00 00 05 00 00 03 fe 00  00 22 00 05 00 00 04 fe  |........."......|
+> 00000550  00 00 22 00 7d 16 4b 4b  e0 34 06 00 8f 00 00 00  |..".}.KK.4......|
+> 00000560  8f 00 00 00 00 30 48 67  c2 1c 00 11 0a e9 fb 68  |.....0Hg.......h|
+> 00000570  08 00 45 08 00 81 e9 c9  40 00 40 06 c5 51 c0 a8  |..E.....@.@..Q..|
+> 00000580  05 01 c0 a8 05 02 95 30  0c ea 31 99 f9 2b c8 89  |.......0..1..+..|
+> 00000590  91 3b 80 18 00 5c 8b c7  00 00 01 01 08 0a 02 70  |.;...\.........p|
+> 000005a0  11 49 06 8b 72 43 49 00  00 00 03 53 45 4c 45 43  |.I..rCI....SELEC|
+> 000005b0  54 20 60 61 6c 69 61 73  60 20 46 52 4f 4d 20 64  |T `alias` FROM d|
+> 000005c0  62 6d 61 69 6c 5f 61 6c  69 61 73 65 73 20 57 48  |bmail_aliases WH|
+> 000005d0  45 52 45 20 60 61 6c 69  61 73 60 20 6c 69 6b 65  |ERE `alias` like|
+> 000005e0  20 22 73 70 61 6d 40 65  78 61 6d 70 6c 65 2e 63  | "spam@example.c|
+> 000005f0  6f 6d 22 7d 16 4b 4b 70  35 06 00 9c 00 00 00 9c  |om"}.KKp5.......|
+> ......
+> the select statement/response repeated verbatim 90+ times
+> ......
+> 00007a00  06 8b 72 49 49 00 00 00  03 53 45 4c 45 43 54 20  |..rII....SELECT |
+> 00007a10  60 61 6c 69 61 73 60 20  46 52 4f 4d 20 64 62 6d  |`alias` FROM dbm|
+> 00007a20  61 69 6c 5f 61 6c 69 61  73 65 73 20 57 48 45 52  |ail_aliases WHER|
+> 00007a30  45 20 60 61 6c 69 61 73  60 20 6c 69 6b 65 20 22  |E `alias` like "|
+> 00007a40  73 70 61 6d 40 65 78 61  6d 70 6c 65 2e 63 6f 6d  |spam@example.com|
+> 00007a50  22 7d 16 4b 4b d2 98 06  00 f3 00 00 00 f3 00 00  |"}.KK...........|
+> 00007a60  00 00 11 0a e9 fb 68 00  30 48 67 c2 1c 08 00 45  |......h.0Hg....E|
+> 00007a70  08 00 e5 e3 2b 40 00 40  06 cb 8b c0 a8 05 02 c0  |....+@.@........|
+> 00007a80  a8 05 01 0c ea 95 30 c8  89 b0 df 31 9a 14 8a 80  |......0....1....|
+> 00007a90  18 00 2e 43 e0 00 00 01  01 08 0a 06 8b 72 49 02  |...C.........rI.|
+> ....
+> followed by the server error message
+> 
+> What the other side actually sees (note byte 7a50)
+> ======================
+> ...
+> 00007a00  06 8b 72 49 49 00 00 00  03 53 45 4c 45 43 54 20  |..rII....SELECT |
+> 00007a10  60 61 6c 69 61 73 60 20  46 52 4f 4d 20 64 62 6d  |`alias` FROM dbm|
+> 00007a20  61 69 6c 5f 61 6c 69 61  73 65 73 20 57 48 45 52  |ail_aliases WHER|
+> 00007a30  45 20 60 61 6c 69 61 73  60 20 6c 69 6b 65 20 22  |E `alias` like "|
+> 00007a40  73 70 61 6d 40 65 78 61  6d 70 6c 65 2e 63 6f 6d  |spam@example.com|
+> 00007a50  6d 7d 16 4b 4b 3d 66 06  00 f3 00 00 00 f3 00 00  |m}.KK=f.........|
+> 00007a60  00 00 11 0a e9 fb 68 00  30 48 67 c2 1c 08 00 45  |......h.0Hg....E|
+> 00007a70  08 00 e5 e3 2b 40 00 40  06 cb 8b c0 a8 05 02 c0  |....+@.@........|
+> 00007a80  a8 05 01 0c ea 95 30 c8  89 b0 df 31 9a 14 8a 80  |......0....1....|
+> 00007a90  18 00 2e 8c 2b 00 00 01  01 08 0a 06 8b 72 49 02  |....+........rI.|
+> 
+> 
+> 
 
