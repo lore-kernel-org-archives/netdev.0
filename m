@@ -1,61 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: at91_ether.c - Allow transmitter interrupt to
- be handled first in ISR
-Date: Wed, 13 Jan 2010 19:08:44 +0100
-Message-ID: <4B4E0C2C.1000101@gmail.com>
-References: <3DBBD805E3BA064A87F551C0E8BD367402897491@MAILSRV.intcomgrp.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: linux-next: Tree for January 8 (net/ip.h, BUG=n)
+Date: Wed, 13 Jan 2010 21:21:44 +0200
+Message-ID: <201001132121.44763.opurdila@ixiacom.com>
+References: <20100113085418.GB6053@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: James Kosin <JKosin@intcomgrp.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756212Ab0AMSJK@vger.kernel.org>
-In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD367402897491@MAILSRV.intcomgrp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>, Ingo Molnar <mingo@elte.hu>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100113085418.GB6053@ff.dom.local>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 13/01/2010 18:46, James Kosin a =E9crit :
-> Ok,
->=20
-> This next patch is optional....
->=20
-> The idea is TUND should only happen on occasions when the PHY is unab=
-le
-> to receive the transmitter data in a timely fashion to successfully s=
-end
-> the data in a single burst.  This is not a hard error; so, why do we
-> treat it as such.
->=20
-> This patch allows the transmitter to resend the failed skb inside the
-> ISR without having to deal with the overhead of freeing the skb then
-> having the main task re-allocate a new skb for the failed packet.
+On Wednesday 13 January 2010 10:54:18 you wrote:
+> Octavian added to cc.
+> 
+> Jarek P.
+> 
+> On 13-01-2010 08:35, Ingo Molnar wrote:
+> > * Randy Dunlap <randy.dunlap@oracle.com> wrote:
+> >> On Fri, 8 Jan 2010 16:42:32 +1100 Stephen Rothwell wrote:
+> >>> Hi all,
+> >>>
+> >>> Changes since 20100107:
+> >>
+> >> When CONFIG_BUG=n, CONFIG_GENERIC_BUG=n:
+> >>
+> >> include/net/ip.h:341: error: implicit declaration of function '__WARN'
+> >>
+> >> This affects:
+> >> make[3]: *** [security/selinux/hooks.o] Error 1
+> >> make[3]: *** [fs/ceph/messenger.o] Error 1
+> >> make[3]: *** [net/core/sock.o] Error 1
+> >> make[4]: *** [drivers/net/benet/be_main.o] Error 1
+> >
+> > FYI, this new build bug is now upstream and triggers in -tip testing as
+> > well.
+> >
+> > 	Ingo
+> 
 
-Are we sure chip doesnt report TUND forever in some situations ?
-Should'nt we have a retry limit for each skb ?
+Sorry about this bug and the delay. David, here is a patch against net-2.6 to fix this build error.
 
->=20
-> James Kosin
->=20
---- C:/Documents and Settings/jkosin/My Documents/junk/kernel/Copy of l=
-inux-2.6.31.5/drivers/net/arm/at91_ether.c	Wed Jan 13 12:26:13 2010
-+++ C:/Documents and Settings/jkosin/My Documents/junk/kernel/linux-2.6=
-=2E31.5/drivers/net/arm/at91_ether.c	Wed Jan 13 12:38:55 2010
+[PATCH] net: fix build erros with CONFIG_BUG=n, CONFIG_GENERIC_BUG=n
 
-Oh well :)
+Fixed build errors introduced by commit 7ad6848c (ip: fix mc_loop checks for
+tunnels with multicast outer addresses)
 
-Please read Documentation/SubmittingPatches
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ include/net/ip.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-1) Should be in "diff -u" form
-9) Your patch should be based on latest kernel (preferrably on David ne=
-t-next-2.6 git tree)
-
-12) Should be Signed-off-by
-
-
-You said in a previous mail the chip was capable of queueing two frames=
-,
-it would be nice to exploit this in driver, since at91 has only one fra=
-me
-in transmit queue.
+diff --git a/include/net/ip.h b/include/net/ip.h
+index d9a0e74..fb63371 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -338,7 +338,7 @@ static inline int sk_mc_loop(struct sock *sk)
+ 		return inet6_sk(sk)->mc_loop;
+ #endif
+ 	}
+-	__WARN();
++	WARN_ON(1);
+ 	return 1;
+ }
+ 
+-- 
+1.5.6.5
