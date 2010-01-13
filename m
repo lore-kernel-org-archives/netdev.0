@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
 Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Wed, 13 Jan 2010 05:36:29 +0100
-Message-ID: <m2r5puipte.fsf@ssh.synack.fr>
+Date: Wed, 13 Jan 2010 05:41:20 +0100
+Message-ID: <m2my0iiplb.fsf@ssh.synack.fr>
 References: <1262437456-24476-1-git-send-email-sam@synack.fr>
 	<1262437456-24476-8-git-send-email-sam@synack.fr>
 	<4B420464.3040301@trash.net>
@@ -20,36 +20,19 @@ List-Id: netdev.vger.kernel.org
 
 Patrick McHardy <kaber@trash.net> writes:
 
-> Samir Bellabes wrote:
->> +++ b/security/snet/include/snet_netlink.h
->> +
->> +struct snet_sock_half {
->> +	struct {
->> +		union {
->> +			__be32 ip;
->> +			struct in6_addr ip6;
->> +		};
->> +	} u3;
->> +	struct {
->> +		__be16 port;
->> +	} u;
->> +};
->> +
->> +struct snet_sock_info {
->> +	struct snet_sock_half src;
->> +	struct snet_sock_half dst;
->> +	int type;
->> +};
+>> +atomic_t snet_nl_seq = ATOMIC_INIT(0);
+>> +static uint32_t snet_nl_pid;
+>> +static struct genl_family snet_genl_family;
+>> +atomic_t snet_num_listeners = ATOMIC_INIT(0);
 >
-> How about using a struct sockaddr or encoding the values within
-> netlink attributes? That would provide a bit more flexibility in
-> case you want to support more protocols in the future.
+> The num_listeners seem to be redundant as you only support a
+> single listener anyways, whose presence is indicated by
+> snet_nl_pid != 0.
 
-indeed, I already move to the encoding of values independantly within
-netlink attributes. This had to be done before, and it was in the
-TODO, so now it's done. 
+Actually, I may want to support multiple listeners, or simultaneous
+communication with userspace, as we may want to listen for event and
+reply for verdict in the same time as adding or deleting events.
+I will fix this mecanism.
 
-At first, I tried to use a attribute NLA_BINARY with all the datas
-inside snet_sock_info, so it won't break the netlink protocol between
-userspace and kernel, at each modification (adding/removing element
-inside the structure) 
+thanks Patrick,
+sam
