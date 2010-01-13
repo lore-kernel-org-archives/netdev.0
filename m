@@ -1,52 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6] sfc: Fix polling for slow MCDI operations
-Date: Wed, 13 Jan 2010 14:34:25 +0000
-Message-ID: <1263393265.2797.4.camel@achroite.uk.solarflarecom.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Wed, 13 Jan 2010 16:09:11 +0100
+Message-ID: <m3r5pu6nzc.fsf@intrepid.localdomain>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
+	<20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc>
+	<20100111200136.GA29955@suse.de> <m3fx6bxdt7.fsf@intrepid.localdomain>
+	<1263329605.3011.8.camel@achroite.uk.solarflarecom.com>
+	<20100112211801.GA27999@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:50750 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755499Ab0AMOe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 09:34:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Tilman Schmidt <tilman@imap.cc>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755808Ab0AMPJT@vger.kernel.org>
+In-Reply-To: <20100112211801.GA27999@suse.de> (Greg KH's message of "Tue, 12
+	Jan 2010 13:18:01 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When the interface is down and we are using polled mode for MCDI
-operations, we busy-wait for completion for approximately 1 jiffy
-using udelay() and then back off to schedule().  But the completion
-will not wake the task, since we are using polled mode!  We must use
-schedule_timeout_uninterruptible() instead.
+Greg KH <gregkh@suse.de> writes:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/mcdi.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+>> One of our older controllers had a similar design error in that the two
+>> functions would sometimes have to be reset together.  The way we look
+>> for the second function is:
+>> 
+>> 	dev = pci_dev_get(dev1);
+>> 	while ((dev = pci_get_device(vendor_id, device_id, dev))) {
+>> 		if (dev->bus == dev1->bus &&
+>> 		    dev->devfn == dev1->devfn + 1) {
+>> 			dev2 = dev;
+>> 			break;
+>> 		}
+>> 	}
+>> 
+>> I assume this is 'properly' since no-one has told me otherwise.
+>
+> As of right now, yes, this is the "correct" way to do this.
+>
+> I need to dig up the "let multiple drivers bind to a single device"
+> patch set to make this not necessary in the future.
 
-diff --git a/drivers/net/sfc/mcdi.c b/drivers/net/sfc/mcdi.c
-index 683353b..0d4eba7 100644
---- a/drivers/net/sfc/mcdi.c
-+++ b/drivers/net/sfc/mcdi.c
-@@ -142,8 +142,9 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 		if (spins != 0) {
- 			--spins;
- 			udelay(1);
--		} else
--			schedule();
-+		} else {
-+			schedule_timeout_uninterruptible(1);
-+		}
- 
- 		time = get_seconds();
- 
+Ben and Greg, thanks.
 -- 
-1.5.5
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Krzysztof Halasa
