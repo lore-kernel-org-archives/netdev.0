@@ -1,319 +1,322 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/2] ixgbe: update copyright dates
-Date: Wed, 13 Jan 2010 03:49:34 -0800
-Message-ID: <20100113114933.23119.70815.stgit@localhost.localdomain>
-References: <20100113114847.23119.36954.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 1/2] e1000e: MDIO slow mode should always be done for
+	82577
+Date: Wed, 13 Jan 2010 03:52:49 -0800
+Message-ID: <20100113115248.23394.71869.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:50030 "EHLO
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:50573 "EHLO
 	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751224Ab0AMLtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 06:49:51 -0500
-In-Reply-To: <20100113114847.23119.36954.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751968Ab0AMLxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 06:53:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+A previous 82577 workaround that set the MDIO access speed to slow mode for
+every PHY register read/write when the cable is unplugged should instead
+set the access mode to always be slow before any PHY register access.
+Since the mode bit gets cleared when the PHY is reset, set the mode after
+every PHY reset.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/Makefile          |    2 +-
- drivers/net/ixgbe/ixgbe.h           |    2 +-
- drivers/net/ixgbe/ixgbe_82598.c     |    2 +-
- drivers/net/ixgbe/ixgbe_82599.c     |    2 +-
- drivers/net/ixgbe/ixgbe_common.c    |    2 +-
- drivers/net/ixgbe/ixgbe_common.h    |    2 +-
- drivers/net/ixgbe/ixgbe_dcb.c       |    2 +-
- drivers/net/ixgbe/ixgbe_dcb.h       |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82598.c |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82598.h |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82599.c |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82599.h |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_nl.c    |    2 +-
- drivers/net/ixgbe/ixgbe_ethtool.c   |    2 +-
- drivers/net/ixgbe/ixgbe_fcoe.c      |    2 +-
- drivers/net/ixgbe/ixgbe_fcoe.h      |    2 +-
- drivers/net/ixgbe/ixgbe_main.c      |    4 ++--
- drivers/net/ixgbe/ixgbe_phy.c       |    2 +-
- drivers/net/ixgbe/ixgbe_phy.h       |    2 +-
- drivers/net/ixgbe/ixgbe_type.h      |    2 +-
- 20 files changed, 21 insertions(+), 21 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 
+ drivers/net/e1000e/ich8lan.c |   57 ++++++++++++++++++++++++++--
+ drivers/net/e1000e/phy.c     |   85 ------------------------------------------
+ 3 files changed, 53 insertions(+), 90 deletions(-)
 
-diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
-index 21b41f4..bfef0eb 100644
---- a/drivers/net/ixgbe/Makefile
-+++ b/drivers/net/ixgbe/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel 10 Gigabit PCI Express Linux driver
--# Copyright(c) 1999 - 2009 Intel Corporation.
-+# Copyright(c) 1999 - 2010 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 8da8eb5..303e7bd 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index cebbd90..d6ee28f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -582,7 +582,6 @@ extern s32 e1000_read_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset,
+ extern s32 e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data);
+ extern s32 e1000_write_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset,
+                                          u16 data);
+-extern s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw, bool slow);
+ extern s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw);
+ extern s32 e1000_copper_link_setup_82577(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_82577(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index ad08cf3..c2ea861 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -138,6 +138,10 @@
+ #define E1000_NVM_K1_CONFIG 0x1B /* NVM K1 Config Word */
+ #define E1000_NVM_K1_ENABLE 0x1  /* NVM Enable K1 bit */
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
++/* KMRN Mode Control */
++#define HV_KMRN_MODE_CTRL      PHY_REG(769, 16)
++#define HV_KMRN_MDIO_SLOW      0x0400
++
+ /* ICH GbE Flash Hardware Sequencing Flash Status Register bit breakdown */
+ /* Offset 04h HSFSTS */
+ union ich8_hws_flash_status {
+@@ -219,6 +223,7 @@ static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active);
+ static void e1000_power_down_phy_copper_ich8lan(struct e1000_hw *hw);
+ static void e1000_lan_init_done_ich8lan(struct e1000_hw *hw);
+ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
++static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 204177d..3103f41 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
+ {
+@@ -270,7 +275,21 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+ 	phy->id = e1000_phy_unknown;
+-	e1000e_get_phy_id(hw);
++	ret_val = e1000e_get_phy_id(hw);
++	if (ret_val)
++		goto out;
++	if ((phy->id == 0) || (phy->id == PHY_REVISION_MASK)) {
++		/*
++		 * In case the PHY needs to be in mdio slow mode (eg. 82577),
++		 * set slow mode and try to get the PHY id again.
++		 */
++		ret_val = e1000_set_mdio_slow_mode_hv(hw);
++		if (ret_val)
++			goto out;
++		ret_val = e1000e_get_phy_id(hw);
++		if (ret_val)
++			goto out;
++	}
+ 	phy->type = e1000e_get_phy_type_from_id(phy->id);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 5383405..b49bd6b 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ 	switch (phy->type) {
+@@ -292,6 +311,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		break;
+ 	}
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
++out:
+ 	return ret_val;
+ }
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 688b8ca..21f158f 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+@@ -1076,6 +1096,26 @@ out:
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 27f3214..dfff0ff 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ /**
++ *  e1000_set_mdio_slow_mode_hv - Set slow MDIO access mode
++ *  @hw:   pointer to the HW structure
++ **/
++static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw)
++{
++	s32 ret_val;
++	u16 data;
++
++	ret_val = e1e_rphy(hw, HV_KMRN_MODE_CTRL, &data);
++	if (ret_val)
++		return ret_val;
++
++	data |= HV_KMRN_MDIO_SLOW;
++
++	ret_val = e1e_wphy(hw, HV_KMRN_MODE_CTRL, data);
++
++	return ret_val;
++}
++
++/**
+  *  e1000_hv_phy_workarounds_ich8lan - A series of Phy workarounds to be
+  *  done after every PHY reset.
+  **/
+@@ -1086,6 +1126,13 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	if (hw->mac.type != e1000_pchlan)
+ 		return ret_val;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
++	/* Set MDIO slow mode before any other MDIO access */
++	if (hw->phy.type == e1000_phy_82577) {
++		ret_val = e1000_set_mdio_slow_mode_hv(hw);
++		if (ret_val)
++			goto out;
++	}
++
+ 	if (((hw->phy.type == e1000_phy_82577) &&
+ 	     ((hw->phy.revision == 1) || (hw->phy.revision == 2))) ||
+ 	    ((hw->phy.type == e1000_phy_82578) && (hw->phy.revision == 1))) {
+@@ -1184,6 +1231,7 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
+ 	/* Allow time for h/w to get to a quiescent state after reset */
+ 	mdelay(10);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ixgbe/ixgbe_dcb.c
-index a156228..9aea4f0 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
++	/* Perform any necessary post-reset workarounds */
+ 	if (hw->mac.type == e1000_pchlan) {
+ 		ret_val = e1000_hv_phy_workarounds_ich8lan(hw);
+ 		if (ret_val)
+@@ -2484,6 +2532,10 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	if (!ret_val)
+ 		e1000_release_swflag_ich8lan(hw);
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
++	/* Perform any necessary post-reset workarounds */
++	if (hw->mac.type == e1000_pchlan)
++		ret_val = e1000_hv_phy_workarounds_ich8lan(hw);
++
+ 	if (ctrl & E1000_CTRL_PHY_RST)
+ 		ret_val = hw->phy.ops.get_cfg_done(hw);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
-index 64a9fa1..5caafd4 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+@@ -2528,9 +2580,6 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	kab |= E1000_KABGTXD_BGSQLBIAS;
+ 	ew32(KABGTXD, kab);
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+-	if (hw->mac.type == e1000_pchlan)
+-		ret_val = e1000_hv_phy_workarounds_ich8lan(hw);
+-
+ out:
+ 	return ret_val;
+ }
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 55a2c0a..7f3ceb9 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -152,32 +152,9 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
+ 		if (phy->id != 0 && phy->id != PHY_REVISION_MASK)
+ 			goto out;
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-index f302638..f0e9279 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+-		/*
+-		 * If the PHY ID is still unknown, we may have an 82577
+-		 * without link.  We will try again after setting Slow MDIC
+-		 * mode. No harm in trying again in this case since the PHY
+-		 * ID is unknown at this point anyway.
+-		 */
+-		ret_val = phy->ops.acquire(hw);
+-		if (ret_val)
+-			goto out;
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw, true);
+-		if (ret_val)
+-			goto out;
+-		phy->ops.release(hw);
+-
+ 		retry_count++;
+ 	}
+ out:
+-	/* Revert to MDIO fast mode, if applicable */
+-	if (retry_count) {
+-		ret_val = phy->ops.acquire(hw);
+-		if (ret_val)
+-			return ret_val;
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw, false);
+-		phy->ops.release(hw);
+-	}
+-
+ 	return ret_val;
+ }
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+@@ -2791,38 +2768,6 @@ static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active)
+ }
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-index ebbe53c..cc728fa 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ /**
+- *  e1000_set_mdio_slow_mode_hv - Set slow MDIO access mode
+- *  @hw:   pointer to the HW structure
+- *  @slow: true for slow mode, false for normal mode
+- *
+- *  Assumes semaphore already acquired.
+- **/
+-s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw, bool slow)
+-{
+-	s32 ret_val = 0;
+-	u16 data = 0;
+-
+-	/* Set MDIO mode - page 769, register 16: 0x2580==slow, 0x2180==fast */
+-	hw->phy.addr = 1;
+-	ret_val = e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+-				         (BM_PORT_CTRL_PAGE << IGP_PAGE_SHIFT));
+-	if (ret_val)
+-		goto out;
+-
+-	ret_val = e1000e_write_phy_reg_mdic(hw, BM_CS_CTRL1,
+-	                                   (0x2180 | (slow << 10)));
+-	if (ret_val)
+-		goto out;
+-
+-	/* dummy read when reverting to fast mode - throw away result */
+-	if (!slow)
+-		ret_val = e1000e_read_phy_reg_mdic(hw, BM_CS_CTRL1, &data);
+-
+-out:
+-	return ret_val;
+-}
+-
+-/**
+  *  __e1000_read_phy_reg_hv -  Read HV PHY register
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read
+@@ -2839,7 +2784,6 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	s32 ret_val;
+ 	u16 page = BM_PHY_REG_PAGE(offset);
+ 	u16 reg = BM_PHY_REG_NUM(offset);
+-	bool in_slow_mode = false;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+ 	if (!locked) {
+ 		ret_val = hw->phy.ops.acquire(hw);
+@@ -2847,16 +2791,6 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 			return ret_val;
+ 	}
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-index ec8a252..4f7a26a 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+-	/* Workaround failure in MDIO access while cable is disconnected */
+-	if ((hw->phy.type == e1000_phy_82577) &&
+-	    !(er32(STATUS) & E1000_STATUS_LU)) {
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw, true);
+-		if (ret_val)
+-			goto out;
+-
+-		in_slow_mode = true;
+-	}
+-
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset,
+@@ -2893,10 +2827,6 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & reg,
+ 	                                  data);
+ out:
+-	/* Revert to MDIO fast mode, if applicable */
+-	if ((hw->phy.type == e1000_phy_82577) && in_slow_mode)
+-		ret_val |= e1000_set_mdio_slow_mode_hv(hw, false);
+-
+ 	if (!locked)
+ 		hw->phy.ops.release(hw);
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+@@ -2948,7 +2878,6 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 	s32 ret_val;
+ 	u16 page = BM_PHY_REG_PAGE(offset);
+ 	u16 reg = BM_PHY_REG_NUM(offset);
+-	bool in_slow_mode = false;
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ixgbe/ixgbe_dcb_82599.h
-index 9e5e282..0f3f791 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82599.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82599.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ 	if (!locked) {
+ 		ret_val = hw->phy.ops.acquire(hw);
+@@ -2956,16 +2885,6 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 			return ret_val;
+ 	}
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
+-	/* Workaround failure in MDIO access while cable is disconnected */
+-	if ((hw->phy.type == e1000_phy_82577) &&
+-	    !(er32(STATUS) & E1000_STATUS_LU)) {
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw, true);
+-		if (ret_val)
+-			goto out;
+-
+-		in_slow_mode = true;
+-	}
+-
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset,
+@@ -3019,10 +2938,6 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 	                                  data);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 3c7a79a..56f37f6 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ out:
+-	/* Revert to MDIO fast mode, if applicable */
+-	if ((hw->phy.type == e1000_phy_82577) && in_slow_mode)
+-		ret_val |= e1000_set_mdio_slow_mode_hv(hw, false);
+-
+ 	if (!locked)
+ 		hw->phy.ops.release(hw);
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 0bd49d3..d77961f 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
-index da32a10..e9a20c8 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
-index de8ff53..abf4b2b 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.h
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 3859767..9c9202f 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -52,7 +52,7 @@ static const char ixgbe_driver_string[] =
- 
- #define DRV_VERSION "2.0.44-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
--static char ixgbe_copyright[] = "Copyright (c) 1999-2009 Intel Corporation.";
-+static char ixgbe_copyright[] = "Copyright (c) 1999-2010 Intel Corporation.";
- 
- static const struct ixgbe_info *ixgbe_info_tbl[] = {
- 	[board_82598] = &ixgbe_82598_info,
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 9ecad17..1c1efd3 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index 9b700f5..9cf5f3b 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 84650c6..9eafddf 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2009 Intel Corporation.
-+  Copyright(c) 1999 - 2010 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
 
