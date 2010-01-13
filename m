@@ -1,38 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Wed, 13 Jan 2010 06:36:21 +0100
-Message-ID: <4B4D5BD5.4090903@trash.net>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>	<1262437456-24476-8-git-send-email-sam@synack.fr>	<4B420464.3040301@trash.net> <m2vdf6iq6p.fsf@ssh.synack.fr>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2010-01-12
+Date: Tue, 12 Jan 2010 21:42:59 -0800 (PST)
+Message-ID: <20100112.214259.169429418.davem@davemloft.net>
+References: <20100112163924.GA2987@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m2vdf6iq6p.fsf@ssh.synack.fr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100112163924.GA2987-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Samir Bellabes wrote:
-> Patrick McHardy <kaber@trash.net> writes:
-> 
->> Samir Bellabes wrote:
->>> +++ b/security/snet/include/snet_netlink.h
->>> +	SNET_A_VERSION,		/* (NLA_U32) the snet protocol version	*/
->> You're using this to check for a "compliant protocol version" below.
->> This shouldn't be needed as any protocol changes need to be done
->> in a compatible fashion.
-> 
-> what if userspace lib is using a old protocol version ? kernel and
-> userspace will use incompatible protocol, which may result in errors.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 12 Jan 2010 11:39:24 -0500
 
-Any protocol changes need to be done in a compatible fashion once
-this is in the upstream kernel, so that case should never happen.
+> I apologize that it has been a while (i.e. too long) since my last pull
+> request.  I was giving this round extra time to bake...
+> 
+> Most of these are the usual one-liners and/or isolated fixes.  One
+> exception is "mac80211: fix skb buffering issue" from Johannes.  The
+> changelog describes the issue, but basically when the master netdev got
+> removed our multiqueue support went along with it.  This led to some
+> regressions that manifested as queueing/congestion problems.  The fix
+> from Johannes adds multiqueue support to the current mac80211
+> implementation.  Because this was a significant (but IMHO necessary)
+> change, I allowed this to bake over the last week or so and collected a
+> few fixes on top of that change in the process.
+> 
+> One other change of note is an EEPROM checksum change for Atheros
+> devices.  It seems there were some devices that handled their checksum
+> differently and they were being disabled after "ath5k: enable EEPROM
+> checksum check".  This has also been baking for a while and no problems
+> have been reported.
 
-> The idea of this 'version' mecanism is to prevent such
-> incompatibilities, even if the userspace is (un)volontary not using the
-> good library (which may be the one tagged in the same time as the kernel
-> running)
+Pulled, thanks John.
+
+> Finally, thanks for the git advice after the last pull request!  One
+> more incremental step in improving my workflow... :-)
+
+Any time :)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
