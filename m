@@ -1,67 +1,37 @@
-From: Daniel Borkmann <danborkmann@googlemail.com>
-Subject: Re: [PATCH] netpoll: allow execution of multiple rx_hooks per
-	interface
-Date: Wed, 13 Jan 2010 17:53:43 +0100
-Message-ID: <6f52f5b81001130853ve852e7bl1d5e6879dc4eb545@mail.gmail.com>
-References: <4B4630C0.6090206@gmail.com> <4B467A4D.9070708@gmail.com>
-	 <1263252108.29868.4774.camel@calx>
-	 <20100111.155912.68138954.davem@davemloft.net>
-	 <1263254625.29868.4777.camel@calx> <4B4BBDA5.8010808@gmail.com>
-	 <4B4D1372.9060702@gmail.com>
-	 <x49ljg25cr0.fsf@segfault.boston.devel.redhat.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH V3] MAINTAINERS: Document list types, add "A:" section
+ type, update NETFILTER
+Date: Wed, 13 Jan 2010 18:10:28 +0100
+Message-ID: <4B4DFE84.2080304@s5r6.in-berlin.de>
+References: <cover.1262726222.git.joe@perches.com>	 <bccf36219f3ea5a9b7565734bc87095bc986dbe0.1262726222.git.joe@perches.com>	 <1262805798.1952.105.camel@Joe-Laptop.home>  <4B4B02BE.5060209@trash.net>	 <1263208183.1907.50.camel@Joe-Laptop.home>  <4B4B0806.40801@trash.net>	 <1263209269.1907.61.camel@Joe-Laptop.home>	 <alpine.LSU.2.01.1001111229460.26235@obet.zrqbmnf.qr>	 <1263321994.25973.15.camel@Joe-Laptop.home>	 <4B4DE32F.7030708@s5r6.in-berlin.de> <1263399300.8011.68.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Mackall <mpm@selenic.com>, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev@oss.sgi.com
-To: Jeff Moyer <jmoyer@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756110Ab0AMRA6@vger.kernel.org>
-In-Reply-To: <x49ljg25cr0.fsf@segfault.boston.devel.redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756172Ab0AMRMK@vger.kernel.org>
+In-Reply-To: <1263399300.8011.68.camel@Joe-Laptop.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2010/1/13 Jeff Moyer <jmoyer@redhat.com>:
-> Daniel Borkmann <danborkmann@googlemail.com> writes:
->
->> Daniel Borkmann wrote:
->>> Matt Mackall wrote:
->>>> On Mon, 2010-01-11 at 15:59 -0800, David Miller wrote:
->>>>> From: Matt Mackall <mpm@selenic.com>
->>>>> Date: Mon, 11 Jan 2010 17:21:48 -0600
->>>>>
->>>>>> Looks pretty good. Dave?
->>>>>>
->>>>>> Acked-by: Matt Mackall <mpm@selenic.com>
->>>>> I don't like the loop for RX ARP processing.
->>>>>
->>>>> The packet contents aren't going to change, so doing basic
->>>>> packet validation inside of the "for each RX client" loop
->>>>> of arp_reply() doesn't make any sense.
->>>> True. Dan, please help our poor compilers with some manual loop
->>>> invariant motion.
->>>
->>> Okay, true. I'll fix this by tomorrow and resend the patch.
->>
->> Here the fix of the RX ARP processing routine. Content that isn't
->> going to change is out-of-loop.
->> Successfully tested on my machines.
->
-> Against what tree does this patch apply? =A0It doesn't apply to Linus=
-'s
-> git tree. =A0Also, in the future, could you use the -p option to diff=
- so
-> we can see what function or data structure is being modified? =A0It r=
-eally
-> helps in reviewing.
+Joe Perches wrote:
+> On Wed, 2010-01-13 at 16:13 +0100, Stefan Richter wrote:
+>> Joe Perches wrote:
+>> > +	A: Additional useful unstructured information.
+>> Can be implemented with a level of indirection via the W: entries.
+> 
+> Mailing lists aren't web addresses.
 
-As mentioned earlier in this thread... when I started developing the pa=
-tch I
-used 2.6.32.2 (latest stable from kernel.org), which might be already "=
-old" ...
-sorry for that. Ok, next time I will use -p, too. For the moment, it wa=
-s diff
-with -Nur. Shall I resend?
+Project web sites typically contain contact pages (which is what you
+used the first two proposed A: entries for --- contacts that apparently
+do not play a role for patch submission), and web sites can carry any
+other "unstructured information".
 
-Best regards,
-Daniel
+Keep redundancy low.
+-- 
+Stefan Richter
+-=====-==-=- ---= -==-=
+http://arcgraph.de/sr/
