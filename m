@@ -1,51 +1,47 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH 1/2] net: tcp_header_len_th and tcp_option_len_th
-Date: Wed, 13 Jan 2010 03:53:56 -0500
-Message-ID: <4B4D8A24.4070108@gmail.com>
-References: <4B44FE3C.6060809@gmail.com> <4B450065.4010108@gmail.com> <4B4C519E.2090207@gmail.com> <4B4CB46C.8020502@gmail.com> <4B4CB712.8030806@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: linux-next: Tree for January 8 (net/ip.h, BUG=n)
+Date: Wed, 13 Jan 2010 08:54:18 +0000
+Message-ID: <20100113085418.GB6053@ff.dom.local>
+References: <20100113073540.GA30577@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755053Ab0AMIyB@vger.kernel.org>
-In-Reply-To: <4B4CB712.8030806@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100113073540.GA30577@elte.hu>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> I type my Changelog text, add my signature, then copy/paste patch from external editor
-> (this editor must preserve tabulations of course)
+Octavian added to cc.
+
+Jarek P.
+
+On 13-01-2010 08:35, Ingo Molnar wrote:
+> * Randy Dunlap <randy.dunlap@oracle.com> wrote:
 > 
-That doesn't work properly on a Mac, copying from BBEdit to Thunderbird.
-
-BBEdit preserves tabs and even understands and preserves Unix LF (and
-I've been using it for a Unix editor since it was included with Xinu in
-early '90s), but the MacOS copy and paste seems to mangle it.
-
-I'll try again someday with Thunderbird 3, when it's had time to mature.
-
-
-> About cast games, maybe following way is the cleanest one.
+>> On Fri, 8 Jan 2010 16:42:32 +1100 Stephen Rothwell wrote:
+>>
+>>> Hi all,
+>>>
+>>> Changes since 20100107:
+>>
+>> When CONFIG_BUG=n, CONFIG_GENERIC_BUG=n:
+>>
+>> include/net/ip.h:341: error: implicit declaration of function '__WARN'
+>>
+>> This affects:
+>> make[3]: *** [security/selinux/hooks.o] Error 1
+>> make[3]: *** [fs/ceph/messenger.o] Error 1
+>> make[3]: *** [net/core/sock.o] Error 1
+>> make[4]: *** [drivers/net/benet/be_main.o] Error 1
 > 
-> int tcp_options_len_th(struct tcphdr *th)
-> {
-> 	return tcp_header_len_th(th) - sizeof(*th);
-> }
+> FYI, this new build bug is now upstream and triggers in -tip testing as well.
 > 
-If you'd have been one of my C students, you'd have failed the exam
-question.  That's unsigned int tcp_header_len_th() -- subtracting an
-untyped constant could be a negative number (stored in an unsigned).
-Then demotion to int (which many compilers truncate to a very large
-positive number).
-
-It's one of the reasons that folks used to do all this with macros, so
-that the types and truncation were handled well by the compiler.
-
-Of course, this is an inline function, which is more like macros.  I've
-not studied how gcc works internally since egcs.
-
-Let's keep (int)(th->doff * 4) - sizeof(*th) -- self documenting, and
-should work with a wide variety of compilers.
+> 	Ingo
