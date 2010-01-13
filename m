@@ -1,39 +1,67 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Wed, 13 Jan 2010 05:28:30 +0100
-Message-ID: <m2vdf6iq6p.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-8-git-send-email-sam@synack.fr>
-	<4B420464.3040301@trash.net>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: potential overflow in de4x5.c
+Date: Tue, 12 Jan 2010 21:31:02 -0700
+Message-ID: <20100113043101.GA29226@lackof.org>
+References: <20100103101356.GA13023@bicker> <20100104072844.GB518@lackof.org> <20100104073514.GA987@lackof.org> <20100107154007.GE8134@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 16:08:20 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from complete.lackof.org ([198.49.126.79]:39831 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859Ab0AMEbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jan 2010 23:31:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20100107154007.GE8134@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
+On Thu, Jan 07, 2010 at 06:40:07PM +0300, Dan Carpenter wrote:
+> > > > #define MOTO_SROM_BUG    (lp->active == 8 && (get_unaligned_le32(dev->dev_addr) & 0x00ffffff) == 0x3e0008)
+...
+> Basically the MOTO_SROM_BUG macro is asking:  Do we have an array overflow 
+> and a hardware bug?  If so we had better do something about the hardware
+> bug.  It sounds silly to me.
 
-> Samir Bellabes wrote:
->> +++ b/security/snet/include/snet_netlink.h
->> +	SNET_A_VERSION,		/* (NLA_U32) the snet protocol version	*/
->
-> You're using this to check for a "compliant protocol version" below.
-> This shouldn't be needed as any protocol changes need to be done
-> in a compatible fashion.
+Hardware bug? A firmware bug I think.
 
-what if userspace lib is using a old protocol version ? kernel and
-userspace will use incompatible protocol, which may result in errors.
+I read the MOTO_SROM_BUG to be using both "active" and "dev_addr"
+to be certain it was dealing with a broken SROM. And then fixing up
+the "bork3d" values reported by the SROM (setting active to 0).
 
-The idea of this 'version' mecanism is to prevent such
-incompatibilities, even if the userspace is (un)volontary not using the
-good library (which may be the one tagged in the same time as the kernel
-running)
+This still leaves open the question about when lp->active
+could be >= DE4X5_MAX_MII. 
 
-sam
+
+> > BTW, someone suggested to fix up this same bit of code before:
+> >    http://www.mail-archive.com/netdev@vger.kernel.org/msg09838.html
+> > 
+> > And I'm not sure why that patch wasn't accepted then either. Patch looks fine to me.
+> > 
+> 
+> Someone has updated the code since he posted the patch, presumably to fix
+> the second overflow he mentioned.
+
+*nod*
+
+> 
+> There is still another one left unfixed though which smatch misses.  
+> 
+>   5073          if ((j == limit) && (i < DE4X5_MAX_MII)) {
+>   5074              for (k=0; k < DE4X5_MAX_PHY && lp->phy[k].id; k++);
+>   5075              lp->phy[k].addr = i;
+> 
+> k could be == DE4X5_MAX_PHY on line 5075.
+
+Yup. In theory at least. But can anyone point me at a DE4X5 device that
+could have 7 or more phys attached to it?
+I expect no more than three cases (thin_lan Coax, RJ45, MAU) but am
+probably missing a few others - unlikely more than one or two more.
+
+One unlikely but possible case: broken HW which reads ~0U (PCI Master Abort)
+for phy[] values.
+
+cheers,
+grant
