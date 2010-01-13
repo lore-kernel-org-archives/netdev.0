@@ -1,37 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Wed, 13 Jan 2010 22:09:08 +0100
-Message-ID: <20100113210908.GA3065@del.dom.local>
-References: <20100107185040.GB3208@del.dom.local>
- <4B466A26.5070506@majjas.com>
- <20100108074539.GA6205@ff.dom.local>
- <4B475FF9.7000702@majjas.com>
- <20100108212923.GA3078@del.dom.local>
- <4B47A81B.5040601@majjas.com>
- <4B4809EF.1070609@majjas.com>
- <20100109122830.GA4386@del.dom.local>
- <4B48CC2C.2090403@majjas.com>
- <4B4E2F89.2050606@majjas.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
+Date: Wed, 13 Jan 2010 23:07:59 +0200
+Message-ID: <201001132307.59472.opurdila@ixiacom.com>
+References: <1262808658-29346-1-git-send-email-opurdila@ixiacom.com> <20100111.161537.85213244.davem@davemloft.net> <201001121855.32018.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756352Ab0AMVJQ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B4E2F89.2050606@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:5316 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756211Ab0AMVL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 16:11:27 -0500
+In-Reply-To: <201001121855.32018.opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2010 at 03:39:37PM -0500, Michael Breuer wrote:
-> Just an FYI - 2.6.32.3 with alt 3 af_packet patch & sky2
-> pskb_may_pull runs OK with DMAR (re)enabled and msi enabled.
+On Tuesday 12 January 2010 18:55:31 you wrote:
+> On Tuesday 12 January 2010 02:15:37 you wrote:
+> > From: Octavian Purdila <opurdila@ixiacom.com>
+> > Date: Tue, 12 Jan 2010 00:16:33 +0200
+> >
+> > > On Friday 08 January 2010 03:25:07 you wrote:
+> > >> From: Octavian Purdila <opurdila@ixiacom.com>
+> > >> Date: Wed,  6 Jan 2010 22:10:58 +0200
+> > >>
+> > >> > Signed-off-by: Maksim Pyatkovskiy <mpyatkovskiy@ixiacom.com>
+> > >> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> > >>
+> > >> RETRANSSEGS is meant to count data segments retransmits, not pure
+> > >> control frames.
+> > >>
+> > >> Similarly for TCPTIMEOUTS, it's mean for data retransmit timeouts.
+> > >>
+> > >> If you overload these statistics with other similar events, they
+> > >> become less meaningful.
+> > >
+> > > But we do increment RETRANSSEGS & TCPTIMEOUTS for SYNs. This creates an
+> > > imbalance in client/server stats which makes things harder to diagnose.
+> >
+> > Interesting.
+> >
+> > Can you do me a favor and look into the code history and see
+> > if we used to account both sides?
+> 
+> Sure.
 
-Hmm... What a pity! It was such a useful debugging tool for
-networking ;-) BTW, I'm not sure if "runs OK" means with or without
-those DHCP drops & large packets you described.
+I think we lost the SynAck accounting with this commit from the netdev-vger-
+cvs tree, where tcp_syn_recv_timer was introduced:
 
-Thanks,
-Jarek P.
+commit 2248761e5cfcb8687563b29c77064185e7604947
+Author: davem <davem>
+Date:   Sun Nov 10 21:25:00 1996 +0000
+
+    Merge to 2.1.8, IPV6 is here.  Also fix
+    a stupid bug in the kernel unaligned trap handler
+    where st %g0, [foo] would fail miserably.
+
+
+Before this, both Syns and SynAcks seems to be accounted for.
