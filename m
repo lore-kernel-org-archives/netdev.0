@@ -1,40 +1,33 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Wed, 13 Jan 2010 22:34:36 +0100
-Message-ID: <20100113213435.GB3065@del.dom.local>
-References: <20100108074539.GA6205@ff.dom.local>
- <4B475FF9.7000702@majjas.com>
- <20100108212923.GA3078@del.dom.local>
- <4B47A81B.5040601@majjas.com>
- <4B4809EF.1070609@majjas.com>
- <20100109122830.GA4386@del.dom.local>
- <4B48CC2C.2090403@majjas.com>
- <4B4E2F89.2050606@majjas.com>
- <20100113210908.GA3065@del.dom.local>
- <4B4E3834.3000609@majjas.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio_net: Defer skb allocation in receive path
+Date: Wed, 13 Jan 2010 23:37:36 +0200
+Message-ID: <20100113213736.GF21445@redhat.com>
+References: <1261122090.4148.24.camel@localhost.localdomain> <1261122289.4148.27.camel@localhost.localdomain> <20091224133749.GB2855@amit-x200.redhat.com> <1262640344.18773.2.camel@localhost.localdomain> <20100104211454.GB21488@redhat.com> <1263236965.11949.1.camel@localhost.localdomain> <1263416018.29594.1.camel@localhost.localdomain> <20100113205750.GD21445@redhat.com> <1263418421.29594.3.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
+Cc: Amit Shah <amit.shah@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:43902 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751652Ab0AMVeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 16:34:44 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:6961 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750822Ab0AMVkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jan 2010 16:40:37 -0500
 Content-Disposition: inline
-In-Reply-To: <4B4E3834.3000609@majjas.com>
+In-Reply-To: <1263418421.29594.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 13, 2010 at 04:16:36PM -0500, Michael Breuer wrote:
-> If it helps, I'm still getting one error without DMAR enabled - at
-> startup, there's a DMA sync oops - mismatch of 72 bytes coming from
-> sky2. That oops was posted previously - with DMAR (re) enabled,
-> there's no related oops.
+On Wed, Jan 13, 2010 at 01:33:41PM -0800, Shirley Ma wrote:
+> On Wed, 2010-01-13 at 22:57 +0200, Michael S. Tsirkin wrote:
+> > How hard is it to get rid of send queue, btw?
+> 
+> Pretty straight forward. I prefer a separate patch for send side so I
+> didn't include it in this patch.
+> 
+> Thanks
+> Shirley
 
-I hope re-posting this oops with this information should be helpful.
-
-Jarek P.
+Yes, separate patch is best.
