@@ -1,65 +1,220 @@
-From: "James Kosin" <JKosin@intcomgrp.com>
-Subject: [PATCH 1/2] net: at91_ether.c - Allow transmitter interrupt to be handled first in ISR
-Date: Wed, 13 Jan 2010 12:25:07 -0500
-Message-ID: <3DBBD805E3BA064A87F551C0E8BD36740289748A@MAILSRV.intcomgrp.com>
+From: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+Subject: [PATCH net-next-2.6] can: Proper ctrlmode handling for CAN devices
+Date: Wed, 13 Jan 2010 18:27:09 +0100
+Message-ID: <1263403629-18827-1-git-send-email-chripell@fsfe.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----_=_NextPart_001_01CA9475.5A6988A7"
-Cc: "Linux Netdev List" <netdev@vger.kernel.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756190Ab0AMRX0@vger.kernel.org>
-Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+This patch adds error checking of ctrlmode values for CAN devices. As
+an example all availabe bits are implemented in the mcp251x driver.
 
-------_=_NextPart_001_01CA9475.5A6988A7
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+---
+ drivers/net/can/at91_can.c        |    1 +
+ drivers/net/can/bfin_can.c        |    1 +
+ drivers/net/can/dev.c             |   13 +++++++++++--
+ drivers/net/can/mcp251x.c         |   32 ++++++++++++++++++++++++++++++--
+ drivers/net/can/mscan/mscan.c     |    1 +
+ drivers/net/can/sja1000/sja1000.c |    1 +
+ drivers/net/can/ti_hecc.c         |    1 +
+ drivers/net/can/usb/ems_usb.c     |    1 +
+ include/linux/can/dev.h           |    2 ++
+ 9 files changed, 49 insertions(+), 4 deletions(-)
 
-Ok,
-
-This is an optimization to:
-
-  Allow the transmitter to free the skb before the receiver allocates
-many skbs from the system.  This should help with skb reuse and in
-multi-core ARM systems allow the next transmitter to be started while we
-service the receiver DMA blocks.
-
-  This first patch is only a move of the service of the transmitter
-interrupt to be first in the ISR.  This is not expensive; because the
-transmitter queue to the MAC is only (1) one deep, and the receiver is
-currently (9) nine deep.
-
-James Kosin
-
-
-------_=_NextPart_001_01CA9475.5A6988A7
-Content-Type: application/octet-stream;
-	name="ether_patch_1.patch"
-Content-Transfer-Encoding: base64
-Content-Description: ether_patch_1.patch
-Content-Disposition: attachment;
-	filename="ether_patch_1.patch"
-
-LS0tIEM6L0RvY3VtZW50cyBhbmQgU2V0dGluZ3Mvamtvc2luL015IERvY3VtZW50cy9qdW5rL2tl
-cm5lbC9Db3B5IG9mIGxpbnV4LTIuNi4zMS41L2RyaXZlcnMvbmV0L2FybS9hdDkxX2V0aGVyLmMJ
-VGh1IE9jdCAyMiAxODo1Nzo1NiAyMDA5DQorKysgQzovRG9jdW1lbnRzIGFuZCBTZXR0aW5ncy9q
-a29zaW4vTXkgRG9jdW1lbnRzL2p1bmsva2VybmVsL2xpbnV4LTIuNi4zMS41L2RyaXZlcnMvbmV0
-L2FybS9hdDkxX2V0aGVyLmMJV2VkIEphbiAxMyAxMjowNTozOSAyMDEwDQpAQCAtOTI1LDkgKzky
-NSw2IEBADQogCSAgIEl0IGlzIGF1dG9tYXRpY2FsbHkgY2xlYXJlZCBvbmNlIHJlYWQuICovDQog
-CWludHN0YXR1cyA9IGF0OTFfZW1hY19yZWFkKEFUOTFfRU1BQ19JU1IpOw0KIA0KLQlpZiAoaW50
-c3RhdHVzICYgQVQ5MV9FTUFDX1JDT00pCQkvKiBSZWNlaXZlIGNvbXBsZXRlICovDQotCQlhdDkx
-ZXRoZXJfcngoZGV2KTsNCi0NCiAJaWYgKGludHN0YXR1cyAmIEFUOTFfRU1BQ19UQ09NKSB7CS8q
-IFRyYW5zbWl0IGNvbXBsZXRlICovDQogCQkvKiBUaGUgVENPTSBiaXQgaXMgc2V0IGV2ZW4gaWYg
-dGhlIHRyYW5zbWlzc2lvbiBmYWlsZWQuICovDQogCQlpZiAoaW50c3RhdHVzICYgKEFUOTFfRU1B
-Q19UVU5EIHwgQVQ5MV9FTUFDX1JUUlkpKQ0KQEAgLTk0MCw2ICs5MzcsOSBAQA0KIAkJfQ0KIAkJ
-bmV0aWZfd2FrZV9xdWV1ZShkZXYpOw0KIAl9DQorDQorCWlmIChpbnRzdGF0dXMgJiBBVDkxX0VN
-QUNfUkNPTSkJCS8qIFJlY2VpdmUgY29tcGxldGUgKi8NCisJCWF0OTFldGhlcl9yeChkZXYpOw0K
-IA0KIAkvKiBXb3JrLWFyb3VuZCBmb3IgRXJyYXRhICMxMSAqLw0KIAlpZiAoaW50c3RhdHVzICYg
-QVQ5MV9FTUFDX1JCTkEpIHsNCg==
-
-------_=_NextPart_001_01CA9475.5A6988A7--
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index f728749..a2f29a3 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -1073,6 +1073,7 @@ static int __init at91_can_probe(struct platform_device *pdev)
+ 	priv->can.bittiming_const = &at91_bittiming_const;
+ 	priv->can.do_set_bittiming = at91_set_bittiming;
+ 	priv->can.do_set_mode = at91_set_mode;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 	priv->reg_base = addr;
+ 	priv->dev = dev;
+ 	priv->clk = clk;
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index 7e1926e..bf7f9ba 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -603,6 +603,7 @@ struct net_device *alloc_bfin_candev(void)
+ 	priv->can.bittiming_const = &bfin_can_bittiming_const;
+ 	priv->can.do_set_bittiming = bfin_can_set_bittiming;
+ 	priv->can.do_set_mode = bfin_can_set_mode;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 
+ 	return dev;
+ }
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index c1bb29f..e25ab98 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -587,13 +587,22 @@ static int can_changelink(struct net_device *dev,
+ 
+ 	if (data[IFLA_CAN_CTRLMODE]) {
+ 		struct can_ctrlmode *cm;
++		u32 ctrlmode;
+ 
+ 		/* Do not allow changing controller mode while running */
+ 		if (dev->flags & IFF_UP)
+ 			return -EBUSY;
+ 		cm = nla_data(data[IFLA_CAN_CTRLMODE]);
+-		priv->ctrlmode &= ~cm->mask;
+-		priv->ctrlmode |= cm->flags;
++		if (cm->flags & ~priv->ctrlmode_supported)
++			return -EOPNOTSUPP;
++		ctrlmode = priv->ctrlmode & ~cm->mask;
++		ctrlmode |= cm->flags;
++		if (priv->check_ctrlmode) {
++			err = priv->check_ctrlmode(ctrlmode);
++			if (err < 0)
++				return err;
++		}
++		priv->ctrlmode = ctrlmode;
+ 	}
+ 
+ 	if (data[IFLA_CAN_BITTIMING]) {
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index afa2fa4..0ad8786 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -538,10 +538,14 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
+ 
+ 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+ 		/* Put device into loopback mode */
+-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
++	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
++		/* Put device into liste-only mode */
++		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LISTEN_ONLY);
+ 	} else {
+ 		/* Put device into normal mode */
+-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL);
++		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL |
++				  (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT ?
++				   CANCTRL_OSM : 0));
+ 
+ 		/* Wait for the device to enter normal mode */
+ 		timeout = jiffies + HZ;
+@@ -917,6 +921,25 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
+ 	}
+ }
+ 
++static inline int mcp251x_match_bits(u32 arg, u32 mask)
++{
++	if ((arg & mask) == mask)
++		return 1;
++	return 0;
++}
++
++static int mcp251x_check_ctrlmode(u32 ctrlmode)
++{
++	if (mcp251x_match_bits(ctrlmode, CAN_CTRLMODE_LOOPBACK |
++			       CAN_CTRLMODE_LISTENONLY) ||
++	    mcp251x_match_bits(ctrlmode, CAN_CTRLMODE_LOOPBACK |
++			       CAN_CTRLMODE_ONE_SHOT) ||
++	    mcp251x_match_bits(ctrlmode, CAN_CTRLMODE_ONE_SHOT |
++			       CAN_CTRLMODE_LISTENONLY))
++		return -EOPNOTSUPP;
++	return 0;
++}
++
+ static const struct net_device_ops mcp251x_netdev_ops = {
+ 	.ndo_open = mcp251x_open,
+ 	.ndo_stop = mcp251x_stop,
+@@ -948,6 +971,11 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
+ 	priv->can.bittiming_const = &mcp251x_bittiming_const;
+ 	priv->can.do_set_mode = mcp251x_do_set_mode;
+ 	priv->can.clock.freq = pdata->oscillator_frequency / 2;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
++		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
++	if (pdata->model == CAN_MCP251X_MCP2515)
++		priv->can.ctrlmode_supported |= CAN_CTRLMODE_ONE_SHOT;
++	priv->can.check_ctrlmode = mcp251x_check_ctrlmode;
+ 	priv->net = net;
+ 	dev_set_drvdata(&spi->dev, priv);
+ 
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index 40827c1..6b7dd57 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -686,6 +686,7 @@ struct net_device *alloc_mscandev(void)
+ 	priv->can.bittiming_const = &mscan_bittiming_const;
+ 	priv->can.do_set_bittiming = mscan_do_set_bittiming;
+ 	priv->can.do_set_mode = mscan_do_set_mode;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 
+ 	for (i = 0; i < TX_QUEUE_SIZE; i++) {
+ 		priv->tx_queue[i].id = i;
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 345304d..ace103a 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -567,6 +567,7 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
+ 	priv->can.bittiming_const = &sja1000_bittiming_const;
+ 	priv->can.do_set_bittiming = sja1000_set_bittiming;
+ 	priv->can.do_set_mode = sja1000_set_mode;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 
+ 	if (sizeof_priv)
+ 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index 7d370e3..8332e24 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -909,6 +909,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	priv->can.bittiming_const = &ti_hecc_bittiming_const;
+ 	priv->can.do_set_mode = ti_hecc_do_set_mode;
+ 	priv->can.do_get_state = ti_hecc_get_state;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 
+ 	ndev->irq = irq->start;
+ 	ndev->flags |= IFF_ECHO;
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index ddb17e2..bfab283 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -1022,6 +1022,7 @@ static int ems_usb_probe(struct usb_interface *intf,
+ 	dev->can.bittiming_const = &ems_usb_bittiming_const;
+ 	dev->can.do_set_bittiming = ems_usb_set_bittiming;
+ 	dev->can.do_set_mode = ems_usb_set_mode;
++	dev->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 
+ 	netdev->flags |= IFF_ECHO; /* we support local echo */
+ 
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+index 7e7c98a..6bc2993 100644
+--- a/include/linux/can/dev.h
++++ b/include/linux/can/dev.h
+@@ -38,6 +38,7 @@ struct can_priv {
+ 
+ 	enum can_state state;
+ 	u32 ctrlmode;
++	u32 ctrlmode_supported;
+ 
+ 	int restart_ms;
+ 	struct timer_list restart_timer;
+@@ -46,6 +47,7 @@ struct can_priv {
+ 	int (*do_set_mode)(struct net_device *dev, enum can_mode mode);
+ 	int (*do_get_state)(const struct net_device *dev,
+ 			    enum can_state *state);
++	int (*check_ctrlmode) (u32 ctrlmode);
+ 
+ 	unsigned int echo_skb_max;
+ 	struct sk_buff **echo_skb;
+-- 
+1.5.6.5
