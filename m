@@ -1,42 +1,32 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: linux-next: Tree for January 8 (net/ip.h, BUG=n)
-Date: Wed, 13 Jan 2010 08:35:40 +0100
-Message-ID: <20100113073540.GA30577@elte.hu>
-References: <20100108164232.d3e1a164.sfr@canb.auug.org.au>
- <20100108092505.4f4e1ac3.randy.dunlap@oracle.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 5/5] tc: man: add man page for drr scheduler
+Date: Wed, 13 Jan 2010 09:27:28 +0100
+Message-ID: <20100113082728.GU21600@Chamillionaire.breakpoint.cc>
+References: <20100112203428.GA24531@Chamillionaire.breakpoint.cc>
+ <1263329126-19756-1-git-send-email-fw@strlen.de>
+ <4B4D5B57.10903@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>
-To: Randy Dunlap <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:48728 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755122Ab0AMI1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 03:27:30 -0500
 Content-Disposition: inline
-In-Reply-To: <20100108092505.4f4e1ac3.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4B4D5B57.10903@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Patrick McHardy <kaber@trash.net> wrote:
+> Thanks Florian. A few minor suggestions below.
 
-* Randy Dunlap <randy.dunlap@oracle.com> wrote:
+Thanks Patrick, I'll add all of your suggestions
+to the man page in the next round of this patch.
 
-> On Fri, 8 Jan 2010 16:42:32 +1100 Stephen Rothwell wrote:
-> 
-> > Hi all,
-> > 
-> > Changes since 20100107:
-> 
-> 
-> When CONFIG_BUG=n, CONFIG_GENERIC_BUG=n:
-> 
-> include/net/ip.h:341: error: implicit declaration of function '__WARN'
-> 
-> This affects:
-> make[3]: *** [security/selinux/hooks.o] Error 1
-> make[3]: *** [fs/ceph/messenger.o] Error 1
-> make[3]: *** [net/core/sock.o] Error 1
-> make[4]: *** [drivers/net/benet/be_main.o] Error 1
+I'll wait a few days, maybe someone else has other ideas.
 
-FYI, this new build bug is now upstream and triggers in -tip testing as well.
-
-	Ingo
+Thanks again for reviewing,
+Florian
