@@ -1,48 +1,24 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Reproducible corruption with SG offloading
-Date: Wed, 13 Jan 2010 21:06:27 +0100
-Message-ID: <4B4E27C3.90003@gmail.com>
-References: <4B4B181B.3020208@rabbit.us>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH v4] tcp: harmonize tcp_vx_rcv header length assumptions
+Date: Wed, 13 Jan 2010 21:19:32 +0100
+Message-ID: <20100113201931.GD24818@basil.fritz.box>
+References: <4B49D001.4000302@gmail.com> <4B4DA4F4.6060007@gmail.com> <20100113115617.GA24818@basil.fritz.box> <4B4DE887.6030602@gmail.com> <20100113155323.GB24818@basil.fritz.box> <4B4E23E0.4000007@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
-To: Peter Rabbitson <rabbit+list@rabbit.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:34455 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754901Ab0AMUGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 15:06:32 -0500
-Received: by fxm25 with SMTP id 25so584888fxm.21
-        for <netdev@vger.kernel.org>; Wed, 13 Jan 2010 12:06:31 -0800 (PST)
-In-Reply-To: <4B4B181B.3020208@rabbit.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756238Ab0AMUTl@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B4E23E0.4000007@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Peter Rabbitson wrote, On 01/11/2010 01:22 PM:
+> The short answer is yes, it saves a bit more than I'd expected!
 
-> I have the following card:
-> 
-> 02:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 Gigabit Ethernet (rev 15)
+Thanks for checking.
 
-...
-
-> 	Kernel driver in use: tg3
-> 
-> When confronted with very specific repeatable data streams the card eventually
-> starts setting garbage down the wire. If I do ethtool -k <ifname> sg off the
-> problem disappears. Let me know if ou are interested in tracking this down,
-> (whether software or hardware) otherwise I'll throw the card away and go with
-> something else.
-> 
-> Please CC me as I am not subscribed to netdev@
-> 
-> This is my minimal test case with relevant data:
-
-Interested or not, it would be useful to save more data on this, e.g. into
-bugzilla report (plus some link here); especially the kernel version, these
-tcpdumps as row files, ifconfigs, and as much as possible according to the
-linux-2.6/REPORTING_BUGS.
-
-Thanks,
-Jarek P.
+-Andi
