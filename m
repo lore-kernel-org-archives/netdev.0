@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/3] e1000e: use alternate MAC address on ESB2 if
-	available
-Date: Wed, 13 Jan 2010 04:04:58 -0800
-Message-ID: <20100113120416.23715.64354.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/3] e1000e: provide MAC-family-specific function
+	to set LAN ID
+Date: Wed, 13 Jan 2010 04:05:18 -0800
+Message-ID: <20100113120516.23715.960.stgit@localhost.localdomain>
+References: <20100113120416.23715.64354.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,379 +12,190 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:46663
-	"EHLO qmta01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751968Ab0AMMFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 07:05:16 -0500
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:45136
+	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752192Ab0AMMFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 07:05:37 -0500
+In-Reply-To: <20100113120416.23715.64354.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Similar to 82571/2/3 parts that already do this, if ESB2/80003es2lan parts
-have an alternate MAC address provided in the EEPROM use it instead of the
-default MAC address.  This patch makes the the actual code that does this
-generic so that it can be better used by both MAC families.
+Provide MAC-specific function pointer to determine the LAN ID (PCI func).
+The LAN ID is used internally by the driver to determine which h/w lock
+to use to protect accessing the PHY on ESB2 as well as help to determine
+the alternate MAC address on some parts.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   33 ++++++++++-
- drivers/net/e1000e/defines.h |    2 +
- drivers/net/e1000e/e1000.h   |   11 +++-
- drivers/net/e1000e/es2lan.c  |   28 +++++++++
- drivers/net/e1000e/hw.h      |    5 +-
- drivers/net/e1000e/lib.c     |  124 +++++++++++++++++++++++++-----------------
- drivers/net/e1000e/netdev.c  |    2 -
- 7 files changed, 147 insertions(+), 58 deletions(-)
+ drivers/net/e1000e/82571.c   |    7 ++++++
+ drivers/net/e1000e/e1000.h   |    2 ++
+ drivers/net/e1000e/es2lan.c  |    4 ++++
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/ich8lan.c |    1 +
+ drivers/net/e1000e/lib.c     |   48 ++++++++++++++++++++++++++++++++----------
+ 6 files changed, 52 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 02d67d0..d1a4514 100644
+index d1a4514..7674a91 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -922,9 +922,12 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	ew32(IMC, 0xffffffff);
- 	icr = er32(ICR);
+@@ -267,8 +267,14 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	}
  
--	if (hw->mac.type == e1000_82571 &&
--		hw->dev_spec.e82571.alt_mac_addr_is_present)
--			e1000e_set_laa_state_82571(hw, true);
-+	/* Install any alternate MAC address into RAR0 */
-+	ret_val = e1000_check_alt_mac_addr_generic(hw);
-+	if (ret_val)
-+		return ret_val;
-+
-+	e1000e_set_laa_state_82571(hw, true);
- 
- 	/* Reinitialize the 82571 serdes link state machine */
- 	if (hw->phy.media_type == e1000_media_type_internal_serdes)
-@@ -1621,6 +1624,29 @@ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw)
- }
- 
- /**
-+ *  e1000_read_mac_addr_82571 - Read device MAC address
-+ *  @hw: pointer to the HW structure
-+ **/
-+static s32 e1000_read_mac_addr_82571(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+
-+	/*
-+	 * If there's an alternate MAC address place it in RAR0
-+	 * so that it will override the Si installed default perm
-+	 * address.
-+	 */
-+	ret_val = e1000_check_alt_mac_addr_generic(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = e1000_read_mac_addr_generic(hw);
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  * e1000_power_down_phy_copper_82571 - Remove link during PHY power down
-  * @hw: pointer to the HW structure
-  *
-@@ -1706,6 +1732,7 @@ static struct e1000_mac_operations e82571_mac_ops = {
- 	.setup_link		= e1000_setup_link_82571,
- 	/* .setup_physical_interface: media type dependent */
- 	.setup_led		= e1000e_setup_led_generic,
-+	.read_mac_addr		= e1000_read_mac_addr_82571,
- };
- 
- static struct e1000_phy_operations e82_phy_ops_igp = {
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index e02e382..db05ec3 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -460,6 +460,8 @@
-  */
- #define E1000_RAR_ENTRIES     15
- #define E1000_RAH_AV  0x80000000        /* Receive descriptor valid */
-+#define E1000_RAL_MAC_ADDR_LEN 4
-+#define E1000_RAH_MAC_ADDR_LEN 2
- 
- /* Error Codes */
- #define E1000_ERR_NVM      1
+ 	switch (hw->mac.type) {
++	case e1000_82573:
++		func->set_lan_id = e1000_set_lan_id_single_port;
++		func->check_mng_mode = e1000e_check_mng_mode_generic;
++		func->led_on = e1000e_led_on_generic;
++		break;
+ 	case e1000_82574:
+ 	case e1000_82583:
++		func->set_lan_id = e1000_set_lan_id_single_port;
+ 		func->check_mng_mode = e1000_check_mng_mode_82574;
+ 		func->led_on = e1000_led_on_82574;
+ 		break;
+@@ -1721,6 +1727,7 @@ static struct e1000_mac_operations e82571_mac_ops = {
+ 	.cleanup_led		= e1000e_cleanup_led_generic,
+ 	.clear_hw_cntrs		= e1000_clear_hw_cntrs_82571,
+ 	.get_bus_info		= e1000e_get_bus_info_pcie,
++	.set_lan_id		= e1000_set_lan_id_multi_port_pcie,
+ 	/* .get_link_up_info: media type dependent */
+ 	/* .led_on: mac type dependent */
+ 	.led_off		= e1000e_led_off_generic,
 diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index d6ee28f..f0cdf35 100644
+index f0cdf35..8e6251e 100644
 --- a/drivers/net/e1000e/e1000.h
 +++ b/drivers/net/e1000e/e1000.h
-@@ -529,6 +529,7 @@ extern s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw);
- extern s32 e1000e_force_mac_fc(struct e1000_hw *hw);
- extern s32 e1000e_blink_led(struct e1000_hw *hw);
- extern void e1000_write_vfta_generic(struct e1000_hw *hw, u32 offset, u32 value);
-+extern s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw);
- extern void e1000e_reset_adaptive(struct e1000_hw *hw);
- extern void e1000e_update_adaptive(struct e1000_hw *hw);
- 
-@@ -628,7 +629,15 @@ extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16
- extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
- extern void e1000e_release_nvm(struct e1000_hw *hw);
- extern void e1000e_reload_nvm(struct e1000_hw *hw);
--extern s32 e1000e_read_mac_addr(struct e1000_hw *hw);
-+extern s32 e1000_read_mac_addr_generic(struct e1000_hw *hw);
-+
-+static inline s32 e1000e_read_mac_addr(struct e1000_hw *hw)
-+{
-+	if (hw->mac.ops.read_mac_addr)
-+		return hw->mac.ops.read_mac_addr(hw);
-+
-+	return e1000_read_mac_addr_generic(hw);
-+}
- 
- static inline s32 e1000_validate_nvm_checksum(struct e1000_hw *hw)
- {
+@@ -502,6 +502,8 @@ extern s32 e1000e_cleanup_led_generic(struct e1000_hw *hw);
+ extern s32 e1000e_led_on_generic(struct e1000_hw *hw);
+ extern s32 e1000e_led_off_generic(struct e1000_hw *hw);
+ extern s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw);
++extern void e1000_set_lan_id_multi_port_pcie(struct e1000_hw *hw);
++extern void e1000_set_lan_id_single_port(struct e1000_hw *hw);
+ extern s32 e1000e_get_speed_and_duplex_copper(struct e1000_hw *hw, u16 *speed, u16 *duplex);
+ extern s32 e1000e_get_speed_and_duplex_fiber_serdes(struct e1000_hw *hw, u16 *speed, u16 *duplex);
+ extern s32 e1000e_disable_pcie_master(struct e1000_hw *hw);
 diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index e2aa3b7..4bb9d88 100644
+index 4bb9d88..27d2158 100644
 --- a/drivers/net/e1000e/es2lan.c
 +++ b/drivers/net/e1000e/es2lan.c
-@@ -814,7 +814,9 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
- 	ew32(IMC, 0xffffffff);
- 	icr = er32(ICR);
+@@ -246,6 +246,9 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
+ 		break;
+ 	}
  
--	return 0;
-+	ret_val = e1000_check_alt_mac_addr_generic(hw);
++	/* set lan id for port to determine which phy lock to use */
++	hw->mac.ops.set_lan_id(hw);
 +
-+	return ret_val;
+ 	return 0;
  }
  
- /**
-@@ -1340,6 +1342,29 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
- }
- 
- /**
-+ *  e1000_read_mac_addr_80003es2lan - Read device MAC address
-+ *  @hw: pointer to the HW structure
-+ **/
-+static s32 e1000_read_mac_addr_80003es2lan(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+
-+	/*
-+	 * If there's an alternate MAC address place it in RAR0
-+	 * so that it will override the Si installed default perm
-+	 * address.
-+	 */
-+	ret_val = e1000_check_alt_mac_addr_generic(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = e1000_read_mac_addr_generic(hw);
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  * e1000_power_down_phy_copper_80003es2lan - Remove link during PHY power down
-  * @hw: pointer to the HW structure
-  *
-@@ -1403,6 +1428,7 @@ static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw)
- }
- 
- static struct e1000_mac_operations es2_mac_ops = {
-+	.read_mac_addr		= e1000_read_mac_addr_80003es2lan,
- 	.id_led_init		= e1000e_id_led_init,
- 	.check_mng_mode		= e1000e_check_mng_mode_generic,
- 	/* check_for_link dependent on media type */
+@@ -1435,6 +1438,7 @@ static struct e1000_mac_operations es2_mac_ops = {
+ 	.cleanup_led		= e1000e_cleanup_led_generic,
+ 	.clear_hw_cntrs		= e1000_clear_hw_cntrs_80003es2lan,
+ 	.get_bus_info		= e1000e_get_bus_info_pcie,
++	.set_lan_id		= e1000_set_lan_id_multi_port_pcie,
+ 	.get_link_up_info	= e1000_get_link_up_info_80003es2lan,
+ 	.led_on			= e1000e_led_on_generic,
+ 	.led_off		= e1000e_led_off_generic,
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index eccf29b..127e6a2 100644
+index 127e6a2..9cac5d9 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -389,6 +389,9 @@ enum e1e_registers {
- 
- #define E1000_FUNC_1 1
- 
-+#define E1000_ALT_MAC_ADDRESS_OFFSET_LAN0   0
-+#define E1000_ALT_MAC_ADDRESS_OFFSET_LAN1   3
-+
- enum e1000_mac_type {
- 	e1000_82571,
- 	e1000_82572,
-@@ -756,6 +759,7 @@ struct e1000_mac_operations {
- 	s32  (*setup_physical_interface)(struct e1000_hw *);
- 	s32  (*setup_led)(struct e1000_hw *);
- 	void (*write_vfta)(struct e1000_hw *, u32, u32);
-+	s32  (*read_mac_addr)(struct e1000_hw *);
- };
- 
- /* Function pointers for the PHY. */
-@@ -897,7 +901,6 @@ struct e1000_fc_info {
- 
- struct e1000_dev_spec_82571 {
- 	bool laa_is_present;
--	bool alt_mac_addr_is_present;
- 	u32 smb_counter;
- };
- 
+@@ -749,6 +749,7 @@ struct e1000_mac_operations {
+ 	void (*clear_hw_cntrs)(struct e1000_hw *);
+ 	void (*clear_vfta)(struct e1000_hw *);
+ 	s32  (*get_bus_info)(struct e1000_hw *);
++	void (*set_lan_id)(struct e1000_hw *);
+ 	s32  (*get_link_up_info)(struct e1000_hw *, u16 *, u16 *);
+ 	s32  (*led_on)(struct e1000_hw *);
+ 	s32  (*led_off)(struct e1000_hw *);
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 8b6ecd1..54d03a0 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -3368,6 +3368,7 @@ static struct e1000_mac_operations ich8_mac_ops = {
+ 	/* cleanup_led dependent on mac type */
+ 	.clear_hw_cntrs		= e1000_clear_hw_cntrs_ich8lan,
+ 	.get_bus_info		= e1000_get_bus_info_ich8lan,
++	.set_lan_id		= e1000_set_lan_id_single_port,
+ 	.get_link_up_info	= e1000_get_link_up_info_ich8lan,
+ 	/* led_on dependent on mac type */
+ 	/* led_off dependent on mac type */
 diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 2fa9b36..5475424 100644
+index 5475424..5f6b171 100644
 --- a/drivers/net/e1000e/lib.c
 +++ b/drivers/net/e1000e/lib.c
-@@ -139,6 +139,68 @@ void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
+@@ -51,10 +51,10 @@ enum e1000_mng_mode {
+  **/
+ s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw)
+ {
++	struct e1000_mac_info *mac = &hw->mac;
+ 	struct e1000_bus_info *bus = &hw->bus;
+ 	struct e1000_adapter *adapter = hw->adapter;
+-	u32 status;
+-	u16 pcie_link_status, pci_header_type, cap_offset;
++	u16 pcie_link_status, cap_offset;
+ 
+ 	cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
+ 	if (!cap_offset) {
+@@ -68,20 +68,46 @@ s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw)
+ 						    PCIE_LINK_WIDTH_SHIFT);
+ 	}
+ 
+-	pci_read_config_word(adapter->pdev, PCI_HEADER_TYPE_REGISTER,
+-			     &pci_header_type);
+-	if (pci_header_type & PCI_HEADER_TYPE_MULTIFUNC) {
+-		status = er32(STATUS);
+-		bus->func = (status & E1000_STATUS_FUNC_MASK)
+-			    >> E1000_STATUS_FUNC_SHIFT;
+-	} else {
+-		bus->func = 0;
+-	}
++	mac->ops.set_lan_id(hw);
+ 
+ 	return 0;
  }
  
  /**
-+ *  e1000_check_alt_mac_addr_generic - Check for alternate MAC addr
++ *  e1000_set_lan_id_multi_port_pcie - Set LAN id for PCIe multiple port devices
++ *
 + *  @hw: pointer to the HW structure
 + *
-+ *  Checks the nvm for an alternate MAC address.  An alternate MAC address
-+ *  can be setup by pre-boot software and must be treated like a permanent
-+ *  address and must override the actual permanent MAC address. If an
-+ *  alternate MAC address is found it is programmed into RAR0, replacing
-+ *  the permanent address that was installed into RAR0 by the Si on reset.
-+ *  This function will return SUCCESS unless it encounters an error while
-+ *  reading the EEPROM.
++ *  Determines the LAN function id by reading memory-mapped registers
++ *  and swaps the port value if requested.
 + **/
-+s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
++void e1000_set_lan_id_multi_port_pcie(struct e1000_hw *hw)
 +{
-+	u32 i;
-+	s32 ret_val = 0;
-+	u16 offset, nvm_alt_mac_addr_offset, nvm_data;
-+	u8 alt_mac_addr[ETH_ALEN];
-+
-+	ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
-+	                         &nvm_alt_mac_addr_offset);
-+	if (ret_val) {
-+		e_dbg("NVM Read Error\n");
-+		goto out;
-+	}
-+
-+	if (nvm_alt_mac_addr_offset == 0xFFFF) {
-+		/* There is no Alternate MAC Address */
-+		goto out;
-+	}
-+
-+	if (hw->bus.func == E1000_FUNC_1)
-+		nvm_alt_mac_addr_offset += E1000_ALT_MAC_ADDRESS_OFFSET_LAN1;
-+	for (i = 0; i < ETH_ALEN; i += 2) {
-+		offset = nvm_alt_mac_addr_offset + (i >> 1);
-+		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
-+		if (ret_val) {
-+			e_dbg("NVM Read Error\n");
-+			goto out;
-+		}
-+
-+		alt_mac_addr[i] = (u8)(nvm_data & 0xFF);
-+		alt_mac_addr[i + 1] = (u8)(nvm_data >> 8);
-+	}
-+
-+	/* if multicast bit is set, the alternate address will not be used */
-+	if (alt_mac_addr[0] & 0x01) {
-+		e_dbg("Ignoring Alternate Mac Address with MC bit set\n");
-+		goto out;
-+	}
++	struct e1000_bus_info *bus = &hw->bus;
++	u32 reg;
 +
 +	/*
-+	 * We have a valid alternate MAC address, and we want to treat it the
-+	 * same as the normal permanent MAC address stored by the HW into the
-+	 * RAR. Do this by mapping this address into RAR0.
++	 * The status register reports the correct function number
++	 * for the device regardless of function swap state.
 +	 */
-+	e1000e_rar_set(hw, alt_mac_addr, 0);
-+
-+out:
-+	return ret_val;
++	reg = er32(STATUS);
++	bus->func = (reg & E1000_STATUS_FUNC_MASK) >> E1000_STATUS_FUNC_SHIFT;
 +}
 +
 +/**
-  *  e1000e_rar_set - Set receive address register
-  *  @hw: pointer to the HW structure
-  *  @addr: pointer to the receive address
-@@ -2072,67 +2134,27 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- }
- 
- /**
-- *  e1000e_read_mac_addr - Read device MAC address
-+ *  e1000_read_mac_addr_generic - Read device MAC address
++ *  e1000_set_lan_id_single_port - Set LAN id for a single port device
++ *  @hw: pointer to the HW structure
++ *
++ *  Sets the LAN function id to zero for a single port device.
++ **/
++void e1000_set_lan_id_single_port(struct e1000_hw *hw)
++{
++	struct e1000_bus_info *bus = &hw->bus;
++
++	bus->func = 0;
++}
++
++/**
+  *  e1000_clear_vfta_generic - Clear VLAN filter table
   *  @hw: pointer to the HW structure
   *
-  *  Reads the device MAC address from the EEPROM and stores the value.
-  *  Since devices with two ports use the same EEPROM, we increment the
-  *  last bit in the MAC address for the second port.
-  **/
--s32 e1000e_read_mac_addr(struct e1000_hw *hw)
-+s32 e1000_read_mac_addr_generic(struct e1000_hw *hw)
- {
--	s32 ret_val;
--	u16 offset, nvm_data, i;
--	u16 mac_addr_offset = 0;
--
--	if (hw->mac.type == e1000_82571) {
--		/* Check for an alternate MAC address.  An alternate MAC
--		 * address can be setup by pre-boot software and must be
--		 * treated like a permanent address and must override the
--		 * actual permanent MAC address.*/
--		ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
--					 &mac_addr_offset);
--		if (ret_val) {
--			e_dbg("NVM Read Error\n");
--			return ret_val;
--		}
--		if (mac_addr_offset == 0xFFFF)
--			mac_addr_offset = 0;
--
--		if (mac_addr_offset) {
--			if (hw->bus.func == E1000_FUNC_1)
--				mac_addr_offset += ETH_ALEN/sizeof(u16);
--
--			/* make sure we have a valid mac address here
--			* before using it */
--			ret_val = e1000_read_nvm(hw, mac_addr_offset, 1,
--						 &nvm_data);
--			if (ret_val) {
--				e_dbg("NVM Read Error\n");
--				return ret_val;
--			}
--			if (nvm_data & 0x0001)
--				mac_addr_offset = 0;
--		}
-+	u32 rar_high;
-+	u32 rar_low;
-+	u16 i;
- 
--		if (mac_addr_offset)
--		hw->dev_spec.e82571.alt_mac_addr_is_present = 1;
--	}
-+	rar_high = er32(RAH(0));
-+	rar_low = er32(RAL(0));
- 
--	for (i = 0; i < ETH_ALEN; i += 2) {
--		offset = mac_addr_offset + (i >> 1);
--		ret_val = e1000_read_nvm(hw, offset, 1, &nvm_data);
--		if (ret_val) {
--			e_dbg("NVM Read Error\n");
--			return ret_val;
--		}
--		hw->mac.perm_addr[i] = (u8)(nvm_data & 0xFF);
--		hw->mac.perm_addr[i+1] = (u8)(nvm_data >> 8);
--	}
-+	for (i = 0; i < E1000_RAL_MAC_ADDR_LEN; i++)
-+		hw->mac.perm_addr[i] = (u8)(rar_low >> (i*8));
- 
--	/* Flip last bit of mac address if we're on second port */
--	if (!mac_addr_offset && hw->bus.func == E1000_FUNC_1)
--		hw->mac.perm_addr[5] ^= 1;
-+	for (i = 0; i < E1000_RAH_MAC_ADDR_LEN; i++)
-+		hw->mac.perm_addr[i+4] = (u8)(rar_high >> (i*8));
- 
- 	for (i = 0; i < ETH_ALEN; i++)
- 		hw->mac.addr[i] = hw->mac.perm_addr[i];
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c3745c9..0d5ef4c 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5135,7 +5135,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	e1000_eeprom_checks(adapter);
- 
--	/* copy the MAC address out of the NVM */
-+	/* copy the MAC address */
- 	if (e1000e_read_mac_addr(&adapter->hw))
- 		e_err("NVM Read Error while reading MAC address\n");
- 
 
