@@ -1,39 +1,52 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH v4] tcp: harmonize tcp_vx_rcv header length assumptions
-Date: Wed, 13 Jan 2010 16:13:46 -0500
-Message-ID: <4B4E378A.7040506@gmail.com>
-References: <4B49D001.4000302@gmail.com> <4B4DA4F4.6060007@gmail.com> <20100113115617.GA24818@basil.fritz.box> <4B4DE887.6030602@gmail.com> <20100113155323.GB24818@basil.fritz.box> <4B4E23E0.4000007@gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Wed, 13 Jan 2010 16:16:36 -0500
+Message-ID: <4B4E3834.3000609@majjas.com>
+References: <20100107185040.GB3208@del.dom.local> <4B466A26.5070506@majjas.com>
+ <20100108074539.GA6205@ff.dom.local> <4B475FF9.7000702@majjas.com>
+ <20100108212923.GA3078@del.dom.local> <4B47A81B.5040601@majjas.com>
+ <4B4809EF.1070609@majjas.com> <20100109122830.GA4386@del.dom.local>
+ <4B48CC2C.2090403@majjas.com> <4B4E2F89.2050606@majjas.com>
+ <20100113210908.GA3065@del.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756416Ab0AMVNv@vger.kernel.org>
-In-Reply-To: <4B4E23E0.4000007@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta1.srv.hcvlny.cv.net ([167.206.4.196]:34443 "EHLO
+	mta1.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756322Ab0AMVRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 16:17:34 -0500
+In-reply-to: <20100113210908.GA3065@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I did today's tests on tcp_ipv4, but part of this harmonization is to
-make v4 and v6 match up better.  As I was examining line by line, one of
-the things that leaps out is that ipv4 has nf_reset(skb):
+On 1/13/2010 4:09 PM, Jarek Poplawski wrote:
+> On Wed, Jan 13, 2010 at 03:39:37PM -0500, Michael Breuer wrote:
+>    
+>> Just an FYI - 2.6.32.3 with alt 3 af_packet patch&  sky2
+>> pskb_may_pull runs OK with DMAR (re)enabled and msi enabled.
+>>      
+> Hmm... What a pity! It was such a useful debugging tool for
+> networking ;-) BTW, I'm not sure if "runs OK" means with or without
+> those DHCP drops&  large packets you described.
+>
+> Thanks,
+> Jarek P.
+>    
+As of now, no errors even when blasting traffic & forcing dhcp packets 
+as before. I haven't tried putting mtu back to 9k yet. OK means that 
+there are no obvious differences in behavior with or without DMAR all 
+else being equal.
 
-tcp_ipv4:
-	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
-		goto discard_and_relse;
-	nf_reset(skb);
+There were some updates made to stable that could have fixed this - I'd 
+guess intel_iommu fixes helped.
 
-	if (sk_filter(sk, skb))
-		goto discard_and_relse;
-
-tcp_ipv6:
-	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
-		goto discard_and_relse;
-
-	if (sk_filter(sk, skb))
-		goto discard_and_relse;
-
-Does anybody know why?  Should ipv6 have it?  Or at least a comment
-explaining the reasoning for the omission?
+If it helps, I'm still getting one error without DMAR enabled - at 
+startup, there's a DMA sync oops - mismatch of 72 bytes coming from 
+sky2. That oops was posted previously - with DMAR (re) enabled, there's 
+no related oops.
