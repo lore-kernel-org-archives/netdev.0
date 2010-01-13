@@ -1,38 +1,57 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Wed, 13 Jan 2010 05:41:20 +0100
-Message-ID: <m2my0iiplb.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-8-git-send-email-sam@synack.fr>
-	<4B420464.3040301@trash.net>
+From: Steven Blake <slblake@petri-meat.com>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Tue, 12 Jan 2010 23:47:45 -0500
+Message-ID: <9440ce557c65a3d9ae7d3c5d4443792a@petri-meat.com>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de>	<20100112.121607.39835310.davem@davemloft.net>	<4B4CE2B8.1040702@redfish-solutions.com> <20100112.130355.144803575.davem@davemloft.net> <4B4CEA91.3070201@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 16:08:20 +0100")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elom.tchmachines.com ([208.76.80.198]:33706 "EHLO
+	elom.tchmachines.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024Ab0AMFTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 00:19:24 -0500
+In-Reply-To: <4B4CEA91.3070201@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
+On Tue, 12 Jan 2010 13:33:05 -0800, "Philip A. Prindeville"
+<philipp_subx@redfish-solutions.com> wrote:
 
->> +atomic_t snet_nl_seq = ATOMIC_INIT(0);
->> +static uint32_t snet_nl_pid;
->> +static struct genl_family snet_genl_family;
->> +atomic_t snet_num_listeners = ATOMIC_INIT(0);
->
-> The num_listeners seem to be redundant as you only support a
-> single listener anyways, whose presence is indicated by
-> snet_nl_pid != 0.
+> On 01/12/2010 01:03 PM, David Miller wrote:
 
-Actually, I may want to support multiple listeners, or simultaneous
-communication with userspace, as we may want to listen for event and
-reply for verdict in the same time as adding or deleting events.
-I will fix this mecanism.
+>> What they do is they have a set of semantics inside of their cloud of
+>> routers and switch points for diffserv, and when packets come in the
+>> TOS field is rewritten to whatever scheme is being used inside of that
+>> cloud.
+> 
+> Uh, no.  Net Neutrality very much requires consistent end-to-end
+> interpretation of ToS bits by backbone carriers.  If you know of a
+carrier
+> that isn't honoring ToS bits, I have a group of lawyers I'd like them to
+> meet.
 
-thanks Patrick,
-sam
+Few if any ISPs are honoring any DSCP bits outside of negotiated contracts.
+
+ 
+>> And the diffserv bits only have meaning and effect within that cloud.
+> 
+> Have you read RFC-2474 lately?  You only need to get as far as the
+> Abstract:
+> 
+>    The services may be either end-to-end or intra-domain; they include
+>    both those that can satisfy quantitative performance requirements
+(e.g.,
+>    peak bandwidth) and those based on relative performance (e.g., "class"
+>    differentiation).
+> 
+> "end-to-end"... seems pretty clear to me.
+
+David's understanding of RFC 2474 is correct.
+
+
+Regards,
+
+// Steve
