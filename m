@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/3] [PATCH] qeth: HiperSockets Network Traffic Analyzer
-Date: Wed, 13 Jan 2010 20:35:15 -0800 (PST)
-Message-ID: <20100113.203515.28836592.davem@davemloft.net>
-References: <1263299131.6037.44.camel@braunu-laptop>
-	<20100112.045944.197636957.davem@davemloft.net>
-	<1263302964.6037.54.camel@braunu-laptop>
+Subject: Re: [PATCH v4 1/1] rps: core implementation
+Date: Wed, 13 Jan 2010 20:40:26 -0800 (PST)
+Message-ID: <20100113.204026.118346246.davem@davemloft.net>
+References: <4B45A623.7070507@gmail.com>
+	<65634d661001102225t226c07bfg2ff0482150b4a18a@mail.gmail.com>
+	<4B4AE8C5.9010406@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	frank.blaschka@de.ibm.com, ursula.braun@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38244
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43017
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752262Ab0ANEfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:35:08 -0500
-In-Reply-To: <1263302964.6037.54.camel@braunu-laptop>
+	by vger.kernel.org with ESMTP id S1751286Ab0ANEkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:40:18 -0500
+In-Reply-To: <4B4AE8C5.9010406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Tue, 12 Jan 2010 14:29:24 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 11 Jan 2010 10:00:53 +0100
 
-> I should have been more precise: In the s390-world there are 2 steps for
-> network device setup - a ccwgroup-step, which establishes the "struct
-> device", and an online-step, which establishes the "struct net_device".
-> After the ccwgroup-step we have an instantiated device and can make use
-> of sysfs. After the online-step, we have an instantiated net_device
-> incl. network interface name and can make use of ethtool. HiperSockets
-> sniffer configuration is required before the online-step.
+> I believe its ready for inclusion, but of course David should take
+> a look before :)
+> 
+> Could you post it formally with the appropriate ChangeLog with a nice
+> RPS description, so that other people can ack it ?
 
-Fair enough.
-
-Ok, all 3 qeth patches applied to net-next-2.6, thanks.
+Yes Tom, please do, I think I'm ready to apply this thing.
