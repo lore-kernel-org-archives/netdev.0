@@ -1,36 +1,46 @@
-From: "James Kosin" <JKosin@intcomgrp.com>
-Subject: RE: [PATCH 1/2] net: at91_ether.c - Allow transmitter interrupt to be handled first in ISR
-Date: Thu, 14 Jan 2010 15:28:38 -0500
-Message-ID: <3DBBD805E3BA064A87F551C0E8BD367402897539@MAILSRV.intcomgrp.com>
-References: <3DBBD805E3BA064A87F551C0E8BD36740289748A@MAILSRV.intcomgrp.com> <20100113.173253.223656114.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH] [NET]: da.s_net not copied but assigned to itself in
+ aarp_rcv()
+Date: Thu, 14 Jan 2010 19:00:01 -0200
+Message-ID: <20100114210001.GE20221@ghostprotocols.net>
+References: <4B4F7F4B.8000302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757635Ab0ANU0y@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100113.173253.223656114.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f187.google.com ([209.85.210.187]:39997 "EHLO
+	mail-yx0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754498Ab0ANVAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 16:00:08 -0500
+Content-Disposition: inline
+In-Reply-To: <4B4F7F4B.8000302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks David,
+Em Thu, Jan 14, 2010 at 09:32:11PM +0100, Roel Kluin escreveu:
+> da.s_net was not copied but assigned to itself.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-I'm checking out the latest git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-With git now...
+Looks right, must be there for ages...
 
-A few items:
-	a)  Is it OK to use git-diff to build a patch file?  Or does everyone still prefer
-	    diff?
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-	b)  I'm going to try and test also; since, I do have an active platform I
-	    can test on.  Are there any other developers using the ARM that may be able
-	    to provide some feedback?  Eric Dumazet had some interesting comments
-	    but, none of the original people in the file are around anymore I'm afraid.
-	    That or they really don't want to be contacted.
-
-Thanks Again,
-
-James Kosin
+> ---
+> diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
+> index 9d4adfd..f2b3b56 100644
+> --- a/net/appletalk/aarp.c
+> +++ b/net/appletalk/aarp.c
+> @@ -819,7 +819,7 @@ static int aarp_rcv(struct sk_buff *skb, struct net_device *dev,
+>  				ma = &ifa->address;
+>  			else { /* We need to make a copy of the entry. */
+>  				da.s_node = sa.s_node;
+> -				da.s_net = da.s_net;
+> +				da.s_net = sa.s_net;
+>  				ma = &da;
+>  			}
+>  
