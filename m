@@ -1,44 +1,35 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [net-next-2.6 PATCH 1/5] ixgbe: Allocate driver resources per NUMA node
-Date: Thu, 14 Jan 2010 12:02:06 +0100
-Message-ID: <87y6k1dk5t.fsf@basil.nowhere.org>
-References: <20100107044741.28605.31414.stgit@localhost.localdomain>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Thu, 14 Jan 2010 12:03:54 +0100
+Message-ID: <20100114110354.GJ12241@basil.fritz.box>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au> <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc> <20100111200136.GA29955@suse.de> <877hrlf0rf.fsf@basil.nowhere.org> <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:43482 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754941Ab0ANLCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:02:08 -0500
-In-Reply-To: <20100107044741.28605.31414.stgit@localhost.localdomain> (Jeff Kirsher's message of "Wed, 06 Jan 2010 20:48:26 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>, Greg KH <gregkh@suse.de>,
+	Tilman Schmidt <tilman@imap.cc>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756157Ab0ANLD5@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
->  enum ixbge_state_t {
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index 2ad754c..6895de7 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -3741,7 +3741,8 @@ static int ixgbe_alloc_q_vectors(struct ixgbe_adapter *adapter)
->  	}
->  
->  	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
-> -		q_vector = kzalloc(sizeof(struct ixgbe_q_vector), GFP_KERNEL);
-> +		q_vector = kzalloc_node(sizeof(struct ixgbe_q_vector),
-> +		                        GFP_KERNEL, adapter->node);
+On Thu, Jan 14, 2010 at 11:02:14AM +0000, Alan Cox wrote:
+> > e.g. set some global variable that forbids device removal
+> > and warn in the kernel log. In theory this could be also
+> > done per device, but I guess that would be more effort.
+> 
+> There is a simpler way to do that, which is to just leak a reference in
+> the hisax_find_pci_device hack. The pci_dev won't be going anywhere then.
 
-
-The problem of doing this is that the node might be full or have
-no memory and k*alloc_node will fail then.
-
-So you would need a fallback to be reliable (we probably should have a
-generic utility function for this somewhere, but we don't currently)
+You just have to do it once, otherwise it'll fail after 4 billion times.
 
 -Andi
+
 
 -- 
 ak@linux.intel.com -- Speaking for myself only.
