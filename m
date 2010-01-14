@@ -1,129 +1,94 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
-Date: Thu, 14 Jan 2010 11:46:15 -0500
-Message-ID: <4B4F4A57.5050708@majjas.com>
-References: <20100113194148.139091a3@nehalam>
- <20100114101445.GA7210@ff.dom.local> <20100114111636.GB7210@ff.dom.local>
- <20100114.032009.20669539.davem@davemloft.net>
- <20100114112653.GA8543@ff.dom.local> <4B4F19EB.5080207@ring3k.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Thu, 14 Jan 2010 10:47:02 -0600
+Message-ID: <20100114164702.GA13439@us.ibm.com>
+References: <20100114150039.GB6322@us.ibm.com>
+ <20100114163645.GA6230@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta1.srv.hcvlny.cv.net ([167.206.4.196]:58703 "EHLO
-	mta1.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754460Ab0ANQqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 11:46:51 -0500
-Received: from mail.majjas.com (ool-44c00dc8.dyn.optonline.net [68.192.13.200])
- by mta1.srv.hcvlny.cv.net
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- with ESMTP id <0KW8002ABX9ZBBY0@mta1.srv.hcvlny.cv.net> for
- netdev@vger.kernel.org; Thu, 14 Jan 2010 11:46:48 -0500 (EST)
-In-reply-to: <4B4F19EB.5080207@ring3k.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
+	K
+To: Michael Stone <michael@laptop.org>,
+	Andrew Morgan <morgan@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757262Ab0ANQrW@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100114163645.GA6230@heat>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/14/2010 8:19 AM, Mike McCormack wrote:
-> Jarek Poplawski wrote:
->    
->> On Thu, Jan 14, 2010 at 03:20:09AM -0800, David Miller wrote:
->>      
->>> From: Jarek Poplawski<jarkao2@gmail.com>
->>> Date: Thu, 14 Jan 2010 11:16:36 +0000
->>>
->>>        
->>>> So, now I really ;-) agree with David: this needs a proper fix.
->>>>          
->>> Now Jarek, do you now see my dirty little secret?
->>>
->>> When people disagree with me, I just silently sit around waiting for
->>> them to eventually change their mind.
->>>
->>> Isn't it brilliant? -)
->>>        
->> If it were that easy... (it never works for me :-()
->>
->> Probably, there is something more... ;-)
->>      
-> Here's what was sitting in my tree...
->
->
-> Subject: [PATCH] sky2: Don't detach device when restarting
->
-> Block the tx queue from transmitting when restarting
->   rather than trying to take the device offline.
->
-> Signed-off-by: Mike McCormack<mikem@ring3k.org>
-> ---
->   drivers/net/sky2.c |   13 +++++++++----
->   1 files changed, 9 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index d76d907..061f6f2 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -1580,6 +1580,8 @@ static int sky2_up(struct net_device *dev)
->   	if (netif_msg_ifup(sky2))
->   		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
->
-> +	netif_start_queue(dev);
-> +
->   	return 0;
->
->   err_out:
-> @@ -1596,6 +1598,8 @@ static inline int tx_inuse(const struct sky2_port *sky2)
->   /* Number of list elements available for next tx */
->   static inline int tx_avail(const struct sky2_port *sky2)
->   {
-> +	if (unlikely(!sky2->tx_ring))
-> +		return 0;
->   	return sky2->tx_pending - tx_inuse(sky2);
->   }
->
-> @@ -1925,7 +1929,9 @@ static int sky2_down(struct net_device *dev)
->   	sky2_read32(hw, B0_IMSK);
->
->   	synchronize_irq(hw->pdev->irq);
-> -	napi_synchronize(&hw->napi);
-> +	netif_tx_lock_bh(dev);
-> +	napi_disable(&hw->napi);
-> +	netif_stop_queue(dev);
->
->   	spin_lock_bh(&sky2->phy_lock);
->   	sky2_phy_power_down(hw, port);
-> @@ -1939,6 +1945,8 @@ static int sky2_down(struct net_device *dev)
->   	sky2_rx_clean(sky2);
->
->   	sky2_free_buffers(sky2);
-> +	napi_enable(&hw->napi);
-> +	netif_tx_unlock_bh(dev);
->
->   	return 0;
->   }
-> @@ -3177,9 +3185,6 @@ static void sky2_reset(struct sky2_hw *hw)
->   static void sky2_detach(struct net_device *dev)
->   {
->   	if (netif_running(dev)) {
-> -		netif_tx_lock_bh(dev);
-> -		netif_device_detach(dev);	/* stop txq */
-> -		netif_tx_unlock_bh(dev);
->   		sky2_down(dev);
->   	}
->   }
-> -- 1.5.6.5
->    
-Ok - no obvious difference with this patch + Stephen's.
+Quoting Michael Stone (michael@laptop.org):
+> >Quoting Pavel Machek (pavel@ucw.cz):
+> >> > Quoting Michael Stone (michael@laptop.org):
+> >> > > Serge Hallyn wrote:
+> >> > > >Michael, I'm sorry, I should go back and search the thread for the
+> >> > > >answer, but don't have time right now - do you really need
+> >> > > >disablenetwork to be available to unprivileged users?
+> >> > > > > > Rainbow can only drop the networking privileges when
+> >we know at app launch time
+> >> > > (e.g. based on a manifest or from the human operator) that privileges can be
+> >> > > dropped. Unfortunately, most of the really interesting uses of disablenetwork
+> >> > > happen *after* rainbow has dropped privilege and handed control the app.
+> >> > > Therefore, having an API which can be used by at least some low-privilege
+> >> > > processes is important to me.
+> >> > > > > > >is it ok to require CAP_SETPCAP (same thing required
+> >for dropping privs from
+> >> > > >bounding set)?
+> >> > > > > > Let me try to restate your idea:
+> >> > > > > >   We can make disablenetwork safer by permitting its
+> >use only where explicitly
+> >> > >   permitted by some previously privileged ancestor. The securebits facility
+> >> > >   described in
+> >> > > > > >     http://lwn.net/Articles/280279/
+> >> > > > > >   may be a good framework in which to implement this
+> >control.
+> >> > > > > > Did I understand correctly? If so, then yes, this
+> >approach seems like it would
+> >> > > work for me.
+> >> > > > That is a little more than I was saying this time though I
+> >think I
+> >> > suggested it earlier.
+> >> > > > But really I don't think anyone would care to separate a
+> >system into
+> >> > some processes allowed to do unprivileged disablenetwork and other
+> >> > processes not allowed to, so a (root-owned mode 644) sysctl seems just
+> >> > as useful.
+> >> > Global solution like that is always wrong. (And we have better
+> >> solution available.)
+> >
+> >All right, so Michael suggested securebits, I personally feel prctl would
+> >be more appropriate.
+> 
+> I'm happy with either approach so I'll prepare patches based on Serge's
+> suggestion first.
 
-I still see:
+Ah - but I worry that if you do that Alan or others will object.  Where do
+you plan to store the disablenet_allowed bit?  You can use security_prctl()
+to keep the code out of sys_prctl(), but you still have the question of
+whether you add a bit to the task struct, use task->security and not stack
+with selinux, use a thread flag, or try to enable stacking of task->security.
 
-No reported errors; decent throughput; earlier issues with IRQ resolved.
-But... still seeing DHCP DISCOVER/OFFER (no REQUEST/ACK) while under 
-load. I can try to sniff this... but given that it's under load, I'd 
-probably have to filter out non DHCP stuff and might miss whatever is 
-really going on. Again - main point here is that absent these patches I 
-don't see this issue. It's also possible that these two patches allow 
-the load to be heavier thus actually causing a different problem.
+To me securebits are all about capability hacks, but their name is more
+generic than that :), so maybe they are appropriate after all.  Andrew Morgan,
+would you object to using securebits to store the fact that a privileged
+process has said "from now on an unprivileged process may call disablenetwork"?
+
+-serge
