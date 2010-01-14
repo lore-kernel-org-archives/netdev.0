@@ -1,61 +1,84 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] pci: push deprecated pci_find_device() function to last
- user
-Date: Thu, 14 Jan 2010 08:28:23 -0800
-Message-ID: <20100114082823.63379b3d@jbarnes-piketon>
-References: <20100113142328.5DE2F40107@xenon.ts.pxnet.com>
-	<20100113.203338.52448956.davem@davemloft.net>
-	<20100114044331.GA29008@suse.de>
-	<20100114.001204.203918209.davem@davemloft.net>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Thu, 14 Jan 2010 11:36:45 -0500
+Message-ID: <20100114163645.GA6230@heat>
+References: <20100114150039.GB6322@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, tilman@imap.cc, sfr@canb.auug.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	isdn@linux-pingi.de, isdn4linux@listserv.isdn4linux.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757271Ab0ANQ2c@vger.kernel.org>
-In-Reply-To: <20100114.001204.203918209.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100114150039.GB6322@us.ibm.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Jan 2010 00:12:04 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Greg KH <gregkh@suse.de>
-> Date: Wed, 13 Jan 2010 20:43:31 -0800
-> 
-> > On Wed, Jan 13, 2010 at 08:33:38PM -0800, David Miller wrote:
-> >> From: Tilman Schmidt <tilman@imap.cc>
-> >> Date: Wed, 13 Jan 2010 15:23:28 +0100 (CET)
-> >> 
-> >> > The ISDN4Linux HiSax driver family contains the last remaining
-> >> > users of the deprecated pci_find_device() function. This patch
-> >> > creates a private copy of that function in HiSax, and removes
-> >> > the now unused global function together with its controlling
-> >> > configuration option, CONFIG_PCI_LEGACY.
-> >> > 
-> >> > Impact: code reorganization, no functional change
-> >> > Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> >> > ---
-> >> > Note: This patch is not, nor does it intend to be, checkpatch.pl
-> >> > clean. The issues checkpatch.pl reports on it were already
-> >> > present before, and are unrelated to the topic of this patch.
-> >> 
-> >> I'm fine with this, and Greg or whoever else can take this
-> >> through a driver or PCI specific tree if they want:
-> >> 
-> >> Acked-by: David S. Miller <davem@davemloft.net>
+> Quoting Pavel Machek (pavel@ucw.cz):
+> > > Quoting Michael Stone (michael@laptop.org):
+> > > > Serge Hallyn wrote:
+> > > > >Michael, I'm sorry, I should go back and search the thread for the
+> > > > >answer, but don't have time right now - do you really need
+> > > > >disablenetwork to be available to unprivileged users?
+> > > > 
+> > > > Rainbow can only drop the networking privileges when we know at app launch time
+> > > > (e.g. based on a manifest or from the human operator) that privileges can be
+> > > > dropped. Unfortunately, most of the really interesting uses of disablenetwork
+> > > > happen *after* rainbow has dropped privilege and handed control the app.
+> > > > Therefore, having an API which can be used by at least some low-privilege
+> > > > processes is important to me.
+> > > > 
+> > > > >is it ok to require CAP_SETPCAP (same thing required for dropping privs from
+> > > > >bounding set)?
+> > > > 
+> > > > Let me try to restate your idea:
+> > > > 
+> > > >   We can make disablenetwork safer by permitting its use only where explicitly
+> > > >   permitted by some previously privileged ancestor. The securebits facility
+> > > >   described in
+> > > > 
+> > > >     http://lwn.net/Articles/280279/
+> > > > 
+> > > >   may be a good framework in which to implement this control.
+> > > > 
+> > > > Did I understand correctly? If so, then yes, this approach seems like it would
+> > > > work for me.
+> > > 
+> > > That is a little more than I was saying this time though I think I
+> > > suggested it earlier.
+> > > 
+> > > But really I don't think anyone would care to separate a system into
+> > > some processes allowed to do unprivileged disablenetwork and other
+> > > processes not allowed to, so a (root-owned mode 644) sysctl seems just
+> > > as useful.
 > > 
-> > Where do ISDN patches go through, the network tree?
-> > 
-> > Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+> > Global solution like that is always wrong. (And we have better
+> > solution available.)
 > 
-> Yeah usually, but I thought the PCI tree might want this one
-> because it tosses things from drivers/pci
+> All right, so Michael suggested securebits, I personally feel prctl would
+> be more appropriate.
 
-I can take it, but I lost the original patch.  Tilman, can you resend?
+I'm happy with either approach so I'll prepare patches based on Serge's
+suggestion first.
 
-Thanks,
--- 
-Jesse Barnes, Intel Open Source Technology Center
+Regards,
+
+Michael
