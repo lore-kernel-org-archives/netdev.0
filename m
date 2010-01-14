@@ -1,35 +1,29 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Thu, 14 Jan 2010 12:03:54 +0100
-Message-ID: <20100114110354.GJ12241@basil.fritz.box>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au> <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc> <20100111200136.GA29955@suse.de> <877hrlf0rf.fsf@basil.nowhere.org> <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 14 Jan 2010 03:04:54 -0800 (PST)
+Message-ID: <20100114.030454.16178889.davem@davemloft.net>
+References: <20100110220034.4d46ba8a@nehalam>
+	<873a29eywq.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Greg KH <gregkh@suse.de>,
-	Tilman Schmidt <tilman@imap.cc>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756157Ab0ANLD5@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <873a29eywq.fsf-3rXA9MLqAseW/qJFnhkgxti2O/JbrIOy@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 14, 2010 at 11:02:14AM +0000, Alan Cox wrote:
-> > e.g. set some global variable that forbids device removal
-> > and warn in the kernel log. In theory this could be also
-> > done per device, but I guess that would be more effort.
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Date: Thu, 14 Jan 2010 11:58:13 +0100
+
+> Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
+>>
+>> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
+>> if desired.
 > 
-> There is a simpler way to do that, which is to just leak a reference in
-> the hisax_find_pci_device hack. The pci_dev won't be going anywhere then.
+> Perhaps I'm blind, but where is the default set if the socket
+> option is not used? 
 
-You just have to do it once, otherwise it'll fail after 4 billion times.
-
--Andi
-
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Socket allocation memset()'s it to zero.
