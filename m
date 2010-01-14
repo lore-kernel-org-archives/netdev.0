@@ -1,79 +1,27 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 1/4] netxen: fix endianness read mac address
-Date: Thu, 14 Jan 2010 02:43:04 -0800
-Message-ID: <1263465787-28203-2-git-send-email-amit.salecha@qlogic.com>
-References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:56165 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755995Ab0ANKnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2010 05:43:11 -0500
-In-Reply-To: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 14 Jan 2010 11:58:13 +0100
+Message-ID: <873a29eywq.fsf@basil.nowhere.org>
+References: <20100110220034.4d46ba8a@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100110220034.4d46ba8a@nehalam> (Stephen Hemminger's message of "Sun, 10 Jan 2010 22:00:34 -0800")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In netxen_read_mac_addr, mac_addr should be declared
-u64 instead of __le64, used by host only.
+Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
+>
+> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
+> if desired.
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h      |    4 ++--
- drivers/net/netxen/netxen_nic_hw.c   |    4 ++--
- drivers/net/netxen/netxen_nic_main.c |    2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+Perhaps I'm blind, but where is the default set if the socket
+option is not used? 
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 9bc5bd1..c5a03a6 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1427,8 +1427,8 @@ static inline u32 netxen_tx_avail(struct nx_host_tx_ring *tx_ring)
- 
- }
- 
--int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
--int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
-+int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac);
-+int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac);
- extern void netxen_change_ringparam(struct netxen_adapter *adapter);
- extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
- 				int *valp);
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 85e28e6..0db36f1 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1033,7 +1033,7 @@ static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
- 	return 0;
- }
- 
--int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
-+int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- {
- 	__le32 *pmac = (__le32 *) mac;
- 	u32 offset;
-@@ -1058,7 +1058,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
- 	return 0;
- }
- 
--int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
-+int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- {
- 	uint32_t crbaddr, mac_hi, mac_lo;
- 	int pci_func = adapter->ahw.pci_func;
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9f9d608..2d584ea 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -430,7 +430,7 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
- {
- 	int i;
- 	unsigned char *p;
--	__le64 mac_addr;
-+	u64 mac_addr;
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 
+-Andi
+
 -- 
-1.6.0.2
-
+ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
