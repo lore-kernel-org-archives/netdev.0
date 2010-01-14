@@ -1,52 +1,57 @@
-From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Thu, 14 Jan 2010 12:50:27 +0100
-Message-ID: <201001141250.27287.schmto@hrz.tu-chemnitz.de>
-References: <201001121432.43301.schmto@hrz.tu-chemnitz.de> <20100112.121607.39835310.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 2/4] netxen: fix endianness intr coalesce
+Date: Thu, 14 Jan 2010 03:53:22 -0800
+Message-ID: <1263470004-30008-3-git-send-email-amit.salecha@qlogic.com>
+References: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jessica.hrz.tu-chemnitz.de ([134.109.132.47]:45347 "EHLO
-	jessica.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751049Ab0ANLu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:50:29 -0500
-In-Reply-To: <20100112.121607.39835310.davem@davemloft.net>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:60079 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755280Ab0ANLxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 06:53:25 -0500
+In-Reply-To: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 12 January 2010 21:16:07 you wrote:
-> You can't do any of these things you are doing, I've basically been
-> ignoring all of these crazy diffserv patches, they're nuts!
-> 
-> The TOS socket option has a meaning and behavior defined by the BSD
-> sockets interface many years ago.  And you cannot and must not change
-> the behavior of those system calls because applications are written to
-> the current behavior and you will break them.  Protecting the new
-> behavior with a kernel config option is a non-starter, it's pointless
-> because no distribution is going to enable a kernel option that
-> knowingly breaks applications.
-> 
-> And it is also possible to set the TOS field however you desire using
-> what the kernel currently provides, we do not preclude proper diffserv
-> support, the BSD socket interfaces allow that just fine.
-okay, I noticed.
+Before sending Interrupt coalesce parameters to device,
+convert them in little endian.
 
-> And you can also do diffserv by classifying traffic and setting the
-> TOS field using either the packet scheduler, or even netfilter.
-Our company is more interested in IP DiffServ traffic accounting.
-So we simply need a fast mechanism which generates IP DiffServ traffic
-statistics, without setting the network interface in promiscuous mode,
-(which softflowd ore tcpdump does).
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_hw.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
-So first idea was to implement a virtual file e.g. called /proc/net/ip_dscp.
-If the main line peoples are not interested in, i will no longer send these
-patches. 
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 0db36f1..9548e59 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -777,17 +777,20 @@ int netxen_p3_nic_set_mac_addr(struct netxen_adapter *adapter, u8 *addr)
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter)
+ {
+ 	nx_nic_req_t req;
+-	u64 word;
+-	int rv;
++	u64 word[6];
++	int rv, i;
+ 
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
++	memset(word, 0, sizeof(word));
+ 
+ 	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
+ 
+-	word = NETXEN_CONFIG_INTR_COALESCE | ((u64)adapter->portnum << 16);
+-	req.req_hdr = cpu_to_le64(word);
++	word[0] = NETXEN_CONFIG_INTR_COALESCE | ((u64)adapter->portnum << 16);
++	req.req_hdr = cpu_to_le64(word[0]);
+ 
+-	memcpy(&req.words[0], &adapter->coal, sizeof(adapter->coal));
++	memcpy(&word[0], &adapter->coal, sizeof(adapter->coal));
++	for (i = 0; i < 6; i++)
++		req.words[i] = cpu_to_le64(word[i]);
+ 
+ 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+ 	if (rv != 0) {
+-- 
+1.6.0.2
 
-Thanks,
-Torsten
-
-PS.: Maybe we could implement a more general mechanism to classify TOS/DiffServ 
-traffic in the kernel (if needed) ?
