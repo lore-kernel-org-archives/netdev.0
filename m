@@ -1,39 +1,37 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Thu, 14 Jan 2010 11:18:12 +0100
-Message-ID: <877hrlf0rf.fsf@basil.nowhere.org>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
-	<20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc>
-	<20100111200136.GA29955@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755632Ab0ANKSS@vger.kernel.org>
-In-Reply-To: <20100111200136.GA29955@suse.de> (Greg KH's message of "Mon, 11 Jan 2010 12:01:36 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH 4/4] netxen: fix sparse warning
+Date: Thu, 14 Jan 2010 02:43:07 -0800
+Message-ID: <1263465787-28203-5-git-send-email-amit.salecha@qlogic.com>
+References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:56168 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755989Ab0ANKnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 05:43:11 -0500
+In-Reply-To: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
->
-> Close, but if you do this, please name the function
-> hisax_find_pci_device() or something, and change the drivers to use it
-> instead.  Also put a big fat warning in the function that calling this
-> is unsafe for any PCI hotplug type machine.
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It would be better to enforce this constraint at runtime.
-
-e.g. set some global variable that forbids device removal
-and warn in the kernel log. In theory this could be also
-done per device, but I guess that would be more effort.
-
-Of course it cannot prevent the user from really removing
-a device, but at least the pci_dev could stay around.
-
--Andi
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 2173f98..374e23a 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -2496,7 +2496,7 @@ netxen_sysfs_read_mem(struct kobject *kobj, struct bin_attribute *attr,
+ 	return size;
+ }
+ 
+-ssize_t netxen_sysfs_write_mem(struct kobject *kobj,
++static ssize_t netxen_sysfs_write_mem(struct kobject *kobj,
+ 		struct bin_attribute *attr, char *buf,
+ 		loff_t offset, size_t size)
+ {
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+1.6.0.2
+
