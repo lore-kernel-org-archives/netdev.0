@@ -1,94 +1,65 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Thu, 14 Jan 2010 10:47:02 -0600
-Message-ID: <20100114164702.GA13439@us.ibm.com>
-References: <20100114150039.GB6322@us.ibm.com>
- <20100114163645.GA6230@heat>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
-	K
-To: Michael Stone <michael@laptop.org>,
-	Andrew Morgan <morgan@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757262Ab0ANQrW@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100114163645.GA6230@heat>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] ethoc: Use resource_size
+Date: Thu, 14 Jan 2010 17:46:08 +0100
+Message-ID: <1263487568-13682-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org, Tobias Klauser <tklauser@distanz.ch>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.zhaw.ch ([160.85.104.51]:63180 "EHLO mx2.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756672Ab0ANQzR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 11:55:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Michael Stone (michael@laptop.org):
-> >Quoting Pavel Machek (pavel@ucw.cz):
-> >> > Quoting Michael Stone (michael@laptop.org):
-> >> > > Serge Hallyn wrote:
-> >> > > >Michael, I'm sorry, I should go back and search the thread for the
-> >> > > >answer, but don't have time right now - do you really need
-> >> > > >disablenetwork to be available to unprivileged users?
-> >> > > > > > Rainbow can only drop the networking privileges when
-> >we know at app launch time
-> >> > > (e.g. based on a manifest or from the human operator) that privileges can be
-> >> > > dropped. Unfortunately, most of the really interesting uses of disablenetwork
-> >> > > happen *after* rainbow has dropped privilege and handed control the app.
-> >> > > Therefore, having an API which can be used by at least some low-privilege
-> >> > > processes is important to me.
-> >> > > > > > >is it ok to require CAP_SETPCAP (same thing required
-> >for dropping privs from
-> >> > > >bounding set)?
-> >> > > > > > Let me try to restate your idea:
-> >> > > > > >   We can make disablenetwork safer by permitting its
-> >use only where explicitly
-> >> > >   permitted by some previously privileged ancestor. The securebits facility
-> >> > >   described in
-> >> > > > > >     http://lwn.net/Articles/280279/
-> >> > > > > >   may be a good framework in which to implement this
-> >control.
-> >> > > > > > Did I understand correctly? If so, then yes, this
-> >approach seems like it would
-> >> > > work for me.
-> >> > > > That is a little more than I was saying this time though I
-> >think I
-> >> > suggested it earlier.
-> >> > > > But really I don't think anyone would care to separate a
-> >system into
-> >> > some processes allowed to do unprivileged disablenetwork and other
-> >> > processes not allowed to, so a (root-owned mode 644) sysctl seems just
-> >> > as useful.
-> >> > Global solution like that is always wrong. (And we have better
-> >> solution available.)
-> >
-> >All right, so Michael suggested securebits, I personally feel prctl would
-> >be more appropriate.
-> 
-> I'm happy with either approach so I'll prepare patches based on Serge's
-> suggestion first.
+Use the resource_size function instead of manually calculating the
+resource size.
 
-Ah - but I worry that if you do that Alan or others will object.  Where do
-you plan to store the disablenet_allowed bit?  You can use security_prctl()
-to keep the code out of sys_prctl(), but you still have the question of
-whether you add a bit to the task struct, use task->security and not stack
-with selinux, use a thread flag, or try to enable stacking of task->security.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethoc.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-To me securebits are all about capability hacks, but their name is more
-generic than that :), so maybe they are appropriate after all.  Andrew Morgan,
-would you object to using securebits to store the fact that a privileged
-process has said "from now on an unprivileged process may call disablenetwork"?
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index bd1db92..f9d5ca0 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -904,7 +904,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	mmio = devm_request_mem_region(&pdev->dev, res->start,
+-			res->end - res->start + 1, res->name);
++			resource_size(res), res->name);
+ 	if (!mmio) {
+ 		dev_err(&pdev->dev, "cannot request I/O memory space\n");
+ 		ret = -ENXIO;
+@@ -917,7 +917,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 	if (res) {
+ 		mem = devm_request_mem_region(&pdev->dev, res->start,
+-			res->end - res->start + 1, res->name);
++			resource_size(res), res->name);
+ 		if (!mem) {
+ 			dev_err(&pdev->dev, "cannot request memory space\n");
+ 			ret = -ENXIO;
+@@ -945,7 +945,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 	priv->dma_alloc = 0;
+ 
+ 	priv->iobase = devm_ioremap_nocache(&pdev->dev, netdev->base_addr,
+-			mmio->end - mmio->start + 1);
++			resource_size(mmio));
+ 	if (!priv->iobase) {
+ 		dev_err(&pdev->dev, "cannot remap I/O memory space\n");
+ 		ret = -ENXIO;
+@@ -954,7 +954,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 
+ 	if (netdev->mem_end) {
+ 		priv->membase = devm_ioremap_nocache(&pdev->dev,
+-			netdev->mem_start, mem->end - mem->start + 1);
++			netdev->mem_start, resource_size(mem));
+ 		if (!priv->membase) {
+ 			dev_err(&pdev->dev, "cannot remap memory space\n");
+ 			ret = -ENXIO;
+-- 
+1.6.3.3
 
--serge
