@@ -1,65 +1,106 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Thu, 14 Jan 2010 14:14:32 +0100
-Message-ID: <4B4F18B8.8060708@gmail.com>
-References: <873a29eywq.fsf@basil.nowhere.org>	<20100114.030454.16178889.davem@davemloft.net>	<20100114112216.GK12241@basil.fritz.box> <20100114.032739.217960336.davem@davemloft.net> <4B4F1044.8080500@gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
+Date: Thu, 14 Jan 2010 22:19:39 +0900
+Message-ID: <4B4F19EB.5080207@ring3k.org>
+References: <20100113194148.139091a3@nehalam> <20100114101445.GA7210@ff.dom.local> <20100114111636.GB7210@ff.dom.local> <20100114.032009.20669539.davem@davemloft.net> <20100114112653.GA8543@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: William Allen Simpson <william.allen.simpson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4B4F1044.8080500-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	mbreuer@majjas.com, flyboy@gmail.com, rjw@sisk.pl,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:45962 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756591Ab0ANNXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 08:23:47 -0500
+Received: by pzk1 with SMTP id 1so8234832pzk.33
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 05:23:46 -0800 (PST)
+In-Reply-To: <20100114112653.GA8543@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 14/01/2010 13:38, William Allen Simpson a =E9crit :
-> David Miller wrote:
->> The idea is that the min_ttl is set very high, so that
->> you'll only accept packets from hosts that started with
->> a ttl of 255 and are within a hop or two from you.  (therefore
->> you'd set min_ttl to 254 or 253, something like that)
+Jarek Poplawski wrote:
+> On Thu, Jan 14, 2010 at 03:20:09AM -0800, David Miller wrote:
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Thu, 14 Jan 2010 11:16:36 +0000
 >>
-> That's not a particularly good idea:
->=20
-> http://www.iana.org/assignments/ip-parameters
->=20
-> IP TIME TO LIVE PARAMETER
->=20
-> The current recommended default time to live (TTL) for the Internet
-> Protocol (IP) is 64 [RFC791, RFC1122].
->=20
-> =3D=3D=3D
->=20
-> It always bugs me that things get incorrectly labeled "security", yet
-> cannot secure anything.
->=20
-> Security requires a secret.
->=20
-> Various folks tried all kinds of games with TTL for BGP, but the only
-> thing that _actually_ provided security was MD5 authentication.
+>>> So, now I really ;-) agree with David: this needs a proper fix.
+>> Now Jarek, do you now see my dirty little secret?
+>>
+>> When people disagree with me, I just silently sit around waiting for
+>> them to eventually change their mind.
+>>
+>> Isn't it brilliant? -)
+> 
+> If it were that easy... (it never works for me :-()
+> 
+> Probably, there is something more... ;-)
 
-Nobody forces you to use RFC 5082, I never had.
-
-But if you use it, better read it before, and not use default ttl of 64=
- on
-devices wanting to connect to your host.
-
-Note this TTL Security mechanism is not replacing MD5 protection
-
-   The Generalized TTL Security Mechanism (GTSM) is designed to protect
-   a router's IP-based control plane from CPU-utilization based attacks=
-=2E
-   In particular, while cryptographic techniques can protect the router=
--
-   based infrastructure (e.g., BGP [RFC4271], [RFC4272]) from a wide
-   variety of attacks, many attacks based on CPU overload can be
-   prevented by the simple mechanism described in this document.  Note
-   that the same technique protects against other scarce-resource
-   attacks involving a router's CPU, such as attacks against processor-
-   line card bandwidth.
+Here's what was sitting in my tree...
 
 
-Its only a potential protection against CPU overload.
+Subject: [PATCH] sky2: Don't detach device when restarting
+
+Block the tx queue from transmitting when restarting
+ rather than trying to take the device offline.
+
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index d76d907..061f6f2 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1580,6 +1580,8 @@ static int sky2_up(struct net_device *dev)
+ 	if (netif_msg_ifup(sky2))
+ 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
+ 
++	netif_start_queue(dev);
++
+ 	return 0;
+ 
+ err_out:
+@@ -1596,6 +1598,8 @@ static inline int tx_inuse(const struct sky2_port *sky2)
+ /* Number of list elements available for next tx */
+ static inline int tx_avail(const struct sky2_port *sky2)
+ {
++	if (unlikely(!sky2->tx_ring))
++		return 0;
+ 	return sky2->tx_pending - tx_inuse(sky2);
+ }
+ 
+@@ -1925,7 +1929,9 @@ static int sky2_down(struct net_device *dev)
+ 	sky2_read32(hw, B0_IMSK);
+ 
+ 	synchronize_irq(hw->pdev->irq);
+-	napi_synchronize(&hw->napi);
++	netif_tx_lock_bh(dev);
++	napi_disable(&hw->napi);
++	netif_stop_queue(dev);
+ 
+ 	spin_lock_bh(&sky2->phy_lock);
+ 	sky2_phy_power_down(hw, port);
+@@ -1939,6 +1945,8 @@ static int sky2_down(struct net_device *dev)
+ 	sky2_rx_clean(sky2);
+ 
+ 	sky2_free_buffers(sky2);
++	napi_enable(&hw->napi);
++	netif_tx_unlock_bh(dev);
+ 
+ 	return 0;
+ }
+@@ -3177,9 +3185,6 @@ static void sky2_reset(struct sky2_hw *hw)
+ static void sky2_detach(struct net_device *dev)
+ {
+ 	if (netif_running(dev)) {
+-		netif_tx_lock_bh(dev);
+-		netif_device_detach(dev);	/* stop txq */
+-		netif_tx_unlock_bh(dev);
+ 		sky2_down(dev);
+ 	}
+ }
+-- 1.5.6.5 
