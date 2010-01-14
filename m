@@ -1,168 +1,123 @@
-From: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-Subject: [PATCH net-next-2.6 v2] can: Proper ctrlmode handling for CAN devices
-Date: Thu, 14 Jan 2010 18:08:34 +0100
-Message-ID: <1263488914-21655-1-git-send-email-chripell@fsfe.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Thu, 14 Jan 2010 12:33:23 -0500
+Message-ID: <1263490403.23480.109.camel@bigi>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	 <4B4F3A50.1050400@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Ben Greear <greearb@candelatech.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B4F3A50.1050400@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds error checking of ctrlmode values for CAN devices. As
-an example all availabe bits are implemented in the mcp251x driver.
+On Thu, 2010-01-14 at 16:37 +0100, Patrick McHardy wrote:
+> jamal wrote:
 
-Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
----
- drivers/net/can/at91_can.c        |    1 +
- drivers/net/can/bfin_can.c        |    1 +
- drivers/net/can/dev.c             |    2 ++
- drivers/net/can/mcp251x.c         |   11 ++++++++++-
- drivers/net/can/mscan/mscan.c     |    1 +
- drivers/net/can/sja1000/sja1000.c |    1 +
- drivers/net/can/ti_hecc.c         |    1 +
- drivers/net/can/usb/ems_usb.c     |    1 +
- include/linux/can/dev.h           |    1 +
- 9 files changed, 19 insertions(+), 1 deletions(-)
+> > Agreed that this would be a main driver of such a feature.
+> > Which means that you need zones (or whatever noun other people use) to
+> > work on not just netfilter, but also routing, ipsec etc.
+> 
+> Routing already works fine. I believe IPsec should also work already,
+> but I haven't tried it.
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index f728749..a2f29a3 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -1073,6 +1073,7 @@ static int __init at91_can_probe(struct platform_device *pdev)
- 	priv->can.bittiming_const = &at91_bittiming_const;
- 	priv->can.do_set_bittiming = at91_set_bittiming;
- 	priv->can.do_set_mode = at91_set_mode;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
- 	priv->reg_base = addr;
- 	priv->dev = dev;
- 	priv->clk = clk;
-diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
-index 7e1926e..bf7f9ba 100644
---- a/drivers/net/can/bfin_can.c
-+++ b/drivers/net/can/bfin_can.c
-@@ -603,6 +603,7 @@ struct net_device *alloc_bfin_candev(void)
- 	priv->can.bittiming_const = &bfin_can_bittiming_const;
- 	priv->can.do_set_bittiming = bfin_can_set_bittiming;
- 	priv->can.do_set_mode = bfin_can_set_mode;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+maybe further discussion  would clarify this point..
+
+> The zone is set based on some other criteria (in this case the
+> incoming device).
+
+If you are using a netdev as a reference point, then I take it 
+if you add vlans should be possible to do multiple zones on a single
+physical netdev? Or is there some other way to satisfy that?
+
+>  The packets make one pass through the stack
+> to a veth device and are SNATed in POSTROUTING to non-clashing
+> addresses. 
+
+Ok - makes sense. 
+i.e NAT would work; and policy routing as well as arp would be fine.
+Also it looks to be sufficiently useful to fit a specific use case you
+are interested in.
+But back to my question on routing, ipsec etc (and you may not be
+interested in solving this problem, but it is what i was getting to
+earlier). Lets take for example: 
+a) network tables like SAD/SPD tables: how you would separate those on a
+per-zone basis? i.e 10.0.0.1/zone1 could use different
+policy/association than 10.0.0.1/zone2
+b) dynamic protocols (routing, IKE etc): how do you do that without 
+making both sides understand what is going on?
+
+> > This is a valid concern against the namespace approach. Existing tools
+> > of course could be taught to know about namespaces - and one could
+> > argue that if you can resolve the overlap IP address issue, then you
+> > _have to_ modify user space anyways.
+> 
+> I don't think thats true. 
+
+Refer to my statements above for an example.
+
+> In any case its completely impractical
+> to modify every userspace tool that does something with networking
+> and potentially make complex configuration changes to have all
+> those namespaces interact nicely. 
+
+Agreed. But the major ones like iproute2 etc could be taught. We have
+namespaces in the kernel already, over a period of time I think changing
+the user space tools would a sensible evolution.
+
+> Currently they are simply not
+> very well suited for virtualizing selected parts of networking.
+
+My contention is that it is a lot less headache to just virtualize 
+all the network stack and then use what you want than it is to go and
+selectively changing the network objects.
+Note: if i wanted today i could run racoon on every namespace 
+unchanged and it would work or i could modify racoon to understand
+namespaces...
+
+> I'm not sure whether there is a typical user for overlapping
+> networks :) I know of setups with ~150 overlapping networks.
+> 
+> The number of conntracks per zone doesn't matter since the
+> table is shared between all zones. network namespaces would
+> allocate 150 tables, each of the same size, which might be
+> quite large.
+
+Thats what i was looking for ..
+So the difference, to pick the 150 zones example so as to put a number
+around it, is namespaces will consume 150.X bytes (where X is the
+overhead of a conntrack table) and you approach will be (X + 152) bytes,
+correct?
+What is the typical sizeof X?
+
+> > You may also wanna look as a metric at code complexity/maintainability
+> > of this scheme vs namespace (which adds zero changes to the kernel).
+> 
+> There's not a lot of complexity, its basically passing a numeric
+> identifier around in a few spots and comparing it. Something like
+> TOS handling in the routing code.
+
+I think the challenge is whether zones will have to encroach on other
+net stack objects or not. You are already touching structure netdev...
+A digression: TOS is different really - it has network level semantic. This 
+would be more like mark or in some cases ifindex (i.e local semantics)
  
- 	return dev;
- }
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index c1bb29f..f08f120 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -592,6 +592,8 @@ static int can_changelink(struct net_device *dev,
- 		if (dev->flags & IFF_UP)
- 			return -EBUSY;
- 		cm = nla_data(data[IFLA_CAN_CTRLMODE]);
-+		if (cm->flags & ~priv->ctrlmode_supported)
-+			return -EOPNOTSUPP;
- 		priv->ctrlmode &= ~cm->mask;
- 		priv->ctrlmode |= cm->flags;
- 	}
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index afa2fa4..bbe186b 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -539,9 +539,14 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
- 		/* Put device into loopback mode */
- 		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK);
-+	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
-+		/* Put device into listen-only mode */
-+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LISTEN_ONLY);
- 	} else {
- 		/* Put device into normal mode */
--		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL);
-+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL |
-+				  (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT ?
-+				   CANCTRL_OSM : 0));
- 
- 		/* Wait for the device to enter normal mode */
- 		timeout = jiffies + HZ;
-@@ -948,6 +953,10 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
- 	priv->can.bittiming_const = &mcp251x_bittiming_const;
- 	priv->can.do_set_mode = mcp251x_do_set_mode;
- 	priv->can.clock.freq = pdata->oscillator_frequency / 2;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-+		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
-+	if (pdata->model == CAN_MCP251X_MCP2515)
-+		priv->can.ctrlmode_supported |= CAN_CTRLMODE_ONE_SHOT;
- 	priv->net = net;
- 	dev_set_drvdata(&spi->dev, priv);
- 
-diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
-index 40827c1..6b7dd57 100644
---- a/drivers/net/can/mscan/mscan.c
-+++ b/drivers/net/can/mscan/mscan.c
-@@ -686,6 +686,7 @@ struct net_device *alloc_mscandev(void)
- 	priv->can.bittiming_const = &mscan_bittiming_const;
- 	priv->can.do_set_bittiming = mscan_do_set_bittiming;
- 	priv->can.do_set_mode = mscan_do_set_mode;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
- 
- 	for (i = 0; i < TX_QUEUE_SIZE; i++) {
- 		priv->tx_queue[i].id = i;
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 345304d..ace103a 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -567,6 +567,7 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
- 	priv->can.bittiming_const = &sja1000_bittiming_const;
- 	priv->can.do_set_bittiming = sja1000_set_bittiming;
- 	priv->can.do_set_mode = sja1000_set_mode;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
- 
- 	if (sizeof_priv)
- 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 7d370e3..8332e24 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -909,6 +909,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
- 	priv->can.bittiming_const = &ti_hecc_bittiming_const;
- 	priv->can.do_set_mode = ti_hecc_do_set_mode;
- 	priv->can.do_get_state = ti_hecc_get_state;
-+	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
- 
- 	ndev->irq = irq->start;
- 	ndev->flags |= IFF_ECHO;
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index ddb17e2..bfab283 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -1022,6 +1022,7 @@ static int ems_usb_probe(struct usb_interface *intf,
- 	dev->can.bittiming_const = &ems_usb_bittiming_const;
- 	dev->can.do_set_bittiming = ems_usb_set_bittiming;
- 	dev->can.do_set_mode = ems_usb_set_mode;
-+	dev->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
- 
- 	netdev->flags |= IFF_ECHO; /* we support local echo */
- 
-diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
-index 7e7c98a..c8c660a 100644
---- a/include/linux/can/dev.h
-+++ b/include/linux/can/dev.h
-@@ -38,6 +38,7 @@ struct can_priv {
- 
- 	enum can_state state;
- 	u32 ctrlmode;
-+	u32 ctrlmode_supported;
- 
- 	int restart_ms;
- 	struct timer_list restart_timer;
--- 
-1.5.6.5
+> > BTW, why not use skb->mark instead of creating a new semantic construct?
+> 
+> Because people are already using it for different purposes.
+
+tru dat - it only gives you one semantical axis and you need an
+additional dimension in your case (namespace have that resolved via
+struct net).
+
+cheers,
+jamal
+
