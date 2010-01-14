@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ISDN] proc_fops: convert drivers/isdn/ to seq_file
-Date: Wed, 13 Jan 2010 17:53:04 -0800 (PST)
-Message-ID: <20100113.175304.42044908.davem@davemloft.net>
-References: <4B4A1FA9.7030505@imap.cc>
-	<20100110.132931.232879311.davem@davemloft.net>
-	<201001140237.08389.keil@b1-systems.de>
+Subject: Re: linux-next: Tree for January 8 (net/ip.h, BUG=n)
+Date: Wed, 13 Jan 2010 18:11:05 -0800 (PST)
+Message-ID: <20100113.181105.144771363.davem@davemloft.net>
+References: <20100113085418.GB6053@ff.dom.local>
+	<201001132121.44763.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tilman@imap.cc, adobriyan@gmail.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: keil@b1-systems.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55730
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753932Ab0ANBw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 20:52:57 -0500
-In-Reply-To: <201001140237.08389.keil@b1-systems.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jarkao2@gmail.com, mingo@elte.hu, randy.dunlap@oracle.com,
+	sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	arnd@arndb.de
+To: opurdila@ixiacom.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <201001132121.44763.opurdila@ixiacom.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Wed, 13 Jan 2010 21:21:44 +0200
 
-Your email client is clipping long lines, corrupting the patch
-and even the diffstat.
+> [PATCH] net: fix build erros with CONFIG_BUG=n, CONFIG_GENERIC_BUG=n
+> 
+> Fixed build errors introduced by commit 7ad6848c (ip: fix mc_loop checks for
+> tunnels with multicast outer addresses)
+> 
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 
-Please fix this up and resubmit, thanks.
+Applied, thanks.
+
+Let's make sure netdev is CC:'d on networking patches next
+time.
