@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/1] rps: core implementation
-Date: Wed, 13 Jan 2010 20:40:26 -0800 (PST)
-Message-ID: <20100113.204026.118346246.davem@davemloft.net>
-References: <4B45A623.7070507@gmail.com>
-	<65634d661001102225t226c07bfg2ff0482150b4a18a@mail.gmail.com>
-	<4B4AE8C5.9010406@gmail.com>
+Subject: Re: [PATCH] genetlink: optimize ctrl_dumpfamily()
+Date: Wed, 13 Jan 2010 20:40:43 -0800 (PST)
+Message-ID: <20100113.204043.259970060.davem@davemloft.net>
+References: <m2bph5kodr.fsf@ssh.synack.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: tgraf@suug.ch, johannes@sipsolutions.net, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: sam@synack.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43017
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43020
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751286Ab0ANEkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:40:18 -0500
-In-Reply-To: <4B4AE8C5.9010406@gmail.com>
+	by vger.kernel.org with ESMTP id S1754795Ab0ANEke (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:40:34 -0500
+In-Reply-To: <m2bph5kodr.fsf@ssh.synack.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 11 Jan 2010 10:00:53 +0100
+From: Samir Bellabes <sam@synack.fr>
+Date: Fri, 08 Jan 2010 09:10:56 +0100
 
-> I believe its ready for inclusion, but of course David should take
-> a look before :)
-> 
-> Could you post it formally with the appropriate ChangeLog with a nice
-> RPS description, so that other people can ack it ?
+>     there is a unnecessary test which can be replaced by a good initialization in
+>     the 'for' statement
+>     
+>     Noticed by Serge E. Hallyn <serue@us.ibm.com>
+>     
+>     Signed-off-by: Samir Bellabes <sam@synack.fr>
 
-Yes Tom, please do, I think I'm ready to apply this thing.
+Applied, thanks.
