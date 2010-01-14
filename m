@@ -1,83 +1,34 @@
-From: Liu Yu <yu.liu@freescale.com>
-Subject: [PATCH 3/4] ucc_geth: update the tbi-phy setting
-Date: Thu, 14 Jan 2010 16:13:18 +0800
-Message-ID: <1263456799-3306-3-git-send-email-yu.liu@freescale.com>
-References: <1263456799-3306-1-git-send-email-yu.liu@freescale.com>
-	<1263456799-3306-2-git-send-email-yu.liu@freescale.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [RFC][PATCH] IP: Send a fragment reassembly time exceeded packet
+ when enabling connection track
+Date: Thu, 14 Jan 2010 17:18:52 +0800
+Message-ID: <4B4EE17C.60708@cn.fujitsu.com>
+References: <4B3191E7.8060509@cn.fujitsu.com> <4B42D1C3.3020207@trash.net> <4B4D3AD3.6050403@cn.fujitsu.com> <4B4D83FD.5040604@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Liu Yu <yu.liu@freescale.com>,
-	linuxppc-dev@lists.ozlabs.org
-To: galak@kernel.crashing.org, davem@davemloft.net
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1263456799-3306-2-git-send-email-yu.liu@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B4D83FD.5040604@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Old method only set tbi-phy for eth0.
+Patrick McHardy wrote, at 01/13/2010 04:27 PM:
+>> Should end hosts which are using conntrack send a fragment reassembly time exceeded message?
+> 
+> Yes, they should.
 
-Signed-off-by: Liu Yu <yu.liu@freescale.com>
----
- drivers/net/ucc_geth.c |   23 +++++++++++++++--------
- 1 files changed, 15 insertions(+), 8 deletions(-)
+OK. Please ignore the patch, because the patch is wrong.
+With the patch, a router also send a fragment reassembly time exceeded message
+when reassembling timeout.
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 750d86d..0e72013 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -37,6 +37,7 @@
- #include <asm/qe.h>
- #include <asm/ucc.h>
- #include <asm/ucc_fast.h>
-+#include <asm/machdep.h>
- 
- #include "ucc_geth.h"
- #include "fsl_pq_mdio.h"
-@@ -1334,7 +1335,7 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 	struct ucc_geth __iomem *ug_regs;
- 	struct ucc_fast __iomem *uf_regs;
- 	int ret_val;
--	u32 upsmr, maccfg2, tbiBaseAddress;
-+	u32 upsmr, maccfg2;
- 	u16 value;
- 
- 	ugeth_vdbg("%s: IN", __func__);
-@@ -1389,14 +1390,20 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 	/* Note that this depends on proper setting in utbipar register. */
- 	if ((ugeth->phy_interface == PHY_INTERFACE_MODE_TBI) ||
- 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RTBI)) {
--		tbiBaseAddress = in_be32(&ug_regs->utbipar);
--		tbiBaseAddress &= UTBIPAR_PHY_ADDRESS_MASK;
--		tbiBaseAddress >>= UTBIPAR_PHY_ADDRESS_SHIFT;
--		value = ugeth->phydev->bus->read(ugeth->phydev->bus,
--				(u8) tbiBaseAddress, ENET_TBI_MII_CR);
-+		struct ucc_geth_info *ug_info = ugeth->ug_info;
-+		struct phy_device *tbiphy;
-+
-+		if (!ug_info->tbi_node)
-+			ugeth_warn("TBI mode requires that the device "
-+				"tree specify a tbi-handle\n");
-+
-+		tbiphy = of_phy_find_device(ug_info->tbi_node);
-+		if (!tbiphy)
-+			ugeth_warn("Could not get TBI device\n");
-+
-+		value = phy_read(tbiphy, ENET_TBI_MII_CR);
- 		value &= ~0x1000;	/* Turn off autonegotiation */
--		ugeth->phydev->bus->write(ugeth->phydev->bus,
--				(u8) tbiBaseAddress, ENET_TBI_MII_CR, value);
-+		phy_write(tbiphy, ENET_TBI_MII_CR, value);
- 	}
- 
- 	init_check_frame_length_mode(ug_info->lengthCheckRx, &ug_regs->maccfg2);
+I'll make a new patch to fix the problem. After testing, then submit it. 
+
 -- 
-1.6.4
+Best Regards
+-----
+Shan Wei
+
