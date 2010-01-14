@@ -1,40 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
-Date: Thu, 14 Jan 2010 11:26:53 +0000
-Message-ID: <20100114112653.GA8543@ff.dom.local>
-References: <20100113194148.139091a3@nehalam> <20100114101445.GA7210@ff.dom.local> <20100114111636.GB7210@ff.dom.local> <20100114.032009.20669539.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 14 Jan 2010 03:27:39 -0800 (PST)
+Message-ID: <20100114.032739.217960336.davem@davemloft.net>
+References: <873a29eywq.fsf@basil.nowhere.org>
+	<20100114.030454.16178889.davem@davemloft.net>
+	<20100114112216.GK12241@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, mbreuer@majjas.com, mikem@ring3k.org,
-	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f225.google.com ([209.85.220.225]:36329 "EHLO
-	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752305Ab0ANL05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:26:57 -0500
-Received: by fxm25 with SMTP id 25so363178fxm.21
-        for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 03:26:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100114.032009.20669539.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100114112216.GK12241-u0/ZJuX+froe6aEkudXLsA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 14, 2010 at 03:20:09AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 14 Jan 2010 11:16:36 +0000
-> 
-> > So, now I really ;-) agree with David: this needs a proper fix.
-> 
-> Now Jarek, do you now see my dirty little secret?
-> 
-> When people disagree with me, I just silently sit around waiting for
-> them to eventually change their mind.
-> 
-> Isn't it brilliant? -)
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Date: Thu, 14 Jan 2010 12:22:16 +0100
 
-If it were that easy... (it never works for me :-()
+> It's just
+> 
+> +       if (iph->ttl < inet_sk(sk)->min_ttl)
+> +               goto discard_and_relse;
+> 
+> I'm probably missing something, but naively I would expect all 
+> packets with ttl > 0 to be discarded then when min_ttl is zero.
 
-Probably, there is something more... ;-)
+Andi, the feature works from top to bottom.
 
-Jarek P.
+The idea is that the min_ttl is set very high, so that
+you'll only accept packets from hosts that started with
+a ttl of 255 and are within a hop or two from you.  (therefore
+you'd set min_ttl to 254 or 253, something like that)
+
+Since the ttl can never be less than zero, the test
+will never hit when min_ttl is zero, and thus this is
+that state where the socket option is not enabled.
