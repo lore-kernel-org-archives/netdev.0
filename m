@@ -1,57 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net-next-2.6 0/3] vhost_net
-Date: Thu, 14 Jan 2010 18:16:59 +0200
-Message-ID: <20100114161659.GA28159@redhat.com>
-Mime-Version: 1.0
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 4/4] phy: add RTBI mode for m88e1111
+Date: Thu, 14 Jan 2010 10:20:09 -0600
+Message-ID: <BC00E67D-5906-4740-A961-84FC1C524A4F@kernel.crashing.org>
+References: <1263456799-3306-1-git-send-email-yu.liu@freescale.com> <1263456799-3306-2-git-send-email-yu.liu@freescale.com> <1263456799-3306-3-git-send-email-yu.liu@freescale.com> <1263456799-3306-4-git-send-email-yu.liu@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v1077)
 Content-Type: text/plain; charset=us-ascii
-To: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	"virtualization@lists.linux-foundation.org Michael S. Tsirkin"
-	<mst@redhat.com>, Herbert Xu <herbert@gondor.apana.org.au
+Content-Transfer-Encoding: 8BIT
+Cc: davem@davemloft.net, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: Liu Yu <Yu.Liu@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37899 "EHLO mx1.redhat.com"
+Received: from gate.crashing.org ([63.228.1.57]:33566 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751056Ab0ANQUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2010 11:20:11 -0500
-Content-Disposition: inline
+	id S1757055Ab0ANQUV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 11:20:21 -0500
+In-Reply-To: <1263456799-3306-4-git-send-email-yu.liu@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches have been sitting in Rusty's tree and linux-next for a
-couple of kernel releases already, they are largely unchanged since
-November, besides a couple of bugfixes.  They got Rusty's blessing,
-and I'd like them to go into net-next-2.6 and then 2.6.34.
 
-The patchset is aganst net-next-2.6, commit 508e14b4a4fb1a824a14f2c5b8d7df67b313f8e4.
+On Jan 14, 2010, at 2:13 AM, Liu Yu wrote:
 
-Thanks!
+> Signed-off-by: Liu Yu <yu.liu@freescale.com>
+> ---
+> drivers/net/phy/marvell.c |   38 ++++++++++++++++++++++++++++++++++++++
+> 1 files changed, 38 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index 6f69b9b..65ed385 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -63,6 +63,7 @@
+> #define MII_M1111_HWCFG_MODE_COPPER_RGMII	0xb
+> #define MII_M1111_HWCFG_MODE_FIBER_RGMII	0x3
+> #define MII_M1111_HWCFG_MODE_SGMII_NO_CLK	0x4
+> +#define MII_M1111_HWCFG_MODE_COPPER_RTBI	0x9
+> #define MII_M1111_HWCFG_FIBER_COPPER_AUTO	0x8000
+> #define MII_M1111_HWCFG_FIBER_COPPER_RES	0x2000
+> 
+> @@ -269,6 +270,43 @@ static int m88e1111_config_init(struct phy_device *phydev)
+> 			return err;
+> 	}
+> 
+> +	if (phydev->interface == PHY_INTERFACE_MODE_RTBI) {
+> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
+> +		if (temp < 0)
+> +			return temp;
+> +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
+> +		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
+> +		if (temp < 0)
+> +			return temp;
+> +		temp &= ~(MII_M1111_HWCFG_MODE_MASK | MII_M1111_HWCFG_FIBER_COPPER_RES);
+> +		temp |= 0x7 | MII_M1111_HWCFG_FIBER_COPPER_AUTO;
 
+Does this magic 0x7 have some meaning?
 
-Michael S. Tsirkin (3):
-  tun: export underlying socket
-  mm: export use_mm/unuse_mm to modules
-  vhost_net: a kernel-level virtio server
+> +		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		/* soft reset */
+> +		err = phy_write(phydev, MII_BMCR, BMCR_RESET);
+> +		if (err < 0)
+> +			return err;
+> +		do
+> +			temp = phy_read(phydev, MII_BMCR);
+> +		while (temp & BMCR_RESET);
+> +
+> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
+> +		if (temp < 0)
+> +			return temp;
+> +		temp &= ~(MII_M1111_HWCFG_MODE_MASK | MII_M1111_HWCFG_FIBER_COPPER_RES);
+> +		temp |= MII_M1111_HWCFG_MODE_COPPER_RTBI | MII_M1111_HWCFG_FIBER_COPPER_AUTO;
+> +		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
+> +		if (err < 0)
+> +			return err;
+> +	}
+> +
+> +
+> 	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
+> 	if (err < 0)
+> 		return err;
+> -- 
+> 1.6.4
 
- MAINTAINERS                |    9 +
- arch/ia64/kvm/Kconfig      |    1 +
- arch/powerpc/kvm/Kconfig   |    1 +
- arch/s390/kvm/Kconfig      |    1 +
- arch/x86/kvm/Kconfig       |    1 +
- drivers/Makefile           |    1 +
- drivers/net/tun.c          |  101 ++++-
- drivers/vhost/Kconfig      |   11 +
- drivers/vhost/Makefile     |    2 +
- drivers/vhost/net.c        |  661 ++++++++++++++++++++++++++
- drivers/vhost/vhost.c      | 1098 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/vhost/vhost.h      |  161 +++++++
- include/linux/Kbuild       |    1 +
- include/linux/if_tun.h     |   14 +
- include/linux/miscdevice.h |    1 +
- include/linux/vhost.h      |  130 ++++++
- mm/mmu_context.c           |    3 +
- 17 files changed, 2178 insertions(+), 19 deletions(-)
- create mode 100644 drivers/vhost/Kconfig
- create mode 100644 drivers/vhost/Makefile
- create mode 100644 drivers/vhost/net.c
- create mode 100644 drivers/vhost/vhost.c
- create mode 100644 drivers/vhost/vhost.h
- create mode 100644 include/linux/vhost.h
