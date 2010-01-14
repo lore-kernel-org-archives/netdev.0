@@ -1,132 +1,91 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Thu, 14 Jan 2010 10:05:49 -0500
-Message-ID: <1263481549.23480.24.camel@bigi>
-References: <4B4F24AC.70105@trash.net>
-Reply-To: hadi@cyberus.ca
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Thu, 14 Jan 2010 09:00:39 -0600
+Message-ID: <20100114150039.GB6322@us.ibm.com>
+References: <20100111174922.GA17285@us.ibm.com>
+ <20100112061058.GA5231@heat>
+ <20100112155246.GA9255@us.ibm.com>
+ <20100114092328.GB11500@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Ben Greear <greearb@candelatech.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f194.google.com ([209.85.221.194]:46565 "EHLO
-	mail-qy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756974Ab0ANPFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 10:05:52 -0500
-In-Reply-To: <4B4F24AC.70105@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Am?rico Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Kyle Moffett
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756964Ab0ANPIJ@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100114092328.GB11500@atrey.karlin.mff.cuni.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-Ive had an equivalent discussion with B Greear (CCed) at one point on
-something similar, curious if you solve things differently - couldnt
-tell from the patch if you address it.
-Comments inline:
-
-On Thu, 2010-01-14 at 15:05 +0100, Patrick McHardy wrote:
-> The attached largish patch adds support for "conntrack zones",
-> which are virtual conntrack tables that can be used to seperate
-> connections from different zones, allowing to handle multiple
-> connections with equal identities in conntrack and NAT.
->
-> A zone is simply a numerical identifier associated with a network
-> device that is incorporated into the various hashes and used to
-> distinguish entries in addition to the connection tuples. Additionally
-> it is used to seperate conntrack defragmentation queues. An iptables
-> target for the raw table could be used alternatively to the network
-> device for assigning conntrack entries to zones.
->
->
-> This is mainly useful when connecting multiple private networks using
-> the same addresses (which unfortunately happens occasionally) 
-
-Agreed that this would be a main driver of such a feature.
-Which means that you need zones (or whatever noun other people use) to
-work on not just netfilter, but also routing, ipsec etc.
-As a digression: this is trivial to solve with network namespaces. 
-
-> to pass
-> the packets through a set of veth devices and SNAT each network to a
-> unique address, after which they can pass through the "main" zone and
-> be handled like regular non-clashing packets and/or have NAT applied a
-> second time based f.i. on the outgoing interface.
+Quoting Pavel Machek (pavel@ucw.cz):
+> > Quoting Michael Stone (michael@laptop.org):
+> > > Serge Hallyn wrote:
+> > > >Michael, I'm sorry, I should go back and search the thread for the
+> > > >answer, but don't have time right now - do you really need
+> > > >disablenetwork to be available to unprivileged users?
+> > > 
+> > > Rainbow can only drop the networking privileges when we know at app launch time
+> > > (e.g. based on a manifest or from the human operator) that privileges can be
+> > > dropped. Unfortunately, most of the really interesting uses of disablenetwork
+> > > happen *after* rainbow has dropped privilege and handed control the app.
+> > > Therefore, having an API which can be used by at least some low-privilege
+> > > processes is important to me.
+> > > 
+> > > >is it ok to require CAP_SETPCAP (same thing required for dropping privs from
+> > > >bounding set)?
+> > > 
+> > > Let me try to restate your idea:
+> > > 
+> > >   We can make disablenetwork safer by permitting its use only where explicitly
+> > >   permitted by some previously privileged ancestor. The securebits facility
+> > >   described in
+> > > 
+> > >     http://lwn.net/Articles/280279/
+> > > 
+> > >   may be a good framework in which to implement this control.
+> > > 
+> > > Did I understand correctly? If so, then yes, this approach seems like it would
+> > > work for me.
+> > 
+> > That is a little more than I was saying this time though I think I
+> > suggested it earlier.
+> > 
+> > But really I don't think anyone would care to separate a system into
+> > some processes allowed to do unprivileged disablenetwork and other
+> > processes not allowed to, so a (root-owned mode 644) sysctl seems just
+> > as useful.
 > 
+> Global solution like that is always wrong. (And we have better
+> solution available.)
 
-The fundamental question i have is:
-how you deal with overlapping addresses?
-i.e zone1 uses 10.0.0.1 and zone2 uses 10.0.0.1 but they are for
-different NAT users/endpoints.
+All right, so Michael suggested securebits, I personally feel prctl would
+be more appropriate, but in any case the suggestion then is:
 
-> Something like this, with multiple tunl and veth devices, each pair
-> using a unique zone:
-> 
->   <tunl0 / zone 1>
->      |
->   PREROUTING
->      |
->   FORWARD
->      |
->   POSTROUTING: SNAT to unique network
->      |
->   <veth1 / zone 1>
->   <veth0 / zone 0>
->      |
->   PREROUTING
->      |
->   FORWARD
->      |
->   POSTROUTING: SNAT to eth0 address
->      |
->   <eth0>
-> 
-> As probably everyone has noticed, this is quite similar to what you
-> can do using network namespaces. The main reason for not using
-> network namespaces is that its an all-or-nothing approach, you can't
-> virtualize just connection tracking. 
+foo_enable_disablenet() is either prctl(PR_ALLOW_DISABLENET) or
+prctl(PR_SET_SECUREBITS, (1 << PR_ALLOW_DISABLENET) | (1 << PR_ALLOW_DISABLENET_LOCK))
+and it requires privilege (CAP_NET_ADMIN presumably) to make this call.
 
-Unless there is a clever approach for overlapping IP addresses (my
-question above), i dont see a way around essentially virtualizing the
-whole stack which clone(CLONE_NEWNET) provides..
+prctl(PR_SET_DISABLENETWORK), or whatever Michael was using, does not
+require privilege, but requires that foo_enable_disablenet() have been
+previously called by a privileged app.
 
-> Beside the difficulties in
-> managing different namespaces from f.i. an IKE or PPP daemon running
-> in the initial namespace, 
-
-This is a valid concern against the namespace approach. Existing tools
-of course could be taught to know about namespaces - and one could
-argue that if you can resolve the overlap IP address issue, then you
-_have to_ modify user space anyways.
-
-> network namespaces have a quite large
-> overhead, especially when used with a large conntrack table.
-
-Elaboration needed.
-You said the size in 64 bit increases to 152B per conntrack i think?
-Do you have a hand-wave figure we can use as a metric to elaborate this
-point? What would a typical user of this feature have in number of
-"zones" and how many contracks per zone? Actually we could also look
-at extremes (huge number vs low numbers)...
-
-You may also wanna look as a metric at code complexity/maintainability
-of this scheme vs namespace (which adds zero changes to the kernel).
-I am pretty sure you will soon be "zoning" on other pieces of the net
-stack ;->
-
-> I'm not too fond of this partial feature duplication myself, but I
-> couldn't think of a better way to do this without the downsides of
-> using namespaces. Having partially shared network namespaces would
-> be great, but it doesn't seem to fit in the design very well.
-> I'm open for any better suggestion :)
-
-My opinions above.
-
-BTW, why not use skb->mark instead of creating a new semantic construct?
-
-cheers,
-jamal
-
+-serge
