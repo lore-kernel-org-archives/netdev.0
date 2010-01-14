@@ -1,77 +1,41 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6] can: mscan-mpc5xxx: fix broken support
-	for the MPC5200
-Date: Thu, 14 Jan 2010 12:15:24 +0100
-Message-ID: <20100114111524.GA6041@pengutronix.de>
-References: <4B4EFA8C.4010209@grandegger.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
+Date: Thu, 14 Jan 2010 11:16:36 +0000
+Message-ID: <20100114111636.GB7210@ff.dom.local>
+References: <20100112.014218.112731835.davem@davemloft.net> <20100112.025620.210305029.davem@davemloft.net> <20100112081513.0175d579@nehalam> <4B4CC0E3.5050106@majjas.com> <4B4CC29E.4020703@majjas.com> <4B4CDC28.2050508@majjas.com> <20100112201012.21894fd3@nehalam> <4B4DEEF9.7020806@majjas.com> <20100113194148.139091a3@nehalam> <20100114101445.GA7210@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1302260033=="
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B4EFA8C.4010209-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---===============1302260033==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="KsGdsel6WgEHnImy"
-Content-Disposition: inline
-
-
---KsGdsel6WgEHnImy
 Content-Type: text/plain; charset=us-ascii
+Cc: Michael Breuer <mbreuer@majjas.com>,
+	David Miller <davem@davemloft.net>, mikem@ring3k.org,
+	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:60676 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751481Ab0ANLQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:16:41 -0500
+Received: by fxm25 with SMTP id 25so355138fxm.21
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 03:16:39 -0800 (PST)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20100114101445.GA7210@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 14, 2010 at 12:05:48PM +0100, Wolfgang Grandegger wrote:
-> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
->=20
-> Due to an invalid "#ifdef CONFIG_PPC_MPC5200", the real clock setup
-> function was not called for the MPC5200.
->=20
-> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+On Thu, Jan 14, 2010 at 10:14:45AM +0000, Jarek Poplawski wrote:
+> On Wed, Jan 13, 2010 at 07:41:48PM -0800, Stephen Hemminger wrote:
+> > Subject: sky2: safer transmit cleanup
+...
+> > +	if (!(netif_running(dev) & netif_device_present(dev)))
+> 
+> This makes it safe, but it still resembles the "short term fix"
+> according do David's opinion.
 
-Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Hmm... Actually, it's not safe, but still safer again. It looks like
+David was right (this time ;-). Since netif_device_present() isn't
+protected by a lock here, this is still racy against napi, since the
+flag can be set between the test and the wakeup. Btw, there is even no
+barrier, and in your patch this dangerous distance is made much wider.
 
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---KsGdsel6WgEHnImy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAktO/MwACgkQD27XaX1/VRsaDQCfa77FVMqXlKrMQbrkS9tZXqiK
-nmwAoKPLurfVE5gsf2NVNlU12pgUOnTa
-=+IsU
------END PGP SIGNATURE-----
-
---KsGdsel6WgEHnImy--
-
---===============1302260033==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1302260033==--
+So, now I really ;-) agree with David: this needs a proper fix.
+ 
+Jarek P.
