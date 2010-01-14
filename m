@@ -1,45 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
-Date: Thu, 14 Jan 2010 09:52:54 -0800
-Message-ID: <20100114095254.5cf7faa0@nehalam>
-References: <20100112085633.GB6628@ff.dom.local>
-	<20100112.014218.112731835.davem@davemloft.net>
-	<20100112.025620.210305029.davem@davemloft.net>
-	<20100112081513.0175d579@nehalam>
-	<4B4CC0E3.5050106@majjas.com>
-	<4B4CC29E.4020703@majjas.com>
-	<4B4CDC28.2050508@majjas.com>
-	<20100112201012.21894fd3@nehalam>
-	<4B4DEEF9.7020806@majjas.com>
-	<20100113194148.139091a3@nehalam>
-	<20100114101445.GA7210@ff.dom.local>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: What protects rcu_dereference() in __in6_dev_get()?
+Date: Thu, 14 Jan 2010 10:32:15 -0800
+Message-ID: <20100114183215.GA16866@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	David Miller <davem@davemloft.net>, mikem@ring3k.org,
-	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, mingo@elte.hu,
+	akpm@linux-foundation.org, peterz@infradead.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50873 "EHLO mail.vyatta.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:42792 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757345Ab0ANRxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2010 12:53:10 -0500
-In-Reply-To: <20100114101445.GA7210@ff.dom.local>
+	id S1754848Ab0ANScW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 13:32:22 -0500
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by e2.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o0EIN4YU006957
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:23:04 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0EIWKra1552574
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:32:20 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0EIWJUg028575
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:32:20 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Jan 2010 10:14:45 +0000
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+Hello, Yoshi,
 
-> This makes it safe, but it still resembles the "short term fix"
-> according do David's opinion.
-> 
-> This change seems to affect dev->stats too. Since they are not
-> updated in sky2_tx_clean(). Btw, I hope "&" is some optimization
-> because it's less readable than "&&".
+Could you please tell me what protects the rcu_dereference() in
+__in6_dev_get()?  I am adding lockdep-based checking to RCU, and
+"git blame" said I should ask you about this one.
 
-Stats don't matter for packets flushed during device reset.
+The current code, rcu_dereference(), assumes that this is protected only
+by RCU.  My problem might be any of the following:
 
-The & is because in the most common case device is up,
-and we don't want the additional conditional branch.
+o	Some other flavor of RCU protects this, e.g., RCU-bh, which
+	would require rcu_dereference_bh().
+
+o	This is called from updates as well as from readers, and
+	some lock protects the updates.
+
+o	This is called during initialization, when this pointer is
+	inaccessible to readers.
+	
+Please note that I can add a check to cover multiple possibilities.
+For a real example in include/linux/fdtable.h:
+
+	file = rcu_dereference_check(fdt->fd[fd],
+				     rcu_read_lock_held() ||
+				     lockdep_is_held(&files->file_lock) ||
+				     atomic_read(&files->count) == 1);
+
+The first argument is the pointer, and the second argument says that
+this may be protected by either RCU (as opposed to RCU-bh, RCU-sched,
+or SRCU), the files->file_lock as recorded by lockdep, or by being in
+a single-threaded process as noted by the value of files->count.
+(Please see http://lwn.net/Articles/368683/ for a recent patch, another
+will go out soon.)
+
+So, could you please tell me what protects the rcu_dereference()
+in __in6_dev_get() so that I can craft the appropriate form of
+rcu_dereference()?
+
+							Thanx, Paul
