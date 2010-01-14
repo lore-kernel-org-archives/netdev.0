@@ -1,91 +1,330 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Thu, 14 Jan 2010 09:00:39 -0600
-Message-ID: <20100114150039.GB6322@us.ibm.com>
-References: <20100111174922.GA17285@us.ibm.com>
- <20100112061058.GA5231@heat>
- <20100112155246.GA9255@us.ibm.com>
- <20100114092328.GB11500@atrey.karlin.mff.cuni.cz>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH v5] tcp: harmonize tcp_vx_rcv header length assumptions
+Date: Thu, 14 Jan 2010 10:10:43 -0500
+Message-ID: <4B4F33F3.3000509@gmail.com>
+References: <4B49D001.4000302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Am?rico Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Kyle Moffett
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756964Ab0ANPIJ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100114092328.GB11500@atrey.karlin.mff.cuni.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060302050902050907070401"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Joe Perches <joe@perches.com>, Andi Kleen <andi@firstfloor.org>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.26]:38243 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756625Ab0ANPKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 10:10:46 -0500
+In-Reply-To: <4B49D001.4000302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Pavel Machek (pavel@ucw.cz):
-> > Quoting Michael Stone (michael@laptop.org):
-> > > Serge Hallyn wrote:
-> > > >Michael, I'm sorry, I should go back and search the thread for the
-> > > >answer, but don't have time right now - do you really need
-> > > >disablenetwork to be available to unprivileged users?
-> > > 
-> > > Rainbow can only drop the networking privileges when we know at app launch time
-> > > (e.g. based on a manifest or from the human operator) that privileges can be
-> > > dropped. Unfortunately, most of the really interesting uses of disablenetwork
-> > > happen *after* rainbow has dropped privilege and handed control the app.
-> > > Therefore, having an API which can be used by at least some low-privilege
-> > > processes is important to me.
-> > > 
-> > > >is it ok to require CAP_SETPCAP (same thing required for dropping privs from
-> > > >bounding set)?
-> > > 
-> > > Let me try to restate your idea:
-> > > 
-> > >   We can make disablenetwork safer by permitting its use only where explicitly
-> > >   permitted by some previously privileged ancestor. The securebits facility
-> > >   described in
-> > > 
-> > >     http://lwn.net/Articles/280279/
-> > > 
-> > >   may be a good framework in which to implement this control.
-> > > 
-> > > Did I understand correctly? If so, then yes, this approach seems like it would
-> > > work for me.
-> > 
-> > That is a little more than I was saying this time though I think I
-> > suggested it earlier.
-> > 
-> > But really I don't think anyone would care to separate a system into
-> > some processes allowed to do unprivileged disablenetwork and other
-> > processes not allowed to, so a (root-owned mode 644) sysctl seems just
-> > as useful.
-> 
-> Global solution like that is always wrong. (And we have better
-> solution available.)
+This is a multi-part message in MIME format.
+--------------060302050902050907070401
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-All right, so Michael suggested securebits, I personally feel prctl would
-be more appropriate, but in any case the suggestion then is:
+Harmonize tcp_v4_rcv() and tcp_v6_rcv() -- better document tcp doff
+and header length assumptions, and carefully compare implementations.
 
-foo_enable_disablenet() is either prctl(PR_ALLOW_DISABLENET) or
-prctl(PR_SET_SECUREBITS, (1 << PR_ALLOW_DISABLENET) | (1 << PR_ALLOW_DISABLENET_LOCK))
-and it requires privilege (CAP_NET_ADMIN presumably) to make this call.
+Reduces multiply/shifts, marginally improving speed.
 
-prctl(PR_SET_DISABLENETWORK), or whatever Michael was using, does not
-require privilege, but requires that foo_enable_disablenet() have been
-previously called by a privileged app.
+Removes redundant tcp header length checks before checksumming.
 
--serge
+Instead, assumes (and documents) that any backlog processing and
+transform policies will carefully preserve the header, and will
+ensure the socket buffer length remains >= the header size.
+
+Stand-alone patch, originally developed for TCPCT.
+
+Signed-off-by: William.Allen.Simpson@gmail.com
+---
+  include/net/xfrm.h  |    7 ++++++
+  net/ipv4/tcp_ipv4.c |   45 +++++++++++++++++++++-----------------
+  net/ipv6/tcp_ipv6.c |   59 ++++++++++++++++++++++++++++----------------------
+  3 files changed, 65 insertions(+), 46 deletions(-)
+
+--------------060302050902050907070401
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="len_th+3v5.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="len_th+3v5.patch"
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6d85861..89c5465 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -975,6 +975,13 @@ xfrm_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x, unsigned short
+ }
+ 
+ #ifdef CONFIG_XFRM
++/*
++ * For transport, the policy is checked before the presumed more expensive
++ * checksum. The transport header has already been checked for size, and is
++ * guaranteed to be contiguous. These policies must not alter the header or
++ * its position in the buffer, and should not shorten the buffer length
++ * without ensuring the length remains >= the header size.
++ */
+ extern int __xfrm_policy_check(struct sock *, int dir, struct sk_buff *skb, unsigned short family);
+ 
+ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 65b8ebf..0a76e41 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1559,7 +1559,8 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 		return 0;
+ 	}
+ 
+-	if (skb->len < tcp_hdrlen(skb) || tcp_checksum_complete(skb))
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb))
+ 		goto csum_err;
+ 
+ 	if (sk->sk_state == TCP_LISTEN) {
+@@ -1601,14 +1602,13 @@ csum_err:
+ }
+ 
+ /*
+- *	From tcp_input.c
++ *	Called by ip_input.c: ip_local_deliver_finish()
+  */
+-
+ int tcp_v4_rcv(struct sk_buff *skb)
+ {
+-	const struct iphdr *iph;
+ 	struct tcphdr *th;
+ 	struct sock *sk;
++	int tcp_header_len;
+ 	int ret;
+ 	struct net *net = dev_net(skb->dev);
+ 
+@@ -1618,31 +1618,33 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	/* Count it even if it's bad */
+ 	TCP_INC_STATS_BH(net, TCP_MIB_INSEGS);
+ 
++	/* Check too short header */
+ 	if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
+ 		goto discard_it;
+ 
+-	th = tcp_hdr(skb);
+-
+-	if (th->doff < sizeof(struct tcphdr) / 4)
++	/* Check bad doff, compare doff directly to constant value */
++	tcp_header_len = tcp_hdr(skb)->doff;
++	if (tcp_header_len < (sizeof(struct tcphdr) / 4))
+ 		goto bad_packet;
+-	if (!pskb_may_pull(skb, th->doff * 4))
++
++	/* Check too short header and options */
++	tcp_header_len *= 4;
++	if (!pskb_may_pull(skb, tcp_header_len))
+ 		goto discard_it;
+ 
+-	/* An explanation is required here, I think.
+-	 * Packet length and doff are validated by header prediction,
+-	 * provided case of th->doff==0 is eliminated.
+-	 * So, we defer the checks. */
++	/* Packet length and doff are validated by header prediction,
++	 * provided case of th->doff == 0 is eliminated (above).
++	 */
+ 	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
+ 		goto bad_packet;
+ 
+ 	th = tcp_hdr(skb);
+-	iph = ip_hdr(skb);
+ 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
+ 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
+-				    skb->len - th->doff * 4);
++				    skb->len - tcp_header_len);
+ 	TCP_SKB_CB(skb)->ack_seq = ntohl(th->ack_seq);
+ 	TCP_SKB_CB(skb)->when	 = 0;
+-	TCP_SKB_CB(skb)->flags	 = iph->tos;
++	TCP_SKB_CB(skb)->flags	 = ip_hdr(skb)->tos;
+ 	TCP_SKB_CB(skb)->sacked	 = 0;
+ 
+ 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
+@@ -1682,14 +1684,14 @@ process:
+ 	bh_unlock_sock(sk);
+ 
+ 	sock_put(sk);
+-
+ 	return ret;
+ 
+ no_tcp_socket:
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto discard_it;
+ 
+-	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb)) {
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 	} else {
+@@ -1711,18 +1713,21 @@ do_time_wait:
+ 		goto discard_it;
+ 	}
+ 
+-	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb)) {
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 		inet_twsk_put(inet_twsk(sk));
+ 		goto discard_it;
+ 	}
++
+ 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
+ 	case TCP_TW_SYN: {
+ 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
+ 							&tcp_hashinfo,
+-							iph->daddr, th->dest,
++							ip_hdr(skb)->daddr,
++							th->dest,
+ 							inet_iif(skb));
+-		if (sk2) {
++		if (sk2 != NULL) {
+ 			inet_twsk_deschedule(inet_twsk(sk), &tcp_death_row);
+ 			inet_twsk_put(inet_twsk(sk));
+ 			sk = sk2;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index febfd59..b76939a 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1594,7 +1594,8 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 		return 0;
+ 	}
+ 
+-	if (skb->len < tcp_hdrlen(skb) || tcp_checksum_complete(skb))
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb))
+ 		goto csum_err;
+ 
+ 	if (sk->sk_state == TCP_LISTEN) {
+@@ -1664,38 +1665,47 @@ ipv6_pktoptions:
+ 	return 0;
+ }
+ 
++/*
++ *	Called by ip6_input.c: ip6_input_finish()
++ */
+ static int tcp_v6_rcv(struct sk_buff *skb)
+ {
+ 	struct tcphdr *th;
+ 	struct sock *sk;
++	int tcp_header_len;
+ 	int ret;
+ 	struct net *net = dev_net(skb->dev);
+ 
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto discard_it;
+ 
+-	/*
+-	 *	Count it even if it's bad.
+-	 */
++	/* Count it even if it's bad */
+ 	TCP_INC_STATS_BH(net, TCP_MIB_INSEGS);
+ 
++	/* Check too short header */
+ 	if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
+ 		goto discard_it;
+ 
+-	th = tcp_hdr(skb);
+-
+-	if (th->doff < sizeof(struct tcphdr)/4)
++	/* Check bad doff, compare doff directly to constant value */
++	tcp_header_len = tcp_hdr(skb)->doff;
++	if (tcp_header_len < (sizeof(struct tcphdr) / 4))
+ 		goto bad_packet;
+-	if (!pskb_may_pull(skb, th->doff*4))
++
++	/* Check too short header and options */
++	tcp_header_len *= 4;
++	if (!pskb_may_pull(skb, tcp_header_len))
+ 		goto discard_it;
+ 
++	/* Packet length and doff are validated by header prediction,
++	 * provided case of th->doff == 0 is eliminated (above).
++	 */
+ 	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
+ 		goto bad_packet;
+ 
+ 	th = tcp_hdr(skb);
+ 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
+ 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
+-				    skb->len - th->doff*4);
++				    skb->len - tcp_header_len);
+ 	TCP_SKB_CB(skb)->ack_seq = ntohl(th->ack_seq);
+ 	TCP_SKB_CB(skb)->when = 0;
+ 	TCP_SKB_CB(skb)->flags = ipv6_get_dsfield(ipv6_hdr(skb));
+@@ -1711,6 +1721,7 @@ process:
+ 
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto discard_and_relse;
++	/* nf_reset(skb); in ip6_input.c ip6_input_finish() */
+ 
+ 	if (sk_filter(sk, skb))
+ 		goto discard_and_relse;
+@@ -1743,7 +1754,8 @@ no_tcp_socket:
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto discard_it;
+ 
+-	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb)) {
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 	} else {
+@@ -1751,11 +1763,7 @@ bad_packet:
+ 	}
+ 
+ discard_it:
+-
+-	/*
+-	 *	Discard frame
+-	 */
+-
++	/* Discard frame. */
+ 	kfree_skb(skb);
+ 	return 0;
+ 
+@@ -1769,24 +1777,23 @@ do_time_wait:
+ 		goto discard_it;
+ 	}
+ 
+-	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete(skb)) {
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 		inet_twsk_put(inet_twsk(sk));
+ 		goto discard_it;
+ 	}
+ 
+ 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
+-	case TCP_TW_SYN:
+-	{
+-		struct sock *sk2;
+-
+-		sk2 = inet6_lookup_listener(dev_net(skb->dev), &tcp_hashinfo,
+-					    &ipv6_hdr(skb)->daddr,
+-					    ntohs(th->dest), inet6_iif(skb));
++	case TCP_TW_SYN: {
++		struct sock *sk2 = inet6_lookup_listener(dev_net(skb->dev),
++							 &tcp_hashinfo,
++							 &ipv6_hdr(skb)->daddr,
++							 ntohs(th->dest),
++							 inet6_iif(skb));
+ 		if (sk2 != NULL) {
+-			struct inet_timewait_sock *tw = inet_twsk(sk);
+-			inet_twsk_deschedule(tw, &tcp_death_row);
+-			inet_twsk_put(tw);
++			inet_twsk_deschedule(inet_twsk(sk), &tcp_death_row);
++			inet_twsk_put(inet_twsk(sk));
+ 			sk = sk2;
+ 			goto process;
+ 		}
+-- 
+1.6.3.3
+
+
+--------------060302050902050907070401--
