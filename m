@@ -1,66 +1,65 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Thu, 14 Jan 2010 10:32:18 -0800
-Message-ID: <4B4F6332.50606@candelatech.com>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: What protects rcu_dereference() in __sk_free()?
+Date: Thu, 14 Jan 2010 10:41:08 -0800
+Message-ID: <20100114184107.GA17245@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        Netfilter Development Mailinglist <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1263481549.23480.24.camel@bigi>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: dim@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:59025 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751791Ab0ANSlN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 13:41:13 -0500
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by e5.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o0EISksQ016988
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:28:46 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0EIfCIQ1998940
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:41:12 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0EIfBAs028974
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 13:41:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2010 07:05 AM, jamal wrote:
->
-> Ive had an equivalent discussion with B Greear (CCed) at one point on
-> something similar, curious if you solve things differently - couldnt
-> tell from the patch if you address it.
-> Comments inline:
->
-> On Thu, 2010-01-14 at 15:05 +0100, Patrick McHardy wrote:
->> The attached largish patch adds support for "conntrack zones",
->> which are virtual conntrack tables that can be used to seperate
->> connections from different zones, allowing to handle multiple
->> connections with equal identities in conntrack and NAT.
->>
->> A zone is simply a numerical identifier associated with a network
->> device that is incorporated into the various hashes and used to
->> distinguish entries in addition to the connection tuples. Additionally
->> it is used to seperate conntrack defragmentation queues. An iptables
->> target for the raw table could be used alternatively to the network
->> device for assigning conntrack entries to zones.
->>
->>
->> This is mainly useful when connecting multiple private networks using
->> the same addresses (which unfortunately happens occasionally)
->
-> Agreed that this would be a main driver of such a feature.
-> Which means that you need zones (or whatever noun other people use) to
-> work on not just netfilter, but also routing, ipsec etc.
-> As a digression: this is trivial to solve with network namespaces.
+Hello, Dmitry,
 
-For small or simple cases, this may be true..but there is a lot of work
-to make a complex user-space app that manages arbitrary amounts of interfaces
-routing tables in an arbitrary amount of network namespaces.  With the contrack-zones
-approach, user-space apps do not require any significant changes, and you do not
-need the rest of the namespace overhead to accomplish the task.
+Could you please tell me what protects the rcu_dereference() in
+__sk_free()?  I am adding lockdep-based checking to RCU, and
+"git blame" said I should ask you about this one.
 
-Thanks,
-Ben
+The current code, rcu_dereference(), assumes that this is protected only
+by RCU-bh.  My problem might be any of the following:
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+o	Some other flavor of RCU protects this, e.g., RCU-sched, which
+	would require rcu_dereference_sched() in place of my current
+	rcu_dereference_bh() for RCU-bh.
+
+o	This is called from updates as well as from readers, and
+	some lock protects the updates.
+
+o	This is called during initialization, when this pointer is
+	inaccessible to readers.
+	
+Please note that I can add a check to cover multiple possibilities.
+For a real example in include/linux/fdtable.h:
+
+	file = rcu_dereference_check(fdt->fd[fd],
+				     rcu_read_lock_held() ||
+				     lockdep_is_held(&files->file_lock) ||
+				     atomic_read(&files->count) == 1);
+
+The first argument is the pointer, and the second argument says that
+this may be protected by either RCU (as opposed to RCU-bh, RCU-sched,
+or SRCU), the files->file_lock as recorded by lockdep, or by being in
+a single-threaded process as noted by the value of files->count.
+(Please see http://lwn.net/Articles/368683/ for a recent patch, another
+will go out soon.)
+
+So, could you please tell me what protects the rcu_dereference() in
+__sk_free() so that I can craft the appropriate form of rcu_dereference()?
+
+							Thanx, Paul
