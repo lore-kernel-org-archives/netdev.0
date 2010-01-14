@@ -1,43 +1,40 @@
-From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Thu, 14 Jan 2010 12:22:16 +0100
-Message-ID: <20100114112216.GK12241@basil.fritz.box>
-References: <20100110220034.4d46ba8a@nehalam> <873a29eywq.fsf@basil.nowhere.org> <20100114.030454.16178889.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
+Date: Thu, 14 Jan 2010 11:26:53 +0000
+Message-ID: <20100114112653.GA8543@ff.dom.local>
+References: <20100113194148.139091a3@nehalam> <20100114101445.GA7210@ff.dom.local> <20100114111636.GB7210@ff.dom.local> <20100114.032009.20669539.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: shemminger@vyatta.com, mbreuer@majjas.com, mikem@ring3k.org,
+	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:36329 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305Ab0ANL05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:26:57 -0500
+Received: by fxm25 with SMTP id 25so363178fxm.21
+        for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 03:26:56 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20100114.030454.16178889.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100114.032009.20669539.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 14, 2010 at 03:04:54AM -0800, David Miller wrote:
-> From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-> Date: Thu, 14 Jan 2010 11:58:13 +0100
+On Thu, Jan 14, 2010 at 03:20:09AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Thu, 14 Jan 2010 11:16:36 +0000
 > 
-> > Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
-> >>
-> >> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
-> >> if desired.
-> > 
-> > Perhaps I'm blind, but where is the default set if the socket
-> > option is not used? 
+> > So, now I really ;-) agree with David: this needs a proper fix.
 > 
-> Socket allocation memset()'s it to zero.
+> Now Jarek, do you now see my dirty little secret?
+> 
+> When people disagree with me, I just silently sit around waiting for
+> them to eventually change their mind.
+> 
+> Isn't it brilliant? -)
 
-Yes, but there's no special case for zero in the check path?
+If it were that easy... (it never works for me :-()
 
-It's just
+Probably, there is something more... ;-)
 
-+       if (iph->ttl < inet_sk(sk)->min_ttl)
-+               goto discard_and_relse;
-
-I'm probably missing something, but naively I would expect all 
-packets with ttl > 0 to be discarded then when min_ttl is zero.
-
--Andi
--- 
-ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
+Jarek P.
