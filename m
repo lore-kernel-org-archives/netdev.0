@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
-Date: Thu, 14 Jan 2010 03:20:09 -0800 (PST)
-Message-ID: <20100114.032009.20669539.davem@davemloft.net>
-References: <20100113194148.139091a3@nehalam>
-	<20100114101445.GA7210@ff.dom.local>
-	<20100114111636.GB7210@ff.dom.local>
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 14 Jan 2010 12:22:16 +0100
+Message-ID: <20100114112216.GK12241@basil.fritz.box>
+References: <20100110220034.4d46ba8a@nehalam> <873a29eywq.fsf@basil.nowhere.org> <20100114.030454.16178889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mbreuer@majjas.com, mikem@ring3k.org,
-	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49426
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754938Ab0ANLUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:20:00 -0500
-In-Reply-To: <20100114111636.GB7210@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100114.030454.16178889.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 14 Jan 2010 11:16:36 +0000
+On Thu, Jan 14, 2010 at 03:04:54AM -0800, David Miller wrote:
+> From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+> Date: Thu, 14 Jan 2010 11:58:13 +0100
+> 
+> > Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
+> >>
+> >> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
+> >> if desired.
+> > 
+> > Perhaps I'm blind, but where is the default set if the socket
+> > option is not used? 
+> 
+> Socket allocation memset()'s it to zero.
 
-> So, now I really ;-) agree with David: this needs a proper fix.
+Yes, but there's no special case for zero in the check path?
 
-Now Jarek, do you now see my dirty little secret?
+It's just
 
-When people disagree with me, I just silently sit around waiting for
-them to eventually change their mind.
++       if (iph->ttl < inet_sk(sk)->min_ttl)
++               goto discard_and_relse;
 
-Isn't it brilliant? -)
+I'm probably missing something, but naively I would expect all 
+packets with ttl > 0 to be discarded then when min_ttl is zero.
+
+-Andi
+-- 
+ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
