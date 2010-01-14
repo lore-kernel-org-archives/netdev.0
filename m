@@ -1,39 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Thu, 14 Jan 2010 03:27:39 -0800 (PST)
-Message-ID: <20100114.032739.217960336.davem@davemloft.net>
-References: <873a29eywq.fsf@basil.nowhere.org>
-	<20100114.030454.16178889.davem@davemloft.net>
-	<20100114112216.GK12241@basil.fritz.box>
+From: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Thu, 14 Jan 2010 12:50:27 +0100
+Message-ID: <201001141250.27287.schmto@hrz.tu-chemnitz.de>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de> <20100112.121607.39835310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100114112216.GK12241-u0/ZJuX+froe6aEkudXLsA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jessica.hrz.tu-chemnitz.de ([134.109.132.47]:45347 "EHLO
+	jessica.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751049Ab0ANLu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:50:29 -0500
+In-Reply-To: <20100112.121607.39835310.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Date: Thu, 14 Jan 2010 12:22:16 +0100
-
-> It's just
+On Tuesday 12 January 2010 21:16:07 you wrote:
+> You can't do any of these things you are doing, I've basically been
+> ignoring all of these crazy diffserv patches, they're nuts!
 > 
-> +       if (iph->ttl < inet_sk(sk)->min_ttl)
-> +               goto discard_and_relse;
+> The TOS socket option has a meaning and behavior defined by the BSD
+> sockets interface many years ago.  And you cannot and must not change
+> the behavior of those system calls because applications are written to
+> the current behavior and you will break them.  Protecting the new
+> behavior with a kernel config option is a non-starter, it's pointless
+> because no distribution is going to enable a kernel option that
+> knowingly breaks applications.
 > 
-> I'm probably missing something, but naively I would expect all 
-> packets with ttl > 0 to be discarded then when min_ttl is zero.
+> And it is also possible to set the TOS field however you desire using
+> what the kernel currently provides, we do not preclude proper diffserv
+> support, the BSD socket interfaces allow that just fine.
+okay, I noticed.
 
-Andi, the feature works from top to bottom.
+> And you can also do diffserv by classifying traffic and setting the
+> TOS field using either the packet scheduler, or even netfilter.
+Our company is more interested in IP DiffServ traffic accounting.
+So we simply need a fast mechanism which generates IP DiffServ traffic
+statistics, without setting the network interface in promiscuous mode,
+(which softflowd ore tcpdump does).
 
-The idea is that the min_ttl is set very high, so that
-you'll only accept packets from hosts that started with
-a ttl of 255 and are within a hop or two from you.  (therefore
-you'd set min_ttl to 254 or 253, something like that)
+So first idea was to implement a virtual file e.g. called /proc/net/ip_dscp.
+If the main line peoples are not interested in, i will no longer send these
+patches. 
 
-Since the ttl can never be less than zero, the test
-will never hit when min_ttl is zero, and thus this is
-that state where the socket option is not enabled.
+Thanks,
+Torsten
+
+PS.: Maybe we could implement a more general mechanism to classify TOS/DiffServ 
+traffic in the kernel (if needed) ?
