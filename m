@@ -1,57 +1,21 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 2/4] netxen: Fix endianness intr coalesce
-Date: Thu, 14 Jan 2010 02:43:05 -0800
-Message-ID: <1263465787-28203-3-git-send-email-amit.salecha@qlogic.com>
-References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH 0/4] netxen: endianness fixes
+Date: Thu, 14 Jan 2010 02:43:03 -0800
+Message-ID: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:56166 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:56163 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755991Ab0ANKnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2010 05:43:11 -0500
-In-Reply-To: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+	id S1755967Ab0ANKnK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 05:43:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before sending Interrupt coalesce parameters to device,
-convert them in little endian.
+Hi
+  Series of 4 small patches to fix endianness issues and License header.
+  These issues were suggested by Ben Hutchings for qlcnic driver,
+  same apply to netxen_nic driver.
+  Please apply these patches in net-2.6 tree.
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_hw.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 0db36f1..9548e59 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -777,17 +777,20 @@ int netxen_p3_nic_set_mac_addr(struct netxen_adapter *adapter, u8 *addr)
- int netxen_config_intr_coalesce(struct netxen_adapter *adapter)
- {
- 	nx_nic_req_t req;
--	u64 word;
--	int rv;
-+	u64 word[6];
-+	int rv, i;
- 
- 	memset(&req, 0, sizeof(nx_nic_req_t));
-+	memset(word, 0, sizeof(word));
- 
- 	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
- 
--	word = NETXEN_CONFIG_INTR_COALESCE | ((u64)adapter->portnum << 16);
--	req.req_hdr = cpu_to_le64(word);
-+	word[0] = NETXEN_CONFIG_INTR_COALESCE | ((u64)adapter->portnum << 16);
-+	req.req_hdr = cpu_to_le64(word[0]);
- 
--	memcpy(&req.words[0], &adapter->coal, sizeof(adapter->coal));
-+	memcpy(&word[0], &adapter->coal, sizeof(adapter->coal));
-+	for (i = 0; i < 6; i++)
-+		req.words[i] = cpu_to_le64(word[i]);
- 
- 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
- 	if (rv != 0) {
--- 
-1.6.0.2
-
+-Amit Salecha
