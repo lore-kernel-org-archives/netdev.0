@@ -1,123 +1,65 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Thu, 14 Jan 2010 12:33:23 -0500
-Message-ID: <1263490403.23480.109.camel@bigi>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	 <4B4F3A50.1050400@trash.net>
-Reply-To: hadi@cyberus.ca
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Thu, 14 Jan 2010 11:36:39 -0600
+Message-ID: <20100114173639.GA15587@us.ibm.com>
+References: <20100114164702.GA13439@us.ibm.com>
+ <20100114171309.GA6372@heat>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Ben Greear <greearb@candelatech.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B4F3A50.1050400@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
+	K
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100114171309.GA6372@heat>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-01-14 at 16:37 +0100, Patrick McHardy wrote:
-> jamal wrote:
-
-> > Agreed that this would be a main driver of such a feature.
-> > Which means that you need zones (or whatever noun other people use) to
-> > work on not just netfilter, but also routing, ipsec etc.
+Quoting Michael Stone (michael@laptop.org):
+> Quoting Michael Stone (michael@laptop.org):
 > 
-> Routing already works fine. I believe IPsec should also work already,
-> but I haven't tried it.
-
-maybe further discussion  would clarify this point..
-
-> The zone is set based on some other criteria (in this case the
-> incoming device).
-
-If you are using a netdev as a reference point, then I take it 
-if you add vlans should be possible to do multiple zones on a single
-physical netdev? Or is there some other way to satisfy that?
-
->  The packets make one pass through the stack
-> to a veth device and are SNATed in POSTROUTING to non-clashing
-> addresses. 
-
-Ok - makes sense. 
-i.e NAT would work; and policy routing as well as arp would be fine.
-Also it looks to be sufficiently useful to fit a specific use case you
-are interested in.
-But back to my question on routing, ipsec etc (and you may not be
-interested in solving this problem, but it is what i was getting to
-earlier). Lets take for example: 
-a) network tables like SAD/SPD tables: how you would separate those on a
-per-zone basis? i.e 10.0.0.1/zone1 could use different
-policy/association than 10.0.0.1/zone2
-b) dynamic protocols (routing, IKE etc): how do you do that without 
-making both sides understand what is going on?
-
-> > This is a valid concern against the namespace approach. Existing tools
-> > of course could be taught to know about namespaces - and one could
-> > argue that if you can resolve the overlap IP address issue, then you
-> > _have to_ modify user space anyways.
+> >Ah - but I worry that if you do that Alan or others will object.  Where do
+> >you plan to store the disablenet_allowed bit?
 > 
-> I don't think thats true. 
-
-Refer to my statements above for an example.
-
-> In any case its completely impractical
-> to modify every userspace tool that does something with networking
-> and potentially make complex configuration changes to have all
-> those namespaces interact nicely. 
-
-Agreed. But the major ones like iproute2 etc could be taught. We have
-namespaces in the kernel already, over a period of time I think changing
-the user space tools would a sensible evolution.
-
-> Currently they are simply not
-> very well suited for virtualizing selected parts of networking.
-
-My contention is that it is a lot less headache to just virtualize 
-all the network stack and then use what you want than it is to go and
-selectively changing the network objects.
-Note: if i wanted today i could run racoon on every namespace 
-unchanged and it would work or i could modify racoon to understand
-namespaces...
-
-> I'm not sure whether there is a typical user for overlapping
-> networks :) I know of setups with ~150 overlapping networks.
+> If using prctl directly, I would store the bit in the task->network bitfield
+> introduced by the earlier patches.
 > 
-> The number of conntracks per zone doesn't matter since the
-> table is shared between all zones. network namespaces would
-> allocate 150 tables, each of the same size, which might be
-> quite large.
-
-Thats what i was looking for ..
-So the difference, to pick the 150 zones example so as to put a number
-around it, is namespaces will consume 150.X bytes (where X is the
-overhead of a conntrack table) and you approach will be (X + 152) bytes,
-correct?
-What is the typical sizeof X?
-
-> > You may also wanna look as a metric at code complexity/maintainability
-> > of this scheme vs namespace (which adds zero changes to the kernel).
+> >You can use security_prctl() to keep the code out of sys_prctl().
 > 
-> There's not a lot of complexity, its basically passing a numeric
-> identifier around in a few spots and comparing it. Something like
-> TOS handling in the routing code.
-
-I think the challenge is whether zones will have to encroach on other
-net stack objects or not. You are already touching structure netdev...
-A digression: TOS is different really - it has network level semantic. This 
-would be more like mark or in some cases ifindex (i.e local semantics)
- 
-> > BTW, why not use skb->mark instead of creating a new semantic construct?
+> I don't understand this suggestion; can you clarify? (Also, for what it's
+> worth: I intended to put the check for CAP_SETPCAP in prctl_set_network().)
 > 
-> Because people are already using it for different purposes.
+> >but you still have the question of whether you add a bit to the task struct,
+> >use task->security and not stack with selinux, use a thread flag, or try to
+> >enable stacking of task->security.
+> 
+> For this revision of the patch, I will use the same approach as the previous
+> patches (conditionally compiled task->network).
+> 
+> Michael
+> 
+> P.S. - Patches to follow tonight or tomorrow.
 
-tru dat - it only gives you one semantical axis and you need an
-additional dimension in your case (namespace have that resolved via
-struct net).
+Cool I'll just wait for the patches  :)
 
-cheers,
-jamal
-
+thanks,
+-serge
