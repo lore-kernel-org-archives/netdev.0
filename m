@@ -1,57 +1,65 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: Can we remove pci_find_device() yet?
-Date: Thu, 14 Jan 2010 13:39:15 +0100
-Message-ID: <4B4F1073.5060903@imap.cc>
-References: <20100108112236.462a3da2.sfr@canb.auug.org.au> <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc> <20100111200136.GA29955@suse.de> <877hrlf0rf.fsf@basil.nowhere.org> <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk> <20100114110354.GJ12241@basil.fritz.box>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 14 Jan 2010 14:14:32 +0100
+Message-ID: <4B4F18B8.8060708@gmail.com>
+References: <873a29eywq.fsf@basil.nowhere.org>	<20100114.030454.16178889.davem@davemloft.net>	<20100114112216.GK12241@basil.fritz.box> <20100114.032739.217960336.davem@davemloft.net> <4B4F1044.8080500@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Greg KH <gregkh@suse.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:35393 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755593Ab0ANMvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 07:51:44 -0500
-In-Reply-To: <20100114110354.GJ12241@basil.fritz.box>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: William Allen Simpson <william.allen.simpson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B4F1044.8080500-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Am 2010-01-14 12:03 schrieb Andi Kleen:
-> On Thu, Jan 14, 2010 at 11:02:14AM +0000, Alan Cox wrote:
-[It would be better to enforce this constraint at runtime.]
->> There is a simpler way to do that, which is to just leak a reference=
- in
->> the hisax_find_pci_device hack. The pci_dev won't be going anywhere =
-then.
+Le 14/01/2010 13:38, William Allen Simpson a =E9crit :
+> David Miller wrote:
+>> The idea is that the min_ttl is set very high, so that
+>> you'll only accept packets from hosts that started with
+>> a ttl of 255 and are within a hop or two from you.  (therefore
+>> you'd set min_ttl to 254 or 253, something like that)
+>>
+> That's not a particularly good idea:
 >=20
-> You just have to do it once, otherwise it'll fail after 4 billion tim=
-es.
+> http://www.iana.org/assignments/ip-parameters
+>=20
+> IP TIME TO LIVE PARAMETER
+>=20
+> The current recommended default time to live (TTL) for the Internet
+> Protocol (IP) is 64 [RFC791, RFC1122].
+>=20
+> =3D=3D=3D
+>=20
+> It always bugs me that things get incorrectly labeled "security", yet
+> cannot secure anything.
+>=20
+> Security requires a secret.
+>=20
+> Various folks tried all kinds of games with TTL for BGP, but the only
+> thing that _actually_ provided security was MD5 authentication.
 
-I guess we could live with that. pci_find_device() or its successor, th=
-e
-hisax_find_pci_device() hack, is only called during device setup, once
-for most drivers and at the very most 24 times for hfc_pci. Someone
-would have to rmmod/insmod a HiSax module more than a hundred million
-times to accumulate four billion calls.
+Nobody forces you to use RFC 5082, I never had.
 
-- --=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.12 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+But if you use it, better read it before, and not use default ttl of 64=
+ on
+devices wanting to connect to your host.
 
-iEYEARECAAYFAktPEHMACgkQQ3+did9BuFuQ/gCgkhu6RJIwrpIDAJMWbO1mZgOd
-BKwAnAh6kX5F/+dFPIrK/XLovEAv/R7O
-=3DfflE
------END PGP SIGNATURE-----
+Note this TTL Security mechanism is not replacing MD5 protection
+
+   The Generalized TTL Security Mechanism (GTSM) is designed to protect
+   a router's IP-based control plane from CPU-utilization based attacks=
+=2E
+   In particular, while cryptographic techniques can protect the router=
+-
+   based infrastructure (e.g., BGP [RFC4271], [RFC4272]) from a wide
+   variety of attacks, many attacks based on CPU overload can be
+   prevented by the simple mechanism described in this document.  Note
+   that the same technique protects against other scarce-resource
+   attacks involving a router's CPU, such as attacks against processor-
+   line card bandwidth.
+
+
+Its only a potential protection against CPU overload.
