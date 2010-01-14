@@ -1,90 +1,256 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 4/4] phy: add RTBI mode for m88e1111
-Date: Thu, 14 Jan 2010 10:20:09 -0600
-Message-ID: <BC00E67D-5906-4740-A961-84FC1C524A4F@kernel.crashing.org>
-References: <1263456799-3306-1-git-send-email-yu.liu@freescale.com> <1263456799-3306-2-git-send-email-yu.liu@freescale.com> <1263456799-3306-3-git-send-email-yu.liu@freescale.com> <1263456799-3306-4-git-send-email-yu.liu@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v1077)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net-next-2.6 1/3] tun: export underlying socket
+Date: Thu, 14 Jan 2010 18:17:09 +0200
+Message-ID: <20100114161708.GB28159@redhat.com>
+References: <cover.1263467513.git.mst@redhat.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: Liu Yu <Yu.Liu@freescale.com>
+To: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	"virtualization@lists.linux-foundation.org Michael S. Tsirkin"
+	<mst@redhat.com>, Herbert Xu <herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33566 "EHLO gate.crashing.org"
+Received: from mx1.redhat.com ([209.132.183.28]:58261 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757055Ab0ANQUV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 11:20:21 -0500
-In-Reply-To: <1263456799-3306-4-git-send-email-yu.liu@freescale.com>
+	id S1754852Ab0ANQUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 11:20:14 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1263467513.git.mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tun device looks similar to a packet socket
+in that both pass complete frames from/to userspace.
 
-On Jan 14, 2010, at 2:13 AM, Liu Yu wrote:
+This patch fills in enough fields in the socket underlying tun driver
+to support sendmsg/recvmsg operations, and message flags
+MSG_TRUNC and MSG_DONTWAIT, and exports access to this socket
+to modules.  Regular read/write behaviour is unchanged.
 
-> Signed-off-by: Liu Yu <yu.liu@freescale.com>
-> ---
-> drivers/net/phy/marvell.c |   38 ++++++++++++++++++++++++++++++++++++++
-> 1 files changed, 38 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 6f69b9b..65ed385 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -63,6 +63,7 @@
-> #define MII_M1111_HWCFG_MODE_COPPER_RGMII	0xb
-> #define MII_M1111_HWCFG_MODE_FIBER_RGMII	0x3
-> #define MII_M1111_HWCFG_MODE_SGMII_NO_CLK	0x4
-> +#define MII_M1111_HWCFG_MODE_COPPER_RTBI	0x9
-> #define MII_M1111_HWCFG_FIBER_COPPER_AUTO	0x8000
-> #define MII_M1111_HWCFG_FIBER_COPPER_RES	0x2000
-> 
-> @@ -269,6 +270,43 @@ static int m88e1111_config_init(struct phy_device *phydev)
-> 			return err;
-> 	}
-> 
-> +	if (phydev->interface == PHY_INTERFACE_MODE_RTBI) {
-> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-> +		if (temp < 0)
-> +			return temp;
-> +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
-> +		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-> +		if (temp < 0)
-> +			return temp;
-> +		temp &= ~(MII_M1111_HWCFG_MODE_MASK | MII_M1111_HWCFG_FIBER_COPPER_RES);
-> +		temp |= 0x7 | MII_M1111_HWCFG_FIBER_COPPER_AUTO;
+This way, code using raw sockets to inject packets
+into a physical device, can support injecting
+packets into host network stack almost without modification.
 
-Does this magic 0x7 have some meaning?
+First user of this interface will be vhost virtualization
+accelerator.
 
-> +		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		/* soft reset */
-> +		err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-> +		if (err < 0)
-> +			return err;
-> +		do
-> +			temp = phy_read(phydev, MII_BMCR);
-> +		while (temp & BMCR_RESET);
-> +
-> +		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-> +		if (temp < 0)
-> +			return temp;
-> +		temp &= ~(MII_M1111_HWCFG_MODE_MASK | MII_M1111_HWCFG_FIBER_COPPER_RES);
-> +		temp |= MII_M1111_HWCFG_MODE_COPPER_RTBI | MII_M1111_HWCFG_FIBER_COPPER_AUTO;
-> +		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
-> +		if (err < 0)
-> +			return err;
-> +	}
-> +
-> +
-> 	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-> 	if (err < 0)
-> 		return err;
-> -- 
-> 1.6.4
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Acked-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/tun.c      |  101 +++++++++++++++++++++++++++++++++++++++---------
+ include/linux/if_tun.h |   14 +++++++
+ 2 files changed, 96 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 2834a01..5adb3d1 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -144,6 +144,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	err = 0;
+ 	tfile->tun = tun;
+ 	tun->tfile = tfile;
++	tun->socket.file = file;
+ 	dev_hold(tun->dev);
+ 	sock_hold(tun->socket.sk);
+ 	atomic_inc(&tfile->count);
+@@ -158,6 +159,7 @@ static void __tun_detach(struct tun_struct *tun)
+ 	/* Detach from net device */
+ 	netif_tx_lock_bh(tun->dev);
+ 	tun->tfile = NULL;
++	tun->socket.file = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
+ 
+ 	/* Drop read queue */
+@@ -387,7 +389,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Notify and wake up reader process */
+ 	if (tun->flags & TUN_FASYNC)
+ 		kill_fasync(&tun->fasync, SIGIO, POLL_IN);
+-	wake_up_interruptible(&tun->socket.wait);
++	wake_up_interruptible_poll(&tun->socket.wait, POLLIN |
++				   POLLRDNORM | POLLRDBAND);
+ 	return NETDEV_TX_OK;
+ 
+ drop:
+@@ -743,7 +746,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 	len = min_t(int, skb->len, len);
+ 
+ 	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
+-	total += len;
++	total += skb->len;
+ 
+ 	tun->dev->stats.tx_packets++;
+ 	tun->dev->stats.tx_bytes += len;
+@@ -751,34 +754,23 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 	return total;
+ }
+ 
+-static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+-			    unsigned long count, loff_t pos)
++static ssize_t tun_do_read(struct tun_struct *tun,
++			   struct kiocb *iocb, const struct iovec *iv,
++			   ssize_t len, int noblock)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct tun_file *tfile = file->private_data;
+-	struct tun_struct *tun = __tun_get(tfile);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	struct sk_buff *skb;
+-	ssize_t len, ret = 0;
+-
+-	if (!tun)
+-		return -EBADFD;
++	ssize_t ret = 0;
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
+ 
+-	len = iov_length(iv, count);
+-	if (len < 0) {
+-		ret = -EINVAL;
+-		goto out;
+-	}
+-
+ 	add_wait_queue(&tun->socket.wait, &wait);
+ 	while (len) {
+ 		current->state = TASK_INTERRUPTIBLE;
+ 
+ 		/* Read frames from the queue */
+ 		if (!(skb=skb_dequeue(&tun->socket.sk->sk_receive_queue))) {
+-			if (file->f_flags & O_NONBLOCK) {
++			if (noblock) {
+ 				ret = -EAGAIN;
+ 				break;
+ 			}
+@@ -805,6 +797,27 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	current->state = TASK_RUNNING;
+ 	remove_wait_queue(&tun->socket.wait, &wait);
+ 
++	return ret;
++}
++
++static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
++			    unsigned long count, loff_t pos)
++{
++	struct file *file = iocb->ki_filp;
++	struct tun_file *tfile = file->private_data;
++	struct tun_struct *tun = __tun_get(tfile);
++	ssize_t len, ret;
++
++	if (!tun)
++		return -EBADFD;
++	len = iov_length(iv, count);
++	if (len < 0) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = tun_do_read(tun, iocb, iv, len, file->f_flags & O_NONBLOCK);
++	ret = min_t(ssize_t, ret, len);
+ out:
+ 	tun_put(tun);
+ 	return ret;
+@@ -847,7 +860,8 @@ static void tun_sock_write_space(struct sock *sk)
+ 		return;
+ 
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+-		wake_up_interruptible_sync(sk->sk_sleep);
++		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
++						POLLWRNORM | POLLWRBAND);
+ 
+ 	tun = tun_sk(sk)->tun;
+ 	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
+@@ -858,6 +872,37 @@ static void tun_sock_destruct(struct sock *sk)
+ 	free_netdev(tun_sk(sk)->tun->dev);
+ }
+ 
++static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
++		       struct msghdr *m, size_t total_len)
++{
++	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
++	return tun_get_user(tun, m->msg_iov, total_len,
++			    m->msg_flags & MSG_DONTWAIT);
++}
++
++static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
++		       struct msghdr *m, size_t total_len,
++		       int flags)
++{
++	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
++	int ret;
++	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
++		return -EINVAL;
++	ret = tun_do_read(tun, iocb, m->msg_iov, total_len,
++			  flags & MSG_DONTWAIT);
++	if (ret > total_len) {
++		m->msg_flags |= MSG_TRUNC;
++		ret = flags & MSG_TRUNC ? ret : total_len;
++	}
++	return ret;
++}
++
++/* Ops structure to mimic raw sockets with tun */
++static const struct proto_ops tun_socket_ops = {
++	.sendmsg = tun_sendmsg,
++	.recvmsg = tun_recvmsg,
++};
++
+ static struct proto tun_proto = {
+ 	.name		= "tun",
+ 	.owner		= THIS_MODULE,
+@@ -986,6 +1031,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			goto err_free_dev;
+ 
+ 		init_waitqueue_head(&tun->socket.wait);
++		tun->socket.ops = &tun_socket_ops;
+ 		sock_init_data(&tun->socket, sk);
+ 		sk->sk_write_space = tun_sock_write_space;
+ 		sk->sk_sndbuf = INT_MAX;
+@@ -1525,6 +1571,23 @@ static void tun_cleanup(void)
+ 	rtnl_link_unregister(&tun_link_ops);
+ }
+ 
++/* Get an underlying socket object from tun file.  Returns error unless file is
++ * attached to a device.  The returned object works like a packet socket, it
++ * can be used for sock_sendmsg/sock_recvmsg.  The caller is responsible for
++ * holding a reference to the file for as long as the socket is in use. */
++struct socket *tun_get_socket(struct file *file)
++{
++	struct tun_struct *tun;
++	if (file->f_op != &tun_fops)
++		return ERR_PTR(-EINVAL);
++	tun = tun_get(file);
++	if (!tun)
++		return ERR_PTR(-EBADFD);
++	tun_put(tun);
++	return &tun->socket;
++}
++EXPORT_SYMBOL_GPL(tun_get_socket);
++
+ module_init(tun_init);
+ module_exit(tun_cleanup);
+ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 3f5fd52..404abe0 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -86,4 +86,18 @@ struct tun_filter {
+ 	__u8   addr[0][ETH_ALEN];
+ };
+ 
++#ifdef __KERNEL__
++#if defined(CONFIG_TUN) || defined(CONFIG_TUN_MODULE)
++struct socket *tun_get_socket(struct file *);
++#else
++#include <linux/err.h>
++#include <linux/errno.h>
++struct file;
++struct socket;
++static inline struct socket *tun_get_socket(struct file *f)
++{
++	return ERR_PTR(-EINVAL);
++}
++#endif /* CONFIG_TUN */
++#endif /* __KERNEL__ */
+ #endif /* __IF_TUN_H */
+-- 
+1.6.6.144.g5c3af
 
