@@ -1,21 +1,79 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 0/4] netxen: endianness fixes
-Date: Thu, 14 Jan 2010 02:43:03 -0800
-Message-ID: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH 1/4] netxen: fix endianness read mac address
+Date: Thu, 14 Jan 2010 02:43:04 -0800
+Message-ID: <1263465787-28203-2-git-send-email-amit.salecha@qlogic.com>
+References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:56163 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:56165 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755967Ab0ANKnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jan 2010 05:43:10 -0500
+	id S1755995Ab0ANKnL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 05:43:11 -0500
+In-Reply-To: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-  Series of 4 small patches to fix endianness issues and License header.
-  These issues were suggested by Ben Hutchings for qlcnic driver,
-  same apply to netxen_nic driver.
-  Please apply these patches in net-2.6 tree.
+In netxen_read_mac_addr, mac_addr should be declared
+u64 instead of __le64, used by host only.
 
--Amit Salecha
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic.h      |    4 ++--
+ drivers/net/netxen/netxen_nic_hw.c   |    4 ++--
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 9bc5bd1..c5a03a6 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1427,8 +1427,8 @@ static inline u32 netxen_tx_avail(struct nx_host_tx_ring *tx_ring)
+ 
+ }
+ 
+-int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
+-int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
++int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac);
++int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac);
+ extern void netxen_change_ringparam(struct netxen_adapter *adapter);
+ extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
+ 				int *valp);
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 85e28e6..0db36f1 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -1033,7 +1033,7 @@ static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
+ 	return 0;
+ }
+ 
+-int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
++int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ {
+ 	__le32 *pmac = (__le32 *) mac;
+ 	u32 offset;
+@@ -1058,7 +1058,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
+ 	return 0;
+ }
+ 
+-int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
++int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ {
+ 	uint32_t crbaddr, mac_hi, mac_lo;
+ 	int pci_func = adapter->ahw.pci_func;
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 9f9d608..2d584ea 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -430,7 +430,7 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
+ {
+ 	int i;
+ 	unsigned char *p;
+-	__le64 mac_addr;
++	u64 mac_addr;
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+-- 
+1.6.0.2
+
