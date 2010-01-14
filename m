@@ -1,31 +1,36 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH net-next-2.6 v2] can: Proper ctrlmode handling for CAN
- devices
-Date: Thu, 14 Jan 2010 21:02:39 +0100
-Message-ID: <4B4F785F.6060209@grandegger.com>
-References: <1263488914-21655-1-git-send-email-chripell@fsfe.org>
+From: "James Kosin" <JKosin@intcomgrp.com>
+Subject: RE: [PATCH 1/2] net: at91_ether.c - Allow transmitter interrupt to be handled first in ISR
+Date: Thu, 14 Jan 2010 15:28:38 -0500
+Message-ID: <3DBBD805E3BA064A87F551C0E8BD367402897539@MAILSRV.intcomgrp.com>
+References: <3DBBD805E3BA064A87F551C0E8BD36740289748A@MAILSRV.intcomgrp.com> <20100113.173253.223656114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Christian Pellegrin <chripell@fsfe.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:48280 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757583Ab0ANUDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 15:03:42 -0500
-In-Reply-To: <1263488914-21655-1-git-send-email-chripell@fsfe.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<eric.dumazet@gmail.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757635Ab0ANU0y@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20100113.173253.223656114.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christian Pellegrin wrote:
-> This patch adds error checking of ctrlmode values for CAN devices. As
-> an example all availabe bits are implemented in the mcp251x driver.
-> 
-> Signed-off-by: Christian Pellegrin <chripell@fsfe.org>
+Thanks David,
 
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+I'm checking out the latest git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+With git now...
 
-Thanks for your contribution.
+A few items:
+	a)  Is it OK to use git-diff to build a patch file?  Or does everyone still prefer
+	    diff?
 
-Wolfgang.
+	b)  I'm going to try and test also; since, I do have an active platform I
+	    can test on.  Are there any other developers using the ARM that may be able
+	    to provide some feedback?  Eric Dumazet had some interesting comments
+	    but, none of the original people in the file are around anymore I'm afraid.
+	    That or they really don't want to be contacted.
+
+Thanks Again,
+
+James Kosin
