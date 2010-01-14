@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netxen: endianness fixes
-Date: Thu, 14 Jan 2010 03:08:54 -0800 (PST)
-Message-ID: <20100114.030854.52825026.davem@davemloft.net>
-References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH] proc_fops: convert drivers/isdn/ to seq_file
+Date: Thu, 14 Jan 2010 03:11:14 -0800 (PST)
+Message-ID: <20100114.031114.257830077.davem@davemloft.net>
+References: <1263467281.28429@pingi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: tilman@imap.cc, adobriyan@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: keil@b1-systems.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43661
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756137Ab0ANLIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:08:44 -0500
-In-Reply-To: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1756403Ab0ANLLF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 06:11:05 -0500
+In-Reply-To: <1263467281.28429@pingi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Thu, 14 Jan 2010 02:43:03 -0800
+From: Karsten Keil <keil@b1-systems.de>
+Date: Thu, 14 Jan 2010 11:27:45 +0100
 
->   Series of 4 small patches to fix endianness issues and License header.
->   These issues were suggested by Ben Hutchings for qlcnic driver,
->   same apply to netxen_nic driver.
->   Please apply these patches in net-2.6 tree.
+> Convert code away from ->read_proc/->write_proc interfaces.  Switch to
+> proc_create()/proc_create_data() which make addition of proc entries
+> reliable wrt NULL ->proc_fops, NULL ->data and so on.
+> 
+> Problem with ->read_proc et al is described here commit
+> 786d7e1612f0b0adb6046f19b906609e4fe8b1ba "Fix rmmod/read/write races in
+> /proc entries"
+> 
+> [akpm@linux-foundation.org: CONFIG_PROC_FS=n build fix]
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Signed-off-by: Karsten Keil <keil@b1-systems.de>
 
-These endianness fixes for netxen are starting to get reduclious.
-
-You mean in all this time, nobody noticed that reading the MAC
-address isn't done correctly on big-endian?
-
-Well then I guess all of these small endianness fixes aren't
-very critical this late in the RC series.
-
-I want to start slimming down the amount of small driver fixes
-that are still being submitted this late.  And these endian
-bits that show the device is basically unused by anyone (perhaps
-other than you) on big endian are a good way to start.
-
-Submit them for net-next-2.6 of course, but I'm tossing this
-series for net-2.6, sorry.
-
+Applied.
