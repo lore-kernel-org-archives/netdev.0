@@ -1,51 +1,57 @@
-From: Maciej Sosnowski <maciej.sosnowski@intel.com>
-Subject: [PATCH] MAINTAINERS: transfer maintainership of I/OAT
-Date: Thu, 14 Jan 2010 16:52:42 +0100
-Message-ID: <20100114155217.11352.15918.stgit@linux.site>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net-next-2.6 0/3] vhost_net
+Date: Thu, 14 Jan 2010 18:16:59 +0200
+Message-ID: <20100114161659.GA28159@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dan.j.williams@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756911Ab0ANPxo@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	"virtualization@lists.linux-foundation.org Michael S. Tsirkin"
+	<mst@redhat.com>, Herbert Xu <herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37899 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751056Ab0ANQUL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 11:20:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dan Williams takes over I/OAT from Maciej Sosnowski
+These patches have been sitting in Rusty's tree and linux-next for a
+couple of kernel releases already, they are largely unchanged since
+November, besides a couple of bugfixes.  They got Rusty's blessing,
+and I'd like them to go into net-next-2.6 and then 2.6.34.
 
-Signed-off-by: Dan Williams <dan.j.williams@intel.com>
-Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
----
+The patchset is aganst net-next-2.6, commit 508e14b4a4fb1a824a14f2c5b8d7df67b313f8e4.
 
- MAINTAINERS |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+Thanks!
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c8f47bf..8d13c98 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -988,7 +988,6 @@ F:	drivers/platform/x86/asus-laptop.c
- 
- ASYNCHRONOUS TRANSFERS/TRANSFORMS (IOAT) API
- M:	Dan Williams <dan.j.williams@intel.com>
--M:	Maciej Sosnowski <maciej.sosnowski@intel.com>
- W:	http://sourceforge.net/projects/xscaleiop
- S:	Supported
- F:	Documentation/crypto/async-tx-api.txt
-@@ -1825,7 +1824,6 @@ S:	Supported
- F:	fs/dlm/
- 
- DMA GENERIC OFFLOAD ENGINE SUBSYSTEM
--M:	Maciej Sosnowski <maciej.sosnowski@intel.com>
- M:	Dan Williams <dan.j.williams@intel.com>
- S:	Supported
- F:	drivers/dma/
-@@ -2788,7 +2786,7 @@ F:	arch/x86/kernel/microcode_core.c
- F:	arch/x86/kernel/microcode_intel.c
- 
- INTEL I/OAT DMA DRIVER
--M:	Maciej Sosnowski <maciej.sosnowski@intel.com>
-+M:	Dan Williams <dan.j.williams@intel.com>
- S:	Supported
- F:	drivers/dma/ioat*
- 
+
+Michael S. Tsirkin (3):
+  tun: export underlying socket
+  mm: export use_mm/unuse_mm to modules
+  vhost_net: a kernel-level virtio server
+
+ MAINTAINERS                |    9 +
+ arch/ia64/kvm/Kconfig      |    1 +
+ arch/powerpc/kvm/Kconfig   |    1 +
+ arch/s390/kvm/Kconfig      |    1 +
+ arch/x86/kvm/Kconfig       |    1 +
+ drivers/Makefile           |    1 +
+ drivers/net/tun.c          |  101 ++++-
+ drivers/vhost/Kconfig      |   11 +
+ drivers/vhost/Makefile     |    2 +
+ drivers/vhost/net.c        |  661 ++++++++++++++++++++++++++
+ drivers/vhost/vhost.c      | 1098 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h      |  161 +++++++
+ include/linux/Kbuild       |    1 +
+ include/linux/if_tun.h     |   14 +
+ include/linux/miscdevice.h |    1 +
+ include/linux/vhost.h      |  130 ++++++
+ mm/mmu_context.c           |    3 +
+ 17 files changed, 2178 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/vhost/Kconfig
+ create mode 100644 drivers/vhost/Makefile
+ create mode 100644 drivers/vhost/net.c
+ create mode 100644 drivers/vhost/vhost.c
+ create mode 100644 drivers/vhost/vhost.h
+ create mode 100644 include/linux/vhost.h
