@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] lib/vsprintf.c: Add IPV4 options %pI4[hnbl]
- for host, network, big and little endian
-Date: Wed, 13 Jan 2010 20:23:39 -0800 (PST)
-Message-ID: <20100113.202339.128369196.davem@davemloft.net>
-References: <1262680938.1952.17.camel@Joe-Laptop.home>
+Subject: Re: [ISDN] proc_fops: convert drivers/isdn/ to seq_file
+Date: Wed, 13 Jan 2010 20:29:52 -0800 (PST)
+Message-ID: <20100113.202952.01130510.davem@davemloft.net>
+References: <4B4A1FA9.7030505@imap.cc>
+	<20100110.132931.232879311.davem@davemloft.net>
+	<201001140237.08389.keil@b1-systems.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
+Cc: tilman@imap.cc, adobriyan@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: keil@b1-systems.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58250
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37997
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752192Ab0ANEXa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:23:30 -0500
-In-Reply-To: <1262680938.1952.17.camel@Joe-Laptop.home>
+	by vger.kernel.org with ESMTP id S1751286Ab0ANE3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:29:43 -0500
+In-Reply-To: <201001140237.08389.keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 05 Jan 2010 00:42:18 -0800
+From: Karsten Keil <keil@b1-systems.de>
+Date: Thu, 14 Jan 2010 02:37:07 +0100
 
-> This should allow the removal of the #defines and uses
-> of NIPQUAD and NIPQUAD_FMT
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+>  drivers/isdn/hardware/eicon/divasproc.c |  198 
+> ++++++++++++++-----------------
 
-Applied, thanks.
+Long lines broken up, again...
