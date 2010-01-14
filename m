@@ -1,27 +1,33 @@
-From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Thu, 14 Jan 2010 11:58:13 +0100
-Message-ID: <873a29eywq.fsf@basil.nowhere.org>
-References: <20100110220034.4d46ba8a@nehalam>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Thu, 14 Jan 2010 11:02:14 +0000
+Message-ID: <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au>
+	<20100108044646.GC6611@suse.de>
+	<4B4B802A.2010709@imap.cc>
+	<20100111200136.GA29955@suse.de>
+	<877hrlf0rf.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100110220034.4d46ba8a@nehalam> (Stephen Hemminger's message of "Sun, 10 Jan 2010 22:00:34 -0800")
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <gregkh@suse.de>, Tilman Schmidt <tilman@imap.cc>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:33033 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755749Ab0ANK7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 05:59:20 -0500
+In-Reply-To: <877hrlf0rf.fsf@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
->
-> Only TCP is supported, but could also be added to UDP, DCCP, SCTP
-> if desired.
+> e.g. set some global variable that forbids device removal
+> and warn in the kernel log. In theory this could be also
+> done per device, but I guess that would be more effort.
 
-Perhaps I'm blind, but where is the default set if the socket
-option is not used? 
-
--Andi
-
--- 
-ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
+There is a simpler way to do that, which is to just leak a reference in
+the hisax_find_pci_device hack. The pci_dev won't be going anywhere then.
