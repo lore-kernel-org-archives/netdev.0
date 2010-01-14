@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pci: push deprecated pci_find_device() function to
- last user
-Date: Wed, 13 Jan 2010 20:33:38 -0800 (PST)
-Message-ID: <20100113.203338.52448956.davem@davemloft.net>
-References: <4B4B802A.2010709@imap.cc>
-	<20100111200136.GA29955@suse.de>
-	<20100113142328.5DE2F40107@xenon.ts.pxnet.com>
+Subject: Re: [patch 1/3] [PATCH] qeth: HiperSockets Network Traffic Analyzer
+Date: Wed, 13 Jan 2010 20:35:15 -0800 (PST)
+Message-ID: <20100113.203515.28836592.davem@davemloft.net>
+References: <1263299131.6037.44.camel@braunu-laptop>
+	<20100112.045944.197636957.davem@davemloft.net>
+	<1263302964.6037.54.camel@braunu-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, sfr@canb.auug.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, isdn@linux-pingi.de,
-	isdn4linux@listserv.isdn4linux.de
-To: tilman@imap.cc
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	frank.blaschka@de.ibm.com, ursula.braun@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38021
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38244
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751589Ab0ANEd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:33:29 -0500
-In-Reply-To: <20100113142328.5DE2F40107@xenon.ts.pxnet.com>
+	by vger.kernel.org with ESMTP id S1752262Ab0ANEfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 23:35:08 -0500
+In-Reply-To: <1263302964.6037.54.camel@braunu-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Wed, 13 Jan 2010 15:23:28 +0100 (CET)
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Tue, 12 Jan 2010 14:29:24 +0100
 
-> The ISDN4Linux HiSax driver family contains the last remaining users
-> of the deprecated pci_find_device() function. This patch creates a
-> private copy of that function in HiSax, and removes the now unused
-> global function together with its controlling configuration option,
-> CONFIG_PCI_LEGACY.
-> 
-> Impact: code reorganization, no functional change
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> ---
-> Note: This patch is not, nor does it intend to be, checkpatch.pl clean.
-> The issues checkpatch.pl reports on it were already present before, and
-> are unrelated to the topic of this patch.
+> I should have been more precise: In the s390-world there are 2 steps for
+> network device setup - a ccwgroup-step, which establishes the "struct
+> device", and an online-step, which establishes the "struct net_device".
+> After the ccwgroup-step we have an instantiated device and can make use
+> of sysfs. After the online-step, we have an instantiated net_device
+> incl. network interface name and can make use of ethtool. HiperSockets
+> sniffer configuration is required before the online-step.
 
-I'm fine with this, and Greg or whoever else can take this
-through a driver or PCI specific tree if they want:
+Fair enough.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Ok, all 3 qeth patches applied to net-next-2.6, thanks.
