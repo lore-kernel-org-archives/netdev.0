@@ -1,44 +1,53 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
-Date: Thu, 14 Jan 2010 07:38:28 -0500
-Message-ID: <4B4F1044.8080500@gmail.com>
-References: <873a29eywq.fsf@basil.nowhere.org>	<20100114.030454.16178889.davem@davemloft.net>	<20100114112216.GK12241@basil.fritz.box> <20100114.032739.217960336.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Thu, 14 Jan 2010 13:50:51 +0100
+Message-ID: <4B4F132B.7020001@gmail.com>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de> <20100112.121607.39835310.davem@davemloft.net> <201001141250.27287.schmto@hrz.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:41928 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755647Ab0ANMie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 07:38:34 -0500
-In-Reply-To: <20100114.032739.217960336.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38807 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753152Ab0ANMu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 07:50:56 -0500
+In-Reply-To: <201001141250.27287.schmto@hrz.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> The idea is that the min_ttl is set very high, so that
-> you'll only accept packets from hosts that started with
-> a ttl of 255 and are within a hop or two from you.  (therefore
-> you'd set min_ttl to 254 or 253, something like that)
-> 
-That's not a particularly good idea:
+Le 14/01/2010 12:50, Torsten Schmidt a =E9crit :
+=2E
+> Our company is more interested in IP DiffServ traffic accounting.
+> So we simply need a fast mechanism which generates IP DiffServ traffi=
+c
+> statistics, without setting the network interface in promiscuous mode=
+,
+> (which softflowd ore tcpdump does).
 
-http://www.iana.org/assignments/ip-parameters
+tcpdump can work in non promiscuous mode (-p). Anyway, switched network=
+s makes
+promiscuous a non issue nowaday.
 
-IP TIME TO LIVE PARAMETER
+>=20
+> So first idea was to implement a virtual file e.g. called /proc/net/i=
+p_dscp.
+> If the main line peoples are not interested in, i will no longer send=
+ these
+> patches.=20
 
-The current recommended default time to live (TTL) for the Internet
-Protocol (IP) is 64 [RFC791, RFC1122].
+Problem is, you might need many sets of counters...
 
-===
+1) General (for each net namespace ...)
+2) Per interface
+3) Per protocol ?
 
-It always bugs me that things get incorrectly labeled "security", yet
-cannot secure anything.
+=46or performance reasons, SNMP counters are per cpu, so each set would=
+ be very large.
 
-Security requires a secret.
+In any case, dont add yet another /proc/net file, this is considered as=
+ a hacky way to do
+these things today.
 
-Various folks tried all kinds of games with TTL for BGP, but the only
-thing that _actually_ provided security was MD5 authentication.
+Thanks
