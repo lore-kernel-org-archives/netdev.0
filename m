@@ -1,53 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Thu, 14 Jan 2010 13:50:51 +0100
-Message-ID: <4B4F132B.7020001@gmail.com>
-References: <201001121432.43301.schmto@hrz.tu-chemnitz.de> <20100112.121607.39835310.davem@davemloft.net> <201001141250.27287.schmto@hrz.tu-chemnitz.de>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: Can we remove pci_find_device() yet?
+Date: Thu, 14 Jan 2010 13:39:15 +0100
+Message-ID: <4B4F1073.5060903@imap.cc>
+References: <20100108112236.462a3da2.sfr@canb.auug.org.au> <20100108044646.GC6611@suse.de> <4B4B802A.2010709@imap.cc> <20100111200136.GA29955@suse.de> <877hrlf0rf.fsf@basil.nowhere.org> <20100114110214.37d7ffc9@lxorguk.ukuu.org.uk> <20100114110354.GJ12241@basil.fritz.box>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Torsten Schmidt <torsten.schmidt@s2006.tu-chemnitz.de>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Greg KH <gregkh@suse.de>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38807 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753152Ab0ANMu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 07:50:56 -0500
-In-Reply-To: <201001141250.27287.schmto@hrz.tu-chemnitz.de>
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:35393 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755593Ab0ANMvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 07:51:44 -0500
+In-Reply-To: <20100114110354.GJ12241@basil.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/01/2010 12:50, Torsten Schmidt a =E9crit :
-=2E
-> Our company is more interested in IP DiffServ traffic accounting.
-> So we simply need a fast mechanism which generates IP DiffServ traffi=
-c
-> statistics, without setting the network interface in promiscuous mode=
-,
-> (which softflowd ore tcpdump does).
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-tcpdump can work in non promiscuous mode (-p). Anyway, switched network=
-s makes
-promiscuous a non issue nowaday.
-
+Am 2010-01-14 12:03 schrieb Andi Kleen:
+> On Thu, Jan 14, 2010 at 11:02:14AM +0000, Alan Cox wrote:
+[It would be better to enforce this constraint at runtime.]
+>> There is a simpler way to do that, which is to just leak a reference=
+ in
+>> the hisax_find_pci_device hack. The pci_dev won't be going anywhere =
+then.
 >=20
-> So first idea was to implement a virtual file e.g. called /proc/net/i=
-p_dscp.
-> If the main line peoples are not interested in, i will no longer send=
- these
-> patches.=20
+> You just have to do it once, otherwise it'll fail after 4 billion tim=
+es.
 
-Problem is, you might need many sets of counters...
+I guess we could live with that. pci_find_device() or its successor, th=
+e
+hisax_find_pci_device() hack, is only called during device setup, once
+for most drivers and at the very most 24 times for hfc_pci. Someone
+would have to rmmod/insmod a HiSax module more than a hundred million
+times to accumulate four billion calls.
 
-1) General (for each net namespace ...)
-2) Per interface
-3) Per protocol ?
+- --=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.12 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-=46or performance reasons, SNMP counters are per cpu, so each set would=
- be very large.
-
-In any case, dont add yet another /proc/net file, this is considered as=
- a hacky way to do
-these things today.
-
-Thanks
+iEYEARECAAYFAktPEHMACgkQQ3+did9BuFuQ/gCgkhu6RJIwrpIDAJMWbO1mZgOd
+BKwAnAh6kX5F/+dFPIrK/XLovEAv/R7O
+=3DfflE
+-----END PGP SIGNATURE-----
