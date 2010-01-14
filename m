@@ -1,65 +1,61 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
-Date: Thu, 14 Jan 2010 11:36:39 -0600
-Message-ID: <20100114173639.GA15587@us.ibm.com>
-References: <20100114164702.GA13439@us.ibm.com>
- <20100114171309.GA6372@heat>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: safer transmit ring cleaning (v4)
+Date: Thu, 14 Jan 2010 09:51:20 -0800
+Message-ID: <20100114095120.59236446@nehalam>
+References: <20100113194148.139091a3@nehalam>
+	<20100114101445.GA7210@ff.dom.local>
+	<20100114111636.GB7210@ff.dom.local>
+	<20100114.032009.20669539.davem@davemloft.net>
+	<20100114112653.GA8543@ff.dom.local>
+	<4B4F19EB.5080207@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Pavel Machek <pavel@ucw.cz>, Al Viro <viro@ZenIV.linux.org.uk>,
-	K
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100114171309.GA6372@heat>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, mbreuer@majjas.com,
+	flyboy@gmail.com, rjw@sisk.pl, netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50797 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757102Ab0ANRvg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jan 2010 12:51:36 -0500
+In-Reply-To: <4B4F19EB.5080207@ring3k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Michael Stone (michael@laptop.org):
-> Quoting Michael Stone (michael@laptop.org):
-> 
-> >Ah - but I worry that if you do that Alan or others will object.  Where do
-> >you plan to store the disablenet_allowed bit?
-> 
-> If using prctl directly, I would store the bit in the task->network bitfield
-> introduced by the earlier patches.
-> 
-> >You can use security_prctl() to keep the code out of sys_prctl().
-> 
-> I don't understand this suggestion; can you clarify? (Also, for what it's
-> worth: I intended to put the check for CAP_SETPCAP in prctl_set_network().)
-> 
-> >but you still have the question of whether you add a bit to the task struct,
-> >use task->security and not stack with selinux, use a thread flag, or try to
-> >enable stacking of task->security.
-> 
-> For this revision of the patch, I will use the same approach as the previous
-> patches (conditionally compiled task->network).
-> 
-> Michael
-> 
-> P.S. - Patches to follow tonight or tomorrow.
+On Thu, 14 Jan 2010 22:19:39 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-Cool I'll just wait for the patches  :)
+>  /* Number of list elements available for next tx */
+>  static inline int tx_avail(const struct sky2_port *sky2)
+>  {
+> +	if (unlikely(!sky2->tx_ring))
+> +		return 0;
+>  	return sky2->tx_pending - tx_inuse(sky2);
+>  }
+>
 
-thanks,
--serge
+Breaks in detach case
+
+> @@ -1925,7 +1929,9 @@ static int sky2_down(struct net_device *dev)
+>  	sky2_read32(hw, B0_IMSK);
+>  
+>  	synchronize_irq(hw->pdev->irq);
+> -	napi_synchronize(&hw->napi);
+> +	netif_tx_lock_bh(dev);
+> +	napi_disable(&hw->napi);
+> +	netif_stop_queue(dev);
+>  
+>  	spin_lock_bh(&sky2->phy_lock);
+>  	sky2_phy_power_down(hw, port);
+> @@ -1939,6 +1945,8 @@ static int sky2_down(struct net_device *dev)
+>  	sky2_rx_clean(sky2);
+>  
+>  	sky2_free_buffers(sky2);
+> +	napi_enable(&hw->napi);
+> +	netif_tx_unlock_bh(dev);
+>  
+>  	return 0;
+
+Breaks on dual ported boards
