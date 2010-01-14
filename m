@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] igb: update adapter stats when reading
- /proc/net/dev.
-Date: Wed, 13 Jan 2010 17:30:19 -0800 (PST)
-Message-ID: <20100113.173019.57466924.davem@davemloft.net>
-References: <20100112134153.27117.59960.stgit@firesoul.comx.local>
+Subject: Re: [PATCH 1/2] net: at91_ether.c - Allow transmitter interrupt to
+ be handled first in ISR
+Date: Wed, 13 Jan 2010 17:32:53 -0800 (PST)
+Message-ID: <20100113.173253.223656114.davem@davemloft.net>
+References: <3DBBD805E3BA064A87F551C0E8BD36740289748A@MAILSRV.intcomgrp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org
-To: hawk@comx.dk
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: JKosin@intcomgrp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57973
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57976
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751501Ab0ANBaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 20:30:11 -0500
-In-Reply-To: <20100112134153.27117.59960.stgit@firesoul.comx.local>
+	by vger.kernel.org with ESMTP id S1751411Ab0ANBcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jan 2010 20:32:45 -0500
+In-Reply-To: <3DBBD805E3BA064A87F551C0E8BD36740289748A@MAILSRV.intcomgrp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Date: Tue, 12 Jan 2010 14:41:53 +0100
 
-> Network driver igb: Improve the accuracy of stats in /proc/net/dev, by
-> updating the adapter stats when reading /proc/net/dev.  Currently the
-> stats are updated by the watchdog timer every 2 sec, or when getting
-> stats via ethtool -S.
-> 
-> A number of userspace apps read these /proc/net/dev stats every second,
-> e.g. ifstat, which then gives a perceived very bursty traffic pattern,
-> which is actually false.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+Encoding your patches as base64 binary octet stream attachments
+causes them to get missed by our automated patch tracking system:
 
-Intel folks, I assume you guys are going to integrate this.
+	http://patchwork.ozlabs.org/project/netdev/list/
+
+It works by detecting patches contained in emails posted to the netdev
+mailing list.
+
+Can you therefore please follow the guidelines in:
+
+	linux/Documentation/email-clients.txt
+
+for submitting your patches so that they get tracked instead of
+lost?
 
 Thanks.
