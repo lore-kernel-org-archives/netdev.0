@@ -1,36 +1,36 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: What protects rcu_dereference() in __in6_dev_get()?
-Date: Fri, 15 Jan 2010 06:50:15 +0100
-Message-ID: <4B500217.6070908@gmail.com>
-References: <20100114183215.GA16866@linux.vnet.ibm.com>
+Subject: Re: What protects rcu_dereference() in __sk_free()?
+Date: Fri, 15 Jan 2010 06:59:25 +0100
+Message-ID: <4B50043D.9090205@gmail.com>
+References: <20100114184107.GA17245@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, peterz@infradead.org
+Cc: dim@openvz.org, netdev@vger.kernel.org
 To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47421 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39853 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab0AOFuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 00:50:52 -0500
-In-Reply-To: <20100114183215.GA16866@linux.vnet.ibm.com>
+	with ESMTP id S1751260Ab0AOF7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 00:59:32 -0500
+In-Reply-To: <20100114184107.GA17245@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/01/2010 19:32, Paul E. McKenney a =E9crit :
-> Hello, Yoshi,
+Le 14/01/2010 19:41, Paul E. McKenney a =E9crit :
+> Hello, Dmitry,
 >=20
 > Could you please tell me what protects the rcu_dereference() in
-> __in6_dev_get()?  I am adding lockdep-based checking to RCU, and
+> __sk_free()?  I am adding lockdep-based checking to RCU, and
 > "git blame" said I should ask you about this one.
 >=20
 > The current code, rcu_dereference(), assumes that this is protected o=
 nly
-> by RCU.  My problem might be any of the following:
+> by RCU-bh.  My problem might be any of the following:
 >=20
-> o	Some other flavor of RCU protects this, e.g., RCU-bh, which
-> 	would require rcu_dereference_bh().
+> o	Some other flavor of RCU protects this, e.g., RCU-sched, which
+> 	would require rcu_dereference_sched() in place of my current
+> 	rcu_dereference_bh() for RCU-bh.
 >=20
 > o	This is called from updates as well as from readers, and
 > 	some lock protects the updates.
@@ -54,18 +54,25 @@ nly
 er
 > will go out soon.)
 >=20
-> So, could you please tell me what protects the rcu_dereference()
-> in __in6_dev_get() so that I can craft the appropriate form of
-> rcu_dereference()?
+> So, could you please tell me what protects the rcu_dereference() in
+> __sk_free() so that I can craft the appropriate form of rcu_dereferen=
+ce()?
 >=20
-> 							Thanx, Paul
 
 Hi Paul
 
-__in6_dev_get() is called either with rcu_read_lock()/rcu_read_unlock()=
- protection,
-or with the RTNL mutex held.
+filter =3D rcu_dereference(sk->sk_filter);
 
-Well, thats the theory, we could have some bugs of course :)
+is probably not really needed, current thread being the one doing socke=
+t destruction,
+and has a writer role.
 
-Thanks
+void sk_free(struct sock *sk)
+{
+	if (atomic_dec_and_test(&sk->sk_wmem_alloc))
+		__sk_free(sk);
+}
+
+So the protection comes from the atomic_dec_and_test() that acts as a l=
+ock.
+
