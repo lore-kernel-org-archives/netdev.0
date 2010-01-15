@@ -1,60 +1,86 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v5] rps: Receive Packet Steering
-Date: Fri, 15 Jan 2010 10:22:03 +0800
-Message-ID: <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>
-References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
+From: "Liu Yu-B13201" <B13201@freescale.com>
+Subject: RE: [PATCH 4/4] phy: add RTBI mode for m88e1111
+Date: Fri, 15 Jan 2010 10:49:37 +0800
+Message-ID: <0A1FE637C2C7E148B9573BB60CC630E5711B54@zch01exm26.fsl.freescale.net>
+References: <1263456799-3306-1-git-send-email-yu.liu@freescale.com> <1263456799-3306-2-git-send-email-yu.liu@freescale.com> <1263456799-3306-3-git-send-email-yu.liu@freescale.com> <1263456799-3306-4-git-send-email-yu.liu@freescale.com> <BC00E67D-5906-4740-A961-84FC1C524A4F@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <linuxppc-dev@lists.ozlabs.org>,
+	<netdev@vger.kernel.org>
+To: "Kumar Gala" <galak@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:64655 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750947Ab0AOCtm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 21:49:42 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id o0F2nfSl011278
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 19:49:41 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id o0F2nhbO013466
+	for <netdev@vger.kernel.org>; Thu, 14 Jan 2010 20:49:44 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <BC00E67D-5906-4740-A961-84FC1C524A4F@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBKYW4gMTUsIDIwMTAgYXQgNTo1NiBBTSwgVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdv
-b2dsZS5jb20+IHdyb3RlOgo+ICsKPiArIMKgIMKgIMKgIGlmIChza2ItPnJ4aGFzaCkKPiArIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIGdvdG8gZ290X2hhc2g7IC8qIFNraXAgaGFzaCBjb21wdXRhdGlv
-biBvbiBwYWNrZXQgaGVhZGVyICovCj4gKwo+ICsgwqAgwqAgwqAgc3dpdGNoIChza2ItPnByb3Rv
-Y29sKSB7Cj4gKyDCoCDCoCDCoCBjYXNlIF9fY29uc3RhbnRfaHRvbnMoRVRIX1BfSVApOgo+ICsg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKCFwc2tiX21heV9wdWxsKHNrYiwgc2l6ZW9mKCppcCkp
-KQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZ290byBkb25lOwo+ICsKPiAr
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlwID0gKHN0cnVjdCBpcGhkciAqKSBza2ItPmRhdGE7Cj4g
-KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpcF9wcm90byA9IGlwLT5wcm90b2NvbDsKPiArIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIGFkZHIxID0gaXAtPnNhZGRyOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgYWRkcjIgPSBpcC0+ZGFkZHI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpaGwgPSBpcC0+
-aWhsOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4gKyDCoCDCoCDCoCBjYXNlIF9f
-Y29uc3RhbnRfaHRvbnMoRVRIX1BfSVBWNik6Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAo
-IXBza2JfbWF5X3B1bGwoc2tiLCBzaXplb2YoKmlwNikpKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgZ290byBkb25lOwo+ICsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlw
-NiA9IChzdHJ1Y3QgaXB2NmhkciAqKSBza2ItPmRhdGE7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBpcF9wcm90byA9IGlwNi0+bmV4dGhkcjsKVGhpcyBjb2RlIGNhbid0IHdvcmssIHdoZW4gdGhl
-cmUgYXJlIGV4dHJhIGhlYWRlcnMuIGlwdjZfc2tpcF9leHRoZHIoKQpjYW4gYmUgdXNlZCB0byBn
-ZXQgdGhlIGw0IGhlYWRlci4KCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBhZGRyMSA9IGlwNi0+
-c2FkZHIuczZfYWRkcjMyWzNdOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRkcjIgPSBpcDYt
-PmRhZGRyLnM2X2FkZHIzMlszXTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlobCA9ICg0MCA+
-PiAyKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGJyZWFrOwo+ICsgwqAgwqAgwqAgZGVmYXVs
-dDoKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGdvdG8gZG9uZTsKPiArIMKgIMKgIMKgIH0KPiAr
-IMKgIMKgIMKgIHBvcnRzID0gMDsKPiArIMKgIMKgIMKgIHN3aXRjaCAoaXBfcHJvdG8pIHsKPiAr
-IMKgIMKgIMKgIGNhc2UgSVBQUk9UT19UQ1A6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJPVE9fVURQ
-Ogo+ICsgwqAgwqAgwqAgY2FzZSBJUFBST1RPX0RDQ1A6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJP
-VE9fRVNQOgo+ICsgwqAgwqAgwqAgY2FzZSBJUFBST1RPX0FIOgo+ICsgwqAgwqAgwqAgY2FzZSBJ
-UFBST1RPX1NDVFA6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJPVE9fVURQTElURToKPiArIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIGlmIChwc2tiX21heV9wdWxsKHNrYiwgKGlobCAqIDQpICsgNCkpCj4g
-KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwb3J0cyA9ICooKHUzMiAqKSAoc2ti
-LT5kYXRhICsgKGlobCAqIDQpKSk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBicmVhazsKPiAr
-Cj4gKyDCoCDCoCDCoCBkZWZhdWx0Ogo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4g
-KyDCoCDCoCDCoCB9Cj4gKwo+ICsgwqAgwqAgwqAgc2tiLT5yeGhhc2ggPSBqaGFzaF8zd29yZHMo
-YWRkcjEsIGFkZHIyLCBwb3J0cywgaGFzaHJuZCk7CkZvciBjb25uZWN0aW9uIGJhc2VkIHBhY2tl
-dCBwcm9jZXNzaW5nLCBzdWNoIGFzIG5ldGZpbHRlciwKZGlzdHJpYnV0aW5nIHRoZSBwYWNrZXRz
-IGluIHR3byBkaXJlY3Rpb25zIGludG8gb25lIENQVSB3aWxsIHJlZHVjZQpjYWNoZSBtaXNzLCB3
-aGVuIE5BVCBpc24ndCB1c2VkLiBJIHRoaW5rIHRoZSBjb2RlIGJlbGxvdyB3aWxsIGhlbHA6Cmlm
-IChhZGRyMSA+IGFkZHIyKQogIHN3YXAoYWRkcjEsIGFkZHIyKTsKCj4gKyDCoCDCoCDCoCBpZiAo
-IXNrYi0+cnhoYXNoKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5yeGhhc2ggPSAxOwoK
-V2h5IG5vdCBwdXQgdGhlIGFib3ZlIGNvZGUgaW50byBhIG5ldyBmdW5jdGlvbiwgYW5kIGFkZCBt
-b3JlIHByb3RvY29scwpzdXBwb3J0LCBzdWNoIGFzIDgwMi4xUS4gIFRob3VnaCByeGhhc2ggaXMg
-YmFzZWQgb24gNC10dXBsZSwgSSB0aGluawpuZXRmaWx0ZXIgd2lsbCBiZW5lZml0IGZyb20gaXQu
-CgotLSAKUmVnYXJkc++8jApDaGFuZ2xpIEdhbyh4aWFvc3VvQGdtYWlsLmNvbSkK
+ 
+
+> -----Original Message-----
+> From: Kumar Gala [mailto:galak@kernel.crashing.org] 
+> Sent: Friday, January 15, 2010 12:20 AM
+> To: Liu Yu-B13201
+> Cc: davem@davemloft.net; linuxppc-dev@lists.ozlabs.org; 
+> netdev@vger.kernel.org
+> Subject: Re: [PATCH 4/4] phy: add RTBI mode for m88e1111
+> 
+> 
+> On Jan 14, 2010, at 2:13 AM, Liu Yu wrote:
+> 
+> > Signed-off-by: Liu Yu <yu.liu@freescale.com>
+> > ---
+> > drivers/net/phy/marvell.c |   38 
+> ++++++++++++++++++++++++++++++++++++++
+> > 1 files changed, 38 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> > index 6f69b9b..65ed385 100644
+> > --- a/drivers/net/phy/marvell.c
+> > +++ b/drivers/net/phy/marvell.c
+> > @@ -63,6 +63,7 @@
+> > #define MII_M1111_HWCFG_MODE_COPPER_RGMII	0xb
+> > #define MII_M1111_HWCFG_MODE_FIBER_RGMII	0x3
+> > #define MII_M1111_HWCFG_MODE_SGMII_NO_CLK	0x4
+> > +#define MII_M1111_HWCFG_MODE_COPPER_RTBI	0x9
+> > #define MII_M1111_HWCFG_FIBER_COPPER_AUTO	0x8000
+> > #define MII_M1111_HWCFG_FIBER_COPPER_RES	0x2000
+> > 
+> > @@ -269,6 +270,43 @@ static int m88e1111_config_init(struct 
+> phy_device *phydev)
+> > 			return err;
+> > 	}
+> > 
+> > +	if (phydev->interface == PHY_INTERFACE_MODE_RTBI) {
+> > +		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
+> > +		if (temp < 0)
+> > +			return temp;
+> > +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
+> > +		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
+> > +		if (err < 0)
+> > +			return err;
+> > +
+> > +		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
+> > +		if (temp < 0)
+> > +			return temp;
+> > +		temp &= ~(MII_M1111_HWCFG_MODE_MASK | 
+> MII_M1111_HWCFG_FIBER_COPPER_RES);
+> > +		temp |= 0x7 | MII_M1111_HWCFG_FIBER_COPPER_AUTO;
+> 
+> Does this magic 0x7 have some meaning?
+> 
+
+Hrr...  it's GMII to fibre mode.
+Document 88E1111_erata_RevB2  chapter 4.35 describ the reason.
+Without this sometimes phys couldnot work.
