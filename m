@@ -1,151 +1,38 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Fri, 15 Jan 2010 10:15:57 +0100
-Message-ID: <m2k4vjhgoi.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-8-git-send-email-sam@synack.fr>
-	<4B420464.3040301@trash.net>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: Regression: Wake on LAN doesn't work in sky2 with 2.6.33-rc4-git2
+Date: Fri, 15 Jan 2010 10:10:53 +0100
+Message-ID: <20100115091053.GA5477@mac.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 16:08:20 +0100")
-Sender: linux-security-module-owner@vger.kernel.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756954Ab0AOJRL@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+Hi,
 
->> +static struct genl_ops snet_genl_ops[] = {
->> +	{
->> +		.cmd		= SNET_C_VERSION,
->> +		.flags		= GENL_ADMIN_PERM,
->> +		.policy		= snet_genl_policy,
->> +		.doit		= snet_nl_version,
->> +		.dumpit		= NULL,
->
-> The NULL initializations aren't neccessary.
->
-[...]
-Instead of dropping lines with the NULL initializations, I reduced the
-code with a declaration macro
+wake on LAN doesn't work with 2.6.33-rc4-git2 on the following
+hardware:
 
-Patricks, thanks
-sam
- 
-commit f8539d466dbe081b35f6813cfedd91947615bee9
-Author: Samir Bellabes <sam@synack.fr>
-Date:   Fri Jan 15 09:53:09 2010 +0100
+01:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+88E8053 PCI-E Gigabit Ethernet Controller [11ab:4362] (rev 22)
 
-    snet: reducing code by using macros to define snet_genl_ops
-    
-    This patch introduces the macro SNET_GENL_OPS. This reduces the code of the
-    declaration struct genl_ops snet_genl_ops[]
-    
-    Signed-off-by: Samir Bellabes <sam@synack.fr>
+It worked with 2.6.32. In my suspend script, I enable WoL using
+ethtool:
 
-diff --git a/security/snet/snet_netlink.c b/security/snet/snet_netlink.c
-index e108e7a..ba6a26d 100644
---- a/security/snet/snet_netlink.c
-+++ b/security/snet/snet_netlink.c
-@@ -400,70 +400,33 @@ out:
- 	return ret;
- }
- 
-+#define SNET_GENL_OPS(_cmd, _flags, _policy, _op, _opname)		\
-+	{							\
-+		.cmd	= _cmd,					\
-+		.flags	= _flags,				\
-+		.policy	= _policy,				\
-+		._op	= snet_nl_##_opname,			\
-+	}
-+
- static struct genl_ops snet_genl_ops[] = {
--	{
--		.cmd		= SNET_C_VERSION,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_version,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_REGISTER,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_register,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_UNREGISTER,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_unregister,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_INSERT,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_insert,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_REMOVE,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_remove,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_FLUSH,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_flush,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_LIST,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= NULL,
--		.dumpit		= snet_nl_list,
--	},
--	{
--		.cmd		= SNET_C_VERDICT,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_verdict,
--		.dumpit		= NULL,
--	},
--	{
--		.cmd		= SNET_C_VERDICT_DELAY,
--		.flags		= GENL_ADMIN_PERM,
--		.policy		= snet_genl_policy,
--		.doit		= snet_nl_verdict_delay,
--		.dumpit		= NULL,
--	},
-+	SNET_GENL_OPS(SNET_C_VERSION, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, version),
-+	SNET_GENL_OPS(SNET_C_REGISTER, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, register),
-+	SNET_GENL_OPS(SNET_C_UNREGISTER, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, unregister),
-+	SNET_GENL_OPS(SNET_C_INSERT, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, insert),
-+	SNET_GENL_OPS(SNET_C_REMOVE, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, remove),
-+	SNET_GENL_OPS(SNET_C_FLUSH, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, flush),
-+	SNET_GENL_OPS(SNET_C_REGISTER, GENL_ADMIN_PERM, snet_genl_policy,
-+		      dumpit, list),
-+	SNET_GENL_OPS(SNET_C_REGISTER, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, verdict),
-+	SNET_GENL_OPS(SNET_C_VERDICT_DELAY, GENL_ADMIN_PERM, snet_genl_policy,
-+		      doit, verdict_delay),
- };
- 
- static __init int snet_netlink_init(void)
+ethtool -s eth0 wol g
+
+in dmesg, I get these messages at suspend:
+
+sky2 eth0: disabling interface
+sky2 0000:01:00.0: PME# enabled
+sky2 0000:01:00.0: wake-up capability enabled by ACPI
+
+and at resume:
+
+sky2 0000:01:00.0: wake-up capability disabled by ACPI
+sky2 0000:01:00.0: PME# disabled
+
+Regards,
+Tino
