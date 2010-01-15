@@ -1,40 +1,42 @@
-From: Patrick Mullaney <pmullaney@novell.com>
-Subject: [PATCH] macvlan: add GRO bit to features mask
-Date: Fri, 15 Jan 2010 15:00:51 -0500
-Message-ID: <20100115200039.10618.8232.stgit@mimic.site>
-References: <4B503E86.8010603@trash.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH V3] MAINTAINERS: Document list types, add "A:" section
+	type, update NETFILTER
+Date: Fri, 15 Jan 2010 21:03:43 +0100
+Message-ID: <20100115200343.GH1345@ucw.cz>
+References: <1262805798.1952.105.camel@Joe-Laptop.home> <4B4B02BE.5060209@trash.net> <1263208183.1907.50.camel@Joe-Laptop.home> <4B4B0806.40801@trash.net> <1263209269.1907.61.camel@Joe-Laptop.home> <alpine.LSU.2.01.1001111229460.26235@obet.zrqbmnf.qr> <1263321994.25973.15.camel@Joe-Laptop.home> <4B4DE32F.7030708@s5r6.in-berlin.de> <1263399300.8011.68.camel@Joe-Laptop.home> <4B4DFE84.2080304@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
-	kaber@trash.net, arnd@arndb.de
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4B503E86.8010603@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B4DFE84.2080304@s5r6.in-berlin.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allow macvlan devices to support GRO.
+On Wed 2010-01-13 18:10:28, Stefan Richter wrote:
+> Joe Perches wrote:
+> > On Wed, 2010-01-13 at 16:13 +0100, Stefan Richter wrote:
+> >> Joe Perches wrote:
+> >> > +	A: Additional useful unstructured information.
+> >> Can be implemented with a level of indirection via the W: entries.
+> > 
+> > Mailing lists aren't web addresses.
+> 
+> Project web sites typically contain contact pages (which is what you
+> used the first two proposed A: entries for --- contacts that apparently
+> do not play a role for patch submission), and web sites can carry any
+> other "unstructured information".
+> 
+> Keep redundancy low.
 
-Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
+Well, I'd say that kernel maintainance info should be
+kept... well... in kernel...
+								Pavel
 
-Acked-by: Patrick McHardy <kaber@trash.net>
----
-
- drivers/net/macvlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 0a389b8..94bb135 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -316,7 +316,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
- #define MACVLAN_FEATURES \
- 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
- 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
--	 NETIF_F_TSO_ECN | NETIF_F_TSO6)
-+	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
- 
- #define MACVLAN_STATE_MASK \
- 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
-
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
