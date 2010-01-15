@@ -1,7 +1,7 @@
 From: Michael Stone <michael@laptop.org>
-Subject: disablenetwork (v5): Update documentation for PR_NETWORK_ENABLE_DN.
-Date: Fri, 15 Jan 2010 03:13:22 -0500
-Message-ID: <20100115081322.GA14460@heat>
+Subject: disablenetwork (v5): Require CAP_SETPCAP to enable disablenetwork.
+Date: Fri, 15 Jan 2010 03:13:08 -0500
+Message-ID: <20100115081308.GA14443@heat>
 References: <20100115081028.GA14004@heat>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -26,91 +26,126 @@ Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
 	Al Viro <viro@ZenIV.linux.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.laptop.org ([18.85.2.145]:37618 "EHLO mail.laptop.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754122Ab0AOIK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jan 2010 03:10:59 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754852Ab0AOIKv@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20100115081028.GA14004@heat>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+We implement this check by allocating a new flag bit in task_struct->network
+and by propagating its semantics throughout the disablenetwork facility.
 
 Signed-off-by: Michael Stone <michael@laptop.org>
 ---
-  Documentation/disablenetwork.txt |   43 ++++++++++++++++++++++++++++---------
-  1 files changed, 32 insertions(+), 11 deletions(-)
+  include/linux/prctl.h     |    8 +++++---
+  kernel/sys.c              |   14 +++++++++++++-
+  security/disablenetwork.c |   15 ++++++++-------
+  3 files changed, 26 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/disablenetwork.txt b/Documentation/disablenetwork.txt
-index c885502..5d376e6 100644
---- a/Documentation/disablenetwork.txt
-+++ b/Documentation/disablenetwork.txt
-@@ -30,11 +30,19 @@ Implementation
+diff --git a/include/linux/prctl.h b/include/linux/prctl.h
+index 4eb4110..4fdb417 100644
+--- a/include/linux/prctl.h
++++ b/include/linux/prctl.h
+@@ -105,8 +105,10 @@
+  /* Get/set process disable-network flags */
+  #define PR_SET_NETWORK	35
+  #define PR_GET_NETWORK	36
+-# define PR_NETWORK_ON        0
+-# define PR_NETWORK_OFF       1
+-# define PR_NETWORK_ALL_FLAGS 1
++# define PR_NETWORK_ON		0
++# define PR_NETWORK_ENABLE_DN	1
++# define PR_NETWORK_OFF	2
++# define PR_NETWORK_ALL_FLAGS	3
++# define PR_NETWORK_DN_FLAGS	3
   
-  The initial userland interface for accessing the disablenetwork functionality
-  is provided through the prctl() framework via a new pair of options named
--PR_{GET,SET}_NETWORK and a new flag named PR_NETWORK_OFF.
-+PR_{GET,SET}_NETWORK and a pair of flags named PR_NETWORK_ENABLE_DN and
-+PR_NETWORK_OFF.
+  #endif /* _LINUX_PRCTL_H */
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 1fadf10..4c7ef83 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -1608,7 +1608,19 @@ long prctl_set_network(unsigned long network_flags)
+  	if (current->network & ~network_flags)
+  		return -EPERM;
   
-  The PR_{GET,SET}_NETWORK options access and modify a new (conditionally
-  compiled) task_struct flags field named "network".
-  
-+prctl(PR_SET_NETWORK) takes its argument by value rather than by address to
-+avoid a time-of-check-to-time-of-use race between security_prctl() and
-+prctl_set_network().
+-	current->network = network_flags;
++	/* Only the superuser may permit a process to enable disablenetwork. */
++	if (!(current->network & PR_NETWORK_ENABLE_DN) &&
++		network_flags & PR_NETWORK_ENABLE_DN &&
++		!capable(CAP_SETPCAP))
++		return -EPERM;
 +
-+However, prctl(PR_GET_NETWORK) returns the value of the "network" field via a
-+pointer argument so that its return code can represent errors like ENOSYS.
++	/* Only dn-enabled processes may activate disablenetwork. */
++	if (!(current->network & PR_NETWORK_OFF) &&
++		network_flags & PR_NETWORK_OFF &&
++		!(current->network & PR_NETWORK_ENABLE_DN))
++		return -EPERM;
 +
-  Finally, the pre-existing
++	current->network |= network_flags;
+  	return 0;
+  }
   
-    security_socket_create(),
-@@ -58,22 +66,35 @@ Writes which attempt to clear bits in current->network return -EPERM.
-  The default value for current->network is named PR_NETWORK_ON and is defined
-  to be 0.
+diff --git a/security/disablenetwork.c b/security/disablenetwork.c
+index 27b88d7..02c0150 100644
+--- a/security/disablenetwork.c
++++ b/security/disablenetwork.c
+@@ -19,10 +19,11 @@
+  #include <net/sock.h>
+  #include <linux/socket.h>
+  #include <linux/disablenetwork.h>
++#include <linux/prctl.h>
   
--Presently, only one flag is defined: PR_NETWORK_OFF.
--
-+Presently, two flags are defined: PR_NETWORK_ENABLE_DN and PR_NETWORK_OFF.
-  More flags may be defined in the future if they become needed.
+-static inline int maybe_allow(void)
++static inline int maybe_allow(unsigned long network_flags)
+  {
+-	if (current->network)
++	if ((network_flags & PR_NETWORK_DN_FLAGS) == PR_NETWORK_DN_FLAGS)
+  		return -EPERM;
+  	return 0;
+  }
+@@ -32,7 +33,7 @@ int disablenetwork_security_socket_create(int family, int type,
+  {
+  	if (family == AF_UNIX)
+  		return 0;
+-	return maybe_allow();
++	return maybe_allow(current->network);
+  }
   
-  Attempts to set undefined flags result in -EINVAL.
+  int disablenetwork_security_socket_bind(struct socket * sock,
+@@ -41,7 +42,7 @@ int disablenetwork_security_socket_bind(struct socket * sock,
+  {
+  	if (address->sa_family == AF_UNIX)
+  		return 0;
+-	return maybe_allow();
++	return maybe_allow(current->network);
+  }
   
--When PR_NETWORK_OFF is set, the disablenetwork security hooks for socket(),
--bind(), connect(), sendmsg(), and ptrace() will return -EPERM or 0.
-+CAP_SETPCAP is required in order to set PR_NETWORK_ENABLE_DN. We believe that
-+this restriction will protect privileged legacy system configurations from
-+unprivileged misuse of disablenetwork. (Thanks to Pavel Machek and Serge Hallyn
-+for analyzing the problem and for suggesting this compromise approach.)
-+
-+We say that "disablenetwork is active" when both PR_NETWORK_ENABLE_DN and
-+PR_NETWORK_OFF are set. Otherwise, we say that it is "inactive".
-+
-+When the disablenetwork is inactive, the disablenetwork_* security hooks for
-+socket(), bind(), connect(), sendmsg(), and ptrace() will return 0.
-+
-+When disablenetwork is active -EPERM or 0 as follows:
-+
-+The hooks will return 0 when disablenetwork is active for the current process
-+and when an exception applies: i.e. when the current process is
+  int disablenetwork_security_socket_connect(struct socket * sock,
+@@ -50,7 +51,7 @@ int disablenetwork_security_socket_connect(struct socket * sock,
+  {
+  	if (address->sa_family == AF_UNIX)
+  		return 0;
+-	return maybe_allow();
++	return maybe_allow(current->network);
+  }
   
--Exceptions are made for
-+  * manipulating an AF_UNIX socket or,
-+  * calling sendmsg() on a previously connected socket (i.e. one with
-+    msg.msg_name == NULL && msg.msg_namelen == 0) or
-+  * calling ptrace() on a target process in which disablenetwork is also
-+    active.
+  int disablenetwork_security_socket_sendmsg(struct socket * sock,
+@@ -59,14 +60,14 @@ int disablenetwork_security_socket_sendmsg(struct socket * sock,
+  	/* permit sockets which are PF_UNIX or connected; check others. */
+  	if (sock->sk->sk_family == PF_UNIX || msg->msg_name == NULL)
+  		return 0;
+-	return maybe_allow();
++	return maybe_allow(current->network);
+  }
   
--  * processes manipulating an AF_UNIX socket or,
--  * processes calling sendmsg() on a previously connected socket
--      (i.e. one with msg.msg_name == NULL && msg.msg_namelen == 0) or
--  * processes calling ptrace() on a target process which shares every
--    networking restriction flag set in current->network.
-+When disablenetwork is active in non-exceptional circumstances, the hooks will
-+return -EPERM.
-  
-  References
-  ----------
+  int disablenetwork_security_ptrace_access_check(struct task_struct *child,
+                                                  unsigned int mode)
+  {
+  	/* does current have networking restrictions not shared by child? */
+-	if (current->network & ~child->network)
++	if (maybe_allow(current->network) && !maybe_allow(child->network))
+  		return -EPERM;
+  	return 0;
+  }
 -- 
 1.6.6.rc2
