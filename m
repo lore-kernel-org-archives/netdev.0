@@ -1,43 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] rps: Receive Packet Steering
-Date: Fri, 15 Jan 2010 07:57:56 +0100
-Message-ID: <4B5011F4.8010204@gmail.com>
-References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>	 <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>	 <4B5008F5.6090007@gmail.com> <412e6f7f1001142239n704d2827q614f59255e85e328@mail.gmail.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
+Date: Fri, 15 Jan 2010 08:02:26 +0100
+Message-ID: <m2ockvhmv1.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-8-git-send-email-sam@synack.fr>
+	<4B420464.3040301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39465 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790Ab0AOG6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 01:58:07 -0500
-In-Reply-To: <412e6f7f1001142239n704d2827q614f59255e85e328@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
+	04 Jan 2010 16:08:20 +0100")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/01/2010 07:39, Changli Gao a =C3=A9crit :
-> The code bellow is from my ifb-mq.patch
-> #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
->         case __constant_htons(ETH_P_IPV6):
-> process_ipv6:
->                 if (unlikely(!pskb_may_pull(skb, sizeof(struct ipv6hd=
-r))))
->                         goto process_other;
->                 addr1 =3D ipv6_hdr(skb)->saddr.s6_addr32[3];
->                 addr2 =3D ipv6_hdr(skb)->daddr.s6_addr32[3];
->                 ihl =3D ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),=
- &ip_proto);
->                 if (unlikely(ihl < 0))
->                         goto process_other_trans;
->                 break;
-> #endif
->=20
->=20
+Patrick McHardy <kaber@trash.net> writes:
 
-Thanks Changli !
+> Samir Bellabes wrote:
+>> +/**
+>> + * snet_nl_register - Handle a REGISTER message
+>> + * @skb: the NETLINK buffer
+>> + * @info: the Generic NETLINK info block
+>> + *
+>> + * Description:
+>> + * Notify the kernel that an application is listening for events.
+>> + * Returns zero on success, negative values on failure.
+>> + */
+>> +static int snet_nl_register(struct sk_buff *skb, struct genl_info *info)
+>> +{
+>> +	int ret = -EINVAL;
+>> +	u32 version = 0;
+>> +	u8 set_resp_flag = 0;
+>> +
+>> +	atomic_set(&snet_nl_seq, info->snd_seq);
+>> +
+>> +	if (!info->attrs[SNET_A_VERSION])
+>> +		return -EINVAL;
+>> +	version = nla_get_u32(info->attrs[SNET_A_VERSION]);
+>> +
+>> +	if (version == SNET_VERSION) {	/* version is compliant */
+>> +		atomic_inc(&snet_num_listeners);
+>> +		set_resp_flag = 1;
+>> +	}
+>> +
+>> +	ret = snet_nl_response_flag(info, &snet_genl_family,
+>> +				    SNET_C_REGISTER, SNET_A_REGISTERED,
+>> +				    set_resp_flag);
+>
+> Is this really needed? A return value of 0 should already tell userspace
+> that the command was successful. If it really wants a seperate success
+> message, it can use NLM_F_ACK. This will also automatically take care
+> of using the proper sequence number, so the snet_nl_seq handling isn't
+> required anymore. Same for all similar cases below.
 
+Indeed, we can use the return value to inform the userspace about the
+status of operations. I moved all the code, and deleted the no longer
+used function snet_nl_response_flag()
+
+Thanks Patrick,
+sam
