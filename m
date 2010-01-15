@@ -1,64 +1,78 @@
-From: Andrew May <acmay@acmay.org>
-Subject: Re: [PATCH 7/7] Staging: Octeon Ethernet: Use constants from in.h
-Date: Thu, 14 Jan 2010 23:29:00 -0800
-Message-ID: <20100114232900.55111058@mud>
-References: <4B463005.8060505@caviumnetworks.com>
-        <1262891106-32146-7-git-send-email-ddaney@caviumnetworks.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: ixgbe: [RFC] [PATCH] Fix return of invalid txq
+Date: Thu, 14 Jan 2010 23:58:17 -0800
+Message-ID: <F86E8680A7D9D74A99DC6345E35A692950158650@orsmsx503.amr.corp.intel.com>
+References: <20100115053117.31513.82775.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
-        netdev@vger.kernel.org, gregkh@suse.de
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1262891106-32146-7-git-send-email-ddaney@caviumnetworks.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Krishna Kumar <krkumar2@in.ibm.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:58683 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751649Ab0AOH6S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 02:58:18 -0500
+In-Reply-To: <20100115053117.31513.82775.sendpatchset@krkumar2.in.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu,  7 Jan 2010 11:05:06 -0800
-David Daney <ddaney@caviumnetworks.com> wrote:
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of Krishna Kumar
+>Sent: Thursday, January 14, 2010 9:31 PM
+>To: davem@davemloft.net
+>Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; Krishna Kumar
+>Subject: ixgbe: [RFC] [PATCH] Fix return of invalid txq
+>
+>A developer had complained of getting lots of warnings:
+>
+>"eth16 selects TX queue 98, but real number of TX queues is 64"
+>
+>http://www.mail-archive.com/e1000-
+>devel@lists.sourceforge.net/msg02200.html
+>
+>As there was no follow up on that bug, I am submitting this
+>patch assuming that the other return points will not return
+>invalid txq's, and also that this fixes the bug (not tested).
+>
+>Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
-> ---
->  drivers/staging/octeon/ethernet-defines.h |    3 ---
->  drivers/staging/octeon/ethernet-tx.c      |    8 ++++----
->  2 files changed, 4 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/staging/octeon/ethernet-defines.h
-> b/drivers/staging/octeon/ethernet-defines.h index 9c4910e..00a8561
-> 100644 --- a/drivers/staging/octeon/ethernet-defines.h
-> +++ b/drivers/staging/octeon/ethernet-defines.h
-> @@ -98,9 +98,6 @@
->  #define MAX_SKB_TO_FREE 10
->  #define MAX_OUT_QUEUE_DEPTH 1000
->  
-> -#define IP_PROTOCOL_TCP             6
-> -#define IP_PROTOCOL_UDP             0x11
-> -
->  #define FAU_NUM_PACKET_BUFFERS_TO_FREE (CVMX_FAU_REG_END -
-> sizeof(uint32_t)) #define TOTAL_NUMBER_OF_PORTS
-> (CVMX_PIP_NUM_INPUT_PORTS+1) 
-> diff --git a/drivers/staging/octeon/ethernet-tx.c
-> b/drivers/staging/octeon/ethernet-tx.c index bc67e41..62258bd 100644
-> --- a/drivers/staging/octeon/ethernet-tx.c
-> +++ b/drivers/staging/octeon/ethernet-tx.c
-> @@ -359,8 +359,8 @@ dont_put_skbuff_in_hw:
->  	if (USE_HW_TCPUDP_CHECKSUM && (skb->protocol ==
-> htons(ETH_P_IP)) && (ip_hdr(skb)->version == 4) && (ip_hdr(skb)->ihl
-> == 5) && ((ip_hdr(skb)->frag_off == 0) || (ip_hdr(skb)->frag_off == 1
-> << 14))
-> -	    && ((ip_hdr(skb)->protocol == IP_PROTOCOL_TCP)
-> -		|| (ip_hdr(skb)->protocol == IP_PROTOCOL_UDP))) {
-> +	    && ((ip_hdr(skb)->protocol == IPPROTO_TCP)
-> +		|| (ip_hdr(skb)->protocol == IPPROTO_UDP))) {
->  		/* Use hardware checksum calc */
->  		pko_command.s.ipoffp1 = sizeof(struct ethhdr) + 1;
->  	}
+This looks reasonable to me.  I've been trying to find time to add something like igb has, with a tiny Tx lookup table that maps CPUs into a smaller set of Tx queues, but I like this simple approach to fix the current bug.
 
-Why isn't skb->ip_summed checked here instead? It seems like the csum
-calculation needs to be skipped by the stack if this is actually going
-to help performance.
+We'll want to pull this in for a quick set of regression tests, but again I think this will work well.
 
-And does this end up re-writing a bad checksum on a routed packet, back
-to being a good checksum?
+Thanks Krishna,
+
+-PJ
+
+>---
+> drivers/net/ixgbe/ixgbe_main.c |    5 ++++-
+> 1 file changed, 4 insertions(+), 1 deletion(-)
+>
+>diff -ruNp org/drivers/net/ixgbe/ixgbe_main.c
+>new/drivers/net/ixgbe/ixgbe_main.c
+>--- org/drivers/net/ixgbe/ixgbe_main.c	2010-01-12 11:50:24.000000000
+>+0530
+>+++ new/drivers/net/ixgbe/ixgbe_main.c	2010-01-12 11:50:44.000000000
+>+0530
+>@@ -5514,8 +5514,11 @@ static u16 ixgbe_select_queue(struct net
+> 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+> 	int txq = smp_processor_id();
+>
+>-	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+>+	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+>+		while (unlikely(txq >= dev->real_num_tx_queues))
+>+			txq -= dev->real_num_tx_queues;
+> 		return txq;
+>+	}
+>
+> #ifdef IXGBE_FCOE
+> 	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
