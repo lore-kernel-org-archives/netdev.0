@@ -1,66 +1,29 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with 2.6.33-rc4-git2
-Date: Fri, 15 Jan 2010 23:23:37 +0100
-Message-ID: <201001152323.37718.rjw@sisk.pl>
-References: <20100115091053.GA5477@mac.home> <20100115105059.251a3717@nehalam>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	Tino Keitel <tino.keitel@tikei.de>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 0/8] qlge: Add firmware coredump functionality.
+Date: Fri, 15 Jan 2010 15:31:26 -0800
+Message-ID: <1263598294-5685-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:37177 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758110Ab0AOWXD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jan 2010 17:23:03 -0500
-In-Reply-To: <20100115105059.251a3717@nehalam>
+Received: from avexch1.qlogic.com ([198.70.193.115]:37681 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758652Ab0AOXiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 18:38:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 15 January 2010, Stephen Hemminger wrote:
-> On Fri, 15 Jan 2010 10:10:53 +0100
-> Tino Keitel <tino.keitel@tikei.de> wrote:
-> 
-> > Hi,
-> > 
-> > wake on LAN doesn't work with 2.6.33-rc4-git2 on the following
-> > hardware:
-> > 
-> > 01:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-> > 88E8053 PCI-E Gigabit Ethernet Controller [11ab:4362] (rev 22)
-> > 
-> > It worked with 2.6.32. In my suspend script, I enable WoL using
-> > ethtool:
-> > 
-> > ethtool -s eth0 wol g
-> > 
-> > in dmesg, I get these messages at suspend:
-> > 
-> > sky2 eth0: disabling interface
-> > sky2 0000:01:00.0: PME# enabled
-> > sky2 0000:01:00.0: wake-up capability enabled by ACPI
-> > 
-> > and at resume:
-> > 
-> > sky2 0000:01:00.0: wake-up capability disabled by ACPI
-> > sky2 0000:01:00.0: PME# disabled
-> > 
-> > Regards,
-> > Tino
-> 
-> This has already been reported.
-> 
-> Rafael has been doing the generic PM stuff.
-> Look for thread,
->  [Bug 14730] sky2 won't work after suspend/resume cycle
 
-This has been fixed already and the bug appears to be different.
+Dump all regsiters and on-chip RAM when a fatal firmware error is
+encountered.  This feature is turn OFF by default but can be turned on
+with a module parameter.
 
-No idea what it is at the moment.
+Dave,
 
-Tino, please check if reverting commit dc1a94ae1749d14c55f8b54e9d92bd89df82d51a
-helps, although the messages indicate that the generic PCI-side does its job.
+The constant definitions have been cleaned up with aligned tabs per your
+request.  The dump function and it's memory allocation are now turned
+OFF by default.
+I've added/expanded register definitions to aid in dump process which
+gets rid of the literal numeric constants.
 
-Rafael
+Thanks, Ron
+
