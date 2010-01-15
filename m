@@ -1,36 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
-Date: Fri, 15 Jan 2010 01:06:28 -0800 (PST)
-Message-ID: <20100115.010628.67106329.davem@davemloft.net>
-References: <F86E8680A7D9D74A99DC6345E35A692950158650@orsmsx503.amr.corp.intel.com>
-	<20100115.004456.15627093.davem@davemloft.net>
-	<1263546020.2038.7.camel@localhost>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+Date: Fri, 15 Jan 2010 14:50:04 +0530
+Message-ID: <OF0D3FEC3A.84663D58-ON652576AC.0031CA59-652576AC.003232CF@in.ibm.com>
+References: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com> <20100115.003636.199394610.davem@davemloft.net> <OF1B0853DD.2824263E-ON652576AC.002FA9D4-652576AC.0030AC47@LocalDomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: peter.p.waskiewicz.jr@intel.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43755
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932094Ab0AOJGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:06:19 -0500
-In-Reply-To: <1263546020.2038.7.camel@localhost>
+Received: from e28smtp04.in.ibm.com ([122.248.162.4]:37886 "EHLO
+	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756734Ab0AOJIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:08:34 -0500
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by e28smtp04.in.ibm.com (8.14.3/8.13.1) with ESMTP id o0F98U1j016828
+	for <netdev@vger.kernel.org>; Fri, 15 Jan 2010 14:38:30 +0530
+Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0F98UAx843994
+	for <netdev@vger.kernel.org>; Fri, 15 Jan 2010 14:38:30 +0530
+Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
+	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0F98Tng010504
+	for <netdev@vger.kernel.org>; Fri, 15 Jan 2010 14:38:30 +0530
+In-Reply-To: <OF1B0853DD.2824263E-ON652576AC.002FA9D4-652576AC.0030AC47@LocalDomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Date: Fri, 15 Jan 2010 01:00:20 -0800
+Sorry, I sent off the reply sooner than I wanted to. continued at the
+end...
 
-> What I've been thinking of is more for the NUMA allocations per port.
-> If we have, say 2 sockets, 8 cores a piece, then we have 16 CPUs.  If we
-> assign a port to socket 0, I think the best use of resources is to
-> allocate 8 Rx/Tx queues, one per core in that socket.  If an application
-> comes from the other socket, we can have a table to map the other 8
-> cores from that socket into the 8 queues, instead of piling them all
-> into one of the Tx queues.
+Krishna Kumar2/India/IBM wrote on 01/15/2010 02:33:25 PM:
 
-I fail to see how this can act substantially better than simply
-feeding traffic evenly amongst whatever group of queues have
-been configured.
+
+> Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+>
+> > David Miller <davem@davemloft.net>
+> >
+> > Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+> >
+> > From: Krishna Kumar <krkumar2@in.ibm.com>
+> > Date: Fri, 15 Jan 2010 11:03:52 +0530
+> >
+> > > From: Krishna Kumar <krkumar2@in.ibm.com>
+> > >
+> > > Remove inline skb data in tcp_sendmsg(). For the few devices that
+> > > don't support NETIF_F_SG, dev_queue_xmit will call skb_linearize,
+> > > and pass the penalty to those slow devices (the following drivers
+> > > do not support NETIF_F_SG: 8139cp.c, amd8111e.c, dl2k.c, dm9000.c,
+> > > dnet.c, ethoc.c, ibmveth.c, ioc3-eth.c, macb.c, ps3_gelic_net.c,
+> > > r8169.c, rionet.c, spider_net.c, tsi108_eth.c, veth.c,
+> > > via-velocity.c, atlx/atl2.c, bonding/bond_main.c, can/dev.c,
+> > > cris/eth_v10.c).
+> >
+> > I was really surprised to see r8169.c in that list.
+> >
+> > It even has all the code in it's ->ndo_start_xmit() method
+> > to build fragments properly and handle segmented SKBs, it
+> > simply doesn't set NETIF_F_SG in dev->features for whatever
+> > reason.
+
+> I didn't notice this driver but had checked via-velocity and
+> found that it too had support but was not setting this bit.
+>
+> > Bonding it on your list, but it does indeed support NETIF_F_SG
+> > as long as all of it's slaves do.  See bond_compute_features()
+> > and how it uses netdev_increment_features() over the slaves.
+> >
+> > Anyways...
+> >
+> > > This patch does not affect devices that support SG but turn off
+> > > via ethtool after register_netdev.
+> > >
+> > > I ran the following test cases with iperf - #threads: 1 4 8 16 32
+> > > 64 128 192 256, I/O sizes: 256 4K 16K 64K, each test case runs for
+> > > 1 minute, repeat 5 iterations. Total test run time is 6 hours.
+> > > System is 4-proc Opteron, with a Chelsio 10gbps NIC. Results (BW
+> > > figures are the aggregate across 5 iterations in mbps):
+> >  ...
+> > > Please review if the idea is acceptable.
+> > >
+> > > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> >
+> > So how bad does it kill performance for a chip that doesn't
+> > support NETIF_F_SG?
+> >
+> > That's what people will complain about if this goes in.
+>
+> I don't know how much performance will drop for those 15-18 drivers
+> listed above, since I don't have access to those devices.
+
+I wonder if there is some other way to test it. I could test it on
+the card I have, cxgbe, by ethtool F_SG off, and then testing
+this patch with existing code (both with ethtool F_SG off)? Will
+that be enough to get an idea, or I cannot assume this is
+reasonable for real non-sg drivers? I am sure there is a
+degradation, and mentioned that part as a "penalty" for those
+drivers in my patch.
+
+Thanks,
+
+- KK
+
