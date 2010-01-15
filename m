@@ -1,48 +1,38 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] net/core/sock.c: quiet sparse noise
-Date: Thu, 14 Jan 2010 17:21:45 -0700
-Message-ID: <201001141721.45305.hartleys@visionengravers.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Thu, 14 Jan 2010 16:51:42 -0800 (PST)
+Message-ID: <20100114.165142.163322281.davem@davemloft.net>
+References: <20100112.121607.39835310.davem@davemloft.net>
+	<201001141250.27287.schmto@hrz.tu-chemnitz.de>
+	<4B4F132B.7020001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757878Ab0AOAVn@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51871
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754655Ab0AOAvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 19:51:33 -0500
+In-Reply-To: <4B4F132B.7020001@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-net/core/sock.c: quiet sparse noise
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 Jan 2010 13:50:51 +0100
 
-In sock_getsockopt the symbol 'lv' is declared as an
-unsigned int type, probably due to sizeof returning a
-size_t which is really an unsigned int.
+> Problem is, you might need many sets of counters...
 
-This produces a sparse warning for SO_PEERNAME due to
-the sock->ops->getname() call:
+Why nobody has suggested using existing kernel facilities for this is
+beyond me.
 
-warning: incorrect type in argument 3 (different signedness)
-   expected int *sockaddr_len
-   got unsigned int *<noident>
+We have a diffserv packet scheduler queueing discipline, so you can
+classify traffic arbitrarily based upon the diffserv bits in the
+packet and then shape them using that classification into different
+packet scheduler queues.
 
-Quiet the warning my changing the type of 'lv' to an int.
+Simply attach those child queues to that default pfifo qdisc, nothing
+fancy.
 
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-Cc: David S. Miller <davem@davemloft.net>
-
----
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e1f6f22..10b1d32 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -741,7 +741,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		struct timeval tm;
- 	} v;
- 
--	unsigned int lv = sizeof(int);
-+	int lv = sizeof(int);
- 	int len;
- 
- 	if (get_user(len, optlen))
+Then you can dump the queue stats using 'tc'.
