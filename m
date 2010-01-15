@@ -1,15 +1,15 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 7/8] qlge: Add xgmac reg blocks to firwmare dump.
-Date: Fri, 15 Jan 2010 15:31:33 -0800
-Message-ID: <1263598294-5685-8-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 3/8] qlge: Add probe regs to firmware dump.
+Date: Fri, 15 Jan 2010 15:31:29 -0800
+Message-ID: <1263598294-5685-4-git-send-email-ron.mercer@qlogic.com>
 References: <1263598294-5685-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:37681 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758614Ab0AOXiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 18:38:13 -0500
+	with ESMTP id S1758447Ab0AOXiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 18:38:11 -0500
 In-Reply-To: <1263598294-5685-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -17,128 +17,81 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge_dbg.c |   87 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 87 insertions(+), 0 deletions(-)
+ drivers/net/qlge/qlge_dbg.c |   54 +++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 54 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
-index 87e50d9..ec4349a 100644
+index 1d02614..913ca1e 100644
 --- a/drivers/net/qlge/qlge_dbg.c
 +++ b/drivers/net/qlge/qlge_dbg.c
-@@ -331,6 +331,76 @@ static int ql_get_serdes_regs(struct ql_adapter *qdev,
- 	return 0;
+@@ -123,6 +123,53 @@ static int ql_get_mpi_regs(struct ql_adapter *qdev, u32 * buf,
+ 	return status;
  }
  
-+static int ql_read_other_func_xgmac_reg(struct ql_adapter *qdev, u32 reg,
-+							u32 *data)
++/* Read the ASIC probe dump */
++static unsigned int *ql_get_probe(struct ql_adapter *qdev, u32 clock,
++					u32 valid, u32 *buf)
 +{
-+	int status = 0;
++	u32 module, mux_sel, probe, lo_val, hi_val;
 +
-+	/* wait for reg to come ready */
-+	status = ql_wait_other_func_reg_rdy(qdev, XGMAC_ADDR / 4,
-+						XGMAC_ADDR_RDY, XGMAC_ADDR_XME);
-+	if (status)
-+		goto exit;
-+
-+	/* set up for reg read */
-+	ql_write_other_func_reg(qdev, XGMAC_ADDR / 4, reg | XGMAC_ADDR_R);
-+
-+	/* wait for reg to come ready */
-+	status = ql_wait_other_func_reg_rdy(qdev, XGMAC_ADDR / 4,
-+						XGMAC_ADDR_RDY, XGMAC_ADDR_XME);
-+	if (status)
-+		goto exit;
-+
-+	/* get the data */
-+	*data = ql_read_other_func_reg(qdev, XGMAC_DATA / 4);
-+exit:
-+	return status;
-+}
-+
-+/* Read the 400 xgmac control/statistics registers
-+ * skipping unused locations.
-+ */
-+static int ql_get_xgmac_regs(struct ql_adapter *qdev, u32 * buf,
-+					unsigned int other_function)
-+{
-+	int status = 0;
-+	int i;
-+
-+	for (i = PAUSE_SRC_LO; i < XGMAC_REGISTER_END; i += 4, buf++) {
-+		/* We're reading 400 xgmac registers, but we filter out
-+		 * serveral locations that are non-responsive to reads.
-+		 */
-+		if ((i == 0x00000114) ||
-+			(i == 0x00000118) ||
-+			(i == 0x0000013c) ||
-+			(i == 0x00000140) ||
-+			(i > 0x00000150 && i < 0x000001fc) ||
-+			(i > 0x00000278 && i < 0x000002a0) ||
-+			(i > 0x000002c0 && i < 0x000002cf) ||
-+			(i > 0x000002dc && i < 0x000002f0) ||
-+			(i > 0x000003c8 && i < 0x00000400) ||
-+			(i > 0x00000400 && i < 0x00000410) ||
-+			(i > 0x00000410 && i < 0x00000420) ||
-+			(i > 0x00000420 && i < 0x00000430) ||
-+			(i > 0x00000430 && i < 0x00000440) ||
-+			(i > 0x00000440 && i < 0x00000450) ||
-+			(i > 0x00000450 && i < 0x00000500) ||
-+			(i > 0x0000054c && i < 0x00000568) ||
-+			(i > 0x000005c8 && i < 0x00000600)) {
-+			if (other_function)
-+				status =
-+				ql_read_other_func_xgmac_reg(qdev, i, buf);
-+			else
-+				status = ql_read_xgmac_reg(qdev, i, buf);
-+
-+			if (status)
-+				*buf = 0xdeadbeef;
-+			break;
++	for (module = 0; module < PRB_MX_ADDR_MAX_MODS; module++) {
++		if (!((valid >> module) & 1))
++			continue;
++		for (mux_sel = 0; mux_sel < PRB_MX_ADDR_MAX_MUX; mux_sel++) {
++			probe = clock
++				| PRB_MX_ADDR_ARE
++				| mux_sel
++				| (module << PRB_MX_ADDR_MOD_SEL_SHIFT);
++			ql_write32(qdev, PRB_MX_ADDR, probe);
++			lo_val = ql_read32(qdev, PRB_MX_DATA);
++			if (mux_sel == 0) {
++				*buf = probe;
++				buf++;
++			}
++			probe |= PRB_MX_ADDR_UP;
++			ql_write32(qdev, PRB_MX_ADDR, probe);
++			hi_val = ql_read32(qdev, PRB_MX_DATA);
++			*buf = lo_val;
++			buf++;
++			*buf = hi_val;
++			buf++;
 +		}
 +	}
-+	return status;
++	return buf;
 +}
 +
- static int ql_get_ets_regs(struct ql_adapter *qdev, u32 * buf)
- {
- 	int status = 0;
-@@ -706,6 +776,17 @@ int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump)
- 			sizeof(struct mpi_coredump_segment_header) +
- 			sizeof(mpi_coredump->nic2_regs), "NIC2 Registers");
++static int ql_get_probe_dump(struct ql_adapter *qdev, unsigned int *buf)
++{
++	/* First we have to enable the probe mux */
++	ql_write_mpi_reg(qdev, MPI_TEST_FUNC_PRB_CTL, MPI_TEST_FUNC_PRB_EN);
++	buf = ql_get_probe(qdev, PRB_MX_ADDR_SYS_CLOCK,
++			PRB_MX_ADDR_VALID_SYS_MOD, buf);
++	buf = ql_get_probe(qdev, PRB_MX_ADDR_PCI_CLOCK,
++			PRB_MX_ADDR_VALID_PCI_MOD, buf);
++	buf = ql_get_probe(qdev, PRB_MX_ADDR_XGM_CLOCK,
++			PRB_MX_ADDR_VALID_XGM_MOD, buf);
++	buf = ql_get_probe(qdev, PRB_MX_ADDR_FC_CLOCK,
++			PRB_MX_ADDR_VALID_FC_MOD, buf);
++	return 0;
++
++}
  
-+	/* Get XGMac registers. (Segment 18, Rev C. step 21) */
-+	ql_build_coredump_seg_header(&mpi_coredump->xgmac1_seg_hdr,
-+			NIC1_XGMAC_SEG_NUM,
-+			sizeof(struct mpi_coredump_segment_header) +
-+			sizeof(mpi_coredump->xgmac1), "NIC1 XGMac Registers");
-+
-+	ql_build_coredump_seg_header(&mpi_coredump->xgmac2_seg_hdr,
-+			NIC2_XGMAC_SEG_NUM,
-+			sizeof(struct mpi_coredump_segment_header) +
-+			sizeof(mpi_coredump->xgmac2), "NIC2 XGMac Registers");
-+
- 	if (qdev->func & 1) {
- 		/* Odd means our function is NIC 2 */
- 		for (i = 0; i < NIC_REGS_DUMP_WORD_COUNT; i++)
-@@ -715,6 +796,9 @@ int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump)
- 		for (i = 0; i < NIC_REGS_DUMP_WORD_COUNT; i++)
- 			mpi_coredump->nic_regs[i] =
- 			ql_read_other_func_reg(qdev, (i * sizeof(u32)) / 4);
-+
-+		ql_get_xgmac_regs(qdev, &mpi_coredump->xgmac2[0], 0);
-+		ql_get_xgmac_regs(qdev, &mpi_coredump->xgmac1[0], 1);
- 	} else {
- 		/* Even means our function is NIC 1 */
- 		for (i = 0; i < NIC_REGS_DUMP_WORD_COUNT; i++)
-@@ -723,6 +807,9 @@ int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump)
- 		for (i = 0; i < NIC_REGS_DUMP_WORD_COUNT; i++)
- 			mpi_coredump->nic2_regs[i] =
- 			ql_read_other_func_reg(qdev, (i * sizeof(u32)) / 4);
-+
-+		ql_get_xgmac_regs(qdev, &mpi_coredump->xgmac1[0], 0);
-+		ql_get_xgmac_regs(qdev, &mpi_coredump->xgmac2[0], 1);
- 	}
+ /* Read out the routing index registers */
+ static int ql_get_routing_index_registers(struct ql_adapter *qdev, u32 *buf)
+@@ -558,6 +605,13 @@ int ql_core_dump(struct ql_adapter *qdev, struct ql_mpi_coredump *mpi_coredump)
+ 	if (status)
+ 		goto err;
  
- 	/* Rev C. Step 20a */
++	ql_build_coredump_seg_header(&mpi_coredump->probe_dump_seg_hdr,
++				PROBE_DUMP_SEG_NUM,
++				sizeof(struct mpi_coredump_segment_header)
++				+ sizeof(mpi_coredump->probe_dump),
++				"Probe Dump");
++	ql_get_probe_dump(qdev, &mpi_coredump->probe_dump[0]);
++
+ 	ql_build_coredump_seg_header(&mpi_coredump->routing_reg_seg_hdr,
+ 				ROUTING_INDEX_SEG_NUM,
+ 				sizeof(struct mpi_coredump_segment_header)
 -- 
 1.6.0.2
 
