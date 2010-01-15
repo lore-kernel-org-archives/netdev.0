@@ -1,37 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netxen: endianness fixes
-Date: Thu, 14 Jan 2010 16:54:38 -0800 (PST)
-Message-ID: <20100114.165438.39939357.davem@davemloft.net>
-References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
-	<20100114.030854.52825026.davem@davemloft.net>
-	<821ABD80-7BA0-4A8B-B7DC-87D3B0BA9ADF@qlogic.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Fri, 15 Jan 2010 10:22:03 +0800
+Message-ID: <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>
+References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amit.salecha@qlogic.com, netdev@vger.kernel.org
-To: dhananjay.phadke@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45432
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755469Ab0AOAy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 19:54:28 -0500
-In-Reply-To: <821ABD80-7BA0-4A8B-B7DC-87D3B0BA9ADF@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Date: Thu, 14 Jan 2010 06:57:47 -0800
-
-> 
-> On Jan 14, 2010, at 3:08 AM, David Miller wrote:
-> 
->> You mean in all this time, nobody noticed that reading the MAC
->> address isn't done correctly on big-endian?
->> 
->> Well then I guess all of these small endianness fixes aren't
->> very critical this late in the RC series.
-> 
-> The MAC fix doesn't change any functionality, just changing data types.
-> It was working on big-endian machines.
-
-Then that's a cleanup and thus even less appropriate for net-2.6
+T24gRnJpLCBKYW4gMTUsIDIwMTAgYXQgNTo1NiBBTSwgVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdv
+b2dsZS5jb20+IHdyb3RlOgo+ICsKPiArIMKgIMKgIMKgIGlmIChza2ItPnJ4aGFzaCkKPiArIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIGdvdG8gZ290X2hhc2g7IC8qIFNraXAgaGFzaCBjb21wdXRhdGlv
+biBvbiBwYWNrZXQgaGVhZGVyICovCj4gKwo+ICsgwqAgwqAgwqAgc3dpdGNoIChza2ItPnByb3Rv
+Y29sKSB7Cj4gKyDCoCDCoCDCoCBjYXNlIF9fY29uc3RhbnRfaHRvbnMoRVRIX1BfSVApOgo+ICsg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKCFwc2tiX21heV9wdWxsKHNrYiwgc2l6ZW9mKCppcCkp
+KQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZ290byBkb25lOwo+ICsKPiAr
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlwID0gKHN0cnVjdCBpcGhkciAqKSBza2ItPmRhdGE7Cj4g
+KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpcF9wcm90byA9IGlwLT5wcm90b2NvbDsKPiArIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIGFkZHIxID0gaXAtPnNhZGRyOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgYWRkcjIgPSBpcC0+ZGFkZHI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpaGwgPSBpcC0+
+aWhsOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4gKyDCoCDCoCDCoCBjYXNlIF9f
+Y29uc3RhbnRfaHRvbnMoRVRIX1BfSVBWNik6Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAo
+IXBza2JfbWF5X3B1bGwoc2tiLCBzaXplb2YoKmlwNikpKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgZ290byBkb25lOwo+ICsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlw
+NiA9IChzdHJ1Y3QgaXB2NmhkciAqKSBza2ItPmRhdGE7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBpcF9wcm90byA9IGlwNi0+bmV4dGhkcjsKVGhpcyBjb2RlIGNhbid0IHdvcmssIHdoZW4gdGhl
+cmUgYXJlIGV4dHJhIGhlYWRlcnMuIGlwdjZfc2tpcF9leHRoZHIoKQpjYW4gYmUgdXNlZCB0byBn
+ZXQgdGhlIGw0IGhlYWRlci4KCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBhZGRyMSA9IGlwNi0+
+c2FkZHIuczZfYWRkcjMyWzNdOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWRkcjIgPSBpcDYt
+PmRhZGRyLnM2X2FkZHIzMlszXTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlobCA9ICg0MCA+
+PiAyKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGJyZWFrOwo+ICsgwqAgwqAgwqAgZGVmYXVs
+dDoKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGdvdG8gZG9uZTsKPiArIMKgIMKgIMKgIH0KPiAr
+IMKgIMKgIMKgIHBvcnRzID0gMDsKPiArIMKgIMKgIMKgIHN3aXRjaCAoaXBfcHJvdG8pIHsKPiAr
+IMKgIMKgIMKgIGNhc2UgSVBQUk9UT19UQ1A6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJPVE9fVURQ
+Ogo+ICsgwqAgwqAgwqAgY2FzZSBJUFBST1RPX0RDQ1A6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJP
+VE9fRVNQOgo+ICsgwqAgwqAgwqAgY2FzZSBJUFBST1RPX0FIOgo+ICsgwqAgwqAgwqAgY2FzZSBJ
+UFBST1RPX1NDVFA6Cj4gKyDCoCDCoCDCoCBjYXNlIElQUFJPVE9fVURQTElURToKPiArIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIGlmIChwc2tiX21heV9wdWxsKHNrYiwgKGlobCAqIDQpICsgNCkpCj4g
+KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwb3J0cyA9ICooKHUzMiAqKSAoc2ti
+LT5kYXRhICsgKGlobCAqIDQpKSk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBicmVhazsKPiAr
+Cj4gKyDCoCDCoCDCoCBkZWZhdWx0Ogo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4g
+KyDCoCDCoCDCoCB9Cj4gKwo+ICsgwqAgwqAgwqAgc2tiLT5yeGhhc2ggPSBqaGFzaF8zd29yZHMo
+YWRkcjEsIGFkZHIyLCBwb3J0cywgaGFzaHJuZCk7CkZvciBjb25uZWN0aW9uIGJhc2VkIHBhY2tl
+dCBwcm9jZXNzaW5nLCBzdWNoIGFzIG5ldGZpbHRlciwKZGlzdHJpYnV0aW5nIHRoZSBwYWNrZXRz
+IGluIHR3byBkaXJlY3Rpb25zIGludG8gb25lIENQVSB3aWxsIHJlZHVjZQpjYWNoZSBtaXNzLCB3
+aGVuIE5BVCBpc24ndCB1c2VkLiBJIHRoaW5rIHRoZSBjb2RlIGJlbGxvdyB3aWxsIGhlbHA6Cmlm
+IChhZGRyMSA+IGFkZHIyKQogIHN3YXAoYWRkcjEsIGFkZHIyKTsKCj4gKyDCoCDCoCDCoCBpZiAo
+IXNrYi0+cnhoYXNoKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5yeGhhc2ggPSAxOwoK
+V2h5IG5vdCBwdXQgdGhlIGFib3ZlIGNvZGUgaW50byBhIG5ldyBmdW5jdGlvbiwgYW5kIGFkZCBt
+b3JlIHByb3RvY29scwpzdXBwb3J0LCBzdWNoIGFzIDgwMi4xUS4gIFRob3VnaCByeGhhc2ggaXMg
+YmFzZWQgb24gNC10dXBsZSwgSSB0aGluawpuZXRmaWx0ZXIgd2lsbCBiZW5lZml0IGZyb20gaXQu
+CgotLSAKUmVnYXJkc++8jApDaGFuZ2xpIEdhbyh4aWFvc3VvQGdtYWlsLmNvbSkK
