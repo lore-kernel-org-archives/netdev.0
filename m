@@ -1,28 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Fri, 15 Jan 2010 00:26:34 -0800 (PST)
-Message-ID: <20100115.002634.247919259.davem@davemloft.net>
-References: <4B4F132B.7020001@gmail.com>
-	<20100114.165142.163322281.davem@davemloft.net>
-	<4B502644.4070000@gmail.com>
+Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+Date: Fri, 15 Jan 2010 00:36:36 -0800 (PST)
+Message-ID: <20100115.003636.199394610.davem@davemloft.net>
+References: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43492
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35642
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752283Ab0AOI0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 03:26:24 -0500
-In-Reply-To: <4B502644.4070000@gmail.com>
+	by vger.kernel.org with ESMTP id S1754828Ab0AOIg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 03:36:26 -0500
+In-Reply-To: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Jan 2010 09:24:36 +0100
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Date: Fri, 15 Jan 2010 11:03:52 +0530
 
-> Well, its a good idea but it has drawbacks, for example if your eth0 device
-> has 64 tx queues. Parsing tc output can be... interesting :)
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+> 
+> Remove inline skb data in tcp_sendmsg(). For the few devices that
+> don't support NETIF_F_SG, dev_queue_xmit will call skb_linearize,
+> and pass the penalty to those slow devices (the following drivers
+> do not support NETIF_F_SG: 8139cp.c, amd8111e.c, dl2k.c, dm9000.c,
+> dnet.c, ethoc.c, ibmveth.c, ioc3-eth.c, macb.c, ps3_gelic_net.c,
+> r8169.c, rionet.c, spider_net.c, tsi108_eth.c, veth.c,
+> via-velocity.c, atlx/atl2.c, bonding/bond_main.c, can/dev.c,
+> cris/eth_v10.c).
 
-Tool problem :-)
+I was really surprised to see r8169.c in that list.
+
+It even has all the code in it's ->ndo_start_xmit() method
+to build fragments properly and handle segmented SKBs, it
+simply doesn't set NETIF_F_SG in dev->features for whatever
+reason.
+
+Bonding it on your list, but it does indeed support NETIF_F_SG
+as long as all of it's slaves do.  See bond_compute_features()
+and how it uses netdev_increment_features() over the slaves.
+
+Anyways...
+
+> This patch does not affect devices that support SG but turn off
+> via ethtool after register_netdev.
+> 
+> I ran the following test cases with iperf - #threads: 1 4 8 16 32
+> 64 128 192 256, I/O sizes: 256 4K 16K 64K, each test case runs for
+> 1 minute, repeat 5 iterations. Total test run time is 6 hours.
+> System is 4-proc Opteron, with a Chelsio 10gbps NIC. Results (BW
+> figures are the aggregate across 5 iterations in mbps):
+ ...
+> Please review if the idea is acceptable.
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+
+So how bad does it kill performance for a chip that doesn't
+support NETIF_F_SG?
+
+That's what people will complain about if this goes in.
+
