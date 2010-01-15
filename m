@@ -1,86 +1,40 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 7/7] Staging: Octeon Ethernet: Use constants from in.h
-Date: Fri, 15 Jan 2010 11:41:40 -0800
-Message-ID: <4B50C4F4.60903@caviumnetworks.com>
-References: <4B463005.8060505@caviumnetworks.com>	<1262891106-32146-7-git-send-email-ddaney@caviumnetworks.com> <20100114232900.55111058@mud>
+From: Patrick Mullaney <pmullaney@novell.com>
+Subject: [PATCH] macvlan: add GRO bit to features mask
+Date: Fri, 15 Jan 2010 15:00:51 -0500
+Message-ID: <20100115200039.10618.8232.stgit@mimic.site>
+References: <4B503E86.8010603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org, gregkh@suse.de
-To: Andrew May <acmay@acmay.org>
+Cc: netdev@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
+	kaber@trash.net, arnd@arndb.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:5635 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757886Ab0AOTmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 14:42:54 -0500
-In-Reply-To: <20100114232900.55111058@mud>
+In-Reply-To: <4B503E86.8010603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew May wrote:
-> On Thu,  7 Jan 2010 11:05:06 -0800
-> David Daney <ddaney@caviumnetworks.com> wrote:
-> 
->> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
->> ---
->>  drivers/staging/octeon/ethernet-defines.h |    3 ---
->>  drivers/staging/octeon/ethernet-tx.c      |    8 ++++----
->>  2 files changed, 4 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/staging/octeon/ethernet-defines.h
->> b/drivers/staging/octeon/ethernet-defines.h index 9c4910e..00a8561
->> 100644 --- a/drivers/staging/octeon/ethernet-defines.h
->> +++ b/drivers/staging/octeon/ethernet-defines.h
->> @@ -98,9 +98,6 @@
->>  #define MAX_SKB_TO_FREE 10
->>  #define MAX_OUT_QUEUE_DEPTH 1000
->>  
->> -#define IP_PROTOCOL_TCP             6
->> -#define IP_PROTOCOL_UDP             0x11
->> -
->>  #define FAU_NUM_PACKET_BUFFERS_TO_FREE (CVMX_FAU_REG_END -
->> sizeof(uint32_t)) #define TOTAL_NUMBER_OF_PORTS
->> (CVMX_PIP_NUM_INPUT_PORTS+1) 
->> diff --git a/drivers/staging/octeon/ethernet-tx.c
->> b/drivers/staging/octeon/ethernet-tx.c index bc67e41..62258bd 100644
->> --- a/drivers/staging/octeon/ethernet-tx.c
->> +++ b/drivers/staging/octeon/ethernet-tx.c
->> @@ -359,8 +359,8 @@ dont_put_skbuff_in_hw:
->>  	if (USE_HW_TCPUDP_CHECKSUM && (skb->protocol ==
->> htons(ETH_P_IP)) && (ip_hdr(skb)->version == 4) && (ip_hdr(skb)->ihl
->> == 5) && ((ip_hdr(skb)->frag_off == 0) || (ip_hdr(skb)->frag_off == 1
->> << 14))
->> -	    && ((ip_hdr(skb)->protocol == IP_PROTOCOL_TCP)
->> -		|| (ip_hdr(skb)->protocol == IP_PROTOCOL_UDP))) {
->> +	    && ((ip_hdr(skb)->protocol == IPPROTO_TCP)
->> +		|| (ip_hdr(skb)->protocol == IPPROTO_UDP))) {
->>  		/* Use hardware checksum calc */
->>  		pko_command.s.ipoffp1 = sizeof(struct ethhdr) + 1;
->>  	}
-> 
-> Why isn't skb->ip_summed checked here instead?
+Allow macvlan devices to support GRO.
 
-That may indeed be the correct thing to do, but the main point of this 
-particular patch is to remove local definitions that mirror definitions 
-provided by core include files.
+Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
 
-So in order to not let 'the perfect be the enemy of the good' I think 
-this patch should be applied.
+Acked-by: Patrick McHardy <kaber@trash.net>
+---
 
-> It seems like the csum
-> calculation needs to be skipped by the stack if this is actually going
-> to help performance.
+ drivers/net/macvlan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-FWIW: We do set NETIF_F_IP_CSUM.  We are certainly open to suggestions 
-as to how the code could be improved, so I may look at this again in the 
-future.  Patches from others are also welcome.
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 0a389b8..94bb135 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -316,7 +316,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
+ #define MACVLAN_FEATURES \
+ 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+ 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
+-	 NETIF_F_TSO_ECN | NETIF_F_TSO6)
++	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
+ 
+ #define MACVLAN_STATE_MASK \
+ 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
 
-> 
-> And does this end up re-writing a bad checksum on a routed packet, back
-> to being a good checksum?
-
-Indeed it does.  Actually it writes a good checksum on *all* IP packets 
-without regard to their source.
-
-David Daney
