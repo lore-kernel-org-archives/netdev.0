@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Fri, 15 Jan 2010 01:18:29 -0800 (PST)
-Message-ID: <20100115.011829.03057807.davem@davemloft.net>
-References: <20100115.003636.199394610.davem@davemloft.net>
-	<OF1B0853DD.2824263E-ON652576AC.002FA9D4-652576AC.0030AC47@LocalDomain>
-	<OF0D3FEC3A.84663D58-ON652576AC.0031CA59-652576AC.003232CF@in.ibm.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Fri, 15 Jan 2010 17:20:43 +0800
+Message-ID: <412e6f7f1001150120r622450eem2d9f54da27c42fba@mail.gmail.com>
+References: <4B5008F5.6090007@gmail.com>
+	 <412e6f7f1001142239n704d2827q614f59255e85e328@mail.gmail.com>
+	 <4B5011F4.8010204@gmail.com>
+	 <20100115.004915.64525965.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51108
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755659Ab0AOJSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:18:20 -0500
-In-Reply-To: <OF0D3FEC3A.84663D58-ON652576AC.0031CA59-652576AC.003232CF@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100115.004915.64525965.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Fri, 15 Jan 2010 14:50:04 +0530
+On Fri, Jan 15, 2010 at 4:49 PM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> Actually, no thanks. =C2=A0Have you actually taken a look at
+> ipv6_skip_exthdr()?
+>
+> Do that, then tell me that you want the extra function call, plus all
+> of the processing and data touching that that function does, just to
+> handle the case that there "might" be ipv6 extension headers there.
+>
 
-> I wonder if there is some other way to test it. I could test it on
-> the card I have, cxgbe, by ethtool F_SG off, and then testing
-> this patch with existing code (both with ethtool F_SG off)? Will
-> that be enough to get an idea, or I cannot assume this is
-> reasonable for real non-sg drivers? I am sure there is a
-> degradation, and mentioned that part as a "penalty" for those
-> drivers in my patch.
+I don't think ipv6_skip_exthdr() is too weight. If there isn't any
+extra header, only some compare and jump instruments are added, and no
+more data references. If there are some headers, I think distributing
+packets among CPUs is more important than the extra cost introduced by
+calling ipv6_skip_exthdr().
 
-I think such a test would provide useful data by which to judge this
-change.
+> It is the exception rather than the rule, and I think it's just
+> assume we have a real protocol header next.
+>
+> And that's what skb_tx_hash() used to do too before we started using
+> the recorded RX queue and socket hash values.
+>
+> Nobody cared and nobody complained. =C2=A0Guess why? =C2=A0Because in=
+ practice
+> it doesn't matter.
+>
+
+Maybe they don't know it.If it was a performance regression, I think
+more people might pay attention on it.
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
