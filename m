@@ -1,78 +1,104 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: What protects rcu_dereference() in __sk_free()?
-Date: Fri, 15 Jan 2010 06:59:25 +0100
-Message-ID: <4B50043D.9090205@gmail.com>
-References: <20100114184107.GA17245@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Fri, 15 Jan 2010 07:19:33 +0100
+Message-ID: <4B5008F5.6090007@gmail.com>
+References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com> <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dim@openvz.org, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39853 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260Ab0AOF7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 00:59:32 -0500
-In-Reply-To: <20100114184107.GA17245@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 14/01/2010 19:41, Paul E. McKenney a =E9crit :
-> Hello, Dmitry,
+Le 15/01/2010 03:22, Changli Gao a =C3=A9crit :
+> On Fri, Jan 15, 2010 at 5:56 AM, Tom Herbert <therbert@google.com> wr=
+ote:
+>> +
+>> +       if (skb->rxhash)
+>> +               goto got_hash; /* Skip hash computation on packet he=
+ader */
+>> +
+>> +       switch (skb->protocol) {
+>> +       case __constant_htons(ETH_P_IP):
+>> +               if (!pskb_may_pull(skb, sizeof(*ip)))
+>> +                       goto done;
+>> +
+>> +               ip =3D (struct iphdr *) skb->data;
+>> +               ip_proto =3D ip->protocol;
+>> +               addr1 =3D ip->saddr;
+>> +               addr2 =3D ip->daddr;
+>> +               ihl =3D ip->ihl;
+>> +               break;
+>> +       case __constant_htons(ETH_P_IPV6):
+>> +               if (!pskb_may_pull(skb, sizeof(*ip6)))
+>> +                       goto done;
+>> +
+>> +               ip6 =3D (struct ipv6hdr *) skb->data;
+>> +               ip_proto =3D ip6->nexthdr;
+> This code can't work, when there are extra headers. ipv6_skip_exthdr(=
+)
+> can be used to get the l4 header.
+
+Could you give exact code please ?
+
 >=20
-> Could you please tell me what protects the rcu_dereference() in
-> __sk_free()?  I am adding lockdep-based checking to RCU, and
-> "git blame" said I should ask you about this one.
+>> +               addr1 =3D ip6->saddr.s6_addr32[3];
+>> +               addr2 =3D ip6->daddr.s6_addr32[3];
+>> +               ihl =3D (40 >> 2);
+>> +               break;
+>> +       default:
+>> +               goto done;
+>> +       }
+>> +       ports =3D 0;
+>> +       switch (ip_proto) {
+>> +       case IPPROTO_TCP:
+>> +       case IPPROTO_UDP:
+>> +       case IPPROTO_DCCP:
+>> +       case IPPROTO_ESP:
+>> +       case IPPROTO_AH:
+>> +       case IPPROTO_SCTP:
+>> +       case IPPROTO_UDPLITE:
+>> +               if (pskb_may_pull(skb, (ihl * 4) + 4))
+>> +                       ports =3D *((u32 *) (skb->data + (ihl * 4)))=
+;
+>> +               break;
+>> +
+>> +       default:
+>> +               break;
+>> +       }
+>> +
+>> +       skb->rxhash =3D jhash_3words(addr1, addr2, ports, hashrnd);
+> For connection based packet processing, such as netfilter,
+> distributing the packets in two directions into one CPU will reduce
+> cache miss, when NAT isn't used. I think the code bellow will help:
+> if (addr1 > addr2)
+>   swap(addr1, addr2);
+
+Yes, I already gave this hint in a previous review, but this adds a tes=
+t
+and I suspect Google is not using NAT :)
+
 >=20
-> The current code, rcu_dereference(), assumes that this is protected o=
-nly
-> by RCU-bh.  My problem might be any of the following:
+>> +       if (!skb->rxhash)
+>> +               skb->rxhash =3D 1;
 >=20
-> o	Some other flavor of RCU protects this, e.g., RCU-sched, which
-> 	would require rcu_dereference_sched() in place of my current
-> 	rcu_dereference_bh() for RCU-bh.
->=20
-> o	This is called from updates as well as from readers, and
-> 	some lock protects the updates.
->=20
-> o	This is called during initialization, when this pointer is
-> 	inaccessible to readers.
-> =09
-> Please note that I can add a check to cover multiple possibilities.
-> For a real example in include/linux/fdtable.h:
->=20
-> 	file =3D rcu_dereference_check(fdt->fd[fd],
-> 				     rcu_read_lock_held() ||
-> 				     lockdep_is_held(&files->file_lock) ||
-> 				     atomic_read(&files->count) =3D=3D 1);
->=20
-> The first argument is the pointer, and the second argument says that
-> this may be protected by either RCU (as opposed to RCU-bh, RCU-sched,
-> or SRCU), the files->file_lock as recorded by lockdep, or by being in
-> a single-threaded process as noted by the value of files->count.
-> (Please see http://lwn.net/Articles/368683/ for a recent patch, anoth=
-er
-> will go out soon.)
->=20
-> So, could you please tell me what protects the rcu_dereference() in
-> __sk_free() so that I can craft the appropriate form of rcu_dereferen=
-ce()?
+> Why not put the above code into a new function, and add more protocol=
+s
+> support, such as 802.1Q.  Though rxhash is based on 4-tuple, I think
+> netfilter will benefit from it.
 >=20
 
-Hi Paul
+Sure, this can be done in a followup patch.
 
-filter =3D rcu_dereference(sk->sk_filter);
-
-is probably not really needed, current thread being the one doing socke=
-t destruction,
-and has a writer role.
-
-void sk_free(struct sock *sk)
-{
-	if (atomic_dec_and_test(&sk->sk_wmem_alloc))
-		__sk_free(sk);
-}
-
-So the protection comes from the atomic_dec_and_test() that acts as a l=
-ock.
-
+Thanks
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
