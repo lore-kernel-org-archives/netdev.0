@@ -1,69 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] rps: Receive Packet Steering
-Date: Fri, 15 Jan 2010 01:26:13 -0800 (PST)
-Message-ID: <20100115.012613.223485835.davem@davemloft.net>
-References: <4B5011F4.8010204@gmail.com>
-	<20100115.004915.64525965.davem@davemloft.net>
-	<412e6f7f1001150120r622450eem2d9f54da27c42fba@mail.gmail.com>
+Subject: Re: [PATCH NEXT 0/4]netxen: endianness fixes
+Date: Fri, 15 Jan 2010 01:37:48 -0800 (PST)
+Message-ID: <20100115.013748.30274880.davem@davemloft.net>
+References: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36905
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35013
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932111Ab0AOJ0G convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jan 2010 04:26:06 -0500
-In-Reply-To: <412e6f7f1001150120r622450eem2d9f54da27c42fba@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756510Ab0AOJhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:37:39 -0500
+In-Reply-To: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Changli Gao <xiaosuo@gmail.com>
-Date: Fri, 15 Jan 2010 17:20:43 +0800
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Thu, 14 Jan 2010 03:53:20 -0800
 
-> On Fri, Jan 15, 2010 at 4:49 PM, David Miller <davem@davemloft.net> w=
-rote:
->>
->> Actually, no thanks. =A0Have you actually taken a look at
->> ipv6_skip_exthdr()?
->>
->> Do that, then tell me that you want the extra function call, plus al=
-l
->> of the processing and data touching that that function does, just to
->> handle the case that there "might" be ipv6 extension headers there.
->>
->=20
-> I don't think ipv6_skip_exthdr() is too weight. If there isn't any
-> extra header, only some compare and jump instruments are added, and n=
-o
-> more data references. If there are some headers, I think distributing
-> packets among CPUs is more important than the extra cost introduced b=
-y
-> calling ipv6_skip_exthdr().
+> Hi
+>   Series of 4 small patches to fix endianness issues and License header.
+>   Please apply these patches in net-next-2.6 tree.
 
-Calling a function is expensive.
-
-What was now a leaf function deep in the call chain, will no longer
-be, so GCC will need to push all live registers onto the stack,
-then reload them back into registers when ipv6_skip_exthdr() returns.
-
-And that function is expensive, it's a lot of code that %99 of the
-time serves no purpose at all.
-
-This will be executed for every single packet we process, and Linux
-can process millions of packets per second, so every cycle and every
-memory reference matters.
-
-> Maybe they don't know it.If it was a performance regression, I think
-> more people might pay attention on it.
-
-And we can address such a problem at that time.
-
-Can you show a real life setup that sees ipv6 packets with extension
-headers and would be effected by this?
-
-Really, I do not want to bloat up this path with useless code
-execution when for all practical purposes it really doesn't matter.
+All applied, thank you.
