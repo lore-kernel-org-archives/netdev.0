@@ -1,189 +1,163 @@
-From: Alejandro Riveira =?UTF-8?B?RmVybsOhbmRleg==?=
-	<ariveira@gmail.com>
-Subject: Re: atl1e: TSO is broken
-Date: Fri, 15 Jan 2010 16:54:47 +0100
-Message-ID: <20100115165447.2eb7d547@varda>
-References: <20100115.135613.1130385479658158300.anders@netinsight.net>
+From: Cosmin Ratiu <cratiu@ixiacom.com>
+Subject: [RFC PATCH] extend RTM_GETNEIGH to allow getting more precise information
+Date: Fri, 15 Jan 2010 18:42:59 +0200
+Message-ID: <201001151842.59813.cratiu@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiong.huang@atheros.com, jie.yang@atheros.com,
-	linux-kernel@vger.kernel.org, ben@decadent.org.uk,
-	netdev@vger.kernel.org
-To: Anders =?UTF-8?B?Qm9zdHLDtm0=?= <anders@netinsight.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756884Ab0AOPzD@vger.kernel.org>
-In-Reply-To: <20100115.135613.1130385479658158300.anders@netinsight.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_TsJUL3GYxoORcq0"
+Cc: ixlk-cr@farscape.ixiacom.com,
+	Pinaki Chakrabarti <pchakrabarti@ixiacom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:15063 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753159Ab0AOQnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 11:43:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-El Fri, 15 Jan 2010 13:56:13 +0100 (CET)
-Anders Bostr=C3=B6m <anders@netinsight.net> escribi=C3=B3:
+--Boundary-00=_TsJUL3GYxoORcq0
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
-CCing netdev
+Hello.
 
-> Short desription
-> ----------------
->=20
-> TCP Segmentation Offload (TSO) result in broken IPv4-packets sent out
-> from Atheros AR8121/AR8113/AR8114 with the atl1e driver.
->=20
->=20
-> Work around
-> -----------
->=20
-> Turn off TSO. Requires 2.6.33-rc1 or later.
->=20
->=20
-> Long desription
-> ----------------
->=20
-> When I run NFS over TCP (default options) and read large files from a
-> server with Atheros AR8121/AR8113/AR8114 Ethernet chip, I only get
-> ~25Mbyte/s performance. I get ~5000 retransmitted packets per GByte
-> data, according to RetransSegs in /proc/net/snmp . wireshark in the
-> client show that the server send out a sequence of frames. All but th=
-e
-> last one are 1500 bytes IP-packets. The last one is shorter, but the
-> IP-header still say 1500 byte. The client then requests retransmit,
-> and the retransmitted frame arrives with correct IP-header.
->=20
-> If I mount NFS using UDP instead, performance is ~110Mbyte/s.
->=20
-> TCP Segmentation Offload (TSO) is default enabled in the atl1e
-> Ethernet-driver. When I run a patched 2.6.30.10, enabling ethtool to
-> turn off TSO (using ac936929092dc6a5409b627c4c67305ab9b626b3 by Ben
-> Hutchings), and turn off TSO, the problem disappears. Performance is
-> ~110Mbyte/s and no broken IP-packets arrive.
->=20
->=20
-> Capture of 146-byte Ethernet frame with bad IP-header:
->=20
-> No.     Time        Source                Destination           Proto=
-col Info
->   98329 11.034129   flash.netinsight.se   sid.netinsight.se     RPC  =
-    Continuation
->=20
-> Frame 98329 (146 bytes on wire, 146 bytes captured)
->     Arrival Time: Jan 15, 2010 13:35:16.224491000
->     [Time delta from previous captured frame: 0.000009000 seconds]
->     [Time delta from previous displayed frame: 0.000009000 seconds]
->     [Time since reference or first frame: 11.034129000 seconds]
->     Frame Number: 98329
->     Frame Length: 146 bytes
->     Capture Length: 146 bytes
->     [Frame is marked: False]
->     [Protocols in frame: eth:ip:tcp:rpc]
->     [Coloring Rule Name: TCP]
->     [Coloring Rule String: tcp]
-> Ethernet II, Src: AsustekC_ae:69:6d (00:26:18:ae:69:6d), Dst: sid.net=
-insight.se (00:18:f3:52:22:3f)
-> Internet Protocol, Src: flash.netinsight.se (10.100.0.88), Dst: sid.n=
-etinsight.se (10.100.1.25)
->     Version: 4
->     Header length: 20 bytes
->     Differentiated Services Field: 0x00 (DSCP 0x00: Default; ECN: 0x0=
-0)
->     Total Length: 1500
->     Identification: 0x331e (13086)
->     Flags: 0x02 (Don't Fragment)
->     Fragment offset: 0
->     Time to live: 64
->     Protocol: TCP (0x06)
->     Header checksum: 0xebc5 [correct]
->     Source: flash.netinsight.se (10.100.0.88)
->     Destination: sid.netinsight.se (10.100.1.25)
-> Transmission Control Protocol, Src Port: nfs (2049), Dst Port: access=
-builder (888), Seq: 93989617, Ack: 516997, Len: 80
-> Remote Procedure Call
->=20
-> 0000  00 18 f3 52 22 3f 00 26 18 ae 69 6d 08 00 45 00   ...R"?.&..im.=
-=2EE.
-> 0010  05 dc 33 1e 40 00 40 06 eb c5 0a 64 00 58 0a 64   ..3.@.@....d.=
-X.d
-> 0020  01 19 08 01 03 78 a4 07 57 23 e6 50 1f 1b 80 10   .....x..W#.P.=
-=2E..
-> 0030  01 f5 dd 8d 00 00 01 01 08 0a 05 28 ca 7e 38 93   ...........(.=
-~8.
-> 0040  67 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00   g............=
-=2E..
-> 0050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
-=2E..
-> 0060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
-=2E..
-> 0070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
-=2E..
-> 0080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
-=2E..
-> 0090  00 00                                             ..
->=20
->=20
->=20
-> Software info:
->=20
-> I've tested with Debian 2.6.26 (stable) and 2.6.30 (testing), as well
-> as 2.6.30.10 from kernel.org. Same result.
->=20
-> Hardware info:
->=20
-> lspci -vvv:
->=20
-> 03:00.0 Ethernet controller: Attansic Technology Corp. Atheros AR8121=
-/AR8113/AR8114 PCI-E Ethernet Controller (rev b0)
->         Subsystem: ASUSTeK Computer Inc. Device 831c
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- P=
-arErr- Stepping- SERR+ FastB2B- DisINTx+
->         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbo=
-rt- <TAbort- <MAbort- >SERR+ <PERR- INTx-
->         Latency: 0, Cache Line Size: 64 bytes
->         Interrupt: pin A routed to IRQ 27
->         Region 0: Memory at fbfc0000 (64-bit, non-prefetchable) [size=
-=3D256K]
->         Region 2: I/O ports at ec00 [size=3D128]
->         Capabilities: [40] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D0mA PME(D0-,=
-D1-,D2-,D3hot+,D3cold+)
->                 Status: D0 PME-Enable- DSel=3D0 DScale=3D0 PME-
->         Capabilities: [48] Message Signalled Interrupts: Mask- 64bit+=
- Queue=3D0/0 Enable+
->                 Address: 00000000fee0f00c  Data: 4189
->         Capabilities: [58] Express (v1) Endpoint, MSI 00
->                 DevCap: MaxPayload 4096 bytes, PhantFunc 0, Latency L=
-0s <4us, L1 unlimited
->                         ExtTag- AttnBtn+ AttnInd+ PwrInd+ RBE- FLRese=
-t-
->                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal-=
- Unsupported-
->                         RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
->                         MaxPayload 128 bytes, MaxReadReq 512 bytes
->                 DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxP=
-wr+ TransPend-
->                 LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s, L=
-atency L0 unlimited, L1 unlimited
->                         ClockPM- Suprise- LLActRep- BwNot-
->                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain=
-- CommClk+
->                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt=
--
->                 LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotCl=
-k+ DLActive- BWMgmt- ABWMgmt-
->         Capabilities: [100] Advanced Error Reporting <?>
->         Capabilities: [180] Device Serial Number ff-18-26-00-6d-69-ae=
--ff
->         Kernel driver in use: ATL1E
->         Kernel modules: atl1e
->=20
-> ethtool -i eth0:
->=20
-> driver: ATL1E
-> version: 1.0.0.7-NAPI
-> firmware-version: L1e
-> bus-info: 0000:03:00.0
->=20
->=20
-> / Anders
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Please have a look at this patch which tries to solve a problem we 
+encountered.
+
+The background is that RTM_GETNEIGH netlink message is used to get a complete 
+dump of a neighbor table. Sometimes, that's too much (especially when you have 
+a lot of neighbors). This patch allows one to specify the IPv4/6 address of a 
+neighbor and the device index through which it is accessible in order to 
+obtain only that entry.
+
+If you have other suggestions on how to accomplish this task, please let us 
+know.
+
+Thanks,
+Cosmin.
+
+--Boundary-00=_TsJUL3GYxoORcq0
+Content-Type: text/x-patch;
+  charset="utf-8";
+  name="0001-Extend-RTM_GETNEIGH-to-allow-getting-more-precise-in.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline;
+	filename="0001-Extend-RTM_GETNEIGH-to-allow-getting-more-precise-in.patch"
+
+=46rom beb2cd45109f28b9067d7fa902e49cbbc7667ff5 Mon Sep 17 00:00:00 2001
+=46rom: Cosmin Ratiu <cratiu@ixiacom.com>
+Date: Fri, 15 Jan 2010 18:34:39 +0200
+Subject: [PATCH] Extend RTM_GETNEIGH to allow getting more precise informat=
+ion.
+
+RTM_GETNEIGH makes a complete dump of the neighbour table for a given
+net and address family. The patch allows requests for a single entry
+by specifying the device and IP address. This should increase
+performance when there are many neighbour entries and a specific one is
+desired.
+
+Signed-off-by: Pinaki Chakrabarti <pchakrabarti@ixiacom.com>
+Signed-off-by: Cosmin Ratiu <cratiu@ixiacom.com>
+=2D--
+ net/core/neighbour.c |   75 ++++++++++++++++++++++++++++++++++++++++------=
+=2D--
+ 1 files changed, 61 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index f35377b..243fa5b 100644
+=2D-- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2119,24 +2119,71 @@ out:
+ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *c=
+b)
+ {
+ 	struct neigh_table *tbl;
+=2D	int t, family, s_t;
++	struct net *net =3D sock_net(skb->sk);
++	const struct nlmsghdr *nlh =3D cb->nlh;
++	int min_len =3D NLMSG_LENGTH(sizeof(struct ndmsg));
++	int family =3D ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
+=20
+=2D	read_lock(&neigh_tbl_lock);
+=2D	family =3D ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+=2D	s_t =3D cb->args[0];
++	if (nlh->nlmsg_len <=3D min_len) {
++		struct neigh_table *tbl;
++		int t, s_t;
+=20
+=2D	for (tbl =3D neigh_tables, t =3D 0; tbl; tbl =3D tbl->next, t++) {
+=2D		if (t < s_t || (family && tbl->family !=3D family))
+=2D			continue;
+=2D		if (t > s_t)
+=2D			memset(&cb->args[1], 0, sizeof(cb->args) -
+=2D						sizeof(cb->args[0]));
+=2D		if (neigh_dump_table(tbl, skb, cb) < 0)
++		read_lock(&neigh_tbl_lock);
++		s_t =3D cb->args[0];
++
++		for (tbl =3D neigh_tables, t =3D 0; tbl; tbl =3D tbl->next, t++) {
++			if (t < s_t || (family && tbl->family !=3D family))
++				continue;
++			if (t > s_t)
++				memset(&cb->args[1], 0, sizeof(cb->args) -
++							sizeof(cb->args[0]));
++			if (neigh_dump_table(tbl, skb, cb) < 0)
++				break;
++		}
++		read_unlock(&neigh_tbl_lock);
++		cb->args[0] =3D t;
++	} else {
++		char key[16] =3D {0};
++		struct ndmsg *ndm =3D NULL;
++		struct net_device *dev =3D NULL;
++		struct rtattr *attr =3D NULL;
++		int attrlen;
++		struct neighbour *n;
++
++		if (cb->args[0])
++			goto out;
++		cb->args[0] =3D 1;
++
++		ndm =3D NLMSG_DATA(nlh);
++		if (!(dev =3D dev_get_by_index(net, ndm->ndm_ifindex)))
++			goto out;
++
++		attrlen =3D nlh->nlmsg_len - NLMSG_ALIGN(min_len);
++		attr =3D (void*)nlh + NLMSG_ALIGN(min_len);
++		if (!RTA_OK(attr, attrlen) || attr->rta_type !=3D NDA_DST)
++			goto out;
++		memcpy(key, RTA_DATA(attr), attr->rta_len);
++
++		/* look for the neighbor */
++		read_lock(&neigh_tbl_lock);
++		for (tbl =3D neigh_tables; tbl; tbl =3D tbl->next) {
++			if (tbl->family !=3D family)
++				continue;
++			n =3D neigh_lookup(tbl, key, dev);
++			if (!n)
++				continue;
++			if (n->nud_state & NUD_CONNECTED) {
++				neigh_fill_info(skb, n, NETLINK_CB(cb->skb).pid,
++						nlh->nlmsg_seq, RTM_NEWNEIGH, 0);
++				neigh_release(n);
++			}
+ 			break;
++		}
++		read_unlock(&neigh_tbl_lock);
++out:
++		if (dev)
++			dev_put(dev);
+ 	}
+=2D	read_unlock(&neigh_tbl_lock);
+=2D
+=2D	cb->args[0] =3D t;
+ 	return skb->len;
+ }
+=20
+=2D-=20
+1.6.5
+
+
+--Boundary-00=_TsJUL3GYxoORcq0--
