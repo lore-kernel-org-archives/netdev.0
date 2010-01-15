@@ -1,65 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Fri, 15 Jan 2010 00:36:36 -0800 (PST)
-Message-ID: <20100115.003636.199394610.davem@davemloft.net>
-References: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
+Subject: Re: [PATCH] drivers: set_sg should not be set for !F_SG drivers
+Date: Fri, 15 Jan 2010 00:38:45 -0800 (PST)
+Message-ID: <20100115.003845.98627674.davem@davemloft.net>
+References: <20100115053229.31542.51066.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
 To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35642
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35645
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754828Ab0AOIg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 03:36:26 -0500
-In-Reply-To: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
+	by vger.kernel.org with ESMTP id S1755359Ab0AOIif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 03:38:35 -0500
+In-Reply-To: <20100115053229.31542.51066.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Date: Fri, 15 Jan 2010 11:03:52 +0530
+Date: Fri, 15 Jan 2010 11:02:29 +0530
 
 > From: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> Remove inline skb data in tcp_sendmsg(). For the few devices that
-> don't support NETIF_F_SG, dev_queue_xmit will call skb_linearize,
-> and pass the penalty to those slow devices (the following drivers
-> do not support NETIF_F_SG: 8139cp.c, amd8111e.c, dl2k.c, dm9000.c,
-> dnet.c, ethoc.c, ibmveth.c, ioc3-eth.c, macb.c, ps3_gelic_net.c,
-> r8169.c, rionet.c, spider_net.c, tsi108_eth.c, veth.c,
-> via-velocity.c, atlx/atl2.c, bonding/bond_main.c, can/dev.c,
-> cris/eth_v10.c).
-
-I was really surprised to see r8169.c in that list.
-
-It even has all the code in it's ->ndo_start_xmit() method
-to build fragments properly and handle segmented SKBs, it
-simply doesn't set NETIF_F_SG in dev->features for whatever
-reason.
-
-Bonding it on your list, but it does indeed support NETIF_F_SG
-as long as all of it's slaves do.  See bond_compute_features()
-and how it uses netdev_increment_features() over the slaves.
-
-Anyways...
-
-> This patch does not affect devices that support SG but turn off
-> via ethtool after register_netdev.
-> 
-> I ran the following test cases with iperf - #threads: 1 4 8 16 32
-> 64 128 192 256, I/O sizes: 256 4K 16K 64K, each test case runs for
-> 1 minute, repeat 5 iterations. Total test run time is 6 hours.
-> System is 4-proc Opteron, with a Chelsio 10gbps NIC. Results (BW
-> figures are the aggregate across 5 iterations in mbps):
- ...
-> Please review if the idea is acceptable.
+> set_sg should not be set to ethtool_op_set_sg() by drivers
+> that do not support SG. It is also not required for these
+> drivers to set get_sg since it is handled by the generic
+> ethtool_op_get_sg.
 > 
 > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+ ...
+> diff -ruNp org/drivers/net/r8169.c new/drivers/net/r8169.c
+> --- org/drivers/net/r8169.c	2009-12-29 18:32:57.000000000 +0530
+> +++ new/drivers/net/r8169.c	2009-12-29 18:34:32.000000000 +0530
+> @@ -1253,7 +1253,6 @@ static const struct ethtool_ops rtl8169_
+>  	.get_rx_csum		= rtl8169_get_rx_csum,
+>  	.set_rx_csum		= rtl8169_set_rx_csum,
+>  	.set_tx_csum		= ethtool_op_set_tx_csum,
+> -	.set_sg			= ethtool_op_set_sg,
+>  	.set_tso		= ethtool_op_set_tso,
+>  	.get_regs		= rtl8169_get_regs,
+>  	.get_wol		= rtl8169_get_wol,
 
-So how bad does it kill performance for a chip that doesn't
-support NETIF_F_SG?
+I think you have some false positives here, actually.
 
-That's what people will complain about if this goes in.
+As in my reply to your tcp_sendmsg() patch, r8169.c's transmit
+function does fully support segmented packets.
 
+So I think what it's doing here is supporting SG but having
+it off by default.
+
+And that's exactly what you get by setting the ethtool_op_set_sg()
+function here, and it might be the case that this is what the
+other two drivers in your patch are trying to do.
+
+At a minimum, the r8169.c part of this patch is wrong.
