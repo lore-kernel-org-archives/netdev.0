@@ -1,58 +1,52 @@
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Subject: RE: [PATCH] net/ipv4/fib_semantics.c: quiet sparse "shadows" noise
-Date: Fri, 15 Jan 2010 11:57:41 -0500
-Message-ID: <BD79186B4FD85F4B8E60E381CAEE190902089F54@mi8nycmail19.Mi8.com>
-References: <201001141652.42757.hartleys@visionengravers.com> <20100115.011730.263631545.davem@davemloft.net>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: [PATCH] ipv4/ip_sockglue.c: copy msg_control optval from user to kernel space
+Date: Fri, 15 Jan 2010 10:24:59 -0700
+Message-ID: <201001151024.59482.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og103.obsmtp.com ([64.18.1.185]:44588 "HELO
-	exprod6og103.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751111Ab0AOQ5p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 11:57:45 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20100115.011730.263631545.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757900Ab0AORZG@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday, January 15, 2010 2:18 AM, David Miller wrote:
-> From: H Hartley Sweeten <hartleys@visionengravers.com>
-> Date: Thu, 14 Jan 2010 16:52:41 -0700
->
->> net/ipv4/fib_semantics.c: quiet sparse "shadows" noise
->> 
->> If CONFIG_IP_ROUTE_MULTIPATH is defined the symbol 'nh' is
->> declared twice in the function fib_sync_down_dev. First as the
->> loop variable used to iterate the hlist. Then again due to the
->> change_nexthops macro. This produces a sparse warning and
->> makes the code harder to understand.
->> 
->> Fix the issue by renaming the first symbol.
->> 
->> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
->
-> I think it's easier to fix this by using a less simple name
-> in change_nexthops(), so I'll deal with this using the following
-> patch.
+ipv4/ip_sockglue.c: copy msg_control optval from user to kernel space
 
-OK. The patch is larger but it's much clearer this way.
+In do_ip_getsockopt the char __user *optval is used directly in
+IP_PKTOPTIONS for the msg.msg_control and not copied from
+user to kernel address space. This produces a sparse warning:
 
-> Thanks for reporting this:
->
-> ipv4: Use less conflicting local var name in change_nexthops() loop macro.
->
-> As noticed by H Hartley Sweeten, since change_nexthops() uses 'nh'
-> as it's iterator variable, it can conflict with other existing
-> local vars.
->
-> Use "nexthop_nh" to avoid the conflict and make it easier to figure
-> out where this magic variable comes from.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+warning: incorrect type in assignment (different address spaces)
+   expected void *msg_control
+   got char [noderef] <asn:1>*optval
 
-Tested-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Fix this by using copy _from_user to set msg.msg_control.
+
+Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+
+---
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index cafad9b..8065456 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1173,7 +1173,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 		if (sk->sk_type != SOCK_STREAM)
+ 			return -ENOPROTOOPT;
+ 
+-		msg.msg_control = optval;
++		if (copy_from_user(msg.msg_control, optval, len))
++			return -EFAULT;
+ 		msg.msg_controllen = len;
+ 		msg.msg_flags = 0;
+ 
