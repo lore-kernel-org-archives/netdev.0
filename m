@@ -1,61 +1,37 @@
-From: Bernard Pidoux <bpidoux@free.fr>
-Subject: Re: kernel BUG at kernel/timer.c:951!
-Date: Fri, 15 Jan 2010 15:46:02 +0100
-Message-ID: <4B507FAA.8010007@free.fr>
-References: <4B2CD772.1030106@upmc.fr> <4B2D1025.1020106@gmail.com> <4B2E6729.1090102@free.fr>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Fri, 15 Jan 2010 10:03:42 -0500
+Message-ID: <1263567822.23480.125.camel@bigi>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	 <4B4F6332.50606@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bernard Pidoux <bernard.pidoux@upmc.fr>,
-	linux-kernel@vger.kernel.org,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757797Ab0AOOqV@vger.kernel.org>
-In-Reply-To: <4B2E6729.1090102@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+	containers@lists.linux-foundation.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B4F6332.50606@candelatech.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jarek,
+On Thu, 2010-01-14 at 10:32 -0800, Ben Greear wrote:
 
-Congratulation. With your patch I did not see any more kernel panics
-since my last post.
-I think it should be commited.
-Many thanks.
+> For small or simple cases, this may be true..but there is a lot of work
+> to make a complex user-space app that manages arbitrary amounts of interfaces
+> routing tables in an arbitrary amount of network namespaces.  With the contrack-zones
+> approach, user-space apps do not require any significant changes, and you do not
+> need the rest of the namespace overhead to accomplish the task.
 
-Wishing you a happy new year 2010.
+I think for your use case what you state is true. In the general case,
+it is not. 
+Note: I am not arguing against the patch - just that it is not the
+generic scenario solution compared to namespaces.
 
-Bernard
+cheers,
+jamal
 
-
-Bernard Pidoux a =E9crit :
-> Hi Jarek,
->=20
-> Your patch seemed to be working well until 2.6.31.6 kernel.
-> I did not apply your patch to kernel 2.6.32.
-> I agree that this may explain why these kernel panics are back.
-> I will apply this patch to 2.6.32.2 and will report the results soon.
-> Thanks.
->=20
-> Bernard Pidoux
->=20
-> Jarek Poplawski a =E9crit :
->> Bernard Pidoux wrote, On 12/19/2009 02:38 PM:
->>
->>> I am experiencing a few kernel panics on my Linux system using 2.6.=
-32=20
->>> and 2.6.32.1 kernels
->>> with nosmp.=20
->>
->> Some of these oopses look similarly to those:
->> http://markmail.org/message/scjov36zm2wf2ytv
->>
->> How about this patch I sent you for testing?:
->> http://markmail.org/message/nymi7xyd5c43hyfu
->>
->> Jarek P.
->>
->>
->=20
->=20
