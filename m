@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 0/4]netxen: endianness fixes
-Date: Fri, 15 Jan 2010 01:37:48 -0800 (PST)
-Message-ID: <20100115.013748.30274880.davem@davemloft.net>
-References: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Proper ctrlmode handling for CAN
+	devices
+Date: Fri, 15 Jan 2010 01:39:39 -0800 (PST)
+Message-ID: <20100115.013939.04857200.davem@davemloft.net>
+References: <1263488914-21655-1-git-send-email-chripell@fsfe.org>
+	<4B4F785F.6060209@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: amit.salecha@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35013
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756510Ab0AOJhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:37:39 -0500
-In-Reply-To: <1263470004-30008-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B4F785F.6060209-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Thu, 14 Jan 2010 03:53:20 -0800
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Date: Thu, 14 Jan 2010 21:02:39 +0100
 
-> Hi
->   Series of 4 small patches to fix endianness issues and License header.
->   Please apply these patches in net-next-2.6 tree.
+> Christian Pellegrin wrote:
+>> This patch adds error checking of ctrlmode values for CAN devices. As
+>> an example all availabe bits are implemented in the mcp251x driver.
+>> 
+>> Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+> 
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> 
+> Thanks for your contribution.
 
-All applied, thank you.
+Applied, thanks.
