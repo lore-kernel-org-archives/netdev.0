@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Thu, 14 Jan 2010 16:51:42 -0800 (PST)
-Message-ID: <20100114.165142.163322281.davem@davemloft.net>
-References: <20100112.121607.39835310.davem@davemloft.net>
-	<201001141250.27287.schmto@hrz.tu-chemnitz.de>
-	<4B4F132B.7020001@gmail.com>
+Subject: Re: [PATCH 0/4] netxen: endianness fixes
+Date: Thu, 14 Jan 2010 16:54:38 -0800 (PST)
+Message-ID: <20100114.165438.39939357.davem@davemloft.net>
+References: <1263465787-28203-1-git-send-email-amit.salecha@qlogic.com>
+	<20100114.030854.52825026.davem@davemloft.net>
+	<821ABD80-7BA0-4A8B-B7DC-87D3B0BA9ADF@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: amit.salecha@qlogic.com, netdev@vger.kernel.org
+To: dhananjay.phadke@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51871
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45432
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754655Ab0AOAvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 19:51:33 -0500
-In-Reply-To: <4B4F132B.7020001@gmail.com>
+	by vger.kernel.org with ESMTP id S1755469Ab0AOAy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jan 2010 19:54:28 -0500
+In-Reply-To: <821ABD80-7BA0-4A8B-B7DC-87D3B0BA9ADF@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 14 Jan 2010 13:50:51 +0100
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Date: Thu, 14 Jan 2010 06:57:47 -0800
 
-> Problem is, you might need many sets of counters...
+> 
+> On Jan 14, 2010, at 3:08 AM, David Miller wrote:
+> 
+>> You mean in all this time, nobody noticed that reading the MAC
+>> address isn't done correctly on big-endian?
+>> 
+>> Well then I guess all of these small endianness fixes aren't
+>> very critical this late in the RC series.
+> 
+> The MAC fix doesn't change any functionality, just changing data types.
+> It was working on big-endian machines.
 
-Why nobody has suggested using existing kernel facilities for this is
-beyond me.
-
-We have a diffserv packet scheduler queueing discipline, so you can
-classify traffic arbitrarily based upon the diffserv bits in the
-packet and then shape them using that classification into different
-packet scheduler queues.
-
-Simply attach those child queues to that default pfifo qdisc, nothing
-fancy.
-
-Then you can dump the queue stats using 'tc'.
+Then that's a cleanup and thus even less appropriate for net-2.6
