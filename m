@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Fri, 15 Jan 2010 01:04:50 -0800 (PST)
-Message-ID: <20100115.010450.64181969.davem@davemloft.net>
-References: <20100115095049.14190a50@marrow.netinsight.se>
-	<20100115.005224.257449393.davem@davemloft.net>
-	<20100115100011.076505bf@marrow.netinsight.se>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Fri, 15 Jan 2010 17:05:35 +0800
+Message-ID: <412e6f7f1001150105q2ae70fb2u2e2cfba39a250dc0@mail.gmail.com>
+References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
+	 <412e6f7f1001141822pffa070ap15c73e2931402294@mail.gmail.com>
+	 <20100115.005029.214418777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: simon.kagstrom@netinsight.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: therbert@google.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43752
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751001Ab0AOJEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:04:42 -0500
-In-Reply-To: <20100115100011.076505bf@marrow.netinsight.se>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:32844 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751937Ab0AOJFh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:05:37 -0500
+In-Reply-To: <20100115.005029.214418777.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Date: Fri, 15 Jan 2010 10:00:11 +0100
+On Fri, Jan 15, 2010 at 4:50 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Fri, 15 Jan 2010 10:22:03 +0800
+>
+>> For connection based packet processing, such as netfilter,
+>> distributing the packets in two directions into one CPU will reduce
+>> cache miss, when NAT isn't used. I think the code bellow will help:
+>> if (addr1 > addr2)
+>> =C2=A0 swap(addr1, addr2);
+>
+> You can't just do the addresses, the ports will swap too.
+>
 
-> On Fri, 15 Jan 2010 00:52:24 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> > The same thing goes for via-velocity.c, it's turned on via ethtool
->> > though (ethtool_op_set_sg).
->> 
->> Indeed, see my reply to Krishna's ethtool_op_set_sg() patch.
->> 
->> I think it's a cruddy way to do things, SG ought to be on by
->> default always unless it is defective.  And if it's defective
->> support should be removed entirely.
-> 
-> I kept it off by default since I didn't see any big improvement in my
-> tests (negative in some, positive in some). But I suppose you're
-> right though.
+Yea, and it is just an example.
 
-Well, it has to provide significantly better performance for
-sendfile() (especially wrt. cpu utilization) because we avoid the copy
-out of the page cache pages entirely.
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
