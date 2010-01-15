@@ -1,65 +1,64 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Fri, 15 Jan 2010 08:02:26 +0100
-Message-ID: <m2ockvhmv1.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-8-git-send-email-sam@synack.fr>
-	<4B420464.3040301@trash.net>
+From: Andrew May <acmay@acmay.org>
+Subject: Re: [PATCH 7/7] Staging: Octeon Ethernet: Use constants from in.h
+Date: Thu, 14 Jan 2010 23:29:00 -0800
+Message-ID: <20100114232900.55111058@mud>
+References: <4B463005.8060505@caviumnetworks.com>
+        <1262891106-32146-7-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 16:08:20 +0100")
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+        netdev@vger.kernel.org, gregkh@suse.de
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1262891106-32146-7-git-send-email-ddaney@caviumnetworks.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Thu,  7 Jan 2010 11:05:06 -0800
+David Daney <ddaney@caviumnetworks.com> wrote:
 
-> Samir Bellabes wrote:
->> +/**
->> + * snet_nl_register - Handle a REGISTER message
->> + * @skb: the NETLINK buffer
->> + * @info: the Generic NETLINK info block
->> + *
->> + * Description:
->> + * Notify the kernel that an application is listening for events.
->> + * Returns zero on success, negative values on failure.
->> + */
->> +static int snet_nl_register(struct sk_buff *skb, struct genl_info *info)
->> +{
->> +	int ret = -EINVAL;
->> +	u32 version = 0;
->> +	u8 set_resp_flag = 0;
->> +
->> +	atomic_set(&snet_nl_seq, info->snd_seq);
->> +
->> +	if (!info->attrs[SNET_A_VERSION])
->> +		return -EINVAL;
->> +	version = nla_get_u32(info->attrs[SNET_A_VERSION]);
->> +
->> +	if (version == SNET_VERSION) {	/* version is compliant */
->> +		atomic_inc(&snet_num_listeners);
->> +		set_resp_flag = 1;
->> +	}
->> +
->> +	ret = snet_nl_response_flag(info, &snet_genl_family,
->> +				    SNET_C_REGISTER, SNET_A_REGISTERED,
->> +				    set_resp_flag);
->
-> Is this really needed? A return value of 0 should already tell userspace
-> that the command was successful. If it really wants a seperate success
-> message, it can use NLM_F_ACK. This will also automatically take care
-> of using the proper sequence number, so the snet_nl_seq handling isn't
-> required anymore. Same for all similar cases below.
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+> ---
+>  drivers/staging/octeon/ethernet-defines.h |    3 ---
+>  drivers/staging/octeon/ethernet-tx.c      |    8 ++++----
+>  2 files changed, 4 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/staging/octeon/ethernet-defines.h
+> b/drivers/staging/octeon/ethernet-defines.h index 9c4910e..00a8561
+> 100644 --- a/drivers/staging/octeon/ethernet-defines.h
+> +++ b/drivers/staging/octeon/ethernet-defines.h
+> @@ -98,9 +98,6 @@
+>  #define MAX_SKB_TO_FREE 10
+>  #define MAX_OUT_QUEUE_DEPTH 1000
+>  
+> -#define IP_PROTOCOL_TCP             6
+> -#define IP_PROTOCOL_UDP             0x11
+> -
+>  #define FAU_NUM_PACKET_BUFFERS_TO_FREE (CVMX_FAU_REG_END -
+> sizeof(uint32_t)) #define TOTAL_NUMBER_OF_PORTS
+> (CVMX_PIP_NUM_INPUT_PORTS+1) 
+> diff --git a/drivers/staging/octeon/ethernet-tx.c
+> b/drivers/staging/octeon/ethernet-tx.c index bc67e41..62258bd 100644
+> --- a/drivers/staging/octeon/ethernet-tx.c
+> +++ b/drivers/staging/octeon/ethernet-tx.c
+> @@ -359,8 +359,8 @@ dont_put_skbuff_in_hw:
+>  	if (USE_HW_TCPUDP_CHECKSUM && (skb->protocol ==
+> htons(ETH_P_IP)) && (ip_hdr(skb)->version == 4) && (ip_hdr(skb)->ihl
+> == 5) && ((ip_hdr(skb)->frag_off == 0) || (ip_hdr(skb)->frag_off == 1
+> << 14))
+> -	    && ((ip_hdr(skb)->protocol == IP_PROTOCOL_TCP)
+> -		|| (ip_hdr(skb)->protocol == IP_PROTOCOL_UDP))) {
+> +	    && ((ip_hdr(skb)->protocol == IPPROTO_TCP)
+> +		|| (ip_hdr(skb)->protocol == IPPROTO_UDP))) {
+>  		/* Use hardware checksum calc */
+>  		pko_command.s.ipoffp1 = sizeof(struct ethhdr) + 1;
+>  	}
 
-Indeed, we can use the return value to inform the userspace about the
-status of operations. I moved all the code, and deleted the no longer
-used function snet_nl_response_flag()
+Why isn't skb->ip_summed checked here instead? It seems like the csum
+calculation needs to be skipped by the stack if this is actually going
+to help performance.
 
-Thanks Patrick,
-sam
+And does this end up re-writing a bad checksum on a routed packet, back
+to being a good checksum?
