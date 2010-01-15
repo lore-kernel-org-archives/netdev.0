@@ -1,56 +1,27 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
- 2.6.33-rc4-git2
-Date: Fri, 15 Jan 2010 10:50:59 -0800
-Message-ID: <20100115105059.251a3717@nehalam>
-References: <20100115091053.GA5477@mac.home>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH] tcp: input header length, prediction, and timestamp bugs
+Date: Fri, 15 Jan 2010 14:12:28 -0500
+Message-ID: <4B50BE1C.3070409@gmail.com>
+References: <4B49C2D0.1070704@gmail.com> <4B5078BB.40306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tino Keitel <tino.keitel@tikei.de>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55821 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751423Ab0AOSv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jan 2010 13:51:26 -0500
-In-Reply-To: <20100115091053.GA5477@mac.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758059Ab0AOTMd@vger.kernel.org>
+In-Reply-To: <4B5078BB.40306@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Jan 2010 10:10:53 +0100
-Tino Keitel <tino.keitel@tikei.de> wrote:
+William Allen Simpson wrote:
+> Finally, don't use TCPOLEN_MD5SIG_ALIGNED in the tcp_minisock.c
+> last_seg_size calculations. It's not used in all other places, and may
+> result in a too short estimate.
+> 
+> Instead, use the same calculations as tp->advmss in tcp_input.c.
+> 
+This part really shouldn't have been included in this patch, as it
+depends on similar changes to tcp_output.c.  My mistake cutting the
+patches apart from the bigger testing patch.
 
-> Hi,
-> 
-> wake on LAN doesn't work with 2.6.33-rc4-git2 on the following
-> hardware:
-> 
-> 01:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-> 88E8053 PCI-E Gigabit Ethernet Controller [11ab:4362] (rev 22)
-> 
-> It worked with 2.6.32. In my suspend script, I enable WoL using
-> ethtool:
-> 
-> ethtool -s eth0 wol g
-> 
-> in dmesg, I get these messages at suspend:
-> 
-> sky2 eth0: disabling interface
-> sky2 0000:01:00.0: PME# enabled
-> sky2 0000:01:00.0: wake-up capability enabled by ACPI
-> 
-> and at resume:
-> 
-> sky2 0000:01:00.0: wake-up capability disabled by ACPI
-> sky2 0000:01:00.0: PME# disabled
-> 
-> Regards,
-> Tino
-
-This has already been reported.
-
-Rafael has been doing the generic PM stuff.
-Look for thread,
- [Bug 14730] sky2 won't work after suspend/resume cycle
+I'll send a new version promptly.
