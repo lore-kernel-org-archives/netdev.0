@@ -1,52 +1,54 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] ipv4/ip_sockglue.c: copy msg_control optval from user to kernel space
-Date: Fri, 15 Jan 2010 10:24:59 -0700
-Message-ID: <201001151024.59482.hartleys@visionengravers.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH/REPOST] pci: push deprecated pci_find_device() function
+ to last user
+Date: Fri, 15 Jan 2010 10:08:30 -0800
+Message-ID: <20100115100830.152bd145@jbarnes-piketon>
+References: <20100113142328.5DE2F40107@xenon.ts.pxnet.com>
+	<20100113.203338.52448956.davem@davemloft.net>
+	<20100114044331.GA29008@suse.de>
+	<20100114.001204.203918209.davem@davemloft.net>
+	<20100114082823.63379b3d@jbarnes-piketon>
+	<20100114221841.D282640108@xenon.ts.pxnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757900Ab0AORZG@vger.kernel.org>
-Content-Disposition: inline
+Cc: David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757929Ab0AOSIa@vger.kernel.org>
+In-Reply-To: <20100114221841.D282640108@xenon.ts.pxnet.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ipv4/ip_sockglue.c: copy msg_control optval from user to kernel space
+On Thu, 14 Jan 2010 23:18:41 +0100 (CET)
+Tilman Schmidt <tilman@imap.cc> wrote:
 
-In do_ip_getsockopt the char __user *optval is used directly in
-IP_PKTOPTIONS for the msg.msg_control and not copied from
-user to kernel address space. This produces a sparse warning:
+> Am 14.01.2010 17:28 schrieb Jesse Barnes:
+> > I can take it, but I lost the original patch.  Tilman, can you
+> > resend?
+> 
+> Sure, here you are:
+> 
+> Subject: [PATCH] pci: push deprecated pci_find_device() function to
+> last user
+> 
+> The ISDN4Linux HiSax driver family contains the last remaining users
+> of the deprecated pci_find_device() function. This patch creates a
+> private copy of that function in HiSax, and removes the now unused
+> global function together with its controlling configuration option,
+> CONFIG_PCI_LEGACY.
+> 
+> Impact: code reorganization, no functional change
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> ---
+> Note: This patch is not, nor does it intend to be, checkpatch.pl
+> clean. The issues checkpatch.pl reports on it were already present
+> before, and are unrelated to the topic of this patch.
 
-warning: incorrect type in assignment (different address spaces)
-   expected void *msg_control
-   got char [noderef] <asn:1>*optval
+Applied to my linux-next branch, thanks Tilman.
 
-Fix this by using copy _from_user to set msg.msg_control.
-
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-
----
-
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index cafad9b..8065456 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1173,7 +1173,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 		if (sk->sk_type != SOCK_STREAM)
- 			return -ENOPROTOOPT;
- 
--		msg.msg_control = optval;
-+		if (copy_from_user(msg.msg_control, optval, len))
-+			return -EFAULT;
- 		msg.msg_controllen = len;
- 		msg.msg_flags = 0;
- 
+-- 
+Jesse Barnes, Intel Open Source Technology Center
