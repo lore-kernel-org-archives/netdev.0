@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethoc: Use resource_size
-Date: Fri, 15 Jan 2010 01:48:37 -0800 (PST)
-Message-ID: <20100115.014837.112516712.davem@davemloft.net>
-References: <1263487568-13682-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH] [NET]: da.s_net not copied but assigned to itself in
+ aarp_rcv()
+Date: Fri, 15 Jan 2010 01:49:43 -0800 (PST)
+Message-ID: <20100115.014943.39860500.davem@davemloft.net>
+References: <4B4F7F4B.8000302@gmail.com>
+	<20100114210001.GE20221@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59027
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755188Ab0AOJs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:48:28 -0500
-In-Reply-To: <1263487568-13682-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roel.kluin@gmail.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: acme@ghostprotocols.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757384Ab0AOJti@vger.kernel.org>
+In-Reply-To: <20100114210001.GE20221@ghostprotocols.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 14 Jan 2010 17:46:08 +0100
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Date: Thu, 14 Jan 2010 19:00:01 -0200
 
-> Use the resource_size function instead of manually calculating the
-> resource size.
+> Em Thu, Jan 14, 2010 at 09:32:11PM +0100, Roel Kluin escreveu:
+>> da.s_net was not copied but assigned to itself.
+>> 
+>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Looks right, must be there for ages...
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Applied to net-next-2.6, thanks.
+Applied, please always CC: on networking patches.
+
+Thanks.
