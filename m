@@ -1,96 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Fri, 15 Jan 2010 10:13:06 -0800
-Message-ID: <4B50B032.2060609@hp.com>
-References: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
+ 2.6.33-rc4-git2
+Date: Fri, 15 Jan 2010 10:50:59 -0800
+Message-ID: <20100115105059.251a3717@nehalam>
+References: <20100115091053.GA5477@mac.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tino Keitel <tino.keitel@tikei.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:46899 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755173Ab0AOSNL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 13:13:11 -0500
-In-Reply-To: <20100115053352.31564.765.sendpatchset@krkumar2.in.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:55821 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751423Ab0AOSv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jan 2010 13:51:26 -0500
+In-Reply-To: <20100115091053.GA5477@mac.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krishna Kumar wrote:
-> From: Krishna Kumar <krkumar2@in.ibm.com>
+On Fri, 15 Jan 2010 10:10:53 +0100
+Tino Keitel <tino.keitel@tikei.de> wrote:
+
+> Hi,
 > 
-> Remove inline skb data in tcp_sendmsg(). For the few devices that
-> don't support NETIF_F_SG, dev_queue_xmit will call skb_linearize,
-> and pass the penalty to those slow devices (the following drivers
-> do not support NETIF_F_SG: 8139cp.c, amd8111e.c, dl2k.c, dm9000.c,
-> dnet.c, ethoc.c, ibmveth.c, ioc3-eth.c, macb.c, ps3_gelic_net.c,
-> r8169.c, rionet.c, spider_net.c, tsi108_eth.c, veth.c,
-> via-velocity.c, atlx/atl2.c, bonding/bond_main.c, can/dev.c,
-> cris/eth_v10.c).
+> wake on LAN doesn't work with 2.6.33-rc4-git2 on the following
+> hardware:
 > 
-> This patch does not affect devices that support SG but turn off
-> via ethtool after register_netdev.
+> 01:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
+> 88E8053 PCI-E Gigabit Ethernet Controller [11ab:4362] (rev 22)
 > 
-> I ran the following test cases with iperf - #threads: 1 4 8 16 32
-> 64 128 192 256, I/O sizes: 256 4K 16K 64K, each test case runs for
-> 1 minute, repeat 5 iterations. Total test run time is 6 hours.
-> System is 4-proc Opteron, with a Chelsio 10gbps NIC. Results (BW
-> figures are the aggregate across 5 iterations in mbps):
+> It worked with 2.6.32. In my suspend script, I enable WoL using
+> ethtool:
 > 
-> -------------------------------------------------------
-> #Process   I/O Size    Org-BW     New-BW   %-change
-> -------------------------------------------------------
-> 1           256        2098       2147      2.33
-> 1           4K         14057      14269     1.50
-> 1           16K        25984      27317     5.13
-> 1           64K        25920      27539     6.24
-> ...
-> 256         256        1947       1955      0.41
-> 256         4K         9828       12265     24.79
-> 256         16K        25087      24977     -0.43
-> 256         64K        26715      27997     4.79
-> -------------------------------------------------------
-> Total:      -          600071     634906    5.80
-> -------------------------------------------------------
+> ethtool -s eth0 wol g
+> 
+> in dmesg, I get these messages at suspend:
+> 
+> sky2 eth0: disabling interface
+> sky2 0000:01:00.0: PME# enabled
+> sky2 0000:01:00.0: wake-up capability enabled by ACPI
+> 
+> and at resume:
+> 
+> sky2 0000:01:00.0: wake-up capability disabled by ACPI
+> sky2 0000:01:00.0: PME# disabled
+> 
+> Regards,
+> Tino
 
-Does bandwidth alone convey the magnitude of the change?  I would think that 
-would only be the case if the CPU(s) were 100% utilized, and perhaps not even 
-completely then.  At the risk of a shameless plug, it's not for nothing that 
-netperf reports service demand :)
+This has already been reported.
 
-I would think that change in service demand (CPU per unit of work) would be 
-something one wants to see.
-
-Also, the world does not run on bandwidth alone, so small packet performance and 
-any delta there would be good to have.
-
-Multiple process tests may not be as easy in netperf as it is in iperf, but under:
-
-ftp://ftp.netperf.org/netperf/misc
-
-I have a single-stream test script I use called runemomni.sh and an example of 
-its output, as well as an aggregate script I use called runemomniagg2.sh - I'll 
-post an example of its output there as soon as I finish some runs.  The script 
-presumes one has ./configure'd netperf:
-
-./configure --enable-burst --enable-omni ...
-
-The netperf omni tests still ass-u-me that the CPU util each measures is all his 
-own, which means the service demands from aggrgate tests require some 
-post-processing fixup.
-
-http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
-
-happy benchmarking,
-
-rick jones
-
-FWIW, service demand and pps performance may be even more important for non-SG 
-devices because they may be slow 1 Gig devices and still hit link-rate on a bulk 
-throughput test even with a non-trivial increase in CPU util.  However, a 
-non-trivial hit in CPU util may rather change the pps performance.
-
-PPS - there is a *lot* of output in those omni test results - best viewed with a 
-spreadsheet program.
+Rafael has been doing the generic PM stuff.
+Look for thread,
+ [Bug 14730] sky2 won't work after suspend/resume cycle
