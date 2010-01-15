@@ -1,39 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6] can: mscan-mpc5xxx: fix broken support
-	for the MPC5200
-Date: Fri, 15 Jan 2010 01:44:08 -0800 (PST)
-Message-ID: <20100115.014408.40775945.davem@davemloft.net>
-References: <4B4EFA8C.4010209@grandegger.com>
-	<20100114111524.GA6041@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 0/3] vhost_net
+Date: Fri, 15 Jan 2010 01:43:57 -0800 (PST)
+Message-ID: <20100115.014357.169328821.davem@davemloft.net>
+References: <20100114161659.GA28159@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100114111524.GA6041-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59006
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757238Ab0AOJnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 04:43:49 -0500
+In-Reply-To: <20100114161659.GA28159@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Thu, 14 Jan 2010 12:15:24 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 14 Jan 2010 18:16:59 +0200
 
-> On Thu, Jan 14, 2010 at 12:05:48PM +0100, Wolfgang Grandegger wrote:
->> From: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
->> 
->> Due to an invalid "#ifdef CONFIG_PPC_MPC5200", the real clock setup
->> function was not called for the MPC5200.
->> 
->> Signed-off-by: Wolfgang Grandegger <wg-ynQEQJNshbs@public.gmane.org>
+> These patches have been sitting in Rusty's tree and linux-next for a
+> couple of kernel releases already, they are largely unchanged since
+> November, besides a couple of bugfixes.  They got Rusty's blessing,
+> and I'd like them to go into net-next-2.6 and then 2.6.34.
 > 
-> Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> The patchset is aganst net-next-2.6, commit 508e14b4a4fb1a824a14f2c5b8d7df67b313f8e4.
 
-Applied, thanks.
+Looks ok, all applied, thanks.
