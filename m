@@ -1,61 +1,63 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 4/9] net/sctp: Eliminate useless code
-Date: Sat, 16 Jan 2010 16:58:40 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1001161657570.28745@ask.diku.dk>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Sat, 16 Jan 2010 17:00:30 +0100
+Message-ID: <e2d7436a1001160800u11206f54iaf07bb92331a256a@mail.gmail.com>
+References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kern
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Michael Buesch <mb@bu3sch.de>,
+	Felix Fietkau <openwrt@nbd.name>
+To: "Ha, Tristram" <Tristram.Ha@micrel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:44172 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932182Ab0APP6m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jan 2010 10:58:42 -0500
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:57855 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755173Ab0APQAd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 11:00:33 -0500
+In-Reply-To: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hello,
 
-The variable newinet is initialized twice to the same (side effect-free)
-expression.  Drop one initialization.
+2010/1/16 Ha, Tristram <Tristram.Ha@micrel.com>:
+> This is a new network driver for Micrel KSZ8841/KSZ8842 PCI Ethernet =
+chips. =A0The same driver can run both chips at the same time. =A0It su=
+pports IPv4 TCP hardware checksumming and so can use scatter/gather tra=
+nsmission.
+>
+> The KSZ8842 has a switch with lots of hardware configurations. =A0The=
+ driver uses the proc system to allow users to configure the switch. =A0=
+If this is not desired the whole thing can be removed by not calling th=
+e init_proc() function.
+>
+> The KSZ8842 switch has 2 ports. =A0Some users like to take direct con=
+trol of those ports. =A0So KSZ8842 has a multiple devices mode in which=
+ the driver creates another network device so that users can specify wh=
+ich port to send packets. =A0This mode is enabled by passing the "multi=
+_dev=3D1" parameter to the driver during loading.
+[...]
 
-A simplified version of the semantic match that finds this problem is:
-(http://coccinelle.lip6.fr/)
+I briefly looked over the datasheet for your device and it looks like
+it has the same basic design idea as a "ROBO" switch from Broadcom
+that is used in bcm53xx SoCs. This can be seen as a 3-port switch with
+one port fixed to be link to CPU (a special kind of PHY).
 
-// <smpl>
-@forall@
-idexpression *x;
-identifier f!=ERR_PTR;
-@@
+If my assumptions are correct, then I thing it would be better to have
+a driver that presents this device as two: one - an ethernet device,
+and second - a switch management interface like the one used in
+OpenWRT.
 
-x = f(...)
-... when != x
-(
-x = f(...,<+...x...+>,...)
-|
-* x = f(...)
-)
-// </smpl>
+Here are some links for reference:
+http://downloads.openwrt.org/kamikaze/8.09.2/kamikaze_8.09.2_source.tar=
+=2Ebz2;
+subdir: package/switch/src/
+  -> switch management driver for ADMTEK Adm6996 and Broadcom BCM5325E/=
+536x
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+(I'm adding switch driver's authors to CC list. I hope I picket the
+correct address for Felix from 3 in the sources. :-)
 
----
- net/sctp/socket.c                   |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 67fdac9..f6d1e59 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6359,7 +6359,7 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
- 		    struct sctp_association *asoc)
- {
- 	struct inet_sock *inet = inet_sk(sk);
--	struct inet_sock *newinet = inet_sk(newsk);
-+	struct inet_sock *newinet;
- 
- 	newsk->sk_type = sk->sk_type;
- 	newsk->sk_bound_dev_if = sk->sk_bound_dev_if;
+Best Regards,
+Micha=B3 Miros=B3aw
