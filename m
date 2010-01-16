@@ -1,55 +1,64 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: ixgbe: [RFC] [PATCH] Fix return of invalid txq
-Date: Sat, 16 Jan 2010 02:53:15 -0800
-Message-ID: <F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
-References: <F86E8680A7D9D74A99DC6345E35A692950158650@orsmsx503.amr.corp.intel.com>
-	<20100115.004456.15627093.davem@davemloft.net>
-	<1263546020.2038.7.camel@localhost>
- <20100115.010628.67106329.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH/REPOST] pci: push deprecated pci_find_device() function
+ to last user
+Date: Sat, 16 Jan 2010 22:17:49 +1100
+Message-ID: <20100116221749.94c6ac32.sfr@canb.auug.org.au>
+References: <20100113142328.5DE2F40107@xenon.ts.pxnet.com>
+	<20100113.203338.52448956.davem@davemloft.net>
+	<20100114044331.GA29008@suse.de>
+	<20100114.001204.203918209.davem@davemloft.net>
+	<20100114082823.63379b3d@jbarnes-piketon>
+	<20100114221841.D282640108@xenon.ts.pxnet.com>
+	<20100115100830.152bd145@jbarnes-piketon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "krkumar2@in.ibm.com" <krkumar2@in.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sat__16_Jan_2010_22_17_49_+1100_MTK6.JsDpK35YUru"
+Cc: Tilman Schmidt <tilman@imap.cc>,
+	David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Karsten Keil <isdn@linux-pingi.de>,
+	isdn4linux@listserv.isdn4linux.de
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41801 "EHLO mga09.intel.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:49040 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572Ab0APKxe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 05:53:34 -0500
-In-Reply-To: <20100115.010628.67106329.davem@davemloft.net>
-Content-Language: en-US
+	id S1752006Ab0APLSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Jan 2010 06:18:00 -0500
+In-Reply-To: <20100115100830.152bd145@jbarnes-piketon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Friday, January 15, 2010 1:06 AM
->To: Waskiewicz Jr, Peter P
->Cc: krkumar2@in.ibm.com; netdev@vger.kernel.org; Kirsher, Jeffrey T
->Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
->
->From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
->Date: Fri, 15 Jan 2010 01:00:20 -0800
->
->> What I've been thinking of is more for the NUMA allocations per port.
->> If we have, say 2 sockets, 8 cores a piece, then we have 16 CPUs.  If
->we
->> assign a port to socket 0, I think the best use of resources is to
->> allocate 8 Rx/Tx queues, one per core in that socket.  If an
->application
->> comes from the other socket, we can have a table to map the other 8
->> cores from that socket into the 8 queues, instead of piling them all
->> into one of the Tx queues.
->
->I fail to see how this can act substantially better than simply
->feeding traffic evenly amongst whatever group of queues have
->been configured.
+--Signature=_Sat__16_Jan_2010_22_17_49_+1100_MTK6.JsDpK35YUru
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On systems with a large number of cores, and depending on how a NIC is allocated to a set of processors, there is a difference.  If a port is allocated to socket three on a large NUMA system, then it could be CPUs 16-23 that it'd be using, and I'd have 8 Tx/Rx queues.  I can either use the easy approach Krishna has, which could then execute two minus operations, or I can setup a lookup table in the driver on open(), and then I make a single indexed lookup.  Using the lookup table makes the queue selection O(1) for whatever CPU/queue layout we come up with.
+Hi all,
 
-Either way works though.  I still think the table is the better way to go, because of the determinism for any system and NIC configuration/layout.  The overhead of configuring the table is taken during open(), so it's not in the hotpath at all.
+On Fri, 15 Jan 2010 10:08:30 -0800 Jesse Barnes <jbarnes@virtuousgeek.org> =
+wrote:
+>
+> Applied to my linux-next branch, thanks Tilman.
 
+Thanks all, this will reduce the x86_64 allmodconfig build warnings by
+between 1/3 and 1/2.  (Cheering can be heard all over the IBM Canberra
+office :-))
+
+--=20
 Cheers,
--PJ
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Sat__16_Jan_2010_22_17_49_+1100_MTK6.JsDpK35YUru
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAktRoF4ACgkQjjKRsyhoI8zQhACeJLRn9kx0llzhgtiy9pvyUnQD
+FhEAniyQyCeUuOrpcv4ipAErs6iQQF9C
+=aUAY
+-----END PGP SIGNATURE-----
+
+--Signature=_Sat__16_Jan_2010_22_17_49_+1100_MTK6.JsDpK35YUru--
