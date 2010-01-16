@@ -1,82 +1,98 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH v2] ipv4: support for request type gratuitous ARP
-Date: Sun, 17 Jan 2010 00:18:54 +0200
-Message-ID: <1263680334-1770-1-git-send-email-opurdila@ixiacom.com>
-References: <20100110.132105.179935794.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Laurent Chavey <chavey@google.com>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: David Miller <davem@davemloft.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: phylib: kernel oops on resume with 2.6.33-rc4
+Date: Sun, 17 Jan 2010 01:37:03 +0300
+Message-ID: <20100116223703.GA13190@oksana.dev.rtsoft.ru>
+References: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EA9@dbde02.ent.ti.com>
+Reply-To: avorontsov@ru.mvista.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Nori, Sekhar" <nsekhar@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:29047 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752496Ab0APWWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 17:22:32 -0500
-In-Reply-To: <20100110.132105.179935794.davem@davemloft.net>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:55562 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752729Ab0APWhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 17:37:07 -0500
+Content-Disposition: inline
+In-Reply-To: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EA9@dbde02.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even though we currently support response type gratuitous ARP
-[response type, source mac, dest mac, source IP, source IP] we do not
-support the request type [request type, source mac, ff:ff:ff:ff:ff:ff,
-source IP, source IP].
+Hello,
 
-RFC2002 says:
+On Sat, Jan 16, 2010 at 09:38:34PM +0530, Nori, Sekhar wrote:
+> Hello all,
+> 
+> I am hitting a kernel oops when resuming from suspend-to-RAM on 2.6.33-rc4
+> kernel.
+> 
+> The MAC is TI DaVinci EMAC and PHY is SMSC LAN8710. However, I also hit the
+> issue even when using generic PHY driver (CONFIG_SMSC_PHY turned off).
+> 
+> On reverting commit 541cd3e "phylib: Fix deadlock on resume" which was
+> introduced in 2.6.33-rc4, the issue doesn't come about. So far, I haven't
+> figured out how this particular commit is causing the oops. Full oops report
+> is attached. Appreciate any help in debugging this.
 
-     In either case, for a gratuitous ARP, the ARP packet MUST be
-     transmitted as a local broadcast packet on the local link.  As
-     specified in [16], any node receiving any ARP packet (Request or
-     Reply) MUST update its local ARP cache with the Sender Protocol
-     and Hardware Addresses in the ARP packet, if the receiving node
-     has an entry for that IP address already in its ARP cache.  This
-     requirement in the ARP protocol applies even for ARP Request
-     packets, and for ARP Reply packets that do not match any ARP
-     Request transmitted by the receiving node [16].
+It seems phy_start_machine() needlessly reinitialized work
+struct. This is OK for ucc_geth and gianfar driver because
+these drivers do not detach PHYs on suspend, but TI davinci
+does. :-/
 
-This patch adds support for request type gratuitous ARP, but due to
-security reasons the ARP table is updated only if the per device
-ARP_ACCEPT option is enabled.
+Can you try the patch down below?
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
- net/ipv4/arp.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+Thanks!
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c95cd93..588fed8 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -811,8 +811,13 @@ static int arp_process(struct sk_buff *skb)
- 		goto out;
- 	}
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index b0e9f9c..0295097 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -410,7 +410,6 @@ EXPORT_SYMBOL(phy_start_aneg);
  
--	if (arp->ar_op == htons(ARPOP_REQUEST) &&
--	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
-+	if (arp->ar_op == htons(ARPOP_REQUEST)) {
-+		/* gratuitous ARP */
-+		if (tip == sip && IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
-+			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
-+			goto update;
-+		} else if (ip_route_input(skb, tip, sip, 0, dev) != 0)
-+			goto update_lookup;
  
- 		rt = skb_rtable(skb);
- 		addr_type = rt->rt_type;
-@@ -853,6 +858,7 @@ static int arp_process(struct sk_buff *skb)
- 		}
- 	}
+ static void phy_change(struct work_struct *work);
+-static void phy_state_machine(struct work_struct *work);
  
-+update_lookup:
- 	/* Update our ARP tables */
+ /**
+  * phy_start_machine - start PHY state machine tracking
+@@ -430,7 +429,6 @@ void phy_start_machine(struct phy_device *phydev,
+ {
+ 	phydev->adjust_state = handler;
  
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
-@@ -868,6 +874,7 @@ static int arp_process(struct sk_buff *skb)
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
- 	}
+-	INIT_DELAYED_WORK(&phydev->state_queue, phy_state_machine);
+ 	schedule_delayed_work(&phydev->state_queue, HZ);
+ }
  
-+update:
- 	if (n) {
- 		int state = NUD_REACHABLE;
- 		int override;
--- 
-1.5.6.5
-
+@@ -761,7 +759,7 @@ EXPORT_SYMBOL(phy_start);
+  * phy_state_machine - Handle the state machine
+  * @work: work_struct that describes the work to be done
+  */
+-static void phy_state_machine(struct work_struct *work)
++void phy_state_machine(struct work_struct *work)
+ {
+ 	struct delayed_work *dwork = to_delayed_work(work);
+ 	struct phy_device *phydev =
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 8212b2b..adbc0fd 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -177,6 +177,7 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	dev->state = PHY_DOWN;
+ 
+ 	mutex_init(&dev->lock);
++	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
+ 
+ 	return dev;
+ }
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 7968def..6a7eb40 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -485,6 +485,7 @@ void phy_driver_unregister(struct phy_driver *drv);
+ int phy_driver_register(struct phy_driver *new_driver);
+ void phy_prepare_link(struct phy_device *phydev,
+ 		void (*adjust_link)(struct net_device *));
++void phy_state_machine(struct work_struct *work);
+ void phy_start_machine(struct phy_device *phydev,
+ 		void (*handler)(struct net_device *));
+ void phy_stop_machine(struct phy_device *phydev);
