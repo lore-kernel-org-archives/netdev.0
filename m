@@ -1,86 +1,38 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
-Date: Sat, 16 Jan 2010 14:50:48 -0800
-Message-ID: <1263682248.9026.7.camel@HP1>
-References: <4B17EFE3.4080301@gmail.com>
- <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com>
- <20091203.133108.254093305.davem@davemloft.net>
- <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local>
- <4B18440A.2080507@gmail.com> <20091204130134.GA9336@ff.dom.local>
- <20091204134951.GA9711@ff.dom.local>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH v2 2/2] virtio_net: Defer skb allocation in receive path
+Date: Sun, 17 Jan 2010 08:01:12 +1030
+Message-ID: <201001170801.12721.rusty@rustcorp.com.au>
+References: <1261122090.4148.24.camel@localhost.localdomain> <1263236965.11949.1.camel@localhost.localdomain> <1263416018.29594.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Amit Shah <amit.shah@redhat.com>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3555 "EHLO mms1.broadcom.com"
+Received: from ozlabs.org ([203.10.76.45]:48067 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752817Ab0APXBk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jan 2010 18:01:40 -0500
-In-Reply-To: <20091204134951.GA9711@ff.dom.local>
+	id S1750743Ab0AQARv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Jan 2010 19:17:51 -0500
+In-Reply-To: <1263416018.29594.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Fri, 2009-12-04 at 05:49 -0800, Jarek Poplawski wrote:
-> On Fri, Dec 04, 2009 at 01:01:34PM +0000, Jarek Poplawski wrote:
-> > On Fri, Dec 04, 2009 at 12:04:42AM +0100, Eric Dumazet wrote:
-> > ...
-> > > bnx2 for example could not be patched easily, following patch doesnt work.
-> > > 
-> > > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> > > index 4cae2a8..8bd5d0d 100644
-> > > --- a/drivers/net/bnx2.c
-> > > +++ b/drivers/net/bnx2.c
-> > > @@ -6177,6 +6177,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
-> > >  
-> > >  	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
-> > > -	bp->dev->real_num_tx_queues = bp->num_tx_rings;
-> > > +	realloc_netdev_mq(bp->dev, bp->num_tx_rings);
-> > >  
-> > >  	bp->num_rx_rings = bp->irq_nvecs;
-> > >  }
-> > 
-> > Eric, if didn't miss something in the example you gave at the
-> > beginning of this thread, it seems a change like below (not compiled)
-> > should fix your problem (without even testing MSI exactly)?
+On Thu, 14 Jan 2010 07:23:38 am Shirley Ma wrote:
+> virtio_net receives packets from its pre-allocated vring buffers, then it 
+> delivers these packets to upper layer protocols as skb buffs. So it's not
+> necessary to pre-allocate skb for each mergable buffer, then frees extra 
+> skbs when buffers are merged into a large packet. This patch has deferred 
+> skb allocation in receiving packets for both big packets and mergeable buffers
+> to reduce skb pre-allocations and skb frees. It frees unused buffers by calling 
+> detach_unused_buf in vring, so recv skb queue is not needed.
 > 
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
 
-Bringing back an older thread.  Are we still planning to use
-realloc_netdev_mq()?  The problem with the patch below is that
-dev->real_num_tx_queues can still be reduced during bnx2_open().
+Thanks, applied!
 
-Is it possible to call realloc_netdev_mq() during ->open()?
+After testing I'll send it to DaveM.
 
-> OOPS! Take 2...;-)
->  
-> Jarek P.
-> ---
-> 
->  drivers/net/bnx2.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index 4bfc808..c1ba2b1 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -8288,6 +8288,11 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  		dev->features |= NETIF_F_TSO6;
->  		vlan_features_add(dev, NETIF_F_TSO6);
->  	}
-> +
-> +	if (!((bp->flags & BNX2_FLAG_MSIX_CAP) ||
-> +	     (bp->flags & BNX2_FLAG_MSI_CAP)) || disable_msi)
-> +		realloc_netdev_mq(dev, 1);
-> +
->  	if ((rc = register_netdev(dev))) {
->  		dev_err(&pdev->dev, "Cannot register net device\n");
->  		goto error;
-> 
-
-
+Rusty.
