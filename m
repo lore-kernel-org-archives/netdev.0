@@ -1,98 +1,86 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: phylib: kernel oops on resume with 2.6.33-rc4
-Date: Sun, 17 Jan 2010 01:37:03 +0300
-Message-ID: <20100116223703.GA13190@oksana.dev.rtsoft.ru>
-References: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EA9@dbde02.ent.ti.com>
-Reply-To: avorontsov@ru.mvista.com
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
+Date: Sat, 16 Jan 2010 14:50:48 -0800
+Message-ID: <1263682248.9026.7.camel@HP1>
+References: <4B17EFE3.4080301@gmail.com>
+ <20091203202937.GA11436@ami.dom.local> <4B182DC6.5030800@gmail.com>
+ <20091203.133108.254093305.davem@davemloft.net>
+ <4B1832DD.1070805@gmail.com> <20091203224742.GA16646@ami.dom.local>
+ <4B18440A.2080507@gmail.com> <20091204130134.GA9336@ff.dom.local>
+ <20091204134951.GA9711@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Nori, Sekhar" <nsekhar@ti.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:55562 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752729Ab0APWhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 17:37:07 -0500
-Content-Disposition: inline
-In-Reply-To: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EA9@dbde02.ent.ti.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3555 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752817Ab0APXBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Jan 2010 18:01:40 -0500
+In-Reply-To: <20091204134951.GA9711@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-On Sat, Jan 16, 2010 at 09:38:34PM +0530, Nori, Sekhar wrote:
-> Hello all,
+On Fri, 2009-12-04 at 05:49 -0800, Jarek Poplawski wrote:
+> On Fri, Dec 04, 2009 at 01:01:34PM +0000, Jarek Poplawski wrote:
+> > On Fri, Dec 04, 2009 at 12:04:42AM +0100, Eric Dumazet wrote:
+> > ...
+> > > bnx2 for example could not be patched easily, following patch doesnt work.
+> > > 
+> > > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> > > index 4cae2a8..8bd5d0d 100644
+> > > --- a/drivers/net/bnx2.c
+> > > +++ b/drivers/net/bnx2.c
+> > > @@ -6177,6 +6177,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+> > >  
+> > >  	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
+> > > -	bp->dev->real_num_tx_queues = bp->num_tx_rings;
+> > > +	realloc_netdev_mq(bp->dev, bp->num_tx_rings);
+> > >  
+> > >  	bp->num_rx_rings = bp->irq_nvecs;
+> > >  }
+> > 
+> > Eric, if didn't miss something in the example you gave at the
+> > beginning of this thread, it seems a change like below (not compiled)
+> > should fix your problem (without even testing MSI exactly)?
 > 
-> I am hitting a kernel oops when resuming from suspend-to-RAM on 2.6.33-rc4
-> kernel.
+
+Bringing back an older thread.  Are we still planning to use
+realloc_netdev_mq()?  The problem with the patch below is that
+dev->real_num_tx_queues can still be reduced during bnx2_open().
+
+Is it possible to call realloc_netdev_mq() during ->open()?
+
+> OOPS! Take 2...;-)
+>  
+> Jarek P.
+> ---
 > 
-> The MAC is TI DaVinci EMAC and PHY is SMSC LAN8710. However, I also hit the
-> issue even when using generic PHY driver (CONFIG_SMSC_PHY turned off).
+>  drivers/net/bnx2.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
 > 
-> On reverting commit 541cd3e "phylib: Fix deadlock on resume" which was
-> introduced in 2.6.33-rc4, the issue doesn't come about. So far, I haven't
-> figured out how this particular commit is causing the oops. Full oops report
-> is attached. Appreciate any help in debugging this.
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 4bfc808..c1ba2b1 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -8288,6 +8288,11 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		dev->features |= NETIF_F_TSO6;
+>  		vlan_features_add(dev, NETIF_F_TSO6);
+>  	}
+> +
+> +	if (!((bp->flags & BNX2_FLAG_MSIX_CAP) ||
+> +	     (bp->flags & BNX2_FLAG_MSI_CAP)) || disable_msi)
+> +		realloc_netdev_mq(dev, 1);
+> +
+>  	if ((rc = register_netdev(dev))) {
+>  		dev_err(&pdev->dev, "Cannot register net device\n");
+>  		goto error;
+> 
 
-It seems phy_start_machine() needlessly reinitialized work
-struct. This is OK for ucc_geth and gianfar driver because
-these drivers do not detach PHYs on suspend, but TI davinci
-does. :-/
 
-Can you try the patch down below?
-
-Thanks!
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index b0e9f9c..0295097 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -410,7 +410,6 @@ EXPORT_SYMBOL(phy_start_aneg);
- 
- 
- static void phy_change(struct work_struct *work);
--static void phy_state_machine(struct work_struct *work);
- 
- /**
-  * phy_start_machine - start PHY state machine tracking
-@@ -430,7 +429,6 @@ void phy_start_machine(struct phy_device *phydev,
- {
- 	phydev->adjust_state = handler;
- 
--	INIT_DELAYED_WORK(&phydev->state_queue, phy_state_machine);
- 	schedule_delayed_work(&phydev->state_queue, HZ);
- }
- 
-@@ -761,7 +759,7 @@ EXPORT_SYMBOL(phy_start);
-  * phy_state_machine - Handle the state machine
-  * @work: work_struct that describes the work to be done
-  */
--static void phy_state_machine(struct work_struct *work)
-+void phy_state_machine(struct work_struct *work)
- {
- 	struct delayed_work *dwork = to_delayed_work(work);
- 	struct phy_device *phydev =
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 8212b2b..adbc0fd 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -177,6 +177,7 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- 	dev->state = PHY_DOWN;
- 
- 	mutex_init(&dev->lock);
-+	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
- 
- 	return dev;
- }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 7968def..6a7eb40 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -485,6 +485,7 @@ void phy_driver_unregister(struct phy_driver *drv);
- int phy_driver_register(struct phy_driver *new_driver);
- void phy_prepare_link(struct phy_device *phydev,
- 		void (*adjust_link)(struct net_device *));
-+void phy_state_machine(struct work_struct *work);
- void phy_start_machine(struct phy_device *phydev,
- 		void (*handler)(struct net_device *));
- void phy_stop_machine(struct phy_device *phydev);
