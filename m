@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] improve netem reorder flexibility
-Date: Sat, 16 Jan 2010 01:46:54 -0800 (PST)
-Message-ID: <20100116.014654.69913255.davem@davemloft.net>
-References: <200912181901.28542.christian.samsel@rwth-aachen.de>
-	<20091218.195907.189689401.davem@davemloft.net>
-	<20091221095407.5430a630@nehalam>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: ixgbe: [RFC] [PATCH] Fix return of invalid txq
+Date: Sat, 16 Jan 2010 02:53:15 -0800
+Message-ID: <F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
+References: <F86E8680A7D9D74A99DC6345E35A692950158650@orsmsx503.amr.corp.intel.com>
+	<20100115.004456.15627093.davem@davemloft.net>
+	<1263546020.2038.7.camel@localhost>
+ <20100115.010628.67106329.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christian.samsel@rwth-aachen.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "krkumar2@in.ibm.com" <krkumar2@in.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39448
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752314Ab0APJqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 04:46:45 -0500
-In-Reply-To: <20091221095407.5430a630@nehalam>
+Received: from mga09.intel.com ([134.134.136.24]:41801 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751572Ab0APKxe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 05:53:34 -0500
+In-Reply-To: <20100115.010628.67106329.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 21 Dec 2009 09:54:07 -0800
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Friday, January 15, 2010 1:06 AM
+>To: Waskiewicz Jr, Peter P
+>Cc: krkumar2@in.ibm.com; netdev@vger.kernel.org; Kirsher, Jeffrey T
+>Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
+>
+>From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+>Date: Fri, 15 Jan 2010 01:00:20 -0800
+>
+>> What I've been thinking of is more for the NUMA allocations per port.
+>> If we have, say 2 sockets, 8 cores a piece, then we have 16 CPUs.  If
+>we
+>> assign a port to socket 0, I think the best use of resources is to
+>> allocate 8 Rx/Tx queues, one per core in that socket.  If an
+>application
+>> comes from the other socket, we can have a table to map the other 8
+>> cores from that socket into the 8 queues, instead of piling them all
+>> into one of the Tx queues.
+>
+>I fail to see how this can act substantially better than simply
+>feeding traffic evenly amongst whatever group of queues have
+>been configured.
 
-> The netem logic for parsing attributes is different from others for
-> historical reasons.  Looking at parse_attr():
-> 
-> If qopt is larger than expected, then the extra data is interpreted as
-> the following nested attribute.
-> 
-> If qopt is smaller than expected, then it returns -EINVAL.
+On systems with a large number of cores, and depending on how a NIC is allocated to a set of processors, there is a difference.  If a port is allocated to socket three on a large NUMA system, then it could be CPUs 16-23 that it'd be using, and I'd have 8 Tx/Rx queues.  I can either use the easy approach Krishna has, which could then execute two minus operations, or I can setup a lookup table in the driver on open(), and then I make a single indexed lookup.  Using the lookup table makes the queue selection O(1) for whatever CPU/queue layout we come up with.
 
-This is a really dangerous way to handle this.
+Either way works though.  I still think the table is the better way to go, because of the determinism for any system and NIC configuration/layout.  The overhead of configuring the table is taken during open(), so it's not in the hotpath at all.
 
-This means if you grow qopt, older kernels think that the
-extended area is attributes.
-
-This also means that if you have new tools and send a qopt +
-attributes, older kernels won't find the start of the attributes
-correctly.  It will miss the attributes entirely.
-
-This is a complete mess, and we need to sort it out before we think
-about changing the size of qopt at this point.
+Cheers,
+-PJ
