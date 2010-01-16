@@ -1,110 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v5] rps: Receive Packet Steering
-Date: Sat, 16 Jan 2010 02:26:31 +0000
-Message-ID: <1263608791.17815.128.camel@localhost>
-References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: [PATH 2.6.33 2/3] net: Kconfig change for Micrel KSZ884X driver
+Date: Fri, 15 Jan 2010 19:04:39 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D021A4B@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:42190 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758299Ab0APC0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 21:26:36 -0500
-In-Reply-To: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "Dave Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758602Ab0APDEo@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-01-14 at 13:56 -0800, Tom Herbert wrote:
-[...]
-> The CPU masks is set on a per device basis in the sysfs variable
-> /sys/class/net/<device>/rps_cpus.  This is a set of canonical bit maps for
-> each NAPI nstance of the device.  For example:
-> 
-> echo "0b 0b0 0b00 0b000" > /sys/class/net/eth0/rps_cpus
-> 
-> would set maps for four NAPI instances on eth0.
-[...]
-> Caveats:
-> - The benefits of this patch are dependent on architecture and cache hierarchy.
-> Tuning the masks to get best performance is probably necessary.
+From: Tristram Ha <Tristram.Ha@micrel.com>
 
-It seems to me that it would be helpful to provide some kind of sensible
-default behaviour.  I'm sure Google has the in-house expertise to do
-this at a higher-level, but most end users rely on good defaults rather
-than tuning.
+Add Micrel KSZ8841/KSZ8842 PCI Ethernet chip support.
 
-[...]
-> +/*
-> + * Structure that contains the rps maps for various NAPI instances of a device.
-> + */
-> +struct dev_rps_maps {
-> +	int num_maps;
-> +	struct rcu_head rcu;
-> +	struct rps_map maps[0];
+Some users like to use KSZ8842 switch to run Spanning Tree Protocol.  As a result a hardware STP support was implemented so that the host does not waste CPU time forwarding each and every packet.
 
-This declaration is a botch. A VLA of structures containing VLAs has an
-index operation, but it's broken.  It would be better to remove the maps
-member and define an inline function for indexing the following array of
-maps, instead of writing the magic formula way over...
-
-[...]
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-[...]
-> +static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
-> +{
-[...]
-> +	map = (struct rps_map *)
-> +	    ((void *)drmap->maps + (rps_map_size * index));
-[...]
-
-...here.
-
-[...]
-> @@ -2363,10 +2487,10 @@ void netif_nit_deliver(struct sk_buff *skb)
->   }
-> 
->   /**
-> - *	netif_receive_skb - process receive buffer from network
-> + *	__netif_receive_skb - process receive buffer from network
->    *	@skb: buffer to process
->    *
-> - *	netif_receive_skb() is the main receive data processing function.
-> + *	__netif_receive_skb() is the main receive data processing function.
->    *	It always succeeds. The buffer may be dropped during processing
->    *	for congestion control or by the protocol layers.
->    *
-
-Surely this kernel-doc should be moved rather than modified, since you
-want most callers to continue using netif_receive_skb()?
-
-[...]
-> @@ -2475,6 +2599,16 @@ out:
->   }
->   EXPORT_SYMBOL(netif_receive_skb);
-
-This should be moved underneath the new implementation...
-
-> +int netif_receive_skb(struct sk_buff *skb)
-> +{
-> +	int cpu = get_rps_cpu(skb->dev, skb);
-> +
-> +	if (cpu < 0)
-> +		return __netif_receive_skb(skb);
-> +	else
-> +		return enqueue_to_backlog(skb, cpu);
-> +}
-[...]
-
-...here.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+---
+diff -uprN linux-2.6.33-rc3.old/drivers/net/Kconfig linux-2.6.33-rc3.new/drivers/net/Kconfig
+--- linux-2.6.33-rc3.old/drivers/net/Kconfig	2010-01-05 16:02:46.000000000 -0800
++++ linux-2.6.33-rc3.new/drivers/net/Kconfig	2010-01-13 12:17:42.000000000 -0800
+@@ -1368,6 +1368,27 @@ config AC3200
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called ac3200.
+ 
++config KSZ884X_PCI
++	tristate "Micrel KSZ8841/2 PCI"
++	depends on NET_PCI && PCI
++	select MII
++	select CRC32
++	help
++	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ksz884x.
++
++config KSZ8842_STP
++	bool "STP support"
++	depends on KSZ884X_PCI && EXPERIMENTAL
++	help
++	  This enables a feature to aid KSZ8842 running Spanning Tree Protocol.
++	  To actually use it pass the stp=1 parameter to the driver.
++
++	  This feature is experimental and may not work correctly compared to
++	  the Linux bridge using STP.
++
+ config APRICOT
+ 	tristate "Apricot Xen-II on board Ethernet"
+ 	depends on NET_PCI && ISA
