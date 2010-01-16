@@ -1,34 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 NEXT 0/2]qlcnic: Qlogic ethernet driver for CNA
- devices
-Date: Sat, 16 Jan 2010 01:25:26 -0800 (PST)
-Message-ID: <20100116.012526.232349039.davem@davemloft.net>
-References: <1263379046-30262-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH 1/2] improve netem reorder flexibility
+Date: Sat, 16 Jan 2010 01:46:54 -0800 (PST)
+Message-ID: <20100116.014654.69913255.davem@davemloft.net>
+References: <200912181901.28542.christian.samsel@rwth-aachen.de>
+	<20091218.195907.189689401.davem@davemloft.net>
+	<20091221095407.5430a630@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: christian.samsel@rwth-aachen.de, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48753
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39448
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752199Ab0APJZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 04:25:16 -0500
-In-Reply-To: <1263379046-30262-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1752314Ab0APJqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 04:46:45 -0500
+In-Reply-To: <20091221095407.5430a630@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Wed, 13 Jan 2010 02:37:24 -0800
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 21 Dec 2009 09:54:07 -0800
 
-> Hi,
->    This is the fixed patch series v4, incorporating Ben Hutchings suggestions.
->    - Fixing License header
->    - Unused #define removed
->    - Using kernel defines
->    - printk removed, using dev_info, dev_err and dev_warn
->    - Fix : default initialization of variable
->    - read mac address fixed
->    - interrupt coalescing fixed
+> The netem logic for parsing attributes is different from others for
+> historical reasons.  Looking at parse_attr():
+> 
+> If qopt is larger than expected, then the extra data is interpreted as
+> the following nested attribute.
+> 
+> If qopt is smaller than expected, then it returns -EINVAL.
 
-Applied to net-next-2.6, thanks.
+This is a really dangerous way to handle this.
+
+This means if you grow qopt, older kernels think that the
+extended area is attributes.
+
+This also means that if you have new tools and send a qopt +
+attributes, older kernels won't find the start of the attributes
+correctly.  It will miss the attributes entirely.
+
+This is a complete mess, and we need to sort it out before we think
+about changing the size of qopt at this point.
