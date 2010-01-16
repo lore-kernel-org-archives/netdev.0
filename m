@@ -1,51 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4/ip_sockglue.c: copy msg_control optval from user
- to kernel space
-Date: Fri, 15 Jan 2010 17:30:44 -0800 (PST)
-Message-ID: <20100115.173044.102257749.davem@davemloft.net>
-References: <201001151024.59482.hartleys@visionengravers.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
+Date: Sat, 16 Jan 2010 02:59:38 +0100
+Message-ID: <m24ommhks5.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-8-git-send-email-sam@synack.fr>
+	<4B420464.3040301@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: hartleys@visionengravers.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46871
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932392Ab0APBah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jan 2010 20:30:37 -0500
-In-Reply-To: <201001151024.59482.hartleys@visionengravers.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
+	04 Jan 2010 16:08:20 +0100")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Date: Fri, 15 Jan 2010 10:24:59 -0700
+Patrick McHardy <kaber@trash.net> writes:
 
-> ipv4/ip_sockglue.c: copy msg_control optval from user to kernel space
-> 
-> In do_ip_getsockopt the char __user *optval is used directly in
-> IP_PKTOPTIONS for the msg.msg_control and not copied from
-> user to kernel address space. This produces a sparse warning:
-> 
-> warning: incorrect type in assignment (different address spaces)
->    expected void *msg_control
->    got char [noderef] <asn:1>*optval
-> 
-> Fix this by using copy _from_user to set msg.msg_control.
-> 
-> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+>> +atomic_t snet_num_listeners = ATOMIC_INIT(0);
+>
+> The num_listeners seem to be redundant as you only support a
+> single listener anyways, whose presence is indicated by
+> snet_nl_pid != 0.
 
-This isn't right.
+I simplified the code, by removing the variable snet_num_listeners and
+use the value of snet_nl_pid
+ * if snet_nl_pid == 0, then there is no userspace listening application 
+ * if snet_nl_pid > 0, then its value is the PID of the listening
+   application
 
-We want the 'optval' pointer itself, not the data it points to, stored
-in msg.msg_control
+In the same time, I deleted the check on a listener for this operations
+on verdict : snet_nl_version, snet_nl_insert, snet_nl_remove,
+snet_nl_flush, snet_nl_verdict_delay. 
+In this way, it's possible to execute this operations and get events in
+the same time (which means have a listeners)
 
-And 'msg_control' is, in this case a user pointer.
+Patrick, thanks again for reviewing
 
-It just isn't annotated (along with the rest of struct msghdr) with
-"__user" because we mix the usage of this object with kernel and user
-pointers.
-
-How did you test your change?
+sam
