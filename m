@@ -1,81 +1,82 @@
-From: "Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>
-Subject: Additional whitelist PID to the wwan whitelist in cdc_ether
-Date: Sat, 16 Jan 2010 19:29:54 +0000
-Message-ID: <201001161929.55504.ajb@spheresystems.co.uk>
-Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_zOhULr14iJg0qtz"
-To: davem@davemloft.net,
-	Linux netdev Mailing list <netdev@vger.kernel.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH v2] ipv4: support for request type gratuitous ARP
+Date: Sun, 17 Jan 2010 00:18:54 +0200
+Message-ID: <1263680334-1770-1-git-send-email-opurdila@ixiacom.com>
+References: <20100110.132105.179935794.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Laurent Chavey <chavey@google.com>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from doppler.zen.co.uk ([212.23.3.27]:33390 "EHLO doppler.zen.co.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752273Ab0APTbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jan 2010 14:31:40 -0500
-Received: from [212.23.3.141] (helo=smarthost02.mail.zen.net.uk)
-	by doppler.zen.co.uk with esmtp (Exim 4.63)
-	(envelope-from <ajb@spheresystems.co.uk>)
-	id 1NWEN1-00032R-0G
-	for netdev@vger.kernel.org; Sat, 16 Jan 2010 19:31:39 +0000
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:29047 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752496Ab0APWWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 17:22:32 -0500
+In-Reply-To: <20100110.132105.179935794.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_zOhULr14iJg0qtz
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Even though we currently support response type gratuitous ARP
+[response type, source mac, dest mac, source IP, source IP] we do not
+support the request type [request type, source mac, ff:ff:ff:ff:ff:ff,
+source IP, source IP].
 
-Hi Dave,
-	I wonder if you might accept this patch to add an additional device to the 
-wwan whitelist in the cdc_ether driver?
+RFC2002 says:
 
-	In addition I wonder if the default interface flags are correct for wwan 
-devices? I would have expected to have 'IFF_NOARP' and 'IFF_POINTTOPOINT' 
-flags set, as this is essentially a ptp link that's not arp capable and 
-broadcast makes no sense. In any case for me I always have to turn off arp 
-with ifconfig to get any traffic through the device.
+     In either case, for a gratuitous ARP, the ARP packet MUST be
+     transmitted as a local broadcast packet on the local link.  As
+     specified in [16], any node receiving any ARP packet (Request or
+     Reply) MUST update its local ARP cache with the Sender Protocol
+     and Hardware Addresses in the ARP packet, if the receiving node
+     has an entry for that IP address already in its ARP cache.  This
+     requirement in the ARP protocol applies even for ARP Request
+     packets, and for ARP Reply packets that do not match any ARP
+     Request transmitted by the receiving node [16].
 
+This patch adds support for request type gratuitous ARP, but due to
+security reasons the ARP table is updated only if the per device
+ARP_ACCEPT option is enabled.
 
-Best regards,
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ net/ipv4/arp.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index c95cd93..588fed8 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -811,8 +811,13 @@ static int arp_process(struct sk_buff *skb)
+ 		goto out;
+ 	}
+ 
+-	if (arp->ar_op == htons(ARPOP_REQUEST) &&
+-	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
++	if (arp->ar_op == htons(ARPOP_REQUEST)) {
++		/* gratuitous ARP */
++		if (tip == sip && IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
++			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
++			goto update;
++		} else if (ip_route_input(skb, tip, sip, 0, dev) != 0)
++			goto update_lookup;
+ 
+ 		rt = skb_rtable(skb);
+ 		addr_type = rt->rt_type;
+@@ -853,6 +858,7 @@ static int arp_process(struct sk_buff *skb)
+ 		}
+ 	}
+ 
++update_lookup:
+ 	/* Update our ARP tables */
+ 
+ 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
+@@ -868,6 +874,7 @@ static int arp_process(struct sk_buff *skb)
+ 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
+ 	}
+ 
++update:
+ 	if (n) {
+ 		int state = NUD_REACHABLE;
+ 		int override;
+-- 
+1.5.6.5
 
-Andrew
-
---Boundary-00=_zOhULr14iJg0qtz
-Content-Type: text/x-patch;
-  charset="UTF-8";
-  name="0001-Add-Vodafone-K3805-Z-wwan-device-to-cdc_ether-whitel.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="0001-Add-Vodafone-K3805-Z-wwan-device-to-cdc_ether-whitel.patch"
-
-=46rom 136ed09380319253b16c93fefd1e8b355430bf22 Mon Sep 17 00:00:00 2001
-=46rom: Andrew Bird <ajb@spheresytems.co.uk>
-Date: Sat, 16 Jan 2010 19:14:10 +0000
-Subject: [PATCH] Add Vodafone K3805-Z wwan device to cdc_ether whitelist
-
-=2D--
- drivers/net/usb/cdc_ether.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 21e183a..36a6c25 100644
-=2D-- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -613,6 +613,11 @@ static const struct usb_device_id	products [] =3D {
- 	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8184, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
- 	.driver_info =3D (unsigned long) &mbm_info,
-+}, {
-+	/* Vodafone K3805-Z (ZTE-Icera) */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x19d2, 0x1003, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info =3D (unsigned long) &mbm_info,
- },
- 	{ },		// END
- };
-=2D-=20
-1.6.2.5
-
-
---Boundary-00=_zOhULr14iJg0qtz--
