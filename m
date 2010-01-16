@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ax25: netrom: rose: Fix timer oopses
-Date: Sat, 16 Jan 2010 01:04:35 -0800 (PST)
-Message-ID: <20100116.010435.55169828.davem@davemloft.net>
-References: <4B2E6729.1090102@free.fr>
-	<4B507FAA.8010007@free.fr>
-	<20100115203654.GA3084@del.dom.local>
+Subject: Re: [PATCH] macvlan: add GRO bit to features mask
+Date: Sat, 16 Jan 2010 01:05:47 -0800 (PST)
+Message-ID: <20100116.010547.45567789.davem@davemloft.net>
+References: <4B503E86.8010603@trash.net>
+	<20100115200039.10618.8232.stgit@mimic.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bpidoux@free.fr, bernard.pidoux@upmc.fr,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ralf@linux-mips.org, linux-hams@vger.kernel.org, rjw@sisk.pl
-To: jarkao2@gmail.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20100115203654.GA3084@del.dom.local>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
+	kaber@trash.net, arnd@arndb.de
+To: pmullaney@novell.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48143
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751627Ab0APJFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jan 2010 04:05:38 -0500
+In-Reply-To: <20100115200039.10618.8232.stgit@mimic.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 15 Jan 2010 21:36:54 +0100
+From: Patrick Mullaney <pmullaney@novell.com>
+Date: Fri, 15 Jan 2010 15:00:51 -0500
 
-> Wrong ax25_cb refcounting in ax25_send_frame() and by its callers can
-> cause timer oopses (first reported with 2.6.29.6 kernel).
+> Allow macvlan devices to support GRO.
 > 
-> Fixes: http://bugzilla.kernel.org/show_bug.cgi?id=14905
+> Signed-off-by: Patrick Mullaney <pmullaney@novell.com>
 > 
-> Reported-by: Bernard Pidoux <bpidoux@free.fr>
-> Tested-by: Bernard Pidoux <bpidoux@free.fr>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-Applied, thanks everyone.
+Applied to net-next-2.6, thanks.
