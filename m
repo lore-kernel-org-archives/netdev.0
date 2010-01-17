@@ -1,85 +1,78 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2] ipv4: support for request type gratuitous ARP
-Date: Sun, 17 Jan 2010 22:43:54 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.1001172213550.10728@u.domain.uli>
-References: <20100110.132105.179935794.davem@davemloft.net>
- <1263680334-1770-1-git-send-email-opurdila@ixiacom.com>
- <Pine.LNX.4.58.1001171310420.2769@u.domain.uli> <201001172055.52953.opurdila@ixiacom.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Laurent Chavey <chavey@google.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:50188 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754637Ab0AQUlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2010 15:41:12 -0500
-In-Reply-To: <201001172055.52953.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Subject: [PATCH] trivial: Some typos/punctuation in comments and coding style for net.
+Date: Sun, 17 Jan 2010 19:13:19 -0200
+Message-ID: <1263762799-9049-1-git-send-email-cascardo@holoscopio.com>
+Cc: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: trivial@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754796Ab0AQVPz@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+---
+ net/core/net_namespace.c |    2 +-
+ net/packet/af_packet.c   |   12 ++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-	Hello,
-
-On Sun, 17 Jan 2010, Octavian Purdila wrote:
-
-> On Sunday 17 January 2010 15:45:45 you wrote:
-> 
-> > 	May be I'm missing something but the description and
-> > the changed code do not match. You claim this patch now supports
-> > dest mac ff:ff:ff:ff:ff:ff while without the patch the
-> > 'skb->pkt_type != PACKET_HOST' check usually updates the
-> > existing entry with state NUD_STALE (neigh_update). What
-
-> Hi Julian,
-> 
-> Thanks for looking at this patch ! You are indeed correct, we don't need to do anything special when we want to update an existing ARP entry.
-> 
-> But I also want to be able to create a new ARP entry not only update an existing one (and we can do that with Linux today, but only with response type grat arp).
-> 
-> How about this new version?
-
-	Looks correct to me. You will save some CPU cycles
-if the 'arp->ar_op == htons(ARPOP_REQUEST)' check is not added.
-May be you also need to change arp_accept in 
-Documentation/networking/ip-sysctl.txt to show that we do not 
-differentiate Gratuitous ARP requests from replies.
-
-> [PATCH] ipv4: allow warming up the ARP cache with request type gratuitous ARP
-> 
-> If the per device ARP_ACCEPT option is enabled, currently we only allow
-> creating new ARP cache entries for response type gratuitous ARP.
-> 
-> Allowing gratuitous ARP to create new ARP entries (not only to update
-> existing ones) is useful when we want to avoid unnecessary delays for
-> the first packet of a stream.
-> 
-> This patch allows request type gratuitous ARP to create new ARP cache
-> entries as well. This is useful when we want to warm-up the ARP cache
-> entries for a large number of hosts on the same LAN.
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> ---
->  net/ipv4/arp.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index 0787092..1940b4d 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -907,7 +907,8 @@ static int arp_process(struct sk_buff *skb)
->  		   devices (strip is candidate)
->  		 */
->  		if (n == NULL &&
-> -		    arp->ar_op == htons(ARPOP_REPLY) &&
-> +		    (arp->ar_op == htons(ARPOP_REPLY) ||
-> +		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
->  		    inet_addr_type(net, sip) == RTN_UNICAST)
->  			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
->  	}
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index bd8c471..53a1aec 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -454,7 +454,7 @@ int register_pernet_subsys(struct pernet_operations *ops)
+ {
+ 	int error;
+ 	mutex_lock(&net_mutex);
+-	error =  register_pernet_operations(first_device, ops);
++	error = register_pernet_operations(first_device, ops);
+ 	mutex_unlock(&net_mutex);
+ 	return error;
+ }
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index f126d18..baf4ed5 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1,6 +1,6 @@
+ /*
+  * INET		An implementation of the TCP/IP protocol suite for the LINUX
+- *		operating system.  INET is implemented using the  BSD Socket
++ *		operating system. INET is implemented using the BSD Socket
+  *		interface as the means of communication with the user level.
+  *
+  *		PACKET - implements raw packet sockets.
+@@ -88,10 +88,10 @@
+ /*
+    Assumptions:
+    - if device has no dev->hard_header routine, it adds and removes ll header
+-     inside itself. In this case ll header is invisible outside of device,
++     inside itself. In this case, ll header is invisible outside of device,
+      but higher levels still should reserve dev->hard_header_len.
+      Some devices are enough clever to reallocate skb, when header
+-     will not fit to reserved space (tunnel), another ones are silly
++     will not fit to reserved space (tunnel), other ones are silly
+      (PPP).
+    - packet socket receives packets with pulled ll header,
+      so that SOCK_RAW should push it back.
+@@ -108,8 +108,8 @@ Outgoing, dev->hard_header!=NULL
+    data       -> ll header
+ 
+ Incoming, dev->hard_header==NULL
+-   mac_header -> UNKNOWN position. It is very likely, that it points to ll
+-		 header.  PPP makes it, that is wrong, because introduce
++   mac_header -> UNKNOWN position. It is very likely that it points to ll
++		 header.  PPP makes it. That is wrong, because it introduces
+ 		 assymetry between rx and tx paths.
+    data       -> data
+ 
+@@ -132,7 +132,7 @@ dev->hard_header == NULL (ll header is added by device, we cannot control it)
+    mac_header -> data
+    data       -> data
+ 
+-   We should set nh.raw on output to correct posistion,
++   We should set nh.raw on output to correct position,
+    packet classifier depends on it.
+  */
+ 
+-- 
+1.6.6
