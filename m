@@ -1,160 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/2] bnx2: Refine statistics code.
-Date: Sun, 17 Jan 2010 09:30:43 -0800
-Message-ID: <1263749444-17072-1-git-send-email-mchan@broadcom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Sun, 17 Jan 2010 09:22:21 -0800
+Message-ID: <20100117092221.2fca789c@nehalam>
+References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
+	<20100114145633.4c2d4ac6@nehalam>
+	<1263607893.17815.114.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1518 "EHLO mms2.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:41780 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174Ab0AQRW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2010 12:22:27 -0500
+	id S1752174Ab0AQRWs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2010 12:22:48 -0500
+In-Reply-To: <1263607893.17815.114.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refine the statistics macros by passing in just the name of the
-counter field.  This makes it a lot easier and cleaner to add
-counters saved before the last reset in the next patch.
+On Sat, 16 Jan 2010 02:11:33 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |   62 ++++++++++++++++++++++++++-------------------------
- 1 files changed, 32 insertions(+), 30 deletions(-)
+> On Thu, 2010-01-14 at 14:56 -0800, Stephen Hemminger wrote:
+> > On Thu, 14 Jan 2010 13:56:23 -0800 (PST)
+> > Tom Herbert <therbert@google.com> wrote:
+> [...]
+> > > The CPU masks is set on a per device basis in the sysfs variable
+> > > /sys/class/net/<device>/rps_cpus.  This is a set of canonical bit maps for
+> > > each NAPI nstance of the device.  For example:
+> > > 
+> > > echo "0b 0b0 0b00 0b000" > /sys/class/net/eth0/rps_cpus
+> > 
+> > Why not make a kobject out of cpus which would add subdirectory.
+> > This would keep interface consistent with the one value per file
+> > semantic of sysfs.
+> 
+> Do you mean a kobject per NAPI context, each initially with a rps_cpus
+> attribute holding a CPU mask, or a kobject per CPU, each with an
+> attribute specifying which NAPI contexts it does work for?  (Personally
+> I'd favour the first.)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index b1c20e5..47fb508 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6542,92 +6542,94 @@ bnx2_close(struct net_device *dev)
- 	return 0;
- }
- 
--#define GET_NET_STATS64(ctr)					\
-+#define GET_64BIT_NET_STATS64(ctr)				\
- 	(unsigned long) ((unsigned long) (ctr##_hi) << 32) +	\
- 	(unsigned long) (ctr##_lo)
- 
--#define GET_NET_STATS32(ctr)		\
-+#define GET_64BIT_NET_STATS32(ctr)				\
- 	(ctr##_lo)
- 
- #if (BITS_PER_LONG == 64)
--#define GET_NET_STATS	GET_NET_STATS64
-+#define GET_64BIT_NET_STATS(ctr)				\
-+	GET_64BIT_NET_STATS64(bp->stats_blk->ctr)
- #else
--#define GET_NET_STATS	GET_NET_STATS32
-+#define GET_64BIT_NET_STATS(ctr)				\
-+	GET_64BIT_NET_STATS32(bp->stats_blk->ctr)
- #endif
- 
-+#define GET_32BIT_NET_STATS(ctr)				\
-+	(unsigned long) (bp->stats_blk->ctr)
-+
- static struct net_device_stats *
- bnx2_get_stats(struct net_device *dev)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
--	struct statistics_block *stats_blk = bp->stats_blk;
- 	struct net_device_stats *net_stats = &dev->stats;
- 
- 	if (bp->stats_blk == NULL) {
- 		return net_stats;
- 	}
- 	net_stats->rx_packets =
--		GET_NET_STATS(stats_blk->stat_IfHCInUcastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCInMulticastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCInBroadcastPkts);
-+		GET_64BIT_NET_STATS(stat_IfHCInUcastPkts) +
-+		GET_64BIT_NET_STATS(stat_IfHCInMulticastPkts) +
-+		GET_64BIT_NET_STATS(stat_IfHCInBroadcastPkts);
- 
- 	net_stats->tx_packets =
--		GET_NET_STATS(stats_blk->stat_IfHCOutUcastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts) +
--		GET_NET_STATS(stats_blk->stat_IfHCOutBroadcastPkts);
-+		GET_64BIT_NET_STATS(stat_IfHCOutUcastPkts) +
-+		GET_64BIT_NET_STATS(stat_IfHCOutMulticastPkts) +
-+		GET_64BIT_NET_STATS(stat_IfHCOutBroadcastPkts);
- 
- 	net_stats->rx_bytes =
--		GET_NET_STATS(stats_blk->stat_IfHCInOctets);
-+		GET_64BIT_NET_STATS(stat_IfHCInOctets);
- 
- 	net_stats->tx_bytes =
--		GET_NET_STATS(stats_blk->stat_IfHCOutOctets);
-+		GET_64BIT_NET_STATS(stat_IfHCOutOctets);
- 
- 	net_stats->multicast =
--		GET_NET_STATS(stats_blk->stat_IfHCOutMulticastPkts);
-+		GET_64BIT_NET_STATS(stat_IfHCOutMulticastPkts);
- 
- 	net_stats->collisions =
--		(unsigned long) stats_blk->stat_EtherStatsCollisions;
-+		GET_32BIT_NET_STATS(stat_EtherStatsCollisions);
- 
- 	net_stats->rx_length_errors =
--		(unsigned long) (stats_blk->stat_EtherStatsUndersizePkts +
--		stats_blk->stat_EtherStatsOverrsizePkts);
-+		GET_32BIT_NET_STATS(stat_EtherStatsUndersizePkts) +
-+		GET_32BIT_NET_STATS(stat_EtherStatsOverrsizePkts);
- 
- 	net_stats->rx_over_errors =
--		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
--		stats_blk->stat_IfInMBUFDiscards);
-+		GET_32BIT_NET_STATS(stat_IfInFTQDiscards) +
-+		GET_32BIT_NET_STATS(stat_IfInMBUFDiscards);
- 
- 	net_stats->rx_frame_errors =
--		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors;
-+		GET_32BIT_NET_STATS(stat_Dot3StatsAlignmentErrors);
- 
- 	net_stats->rx_crc_errors =
--		(unsigned long) stats_blk->stat_Dot3StatsFCSErrors;
-+		GET_32BIT_NET_STATS(stat_Dot3StatsFCSErrors);
- 
- 	net_stats->rx_errors = net_stats->rx_length_errors +
- 		net_stats->rx_over_errors + net_stats->rx_frame_errors +
- 		net_stats->rx_crc_errors;
- 
- 	net_stats->tx_aborted_errors =
--    		(unsigned long) (stats_blk->stat_Dot3StatsExcessiveCollisions +
--		stats_blk->stat_Dot3StatsLateCollisions);
-+		GET_32BIT_NET_STATS(stat_Dot3StatsExcessiveCollisions) +
-+		GET_32BIT_NET_STATS(stat_Dot3StatsLateCollisions);
- 
- 	if ((CHIP_NUM(bp) == CHIP_NUM_5706) ||
- 	    (CHIP_ID(bp) == CHIP_ID_5708_A0))
- 		net_stats->tx_carrier_errors = 0;
- 	else {
- 		net_stats->tx_carrier_errors =
--			(unsigned long)
--			stats_blk->stat_Dot3StatsCarrierSenseErrors;
-+			GET_32BIT_NET_STATS(stat_Dot3StatsCarrierSenseErrors);
- 	}
- 
- 	net_stats->tx_errors =
--    		(unsigned long)
--		stats_blk->stat_emac_tx_stat_dot3statsinternalmactransmiterrors
--		+
-+		GET_32BIT_NET_STATS(stat_emac_tx_stat_dot3statsinternalmactransmiterrors) +
- 		net_stats->tx_aborted_errors +
- 		net_stats->tx_carrier_errors;
- 
- 	net_stats->rx_missed_errors =
--		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
--		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop);
-+		GET_32BIT_NET_STATS(stat_IfInFTQDiscards) +
-+		GET_32BIT_NET_STATS(stat_IfInMBUFDiscards) +
-+		GET_32BIT_NET_STATS(stat_FwRxDrop);
- 
- 	return net_stats;
- }
--- 
-1.6.4.GIT
+Yes, make NAPI real kobjects, linked to device.
 
-
+BUT
+make sure this also handles case of N to 1 mapping as well
+as 1 to N case.
