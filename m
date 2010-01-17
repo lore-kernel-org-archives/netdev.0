@@ -1,49 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: disablenetwork (v5): Simplify the disablenetwork sendmsg hook.
-Date: Sun, 17 Jan 2010 18:25:00 +0000
-Message-ID: <20100117182500.4938bb88@lxorguk.ukuu.org.uk>
-References: <20100117161053.GG3420@redhat.com>
-	<20100117170431.GA2949@heat>
-	<20100117180405.GA32339@redhat.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 1/1] Constify struct sysfs_ops for v2.6.33-rc4
+Date: Sun, 17 Jan 2010 18:25:37 +0000
+Message-ID: <20100117182537.GQ19799@ZenIV.linux.org.uk>
+References: <4B5338D6.2050209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Stone <michael@laptop.org>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754357Ab0AQSWQ@vger.kernel.org>
-In-Reply-To: <20100117180405.GA32339@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, teigland@redhat.com,
+	Matt_Domsch@dell.com, maciej.sosnowski@intel.com,
+	hjk@linutronix.de, Pekka Enberg <penberg@cs.helsinki.fi>,
+	jens.axboe@oracle.com, shemminger@vyatta.com,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	Greg KH <gregkh@suse.de>
+To: Emese Revfy <re.emese@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:58396 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754173Ab0AQSZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 13:25:44 -0500
+Content-Disposition: inline
+In-Reply-To: <4B5338D6.2050209@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >>> are all to be permitted but that calls like
-> >>>
-> >>>    sendto(fd, buffer, len, 0, (struct sockadr *) &addr, sizeof(addr));
-> >>>
-> >>> are to be rejected when the current task's network is disabled on the grounds
-> >>> that the former calls must use previously connected sockets but that the latter
-> >>> socket need not have been previously connected.
+On Sun, Jan 17, 2010 at 05:20:38PM +0100, Emese Revfy wrote:
 
-Not surprised to see this "simple" idea is unsurprisingly turning
-incredibly complex, full of policy and also holes. Can people now accept
-that the reason we have rather more complex models for security policy is
-because generally speaking these "oh so simple" little magic switches
-don't actually work or solve any real world problems.
+> Signed-off-by: Emese Revfy <re.emese@gmail.com>
+> Acked-by: David Teigland <teigland@redhat.com>
+> Acked-by: Matt Domsch <Matt_Domsch@dell.com>
+> Acked-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+> Acked-by: Hans J. Koch <hjk@linutronix.de>
+> Acked-by: Pekka Enberg <penberg@cs.helsinki.fi>
+> Acked-by: Jens Axboe <jens.axboe@oracle.com>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-And just to point out further problems - there are numerous cases where I
-can control the remote destination of messages without using sendto or
-passing addresses in obvious manners. You'll need to parse all the ioctls
-and protocol specific calls as a starter. You'll also need a policy
-engine of some form to detect when I can use send stuff in one socket I
-have rights to in order to influence routing of another by talking to
-network stuff or emitting controlling messages of any form.
+NACKed-by: Al Viro <viro@zeniv.linux.org.uk>
 
-(and even then there are tons of cases you can't fix that way as the
-early Java people found to their cost. Things like connecting to a web
-server via a socket that can only connect to port 80 and issuing proxy
-requests, or triggering a remote carefully placed cgi script to produce
-tunnels with total control.
+Same reason.
 
-Alan
+> -        ssize_t (*show)(struct kobject *, struct attribute *, char *);
+> -        ssize_t (*store)(struct kobject *, struct attribute *, const char *);
+> +        ssize_t (* const show)(struct kobject *, struct attribute *, char *);
+> +        ssize_t (* const store)(struct kobject *, struct attribute *, const char *);
