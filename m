@@ -1,66 +1,38 @@
-From: "Andrew G. Morgan" <morgan@kernel.org>
-Subject: Re: disablenetwork (v5): Require CAP_SETPCAP to enable
-Date: Sat, 16 Jan 2010 20:58:27 -0800
-Message-ID: <551280e51001162058n52ee94b7v5ccb10d80284bc@mail.gmail.com>
-References: <551280e51001161858q740bf246n2ed389920de689e7@mail.gmail.com>
-	 <20100117044825.GA2712@heat>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
+Date: Sun, 17 Jan 2010 06:42:48 +0100
+Message-ID: <m2ocktffs7.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-8-git-send-email-sam@synack.fr>
+	<4B420464.3040301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20100117044825.GA2712@heat>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:46808 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831Ab0AQFmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 00:42:51 -0500
+In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
+	04 Jan 2010 16:08:20 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 16, 2010 at 8:48 PM, Michael Stone <michael@laptop.org> wrote:
-> Andrew Morgan wrote:
->>
->> Please use CAP_NET_ADMIN for this feature (and add the corresponding
->> comment in include/linux/capabilities.h).
+Patrick McHardy <kaber@trash.net> writes:
+
+> Samir Bellabes wrote:
+>> +	skb_rsp = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+>> +	if (skb_rsp == NULL)
+>> +		return 0;
 >
-> Sure.
-> However, to make sure I understand the purpose of the adjustment, would you
-> mind saying a word or two about what considerations cause you to recommend
-> CAP_NET_ADMIN instead of (or in addition to?) CAP_SETPCAP?
+> You could decrease the chance of rcvqueue overflow by using a smaller
+> allocation size.
 
-If you take a look at the capabilities.h file, you'll see that each of
-the capabilities is preceded by an explanation of what privilege it
-enables.
+I took care of this by calculating the exact needed size.
 
-CAP_SETPCAP refers to privileged manipulation of capabilities
-(permission to violate the normal capability rules) and nothing to do
-with the network.
-
-You are adding something akin to a per-process tree firewall setting -
-deny/enable network access to this process. I think you'll agree that
-the CAP_NET_ADMIN description is a much better match for this.
-
-Cheers
-
-Andrew
-
->
-> Thanks for your feedback,
->
-> Michael
->
+thanks,
+sam
