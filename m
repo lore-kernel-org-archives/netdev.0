@@ -1,38 +1,53 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
-Date: Sun, 17 Jan 2010 06:42:48 +0100
-Message-ID: <m2ocktffs7.fsf@ssh.synack.fr>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr>
-	<1262437456-24476-8-git-send-email-sam@synack.fr>
-	<4B420464.3040301@trash.net>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: disablenetwork (v5) patches
+Date: Sun, 17 Jan 2010 01:01:41 -0500
+Message-ID: <f73f7ab81001162201v1956351boa9241ce440e62a09@mail.gmail.com>
+References: <20100114173639.GA15587@us.ibm.com> <20100115081028.GA14004@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Bryan Donlan <bdonlan@gmail.com>,
 	Evgeniy Polyakov <zbr@ioremap.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:46808 "EHLO
-	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831Ab0AQFmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 00:42:51 -0500
-In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
-	04 Jan 2010 16:08:20 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"C. Scott Ananian" <cscott@cscott.net>,
+	James Morris <jmorris@namei.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	=?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100115081028.GA14004@heat>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Fri, Jan 15, 2010 at 03:10, Michael Stone <michael@laptop.org> wrote:
+> As promised, here are patches implementing and documenting a CAP_SETPCAP-gated
+> "enable" bit along with a couple of other tweaks discussed earlier in the
+> thread. For ease of development and review, the following four patches
+> extend the disablenetwork (v4) patch series rather than replacing it.
 
-> Samir Bellabes wrote:
->> +	skb_rsp = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
->> +	if (skb_rsp == NULL)
->> +		return 0;
->
-> You could decrease the chance of rcvqueue overflow by using a smaller
-> allocation size.
+To be honest, I'm still not convinced that this is the right way to
+approach your problem.  I think you would be much better off with
+something analogous to the stripped-down SELinux policy I sent in an
+earlier email (150 lines, give or take).  By using the appropriate
+SELinux hooks you can obtain the *exact* same enforcement, but without
+adding any code to the kernel.
 
-I took care of this by calculating the exact needed size.
+I have some time this week to split out my SELinux policy build
+machinery; I will pull out a standalone set of files to build the
+policy and do some extra testing on one of my bog-standard Debian
+boxes and then send it all out again.
 
-thanks,
-sam
+Cheers,
+Kyle Moffett
