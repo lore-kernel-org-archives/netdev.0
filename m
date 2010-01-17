@@ -1,244 +1,218 @@
 From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH v2] ipv4: support for request type gratuitous ARP
-Date: Sun, 17 Jan 2010 20:55:52 +0200
-Message-ID: <201001172055.52953.opurdila@ixiacom.com>
-References: <20100110.132105.179935794.davem@davemloft.net> <1263680334-1770-1-git-send-email-opurdila@ixiacom.com> <Pine.LNX.4.58.1001171310420.2769@u.domain.uli>
+Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
+Date: Sun, 17 Jan 2010 21:27:03 +0200
+Message-ID: <201001172127.03713.opurdila@ixiacom.com>
+References: <20100111.161537.85213244.davem@davemloft.net> <201001132307.59472.opurdila@ixiacom.com> <20100114.020322.168786392.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_401ULGz9OttGUg5"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Laurent Chavey <chavey@google.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:28157 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752422Ab0AQS7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 13:59:18 -0500
-In-Reply-To: <Pine.LNX.4.58.1001171310420.2769@u.domain.uli>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Boundary-00=_401ULGz9OttGUg5
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:7136 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754509Ab0AQTa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 14:30:29 -0500
+In-Reply-To: <20100114.020322.168786392.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 17 January 2010 15:45:45 you wrote:
-
-> 	May be I'm missing something but the description and
-> the changed code do not match. You claim this patch now supports
-> dest mac ff:ff:ff:ff:ff:ff while without the patch the
-> 'skb->pkt_type != PACKET_HOST' check usually updates the
-> existing entry with state NUD_STALE (neigh_update). What
-> exactly is not handled correctly?
+On Thursday 14 January 2010 12:03:22 you wrote:
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Wed, 13 Jan 2010 23:07:59 +0200
 > 
-> 	I think, the existing entry should be updated
-> properly even without the patch, when sip=tip. May be
-> there is unwanted ARP reply? It is not clear from this email. Can
-> you give example why we need to override ip_route_input? What is
-> the case that there is existing entry for sip that we want
-> to update but for some reason we do not like ip_route_input
-> result and entry is not updated? I don't think, ip_route_input
-> will do something different when sip=tip=unicast address.
-> This is not much different from the case when tip is IP
-> from the same subnet as sip. There are only 2 'goto out' but
-> both places update the entry depending on some policy.
+> > I think we lost the SynAck accounting with this commit from the
+> > netdev-vger- cvs tree, where tcp_syn_recv_timer was introduced:
+> >
+> > commit 2248761e5cfcb8687563b29c77064185e7604947
+> > Author: davem <davem>
+> > Date:   Sun Nov 10 21:25:00 1996 +0000
+> >
+> >     Merge to 2.1.8, IPV6 is here.  Also fix
+> >     a stupid bug in the kernel unaligned trap handler
+> >     where st %g0, [foo] would fail miserably.
+> >
+> >
+> > Before this, both Syns and SynAcks seems to be accounted for.
 > 
-> 	Also, you call neigh_event_ns which creates new entry while
-> RFC talks about updating existing entry: "if the receiving node
-> has an entry for that IP address already in its ARP cache".
-> We don't want to create new entry. After neigh_event_ns you
-> jump again to update (2nd unneeded update).
+> I'm convinced.
 > 
-> 	As for arp_accept, it only allows creating new ARP
-> entries on received reply, but when disabled it does not
-> prevent updates for existing entries.
+> Please spin your patch with the "doing TCP socket specific
+> stuff in generic inet connection socket code" part fixed.
 > 
 
-Hi Julian,
+Hi David,
 
-Thanks for looking at this patch ! You are indeed correct, we don't need to do anything special when we want to update an existing ARP entry.
+Here it is. I've based this against net-next since it is more intrusive then the original one. I can rebase it against net-2.6 if you think it can make it there.
 
-But I also want to be able to create a new ARP entry not only update an existing one (and we can do that with Linux today, but only with response type grat arp).
+Also, please let me know if you think I should split it up (maybe is worth having syn_ack_timeout in a separate patch, but to me it looks too small).
 
-How about this new version?
+[net-next PATCH v2] tcp: account SYN-ACK timeouts & retransmissions
 
-[PATCH] ipv4: allow warming up the ARP cache with request type gratuitous ARP
+Currently we don't increment SYN-ACK timeouts & retransmissions
+although we do increment the same stats for SYN. We seem to have lost
+the SYN-ACK accounting with the introduction of tcp_syn_recv_timer
+(commit 2248761e in the netdev-vger-cvs tree).
 
-If the per device ARP_ACCEPT option is enabled, currently we only allow
-creating new ARP cache entries for response type gratuitous ARP.
-
-Allowing gratuitous ARP to create new ARP entries (not only to update
-existing ones) is useful when we want to avoid unnecessary delays for
-the first packet of a stream.
-
-This patch allows request type gratuitous ARP to create new ARP cache
-entries as well. This is useful when we want to warm-up the ARP cache
-entries for a large number of hosts on the same LAN.
+This patch fixes this issue. In the process we also rename the v4/v6
+syn/ack retransmit functions for clarity. We also add a new
+request_socket operations (syn_ack_timeout) so we can keep code in
+inet_connection_sock.c protocol agnostic.
 
 Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- net/ipv4/arp.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ include/net/request_sock.h      |    2 ++
+ include/net/tcp.h               |    2 ++
+ net/ipv4/inet_connection_sock.c |    2 ++
+ net/ipv4/tcp_ipv4.c             |   18 ++++++++++--------
+ net/ipv4/tcp_timer.c            |    6 ++++++
+ net/ipv6/tcp_ipv6.c             |   12 ++++++++++--
+ 6 files changed, 32 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 0787092..1940b4d 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -907,7 +907,8 @@ static int arp_process(struct sk_buff *skb)
- 		   devices (strip is candidate)
- 		 */
- 		if (n == NULL &&
--		    arp->ar_op == htons(ARPOP_REPLY) &&
-+		    (arp->ar_op == htons(ARPOP_REPLY) ||
-+		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
- 		    inet_addr_type(net, sip) == RTN_UNICAST)
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index c9b50eb..99e6e19 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -45,6 +45,8 @@ struct request_sock_ops {
+ 	void		(*send_reset)(struct sock *sk,
+ 				      struct sk_buff *skb);
+ 	void		(*destructor)(struct request_sock *req);
++	void		(*syn_ack_timeout)(struct sock *sk,
++					   struct request_sock *req);
+ };
+ 
+ /* struct request_sock - mini sock to represent a connection request
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 788c99f..87d164b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -400,6 +400,8 @@ extern int			compat_tcp_setsockopt(struct sock *sk,
+ 					int level, int optname,
+ 					char __user *optval, unsigned int optlen);
+ extern void			tcp_set_keepalive(struct sock *sk, int val);
++extern void			tcp_syn_ack_timeout(struct sock *sk,
++						    struct request_sock *req);
+ extern int			tcp_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 					    struct msghdr *msg,
+ 					    size_t len, int nonblock, 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index ee16475..8da6429 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -529,6 +529,8 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 				syn_ack_recalc(req, thresh, max_retries,
+ 					       queue->rskq_defer_accept,
+ 					       &expire, &resend);
++				if (req->rsk_ops->syn_ack_timeout)
++					req->rsk_ops->syn_ack_timeout(parent, req);
+ 				if (!expire &&
+ 				    (!resend ||
+ 				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 382f667..356f544 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -742,9 +742,9 @@ static void tcp_v4_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+  *	This still operates on a request_sock only, not on a big
+  *	socket.
+  */
+-static int __tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+-				struct request_sock *req,
+-				struct request_values *rvp)
++static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
++			      struct request_sock *req,
++			      struct request_values *rvp)
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	int err = -1;
+@@ -775,10 +775,11 @@ static int __tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+ 	return err;
+ }
+ 
+-static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
++static int tcp_v4_rtx_synack(struct sock *sk, struct request_sock *req,
+ 			      struct request_values *rvp)
+ {
+-	return __tcp_v4_send_synack(sk, NULL, req, rvp);
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
++	return tcp_v4_send_synack(sk, NULL, req, rvp);
+ }
+ 
+ /*
+@@ -1192,10 +1193,11 @@ static int tcp_v4_inbound_md5_hash(struct sock *sk, struct sk_buff *skb)
+ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
+ 	.family		=	PF_INET,
+ 	.obj_size	=	sizeof(struct tcp_request_sock),
+-	.rtx_syn_ack	=	tcp_v4_send_synack,
++	.rtx_syn_ack	=	tcp_v4_rtx_synack,
+ 	.send_ack	=	tcp_v4_reqsk_send_ack,
+ 	.destructor	=	tcp_v4_reqsk_destructor,
+ 	.send_reset	=	tcp_v4_send_reset,
++	.syn_ack_timeout = 	tcp_syn_ack_timeout,
+ };
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1373,8 +1375,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
  	}
+ 	tcp_rsk(req)->snt_isn = isn;
+ 
+-	if (__tcp_v4_send_synack(sk, dst, req,
+-				 (struct request_values *)&tmp_ext) ||
++	if (tcp_v4_send_synack(sk, dst, req,
++			       (struct request_values *)&tmp_ext) ||
+ 	    want_cookie)
+ 		goto drop_and_free;
+ 
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 8816a20..de7d1bf 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -474,6 +474,12 @@ static void tcp_synack_timer(struct sock *sk)
+ 				   TCP_TIMEOUT_INIT, TCP_RTO_MAX);
+ }
+ 
++void tcp_syn_ack_timeout(struct sock *sk, struct request_sock *req)
++{
++	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPTIMEOUTS);
++}
++EXPORT_SYMBOL(tcp_syn_ack_timeout);
++
+ void tcp_set_keepalive(struct sock *sk, int val)
+ {
+ 	if ((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN))
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 1c832bf..82f2dea 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -520,6 +520,13 @@ done:
+ 	return err;
+ }
+ 
++static int tcp_v6_rtx_synack(struct sock *sk, struct request_sock *req,
++			     struct request_values *rvp)
++{
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
++	return tcp_v6_send_synack(sk, req, rvp);
++}
++
+ static inline void syn_flood_warning(struct sk_buff *skb)
+ {
+ #ifdef CONFIG_SYN_COOKIES
+@@ -890,10 +897,11 @@ static int tcp_v6_inbound_md5_hash (struct sock *sk, struct sk_buff *skb)
+ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
+ 	.family		=	AF_INET6,
+ 	.obj_size	=	sizeof(struct tcp6_request_sock),
+-	.rtx_syn_ack	=	tcp_v6_send_synack,
++	.rtx_syn_ack	=	tcp_v6_rtx_synack,
+ 	.send_ack	=	tcp_v6_reqsk_send_ack,
+ 	.destructor	=	tcp_v6_reqsk_destructor,
+-	.send_reset	=	tcp_v6_send_reset
++	.send_reset	=	tcp_v6_send_reset,
++	.syn_ack_timeout = 	tcp_syn_ack_timeout,
+ };
+ 
+ #ifdef CONFIG_TCP_MD5SIG
 -- 
 1.5.6.5
 
-
---Boundary-00=_401ULGz9OttGUg5
-Content-Type: text/x-csrc;
-  charset="UTF-8";
-  name="gratarp.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="gratarp.c"
-
-/*
- * Send gratuitous ARP, based on send_arp from the Linux fake package.
- */
-
-/* send_arp.c
-
-   This program sends out one ARP packet with source/target IP and Ethernet
-   hardware addresses suuplied by the user.  It compiles and works on Linux
-   and will probably work on any Unix that has SOCK_PACKET.
-
-   The idea behind this program is a proof of a concept, nothing more.  It
-   comes as is, no warranty.  However, you're allowed to use it under one
-   condition: you must use your brain simultaneously.  If this condition is
-   not met, you shall forget about this program and go RTFM immediately.
-
-   yuri volobuev'97
-   volobuev@t1.chem.umn.edu
-
-*/
-
-#include <stdio.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <netinet/ether.h>
-#include <sys/socket.h>
-#include <netpacket/packet.h>
-#include <net/ethernet.h> /* the L2 protocols */
-
-
-#define ETH_HW_ADDR_LEN 6
-#define IP_ADDR_LEN 4
-#define ARP_FRAME_TYPE 0x0806
-#define ETHER_HW_TYPE 1
-#define IP_PROTO_TYPE 0x0800
-#define OP_ARP_REQUEST 1
-#define OP_ARP_REPLY 2
-
-struct arp_packet {
-        u_char targ_hw_addr[ETH_HW_ADDR_LEN];
-        u_char src_hw_addr[ETH_HW_ADDR_LEN];
-        u_short frame_type;
-        u_short hw_type;
-        u_short prot_type;
-        u_char hw_addr_size;
-        u_char prot_addr_size;
-        u_short op;
-        u_char sndr_hw_addr[ETH_HW_ADDR_LEN];
-        u_char sndr_ip_addr[IP_ADDR_LEN];
-        u_char rcpt_hw_addr[ETH_HW_ADDR_LEN];
-        u_char rcpt_ip_addr[IP_ADDR_LEN];
-        u_char padding[18];
-};
-
-int main(int argc,char** argv)
-{
-	struct arp_packet pkt = { { 0, }, };
-	struct sockaddr_ll sa = {
-		.sll_family = AF_PACKET,
-	};
-	struct ifreq ifr;
-	int sock;
-
-	if (argc != 2 && argc != 3) {
-		fprintf(stderr, "usage: gratarp ifname [target_mac_address]\n");
-		return 1;
-	}
-
-	sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_RARP));
-	if (sock<0){
-		perror("socket");
-		exit(1);
-        }
-
-	pkt.frame_type = htons(ARP_FRAME_TYPE);
-	pkt.hw_type = htons(ETHER_HW_TYPE);
-	pkt.prot_type = htons(IP_PROTO_TYPE);
-	pkt.hw_addr_size = ETH_HW_ADDR_LEN;
-	pkt.prot_addr_size = IP_ADDR_LEN;
-
-	memset (&ifr, 0, sizeof(ifr));
-	memcpy (&ifr.ifr_name, argv[1], strlen(argv[1]));
-
-	if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
-		perror("SIOCGIFINDEX");
-	sa.sll_ifindex = ifr.ifr_ifindex;
-
-	if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
-		perror("SIOCGIFHWADDR");
-		return 2;
-	}
-	memcpy(pkt.src_hw_addr, ifr.ifr_hwaddr.sa_data, 6);
-	memcpy(pkt.sndr_hw_addr, ifr.ifr_hwaddr.sa_data, 6);
-
-	/* pickup the target mac address */
-	if (argc > 2) {
-		struct ether_addr *eth_addr = ether_aton(argv[2]);
-		if (!eth_addr) {
-			perror("ether_aton\n");
-			return 4;
-		}
-		memcpy(pkt.targ_hw_addr, eth_addr, 6);
-		memcpy(pkt.rcpt_hw_addr, eth_addr, 6);
-		memcpy(sa.sll_addr, eth_addr, 6);
-		pkt.op = htons(OP_ARP_REPLY);
-	} else {
-		pkt.op = htons(OP_ARP_REQUEST);
-		memset(pkt.targ_hw_addr, 0xff, 6);
-	}
-	sa.sll_halen = 6;
-
-	if (ioctl(sock, SIOCGIFADDR, &ifr) < 0) {
-		perror("SIOCGIFADDR");
-		return 5;
-	}
-	memcpy(pkt.sndr_ip_addr, &((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr, 4);
-	memcpy(pkt.rcpt_ip_addr, &((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr, 4);
-
-	if (sendto(sock, &pkt, sizeof(pkt), 0, (struct sockaddr*)&sa, sizeof(sa)) < 0){
-		perror("sendto");
-		return 4;
-        }
-
-	return 0;
-}
-
-
---Boundary-00=_401ULGz9OttGUg5--
