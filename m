@@ -1,185 +1,101 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: disablenetwork (v5) patches
-Date: Sun, 17 Jan 2010 16:17:17 -0500
-Message-ID: <f73f7ab81001171317y39aec7b2s3f8bce4c689fa82@mail.gmail.com>
-References: <f73f7ab81001162201v1956351boa9241ce440e62a09@mail.gmail.com>
-	<20100117180728.GA2848@heat>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Sun, 17 Jan 2010 23:17:46 +0100
+Message-ID: <20100117221746.GA3161@del.dom.local>
+References: <4B475FF9.7000702@majjas.com>
+ <20100108212923.GA3078@del.dom.local>
+ <4B47A81B.5040601@majjas.com>
+ <4B4809EF.1070609@majjas.com>
+ <20100109122830.GA4386@del.dom.local>
+ <4B48CC2C.2090403@majjas.com>
+ <4B4E2F89.2050606@majjas.com>
+ <20100113210908.GA3065@del.dom.local>
+ <4B4E3834.3000609@majjas.com>
+ <4B533A46.9050600@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Bryan Donlan <bdonlan@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	"C. Scott Ananian" <cscott@cscott.net>,
-	James Morris <jmorris@namei.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Bernie Innocenti <bernie@codewiz.org>,
-	Mark Seaborn <mrs@mythic-beasts.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	=?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Samir Bellabes <sam@synack.fr>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>, Pavel Machek <pavel@ucw.cz>,
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20100117180728.GA2848@heat>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f225.google.com ([209.85.220.225]:40566 "EHLO
+	mail-fx0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754Ab0AQWR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 17:17:56 -0500
+Content-Disposition: inline
+In-Reply-To: <4B533A46.9050600@majjas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 17, 2010 at 13:07, Michael Stone <michael@laptop.org> wrote=
-:
-> Kyle Moffett wrote:
->> I have some time this week to split out my SELinux policy build
->> machinery; I will pull out a standalone set of files to build the
->> policy and do some extra testing on one of my bog-standard Debian
->> boxes and then send it all out again.
->
-> Questions:
->
-> =C2=A01) Your patch seems to rely on a chunk of custom policy. Can th=
-is chunk of
-> =C2=A0 =C2=A0 policy coexist without modification with pre-existing p=
-olicies like the
-> =C2=A0 =C2=A0 ones Fedora ships?
->
-> =C2=A0 =C2=A0 If I understand correctly, the answer is "not as it is =
-written today", for
-> =C2=A0 =C2=A0 a couple of reasons:
+On Sun, Jan 17, 2010 at 11:26:46AM -0500, Michael Breuer wrote:
+> On 01/13/2010 04:16 PM, Michael Breuer wrote:
+> >On 1/13/2010 4:09 PM, Jarek Poplawski wrote:
+> >>On Wed, Jan 13, 2010 at 03:39:37PM -0500, Michael Breuer wrote:
+> >>>Just an FYI - 2.6.32.3 with alt 3 af_packet patch&  sky2
+> >>>pskb_may_pull runs OK with DMAR (re)enabled and msi enabled.
+> >>Hmm... What a pity! It was such a useful debugging tool for
+> >>networking ;-) BTW, I'm not sure if "runs OK" means with or without
+> >>those DHCP drops&  large packets you described.
+> >>
+> >>Thanks,
+> >>Jarek P.
+> >As of now, no errors even when blasting traffic & forcing dhcp
+> >packets as before. I haven't tried putting mtu back to 9k yet. OK
+> >means that there are no obvious differences in behavior with or
+> >without DMAR all else being equal.
+> >
+> >There were some updates made to stable that could have fixed this
+> >- I'd guess intel_iommu fixes helped.
+> >
+> >If it helps, I'm still getting one error without DMAR enabled - at
+> >startup, there's a DMA sync oops - mismatch of 72 bytes coming
+> >from sky2. That oops was posted previously - with DMAR (re)
+> >enabled, there's no related oops.
+> Update: after leaving the system up for a few days, I hit the DMAR
+> error again.
 
-Essentially, yes, the policy that I gave is an extremely limited
-system.  If you wanted to constrain your application as installed on a
-standard Fedora system, that would involve getting a much more
-detailed policy merged in the selinux-refpolicy project.  The plusses
-are that such a policy would protect against far more complex attacks
-than simple network data exposure, however the policy to protect
-against such attacks is far more complex as well.
+My proposal is to send some summary as a new thread, with dmar in the
+subject, and cc-ed dmar maintainers.
 
-Basically, I wrote that sample policy as a completely standalone
-example of how to use the SELinux machinery to enforce a limited
-arbitrary set of restrictions based on your stated requirements.
+> This happened during a scheduled backup from my win7
+> box. A reboot was required to re-enable eth0. After the error, eth0
+> was receiving, but was unable to transmit. For example, the log
+> reported arp bogons; DHCPINFORM/ACK sequences (where the ACK that
+> was logged was not transmitted), etc. The log was filled with sky2
+> eth0: tx timeout messages; as well as disable/enable of eth0.
+> 
+> I attempted to get things up again without a reboot, but failed.
+> Even rmmod & insmod did not fix whatever was broken on the TX side.
+> 
+> Note that this is similar to the earlier sky2 errors I had under
+> load with the variety of patches, and with or without DMAR enabled.
+> Just took way longer this time. Note that eth1 remained functional.
+> 
+> Unfortunately, with the latest set of patches installed, this is no
+> longer reproducible at will. I'd guess therefore that the patches
+> narrowed some hole, but didn't close it.
 
-There has been some partially-stalled work to create a "userspace
-policy server" and "hierarchical policy", essentially a mechanism by
-which a program (running under a specific type) could sub-divide
-itself into additional types bounded by the constraints on the
-original type.  Unfortunately I haven't had a chance to look into it
-in quite a while, so things may have changed significantly.
+It would be nice to name those patches each time. Anyway, try this
+again without DMAR.
 
+Thanks,
+Jarek P.
 
-> =C2=A02) How can an application author test whether or not the contex=
-ts defined by
-> =C2=A0 =C2=A0 this policy are defined in the currently loaded policy?
-
-The standard method for adding SELinux support to an application is
-pretty much the same method that you use to enhance security in the
-absence of SELinux:  Divide your program into multiple executables
-with discrete DAC-enforced privileges (a la postfix).
-
-Then the SELinux policy simply places a different label on each
-executable (and via a type_transition rule on the process which is
-*started* from that executable).  Each label is then neatly bound by
-least-privilege type-based allow rules.
-
-
-> =C2=A03) Your policy relies on defining new roles for objects, regula=
-r processes,
-> =C2=A0 =C2=A0 and network disabled processes. This is definitely a ni=
-ce reuse of SELinux
-> =C2=A0 =C2=A0 machinery. Unfortunately, I'm not sure how, as an app a=
-uthor, I'm supposed
-> =C2=A0 =C2=A0 to use it.
->
-> [...code for using dyntransition...]
-
-You can do it that way, although I would certainly suggest an
-appropriate config file somewhere to specify what label the software
-should attempt to transition to.  The SELinux libraries have some code
-for performing dynamic transitions, although as I indicated most
-processes don't use them.
-
-Really the preferred way to take advantage of SELinux is simply to
-divide the program tasks securely across multiple executables and then
-use the SELinux policy to lock them down individually.
-
-
-> =C2=A04) If I understand correctly, the policy you specified actually=
- restricts
-> =C2=A0 =C2=A0 network access by blacklisting various socket calls by =
-protocol stack.
-> =C2=A0 =C2=A0 Thus, AF_UNIX socket calls are unrestricted while TCP b=
-ind() and connect()
-> =C2=A0 =C2=A0 and UDP bind(), connect(), and sendto() are restricted.
->
-> =C2=A0 =C2=A0 I'm uncomfortable with a design based on protocol black=
-listing because I
-> =C2=A0 =C2=A0 think that it is likely to break silently whenever some=
-one adds a new
-> =C2=A0 =C2=A0 protocol (e.g. SCTP) to the kernel.
->
-> =C2=A0 =C2=A0 Presumably, though, this is fairly straightforward to f=
-ix?
-
-Yes, it's pretty easy to change specifically which access-vectors you
-restrict.  If localhost-based accesses are OK, then you could use the
-netif and peer-based access controls (possibly with a couple of
-optional iptables rules).  That would simply restrict your ability to
-send packets out of the computer, regardless of what protocol they
-use.
-
-Alternatively there are SELinux mechanisms in recent kernels to
-influence whether or not "unknown" access-vectors are allowed (IE:
-Those which the kernel understands but the policy does not).
-
-> =C2=A05) If I understand correctly, your policy restricts all uses of=
- sendto()
-> =C2=A0 =C2=A0 including sendto() on previously connected UDP sockets.=
- Unfortunately,
-> =C2=A0 =C2=A0 this restriction is too strong: the ability to sendto()=
- on previously
-> =C2=A0 =C2=A0 connected sockets UDP is a design goal.
-> =C2=A0 =C2=A0 How might we address this problem?
-
-See above, simply restrict with network peer controls.
-
-
-> =C2=A06) Can SELinux be turned on at all on kernels which do not supp=
-ort POSIX
-> =C2=A0 =C2=A0 extended attributes?
-
-My understanding is that the kernel always supported extended
-attributes, but that some filesystems may have support turned off.
-You can certainly turn on SELinux on such a system, but you would be
-unable to label things on a per-file basis.
-
-
-> =C2=A07) Can you point me toward any measurements on what it costs (s=
-pecifically in
-> =C2=A0 =C2=A0 terms of memory and disk usage) to add basic SELinux su=
-pport plus this
-> =C2=A0 =C2=A0 policy to an embedded kernel and OS distro which doesn'=
-t presently ship
-> =C2=A0 =C2=A0 any SELinux-related material like, e.g., the distros fo=
-r the Linksys
-> =C2=A0 =C2=A0 WRT54G and for the XO?
-
-I don't have such measurements offhand.  If you are shipping a
-pre-built policy and do not include any of the tools needed to reload
-or modify it then all you really need is an /sbin/init which can mount
-/selinux and copy a binary policy file to a virtual file therein.  The
-actual dev tools are rather unfortunately large and slow right now,
-especially with the full reference policy.
-
-Cheers,
-Kyle Moffett
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Relevant log portions:
+> 
+> Jan 17 05:29:49 mail dhcpd: DHCPREQUEST for 10.0.0.32 from
+> 00:26:bb:aa:15:10 (mbitouch) via eth0
+> Jan 17 05:29:49 mail dhcpd: DHCPACK on 10.0.0.32 to
+> 00:26:bb:aa:15:10 (mbitouch) via eth0
+> Jan 17 05:36:49 mail kernel: DRHD: handling fault status reg 2
+> Jan 17 05:36:49 mail kernel: DMAR:[DMA Read] Request device
+> [06:00.0] fault addr ffe7957fe000
+> Jan 17 05:36:49 mail kernel: DMAR:[fault reason 06] PTE Read access
+> is not set
+> Jan 17 05:36:49 mail kernel: sky2 0000:06:00.0: error interrupt
+> status=0xc0000000
+> Jan 17 05:36:49 mail kernel: sky2 0000:06:00.0: PCI hardware error (0x2010)
+...
